@@ -17,7 +17,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { BankChangeDecision } from "@/components/features/portal/bank-change-decision";
 import { requireRole } from "@/lib/auth/require-role";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { PM_ROLES, STAFF_APPROVAL_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import {
@@ -36,6 +36,11 @@ const REVALIDATE = "/contacts/bank-changes";
 export default async function BankChangeQueuePage() {
   const ctx = await requireRole([...PM_ROLES, "procurement_manager"]);
   const admin = createAdminSupabase();
+  // Spec 317 U3 — identity requests carry national-ID PII and are decided by the
+  // staff-approval trio ONLY. The page reads via the admin client, so this gate
+  // mirrors the table's RLS staff arm: a project_manager (page viewer for the
+  // bank kinds) must never see the identity rows.
+  const canSeeIdentity = STAFF_APPROVAL_ROLES.includes(ctx.role);
 
   // All pending changes at once: contractor bank (→ contact_bank), worker bank
   // (→ workers.bank_*, spec 170 U4c-2) and identity changes (spec 317 U3 —
@@ -55,11 +60,15 @@ export default async function BankChangeQueuePage() {
         )
         .eq("status", "pending")
         .order("created_at", { ascending: true }),
-      admin
-        .from("identity_change_requests")
-        .select("id, user_id, proposed_full_name, proposed_national_id, proposed_dob, created_at")
-        .eq("status", "pending")
-        .order("created_at", { ascending: true }),
+      canSeeIdentity
+        ? admin
+            .from("identity_change_requests")
+            .select(
+              "id, user_id, proposed_full_name, proposed_national_id, proposed_dob, created_at",
+            )
+            .eq("status", "pending")
+            .order("created_at", { ascending: true })
+        : Promise.resolve({ data: [] }),
     ]);
   const rows = requests ?? [];
   const workerRows = workerRequests ?? [];

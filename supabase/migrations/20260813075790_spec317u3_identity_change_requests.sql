@@ -72,6 +72,9 @@ begin
   if v_name is null and v_nid is null and p_dob is null then
     raise exception 'submit_identity_change: nothing proposed' using errcode = 'P0001';
   end if;
+  if v_name is not null and length(v_name) > 120 then
+    raise exception 'submit_identity_change: name too long' using errcode = 'P0001';
+  end if;
   if v_nid is not null and not public.is_valid_thai_national_id(v_nid) then
     raise exception 'submit_identity_change: invalid national id' using errcode = 'P0001';
   end if;

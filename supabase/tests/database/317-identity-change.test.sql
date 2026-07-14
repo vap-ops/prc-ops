@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(26);
 
 -- ============================================================================
 -- Spec 317 U3 — identity_change_requests: the approved tier for legal name /
@@ -56,6 +56,9 @@ select throws_ok(
 select throws_ok(
   $$ select public.submit_identity_change(null, '1234567890120', null) $$,
   'P0001', null, 'a national ID failing the Thai mod-11 checksum is refused');
+select throws_ok(
+  $$ select public.submit_identity_change(repeat('ก', 121), null, null) $$,
+  'P0001', null, 'an over-long proposed name is refused with a friendly error');
 select isnt(
   (select public.submit_identity_change('ชื่อใหม่ ทดสอบ', '3101200000670', date '1990-02-20')),
   null, 'a technician submits name + ID + DOB in one request');
@@ -78,6 +81,19 @@ select is(
   (select count(*) from public.identity_change_requests
     where user_id = 'a1000318-0000-4000-8000-000000000317'),
   0::bigint, 'site_admin sees no identity requests (PII hidden)');
+-- project_manager is NOT in the approver trio — the RLS session must hide the
+-- rows from them too (the queue page mirrors this with its admin-read gate).
+set local "request.jwt.claims" = '{"sub": "b1000318-0000-4000-8000-000000000317"}';
+select is(
+  (select count(*) from public.identity_change_requests
+    where user_id = 'a1000318-0000-4000-8000-000000000317'),
+  0::bigint, 'project_manager sees no identity requests (national ID is trio-only PII)');
+-- Another regular user reads nothing of someone else's request.
+set local "request.jwt.claims" = '{"sub": "a2000318-0000-4000-8000-000000000317"}';
+select is(
+  (select count(*) from public.identity_change_requests
+    where user_id = 'a1000318-0000-4000-8000-000000000317'),
+  0::bigint, 'an unrelated user sees no one else''s identity requests');
 set local "request.jwt.claims" = '{"sub": "b2000318-0000-4000-8000-000000000317"}';
 select is(
   (select count(*) from public.identity_change_requests
