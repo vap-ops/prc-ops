@@ -71,6 +71,19 @@ describe("lightbox rotate (feedback 397dabaa)", () => {
     expect(wrapperTransform()).toContain("rotate(0deg)");
   });
 
+  it("swaps the width/height caps at 90° so a rotated landscape image still fits", async () => {
+    await openReceipt();
+    const img = screen.getByRole("dialog").querySelector("img") as HTMLImageElement;
+    // Upright: height bounded by the vertical budget, width by the horizontal.
+    expect(img.style.maxHeight).toBe("92vh");
+    expect(img.style.maxWidth).toBe("95vw");
+
+    fireEvent.click(screen.getByRole("button", { name: "หมุนรูป" }));
+    // Rotated 90°: the caps swap so the visual footprint stays inside the viewport.
+    expect(img.style.maxWidth).toBe("92vh");
+    expect(img.style.maxHeight).toBe("95vw");
+  });
+
   it("resets rotation when navigating to another photo in a group", async () => {
     render(<ZoomablePhoto src={A} group={[A, B]} groupIndex={0} />);
     fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));

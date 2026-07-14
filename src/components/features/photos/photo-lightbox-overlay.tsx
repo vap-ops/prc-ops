@@ -295,18 +295,27 @@ export function PhotoLightboxOverlay({
       }`}
     >
       <span
-        className="relative inline-flex transition-transform motion-reduce:transition-none"
+        className="relative inline-flex"
         style={{ transform: `rotate(${rotation}deg)` }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Size caps swap at 90°/270° (feedback 397dabaa): a landscape receipt
+            turned upright is taller than it is wide, so the element's max-WIDTH
+            must bound the visual HEIGHT (and vice-versa) or the rotated image
+            overflows a `justify-center` container that doesn't scroll. No
+            transition on the wrapper — an instant snap avoids a mid-tween
+            bounding box (which would misplace the first markup stroke). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={shown}
           alt=""
           draggable={false}
-          className={`rounded-md object-contain select-none ${
-            currentPhotoId ? "max-h-[60vh]" : "max-h-[92vh]"
-          } max-w-[95vw]`}
+          className="rounded-md object-contain select-none"
+          style={
+            rotation % 180 === 0
+              ? { maxHeight: currentPhotoId ? "60vh" : "92vh", maxWidth: "95vw" }
+              : { maxWidth: currentPhotoId ? "60vh" : "92vh", maxHeight: "95vw" }
+          }
         />
         {currentPhotoId && (savedStrokes.length > 0 || composing) ? (
           /* Strokes are normalized to the displayed image box; the
