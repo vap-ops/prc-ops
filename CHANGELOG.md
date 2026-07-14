@@ -1,3 +1,9 @@
+# [0.88.0](https://github.com/VAP-Solution/prc-ops/compare/v0.87.0...v0.88.0) (2026-07-14)
+
+### Features
+
+- **profile:** identity change requests — approved tier for name/ID/DOB (spec 317 U3) ([#538](https://github.com/VAP-Solution/prc-ops/issues/538)) ([136baf1](https://github.com/VAP-Solution/prc-ops/commit/136baf17e411b271ddf43efd9ed65697c01a4ad2))
+
 # [0.87.0](https://github.com/VAP-Solution/prc-ops/compare/v0.86.0...v0.87.0) (2026-07-14)
 
 ### Features
