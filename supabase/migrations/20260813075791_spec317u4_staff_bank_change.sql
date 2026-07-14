@@ -31,6 +31,9 @@ create table public.staff_bank_change_requests (
   constraint sbcr_decided_shape    check ((status = 'pending') = (decided_by is null))
 );
 create index sbcr_registration_status_idx on public.staff_bank_change_requests (registration_id, status);
+-- One pending per registration, enforced atomically (the RPC check alone races).
+create unique index sbcr_one_pending_idx on public.staff_bank_change_requests (registration_id)
+  where status = 'pending';
 
 alter table public.staff_bank_change_requests enable row level security;
 revoke all on table public.staff_bank_change_requests from anon, authenticated;
@@ -45,9 +48,12 @@ create policy "staff bank change requests readable by staff approvers"
            in ('procurement_manager', 'project_director', 'super_admin'));
 
 -- ----------------------------------------------------------------------------
--- submit_staff_bank_change — own APPROVED (or pending) registration, NOT a
--- bound worker, passbook photo required + own-folder pin + existence check,
--- one PENDING per registration.
+-- submit_staff_bank_change — own APPROVED registration ONLY (a still-pending
+-- applicant edits bank via the registration form / record_own_staff_bank), NOT
+-- a bound worker, all three bank fields required (account no normalized +
+-- digit-checked, mirroring record_own_staff_bank — the decide-side upsert
+-- targets NOT NULL columns), passbook photo required + own-folder pin +
+-- existence check, one PENDING per registration.
 -- ----------------------------------------------------------------------------
 create function public.submit_staff_bank_change(
   p_bank_name           text,
@@ -63,6 +69,9 @@ as $$
 declare
   v_uid  uuid := auth.uid();
   v_reg  public.staff_registrations%rowtype;
+  v_name text := nullif(btrim(coalesce(p_bank_name, '')), '');
+  v_no   text := nullif(regexp_replace(coalesce(p_bank_account_number, ''), '[\s-]', '', 'g'), '');
+  v_own  text := nullif(btrim(coalesce(p_bank_account_name, '')), '');
   v_path text := nullif(btrim(coalesce(p_book_bank_path, '')), '');
   v_id   uuid;
 begin
@@ -80,9 +89,18 @@ begin
     raise exception 'submit_staff_bank_change: no registration for this user'
       using errcode = 'P0001';
   end if;
-  if v_reg.status not in ('pending', 'approved') then
-    raise exception 'submit_staff_bank_change: registration is not editable'
+  if v_reg.status is distinct from 'approved' then
+    raise exception 'submit_staff_bank_change: registration is not approved'
       using errcode = 'P0001';
+  end if;
+  -- The decide-side upsert writes NOT NULL columns — the floor mirrors
+  -- record_own_staff_bank (all three required; account no = 6-20 digits).
+  if v_name is null or v_no is null or v_own is null then
+    raise exception 'submit_staff_bank_change: bank name, account number and account name required'
+      using errcode = 'P0001';
+  end if;
+  if v_no !~ '^[0-9]{6,20}$' then
+    raise exception 'submit_staff_bank_change: invalid account number' using errcode = 'P0001';
   end if;
   if v_path is null then
     raise exception 'submit_staff_bank_change: passbook photo required'
@@ -113,12 +131,7 @@ begin
 
   insert into public.staff_bank_change_requests
     (registration_id, bank_name, bank_account_number, bank_account_name, book_bank_path, requested_by)
-  values (v_reg.id,
-          nullif(btrim(p_bank_name), ''),
-          nullif(btrim(p_bank_account_number), ''),
-          nullif(btrim(p_bank_account_name), ''),
-          v_path,
-          v_uid)
+  values (v_reg.id, v_name, v_no, v_own, v_path, v_uid)
   returning id into v_id;
   return v_id;
 end;
@@ -151,6 +164,18 @@ begin
   end if;
   if v_req.status <> 'pending' then
     raise exception 'decide_staff_bank_change: request already decided' using errcode = 'P0001';
+  end if;
+  -- Re-check at decide time: if the staffer became a BOUND worker since
+  -- submitting (worker home = workers.bank_*), approving here would write the
+  -- stale staff home and silently miss the real payout column.
+  if p_approve and exists (
+    select 1
+    from public.staff_registrations r
+    join public.workers w on w.user_id = r.user_id
+    where r.id = v_req.registration_id
+  ) then
+    raise exception 'decide_staff_bank_change: requester is now a bound worker — use the worker bank flow'
+      using errcode = 'P0001';
   end if;
 
   if p_approve then

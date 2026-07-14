@@ -1,5 +1,5 @@
 begin;
-select plan(27);
+select plan(33);
 
 -- ============================================================================
 -- Spec 317 U4 — staff_bank_change_requests: the office-staff mirror of the
@@ -17,11 +17,14 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('a2000319-0000-4000-8000-000000000317', 'nobank@t317u4.local', '{}'::jsonb),
   ('a3000319-0000-4000-8000-000000000317', 'tech@t317u4.local',   '{}'::jsonb),
   ('a4000319-0000-4000-8000-000000000317', 'rejected@t317u4.local', '{}'::jsonb),
+  ('a5000319-0000-4000-8000-000000000317', 'latebind@t317u4.local', '{}'::jsonb),
+  ('a6000319-0000-4000-8000-000000000317', 'pending@t317u4.local', '{}'::jsonb),
   ('b1000319-0000-4000-8000-000000000317', 'pm@t317u4.local',     '{}'::jsonb),
   ('b2000319-0000-4000-8000-000000000317', 'pmgr@t317u4.local',   '{}'::jsonb),
   ('c1000319-0000-4000-8000-000000000317', 'sa@t317u4.local',     '{}'::jsonb);
 update public.users set role = 'accounting'          where id in
-  ('a1000319-0000-4000-8000-000000000317', 'a2000319-0000-4000-8000-000000000317');
+  ('a1000319-0000-4000-8000-000000000317', 'a2000319-0000-4000-8000-000000000317',
+   'a5000319-0000-4000-8000-000000000317', 'a6000319-0000-4000-8000-000000000317');
 update public.users set role = 'technician'          where id = 'a3000319-0000-4000-8000-000000000317';
 update public.users set role = 'project_manager'     where id = 'b1000319-0000-4000-8000-000000000317';
 update public.users set role = 'procurement_manager' where id = 'b2000319-0000-4000-8000-000000000317';
@@ -35,7 +38,11 @@ insert into public.staff_registrations (id, user_id, employee_id, full_name, pho
   ('e3000319-0000-4000-8000-000000000317', 'a3000319-0000-4000-8000-000000000317',
    'PRC-19-0003', 'ช่าง ผูกแล้ว', '0819000003', 'approved'),
   ('e4000319-0000-4000-8000-000000000317', 'a4000319-0000-4000-8000-000000000317',
-   'PRC-19-0004', 'ถูกปฏิเสธ', '0819000004', 'rejected');
+   'PRC-19-0004', 'ถูกปฏิเสธ', '0819000004', 'rejected'),
+  ('e5000319-0000-4000-8000-000000000317', 'a5000319-0000-4000-8000-000000000317',
+   'PRC-19-0005', 'ผูกทีหลัง', '0819000005', 'approved'),
+  ('e6000319-0000-4000-8000-000000000317', 'a6000319-0000-4000-8000-000000000317',
+   'PRC-19-0006', 'ยังรอตรวจ', '0819000006', 'pending');
 
 -- s1's existing bank + current book_bank doc (what an approve must supersede).
 insert into public.staff_registration_bank (registration_id, bank_name, bank_account_number, bank_account_name, updated_by) values
@@ -67,6 +74,15 @@ set local "request.jwt.claims" = '{"sub": "a1000319-0000-4000-8000-000000000317"
 select throws_ok(
   $$ select public.submit_staff_bank_change('กสิกรไทย', '9998887776', 'บัญชี หนึ่ง', null) $$,
   'P0001', null, 'photo-less submit refused (passbook REQUIRED)');
+-- The decide-side upsert targets NOT NULL columns — the floor refuses holes.
+select throws_ok(
+  $$ select public.submit_staff_bank_change('', '9998887776', 'บัญชี หนึ่ง',
+       'technician/a1000319-0000-4000-8000-000000000317/book_bank/v1.jpg') $$,
+  'P0001', null, 'an empty bank field is refused (decide would hit NOT NULL)');
+select throws_ok(
+  $$ select public.submit_staff_bank_change('กสิกรไทย', '99x9', 'บัญชี หนึ่ง',
+       'technician/a1000319-0000-4000-8000-000000000317/book_bank/v1.jpg') $$,
+  'P0001', null, 'a malformed account number is refused (mirrors record_own_staff_bank)');
 select throws_ok(
   $$ select public.submit_staff_bank_change('กสิกรไทย', '9998887776', 'บัญชี หนึ่ง',
        'technician/a1000319-0000-4000-8000-000000000317/book_bank/ghost.jpg') $$,
@@ -83,7 +99,7 @@ select isnt(
      'technician/a1000319-0000-4000-8000-000000000317/book_bank/req1.jpg')),
   null, 'an approved staffer submits a photo-backed change');
 select throws_ok(
-  $$ select public.submit_staff_bank_change('x', '1', 'y',
+  $$ select public.submit_staff_bank_change('ออมสิน', '5556667778', 'บัญชี หนึ่ง',
        'technician/a1000319-0000-4000-8000-000000000317/book_bank/req1.jpg') $$,
   'P0001', null, 'a second pending request is refused');
 
@@ -93,8 +109,14 @@ select throws_ok(
   '42501', null, 'a BOUND worker is refused (their flow is worker_bank_change)');
 set local "request.jwt.claims" = '{"sub": "a4000319-0000-4000-8000-000000000317"}';
 select throws_ok(
-  $$ select public.submit_staff_bank_change('กสิกรไทย', '1', 'ปฏิเสธ', null) $$,
+  $$ select public.submit_staff_bank_change('กสิกรไทย', '1234567', 'ปฏิเสธ', null) $$,
   'P0001', null, 'a rejected registration cannot submit');
+-- A still-pending applicant edits bank on the registration form instead
+-- (record_own_staff_bank) — the staged flow is approved-only.
+set local "request.jwt.claims" = '{"sub": "a6000319-0000-4000-8000-000000000317"}';
+select throws_ok(
+  $$ select public.submit_staff_bank_change('กสิกรไทย', '1234567', 'รอตรวจ', null) $$,
+  'P0001', null, 'a pending registration cannot use the staged flow');
 reset role;
 
 -- ============================================================================
@@ -192,9 +214,9 @@ insert into storage.objects (id, bucket_id, name) values
   (gen_random_uuid(), 'contact-docs',
    'technician/a2000319-0000-4000-8000-000000000317/book_bank/first.jpg');
 select lives_ok(
-  $$ select public.submit_staff_bank_change('กรุงไทย', '1231231231', 'บัญชี สอง',
+  $$ select public.submit_staff_bank_change('กรุงไทย', '123-123 1231', 'บัญชี สอง',
        'technician/a2000319-0000-4000-8000-000000000317/book_bank/first.jpg') $$,
-  'a staffer with no prior bank row submits');
+  'a staffer with no prior bank row submits (dashes/spaces accepted)');
 reset role;
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "b2000319-0000-4000-8000-000000000317"}';
@@ -213,6 +235,37 @@ select is(
   (select superseded_by is null from public.staff_registration_attachments
     where registration_id = 'e2000319-0000-4000-8000-000000000317' and purpose = 'book_bank'),
   true, 'the first chain link lands with a NULL prior');
+select is(
+  (select bank_account_number from public.staff_registration_bank
+    where registration_id = 'e2000319-0000-4000-8000-000000000317'),
+  '1231231231', 'the account number was normalized to bare digits');
+
+-- ============================================================================
+-- Late binding — a staffer who becomes a bound worker AFTER submitting: the
+-- stale staff request must be refused at decide time (their home moved).
+-- ============================================================================
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "a5000319-0000-4000-8000-000000000317"}';
+insert into storage.objects (id, bucket_id, name) values
+  (gen_random_uuid(), 'contact-docs',
+   'technician/a5000319-0000-4000-8000-000000000317/book_bank/late.jpg');
+select lives_ok(
+  $$ select public.submit_staff_bank_change('ออมสิน', '7776665554', 'ผูกทีหลัง',
+       'technician/a5000319-0000-4000-8000-000000000317/book_bank/late.jpg') $$,
+  'an approved staffer submits before binding');
+reset role;
+insert into public.workers (id, name, pay_type, employment_type, day_rate, user_id, created_by) values
+  ('ab000319-0000-4000-8000-000000000317', 'ผูกทีหลัง', 'daily', 'temporary', 500,
+   'a5000319-0000-4000-8000-000000000317', 'b1000319-0000-4000-8000-000000000317');
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "b2000319-0000-4000-8000-000000000317"}';
+select throws_ok(
+  $$ select public.decide_staff_bank_change(
+       (select id from public.staff_bank_change_requests
+         where registration_id = 'e5000319-0000-4000-8000-000000000317' and status = 'pending'),
+       true) $$,
+  'P0001', null, 'approve refused once the requester is a bound worker (home moved)');
+reset role;
 
 -- ============================================================================
 -- Grants.

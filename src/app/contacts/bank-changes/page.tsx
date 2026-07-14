@@ -41,7 +41,7 @@ export default async function BankChangeQueuePage() {
   // staff-approval trio ONLY. The page reads via the admin client, so this gate
   // mirrors the table's RLS staff arm: a project_manager (page viewer for the
   // bank kinds) must never see the identity rows.
-  const canSeeIdentity = STAFF_APPROVAL_ROLES.includes(ctx.role);
+  const canSeeTrioKinds = STAFF_APPROVAL_ROLES.includes(ctx.role);
 
   // All pending changes at once: contractor bank (→ contact_bank), worker bank
   // (→ workers.bank_*, spec 170 U4c-2) and identity changes (spec 317 U3 —
@@ -65,7 +65,7 @@ export default async function BankChangeQueuePage() {
       )
       .eq("status", "pending")
       .order("created_at", { ascending: true }),
-    canSeeIdentity
+    canSeeTrioKinds
       ? admin
           .from("identity_change_requests")
           .select("id, user_id, proposed_full_name, proposed_national_id, proposed_dob, created_at")
@@ -73,7 +73,7 @@ export default async function BankChangeQueuePage() {
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
     // Spec 317 U4 — staff bank changes are trio-decided like identity rows.
-    canSeeIdentity
+    canSeeTrioKinds
       ? admin
           .from("staff_bank_change_requests")
           .select(
