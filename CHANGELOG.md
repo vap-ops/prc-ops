@@ -1,3 +1,9 @@
+# [0.89.0](https://github.com/VAP-Solution/prc-ops/compare/v0.88.0...v0.89.0) (2026-07-14)
+
+### Features
+
+- **profile:** office-staff bank change with passbook evidence (spec 317 U4) ([#539](https://github.com/VAP-Solution/prc-ops/issues/539)) ([a556a57](https://github.com/VAP-Solution/prc-ops/commit/a556a57357d546081112ec5e6ed04b40c8ed9974))
+
 # [0.88.0](https://github.com/VAP-Solution/prc-ops/compare/v0.87.0...v0.88.0) (2026-07-14)
 
 ### Features
