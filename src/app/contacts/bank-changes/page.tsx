@@ -23,6 +23,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import {
   buildBankChangeQueue,
   buildIdentityChangeQueue,
+  buildStaffBankChangeQueue,
   buildWorkerBankChangeQueue,
 } from "@/lib/approvals/bank-change-queue";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -46,33 +47,46 @@ export default async function BankChangeQueuePage() {
   // (→ workers.bank_*, spec 170 U4c-2) and identity changes (spec 317 U3 —
   // name / national ID / DOB, decided by STAFF_APPROVAL_ROLES). Money + PII →
   // admin-read behind the PM gate for all three.
-  const [{ data: requests }, { data: workerRequests }, { data: identityRequests }] =
-    await Promise.all([
-      admin
-        .from("contractor_bank_change_requests")
-        .select("id, contractor_id, bank_name, bank_account_no, bank_account_name, created_at")
-        .eq("status", "pending")
-        .order("created_at", { ascending: true }),
-      admin
-        .from("worker_bank_change_requests")
-        .select(
-          "id, worker_id, bank_name, bank_account_number, bank_account_name, book_bank_path, created_at",
-        )
-        .eq("status", "pending")
-        .order("created_at", { ascending: true }),
-      canSeeIdentity
-        ? admin
-            .from("identity_change_requests")
-            .select(
-              "id, user_id, proposed_full_name, proposed_national_id, proposed_dob, created_at",
-            )
-            .eq("status", "pending")
-            .order("created_at", { ascending: true })
-        : Promise.resolve({ data: [] }),
-    ]);
+  const [
+    { data: requests },
+    { data: workerRequests },
+    { data: identityRequests },
+    { data: staffBankRequests },
+  ] = await Promise.all([
+    admin
+      .from("contractor_bank_change_requests")
+      .select("id, contractor_id, bank_name, bank_account_no, bank_account_name, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true }),
+    admin
+      .from("worker_bank_change_requests")
+      .select(
+        "id, worker_id, bank_name, bank_account_number, bank_account_name, book_bank_path, created_at",
+      )
+      .eq("status", "pending")
+      .order("created_at", { ascending: true }),
+    canSeeIdentity
+      ? admin
+          .from("identity_change_requests")
+          .select("id, user_id, proposed_full_name, proposed_national_id, proposed_dob, created_at")
+          .eq("status", "pending")
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    // Spec 317 U4 — staff bank changes are trio-decided like identity rows.
+    canSeeIdentity
+      ? admin
+          .from("staff_bank_change_requests")
+          .select(
+            "id, registration_id, bank_name, bank_account_number, bank_account_name, book_bank_path, created_at",
+          )
+          .eq("status", "pending")
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+  ]);
   const rows = requests ?? [];
   const workerRows = workerRequests ?? [];
   const identityRows = identityRequests ?? [];
+  const staffBankRows = staffBankRequests ?? [];
 
   const contractorIds = Array.from(new Set(rows.map((r) => r.contractor_id)));
   const { data: contractors } = contractorIds.length
@@ -92,10 +106,20 @@ export default async function BankChangeQueuePage() {
     "bank-changes-queue",
   );
 
+  // Staff bank rows join to the registration's staffer name.
+  const registrationIds = Array.from(new Set(staffBankRows.map((r) => r.registration_id)));
+  const { data: staffRegs } = registrationIds.length
+    ? await admin.from("staff_registrations").select("id, full_name").in("id", registrationIds)
+    : { data: [] };
+  const staffNamesByRegistration = new Map(
+    (staffRegs ?? []).flatMap((r) => (r.full_name ? [[r.id, r.full_name] as const] : [])),
+  );
+
   // Merge all kinds into one oldest-first queue (the awareness arc's "one place").
   const items = [
     ...buildBankChangeQueue(rows, namesById),
     ...buildWorkerBankChangeQueue(workerRows, workerNamesById),
+    ...buildStaffBankChangeQueue(staffBankRows, staffNamesByRegistration),
     ...buildIdentityChangeQueue(identityRows, requesterNames),
   ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
@@ -140,9 +164,11 @@ export default async function BankChangeQueuePage() {
                   <span className="text-ink-muted bg-sunk shrink-0 rounded-full px-2 py-0.5 text-xs">
                     {it.kind === "identity"
                       ? "ข้อมูลตัวตน"
-                      : it.kind === "worker"
-                        ? "ทีมงาน"
-                        : "ผู้รับเหมา"}
+                      : it.kind === "staff-bank"
+                        ? "พนักงาน"
+                        : it.kind === "worker"
+                          ? "ทีมงาน"
+                          : "ผู้รับเหมา"}
                   </span>
                 </div>
                 {it.kind === "identity" ? (

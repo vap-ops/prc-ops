@@ -160,3 +160,53 @@ describe("buildIdentityChangeQueue", () => {
     expect(result[0]?.proposedDob).toBeNull();
   });
 });
+
+// Spec 317 U4 — staff bank changes join the queue with the worker-card shape.
+import {
+  buildStaffBankChangeQueue,
+  type StaffBankChangeRequestRow,
+} from "@/lib/approvals/bank-change-queue";
+
+const REG_NAMES = new Map([["r-1", "บัญชี หนึ่ง"]]);
+
+function staffRow(
+  p: Partial<StaffBankChangeRequestRow> & Pick<StaffBankChangeRequestRow, "id" | "registration_id">,
+): StaffBankChangeRequestRow {
+  return {
+    bank_name: "กสิกรไทย",
+    bank_account_number: "9998887776",
+    bank_account_name: "บัญชี หนึ่ง",
+    book_bank_path: "technician/u-1/book_bank/req.jpg",
+    created_at: "2026-07-14T09:00:00Z",
+    ...p,
+  };
+}
+
+describe("buildStaffBankChangeQueue", () => {
+  it("joins the staffer's name and tags kind staff-bank with the passbook path", () => {
+    const result = buildStaffBankChangeQueue(
+      [staffRow({ id: "sr1", registration_id: "r-1" })],
+      REG_NAMES,
+    );
+    expect(result).toEqual([
+      {
+        id: "sr1",
+        kind: "staff-bank",
+        name: "บัญชี หนึ่ง",
+        bankName: "กสิกรไทย",
+        accountNo: "9998887776",
+        accountName: "บัญชี หนึ่ง",
+        bookBankPath: "technician/u-1/book_bank/req.jpg",
+        createdAt: "2026-07-14T09:00:00Z",
+      },
+    ]);
+  });
+
+  it("falls back to — for an unknown registration", () => {
+    const result = buildStaffBankChangeQueue(
+      [staffRow({ id: "sr2", registration_id: "ghost" })],
+      REG_NAMES,
+    );
+    expect(result[0]?.name).toBe("—");
+  });
+});
