@@ -154,3 +154,26 @@ describe("settings sections config (role → entries matrix)", () => {
     expect(labels).toContain(ORDERING_TEMPLATES_LABEL);
   });
 });
+
+// Spec 317 U2 — ข้อมูลของฉัน: the first ALL-ROLES settings section. Every login
+// (field, office, external, even visitor) reaches /settings/my-info.
+describe("my-info section (spec 317 U2)", () => {
+  const ALL: UserRole[] = [
+    "visitor",
+    "technician",
+    "contractor",
+    "site_admin",
+    "project_manager",
+    "procurement",
+    "accounting",
+    "super_admin",
+  ];
+  it("is visible to every role and links to /settings/my-info", () => {
+    for (const role of ALL) {
+      expect(hrefs("my-info", role)).toContain("/settings/my-info");
+    }
+  });
+  it("is the FIRST section (identity before tools)", () => {
+    expect(SETTINGS_SECTIONS[0]?.key).toBe("my-info");
+  });
+});

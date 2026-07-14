@@ -6,6 +6,15 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 317 — Universal profile self-service — 🔨 U1/U3/U4/U5/U7 MERGED · U2 shipping (2026-07-14)
+
+- U1 #533 staff contact + DOB tier · U3 #538 identity requests · U4 #539 staff bank ·
+  U5 #540 contractor passbook · U7 #534 bank picker — all merged same day (migs 075788-075793).
+- U2 = /settings/my-info: first all-roles settings section; office staff get their
+  self-service home; workers/contractors link to their portals; identity form universal.
+- Hotfix en route: spec-275 equipment supplier dual-write gap (#542) found via 274 invariant.
+- Open: U6 outbox notifications (deferred); technician menu portal (313 family).
+
 ## Spec 315 — Technician document self-service — ✅ BUILT (2026-07-14)
 
 - U1 ✅ MERGED #529 (mig `075786`): ID-card re-submit on approved registration (self-serve

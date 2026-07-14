@@ -20,6 +20,7 @@ import {
   Sparkles,
   Store,
   TriangleAlert,
+  UserRound,
   Users,
   Wallet,
   Wrench,
@@ -87,6 +88,23 @@ const isBackOffice = (role: UserRole) =>
   isManagerRole(role) || role === "procurement" || role === "procurement_manager";
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
+  // My info — EVERY role (spec 317 U2, operator directive 2026-07-14: all types
+  // of users edit their own information in settings; instant vs approved tiers).
+  // First section: identity before tools.
+  {
+    key: "my-info",
+    title: "บัญชีผู้ใช้",
+    entries: [
+      {
+        kind: "link",
+        href: "/settings/my-info",
+        icon: UserRound,
+        label: "ข้อมูลของฉัน",
+        hint: "แก้ไขข้อมูลติดต่อ เอกสาร และบัญชีธนาคารของคุณ",
+      },
+    ],
+  },
+
   // Field tools — site_admin (spec 141 U5). The field can view + move equipment
   // but not curate the registry; back-office roles reach อุปกรณ์ from ข้อมูลหลัก
   // below with the registry framing. (Spec 197 U2: ตรวจนับ left settings — it's
