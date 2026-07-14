@@ -124,16 +124,16 @@ reset role;
 -- ============================================================================
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1000319-0000-4000-8000-000000000317"}';
-select is((select count(*) from public.staff_bank_change_requests), 1::bigint,
+select is((select count(*) from public.staff_bank_change_requests where registration_id in ('e1000319-0000-4000-8000-000000000317','e2000319-0000-4000-8000-000000000317','e5000319-0000-4000-8000-000000000317')), 1::bigint,
   'the requester reads their own request');
 set local "request.jwt.claims" = '{"sub": "b1000319-0000-4000-8000-000000000317"}';
-select is((select count(*) from public.staff_bank_change_requests), 0::bigint,
+select is((select count(*) from public.staff_bank_change_requests where registration_id in ('e1000319-0000-4000-8000-000000000317','e2000319-0000-4000-8000-000000000317','e5000319-0000-4000-8000-000000000317')), 0::bigint,
   'project_manager reads none (trio-decided kind)');
 set local "request.jwt.claims" = '{"sub": "c1000319-0000-4000-8000-000000000317"}';
-select is((select count(*) from public.staff_bank_change_requests), 0::bigint,
+select is((select count(*) from public.staff_bank_change_requests where registration_id in ('e1000319-0000-4000-8000-000000000317','e2000319-0000-4000-8000-000000000317','e5000319-0000-4000-8000-000000000317')), 0::bigint,
   'site_admin reads none (money hidden)');
 set local "request.jwt.claims" = '{"sub": "b2000319-0000-4000-8000-000000000317"}';
-select is((select count(*) from public.staff_bank_change_requests), 1::bigint,
+select is((select count(*) from public.staff_bank_change_requests where registration_id in ('e1000319-0000-4000-8000-000000000317','e2000319-0000-4000-8000-000000000317','e5000319-0000-4000-8000-000000000317')), 1::bigint,
   'procurement_manager (trio) reads the queue');
 reset role;
 
@@ -144,7 +144,7 @@ set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "b1000319-0000-4000-8000-000000000317"}';
 select throws_ok(
   $$ select public.decide_staff_bank_change(
-       (select id from public.staff_bank_change_requests where status = 'pending' limit 1),
+       (select id from public.staff_bank_change_requests where registration_id = 'e1000319-0000-4000-8000-000000000317' and status = 'pending' limit 1),
        true) $$,
   '42501', null, 'project_manager cannot decide staff bank changes');
 reset role;
