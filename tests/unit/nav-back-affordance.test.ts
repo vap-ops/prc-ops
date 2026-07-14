@@ -91,6 +91,9 @@ const STATIC_DETAIL = [
   "feedback/mine",
   // Spec 220 (G63): the super_admin role-admin drills down from /settings (back chip).
   "settings/roles",
+  // Spec 316 U3: the derived who-can-do-what reference drills down from
+  // /settings/roles (back chip → /settings/roles).
+  "settings/roles/capabilities",
   // Spec 284 / ADR 0080: the org-chart read drills down from /settings (back chip).
   "settings/org-chart",
   // Spec 284 U5 / ADR 0080: the Legal surfaces. /legal is the Legal role's home —

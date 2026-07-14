@@ -5,6 +5,9 @@
 // client (no admin client). Visitors (awaiting promotion — the common task) sort
 // first. The actual change goes through the gated, audited set_user_role RPC.
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -48,6 +51,15 @@ export default async function RolesPage() {
           ทั้งหมด {users.length} คน
           {visitorCount > 0 ? ` · รอกำหนดสิทธิ์ ${visitorCount} คน` : ""}
         </p>
+
+        {/* Spec 316 U3: the derived who-can-do-what reference for this screen. */}
+        <Link
+          href="/settings/roles/capabilities"
+          className="border-edge bg-card rounded-control text-action focus-visible:ring-action flex min-h-11 items-center justify-between gap-2 border px-4 py-3 text-sm font-medium focus:outline-none focus-visible:ring-2"
+        >
+          สิทธิ์การใช้งานของแต่ละบทบาท
+          <ChevronRight aria-hidden className="size-4 shrink-0" />
+        </Link>
 
         {users.length === 0 ? (
           <EmptyNotice>ยังไม่มีผู้ใช้</EmptyNotice>
