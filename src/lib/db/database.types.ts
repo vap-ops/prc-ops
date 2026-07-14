@@ -2851,6 +2851,57 @@ export type Database = {
           },
         ]
       }
+      identity_change_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          proposed_dob: string | null
+          proposed_full_name: string | null
+          proposed_national_id: string | null
+          status: Database["public"]["Enums"]["contractor_change_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          proposed_dob?: string | null
+          proposed_full_name?: string | null
+          proposed_national_id?: string | null
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          proposed_dob?: string | null
+          proposed_full_name?: string | null
+          proposed_national_id?: string | null
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "identity_change_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "identity_change_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrity_check_runs: {
         Row: {
           domain: string
@@ -8676,6 +8727,10 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      decide_identity_change: {
+        Args: { p_approve: boolean; p_id: string }
+        Returns: undefined
+      }
       decide_worker_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
@@ -9735,6 +9790,10 @@ export type Database = {
           p_type: Database["public"]["Enums"]["feedback_type"]
           p_user_agent?: string
         }
+        Returns: string
+      }
+      submit_identity_change: {
+        Args: { p_dob: string; p_full_name: string; p_national_id: string }
         Returns: string
       }
       submit_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
