@@ -40,6 +40,14 @@ describe("GET /auth/line/start", () => {
     expect(payload.s).toBe(url.searchParams.get("state"));
   });
 
+  // Spec 318 U1 — linked-OA add-friend at login. `aggressive` renders a
+  // dedicated add-friend screen to non-friends only (friends never see it).
+  it("carries bot_prompt=aggressive on the authorize URL", () => {
+    const response = GET(makeRequest("/auth/line/start"));
+    const url = authorizeUrl(response);
+    expect(url.searchParams.get("bot_prompt")).toBe("aggressive");
+  });
+
   it("never sets disable_auto_login (spec-42 branch removed by spec 43)", () => {
     const response = GET(makeRequest("/auth/line/start?standalone=1"));
     const url = authorizeUrl(response);

@@ -7539,3 +7539,15 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   labor_logs is empty so the populated+filtered view can't be data-driven; the
   reconcilePayroll decision (scoped→no report) is unit-tested and the page gate is
   a direct {annotated ? ... : null} on it. Accepted as documented.
+
+## Spec 318 — notification onboarding + settings (design #541, plan #545)
+
+- U1 friendship detection — COMPLETE (this PR). bot_prompt=aggressive on the
+  shared authorize builder (browser + handoff starts); exchangeLineCode exposes
+  the user access token; callback probes friendship/v1/status (2.5s abort,
+  null = keep stored value, never blocks login) and refresh-writes
+  users.line_oa_friend + line_oa_friend_checked_at (mig 075796, service-role
+  write, grants unchanged). pgTAP 318-line-oa-friend (5). Fresh-eyes: 2 yellow
+  fixed (probe timeout + callback-level probe coverage). OPERATOR STEP at merge:
+  LINE console → PRC_Ops_Login → link OA @070vkizw (no env changes — 2026-06-25
+  incident guard). Real LINE login exercises the write path post-deploy.

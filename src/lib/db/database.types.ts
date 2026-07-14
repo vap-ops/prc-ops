@@ -6931,6 +6931,8 @@ export type Database = {
           id: string
           line_avatar_url: string | null
           line_display_name: string | null
+          line_oa_friend: boolean | null
+          line_oa_friend_checked_at: string | null
           line_synced_at: string | null
           line_user_id: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -6944,6 +6946,8 @@ export type Database = {
           id: string
           line_avatar_url?: string | null
           line_display_name?: string | null
+          line_oa_friend?: boolean | null
+          line_oa_friend_checked_at?: string | null
           line_synced_at?: string | null
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -6957,6 +6961,8 @@ export type Database = {
           id?: string
           line_avatar_url?: string | null
           line_display_name?: string | null
+          line_oa_friend?: boolean | null
+          line_oa_friend_checked_at?: string | null
           line_synced_at?: string | null
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]

@@ -36,6 +36,7 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { resolveCallbackFlow } from "@/lib/auth/handoff-flow";
 import { exchangeLineCode } from "@/lib/auth/line-token-exchange";
+import { fetchLineFriendFlag } from "@/lib/auth/line-friendship";
 import { type UserRole } from "@/lib/auth/role-home";
 import { safeNextPath } from "@/lib/auth/next-path";
 import { homePathForUser } from "@/lib/auth/resolve-home";
@@ -296,12 +297,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     line_avatar_url?: string | null;
     line_display_name?: string | null;
     line_synced_at?: string;
+    line_oa_friend?: boolean;
+    line_oa_friend_checked_at?: string;
   } = {};
   if (row.line_user_id === null) updates.line_user_id = claims.sub;
   if (row.full_name === null && claims.name) updates.full_name = claims.name;
   if (claims.picture !== row.line_avatar_url) updates.line_avatar_url = claims.picture;
   updates.line_display_name = claims.name;
   updates.line_synced_at = new Date().toISOString();
+  // line_oa_friend / line_oa_friend_checked_at (spec 318 U1): OA-friendship
+  // probe, refresh-on-login like line_synced_at. null probe = unknown → keep
+  // the stored value (never degrade a known state; probe failure never blocks
+  // login — fetchLineFriendFlag swallows all errors).
+  const friendFlag = exchange.accessToken ? await fetchLineFriendFlag(exchange.accessToken) : null;
+  if (friendFlag !== null) {
+    updates.line_oa_friend = friendFlag;
+    updates.line_oa_friend_checked_at = new Date().toISOString();
+  }
   if (Object.keys(updates).length > 0) {
     const { error: updateError } = await admin.from("users").update(updates).eq("id", user.id);
     if (updateError) {

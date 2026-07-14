@@ -15,5 +15,9 @@ export function buildLineAuthorizeUrl(args: {
   url.searchParams.set("redirect_uri", `${args.origin}/auth/line/callback`);
   url.searchParams.set("state", args.state);
   url.searchParams.set("scope", "openid profile");
+  // Spec 318 U1 — linked-OA add-friend at login. LINE renders a dedicated
+  // add-friend screen for @070vkizw to non-friends only; friends never see
+  // it. Requires the OA linked to this Login channel (console, one-time).
+  url.searchParams.set("bot_prompt", "aggressive");
   return url;
 }
