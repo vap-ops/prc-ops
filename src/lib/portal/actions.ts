@@ -14,6 +14,7 @@ import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { isValidPhotoExt } from "@/lib/photos/path";
 import { buildContactDocPath } from "@/lib/contacts/document-path";
+import { buildTechnicianDocPath } from "@/lib/register/technician-path";
 import { claimErrorToThai } from "./claim-error";
 import { validateBankChange } from "./bank-change";
 import { validateEmergencyContact } from "./emergency-contact";
@@ -85,23 +86,37 @@ export async function submitBankChange(input: {
 // approval). The worker analogue of submitBankChange; submit_worker_bank_change
 // enforces bound-worker-only / own / one-pending. Reuses validateBankChange (the
 // shape/UX rules are identical). RLS-scoped session.
+//
+// Spec 315 U2 — the request now carries a REQUIRED passbook photo. The client
+// uploads to storage first and passes {attachmentId, ext}; the path is REBUILT
+// server-side from the session uid (never trusted from the client — the
+// addStaffRegistrationDoc discipline), and the RPC re-checks owner/purpose.
 export async function submitWorkerBankChange(input: {
   bankName: string;
   accountNo: string;
   accountName: string;
+  attachmentId: string;
+  ext: string;
   revalidate: string;
 }): Promise<ActionResult> {
   if (!input.revalidate.startsWith("/")) return { ok: false, error: GENERIC_BANK };
   const validation = validateBankChange(input);
   if (validation) return { ok: false, error: validation };
+  if (!UUID_REGEX.test(input.attachmentId) || !isValidPhotoExt(input.ext)) {
+    return { ok: false, error: GENERIC_BANK };
+  }
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const path = buildTechnicianDocPath(auth.user.id, "book_bank", input.attachmentId, input.ext);
+  if (!path) return { ok: false, error: GENERIC_BANK };
 
   const { error } = await auth.supabase.rpc("submit_worker_bank_change", {
     p_bank_name: input.bankName.trim(),
     p_bank_account_number: input.accountNo.trim(),
     p_bank_account_name: input.accountName.trim(),
+    p_book_bank_path: path,
   });
   if (error) {
     if (error.message.includes("already exists")) {

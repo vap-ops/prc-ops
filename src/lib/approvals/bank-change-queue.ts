@@ -20,6 +20,8 @@ export interface WorkerBankChangeRequestRow {
   bank_name: string | null;
   bank_account_number: string | null;
   bank_account_name: string | null;
+  /** Spec 315 U2 — the request's passbook photo (nullable: legacy rows). */
+  book_bank_path: string | null;
   created_at: string;
 }
 
@@ -30,6 +32,8 @@ export interface BankChangeQueueItem {
   bankName: string | null;
   accountNo: string | null;
   accountName: string | null;
+  /** Worker kind only (spec 315 U2) — the page signs it for the photo render. */
+  bookBankPath?: string | null;
   createdAt: string;
 }
 
@@ -59,6 +63,7 @@ export function buildWorkerBankChangeQueue(
     bankName: r.bank_name,
     accountNo: r.bank_account_number,
     accountName: r.bank_account_name,
+    bookBankPath: r.book_bank_path,
     createdAt: r.created_at,
   }));
 }

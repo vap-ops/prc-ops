@@ -7411,6 +7411,7 @@ export type Database = {
           bank_account_name: string | null
           bank_account_number: string | null
           bank_name: string | null
+          book_bank_path: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -7423,6 +7424,7 @@ export type Database = {
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
+          book_bank_path?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -7435,6 +7437,7 @@ export type Database = {
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
+          book_bank_path?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -9733,6 +9736,7 @@ export type Database = {
           p_bank_account_name: string
           p_bank_account_number: string
           p_bank_name: string
+          p_book_bank_path: string
         }
         Returns: string
       }

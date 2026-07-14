@@ -54,20 +54,24 @@ select ok((select relrowsecurity from pg_class where oid = 'public.worker_bank_c
 -- B. submit — bound worker only, own, one pending at a time.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1000000-0000-4000-8000-000000000201"}';
+-- Spec 315 U2: submit re-signatured to 4 args (passbook photo REQUIRED, own
+-- technician/<uid>/book_bank/ folder).
 select isnt(
-  (select public.submit_worker_bank_change('กสิกรไทย', '1112223334', 'Worker A')),
+  (select public.submit_worker_bank_change('กสิกรไทย', '1112223334', 'Worker A',
+     'technician/a1000000-0000-4000-8000-000000000201/book_bank/wa.jpg')),
   null, 'wA submits a bank change');
 select is(
   (select count(*) from public.worker_bank_change_requests
     where worker_id = 'aa000000-0000-4000-8000-000000000201' and status = 'pending'),
   1::bigint, 'one pending request for Worker A');
 select throws_ok(
-  $$ select public.submit_worker_bank_change('x', '1', 'y') $$,
+  $$ select public.submit_worker_bank_change('x', '1', 'y',
+       'technician/a1000000-0000-4000-8000-000000000201/book_bank/wa2.jpg') $$,
   'P0001', null, 'a second pending request is refused');
 
 set local "request.jwt.claims" = '{"sub": "51000000-0000-4000-8000-000000000201"}';
 select throws_ok(
-  $$ select public.submit_worker_bank_change('x', '1', 'y') $$,
+  $$ select public.submit_worker_bank_change('x', '1', 'y', null) $$,
   '42501', null, 'a non-worker (site_admin) cannot submit');
 
 -- C. RLS read scoping.
