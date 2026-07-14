@@ -139,6 +139,9 @@ const STATIC_DETAIL = [
   // down from /dashboard (back chip → /dashboard, the PM_ROLES home). Its
   // [id] review detail is a dynamic DetailHeader route, auto-classified below.
   "registrations",
+  // Spec 298 U3: the PM bank-completion queue (phoneless-worker passbook
+  // transcription) drills down from /registrations (back chip → /registrations).
+  "registrations/awaiting-bank",
   // Spec 263 U3: the SA read-only registration queue drills down from /sa
   // (back chip → /sa). Its [id] detail is a dynamic DetailHeader route,
   // auto-classified below.
