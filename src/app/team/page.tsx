@@ -309,7 +309,7 @@ export default async function TeamPage() {
         {isCrew && musterProjectId ? (
           <Link
             href={musterHref(musterProjectId)}
-            className="bg-accent text-on-accent flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold"
+            className="bg-fill text-on-fill flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold"
           >
             <ScanLine aria-hidden className="size-4 shrink-0" />
             {MUSTER_LABEL}
@@ -323,7 +323,7 @@ export default async function TeamPage() {
         {isCrew && projectList.length > 0 ? (
           <Link
             href="/team/badges"
-            className="border-edge bg-surface text-ink flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-semibold"
+            className="border-edge bg-card text-ink flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-semibold"
           >
             พิมพ์บัตรช่าง (QR)
           </Link>

@@ -141,7 +141,7 @@ export function GroupingImportForm({ projectId }: { projectId: string }) {
             <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {PLAN_LABELS.map(([key, label]) => (
                 <div key={key} className="border-edge bg-card rounded-xl border p-3">
-                  <dt className="text-ink-soft text-xs">{label}</dt>
+                  <dt className="text-ink-secondary text-xs">{label}</dt>
                   <dd className="text-ink text-lg font-semibold">
                     {planCount(checked.plan as NonNullable<GroupingDryRun["plan"]>, key)}
                   </dd>

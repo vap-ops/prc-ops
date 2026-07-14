@@ -39,7 +39,7 @@ export default async function OrgChartPage() {
       </DetailHeader>
 
       <section className={`mx-auto flex w-full ${PAGE_MAX_W} flex-col gap-4 px-5 py-6`}>
-        <p className="text-ink-soft text-sm">
+        <p className="text-ink-secondary text-sm">
           {chart.length} แผนก · จัดคนเข้าแผนกแล้ว {assigned} คน
         </p>
 
@@ -56,7 +56,7 @@ export default async function OrgChartPage() {
                 <h2 className="text-ink text-base font-semibold">{d.nameTh}</h2>
                 <span className="text-ink-muted shrink-0 text-xs">{d.members.length} คน</span>
               </div>
-              <p className="text-ink-soft text-sm">
+              <p className="text-ink-secondary text-sm">
                 หัวหน้าแผนก: {d.head ? d.head.name : "ยังไม่กำหนด"}
               </p>
               {d.members.length > 0 ? (

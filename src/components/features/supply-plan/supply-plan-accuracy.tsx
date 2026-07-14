@@ -59,7 +59,7 @@ export function SupplyPlanAccuracy({ rows }: { rows: AccuracyRow[] }) {
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="text-subtitle text-ink font-bold">ความแม่นยำการวางแผน</h2>
+        <h2 className="text-heading text-ink font-bold">ความแม่นยำการวางแผน</h2>
         <p className="text-meta text-ink-secondary">
           วางแผนไว้ เทียบกับคำขอซื้อแบบตั้งรับ — “วางแผนตกหล่น”
           คือส่วนที่นับเป็นความคลาดเคลื่อนของการวางแผน

@@ -25,7 +25,7 @@ export function BadgeSheet({ groups }: { groups: BadgeSheetGroup[] }) {
         <button
           type="button"
           onClick={() => window.print()}
-          className="bg-accent text-on-accent min-h-11 w-full rounded-lg px-4 text-sm font-bold"
+          className="bg-fill text-on-fill min-h-11 w-full rounded-lg px-4 text-sm font-bold"
         >
           พิมพ์บัตร
         </button>
@@ -46,7 +46,7 @@ export function BadgeSheet({ groups }: { groups: BadgeSheetGroup[] }) {
             {group.badges.map((badge) => (
               <li
                 key={badge.workerId}
-                className="border-edge bg-surface flex break-inside-avoid flex-col items-center gap-2 rounded-xl border p-3 print:rounded-none print:border-black print:bg-white"
+                className="border-edge bg-card flex break-inside-avoid flex-col items-center gap-2 rounded-xl border p-3 print:rounded-none print:border-black print:bg-white"
               >
                 <div
                   aria-label={`QR บัตรช่าง — ${badge.name}`}

@@ -106,7 +106,7 @@ export default async function FinanceProjectListPage() {
                     <span>
                       ค้างรับ{" "}
                       <span
-                        className={`font-semibold tabular-nums ${p.summary.outstanding > 0 ? "text-attn-strong" : "text-ink"}`}
+                        className={`font-semibold tabular-nums ${p.summary.outstanding > 0 ? "text-attn-ink" : "text-ink"}`}
                       >
                         {baht(p.summary.outstanding)}
                       </span>

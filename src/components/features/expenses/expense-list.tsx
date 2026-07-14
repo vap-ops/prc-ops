@@ -14,7 +14,7 @@ const CHIP = "rounded-control border px-2 py-0.5 text-xs font-medium";
 
 export function ExpenseList({ expenses }: { expenses: OfficeExpenseRow[] }) {
   if (expenses.length === 0) {
-    return <p className="text-ink-soft text-sm">{EXPENSE_LIST_EMPTY}</p>;
+    return <p className="text-ink-secondary text-sm">{EXPENSE_LIST_EMPTY}</p>;
   }
   return (
     <ul className="flex flex-col gap-2">
@@ -24,7 +24,7 @@ export function ExpenseList({ expenses }: { expenses: OfficeExpenseRow[] }) {
             <span className="text-ink text-sm font-medium">{e.categoryLabel ?? "—"}</span>
             <span className="text-ink text-sm font-semibold">{bahtWithSymbol(e.amount)}</span>
           </div>
-          <div className="text-ink-soft flex flex-wrap items-center gap-x-2 text-xs">
+          <div className="text-ink-secondary flex flex-wrap items-center gap-x-2 text-xs">
             <span>{e.expenseDate}</span>
             {e.projectName && <span>· {e.projectName}</span>}
             {e.description && <span>· {e.description}</span>}
@@ -36,7 +36,7 @@ export function ExpenseList({ expenses }: { expenses: OfficeExpenseRow[] }) {
               </span>
             ) : (
               e.reimburseToName && (
-                <span className={`${CHIP} border-edge text-ink-soft`}>
+                <span className={`${CHIP} border-edge text-ink-secondary`}>
                   {EXPENSE_REIMBURSE_TO_PREFIX}: {e.reimburseToName}
                 </span>
               )

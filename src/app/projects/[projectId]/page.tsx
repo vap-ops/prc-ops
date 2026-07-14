@@ -291,7 +291,7 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
         {canPlanTomorrow ? (
           <Link
             href={musterHref(project.id)}
-            className="bg-accent text-on-accent mb-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold"
+            className="bg-fill text-on-fill mb-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold"
           >
             <ScanLine aria-hidden className="size-4 shrink-0" />
             {MUSTER_LABEL}

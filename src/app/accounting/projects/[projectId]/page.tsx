@@ -270,7 +270,7 @@ export default async function FinanceProjectDrillPage({
           <div className={CARD}>
             <p className="text-ink-muted text-xs">ค้างรับ</p>
             <p
-              className={`text-lg font-bold tabular-nums ${funnel.tiles.outstanding > 0 ? "text-attn-strong" : "text-ink"}`}
+              className={`text-lg font-bold tabular-nums ${funnel.tiles.outstanding > 0 ? "text-attn-ink" : "text-ink"}`}
             >
               {baht(funnel.tiles.outstanding)}
             </p>
