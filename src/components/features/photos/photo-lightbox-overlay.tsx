@@ -25,7 +25,7 @@
 // the app's light/dark theme — the theme-flipping tokens can't express it.
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Trash2 } from "lucide-react";
+import { RotateCw, Trash2 } from "lucide-react";
 import {
   addPhotoMarkup,
   listPhotoMarkups,
@@ -73,6 +73,12 @@ export function PhotoLightboxOverlay({
   // it always opens on the TAPPED photo.
   const [current, setCurrent] = useState(initialIndex >= 0 ? initialIndex : 0);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  // View-only rotation for landscape receipts (feedback 397dabaa). 90° steps,
+  // applied to the image WRAPPER so a saved-markup SVG overlay rotates with the
+  // photo (strokes stay aligned). The photo bytes are never touched. Drawing is
+  // always captured at 0° (compose resets this), so normalizedPoint math never
+  // sees a rotated box.
+  const [rotation, setRotation] = useState(0);
 
   const hasGroup = photos.length > 1;
   const shown = photos[Math.min(current, photos.length - 1)] ?? "";
@@ -133,6 +139,8 @@ export function PhotoLightboxOverlay({
     // Dismiss a pending delete prompt — it targets the photo you're
     // leaving, never the one you land on.
     setConfirmDeleteOpen(false);
+    // A fresh photo opens upright — rotation is per-photo, not sticky.
+    setRotation(0);
     setCurrent((prev) => Math.min(photos.length - 1, Math.max(0, prev + delta)));
   }
 
@@ -286,7 +294,11 @@ export function PhotoLightboxOverlay({
         inset > 0 ? "justify-start overflow-y-auto" : "justify-center"
       }`}
     >
-      <span className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
+      <span
+        className="relative inline-flex transition-transform motion-reduce:transition-none"
+        style={{ transform: `rotate(${rotation}deg)` }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={shown}
@@ -415,6 +427,9 @@ export function PhotoLightboxOverlay({
                   type="button"
                   onClick={() => {
                     setMarkupError(null);
+                    // Draw on the upright photo — strokes are normalized to the
+                    // 0° box, so entering compose must clear any view rotation.
+                    setRotation(0);
                     setComposing(true);
                   }}
                   className="inline-flex min-h-11 items-center rounded-md border border-zinc-600 bg-zinc-900 px-3 text-xs font-medium text-zinc-100 hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
@@ -529,6 +544,23 @@ export function PhotoLightboxOverlay({
             <Trash2 aria-hidden className="h-4 w-4" />
           )}
           ลบรูป
+        </button>
+      ) : null}
+      {/* Rotate a landscape receipt into a readable orientation (feedback
+          397dabaa) — view-only, 90° per tap. Hidden while composing markup so
+          drawing is only ever captured on the upright photo. Sits left of the
+          close button (top-right). */}
+      {!composing ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setRotation((r) => (r + 90) % 360);
+          }}
+          aria-label="หมุนรูป"
+          className="absolute top-3 right-16 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+        >
+          <RotateCw aria-hidden className="h-4 w-4" />
         </button>
       ) : null}
       <button
