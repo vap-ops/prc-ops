@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(17);
 
 -- ============================================================================
 -- Spec 317 U1 — universal profile self-service, instant tier.
@@ -70,6 +70,27 @@ select is(
   (select full_name from public.staff_registrations
     where id = 'e1000317-0000-4000-8000-000000000317'),
   'บัญชี อนุมัติแล้ว', 'legal name untouched (identity tier, not reachable here)');
+select is(
+  (select date_of_birth from public.staff_registrations
+    where id = 'e1000317-0000-4000-8000-000000000317'),
+  null::date, 'DOB untouched (identity tier, not reachable here)');
+select is(
+  (select declared_role_hint from public.staff_registrations
+    where id = 'e1000317-0000-4000-8000-000000000317'),
+  null, 'declared_role_hint untouched (not reachable here)');
+
+-- Coalesce-keep semantics: blank/omitted args PRESERVE stored values (the U2 UI
+-- must say "leave blank to keep" — a blank can never clear through this RPC).
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "a1000317-0000-4000-8000-000000000317"}';
+select lives_ok(
+  $$ select public.update_own_staff_contact('', null, '', null) $$,
+  'all-blank call is accepted');
+reset role;
+select is(
+  (select phone || '|' || emergency_contact_name from public.staff_registrations
+    where id = 'e1000317-0000-4000-8000-000000000317'),
+  '0899999917|พี่ ฉุกเฉิน', 'blank args KEEP the stored values (coalesce-keep, never clears)');
 
 -- ============================================================================
 -- Refusals.

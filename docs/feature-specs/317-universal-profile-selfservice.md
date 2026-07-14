@@ -82,6 +82,16 @@ p_emergency_relation, p_emergency_phone)` — own registration, `pending OR appr
   storage path = the contractor docs convention, verified at build).
 - **U6 (deferred):** outbox notifications for submits/decisions.
 
+## U1 accepted seams (fresh-eyes review, 2026-07-14)
+
+- **Clear-semantics split:** `update_own_staff_contact` is coalesce-keep (blank =
+  keep; matches its sibling on the same table) while the worker RPC is blank-clear.
+  The U2 UI must label staff fields "เว้นว่าง = คงค่าเดิม" and never offer a
+  clear-field gesture through this RPC. pgTAP pins the keep behavior.
+- Gate uses `status not in ('pending','approved')` (NOT-NULL 3-value enum today);
+  the sibling's `is distinct from` idiom is the belt-and-suspenders form — noted,
+  not re-pushed for a nit.
+
 ## Out of scope
 
 - Address/phone for office staff beyond the registration fields (no structured address
