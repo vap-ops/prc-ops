@@ -23,7 +23,13 @@ describe("BankSelect", () => {
       expect(screen.getByRole("button", { name: new RegExp(b.name) })).toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: /อื่นๆ/ })).toBeInTheDocument();
-    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith("bank_name_usage"));
+    // The caller supplies the canonical list — the RPC never returns a stored
+    // string the client didn't already name (leak-closure, fresh-eyes).
+    await waitFor(() =>
+      expect(mockRpc).toHaveBeenCalledWith("bank_name_usage", {
+        p_names: THAI_BANKS.map((b) => b.name),
+      }),
+    );
   });
 
   it("emits the canonical name when a chip is tapped and marks it selected", () => {
@@ -51,6 +57,25 @@ describe("BankSelect", () => {
   it("a non-canonical stored value opens in อื่นๆ mode prefilled", () => {
     render(<BankSelect value="ธนาคารท้องถิ่น" onChange={() => {}} />);
     expect(screen.getByDisplayValue("ธนาคารท้องถิ่น")).toBeInTheDocument();
+  });
+
+  it("a non-canonical value arriving AFTER mount still switches into อื่นๆ mode", () => {
+    const { rerender } = render(<BankSelect value="" onChange={() => {}} />);
+    rerender(<BankSelect value="ธนาคารท้องถิ่น" onChange={() => {}} />);
+    expect(screen.getByDisplayValue("ธนาคารท้องถิ่น")).toBeInTheDocument();
+  });
+
+  it("re-tapping the active อื่นๆ chip keeps the typed text (idempotent)", () => {
+    const onChange = vi.fn();
+    render(<BankSelect value="ธนาคารท้องถิ่น" onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: /อื่นๆ/ }));
+    expect(onChange).not.toHaveBeenCalledWith("");
+  });
+
+  it("names the chip group and the free-text input for assistive tech", () => {
+    render(<BankSelect value="ธนาคารท้องถิ่น" onChange={() => {}} label="ธนาคาร" />);
+    expect(screen.getByRole("group", { name: "ธนาคาร" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "ธนาคาร" })).toBeInTheDocument();
   });
 
   it("reorders chips by fetched usage counts", async () => {

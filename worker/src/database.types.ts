@@ -8304,7 +8304,7 @@ export type Database = {
       }
       award_savers_bonus: { Args: { p_worker: string }; Returns: number }
       bank_name_usage: {
-        Args: never
+        Args: { p_names: string[] }
         Returns: {
           bank_name: string
           uses: number
