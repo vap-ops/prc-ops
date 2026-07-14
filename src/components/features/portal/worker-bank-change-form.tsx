@@ -16,6 +16,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitWorkerBankChange } from "@/lib/portal/actions";
 import { validateBankChange } from "@/lib/portal/bank-change";
+import { BankSelect } from "@/components/features/common/bank-select";
 import { createClient } from "@/lib/db/browser";
 import { PHOTO_ACCEPT_MIME, photoExtToMime } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
@@ -109,19 +110,15 @@ export function WorkerBankChangeForm({ uid, hasPending }: { uid: string; hasPend
     <div className={CARD}>
       <p className="text-ink text-sm font-semibold">แจ้งเปลี่ยนบัญชีธนาคาร</p>
       <p className="text-ink-muted mt-0.5 text-xs">ผู้จัดการจะตรวจสอบก่อนใช้งานจริง</p>
-      <label className="text-ink-secondary mt-3 block text-sm">
-        ชื่อธนาคาร
-        <input
-          value={bankName}
-          maxLength={120}
-          disabled={pending}
-          onChange={(e) => {
-            setBankName(e.target.value);
-            setError(null);
-          }}
-          className={FIELD_STACKED}
-        />
-      </label>
+      <p className="text-ink-secondary mt-3 text-sm">ชื่อธนาคาร</p>
+      <BankSelect
+        value={bankName}
+        disabled={pending}
+        onChange={(name) => {
+          setBankName(name);
+          setError(null);
+        }}
+      />
       <label className="text-ink-secondary mt-3 block text-sm">
         เลขที่บัญชี
         <input

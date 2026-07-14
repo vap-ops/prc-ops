@@ -41,6 +41,7 @@ import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
 import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
 import { buildTechnicianDocPath } from "@/lib/register/technician-path";
+import { BankSelect } from "@/components/features/common/bank-select";
 import {
   STAFF_DOC_PURPOSES,
   STAFF_DOC_LABELS,
@@ -500,16 +501,8 @@ function StaffBankFields({
       <p className="text-ink-muted mt-0.5 text-xs">
         สำหรับการจ่ายค่าจ้าง เฉพาะบริษัทและท่านเท่านั้นที่เห็น
       </p>
-      <label className="text-ink-secondary mt-2 block text-sm">
-        ธนาคาร
-        <input
-          value={bankName}
-          maxLength={80}
-          disabled={pending}
-          onChange={(e) => setBankName(e.target.value)}
-          className={FIELD_STACKED}
-        />
-      </label>
+      <p className="text-ink-secondary mt-2 text-sm">ธนาคาร</p>
+      <BankSelect value={bankName} disabled={pending} onChange={setBankName} />
       <label className="text-ink-secondary mt-3 block text-sm">
         เลขที่บัญชี
         <input

@@ -8303,6 +8303,13 @@ export type Database = {
         Returns: undefined
       }
       award_savers_bonus: { Args: { p_worker: string }; Returns: number }
+      bank_name_usage: {
+        Args: never
+        Returns: {
+          bank_name: string
+          uses: number
+        }[]
+      }
       can_see_photo_log: { Args: { p_photo_log_id: string }; Returns: boolean }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_staff_registration: {
