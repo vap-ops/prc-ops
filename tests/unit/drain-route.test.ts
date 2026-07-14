@@ -100,11 +100,14 @@ vi.mock("@/lib/db/admin", () => ({
           }),
         };
       }
-      // Spec 318 U3 — per-user mutes (enabled=false rows only).
+      // Spec 318 U3 — per-user mutes (enabled=false rows, scoped .in on the
+      // batch's event types).
       if (table === "notification_preferences") {
         return {
           select: () => ({
-            eq: async () => ({ data: mutedPrefRows, error: null }),
+            eq: () => ({
+              in: async () => ({ data: mutedPrefRows, error: null }),
+            }),
           }),
         };
       }
