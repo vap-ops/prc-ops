@@ -1,3 +1,9 @@
+# [0.87.0](https://github.com/VAP-Solution/prc-ops/compare/v0.86.0...v0.87.0) (2026-07-14)
+
+### Features
+
+- **roles:** spec 316 U3 capability explorer page ([#537](https://github.com/VAP-Solution/prc-ops/issues/537)) ([13c2958](https://github.com/VAP-Solution/prc-ops/commit/13c29580ec8b69cd5ce7438cc77fd69e1d4e1159))
+
 # [0.86.0](https://github.com/VAP-Solution/prc-ops/compare/v0.85.0...v0.86.0) (2026-07-14)
 
 ### Features
