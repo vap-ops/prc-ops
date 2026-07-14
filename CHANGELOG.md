@@ -1,3 +1,9 @@
+# [0.81.0](https://github.com/VAP-Solution/prc-ops/compare/v0.80.0...v0.81.0) (2026-07-14)
+
+### Features
+
+- **technician:** required passbook photo on worker bank change (spec 315 U2) ([#530](https://github.com/VAP-Solution/prc-ops/issues/530)) ([da60741](https://github.com/VAP-Solution/prc-ops/commit/da60741520023bbdd72afbf363e98df12a8e8641))
+
 # [0.80.0](https://github.com/VAP-Solution/prc-ops/compare/v0.79.0...v0.80.0) (2026-07-14)
 
 ### Features
