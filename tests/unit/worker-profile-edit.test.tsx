@@ -38,7 +38,6 @@ describe("WorkerProfileEdit", () => {
           emergencyName: "แม่",
           emergencyRelation: "แม่",
           emergencyPhone: "0899999999",
-          dob: "1990-05-01",
         }}
       />,
     );
@@ -46,5 +45,21 @@ describe("WorkerProfileEdit", () => {
     expect(screen.getByDisplayValue("a@b.co")).toBeInTheDocument();
     expect(screen.getByDisplayValue("0899999999")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "บันทึก" })).toBeInTheDocument();
+  });
+
+  it("no longer offers a DOB field (spec 317 — DOB is approval-gated)", () => {
+    render(
+      <WorkerProfileEdit
+        initial={{
+          phone: "",
+          email: "",
+          emergencyName: "",
+          emergencyRelation: "",
+          emergencyPhone: "",
+        }}
+      />,
+    );
+    expect(screen.queryByText("วันเกิด")).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="date"]')).toBeNull();
   });
 });

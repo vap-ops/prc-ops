@@ -56,7 +56,6 @@ export function WorkerPortalSections({
             emergencyName: wp.emergency_contact_name ?? "",
             emergencyRelation: wp.emergency_contact_relation ?? "",
             emergencyPhone: wp.emergency_contact_phone ?? "",
-            dob: wp.date_of_birth ?? "",
           }}
         />
       </div>
