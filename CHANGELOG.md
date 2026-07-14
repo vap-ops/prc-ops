@@ -1,3 +1,9 @@
+# [0.95.0](https://github.com/VAP-Solution/prc-ops/compare/v0.94.1...v0.95.0) (2026-07-14)
+
+### Features
+
+- **notifications:** OA-friend readiness banner on role homes + profile (spec 318 U2) ([#549](https://github.com/VAP-Solution/prc-ops/issues/549)) ([70e38a1](https://github.com/VAP-Solution/prc-ops/commit/70e38a19ac650f072fc6ea5b8d1d7c712f29a14a))
+
 ## [0.94.1](https://github.com/VAP-Solution/prc-ops/compare/v0.94.0...v0.94.1) (2026-07-14)
 
 ### Bug Fixes
