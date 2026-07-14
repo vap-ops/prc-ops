@@ -1,3 +1,9 @@
+# [0.92.0](https://github.com/VAP-Solution/prc-ops/compare/v0.91.1...v0.92.0) (2026-07-14)
+
+### Features
+
+- **notifications:** per-user mute preferences + catalog SSOT + drain filter (spec 318 U3) ([#548](https://github.com/VAP-Solution/prc-ops/issues/548)) ([75b8b0f](https://github.com/VAP-Solution/prc-ops/commit/75b8b0fca28bda9d12342695c96c1aed5234ab17))
+
 ## [0.91.1](https://github.com/VAP-Solution/prc-ops/compare/v0.91.0...v0.91.1) (2026-07-14)
 
 ### Bug Fixes
