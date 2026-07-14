@@ -61,6 +61,8 @@ const line = {
   quantity: 50,
   unit: "ท่อน",
   wp_code: null,
+  wp_category_code: null,
+  category_match: null,
 };
 
 function renderPC(opts?: {

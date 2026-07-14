@@ -54,6 +54,7 @@ import { LaborCostView } from "@/components/features/labor/labor-cost-view";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { RecordDecisionForm } from "./record-decision-form";
+import { loadCategoryCodeById } from "@/lib/work-categories/load-category-codes";
 import { HoldToggle } from "./hold-toggle";
 import {
   PurchaseRequestForm,
@@ -73,7 +74,8 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
 
   const { data: wp } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, rework_round")
+    // Spec 301 U1: + category_id for the letter-code chip reconcile.
+    .select("id, code, name, status, project_id, rework_round, category_id")
     .eq("id", workPackageId)
     .maybeSingle();
 
@@ -81,11 +83,14 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     notFound();
   }
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, code, name")
-    .eq("id", wp.project_id)
-    .maybeSingle();
+  // Spec 301 U1: the letter-code reconcile rides beside the project read (both
+  // depend only on wp) instead of adding a serial round-trip. User client is
+  // fine here — the PM_ROLES gate implies project membership for the RLS arm.
+  const [categoryCodeById, { data: project }] = await Promise.all([
+    loadCategoryCodeById(supabase, wp.category_id ? [wp.category_id] : []),
+    supabase.from("projects").select("id, code, name").eq("id", wp.project_id).maybeSingle(),
+  ]);
+  const wpCategoryCode = wp.category_id ? (categoryCodeById.get(wp.category_id) ?? null) : null;
 
   if (!project) {
     notFound();
@@ -302,7 +307,12 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           </summary>
           <div className="mt-3">
             <PurchaseRequestForm
-              workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
+              workPackage={{
+                id: wp.id,
+                code: wp.code,
+                name: wp.name,
+                categoryCode: wpCategoryCode,
+              }}
               projectId={wp.project_id}
               userId={ctx.id}
               canSelfApprove

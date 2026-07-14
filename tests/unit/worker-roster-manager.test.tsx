@@ -58,6 +58,12 @@ const WORKERS: ManagedWorker[] = [
     project_id: null,
     // Spec 272 U1: skill grade joins the roster row model.
     level: null,
+    // DC edit matrix: payee fields joined the row model (bank null for bound workers).
+    phone: null,
+    tax_id: null,
+    bank_name: null,
+    bank_account_number: null,
+    bank_account_name: null,
   },
 ];
 
@@ -292,5 +298,85 @@ describe("WorkerRosterManager project assignment", () => {
     fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
     expect(mockAssign).not.toHaveBeenCalled();
+  });
+});
+
+// DC edit matrix — the per-row edit sheet gains การจ่าย × สถานะ + payee fields
+// (phone/tax/bank), forwarded through updateWorker. Bank is editable only for an
+// UNBOUND worker (no portal user_id); a bound worker sees a pending-request notice
+// instead (their bank changes route through the portal request + PM approval).
+describe("WorkerRosterManager DC edit matrix", () => {
+  const UNBOUND_DAILY: ManagedWorker = {
+    ...WORKERS[0]!,
+    id: "wd",
+    name: "ช่างรายวัน",
+    pay_type: "daily",
+    portalBound: false,
+    employment_type: "permanent",
+    phone: null,
+    tax_id: null,
+    bank_name: null,
+    bank_account_number: null,
+    bank_account_name: null,
+  };
+
+  it("forwards pay/employment/phone/tax/bank edits via updateWorker (unbound worker)", async () => {
+    render(<WorkerRosterManager workers={[UNBOUND_DAILY]} contractors={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    // สถานะ radios render in BOTH the add form and the edit sheet — the edit sheet's
+    // is last in the DOM (mirrors the project-select getAll pattern above).
+    const temp = screen.getAllByRole("radio", { name: "ชั่วคราว" });
+    fireEvent.click(temp[temp.length - 1]!);
+    // The add form is monthly by default → payee fields appear only in the edit sheet.
+    fireEvent.change(screen.getByLabelText("เบอร์โทร"), { target: { value: "0812345678" } });
+    fireEvent.change(screen.getByLabelText("เลขผู้เสียภาษี"), {
+      target: { value: "1234567890123" },
+    });
+    fireEvent.change(screen.getByLabelText("เลขบัญชีธนาคาร"), { target: { value: "1112223334" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "wd",
+          employmentType: "temporary",
+          phone: "0812345678",
+          taxId: "1234567890123",
+          bankAccountNumber: "1112223334",
+        }),
+      ),
+    );
+  });
+
+  it("hides bank inputs for a portal-bound worker and shows the pending-request notice", () => {
+    render(
+      <WorkerRosterManager
+        workers={[{ ...UNBOUND_DAILY, id: "wb", portalBound: true }]}
+        contractors={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    // Bank fields are walled for a bound worker…
+    expect(screen.queryByLabelText("เลขบัญชีธนาคาร")).not.toBeInTheDocument();
+    expect(screen.getByText("รออนุมัติจากคำขอของช่าง")).toBeInTheDocument();
+    // …but phone/tax stay editable (only bank is bind-gated).
+    expect(screen.getByLabelText("เบอร์โทร")).toBeInTheDocument();
+  });
+
+  it("does not forward bank fields when editing a bound worker", async () => {
+    render(
+      <WorkerRosterManager
+        workers={[{ ...UNBOUND_DAILY, id: "wb", portalBound: true }]}
+        contractors={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    fireEvent.change(screen.getByLabelText("เบอร์โทร"), { target: { value: "0800000000" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    const arg = mockUpdate.mock.calls[0]![0];
+    expect(arg).toMatchObject({ id: "wb", phone: "0800000000" });
+    expect(arg).not.toHaveProperty("bankName");
+    expect(arg).not.toHaveProperty("bankAccountNumber");
+    expect(arg).not.toHaveProperty("bankAccountName");
   });
 });

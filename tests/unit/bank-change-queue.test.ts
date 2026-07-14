@@ -71,6 +71,7 @@ function workerRow(
     bank_name: "ไทยพาณิชย์",
     bank_account_number: "987-6-54321-0",
     bank_account_name: "สมหญิง ขยัน",
+    book_bank_path: "technician/u-1/book_bank/req.jpg",
     created_at: "2026-06-21T08:00:00Z",
     ...p,
   };
@@ -90,6 +91,8 @@ describe("buildWorkerBankChangeQueue", () => {
         bankName: "ไทยพาณิชย์",
         accountNo: "987-6-54321-0",
         accountName: "สมหญิง ขยัน",
+        // Spec 315 U2 — the passbook path rides along for the queue's photo render.
+        bookBankPath: "technician/u-1/book_bank/req.jpg",
         createdAt: "2026-06-21T08:00:00Z",
       },
     ]);

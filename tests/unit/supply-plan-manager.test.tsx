@@ -58,8 +58,10 @@ const catalogItems = [
 ];
 const categories = [{ id: "cat-elec", name: "งานไฟฟ้า" }];
 const workPackages = [
-  { id: "wp1", code: "WP-01", name: "งานก่อสร้าง" },
-  { id: "wp2", code: "WP-02", name: "งานติดตั้ง" },
+  // Spec 301 U3: the picker options letter-code as TEXT (native <option> — no
+  // markup); wp1 categorised (W01 → P), wp2 uncategorised (raw code).
+  { id: "wp1", code: "WP-01", name: "งานก่อสร้าง", categoryCode: "W01" },
+  { id: "wp2", code: "WP-02", name: "งานติดตั้ง", categoryCode: null },
 ];
 
 // Spec 189: the วัสดุ field is the shared CatalogItemPicker (a BottomSheet),
@@ -115,6 +117,14 @@ function renderManager(opts: {
 }
 
 describe("SupplyPlanManager grid (spec 181 U2)", () => {
+  it("letter-codes the WP picker options as text (spec 301 U3 — native <option>)", () => {
+    renderManager({ planStatus: "draft" });
+    // wp1 is categorised (W01 → P); wp2 uncategorised keeps its raw code.
+    expect(screen.getByRole("option", { name: "P-01 งานก่อสร้าง" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "WP-02 งานติดตั้ง" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "WP-01 งานก่อสร้าง" })).not.toBeInTheDocument();
+  });
+
   it("disables save until a row has an item and a positive qty (WP optional)", () => {
     renderManager({ planStatus: "draft" });
     const save = screen.getByRole("button", { name: /บันทึก/ });
@@ -416,7 +426,7 @@ describe("SupplyPlanManager multi-WP picker UX (feedback dff83444)", () => {
   it("highlights the whole checklist row when its WP is ticked (44px target, no bare tickbox)", () => {
     renderManager({ planStatus: "draft" });
     fireEvent.click(screen.getByRole("button", { name: /หลายงาน/ }));
-    const box = screen.getByLabelText("เลือกงาน WP-01");
+    const box = screen.getByLabelText("เลือกงาน P-01");
     const row = box.closest("label")!;
     // The native checkbox stays for a11y but is visually hidden — the ROW is
     // the control: 44px tap target, full-row selected fill when checked.
@@ -439,7 +449,7 @@ describe("SupplyPlanManager multi-WP fan-out (spec 222)", () => {
     // The panel opens and explains the order; confirm waits for an item even after
     // a WP is ticked.
     expect(screen.getByText(/เลือกวัสดุ.*ก่อน/)).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("เลือกงาน WP-01"));
+    fireEvent.click(screen.getByLabelText("เลือกงาน P-01"));
     expect(screen.getByRole("button", { name: "ยืนยันเลือกหลายงาน" })).toBeDisabled();
     // Picking the item enables confirm.
     pickFirstMaterial();
@@ -452,7 +462,7 @@ describe("SupplyPlanManager multi-WP fan-out (spec 222)", () => {
 
     // Open the WP checklist, tick both WPs, confirm.
     fireEvent.click(screen.getByRole("button", { name: /หลายงาน/ }));
-    fireEvent.click(screen.getByLabelText("เลือกงาน WP-01"));
+    fireEvent.click(screen.getByLabelText("เลือกงาน P-01"));
     fireEvent.click(screen.getByLabelText("เลือกงาน WP-02"));
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันเลือกหลายงาน" }));
 
@@ -577,12 +587,12 @@ describe("SupplyPlanManager WP picker grouping (spec 270 U5)", () => {
       {
         label: "WP-05 งานหลังคา",
         options: [
-          { id: "c1", code: "WP-05-01", name: "งานโครงหลังคา" },
-          { id: "c2", code: "WP-05-02", name: "งานมุงกระเบื้อง" },
+          { id: "c1", code: "WP-05-01", name: "งานโครงหลังคา", categoryCode: null },
+          { id: "c2", code: "WP-05-02", name: "งานมุงกระเบื้อง", categoryCode: null },
         ],
       },
     ],
-    ungrouped: [{ id: "loose", code: "WP-099", name: "งานอิสระเดิม" }],
+    ungrouped: [{ id: "loose", code: "WP-099", name: "งานอิสระเดิม", categoryCode: null }],
   };
 
   it("renders งาน optgroups with งานย่อย options and keeps ทั้งโครงการ", () => {

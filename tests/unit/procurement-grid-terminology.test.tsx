@@ -35,6 +35,8 @@ function row(
     delivered_at: null,
     work_package_id: "wp",
     wp_code: null,
+    wp_category_code: null,
+    category_match: null,
     wp_name: null,
     project_id: null,
     requested_by: null,

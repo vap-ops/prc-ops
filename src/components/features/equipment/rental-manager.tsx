@@ -24,7 +24,11 @@ import {
   INLINE_ERROR,
   SECTION_HEADING,
 } from "@/lib/ui/classes";
-import { createRentalAllocation, createRentalBatch } from "@/app/equipment/rentals/actions";
+import {
+  createRentalAllocation,
+  createRentalBatch,
+  voidRentalBatch,
+} from "@/app/equipment/rentals/actions";
 import type { RentalCard, RentalRatePeriod } from "@/lib/equipment/rental-view";
 import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
 import {
@@ -44,6 +48,11 @@ import {
 // unallocated batch's card) is hidden on the locked surface — recovery there
 // lives on the settings cross-project overview (ตั้งค่า › เช่าอุปกรณ์) instead.
 export const EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE = `บันทึกการเช่าแล้ว แต่ผูกโครงการไม่สำเร็จ — ไปที่ ตั้งค่า › ${EQUIPMENT_RENTAL_LABEL} เพื่อผูกโครงการอีกครั้ง`;
+
+// Spec 312 — the confirm button for voiding a rental (destructive: reverses GL +
+// cancels the batch). Field-First danger tokens, not raw palette.
+const BUTTON_DANGER_COMPACT =
+  "inline-flex min-h-11 items-center justify-center rounded-control border border-danger-edge bg-danger-soft px-4 py-2 text-body font-medium text-danger-ink transition-colors hover:opacity-90 disabled:opacity-50";
 
 interface NamedRow {
   id: string;
@@ -378,6 +387,30 @@ function RentalCardRow({
   const [endsOn, setEndsOn] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
+  // Spec 312 — the per-card void (cancel an erroneous / test rental).
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [voiding, startVoid] = useTransition();
+
+  function handleVoid() {
+    const reason = voidReason.trim();
+    if (reason === "") {
+      setVoidError("กรุณาระบุเหตุผลการยกเลิก");
+      return;
+    }
+    setVoidError(null);
+    startVoid(async () => {
+      const result = await voidRentalBatch({ batchId: card.id, reason });
+      if (!result.ok) {
+        setVoidError(result.error);
+        return;
+      }
+      setVoidOpen(false);
+      setVoidReason("");
+      onChanged();
+    });
+  }
 
   function handleAllocate() {
     if (projectId === "") {
@@ -493,6 +526,59 @@ function RentalCardRow({
             className={`${BUTTON_SECONDARY_COMPACT} mt-3`}
           >
             {EQUIPMENT_RENTAL_ALLOCATE_LABEL}
+          </button>
+        ))}
+
+      {/* Spec 312 — void (cancel) an active, erroneous / test rental. Reverses the
+          GL + hides the card. Only shown when the batch is voidable (active). */}
+      {card.voidable &&
+        (voidOpen ? (
+          <div className="border-edge mt-3 border-t pt-3">
+            <p className="text-ink-secondary text-sm">
+              ยกเลิกรายการเช่านี้? ระบบจะกลับรายการบัญชีที่เกี่ยวข้องให้อัตโนมัติ
+            </p>
+            <label className="text-ink-secondary mt-2 block text-sm">
+              เหตุผลการยกเลิก
+              <textarea
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                rows={2}
+                className={FIELD_STACKED}
+              />
+            </label>
+            {voidError && (
+              <span role="alert" className={`${INLINE_ERROR} mt-2 block`}>
+                {voidError}
+              </span>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleVoid}
+                disabled={voiding || voidReason.trim() === ""}
+                className={BUTTON_DANGER_COMPACT}
+              >
+                {voiding ? "กำลังยกเลิก…" : "ยืนยันยกเลิก"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setVoidOpen(false);
+                  setVoidError(null);
+                }}
+                className={BUTTON_SECONDARY_COMPACT}
+              >
+                ไม่ใช่
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setVoidOpen(true)}
+            className="text-danger mt-3 block text-sm font-medium hover:underline"
+          >
+            ยกเลิกการเช่า
           </button>
         ))}
     </li>

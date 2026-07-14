@@ -8,7 +8,9 @@ import {
   ClipboardList,
   FileText,
   Forklift,
+  ScanLine,
   Settings,
+  Truck,
   Warehouse,
 } from "lucide-react";
 import {
@@ -21,10 +23,12 @@ import {
 } from "@/lib/auth/role-home";
 import {
   projectSettingsHref,
+  musterHref,
   rentalsHref,
   reportsHref,
   scheduleHref,
   storeHref,
+  incomingHref,
   supplyPlanHref,
 } from "@/lib/nav/project-paths";
 import { safeBackHref } from "@/lib/nav/back-href";
@@ -35,8 +39,10 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import {
   DAILY_WORK_PLAN_LABEL,
   EQUIPMENT_RENTAL_LABEL,
+  MUSTER_LABEL,
   PROJECT_STATUS_LABEL,
   STORE_LABEL,
+  STORE_INCOMING_HEADING,
 } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -216,6 +222,18 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
                 <ClipboardList aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
+            {/* Spec 300 U4: the ของเข้า (incoming deliveries) chip — same gate as คลัง
+                (WP_DETAIL_ROLES), so procurement + site_admin reach the receiving view from
+                the project too, not only the SA-home tile. Before คลัง (receiving first). */}
+            {canSeeStore ? (
+              <Link
+                href={incomingHref(project.id)}
+                aria-label={STORE_INCOMING_HEADING}
+                className={ICON_CHIP_MUTED}
+              >
+                <Truck aria-hidden className="h-5 w-5" />
+              </Link>
+            ) : null}
             {/* Spec 197 U1: the คลัง (store) chip — after แผนจัดหา (plan → hold
                 lifecycle order). WP_DETAIL_ROLES, so site_admin (storekeeper) now
                 reaches its own store. */}
@@ -267,6 +285,18 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {/* Spec 306 U3: the morning-talk muster (เช็คชื่อ) — the SA's daily
+            check-in action, so it leads the site actions (before the next-day
+            board). Same site gate (site_admin/super_admin). */}
+        {canPlanTomorrow ? (
+          <Link
+            href={musterHref(project.id)}
+            className="bg-accent text-on-accent mb-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold"
+          >
+            <ScanLine aria-hidden className="size-4 shrink-0" />
+            {MUSTER_LABEL}
+          </Link>
+        ) : null}
         {/* Spec 273: SA next-day board entry — reachable straight from the project
             (a single-project SA lands here). Opens the board for THIS project. */}
         {canPlanTomorrow ? (

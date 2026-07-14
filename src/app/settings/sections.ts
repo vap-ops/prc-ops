@@ -4,8 +4,10 @@ import {
   Banknote,
   Calculator,
   ClipboardList,
+  CreditCard,
   Eye,
   Files,
+  Coins,
   Hammer,
   HardHat,
   HeartPulse,
@@ -13,6 +15,7 @@ import {
   MessageSquarePlus,
   Network,
   Package,
+  Receipt,
   ShieldCheck,
   Sparkles,
   Store,
@@ -21,10 +24,21 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
-import { ACCOUNTING_ROLES, isManagerRole, type UserRole } from "@/lib/auth/role-home";
 import {
+  ACCOUNTING_ROLES,
+  isManagerRole,
+  OFFICE_EXPENSE_ROLES,
+  type UserRole,
+} from "@/lib/auth/role-home";
+import {
+  CARD_REGISTRY_HINT,
+  CARD_REGISTRY_LABEL,
   CATALOG_LABEL,
   EQUIPMENT_RENTAL_LABEL,
+  LABOR_RATES_HINT,
+  LABOR_RATES_LABEL,
+  OFFICE_EXPENSE_HINT,
+  OFFICE_EXPENSE_NAV_LABEL,
   ORDERING_TEMPLATES_LABEL,
   SUBCONTRACTOR_LABEL,
   WORKER_TEAM_LABEL,
@@ -183,6 +197,18 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: "ค่าแรง",
         hint: "สรุปค่าแรงรายวัน · ส่งออก CSV",
       },
+      // Spec 314 / ADR 0082: the firm-wide standard day-rate per skill level + WHT.
+      // Money-set (writes to worker_level_rates / labor_wht_config via DEFINER RPCs)
+      // — gated NARROWER than the section: procurement_manager + super_admin only,
+      // matching the RPCs' exact gate. project_manager/procurement keep roster+payroll.
+      {
+        kind: "link",
+        href: "/settings/labor-rates",
+        icon: Coins,
+        label: LABOR_RATES_LABEL,
+        hint: LABOR_RATES_HINT,
+        visible: (role) => role === "procurement_manager" || role === "super_admin",
+      },
     ],
   },
 
@@ -213,6 +239,24 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: "Nova",
         hint: "เหรียญรางวัลทีมงาน · มอบเหรียญ",
         visible: (role) => role === "super_admin",
+      },
+    ],
+  },
+
+  // Spec 310: non-WP office expenses. Its own section (not nested under การเงิน,
+  // which excludes accounting) so every OFFICE_EXPENSE_ROLES member — including
+  // accounting — reaches it via ตั้งค่า.
+  {
+    key: "office-expenses",
+    title: "ค่าใช้จ่าย",
+    visible: (role) => OFFICE_EXPENSE_ROLES.includes(role),
+    entries: [
+      {
+        kind: "link",
+        href: "/expenses",
+        icon: Receipt,
+        label: OFFICE_EXPENSE_NAV_LABEL,
+        hint: OFFICE_EXPENSE_HINT,
       },
     ],
   },
@@ -280,6 +324,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         icon: HeartPulse,
         label: "ตรวจระบบ",
         hint: "สถานะความถูกต้องของระบบ (บัญชี/สิทธิ์/ข้อมูล) — ตรวจอัตโนมัติทุกชั่วโมง",
+      },
+      {
+        // Spec 310: company-card registry — who holds which card (drives expense reimbursement).
+        kind: "link",
+        href: "/settings/cards",
+        icon: CreditCard,
+        label: CARD_REGISTRY_LABEL,
+        hint: CARD_REGISTRY_HINT,
       },
       {
         kind: "link",

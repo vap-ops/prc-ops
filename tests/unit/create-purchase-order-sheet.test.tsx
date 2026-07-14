@@ -22,8 +22,24 @@ const R1 = "aaaaaaaa-1111-4111-8111-111111111111";
 const R2 = "bbbbbbbb-2222-4222-8222-222222222222";
 const SUPPLIERS = [{ id: SUP, name: "ร้าน A", phone: null }];
 const LINES = [
-  { id: R1, pr_number: 10, item_description: "ปูน", quantity: 5, unit: "ถุง", wp_code: "WP52" },
-  { id: R2, pr_number: 11, item_description: "ทราย", quantity: 2, unit: "คิว", wp_code: null },
+  {
+    id: R1,
+    pr_number: 10,
+    item_description: "ปูน",
+    quantity: 5,
+    unit: "ถุง",
+    wp_code: "WP52",
+    wp_category_code: null,
+  },
+  {
+    id: R2,
+    pr_number: 11,
+    item_description: "ทราย",
+    quantity: 2,
+    unit: "คิว",
+    wp_code: null,
+    wp_category_code: null,
+  },
 ];
 
 function setup(props: Partial<React.ComponentProps<typeof CreatePurchaseOrderSheet>> = {}) {

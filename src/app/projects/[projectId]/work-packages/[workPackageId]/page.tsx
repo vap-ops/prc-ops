@@ -540,7 +540,13 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             </summary>
             <div className="mt-3">
               <PurchaseRequestForm
-                workPackage={{ id: wp.id, code: wp.code, name: wp.name }}
+                workPackage={{
+                  id: wp.id,
+                  code: wp.code,
+                  name: wp.name,
+                  // Spec 301 U1: letter-code chip (reconciled in the page batch).
+                  categoryCode: workCategoryCode,
+                }}
                 projectId={wp.project_id}
                 userId={ctx.id}
                 catalogItems={catalogItems}

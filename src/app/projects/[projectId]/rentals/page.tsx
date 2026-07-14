@@ -71,7 +71,7 @@ export default async function ProjectRentalsPage({ params }: PageProps) {
       ? admin
           .from("equipment_rental_batches")
           .select(
-            "id, supplier_id, monthly_rate, rate_period, starts_on, ends_on, note, created_at",
+            "id, supplier_id, monthly_rate, rate_period, starts_on, ends_on, note, status, created_at",
           )
           .in("id", batchIds)
       : Promise.resolve({ data: null }),
@@ -79,10 +79,12 @@ export default async function ProjectRentalsPage({ params }: PageProps) {
 
   const suppliers = supplierRows ?? [];
   const project1 = [{ id: project.id, name: project.name }];
+  // Spec 312: a voided (cancelled) batch is hidden here too.
+  const visibleBatches = (batchRows ?? []).filter((b) => b.status !== "cancelled");
   // Spec 280: surface suppliers PRC has rented from before, above the full list.
-  const rentalVendorIds = rankRentalVendors(batchRows ?? []);
+  const rentalVendorIds = rankRentalVendors(visibleBatches);
   const rentals = buildRentalView(
-    (batchRows ?? []).map((b) => ({
+    visibleBatches.map((b) => ({
       id: b.id,
       supplierId: b.supplier_id ?? "",
       rate: b.monthly_rate,
@@ -90,6 +92,7 @@ export default async function ProjectRentalsPage({ params }: PageProps) {
       startsOn: b.starts_on,
       endsOn: b.ends_on,
       note: b.note,
+      status: b.status,
       createdAt: b.created_at,
     })),
     (allocationRows ?? []).map((a) => ({

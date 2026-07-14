@@ -22,12 +22,15 @@ type WorkerProfile = Database["public"]["Functions"]["get_my_worker_profile"]["R
 type WagePayment = Database["public"]["Functions"]["get_my_wage_payments"]["Returns"][number];
 
 export function WorkerPortalSections({
+  uid,
   wp,
   payments,
   consents,
   receipts,
   hasPendingBank,
 }: {
+  /** Spec 315 U2 — the bank-change form uploads to technician/<uid>/book_bank/. */
+  uid: string;
   wp: WorkerProfile;
   payments: WagePayment[];
   consents: PortalConsent[];
@@ -53,7 +56,6 @@ export function WorkerPortalSections({
             emergencyName: wp.emergency_contact_name ?? "",
             emergencyRelation: wp.emergency_contact_relation ?? "",
             emergencyPhone: wp.emergency_contact_phone ?? "",
-            dob: wp.date_of_birth ?? "",
           }}
         />
       </div>
@@ -91,7 +93,7 @@ export function WorkerPortalSections({
         </div>
       )}
       <div className="mb-6">
-        <WorkerBankChangeForm hasPending={hasPendingBank} />
+        <WorkerBankChangeForm uid={uid} hasPending={hasPendingBank} />
       </div>
 
       <h2 className={SECTION_HEADING}>ประวัติการจ่ายเงิน</h2>

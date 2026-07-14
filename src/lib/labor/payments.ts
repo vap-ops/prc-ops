@@ -78,6 +78,34 @@ function currentPayments(payments: ReadonlyArray<WagePaymentRow>): WagePaymentRo
   return payments.filter((p) => !superseded.has(p.id));
 }
 
+// Spec 311 U5 — payment reconciliation is period-wide, not per-project.
+// wage_payments has no project dimension, so a payment reconciles against the
+// WHOLE period's roll-up. Under the spec-309 project filter the roll-up is
+// project-scoped while the payment is not: reconciling them would flag false
+// drift, misattribute a cross-project "จ่ายแล้ว" to one project, and (via the
+// one-current-per-period guard) block a 2nd project's payment for a worker on
+// two sites. So we suppress reconciliation whenever a project filter is active
+// — an interim guard until wage_payments gains a project dimension (gated on
+// the shared-worker decision). The all-projects view keeps full reconciliation,
+// where the roll-up and the payment cover the same scope.
+export type PayrollReconciliation =
+  | { scoped: true }
+  | { scoped: false; report: AnnotatedPayrollReport };
+
+export function reconcilePayroll(
+  report: PayrollReport,
+  payments: ReadonlyArray<WagePaymentRow>,
+  range: PayrollRange,
+  projectId: string | undefined,
+): PayrollReconciliation {
+  // Truthy = a real project selected → suppress. An empty string (no project /
+  // ทุกโครงการ) reconciles like undefined — the roll-up and the payment share
+  // scope there. (The page normalizes `project || undefined`; guarding on
+  // truthiness keeps the contract safe for any caller.)
+  if (projectId) return { scoped: true };
+  return { scoped: false, report: annotatePayrollPayments(report, payments, range) };
+}
+
 export function annotatePayrollPayments(
   report: PayrollReport,
   payments: ReadonlyArray<WagePaymentRow>,
@@ -112,20 +140,23 @@ export function annotatePayrollPayments(
           paidAt: match.paid_at,
           method: match.method,
           computedAmount: match.computed_amount,
-          drifted: round2(worker.amount) !== round2(match.computed_amount),
+          // Reconcile against gross (spec 314 U4 kept the pre-314 basis: the
+          // recorded wage payment compares to the gross roll-up; net/WHT are a
+          // display split, and settlement-against-net is deferred GL work).
+          drifted: round2(worker.gross) !== round2(match.computed_amount),
         },
       };
     }
 
     unpaidCount += 1;
-    outstandingAmount += worker.amount;
+    outstandingAmount += worker.gross;
     return { ...worker, payment: null };
   });
 
   return {
     workers,
     totalDays: report.totalDays,
-    totalAmount: report.totalAmount,
+    totalAmount: report.totalGross,
     workerCount: report.workerCount,
     paidCount,
     unpaidCount,

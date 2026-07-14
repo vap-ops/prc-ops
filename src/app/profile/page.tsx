@@ -6,8 +6,10 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { DisplayNameForm } from "@/components/features/common/display-name-form";
 import { EmployeeIdCard } from "@/components/features/profile/employee-id-card";
+import { WorkerBadgeQr } from "@/components/features/common/worker-badge-qr";
 import { isEmployeeRole } from "@/lib/auth/role-home";
 import { loadProfileCard } from "@/lib/profile/load-profile-card";
+import { toWorkerBadgeQrSvg } from "@/lib/muster/badge-qr";
 import { createClient } from "@/lib/db/server";
 
 // Universal profile route — reachable by EVERY authenticated role, including
@@ -56,6 +58,14 @@ export default async function ProfilePage() {
   // that redirect; this is an additional, narrower read.
   const employeeCard = isEmployeeRole(role) ? await loadProfileCard(supabase, userId) : null;
 
+  // Spec 306 U3a + operator 2026-07-13 ("QR for every user, for consistency"):
+  // every authenticated user's card shows a QR. Payload = the caller's workers.id
+  // for on-site crew (current_user_worker_id, matches their printed badge + the
+  // muster scanner), else their own account id (identity only, not muster-scannable
+  // — office/external accounts don't muster). userId is always present here.
+  const { data: workerId } = await supabase.rpc("current_user_worker_id");
+  const badgeSvg = await toWorkerBadgeQrSvg(workerId ?? userId);
+
   return (
     <PageShell>
       <BottomTabBar role={role} />
@@ -70,6 +80,7 @@ export default async function ProfilePage() {
       </DetailHeader>
       <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10">
         {employeeCard ? <EmployeeIdCard card={employeeCard} /> : null}
+        <WorkerBadgeQr svg={badgeSvg} />
 
         <DisplayNameForm initialName={initialName} />
 

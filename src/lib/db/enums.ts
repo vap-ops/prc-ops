@@ -25,3 +25,6 @@ export type ContractStatus = Enums["contract_status"];
 // Spec 284 U4 / ADR 0080 — Legal document approvals.
 export type DocumentTargetType = Enums["document_target_type"];
 export type DocumentDecision = Enums["document_decision"];
+// Spec 314 / ADR 0082 — WHT basis for the level-standard rate. (worker_level's
+// type/label/order SSOT already lives in src/lib/nova/dials.ts — reuse that.)
+export type WhtBasis = Enums["wht_basis"];

@@ -10,6 +10,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { MaterialLogView } from "@/components/features/store/material-log-view";
+import { loadCategoryCodeById } from "@/lib/work-categories/load-category-codes";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES } from "@/lib/auth/role-home";
@@ -78,8 +79,9 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
       .match(where),
     supabase
       .from("stock_issues")
+      // Spec 301 U3: + category_id for the letter-code reconcile below.
       .select(
-        "id, qty, unit_cost, total_cost, issued_at, created_at, issued_by, note, work_packages ( code, name )",
+        "id, qty, unit_cost, total_cost, issued_at, created_at, issued_by, note, work_packages ( code, name, category_id )",
       )
       .match(where),
     supabase
@@ -91,7 +93,7 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
     supabase
       .from("stock_returns")
       .select(
-        "id, qty, total_cost, returned_at, created_at, returned_by, note, work_packages ( code, name )",
+        "id, qty, total_cost, returned_at, created_at, returned_by, note, work_packages ( code, name, category_id )",
       )
       .match(where),
     supabase
@@ -101,6 +103,26 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
       )
       .match(where),
   ]);
+
+  // Spec 301 U3: batch-reconcile the movement WPs' categories → W0x codes for
+  // the letter-code render (member-visible page → user client; a viewer who
+  // can't read project_categories degrades to the raw code).
+  const movementCategoryIds = [
+    ...new Set(
+      [...(issues ?? []), ...(returns ?? [])]
+        .map((r) => r.work_packages?.category_id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  const categoryCodeById = await loadCategoryCodeById(supabase, movementCategoryIds);
+  const wpRef = (wp: { code: string; name: string; category_id: string | null } | null) =>
+    wp
+      ? {
+          code: wp.code,
+          name: wp.name,
+          categoryCode: wp.category_id ? (categoryCodeById.get(wp.category_id) ?? null) : null,
+        }
+      : null;
 
   const sources: MaterialLogSources = {
     receipts: (receipts ?? []).map((r) => ({
@@ -123,9 +145,7 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
       totalCost: numOrNull(i.total_cost),
       actorId: i.issued_by,
       note: i.note,
-      workPackage: i.work_packages
-        ? { code: i.work_packages.code, name: i.work_packages.name }
-        : null,
+      workPackage: wpRef(i.work_packages),
     })),
     counts: (counts ?? []).map((c) => ({
       id: c.id,
@@ -146,9 +166,7 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
       totalCost: numOrNull(rt.total_cost),
       actorId: rt.returned_by,
       note: rt.note,
-      workPackage: rt.work_packages
-        ? { code: rt.work_packages.code, name: rt.work_packages.name }
-        : null,
+      workPackage: wpRef(rt.work_packages),
     })),
     reversals: (reversals ?? []).map((rv) => ({
       id: rv.id,

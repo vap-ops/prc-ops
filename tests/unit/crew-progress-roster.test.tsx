@@ -11,6 +11,7 @@ import {
   CrewProgressRoster,
   type CrewProgressData,
 } from "@/components/features/sa/crew-progress-roster";
+import { BANK_PENDING_CHIP_LABEL } from "@/lib/i18n/labels";
 
 const EMPTY: CrewProgressData = { needsReview: [], awaitingConfirm: [], ready: [] };
 
@@ -43,6 +44,24 @@ describe("CrewProgressRoster", () => {
     );
     const section = screen.getByLabelText("รอยืนยัน");
     expect(within(section).getByText("สายบัว")).toBeInTheDocument();
+  });
+
+  it("shows a bank-pending chip on a worker awaiting a PM's bank entry (spec 298 U2)", () => {
+    render(
+      <CrewProgressRoster
+        data={{
+          ...EMPTY,
+          awaitingConfirm: [
+            { id: "w1", name: "ไม่มีมือถือ", level: null, bankPending: true },
+            { id: "w2", name: "มีบัญชีแล้ว", level: null },
+          ],
+        }}
+        registrationsHref="/sa/registrations"
+      />,
+    );
+    const section = screen.getByLabelText("รอยืนยัน");
+    // exactly one chip — only the bankPending worker shows it.
+    expect(within(section).getAllByText(BANK_PENDING_CHIP_LABEL)).toHaveLength(1);
   });
 
   it("shows the level badge for a confirmed worker under พร้อม", () => {

@@ -3,16 +3,27 @@
 // worker analogue of the contractor BankChangeForm; reuses validateBankChange and
 // calls the worker submit action. While a request is pending, the form is replaced
 // by a waiting notice.
+//
+// Spec 315 U2 — the request now REQUIRES a passbook photo (operator decision
+// 2026-07-14): the form uploads to the caller's own technician/<uid>/book_bank/
+// folder first, then submits {attachmentId, ext} for the server to rebuild the
+// path. Submitting without a photo is refused client-side.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-const { submitWorkerBankChange, mockRefresh } = vi.hoisted(() => ({
+const { submitWorkerBankChange, mockRefresh, mockUpload, mockPrepare } = vi.hoisted(() => ({
   submitWorkerBankChange: vi.fn(),
   mockRefresh: vi.fn(),
+  mockUpload: vi.fn(),
+  mockPrepare: vi.fn(),
 }));
 vi.mock("@/lib/portal/actions", () => ({ submitWorkerBankChange }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
+vi.mock("@/lib/db/browser", () => ({
+  createClient: () => ({ storage: { from: () => ({ upload: mockUpload }) } }),
+}));
+vi.mock("@/lib/photos/downscale", () => ({ preparePhotoForUpload: mockPrepare }));
 vi.mock("@/lib/ui/use-toast", () => ({
   useToast: () => ({
     error: vi.fn(),
@@ -25,19 +36,77 @@ vi.mock("@/lib/ui/use-toast", () => ({
 
 import { WorkerBankChangeForm } from "@/components/features/portal/worker-bank-change-form";
 
+const UID = "11111111-1111-1111-1111-111111111111";
+
+function fillFields() {
+  const [bank, acctNo, acctName] = screen.getAllByRole("textbox");
+  fireEvent.change(bank!, { target: { value: "กสิกรไทย" } });
+  fireEvent.change(acctNo!, { target: { value: "1112223334" } });
+  fireEvent.change(acctName!, { target: { value: "ช่าง หนึ่ง" } });
+}
+
+function pickPhoto() {
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  fireEvent.change(input, { target: { files: [new File(["x"], "book.jpg")] } });
+}
+
 describe("WorkerBankChangeForm", () => {
   beforeEach(() => {
-    submitWorkerBankChange.mockReset();
+    submitWorkerBankChange.mockReset().mockResolvedValue({ ok: true });
+    mockRefresh.mockReset();
+    mockUpload.mockReset().mockResolvedValue({ error: null });
+    mockPrepare.mockReset().mockResolvedValue({ blob: new Blob(["x"]), ext: "jpeg" });
   });
 
   it("renders the submit form when there is no pending request", () => {
-    render(<WorkerBankChangeForm hasPending={false} />);
+    render(<WorkerBankChangeForm uid={UID} hasPending={false} />);
     expect(screen.getByRole("button", { name: "ส่งคำขอเปลี่ยนบัญชี" })).toBeInTheDocument();
   });
 
   it("shows a waiting notice (no form) while a request is pending", () => {
-    render(<WorkerBankChangeForm hasPending={true} />);
+    render(<WorkerBankChangeForm uid={UID} hasPending={true} />);
     expect(screen.getByText("คำขอเปลี่ยนบัญชีธนาคารกำลังรอผู้จัดการอนุมัติ")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "ส่งคำขอเปลี่ยนบัญชี" })).not.toBeInTheDocument();
+  });
+
+  it("refuses to submit without a passbook photo", async () => {
+    render(<WorkerBankChangeForm uid={UID} hasPending={false} />);
+    fillFields();
+    fireEvent.click(screen.getByRole("button", { name: "ส่งคำขอเปลี่ยนบัญชี" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("กรุณาแนบรูปสมุดบัญชี"),
+    );
+    expect(mockUpload).not.toHaveBeenCalled();
+    expect(submitWorkerBankChange).not.toHaveBeenCalled();
+  });
+
+  it("uploads the passbook to the own book_bank folder then submits with attachmentId/ext", async () => {
+    render(<WorkerBankChangeForm uid={UID} hasPending={false} />);
+    fillFields();
+    pickPhoto();
+    fireEvent.click(screen.getByRole("button", { name: "ส่งคำขอเปลี่ยนบัญชี" }));
+    await waitFor(() => expect(submitWorkerBankChange).toHaveBeenCalledTimes(1));
+    expect(mockUpload).toHaveBeenCalledTimes(1);
+    const path = mockUpload.mock.calls[0]?.[0] as string;
+    expect(path.startsWith(`technician/${UID}/book_bank/`)).toBe(true);
+    const arg = submitWorkerBankChange.mock.calls[0]?.[0] as {
+      bankName: string;
+      attachmentId: string;
+      ext: string;
+    };
+    expect(arg.bankName).toBe("กสิกรไทย");
+    expect(arg.ext).toBe("jpeg");
+    expect(arg.attachmentId).toMatch(/^[0-9a-f-]{36}$/);
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it("surfaces a storage upload failure and never submits", async () => {
+    mockUpload.mockResolvedValue({ error: { message: "boom", statusCode: "500" } });
+    render(<WorkerBankChangeForm uid={UID} hasPending={false} />);
+    fillFields();
+    pickPhoto();
+    fireEvent.click(screen.getByRole("button", { name: "ส่งคำขอเปลี่ยนบัญชี" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("ส่งเอกสารไม่สำเร็จ"));
+    expect(submitWorkerBankChange).not.toHaveBeenCalled();
   });
 });

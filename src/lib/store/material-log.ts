@@ -12,6 +12,9 @@ export type MaterialLogKind = "receipt" | "issue" | "count" | "return" | "revers
 export interface WorkPackageRef {
   code: string;
   name: string;
+  /** Spec 301 U3: reconciled W0x code for the letter-code render (optional —
+   *  absent/null keeps the raw code). */
+  categoryCode?: string | null;
 }
 
 export interface ReceiptInput {

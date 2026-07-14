@@ -15,6 +15,10 @@ import { fetchDisplayNames } from "@/lib/users/display-names";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
+import { loadWpCategoryScope } from "@/lib/catalog/wp-category-scope";
+import { membershipsByItem } from "@/lib/catalog/categories";
+import { prCategoryMatch, type PrCategoryMatch } from "@/lib/purchasing/pr-category-match";
 
 type Tbl = Database["public"]["Tables"];
 type Db = SupabaseClient<Database>;
@@ -22,7 +26,15 @@ type Db = SupabaseClient<Database>;
 // The fields the loader reads off the already-fetched request row.
 type RequestInput = Pick<
   Tbl["purchase_requests"]["Row"],
-  "id" | "work_package_id" | "requested_by" | "requested_by_email" | "purchase_order_id" | "status"
+  | "id"
+  | "work_package_id"
+  | "requested_from_work_package_id"
+  | "requested_by"
+  | "requested_by_email"
+  | "purchase_order_id"
+  | "status"
+  | "catalog_item_id"
+  | "project_id"
 >;
 
 export async function loadRequestDetail(
@@ -31,6 +43,9 @@ export async function loadRequestDetail(
   opts: { isBackOffice: boolean },
 ) {
   const poId = request.purchase_order_id;
+  // Spec 301 U2a: display/flag anchor — the binding WP (legacy rows) or the
+  // provenance WP (modern store-bound rows, ADR 0065 keeps work_package_id null).
+  const anchorWpId = request.work_package_id ?? request.requested_from_work_package_id;
 
   // The fan: every read depends only on the request, never on a sibling read.
   const [
@@ -40,13 +55,18 @@ export async function loadRequestDetail(
     { data: poRow },
     { data: poDocRows },
     suppliers,
+    { data: catalogItem },
+    { data: itemMembershipRows },
+    { data: projectRow },
   ] = await Promise.all([
-    // Spec 195 P1: a WP-less PR has a null work_package_id (no WP chip).
-    request.work_package_id
+    // Spec 195 P1: a fully WP-less PR has no anchor (no WP chip).
+    // Spec 301 U1/U2a: + category_id for the letter-code reconcile below;
+    // anchored on binding-or-provenance.
+    anchorWpId
       ? supabase
           .from("work_packages")
-          .select("id, code, name, project_id")
-          .eq("id", request.work_package_id)
+          .select("id, code, name, project_id, category_id")
+          .eq("id", anchorWpId)
           .maybeSingle()
       : Promise.resolve({ data: null }),
     fetchDisplayNames(request.requested_by ? [request.requested_by] : [], "[requests/detail]"),
@@ -68,14 +88,38 @@ export async function loadRequestDetail(
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: null }),
     loadSuppliers(supabase, opts.isBackOffice, request.status),
+    // Spec 301 U2: the off-category verdict needs the PR item's canonical
+    // category + its secondary memberships (both authenticated-readable).
+    request.catalog_item_id
+      ? supabase
+          .from("catalog_items")
+          .select("id, category_id")
+          .eq("id", request.catalog_item_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    request.catalog_item_id
+      ? supabase
+          .from("catalog_item_categories")
+          .select("catalog_item_id, category_id")
+          .eq("catalog_item_id", request.catalog_item_id)
+      : Promise.resolve({ data: null }),
+    // Spec 301f: the project name for the header — procurement spans projects,
+    // so the WP line alone doesn't say where this PR belongs.
+    request.project_id
+      ? supabase.from("projects").select("id, name").eq("id", request.project_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const attachments = attachmentRows ?? [];
   const poDocs = poDocRows ?? [];
 
   // Dependent tail: the signed-URL mints need the rows fetched above. Links carry
-  // no storage path, so only image/pdf rows are minted.
-  const [attachmentUrls, poDocUrls] = await Promise.all([
+  // no storage path, so only image/pdf rows are minted. Spec 301 U1/U2: the WP's
+  // whole category chain (letter-code + Relation-R scope) rides the same tail —
+  // via the ADMIN client, because project_categories RLS is membership-gated and
+  // denies procurement (this page's reviewer). The resolved W0x code and scope
+  // are non-sensitive display metadata (same posture as display names).
+  const [attachmentUrls, poDocUrls, categoryScope] = await Promise.all([
     mintSignedUrlsForAttachments(
       attachments
         .filter((row) => row.kind === "image" || row.kind === "pdf")
@@ -85,6 +129,7 @@ export async function loadRequestDetail(
       PO_ATTACHMENTS_BUCKET,
       poDocs.map((row) => ({ id: row.id ?? "", storage_path: row.storage_path })),
     ),
+    loadWpCategoryScope(createAdminSupabase(), wp?.category_id ?? null),
   ]);
 
   const requesterName =
@@ -92,7 +137,36 @@ export async function loadRequestDetail(
     request.requested_by_email ??
     "—";
 
-  return { wp, requesterName, attachments, attachmentUrls, poRow, poDocs, poDocUrls, suppliers };
+  const wpCategoryCode = categoryScope.workCategoryCode;
+
+  // Spec 301 U2 — the approver-side off-category verdict, picker semantics
+  // (category-only, canonical∪secondary vs the deduped Relation-R categories;
+  // no verdict for a free-text PR or when no scope is active).
+  const scopedCategoryIds = [...new Set(categoryScope.scopedRelation.map((r) => r.categoryId))];
+  const categoryMatch: PrCategoryMatch = prCategoryMatch(
+    catalogItem ? { id: catalogItem.id, categoryId: catalogItem.category_id } : null,
+    membershipsByItem(
+      (itemMembershipRows ?? []).map((r) => ({
+        catalogItemId: r.catalog_item_id,
+        categoryId: r.category_id,
+      })),
+    ),
+    scopedCategoryIds,
+  );
+
+  return {
+    wp,
+    wpCategoryCode,
+    categoryMatch,
+    projectName: projectRow?.name ?? null,
+    requesterName,
+    attachments,
+    attachmentUrls,
+    poRow,
+    poDocs,
+    poDocUrls,
+    suppliers,
+  };
 }
 
 // Spec 33 / ADR 0038: suppliers feed the record-purchase form, shown only when

@@ -26,6 +26,10 @@ export interface RentalBatchRow {
   startsOn: string;
   endsOn: string | null;
   note: string | null;
+  // Spec 312: equipment_rental_batch status (active | settled | returned |
+  // cancelled). A cancelled batch is dropped from the list; only an active one
+  // is voidable.
+  status: string;
   createdAt: string;
 }
 
@@ -49,6 +53,9 @@ export interface RentalCard {
   rateLabel: string;
   periodLabel: string;
   note: string | null;
+  // Spec 312: only an active batch can be voided (a settled/returned one shows
+  // but has no void control).
+  voidable: boolean;
   allocations: RentalAllocationChip[];
 }
 
@@ -86,16 +93,22 @@ export function buildRentalView(
     else chipsByBatch.set(a.batchId, [chip]);
   }
 
-  return [...batches]
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
-    .map((b) => ({
-      id: b.id,
-      supplierName: supplierName.get(b.supplierId) ?? NAME_FALLBACK,
-      rateLabel: rentalRateLabel(b.rate, b.ratePeriod),
-      periodLabel: rentalPeriodLabel(b.startsOn, b.endsOn),
-      note: b.note,
-      allocations: chipsByBatch.get(b.id) ?? [],
-    }));
+  return (
+    [...batches]
+      // Spec 312: a voided (cancelled) batch is hidden — the reversed GL + audit
+      // row are the history, not a stale card.
+      .filter((b) => b.status !== "cancelled")
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
+      .map((b) => ({
+        id: b.id,
+        supplierName: supplierName.get(b.supplierId) ?? NAME_FALLBACK,
+        rateLabel: rentalRateLabel(b.rate, b.ratePeriod),
+        periodLabel: rentalPeriodLabel(b.startsOn, b.endsOn),
+        note: b.note,
+        voidable: b.status === "active",
+        allocations: chipsByBatch.get(b.id) ?? [],
+      }))
+  );
 }
 
 // Spec 280 — which suppliers PRC has rented from before, ranked, so the rental

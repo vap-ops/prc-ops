@@ -1,3 +1,369 @@
+# [0.82.0](https://github.com/VAP-Solution/prc-ops/compare/v0.81.0...v0.82.0) (2026-07-14)
+
+### Features
+
+- **profile:** staff contact self-edit + DOB out of worker instant tier (spec 317 U1) ([#533](https://github.com/VAP-Solution/prc-ops/issues/533)) ([1c8673e](https://github.com/VAP-Solution/prc-ops/commit/1c8673e075abb48b12c2b6dbba6fb6a0b321de04))
+
+# [0.81.0](https://github.com/VAP-Solution/prc-ops/compare/v0.80.0...v0.81.0) (2026-07-14)
+
+### Features
+
+- **technician:** required passbook photo on worker bank change (spec 315 U2) ([#530](https://github.com/VAP-Solution/prc-ops/issues/530)) ([da60741](https://github.com/VAP-Solution/prc-ops/commit/da60741520023bbdd72afbf363e98df12a8e8641))
+
+# [0.80.0](https://github.com/VAP-Solution/prc-ops/compare/v0.79.0...v0.80.0) (2026-07-14)
+
+### Features
+
+- **technician:** id-card renewal on approved registration (spec 315 U1) ([#529](https://github.com/VAP-Solution/prc-ops/issues/529)) ([198a38d](https://github.com/VAP-Solution/prc-ops/commit/198a38d0fddbfddf29a1e05e9f8c9a2ebd80ed46))
+
+# [0.79.0](https://github.com/VAP-Solution/prc-ops/compare/v0.78.0...v0.79.0) (2026-07-14)
+
+### Features
+
+- **payroll:** spec 314 U4 — gross/WHT/net roll-up + CSV ([#526](https://github.com/VAP-Solution/prc-ops/issues/526)) ([e0b8636](https://github.com/VAP-Solution/prc-ops/commit/e0b863654d1cadc4b6eb412b96461dddebd72208))
+
+# [0.78.0](https://github.com/VAP-Solution/prc-ops/compare/v0.77.0...v0.78.0) (2026-07-14)
+
+### Features
+
+- **photos:** rotate control in the lightbox for landscape receipts ([#528](https://github.com/VAP-Solution/prc-ops/issues/528)) ([109388c](https://github.com/VAP-Solution/prc-ops/commit/109388ce57a05427a70c7dd714e9bfaba1d9394c))
+
+# [0.77.0](https://github.com/VAP-Solution/prc-ops/compare/v0.76.0...v0.77.0) (2026-07-13)
+
+### Features
+
+- **labor-rates:** spec 314 pay-model explainer on /settings/labor-rates ([#527](https://github.com/VAP-Solution/prc-ops/issues/527)) ([5c19c1e](https://github.com/VAP-Solution/prc-ops/commit/5c19c1e287c0ebcc5621e4f430016f48aa1d8c34))
+
+# [0.76.0](https://github.com/VAP-Solution/prc-ops/compare/v0.75.0...v0.76.0) (2026-07-13)
+
+### Features
+
+- **labor:** spec 314 U3 — default daily + derive day_rate + freeze WHT snapshot (ADR 0082) ([#525](https://github.com/VAP-Solution/prc-ops/issues/525)) ([f24b9d1](https://github.com/VAP-Solution/prc-ops/commit/f24b9d10dbfd2dc58867358fe963137ccd8ab495))
+
+# [0.75.0](https://github.com/VAP-Solution/prc-ops/compare/v0.74.0...v0.75.0) (2026-07-13)
+
+### Features
+
+- **settings:** spec 314 U2 — PM labor-rate editor (/settings/labor-rates) ([#524](https://github.com/VAP-Solution/prc-ops/issues/524)) ([27ea7a2](https://github.com/VAP-Solution/prc-ops/commit/27ea7a27c1a21e8e84d7008a584bbdeb2a770338))
+
+# [0.74.0](https://github.com/VAP-Solution/prc-ops/compare/v0.73.1...v0.74.0) (2026-07-13)
+
+### Features
+
+- **labor:** spec 314 U1 — level-standard rate + WHT config schema (ADR 0082) ([#522](https://github.com/VAP-Solution/prc-ops/issues/522)) ([593794f](https://github.com/VAP-Solution/prc-ops/commit/593794f7e417bf258fdad35ba2be5e817bb06a5a))
+
+## [0.73.1](https://github.com/VAP-Solution/prc-ops/compare/v0.73.0...v0.73.1) (2026-07-13)
+
+### Bug Fixes
+
+- **test:** isolate 310-office-expenses company_card probes to the fixture ([#523](https://github.com/VAP-Solution/prc-ops/issues/523)) ([aee4263](https://github.com/VAP-Solution/prc-ops/commit/aee426391e210fedeb209150392b061fb61272a4))
+
+# [0.73.0](https://github.com/VAP-Solution/prc-ops/compare/v0.72.0...v0.73.0) (2026-07-13)
+
+### Features
+
+- **workers:** admit procurement_manager to decide_worker_bank_change gate ([#519](https://github.com/VAP-Solution/prc-ops/issues/519)) ([3ef02ca](https://github.com/VAP-Solution/prc-ops/commit/3ef02ca53c166ed8640b3ad1431bc5f0ee885423))
+
+# [0.72.0](https://github.com/VAP-Solution/prc-ops/compare/v0.71.0...v0.72.0) (2026-07-13)
+
+### Features
+
+- **workers:** reach procurement_manager into the worker bank-change approval queue ([#521](https://github.com/VAP-Solution/prc-ops/issues/521)) ([c649f18](https://github.com/VAP-Solution/prc-ops/commit/c649f18c6f964b0bccdf85b191655d8565c54ed8)), closes [#519](https://github.com/VAP-Solution/prc-ops/issues/519) [#519](https://github.com/VAP-Solution/prc-ops/issues/519)
+
+# [0.71.0](https://github.com/VAP-Solution/prc-ops/compare/v0.70.0...v0.71.0) (2026-07-13)
+
+### Features
+
+- **workers:** DC edit matrix — pay/employment/payee editing in the roster edit sheet ([#520](https://github.com/VAP-Solution/prc-ops/issues/520)) ([b1b881a](https://github.com/VAP-Solution/prc-ops/commit/b1b881a5f5280c395e4f9e5469c1bb9ffa757c12))
+
+# [0.70.0](https://github.com/VAP-Solution/prc-ops/compare/v0.69.0...v0.70.0) (2026-07-13)
+
+### Features
+
+- **313:** /team people hub + /sa/crew\* redirects (U1) ([#518](https://github.com/VAP-Solution/prc-ops/issues/518)) ([82bb442](https://github.com/VAP-Solution/prc-ops/commit/82bb442b19de8c509bd41b79639ab2f5f39fcfb7))
+
+# [0.69.0](https://github.com/VAP-Solution/prc-ops/compare/v0.68.0...v0.69.0) (2026-07-13)
+
+### Features
+
+- **expenses:** default to the company card + card as center option (spec 310 U13) ([#515](https://github.com/VAP-Solution/prc-ops/issues/515)) ([5542b1d](https://github.com/VAP-Solution/prc-ops/commit/5542b1de8118ba629ac012e889daa6c4a2a24b01))
+
+# [0.68.0](https://github.com/VAP-Solution/prc-ops/compare/v0.67.0...v0.68.0) (2026-07-13)
+
+### Features
+
+- **expenses:** payment-source สำรองจ่าย icon → cash (Banknote) (spec 310 U12) ([#514](https://github.com/VAP-Solution/prc-ops/issues/514)) ([7197cae](https://github.com/VAP-Solution/prc-ops/commit/7197cae88df38b4b9a09951311858c7dd72cf29d))
+
+# [0.67.0](https://github.com/VAP-Solution/prc-ops/compare/v0.66.0...v0.67.0) (2026-07-13)
+
+### Features
+
+- **expenses:** payment-source chips = short labels + icon tiles (spec 310 U11) ([#513](https://github.com/VAP-Solution/prc-ops/issues/513)) ([df8ebf1](https://github.com/VAP-Solution/prc-ops/commit/df8ebf17b4285c68c748c234695001312123b011))
+
+# [0.66.0](https://github.com/VAP-Solution/prc-ops/compare/v0.65.0...v0.66.0) (2026-07-13)
+
+### Features
+
+- **muster:** identity QR on every user's card (spec 306) ([#512](https://github.com/VAP-Solution/prc-ops/issues/512)) ([373743c](https://github.com/VAP-Solution/prc-ops/commit/373743c03ae57139cea36aeea328f23184224bf9))
+
+# [0.65.0](https://github.com/VAP-Solution/prc-ops/compare/v0.64.0...v0.65.0) (2026-07-13)
+
+### Features
+
+- **muster:** ปิดวัน close-day + auto-out display (spec 306 U4) ([#511](https://github.com/VAP-Solution/prc-ops/issues/511)) ([1022349](https://github.com/VAP-Solution/prc-ops/commit/1022349c50b9a2541b758e7fc0b950274d4d4ab0))
+
+# [0.64.0](https://github.com/VAP-Solution/prc-ops/compare/v0.63.0...v0.64.0) (2026-07-13)
+
+### Features
+
+- **expenses:** FAB + bottom-sheet record form, attachments-on-top (spec 310 U10) ([#510](https://github.com/VAP-Solution/prc-ops/issues/510)) ([cc3baf5](https://github.com/VAP-Solution/prc-ops/commit/cc3baf544a8b758bbc6652f17e29346eb9e1d7a9))
+
+# [0.63.0](https://github.com/VAP-Solution/prc-ops/compare/v0.62.0...v0.63.0) (2026-07-13)
+
+### Features
+
+- **muster:** SA scan check-in/out cockpit (spec 306 U3) ([#509](https://github.com/VAP-Solution/prc-ops/issues/509)) ([aadc47a](https://github.com/VAP-Solution/prc-ops/commit/aadc47ae63e7f679cd2da95a1f0b1f3e35e4a65e))
+
+# [0.62.0](https://github.com/VAP-Solution/prc-ops/compare/v0.61.0...v0.62.0) (2026-07-12)
+
+### Features
+
+- **310:** labeled slip/tax-invoice uploads (U9) ([#508](https://github.com/VAP-Solution/prc-ops/issues/508)) ([3270ffd](https://github.com/VAP-Solution/prc-ops/commit/3270ffd890d8a8686c17daa6fc45eea4ed607b6b))
+
+# [0.61.0](https://github.com/VAP-Solution/prc-ops/compare/v0.60.0...v0.61.0) (2026-07-12)
+
+### Features
+
+- **muster:** worker check-in QR on their phone (spec 306 U3a) ([#507](https://github.com/VAP-Solution/prc-ops/issues/507)) ([a79e7ec](https://github.com/VAP-Solution/prc-ops/commit/a79e7ec187348064117e8ab7a361c1eb9b7eb0d0))
+
+# [0.60.0](https://github.com/VAP-Solution/prc-ops/compare/v0.59.0...v0.60.0) (2026-07-12)
+
+### Features
+
+- **310:** office-expense card = 1 per user (U8) ([#506](https://github.com/VAP-Solution/prc-ops/issues/506)) ([73bf1ab](https://github.com/VAP-Solution/prc-ops/commit/73bf1ab994489820eae71c0cefe1f4a1e284f049))
+
+# [0.59.0](https://github.com/VAP-Solution/prc-ops/compare/v0.58.0...v0.59.0) (2026-07-12)
+
+### Features
+
+- **310:** personal expense dashboard on /expenses (U7) ([#503](https://github.com/VAP-Solution/prc-ops/issues/503)) ([e1e340f](https://github.com/VAP-Solution/prc-ops/commit/e1e340f9a38aaa7e8845d5aa295c5b6394df5b08))
+
+# [0.58.0](https://github.com/VAP-Solution/prc-ops/compare/v0.57.0...v0.58.0) (2026-07-12)
+
+### Features
+
+- **310:** widen office-expense roles — +PM/PD/site_owner/site_admin/auditor (U6) ([#505](https://github.com/VAP-Solution/prc-ops/issues/505)) ([136c3bb](https://github.com/VAP-Solution/prc-ops/commit/136c3bb93b7394d439ef55cca1944aa39337c504))
+
+# [0.57.0](https://github.com/VAP-Solution/prc-ops/compare/v0.56.1...v0.57.0) (2026-07-12)
+
+### Features
+
+- **equipment:** void an equipment-rental batch (spec 312) ([#504](https://github.com/VAP-Solution/prc-ops/issues/504)) ([01c5da5](https://github.com/VAP-Solution/prc-ops/commit/01c5da51945afbf9d531225df04928605b5eb2d1))
+
+## [0.56.1](https://github.com/VAP-Solution/prc-ops/compare/v0.56.0...v0.56.1) (2026-07-12)
+
+### Bug Fixes
+
+- **310:** render the office-expenses (+labor-team) settings sections ([#502](https://github.com/VAP-Solution/prc-ops/issues/502)) ([09f681b](https://github.com/VAP-Solution/prc-ops/commit/09f681bc82c0e1a15bf4d64ecf12a8a25e57db1e))
+
+# [0.56.0](https://github.com/VAP-Solution/prc-ops/compare/v0.55.0...v0.56.0) (2026-07-12)
+
+### Features
+
+- **310:** finance reimburse queue at /expenses (U5) ([#501](https://github.com/VAP-Solution/prc-ops/issues/501)) ([4332a12](https://github.com/VAP-Solution/prc-ops/commit/4332a12559a22a869b70722652b4ad934db8ebe7)), closes [#496](https://github.com/VAP-Solution/prc-ops/issues/496) [#498](https://github.com/VAP-Solution/prc-ops/issues/498) [#499](https://github.com/VAP-Solution/prc-ops/issues/499) [#500](https://github.com/VAP-Solution/prc-ops/issues/500)
+
+# [0.55.0](https://github.com/VAP-Solution/prc-ops/compare/v0.54.0...v0.55.0) (2026-07-12)
+
+### Features
+
+- **310:** receipt upload for office expenses (U4) ([#500](https://github.com/VAP-Solution/prc-ops/issues/500)) ([5fa8a3c](https://github.com/VAP-Solution/prc-ops/commit/5fa8a3cd570e4e1333a30aceef606f3b6afef031))
+
+# [0.54.0](https://github.com/VAP-Solution/prc-ops/compare/v0.53.0...v0.54.0) (2026-07-12)
+
+### Features
+
+- **310:** office-expense form + list at /expenses (U3) ([#499](https://github.com/VAP-Solution/prc-ops/issues/499)) ([a94cc49](https://github.com/VAP-Solution/prc-ops/commit/a94cc4995200292333b99647c7f5e86e19754417))
+
+# [0.53.0](https://github.com/VAP-Solution/prc-ops/compare/v0.52.0...v0.53.0) (2026-07-12)
+
+### Features
+
+- **310:** company-card registry (U2) ([#498](https://github.com/VAP-Solution/prc-ops/issues/498)) ([963bbe8](https://github.com/VAP-Solution/prc-ops/commit/963bbe863e6301fb45221c5f016db9e8fe56dbc5))
+
+# [0.52.0](https://github.com/VAP-Solution/prc-ops/compare/v0.51.0...v0.52.0) (2026-07-12)
+
+### Features
+
+- **payroll:** spec 311 U5 — suppress payment reconciliation under a project filter ([#497](https://github.com/VAP-Solution/prc-ops/issues/497)) ([33fa8a2](https://github.com/VAP-Solution/prc-ops/commit/33fa8a2d434567803ebe95cb577a0eaba3d5671b))
+
+# [0.51.0](https://github.com/VAP-Solution/prc-ops/compare/v0.50.0...v0.51.0) (2026-07-12)
+
+### Features
+
+- **requests:** spec 311 U1 — project context on the site worklist ([#495](https://github.com/VAP-Solution/prc-ops/issues/495)) ([3d481f8](https://github.com/VAP-Solution/prc-ops/commit/3d481f8afe22bceba3e9bd7436b1bb4457feed57))
+
+# [0.50.0](https://github.com/VAP-Solution/prc-ops/compare/v0.49.2...v0.50.0) (2026-07-12)
+
+### Features
+
+- **310:** office-expense schema (U1) ([#496](https://github.com/VAP-Solution/prc-ops/issues/496)) ([f2e420d](https://github.com/VAP-Solution/prc-ops/commit/f2e420daf808f9b773884ee84e46dc6f46887d11))
+
+## [0.49.2](https://github.com/VAP-Solution/prc-ops/compare/v0.49.1...v0.49.2) (2026-07-12)
+
+### Bug Fixes
+
+- **store:** use Warehouse (not Box) for the คลัง store symbol (spec 307 follow-up 2) ([#494](https://github.com/VAP-Solution/prc-ops/issues/494)) ([c886f2c](https://github.com/VAP-Solution/prc-ops/commit/c886f2cc49d876abacafe424754824bf5e9d46e4))
+
+## [0.49.1](https://github.com/VAP-Solution/prc-ops/compare/v0.49.0...v0.49.1) (2026-07-12)
+
+### Bug Fixes
+
+- **store:** ของเข้า heading = Truck, รับของ = Truck→store box (spec 307 follow-up) ([#493](https://github.com/VAP-Solution/prc-ops/issues/493)) ([3eb3b9c](https://github.com/VAP-Solution/prc-ops/commit/3eb3b9caeae77455ce47992a7bf8b5739c168aac)), closes [#492](https://github.com/VAP-Solution/prc-ops/issues/492)
+
+# [0.49.0](https://github.com/VAP-Solution/prc-ops/compare/v0.48.0...v0.49.0) (2026-07-12)
+
+### Features
+
+- **store:** ของเข้า receiving is the only action + show the store symbol (spec 307 U2) ([#492](https://github.com/VAP-Solution/prc-ops/issues/492)) ([53400f9](https://github.com/VAP-Solution/prc-ops/commit/53400f9fb3c51d3f2914d49d08195f6f96dc972f))
+
+# [0.48.0](https://github.com/VAP-Solution/prc-ops/compare/v0.47.0...v0.48.0) (2026-07-12)
+
+### Features
+
+- **accounting:** spec 308 follow-up — voucher surfaces the delivery's receive paper ([#491](https://github.com/VAP-Solution/prc-ops/issues/491)) ([869eb0a](https://github.com/VAP-Solution/prc-ops/commit/869eb0ab791cc31b16b974901df2018156d96885))
+
+# [0.47.0](https://github.com/VAP-Solution/prc-ops/compare/v0.46.0...v0.47.0) (2026-07-12)
+
+### Features
+
+- **nav:** surface ค่าแรง on procurement's mobile bottom bar (spec 309 follow-up) ([#490](https://github.com/VAP-Solution/prc-ops/issues/490)) ([f22ffd0](https://github.com/VAP-Solution/prc-ops/commit/f22ffd0dee4f0077b2c37d4c7edca56b530ec540)), closes [#487](https://github.com/VAP-Solution/prc-ops/issues/487)
+
+# [0.46.0](https://github.com/VAP-Solution/prc-ops/compare/v0.45.0...v0.46.0) (2026-07-12)
+
+### Features
+
+- **store:** group ของเข้า by arrival day × supplier, composed with spec 308 receiving (spec 307) ([#489](https://github.com/VAP-Solution/prc-ops/issues/489)) ([50297be](https://github.com/VAP-Solution/prc-ops/commit/50297be5dfb69d0e389b6edb5b0b98dfb85149cb)), closes [#486](https://github.com/VAP-Solution/prc-ops/issues/486)
+
+# [0.45.0](https://github.com/VAP-Solution/prc-ops/compare/v0.44.0...v0.45.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 308 U2 — PR-page receive card shrinks to a รับของ link ([#488](https://github.com/VAP-Solution/prc-ops/issues/488)) ([7b68c60](https://github.com/VAP-Solution/prc-ops/commit/7b68c606fa9803ba4c4c055066181c0790e2b36b))
+
+# [0.44.0](https://github.com/VAP-Solution/prc-ops/compare/v0.43.0...v0.44.0) (2026-07-12)
+
+### Features
+
+- **payroll:** per-project filter + surface ค่าแรง in procurement nav (spec 309) ([#487](https://github.com/VAP-Solution/prc-ops/issues/487)) ([9da891d](https://github.com/VAP-Solution/prc-ops/commit/9da891d70beef8e6f9f9fc928b44730dd8ead647))
+
+# [0.43.0](https://github.com/VAP-Solution/prc-ops/compare/v0.42.1...v0.43.0) (2026-07-12)
+
+### Features
+
+- **store:** spec 308 U1 — delivery receive page (ของเข้า owns receiving) ([#486](https://github.com/VAP-Solution/prc-ops/issues/486)) ([a5da13d](https://github.com/VAP-Solution/prc-ops/commit/a5da13dd4aa568e756be2ba1f32d9db0abd1f57b)), closes [#483](https://github.com/VAP-Solution/prc-ops/issues/483)
+
+## [0.42.1](https://github.com/VAP-Solution/prc-ops/compare/v0.42.0...v0.42.1) (2026-07-12)
+
+### Bug Fixes
+
+- **sa:** allow passbook photo upload from gallery, not camera-only ([#483](https://github.com/VAP-Solution/prc-ops/issues/483)) ([3f99cdb](https://github.com/VAP-Solution/prc-ops/commit/3f99cdb4256d96809892e7a381a1311687bff69f))
+
+# [0.42.0](https://github.com/VAP-Solution/prc-ops/compare/v0.41.1...v0.42.0) (2026-07-12)
+
+### Features
+
+- **muster:** spec 306 U2 — scan-muster schema + DEFINER RPCs ([#484](https://github.com/VAP-Solution/prc-ops/issues/484)) ([8453b86](https://github.com/VAP-Solution/prc-ops/commit/8453b86c6dd2664b8cda8e8df803dd23f53120bd))
+
+## [0.41.1](https://github.com/VAP-Solution/prc-ops/compare/v0.41.0...v0.41.1) (2026-07-12)
+
+### Bug Fixes
+
+- **purchasing:** capture the raising WP as PR provenance (spec 301 U2 gap) ([#482](https://github.com/VAP-Solution/prc-ops/issues/482)) ([f529304](https://github.com/VAP-Solution/prc-ops/commit/f529304c48e769e776e8e0cbabb246a21f4fab98))
+
+# [0.41.0](https://github.com/VAP-Solution/prc-ops/compare/v0.40.0...v0.41.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 301f — project name on PR card + request detail header ([#481](https://github.com/VAP-Solution/prc-ops/issues/481)) ([f4feac7](https://github.com/VAP-Solution/prc-ops/commit/f4feac78e39a8d777d2c34752ec9f92a9a713ba6))
+
+# [0.40.0](https://github.com/VAP-Solution/prc-ops/compare/v0.39.0...v0.40.0) (2026-07-12)
+
+### Features
+
+- **sa:** spec 306 U1 — printable QR badges for scan check-in ([#479](https://github.com/VAP-Solution/prc-ops/issues/479)) ([c47da8f](https://github.com/VAP-Solution/prc-ops/commit/c47da8f39c331c1e0425e15caa073563ac6988e5))
+
+# [0.39.0](https://github.com/VAP-Solution/prc-ops/compare/v0.38.0...v0.39.0) (2026-07-12)
+
+### Features
+
+- **store:** spec 305 — ของเข้า lists deliveries (งวดส่ง), not PR lines ([#478](https://github.com/VAP-Solution/prc-ops/issues/478)) ([a446e56](https://github.com/VAP-Solution/prc-ops/commit/a446e56e3892fe75362db4f2199bd5d4e689dfef))
+
+# [0.38.0](https://github.com/VAP-Solution/prc-ops/compare/v0.37.0...v0.38.0) (2026-07-12)
+
+### Features
+
+- **supply-plan,store:** spec 301 U3 — WP letter-code on supply-plan + store surfaces ([#477](https://github.com/VAP-Solution/prc-ops/issues/477)) ([a11b45d](https://github.com/VAP-Solution/prc-ops/commit/a11b45d4c1e171904c1bca9d29a890899413a345))
+
+# [0.37.0](https://github.com/VAP-Solution/prc-ops/compare/v0.36.0...v0.37.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 301 U2 — PR provenance WP + approver-side off-category flag ([#472](https://github.com/VAP-Solution/prc-ops/issues/472)) ([e91ac5d](https://github.com/VAP-Solution/prc-ops/commit/e91ac5ddea8a2bbe9727876c3cac4f594c094b91)), closes [#435](https://github.com/VAP-Solution/prc-ops/issues/435)
+
+# [0.36.0](https://github.com/VAP-Solution/prc-ops/compare/v0.35.0...v0.36.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 304 — asymmetric doc visibility: SA sees no procurement docs, procurement sees all SA doc statuses ([#476](https://github.com/VAP-Solution/prc-ops/issues/476)) ([19555b0](https://github.com/VAP-Solution/prc-ops/commit/19555b008d125186c8ad8d24a455b046e21f2b7c)), closes [#471](https://github.com/VAP-Solution/prc-ops/issues/471) [#471](https://github.com/VAP-Solution/prc-ops/issues/471) [#473](https://github.com/VAP-Solution/prc-ops/issues/473)
+
+# [0.35.0](https://github.com/VAP-Solution/prc-ops/compare/v0.34.0...v0.35.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 303 — goods-photo integrity: live capture, coverage hint, amount trace, photo-gap flag ([#473](https://github.com/VAP-Solution/prc-ops/issues/473)) ([6e1dea9](https://github.com/VAP-Solution/prc-ops/commit/6e1dea9190f1031403c3efdf9151520019405de0))
+
+# [0.34.0](https://github.com/VAP-Solution/prc-ops/compare/v0.33.0...v0.34.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 302 refinement — hide empty doc sections but flag the gap, both directions ([#471](https://github.com/VAP-Solution/prc-ops/issues/471)) ([425d01b](https://github.com/VAP-Solution/prc-ops/commit/425d01b453d58f92a31add156eb1cb83c637eea1))
+
+# [0.33.0](https://github.com/VAP-Solution/prc-ops/compare/v0.32.0...v0.33.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 302 — ownership-aware document sections on the PR receive flow ([#470](https://github.com/VAP-Solution/prc-ops/issues/470)) ([f9e46b4](https://github.com/VAP-Solution/prc-ops/commit/f9e46b4b08eb45cbc380760135bfb20015656bc8))
+
+# [0.32.0](https://github.com/VAP-Solution/prc-ops/compare/v0.31.0...v0.32.0) (2026-07-12)
+
+### Features
+
+- **purchasing:** spec 301 U1 — WP letter-code on purchasing surfaces ([#469](https://github.com/VAP-Solution/prc-ops/issues/469)) ([a7d14d4](https://github.com/VAP-Solution/prc-ops/commit/a7d14d44b707515aa3899f39d60d95642614e0d3))
+
+# [0.31.0](https://github.com/VAP-Solution/prc-ops/compare/v0.30.0...v0.31.0) (2026-07-12)
+
+### Features
+
+- **store:** spec 300 U4 — split ของเข้า off the store page into its own /incoming surface ([#468](https://github.com/VAP-Solution/prc-ops/issues/468)) ([4d91c23](https://github.com/VAP-Solution/prc-ops/commit/4d91c23a0b84d95a124433c27e93f080ab438f65))
+
+# [0.30.0](https://github.com/VAP-Solution/prc-ops/compare/v0.29.0...v0.30.0) (2026-07-12)
+
+### Features
+
+- **sa:** SA help hub — in-app text-first manual (spec 299) ([#467](https://github.com/VAP-Solution/prc-ops/issues/467)) ([b00ad51](https://github.com/VAP-Solution/prc-ops/commit/b00ad5152d08181b35e71f0dfe3a50afb6f98080))
+
+# [0.29.0](https://github.com/VAP-Solution/prc-ops/compare/v0.28.0...v0.29.0) (2026-07-11)
+
+### Features
+
+- **store:** spec 300 U3 — ของเข้า incoming deliveries on the store page (คลัง & ของเข้า) ([#466](https://github.com/VAP-Solution/prc-ops/issues/466)) ([39c2cae](https://github.com/VAP-Solution/prc-ops/commit/39c2cae6f30893c6ab993511ca796521c3b3efac))
+
+# [0.28.0](https://github.com/VAP-Solution/prc-ops/compare/v0.27.0...v0.28.0) (2026-07-11)
+
+### Features
+
+- **onboarding:** SA add-technician front door + capture-blind add (spec 298 U2) ([#464](https://github.com/VAP-Solution/prc-ops/issues/464)) ([ccb9e25](https://github.com/VAP-Solution/prc-ops/commit/ccb9e25446e3a302e645737c1ec6611080321ad5))
+
 # [0.27.0](https://github.com/VAP-Solution/prc-ops/compare/v0.26.1...v0.27.0) (2026-07-11)
 
 ### Features

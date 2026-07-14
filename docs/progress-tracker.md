@@ -6,6 +6,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 315 — Technician document self-service — ✅ BUILT (2026-07-14)
+
+- U1 ✅ MERGED #529 (mig `075786`): ID-card re-submit on approved registration (self-serve
+  supersede, operator decision) + `WorkerIdCardUpdate` on `/technician`. pgTAP 9/9; browser-verified
+  end-to-end (real upload → supersede chain).
+- U2 PR #530 (mig `075787`): REQUIRED passbook photo on the worker bank change — 4-arg submit
+  re-signature (old dropped; accepted deploy window) + own-folder pin + storage-existence check;
+  decide-approve chains the photo into the registration book_bank; queue renders admin-signed photo
+  (+ amber marker when unsignable). pgTAP 26/26 + 201 updated; browser-verified end-to-end.
+- Fresh-eyes both units: all 🔴/🟡 fixed or documented in the spec's Accepted-seams section.
+- Open questions: profile_photo self-update + contractor photo-evidence deferred (spec §Out of scope);
+  DocRow in the registration form shares U1's (fixed) double-upload race — follow-up candidate;
+  ▶ operator ask 2026-07-14: technician MENU PORTAL (split the one-pager) — spec-313 family.
+
+---
+
 ## Spec 297 — Off-category warning in the ขอซื้อ picker — ✅ BUILT (2026-07-11), code-only
 
 Passive amber flag when a purchase-request material is picked outside the WP work-category's
@@ -666,7 +682,6 @@ typecheck green; `db:types` regen = zero drift from this change (spec-268's in-f
 excluded — its own PR #325 carries it). Full-suite reds that remain are NOT this change:
 200-store (pre-existing GL data-drift), 221-catalog (pre-existing user-data flake),
 100-anon-exec (spec-268 signature widen, fixed by #325). Adversarial reviewer pass: clean.
-=======
 
 ## Spec 270 U1 — งาน+งานย่อย hierarchy: schema + rollup + guards — ✅ BUILT (2026-07-06, schema, HELD)
 
@@ -7283,3 +7298,235 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   on nightly re-seeds — same accrual model as the sliding labor window; a
   full_reset clears both. Bangkok-TZ tomorrow fix + loud WP-miss guard applied
   from review.
+
+## Spec 301 U1 — PR-flow WP letter-code sweep (purchasing surfaces) — IN PROGRESS (2026-07-12)
+
+- Operator-approved in-chat (AskUserQuestion): full sweep + flag; flag detail+grid only.
+- Lane 301prcode, worktree ../prc-ops-301, branch spec301-pr-wp-code. Code-only.
+
+## Spec 302 — Receive-flow document clarity — IN PROGRESS (2026-07-12)
+
+- Operator-approved design (AskUserQuestion, all 3 recommended options).
+- Lane 302receive, worktree ../prc-ops-302, branch spec302-receive-doc-clarity. Code-only.
+- TDD: tests/unit/request-doc-sections.test.tsx RED first (module-unresolved), then
+  planRequestDocSections + InvoiceDocsDisplay + labels + page wiring. 10/10 green.
+- COMPLETE (2026-07-12): full suite 3572 green; browser-verified BOTH roles
+  (super_admin uploader view + temp site_admin flip: view-only slip w/ procurement
+  provenance, hidden-when-empty, single receive card, details collapsed; flip
+  reverted, temp membership deleted). Fresh-eyes: 1 a11y fix applied (h2 in
+  summary), 3 nits answered. Open questions: heading literals on the PR page
+  (หลักฐานการชำระเงิน/เอกสาร) still raw strings not labels.ts — pre-existing,
+  candidate for a labels sweep unit.
+- REFINEMENT (operator, same day): "hide when empty, but flag as missing" — both
+  directions (AskUserQuestion). paymentSection 'hidden' -> 'missing-flag' (muted
+  one-liner, no card/button) + invoiceMissingFlag (amber, BO+delivered+no-docs).
+  TDD RED 3 new -> 12/12; full suite green; browser-verified both roles (flip
+  reverted); fresh-eyes clean (1 intent Q answered).
+
+## Spec 303 — Goods-photo integrity — COMPLETE (2026-07-12)
+
+- Operator: real-time photo proof of receiving, full coverage, multiple shots,
+  amount traceable. AskUserQuestion unanswered -> recommended options (force
+  camera + amber flag all roles), both derived from operator wording.
+- TDD RED 6 -> 18/18 (with 302 suite); capture=environment + coverage hint on
+  DeliveryPhotoUploader; deliveredQtyCaption on photo group at delivered;
+  deliveryPhotoMissingFlag amber on photo-less delivered (BO checklist path gap).
+- Browser-verified: bare delivered PR = amber + hint + capture attr; photo-rich
+  PR = caption, no amber; zero console errors. Fresh-eyes: clean, 1 nit accepted.
+- Seam: AI coverage-check of photos = future agent job; no EXIF verification
+  (impossible honestly in-browser).
+
+## Spec 304 — Asymmetric doc visibility — COMPLETE (2026-07-12)
+
+- Operator: SA needs zero procurement docs; procurement needs all SA doc
+  statuses. paymentSection -> uploader|hidden (view-only + missing-flag modes
+  and their labels REMOVED, supersedes #471 SA-direction); showPoDocsSection
+  BO-only. BO-side amber gap flags kept. TDD 2 RED -> 13/13 (+6 303) green.
+- Browser: SA on slip-bearing PR = zero payment/PO-doc surfaces; BO unchanged.
+- Fresh-eyes 1 yellow answered (RLS deliberately allows payment reads via
+  parent — UX asymmetry not security wall, seam noted in spec), 2 nits fixed/ok.
+
+## Spec 301 U1+U2 — PR WP letter-code + provenance + off-category flag (2026-07-12)
+
+- U1 MERGED #469 (letter-code on purchasing surfaces, loadCategoryCodeById; RLS
+  finding: project_categories denies procurement -> admin-client reconcile).
+- U2 discovery: ADR 0065 discarded the raising WP on every modern PR (0 live
+  rows with item+WP) -> operator approved provenance column. Migs 075730+075740
+  LIVE; stamp + binding-or-provenance anchor + prCategoryMatch (picker parity)
+  - amber flag on detail/grid/drawer.
+- Open: U3 supply-plan/store letter-code sweep; refactor 4 inline
+  categoryCodeById page copies onto the shared helper; project name absent on
+  PR card/detail.
+
+## Spec 305 — Incoming by delivery — COMPLETE (2026-07-12)
+
+- Operator: today's delivery items should come from the delivery table; a
+  delivery naturally includes many PR items. selectIncomingDeliveries groups
+  lens-filtered lines by delivery_id (null = singleton); card per arrival,
+  items link to receive cards. TDD 5 RED -> 11/11 green (with review-gap adds).
+- Fresh-eyes 4 yellow addressed (badge=deliveries; count un-truncated; 44px
+  targets; test gaps filled) + 2 nits fixed (comparator reuse, label SSOT);
+  line-cap seam documented in query + spec. 304 README index row backfilled.
+
+## Spec 306 U1 — Printable QR badges (scan-muster) — COMPLETE (2026-07-12)
+
+- Design session same day: morning-talk scan check-in + team forming (spec doc
+  #474 + main-WP grain refinement #475). U1 = the physical badge the scans read.
+- New /sa/crew/badges (SA/super): per-project cards — name + PRC code + QR
+  (payload = worker uuid, opaque; grants nothing). ?worker= single reprint (URL
+  mechanism; per-card affordance deferred to the muster UI units). Browser
+  print dialog, print: variants, break-inside-avoid.
+- employee_id is service-role-walled -> badge-codes.ts admin seam (296-U3
+  model: RLS read authorizes, admin fetches ONLY id+employee_id), seam pinned
+  by tests (select-shape, empty short-circuit, error throw).
+- TDD RED first (builder + sheet); full suite 3588 green (2 first-run fails =
+  load flakes, re-run clean); guards green; browser-verified: /sa/crew CTA +
+  badges page 200 + correct empty state (live workers are project_id NULL —
+  older staff rows; SA-added/QR-bound crew will render); QR SVG generation
+  executed with a real uuid.
+- Open: per-card reprint affordance (muster units); badge physical format
+  (operator ops).
+
+## Spec 306 U2 — Muster schema + DEFINER RPCs — COMPLETE (2026-07-12)
+
+- Migration `20260813075750`: `muster_method` enum (qr|manual) + 4 tables —
+  `muster_teams` (unique project+date+lead), `muster_team_wps` (main-WP rows by
+  convention, sub-WP row = explicit override; inheritance computed, never
+  stored), `muster_attendance` (unique worker+date; in/out timestamps + methods,
+  `out_auto` flag, `ot_hours`), `muster_day_closures` (PK project+date).
+- RLS: select-only for authenticated scoped `can_see_project` (site_issues
+  precedent — deliberately NOT `is_back_office`, which would widen PM to
+  cross-project); writes ONLY via 6 DEFINER RPCs (no table write grants);
+  service_role full (U5 derive + cron).
+- RPCs (all `revoke … from anon`, null-safe gates, role gate site_admin|super →
+  can_see_project): `open_muster_team` (idempotent upsert), `muster_scan_in`
+  (same-team re-scan = no-op same row; other-team conflict = P0001 carrying the
+  other lead's name), `muster_scan_out` (OT = hours past 17:00 Asia/Bangkok on
+  the team's work_date, FLOORED to 0.5h steps, null when none; re-scan-out =
+  last-wins), `set_muster_team_wps` (replace-set, same-project only, empty
+  clears), `move_muster_worker` (same project+date only, audit_log
+  `crew_change`), `close_muster_day` (auto-out at day-end with `out_auto` flag +
+  NO phantom OT; idempotent re-close for the U5 re-derive).
+- TDD: pgTAP `306-muster.test.sql` 68 asserts RED-first (gates, scoping both
+  directions, dup-scan conflict, replace-set, move+audit, OT past/future-day
+  determinism + exact-anchor pin, close/auto-out, anon fn ACL ×6, direct-write
+  wall, cross-project generic-message, empty-array clear).
+- Money untouched — no labor_logs writes, no pay reads (that's U5, HELD).
+- Decisions made in-build: audit action reuses `crew_change` (no enum growth);
+  cross-project moves refused; `out_auto` column added in U2 because U4 is
+  code-only (schema must carry U4's flag need now).
+- Fresh-eyes review (opus) — 0 BLOCKER/HIGH; 5 findings all addressed:
+  (MED) scan-in conflict now reveals the other lead's NAME only when the caller
+  can_see_project that team's project, else a generic message — no cross-project
+  PII past the visibility gate; (LOW) the scan-in insert catches unique_violation
+  → friendly conflict on the concurrent-scan race; (LOW) close-day auto-out clamps
+  out_at to greatest(day_end, in_at) so a post-17:00 in never yields a negative
+  span into the U5 derive; (MED) added an exact-value OT assert pinning the 17:00
+  anchor; (LOW) added an empty-array-clear assert.
+- Open: OT rate rule (operator, at U5+); standard-day window constant 08:00–17:00.
+
+## Spec 308 U1 — delivery receive page — COMPLETE (2026-07-12)
+
+- Operator IA root-cause: จัดซื้อ = orders from WPs, ของเข้า = deliveries.
+  Gate-1 LIVE reads: ALL SA grants already exist → spec is CODE-ONLY (schema
+  claim released, 075760 still free).
+- New /projects/[id]/incoming/[deliveryId]: header + all-ticked checklist
+  (receive_po_lines) + REQUIRED live-camera truck photo (photoGateOpen gate,
+  kind='image' only) + paper capture (chooser, PDFs allowed) + ของเข้า card
+  รับของ links. planDeliveryReceive pure seam. Reuses PoReceiveSection
+  (submitBlockedReason) + DeliveryProofBlock/ProofOfDeliveryUploader (capture
+  props; BO defaults untouched).
+- TDD RED 8→11 (+all-cancelled + paper-PDF-gate + BO-default coverage from
+  fresh-eyes); full suite 3633 green; browser-verified as SA (temp flip,
+  reverted) — page renders under real RLS, gate blocks, truck=camera /
+  paper=chooser. Fresh-eyes 3🟡 all fixed (paper capture removed, all-cancelled
+  guard, photo-only gate).
+- ▶ U2 = PR-page receive-card shrink-to-link.
+
+## Spec 308 U2 — PR-page receive-card shrink-to-link — COMPLETE (2026-07-12)
+
+- A PR riding a delivery (delivery_id != null) shows a รับของ link to the U1
+  receive page instead of the inline DeliveryPhotoUploader + paper capture;
+  delivery-less PRs keep the full inline card (fallback). Status/photos/flags
+  retained — only the ACTION moved. deliveryReceiveHref helper + delivery_id on
+  the detail read.
+- Fresh-eyes fixes: receive page now honors ?from via safeBackHref (round-trip
+  back to the PR); removed redundant double null-check.
+- TDD (helper RED→green); full suite 3634 green; browser-verified the link path
+  - back-nav round-trip on the live server. Fresh-build re-verify blocked by a
+    dev-preview SSR-cookie auth quirk (no server error → build clean).
+- ⚠️ OPERATOR FLAG (fresh-eyes ❓): on delivery-backed PRs the SA-side
+  purpose='invoice' paper capture+view is gone from the จัดซื้อ page; the receive
+  page captures paper as purpose='proof_of_delivery' (delivery-scoped). If
+  procurement's payment flow needs purpose='invoice' specifically, the receive
+  page's paper uploader should write that purpose — a follow-up decision.
+
+## Spec 307 — ของเข้า arrival grouping (day × supplier) — COMPLETE (2026-07-12)
+
+- Operator: "ของเข้า does not group PR items — confusing how many packages
+  arrive that day." Root cause: spec-305 delivery grain + spec-120 quick
+  one-line POs = one delivery per item (live: ~half of deliveries singleton).
+- Fix: selectIncomingArrivals — day (item's own ETA) → arrival (supplier) →
+  delivery-subgroups → items; unknown-ETA day last; day headers วันนี้/เลยกำหนด
+  - arrival-count chips; top badge counts arrival cards.
+- ⭐ Composed with spec 308 (shipped #486 MID-SESSION): 308 built a per-delivery
+  receive page + รับของ link on delivery cards. 307 regroups to (day × supplier),
+  which can span deliveries. Operator asked for my rec → keep arrival grain for
+  counting AND preserve 308's per-delivery receiving by sub-grouping each
+  arrival's items by delivery (one รับของ link per delivery). Single-delivery
+  arrival = visually 308 + a day header; multi-delivery = one link each.
+- Rebased onto 308 (README add/add + page/component 3-way); squashed to 1 commit
+  before rebase to avoid a two-commit conflict replay.
+- TDD RED first (seam + component); 23/23 on the two files.
+- Fresh-eyes (round 1, pre-rebase): null-supplier key collision → key now
+  prefixes real suppliers `s:` (source-safe, no control char); count-chip
+  aria-label via storeIncomingCountAria.
+- Open questions: (a) selectIncomingDeliveries now unused in prod — kept exported
+  for spec-305 tests; removal = follow-up cleanup unit; (b) PO-builder nudge
+  (offer same-supplier approved PRs when pre-seeding the one-line PO) — follow-up.
+
+## Spec 311 — Multi-project readiness pack (2026-07-12)
+
+### U1 — /requests site-branch project context (DONE)
+
+- Started 2026-07-12 evening. Source: multi-project readiness audit (operator "go").
+- Scope: loadProjectNames for every role; project chip row + ?project= narrowing
+  on the site bands; card projectName gated on >1 distinct project in the loaded
+  rows (both branches — supersedes 301f's procurement-only rule); labels SSOT
+  (ALL_PROJECTS_OPTION_LABEL, PROJECT_FILTER_ARIA).
+- New: buildSiteProjectChips (pure) + SiteProjectChips (server-safe row), mirroring
+  the spec-138 U3 status-chip split.
+- Verified: lint/tsc clean; full suite 3661 green; guards 118 green; browser
+  (dev-preview super_admin) — ?project= narrows live bands, chips preserve
+  view/mine/incoming axes, single-project view unchanged (no chips), 0 console err.
+- Fresh-eyes (opus) 2\*/1?/1nit: FIXED the real one — an own PR in a non-member
+  project (PR SELECT own-row branch, verified live in pg_policies) resolves no
+  name via the membership-scoped projects read → was a blank clickable chip +
+  false >1 card-label trip; buildSiteProjectChips now drops empty-name projects
+  (unit-tested). Page-compose covered by browser evidence (server component, not
+  RTL-testable); ? moot post-fix + prod has 1 project (edge unreachable in data
+  today); nit className dup of worklistChipClass = known mirrored pattern.
+- Open follow-up (own unit): accounting page inline ทุกโครงการ could adopt
+  ALL_PROJECTS_OPTION_LABEL (pre-existing, out of scope here).
+
+### U5 — /payroll reconciliation guard under project filter (DONE, code-only)
+
+- Interim guard: wage_payments has no project dimension, so spec-309's per-project
+  roll-up reconciled against project-blind payments → false drift + misattributed
+  "จ่ายแล้ว" + blocked 2nd-project payment for a shared worker. New pure
+  reconcilePayroll() suppresses reconciliation when a project filter is active
+  (returns {scoped:true}); the all-projects view keeps full annotatePayrollPayments.
+  Page: skips the payment/bank reads + renders PAYROLL_PAYMENT_PERIOD_WIDE_NOTE
+  under a filter; per-worker payment block hidden. Full fix (project dimension on
+  wage_payments) is gated on the shared-worker decision — this is the interim.
+- TDD RED first (reconcilePayroll 3/3); annotate regression 9/9 green; tsc/lint
+  clean. Browser: filtered URL renders clean (no console err); populated view
+  not data-drivable live (labor_logs empty), decision covered by the unit test.
+- Stacked on U1 (spec311-requests-project-context) for labels.ts adjacency.
+- Fresh-eyes (opus) 1yellow/1blue: FIXED blue (guard now truthiness `if (projectId)`
+  so a stray "" reconciles instead of silently suppressing; +test). yellow KNOWN
+  GAP: the page-level suppression (record affordance / paid badge hidden under
+  filter) has no DOM test — /payroll is an async server component and live
+  labor_logs is empty so the populated+filtered view can't be data-driven; the
+  reconcilePayroll decision (scoped→no report) is unit-tested and the page gate is
+  a direct {annotated ? ... : null} on it. Accepted as documented.

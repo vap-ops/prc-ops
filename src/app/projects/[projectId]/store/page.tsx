@@ -119,7 +119,7 @@ export default async function ProjectStorePage({ params }: PageProps) {
       ? supabase
           .from("purchase_requests")
           .select(
-            "id, quantity, unit, amount, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+            "id, quantity, unit, amount, catalog_items ( base_item, spec_attrs ), work_packages!work_package_id ( code, name )",
           )
           .eq("project_id", project.id)
           .eq("status", "delivered")

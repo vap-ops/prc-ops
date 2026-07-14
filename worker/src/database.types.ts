@@ -1075,6 +1075,47 @@ export type Database = {
           },
         ]
       }
+      company_cards: {
+        Row: {
+          created_at: string
+          created_by: string
+          holder_user_id: string
+          id: string
+          is_active: boolean
+          label: string
+          last4: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          holder_user_id: string
+          id?: string
+          is_active?: boolean
+          label: string
+          last4?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          holder_user_id?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          last4?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_cards_holder_user_id_fkey"
+            columns: ["holder_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_attachments: {
         Row: {
           contractor_id: string | null
@@ -3122,6 +3163,7 @@ export type Database = {
           pay_type_snapshot: Database["public"]["Enums"]["pay_type"]
           self_logged: boolean
           superseded_by: string | null
+          wht_pct_snapshot: number | null
           work_date: string
           work_package_id: string
           worker_id: string
@@ -3138,6 +3180,7 @@ export type Database = {
           pay_type_snapshot: Database["public"]["Enums"]["pay_type"]
           self_logged?: boolean
           superseded_by?: string | null
+          wht_pct_snapshot?: number | null
           work_date: string
           work_package_id: string
           worker_id: string
@@ -3154,6 +3197,7 @@ export type Database = {
           pay_type_snapshot?: Database["public"]["Enums"]["pay_type"]
           self_logged?: boolean
           superseded_by?: string | null
+          wht_pct_snapshot?: number | null
           work_date?: string
           work_package_id?: string
           worker_id?: string
@@ -3190,6 +3234,35 @@ export type Database = {
           },
         ]
       }
+      labor_wht_config: {
+        Row: {
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+          wht_pct: number | null
+        }
+        Insert: {
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          wht_pct?: number | null
+        }
+        Update: {
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          wht_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_wht_config_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_handoffs: {
         Row: {
           created_at: string
@@ -3222,6 +3295,167 @@ export type Database = {
           user_email?: string | null
         }
         Relationships: []
+      }
+      muster_attendance: {
+        Row: {
+          id: string
+          in_at: string
+          in_method: Database["public"]["Enums"]["muster_method"]
+          note: string | null
+          ot_hours: number | null
+          out_at: string | null
+          out_auto: boolean
+          out_method: Database["public"]["Enums"]["muster_method"] | null
+          scanned_by: string
+          team_id: string
+          work_date: string
+          worker_id: string
+        }
+        Insert: {
+          id?: string
+          in_at?: string
+          in_method: Database["public"]["Enums"]["muster_method"]
+          note?: string | null
+          ot_hours?: number | null
+          out_at?: string | null
+          out_auto?: boolean
+          out_method?: Database["public"]["Enums"]["muster_method"] | null
+          scanned_by: string
+          team_id: string
+          work_date: string
+          worker_id: string
+        }
+        Update: {
+          id?: string
+          in_at?: string
+          in_method?: Database["public"]["Enums"]["muster_method"]
+          note?: string | null
+          ot_hours?: number | null
+          out_at?: string | null
+          out_auto?: boolean
+          out_method?: Database["public"]["Enums"]["muster_method"] | null
+          scanned_by?: string
+          team_id?: string
+          work_date?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muster_attendance_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "muster_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "muster_attendance_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      muster_day_closures: {
+        Row: {
+          closed_at: string
+          closed_by: string
+          project_id: string
+          work_date: string
+        }
+        Insert: {
+          closed_at?: string
+          closed_by: string
+          project_id: string
+          work_date: string
+        }
+        Update: {
+          closed_at?: string
+          closed_by?: string
+          project_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muster_day_closures_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      muster_team_wps: {
+        Row: {
+          team_id: string
+          work_package_id: string
+        }
+        Insert: {
+          team_id: string
+          work_package_id: string
+        }
+        Update: {
+          team_id?: string
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muster_team_wps_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "muster_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "muster_team_wps_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      muster_teams: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          lead_worker_id: string
+          project_id: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          lead_worker_id: string
+          project_id: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          lead_worker_id?: string
+          project_id?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muster_teams_lead_worker_id_fkey"
+            columns: ["lead_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "muster_teams_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notification_outbox: {
         Row: {
@@ -3303,6 +3537,175 @@ export type Database = {
           {
             foreignKeyName: "nova_dials_updated_by_fkey"
             columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_expense_attachments: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          office_expense_id: string
+          purpose:
+            | Database["public"]["Enums"]["office_expense_doc_purpose"]
+            | null
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id: string
+          office_expense_id: string
+          purpose?:
+            | Database["public"]["Enums"]["office_expense_doc_purpose"]
+            | null
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          office_expense_id?: string
+          purpose?:
+            | Database["public"]["Enums"]["office_expense_doc_purpose"]
+            | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_expense_attachments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expense_attachments_office_expense_id_fkey"
+            columns: ["office_expense_id"]
+            isOneToOne: false
+            referencedRelation: "office_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_expense_categories: {
+        Row: {
+          created_at: string
+          gl_account_code: string | null
+          id: string
+          is_active: boolean
+          label_en: string | null
+          label_th: string
+          sort: number
+        }
+        Insert: {
+          created_at?: string
+          gl_account_code?: string | null
+          id?: string
+          is_active?: boolean
+          label_en?: string | null
+          label_th: string
+          sort?: number
+        }
+        Update: {
+          created_at?: string
+          gl_account_code?: string | null
+          id?: string
+          is_active?: boolean
+          label_en?: string | null
+          label_th?: string
+          sort?: number
+        }
+        Relationships: []
+      }
+      office_expenses: {
+        Row: {
+          amount: number
+          category_id: string
+          company_card_id: string | null
+          created_at: string
+          description: string
+          expense_date: string
+          id: string
+          payment_source: Database["public"]["Enums"]["payment_source"]
+          project_id: string | null
+          reimburse_to_user_id: string | null
+          reimbursed_at: string | null
+          reimbursed_by: string | null
+          submitted_by: string
+        }
+        Insert: {
+          amount: number
+          category_id: string
+          company_card_id?: string | null
+          created_at?: string
+          description: string
+          expense_date: string
+          id?: string
+          payment_source: Database["public"]["Enums"]["payment_source"]
+          project_id?: string | null
+          reimburse_to_user_id?: string | null
+          reimbursed_at?: string | null
+          reimbursed_by?: string | null
+          submitted_by: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string
+          company_card_id?: string | null
+          created_at?: string
+          description?: string
+          expense_date?: string
+          id?: string
+          payment_source?: Database["public"]["Enums"]["payment_source"]
+          project_id?: string | null
+          reimburse_to_user_id?: string | null
+          reimbursed_at?: string | null
+          reimbursed_by?: string | null
+          submitted_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "office_expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_company_card_id_fkey"
+            columns: ["company_card_id"]
+            isOneToOne: false
+            referencedRelation: "company_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_reimburse_to_user_id_fkey"
+            columns: ["reimburse_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_reimbursed_by_fkey"
+            columns: ["reimbursed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_expenses_submitted_by_fkey"
+            columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -4425,6 +4828,7 @@ export type Database = {
           requested_at: string
           requested_by: string | null
           requested_by_email: string | null
+          requested_from_work_package_id: string | null
           shipped_at: string | null
           source: string
           split_from_request_id: string | null
@@ -4473,6 +4877,7 @@ export type Database = {
           requested_at?: string
           requested_by?: string | null
           requested_by_email?: string | null
+          requested_from_work_package_id?: string | null
           shipped_at?: string | null
           source?: string
           split_from_request_id?: string | null
@@ -4521,6 +4926,7 @@ export type Database = {
           requested_at?: string
           requested_by?: string | null
           requested_by_email?: string | null
+          requested_from_work_package_id?: string | null
           shipped_at?: string | null
           source?: string
           split_from_request_id?: string | null
@@ -4595,6 +5001,13 @@ export type Database = {
             columns: ["requested_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_requested_from_work_package_id_fkey"
+            columns: ["requested_from_work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
           {
@@ -6998,6 +7411,7 @@ export type Database = {
           bank_account_name: string | null
           bank_account_number: string | null
           bank_name: string | null
+          book_bank_path: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -7010,6 +7424,7 @@ export type Database = {
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
+          book_bank_path?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -7022,6 +7437,7 @@ export type Database = {
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
+          book_bank_path?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -7105,6 +7521,41 @@ export type Database = {
             columns: ["worker_id"]
             isOneToOne: false
             referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      worker_level_rates: {
+        Row: {
+          active: boolean
+          entered_rate: number | null
+          level: Database["public"]["Enums"]["worker_level"]
+          updated_at: string
+          updated_by: string | null
+          wht_basis: Database["public"]["Enums"]["wht_basis"]
+        }
+        Insert: {
+          active?: boolean
+          entered_rate?: number | null
+          level: Database["public"]["Enums"]["worker_level"]
+          updated_at?: string
+          updated_by?: string | null
+          wht_basis?: Database["public"]["Enums"]["wht_basis"]
+        }
+        Update: {
+          active?: boolean
+          entered_rate?: number | null
+          level?: Database["public"]["Enums"]["worker_level"]
+          updated_at?: string
+          updated_by?: string | null
+          wht_basis?: Database["public"]["Enums"]["wht_basis"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_level_rates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -7824,7 +8275,7 @@ export type Database = {
           p_day_rate?: number
           p_employment_type?: Database["public"]["Enums"]["employment_type"]
           p_id: string
-          p_pay_type: Database["public"]["Enums"]["pay_type"]
+          p_pay_type?: Database["public"]["Enums"]["pay_type"]
         }
         Returns: string
       }
@@ -7907,6 +8358,10 @@ export type Database = {
       clone_work_packages: {
         Args: { p_dst_project_id: string; p_src_project_id: string }
         Returns: number
+      }
+      close_muster_day: {
+        Args: { p_date: string; p_project: string }
+        Returns: undefined
       }
       coin_balance: { Args: { p_worker: string }; Returns: number }
       coin_spendable_balance: { Args: { p_worker: string }; Returns: number }
@@ -8209,6 +8664,7 @@ export type Database = {
         Args: { p_project_ids: string[] }
         Returns: Json
       }
+      deactivate_company_card: { Args: { p_id: string }; Returns: undefined }
       decide_contractor_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
@@ -8435,6 +8891,10 @@ export type Database = {
           supplier_name: string
         }[]
       }
+      level_gross_rate: {
+        Args: { p_level: Database["public"]["Enums"]["worker_level"] }
+        Returns: number
+      }
       log_labor_day: {
         Args: {
           p_date: string
@@ -8446,6 +8906,10 @@ export type Database = {
         Returns: string
       }
       mark_client_billing_invoiced: { Args: { p_id: string }; Returns: string }
+      mark_expense_reimbursed: {
+        Args: { p_expense_id: string }
+        Returns: undefined
+      }
       mark_feedback_viewed: {
         Args: { p_feedback_id: string }
         Returns: undefined
@@ -8454,8 +8918,32 @@ export type Database = {
         Args: { p_due_date: string; p_id: string }
         Returns: string
       }
+      move_muster_worker: {
+        Args: { p_date: string; p_to_team: string; p_worker: string }
+        Returns: string
+      }
+      muster_scan_in: {
+        Args: {
+          p_method: Database["public"]["Enums"]["muster_method"]
+          p_team: string
+          p_worker: string
+        }
+        Returns: string
+      }
+      muster_scan_out: {
+        Args: {
+          p_method: Database["public"]["Enums"]["muster_method"]
+          p_team: string
+          p_worker: string
+        }
+        Returns: string
+      }
       my_contact_bank_present: { Args: never; Returns: boolean }
       open_accounting_period: { Args: { p_month: string }; Returns: string }
+      open_muster_team: {
+        Args: { p_date: string; p_lead_worker: string; p_project: string }
+        Returns: string
+      }
       photo_markup_tombstone_target_ok: {
         Args: { p_photo_log_id: string; p_superseded_by: string }
         Returns: boolean
@@ -8658,6 +9146,18 @@ export type Database = {
           p_contractor: string
           p_document_id?: string
           p_kind: Database["public"]["Enums"]["contractor_consent_kind"]
+        }
+        Returns: string
+      }
+      record_office_expense: {
+        Args: {
+          p_amount: number
+          p_category_id: string
+          p_company_card_id?: string
+          p_description: string
+          p_expense_date: string
+          p_payment_source: Database["public"]["Enums"]["payment_source"]
+          p_project_id?: string
         }
         Returns: string
       }
@@ -9010,6 +9510,19 @@ export type Database = {
         Args: { p_catalog_item_id: string; p_sell_rate: number }
         Returns: undefined
       }
+      set_labor_wht_pct: { Args: { p_pct: number }; Returns: undefined }
+      set_level_rate: {
+        Args: {
+          p_basis: Database["public"]["Enums"]["wht_basis"]
+          p_entered_rate: number
+          p_level: Database["public"]["Enums"]["worker_level"]
+        }
+        Returns: undefined
+      }
+      set_muster_team_wps: {
+        Args: { p_team: string; p_wp_ids: string[] }
+        Returns: undefined
+      }
       set_nova_dial: {
         Args: { p_key: string; p_value: number }
         Returns: undefined
@@ -9223,6 +9736,7 @@ export type Database = {
           p_bank_account_name: string
           p_bank_account_number: string
           p_bank_name: string
+          p_book_bank_path: string
         }
         Returns: string
       }
@@ -9428,6 +9942,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_own_staff_contact: {
+        Args: {
+          p_emergency_contact_name?: string
+          p_emergency_contact_phone?: string
+          p_emergency_contact_relation?: string
+          p_phone?: string
+        }
+        Returns: undefined
+      }
       update_own_staff_registration: {
         Args: {
           p_date_of_birth?: string
@@ -9442,7 +9965,6 @@ export type Database = {
       }
       update_own_worker_profile: {
         Args: {
-          p_dob?: string
           p_email?: string
           p_emergency_name?: string
           p_emergency_phone?: string
@@ -9522,6 +10044,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      upsert_company_card: {
+        Args: {
+          p_holder_user_id: string
+          p_id: string
+          p_label: string
+          p_last4?: string
+        }
+        Returns: string
+      }
       upsert_gl_account: {
         Args: {
           p_account_type: Database["public"]["Enums"]["gl_account_type"]
@@ -9563,6 +10094,10 @@ export type Database = {
         Returns: string
       }
       void_contract: { Args: { p_id: string }; Returns: undefined }
+      void_equipment_rental_batch: {
+        Args: { p_batch_id: string; p_reason?: string }
+        Returns: undefined
+      }
       void_purchase_order: { Args: { p_po_id: string }; Returns: undefined }
       void_purchase_order_charge: {
         Args: { p_charge_id: string }
@@ -9647,6 +10182,9 @@ export type Database = {
         | "rental_settlement_record"
         | "rental_settlement_supersede"
         | "crew_change"
+        | "office_expense_record"
+        | "office_expense_reimburse"
+        | "equipment_batch_void"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -9755,6 +10293,7 @@ export type Database = {
         | "custom_fabrication"
       journal_entry_status: "draft" | "posted" | "reversed"
       login_handoff_status: "pending" | "approved" | "consumed"
+      muster_method: "qr" | "manual"
       notification_event_type:
         | "wp_pending_approval"
         | "wp_decision"
@@ -9766,7 +10305,9 @@ export type Database = {
         | "wp_reopened"
         | "site_issue_reported"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
+      office_expense_doc_purpose: "payment_slip" | "tax_invoice"
       pay_type: "monthly" | "daily"
+      payment_source: "company_card" | "own_money" | "company_direct"
       peak_doc_type: "contact" | "expense"
       peak_entity_type: "contact" | "expense"
       peak_sync_operation: "create" | "void"
@@ -9858,6 +10399,7 @@ export type Database = {
         | "at_risk"
         | "on_track"
       wage_payment_method: "bank_transfer" | "cash" | "cheque"
+      wht_basis: "before_wht" | "after_wht"
       wht_direction: "deducted" | "suffered"
       wht_form: "pnd3" | "pnd53" | "pnd1"
       work_package_priority: "normal" | "urgent" | "critical"
@@ -10063,6 +10605,9 @@ export const Constants = {
         "rental_settlement_record",
         "rental_settlement_supersede",
         "crew_change",
+        "office_expense_record",
+        "office_expense_reimburse",
+        "equipment_batch_void",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -10183,6 +10728,7 @@ export const Constants = {
       ],
       journal_entry_status: ["draft", "posted", "reversed"],
       login_handoff_status: ["pending", "approved", "consumed"],
+      muster_method: ["qr", "manual"],
       notification_event_type: [
         "wp_pending_approval",
         "wp_decision",
@@ -10195,7 +10741,9 @@ export const Constants = {
         "site_issue_reported",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
+      office_expense_doc_purpose: ["payment_slip", "tax_invoice"],
       pay_type: ["monthly", "daily"],
+      payment_source: ["company_card", "own_money", "company_direct"],
       peak_doc_type: ["contact", "expense"],
       peak_entity_type: ["contact", "expense"],
       peak_sync_operation: ["create", "void"],
@@ -10297,6 +10845,7 @@ export const Constants = {
         "on_track",
       ],
       wage_payment_method: ["bank_transfer", "cash", "cheque"],
+      wht_basis: ["before_wht", "after_wht"],
       wht_direction: ["deducted", "suffered"],
       wht_form: ["pnd3", "pnd53", "pnd1"],
       work_package_priority: ["normal", "urgent", "critical"],

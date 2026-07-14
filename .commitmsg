@@ -1,0 +1,13 @@
+fix(store): use Warehouse (not Box) for the คลัง store symbol (spec 307 follow-up 2)
+
+The project-page คลัง chip already uses lucide Warehouse (projects/[id]/page.tsx),
+but the SA คลัง tile (sa-tools) and the รับของ pairing used Box — two different
+icons for the same store. Operator: the warehouse reads more intuitively.
+
+- sa-tools: คลัง tile icon Box -> Warehouse
+- store-incoming-list: รับของ pairing is now Truck -> Warehouse (delivery heading
+  into the warehouse), matching the project-page store chip
+
+Warehouse is now the single store/คลัง symbol app-wide. Code-only, no schema.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

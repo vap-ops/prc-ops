@@ -57,6 +57,8 @@ import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips
 import { WorklistStatusChips } from "@/components/features/purchasing/worklist-status-chips";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import { ProcurementFilters } from "@/components/features/purchasing/procurement-filters";
+import { SiteProjectChips } from "@/components/features/purchasing/site-project-chips";
+import { buildSiteProjectChips } from "@/lib/purchasing/site-project-chips";
 import {
   matchesProcurementFilter,
   sortByPriority,
@@ -65,7 +67,12 @@ import {
   buildWorklistQuery,
   type ProcurementFilter,
 } from "@/lib/purchasing/worklist-filter";
-import { PURCHASE_REQUEST_STATUS_LABEL, INCOMING_LENS_LABEL } from "@/lib/i18n/labels";
+import {
+  PURCHASE_REQUEST_STATUS_LABEL,
+  INCOMING_LENS_LABEL,
+  DELIVERY_LENS_FILTER_ARIA,
+  DELIVERY_OVERDUE_FLAG,
+} from "@/lib/i18n/labels";
 import { bahtCompact as baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
 
@@ -212,14 +219,19 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     view?: RequestView;
     mine?: boolean;
     incoming?: IncomingLens;
+    // Spec 311 U1: the site project axis — undefined keeps the current
+    // filter, null clears it (the ทุกโครงการ chip).
+    project?: string | null;
   }): string => {
     const v = next.view ?? requestView;
     const m = next.mine ?? mineOnly;
     const inc = next.incoming ?? incomingLens;
+    const proj = next.project === undefined ? filter.projectId : next.project;
     const params = new URLSearchParams();
     if (v !== "active") params.set("view", v);
     if (m) params.set("mine", "1");
     if (inc !== "today") params.set("incoming", inc);
+    if (proj) params.set("project", proj);
     const qs = params.toString();
     return qs ? `/requests?${qs}` : "/requests";
   };
@@ -231,7 +243,13 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   // Spec 137: the site list groups into action-state bands; the view filter (active
   // default) hides received/closed. `today` flags overdue arrivals (the chase signal).
-  const requestBands = groupRequestsByBand(myRequests, requestView, today);
+  // Spec 311 U1: the ?project= axis narrows the site bands too (procurement applies
+  // it via matchesProcurementFilter below).
+  const siteRows =
+    !isProcurement && filter.projectId !== null
+      ? myRequests.filter((r) => r.project_id === filter.projectId)
+      : myRequests;
+  const requestBands = groupRequestsByBand(siteRows, requestView, today);
   // Spec 300 U1: the delivery lens narrows ONLY the incoming (in_transit / กำลังจัดส่ง)
   // band; other bands pass through. Recompute overdue on the filtered items (so the
   // เลยกำหนด badge can't over-count). The band is KEPT even when the lens empties it, so
@@ -307,6 +325,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     supplierRecords,
     categoryVendors,
     docCountById,
+    categoryMatchById,
   } = await loadRequestsData({
     supabase,
     myRequests,
@@ -316,16 +335,39 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   // A WP-less PR (null work_package_id) is project-level / store-bound.
   const wpFor = (id: string | null) => (id ? wpById.get(id) : undefined);
+  // Spec 301 U2a: display anchor — the binding WP (legacy rows) or the
+  // provenance WP (modern store-bound rows; ADR 0065 nulls work_package_id).
+  const wpAnchorFor = (r: {
+    work_package_id: string | null;
+    requested_from_work_package_id: string | null;
+  }) => wpFor(r.work_package_id ?? r.requested_from_work_package_id);
   // Spec 110: filter picker options come from the UNFILTERED set so the filter
-  // can always be changed.
+  // can always be changed. Spec 311 U1: projects for every role — they drive the
+  // site chip row and the >1-project card-label gate, not just the procurement
+  // picker.
   const supplierOptions = isProcurement ? distinctSuppliers(myRequests) : [];
-  const projectOptions = isProcurement
-    ? distinctProjects(
-        myRequests.map((r) => {
-          const pid = r.project_id;
-          return { projectId: pid, projectName: pid ? (projectNameById.get(pid) ?? null) : null };
-        }),
-      )
+  const projectOptions = distinctProjects(
+    myRequests.map((r) => {
+      const pid = r.project_id;
+      return { projectId: pid, projectName: pid ? (projectNameById.get(pid) ?? null) : null };
+    }),
+  );
+  // Spec 311 U1: only projects we could NAME are disambiguation targets. The PR
+  // SELECT policy admits an own row (`requested_by = auth.uid()`) even in a
+  // project the caller can't see, but the projects read is membership-scoped —
+  // so such a row resolves no name. Excluding empty-name options stops a blank
+  // clickable chip AND stops that stray row from falsely tripping the >1 gate.
+  const namedProjectOptions = projectOptions.filter((p) => p.name !== "");
+  // The project name renders on cards exactly when disambiguation is needed —
+  // the loaded rows span >1 named project (any role; supersedes the spec-301f
+  // procurement-only rule).
+  const showProjectOnCards = namedProjectOptions.length > 1;
+  const siteProjectChips = !isProcurement
+    ? buildSiteProjectChips({
+        projects: namedProjectOptions,
+        activeProjectId: filter.projectId,
+        hrefFor: (projectId) => reqHref({ project: projectId }),
+      })
     : [];
 
   // Spec 105: buyer's summary strip — the FULL workload (unfiltered), a stable
@@ -391,7 +433,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         })()
       : items
     ).map((r): ProcurementGridRecord => {
-      const wp = wpFor(r.work_package_id);
+      const wp = wpAnchorFor(r);
       return {
         id: r.id,
         purchase_order_id: r.purchase_order_id,
@@ -414,6 +456,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         work_package_id: r.work_package_id,
         wp_code: wp?.code ?? null,
         wp_name: wp?.name ?? null,
+        wp_category_code: wp?.categoryCode ?? null,
         // Spec 114 drawer enrichment. Spec 195 P1: the PR's own project_id
         // (covers WP-less PRs, where there is no WP to derive it from).
         project_id: r.project_id,
@@ -430,6 +473,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         // Spec 230: the PR's managed material category (its catalog item's category).
         category_id: prCategory.get(r.id)?.id ?? null,
         category_name: prCategory.get(r.id)?.name ?? null,
+        // Spec 301 U2: the approver-side off-category verdict (amber flag).
+        category_match: categoryMatchById.get(r.id) ?? null,
       };
     }),
   }));
@@ -458,7 +503,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   type RequestRow = (typeof myRequests)[number];
   const cardFor = (r: RequestRow) => {
-    const wp = wpFor(r.work_package_id);
+    const wp = wpAnchorFor(r);
     // Spec 47: a slim tappable summary linking to /requests/[id].
     return (
       <li key={r.id}>
@@ -479,7 +524,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             delivered_at: r.delivered_at,
             eta: r.eta,
           }}
-          workPackage={wp ? { code: wp.code, name: wp.name } : null}
+          workPackage={wp ? { code: wp.code, name: wp.name, categoryCode: wp.categoryCode } : null}
           requesterName={
             (r.requested_by ? requesterNames.get(r.requested_by) : null) ??
             r.requested_by_email ??
@@ -487,6 +532,12 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           }
           isMine={r.requested_by === ctx.id}
           poNumber={r.purchase_order_id ? (poNumberById.get(r.purchase_order_id) ?? null) : null}
+          // Spec 311 U1 (supersedes 301f's procurement-only rule): the project
+          // label renders for ANY role exactly when the loaded rows span >1
+          // project; a single-project world keeps the lean card.
+          projectName={
+            showProjectOnCards && r.project_id ? (projectNameById.get(r.project_id) ?? null) : null
+          }
         />
       </li>
     );
@@ -518,26 +569,31 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 site; this narrows to their own). Hidden for procurement (spec 104 — it
                 has its own pipeline + filters and never owns a request). */}
             {!isProcurement ? (
-              <div className="flex flex-wrap items-center gap-1 text-xs">
-                {REQUEST_VIEWS.map((v) => (
+              <>
+                <div className="flex flex-wrap items-center gap-1 text-xs">
+                  {REQUEST_VIEWS.map((v) => (
+                    <Link
+                      key={v}
+                      href={reqHref({ view: v })}
+                      aria-current={requestView === v ? "true" : undefined}
+                      className={worklistChipClass(requestView === v)}
+                    >
+                      {REQUEST_VIEW_LABEL[v]}
+                    </Link>
+                  ))}
+                  <span aria-hidden className="bg-edge-strong mx-1 h-5 w-px" />
                   <Link
-                    key={v}
-                    href={reqHref({ view: v })}
-                    aria-current={requestView === v ? "true" : undefined}
-                    className={worklistChipClass(requestView === v)}
+                    href={reqHref({ mine: !mineOnly })}
+                    aria-pressed={mineOnly}
+                    className={worklistChipClass(mineOnly)}
                   >
-                    {REQUEST_VIEW_LABEL[v]}
+                    เฉพาะของฉัน
                   </Link>
-                ))}
-                <span aria-hidden className="bg-edge-strong mx-1 h-5 w-px" />
-                <Link
-                  href={reqHref({ mine: !mineOnly })}
-                  aria-pressed={mineOnly}
-                  className={worklistChipClass(mineOnly)}
-                >
-                  เฉพาะของฉัน
-                </Link>
-              </div>
+                </div>
+                {/* Spec 311 U1: the project disambiguator — renders only when the
+                    visible rows span >1 project (multi-project actives). */}
+                <SiteProjectChips chips={siteProjectChips} />
+              </>
             ) : null}
           </div>
           {myError ? (
@@ -690,7 +746,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     </span>
                     {group.overdue > 0 ? (
                       <span className="bg-danger text-on-fill text-meta inline-flex h-5 items-center rounded-full px-2 font-bold">
-                        เลยกำหนด {group.overdue}
+                        {DELIVERY_OVERDUE_FLAG} {group.overdue}
                       </span>
                     ) : null}
                   </div>
@@ -699,7 +755,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                     <div
                       className="flex flex-wrap items-center gap-1 text-xs"
                       role="group"
-                      aria-label="ตัวกรองการจัดส่ง"
+                      aria-label={DELIVERY_LENS_FILTER_ARIA}
                     >
                       {INCOMING_LENSES.map((lens) => (
                         <Link

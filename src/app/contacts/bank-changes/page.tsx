@@ -2,8 +2,14 @@
 // behind the dashboard's bank-change awareness card: every pending change in one
 // place with an inline approve/reject, instead of hunting through the contractor
 // list. Bank fields are money (zero authenticated grant) → admin-read behind the
-// requireRole(PM_ROLES) gate, exactly like the contractor detail page. Deciders
-// are pm/super/director (the decide RPC gate); procurement is excluded.
+// requireRole gate, exactly like the contractor detail page.
+//
+// DC edit matrix (2026-07-13): the gate widens to PM_ROLES + procurement_manager so
+// procurement_manager can approve WORKER bank changes (it owns ช่าง onboarding) —
+// matching the widened decide_worker_bank_change RPC. CONTRACTOR deciders stay
+// pm/super/director (decideBankChange + its RPC unchanged), so a procurement_manager
+// sees contractor rows here too but a contractor decide returns 42501 (the RPC
+// refuses). Plain procurement remains excluded from the page entirely.
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -18,6 +24,7 @@ import {
   buildBankChangeQueue,
   buildWorkerBankChangeQueue,
 } from "@/lib/approvals/bank-change-queue";
+import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
 import { formatThaiDateTime } from "@/lib/i18n/labels";
 
 export const metadata = { title: "การเปลี่ยนบัญชีรอการอนุมัติ" };
@@ -25,7 +32,7 @@ export const metadata = { title: "การเปลี่ยนบัญชี�
 const REVALIDATE = "/contacts/bank-changes";
 
 export default async function BankChangeQueuePage() {
-  const ctx = await requireRole(PM_ROLES);
+  const ctx = await requireRole([...PM_ROLES, "procurement_manager"]);
   const admin = createAdminSupabase();
 
   // Both queues at once: contractor changes (→ contact_bank) and worker changes
@@ -39,7 +46,9 @@ export default async function BankChangeQueuePage() {
       .order("created_at", { ascending: true }),
     admin
       .from("worker_bank_change_requests")
-      .select("id, worker_id, bank_name, bank_account_number, bank_account_name, created_at")
+      .select(
+        "id, worker_id, bank_name, bank_account_number, bank_account_name, book_bank_path, created_at",
+      )
       .eq("status", "pending")
       .order("created_at", { ascending: true }),
   ]);
@@ -63,6 +72,21 @@ export default async function BankChangeQueuePage() {
     ...buildBankChangeQueue(rows, namesById),
     ...buildWorkerBankChangeQueue(workerRows, workerNamesById),
   ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  // Spec 315 U2 — sign the worker requests' passbook photos so the approver can
+  // verify the typed account number against the evidence. The storage read policy
+  // is owner-only, so signing rides the admin client behind the same requireRole
+  // gate as the bank fields themselves (the spec-296-U3 exposure model).
+  const photoPaths = items.flatMap((it) => (it.bookBankPath ? [it.bookBankPath] : []));
+  const photoUrlByPath = new Map<string, string>();
+  if (photoPaths.length > 0) {
+    const { data: signed } = await admin.storage
+      .from(CONTACT_DOCS_BUCKET)
+      .createSignedUrls(photoPaths, 120);
+    for (const s of signed ?? []) {
+      if (s.path && s.signedUrl && !s.error) photoUrlByPath.set(s.path, s.signedUrl);
+    }
+  }
 
   return (
     <PageShell>
@@ -103,6 +127,23 @@ export default async function BankChangeQueuePage() {
                     <dd className="font-mono">{it.accountNo ?? "—"}</dd>
                   </div>
                 </dl>
+                {it.bookBankPath ? (
+                  photoUrlByPath.get(it.bookBankPath) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoUrlByPath.get(it.bookBankPath)}
+                      alt="รูปสมุดบัญชี"
+                      className="border-edge rounded-control mt-2 h-40 w-full border object-contain"
+                    />
+                  ) : (
+                    // A photo was declared but can't be signed — surface it loudly
+                    // so a broken/dangling photo never reads like a legacy no-photo
+                    // row (the approver's verify-against-passbook gate depends on it).
+                    <p className="text-attn-ink mt-2 text-sm font-medium">
+                      แนบรูปสมุดบัญชีไว้แต่เปิดไม่ได้ — ตรวจสอบก่อนอนุมัติ
+                    </p>
+                  )
+                ) : null}
                 <p className="text-ink-muted mt-2 text-xs">
                   ส่งคำขอเมื่อ {formatThaiDateTime(it.createdAt)}
                 </p>

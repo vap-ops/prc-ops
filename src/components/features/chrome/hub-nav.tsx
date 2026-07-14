@@ -76,6 +76,10 @@ export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: SUBCONTRACTOR_LABEL, href: "/contacts/subcontractors" },
   // Spec 172 Phase C: procurement onboards ช่าง (incl. the pay rate).
   { label: "ทีมงาน", href: "/workers" },
+  // Spec 309: ค่าแรง (payroll) lifted out of ตั้งค่า → ทีมช่าง — procurement
+  // summarises wages per person (now with the per-project filter), so it earns
+  // a top-level home instead of being buried in Settings.
+  { label: "ค่าแรง", href: "/payroll" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
@@ -92,6 +96,8 @@ export const PROCUREMENT_MANAGER_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ผู้ขาย", href: "/contacts/vendors" },
   { label: SUBCONTRACTOR_LABEL, href: "/contacts/subcontractors" },
   { label: "ทีมงาน", href: "/workers" },
+  // Spec 309: ค่าแรง surfaced for the manager strip too (mirrors procurement).
+  { label: "ค่าแรง", href: "/payroll" },
   { label: "คำขอสมัคร", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];

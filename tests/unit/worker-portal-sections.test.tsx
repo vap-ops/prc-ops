@@ -60,6 +60,7 @@ describe("WorkerPortalSections", () => {
   it("renders the ช่าง's wage history, tax id, bank, and wires the child sections", () => {
     render(
       <WorkerPortalSections
+        uid="11111111-1111-1111-1111-111111111111"
         wp={WP}
         payments={PAYMENTS}
         consents={[]}
@@ -81,7 +82,14 @@ describe("WorkerPortalSections", () => {
 
   it("shows the empty wage-history notice when there are no payments", () => {
     render(
-      <WorkerPortalSections wp={WP} payments={[]} consents={[]} receipts={[]} hasPendingBank />,
+      <WorkerPortalSections
+        uid="11111111-1111-1111-1111-111111111111"
+        wp={WP}
+        payments={[]}
+        consents={[]}
+        receipts={[]}
+        hasPendingBank
+      />,
     );
     expect(screen.getByText("ยังไม่มีประวัติการจ่ายเงิน")).toBeInTheDocument();
     expect(screen.getByTestId("worker-bank-form")).toHaveAttribute("data-pending", "true");

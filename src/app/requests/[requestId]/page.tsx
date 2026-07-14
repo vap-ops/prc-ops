@@ -11,7 +11,7 @@ import {
   isProcurementManagerTier,
   isPurchaseDecider,
 } from "@/lib/auth/role-home";
-import { workPackageHref } from "@/lib/nav/project-paths";
+import { workPackageHref, deliveryReceiveHref } from "@/lib/nav/project-paths";
 import { safeBackHref, withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { isValidUuid } from "@/lib/photos/path";
@@ -34,7 +34,15 @@ import {
   RECEIVED_INTO_STORE_LABEL,
   RECEIVED_INTO_STORE_HINT,
   RECEIPT_PAPER_PROMPT,
+  PO_DOCS_FROM_PROCUREMENT_LABEL,
+  INVOICE_PAPER_MISSING_LABEL,
+  DELIVERY_PHOTO_MISSING_LABEL,
+  DELIVERY_RECEIVE_PAGE_TITLE,
+  deliveredQtyCaption,
+  WORK_CATEGORY_MATCH_LABEL,
+  WORK_CATEGORY_MISMATCH_LABEL,
 } from "@/lib/i18n/labels";
+import { AlertTriangle, Check } from "lucide-react";
 import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
@@ -56,6 +64,9 @@ import { PurchaseRequestAttachmentStager } from "@/components/features/purchasin
 import { AttachmentRemoveButton } from "@/components/features/purchasing/attachment-remove-button";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { loadRequestDetail } from "@/lib/purchasing/load-request-detail";
+import { planRequestDocSections } from "@/lib/purchasing/request-doc-sections";
+import { InvoiceDocsDisplay } from "@/components/features/purchasing/invoice-docs-display";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { AttentionCard } from "@/components/features/common/attention-card";
@@ -90,7 +101,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   const supabase = await createClient();
   const { data: request } = await supabase
     .from("purchase_requests")
-    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at, catalog_item_id`)
+    .select(`${PR_LIST_COLUMNS}, notes, source, acknowledged_at, catalog_item_id, delivery_id`)
     .eq("id", requestId)
     .maybeSingle();
 
@@ -102,6 +113,12 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   // Spec 300 U2 / spec 195 P3: a delivered store-bound (WP-less) PR has its stock_receipt
   // auto-booked — tell the SA the goods landed in the store.
   const receivedIntoStore = isReceivedIntoStore(status, request.work_package_id);
+  // Spec 308 U2: a PR that rides a delivery receives on the dedicated ของเข้า
+  // receive page — the จัดซื้อ card shrinks to a link there. A delivery-less PR
+  // keeps the full inline receive card (fallback).
+  const deliveryReceivePath = request.delivery_id
+    ? deliveryReceiveHref(request.project_id, request.delivery_id)
+    : null;
   const priority = request.priority;
   const isMine = request.requested_by === ctx.id;
 
@@ -127,8 +144,19 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
 
   // Spec 147 U3: one loader batches the request-detail reads (was a serial
   // waterfall). Same queries/columns/results — only the scheduling changes.
-  const { wp, requesterName, attachments, attachmentUrls, poRow, poDocs, poDocUrls, suppliers } =
-    await loadRequestDetail(supabase, request, { isBackOffice });
+  const {
+    wp,
+    wpCategoryCode,
+    categoryMatch,
+    projectName,
+    requesterName,
+    attachments,
+    attachmentUrls,
+    poRow,
+    poDocs,
+    poDocUrls,
+    suppliers,
+  } = await loadRequestDetail(supabase, request, { isBackOffice });
 
   // Attachment splits (spec 23/16 P2, spec 66/121): pure filters over the
   // current-state rows. Links are exactly kind 'link' (a pdf is not a link).
@@ -151,6 +179,16 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
   const referenceLinks = attachments.filter(
     (row) => row.purpose === "reference" && row.kind === "link",
   );
+
+  // Spec 302: the document-section visibility plan — ownership-aware, so the
+  // SA's paper-capture job and procurement's paperwork stop reading alike.
+  const docPlan = planRequestDocSections({
+    status,
+    isBackOffice,
+    hasPaymentDocs: paymentImages.length > 0 || paymentPdfs.length > 0,
+    hasInvoiceDocs: invoiceImages.length > 0 || invoicePdfs.length > 0,
+    hasDeliveryPhotos: confirmations.length > 0,
+  });
 
   // Spec 182 U1: supplier quotes for price comparison — only on an approved PR,
   // back-office only (unit_price is money; RLS hides the table from site staff).
@@ -225,10 +263,16 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
       <BottomTabBar role={ctx.role} />
       {/* Spec 63: the consolidated shell. */}
       <DetailHeader backHref={safeBackHref(from, "/requests")} backLabel="กลับไปจัดซื้อ">
+        {/* Spec 301f: name the project — procurement spans projects, and the WP
+            line alone doesn't say where this PR belongs. Best-effort: a viewer
+            whose RLS can't read the projects row just gets no line. */}
+        {projectName ? (
+          <p className="text-ink-muted w-fit truncate text-[10px] font-medium">{projectName}</p>
+        ) : null}
         {wp ? (
           isProcurement ? (
             <span className="text-ink-secondary w-fit truncate text-xs">
-              <span className="font-mono">{wp.code}</span>
+              <WpCategoryCode code={wp.code} categoryCode={wpCategoryCode} />
               <span className="mx-1">·</span>
               {wp.name}
             </span>
@@ -237,7 +281,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
               href={withBackFrom(workPackageHref(wp.project_id, wp.id), `/requests/${requestId}`)}
               className="text-ink-secondary w-fit truncate text-xs hover:underline focus:outline-none focus-visible:underline"
             >
-              <span className="font-mono">{wp.code}</span>
+              <WpCategoryCode code={wp.code} categoryCode={wpCategoryCode} />
               <span className="mx-1">·</span>
               {wp.name}
             </Link>
@@ -250,6 +294,18 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
             </p>
             {/* Spec 57: the page's subject never truncates. */}
             <h1 className={DETAIL_TITLE}>{request.item_description}</h1>
+            {/* Spec 301 U2: the approver-side off-category verdict — the same
+                passive flag the picker showed at pick time (spec 297), recomputed
+                here where the approve/PO decision happens. Never blocks. */}
+            {categoryMatch === "match" ? (
+              <p className="text-done-strong mt-0.5 inline-flex items-center gap-0.5 text-xs font-medium">
+                <Check aria-hidden className="size-3.5" /> {WORK_CATEGORY_MATCH_LABEL}
+              </p>
+            ) : categoryMatch === "mismatch" ? (
+              <p className="text-attn-press mt-0.5 inline-flex items-center gap-0.5 text-xs font-medium">
+                <AlertTriangle aria-hidden className="size-3.5" /> {WORK_CATEGORY_MISMATCH_LABEL}
+              </p>
+            ) : null}
           </div>
           <span className="mt-1 flex shrink-0 flex-col items-end gap-1">
             <StatusPill
@@ -477,9 +533,24 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
             <h2 className="text-ink text-base font-semibold">การรับของ</h2>
             <div className="mt-2 flex flex-col gap-2">
+              {/* Spec 303: photo-less delivered = no receive proof (the BO
+                  checklist path can produce this) — amber, every role. */}
+              {docPlan.deliveryPhotoMissingFlag ? (
+                <p className="text-attn-ink text-xs font-medium">{DELIVERY_PHOTO_MISSING_LABEL}</p>
+              ) : null}
               {confirmations.length > 0 ? (
                 <div>
-                  <p className="text-ink-secondary text-xs font-medium">รูปยืนยันการรับของ</p>
+                  <p className="text-ink-secondary text-xs font-medium">
+                    รูปยืนยันการรับของ
+                    {/* Spec 303: the photos↔amount pairing, per PR row (แบ่งรับ
+                        splits are separate rows, so this is per-event exact). */}
+                    {status === "delivered" ? (
+                      <span className="text-ink-muted font-normal">
+                        {" · "}
+                        {deliveredQtyCaption(request.quantity, request.unit)}
+                      </span>
+                    ) : null}
+                  </p>
                   <ul className="mt-1 flex flex-wrap gap-2">
                     {confirmations.map((photo, idx, arr) => {
                       const url = photo.id ? attachmentUrls.get(photo.id) : undefined;
@@ -515,25 +586,61 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                   </span>
                 </p>
               ) : null}
-              <DeliveryPhotoUploader
-                purchaseRequestId={request.id}
-                projectId={request.project_id}
-                userId={ctx.id}
-              />
-              {/* Spec 300 U2: capture the paper receipt (ใบส่งของ/ใบเสร็จ) at the receive moment */}
-              <div className="border-edge flex flex-col gap-1 border-t pt-2">
-                <p className="text-ink-secondary text-xs font-medium">{RECEIPT_PAPER_PROMPT}</p>
-                <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
-              </div>
+              {/* Spec 308 U2: receiving happens on the delivery page (ของเข้า owns it);
+                  the จัดซื้อ card keeps status + photos-as-view + flags and links there.
+                  A delivery-less PR keeps the full inline uploaders (fallback). */}
+              {deliveryReceivePath ? (
+                <Link
+                  href={withBackFrom(deliveryReceivePath, `/requests/${requestId}`)}
+                  className="text-action inline-flex min-h-11 items-center text-sm font-medium underline-offset-2 hover:underline"
+                >
+                  {DELIVERY_RECEIVE_PAGE_TITLE}ที่หน้าของเข้า →
+                </Link>
+              ) : (
+                <>
+                  <DeliveryPhotoUploader
+                    purchaseRequestId={request.id}
+                    projectId={request.project_id}
+                    userId={ctx.id}
+                  />
+                  {/* Spec 300 U2 + 302: capture the paper receipt (ใบส่งของ/ใบเสร็จ) at
+                      the receive moment — the SA's paper job lives in ONE card (the
+                      standalone เอกสาร card is gone at these statuses). */}
+                  <div className="border-edge flex flex-col gap-2 border-t pt-2">
+                    <p className="text-ink-secondary text-xs font-medium">{RECEIPT_PAPER_PROMPT}</p>
+                    {docPlan.invoiceDocsInReceiveCard ? (
+                      <InvoiceDocsDisplay
+                        images={invoiceImages}
+                        pdfs={invoicePdfs}
+                        urls={attachmentUrls}
+                        viewerId={ctx.id}
+                      />
+                    ) : null}
+                    {docPlan.invoiceMissingFlag ? (
+                      <p className="text-attn-ink text-xs font-medium">
+                        {INVOICE_PAPER_MISSING_LABEL}
+                      </p>
+                    ) : null}
+                    <InvoiceUploader
+                      purchaseRequestId={request.id}
+                      projectId={request.project_id}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : null}
 
-        {poDocs.length > 0 ? (
-          <div className="rounded-card border-edge bg-card shadow-card border p-4">
-            <h2 className="text-ink text-base font-semibold">
-              เอกสารใบสั่งซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)
-            </h2>
+        {poDocs.length > 0 && docPlan.showPoDocsSection ? (
+          /* Spec 302/304: procurement's PO paperwork — back-office only now
+             (spec 304 asymmetry), collapsed out of the action path. */
+          <details className="rounded-card border-edge bg-card shadow-card border p-4">
+            <summary className="cursor-pointer">
+              <h2 className="text-ink inline text-base font-semibold">
+                {PO_DOCS_FROM_PROCUREMENT_LABEL}
+              </h2>
+            </summary>
             <div className="mt-2 flex flex-col gap-2">
               {poDocs.some((d) => d.kind === "image") ? (
                 <ul className="flex flex-wrap gap-2">
@@ -566,118 +673,49 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                   return <AttachmentPdf key={doc.id} src={url} />;
                 })}
             </div>
-          </div>
+          </details>
         ) : null}
 
-        {status === "purchased" ||
-        status === "on_route" ||
-        status === "delivered" ||
-        status === "site_purchased" ? (
+        {/* Spec 302: at on_route/delivered this whole card folds into the การรับของ
+            card above (docPlan) — no second "ยังไม่มีเอกสาร" task for the SA. It
+            remains for the pre-delivery states (purchased/site_purchased). */}
+        {(status === "purchased" || status === "site_purchased") &&
+        docPlan.showStandaloneInvoiceCard ? (
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
             <h2 className="text-ink text-base font-semibold">เอกสาร (ใบส่งของ / ใบเสร็จ)</h2>
             <div className="mt-2 flex flex-col gap-2">
-              {invoiceImages.length > 0 ? (
-                <ul className="flex flex-wrap gap-2">
-                  {invoiceImages.map((doc, idx, arr) => {
-                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
-                    if (!doc.id || !url) return null;
-                    /* Spec 50: invoice images form their own lightbox group. */
-                    const groupUrls = arr.flatMap((a) =>
-                      a.id && attachmentUrls.get(a.id) ? [attachmentUrls.get(a.id) as string] : [],
-                    );
-                    const groupIndex = arr
-                      .slice(0, idx)
-                      .filter((a) => a.id && attachmentUrls.get(a.id)).length;
-                    return (
-                      <li key={doc.id} className="flex flex-col items-center gap-0.5">
-                        <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
-                          <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
-                        </span>
-                        {doc.created_by === ctx.id ? (
-                          <AttachmentRemoveButton attachmentId={doc.id} />
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-              {/* Spec 121: invoice PDFs render in the iframe viewer. */}
-              {invoicePdfs.length > 0 ? (
-                <ul className="flex flex-col gap-2">
-                  {invoicePdfs.map((doc) => {
-                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
-                    if (!doc.id || !url) return null;
-                    return (
-                      <li key={doc.id} className="flex flex-col gap-0.5">
-                        <AttachmentPdf src={url} />
-                        {doc.created_by === ctx.id ? (
-                          <AttachmentRemoveButton attachmentId={doc.id} />
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
+              <InvoiceDocsDisplay
+                images={invoiceImages}
+                pdfs={invoicePdfs}
+                urls={attachmentUrls}
+                viewerId={ctx.id}
+              />
               {invoiceImages.length === 0 && invoicePdfs.length === 0 ? (
                 <p className="text-ink-secondary text-xs">ยังไม่มีเอกสาร</p>
               ) : null}
-              {/* Spec 300 U2: for on_route/delivered the uploader lives in the รับของ card
-                  above; keep it here only for the pre-delivery states (purchased/site_purchased). */}
-              {status !== "on_route" && status !== "delivered" ? (
-                <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
-              ) : null}
+              <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
             </div>
           </div>
         ) : null}
 
-        {/* Bug 2: proof of payment (สลิปโอน) — its own section + uploader. */}
-        {status === "purchased" ||
-        status === "on_route" ||
-        status === "delivered" ||
-        status === "site_purchased" ? (
+        {/* Bug 2 + spec 302/304: proof of payment (สลิปโอน) is the BUYER's document.
+            Back-office (and site-purchase, where the SA paid) get the uploader;
+            everyone else gets NOTHING — procurement's docs are not the SA's
+            concern (spec 304 asymmetry). */}
+        {(status === "purchased" ||
+          status === "on_route" ||
+          status === "delivered" ||
+          status === "site_purchased") &&
+        docPlan.paymentSection === "uploader" ? (
           <div className="rounded-card border-edge bg-card shadow-card border p-4">
             <h2 className="text-ink text-base font-semibold">หลักฐานการชำระเงิน</h2>
             <div className="mt-2 flex flex-col gap-2">
-              {paymentImages.length > 0 ? (
-                <ul className="flex flex-wrap gap-2">
-                  {paymentImages.map((doc, idx, arr) => {
-                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
-                    if (!doc.id || !url) return null;
-                    const groupUrls = arr.flatMap((a) =>
-                      a.id && attachmentUrls.get(a.id) ? [attachmentUrls.get(a.id) as string] : [],
-                    );
-                    const groupIndex = arr
-                      .slice(0, idx)
-                      .filter((a) => a.id && attachmentUrls.get(a.id)).length;
-                    return (
-                      <li key={doc.id} className="flex flex-col items-center gap-0.5">
-                        <span className="border-edge block h-20 w-20 overflow-hidden rounded-lg border">
-                          <ZoomablePhoto src={url} group={groupUrls} groupIndex={groupIndex} />
-                        </span>
-                        {doc.created_by === ctx.id ? (
-                          <AttachmentRemoveButton attachmentId={doc.id} />
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-              {paymentPdfs.length > 0 ? (
-                <ul className="flex flex-col gap-2">
-                  {paymentPdfs.map((doc) => {
-                    const url = doc.id ? attachmentUrls.get(doc.id) : undefined;
-                    if (!doc.id || !url) return null;
-                    return (
-                      <li key={doc.id} className="flex flex-col gap-0.5">
-                        <AttachmentPdf src={url} />
-                        {doc.created_by === ctx.id ? (
-                          <AttachmentRemoveButton attachmentId={doc.id} />
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
+              <InvoiceDocsDisplay
+                images={paymentImages}
+                pdfs={paymentPdfs}
+                urls={attachmentUrls}
+                viewerId={ctx.id}
+              />
               {paymentImages.length === 0 && paymentPdfs.length === 0 ? (
                 <p className="text-ink-secondary text-xs">ยังไม่มีหลักฐานการชำระเงิน</p>
               ) : null}
@@ -710,6 +748,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                   quantity: request.quantity,
                   unit: request.unit,
                   wp_code: wp?.code ?? null,
+                  wp_category_code: wpCategoryCode,
                 }}
               />
             ) : null}

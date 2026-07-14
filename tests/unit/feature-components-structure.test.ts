@@ -34,6 +34,9 @@ const ALLOWED_DOMAINS = [
   "sa",
   // Spec 212: the SA daily report (LINE Flex preview button, capture screen).
   "daily-report",
+  // Spec 306 U3: the morning-talk muster cockpit (team forming + scan/tap
+  // check-in/out) and its BarcodeDetector QR camera layer.
+  "muster",
   // Feedback 1d648880: the projects-hub filter/sort bar.
   "projects",
   // Spec 220 (G63): the super_admin role-admin controls.
@@ -60,6 +63,8 @@ const ALLOWED_DOMAINS = [
   "legal",
   // Spec 291 U2: the /profile digital employee-ID card.
   "profile",
+  // Spec 310: non-WP office expenses (card registry + expense form/list/queue).
+  "expenses",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

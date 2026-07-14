@@ -58,9 +58,10 @@ select is((select bank_account_number from public.get_my_worker_profile()),
 -- ============================================================================
 -- C. update_own_worker_profile — self + column scoped.
 -- ============================================================================
+-- Spec 317 U1: re-signatured to 5 args — DOB left the instant tier (approval flow).
 select lives_ok(
   $$ select public.update_own_worker_profile('0812345678', 'dca@line.local',
-       'Mère', 'แม่', '0899999999', date '1990-05-01') $$,
+       'Mère', 'แม่', '0899999999') $$,
   'bound DC updates their own profile');
 
 reset role;
@@ -71,7 +72,7 @@ select is((select email from public.workers where id = 'aa000001-0000-4000-8000-
 select is((select emergency_contact_name from public.workers where id = 'aa000001-0000-4000-8000-000000004171'),
   'Mère', 'emergency contact name updated');
 select is((select date_of_birth from public.workers where id = 'aa000001-0000-4000-8000-000000004171'),
-  date '1990-05-01', 'date of birth updated');
+  null::date, 'date of birth untouched — no longer self-editable (spec 317)');
 -- Column scope: name / day_rate / tax_id are NOT writable through this RPC.
 select is((select name from public.workers where id = 'aa000001-0000-4000-8000-000000004171'),
   'DC A', 'name is untouched (column scope)');
@@ -86,7 +87,7 @@ select is((select tax_id from public.workers where id = 'aa000001-0000-4000-8000
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444444171"}';
 select throws_ok(
-  $$ select public.update_own_worker_profile('x', null, null, null, null, null) $$,
+  $$ select public.update_own_worker_profile('x', null, null, null, null) $$,
   '42501', null, 'an unbound caller cannot update a worker profile');
 select is((select count(*) from public.get_my_worker_profile()),
   0::bigint, 'an unbound caller reads zero profile rows');

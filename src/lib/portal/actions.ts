@@ -14,6 +14,7 @@ import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { isValidPhotoExt } from "@/lib/photos/path";
 import { buildContactDocPath } from "@/lib/contacts/document-path";
+import { buildTechnicianDocPath } from "@/lib/register/technician-path";
 import { claimErrorToThai } from "./claim-error";
 import { validateBankChange } from "./bank-change";
 import { validateEmergencyContact } from "./emergency-contact";
@@ -85,23 +86,37 @@ export async function submitBankChange(input: {
 // approval). The worker analogue of submitBankChange; submit_worker_bank_change
 // enforces bound-worker-only / own / one-pending. Reuses validateBankChange (the
 // shape/UX rules are identical). RLS-scoped session.
+//
+// Spec 315 U2 — the request now carries a REQUIRED passbook photo. The client
+// uploads to storage first and passes {attachmentId, ext}; the path is REBUILT
+// server-side from the session uid (never trusted from the client — the
+// addStaffRegistrationDoc discipline), and the RPC re-checks owner/purpose.
 export async function submitWorkerBankChange(input: {
   bankName: string;
   accountNo: string;
   accountName: string;
+  attachmentId: string;
+  ext: string;
   revalidate: string;
 }): Promise<ActionResult> {
   if (!input.revalidate.startsWith("/")) return { ok: false, error: GENERIC_BANK };
   const validation = validateBankChange(input);
   if (validation) return { ok: false, error: validation };
+  if (!UUID_REGEX.test(input.attachmentId) || !isValidPhotoExt(input.ext)) {
+    return { ok: false, error: GENERIC_BANK };
+  }
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const path = buildTechnicianDocPath(auth.user.id, "book_bank", input.attachmentId, input.ext);
+  if (!path) return { ok: false, error: GENERIC_BANK };
 
   const { error } = await auth.supabase.rpc("submit_worker_bank_change", {
     p_bank_name: input.bankName.trim(),
     p_bank_account_number: input.accountNo.trim(),
     p_bank_account_name: input.accountName.trim(),
+    p_book_bank_path: path,
   });
   if (error) {
     if (error.message.includes("already exists")) {
@@ -167,8 +182,13 @@ export async function decideWorkerBankChange(input: {
     .maybeSingle();
   // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
   const effectiveRole = await applyAssumedRole(me?.role);
-  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
-    return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่อนุมัติได้" };
+  // DC edit matrix (2026-07-13): procurement_manager joins the WORKER bank-change
+  // deciders — it owns ช่าง onboarding (spec 261 / ADR 0070; completes the
+  // capture-blind bank transcribe, spec 298 U3), mirroring the widened
+  // decide_worker_bank_change RPC gate. Plain procurement stays OUT (buyer, not an
+  // approver of worker money). The CONTRACTOR path (decideBankChange) is unchanged.
+  if (!effectiveRole || ![...PM_ROLES, "procurement_manager"].includes(effectiveRole)) {
+    return { ok: false, error: "คุณไม่มีสิทธิ์อนุมัติการเปลี่ยนบัญชี" };
   }
 
   const { error } = await auth.supabase.rpc("decide_worker_bank_change", {
@@ -235,16 +255,16 @@ export async function updateOwnContactInfo(input: {
 }
 
 // Spec 170 U4b / ADR 0062 — a bound ช่าง self-edits their own portal profile
-// (contact + emergency + DOB) in one call. update_own_worker_profile is
-// column-scoped to those six fields for current_user_worker_id() (name/day_rate/
-// tax_id stay out of reach). Not money → applies directly, no staging.
+// (contact + emergency) in one call. update_own_worker_profile is column-scoped
+// to those five fields for current_user_worker_id() (name/day_rate/tax_id stay
+// out of reach; DOB routes through the spec 317 identity approval flow). Not
+// money → applies directly, no staging.
 export async function updateOwnWorkerProfile(input: {
   phone: string;
   email: string;
   emergencyName: string;
   emergencyRelation: string;
   emergencyPhone: string;
-  dob: string;
 }): Promise<ActionResult> {
   const validation = validateWorkerProfile(input);
   if (validation) return { ok: false, error: validation };
@@ -258,7 +278,6 @@ export async function updateOwnWorkerProfile(input: {
     p_emergency_name: input.emergencyName.trim(),
     p_emergency_relation: input.emergencyRelation.trim(),
     p_emergency_phone: input.emergencyPhone.trim(),
-    ...(input.dob ? { p_dob: input.dob } : {}),
   });
   if (error) return { ok: false, error: GENERIC_BANK };
   revalidatePath("/portal");

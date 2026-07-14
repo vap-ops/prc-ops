@@ -19,12 +19,15 @@ import { CARD } from "@/lib/ui/classes";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
 import { EmployeeCard } from "@/components/features/register/employee-card";
+import { WorkerBadgeQr } from "@/components/features/common/worker-badge-qr";
+import { toWorkerBadgeQrSvg } from "@/lib/muster/badge-qr";
 import { resolveCardPhoto } from "@/lib/register/card-view";
 import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
 } from "@/lib/register/own-registration";
 import { WorkerPortalSections } from "@/components/features/portal/worker-portal-sections";
+import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
 import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { type PortalReceipt } from "@/components/features/portal/portal-receipts";
 import { type PortalConsent } from "@/components/features/portal/portal-self-edit";
@@ -57,6 +60,9 @@ export default async function TechnicianHomePage() {
     { data: workerConsentRows },
     { data: receiptRows },
     { data: pendingBankRows },
+    // Spec 306 U3a — the caller's own workers.id for their muster check-in QR
+    // (self-scoped; null for non-workers). Batched here to avoid an extra hop.
+    { data: workerId },
   ] = await Promise.all([
     supabase.rpc("get_my_wage_payments"),
     supabase
@@ -71,7 +77,13 @@ export default async function TechnicianHomePage() {
       .is("received_at", null)
       .order("issued_at", { ascending: false }),
     supabase.from("worker_bank_change_requests").select("id").eq("status", "pending").limit(1),
+    supabase.rpc("current_user_worker_id"),
   ]);
+
+  // Spec 306 U3a — present the QR on their home so they can show it at the morning
+  // talk instead of carrying a printed badge. Payload = the caller's workers.id
+  // (a technician is always a bound worker; uid fallback is defensive).
+  const badgeSvg = await toWorkerBadgeQrSvg(workerId ?? uid);
   const receipts: PortalReceipt[] = (receiptRows ?? []).map((r) => ({
     id: r.id,
     baseItem: r.catalog_items?.base_item ?? "",
@@ -106,6 +118,13 @@ export default async function TechnicianHomePage() {
           />
         ) : null}
 
+        <WorkerBadgeQr svg={badgeSvg} />
+
+        {/* Spec 315 U1 — ID-card renewal (self-serve supersede) once approved. */}
+        {registration?.status === "approved" ? (
+          <WorkerIdCardUpdate uid={uid} currentUrl={urls.id_card ?? null} />
+        ) : null}
+
         <div className={CARD}>
           <div className="flex items-center gap-2">
             <p className="text-ink text-sm font-semibold">งานที่ได้รับมอบหมาย</p>
@@ -120,6 +139,7 @@ export default async function TechnicianHomePage() {
         {wp ? (
           <div>
             <WorkerPortalSections
+              uid={uid}
               wp={wp}
               payments={workerPayments ?? []}
               consents={(workerConsentRows ?? []) as PortalConsent[]}

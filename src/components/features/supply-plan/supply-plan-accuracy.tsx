@@ -8,12 +8,16 @@ export type AccuracyRow = {
   workPackageId: string | null;
   wpCode: string | null;
   wpName: string | null;
+  /** Spec 301 U3: reconciled W0x code for the letter-code render (null = raw). */
+  categoryCode: string | null;
   plannedLines: number;
   plannedQty: number;
   unplannedMiss: number;
   fairReactive: number;
   untagged: number;
 };
+
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 
 const CARD = "border-edge bg-card rounded-control border px-4 py-3";
 
@@ -101,7 +105,9 @@ export function SupplyPlanAccuracy({ rows }: { rows: AccuracyRow[] }) {
                     <td className="px-4 py-2">
                       {r.workPackageId ? (
                         <>
-                          <span className="text-ink-secondary font-mono">{r.wpCode}</span>
+                          <span className="text-ink-secondary">
+                            <WpCategoryCode code={r.wpCode ?? ""} categoryCode={r.categoryCode} />
+                          </span>
                           <span className="text-ink-muted mx-1">·</span>
                           <span className="text-ink">{r.wpName}</span>
                         </>

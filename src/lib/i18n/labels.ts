@@ -24,6 +24,30 @@ export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
 export const WORKER_LABEL = "ช่าง";
 export const WORKER_TEAM_LABEL = "ทีมช่าง";
 
+// Spec 314 / ADR 0082 — the firm-wide standard day-rate per skill level + WHT.
+// PM-maintained (procurement_manager/super_admin); the /settings/labor-rates door.
+// (The worker-level Thai labels reuse WORKER_LEVEL_LABEL from src/lib/nova/dials.ts
+// — the established SSOT used by the roster/nova/SA surfaces; don't re-declare it.)
+export const LABOR_RATES_LABEL = "ค่าแรงมาตรฐาน";
+export const LABOR_RATES_HINT = "อัตราค่าแรงมาตรฐานต่อระดับฝีมือ · ภาษีหัก ณ ที่จ่าย";
+export const LABOR_RATE_INPUT_LABEL = "อัตรา/วัน (บาท)";
+export const LABOR_RATE_GROSS_LABEL = "ค่าแรงเต็ม";
+export const LABOR_RATE_UNSET = "ยังไม่กำหนด";
+export const LABOR_RATE_SAVE_LABEL = "บันทึก";
+export const LABOR_RATE_NUMBER_ERROR = "กรอกเป็นตัวเลขเท่านั้น (ไม่ใส่จุลภาค)";
+export const WHT_BASIS_LABEL = "ฐานภาษี";
+export const WHT_BASIS_BEFORE_LABEL = "ก่อนหักภาษี";
+export const WHT_BASIS_AFTER_LABEL = "หลังหักภาษี";
+export const WHT_PCT_LABEL = "ภาษีหัก ณ ที่จ่าย (%)";
+
+// Spec 314 U4 — payroll withholding/net display terms (the /payroll roll-up + the
+// per-worker cards). The gross figure is the standalone headline (unlabeled, as the
+// pre-314 total was); these two label the WHT/net split beneath it. Single-sourced
+// here so the page never drifts; the CSV export pins its own column headers in
+// payroll.ts.
+export const PAYROLL_WHT_LABEL = "หัก ณ ที่จ่าย";
+export const PAYROLL_NET_LABEL = "สุทธิ";
+
 // Feedback bc6df601 — neutral fallback shown when a display name can't be
 // resolved from its id (e.g. a role that can't read `public.clients` sees a
 // project's client but not its name). The UI must NEVER echo the raw id/UUID;
@@ -49,6 +73,9 @@ export const WP_LEAF_LABEL = "งานย่อย";
 // (U2) and the morning worklist (U3) can't drift. Button microcopy (มาทำ /
 // ทั้งหมดมาทำ / เพิ่ม+งานย่อย) is composed where used.
 export const DAILY_WORK_PLAN_LABEL = "แผนพรุ่งนี้";
+// Spec 306 U3 — the morning-talk muster (check-in). SSOT'd because the project
+// cockpit CTA, the /projects/[id]/muster page title + header all name it.
+export const MUSTER_LABEL = "เช็คชื่อ";
 export const SUBWP_RESPONSIBLE_LABEL = "ผู้รับผิดชอบงานย่อย";
 // Spec 273 U5 — relative-day qualifiers for the date-navigable board stepper (and
 // the /sa "แก้ไขแผนวันนี้" deep-link). SSOT'd because both surfaces use them.
@@ -128,6 +155,20 @@ export const CURRENT_SITE_AUTO_HINT = "อัตโนมัติ";
 export const VIEWING_SITE_LABEL = "กำลังดู";
 export const CLEAR_SITE_OVERRIDE_LABEL = "กลับไซต์หลัก";
 
+// Spec 298 U2 — SA onboarding front door on /sa/crew: one "add new" button opens an
+// onboarding sheet branching มีมือถือ (self-serve QR + coaching) / ไม่มีมือถือ
+// (capture-blind add: identity + a REQUIRED passbook photo). The bank-pending chip
+// marks a roster worker awaiting a PM's bank transcription (spec 298 U3).
+export const ADD_TECHNICIAN_LABEL = "เพิ่มช่างใหม่";
+export const ADD_TECHNICIAN_HAS_PHONE_LABEL = "มีมือถือ";
+export const ADD_TECHNICIAN_NO_PHONE_LABEL = "ไม่มีมือถือ";
+export const ADD_TECHNICIAN_HAS_PHONE_HINT =
+  "ให้ช่างสแกน QR ของโครงการด้วยมือถือตัวเอง แล้วกรอกข้อมูลและบัญชีธนาคารเอง";
+export const ADD_TECHNICIAN_NO_PHONE_HINT =
+  "กรอกชื่อ–เลขบัตรประชาชน–วันเกิด แล้วถ่ายรูปหรือแนบรูปสมุดบัญชี (ผู้จัดการจะกรอกเลขบัญชีให้ภายหลัง)";
+export const PASSBOOK_PHOTO_LABEL = "รูปสมุดบัญชีธนาคาร";
+export const BANK_PENDING_CHIP_LABEL = "รอ PM กรอกบัญชี";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",
@@ -192,7 +233,54 @@ export const INCOMING_LENS_LABEL: Record<IncomingLens, string> = {
 // Spec 300 U2 — the receive card: store-receipt confirmation + receipt-paper prompt.
 export const RECEIVED_INTO_STORE_LABEL = "✓ รับเข้าคลังแล้ว";
 export const RECEIVED_INTO_STORE_HINT = "รูปยืนยันการรับของบันทึกของเข้าคลังให้อัตโนมัติ";
-export const RECEIPT_PAPER_PROMPT = "ใบส่งของ / ใบเสร็จ (ถ้ามากับของ)";
+export const RECEIPT_PAPER_PROMPT = "ถ่ายรูปใบส่งของ / ใบเสร็จที่มากับของ (ถ้ามี)";
+// Spec 302 — ownership-aware document sections on the PR page: provenance
+// headings so the SA can tell procurement's paperwork from their own job.
+// Spec 304 asymmetry: procurement's docs are BO-only surfaces; the SA never
+// sees them. Procurement DOES see every SA-doc gap (the ยังไม่มี flags below).
+export const PO_DOCS_FROM_PROCUREMENT_LABEL = "เอกสารจากฝ่ายจัดซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)";
+export const INVOICE_PAPER_MISSING_LABEL = "ยังไม่มีใบส่งของ / ใบเสร็จจากหน้างาน";
+// Spec 303 — goods-photo integrity: the receive proof is taken live (capture),
+// must cover everything received, and pairs with the row's delivered amount.
+export const DELIVERY_PHOTO_COVERAGE_HINT = "ถ่ายให้เห็นของที่รับครบทุกรายการ — ถ่ายได้หลายรูป";
+export const DELIVERY_PHOTO_MISSING_LABEL = "ยังไม่มีรูปยืนยันการรับของ";
+export function deliveredQtyCaption(quantity: number, unit: string): string {
+  return `จำนวนที่รับ ${quantity} ${unit}`;
+}
+
+// Spec 305 — supplier-unknown fallback on the delivery cards. The same literal
+// predates this in 4 money-lib files (load-voucher/purchases/payables/po-list);
+// sweeping those onto this constant = follow-up (money paths are danger-gated).
+export const UNKNOWN_SUPPLIER_LABEL = "ไม่ระบุผู้ขาย";
+
+// Spec 300 U3 — the store's incoming-delivery section (คลัง & ของเข้า).
+export const STORE_INCOMING_HEADING = "ของเข้า";
+export const STORE_INCOMING_SUBTITLE = "ของที่กำลังจะเข้าคลัง — กดเพื่อดูและรับของ";
+export const STORE_INCOMING_EMPTY = "ไม่มีของกำลังเข้าในตัวกรองนี้";
+// Shared across the /requests band + the store ของเข้า section (UI-term SSOT).
+export const DELIVERY_LENS_FILTER_ARIA = "ตัวกรองการจัดส่ง";
+export const DELIVERY_OVERDUE_FLAG = "เลยกำหนด";
+// Spec 311 U1 — project disambiguation on multi-project worklists. Shared by
+// the /requests site chip row and the procurement filter bar (UI-term SSOT).
+export const ALL_PROJECTS_OPTION_LABEL = "ทุกโครงการ";
+export const PROJECT_FILTER_ARIA = "กรองตามโครงการ";
+// Spec 311 U5 — shown on /payroll when a project filter is active: payment
+// recording/status is period-wide (wage_payments has no project dimension), so
+// the paid/drift reconciliation is only meaningful in the ทุกโครงการ view.
+export const PAYROLL_PAYMENT_PERIOD_WIDE_NOTE =
+  "การจ่ายค่าแรงบันทึกรวมทุกโครงการต่อรอบ — ดูและบันทึกสถานะการจ่ายที่มุมมองทุกโครงการ";
+// Spec 307 — ของเข้า day headers (arrival grain: one card per day × supplier).
+export const STORE_INCOMING_DAY_TODAY = "วันนี้";
+export const STORE_INCOMING_DAY_UNSCHEDULED = "ยังไม่ระบุกำหนดส่ง";
+// The count chips carry an accessible name — a bare number is meaningless to a
+// screen reader. The top badge counts all incoming; a day header counts that
+// day's arrivals — distinct names so they don't read as the same quantity.
+export function storeIncomingCountAria(n: number): string {
+  return `จำนวนของเข้าทั้งหมด: ${n}`;
+}
+export function storeIncomingDayCountAria(n: number): string {
+  return `จำนวนเที่ยวส่ง: ${n}`;
+}
 
 // Spec 285 U3 — the on-site self-purchase (ซื้อเอง) is an EXPENSE: money already
 // spent, catalog-only, evidence-required (U1/U2). It gets its own tab, heading,
@@ -419,6 +507,10 @@ export const ETA_LABEL = "กำหนดรับของ";
 // and the PO stepper's received stage. Date/needed-by labels keep "รับของ" (they
 // name a date, not the action).
 export const RECEIVE_TO_STORE_LABEL = "รับเข้าคลัง";
+// Spec 308 — the dedicated delivery receive page (ของเข้า owns receiving; จัดซื้อ
+// = orders). Page title + the required-truck-photo confirm gate copy.
+export const DELIVERY_RECEIVE_PAGE_TITLE = "รับของ";
+export const TRUCK_PHOTO_REQUIRED_HINT = "ถ่ายรูปของที่มาส่งอย่างน้อย 1 รูป ก่อนยืนยันรับเข้าคลัง";
 
 // Spec 211 U10d — ONE label for the create-purchase-order action (was "สร้าง PO" /
 // "สร้างใบสั่งซื้อ (PO)" across the bundle bar, drawer, sheet title, single-PR button
@@ -727,3 +819,71 @@ export const DOCUMENT_DECISION_LABEL: Record<Enums["document_decision"], string>
   reject: "ไม่อนุมัติ",
   needs_revision: "ขอแก้ไข",
 };
+
+// Spec 310 — company-card registry (superadmin manages who holds which card).
+export const CARD_REGISTRY_LABEL = "บัตรเครดิตบริษัท";
+export const CARD_REGISTRY_HINT = "จัดการบัตรและผู้ถือบัตร (ไม่เก็บเลขบัตรเต็ม)";
+export const CARD_NAME_LABEL = "ชื่อบัตร";
+export const CARD_HOLDER_LABEL = "ผู้ถือบัตร";
+export const CARD_LAST4_LABEL = "เลข 4 ตัวท้าย (ถ้ามี)";
+export const CARD_ADD_LABEL = "เพิ่มบัตร";
+export const CARD_SAVE_LABEL = "บันทึก";
+export const CARD_CANCEL_LABEL = "ยกเลิก";
+export const CARD_EDIT_LABEL = "แก้ไข";
+export const CARD_DEACTIVATE_LABEL = "ปิดใช้งาน";
+export const CARD_DEACTIVATE_PENDING = "กำลังปิด…";
+export const CARD_DEACTIVATE_CONFIRM = "ปิดใช้งานบัตรนี้? (เพิ่มใหม่ได้ภายหลัง)";
+export const CARD_INACTIVE_BADGE = "ปิดใช้งานแล้ว";
+export const CARD_EMPTY = "ยังไม่มีบัตร";
+
+// Spec 310 U3 — the office-expense form + list at /expenses (reached via ตั้งค่า).
+export const OFFICE_EXPENSE_NAV_LABEL = "ค่าใช้จ่ายสำนักงาน";
+export const OFFICE_EXPENSE_HINT = "บันทึกค่าใช้จ่ายที่ไม่ผูกกับงาน (เช่น น้ำมัน ค่ารับรอง)";
+export const EXPENSE_CATEGORY_LABEL = "ประเภทค่าใช้จ่าย";
+export const EXPENSE_CATEGORY_PLACEHOLDER = "เลือกประเภท";
+export const EXPENSE_AMOUNT_LABEL = "จำนวนเงิน (บาท)";
+export const EXPENSE_DATE_LABEL = "วันที่จ่าย";
+export const EXPENSE_PROJECT_LABEL = "โครงการ (ถ้ามี)";
+export const EXPENSE_PROJECT_NONE = "— ไม่ระบุโครงการ —";
+export const EXPENSE_DESCRIPTION_LABEL = "รายละเอียด";
+export const EXPENSE_PAYMENT_SOURCE_LABEL = "จ่ายจาก";
+// Spec 310 U11 — short chip labels so จ่ายจาก fits one line (operator 2026-07-13);
+// each pairs with an icon + the คืนเงิน hint below carries the reimburse meaning.
+// สำรองจ่าย (front the money) reads clearer than "จ่ายเงินตัวเอง".
+export const PAYMENT_SOURCE_CARD_LABEL = "บัตรเครดิต";
+export const PAYMENT_SOURCE_OWN_LABEL = "สำรองจ่าย";
+export const PAYMENT_SOURCE_DIRECT_LABEL = "บริษัทจ่ายตรง";
+export const EXPENSE_CARD_PICK_LABEL = "เลือกบัตร";
+// Spec 310 U8 — a user holds one card; no picker, the form shows which card auto-applies.
+export const EXPENSE_CARD_USING_PREFIX = "จ่ายด้วยบัตร";
+// Spec 310 U9 — two labeled upload slots (accounting needs slip + tax invoice apart).
+export const EXPENSE_SLIP_UPLOAD_LABEL = "แนบสลิปการโอน/จ่าย";
+export const EXPENSE_INVOICE_UPLOAD_LABEL = "แนบใบกำกับภาษี/ใบเสร็จ";
+export const EXPENSE_SUBMIT_LABEL = "บันทึกค่าใช้จ่าย";
+export const EXPENSE_REIMBURSE_TO_PREFIX = "คืนเงินให้";
+export const EXPENSE_REIMBURSE_SELF = "คืนเงินให้คุณเอง";
+export const EXPENSE_REIMBURSE_NONE = "ไม่ต้องคืนเงิน";
+export const EXPENSE_AWAITING_RECEIPT = "รอใบเสร็จ";
+export const EXPENSE_REIMBURSED_BADGE = "คืนแล้ว";
+export const EXPENSE_LIST_EMPTY = "ยังไม่มีรายการ";
+// Spec 310 U4 — receipt upload.
+export const EXPENSE_RECEIPT_UPLOAD_LABEL = "แนบใบเสร็จ";
+export const EXPENSE_RECORDED_ATTACH = "บันทึกแล้ว — แนบใบเสร็จได้เลย";
+// Spec 310 U7 — personal expense dashboard (summary + category chart).
+export const EXPENSE_MONTH_TOTAL_LABEL = "ใช้จ่ายเดือนนี้";
+export const EXPENSE_PENDING_TOTAL_LABEL = "รอคืนเงิน (ของคุณ)";
+export const EXPENSE_CHART_HEADING = "ค่าใช้จ่ายตามประเภท (เดือนนี้)";
+export const EXPENSE_MONTH_EMPTY = "ยังไม่มีค่าใช้จ่ายเดือนนี้";
+export const EXPENSE_ADD_HEADING = "บันทึกค่าใช้จ่ายใหม่";
+// Spec 310 U10 — form moved into a FAB + bottom sheet; attachments on top (so an
+// LLM can later prefill fields from them); รายละเอียด optional with a hint.
+export const EXPENSE_ADD_LABEL = "เพิ่มค่าใช้จ่าย";
+export const EXPENSE_ATTACH_HEADING = "แนบเอกสาร (ถ้ามี)";
+export const EXPENSE_DESCRIPTION_HELP = "ไม่บังคับ — เช่น จ่ายค่าอะไร / ซื้อจากที่ไหน";
+// Spec 310 U5 — finance reimburse queue.
+export const REIMBURSE_QUEUE_HEADING = "รายการรอคืนเงิน";
+export const REIMBURSE_QUEUE_EMPTY = "ไม่มีรายการรอคืนเงิน";
+export const REIMBURSE_TOTAL_PREFIX = "รวม";
+export const REIMBURSE_MARK_LABEL = "คืนเงินแล้ว";
+export const REIMBURSE_MARK_PENDING = "กำลังบันทึก…";
+export const REIMBURSE_MARK_CONFIRM = "ยืนยันว่าคืนเงินรายการนี้แล้ว?";

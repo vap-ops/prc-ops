@@ -16,7 +16,6 @@ describe("validateWorkerProfile", () => {
         emergencyName: "แม่",
         emergencyRelation: "แม่",
         emergencyPhone: "0899999999",
-        dob: "1990-05-01",
       }),
     ).toBeNull();
   });
@@ -40,8 +39,7 @@ describe("validateWorkerProfile", () => {
     expect(validateWorkerProfile({ emergencyRelation: "x".repeat(61) })).not.toBeNull();
   });
 
-  it("rejects an impossible date of birth", () => {
-    expect(validateWorkerProfile({ dob: "2026-02-31" })).not.toBeNull();
-    expect(validateWorkerProfile({ dob: "nope" })).not.toBeNull();
-  });
+  // DOB was removed from the instant-tier shape entirely (spec 317 — it routes
+  // through the identity approval flow); the interface no longer carries it, so
+  // its absence is enforced at the type level.
 });

@@ -132,12 +132,28 @@ export async function createWorker(
   return { ok: true };
 }
 
+// DC edit matrix (2026-07-13): the enum axes the roster edit sheet can set.
+const PAY_TYPES: readonly PayType[] = ["monthly", "daily"];
+const EMPLOYMENT_TYPES: readonly EmploymentType[] = ["permanent", "temporary"];
+
 export async function updateWorker(input: {
   id: string;
   name?: string;
   active?: boolean;
   // Spec 75: pass to set/clear the note ("" clears); omit to preserve it.
   note?: string;
+  // DC edit matrix (2026-07-13): the pay_type × employment_type matrix + payee
+  // fields (phone/tax_id/bank), forwarded to the already-capable update_worker RPC
+  // (spec 266 gave it these params; the RPC coalesce-preserves omitted fields).
+  // Bank is UI-gated to UNBOUND workers in the roster manager; the action relays
+  // whatever it is handed (update_worker's direct-bank write is left unchanged).
+  payType?: PayType;
+  employmentType?: EmploymentType;
+  phone?: string;
+  taxId?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
 }): Promise<WorkerActionResult> {
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
   if (input.name !== undefined && !validName(input.name)) {
@@ -147,6 +163,12 @@ export async function updateWorker(input: {
     const noteResult = validateNotes(input.note);
     if (!noteResult.ok) return { ok: false, error: noteResult.error };
   }
+  if (input.payType !== undefined && !PAY_TYPES.includes(input.payType)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  if (input.employmentType !== undefined && !EMPLOYMENT_TYPES.includes(input.employmentType)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
 
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("update_worker", {
@@ -155,6 +177,16 @@ export async function updateWorker(input: {
     ...(input.active !== undefined ? { p_active: input.active } : {}),
     // Pass the raw value (incl. "") so the RPC can clear; omit to preserve.
     ...(input.note !== undefined ? { p_note: input.note } : {}),
+    ...(input.payType !== undefined ? { p_pay_type: input.payType } : {}),
+    ...(input.employmentType !== undefined ? { p_employment_type: input.employmentType } : {}),
+    // Payee text: pass the raw value; the RPC nullif-btrims (blank preserves).
+    ...(input.phone !== undefined ? { p_phone: input.phone } : {}),
+    ...(input.taxId !== undefined ? { p_tax_id: input.taxId } : {}),
+    ...(input.bankName !== undefined ? { p_bank_name: input.bankName } : {}),
+    ...(input.bankAccountNumber !== undefined
+      ? { p_bank_account_number: input.bankAccountNumber }
+      : {}),
+    ...(input.bankAccountName !== undefined ? { p_bank_account_name: input.bankAccountName } : {}),
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
 

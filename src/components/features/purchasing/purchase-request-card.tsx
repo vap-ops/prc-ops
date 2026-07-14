@@ -24,6 +24,7 @@ import { purchaseRequestPriorityIcon, purchaseRequestStatusIcon } from "@/lib/st
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
+import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import type { Database } from "@/lib/db/database.types";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -47,7 +48,9 @@ export interface PurchaseRequestCardRequest {
 
 interface PurchaseRequestCardProps {
   request: PurchaseRequestCardRequest;
-  workPackage: { code: string; name: string } | null;
+  /** Spec 301 U1: categoryCode = the reconciled W0x code for the spec-277
+   *  letter-code render; null/omitted degrades to the plain mono code. */
+  workPackage: { code: string; name: string; categoryCode?: string | null } | null;
   requesterName: string | null;
   isMine: boolean;
   // Spec 211 U5: the PO this request belongs to (null = loose). Shown as a chip so
@@ -59,6 +62,9 @@ interface PurchaseRequestCardProps {
    * page passes itself). Omit on /requests — the fallback already lands there.
    */
   backFrom?: string;
+  /** Spec 301f: shown for procurement (spans projects). Site callers omit it —
+   *  their card stays lean (they work one project). */
+  projectName?: string | null;
 }
 
 export function PurchaseRequestCard({
@@ -68,6 +74,7 @@ export function PurchaseRequestCard({
   isMine,
   poNumber = null,
   backFrom,
+  projectName = null,
 }: PurchaseRequestCardProps) {
   const href = `/requests/${request.id}`;
   return (
@@ -86,9 +93,17 @@ export function PurchaseRequestCard({
               {SITE_EXPENSE_BADGE}
             </span>
           ) : null}
+          {/* Spec 301f: procurement spans projects — name the project when the
+              caller provides it (site callers omit; their card stays lean). */}
+          {projectName ? (
+            <p className="text-ink-muted truncate text-[10px] font-medium">{projectName}</p>
+          ) : null}
           {workPackage ? (
             <p className="text-ink-secondary truncate text-xs">
-              <span className="font-mono">{workPackage.code}</span>
+              <WpCategoryCode
+                code={workPackage.code}
+                categoryCode={workPackage.categoryCode ?? null}
+              />
               <span className="mx-1">·</span>
               {workPackage.name}
             </p>

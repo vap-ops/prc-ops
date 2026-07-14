@@ -320,6 +320,26 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
  */
 export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
 
+// Spec 310: non-WP office expenses. OFFICE_EXPENSE_ROLES may submit an expense +
+// see their own; OFFICE_EXPENSE_FINANCE_ROLES additionally see every expense and
+// mark it reimbursed. The DEFINER RPCs (record_office_expense /
+// mark_expense_reimbursed) mirror these sets server-side — keep them in sync.
+export const OFFICE_EXPENSE_ROLES: ReadonlyArray<UserRole> = [
+  "super_admin",
+  "procurement",
+  "procurement_manager",
+  "accounting",
+  // Spec 310 U6 (operator 2026-07-13): PM/PD + site owner/admin + auditor also
+  // record office expenses. They see their OWN; finance-see-all + mark stays
+  // OFFICE_EXPENSE_FINANCE_ROLES. Keep the record_office_expense RPC gate in sync.
+  "project_manager",
+  "project_director",
+  "site_owner",
+  "site_admin",
+  "auditor",
+];
+export const OFFICE_EXPENSE_FINANCE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "accounting"];
+
 // Spec 284 / ADR 0080: the Legal department's auth-role — the one new role the
 // org-chart epic adds. Dept role + super_admin (mirrors ACCOUNTING_ROLES). Gates
 // the Legal domain (contracts, document_approvals) in U3/U4. The Legal head is a

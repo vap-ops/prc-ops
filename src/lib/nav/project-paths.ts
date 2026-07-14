@@ -54,6 +54,27 @@ export function storeItemHref(projectId: string, catalogItemId: string): string 
   return `/projects/${projectId}/store/items/${catalogItemId}`;
 }
 
+// Spec 300 U4: the ของเข้า incoming-deliveries surface — split off the store page (a
+// time-sensitive receiving queue is a different intent from static inventory). Its own
+// per-project sub-route, reached from the "ของเข้า" SA tile.
+export function incomingHref(projectId: string): string {
+  return `/projects/${projectId}/incoming`;
+}
+
+// Spec 308 U2: the per-delivery receive page (ของเข้า owns receiving). A PR
+// riding a delivery links here from the จัดซื้อ detail instead of receiving
+// inline — จัดซื้อ = orders, ของเข้า = deliveries.
+export function deliveryReceiveHref(projectId: string, deliveryId: string): string {
+  return `/projects/${projectId}/incoming/${deliveryId}`;
+}
+
+// Spec 306 U3: the morning-talk muster cockpit — where the SA forms teams and
+// scans/taps ช่าง in (and out) for the day. Site-facing (site_admin/super_admin),
+// on the project cockpit where SAs actually live (not the dead /sa).
+export function musterHref(projectId: string): string {
+  return `/projects/${projectId}/muster`;
+}
+
 // Spec 275 U5: the equipment-rental recorder relocated from the settings hub
 // (spec 268) into the project — a rental is project-driven, so it records + lists
 // THIS project's rentals and auto-allocates each to it. Money-gated

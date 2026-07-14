@@ -111,7 +111,9 @@ export default async function SettingsPage() {
 
         {configSection("field")}
         {configSection("master-data")}
+        {configSection("labor-team")}
         {configSection("finance")}
+        {configSection("office-expenses")}
 
         {/* Appearance — everyone (spec 190). Light by default (sun-first); dark
             is opt-in. ระบบ follows the device. ThemeToggle is already its own

@@ -45,7 +45,12 @@ describe("settings sections config (role → entries matrix)", () => {
     expect(hrefs("master-data", "procurement_manager")).not.toContain("/contacts/customers");
     // Spec 266 U6: ค่าแรง left finance for the ทีมช่าง section.
     expect(hrefs("finance", "procurement_manager")).toEqual([]);
-    expect(hrefs("labor-team", "procurement_manager")).toEqual(["/workers", "/payroll"]);
+    // Spec 314 U2: procurement_manager also holds the money-set rate editor.
+    expect(hrefs("labor-team", "procurement_manager")).toEqual([
+      "/workers",
+      "/payroll",
+      "/settings/labor-rates",
+    ]);
   });
 
   it("project_manager master-data: customers first, 7 entries (ช่าง roster moved out)", () => {
@@ -83,12 +88,35 @@ describe("settings sections config (role → entries matrix)", () => {
     // same audience (isBackOffice), so no door's visibility widens or narrows.
     expect(hrefs("labor-team", "procurement")).toEqual(["/workers", "/payroll"]);
     expect(hrefs("labor-team", "project_manager")).toEqual(["/workers", "/payroll"]);
-    expect(hrefs("labor-team", "super_admin")).toEqual(["/workers", "/payroll"]);
+    // Spec 314 U2: super_admin additionally sees the money-set rate editor.
+    expect(hrefs("labor-team", "super_admin")).toEqual([
+      "/workers",
+      "/payroll",
+      "/settings/labor-rates",
+    ]);
     expect(hrefs("labor-team", "accounting")).toEqual([]);
   });
 
   it("accounting role sees NO finance section on /settings (spec 166 nesting pin)", () => {
     expect(hrefs("finance", "accounting")).toEqual([]);
+  });
+
+  it("office-expenses: reaches every OFFICE_EXPENSE_ROLES incl PM/PD/site/auditor (spec 310 U6), not field-only roles", () => {
+    for (const role of [
+      "super_admin",
+      "procurement",
+      "procurement_manager",
+      "accounting",
+      "project_manager",
+      "project_director",
+      "site_owner",
+      "site_admin",
+      "auditor",
+    ] as const) {
+      expect(hrefs("office-expenses", role)).toEqual(["/expenses"]);
+    }
+    expect(hrefs("office-expenses", "technician")).toEqual([]);
+    expect(hrefs("office-expenses", "visitor")).toEqual([]);
   });
 
   it("help: everyone files feedback; only super_admin sees the triage inbox", () => {
@@ -105,6 +133,8 @@ describe("settings sections config (role → entries matrix)", () => {
     expect(hrefs("admin", "super_admin")).toEqual([
       // Spec 283: System Integrity Console (ตรวจระบบ).
       "/settings/integrity",
+      // Spec 310: company-card registry.
+      "/settings/cards",
       "/settings/roles",
       // Spec 284 / ADR 0080: the org chart (departments → head → members).
       "/settings/org-chart",

@@ -65,6 +65,10 @@ describe("BottomTabBar", () => {
       ["รายงาน", "/requests/reports"],
       ["โครงการ", "/projects"],
       ["ผู้ขาย", "/contacts/vendors"],
+      // Spec 309 follow-up: ค่าแรง on the phone bar too — 309 surfaced it on the
+      // desktop hub-nav only, but that strip is desktop-only, so procurement on a
+      // phone still couldn't reach the per-project wage roll-up except via ตั้งค่า.
+      ["ค่าแรง", "/payroll"],
       ["ตั้งค่า", "/settings"],
     ]);
     // Spec 143 U2: the coordinator is a see-all oversight role — projects + the
@@ -83,6 +87,8 @@ describe("BottomTabBar", () => {
       ["รายงาน", "/requests/reports"],
       ["โครงการ", "/projects"],
       ["ผู้ขาย", "/contacts/vendors"],
+      // Spec 309 follow-up: mirrors PROCUREMENT_TABS — ค่าแรง on the phone bar.
+      ["ค่าแรง", "/payroll"],
       ["คำขอสมัคร", "/registrations"],
       ["ตั้งค่า", "/settings"],
     ]);

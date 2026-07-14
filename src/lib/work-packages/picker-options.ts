@@ -4,6 +4,7 @@
 // No I/O, no React; shared by the supply-plan picker (and any future picker).
 
 import { compareWpCodes } from "@/lib/work-packages/group-roster";
+import { wpDisplayCode } from "@/lib/work-packages/format-code";
 
 export interface WpPickerRow {
   id: string;
@@ -11,12 +12,16 @@ export interface WpPickerRow {
   name: string;
   isGroup: boolean;
   parentId: string | null;
+  /** Spec 301 U3: reconciled W0x code for the text letter-code (optional —
+   *  callers that don't resolve categories keep the raw code). */
+  categoryCode?: string | null;
 }
 
 export interface WpPickerOption {
   id: string;
   code: string;
   name: string;
+  categoryCode: string | null;
 }
 
 export interface WpPickerGroups {
@@ -26,7 +31,12 @@ export interface WpPickerGroups {
   ungrouped: WpPickerOption[];
 }
 
-const toOption = ({ id, code, name }: WpPickerRow): WpPickerOption => ({ id, code, name });
+const toOption = ({ id, code, name, categoryCode }: WpPickerRow): WpPickerOption => ({
+  id,
+  code,
+  name,
+  categoryCode: categoryCode ?? null,
+});
 
 export function buildWpPickerGroups(rows: ReadonlyArray<WpPickerRow>): WpPickerGroups {
   const groups = rows.filter((r) => r.isGroup).sort(compareWpCodes);
@@ -49,7 +59,13 @@ export function buildWpPickerGroups(rows: ReadonlyArray<WpPickerRow>): WpPickerG
     sections: groups.flatMap((g) => {
       const children = (byParent.get(g.id) ?? []).sort(compareWpCodes);
       if (children.length === 0) return []; // no empty optgroups
-      return [{ label: `${g.code} ${g.name}`, options: children.map(toOption) }];
+      // Spec 301 U3: optgroup labels are text-only — letter-code via wpDisplayCode.
+      return [
+        {
+          label: `${wpDisplayCode(g.code, g.categoryCode)} ${g.name}`,
+          options: children.map(toOption),
+        },
+      ];
     }),
     ungrouped: ungrouped.sort(compareWpCodes).map(toOption),
   };

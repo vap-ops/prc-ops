@@ -251,6 +251,43 @@ export async function supersedeRentalSettlement(
   return { ok: true };
 }
 
+// Spec 312 — void an erroneous / test rental batch. Relays through the RLS session
+// client to the void_equipment_rental_batch SECURITY DEFINER RPC (the real
+// back-office gate + GL reversal + status flip + audit live in the DB).
+const VOID_GENERIC = "ยกเลิกการเช่าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const VOID_NO_PERMISSION = "ไม่มีสิทธิ์ยกเลิกการเช่า";
+const VOID_NOT_FOUND = "ไม่พบรายการเช่านี้";
+// RB409 = the batch is not active (settled/returned/already cancelled) or has a
+// settlement / charges attached — those are unwound through their own paths.
+const VOID_NOT_VOIDABLE =
+  "ยกเลิกไม่ได้ — รายการนี้มีการชำระหรือค่าใช้จ่ายผูกอยู่ หรือถูกยกเลิกไปแล้ว";
+
+export async function voidRentalBatch(input: {
+  batchId: string;
+  reason: string;
+}): Promise<RentalActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.batchId)) return { ok: false, error: VOID_GENERIC };
+  const reason = input.reason.trim();
+  if (reason.length > 2000) return { ok: false, error: VOID_GENERIC };
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("void_equipment_rental_batch", {
+    p_batch_id: input.batchId,
+    ...(reason.length > 0 ? { p_reason: reason } : {}),
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: VOID_NO_PERMISSION };
+    if (error.code === "RB404") return { ok: false, error: VOID_NOT_FOUND };
+    if (error.code === "RB409") return { ok: false, error: VOID_NOT_VOIDABLE };
+    return { ok: false, error: VOID_GENERIC };
+  }
+
+  revalidatePath("/equipment/rentals");
+  return { ok: true };
+}
+
 export async function createRentalAllocation(input: {
   batchId: string;
   projectId: string;
