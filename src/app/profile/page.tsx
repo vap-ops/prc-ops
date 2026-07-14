@@ -11,6 +11,8 @@ import { isEmployeeRole } from "@/lib/auth/role-home";
 import { loadProfileCard } from "@/lib/profile/load-profile-card";
 import { toWorkerBadgeQrSvg } from "@/lib/muster/badge-qr";
 import { createClient } from "@/lib/db/server";
+import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
+import { readinessFromUserRow } from "@/lib/notifications/readiness";
 
 // Universal profile route — reachable by EVERY authenticated role, including
 // visitor. Spec 07 / extends spec 05 / ADR 0017.
@@ -36,7 +38,10 @@ export default async function ProfilePage() {
 
   const { data: row } = await supabase
     .from("users")
-    .select("role, full_name, line_avatar_url")
+    // + spec 318 U2 readiness columns — same self-read, no extra round-trip.
+    .select(
+      "role, full_name, line_avatar_url, line_user_id, line_oa_friend, line_oa_friend_checked_at, telegram_chat_id",
+    )
     .eq("id", userId)
     .maybeSingle();
   if (!row) {
@@ -65,6 +70,8 @@ export default async function ProfilePage() {
   // — office/external accounts don't muster). userId is always present here.
   const { data: workerId } = await supabase.rpc("current_user_worker_id");
   const badgeSvg = await toWorkerBadgeQrSvg(workerId ?? userId);
+  // Spec 318 U2 — OA-friend readiness, built from the self-read above.
+  const readiness = readinessFromUserRow(row);
 
   return (
     <PageShell>
@@ -79,6 +86,7 @@ export default async function ProfilePage() {
         </div>
       </DetailHeader>
       <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10">
+        <NotificationReadinessBanner readiness={readiness} />
         {employeeCard ? <EmployeeIdCard card={employeeCard} /> : null}
         <WorkerBadgeQr svg={badgeSvg} />
 

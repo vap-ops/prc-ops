@@ -17,6 +17,8 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
+import { loadNotificationReadiness } from "@/lib/notifications/readiness";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
@@ -76,6 +78,8 @@ export default async function SaHomePage() {
     latestDecisions,
     reopenRes,
     saCurrent,
+    // Spec 318 U2 — OA-friend readiness rides the wave (independent self-read).
+    readiness,
   ] = await Promise.all([
     projectIds.length
       ? supabase.from("projects").select("id, code, name").in("id", projectIds)
@@ -119,6 +123,7 @@ export default async function SaHomePage() {
     // WP-derived projectIds above. Feeds the scoped SaTools tiles below; the
     // aggregate home reads are unchanged.
     getSaCurrentProject(supabase, ctx.id),
+    loadNotificationReadiness(supabase),
   ]);
 
   const projects = projectRes.data ?? [];
@@ -214,6 +219,7 @@ export default async function SaHomePage() {
       {/* pb clears the floating capture FAB (fixed, bottom-right) so the last
           tile stays tappable when scrolled to the end. */}
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 pt-6 pb-28`}>
+        <NotificationReadinessBanner readiness={readiness} />
         <div>
           <p className="text-ink-secondary text-meta">{formatThaiDate(today)}</p>
           <h1 className="text-title text-ink font-bold tracking-tight">

@@ -887,3 +887,8 @@ export const REIMBURSE_TOTAL_PREFIX = "รวม";
 export const REIMBURSE_MARK_LABEL = "คืนเงินแล้ว";
 export const REIMBURSE_MARK_PENDING = "กำลังบันทึก…";
 export const REIMBURSE_MARK_CONFIRM = "ยืนยันว่าคืนเงินรายการนี้แล้ว?";
+
+// Spec 318 U2 — notification readiness (OA add-friend banner + settings card).
+export const NOTIF_READINESS_TITLE = "เปิดรับการแจ้งเตือน";
+export const NOTIF_READINESS_BODY = "เพิ่มเพื่อน LINE ของบริษัท เพื่อรับแจ้งเตือนงานและคำขอของคุณ";
+export const NOTIF_ADD_FRIEND_LABEL = "เพิ่มเพื่อน";
