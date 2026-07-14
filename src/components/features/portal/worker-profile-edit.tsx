@@ -1,10 +1,10 @@
 "use client";
 
 // Spec 170 U4b / ADR 0062 — a ช่าง self-edits their portal profile (contact
-// + emergency contact + DOB) in one form, prefilled from get_my_worker_profile.
+// + emergency contact) in one form, prefilled from get_my_worker_profile.
 // Direct apply via update_own_worker_profile (column-scoped server-side to these
-// six fields — name/day_rate/tax_id stay out of reach). Mirrors the contractor
-// PortalContactInfo / PortalSelfEdit pattern.
+// five fields — name/day_rate/tax_id stay out of reach; DOB moved to the
+// approval tier, spec 317). Mirrors the contractor PortalSelfEdit pattern.
 //
 // 'use client': form + pending state + the server-action call.
 
@@ -21,7 +21,6 @@ export interface WorkerProfileInitial {
   emergencyName: string;
   emergencyRelation: string;
   emergencyPhone: string;
-  dob: string;
 }
 
 export function WorkerProfileEdit({ initial }: { initial: WorkerProfileInitial }) {
@@ -33,12 +32,11 @@ export function WorkerProfileEdit({ initial }: { initial: WorkerProfileInitial }
   const [emergencyName, setEmergencyName] = useState(initial.emergencyName);
   const [emergencyRelation, setEmergencyRelation] = useState(initial.emergencyRelation);
   const [emergencyPhone, setEmergencyPhone] = useState(initial.emergencyPhone);
-  const [dob, setDob] = useState(initial.dob);
   const [error, setError] = useState<string | null>(null);
 
   function submit() {
     setError(null);
-    const payload = { phone, email, emergencyName, emergencyRelation, emergencyPhone, dob };
+    const payload = { phone, email, emergencyName, emergencyRelation, emergencyPhone };
     const v = validateWorkerProfile(payload);
     if (v) {
       setError(v);
@@ -129,20 +127,6 @@ export function WorkerProfileEdit({ initial }: { initial: WorkerProfileInitial }
           className={FIELD_STACKED}
         />
       </label>
-      <label className="text-ink-secondary mt-3 block text-sm">
-        วันเกิด
-        <input
-          type="date"
-          value={dob}
-          disabled={pending}
-          onChange={(e) => {
-            setDob(e.target.value);
-            clear();
-          }}
-          className={`${FIELD_STACKED} appearance-none`}
-        />
-      </label>
-
       {error ? (
         <p role="alert" className={`mt-3 ${INLINE_ALERT_TEXT}`}>
           {error}

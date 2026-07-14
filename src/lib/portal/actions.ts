@@ -255,16 +255,16 @@ export async function updateOwnContactInfo(input: {
 }
 
 // Spec 170 U4b / ADR 0062 — a bound ช่าง self-edits their own portal profile
-// (contact + emergency + DOB) in one call. update_own_worker_profile is
-// column-scoped to those six fields for current_user_worker_id() (name/day_rate/
-// tax_id stay out of reach). Not money → applies directly, no staging.
+// (contact + emergency) in one call. update_own_worker_profile is column-scoped
+// to those five fields for current_user_worker_id() (name/day_rate/tax_id stay
+// out of reach; DOB routes through the spec 317 identity approval flow). Not
+// money → applies directly, no staging.
 export async function updateOwnWorkerProfile(input: {
   phone: string;
   email: string;
   emergencyName: string;
   emergencyRelation: string;
   emergencyPhone: string;
-  dob: string;
 }): Promise<ActionResult> {
   const validation = validateWorkerProfile(input);
   if (validation) return { ok: false, error: validation };
@@ -278,7 +278,6 @@ export async function updateOwnWorkerProfile(input: {
     p_emergency_name: input.emergencyName.trim(),
     p_emergency_relation: input.emergencyRelation.trim(),
     p_emergency_phone: input.emergencyPhone.trim(),
-    ...(input.dob ? { p_dob: input.dob } : {}),
   });
   if (error) return { ok: false, error: GENERIC_BANK };
   revalidatePath("/portal");
