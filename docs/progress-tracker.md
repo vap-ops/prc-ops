@@ -7552,3 +7552,14 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   (partial index where enabled=false — applied-mig edit is a no-op; add in a
   future mig if prefs volume grows). NOTE: carries U1's mig file 075796 (shared
   DB history requires it locally; #546 unmerged) — same content, no conflict.
+
+- U2 readiness banner — COMPLETE (this PR). NotificationReadinessBanner renders
+  ONLY on confirmed non-friend (friendFlag===false; null=never-probed → silent);
+  add-friend CTA → line.me/R/ti/p/@070vkizw. Placed on /profile /sa /technician
+  /dashboard. readiness.ts reader + pure readinessFromUserRow (profile/technician
+  fold the columns into their existing self-reads; sa/dashboard ride their
+  Promise.all waves — fresh-eyes perf findings all fixed). Feature-folder
+  allowlist +notifications. Live-verified both ways on dev server (flag
+  false→banner+CTA on /dashboard+/profile; null→absent; dev-preview row
+  reverted). NOTE: readiness.ts sits in src/lib/notifications/\*\* → danger-path
+  HOLD expected (reviewer-confirmed); operator merges with #546.

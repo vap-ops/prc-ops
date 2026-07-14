@@ -15,6 +15,8 @@ import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES, DASHBOARD_VIEW_ROLES, MONEY_VIEW_ROLES } from "@/lib/auth/role-home";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
+import { loadNotificationReadiness } from "@/lib/notifications/readiness";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
@@ -80,7 +82,8 @@ export default async function DashboardPage() {
   // Spec 188 / 170 U4c-2: the dashboard inbox surfaces the tabless approvals — WP
   // review + the merged contractor+worker bank-change queue (one combined count). PR
   // is NOT here; it owns the คำขอซื้อ tab + badge.
-  const [pendingSummary, pendingBankChanges, projectsRes] = await Promise.all([
+  // (+ spec 318 U2 readiness — an independent self-read, rides the wave.)
+  const [pendingSummary, pendingBankChanges, projectsRes, readiness] = await Promise.all([
     isManager ? getPendingApprovalsSummary(supabase) : Promise.resolve({ count: 0, oldest: null }),
     isManager
       ? Promise.all([
@@ -93,6 +96,7 @@ export default async function DashboardPage() {
       .select("id, name, code, status")
       .in("status", LIVE_STATUSES)
       .order("name", { ascending: true }),
+    loadNotificationReadiness(supabase),
   ]);
   const projects = projectsRes.data ?? [];
   const projectIds = projects.map((p) => p.id);
@@ -218,6 +222,7 @@ export default async function DashboardPage() {
         />
       ) : null}
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
+        <NotificationReadinessBanner readiness={readiness} />
         <h1 className="text-title text-ink font-bold tracking-tight">ภาพรวม</h1>
 
         {/* Spec 183 U1: pending-approval awareness sits at the top of the PM

@@ -37,6 +37,8 @@ const ALLOWED_DOMAINS = [
   // Spec 306 U3: the morning-talk muster cockpit (team forming + scan/tap
   // check-in/out) and its BarcodeDetector QR camera layer.
   "muster",
+  // Spec 318 U2: notification readiness (OA add-friend banner, preferences UI).
+  "notifications",
   // Feedback 1d648880: the projects-hub filter/sort bar.
   "projects",
   // Spec 220 (G63): the super_admin role-admin controls.

@@ -13,6 +13,8 @@
 
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
+import { readinessFromUserRow } from "@/lib/notifications/readiness";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
@@ -40,9 +42,14 @@ export default async function TechnicianHomePage() {
 
   const { data: userRow } = await supabase
     .from("users")
-    .select("line_avatar_url")
+    // + spec 318 U2 readiness columns — same self-read, no extra round-trip.
+    .select(
+      "line_avatar_url, line_user_id, line_oa_friend, line_oa_friend_checked_at, telegram_chat_id",
+    )
     .eq("id", uid)
     .maybeSingle();
+  // Spec 318 U2 — OA-friend readiness (renders only on a confirmed non-friend).
+  const readiness = userRow ? readinessFromUserRow(userRow) : null;
 
   const registration = await getOwnTechnicianRegistration(supabase, uid);
   const { urls } = registration
@@ -106,6 +113,7 @@ export default async function TechnicianHomePage() {
 
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-6`}>
         <ViewAsEmptyNote />
+        <NotificationReadinessBanner readiness={readiness} />
         {registration ? (
           <EmployeeCard
             employeeId={registration.employee_id}
