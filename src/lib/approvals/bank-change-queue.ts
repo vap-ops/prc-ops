@@ -27,12 +27,12 @@ export interface WorkerBankChangeRequestRow {
 
 export interface BankChangeQueueItem {
   id: string;
-  kind: "contractor" | "worker";
+  kind: "contractor" | "worker" | "staff-bank";
   name: string;
   bankName: string | null;
   accountNo: string | null;
   accountName: string | null;
-  /** Worker kind only (spec 315 U2) — the page signs it for the photo render. */
+  /** Worker + staff-bank kinds (spec 315 U2 / 317 U4) — the page signs it for the photo render. */
   bookBankPath?: string | null;
   createdAt: string;
 }
@@ -107,6 +107,38 @@ export function buildIdentityChangeQueue(
     proposedFullName: r.proposed_full_name,
     proposedNationalId: r.proposed_national_id,
     proposedDob: r.proposed_dob,
+    createdAt: r.created_at,
+  }));
+}
+
+// ----------------------------------------------------------------------------
+// Spec 317 U4 — staff bank changes (staff_registration_bank home). Same card
+// shape as the worker kind (typed fields + passbook photo); decided by the
+// staff-approval trio, so the page trio-gates the fetch like identity rows.
+// ----------------------------------------------------------------------------
+
+export interface StaffBankChangeRequestRow {
+  id: string;
+  registration_id: string;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  book_bank_path: string;
+  created_at: string;
+}
+
+export function buildStaffBankChangeQueue(
+  rows: ReadonlyArray<StaffBankChangeRequestRow>,
+  namesByRegistration: ReadonlyMap<string, string>,
+): BankChangeQueueItem[] {
+  return rows.map((r) => ({
+    id: r.id,
+    kind: "staff-bank",
+    name: namesByRegistration.get(r.registration_id) ?? "—",
+    bankName: r.bank_name,
+    accountNo: r.bank_account_number,
+    accountName: r.bank_account_name,
+    bookBankPath: r.book_bank_path,
     createdAt: r.created_at,
   }));
 }

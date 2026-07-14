@@ -5720,6 +5720,70 @@ export type Database = {
           },
         ]
       }
+      staff_bank_change_requests: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          book_bank_path: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          registration_id: string
+          requested_by: string
+          status: Database["public"]["Enums"]["contractor_change_status"]
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          book_bank_path: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          registration_id: string
+          requested_by: string
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          book_bank_path?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          registration_id?: string
+          requested_by?: string
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_bank_change_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_bank_change_requests_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "staff_registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_bank_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_consents: {
         Row: {
           consented_at: string
@@ -8731,6 +8795,10 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      decide_staff_bank_change: {
+        Args: { p_approve: boolean; p_id: string }
+        Returns: undefined
+      }
       decide_worker_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
@@ -9794,6 +9862,15 @@ export type Database = {
       }
       submit_identity_change: {
         Args: { p_dob: string; p_full_name: string; p_national_id: string }
+        Returns: string
+      }
+      submit_staff_bank_change: {
+        Args: {
+          p_bank_account_name: string
+          p_bank_account_number: string
+          p_bank_name: string
+          p_book_bank_path: string
+        }
         Returns: string
       }
       submit_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }

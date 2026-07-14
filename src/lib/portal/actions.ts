@@ -235,6 +235,39 @@ export async function decideIdentityChange(input: {
   return { ok: true };
 }
 
+// Spec 317 U4 — decide an office-staff bank change. Trio only; approve upserts
+// staff_registration_bank + chains the passbook photo into the registration's
+// book_bank docs (the RPC does both in one txn).
+export async function decideStaffBankChange(input: {
+  id: string;
+  approve: boolean;
+  revalidate: string;
+}): Promise<ActionResult> {
+  if (!UUID_REGEX.test(input.id) || !input.revalidate.startsWith("/")) {
+    return { ok: false, error: GENERIC_BANK };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { data: me } = await auth.supabase
+    .from("users")
+    .select("role")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+  const effectiveRole = await applyAssumedRole(me?.role);
+  if (!effectiveRole || !STAFF_APPROVAL_ROLES.includes(effectiveRole)) {
+    return { ok: false, error: "คุณไม่มีสิทธิ์อนุมัติการเปลี่ยนบัญชี" };
+  }
+
+  const { error } = await auth.supabase.rpc("decide_staff_bank_change", {
+    p_id: input.id,
+    p_approve: input.approve,
+  });
+  if (error) return { ok: false, error: GENERIC_BANK };
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
 // Spec 131 U2b — a ช่าง self-edits their own emergency contact + DOB from the
 // portal. The RPC is column-scoped to the four fields for the caller's own
 // contractor (no broad UPDATE policy). Emergency contact is not money — direct,
