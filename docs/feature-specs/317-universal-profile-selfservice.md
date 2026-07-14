@@ -113,6 +113,18 @@ p_emergency_relation, p_emergency_phone)` — own registration, `pending OR appr
 - bank_book_path length check aligned to contact_attachments' 400-char cap so a
   decide-time insert can never abort on length.
 
+## U2 notes (fresh-eyes review, 2026-07-14)
+
+- isStaffHome excludes contractor-bound logins too — one person never sees two
+  bank homes; a staff+contractor hybrid gets the portal link + identity form.
+- The invalid-account-number RPC refusal maps to a field-level Thai message.
+- Orphaned passbook blobs on failed/retried submits: accepted (same posture as
+  the worker/contractor forms; owner-only folders).
+- Composition rule: render what has no home elsewhere, LINK to the audience
+  home for the rest — office staff get their first self-service home here;
+  bound workers → /technician, contractors → /portal; identity + display name
+  are universal.
+
 ## Out of scope
 
 - Address/phone for office staff beyond the registration fields (no structured address

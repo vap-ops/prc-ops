@@ -122,6 +122,9 @@ export async function submitStaffBankChange(input: {
     if (error.message.includes("bound workers")) {
       return { ok: false, error: "บัญชีช่างแก้ไขได้ที่หน้าหลักช่าง" };
     }
+    if (error.message.includes("invalid account number")) {
+      return { ok: false, error: "เลขที่บัญชีไม่ถูกต้อง (ตัวเลข 6-20 หลัก)" };
+    }
     return { ok: false, error: GENERIC };
   }
   revalidatePath(MY_INFO_PATH);

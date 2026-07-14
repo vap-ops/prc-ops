@@ -65,9 +65,12 @@ export default async function MyInfoPage() {
         .limit(1),
     ]);
 
-  // Office staff = approved registration and NOT a bound worker (a bound ช่าง's
-  // home is /technician; the staff bank RPC refuses bound workers anyway).
-  const isStaffHome = Boolean(registration && registration.status === "approved" && !workerId);
+  // Office staff = approved registration and NOT bound to a worker or a
+  // contractor (a bound ช่าง's home is /technician, a contractor's is /portal —
+  // surfacing two bank homes for one person invites drift; fresh-eyes 2026-07-14).
+  const isStaffHome = Boolean(
+    registration && registration.status === "approved" && !workerId && !contractorId,
+  );
 
   const [{ urls }, staffBank, { data: staffBankPending }] = isStaffHome
     ? await Promise.all([
