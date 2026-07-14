@@ -1,3 +1,9 @@
+# [0.78.0](https://github.com/VAP-Solution/prc-ops/compare/v0.77.0...v0.78.0) (2026-07-14)
+
+### Features
+
+- **photos:** rotate control in the lightbox for landscape receipts ([#528](https://github.com/VAP-Solution/prc-ops/issues/528)) ([109388c](https://github.com/VAP-Solution/prc-ops/commit/109388ce57a05427a70c7dd714e9bfaba1d9394c))
+
 # [0.77.0](https://github.com/VAP-Solution/prc-ops/compare/v0.76.0...v0.77.0) (2026-07-13)
 
 ### Features
