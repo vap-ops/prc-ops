@@ -6,6 +6,16 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 315 — Technician document self-service — 🔨 IN PROGRESS (2026-07-14)
+
+- Started 2026-07-14. Lane `315docs`, worktree `../prc-ops-315`, migs `075786` (U1) + `075787` (U2).
+- U1: ID-card re-submit on approved registration (self-serve supersede) + `/technician` upload section.
+- U2: required passbook photo on worker bank-change (submit re-signature + decide chain-write + queue photo).
+- Operator decisions captured in the spec (self-serve ID card; photo REQUIRED).
+- Open questions: profile_photo self-update + contractor photo-evidence deferred (spec §Out of scope).
+
+---
+
 ## Spec 297 — Off-category warning in the ขอซื้อ picker — ✅ BUILT (2026-07-11), code-only
 
 Passive amber flag when a purchase-request material is picked outside the WP work-category's
