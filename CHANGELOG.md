@@ -1,3 +1,9 @@
+# [0.83.0](https://github.com/VAP-Solution/prc-ops/compare/v0.82.0...v0.83.0) (2026-07-14)
+
+### Features
+
+- **banks:** canonical Thai-bank picker with usage-frequency order + icons (spec 317 U7) ([#534](https://github.com/VAP-Solution/prc-ops/issues/534)) ([2aff181](https://github.com/VAP-Solution/prc-ops/commit/2aff181e5244faac11ad7989866288c9b4b3c9de))
+
 # [0.82.0](https://github.com/VAP-Solution/prc-ops/compare/v0.81.0...v0.82.0) (2026-07-14)
 
 ### Features
