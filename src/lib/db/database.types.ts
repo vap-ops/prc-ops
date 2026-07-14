@@ -9865,7 +9865,7 @@ export type Database = {
         Returns: string
       }
       submit_identity_change: {
-        Args: { p_dob: string; p_full_name: string; p_national_id: string }
+        Args: { p_dob?: string; p_full_name?: string; p_national_id?: string }
         Returns: string
       }
       submit_staff_bank_change: {
