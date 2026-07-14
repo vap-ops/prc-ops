@@ -1,3 +1,9 @@
+## [0.94.1](https://github.com/VAP-Solution/prc-ops/compare/v0.94.0...v0.94.1) (2026-07-14)
+
+### Bug Fixes
+
+- **rental:** void gate blocks only settlement chain heads that still carry money (spec 312) ([#553](https://github.com/VAP-Solution/prc-ops/issues/553)) ([f09241a](https://github.com/VAP-Solution/prc-ops/commit/f09241a4f0cfedeac6125840627f854c2e5f4058))
+
 # [0.94.0](https://github.com/VAP-Solution/prc-ops/compare/v0.93.0...v0.94.0) (2026-07-14)
 
 ### Features
