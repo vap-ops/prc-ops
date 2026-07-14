@@ -9,6 +9,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { completeWorkerBank } from "@/app/registrations/awaiting-bank/actions";
+import { BankSelect } from "@/components/features/common/bank-select";
 import { BUTTON_PRIMARY, FIELD_STACKED } from "@/lib/ui/classes";
 import type { AwaitingBankRow } from "@/lib/register/worker-bank-queue";
 
@@ -59,15 +60,10 @@ export function WorkerBankCompleteForm({ row }: { row: AwaitingBankRow }) {
       ) : (
         <p className="text-ink-muted text-sm">ไม่พบรูปสมุดบัญชี</p>
       )}
-      <label className="text-ink-secondary block text-sm">
-        ธนาคาร
-        <input
-          value={bankName}
-          onChange={(e) => setBankName(e.target.value)}
-          maxLength={80}
-          className={FIELD_STACKED}
-        />
-      </label>
+      {/* Spec 317 U7 follow-up — canonical picker (this form merged after the
+          picker sweep, so it kept the old free-text input). */}
+      <p className="text-ink-secondary text-sm">ธนาคาร</p>
+      <BankSelect value={bankName} disabled={busy} onChange={setBankName} label="ธนาคาร" />
       <label className="text-ink-secondary block text-sm">
         เลขที่บัญชี
         <input
