@@ -27,6 +27,7 @@ import {
   getOwnRegistrationDocuments,
 } from "@/lib/register/own-registration";
 import { WorkerPortalSections } from "@/components/features/portal/worker-portal-sections";
+import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
 import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { type PortalReceipt } from "@/components/features/portal/portal-receipts";
 import { type PortalConsent } from "@/components/features/portal/portal-self-edit";
@@ -118,6 +119,11 @@ export default async function TechnicianHomePage() {
         ) : null}
 
         <WorkerBadgeQr svg={badgeSvg} />
+
+        {/* Spec 315 U1 — ID-card renewal (self-serve supersede) once approved. */}
+        {registration?.status === "approved" ? (
+          <WorkerIdCardUpdate uid={uid} currentUrl={urls.id_card ?? null} />
+        ) : null}
 
         <div className={CARD}>
           <div className="flex items-center gap-2">
