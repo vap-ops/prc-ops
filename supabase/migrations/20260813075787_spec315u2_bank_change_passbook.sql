@@ -25,7 +25,7 @@ alter table public.worker_bank_change_requests
 -- to the caller's own technician/<uid>/book_bank/ folder (the spec-296 owner+
 -- purpose hardening, mirrored from add_staff_registration_doc).
 -- ----------------------------------------------------------------------------
-drop function public.submit_worker_bank_change(text, text, text);
+drop function if exists public.submit_worker_bank_change(text, text, text);
 
 create function public.submit_worker_bank_change(
   p_bank_name           text,
@@ -60,6 +60,17 @@ begin
      or (storage.foldername(v_path))[3] is distinct from 'book_bank' then
     raise exception 'submit_worker_bank_change: storage path does not match owner/purpose'
       using errcode = '42501';
+  end if;
+  -- The object must actually exist (fresh-eyes 2026-07-14): a well-formed but
+  -- never-uploaded path would otherwise ride an approve into the registration's
+  -- book_bank chain as dangling evidence. Applicants have no storage DELETE
+  -- policy, so existence at submit time holds thereafter.
+  if not exists (
+    select 1 from storage.objects o
+    where o.bucket_id = 'contact-docs' and o.name = v_path
+  ) then
+    raise exception 'submit_worker_bank_change: passbook photo not uploaded'
+      using errcode = 'P0001';
   end if;
   if exists (
     select 1 from public.worker_bank_change_requests
@@ -126,10 +137,13 @@ begin
     -- bank. Skip when the worker has no registration (SA-added phoneless) or the
     -- request predates the photo requirement.
     if v_req.book_bank_path is not null then
+      -- status filter: a bound worker could carry a rejected registration (e.g.
+      -- claim_worker_invite binding); evidence chains only onto an APPROVED one.
       select r.id into v_reg
         from public.staff_registrations r
         join public.workers w on w.user_id = r.user_id
-       where w.id = v_req.worker_id;
+       where w.id = v_req.worker_id
+         and r.status = 'approved';
       if v_reg is not null then
         select a.id into v_prior
           from public.staff_registration_attachments a

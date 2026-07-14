@@ -127,13 +127,22 @@ export default async function BankChangeQueuePage() {
                     <dd className="font-mono">{it.accountNo ?? "—"}</dd>
                   </div>
                 </dl>
-                {it.bookBankPath && photoUrlByPath.get(it.bookBankPath) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={photoUrlByPath.get(it.bookBankPath)}
-                    alt="รูปสมุดบัญชี"
-                    className="border-edge rounded-control mt-2 h-40 w-full border object-contain"
-                  />
+                {it.bookBankPath ? (
+                  photoUrlByPath.get(it.bookBankPath) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoUrlByPath.get(it.bookBankPath)}
+                      alt="รูปสมุดบัญชี"
+                      className="border-edge rounded-control mt-2 h-40 w-full border object-contain"
+                    />
+                  ) : (
+                    // A photo was declared but can't be signed — surface it loudly
+                    // so a broken/dangling photo never reads like a legacy no-photo
+                    // row (the approver's verify-against-passbook gate depends on it).
+                    <p className="text-attn-ink mt-2 text-sm font-medium">
+                      แนบรูปสมุดบัญชีไว้แต่เปิดไม่ได้ — ตรวจสอบก่อนอนุมัติ
+                    </p>
+                  )
                 ) : null}
                 <p className="text-ink-muted mt-2 text-xs">
                   ส่งคำขอเมื่อ {formatThaiDateTime(it.createdAt)}

@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(26);
 
 -- ============================================================================
 -- Spec 315 U2 — REQUIRED passbook photo on the worker bank-change request.
@@ -19,22 +19,30 @@ select plan(21);
 insert into auth.users (id, email, raw_user_meta_data) values
   ('a1000315-0000-4000-8000-000000000315', 'w1@t315.local', '{}'::jsonb),
   ('a2000315-0000-4000-8000-000000000315', 'w2@t315.local', '{}'::jsonb),
+  ('a3000315-0000-4000-8000-000000000315', 'w3@t315.local', '{}'::jsonb),
   ('b1000315-0000-4000-8000-000000000315', 'pm@t315.local', '{}'::jsonb);
 update public.users set role = 'technician'      where id in
-  ('a1000315-0000-4000-8000-000000000315', 'a2000315-0000-4000-8000-000000000315');
+  ('a1000315-0000-4000-8000-000000000315', 'a2000315-0000-4000-8000-000000000315',
+   'a3000315-0000-4000-8000-000000000315');
 update public.users set role = 'project_manager' where id = 'b1000315-0000-4000-8000-000000000315';
 
 -- w1: bound worker WITH an approved registration (chain target).
 -- w2: bound worker WITHOUT any registration (skip case).
+-- w3: bound worker with an approved registration that has NO book_bank head yet
+--     (the spec-298 capture-blind shape — first chain link lands with NULL prior).
 insert into public.workers (id, name, pay_type, employment_type, day_rate, user_id, created_by) values
   ('aa000315-0000-4000-8000-000000000315', 'ช่าง หนึ่ง', 'daily', 'temporary', 500,
    'a1000315-0000-4000-8000-000000000315', 'b1000315-0000-4000-8000-000000000315'),
   ('ab000315-0000-4000-8000-000000000315', 'ช่าง สอง', 'daily', 'temporary', 500,
-   'a2000315-0000-4000-8000-000000000315', 'b1000315-0000-4000-8000-000000000315');
+   'a2000315-0000-4000-8000-000000000315', 'b1000315-0000-4000-8000-000000000315'),
+  ('ac000315-0000-4000-8000-000000000315', 'ช่าง สาม', 'daily', 'temporary', 500,
+   'a3000315-0000-4000-8000-000000000315', 'b1000315-0000-4000-8000-000000000315');
 
 insert into public.staff_registrations (id, user_id, employee_id, full_name, phone, status) values
   ('e1000315-0000-4000-8000-000000000315', 'a1000315-0000-4000-8000-000000000315',
-   'PRC-15-0100', 'ช่าง หนึ่ง', '0815000100', 'approved');
+   'PRC-15-0100', 'ช่าง หนึ่ง', '0815000100', 'approved'),
+  ('e2000315-0000-4000-8000-000000000315', 'a3000315-0000-4000-8000-000000000315',
+   'PRC-15-0102', 'ช่าง สาม', '0815000102', 'approved');
 -- The registration's current book_bank photo (what an approved change must supersede).
 insert into public.staff_registration_attachments (id, registration_id, purpose, storage_path, uploaded_by) values
   ('0b000315-0000-4000-8000-000000000315', 'e1000315-0000-4000-8000-000000000315', 'book_bank',
@@ -70,6 +78,15 @@ select throws_ok(
   $$ select public.submit_worker_bank_change('กสิกรไทย', '1112223334', 'ช่าง หนึ่ง',
        'technician/a1000315-0000-4000-8000-000000000315/id_card/x.jpg') $$,
   '42501', null, 'a non-book_bank purpose folder is refused');
+-- Well-formed but never-uploaded path → refused (dangling-evidence guard).
+select throws_ok(
+  $$ select public.submit_worker_bank_change('กสิกรไทย', '1112223334', 'ช่าง หนึ่ง',
+       'technician/a1000315-0000-4000-8000-000000000315/book_bank/ghost.jpg') $$,
+  'P0001', null, 'a path whose object was never uploaded is refused');
+-- Upload the real object (own-folder storage RLS admits it), then submit.
+insert into storage.objects (id, bucket_id, name) values
+  (gen_random_uuid(), 'contact-docs',
+   'technician/a1000315-0000-4000-8000-000000000315/book_bank/req1.jpg');
 select isnt(
   (select public.submit_worker_bank_change('กสิกรไทย', '1112223334', 'ช่าง หนึ่ง',
      'technician/a1000315-0000-4000-8000-000000000315/book_bank/req1.jpg')),
@@ -116,6 +133,9 @@ select is(
 -- ============================================================================
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a2000315-0000-4000-8000-000000000315"}';
+insert into storage.objects (id, bucket_id, name) values
+  (gen_random_uuid(), 'contact-docs',
+   'technician/a2000315-0000-4000-8000-000000000315/book_bank/req2.jpg');
 select lives_ok(
   $$ select public.submit_worker_bank_change('กรุงเทพ', '5556667778', 'ช่าง สอง',
        'technician/a2000315-0000-4000-8000-000000000315/book_bank/req2.jpg') $$,
@@ -140,6 +160,9 @@ select is(
 -- ============================================================================
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1000315-0000-4000-8000-000000000315"}';
+insert into storage.objects (id, bucket_id, name) values
+  (gen_random_uuid(), 'contact-docs',
+   'technician/a1000315-0000-4000-8000-000000000315/book_bank/req3.jpg');
 select lives_ok(
   $$ select public.submit_worker_bank_change('ไทยพาณิชย์', '9990001112', 'ช่าง หนึ่ง',
        'technician/a1000315-0000-4000-8000-000000000315/book_bank/req3.jpg') $$,
@@ -181,7 +204,35 @@ select is(
   2::bigint, 'legacy approve skips the chain (no photo to chain)');
 
 -- ============================================================================
--- Grants — anon/public can never execute the new signature.
+-- First chain link — a registration with NO book_bank head yet (spec-298
+-- capture-blind shape): the approved photo lands with superseded_by NULL.
+-- ============================================================================
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "a3000315-0000-4000-8000-000000000315"}';
+insert into storage.objects (id, bucket_id, name) values
+  (gen_random_uuid(), 'contact-docs',
+   'technician/a3000315-0000-4000-8000-000000000315/book_bank/req4.jpg');
+select lives_ok(
+  $$ select public.submit_worker_bank_change('ออมสิน', '4443332221', 'ช่าง สาม',
+       'technician/a3000315-0000-4000-8000-000000000315/book_bank/req4.jpg') $$,
+  'w3 (registration without a book_bank head) submits');
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "b1000315-0000-4000-8000-000000000315"}';
+select lives_ok(
+  $$ select public.decide_worker_bank_change(
+       (select id from public.worker_bank_change_requests
+         where worker_id = 'ac000315-0000-4000-8000-000000000315' and status = 'pending'),
+       true) $$,
+  'approve chains onto a registration with no prior book_bank');
+reset role;
+select is(
+  (select superseded_by is null from public.staff_registration_attachments
+    where registration_id = 'e2000315-0000-4000-8000-000000000315' and purpose = 'book_bank'),
+  true, 'the first chain link lands with a NULL prior (nothing to supersede)');
+
+-- ============================================================================
+-- Grants — anon/public can never execute either money mover.
 -- ============================================================================
 select is(
   (select count(*)::int from information_schema.role_routine_grants
@@ -189,6 +240,12 @@ select is(
        and routine_name = 'submit_worker_bank_change'
        and grantee in ('public', 'anon')),
   0, 'no PUBLIC/anon EXECUTE on submit_worker_bank_change');
+select is(
+  (select count(*)::int from information_schema.role_routine_grants
+     where routine_schema = 'public'
+       and routine_name = 'decide_worker_bank_change'
+       and grantee in ('public', 'anon')),
+  0, 'no PUBLIC/anon EXECUTE on decide_worker_bank_change');
 
 select * from finish();
 rollback;

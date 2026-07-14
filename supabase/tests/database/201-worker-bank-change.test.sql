@@ -55,7 +55,12 @@ select ok((select relrowsecurity from pg_class where oid = 'public.worker_bank_c
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1000000-0000-4000-8000-000000000201"}';
 -- Spec 315 U2: submit re-signatured to 4 args (passbook photo REQUIRED, own
--- technician/<uid>/book_bank/ folder).
+-- technician/<uid>/book_bank/ folder, object must exist in contact-docs).
+insert into storage.objects (id, bucket_id, name) values
+  (gen_random_uuid(), 'contact-docs',
+   'technician/a1000000-0000-4000-8000-000000000201/book_bank/wa.jpg'),
+  (gen_random_uuid(), 'contact-docs',
+   'technician/a1000000-0000-4000-8000-000000000201/book_bank/wa2.jpg');
 select isnt(
   (select public.submit_worker_bank_change('กสิกรไทย', '1112223334', 'Worker A',
      'technician/a1000000-0000-4000-8000-000000000201/book_bank/wa.jpg')),
