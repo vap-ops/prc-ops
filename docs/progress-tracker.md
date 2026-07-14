@@ -7552,3 +7552,15 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   (partial index where enabled=false — applied-mig edit is a no-op; add in a
   future mig if prefs volume grows). NOTE: carries U1's mig file 075796 (shared
   DB history requires it locally; #546 unmerged) — same content, no conflict.
+
+- U5 fanout scoping — COMPLETE (this PR). wp_pending_approval + pr_created now
+  project-scoped: event project's PMs (spec-277 projectPmRecipients machinery,
+  generalized enrichment union) + org-wide PD/super pool; unresolvable project
+  (pre-318 queue rows, WP-less PRs) → legacy full-pool fallback (transition
+  safety, drain-tested). notify_pr_created re-created FROM LIVE + project_id
+  payload (mig 075798, LIVE). Closes multi-project audit P1 cluster E. pgTAP
+  318-pr-created-payload 2/2; drain vitest +2 glue cases; resolve-recipients
+  21/21. Fresh-eyes: 2 yellow addressed (glue coverage added; PM-membership
+  invariant verified live — sole active project has PD lead + 3 PM-tier
+  members; PD/super backstop regardless — WATCH: project creation should keep
+  seeding PM-tier lead/member), 1 blue fixed (enrichmentProjectIds rename).
