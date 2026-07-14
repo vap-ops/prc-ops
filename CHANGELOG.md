@@ -1,3 +1,9 @@
+## [0.90.1](https://github.com/VAP-Solution/prc-ops/compare/v0.90.0...v0.90.1) (2026-07-14)
+
+### Bug Fixes
+
+- **equipment:** spec-275 supplier dual-write on create/update + backfill ([#542](https://github.com/VAP-Solution/prc-ops/issues/542)) ([e10dd9b](https://github.com/VAP-Solution/prc-ops/commit/e10dd9bd899e9b7143c32a56ab4f6f9cda4b3ec1))
+
 # [0.90.0](https://github.com/VAP-Solution/prc-ops/compare/v0.89.0...v0.90.0) (2026-07-14)
 
 ### Features
