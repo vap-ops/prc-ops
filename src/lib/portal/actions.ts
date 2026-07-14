@@ -54,26 +54,42 @@ const GENERIC_BANK = "บันทึกไม่สำเร็จ กรุณ
 // Spec 130 U4 — a bound contractor submits a bank change (→ pending → PM
 // approval). RLS-scoped session; the RPC enforces contractor-only/own/one-
 // pending.
+//
+// Spec 317 U5 — the request now carries a REQUIRED passbook photo. The client
+// uploads to storage first and passes {attachmentId, ext}; the path is REBUILT
+// server-side from the session's own contractor (never trusted from the
+// client), and the RPC re-checks owner + existence.
 export async function submitBankChange(input: {
   bankName: string;
   accountNo: string;
   accountName: string;
+  attachmentId: string;
+  ext: string;
   revalidate: string;
 }): Promise<ActionResult> {
   if (!input.revalidate.startsWith("/")) return { ok: false, error: GENERIC_BANK };
   const validation = validateBankChange(input);
   if (validation) return { ok: false, error: validation };
+  if (!UUID_REGEX.test(input.attachmentId) || !isValidPhotoExt(input.ext)) {
+    return { ok: false, error: GENERIC_BANK };
+  }
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { data: contractorId } = await auth.supabase.rpc("current_user_contractor_id");
+  if (!contractorId) return { ok: false, error: GENERIC_BANK };
+  const path = buildContactDocPath("contractor", contractorId, input.attachmentId, input.ext);
+  if (!path) return { ok: false, error: GENERIC_BANK };
 
   const { error } = await auth.supabase.rpc("submit_contractor_bank_change", {
     p_bank_name: input.bankName.trim(),
     p_bank_account_no: input.accountNo.trim(),
     p_bank_account_name: input.accountName.trim(),
+    p_bank_book_path: path,
   });
   if (error) {
-    if (error.message.includes("already exists")) {
+    if (error.message.includes("already exists") || error.message.includes("duplicate key")) {
       return { ok: false, error: "มีคำขอที่รออนุมัติอยู่แล้ว" };
     }
     return { ok: false, error: GENERIC_BANK };
@@ -119,7 +135,7 @@ export async function submitWorkerBankChange(input: {
     p_book_bank_path: path,
   });
   if (error) {
-    if (error.message.includes("already exists")) {
+    if (error.message.includes("already exists") || error.message.includes("duplicate key")) {
       return { ok: false, error: "มีคำขอที่รออนุมัติอยู่แล้ว" };
     }
     return { ok: false, error: GENERIC_BANK };

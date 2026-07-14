@@ -41,22 +41,31 @@ select enum_has_labels('public', 'contractor_change_status',
   array['pending', 'approved', 'rejected'], 'contractor_change_status labels');
 
 -- B. submit — contractor only, own, one pending at a time.
+-- Spec 317 U5: re-signatured to 4 args (passbook photo REQUIRED, own
+-- contractor/<id>/ folder, object must exist in contact-docs).
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1000000-0000-4000-8000-000000000139"}';
+insert into storage.objects (id, bucket_id, name) values
+  (gen_random_uuid(), 'contact-docs',
+   'contractor/aa000000-0000-4000-8000-000000000139/ua1.jpg'),
+  (gen_random_uuid(), 'contact-docs',
+   'contractor/aa000000-0000-4000-8000-000000000139/ua2.jpg');
 select isnt(
-  (select public.submit_contractor_bank_change('กสิกรไทย', '1112223334', 'Contractor A')),
+  (select public.submit_contractor_bank_change('กสิกรไทย', '1112223334', 'Contractor A',
+     'contractor/aa000000-0000-4000-8000-000000000139/ua1.jpg')),
   null, 'uA submits a bank change');
 select is(
   (select count(*) from public.contractor_bank_change_requests
     where contractor_id = 'aa000000-0000-4000-8000-000000000139' and status = 'pending'),
   1::bigint, 'one pending request for Contractor A');
 select throws_ok(
-  $$ select public.submit_contractor_bank_change('x', '1', 'y') $$,
+  $$ select public.submit_contractor_bank_change('x', '1', 'y',
+       'contractor/aa000000-0000-4000-8000-000000000139/ua2.jpg') $$,
   'P0001', null, 'a second pending request is refused');
 
 set local "request.jwt.claims" = '{"sub": "51000000-0000-4000-8000-000000000139"}';
 select throws_ok(
-  $$ select public.submit_contractor_bank_change('x', '1', 'y') $$,
+  $$ select public.submit_contractor_bank_change('x', '1', 'y', null) $$,
   '42501', null, 'a non-contractor (site_admin) cannot submit');
 
 -- C. RLS read scoping.

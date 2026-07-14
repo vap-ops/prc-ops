@@ -55,7 +55,9 @@ export default async function BankChangeQueuePage() {
   ] = await Promise.all([
     admin
       .from("contractor_bank_change_requests")
-      .select("id, contractor_id, bank_name, bank_account_no, bank_account_name, created_at")
+      .select(
+        "id, contractor_id, bank_name, bank_account_no, bank_account_name, bank_book_path, created_at",
+      )
       .eq("status", "pending")
       .order("created_at", { ascending: true }),
     admin

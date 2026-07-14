@@ -25,6 +25,8 @@ function row(
     bank_name: "กสิกรไทย",
     bank_account_no: "123-4-56789-0",
     bank_account_name: "สมชาย ใจดี",
+    // Spec 317 U5 — the contractor request now carries the passbook path too.
+    bank_book_path: "contractor/c-2/req.jpg",
     created_at: "2026-06-20T08:00:00Z",
     ...p,
   };
@@ -45,6 +47,7 @@ describe("buildBankChangeQueue (contractor)", () => {
         bankName: "กสิกรไทย",
         accountNo: "123-4-56789-0",
         accountName: "สมชาย ใจดี",
+        bookBankPath: "contractor/c-2/req.jpg",
         createdAt: "2026-06-20T08:00:00Z",
       },
     ]);
