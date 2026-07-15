@@ -3,7 +3,8 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { ChevronRight } from "lucide-react";
+import { BellRing, ChevronRight } from "lucide-react";
+import { NOTIF_SETTINGS_LABEL, NOTIF_SETTINGS_HINT } from "@/lib/i18n/labels";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
@@ -106,6 +107,24 @@ export default async function SettingsPage() {
             {/* Spec 193 feedback: logout removed here — it's redundant with the
                 /profile screen (one tap via the row above) and the browser
                 app-header. "logout lives on /profile." */}
+          </div>
+        </div>
+
+        {/* Notifications — everyone (spec 318 U4). Own row so it sits high, next
+            to the account/appearance personal controls, not gated behind a role. */}
+        <div className="flex flex-col gap-2">
+          <h2 className="text-meta text-ink-secondary font-semibold">{NOTIF_SETTINGS_LABEL}</h2>
+          <div className={`${GROUP_CARD} border`}>
+            <Link href="/settings/notifications" className={ROW} aria-label={NOTIF_SETTINGS_LABEL}>
+              <BellRing aria-hidden className="text-ink h-5 w-5 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="text-ink text-body block font-semibold">
+                  {NOTIF_SETTINGS_LABEL}
+                </span>
+                <span className="text-ink-secondary text-meta block">{NOTIF_SETTINGS_HINT}</span>
+              </span>
+              <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
+            </Link>
           </div>
         </div>
 

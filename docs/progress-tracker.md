@@ -7587,3 +7587,27 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   invariant verified live — sole active project has PD lead + 3 PM-tier
   members; PD/super backstop regardless — WATCH: project creation should keep
   seeding PM-tier lead/member), 1 blue fixed (enrichmentProjectIds rename).
+
+- U4 /settings/notifications — COMPLETE (this PR, LAST unit of spec 318). New
+  page (getClaims gate, every authed role — visitor safe: empty toggle list, card
+  still renders): readiness card (LINE-linked from readiness.lineLinked, OA-friend
+  row + add-friend CTA / "unknown → next login" message, TestNotificationButton) +
+  per-event mute toggles grouped by catalog category, filtered by catalog audience(role);
+  absence=ON, locked safety event greyed-ON. actions: saveNotificationPreference
+  (locked early-refusal + getActionUser + set_notification_preference RPC via the
+  RLS-scoped user client) + sendTestNotification (own line_user_id via the user
+  client — "users read self" RLS exposes it, no admin bypass; 403→add-friend Thai
+  hint). Settings hub gains a การแจ้งเตือน row (BellRing, all roles). Real-flow:
+  browser-verified 9 switches render with correct on/locked states + 5 categories +
+  test button (super_admin). ★ REAL BUG caught by real-flow (unit tests missed it —
+  jsdom renders client components directly, skipping RSC serialization): catalog
+  entries carry an audience FUNCTION → passing full entries to the client form threw
+  "Functions cannot be passed to Client Components" → fixed with toToggleEntry
+  (Omit<...,audience>), page maps before passing. Fresh-eyes: 2 yellow fixed
+  (admin→user-client own-read; page dead lineLinked var → readiness.lineLinked),
+  3 blue fixed (403 hint → NOTIF_TEST_NONFRIEND_ERROR label; per-row in-flight lock;
+  +2 action test branches: no-token + 403). FOLLOW-UP NOTE (pre-existing, U3 mig):
+  set_notification_preference hardcodes the literal 'site_issue_reported' rather than
+  a locked-set — if a 2nd locked event is ever added to the catalog, the app refuses
+  it but the DB would not; widen the RPC to a locked-set check when that happens.
+  ★★ SPEC 318 COMPLETE (U1-U6 + design + plan).
