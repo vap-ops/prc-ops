@@ -7822,6 +7822,76 @@ export type Database = {
           },
         ]
       }
+      worker_payout_nominee: {
+        Row: {
+          active: boolean
+          cleared_at: string | null
+          cleared_by: string | null
+          consent_doc_path: string
+          id: string
+          payee_account_name: string
+          payee_account_number: string
+          payee_bank_name: string
+          payee_name: string
+          payee_relationship: string
+          set_at: string
+          set_by: string
+          worker_id: string
+        }
+        Insert: {
+          active?: boolean
+          cleared_at?: string | null
+          cleared_by?: string | null
+          consent_doc_path: string
+          id?: string
+          payee_account_name: string
+          payee_account_number: string
+          payee_bank_name: string
+          payee_name: string
+          payee_relationship: string
+          set_at?: string
+          set_by: string
+          worker_id: string
+        }
+        Update: {
+          active?: boolean
+          cleared_at?: string | null
+          cleared_by?: string | null
+          consent_doc_path?: string
+          id?: string
+          payee_account_name?: string
+          payee_account_number?: string
+          payee_bank_name?: string
+          payee_name?: string
+          payee_relationship?: string
+          set_at?: string
+          set_by?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_payout_nominee_cleared_by_fkey"
+            columns: ["cleared_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_payout_nominee_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_payout_nominee_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       worker_project_moves: {
         Row: {
           id: string
@@ -8622,6 +8692,10 @@ export type Database = {
           clawed_workers: number
         }[]
       }
+      clear_worker_payout_nominee: {
+        Args: { p_worker_id: string }
+        Returns: undefined
+      }
       client_has_full_access: { Args: { p_project: string }; Returns: boolean }
       client_has_live_access: { Args: { p_project: string }; Returns: boolean }
       clone_work_packages: {
@@ -9107,6 +9181,18 @@ export type Database = {
           bank_name: string
         }[]
       }
+      get_worker_payout_nominee: {
+        Args: { p_worker_id: string }
+        Returns: {
+          consent_doc_path: string
+          payee_account_name: string
+          payee_account_number: string
+          payee_bank_name: string
+          payee_name: string
+          payee_relationship: string
+          set_at: string
+        }[]
+      }
       gl_reconciliation: {
         Args: never
         Returns: {
@@ -9183,6 +9269,17 @@ export type Database = {
       level_gross_rate: {
         Args: { p_level: Database["public"]["Enums"]["worker_level"] }
         Returns: number
+      }
+      list_active_payout_nominees: {
+        Args: never
+        Returns: {
+          days_active: number
+          payee_account_number: string
+          payee_bank_name: string
+          payee_name: string
+          set_at: string
+          worker_id: string
+        }[]
       }
       log_labor_day: {
         Args: {
@@ -9921,6 +10018,18 @@ export type Database = {
           p_worker: string
         }
         Returns: undefined
+      }
+      set_worker_payout_nominee: {
+        Args: {
+          p_consent_doc_path: string
+          p_payee_account_name: string
+          p_payee_account_number: string
+          p_payee_bank_name: string
+          p_payee_name: string
+          p_payee_relationship: string
+          p_worker_id: string
+        }
+        Returns: string
       }
       set_wp_budget: {
         Args: { p_budget: number; p_wp: string }
