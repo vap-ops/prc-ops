@@ -1,3 +1,9 @@
+# [0.97.0](https://github.com/VAP-Solution/prc-ops/compare/v0.96.0...v0.97.0) (2026-07-15)
+
+### Features
+
+- **rental:** surface the void flow — prominent cancel button + settlement signpost (spec 312) ([#555](https://github.com/VAP-Solution/prc-ops/issues/555)) ([3e2def6](https://github.com/VAP-Solution/prc-ops/commit/3e2def695348c33cdd29230dce66d8d2c57104ca))
+
 # [0.96.0](https://github.com/VAP-Solution/prc-ops/compare/v0.95.0...v0.96.0) (2026-07-15)
 
 ### Features
