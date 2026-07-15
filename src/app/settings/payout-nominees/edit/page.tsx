@@ -27,7 +27,13 @@ export default async function EditPayoutNomineePage({
 }: {
   searchParams: Promise<{ worker?: string }>;
 }) {
-  const ctx = await requireRole(["procurement_manager"]);
+  // Spec 320 U3 — widened from PM-only to the procurement + leadership set (RPCs re-gate).
+  const ctx = await requireRole([
+    "procurement_manager",
+    "project_director",
+    "super_admin",
+    "procurement",
+  ]);
   const sp = await searchParams;
   const workerId = typeof sp.worker === "string" && UUID_REGEX.test(sp.worker) ? sp.worker : null;
 
