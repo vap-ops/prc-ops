@@ -12,6 +12,8 @@ import { useRouter } from "next/navigation";
 import { submitIdentityChange } from "@/app/settings/my-info/actions";
 import { useToast } from "@/lib/ui/use-toast";
 import { BUTTON_PRIMARY, CARD, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+import { PendingChangeNotice } from "@/components/features/profile/pending-change-notice";
+import { IDENTITY_CHANGE_PENDING, IDENTITY_CHANGE_TOAST } from "@/lib/i18n/labels";
 
 export function IdentityChangeForm({ hasPending }: { hasPending: boolean }) {
   const router = useRouter();
@@ -23,11 +25,7 @@ export function IdentityChangeForm({ hasPending }: { hasPending: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   if (hasPending) {
-    return (
-      <div className={`${CARD} border-attn bg-attn-soft border-l-4`}>
-        <p className="text-attn-ink text-sm font-medium">คำขอแก้ไขข้อมูลตัวตนกำลังรอการอนุมัติ</p>
-      </div>
-    );
+    return <PendingChangeNotice>{IDENTITY_CHANGE_PENDING}</PendingChangeNotice>;
   }
 
   function submit() {
@@ -48,7 +46,7 @@ export function IdentityChangeForm({ hasPending }: { hasPending: boolean }) {
         setError(result.error);
         return;
       }
-      toast.success("ส่งคำขอแล้ว รอการอนุมัติ");
+      toast.success(IDENTITY_CHANGE_TOAST);
       router.refresh();
     });
   }

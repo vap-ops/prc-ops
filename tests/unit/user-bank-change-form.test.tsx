@@ -32,6 +32,7 @@ vi.mock("@/lib/ui/use-toast", () => ({
 }));
 
 import { UserBankChangeForm } from "@/components/features/profile/user-bank-change-form";
+import { BANK_CHANGE_PENDING_HR } from "@/lib/i18n/labels";
 
 const UID = "44444444-4444-4444-4444-444444444444";
 
@@ -52,7 +53,7 @@ beforeEach(() => {
 describe("UserBankChangeForm", () => {
   it("shows the waiting notice while a request is pending", () => {
     render(<UserBankChangeForm uid={UID} hasPending={true} />);
-    expect(screen.getByText(/กำลังรอ/)).toBeInTheDocument();
+    expect(screen.getByText(BANK_CHANGE_PENDING_HR)).toBeInTheDocument();
   });
 
   it("refuses to submit without a passbook photo", async () => {
