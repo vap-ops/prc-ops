@@ -101,8 +101,13 @@ gated only on `pending`). A fresh `pending` row (no `reject_reason`) is unchange
 row reads differently from a fresh one. Fed by a new `hasReviewerNote` boolean on the queue input
 (the data layer already selects `reject_reason`).
 
-**Labels** (`src/lib/i18n/labels.ts`, additive): send-back button, the note-required placeholder,
-the applicant card title, the queue chip.
+**Labels.** The applicant returned-notice copy is centralized in `src/lib/i18n/labels.ts`
+(`REGISTRATION_RETURNED_NOTICE_HEADING`/`_BODY`) to match its direct sibling
+`RegistrationPendingNotice`. The approver button / note placeholder (in
+`registration-decision.tsx`) and the queue chip (in `registration-queue-list.tsx`) stay **inline
+Thai** — those files are already pervasively inline (`อนุมัติ`/`ปฏิเสธ`/`ยังไม่ครบสำหรับอนุมัติ`),
+and each new string is single-use, so centralizing only the new ones would increase local
+inconsistency without serving the 2-plus-use SSOT rule.
 
 ## Out of scope (v1 — follow-ups)
 

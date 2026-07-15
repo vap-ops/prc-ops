@@ -9820,6 +9820,10 @@ export type Database = {
           worker_id: string
         }[]
       }
+      send_back_staff_registration: {
+        Args: { p_id: string; p_note: string }
+        Returns: undefined
+      }
       set_accounting_period_status: {
         Args: {
           p_month: string
