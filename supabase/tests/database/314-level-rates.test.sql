@@ -24,6 +24,16 @@ grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
 grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 
+-- Normalize to SEED state inside this rollback txn (2026-07-15): worker_level_rates
+-- + labor_wht_config carry PM-filled LIVE values in prod (the operator sets real
+-- rates via /settings/labor-rates), so the fresh-seed assertions below (unset-rate
+-- grosses to NULL, firm WHT 3%) must run against seed state, not live data. These
+-- writes are undone on ROLLBACK — live rows are untouched. The seed-NULL invariant
+-- itself is proven hermetically via col_hasnt_default (below), not by live rows.
+-- [[prc-ops-guard-trip-map]] live-data-red class.
+update public.worker_level_rates set entered_rate = null;
+update public.labor_wht_config    set wht_pct = 3.00 where id = true;
+
 -- ============================================================================
 -- A. Seed + schema (owner).
 -- ============================================================================
@@ -39,9 +49,11 @@ select is(
 select is(
   (select wht_basis::text from public.worker_level_rates where level = 'junior'),
   'after_wht', 'junior seeds after_wht (net)');
-select ok(
-  (select bool_and(entered_rate is null) from public.worker_level_rates),
-  'every level seeds with a NULL rate (PM fills, never hardcoded)');
+-- Seed-NULL invariant, hermetic: the column carries NO default, so a seeded
+-- level row starts NULL and the PM must fill it — never a hardcoded rate (ADR
+-- 0082). Asserted on the schema, not on (now PM-filled) live rows.
+select col_hasnt_default('public'::name, 'worker_level_rates'::name, 'entered_rate'::name,
+  'entered_rate has no column default — a seeded level starts NULL (PM fills, never hardcoded)');
 select is(
   (select count(*)::int from public.labor_wht_config),
   1, 'labor_wht_config is a singleton (1 row)');
