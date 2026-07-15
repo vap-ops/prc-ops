@@ -119,6 +119,8 @@ const STATIC_DETAIL = [
   "settings/integrity",
   // Spec 317 U2: the all-roles self-service door drills down from /settings (back chip).
   "settings/my-info",
+  // Spec 319 U2: the login-keyed bank edit drills down from /settings/my-info (back chip).
+  "settings/my-info/bank",
   // Spec 310: the company-card registry drills down from /settings (back chip).
   "settings/cards",
   // Spec 314 U2: the level-standard labor-rate editor drills down from /settings (back chip).
