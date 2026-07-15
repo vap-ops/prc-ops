@@ -1,3 +1,9 @@
+# [0.106.0](https://github.com/VAP-Solution/prc-ops/compare/v0.105.0...v0.106.0) (2026-07-15)
+
+### Features
+
+- **profile:** spec 321 U2 — unify bank-change forms into ProfileBankSection ([#567](https://github.com/VAP-Solution/prc-ops/issues/567)) ([846f7fc](https://github.com/VAP-Solution/prc-ops/commit/846f7fc91da08d9051e819850f6adb519ac6d5e4))
+
 # [0.105.0](https://github.com/VAP-Solution/prc-ops/compare/v0.104.0...v0.105.0) (2026-07-15)
 
 ### Features
