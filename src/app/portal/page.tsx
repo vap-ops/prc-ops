@@ -16,7 +16,7 @@ import { createClient } from "@/lib/db/server";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
-import { BankChangeForm } from "@/components/features/portal/bank-change-form";
+import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
 import { PortalDocuments } from "@/components/features/portal/portal-documents";
 import { PortalContactInfo } from "@/components/features/portal/portal-contact-info";
@@ -149,7 +149,12 @@ export default async function PortalPage() {
           <>
             <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
             <div className="mb-6">
-              <BankChangeForm contractorId={profile.id} hasPending={!!pendingChange} />
+              <ProfileBankSection
+                audience="contractor"
+                ownerId={profile.id}
+                current={null}
+                hasPending={!!pendingChange}
+              />
             </div>
           </>
         ) : null}

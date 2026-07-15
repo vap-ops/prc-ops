@@ -12,7 +12,7 @@ import { formatThaiDate } from "@/lib/i18n/labels";
 import { WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { WorkerProfileEdit } from "@/components/features/portal/worker-profile-edit";
 import { WorkerConsents } from "@/components/features/portal/worker-consents";
-import { WorkerBankChangeForm } from "@/components/features/portal/worker-bank-change-form";
+import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
 import { PortalReceipts, type PortalReceipt } from "@/components/features/portal/portal-receipts";
 import type { PortalConsent } from "@/components/features/portal/portal-self-edit";
 import type { Database } from "@/lib/db/database.types";
@@ -79,21 +79,22 @@ export function WorkerPortalSections({
       {/* Bank — display + self-service staged change → PM approval (U4c-2, the
           ADR-0051 §6 anti-fraud gate). The PM may also enter/edit it on /workers. */}
       <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
-      {wp.bank_name || wp.bank_account_number || wp.bank_account_name ? (
-        <div className={`${CARD} mb-3`}>
-          <p className="text-ink text-sm font-medium">{wp.bank_name}</p>
-          <p className="text-ink text-sm">
-            {wp.bank_account_number}
-            {wp.bank_account_name ? ` · ${wp.bank_account_name}` : ""}
-          </p>
-        </div>
-      ) : (
-        <div className="mb-3">
-          <EmptyNotice>ยังไม่มีบัญชีธนาคาร</EmptyNotice>
-        </div>
-      )}
       <div className="mb-6">
-        <WorkerBankChangeForm uid={uid} hasPending={hasPendingBank} />
+        <ProfileBankSection
+          audience="worker"
+          ownerId={uid}
+          current={
+            wp.bank_name || wp.bank_account_number || wp.bank_account_name
+              ? {
+                  bankName: wp.bank_name ?? "",
+                  accountNo: wp.bank_account_number ?? "",
+                  accountName: wp.bank_account_name ?? "",
+                }
+              : null
+          }
+          showEmptyState
+          hasPending={hasPendingBank}
+        />
       </div>
 
       <h2 className={SECTION_HEADING}>ประวัติการจ่ายเงิน</h2>

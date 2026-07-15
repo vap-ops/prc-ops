@@ -16,8 +16,8 @@ vi.mock("@/components/features/portal/worker-profile-edit", () => ({
 vi.mock("@/components/features/portal/worker-consents", () => ({
   WorkerConsents: () => <div data-testid="worker-consents" />,
 }));
-vi.mock("@/components/features/portal/worker-bank-change-form", () => ({
-  WorkerBankChangeForm: ({ hasPending }: { hasPending: boolean }) => (
+vi.mock("@/components/features/profile/profile-bank-section", () => ({
+  ProfileBankSection: ({ hasPending }: { hasPending: boolean }) => (
     <div data-testid="worker-bank-form" data-pending={String(hasPending)} />
   ),
 }));
@@ -72,8 +72,7 @@ describe("WorkerPortalSections", () => {
     expect(screen.getByText(/12,000/)).toBeInTheDocument();
     // tax id shows when present
     expect(screen.getByText("1234567890123")).toBeInTheDocument();
-    // bank display
-    expect(screen.getByText("กสิกรไทย")).toBeInTheDocument();
+    // bank display + form now live in the mocked ProfileBankSection (below)
     // children wired
     expect(screen.getByTestId("worker-profile-edit")).toBeInTheDocument();
     expect(screen.getByTestId("worker-consents")).toBeInTheDocument();
