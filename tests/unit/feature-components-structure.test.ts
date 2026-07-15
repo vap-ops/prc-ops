@@ -13,6 +13,8 @@ const ALLOWED_DOMAINS = [
   "work-packages",
   "photos",
   "labor",
+  // Spec 320: the temporary payout-nominee PM surface (form + clear button).
+  "payroll",
   "contacts",
   "chrome",
   "common",
