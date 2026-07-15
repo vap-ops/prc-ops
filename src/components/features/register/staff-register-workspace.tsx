@@ -25,6 +25,7 @@ import { resolveCardPhoto } from "@/lib/register/card-view";
 import { StaffRegistrationForm } from "@/components/features/register/staff-registration-form";
 import { ShareCardButton } from "@/components/features/register/share-card-button";
 import { RegistrationPendingNotice } from "@/components/features/register/registration-pending-notice";
+import { RegistrationReturnedNotice } from "@/components/features/register/registration-returned-notice";
 import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
@@ -149,7 +150,14 @@ async function RegistrationWorkspace({
         </div>
       ) : null}
       {registration.status === "pending" ? (
-        <RegistrationPendingNotice employeeId={registration.employee_id} />
+        registration.reject_reason && registration.reject_reason.trim() ? (
+          // Spec 322 — sent back for edit: reviewer note on reject_reason while
+          // still pending. Show the "action needed" card instead of the generic
+          // "sit tight" pending notice; the edit form below still renders.
+          <RegistrationReturnedNotice note={registration.reject_reason} />
+        ) : (
+          <RegistrationPendingNotice employeeId={registration.employee_id} />
+        )
       ) : null}
       <ShareCardButton
         employeeId={registration.employee_id}

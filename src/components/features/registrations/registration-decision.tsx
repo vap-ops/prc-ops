@@ -29,7 +29,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { approveStaffRegistration, rejectStaffRegistration } from "@/app/registrations/actions";
+import {
+  approveStaffRegistration,
+  rejectStaffRegistration,
+  sendBackStaffRegistration,
+} from "@/app/registrations/actions";
 import type { UserRole } from "@/lib/auth/role-home";
 import {
   USER_ROLE_LABEL,
@@ -89,6 +93,9 @@ export function RegistrationDecision({
   );
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
+  // Spec 322 — the non-terminal "send back for edit" flow (parallel to reject).
+  const [showSendBack, setShowSendBack] = useState(false);
+  const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function approve() {
@@ -126,11 +133,31 @@ export function RegistrationDecision({
     });
   }
 
+  // Spec 322 — send back for edit: a REQUIRED note (what to fix), validated with
+  // the same non-blank contract as the reject reason. Keeps the row pending.
+  function submitSendBack() {
+    const noteError = validateRejectReason(note);
+    if (noteError) {
+      setError(noteError);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await sendBackStaffRegistration({ registrationId, note });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success("ส่งกลับให้แก้ไขแล้ว");
+      router.refresh();
+    });
+  }
+
   const hint = declaredRoleHint?.trim();
 
   return (
     <div className="flex flex-col gap-3">
-      {!showReject ? (
+      {!showReject && !showSendBack ? (
         <>
           {/* Role: only the two self-onboard field roles — ช่าง (default) or ผู้ดูแลไซต์. */}
           <div className="flex flex-col gap-1.5">
@@ -172,21 +199,74 @@ export function RegistrationDecision({
             </select>
             <p className="text-ink-muted text-xs">{REGISTRATION_SITE_ASSIGN_HINT}</p>
           </div>
+          <button type="button" disabled={pending} onClick={approve} className={BUTTON_PRIMARY}>
+            อนุมัติ
+          </button>
+          {/* Spec 322 — non-approve alternatives: ส่งกลับให้แก้ไข (primary, non-terminal)
+              then ปฏิเสธ (terminal deny). Both open a confirm-step note/reason panel. */}
           <div className="flex gap-2">
-            <button type="button" disabled={pending} onClick={approve} className={BUTTON_PRIMARY}>
-              อนุมัติ
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setShowSendBack(true);
+                setError(null);
+              }}
+              className={BUTTON_SECONDARY}
+            >
+              ส่งกลับให้แก้ไข
             </button>
             <button
               type="button"
               disabled={pending}
-              onClick={() => setShowReject(true)}
+              onClick={() => {
+                setShowReject(true);
+                setError(null);
+              }}
               className={BUTTON_SECONDARY}
             >
               ปฏิเสธ
             </button>
           </div>
         </>
-      ) : (
+      ) : null}
+      {showSendBack ? (
+        <div className="flex flex-col gap-2">
+          <label htmlFor="send-back-note" className="text-ink text-sm font-medium">
+            สิ่งที่ต้องแก้ไข
+          </label>
+          <textarea
+            id="send-back-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            className={FIELD_STACKED}
+            placeholder="ระบุสิ่งที่ต้องแก้ไข เช่น เอกสารไม่ครบ / รูปกลับด้านให้ตรง"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={submitSendBack}
+              className={BUTTON_PRIMARY}
+            >
+              ยืนยันส่งกลับ
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setShowSendBack(false);
+                setError(null);
+              }}
+              className={BUTTON_SECONDARY}
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {showReject ? (
         <div className="flex flex-col gap-2">
           <label htmlFor="reject-reason" className="text-ink text-sm font-medium">
             เหตุผลที่ปฏิเสธ
@@ -221,7 +301,7 @@ export function RegistrationDecision({
             </button>
           </div>
         </div>
-      )}
+      ) : null}
       {error ? (
         <p role="alert" className={INLINE_ALERT_TEXT}>
           {error}

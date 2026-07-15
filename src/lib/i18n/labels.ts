@@ -762,6 +762,13 @@ export function registrationPendingEmployeeIdLine(employeeId: string): string {
   return `รหัสพนักงานของคุณ: ${employeeId} — เก็บไว้อ้างอิง`;
 }
 
+// Spec 322 — the applicant "sent back for edit" card (sibling of the pending
+// notice; shown in the same slot when the approver returned the row with a note).
+// Copy centralized alongside the pending-notice copy above (its direct sibling).
+export const REGISTRATION_RETURNED_NOTICE_HEADING = "ต้องแก้ไขแล้วส่งใหม่";
+export const REGISTRATION_RETURNED_NOTICE_BODY =
+  "ผู้ตรวจขอให้แก้ไขรายการด้านล่างนี้ แล้วบันทึกส่งใหม่ในแบบฟอร์มด้านล่าง";
+
 // Spec 286 U1 — the two self-onboard door headings. The staff self-registration
 // flow is role-neutral (spec 263/264); these label the two entry variants. The
 // STATUS heading is the neutral heading shown once a registration exists (the
