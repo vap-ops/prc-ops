@@ -119,4 +119,41 @@ describe("RentalSettlementManager — history + correction", () => {
     fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
     expect(screen.getByText(/แก้ไขยอดเป็น 0/)).toBeInTheDocument();
   });
+
+  // Spec 323 U1d — the receipt-documents sheet: lists the attached vendor documents
+  // (with a signed view link) and hosts the two per-purpose uploaders.
+  it("opens the receipts sheet with the attached documents and the uploaders", () => {
+    render(
+      <RentalSettlementManager
+        settlements={[settlement]}
+        receiptsBySettlement={{
+          s1: [
+            {
+              id: "att-1",
+              purpose: "tax_invoice",
+              uploadedAt: "2026-07-06",
+              url: "https://x/y.pdf",
+            },
+          ],
+        }}
+      />,
+    );
+    // the row button carries the count
+    fireEvent.click(screen.getByRole("button", { name: "ใบเสร็จ/เอกสาร (1)" }));
+    // the attached doc + its signed view link
+    expect(screen.getByText(/ใบกำกับภาษี ·/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ดูเอกสาร" })).toHaveAttribute(
+      "href",
+      "https://x/y.pdf",
+    );
+    // both uploaders present
+    expect(screen.getByRole("button", { name: "แนบสลิปโอนเงิน" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "แนบใบกำกับภาษี" })).toBeInTheDocument();
+  });
+
+  it("shows an empty receipts state and the count-less label when nothing is attached", () => {
+    renderManager();
+    fireEvent.click(screen.getByRole("button", { name: "ใบเสร็จ/เอกสาร" }));
+    expect(screen.getByText("ยังไม่มีเอกสารแนบ")).toBeInTheDocument();
+  });
 });

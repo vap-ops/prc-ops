@@ -5228,6 +5228,48 @@ export type Database = {
           },
         ]
       }
+      rental_settlement_attachments: {
+        Row: {
+          id: string
+          purpose: Database["public"]["Enums"]["rental_receipt_purpose"]
+          settlement_id: string
+          storage_path: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          id?: string
+          purpose: Database["public"]["Enums"]["rental_receipt_purpose"]
+          settlement_id: string
+          storage_path: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          id?: string
+          purpose?: Database["public"]["Enums"]["rental_receipt_purpose"]
+          settlement_id?: string
+          storage_path?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_settlement_attachments_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "rental_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_settlement_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rental_settlements: {
         Row: {
           agreement_id: string
@@ -10790,6 +10832,7 @@ export type Database = {
         | "cleaning"
         | "insurance"
         | "other"
+      rental_receipt_purpose: "payment_slip" | "tax_invoice"
       report_status: "requested" | "processing" | "complete" | "failed"
       retention_status: "held" | "due" | "released" | "forfeited"
       rework_source: "internal" | "client"
@@ -11234,6 +11277,7 @@ export const Constants = {
         "insurance",
         "other",
       ],
+      rental_receipt_purpose: ["payment_slip", "tax_invoice"],
       report_status: ["requested", "processing", "complete", "failed"],
       retention_status: ["held", "due", "released", "forfeited"],
       rework_source: ["internal", "client"],
