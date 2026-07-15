@@ -1,3 +1,9 @@
+# [0.101.0](https://github.com/VAP-Solution/prc-ops/compare/v0.100.0...v0.101.0) (2026-07-15)
+
+### Features
+
+- **payroll:** worker_payout_nominee + PM RPCs (spec 320 U1) ([#560](https://github.com/VAP-Solution/prc-ops/issues/560)) ([50ddcd8](https://github.com/VAP-Solution/prc-ops/commit/50ddcd8314ff023f98f3d42259c3f29c7388b8f1))
+
 # [0.100.0](https://github.com/VAP-Solution/prc-ops/compare/v0.99.0...v0.100.0) (2026-07-15)
 
 ### Features
