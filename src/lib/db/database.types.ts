@@ -6952,6 +6952,115 @@ export type Database = {
           },
         ]
       }
+      user_bank: {
+        Row: {
+          bank_account_name: string
+          bank_account_number: string
+          bank_name: string
+          book_bank_path: string | null
+          updated_at: string
+          updated_by: string
+          user_id: string
+        }
+        Insert: {
+          bank_account_name: string
+          bank_account_number: string
+          bank_name: string
+          book_bank_path?: string | null
+          updated_at?: string
+          updated_by: string
+          user_id: string
+        }
+        Update: {
+          bank_account_name?: string
+          bank_account_number?: string
+          bank_name?: string
+          book_bank_path?: string | null
+          updated_at?: string
+          updated_by?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_bank_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_bank_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_bank_change_requests: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          book_bank_path: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          requested_by: string
+          status: Database["public"]["Enums"]["contractor_change_status"]
+          user_id: string
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          book_bank_path: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          requested_by: string
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+          user_id: string
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          book_bank_path?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          requested_by?: string
+          status?: Database["public"]["Enums"]["contractor_change_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_bank_change_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_bank_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_bank_change_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string
@@ -8837,6 +8946,10 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      decide_user_bank_change: {
+        Args: { p_approve: boolean; p_id: string }
+        Returns: undefined
+      }
       decide_worker_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
@@ -8979,6 +9092,14 @@ export type Database = {
         }[]
       }
       get_own_staff_bank: {
+        Args: never
+        Returns: {
+          bank_account_name: string
+          bank_account_number: string
+          bank_name: string
+        }[]
+      }
+      get_own_user_bank: {
         Args: never
         Returns: {
           bank_account_name: string
@@ -9920,6 +10041,15 @@ export type Database = {
         Returns: string
       }
       submit_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
+      submit_user_bank_change: {
+        Args: {
+          p_bank_account_name: string
+          p_bank_account_number: string
+          p_bank_name: string
+          p_book_bank_path: string
+        }
+        Returns: string
+      }
       submit_worker_bank_change: {
         Args: {
           p_bank_account_name: string
