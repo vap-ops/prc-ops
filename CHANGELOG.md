@@ -1,3 +1,9 @@
+# [0.99.0](https://github.com/VAP-Solution/prc-ops/compare/v0.98.0...v0.99.0) (2026-07-15)
+
+### Features
+
+- **bank:** my-info bank section + separate edit page (spec 319 U2) ([#557](https://github.com/VAP-Solution/prc-ops/issues/557)) ([c01b47b](https://github.com/VAP-Solution/prc-ops/commit/c01b47bb9ade551b0a94cc2b3775f89df9b4fa98))
+
 # [0.98.0](https://github.com/VAP-Solution/prc-ops/compare/v0.97.0...v0.98.0) (2026-07-15)
 
 ### Features
