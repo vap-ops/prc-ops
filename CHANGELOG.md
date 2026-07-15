@@ -1,3 +1,9 @@
+# [0.104.0](https://github.com/VAP-Solution/prc-ops/compare/v0.103.0...v0.104.0) (2026-07-15)
+
+### Features
+
+- **registrations:** send a staff registration back for edit (spec 322) ([#563](https://github.com/VAP-Solution/prc-ops/issues/563)) ([7397bb0](https://github.com/VAP-Solution/prc-ops/commit/7397bb09329190d463e1590852241b8ae4d515dd))
+
 # [0.103.0](https://github.com/VAP-Solution/prc-ops/compare/v0.102.0...v0.103.0) (2026-07-15)
 
 ### Features
