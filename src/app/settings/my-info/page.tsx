@@ -25,7 +25,7 @@ import { BUTTON_SECONDARY_MUTED, CARD, SECTION_HEADING } from "@/lib/ui/classes"
 import { DisplayNameForm } from "@/components/features/common/display-name-form";
 import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
 import { StaffContactForm } from "@/components/features/profile/staff-contact-form";
-import { StaffBankChangeForm } from "@/components/features/profile/staff-bank-change-form";
+import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
 import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
 import {
   getOwnTechnicianRegistration,
@@ -156,16 +156,20 @@ export default async function MyInfoPage() {
             <WorkerIdCardUpdate uid={uid} currentUrl={urls.id_card ?? null} />
 
             <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
-            {staffBank ? (
-              <div className={CARD}>
-                <p className="text-ink text-sm font-medium">{staffBank.bankName}</p>
-                <p className="text-ink text-sm">
-                  {staffBank.accountNumber}
-                  {staffBank.accountName ? ` · ${staffBank.accountName}` : ""}
-                </p>
-              </div>
-            ) : null}
-            <StaffBankChangeForm uid={uid} hasPending={(staffBankPending?.length ?? 0) > 0} />
+            <ProfileBankSection
+              audience="staff"
+              ownerId={uid}
+              current={
+                staffBank
+                  ? {
+                      bankName: staffBank.bankName,
+                      accountNo: staffBank.accountNumber,
+                      accountName: staffBank.accountName ?? "",
+                    }
+                  : null
+              }
+              hasPending={(staffBankPending?.length ?? 0) > 0}
+            />
           </>
         ) : null}
 
