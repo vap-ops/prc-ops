@@ -1,3 +1,9 @@
+# [0.100.0](https://github.com/VAP-Solution/prc-ops/compare/v0.99.0...v0.100.0) (2026-07-15)
+
+### Features
+
+- **bank:** user-bank kind in the bank-changes queue (spec 319 U3) ([#558](https://github.com/VAP-Solution/prc-ops/issues/558)) ([18dea1f](https://github.com/VAP-Solution/prc-ops/commit/18dea1fc99813690c1d9f3219a0089c563c0a66d))
+
 # [0.99.0](https://github.com/VAP-Solution/prc-ops/compare/v0.98.0...v0.99.0) (2026-07-15)
 
 ### Features
