@@ -1,3 +1,9 @@
+# [0.107.0](https://github.com/VAP-Solution/prc-ops/compare/v0.106.0...v0.107.0) (2026-07-15)
+
+### Features
+
+- **profile:** spec 321 U5 — display name read-only + edit-in-modal ([#569](https://github.com/VAP-Solution/prc-ops/issues/569)) ([af0d538](https://github.com/VAP-Solution/prc-ops/commit/af0d538b3197dd017d7e557dc0e0728e29384688))
+
 # [0.106.0](https://github.com/VAP-Solution/prc-ops/compare/v0.105.0...v0.106.0) (2026-07-15)
 
 ### Features
