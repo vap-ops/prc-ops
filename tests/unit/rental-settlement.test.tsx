@@ -187,4 +187,14 @@ describe("RentalSettlementManager — history + correction", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     expect(mockSupersede).not.toHaveBeenCalled();
   });
+
+  // Spec 312 follow-up 2 — surface that editing the amounts to 0 is how you
+  // cancel a settlement (the step the void signpost points at). The hint shows
+  // only inside the open correction form, not in the collapsed row.
+  it("shows the zero-cancels hint only when the correction form is open", () => {
+    renderManager();
+    expect(screen.queryByText(/แก้ไขยอดเป็น 0/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    expect(screen.getByText(/แก้ไขยอดเป็น 0/)).toBeInTheDocument();
+  });
 });

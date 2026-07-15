@@ -19,6 +19,10 @@ vi.mock("@/lib/db/server", () => ({ createClient: async () => ({ rpc }) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { voidRentalBatch } from "@/app/equipment/rentals/actions";
+import {
+  VOID_BLOCKED_BY_CHARGES,
+  VOID_BLOCKED_BY_SETTLEMENT,
+} from "@/lib/equipment/rental-void-messages";
 
 const BATCH = "70d5c6d2-7b76-4380-a5f8-5d7c6666a98a";
 
@@ -72,5 +76,25 @@ describe("voidRentalBatch (spec 312)", () => {
     rpc.mockResolvedValue({ data: null, error: { code: "RB409", message: "not active" } });
     const r = await voidRentalBatch({ batchId: BATCH, reason: "test" });
     expect(r.ok).toBe(false);
+  });
+
+  // Spec 312 follow-up 2 — RB409 is no longer one vague string: the live-settlement
+  // and has-charges causes get cause-specific copy so the user knows what to unwind.
+  it("maps an RB409 live-settlement block to the settlement signpost", async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { code: "RB409", message: "void_equipment_rental_batch: batch has a live settlement" },
+    });
+    const r = await voidRentalBatch({ batchId: BATCH, reason: "test" });
+    expect(r).toEqual({ ok: false, error: VOID_BLOCKED_BY_SETTLEMENT });
+  });
+
+  it("maps an RB409 charges block to the charges message", async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { code: "RB409", message: "void_equipment_rental_batch: batch has charges" },
+    });
+    const r = await voidRentalBatch({ batchId: BATCH, reason: "test" });
+    expect(r).toEqual({ ok: false, error: VOID_BLOCKED_BY_CHARGES });
   });
 });

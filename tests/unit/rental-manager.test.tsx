@@ -323,6 +323,16 @@ describe("RentalManager", () => {
     expect(screen.queryByRole("button", { name: "ยกเลิกการเช่า" })).not.toBeInTheDocument();
   });
 
+  // Spec 312 follow-up 2 — the void trigger must read as a real (danger) button,
+  // not the easy-to-miss bare text link it was. Pinned by the outline-danger
+  // border token, which the old text-link did not carry.
+  it("renders the void trigger as a prominent outlined danger button", () => {
+    renderManager([voidableCard]);
+    const trigger = screen.getByRole("button", { name: "ยกเลิกการเช่า" });
+    expect(trigger).toHaveClass("border-danger-edge");
+    expect(trigger.className).not.toContain("hover:underline");
+  });
+
   it("voids a batch after a reason is entered, then refreshes", async () => {
     renderManager([voidableCard]);
     fireEvent.click(screen.getByRole("button", { name: "ยกเลิกการเช่า" }));
