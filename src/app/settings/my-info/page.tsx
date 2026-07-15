@@ -34,8 +34,9 @@ import {
 } from "@/lib/register/own-registration";
 import { getOwnUserBank } from "@/lib/register/own-user-bank";
 import { isEmployeeRole } from "@/lib/auth/role-home";
+import { MY_INFO_LABEL } from "@/lib/i18n/labels";
 
-export const metadata = { title: "ข้อมูลของฉัน" };
+export const metadata = { title: MY_INFO_LABEL };
 
 export default async function MyInfoPage() {
   const supabase = await createClient();
@@ -106,7 +107,7 @@ export default async function MyInfoPage() {
   return (
     <PageShell>
       <DetailHeader backHref="/settings" backLabel="กลับไปตั้งค่า">
-        <h1 className="text-ink text-xl font-semibold tracking-tight">ข้อมูลของฉัน</h1>
+        <h1 className="text-ink text-xl font-semibold tracking-tight">{MY_INFO_LABEL}</h1>
       </DetailHeader>
 
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-6`}>

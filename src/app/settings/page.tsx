@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { BellRing, ChevronRight } from "lucide-react";
-import { NOTIF_SETTINGS_LABEL, NOTIF_SETTINGS_HINT } from "@/lib/i18n/labels";
+import { NOTIF_SETTINGS_LABEL, NOTIF_SETTINGS_HINT, PROFILE_LABEL } from "@/lib/i18n/labels";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
@@ -92,11 +92,11 @@ export default async function SettingsPage() {
         <div className="flex flex-col gap-2">
           <h2 className="text-meta text-ink-secondary font-semibold">บัญชี</h2>
           <div className={`${GROUP_CARD} border`}>
-            <Link href="/profile" className={ROW} aria-label="โปรไฟล์">
+            <Link href="/profile" className={ROW} aria-label={PROFILE_LABEL}>
               <AvatarSurface lineUrl={row.line_avatar_url} fullName={row.full_name} size={40} />
               <span className="min-w-0 flex-1">
                 <span className="text-ink text-body block font-semibold">
-                  {row.full_name ?? "โปรไฟล์"}
+                  {row.full_name ?? PROFILE_LABEL}
                 </span>
                 <span className="text-ink-secondary text-meta block">
                   แก้ไขชื่อที่แสดง · รูปโปรไฟล์
