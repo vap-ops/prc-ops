@@ -1,17 +1,14 @@
 // Writing failing test first.
 //
-// Spec 268 — RentalManager on /equipment/rentals (BACK_OFFICE money audience
-// only; the page never renders it for a field session). One form records the
-// deal: owner · rate + ต่อเดือน/ต่อวัน chips · duration ตลอดโครงการ (no end
-// date) / กำหนดช่วงเอง (start+end) · optional project (allocate-on-create).
-// Cards list recorded rentals; ผูกโครงการ opens the per-card allocation form.
-// Mocked actions + router.
+// Spec 268 / 323 U1c — RentalManager is now the read-only deals list (recording
+// moved into AddRentalFab + a bottom sheet). Cards list recorded rentals; each
+// card's ผูกโครงการ (allocate) and ยกเลิกการเช่า (void, spec 312) open in a bottom
+// sheet, not an inline disclosure. Mocked actions + router.
 
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateBatch, mockCreateAllocation, mockVoid, mockRefresh } = vi.hoisted(() => ({
-  mockCreateBatch: vi.fn(),
+const { mockCreateAllocation, mockVoid, mockRefresh } = vi.hoisted(() => ({
   mockCreateAllocation: vi.fn(),
   mockVoid: vi.fn(),
   mockRefresh: vi.fn(),
@@ -21,23 +18,15 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mockRefresh }),
 }));
 vi.mock("@/app/equipment/rentals/actions", () => ({
-  createRentalBatch: mockCreateBatch,
   createRentalAllocation: mockCreateAllocation,
   voidRentalBatch: mockVoid,
 }));
 
-import {
-  EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE,
-  RentalManager,
-} from "@/components/features/equipment/rental-manager";
+import { RentalManager } from "@/components/features/equipment/rental-manager";
 import type { RentalCard } from "@/lib/equipment/rental-view";
 
-const suppliers = [
-  { id: "o1", name: "บ.เครนไทย" },
-  { id: "o2", name: "บ.นั่งร้านสยาม" },
-];
 const projects = [{ id: "p1", name: "โครงการ A" }];
-const rentals = [
+const rentals: RentalCard[] = [
   {
     id: "b1",
     supplierName: "บ.เครนไทย",
@@ -49,130 +38,47 @@ const rentals = [
   },
 ];
 
-function renderManager(cards: RentalCard[] = rentals) {
+function renderManager(
+  cards: RentalCard[] = rentals,
+  lockedProject?: { id: string; name: string },
+) {
   return render(
     <RentalManager
-      suppliers={suppliers}
       projects={projects}
       rentals={cards}
       defaultDate="2026-07-05"
+      {...(lockedProject ? { lockedProject } : {})}
     />,
   );
 }
 
-describe("RentalManager", () => {
+describe("RentalManager — read-only list", () => {
   beforeEach(() => {
-    mockCreateBatch.mockReset();
-    mockCreateAllocation.mockReset();
+    mockCreateAllocation.mockReset().mockResolvedValue({ ok: true });
+    mockVoid.mockReset().mockResolvedValue({ ok: true });
     mockRefresh.mockReset();
-    mockVoid.mockReset();
-    mockCreateBatch.mockResolvedValue({ ok: true });
-    mockCreateAllocation.mockResolvedValue({ ok: true });
-    mockVoid.mockResolvedValue({ ok: true });
-  });
-
-  it("defaults to monthly rate + whole-project duration (no end-date input)", () => {
-    renderManager();
-    expect(screen.getByRole("radio", { name: "ต่อเดือน" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "ตลอดโครงการ" })).toBeChecked();
-    expect(screen.queryByLabelText("วันสิ้นสุด")).not.toBeInTheDocument();
-  });
-
-  it("reveals the end-date input for a custom duration", () => {
-    renderManager();
-    fireEvent.click(screen.getByRole("radio", { name: "กำหนดช่วงเอง" }));
-    expect(screen.getByLabelText("วันสิ้นสุด")).toBeInTheDocument();
-  });
-
-  // Spec 280: rented-from-before vendors surface above the full list.
-  it("groups previously-rented vendors above the full list", () => {
-    render(
-      <RentalManager
-        suppliers={suppliers}
-        suggestedSupplierIds={["o2"]}
-        projects={projects}
-        rentals={rentals}
-        defaultDate="2026-07-05"
-      />,
-    );
-    const suggested = screen.getByRole("group", { name: "เคยให้เช่า" });
-    expect(within(suggested).getByRole("option", { name: "บ.นั่งร้านสยาม" })).toBeInTheDocument();
-    const all = screen.getByRole("group", { name: "ผู้ให้เช่าทั้งหมด" });
-    expect(within(all).getByRole("option", { name: "บ.เครนไทย" })).toBeInTheDocument();
-    expect(within(all).queryByRole("option", { name: "บ.นั่งร้านสยาม" })).not.toBeInTheDocument();
-  });
-
-  it("falls back to a flat vendor list when there are no suggestions", () => {
-    renderManager();
-    expect(screen.queryByRole("group", { name: "เคยให้เช่า" })).not.toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "บ.เครนไทย" })).toBeInTheDocument();
-  });
-
-  it("submits a monthly whole-project rental with no project binding", async () => {
-    renderManager();
-    fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o1" } });
-    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "90000" } });
-    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
-    await waitFor(() =>
-      expect(mockCreateBatch).toHaveBeenCalledWith({
-        supplierId: "o1",
-        rate: 90000,
-        ratePeriod: "monthly",
-        startsOn: "2026-07-05",
-        endsOn: null,
-        note: "",
-        projectId: null,
-        depositAmount: 0,
-        minRentalDays: null,
-      }),
-    );
-    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
-  });
-
-  it("submits a daily custom-duration rental bound to a project", async () => {
-    renderManager();
-    fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o2" } });
-    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "3500" } });
-    fireEvent.click(screen.getByRole("radio", { name: "ต่อวัน" }));
-    fireEvent.click(screen.getByRole("radio", { name: "กำหนดช่วงเอง" }));
-    fireEvent.change(screen.getByLabelText("วันเริ่ม"), { target: { value: "2026-07-10" } });
-    fireEvent.change(screen.getByLabelText("วันสิ้นสุด"), { target: { value: "2026-07-20" } });
-    fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p1" } });
-    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
-    await waitFor(() =>
-      expect(mockCreateBatch).toHaveBeenCalledWith({
-        supplierId: "o2",
-        rate: 3500,
-        ratePeriod: "daily",
-        startsOn: "2026-07-10",
-        endsOn: "2026-07-20",
-        note: "",
-        projectId: "p1",
-        depositAmount: 0,
-        minRentalDays: null,
-      }),
-    );
-  });
-
-  it("rejects a missing owner client-side before calling the action", async () => {
-    renderManager();
-    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "90000" } });
-    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
-    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
-    expect(mockCreateBatch).not.toHaveBeenCalled();
   });
 
   it("renders rental cards with rate, period, and allocation chips", () => {
     renderManager();
-    // Scope to the list section — the owner/project names also exist as
-    // <option>s inside the record form's selects.
     const list = within(screen.getByRole("region", { name: "รายการเช่า" }));
     expect(list.getByText("บ.เครนไทย")).toBeInTheDocument();
     expect(list.getByText("฿90,000.00/เดือน")).toBeInTheDocument();
     expect(list.getByText(/โครงการ A ·/)).toBeInTheDocument();
   });
 
-  it("allocates an existing rental to a project from its card", async () => {
+  it("shows an empty state when nothing is recorded yet", () => {
+    renderManager([]);
+    expect(screen.getByText(/ยังไม่มีการเช่า/)).toBeInTheDocument();
+  });
+
+  it("does not render a record form (moved to the FAB sheet)", () => {
+    renderManager();
+    expect(screen.queryByLabelText("เช่าจาก")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "บันทึกการเช่า" })).not.toBeInTheDocument();
+  });
+
+  it("allocates an existing rental to a project from a card sheet", async () => {
     renderManager();
     fireEvent.click(screen.getByRole("button", { name: "ผูกโครงการ" }));
     fireEvent.change(screen.getByLabelText("โครงการที่ผูก"), { target: { value: "p1" } });
@@ -187,128 +93,17 @@ describe("RentalManager", () => {
       }),
     );
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+    // sheet closed on success
+    await waitFor(() => expect(screen.queryByLabelText("โครงการที่ผูก")).not.toBeInTheDocument());
   });
 
-  it("shows an empty state when nothing is recorded yet", () => {
-    renderManager([]);
-    expect(screen.getByText(/ยังไม่มีการเช่า/)).toBeInTheDocument();
-  });
-
-  // Spec 275 U5 — project-locked recorder (surfaced on /projects/[id]/rentals).
-  // The project is fixed to this page, so the โครงการ pick is hidden and every
-  // recorded rental auto-allocates to lockedProject.
-
-  it("hides the project select and auto-allocates to the locked project on record", async () => {
-    render(
-      <RentalManager
-        suppliers={suppliers}
-        projects={projects}
-        rentals={[]}
-        defaultDate="2026-07-05"
-        lockedProject={{ id: "p1", name: "โครงการ A" }}
-      />,
-    );
-    expect(screen.queryByLabelText("โครงการ")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o1" } });
-    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "90000" } });
-    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
-    await waitFor(() =>
-      expect(mockCreateBatch).toHaveBeenCalledWith({
-        supplierId: "o1",
-        rate: 90000,
-        ratePeriod: "monthly",
-        startsOn: "2026-07-05",
-        endsOn: null,
-        note: "",
-        projectId: "p1",
-        depositAmount: 0,
-        minRentalDays: null,
-      }),
-    );
-  });
-
-  it("hides the per-card ผูกโครงการ re-allocate control when project-locked", () => {
-    render(
-      <RentalManager
-        suppliers={suppliers}
-        projects={projects}
-        rentals={rentals}
-        defaultDate="2026-07-05"
-        lockedProject={{ id: "p1", name: "โครงการ A" }}
-      />,
-    );
+  it("hides the per-card ผูกโครงการ control when project-locked", () => {
+    renderManager(rentals, { id: "p1", name: "โครงการ A" });
     expect(screen.queryByRole("button", { name: "ผูกโครงการ" })).not.toBeInTheDocument();
   });
 
-  // Spec 275 U5 follow-up — the partial-outcome recovery hint must match the
-  // surface. createRentalBatch tags a saved-batch-but-allocation-failed result
-  // with code "allocation_failed" and a default error that tells the user to
-  // re-allocate "ที่รายการ" (from the card). That card + its ผูกโครงการ control
-  // only exist on the settings overview; on the project-LOCKED recorder both are
-  // hidden, so the locked surface swaps in a hint pointing at the settings page.
-
-  // The default (settings-surface) error createRentalBatch returns for a partial
-  // outcome — recovery via the per-card ผูกโครงการ control.
-  const cardHint = "บันทึกการเช่าแล้ว แต่ผูกโครงการไม่สำเร็จ — กดผูกโครงการที่รายการอีกครั้ง";
-
-  function submitRecord() {
-    fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o1" } });
-    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "90000" } });
-    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
-  }
-
-  it("on the project-locked surface, a partial failure points recovery at the settings overview, not the card", async () => {
-    mockCreateBatch.mockResolvedValue({ ok: false, error: cardHint, code: "allocation_failed" });
-    render(
-      <RentalManager
-        suppliers={suppliers}
-        projects={projects}
-        rentals={[]}
-        defaultDate="2026-07-05"
-        lockedProject={{ id: "p1", name: "โครงการ A" }}
-      />,
-    );
-    submitRecord();
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE);
-    // the unreachable "re-allocate from the card" hint must NOT be shown here
-    expect(alert).not.toHaveTextContent("ที่รายการ");
-  });
-
-  it("on the settings overview, the same partial failure keeps the card-pointing hint", async () => {
-    mockCreateBatch.mockResolvedValue({ ok: false, error: cardHint, code: "allocation_failed" });
-    renderManager([]); // no lockedProject — the cross-project overview
-    fireEvent.change(screen.getByLabelText("เช่าจาก"), { target: { value: "o1" } });
-    fireEvent.change(screen.getByLabelText(/ค่าเช่า/), { target: { value: "90000" } });
-    fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p1" } });
-    fireEvent.click(screen.getByRole("button", { name: "บันทึกการเช่า" }));
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(cardHint);
-    expect(alert).not.toHaveTextContent(EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE);
-  });
-
-  it("on the locked surface, a non-allocation failure still shows the raw error unchanged", async () => {
-    mockCreateBatch.mockResolvedValue({
-      ok: false,
-      error: "ข้อมูลการเช่าไม่ถูกต้อง หรือไม่พบผู้ให้เช่า",
-    });
-    render(
-      <RentalManager
-        suppliers={suppliers}
-        projects={projects}
-        rentals={[]}
-        defaultDate="2026-07-05"
-        lockedProject={{ id: "p1", name: "โครงการ A" }}
-      />,
-    );
-    submitRecord();
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("ข้อมูลการเช่าไม่ถูกต้อง หรือไม่พบผู้ให้เช่า");
-    expect(alert).not.toHaveTextContent(EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE);
-  });
-
   // Spec 312 — void a rental batch from its card.
-  const voidableCard = {
+  const voidableCard: RentalCard = {
     id: "vb",
     supplierName: "บ.เครนไทย",
     rateLabel: "฿11,000.00/วัน",
@@ -324,8 +119,7 @@ describe("RentalManager", () => {
   });
 
   // Spec 312 follow-up 2 — the void trigger must read as a real (danger) button,
-  // not the easy-to-miss bare text link it was. Pinned by the outline-danger
-  // border token, which the old text-link did not carry.
+  // not an easy-to-miss bare text link. Pinned by the outline-danger border token.
   it("renders the void trigger as a prominent outlined danger button", () => {
     renderManager([voidableCard]);
     const trigger = screen.getByRole("button", { name: "ยกเลิกการเช่า" });
@@ -333,7 +127,7 @@ describe("RentalManager", () => {
     expect(trigger.className).not.toContain("hover:underline");
   });
 
-  it("voids a batch after a reason is entered, then refreshes", async () => {
+  it("voids a batch after a reason is entered in the sheet, then refreshes", async () => {
     renderManager([voidableCard]);
     fireEvent.click(screen.getByRole("button", { name: "ยกเลิกการเช่า" }));
     // the confirm is disabled until a reason is typed

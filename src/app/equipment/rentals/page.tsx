@@ -15,6 +15,8 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { RentalManager } from "@/components/features/equipment/rental-manager";
 import { RentalSettlementManager } from "@/components/features/equipment/rental-settlement-manager";
+import { AddRentalFab } from "@/components/features/equipment/add-rental-fab";
+import { AddSettlementFab } from "@/components/features/equipment/add-settlement-fab";
 import {
   buildRentalView,
   rankRentalVendors,
@@ -141,21 +143,21 @@ export default async function EquipmentRentalsPage() {
         <h1 className="text-title text-ink font-bold tracking-tight">{EQUIPMENT_RENTAL_LABEL}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        <RentalManager
-          suppliers={suppliers}
-          suggestedSupplierIds={rentalVendorIds}
-          projects={projects}
-          rentals={rentals}
-          defaultDate={today}
-        />
+        <RentalManager projects={projects} rentals={rentals} defaultDate={today} />
         <div className="mt-8">
-          <RentalSettlementManager
-            agreements={agreementOptions}
-            settlements={settlements}
-            defaultDate={today}
-          />
+          <RentalSettlementManager settlements={settlements} />
         </div>
       </div>
+
+      {/* Spec 323 U1c — recording moved off the list into two stacked FABs (deal +
+          settlement), each opening its form in a bottom sheet. */}
+      <AddRentalFab
+        suppliers={suppliers}
+        suggestedSupplierIds={rentalVendorIds}
+        projects={projects}
+        defaultDate={today}
+      />
+      <AddSettlementFab agreements={agreementOptions} defaultDate={today} />
     </PageShell>
   );
 }
