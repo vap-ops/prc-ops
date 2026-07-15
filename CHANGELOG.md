@@ -1,3 +1,9 @@
+# [0.98.0](https://github.com/VAP-Solution/prc-ops/compare/v0.97.0...v0.98.0) (2026-07-15)
+
+### Features
+
+- **bank:** login-keyed bank home schema + RPCs (spec 319 U1) ([#556](https://github.com/VAP-Solution/prc-ops/issues/556)) ([3b8a872](https://github.com/VAP-Solution/prc-ops/commit/3b8a8720e54cba1899510f15139a7a6cf4b9239e))
+
 # [0.97.0](https://github.com/VAP-Solution/prc-ops/compare/v0.96.0...v0.97.0) (2026-07-15)
 
 ### Features
