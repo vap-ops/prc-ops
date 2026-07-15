@@ -14,9 +14,13 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { RentalManager } from "@/components/features/equipment/rental-manager";
-import { RentalSettlementManager } from "@/components/features/equipment/rental-settlement-manager";
+import {
+  RentalSettlementManager,
+  type RentalReceiptView,
+} from "@/components/features/equipment/rental-settlement-manager";
 import { AddRentalFab } from "@/components/features/equipment/add-rental-fab";
 import { AddSettlementFab } from "@/components/features/equipment/add-settlement-fab";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import {
   buildRentalView,
   rankRentalVendors,
@@ -134,6 +138,31 @@ export default async function EquipmentRentalsPage() {
       note: r.note,
     }));
 
+  // Spec 323 U1d — the receipt documents attached to the visible settlements.
+  // rental_settlement_attachments is zero-grant → admin read; the private bucket →
+  // service-role signed URLs. Keyed by settlement id for the settlement rows.
+  const settlementIds = settlements.map((s) => s.id);
+  const { data: attachmentRows } = settlementIds.length
+    ? await admin
+        .from("rental_settlement_attachments")
+        .select("id, settlement_id, storage_path, purpose, uploaded_at")
+        .in("settlement_id", settlementIds)
+        .order("uploaded_at", { ascending: true })
+    : { data: [] };
+  const receiptUrls = await mintSignedUrls(
+    "rental-settlement-receipts",
+    (attachmentRows ?? []).map((a) => ({ id: a.id, storage_path: a.storage_path })),
+  );
+  const receiptsBySettlement: Record<string, RentalReceiptView[]> = {};
+  for (const a of attachmentRows ?? []) {
+    (receiptsBySettlement[a.settlement_id] ??= []).push({
+      id: a.id,
+      purpose: a.purpose,
+      uploadedAt: a.uploaded_at,
+      url: receiptUrls.get(a.id) ?? null,
+    });
+  }
+
   const today = bangkokTodayISO();
 
   return (
@@ -145,7 +174,10 @@ export default async function EquipmentRentalsPage() {
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <RentalManager projects={projects} rentals={rentals} defaultDate={today} />
         <div className="mt-8">
-          <RentalSettlementManager settlements={settlements} />
+          <RentalSettlementManager
+            settlements={settlements}
+            receiptsBySettlement={receiptsBySettlement}
+          />
         </div>
       </div>
 
