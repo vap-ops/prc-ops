@@ -1,3 +1,9 @@
+# [0.108.0](https://github.com/VAP-Solution/prc-ops/compare/v0.107.1...v0.108.0) (2026-07-15)
+
+### Features
+
+- **rentals:** settlement receipt attachment — zero-grant table + admin write (spec 323 U1d) ([#573](https://github.com/VAP-Solution/prc-ops/issues/573)) ([f548e20](https://github.com/VAP-Solution/prc-ops/commit/f548e205f73e3f0b30537d0586d5be1c1d83806c))
+
 ## [0.107.1](https://github.com/VAP-Solution/prc-ops/compare/v0.107.0...v0.107.1) (2026-07-15)
 
 ### Bug Fixes
