@@ -27,7 +27,14 @@ function maskAccount(acct: string): string {
 }
 
 export default async function PayoutNomineesPage() {
-  const ctx = await requireRole(["procurement_manager"]);
+  // Spec 320 U3 — widened from PM-only to the procurement + leadership set (the
+  // set_/clear_/get_/list DEFINER RPCs re-gate to the same roles; SSOT there).
+  const ctx = await requireRole([
+    "procurement_manager",
+    "project_director",
+    "super_admin",
+    "procurement",
+  ]);
   const supabase = await createClient();
   const nominees = await listActivePayoutNominees(supabase);
   const refs = await fetchNomineeWorkerRefs(nominees.map((n) => n.workerId));

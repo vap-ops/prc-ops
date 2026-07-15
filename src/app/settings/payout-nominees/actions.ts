@@ -18,7 +18,7 @@ import { buildNomineeConsentPath } from "@/lib/payroll/payout-nominee-path";
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 const GENERIC = "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-const NOT_PERMITTED = "เฉพาะผู้จัดการฝ่ายจัดซื้อเท่านั้นที่จัดการบัญชีตัวแทนได้";
+const NOT_PERMITTED = "คุณไม่มีสิทธิ์จัดการบัญชีตัวแทน";
 const NOMINEES_PATH = "/settings/payout-nominees";
 
 export async function setPayoutNominee(input: {

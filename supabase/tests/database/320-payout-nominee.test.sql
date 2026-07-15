@@ -1,5 +1,5 @@
 begin;
-select plan(34);
+select plan(37);
 
 -- ============================================================================
 -- Spec 320 U1 — worker_payout_nominee: a PM-managed, TEMPORARY payout override
@@ -13,9 +13,15 @@ select plan(34);
 -- --- Actors -----------------------------------------------------------------
 insert into auth.users (id, email, raw_user_meta_data) values
   ('b2220000-0000-4000-8000-000000000320', 'pmgr@t320.local', '{}'::jsonb),
-  ('55550000-0000-4000-8000-000000000320', 'sa@t320.local',   '{}'::jsonb);
+  ('55550000-0000-4000-8000-000000000320', 'sa@t320.local',   '{}'::jsonb),
+  ('b3330000-0000-4000-8000-000000000320', 'sad@t320.local',  '{}'::jsonb),
+  ('b4440000-0000-4000-8000-000000000320', 'pd@t320.local',   '{}'::jsonb),
+  ('b5550000-0000-4000-8000-000000000320', 'proc@t320.local', '{}'::jsonb);
 update public.users set role = 'procurement_manager' where id = 'b2220000-0000-4000-8000-000000000320';
 update public.users set role = 'site_admin'          where id = '55550000-0000-4000-8000-000000000320';
+update public.users set role = 'super_admin'         where id = 'b3330000-0000-4000-8000-000000000320';
+update public.users set role = 'project_director'    where id = 'b4440000-0000-4000-8000-000000000320';
+update public.users set role = 'procurement'         where id = 'b5550000-0000-4000-8000-000000000320';
 
 -- Two bankless workers (W is the subject; W2 supplies a foreign worker-id for the
 -- wrong-folder path test). user_id null (no login needed); created_by = PM.
@@ -194,6 +200,33 @@ select is(
   (select count(*)::int from public.worker_payout_nominee
     where worker_id = 'a1110000-0000-4000-8000-000000000320' and active),
   0, 'no active nominee remains after clear');
+
+-- ============================================================================
+-- U3 (widen): project_director / procurement / super_admin also manage nominees
+-- (in addition to procurement_manager). site_admin stays refused (asserted above).
+-- ============================================================================
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "b3330000-0000-4000-8000-000000000320"}';
+select isnt(
+  (select public.set_worker_payout_nominee(
+     'a1110000-0000-4000-8000-000000000320', 'ญาติ ทดสอบ', 'ญาติ', 'กสิกรไทย',
+     '1234567', 'ญาติ ทดสอบ', 'nominee-consent/a1110000-0000-4000-8000-000000000320/c1.jpg')),
+  null, 'super_admin can set a nominee (widened gate)');
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "b4440000-0000-4000-8000-000000000320"}';
+select is(
+  (select count(*)::int from public.list_active_payout_nominees()
+    where worker_id = 'a1110000-0000-4000-8000-000000000320'),
+  1, 'project_director can list nominees (widened gate)');
+reset role;
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "b5550000-0000-4000-8000-000000000320"}';
+select is(
+  (select count(*)::int from public.get_worker_payout_nominee(
+     'a1110000-0000-4000-8000-000000000320')),
+  1, 'procurement (plain) can get a nominee (widened gate)');
+reset role;
 
 -- ============================================================================
 -- Grants — no PUBLIC/anon EXECUTE on any nominee RPC.
