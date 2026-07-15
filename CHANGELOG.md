@@ -1,3 +1,9 @@
+# [0.105.0](https://github.com/VAP-Solution/prc-ops/compare/v0.104.0...v0.105.0) (2026-07-15)
+
+### Features
+
+- **profile:** spec 321 U1 — profile-edit door-name SSOT (+ spec & plan) ([#564](https://github.com/VAP-Solution/prc-ops/issues/564)) ([343be0c](https://github.com/VAP-Solution/prc-ops/commit/343be0c8cff9e823756783f5c12c25687cd20d77))
+
 # [0.104.0](https://github.com/VAP-Solution/prc-ops/compare/v0.103.0...v0.104.0) (2026-07-15)
 
 ### Features
