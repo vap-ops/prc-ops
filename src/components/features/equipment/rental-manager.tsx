@@ -1,20 +1,19 @@
 "use client";
 
-// Spec 268 — the /equipment/rentals recorder (BACK_OFFICE money audience only;
-// the page gate keeps a site_admin session out entirely, so rate figures may
-// render here). One form records the inbound deal the procurement team asked
-// for: owner · rate priced ต่อเดือน/ต่อวัน · duration ตลอดโครงการ (open-ended)
-// or กำหนดช่วงเอง (custom dates) · an optional project binding that allocates
-// in the same submit. Cards list recorded deals; ผูกโครงการ allocates an
-// existing deal to a project. Writes go through the two SECURITY DEFINER RPCs
-// via the server actions (the real gate + audit live in the DB).
+// Spec 268 / 323 U1c — the /equipment/rentals + /projects/[id]/rentals read-only
+// deals list (BACK_OFFICE money audience only; the page gate keeps a site_admin
+// session out entirely, so rate figures may render here). Recording a new deal moved
+// into AddRentalFab + a bottom sheet (operator 2026-07-15: forms off the list); this
+// component now only lists recorded deals. Each card's per-deal actions — ผูกโครงการ
+// (allocate an existing deal to a project) and ยกเลิกการเช่า (void, spec 312) — open
+// in a bottom sheet instead of an inline disclosure, so the list stays read-only.
+// Writes go through the SECURITY DEFINER RPCs via the server actions.
 //
-// 'use client' justification: a multi-field form + per-card disclosure with
-// busy/error state.
+// 'use client' justification: per-card sheet-hosted forms with busy/error state.
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { RadioChip } from "@/components/features/common/radio-chip";
+import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import {
   BUTTON_DANGER_OUTLINE_COMPACT,
   BUTTON_PRIMARY_COMPACT,
@@ -25,35 +24,16 @@ import {
   INLINE_ERROR,
   SECTION_HEADING,
 } from "@/lib/ui/classes";
-import {
-  createRentalAllocation,
-  createRentalBatch,
-  voidRentalBatch,
-} from "@/app/equipment/rentals/actions";
-import type { RentalCard, RentalRatePeriod } from "@/lib/equipment/rental-view";
-import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
-import {
-  EQUIPMENT_RATE_PERIOD_LABEL,
-  EQUIPMENT_RENTAL_ALLOCATE_LABEL,
-  EQUIPMENT_RENTAL_CUSTOM_PERIOD_LABEL,
-  EQUIPMENT_RENTAL_DEPOSIT_LABEL,
-  EQUIPMENT_RENTAL_LABEL,
-  EQUIPMENT_RENTAL_MIN_DAYS_LABEL,
-  EQUIPMENT_RENTAL_RECORD_LABEL,
-  EQUIPMENT_RENTAL_WHOLE_PROJECT_LABEL,
-} from "@/lib/i18n/labels";
-
-// Spec 275 U5 follow-up — the partial-outcome recovery hint for the
-// project-LOCKED recorder. createRentalBatch's default error tells the user to
-// re-allocate from the per-card ผูกโครงการ control, but that control (and the
-// unallocated batch's card) is hidden on the locked surface — recovery there
-// lives on the settings cross-project overview (ตั้งค่า › เช่าอุปกรณ์) instead.
-export const EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE = `บันทึกการเช่าแล้ว แต่ผูกโครงการไม่สำเร็จ — ไปที่ ตั้งค่า › ${EQUIPMENT_RENTAL_LABEL} เพื่อผูกโครงการอีกครั้ง`;
+import { createRentalAllocation, voidRentalBatch } from "@/app/equipment/rentals/actions";
+import type { RentalCard } from "@/lib/equipment/rental-view";
+import { EQUIPMENT_RENTAL_ALLOCATE_LABEL } from "@/lib/i18n/labels";
 
 // Spec 312 — the confirm button for voiding a rental (destructive: reverses GL +
 // cancels the batch). Field-First danger tokens, not raw palette.
 const BUTTON_DANGER_COMPACT =
   "inline-flex min-h-11 items-center justify-center rounded-control border border-danger-edge bg-danger-soft px-4 py-2 text-body font-medium text-danger-ink transition-colors hover:opacity-90 disabled:opacity-50";
+
+const VOID_LABEL = "ยกเลิกการเช่า";
 
 interface NamedRow {
   id: string;
@@ -61,311 +41,42 @@ interface NamedRow {
 }
 
 export function RentalManager({
-  suppliers,
   projects,
   rentals,
   defaultDate,
   lockedProject,
-  suggestedSupplierIds = [],
 }: {
-  suppliers: NamedRow[];
   projects: NamedRow[];
   rentals: RentalCard[];
   defaultDate: string;
-  // Spec 280: ids of suppliers PRC has rented from before (ranked), surfaced in a
-  // "เคยให้เช่า" group above the full list. Empty → plain flat list (show-all).
-  suggestedSupplierIds?: string[];
-  // Spec 275 U5: when set (the /projects/[id]/rentals surface), the recorder is
-  // fixed to this project — the โครงการ pick is hidden and every recorded rental
-  // auto-allocates here; the per-card re-allocate control is hidden. Unset (the
-  // settings /equipment/rentals overview) keeps the cross-project behaviour.
+  // Spec 275 U5: on the /projects/[id]/rentals surface the deal is fixed to this
+  // project, so the per-card re-allocate control is hidden. Unset (the settings
+  // /equipment/rentals overview) keeps the cross-project behaviour.
   lockedProject?: { id: string; name: string };
 }) {
   const router = useRouter();
-  const [supplierId, setSupplierId] = useState("");
-  const [rate, setRate] = useState("");
-  const [ratePeriod, setRatePeriod] = useState<RentalRatePeriod>("monthly");
-  const [deposit, setDeposit] = useState("");
-  const [minDays, setMinDays] = useState("");
-  const [wholeProject, setWholeProject] = useState(true);
-  const [startsOn, setStartsOn] = useState(defaultDate);
-  const [endsOn, setEndsOn] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [note, setNote] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, startSave] = useTransition();
-
-  // Spec 280: rented-from-before vendors rise to a "เคยให้เช่า" group; the full
-  // supplier list stays below (show-all fallback). Suggestion only re-orders.
-  const { suggested: suggestedSuppliers, rest: otherSuppliers } = splitSupplierOptions(
-    suppliers,
-    suggestedSupplierIds,
-  );
-
-  function resetForm() {
-    setSupplierId("");
-    setRate("");
-    setRatePeriod("monthly");
-    setDeposit("");
-    setMinDays("");
-    setWholeProject(true);
-    setStartsOn(defaultDate);
-    setEndsOn("");
-    setProjectId("");
-    setNote("");
-  }
-
-  function handleRecord() {
-    if (supplierId === "") {
-      setError("กรุณาเลือกผู้ให้เช่า");
-      return;
-    }
-    const rateNumber = Number(rate);
-    if (rate.trim() === "" || !Number.isFinite(rateNumber) || rateNumber < 0) {
-      setError("กรอกค่าเช่าเป็นตัวเลข (ไม่ติดลบ)");
-      return;
-    }
-    const depositNumber = deposit.trim() === "" ? 0 : Number(deposit);
-    if (!Number.isFinite(depositNumber) || depositNumber < 0) {
-      setError("กรอกเงินมัดจำเป็นตัวเลข (ไม่ติดลบ)");
-      return;
-    }
-    const minDaysNumber = minDays.trim() === "" ? null : Number(minDays);
-    if (minDaysNumber !== null && (!Number.isInteger(minDaysNumber) || minDaysNumber <= 0)) {
-      setError("กรอกจำนวนวันเช่าขั้นต่ำเป็นจำนวนเต็มบวก");
-      return;
-    }
-    if (startsOn.trim() === "") {
-      setError("กรุณาระบุวันเริ่มเช่า");
-      return;
-    }
-    setError(null);
-    startSave(async () => {
-      const result = await createRentalBatch({
-        supplierId,
-        rate: rateNumber,
-        ratePeriod,
-        startsOn,
-        endsOn: wholeProject || endsOn.trim() === "" ? null : endsOn,
-        note,
-        // Spec 275 U5: a locked project forces the binding (auto-allocate here);
-        // otherwise the form's optional โครงการ pick decides.
-        projectId: lockedProject ? lockedProject.id : projectId === "" ? null : projectId,
-        depositAmount: depositNumber,
-        minRentalDays: minDaysNumber,
-      });
-      if (!result.ok) {
-        // Spec 275 U5 follow-up: on the locked surface the default "re-allocate
-        // from the card" hint is unreachable (card + control hidden) — point at
-        // the settings overview instead. Only for the partial-outcome result;
-        // every other error shows verbatim.
-        setError(
-          lockedProject && result.code === "allocation_failed"
-            ? EQUIPMENT_RENTAL_PARTIAL_LOCKED_MESSAGE
-            : result.error,
-        );
-        return;
-      }
-      resetForm();
-      router.refresh();
-    });
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      <section aria-label={EQUIPMENT_RENTAL_RECORD_LABEL}>
-        <h2 className={SECTION_HEADING}>{EQUIPMENT_RENTAL_RECORD_LABEL}</h2>
-        <div className={CARD}>
-          <label className="text-ink-secondary block text-sm">
-            เช่าจาก
-            <select
-              value={supplierId}
-              onChange={(e) => setSupplierId(e.target.value)}
-              className={`${FIELD_SELECT} mt-1`}
-            >
-              <option value="">— เลือกผู้ให้เช่า —</option>
-              {suggestedSuppliers.length > 0 ? (
-                <>
-                  <optgroup label="เคยให้เช่า">
-                    {suggestedSuppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="ผู้ให้เช่าทั้งหมด">
-                    {otherSuppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </>
-              ) : (
-                otherSuppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
-
-          <label className="text-ink-secondary mt-2 block text-sm">
-            ค่าเช่า (บาท)
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              value={rate}
-              onChange={(e) => setRate(e.target.value)}
-              className={FIELD_STACKED}
+    <section aria-label="รายการเช่า">
+      <h2 className={SECTION_HEADING}>รายการเช่า</h2>
+      {rentals.length === 0 ? (
+        <p className="text-ink-muted text-sm">ยังไม่มีการเช่าที่บันทึกไว้</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {rentals.map((card) => (
+            <RentalCardRow
+              key={card.id}
+              card={card}
+              projects={projects}
+              defaultDate={defaultDate}
+              // Spec 275 U5: the locked project surface fixes the binding — no
+              // cross-project re-allocation from a card here.
+              allowAllocate={!lockedProject}
+              onChanged={() => router.refresh()}
             />
-          </label>
-
-          <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="หน่วยราคา">
-            {(["monthly", "daily"] as const).map((p) => (
-              <RadioChip
-                key={p}
-                name="rate-period"
-                label={EQUIPMENT_RATE_PERIOD_LABEL[p]}
-                checked={ratePeriod === p}
-                onSelect={() => setRatePeriod(p)}
-              />
-            ))}
-          </div>
-
-          <label className="text-ink-secondary mt-2 block text-sm">
-            {EQUIPMENT_RENTAL_DEPOSIT_LABEL}
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              value={deposit}
-              onChange={(e) => setDeposit(e.target.value)}
-              className={FIELD_STACKED}
-            />
-          </label>
-
-          <label className="text-ink-secondary mt-2 block text-sm">
-            {EQUIPMENT_RENTAL_MIN_DAYS_LABEL}
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step="1"
-              value={minDays}
-              onChange={(e) => setMinDays(e.target.value)}
-              className={FIELD_STACKED}
-            />
-          </label>
-
-          <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="ระยะเวลาเช่า">
-            <RadioChip
-              name="rental-duration"
-              label={EQUIPMENT_RENTAL_WHOLE_PROJECT_LABEL}
-              checked={wholeProject}
-              onSelect={() => setWholeProject(true)}
-            />
-            <RadioChip
-              name="rental-duration"
-              label={EQUIPMENT_RENTAL_CUSTOM_PERIOD_LABEL}
-              checked={!wholeProject}
-              onSelect={() => setWholeProject(false)}
-            />
-          </div>
-
-          <label className="text-ink-secondary mt-2 block text-sm">
-            วันเริ่ม
-            <input
-              type="date"
-              value={startsOn}
-              onChange={(e) => setStartsOn(e.target.value)}
-              className={FIELD_STACKED}
-            />
-          </label>
-          {!wholeProject && (
-            <label className="text-ink-secondary mt-2 block text-sm">
-              วันสิ้นสุด
-              <input
-                type="date"
-                value={endsOn}
-                onChange={(e) => setEndsOn(e.target.value)}
-                className={FIELD_STACKED}
-              />
-            </label>
-          )}
-
-          {/* Spec 275 U5: on the project surface the binding is fixed — hide the
-              pick; handleRecord forces projectId = lockedProject.id. */}
-          {!lockedProject && (
-            <label className="text-ink-secondary mt-2 block text-sm">
-              โครงการ
-              <select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className={`${FIELD_SELECT} mt-1`}
-              >
-                <option value="">— ยังไม่ผูกโครงการ —</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          <label className="text-ink-secondary mt-2 block text-sm">
-            หมายเหตุ
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              className={FIELD_STACKED}
-            />
-          </label>
-
-          {error && (
-            <span role="alert" className={`${INLINE_ERROR} mt-2 block`}>
-              {error}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={handleRecord}
-            disabled={saving}
-            className={`${BUTTON_PRIMARY_COMPACT} mt-3`}
-          >
-            {saving ? "กำลังบันทึก…" : EQUIPMENT_RENTAL_RECORD_LABEL}
-          </button>
-        </div>
-      </section>
-
-      <section aria-label="รายการเช่า">
-        <h2 className={SECTION_HEADING}>รายการเช่า</h2>
-        {rentals.length === 0 ? (
-          <p className="text-ink-muted text-sm">ยังไม่มีการเช่าที่บันทึกไว้</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {rentals.map((card) => (
-              <RentalCardRow
-                key={card.id}
-                card={card}
-                projects={projects}
-                defaultDate={defaultDate}
-                // Spec 275 U5: the locked project surface fixes the binding —
-                // no cross-project re-allocation from a card here.
-                allowAllocate={!lockedProject}
-                onChanged={() => router.refresh()}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -382,7 +93,8 @@ function RentalCardRow({
   allowAllocate: boolean;
   onChanged: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  // Spec 323 U1c — allocate + void each open in their own bottom sheet.
+  const [allocateOpen, setAllocateOpen] = useState(false);
   const [projectId, setProjectId] = useState("");
   const [startsOn, setStartsOn] = useState(defaultDate);
   const [endsOn, setEndsOn] = useState("");
@@ -434,7 +146,7 @@ function RentalCardRow({
         setError(result.error);
         return;
       }
-      setOpen(false);
+      setAllocateOpen(false);
       setProjectId("");
       setStartsOn(defaultDate);
       setEndsOn("");
@@ -461,127 +173,134 @@ function RentalCardRow({
         </ul>
       )}
 
-      {allowAllocate &&
-        (open ? (
-          <div className="border-edge mt-3 border-t pt-3">
-            <label className="text-ink-secondary block text-sm">
-              โครงการที่ผูก
-              <select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className={`${FIELD_SELECT} mt-1`}
-              >
-                <option value="">— เลือกโครงการ —</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-ink-secondary mt-2 block text-sm">
-              วันเริ่มผูก
-              <input
-                type="date"
-                value={startsOn}
-                onChange={(e) => setStartsOn(e.target.value)}
-                className={FIELD_STACKED}
-              />
-            </label>
-            <label className="text-ink-secondary mt-2 block text-sm">
-              วันสิ้นสุดผูก (เว้นว่าง = ตลอดโครงการ)
-              <input
-                type="date"
-                value={endsOn}
-                onChange={(e) => setEndsOn(e.target.value)}
-                className={FIELD_STACKED}
-              />
-            </label>
-            {error && (
-              <span role="alert" className={`${INLINE_ERROR} mt-2 block`}>
-                {error}
-              </span>
-            )}
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleAllocate}
-                disabled={saving}
-                className={BUTTON_PRIMARY_COMPACT}
-              >
-                {saving ? "กำลังบันทึก…" : "ยืนยันผูกโครงการ"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className={BUTTON_SECONDARY_COMPACT}
-              >
-                ยกเลิก
-              </button>
-            </div>
-          </div>
-        ) : (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {allowAllocate && (
           <button
             type="button"
-            onClick={() => setOpen(true)}
-            className={`${BUTTON_SECONDARY_COMPACT} mt-3`}
+            onClick={() => setAllocateOpen(true)}
+            className={BUTTON_SECONDARY_COMPACT}
           >
             {EQUIPMENT_RENTAL_ALLOCATE_LABEL}
           </button>
-        ))}
-
-      {/* Spec 312 — void (cancel) an active, erroneous / test rental. Reverses the
-          GL + hides the card. Only shown when the batch is voidable (active). */}
-      {card.voidable &&
-        (voidOpen ? (
-          <div className="border-edge mt-3 border-t pt-3">
-            <p className="text-ink-secondary text-sm">
-              ยกเลิกรายการเช่านี้? ระบบจะกลับรายการบัญชีที่เกี่ยวข้องให้อัตโนมัติ
-            </p>
-            <label className="text-ink-secondary mt-2 block text-sm">
-              เหตุผลการยกเลิก
-              <textarea
-                value={voidReason}
-                onChange={(e) => setVoidReason(e.target.value)}
-                rows={2}
-                className={FIELD_STACKED}
-              />
-            </label>
-            {voidError && (
-              <span role="alert" className={`${INLINE_ERROR} mt-2 block`}>
-                {voidError}
-              </span>
-            )}
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleVoid}
-                disabled={voiding || voidReason.trim() === ""}
-                className={BUTTON_DANGER_COMPACT}
-              >
-                {voiding ? "กำลังยกเลิก…" : "ยืนยันยกเลิก"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setVoidOpen(false);
-                  setVoidError(null);
-                }}
-                className={BUTTON_SECONDARY_COMPACT}
-              >
-                ไม่ใช่
-              </button>
-            </div>
-          </div>
-        ) : (
+        )}
+        {/* Spec 312 — void (cancel) an active, erroneous / test rental. Reverses the
+            GL + hides the card. Only shown when the batch is voidable (active). */}
+        {card.voidable && (
           <button
             type="button"
             onClick={() => setVoidOpen(true)}
-            className={`${BUTTON_DANGER_OUTLINE_COMPACT} mt-3`}
+            className={BUTTON_DANGER_OUTLINE_COMPACT}
           >
-            ยกเลิกการเช่า
+            {VOID_LABEL}
           </button>
-        ))}
+        )}
+      </div>
+
+      {allowAllocate && (
+        <BottomSheet
+          open={allocateOpen}
+          title={EQUIPMENT_RENTAL_ALLOCATE_LABEL}
+          onClose={() => setAllocateOpen(false)}
+        >
+          <label className="text-ink-secondary block text-sm">
+            โครงการที่ผูก
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className={`${FIELD_SELECT} mt-1`}
+            >
+              <option value="">— เลือกโครงการ —</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            วันเริ่มผูก
+            <input
+              type="date"
+              value={startsOn}
+              onChange={(e) => setStartsOn(e.target.value)}
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            วันสิ้นสุดผูก (เว้นว่าง = ตลอดโครงการ)
+            <input
+              type="date"
+              value={endsOn}
+              onChange={(e) => setEndsOn(e.target.value)}
+              className={FIELD_STACKED}
+            />
+          </label>
+          {error && (
+            <span role="alert" className={`${INLINE_ERROR} mt-2 block`}>
+              {error}
+            </span>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleAllocate}
+              disabled={saving}
+              className={BUTTON_PRIMARY_COMPACT}
+            >
+              {saving ? "กำลังบันทึก…" : "ยืนยันผูกโครงการ"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAllocateOpen(false)}
+              className={BUTTON_SECONDARY_COMPACT}
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </BottomSheet>
+      )}
+
+      {card.voidable && (
+        <BottomSheet open={voidOpen} title={VOID_LABEL} onClose={() => setVoidOpen(false)}>
+          <p className="text-ink-secondary text-sm">
+            ยกเลิกรายการเช่านี้? ระบบจะกลับรายการบัญชีที่เกี่ยวข้องให้อัตโนมัติ
+          </p>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            เหตุผลการยกเลิก
+            <textarea
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              rows={2}
+              className={FIELD_STACKED}
+            />
+          </label>
+          {voidError && (
+            <span role="alert" className={`${INLINE_ERROR} mt-2 block`}>
+              {voidError}
+            </span>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleVoid}
+              disabled={voiding || voidReason.trim() === ""}
+              className={BUTTON_DANGER_COMPACT}
+            >
+              {voiding ? "กำลังยกเลิก…" : "ยืนยันยกเลิก"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setVoidOpen(false);
+                setVoidError(null);
+              }}
+              className={BUTTON_SECONDARY_COMPACT}
+            >
+              ไม่ใช่
+            </button>
+          </div>
+        </BottomSheet>
+      )}
     </li>
   );
 }
