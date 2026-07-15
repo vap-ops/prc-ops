@@ -22,6 +22,7 @@ vi.mock("@/lib/ui/use-toast", () => ({
 }));
 
 import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
+import { IDENTITY_CHANGE_PENDING } from "@/lib/i18n/labels";
 
 beforeEach(() => {
   submitIdentityChange.mockReset().mockResolvedValue({ ok: true });
@@ -31,7 +32,7 @@ beforeEach(() => {
 describe("IdentityChangeForm", () => {
   it("shows the waiting notice while a request is pending", () => {
     render(<IdentityChangeForm hasPending={true} />);
-    expect(screen.getByText(/กำลังรอ/)).toBeInTheDocument();
+    expect(screen.getByText(IDENTITY_CHANGE_PENDING)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "ส่งคำขอแก้ไขข้อมูลตัวตน" })).toBeNull();
   });
 

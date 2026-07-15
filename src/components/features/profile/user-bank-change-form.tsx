@@ -28,6 +28,12 @@ import {
   FIELD_STACKED,
   INLINE_ALERT_TEXT,
 } from "@/lib/ui/classes";
+import { PendingChangeNotice } from "@/components/features/profile/pending-change-notice";
+import {
+  BANK_CHANGE_APPROVER_HR,
+  BANK_CHANGE_PENDING_HR,
+  BANK_CHANGE_TOAST_HR,
+} from "@/lib/i18n/labels";
 
 export function UserBankChangeForm({ uid, hasPending }: { uid: string; hasPending: boolean }) {
   const router = useRouter();
@@ -41,11 +47,7 @@ export function UserBankChangeForm({ uid, hasPending }: { uid: string; hasPendin
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (hasPending) {
-    return (
-      <div className={`${CARD} border-attn bg-attn-soft border-l-4`}>
-        <p className="text-attn-ink text-sm font-medium">คำขอเปลี่ยนบัญชีธนาคารกำลังรอการอนุมัติ</p>
-      </div>
-    );
+    return <PendingChangeNotice>{BANK_CHANGE_PENDING_HR}</PendingChangeNotice>;
   }
 
   function submit() {
@@ -95,7 +97,7 @@ export function UserBankChangeForm({ uid, hasPending }: { uid: string; hasPendin
         setError(result.error);
         return;
       }
-      toast.success("ส่งคำขอแล้ว รอการอนุมัติ");
+      toast.success(BANK_CHANGE_TOAST_HR);
       router.refresh();
     });
   }
@@ -103,7 +105,7 @@ export function UserBankChangeForm({ uid, hasPending }: { uid: string; hasPendin
   return (
     <div className={CARD}>
       <p className="text-ink text-sm font-semibold">แจ้งเปลี่ยนบัญชีธนาคาร</p>
-      <p className="text-ink-muted mt-0.5 text-xs">ฝ่ายบุคคลจะตรวจสอบก่อนใช้งานจริง</p>
+      <p className="text-ink-muted mt-0.5 text-xs">{BANK_CHANGE_APPROVER_HR}</p>
       <p className="text-ink-secondary mt-3 text-sm">ชื่อธนาคาร</p>
       <BankSelect
         value={bankName}

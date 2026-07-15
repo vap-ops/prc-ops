@@ -31,6 +31,23 @@ export const WORKER_TEAM_LABEL = "ทีมช่าง";
 export const MY_INFO_LABEL = "ข้อมูลของฉัน";
 export const PROFILE_LABEL = "โปรไฟล์";
 
+// Spec 321 U7 — approved-tier profile-change copy, single-sourced so every
+// audience shows one uniform waiting banner + success toast + approver subtitle
+// (kills the S16 per-surface divergences). Bank changes route to money
+// approvers — a worker's / contractor's to their ผู้จัดการ (PM variant), an
+// office/login staffer's to ฝ่ายบุคคล (HR variant); identity (name / national-ID
+// / DOB) routes to the staff-approval trio. Consumed by <PendingChangeNotice>,
+// ProfileBankSection (via BANK_AUDIENCE), the identity + user-bank forms, and the
+// my-info user_bank read section.
+export const BANK_CHANGE_PENDING_PM = "คำขอเปลี่ยนบัญชีธนาคารกำลังรอผู้จัดการอนุมัติ";
+export const BANK_CHANGE_PENDING_HR = "คำขอเปลี่ยนบัญชีธนาคารกำลังรอการอนุมัติ";
+export const BANK_CHANGE_TOAST_PM = "ส่งคำขอแล้ว รอผู้จัดการอนุมัติ";
+export const BANK_CHANGE_TOAST_HR = "ส่งคำขอแล้ว รอการอนุมัติ";
+export const BANK_CHANGE_APPROVER_PM = "ผู้จัดการจะตรวจสอบก่อนใช้งานจริง";
+export const BANK_CHANGE_APPROVER_HR = "ฝ่ายบุคคลจะตรวจสอบก่อนใช้งานจริง";
+export const IDENTITY_CHANGE_PENDING = "คำขอแก้ไขข้อมูลตัวตนกำลังรอการอนุมัติ";
+export const IDENTITY_CHANGE_TOAST = "ส่งคำขอแล้ว รอการอนุมัติ";
+
 // Spec 314 / ADR 0082 — the firm-wide standard day-rate per skill level + WHT.
 // PM-maintained (procurement_manager/super_admin); the /settings/labor-rates door.
 // (The worker-level Thai labels reuse WORKER_LEVEL_LABEL from src/lib/nova/dials.ts

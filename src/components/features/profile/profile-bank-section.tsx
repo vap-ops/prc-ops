@@ -29,6 +29,7 @@ import {
 } from "@/lib/ui/classes";
 import { BANK_AUDIENCE, type BankAudience } from "@/lib/profile/bank-audience";
 import { submitProfileBankChange } from "@/lib/profile/submit-profile-bank-change";
+import { PendingChangeNotice } from "@/components/features/profile/pending-change-notice";
 
 interface CurrentBank {
   bankName: string;
@@ -135,9 +136,9 @@ export function ProfileBankSection({
       ) : null}
 
       {hasPending ? (
-        <div className="border-attn bg-attn-soft mt-3 rounded-md border-l-4 px-3 py-2">
-          <p className="text-attn-ink text-sm font-medium">{cfg.pendingText}</p>
-        </div>
+        <PendingChangeNotice className="mt-3 rounded-md px-3 py-2">
+          {cfg.pendingText}
+        </PendingChangeNotice>
       ) : (
         <button
           type="button"

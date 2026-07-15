@@ -26,6 +26,7 @@ import { DisplayNameSection } from "@/components/features/profile/display-name-s
 import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
 import { StaffContactForm } from "@/components/features/profile/staff-contact-form";
 import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
+import { PendingChangeNotice } from "@/components/features/profile/pending-change-notice";
 import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
 import {
   getOwnTechnicianRegistration,
@@ -34,7 +35,7 @@ import {
 } from "@/lib/register/own-registration";
 import { getOwnUserBank } from "@/lib/register/own-user-bank";
 import { isEmployeeRole } from "@/lib/auth/role-home";
-import { MY_INFO_LABEL } from "@/lib/i18n/labels";
+import { MY_INFO_LABEL, BANK_CHANGE_PENDING_HR } from "@/lib/i18n/labels";
 
 export const metadata = { title: MY_INFO_LABEL };
 
@@ -192,11 +193,7 @@ export default async function MyInfoPage() {
               </div>
             )}
             {(userBankPending?.length ?? 0) > 0 ? (
-              <div className={`${CARD} border-attn bg-attn-soft border-l-4`}>
-                <p className="text-attn-ink text-sm font-medium">
-                  คำขอเปลี่ยนบัญชีธนาคารกำลังรอการอนุมัติ
-                </p>
-              </div>
+              <PendingChangeNotice>{BANK_CHANGE_PENDING_HR}</PendingChangeNotice>
             ) : null}
             <Link
               href="/settings/my-info/bank"
