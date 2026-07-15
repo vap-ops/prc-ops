@@ -21,7 +21,7 @@ import { createClient } from "@/lib/db/server";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
+import { BUTTON_SECONDARY_MUTED, CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { DisplayNameForm } from "@/components/features/common/display-name-form";
 import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
 import { StaffContactForm } from "@/components/features/profile/staff-contact-form";
@@ -32,6 +32,8 @@ import {
   getOwnRegistrationDocuments,
   getOwnStaffBank,
 } from "@/lib/register/own-registration";
+import { getOwnUserBank } from "@/lib/register/own-user-bank";
+import { isEmployeeRole } from "@/lib/auth/role-home";
 
 export const metadata = { title: "ข้อมูลของฉัน" };
 
@@ -45,7 +47,7 @@ export default async function MyInfoPage() {
 
   const { data: userRow } = await supabase
     .from("users")
-    .select("full_name")
+    .select("full_name, role")
     .eq("id", uid)
     .maybeSingle();
   if (!userRow) {
@@ -84,6 +86,22 @@ export default async function MyInfoPage() {
           .limit(1),
       ])
     : [{ urls: {} as Record<string, never> }, null, { data: [] }];
+
+  // Spec 319 — the admin/office tier (an employee login with NO worker /
+  // contractor / approved-registration bank home) gets a login-keyed bank home
+  // here; the edit itself lives on /settings/my-info/bank (edit ≠ detail page).
+  const isUserBankHome = isEmployeeRole(userRow.role) && !workerId && !contractorId && !isStaffHome;
+  const [userBank, { data: userBankPending }] = isUserBankHome
+    ? await Promise.all([
+        getOwnUserBank(supabase),
+        supabase
+          .from("user_bank_change_requests")
+          .select("id")
+          .eq("user_id", uid)
+          .eq("status", "pending")
+          .limit(1),
+      ])
+    : [null, { data: [] }];
 
   return (
     <PageShell>
@@ -147,6 +165,40 @@ export default async function MyInfoPage() {
               </div>
             ) : null}
             <StaffBankChangeForm uid={uid} hasPending={(staffBankPending?.length ?? 0) > 0} />
+          </>
+        ) : null}
+
+        {/* Spec 319 — login-keyed bank home for the admin/office tier. Display +
+            pending banner here; the edit navigates to its own route. */}
+        {isUserBankHome ? (
+          <>
+            <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
+            {userBank ? (
+              <div className={CARD}>
+                <p className="text-ink text-sm font-medium">{userBank.bankName}</p>
+                <p className="text-ink text-sm">
+                  {userBank.accountNumber}
+                  {userBank.accountName ? ` · ${userBank.accountName}` : ""}
+                </p>
+              </div>
+            ) : (
+              <div className={CARD}>
+                <p className="text-ink-secondary text-sm">ยังไม่ได้เพิ่มบัญชีธนาคาร</p>
+              </div>
+            )}
+            {(userBankPending?.length ?? 0) > 0 ? (
+              <div className={`${CARD} border-attn bg-attn-soft border-l-4`}>
+                <p className="text-attn-ink text-sm font-medium">
+                  คำขอเปลี่ยนบัญชีธนาคารกำลังรอการอนุมัติ
+                </p>
+              </div>
+            ) : null}
+            <Link
+              href="/settings/my-info/bank"
+              className={`block text-center ${BUTTON_SECONDARY_MUTED}`}
+            >
+              แก้ไขบัญชีธนาคาร
+            </Link>
           </>
         ) : null}
 
