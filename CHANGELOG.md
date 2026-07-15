@@ -1,3 +1,9 @@
+## [0.107.1](https://github.com/VAP-Solution/prc-ops/compare/v0.107.0...v0.107.1) (2026-07-15)
+
+### Bug Fixes
+
+- **profile:** spec 321 S14 — worker self-service revalidates /technician not /portal ([#572](https://github.com/VAP-Solution/prc-ops/issues/572)) ([e9a8e9d](https://github.com/VAP-Solution/prc-ops/commit/e9a8e9d4b1d60ca0c0f29df832aefd2a1a5bdd2a))
+
 # [0.107.0](https://github.com/VAP-Solution/prc-ops/compare/v0.106.0...v0.107.0) (2026-07-15)
 
 ### Features
