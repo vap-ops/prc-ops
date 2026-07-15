@@ -397,7 +397,9 @@ export async function updateOwnWorkerProfile(input: {
     p_emergency_phone: input.emergencyPhone.trim(),
   });
   if (error) return { ok: false, error: GENERIC_BANK };
-  revalidatePath("/portal");
+  // A bound ช่าง reads their profile at /technician (S14 — /portal is the
+  // contractor surface; revalidating it here was a stale-cache no-op).
+  revalidatePath("/technician");
   return { ok: true };
 }
 
@@ -416,7 +418,8 @@ export async function recordOwnWorkerConsent(input: { kind: string }): Promise<A
 
   const { error } = await auth.supabase.rpc("record_worker_consent", { p_kind: input.kind });
   if (error) return { ok: false, error: GENERIC_BANK };
-  revalidatePath("/portal");
+  // Worker consent surfaces on /technician (S14).
+  revalidatePath("/technician");
   return { ok: true };
 }
 
@@ -457,6 +460,9 @@ export async function revokeOwnConsent(input: { id: string }): Promise<ActionRes
 
   const { error } = await auth.supabase.rpc("revoke_contractor_consent", { p_id: input.id });
   if (error) return { ok: false, error: GENERIC_BANK };
+  // Shared: revoke_contractor_consent now admits the bound worker too, so a
+  // withdrawal can come from either surface — revalidate BOTH (S14).
+  revalidatePath("/technician");
   revalidatePath("/portal");
   return { ok: true };
 }
