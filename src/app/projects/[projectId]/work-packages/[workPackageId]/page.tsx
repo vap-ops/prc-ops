@@ -30,7 +30,6 @@ import { PurchaseRequestCard } from "@/components/features/purchasing/purchase-r
 import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
-  EQUIPMENT_TAB_LABEL,
   PHOTO_PHASE_LABEL,
   SITE_EXPENSE_TAB_LABEL,
   reworkSourceLabel,
@@ -81,9 +80,6 @@ import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
 import { fetchWpLaborBudgetSummary } from "@/lib/labor/wp-budget-summary";
-import { WpEquipmentZone } from "@/components/features/equipment/wp-equipment-zone";
-import { splitEquipmentUsage } from "@/lib/equipment/usage-rows";
-import { bangkokTodayIso } from "@/lib/dates";
 import { PhotoCaptureZone } from "./phase-uploader";
 import { ReportDefectControl } from "./report-defect-control";
 import { SubmitForApprovalControl } from "./submit-for-approval-control";
@@ -177,8 +173,6 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     { data: returnRows },
     catalogData,
     catalogCategories,
-    { data: eqItemRows },
-    { data: eqUsageRows },
     laborBudget,
     { data: parentRow },
     { data: walkRows },
@@ -248,18 +242,6 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     // Spec 221 cleanup: the managed main categories (id + name + order) for the
     // picker's grouping; rides the Promise.all (no waterfall).
     loadCatalogCategories(supabase),
-    // Spec 202 U2: the อุปกรณ์ tab. The registry (RATE-FREE — daily_rate is
-    // admin-only and omitted) feeds the check-out picker; this WP's usage spans
-    // feed the open/history lists. Both RLS-readable by WP_DETAIL_ROLES; no money.
-    supabase
-      .from("equipment_items")
-      .select("id, name, asset_tag")
-      .order("name", { ascending: true }),
-    supabase
-      .from("equipment_usage_logs")
-      .select("id, item_id, checked_out_on, checked_in_on, superseded_by")
-      .eq("work_package_id", workPackageId)
-      .order("created_at", { ascending: true }),
     // Spec 205 U3: the labor budget vs actual for the จัดการ tab — MONEY, so only
     // for the planner (PM/PD/super); a site_admin/procurement view never reads it.
     isPlanner ? fetchWpLaborBudgetSummary(workPackageId) : Promise.resolve(null),
@@ -449,16 +431,6 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     returnedQty: returnedByIssue.get(r.id) ?? 0,
   }));
 
-  // Spec 202 U2: shape the equipment usage tab (rate-free). The picker lists every
-  // visible item; open/history come from the supersede anti-join.
-  const equipmentItems = (eqItemRows ?? []).map((r) => ({
-    id: r.id,
-    name: r.name,
-    assetTag: r.asset_tag,
-  }));
-  const equipmentItemNames = Object.fromEntries(equipmentItems.map((i) => [i.id, i.name]));
-  const { open: equipmentOpen, history: equipmentHistory } = splitEquipmentUsage(eqUsageRows ?? []);
-
   // Spec 167: the body folds into segmented tabs. Order = the SA's frequency
   // (capture first, then purchases, labor, reference info); the planner-only
   // จัดการ tab is appended last. Panels are server-rendered here and handed to
@@ -630,25 +602,6 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           // (locked drops the capture form and the per-row edit button).
           showFlags={!readOnly && ctx.role !== "site_admin"}
           locked={readOnly || wp.status === "complete"}
-        />
-      ),
-    },
-    {
-      // Spec 202 U2: check equipment out/in to this WP. Rate-free (no money on
-      // screen) — same locked posture as labor (procurement reads history; the
-      // field checks out; a complete WP is read-only).
-      key: "equipment",
-      label: EQUIPMENT_TAB_LABEL,
-      panel: (
-        <WpEquipmentZone
-          workPackageId={wp.id}
-          revalidate={workPackageHref(projectId, workPackageId)}
-          items={equipmentItems}
-          itemNames={equipmentItemNames}
-          open={equipmentOpen}
-          history={equipmentHistory}
-          locked={readOnly || wp.status === "complete"}
-          defaultDate={bangkokTodayIso()}
         />
       ),
     },
@@ -988,7 +941,6 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           "wp-requests": "purchases",
           "wp-photos": "photos",
           "wp-labor": "labor",
-          "wp-equipment": "equipment",
           "wp-issue": "issue",
         }}
       />
