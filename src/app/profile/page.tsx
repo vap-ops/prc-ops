@@ -4,7 +4,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
-import { DisplayNameForm } from "@/components/features/common/display-name-form";
+import { DisplayNameSection } from "@/components/features/profile/display-name-section";
 import { EmployeeIdCard } from "@/components/features/profile/employee-id-card";
 import { WorkerBadgeQr } from "@/components/features/common/worker-badge-qr";
 import { isEmployeeRole } from "@/lib/auth/role-home";
@@ -91,7 +91,7 @@ export default async function ProfilePage() {
         {employeeCard ? <EmployeeIdCard card={employeeCard} /> : null}
         <WorkerBadgeQr svg={badgeSvg} />
 
-        <DisplayNameForm initialName={initialName} />
+        <DisplayNameSection initialName={initialName} />
 
         <div className="flex justify-end pt-2">
           <LogoutButton />

@@ -18,9 +18,14 @@ import { useToast } from "@/lib/ui/use-toast";
 
 interface DisplayNameFormProps {
   initialName: string;
+  // Spec 321 U5 — when hosted inside a BottomSheet (the edit-in-modal rule), drop
+  // the standalone card chrome (the sheet already supplies it) and notify the host
+  // to close on a successful save.
+  bare?: boolean;
+  onSaved?: () => void;
 }
 
-export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
+export function DisplayNameForm({ initialName, bare = false, onSaved }: DisplayNameFormProps) {
   const router = useRouter();
   const toast = useToast();
   const [value, setValue] = useState(initialName);
@@ -48,6 +53,7 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
       setValue(result.value);
       toast.success("บันทึกแล้ว");
       router.refresh();
+      onSaved?.();
     });
   }
 
@@ -57,7 +63,11 @@ export function DisplayNameForm({ initialName }: DisplayNameFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-card border-edge bg-card shadow-card flex flex-col gap-3 border p-4"
+      className={
+        bare
+          ? "flex flex-col gap-3"
+          : "rounded-card border-edge bg-card shadow-card flex flex-col gap-3 border p-4"
+      }
     >
       <label htmlFor="display-name" className="text-ink text-sm font-medium">
         ชื่อที่แสดง
