@@ -24,6 +24,7 @@ import {
   buildBankChangeQueue,
   buildIdentityChangeQueue,
   buildStaffBankChangeQueue,
+  buildUserBankChangeQueue,
   buildWorkerBankChangeQueue,
 } from "@/lib/approvals/bank-change-queue";
 import { fetchDisplayNames } from "@/lib/users/display-names";
@@ -52,6 +53,7 @@ export default async function BankChangeQueuePage() {
     { data: workerRequests },
     { data: identityRequests },
     { data: staffBankRequests },
+    { data: userBankRequests },
   ] = await Promise.all([
     admin
       .from("contractor_bank_change_requests")
@@ -84,11 +86,22 @@ export default async function BankChangeQueuePage() {
           .eq("status", "pending")
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
+    // Spec 319 — login-keyed bank changes (admin/office tier) are trio-decided too.
+    canSeeTrioKinds
+      ? admin
+          .from("user_bank_change_requests")
+          .select(
+            "id, user_id, bank_name, bank_account_number, bank_account_name, book_bank_path, created_at",
+          )
+          .eq("status", "pending")
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
   ]);
   const rows = requests ?? [];
   const workerRows = workerRequests ?? [];
   const identityRows = identityRequests ?? [];
   const staffBankRows = staffBankRequests ?? [];
+  const userBankRows = userBankRequests ?? [];
 
   const contractorIds = Array.from(new Set(rows.map((r) => r.contractor_id)));
   const { data: contractors } = contractorIds.length
@@ -117,11 +130,18 @@ export default async function BankChangeQueuePage() {
     (staffRegs ?? []).flatMap((r) => (r.full_name ? [[r.id, r.full_name] as const] : [])),
   );
 
+  // Spec 319 — login-keyed bank rows join to the requester's display name.
+  const userBankNames = await fetchDisplayNames(
+    userBankRows.map((r) => r.user_id),
+    "bank-changes-queue-user",
+  );
+
   // Merge all kinds into one oldest-first queue (the awareness arc's "one place").
   const items = [
     ...buildBankChangeQueue(rows, namesById),
     ...buildWorkerBankChangeQueue(workerRows, workerNamesById),
     ...buildStaffBankChangeQueue(staffBankRows, staffNamesByRegistration),
+    ...buildUserBankChangeQueue(userBankRows, userBankNames),
     ...buildIdentityChangeQueue(identityRows, requesterNames),
   ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
@@ -168,9 +188,11 @@ export default async function BankChangeQueuePage() {
                       ? "ข้อมูลตัวตน"
                       : it.kind === "staff-bank"
                         ? "พนักงาน"
-                        : it.kind === "worker"
-                          ? "ทีมงาน"
-                          : "ผู้รับเหมา"}
+                        : it.kind === "user-bank"
+                          ? "เจ้าหน้าที่"
+                          : it.kind === "worker"
+                            ? "ทีมงาน"
+                            : "ผู้รับเหมา"}
                   </span>
                 </div>
                 {it.kind === "identity" ? (
