@@ -121,6 +121,10 @@ const STATIC_DETAIL = [
   "settings/my-info",
   // Spec 319 U2: the login-keyed bank edit drills down from /settings/my-info (back chip).
   "settings/my-info/bank",
+  // Spec 320 U2: the PM temporary-payout-nominee worklist + its add/edit route both
+  // drill down from /settings (back chip).
+  "settings/payout-nominees",
+  "settings/payout-nominees/edit",
   // Spec 310: the company-card registry drills down from /settings (back chip).
   "settings/cards",
   // Spec 314 U2: the level-standard labor-rate editor drills down from /settings (back chip).
