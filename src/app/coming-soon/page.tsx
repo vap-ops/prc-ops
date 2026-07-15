@@ -5,7 +5,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { DisplayNameForm } from "@/components/features/common/display-name-form";
 import { createClient } from "@/lib/db/server";
-import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { PROFILE_LABEL, USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { comingSoonDecision } from "@/lib/auth/visitor-router";
 import { roleHome } from "@/lib/auth/role-home";
 import { getOwnTechnicianRegistration } from "@/lib/register/own-registration";
@@ -155,7 +155,7 @@ const HUB_LINKS: ReadonlyArray<HubLink> = [
   },
   {
     href: "/profile",
-    label: "โปรไฟล์",
+    label: PROFILE_LABEL,
     hint: "แก้ไขชื่อที่แสดง",
   },
 ];

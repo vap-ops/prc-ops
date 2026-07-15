@@ -35,6 +35,8 @@ const sources = walkSrc(SRC).map((abs) => ({
 const SINGLE_SOURCED_TERMS = [
   "ผู้รับเหมาช่วง", // SUBCONTRACTOR_LABEL
   "รับเข้าสต๊อก", // STORE_RECEIVE_LABEL
+  "ข้อมูลของฉัน", // MY_INFO_LABEL (spec 321 U1 — the canonical profile-edit door)
+  "โปรไฟล์", // PROFILE_LABEL (spec 321 U1 — the /profile card name)
 ];
 
 describe("labels.ts single-sourced terms (SSOT)", () => {

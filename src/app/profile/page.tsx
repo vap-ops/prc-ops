@@ -13,6 +13,7 @@ import { toWorkerBadgeQrSvg } from "@/lib/muster/badge-qr";
 import { createClient } from "@/lib/db/server";
 import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
 import { readinessFromUserRow } from "@/lib/notifications/readiness";
+import { PROFILE_LABEL } from "@/lib/i18n/labels";
 
 // Universal profile route — reachable by EVERY authenticated role, including
 // visitor. Spec 07 / extends spec 05 / ADR 0017.
@@ -26,7 +27,7 @@ import { readinessFromUserRow } from "@/lib/notifications/readiness";
 // Auth-server round-trip on the render path. See ADR 0021. The middleware
 // keeps getUser() once per request for the authoritative refresh.
 
-export const metadata = { title: "โปรไฟล์" };
+export const metadata = { title: PROFILE_LABEL };
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -80,7 +81,7 @@ export default async function ProfilePage() {
         <div className="flex items-center gap-4">
           <AvatarSurface lineUrl={row.line_avatar_url} fullName={row.full_name} size={64} />
           <div>
-            <h1 className="text-title text-ink font-bold tracking-tight">โปรไฟล์</h1>
+            <h1 className="text-title text-ink font-bold tracking-tight">{PROFILE_LABEL}</h1>
             <p className="text-ink-secondary text-sm">แก้ไขชื่อที่แสดง</p>
           </div>
         </div>

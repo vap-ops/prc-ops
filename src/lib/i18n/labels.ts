@@ -24,6 +24,13 @@ export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
 export const WORKER_LABEL = "ช่าง";
 export const WORKER_TEAM_LABEL = "ทีมช่าง";
 
+// Spec 321 U1 — profile-edit door names. Single-sourced so the canonical
+// self-service door ("ข้อมูลของฉัน" = /settings/my-info) and the read-only
+// identity card ("โปรไฟล์" = /profile) never drift across the settings hub,
+// portals, and coming-soon (S11, session investigation 2026-07-15).
+export const MY_INFO_LABEL = "ข้อมูลของฉัน";
+export const PROFILE_LABEL = "โปรไฟล์";
+
 // Spec 314 / ADR 0082 — the firm-wide standard day-rate per skill level + WHT.
 // PM-maintained (procurement_manager/super_admin); the /settings/labor-rates door.
 // (The worker-level Thai labels reuse WORKER_LEVEL_LABEL from src/lib/nova/dials.ts
