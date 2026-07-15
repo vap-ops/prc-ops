@@ -23,6 +23,7 @@ const BASE: RegistrationQueueInput = {
   createdAt: "2026-07-01T03:00:00.000Z",
   uploadedPurposes: [],
   hasBank: false,
+  hasReviewerNote: false,
 };
 
 // A registration that satisfies the full mirrored floor (spec 296): name +
@@ -86,6 +87,16 @@ describe("buildRegistrationQueueRow", () => {
   it("carries meetsFloor on the row (mirrors meetsApprovalFloor)", () => {
     expect(buildRegistrationQueueRow(BASE).meetsFloor).toBe(false);
     expect(buildRegistrationQueueRow(FLOOR_MET).meetsFloor).toBe(true);
+  });
+
+  // Spec 322 — a pending row that carries a reviewer note is one the approver
+  // SENT BACK for edit (reject_reason reused as the note while status stays
+  // pending). The queue surfaces it distinctly from a fresh pending row.
+  it("carries hasReviewerNote through so the queue can flag a sent-back row", () => {
+    expect(buildRegistrationQueueRow(BASE).hasReviewerNote).toBe(false);
+    expect(buildRegistrationQueueRow({ ...BASE, hasReviewerNote: true }).hasReviewerNote).toBe(
+      true,
+    );
   });
 });
 

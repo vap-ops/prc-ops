@@ -61,6 +61,11 @@ export function RegistrationQueueList({
                 <span>
                   เอกสาร {row.docsUploadedCount}/{row.docsTotal}
                 </span>
+                {row.status === "pending" && row.hasReviewerNote ? (
+                  <span className="border-attn-edge bg-attn-soft text-attn-ink inline-flex items-center rounded-full border px-2 py-0.5 font-semibold">
+                    ส่งกลับแก้ไข
+                  </span>
+                ) : null}
                 {row.status === "pending" && !row.meetsFloor ? (
                   <span className="text-danger font-semibold">ยังไม่ครบสำหรับอนุมัติ</span>
                 ) : null}

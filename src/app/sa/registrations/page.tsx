@@ -48,6 +48,7 @@ export default async function SaStaffRegistrationsPage() {
       createdAt: r.created_at,
       uploadedPurposes: purposesByRegistration.get(r.id) ?? [],
       hasBank: bankByRegistration.has(r.id),
+      hasReviewerNote: Boolean(r.reject_reason && r.reject_reason.trim()),
     }),
   );
 

@@ -23,6 +23,9 @@ export interface RegistrationQueueInput {
   /** Spec 296 — whether a staff_registration_bank row exists (the bank data is
    *  zero-grant, so the data layer supplies only this presence boolean). */
   hasBank: boolean;
+  /** Spec 322 — whether the row carries a reviewer note (reject_reason non-blank).
+   *  On a PENDING row this means it was SENT BACK for edit; the queue flags it. */
+  hasReviewerNote: boolean;
 }
 
 export interface RegistrationQueueRow {
@@ -37,6 +40,9 @@ export interface RegistrationQueueRow {
   docsTotal: number;
   /** Mirrors the U1c approve RPC's floor exactly — see meetsApprovalFloor. */
   meetsFloor: boolean;
+  /** Spec 322 — a pending row with this set was sent back for edit; the list
+   *  gates the "ส่งกลับแก้ไข" chip on `status === 'pending' && hasReviewerNote`. */
+  hasReviewerNote: boolean;
 }
 
 const NO_NAME_PLACEHOLDER = "ยังไม่กรอกชื่อ-นามสกุล";
@@ -61,6 +67,7 @@ export function buildRegistrationQueueRow(input: RegistrationQueueInput): Regist
     docsUploadedCount: countUploadedPurposes(input.uploadedPurposes),
     docsTotal: STAFF_DOC_PURPOSES.length,
     meetsFloor: meetsApprovalFloor(input),
+    hasReviewerNote: input.hasReviewerNote,
   };
 }
 

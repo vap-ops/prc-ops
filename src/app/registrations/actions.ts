@@ -90,3 +90,30 @@ export async function rejectStaffRegistration(input: {
   revalidatePath(`${QUEUE_PATH}/${input.registrationId}`);
   return { ok: true };
 }
+
+// Spec 322 — send a pending registration BACK for edit (non-terminal). Mirrors
+// reject exactly (uuid check, non-blank note via the same validateRejectReason
+// contract, STAFF_APPROVAL_ROLES gate, relay on the caller's RLS session so the
+// RPC's current_user_role() is authoritative) EXCEPT the RPC keeps status
+// 'pending' and writes the note to reject_reason (reused as the reviewer note).
+export async function sendBackStaffRegistration(input: {
+  registrationId: string;
+  note: string;
+}): Promise<ActionResult> {
+  if (!isValidUuid(input.registrationId)) return { ok: false, error: GENERIC };
+  const noteError = validateRejectReason(input.note);
+  if (noteError) return { ok: false, error: noteError };
+
+  const gate = await requireActionRole(STAFF_APPROVAL_ROLES);
+  if ("error" in gate) return { ok: false, error: gate.error };
+
+  const { error } = await gate.auth.supabase.rpc("send_back_staff_registration", {
+    p_id: input.registrationId,
+    p_note: input.note.trim(),
+  });
+  if (error) return { ok: false, error: registrationErrorToThai(error.message) };
+
+  revalidatePath(QUEUE_PATH);
+  revalidatePath(`${QUEUE_PATH}/${input.registrationId}`);
+  return { ok: true };
+}
