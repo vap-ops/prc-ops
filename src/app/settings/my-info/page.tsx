@@ -22,7 +22,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { BUTTON_SECONDARY_MUTED, CARD, SECTION_HEADING } from "@/lib/ui/classes";
-import { DisplayNameForm } from "@/components/features/common/display-name-form";
+import { DisplayNameSection } from "@/components/features/profile/display-name-section";
 import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
 import { StaffContactForm } from "@/components/features/profile/staff-contact-form";
 import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
@@ -112,7 +112,7 @@ export default async function MyInfoPage() {
 
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-6`}>
         {/* Instant tier — the display name everyone can set (spec 07). */}
-        <DisplayNameForm initialName={userRow.full_name ?? ""} />
+        <DisplayNameSection initialName={userRow.full_name ?? ""} />
 
         {/* Audience homes — a bound ช่าง / contractor manages contact + bank on
             their own portal; this page links instead of duplicating the forms. */}
