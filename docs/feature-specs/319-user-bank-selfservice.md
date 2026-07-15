@@ -79,8 +79,9 @@ for a login with no audience record. Spec 319 adds the bank sibling.
     `^[0-9]{6,20}$` (the decide-side upsert targets NOT NULL columns — floor mirrors
     `record_own_staff_bank`);
   - **passbook photo required**: `p_book_bank_path` present; folder-pin
-    `user/<auth.uid()>/book_bank` (3-segment `storage.foldername` check) + existence check
-    against `storage.objects` (bucket `contact-docs`) — the dangling-evidence guard;
+    `technician/<auth.uid()>/book_bank` (3-segment `storage.foldername` check, **identical to
+    `submit_staff_bank_change`**) + existence check against `storage.objects` (bucket
+    `contact-docs`) — the dangling-evidence guard;
   - one PENDING per user (explicit check + the unique index backstop);
   - insert the request, return its id.
 
@@ -97,11 +98,14 @@ for a login with no audience record. Spec 319 adds the bank sibling.
 
 ### Storage
 
-- Passbook uploads to `contact-docs` at `user/<uid>/book_bank/<file>`.
-- **INSERT-only** policy scoped to own uid (`(storage.foldername(name))[2] = auth.uid()::text`)
-  — owner uploads, cannot read back; the trio views the photo in the queue via the page's
-  existing **service-role** signed-URL reader (same posture as staff-bank / sa-bank-capture).
-  No `authenticated` SELECT policy is added.
+- Passbook uploads to `contact-docs` at `technician/<uid>/book_bank/<file>` via the shared
+  `buildTechnicianDocPath(uid, "book_bank", …)`, **reusing the spec 315 U2 INSERT-only policy**
+  (`20260813075787`) — it is already scoped to `auth.uid()`, so every login can write its own
+  folder, and the immediate sibling (`submit_staff_bank_change`, office staff who are not
+  technicians) already uses this exact path. **No new storage policy** — U1's danger-path
+  surface is the migration (tables + RPCs) only. The trio views the photo in the queue via the
+  page's existing **service-role** signed-URL reader; no `authenticated` SELECT policy exists
+  or is added (owner uploads, cannot read back).
 
 ### UI / routes
 
@@ -127,10 +131,11 @@ for a login with no audience record. Spec 319 adds the bank sibling.
 
 ## Units
 
-- **U1 — schema + RPCs + storage + pgTAP** (migration `075800`, single schema lane, PR
-  **held** — migration + storage RLS are danger-path). `user_bank`, `user_bank_change_requests`,
-  `get_own_user_bank`, `submit_user_bank_change`, `decide_user_bank_change`, the storage
-  INSERT policy. pgTAP `319-user-bank`: submit floors (missing field / bad account no /
+- **U1 — schema + RPCs + pgTAP** (migration `075800`, single schema lane, PR **held** —
+  migration is danger-path). `user_bank`, `user_bank_change_requests`, `get_own_user_bank`,
+  `submit_user_bank_change`, `decide_user_bank_change`. **No storage policy** — reuses the
+  spec 315 U2 `technician/<uid>/book_bank` INSERT policy. pgTAP `319-user-bank`: submit floors
+  (missing field / bad account no /
   missing photo / dangling photo), single-home refusal (worker/contractor/approved-reg),
   one-pending, trio-only decide, approve upserts `user_bank`, RLS (owner sees own request,
   trio sees all, site_admin sees none).
