@@ -1,3 +1,9 @@
+# [0.96.0](https://github.com/VAP-Solution/prc-ops/compare/v0.95.0...v0.96.0) (2026-07-15)
+
+### Features
+
+- **notifications:** /settings/notifications readiness card + per-event mute toggles (spec 318 U4) ([#554](https://github.com/VAP-Solution/prc-ops/issues/554)) ([f404382](https://github.com/VAP-Solution/prc-ops/commit/f404382490c745b0b5bffda79d194030a5fa601a))
+
 # [0.95.0](https://github.com/VAP-Solution/prc-ops/compare/v0.94.1...v0.95.0) (2026-07-14)
 
 ### Features
