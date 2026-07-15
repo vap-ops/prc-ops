@@ -1,3 +1,9 @@
+# [0.102.0](https://github.com/VAP-Solution/prc-ops/compare/v0.101.0...v0.102.0) (2026-07-15)
+
+### Features
+
+- **payroll:** PM temporary payout-nominee UI (spec 320 U2) ([#561](https://github.com/VAP-Solution/prc-ops/issues/561)) ([0c60b0a](https://github.com/VAP-Solution/prc-ops/commit/0c60b0af72d85c8edc82feb68e0ceeb90ac23975))
+
 # [0.101.0](https://github.com/VAP-Solution/prc-ops/compare/v0.100.0...v0.101.0) (2026-07-15)
 
 ### Features
