@@ -29,7 +29,7 @@ export interface WorkerBankChangeRequestRow {
 
 export interface BankChangeQueueItem {
   id: string;
-  kind: "contractor" | "worker" | "staff-bank";
+  kind: "contractor" | "worker" | "staff-bank" | "user-bank";
   name: string;
   bankName: string | null;
   accountNo: string | null;
@@ -138,6 +138,39 @@ export function buildStaffBankChangeQueue(
     id: r.id,
     kind: "staff-bank",
     name: namesByRegistration.get(r.registration_id) ?? "—",
+    bankName: r.bank_name,
+    accountNo: r.bank_account_number,
+    accountName: r.bank_account_name,
+    bookBankPath: r.book_bank_path,
+    createdAt: r.created_at,
+  }));
+}
+
+// ----------------------------------------------------------------------------
+// Spec 319 — login-keyed bank changes (user_bank home) for the admin/office
+// tier with no worker/contractor/registration home. Same card shape as the
+// worker/staff kinds (typed fields + passbook photo); decided by the
+// staff-approval trio, so the page trio-gates the fetch like the staff-bank rows.
+// ----------------------------------------------------------------------------
+
+export interface UserBankChangeRequestRow {
+  id: string;
+  user_id: string;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  book_bank_path: string;
+  created_at: string;
+}
+
+export function buildUserBankChangeQueue(
+  rows: ReadonlyArray<UserBankChangeRequestRow>,
+  namesByUser: ReadonlyMap<string, string>,
+): BankChangeQueueItem[] {
+  return rows.map((r) => ({
+    id: r.id,
+    kind: "user-bank",
+    name: namesByUser.get(r.user_id) ?? "—",
     bankName: r.bank_name,
     accountNo: r.bank_account_number,
     accountName: r.bank_account_name,

@@ -11,6 +11,7 @@ import {
   decideBankChange,
   decideIdentityChange,
   decideStaffBankChange,
+  decideUserBankChange,
   decideWorkerBankChange,
 } from "@/lib/portal/actions";
 import { useToast } from "@/lib/ui/use-toast";
@@ -31,7 +32,7 @@ export function BankChangeDecision({
 }: {
   requestId: string;
   revalidate: string;
-  kind?: "contractor" | "worker" | "staff-bank" | "identity";
+  kind?: "contractor" | "worker" | "staff-bank" | "identity" | "user-bank";
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -46,9 +47,11 @@ export function BankChangeDecision({
           ? await decideIdentityChange({ id: requestId, approve, revalidate })
           : kind === "staff-bank"
             ? await decideStaffBankChange({ id: requestId, approve, revalidate })
-            : kind === "worker"
-              ? await decideWorkerBankChange({ id: requestId, approve, revalidate })
-              : await decideBankChange({ id: requestId, approve, revalidate });
+            : kind === "user-bank"
+              ? await decideUserBankChange({ id: requestId, approve, revalidate })
+              : kind === "worker"
+                ? await decideWorkerBankChange({ id: requestId, approve, revalidate })
+                : await decideBankChange({ id: requestId, approve, revalidate });
       if (!result.ok) {
         setError(result.error);
         return;
