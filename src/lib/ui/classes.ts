@@ -83,6 +83,14 @@ export const BUTTON_PRIMARY_COMPACT =
 export const BUTTON_SECONDARY_COMPACT =
   "inline-flex min-h-11 items-center justify-center rounded-control border border-edge bg-card px-4 py-2 text-body font-medium text-ink-secondary transition-colors hover:bg-sunk";
 
+/**
+ * min-h-11 outline DANGER sibling of BUTTON_SECONDARY_COMPACT — a destructive
+ * trigger that must read as a real button (not a bare text link) while staying
+ * lighter than the filled confirm it opens (spec 312 rental void).
+ */
+export const BUTTON_DANGER_OUTLINE_COMPACT =
+  "inline-flex min-h-11 items-center justify-center rounded-control border border-danger-edge bg-card px-4 py-2 text-body font-medium text-danger-ink transition-colors hover:bg-danger-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-danger disabled:opacity-50";
+
 /** Muted secondary used by the photo uploaders. */
 export const BUTTON_SECONDARY_MUTED =
   "inline-flex h-11 items-center justify-center rounded-control border border-edge bg-card px-3 text-body font-medium text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:opacity-60";

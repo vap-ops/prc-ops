@@ -37,6 +37,7 @@ import {
   RENTAL_SETTLEMENT_OVERTIME_LABEL,
   RENTAL_SETTLEMENT_RECORD_LABEL,
   RENTAL_SETTLEMENT_VAT_LABEL,
+  RENTAL_SETTLEMENT_ZERO_CANCELS_HINT,
 } from "@/lib/i18n/labels";
 import {
   BUTTON_PRIMARY_COMPACT,
@@ -446,6 +447,7 @@ function SettlementRow({
 
       {open ? (
         <div className="border-edge mt-3 border-t pt-3">
+          <p className="text-ink-muted mb-2 text-sm">{RENTAL_SETTLEMENT_ZERO_CANCELS_HINT}</p>
           <AmountInputs
             amounts={amounts}
             onAmounts={patchAmounts}

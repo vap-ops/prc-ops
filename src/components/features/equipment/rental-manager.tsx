@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import {
+  BUTTON_DANGER_OUTLINE_COMPACT,
   BUTTON_PRIMARY_COMPACT,
   BUTTON_SECONDARY_COMPACT,
   CARD,
@@ -576,7 +577,7 @@ function RentalCardRow({
           <button
             type="button"
             onClick={() => setVoidOpen(true)}
-            className="text-danger mt-3 block text-sm font-medium hover:underline"
+            className={`${BUTTON_DANGER_OUTLINE_COMPACT} mt-3`}
           >
             ยกเลิกการเช่า
           </button>

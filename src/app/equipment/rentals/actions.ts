@@ -19,6 +19,7 @@ import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateRentalBatch } from "@/lib/equipment/validate-rental-batch";
 import { validateAllocation } from "@/lib/equipment/validate-allocation";
+import { voidRb409Message } from "@/lib/equipment/rental-void-messages";
 import type { RentalRatePeriod } from "@/lib/equipment/rental-view";
 import type { ReceiptMethod } from "@/lib/equipment/rental-settlement-view";
 
@@ -257,10 +258,9 @@ export async function supersedeRentalSettlement(
 const VOID_GENERIC = "ยกเลิกการเช่าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const VOID_NO_PERMISSION = "ไม่มีสิทธิ์ยกเลิกการเช่า";
 const VOID_NOT_FOUND = "ไม่พบรายการเช่านี้";
-// RB409 = the batch is not active (settled/returned/already cancelled) or has a
-// settlement / charges attached — those are unwound through their own paths.
-const VOID_NOT_VOIDABLE =
-  "ยกเลิกไม่ได้ — รายการนี้มีการชำระหรือค่าใช้จ่ายผูกอยู่ หรือถูกยกเลิกไปแล้ว";
+// RB409 has three distinct causes (a live settlement, a charge, or a non-active
+// batch) — voidRb409Message turns the DB message into a cause-specific signpost
+// so the user knows which downstream item to unwind first.
 
 export async function voidRentalBatch(input: {
   batchId: string;
@@ -280,7 +280,7 @@ export async function voidRentalBatch(input: {
   if (error) {
     if (error.code === "42501") return { ok: false, error: VOID_NO_PERMISSION };
     if (error.code === "RB404") return { ok: false, error: VOID_NOT_FOUND };
-    if (error.code === "RB409") return { ok: false, error: VOID_NOT_VOIDABLE };
+    if (error.code === "RB409") return { ok: false, error: voidRb409Message(error.message) };
     return { ok: false, error: VOID_GENERIC };
   }
 
