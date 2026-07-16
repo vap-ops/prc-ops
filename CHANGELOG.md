@@ -1,3 +1,9 @@
+# [0.116.0](https://github.com/VAP-Solution/prc-ops/compare/v0.115.1...v0.116.0) (2026-07-16)
+
+### Features
+
+- **profile:** extract <ProfileEditSections> shared door block (spec 321 U4a) ([#591](https://github.com/VAP-Solution/prc-ops/issues/591)) ([1bcf007](https://github.com/VAP-Solution/prc-ops/commit/1bcf00732882c40dcb336a34fb8e14c7e6a44c92))
+
 ## [0.115.1](https://github.com/VAP-Solution/prc-ops/compare/v0.115.0...v0.115.1) (2026-07-16)
 
 ### Bug Fixes
