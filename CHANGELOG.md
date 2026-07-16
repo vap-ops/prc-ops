@@ -1,3 +1,9 @@
+# [0.115.0](https://github.com/VAP-Solution/prc-ops/compare/v0.114.1...v0.115.0) (2026-07-16)
+
+### Features
+
+- **procurement:** U4 relocate settings doors to STR hub + apply project lens (spec 323) ([#589](https://github.com/VAP-Solution/prc-ops/issues/589)) ([02e2e42](https://github.com/VAP-Solution/prc-ops/commit/02e2e4271a7b4baa02ff8b3cb2a8e73c8691bb47))
+
 ## [0.114.1](https://github.com/VAP-Solution/prc-ops/compare/v0.114.0...v0.114.1) (2026-07-16)
 
 ### Bug Fixes
