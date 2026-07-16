@@ -65,8 +65,10 @@ const IMAGE = () => new File(["img"], "photo.jpg", { type: "image/jpeg" });
 afterEach(() => vi.clearAllMocks());
 
 describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
-  it("emits upload_fail{stage:storage} when the storage upload fails (not a duplicate)", async () => {
-    uploadMock.mockResolvedValue({ error: { message: "network down", statusCode: 500 } });
+  it("emits upload_fail{stage:storage,reason,status} when the storage upload fails with an HTTP error", async () => {
+    // A transient server error (5xx) — the class that a self-healing blip looks
+    // like; the reason+status is exactly what earlier telemetry could not tell us.
+    uploadMock.mockResolvedValue({ error: { message: "Internal Error", statusCode: 500 } });
     const { result } = renderCapture();
 
     await act(async () => {
@@ -76,11 +78,28 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
       kind: "phase_photo",
       stage: "storage",
+      reason: "http_5xx",
+      status: 500,
     });
     expect(result.current.pending[0]?.status).toBe("upload-error");
   });
 
-  it("emits upload_fail{stage:insert} when the metadata insert is rejected", async () => {
+  it("emits reason:network with NO status when the storage upload is a fetch failure", async () => {
+    uploadMock.mockResolvedValue({ error: { message: "Failed to fetch" } });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]));
+    });
+
+    expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
+      kind: "phase_photo",
+      stage: "storage",
+      reason: "network",
+    });
+  });
+
+  it("emits upload_fail{stage:insert,reason:insert_rejected} when the metadata insert is rejected", async () => {
     uploadMock.mockResolvedValue({ error: null });
     addPhotoMock.mockResolvedValue({ ok: false, error: "บันทึกรูปไม่สำเร็จ" });
     const { result } = renderCapture();
@@ -92,8 +111,56 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
       kind: "phase_photo",
       stage: "insert",
+      reason: "insert_rejected",
     });
     expect(result.current.pending[0]?.status).toBe("insert-error");
+  });
+
+  it("emits stage:insert reason:pairing for a spec-248 pairing rejection", async () => {
+    uploadMock.mockResolvedValue({ error: null });
+    addPhotoMock.mockResolvedValue({ ok: false, error: "จับคู่รูปไม่ได้แล้ว — ลบแล้วถ่ายใหม่" });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]));
+    });
+
+    expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
+      kind: "phase_photo",
+      stage: "insert",
+      reason: "pairing",
+    });
+  });
+
+  it("emits stage:insert reason:network when the addPhoto invocation itself throws", async () => {
+    uploadMock.mockResolvedValue({ error: null });
+    addPhotoMock.mockRejectedValue(new Error("Failed to fetch"));
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]));
+    });
+
+    expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
+      kind: "phase_photo",
+      stage: "insert",
+      reason: "network",
+    });
+  });
+
+  it("emits stage:unexpected reason:exception when the upload call throws outright", async () => {
+    uploadMock.mockRejectedValue(new Error("boom"));
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]));
+    });
+
+    expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
+      kind: "phase_photo",
+      stage: "unexpected",
+      reason: "exception",
+    });
   });
 
   it("does NOT emit upload_fail when the upload and insert both succeed", async () => {

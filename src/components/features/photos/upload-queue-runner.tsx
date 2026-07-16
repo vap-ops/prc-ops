@@ -141,7 +141,14 @@ export function UploadQueueRunner() {
       // item (own-user only, deduped); best-effort — no-ops if capture is inactive.
       for (const failure of pickUploadFailures(remaining, uid, reportedFailuresRef.current)) {
         reportedFailuresRef.current.add(failure.id);
-        trackFriction("upload_fail", { kind: failure.kind });
+        // Feedback 10a15ebe: carry the stuck item's stage + coarse reason so a
+        // permanently-stuck queued upload is diagnosable, matching the live
+        // capture-path signal.
+        trackFriction("upload_fail", {
+          kind: failure.kind,
+          stage: failure.stage,
+          reason: failure.reason,
+        });
       }
       const delay = nextPassDelayMs(remaining);
       if (delay !== null) {

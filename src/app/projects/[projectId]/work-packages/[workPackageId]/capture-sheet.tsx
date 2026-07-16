@@ -200,6 +200,14 @@ function SheetCapture({
     handleRemoveConfirmed,
   } = usePhaseCapture({ projectId, workPackageId, userId, phase, answersPhotoId });
   const hasContent = pending.length > 0 || photos.length > 0;
+  // Feedback 10a15ebe: a failed shot shows a bare "ลองใหม่" on its tile, and the
+  // reassuring global queue banner ("saved — will auto-send") is hidden behind this
+  // full-screen sheet — so a transient blip read as a lost photo and the reporter
+  // kept re-tapping. Tell them here, where they see the failure, that it is saved
+  // and will retry itself.
+  const hasUnsentUpload = pending.some(
+    (p) => (p.status === "upload-error" || p.status === "insert-error") && !p.terminal,
+  );
 
   // One lightbox group per phase (spec 50): the loaded photos in capture
   // order. A null-url tile (not yet displayable) is excluded from the
@@ -218,6 +226,21 @@ function SheetCapture({
             {topLevelError}
           </div>
         )}
+        {/* Live region kept mounted so a screen reader announces the reassurance
+            when it appears (a region inserted together with its text may not
+            announce). Empty div = zero visual footprint when inactive. */}
+        <div role="status" aria-live="polite">
+          {hasUnsentUpload && (
+            <div className="rounded-card border-edge bg-sunk text-ink-secondary text-meta mb-3 flex items-start gap-2 border px-3 py-2">
+              <Check
+                aria-hidden
+                className="text-done-strong mt-0.5 h-4 w-4 shrink-0"
+                strokeWidth={3}
+              />
+              <span>บันทึกรูปไว้แล้ว — ระบบจะส่งให้อัตโนมัติเมื่อสัญญาณพร้อม</span>
+            </div>
+          )}
+        </div>
         {hasContent ? (
           <>
             <p className="text-meta text-ink-secondary mb-2 font-bold">รูปในช่วงนี้</p>

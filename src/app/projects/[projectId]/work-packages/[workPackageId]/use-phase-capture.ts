@@ -28,6 +28,8 @@ import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/phot
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
   classifyStorageUploadError,
+  diagnoseStorageFailure,
+  isPairingRejected,
   queueNowMs,
   type QueuedUpload,
 } from "@/lib/photos/upload-queue";
@@ -51,6 +53,10 @@ export interface PendingUpload {
   enqueuedAtMs: number;
   ext: PhotoExt;
   storagePath: string;
+  /** Feedback 10a15ebe: true when the failure will NOT succeed on plain retry
+   *  (authz/size/pairing) — so the sheet does not falsely promise "will auto-send"
+   *  for a terminal failure, mirroring the queue runner's honest-copy split. */
+  terminal?: boolean;
 }
 
 interface UsePhaseCaptureArgs {
@@ -120,14 +126,25 @@ export function usePhaseCapture({
       });
     if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
       console.error("[phase-capture] storage upload failed", uploadError.message);
-      // Feedback 10a15ebe: a real field upload failure was invisible in telemetry
-      // (console-only), so a "ลองใหม่" loop could not be diagnosed. Emit a friction
-      // signal — PDPA-min: stable {kind, stage} only, never the file name/path/error.
-      trackFriction("upload_fail", { kind: "phase_photo", stage: "storage" });
+      // Feedback 10a15ebe: a real field failure recorded only {kind, stage}, so a
+      // TRANSIENT storage blip (which the offline queue recovered from ~19 min later)
+      // could not be told apart from a 403 or a 413. Emit the coarse, PDPA-safe
+      // diagnosis — reason class + numeric HTTP status when present — never the file
+      // name/path/raw error text.
+      const diag = diagnoseStorageFailure(uploadError);
+      trackFriction("upload_fail", {
+        kind: "phase_photo",
+        stage: "storage",
+        reason: diag.reason,
+        ...(diag.status !== undefined ? { status: diag.status } : {}),
+      });
       notifyQueueChanged();
       updatePending(upload.id, {
         status: "upload-error",
         errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+        // authz (403) and size (413) will fail identically on retry — do not let
+        // the sheet promise "will auto-send" for them (feedback 10a15ebe).
+        terminal: diag.reason === "authz" || diag.reason === "size",
       });
       return;
     }
@@ -139,6 +156,7 @@ export function usePhaseCapture({
   async function insertOne(upload: PendingUpload) {
     updatePending(upload.id, { status: "inserting" });
     let result: Awaited<ReturnType<typeof addPhoto>>;
+    let invocationThrew = false;
     try {
       result = await addPhoto({
         workPackageId,
@@ -150,15 +168,26 @@ export function usePhaseCapture({
       });
     } catch (err) {
       console.error("[phase-capture] addPhoto invocation failed", err);
+      invocationThrew = true;
       result = { ok: false, error: "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
     }
     if (!result.ok) {
-      // Feedback 10a15ebe: as above — the insert rejection was console-only.
-      trackFriction("upload_fail", { kind: "phase_photo", stage: "insert" });
+      // Feedback 10a15ebe: carry a coarse reason — a thrown invocation is a network
+      // failure to the server action, a pairing rejection is terminal, anything else
+      // is a server-side rejection. PDPA-min: reason class only, never the message.
+      const reason = invocationThrew
+        ? "network"
+        : isPairingRejected(result.error)
+          ? "pairing"
+          : "insert_rejected";
+      trackFriction("upload_fail", { kind: "phase_photo", stage: "insert", reason });
       notifyQueueChanged();
       updatePending(upload.id, {
         status: "insert-error",
         errorMessage: `อัปโหลดสำเร็จแต่บันทึกข้อมูลไม่สำเร็จ — ${result.error}`,
+        // A pairing rejection is terminal (the U1 guard blocks every replay); a
+        // network/server rejection can still land on retry (feedback 10a15ebe).
+        terminal: reason === "pairing",
       });
       return;
     }
@@ -204,8 +233,12 @@ export function usePhaseCapture({
       } catch (err) {
         console.error("[phase-capture] unexpected per-file failure", err);
         // Feedback 10a15ebe: an unexpected throw (e.g. IDB put) also stranded the
-        // user on "ลองใหม่" with no signal — track it too, same PDPA-min shape.
-        trackFriction("upload_fail", { kind: "phase_photo", stage: "unexpected" });
+        // user on "ลองใหม่" with no signal — track it too, with a coarse reason.
+        trackFriction("upload_fail", {
+          kind: "phase_photo",
+          stage: "unexpected",
+          reason: "exception",
+        });
         updatePending(upload.id, {
           status: "upload-error",
           errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
