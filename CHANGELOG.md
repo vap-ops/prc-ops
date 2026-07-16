@@ -1,3 +1,9 @@
+# [0.111.0](https://github.com/VAP-Solution/prc-ops/compare/v0.110.0...v0.111.0) (2026-07-16)
+
+### Features
+
+- **procurement:** Procurement Home STR hub page (spec 323 U3a) ([#580](https://github.com/VAP-Solution/prc-ops/issues/580)) ([0d44d23](https://github.com/VAP-Solution/prc-ops/commit/0d44d2347e3ff6d4e77a414d9525871b9a9b2cdc))
+
 # [0.110.0](https://github.com/VAP-Solution/prc-ops/compare/v0.109.0...v0.110.0) (2026-07-16)
 
 ### Features
