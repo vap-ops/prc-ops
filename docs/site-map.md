@@ -44,10 +44,11 @@ destination per role and may add reference surfaces the phone bar omits
 - procurement + procurement_manager (spec 323 U3b, decision A — the STR spine;
   strip mirrors it exactly): หน้าหลัก `/procurement` · ขอบเขต
   `/procurement/scope` · เวลา `/procurement/time` · ทรัพยากร
-  `/procurement/resources` · ตั้งค่า. The old flat tabs (จัดซื้อ · รายงาน ·
-  โครงการ · ผู้ขาย · ค่าแรง · [mgr] คำขอสมัคร) are hub doors now; the manager's
-  คำขอสมัคร path is the hub nudge. A leaf like `/requests` lights no tab
-  (spec-19 acceptance).
+  `/procurement/resources` · ตั้งค่า. The old flat tabs are re-homed in the
+  hub: จัดซื้อ/รายงาน/ผู้ขาย/ค่าแรง as STR doors, โครงการ context as the
+  project lens + per-project status strip (D3 — no /projects door; the route
+  stays reachable but unlit), the manager's คำขอสมัคร as the hub nudge. A leaf
+  like `/requests` lights no tab (spec-19 acceptance).
 - project_coordinator: โครงการ · ตั้งค่า.
 - accounting: บัญชี `/accounting` · ตั้งค่า.
 - legal (spec 284 U5): กฎหมาย `/legal` · ตั้งค่า.
