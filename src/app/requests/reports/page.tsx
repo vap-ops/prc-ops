@@ -349,14 +349,26 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
           </div>
         ) : null}
 
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className={SECTION_HEADING}>รายละเอียด</h2>
-          <Link
-            href={reportHref(state, {}, "/requests/reports/export")}
-            className={BUTTON_SECONDARY}
-          >
-            ดาวน์โหลด CSV
-          </Link>
+          {/* Two Excel-ready CSVs: the bucket×group summary (this page's rows) and
+              the FB-4620 line-level item list (one row per ordered item — for
+              planning the next project of the same client). Both carry the current
+              period + project filter. */}
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={reportHref(state, {}, "/requests/reports/export")}
+              className={BUTTON_SECONDARY}
+            >
+              สรุปยอด (CSV)
+            </Link>
+            <Link
+              href={reportHref(state, {}, "/requests/reports/export-itemized")}
+              className={BUTTON_SECONDARY}
+            >
+              รายการสินค้า (CSV)
+            </Link>
+          </div>
         </div>
 
         {rows.length === 0 ? (
