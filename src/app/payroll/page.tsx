@@ -10,6 +10,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
+import { ProjectLens } from "@/components/features/common/project-lens";
 import { requireRole } from "@/lib/auth/require-role";
 import { PAYROLL_ROLES, PAYROLL_VIEW_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -105,6 +106,17 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <h2 className={SECTION_HEADING}>ค่าแรง</h2>
+
+        {/* Spec 323 U5: the universal cross-project lens — one-tap scoping on the
+            same ?project= axis the form's picker below writes (they stay in sync
+            via the URL; the lens keeps the from/to period params). empty:hidden so
+            the collapsed single-project state leaves no stray margin. Wages are
+            project-blind by default (spec 311 P0); this gives them the lens. */}
+        <div className="mb-4 empty:hidden">
+          <ProjectLens
+            projects={(projectOptions ?? []).map((p) => ({ id: p.id, name: p.name ?? p.code }))}
+          />
+        </div>
 
         {/* Period — zero-client-JS GET form, defaults to the current month. */}
         <form
