@@ -1,3 +1,9 @@
+## [0.112.1](https://github.com/VAP-Solution/prc-ops/compare/v0.112.0...v0.112.1) (2026-07-16)
+
+### Bug Fixes
+
+- **photos:** diagnose upload failures + honest in-sheet copy (feedback 10a15ebe) ([#582](https://github.com/VAP-Solution/prc-ops/issues/582)) ([1b384a1](https://github.com/VAP-Solution/prc-ops/commit/1b384a19f6019a07073d771dcaf26b529b11fb2a))
+
 # [0.112.0](https://github.com/VAP-Solution/prc-ops/compare/v0.111.0...v0.112.0) (2026-07-16)
 
 ### Features
