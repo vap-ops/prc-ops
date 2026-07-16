@@ -15,7 +15,16 @@ import { BUTTON_PRIMARY, CARD, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui
 import { PendingChangeNotice } from "@/components/features/profile/pending-change-notice";
 import { IDENTITY_CHANGE_PENDING, IDENTITY_CHANGE_TOAST } from "@/lib/i18n/labels";
 
-export function IdentityChangeForm({ hasPending }: { hasPending: boolean }) {
+// Spec 321 U6 — `dobOnly` renders a DOB-only variant for the contractor surface:
+// a contractor's name / national ID are PARTY fields (managed on /contacts), so
+// only DOB is personal identity for them; the trio-approval path is identical.
+export function IdentityChangeForm({
+  hasPending,
+  dobOnly = false,
+}: {
+  hasPending: boolean;
+  dobOnly?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -53,39 +62,47 @@ export function IdentityChangeForm({ hasPending }: { hasPending: boolean }) {
 
   return (
     <div className={CARD}>
-      <p className="text-ink text-sm font-semibold">ขอแก้ไขข้อมูลตัวตน</p>
-      <p className="text-ink-muted mt-0.5 text-xs">
-        ชื่อ เลขบัตร และวันเกิด ต้องผ่านการอนุมัติก่อนมีผล — กรอกเฉพาะรายการที่ต้องการแก้
+      <p className="text-ink text-sm font-semibold">
+        {dobOnly ? "ขอแก้ไขวันเกิด" : "ขอแก้ไขข้อมูลตัวตน"}
       </p>
+      <p className="text-ink-muted mt-0.5 text-xs">
+        {dobOnly
+          ? "วันเกิดต้องผ่านการอนุมัติก่อนมีผล"
+          : "ชื่อ เลขบัตร และวันเกิด ต้องผ่านการอนุมัติก่อนมีผล — กรอกเฉพาะรายการที่ต้องการแก้"}
+      </p>
+      {dobOnly ? null : (
+        <>
+          <label className="text-ink-secondary mt-3 block text-sm">
+            ชื่อ-นามสกุลใหม่
+            <input
+              value={fullName}
+              maxLength={120}
+              disabled={pending}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                setError(null);
+              }}
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="text-ink-secondary mt-3 block text-sm">
+            เลขบัตรประชาชนใหม่
+            <input
+              value={nationalId}
+              maxLength={17}
+              inputMode="numeric"
+              disabled={pending}
+              onChange={(e) => {
+                setNationalId(e.target.value);
+                setError(null);
+              }}
+              className={FIELD_STACKED}
+            />
+          </label>
+        </>
+      )}
       <label className="text-ink-secondary mt-3 block text-sm">
-        ชื่อ-นามสกุลใหม่
-        <input
-          value={fullName}
-          maxLength={120}
-          disabled={pending}
-          onChange={(e) => {
-            setFullName(e.target.value);
-            setError(null);
-          }}
-          className={FIELD_STACKED}
-        />
-      </label>
-      <label className="text-ink-secondary mt-3 block text-sm">
-        เลขบัตรประชาชนใหม่
-        <input
-          value={nationalId}
-          maxLength={17}
-          inputMode="numeric"
-          disabled={pending}
-          onChange={(e) => {
-            setNationalId(e.target.value);
-            setError(null);
-          }}
-          className={FIELD_STACKED}
-        />
-      </label>
-      <label className="text-ink-secondary mt-3 block text-sm">
-        วันเกิดใหม่
+        {dobOnly ? "วันเกิด" : "วันเกิดใหม่"}
         <input
           type="date"
           value={dob}
@@ -108,7 +125,7 @@ export function IdentityChangeForm({ hasPending }: { hasPending: boolean }) {
         onClick={submit}
         className={`mt-4 w-full ${BUTTON_PRIMARY}`}
       >
-        {pending ? "กำลังส่ง…" : "ส่งคำขอแก้ไขข้อมูลตัวตน"}
+        {pending ? "กำลังส่ง…" : dobOnly ? "ส่งคำขอแก้ไขวันเกิด" : "ส่งคำขอแก้ไขข้อมูลตัวตน"}
       </button>
     </div>
   );

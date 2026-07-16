@@ -1,9 +1,10 @@
 "use client";
 
-// Spec 131 U2b — DC self-service on /portal: edit own emergency contact + DOB,
-// and give PDPA / background-check consent. Both go through RLS-scoped RPCs
-// (update_own_emergency_contact column-scopes to the four fields; consent is
-// self-validated). 'use client': form + per-action pending state.
+// Spec 131 U2b — DC self-service on /portal: edit own emergency contact, and
+// give PDPA / background-check consent. Both go through RLS-scoped RPCs
+// (update_own_emergency_contact column-scopes to the three emergency fields;
+// consent is self-validated). Spec 321 U6: DOB left this card for the approved
+// identity tier (rendered on /portal). 'use client': form + per-action pending.
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -37,7 +38,7 @@ export function PortalSelfEdit({
   consents,
 }: {
   contractorId: string;
-  ec: { name: string; relation: string; phone: string; dob: string };
+  ec: { name: string; relation: string; phone: string };
   consents: PortalConsent[];
 }) {
   const router = useRouter();
@@ -64,7 +65,7 @@ function EmergencyForm({
   toast,
 }: {
   contractorId: string;
-  ec: { name: string; relation: string; phone: string; dob: string };
+  ec: { name: string; relation: string; phone: string };
   router: RouterT;
   toast: ToastT;
 }) {
@@ -72,7 +73,6 @@ function EmergencyForm({
   const [name, setName] = useState(ec.name);
   const [relation, setRelation] = useState(ec.relation);
   const [phone, setPhone] = useState(ec.phone);
-  const [dob, setDob] = useState(ec.dob);
   const [error, setError] = useState<string | null>(null);
 
   function submit() {
@@ -83,7 +83,7 @@ function EmergencyForm({
       return;
     }
     startTransition(async () => {
-      const result = await updateOwnEmergencyContact({ name, relation, phone, dob });
+      const result = await updateOwnEmergencyContact({ name, relation, phone });
       if (!result.ok) {
         setError(result.error);
         return;
@@ -127,16 +127,6 @@ function EmergencyForm({
           disabled={pending}
           onChange={(e) => setPhone(e.target.value)}
           className={FIELD_STACKED}
-        />
-      </label>
-      <label className="text-ink-secondary mt-3 block text-sm">
-        วันเกิด
-        <input
-          type="date"
-          value={dob}
-          disabled={pending}
-          onChange={(e) => setDob(e.target.value)}
-          className={`${FIELD_STACKED} appearance-none`}
         />
       </label>
       {error ? (

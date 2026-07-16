@@ -10417,12 +10417,7 @@ export type Database = {
         Returns: undefined
       }
       update_own_emergency_contact: {
-        Args: {
-          p_dob?: string
-          p_name: string
-          p_phone: string
-          p_relation: string
-        }
+        Args: { p_name: string; p_phone: string; p_relation: string }
         Returns: undefined
       }
       update_own_staff_contact: {

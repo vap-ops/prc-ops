@@ -1,11 +1,14 @@
 begin;
-select plan(6);
+select plan(5);
 
 -- ============================================================================
 -- Spec 131 U2b — update_own_emergency_contact: a bound DC self-edits ONLY their
--- own emergency contact + DOB; an unbound caller (visitor or staff w/o a
--- binding) is refused; another contractor's row is untouched; status/tax_id are
--- never reachable (the RPC writes only the four columns).
+-- own emergency contact; an unbound caller (visitor or staff w/o a binding) is
+-- refused; another contractor's row is untouched; status/tax_id are never
+-- reachable (the RPC writes only the three emergency columns).
+-- Spec 321 U6: DOB moved to the approved identity tier — the RPC no longer takes
+-- or writes a DOB (3-arg now); DOB behavior is covered by
+-- 321-contractor-dob-approved.test.sql.
 -- ============================================================================
 
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -28,16 +31,13 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "a1000000-0000-4000-8000-000000000152"}';
 select lives_ok(
-  $$ select public.update_own_emergency_contact('ผู้ติดต่อ ก', 'พี่', '0891112222', date '1990-05-01') $$,
+  $$ select public.update_own_emergency_contact('ผู้ติดต่อ ก', 'พี่', '0891112222') $$,
   'a bound contractor updates their own emergency contact');
 
 reset role;
 select is(
   (select emergency_contact_name from public.contractors where id = 'aa000000-0000-4000-8000-000000000152'),
   'ผู้ติดต่อ ก', 'A''s emergency contact name was set');
-select is(
-  (select date_of_birth from public.contractors where id = 'aa000000-0000-4000-8000-000000000152'),
-  date '1990-05-01', 'A''s DOB was set');
 select is(
   (select emergency_contact_name from public.contractors where id = 'bb000000-0000-4000-8000-000000000152'),
   null, 'B''s emergency contact is untouched');
