@@ -1,6 +1,25 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import type { NextConfig } from "next";
 
+// Feedback 10a15ebe — stamp every client telemetry event with the build's
+// version so a field upload_fail (etc.) can be tied to the exact bundle instead
+// of guessing at a stale pre-deploy cache. Read package.json at build time and
+// inline it as a public env var (UsageTracker reads NEXT_PUBLIC_APP_VERSION).
+// Append the Vercel commit SHA when present so two builds of the same semver
+// version stay distinguishable. `next build` and vitest both run from the repo
+// root, so resolve package.json off the process cwd.
+const { version } = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
+  version: string;
+};
+const commitSha = process.env.VERCEL_GIT_COMMIT_SHA;
+const APP_VERSION = commitSha ? `${version}+${commitSha.slice(0, 7)}` : version;
+
 const nextConfig: NextConfig = {
+  // Inlined into the client bundle; referenced as process.env.NEXT_PUBLIC_APP_VERSION.
+  env: { NEXT_PUBLIC_APP_VERSION: APP_VERSION },
+
   // Spec 39: pdfkit ships font/AFM data files it resolves from
   // node_modules at runtime — bundling breaks those reads.
   serverExternalPackages: ["pdfkit"],
