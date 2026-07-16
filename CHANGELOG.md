@@ -1,3 +1,9 @@
+# [0.119.0](https://github.com/VAP-Solution/prc-ops/compare/v0.118.0...v0.119.0) (2026-07-16)
+
+### Features
+
+- **324:** U2 correct_stock_receipt RPC + reverse mutual guard ([#599](https://github.com/VAP-Solution/prc-ops/issues/599)) ([5de4013](https://github.com/VAP-Solution/prc-ops/commit/5de4013a28e33fe76a15038e47e7484e0e7b2748))
+
 # [0.118.0](https://github.com/VAP-Solution/prc-ops/compare/v0.117.1...v0.118.0) (2026-07-16)
 
 ### Features
