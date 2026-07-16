@@ -56,19 +56,15 @@ describe("BottomTabBar", () => {
       ["จัดซื้อ", "/requests"],
       ["ตั้งค่า", "/settings"],
     ]);
-    // procurement's back-office tab set: จัดซื้อ (spec 70), โครงการ read-only
-    // (spec 102), ผู้ขาย suppliers master (spec 101), ตั้งค่า. No รอตรวจ (not a
-    // decider) and no ภาพรวม (money, spec 100).
+    // Spec 323 U3b (decision A): procurement's six scattered tabs collapse to
+    // the STR spine — the /procurement hub + its three section sub-routes
+    // (distinct PATHNAMES, not ?section=, because the active rule above is
+    // query-blind). Every old destination is one tap in via a hub door.
     expect(PROCUREMENT_TABS.map((t) => [t.label, t.href])).toEqual([
-      ["จัดซื้อ", "/requests"],
-      // Spec 262 follow-up: รายงาน (reports) — a nav home for the report surface.
-      ["รายงาน", "/requests/reports"],
-      ["โครงการ", "/projects"],
-      ["ผู้ขาย", "/contacts/vendors"],
-      // Spec 309 follow-up: ค่าแรง on the phone bar too — 309 surfaced it on the
-      // desktop hub-nav only, but that strip is desktop-only, so procurement on a
-      // phone still couldn't reach the per-project wage roll-up except via ตั้งค่า.
-      ["ค่าแรง", "/payroll"],
+      ["หน้าหลัก", "/procurement"],
+      ["ขอบเขต", "/procurement/scope"],
+      ["เวลา", "/procurement/time"],
+      ["ทรัพยากร", "/procurement/resources"],
       ["ตั้งค่า", "/settings"],
     ]);
     // Spec 143 U2: the coordinator is a see-all oversight role — projects + the
@@ -78,18 +74,15 @@ describe("BottomTabBar", () => {
       ["โครงการ", "/projects"],
       ["ตั้งค่า", "/settings"],
     ]);
-    // Spec 263 follow-up: procurement_manager is a procurement superset (spec
-    // 261) PLUS a staff-registration approver (spec 263 U3 / spec 264 G4) — it
-    // had NO tab set at all before this fix (tabsForRole fell through to null).
-    // Gets the procurement set PLUS the approval-queue tab.
+    // Spec 323 U3b: procurement_manager collapses to the SAME STR spine — its
+    // extra คำขอสมัคร tab is DROPPED because the approval queue re-homed as the
+    // /procurement hub's nudge + count (U3a), so the queue keeps its phone path
+    // without a seventh tab.
     expect(PROCUREMENT_MANAGER_TABS.map((t) => [t.label, t.href])).toEqual([
-      ["จัดซื้อ", "/requests"],
-      ["รายงาน", "/requests/reports"],
-      ["โครงการ", "/projects"],
-      ["ผู้ขาย", "/contacts/vendors"],
-      // Spec 309 follow-up: mirrors PROCUREMENT_TABS — ค่าแรง on the phone bar.
-      ["ค่าแรง", "/payroll"],
-      ["คำขอสมัคร", "/registrations"],
+      ["หน้าหลัก", "/procurement"],
+      ["ขอบเขต", "/procurement/scope"],
+      ["เวลา", "/procurement/time"],
+      ["ทรัพยากร", "/procurement/resources"],
       ["ตั้งค่า", "/settings"],
     ]);
   });
@@ -109,8 +102,8 @@ describe("BottomTabBar", () => {
     expect(active[0]?.textContent).toContain("ภาพรวม");
   });
 
-  it("gives procurement no ภาพรวม tab (lean worklist)", () => {
-    mockUsePathname.mockReturnValue("/requests");
+  it("gives procurement no ภาพรวม tab (money surface, spec 100)", () => {
+    mockUsePathname.mockReturnValue("/procurement");
     render(<BottomTabBar role="procurement" />);
     expect(screen.queryByText("ภาพรวม")).not.toBeInTheDocument();
   });
@@ -222,66 +215,65 @@ describe("BottomTabBar", () => {
     expect(activeTabs(c2)[0]?.textContent).toContain("ภาพรวม");
   });
 
-  // Spec 70/101/102: procurement gets จัดซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, and
-  // NEVER รอตรวจ (not a decider). โครงการ is read-only project browse (spec 102).
-  it("renders the procurement set: จัดซื้อ + โครงการ + ผู้ขาย + ตั้งค่า, no รอตรวจ", () => {
-    mockUsePathname.mockReturnValue("/requests");
+  // Spec 323 U3b: procurement's STR spine — หน้าหลัก lights on the /procurement
+  // hub itself; each section tab is a real link to its sub-route. Never รอตรวจ
+  // (not a decider).
+  it("renders the procurement STR spine and lights หน้าหลัก on /procurement", () => {
+    mockUsePathname.mockReturnValue("/procurement");
     const { container } = render(<BottomTabBar role="procurement" />);
-    expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
-    expect(screen.getByRole("link", { name: /ผู้ขาย/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /ขอบเขต/ })).toHaveAttribute(
       "href",
-      "/contacts/vendors",
+      "/procurement/scope",
+    );
+    expect(screen.getByRole("link", { name: /เวลา/ })).toHaveAttribute("href", "/procurement/time");
+    expect(screen.getByRole("link", { name: /ทรัพยากร/ })).toHaveAttribute(
+      "href",
+      "/procurement/resources",
     );
     expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
     expect(screen.queryByText("รอตรวจ")).not.toBeInTheDocument();
-    // จัดซื้อ is the active tab on /requests — now a link to its root, marked by
-    // aria-current (every bottom tab is a first-layer destination).
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("จัดซื้อ");
+    expect(active[0]?.textContent).toContain("หน้าหลัก");
   });
 
-  // Spec 101: ผู้ขาย lights on the suppliers screen (longest-prefix beats the
-  // ตั้งค่า /contacts match).
-  it("lights ผู้ขาย for procurement on /contacts/vendors", () => {
+  // The whole reason the sections are distinct SUB-ROUTES (not ?section=): the
+  // active rule is a query-blind longest-PATHNAME-prefix, so /procurement/scope
+  // (len 18) beats /procurement (len 12) and exactly one tab lights.
+  it("lights exactly the section tab on each /procurement/<section> route", () => {
+    for (const [path, label] of [
+      ["/procurement/scope", "ขอบเขต"],
+      ["/procurement/time", "เวลา"],
+      ["/procurement/resources", "ทรัพยากร"],
+    ] as const) {
+      mockUsePathname.mockReturnValue(path);
+      const { container, unmount } = render(<BottomTabBar role="procurement" />);
+      const active = activeTabs(container);
+      expect(active).toHaveLength(1);
+      expect(active[0]?.textContent).toContain(label);
+      unmount();
+    }
+  });
+
+  // Door surfaces are reached THROUGH the hub, not pinned as tabs — on a leaf
+  // like /requests no procurement tab claims the path (the spec-19 acceptance:
+  // a cross-surface path matches no tab; the bar still renders for navigation).
+  it("lights no tab for procurement on a hub-door leaf like /requests", () => {
+    mockUsePathname.mockReturnValue("/requests");
+    const { container } = render(<BottomTabBar role="procurement" />);
+    expect(activeTabs(container)).toHaveLength(0);
+    // The bar itself still renders — it is the way back to the hub.
+    expect(screen.getByRole("link", { name: /หน้าหลัก/ })).toHaveAttribute("href", "/procurement");
+  });
+
+  // SETTINGS_TAB's match prefixes still claim the reference surfaces it always
+  // claimed (/contacts, /catalog, …) — unchanged shared behavior.
+  it("lights ตั้งค่า for procurement on /contacts/vendors (settings match)", () => {
     mockUsePathname.mockReturnValue("/contacts/vendors");
     const { container } = render(<BottomTabBar role="procurement" />);
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("ผู้ขาย");
-  });
-
-  // Spec 262 follow-up: procurement's รายงาน tab (money reports). Longest-prefix
-  // wins so it lights on /requests/reports without stealing the bare /requests
-  // worklist, and it claims the /requests/orders PO list (a report sub-surface).
-  it("lights รายงาน for procurement on /requests/reports + its sub-pages", () => {
-    for (const path of ["/requests/reports", "/requests/reports/register"]) {
-      mockUsePathname.mockReturnValue(path);
-      const { container, unmount } = render(<BottomTabBar role="procurement" />);
-      const active = activeTabs(container);
-      expect(active).toHaveLength(1);
-      expect(active[0]?.textContent).toContain("รายงาน");
-      unmount();
-    }
-  });
-
-  it("lights รายงาน for procurement on the /requests/orders PO list", () => {
-    mockUsePathname.mockReturnValue("/requests/orders");
-    const { container } = render(<BottomTabBar role="procurement" />);
-    const active = activeTabs(container);
-    expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("รายงาน");
-  });
-
-  it("keeps จัดซื้อ lit (not รายงาน) on the bare worklist + a PR detail", () => {
-    for (const path of ["/requests", "/requests/abc123"]) {
-      mockUsePathname.mockReturnValue(path);
-      const { container, unmount } = render(<BottomTabBar role="procurement" />);
-      const active = activeTabs(container);
-      expect(active).toHaveLength(1);
-      expect(active[0]?.textContent).toContain("จัดซื้อ");
-      unmount();
-    }
+    expect(active[0]?.textContent).toContain("ตั้งค่า");
   });
 
   // Spec 143 U2: the coordinator gets a focused set — โครงการ (sees all) + ตั้งค่า.
@@ -301,31 +293,21 @@ describe("BottomTabBar", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  // Spec 263 follow-up: mobile approvals-unreachable fix. procurement_manager
-  // previously had NO tab set (tabsForRole fell through to null) — now it gets
-  // the procurement set plus the approval-queue tab; plain procurement is
-  // UNCHANGED (not an approver).
-  it("gives procurement_manager the procurement set plus the approval-queue tab", () => {
-    mockUsePathname.mockReturnValue("/registrations");
+  // Spec 323 U3b: procurement_manager rides the SAME STR spine — its old
+  // คำขอสมัคร tab is gone because the approval queue re-homed as the
+  // /procurement hub's nudge + count (U3a), keeping the phone path.
+  it("gives procurement_manager the STR spine with NO คำขอสมัคร tab", () => {
+    mockUsePathname.mockReturnValue("/procurement/time");
     const { container } = render(<BottomTabBar role="procurement_manager" />);
-    expect(screen.getByRole("link", { name: /จัดซื้อ/ })).toHaveAttribute("href", "/requests");
-    expect(screen.getByRole("link", { name: /รายงาน/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /หน้าหลัก/ })).toHaveAttribute("href", "/procurement");
+    expect(screen.getByRole("link", { name: /ขอบเขต/ })).toHaveAttribute(
       "href",
-      "/requests/reports",
+      "/procurement/scope",
     );
-    expect(screen.getByRole("link", { name: /ผู้ขาย/ })).toHaveAttribute(
-      "href",
-      "/contacts/vendors",
-    );
+    expect(screen.queryByText("คำขอสมัคร")).not.toBeInTheDocument();
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("คำขอสมัคร");
-  });
-
-  it("gives plain procurement no approval-queue tab (unchanged, not an approver)", () => {
-    mockUsePathname.mockReturnValue("/requests");
-    render(<BottomTabBar role="procurement" />);
-    expect(screen.queryByText("คำขอสมัคร")).not.toBeInTheDocument();
+    expect(active[0]?.textContent).toContain("เวลา");
   });
 
   it("clears the iOS safe area and hides on desktop", () => {

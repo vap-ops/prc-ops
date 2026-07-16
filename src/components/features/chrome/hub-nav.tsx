@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 import { isManagerRole } from "@/lib/auth/role-home";
 import type { UserRole } from "@/lib/db/enums";
 import {
@@ -62,45 +61,25 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
-// Spec 101: procurement's desktop strip — its worklist + the suppliers master
-// + settings. No project/review/dashboard surfaces (those stay PM/SA).
-export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = [
-  { label: "จัดซื้อ", href: "/requests" },
-  // Spec 262 follow-up: the report surface (/requests/reports) gets a nav home,
-  // so it is reachable directly — not only via the /requests worklist tiles.
-  { label: "รายงาน", href: "/requests/reports" },
-  // Spec 102: read-only project browse.
-  { label: "โครงการ", href: "/projects" },
-  { label: "ผู้ขาย", href: "/contacts/vendors" },
-  // Spec 172 Phase B: procurement curates subcontractors too.
-  { label: SUBCONTRACTOR_LABEL, href: "/contacts/subcontractors" },
-  // Spec 172 Phase C: procurement onboards ช่าง (incl. the pay rate).
-  { label: "ทีมงาน", href: "/workers" },
-  // Spec 309: ค่าแรง (payroll) lifted out of ตั้งค่า → ทีมช่าง — procurement
-  // summarises wages per person (now with the per-project filter), so it earns
-  // a top-level home instead of being buried in Settings.
-  { label: "ค่าแรง", href: "/payroll" },
+// Spec 323 U3b (decision A, supersedes spec 101/262/102/172/309's flat strip):
+// procurement's desktop strip mirrors the STR bottom-tab spine exactly
+// (nav-law rule 2 — the strip carries every bottom-tab destination). The old
+// strip-only supersets (ผู้ขาย, ผู้รับเหมาช่วง, ทีมงาน, …) are hub doors under
+// the STR sections now, one click in via /procurement.
+const PROCUREMENT_STR_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "หน้าหลัก", href: "/procurement" },
+  { label: "ขอบเขต", href: "/procurement/scope" },
+  { label: "เวลา", href: "/procurement/time" },
+  { label: "ทรัพยากร", href: "/procurement/resources" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
+export const PROCUREMENT_HUB_NAV: ReadonlyArray<HubNavItem> = PROCUREMENT_STR_HUB_NAV;
 
-// Spec 263 follow-up: procurement_manager's desktop strip. It is a
-// procurement superset (spec 261, ADR 0070) with NO hub-nav set at all before
-// this fix (hubNavForRole had no branch for it). Gets everything
-// PROCUREMENT_HUB_NAV has (it can do everything plain procurement can, plus
-// the manager-only set) plus the staff-registration approval queue (spec 263 U3
-// / spec 264 G4 — procurement_manager is a STAFF_APPROVAL_ROLES member).
-export const PROCUREMENT_MANAGER_HUB_NAV: ReadonlyArray<HubNavItem> = [
-  { label: "จัดซื้อ", href: "/requests" },
-  { label: "รายงาน", href: "/requests/reports" },
-  { label: "โครงการ", href: "/projects" },
-  { label: "ผู้ขาย", href: "/contacts/vendors" },
-  { label: SUBCONTRACTOR_LABEL, href: "/contacts/subcontractors" },
-  { label: "ทีมงาน", href: "/workers" },
-  // Spec 309: ค่าแรง surfaced for the manager strip too (mirrors procurement).
-  { label: "ค่าแรง", href: "/payroll" },
-  { label: "คำขอสมัคร", href: "/registrations" },
-  { label: "ตั้งค่า", href: "/settings" },
-];
+// Spec 323 U3b: procurement_manager rides the SAME spine — its former
+// คำขอสมัคร strip item (spec 263 follow-up) is gone because the approval queue
+// re-homed as the /procurement hub's nudge + count (U3a). Kept a separate
+// export name: members coincide today, meanings differ (role doctrine).
+export const PROCUREMENT_MANAGER_HUB_NAV: ReadonlyArray<HubNavItem> = PROCUREMENT_STR_HUB_NAV;
 
 // Spec 143 U2 / ADR 0056: project_coordinator's desktop strip — the see-all
 // project hub + settings. Mirrors COORDINATOR_TABS; no review/requests/dashboard

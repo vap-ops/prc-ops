@@ -19,6 +19,7 @@ describe("resolveHomePath (role-only landing; single-project SA rule reverted)",
   it("lands each other role on its roleHome", () => {
     expect(resolveHomePath("project_manager")).toBe("/dashboard");
     expect(resolveHomePath("super_admin")).toBe("/dashboard");
-    expect(resolveHomePath("procurement")).toBe("/requests");
+    // Spec 323 U3b: procurement's home flipped to the /procurement STR hub.
+    expect(resolveHomePath("procurement")).toBe("/procurement");
   });
 });

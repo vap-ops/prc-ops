@@ -105,6 +105,8 @@ export const HOME_LABEL: Record<string, string> = {
   "/sa": "งานวันนี้ (หน้างาน)",
   "/dashboard": "ภาพรวม",
   "/requests": "คำขอซื้อ",
+  // Spec 323 U3b: the procurement tiers' home flipped to the STR hub.
+  "/procurement": "จัดซื้อ (ศูนย์รวม)",
   "/projects": "โครงการ",
   "/portal": "พอร์ทัลผู้รับเหมา",
   "/accounting": "บัญชี",

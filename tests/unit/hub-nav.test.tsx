@@ -52,22 +52,16 @@ describe("canonical nav sets", () => {
     ]);
   });
 
-  // Spec 101: procurement's desktop strip — worklist + suppliers + settings.
-  // Spec 172 Phase B added ผู้รับเหมาช่วง (subcontractor curation); Phase C added
-  // ทีมงาน → /workers (DC onboarding). Both back-office domains procurement owns.
-  // Spec 309 added ค่าแรง → /payroll (lifted out of ตั้งค่า → ทีมช่าง; procurement
-  // summarises wages per person), placed after ทีมงาน.
-  it("pins the procurement set's destinations and order", () => {
+  // Spec 323 U3b: procurement's desktop strip mirrors the STR bottom-tab spine
+  // exactly (nav-law rule 2 — the strip carries every bottom-tab destination;
+  // the old strip-only supersets ทีมงาน/ผู้รับเหมาช่วง are now hub doors under
+  // ทรัพยากร, one click in via the /procurement hub).
+  it("pins the procurement set's destinations and order (STR spine)", () => {
     expect(PROCUREMENT_HUB_NAV).toEqual([
-      { label: "จัดซื้อ", href: "/requests" },
-      // Spec 262 follow-up: the report surface gets a nav home so it is not
-      // reachable only via the /requests worklist tiles.
-      { label: "รายงาน", href: "/requests/reports" },
-      { label: "โครงการ", href: "/projects" },
-      { label: "ผู้ขาย", href: "/contacts/vendors" },
-      { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
-      { label: "ทีมงาน", href: "/workers" },
-      { label: "ค่าแรง", href: "/payroll" },
+      { label: "หน้าหลัก", href: "/procurement" },
+      { label: "ขอบเขต", href: "/procurement/scope" },
+      { label: "เวลา", href: "/procurement/time" },
+      { label: "ทรัพยากร", href: "/procurement/resources" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });
@@ -81,21 +75,15 @@ describe("canonical nav sets", () => {
     ]);
   });
 
-  // Spec 263 follow-up: procurement_manager had NO hub-nav set at all before
-  // this fix (hubNavForRole fell through to null, per the U3 comment it left
-  // behind). It's a procurement superset (spec 261) PLUS a staff-registration
-  // approver (spec 263 U3 / spec 264 G4) — gets the procurement strip plus the
-  // approval-queue item.
-  it("pins the procurement_manager set's destinations and order", () => {
+  // Spec 323 U3b: procurement_manager rides the SAME STR spine — its old
+  // คำขอสมัคร strip item is gone because the approval queue re-homed as the
+  // /procurement hub's nudge + count (U3a).
+  it("pins the procurement_manager set's destinations and order (STR spine)", () => {
     expect(PROCUREMENT_MANAGER_HUB_NAV).toEqual([
-      { label: "จัดซื้อ", href: "/requests" },
-      { label: "รายงาน", href: "/requests/reports" },
-      { label: "โครงการ", href: "/projects" },
-      { label: "ผู้ขาย", href: "/contacts/vendors" },
-      { label: "ผู้รับเหมาช่วง", href: "/contacts/subcontractors" },
-      { label: "ทีมงาน", href: "/workers" },
-      { label: "ค่าแรง", href: "/payroll" },
-      { label: "คำขอสมัคร", href: "/registrations" },
+      { label: "หน้าหลัก", href: "/procurement" },
+      { label: "ขอบเขต", href: "/procurement/scope" },
+      { label: "เวลา", href: "/procurement/time" },
+      { label: "ทรัพยากร", href: "/procurement/resources" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });

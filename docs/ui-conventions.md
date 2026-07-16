@@ -305,11 +305,12 @@ constants (`SA_TABS`, `PM_HUB_NAV`).
 ### Nav law (violations are review rejects)
 
 1. **Bottom tabs hold GLOBAL destinations, never actions** — as few as the
-   role's daily decisions need (lean 2-tab sets are deliberate;
-   `PROCUREMENT_MANAGER_TABS`' 6 is the current ceiling — don't grow a set past
-   it without a spec). Every tab is first-layer: tapping the ACTIVE tab returns
-   to its section top (operator 2026-06-21; spec 169 mirrors this on the hub
-   strip).
+   role's daily decisions need (lean 2-tab sets are deliberate; 5 tabs —
+   `PM_TABS` / the spec-323 STR spine — is the current ceiling; don't grow a
+   set past it without a spec. Spec 323 U3b collapsed the 7-tab
+   `PROCUREMENT_MANAGER_TABS` to the 5-tab spine). Every tab is first-layer:
+   tapping the ACTIVE tab returns to its section top (operator 2026-06-21;
+   spec 169 mirrors this on the hub strip).
 2. **The hub strip carries every bottom-tab destination** — desktop never
    omits a phone tab (labels may shorten for tab-bar space, e.g. กฎหมาย vs
    ฝ่ายกฎหมาย). The strip MAY add reference surfaces the tight phone bar
@@ -330,7 +331,12 @@ constants (`SA_TABS`, `PM_HUB_NAV`).
 7. **One term per concept app-wide**, single-sourced in `labels.ts` when used
    in 2+ files (§1).
 8. **Settings hub = reference data + account, never daily decisions**
-   (spec 93). Daily decisions live on tabs / home surfaces.
+   (spec 93). Daily decisions live on tabs / home surfaces. _Procurement
+   exception (spec 323):_ for the procurement tiers the `/procurement` STR hub
+   is the primary door to their reference data too (แคตตาล็อก, ผู้ขาย,
+   อุปกรณ์, …, as ขอบเขต/ทรัพยากร doors) — active money workflows (rental,
+   expenses) leave procurement's ตั้งค่า for the Resources section (U4
+   relocates the settings rows; other roles' settings view is unchanged).
 9. **One FAB per screen**, reserved for that screen's primary action.
 10. **Every nav change updates `site-map.md` in the same unit** (that doc's own
     contract) — its route tables carry the per-route "Back →" mapping; the

@@ -20,17 +20,16 @@ import {
 } from "@/components/features/dashboard/pending-approvals-badge";
 import { SaActionBadge } from "@/components/features/sa/sa-action-badge";
 import {
+  Boxes,
   Calculator,
-  FileText,
+  Clock,
   FolderKanban,
   Home,
   LayoutDashboard,
   Scale,
   Settings,
   ShoppingCart,
-  Store,
   UserPlus,
-  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -84,10 +83,10 @@ const DASHBOARD_TAB: TabItem = {
 
 // Spec 263 follow-up / spec 264 G4: the staff-registration approval queue was
 // added to the desktop HubNav strip (spec 263 U3) but never to this bottom bar,
-// so super_admin/project_director/procurement_manager on a phone had no way to
-// reach /registrations at all. Role-neutral short label (bottom-tab space is
-// tight — every other label here is 2-4 Thai chars; the page itself is titled
-// the fuller "คำขอสมัคร").
+// so super_admin/project_director on a phone had no way to reach /registrations
+// at all. Role-neutral short label (bottom-tab space is tight; the page itself
+// is titled the fuller "คำขอสมัคร"). PM_TABS only since spec 323 U3b —
+// procurement_manager's queue path is the /procurement hub's nudge now.
 const REGISTRATIONS_TAB: TabItem = {
   label: "คำขอสมัคร",
   href: "/registrations",
@@ -121,44 +120,29 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
-// Spec 70: procurement's worklist-only nav — the purchasing surface plus
-// settings. No โครงการ (no project/WP hub in v1) and no รอตรวจ (not a decider).
-export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = [
-  { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
-  // Spec 262 follow-up: รายงาน (money reports). Longest-prefix wins so it lights
-  // on /requests/reports without stealing the bare /requests worklist; it also
-  // claims the /requests/orders PO list (a report sub-surface).
-  { label: "รายงาน", href: "/requests/reports", icon: FileText, match: ["/requests/orders"] },
-  // Spec 102: procurement browses projects read-only for purchase context
-  // (lights on /projects + /projects/[id]).
-  { label: "โครงการ", href: "/projects", icon: FolderKanban },
-  // Spec 101: procurement curates the suppliers master (/contacts/vendors
-  // renders suppliers-only for procurement). Longest-prefix wins over the
-  // ตั้งค่า /contacts match, so this tab lights on the suppliers screen.
-  { label: "ผู้ขาย", href: "/contacts/vendors", icon: Store },
-  // Spec 309 follow-up: ค่าแรง on the phone bar too. Spec 309 surfaced it in the
-  // desktop hub-nav, but that strip is desktop-only — so procurement on a phone
-  // still reached the per-project wage roll-up only via ตั้งค่า → ทีมช่าง.
-  { label: "ค่าแรง", href: "/payroll", icon: Wallet },
+// Spec 323 U3b (decision A, supersedes spec 70/101/102/262/309's flat set): the
+// procurement tiers' six scattered tabs collapse to the STR spine — the
+// /procurement hub (U3a) + its three section sub-routes. The sections are
+// distinct SUB-ROUTES, not ?section=, because the active rule above is a
+// query-blind longest-PATHNAME-prefix — only a pathname can light exactly one
+// tab (/procurement/scope beats /procurement). Every old destination (worklist,
+// reports, vendors, payroll, …) is one tap in via a hub door; a leaf like
+// /requests lights no tab (the spec-19 acceptance — the bar is the way back).
+const PROCUREMENT_STR_SPINE: ReadonlyArray<TabItem> = [
+  { label: "หน้าหลัก", href: "/procurement", icon: Home },
+  { label: "ขอบเขต", href: "/procurement/scope", icon: ShoppingCart },
+  { label: "เวลา", href: "/procurement/time", icon: Clock },
+  { label: "ทรัพยากร", href: "/procurement/resources", icon: Boxes },
   SETTINGS_TAB,
 ];
+export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = PROCUREMENT_STR_SPINE;
 
-// Spec 263 follow-up: procurement_manager (spec 261, ADR 0070) is a
-// procurement superset with NO tab set at all before this fix — tabsForRole
-// had no branch for it, so the role saw no bottom bar whatsoever. It gets the
-// full PROCUREMENT_TABS set (it can do everything plain procurement can, plus
-// the manager-only set) plus the staff-registration approval queue (spec 263 U3
-// / spec 264 G4 — procurement_manager is a STAFF_APPROVAL_ROLES member).
-export const PROCUREMENT_MANAGER_TABS: ReadonlyArray<TabItem> = [
-  { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
-  { label: "รายงาน", href: "/requests/reports", icon: FileText, match: ["/requests/orders"] },
-  { label: "โครงการ", href: "/projects", icon: FolderKanban },
-  { label: "ผู้ขาย", href: "/contacts/vendors", icon: Store },
-  // Spec 309 follow-up: mirrors PROCUREMENT_TABS — ค่าแรง on the phone bar.
-  { label: "ค่าแรง", href: "/payroll", icon: Wallet },
-  REGISTRATIONS_TAB,
-  SETTINGS_TAB,
-];
+// Spec 323 U3b: procurement_manager rides the SAME spine — its former
+// คำขอสมัคร tab (spec 263 follow-up) is dropped because the approval queue
+// re-homed as the /procurement hub's nudge + count (U3a), so the queue keeps
+// its phone path without a sixth tab. Kept a separate export name: the sets'
+// members coincide today, the meanings differ (role doctrine).
+export const PROCUREMENT_MANAGER_TABS: ReadonlyArray<TabItem> = PROCUREMENT_STR_SPINE;
 
 // Spec 143 U2 / ADR 0056: project_coordinator is a see-all oversight role. It
 // browses every project (โครงการ) and reaches the universal account/settings hub
