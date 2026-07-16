@@ -131,58 +131,6 @@ export async function submitStaffBankChange(input: {
   return { ok: true };
 }
 
-// Spec 319 U2 — a login-keyed (admin/office) staffer with no worker/contractor/
-// approved-registration bank home stages a bank change (approved tier; the
-// staff-approval trio decides; approve upserts user_bank). Passbook photo
-// REQUIRED — uploaded client-side to the own technician/<uid>/book_bank/ folder,
-// path REBUILT here from the session uid.
-export async function submitUserBankChange(input: {
-  bankName: string;
-  accountNo: string;
-  accountName: string;
-  attachmentId: string;
-  ext: string;
-}): Promise<ActionResult> {
-  const validation = validateBankChange(input);
-  if (validation) return { ok: false, error: validation };
-  if (!UUID_REGEX.test(input.attachmentId) || !isValidPhotoExt(input.ext)) {
-    return { ok: false, error: GENERIC };
-  }
-
-  const auth = await getActionUser();
-  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
-
-  const path = buildTechnicianDocPath(auth.user.id, "book_bank", input.attachmentId, input.ext);
-  if (!path) return { ok: false, error: GENERIC };
-
-  const { error } = await auth.supabase.rpc("submit_user_bank_change", {
-    p_bank_name: input.bankName.trim(),
-    p_bank_account_number: input.accountNo.trim(),
-    p_bank_account_name: input.accountName.trim(),
-    p_book_bank_path: path,
-  });
-  if (error) {
-    if (error.message.includes("already exists") || error.message.includes("duplicate key")) {
-      return { ok: false, error: "มีคำขอที่รออนุมัติอยู่แล้ว" };
-    }
-    if (error.message.includes("bound workers")) {
-      return { ok: false, error: "บัญชีช่างแก้ไขได้ที่หน้าหลักช่าง" };
-    }
-    if (error.message.includes("contractors use")) {
-      return { ok: false, error: "บัญชีผู้รับเหมาแก้ไขได้ที่พอร์ทัลผู้รับเหมา" };
-    }
-    if (error.message.includes("approved staff")) {
-      return { ok: false, error: "บัญชีของคุณแก้ไขได้ที่ส่วนบัญชีธนาคารของพนักงาน" };
-    }
-    if (error.message.includes("invalid account number")) {
-      return { ok: false, error: "เลขที่บัญชีไม่ถูกต้อง (ตัวเลข 6-20 หลัก)" };
-    }
-    return { ok: false, error: GENERIC };
-  }
-  revalidatePath(MY_INFO_PATH);
-  return { ok: true };
-}
-
 // Spec 321 U8a — the login-keyed bank goes INSTANT (operator 2026-07-15): record
 // the caller's own user_bank directly via record_own_user_bank instead of staging
 // a request for the trio. Same passbook rebuild + single-home guards as the submit
