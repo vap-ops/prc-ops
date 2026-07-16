@@ -1,3 +1,9 @@
+# [0.109.0](https://github.com/VAP-Solution/prc-ops/compare/v0.108.2...v0.109.0) (2026-07-16)
+
+### Features
+
+- **nav:** add reusable <ProjectLens> cross-project filter (spec 323 U2) ([#576](https://github.com/VAP-Solution/prc-ops/issues/576)) ([b2e5293](https://github.com/VAP-Solution/prc-ops/commit/b2e52930d823c6923d072da375d419d8d6f9a0a8))
+
 ## [0.108.2](https://github.com/VAP-Solution/prc-ops/compare/v0.108.1...v0.108.2) (2026-07-16)
 
 ### Bug Fixes
