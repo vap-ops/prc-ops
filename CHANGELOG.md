@@ -1,3 +1,9 @@
+# [0.120.0](https://github.com/VAP-Solution/prc-ops/compare/v0.119.0...v0.120.0) (2026-07-16)
+
+### Features
+
+- **telemetry:** stamp app_version on client events (feedback 10a15ebe) ([#600](https://github.com/VAP-Solution/prc-ops/issues/600)) ([2489745](https://github.com/VAP-Solution/prc-ops/commit/248974538e88fe51d771f0e5357c810a54dc3c4d))
+
 # [0.119.0](https://github.com/VAP-Solution/prc-ops/compare/v0.118.0...v0.119.0) (2026-07-16)
 
 ### Features
