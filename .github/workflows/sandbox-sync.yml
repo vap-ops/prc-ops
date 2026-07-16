@@ -60,12 +60,6 @@ jobs:
 
       # printf (not `yes`): under the runner's pipefail shell, `yes` dies by
       # SIGPIPE (141) when the CLI exits and fails the step spuriously.
-      #
-      # --include-all: multi-lane merges land migrations out of timestamp order
-      # (a lane claims its number before a later-numbered lane merges first —
-      # e.g. 075764 landed after 075780-83 were already synced, 2026-07-13,
-      # wedging every sync run since). The sandbox is a mirror: every committed
-      # migration must apply, so out-of-order files are expected, not an error.
       - name: Full reset (manual dispatch only)
         if: github.event_name == 'workflow_dispatch' && inputs.full_reset
         run: printf 'y\n' | pnpm exec supabase db reset --linked
@@ -73,6 +67,11 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SANDBOX_DB_PASSWORD }}
 
+      # --include-all: multi-lane merges land migrations out of timestamp order
+      # (a lane claims its number before a later-numbered lane merges first —
+      # e.g. 075764 landed after 075780-83 were already synced, 2026-07-13,
+      # wedging every sync run since). The sandbox is a mirror: every committed
+      # migration must apply, so out-of-order files are expected, not an error.
       - name: Push migrations
         run: printf 'Y\n' | pnpm exec supabase db push --include-all
         env:
