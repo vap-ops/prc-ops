@@ -1,3 +1,9 @@
+## [0.117.1](https://github.com/VAP-Solution/prc-ops/compare/v0.117.0...v0.117.1) (2026-07-16)
+
+### Bug Fixes
+
+- **ci:** sandbox-sync db push needs --include-all for out-of-order migrations ([#594](https://github.com/VAP-Solution/prc-ops/issues/594)) ([08272ce](https://github.com/VAP-Solution/prc-ops/commit/08272cea299cd81ab681ee488ca44bf5adc4d88b))
+
 # [0.117.0](https://github.com/VAP-Solution/prc-ops/compare/v0.116.2...v0.117.0) (2026-07-16)
 
 ### Features
