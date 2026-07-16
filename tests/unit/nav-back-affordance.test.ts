@@ -187,6 +187,8 @@ const NON_DETAIL_ROUTES = [
   "sa",
   // Spec 313 U1: the /team people hub — BottomTabBar + HubNav chrome, no back chip.
   "team",
+  // Spec 323 U3a: the /procurement STR home hub — BottomTabBar + HubNav, no back chip.
+  "procurement",
   "review",
   "projects",
   "settings",
@@ -303,6 +305,8 @@ describe("desktop hub-strip coverage (spec 153)", () => {
     "sa",
     // Spec 313 U1: the /team people hub renders the desktop HubNav strip.
     "team",
+    // Spec 323 U3a: the /procurement STR home hub renders the desktop HubNav strip.
+    "procurement",
     "review",
     "projects",
     "requests",

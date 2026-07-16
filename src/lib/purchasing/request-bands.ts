@@ -71,10 +71,18 @@ export function parseRequestView(value: string | null | undefined): RequestView 
   return value === "done" || value === "all" ? value : "active";
 }
 
-// Which bands a view shows. active (default) HIDES received + closed — the operator's
-// minimum ("filter out items received").
+// The "active" (open, not-yet-received-or-closed) bands — the operator's minimum
+// ("filter out items received"). Exported as the SSOT so consumers that count
+// open work (spec 323 U3a Procurement Home) don't re-declare the membership.
+export const ACTIVE_REQUEST_BANDS: ReadonlyArray<RequestBand> = [
+  "awaiting_approval",
+  "to_order",
+  "in_transit",
+];
+
+// Which bands a view shows. active (default) HIDES received + closed.
 const VIEW_BANDS: Record<RequestView, ReadonlyArray<RequestBand>> = {
-  active: ["awaiting_approval", "to_order", "in_transit"],
+  active: ACTIVE_REQUEST_BANDS,
   done: ["done"],
   all: REQUEST_BAND_ORDER,
 };
