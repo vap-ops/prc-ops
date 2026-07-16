@@ -1,3 +1,9 @@
+# [0.114.0](https://github.com/VAP-Solution/prc-ops/compare/v0.113.0...v0.114.0) (2026-07-16)
+
+### Features
+
+- **procurement:** STR nav flip — roleHome + 5-tab spine + /procurement/[section] (spec 323 U3b) ([#584](https://github.com/VAP-Solution/prc-ops/issues/584)) ([ef5ef1f](https://github.com/VAP-Solution/prc-ops/commit/ef5ef1ff485972b5c7fed2bad84ceb3725fe0a0e))
+
 # [0.113.0](https://github.com/VAP-Solution/prc-ops/compare/v0.112.1...v0.113.0) (2026-07-16)
 
 ### Features
