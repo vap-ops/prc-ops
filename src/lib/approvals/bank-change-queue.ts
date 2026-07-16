@@ -29,7 +29,7 @@ export interface WorkerBankChangeRequestRow {
 
 export interface BankChangeQueueItem {
   id: string;
-  kind: "contractor" | "worker" | "staff-bank" | "user-bank";
+  kind: "contractor" | "worker" | "staff-bank";
   name: string;
   bankName: string | null;
   accountNo: string | null;
@@ -146,35 +146,8 @@ export function buildStaffBankChangeQueue(
   }));
 }
 
-// ----------------------------------------------------------------------------
-// Spec 319 — login-keyed bank changes (user_bank home) for the admin/office
-// tier with no worker/contractor/registration home. Same card shape as the
-// worker/staff kinds (typed fields + passbook photo); decided by the
-// staff-approval trio, so the page trio-gates the fetch like the staff-bank rows.
-// ----------------------------------------------------------------------------
-
-export interface UserBankChangeRequestRow {
-  id: string;
-  user_id: string;
-  bank_name: string | null;
-  bank_account_number: string | null;
-  bank_account_name: string | null;
-  book_bank_path: string;
-  created_at: string;
-}
-
-export function buildUserBankChangeQueue(
-  rows: ReadonlyArray<UserBankChangeRequestRow>,
-  namesByUser: ReadonlyMap<string, string>,
-): BankChangeQueueItem[] {
-  return rows.map((r) => ({
-    id: r.id,
-    kind: "user-bank",
-    name: namesByUser.get(r.user_id) ?? "—",
-    bankName: r.bank_name,
-    accountNo: r.bank_account_number,
-    accountName: r.bank_account_name,
-    bookBankPath: r.book_bank_path,
-    createdAt: r.created_at,
-  }));
-}
+// Spec 321 U8b: the login-keyed (user_bank) queue kind is retired — that bank
+// edit went INSTANT + inline (U8a, record_own_user_bank), the 3 legacy pending
+// rows were applied, and the queue is empty. The submit_/decide_user_bank_change
+// RPCs + the user_bank_change_requests table remain (non-destructive), but no UI
+// stages or drains them, so buildUserBankChangeQueue is gone.
