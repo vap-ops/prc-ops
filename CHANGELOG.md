@@ -1,3 +1,9 @@
+## [0.116.2](https://github.com/VAP-Solution/prc-ops/compare/v0.116.1...v0.116.2) (2026-07-16)
+
+### Bug Fixes
+
+- **reports:** guard the register drill's ?dim=/?key= against non-UUID keys ([#593](https://github.com/VAP-Solution/prc-ops/issues/593)) ([657b8aa](https://github.com/VAP-Solution/prc-ops/commit/657b8aaaa6e8b8fbc2073e0093315ec8989b3fe0))
+
 ## [0.116.1](https://github.com/VAP-Solution/prc-ops/compare/v0.116.0...v0.116.1) (2026-07-16)
 
 ### Bug Fixes
