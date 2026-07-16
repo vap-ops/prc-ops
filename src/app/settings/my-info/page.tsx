@@ -24,9 +24,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { DisplayNameSection } from "@/components/features/profile/display-name-section";
 import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
-import { ProfileContactSection } from "@/components/features/profile/profile-contact-section";
-import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
-import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
+import { ProfileEditSections } from "@/components/features/profile/profile-edit-sections";
 import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
@@ -130,62 +128,48 @@ export default async function MyInfoPage() {
           </div>
         ) : null}
 
-        {/* Office staff — this page IS their self-service home (spec 317 U1/U4). */}
+        {/* Office staff — this page IS their self-service home (spec 317 U1/U4).
+            Shared ordered block: contact → ID-card → bank (spec 321 U4a). */}
         {isStaffHome && registration ? (
-          <>
-            <h2 className={SECTION_HEADING}>ข้อมูลติดต่อ</h2>
-            <ProfileContactSection
-              audience="staff"
-              current={{
-                phone: registration.phone ?? "",
-                emergencyName: registration.emergency_contact_name ?? "",
-                emergencyRelation: registration.emergency_contact_relation ?? "",
-                emergencyPhone: registration.emergency_contact_phone ?? "",
-              }}
-            />
-
-            <h2 className={SECTION_HEADING}>เอกสาร</h2>
-            <WorkerIdCardUpdate uid={uid} currentUrl={urls.id_card ?? null} />
-
-            <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
-            <ProfileBankSection
-              audience="staff"
-              ownerId={uid}
-              current={
-                staffBank
-                  ? {
-                      bankName: staffBank.bankName,
-                      accountNo: staffBank.accountNumber,
-                      accountName: staffBank.accountName ?? "",
-                    }
-                  : null
-              }
-              hasPending={(staffBankPending?.length ?? 0) > 0}
-            />
-          </>
+          <ProfileEditSections
+            audience="staff"
+            uid={uid}
+            contact={{
+              phone: registration.phone ?? "",
+              emergencyName: registration.emergency_contact_name ?? "",
+              emergencyRelation: registration.emergency_contact_relation ?? "",
+              emergencyPhone: registration.emergency_contact_phone ?? "",
+            }}
+            idCardUrl={urls.id_card ?? null}
+            bank={
+              staffBank
+                ? {
+                    bankName: staffBank.bankName,
+                    accountNo: staffBank.accountNumber,
+                    accountName: staffBank.accountName ?? "",
+                  }
+                : null
+            }
+            hasPendingBank={(staffBankPending?.length ?? 0) > 0}
+          />
         ) : null}
 
         {/* Spec 319 / 321 U8a — login-keyed bank home for the admin/office tier.
-            INSTANT edit-in-sheet via ProfileBankSection (no approval queue). */}
+            INSTANT edit-in-sheet via the shared block (no approval queue). */}
         {isUserBankHome ? (
-          <>
-            <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
-            <ProfileBankSection
-              audience="user"
-              ownerId={uid}
-              current={
-                userBank
-                  ? {
-                      bankName: userBank.bankName,
-                      accountNo: userBank.accountNumber,
-                      accountName: userBank.accountName,
-                    }
-                  : null
-              }
-              showEmptyState
-              hasPending={false}
-            />
-          </>
+          <ProfileEditSections
+            audience="user"
+            uid={uid}
+            bank={
+              userBank
+                ? {
+                    bankName: userBank.bankName,
+                    accountNo: userBank.accountNumber,
+                    accountName: userBank.accountName,
+                  }
+                : null
+            }
+          />
         ) : null}
 
         {/* Approved tier — identity fields route through the trio (spec 317 U3). */}
