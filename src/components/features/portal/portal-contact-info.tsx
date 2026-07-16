@@ -53,6 +53,10 @@ export function PortalContactInfo({
 
   return (
     <div className={bare ? "" : CARD}>
+      {/* Spec 321 (contractor-nullif follow-up): the RPC now keeps stored values
+          on a blank arg (never clears) — surface it with the same inline hint as
+          the worker/staff contact forms (this form is always rendered `bare`). */}
+      <p className="text-ink-muted mb-3 text-xs">เว้นว่าง = คงค่าเดิม</p>
       <label className="text-ink-secondary block text-sm">
         ผู้ติดต่อ
         <input
