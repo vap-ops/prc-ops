@@ -119,8 +119,9 @@ const STATIC_DETAIL = [
   "settings/integrity",
   // Spec 317 U2: the all-roles self-service door drills down from /settings (back chip).
   "settings/my-info",
-  // Spec 319 U2: the login-keyed bank edit drills down from /settings/my-info (back chip).
-  "settings/my-info/bank",
+  // Spec 321 U8a: the /settings/my-info/bank edit route is retired — the login-keyed bank
+  // edit is now INSTANT and inline on /settings/my-info (that page's route redirects), so it
+  // is no longer a DetailHeader drill-down and drops out of this list.
   // Spec 320 U2: the PM temporary-payout-nominee worklist + its add/edit route both
   // drill down from /settings (back chip).
   "settings/payout-nominees",
@@ -221,6 +222,10 @@ const EXCLUDED_ROUTES = [
   "store/page.tsx",
   "stock-count/page.tsx",
   "grid-preview/page.tsx",
+  // Spec 321 U8a: the login-keyed bank edit went INSTANT + inline on
+  // /settings/my-info, so this standalone edit route is now a thin redirect
+  // there (neither header), like the store/stock-count redirects.
+  "settings/my-info/bank/page.tsx",
   // Spec 130: the contractor invite-claim entry — a bespoke single-card layout
   // (neither header), reachable by a freshly-logged-in visitor before binding.
   "portal/claim/page.tsx",

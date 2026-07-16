@@ -21,12 +21,11 @@ import { createClient } from "@/lib/db/server";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { BUTTON_SECONDARY_MUTED, CARD, SECTION_HEADING } from "@/lib/ui/classes";
+import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { DisplayNameSection } from "@/components/features/profile/display-name-section";
 import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
 import { ProfileContactSection } from "@/components/features/profile/profile-contact-section";
 import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
-import { PendingChangeNotice } from "@/components/features/profile/pending-change-notice";
 import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
 import {
   getOwnTechnicianRegistration,
@@ -35,7 +34,7 @@ import {
 } from "@/lib/register/own-registration";
 import { getOwnUserBank } from "@/lib/register/own-user-bank";
 import { isEmployeeRole } from "@/lib/auth/role-home";
-import { MY_INFO_LABEL, BANK_CHANGE_PENDING_HR } from "@/lib/i18n/labels";
+import { MY_INFO_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: MY_INFO_LABEL };
 
@@ -89,21 +88,12 @@ export default async function MyInfoPage() {
       ])
     : [{ urls: {} as Record<string, never> }, null, { data: [] }];
 
-  // Spec 319 — the admin/office tier (an employee login with NO worker /
-  // contractor / approved-registration bank home) gets a login-keyed bank home
-  // here; the edit itself lives on /settings/my-info/bank (edit ≠ detail page).
+  // Spec 319 / 321 U8a — the admin/office tier (an employee login with NO worker
+  // / contractor / approved-registration bank home) gets a login-keyed bank home
+  // here. U8a: the edit is INSTANT and inline via <ProfileBankSection> (read card
+  // + edit-in-sheet), no approval queue.
   const isUserBankHome = isEmployeeRole(userRow.role) && !workerId && !contractorId && !isStaffHome;
-  const [userBank, { data: userBankPending }] = isUserBankHome
-    ? await Promise.all([
-        getOwnUserBank(supabase),
-        supabase
-          .from("user_bank_change_requests")
-          .select("id")
-          .eq("user_id", uid)
-          .eq("status", "pending")
-          .limit(1),
-      ])
-    : [null, { data: [] }];
+  const userBank = isUserBankHome ? await getOwnUserBank(supabase) : null;
 
   return (
     <PageShell>
@@ -175,33 +165,26 @@ export default async function MyInfoPage() {
           </>
         ) : null}
 
-        {/* Spec 319 — login-keyed bank home for the admin/office tier. Display +
-            pending banner here; the edit navigates to its own route. */}
+        {/* Spec 319 / 321 U8a — login-keyed bank home for the admin/office tier.
+            INSTANT edit-in-sheet via ProfileBankSection (no approval queue). */}
         {isUserBankHome ? (
           <>
             <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
-            {userBank ? (
-              <div className={CARD}>
-                <p className="text-ink text-sm font-medium">{userBank.bankName}</p>
-                <p className="text-ink text-sm">
-                  {userBank.accountNumber}
-                  {userBank.accountName ? ` · ${userBank.accountName}` : ""}
-                </p>
-              </div>
-            ) : (
-              <div className={CARD}>
-                <p className="text-ink-secondary text-sm">ยังไม่ได้เพิ่มบัญชีธนาคาร</p>
-              </div>
-            )}
-            {(userBankPending?.length ?? 0) > 0 ? (
-              <PendingChangeNotice>{BANK_CHANGE_PENDING_HR}</PendingChangeNotice>
-            ) : null}
-            <Link
-              href="/settings/my-info/bank"
-              className={`block text-center ${BUTTON_SECONDARY_MUTED}`}
-            >
-              แก้ไขบัญชีธนาคาร
-            </Link>
+            <ProfileBankSection
+              audience="user"
+              ownerId={uid}
+              current={
+                userBank
+                  ? {
+                      bankName: userBank.bankName,
+                      accountNo: userBank.accountNumber,
+                      accountName: userBank.accountName,
+                    }
+                  : null
+              }
+              showEmptyState
+              hasPending={false}
+            />
           </>
         ) : null}
 

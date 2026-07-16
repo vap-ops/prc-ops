@@ -7,7 +7,7 @@
 // unchanged; only the client surface is unified.
 
 import { submitBankChange, submitWorkerBankChange, type ActionResult } from "@/lib/portal/actions";
-import { submitStaffBankChange, submitUserBankChange } from "@/app/settings/my-info/actions";
+import { recordUserBank, submitStaffBankChange } from "@/app/settings/my-info/actions";
 import type { BankAudience } from "./bank-audience";
 
 export interface BankChangePayload {
@@ -30,6 +30,7 @@ export async function submitProfileBankChange(
     case "staff":
       return submitStaffBankChange(payload);
     case "user":
-      return submitUserBankChange(payload);
+      // Spec 321 U8a — the login-keyed user_bank saves INSTANTLY (no approval).
+      return recordUserBank(payload);
   }
 }
