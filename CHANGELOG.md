@@ -1,3 +1,9 @@
+# [0.121.0](https://github.com/VAP-Solution/prc-ops/compare/v0.120.0...v0.121.0) (2026-07-16)
+
+### Features
+
+- **324:** U3 GL contra poster + enqueue trigger + drain route ([#601](https://github.com/VAP-Solution/prc-ops/issues/601)) ([b6753a9](https://github.com/VAP-Solution/prc-ops/commit/b6753a97014a7581983a783908276fa8914a5680)), closes [#599](https://github.com/VAP-Solution/prc-ops/issues/599)
+
 # [0.120.0](https://github.com/VAP-Solution/prc-ops/compare/v0.119.0...v0.120.0) (2026-07-16)
 
 ### Features
