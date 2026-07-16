@@ -56,7 +56,12 @@ draft). Read it for the per-step commands. Run everything from the repo root wit
    "awaiting your decision" — never leave it bare (no flag), or it just looks stuck.
 5. **Reconcile & close** 🤖 — before ending, **RE-PULL the queue** — reports can be filed mid-pass
    and miss the opening snapshot (this is exactly how 6fbcc039 was missed on 2026-06-26: filed 11
-   min after the run started). Process any newcomer. Then assert the invariant: **nothing is left
+   min after the run started). **Re-pull the WHOLE set — the identical opening query
+   (`status in ('open','in_progress')`), NEVER a `created_at > <run-start>` slice.** A time-windowed
+   re-pull silently drops a same-window filing whose timestamp sits just under a mis-set threshold
+   (this is exactly how 10a15ebe was missed on 2026-07-16 — a `created_at > 09:40+00` filter when the
+   run began ~03:00+00 hid it until a later full re-pull surfaced it). Diff against what you already
+   triaged and process any newcomer. Then assert the invariant: **nothing is left
    at `open`/`ใหม่`, and every report is either `done` (you shipped a fix) or `in_progress` with a
    flag raised.** If a straggler still arrives after the re-pull, leave it `in_progress` and note
    it as deferred to the next run.
