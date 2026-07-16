@@ -22,30 +22,26 @@ const hrefs = (key: string, role: UserRole): string[] =>
   visibleEntries(section(key), role).map((e) => (e.kind === "link" ? e.href : `soon:${e.key}`));
 
 describe("settings sections config (role → entries matrix)", () => {
-  it("procurement master-data: full back-office list, NO customers, NO ช่าง roster", () => {
-    // Spec 266 U6: /workers moved out of master-data into the ทีมช่าง section.
-    expect(hrefs("master-data", "procurement")).toEqual([
-      "/contacts/vendors",
-      "/contacts/subcontractors",
-      "/equipment",
-      // Spec 268: the rental recorder door (the page re-gates BACK_OFFICE_ROLES).
-      "/equipment/rentals",
-      "/catalog",
-      "/settings/ordering-templates",
-    ]);
+  // Spec 323 U4: the procurement tiers reach reference data through the
+  // /procurement STR hub's Scope/Resources doors now — their ตั้งค่า drops the
+  // whole ข้อมูลหลัก section. Procurement-scoped ONLY: every other back-office
+  // role keeps its doors (rule 8 holds for them; ui-conventions §12).
+  it("procurement master-data: EMPTY — reference data lives on the /procurement hub (spec 323 U4)", () => {
+    expect(hrefs("master-data", "procurement")).toEqual([]);
   });
 
-  // Spec 261 / ADR 0070: procurement_manager is a superset of procurement — it
-  // sees the SAME back-office cards (still NO customers: that stays isManagerRole,
-  // and procurement_manager is not a project-manager). Menu visibility only.
-  it("procurement_manager master-data matches procurement (back-office, NO customers)", () => {
+  // Spec 261 / ADR 0070: procurement_manager is a superset of procurement — the
+  // same relocation applies (both tiers land on the STR hub). Menu visibility only.
+  it("procurement_manager master-data matches procurement (relocated to the hub)", () => {
     expect(hrefs("master-data", "procurement_manager")).toEqual(
       hrefs("master-data", "procurement"),
     );
-    expect(hrefs("master-data", "procurement_manager")).not.toContain("/contacts/customers");
+    expect(hrefs("master-data", "procurement_manager")).toEqual([]);
     // Spec 266 U6: ค่าแรง left finance for the ทีมช่าง section.
     expect(hrefs("finance", "procurement_manager")).toEqual([]);
     // Spec 314 U2: procurement_manager also holds the money-set rate editor.
+    // ทีมช่าง deliberately SURVIVES the U4 relocation (spec lists only the
+    // master-data doors + expenses; the roster/payroll doors stay dual-homed).
     expect(hrefs("labor-team", "procurement_manager")).toEqual([
       "/workers",
       "/payroll",
@@ -101,11 +97,9 @@ describe("settings sections config (role → entries matrix)", () => {
     expect(hrefs("finance", "accounting")).toEqual([]);
   });
 
-  it("office-expenses: reaches every OFFICE_EXPENSE_ROLES incl PM/PD/site/auditor (spec 310 U6), not field-only roles", () => {
+  it("office-expenses: reaches OFFICE_EXPENSE_ROLES incl PM/PD/site/auditor (spec 310 U6), not field-only roles", () => {
     for (const role of [
       "super_admin",
-      "procurement",
-      "procurement_manager",
       "accounting",
       "project_manager",
       "project_director",
@@ -117,6 +111,14 @@ describe("settings sections config (role → entries matrix)", () => {
     }
     expect(hrefs("office-expenses", "technician")).toEqual([]);
     expect(hrefs("office-expenses", "visitor")).toEqual([]);
+  });
+
+  // Spec 323 U4: ค่าใช้จ่าย is the STR hub's Resources door for the procurement
+  // tiers — it leaves their ตั้งค่า (site_owner/auditor and the rest of
+  // OFFICE_EXPENSE_ROLES keep the settings door; /expenses is their home surface).
+  it("office-expenses: hidden from the procurement tiers (hub door instead, spec 323 U4)", () => {
+    expect(hrefs("office-expenses", "procurement")).toEqual([]);
+    expect(hrefs("office-expenses", "procurement_manager")).toEqual([]);
   });
 
   it("help: everyone files feedback; only super_admin sees the triage inbox", () => {

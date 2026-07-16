@@ -333,10 +333,14 @@ constants (`SA_TABS`, `PM_HUB_NAV`).
 8. **Settings hub = reference data + account, never daily decisions**
    (spec 93). Daily decisions live on tabs / home surfaces. _Procurement
    exception (spec 323):_ for the procurement tiers the `/procurement` STR hub
-   is the primary door to their reference data too (แคตตาล็อก, ผู้ขาย,
-   อุปกรณ์, …, as ขอบเขต/ทรัพยากร doors) — active money workflows (rental,
-   expenses) leave procurement's ตั้งค่า for the Resources section (U4
-   relocates the settings rows; other roles' settings view is unchanged).
+   is THE door to their reference data (แคตตาล็อก, ผู้ขาย, อุปกรณ์, …, as
+   ขอบเขต/ทรัพยากร doors) — U4 removed the ข้อมูลหลัก + ค่าใช้จ่าย rows from
+   procurement's ตั้งค่า (sections.ts gates them off `isProcurementTier`), and
+   their ตั้งค่า tab no longer claims those routes as sub-surfaces
+   (`PROCUREMENT_SETTINGS_TAB` match = `/profile` only — a hub door is a leaf,
+   rule-1 spec-19 acceptance). ทีมช่าง (roster/payroll/labor-rates) stays
+   dual-homed by design. Other roles' settings view + tab matches are
+   unchanged — rule 8 still governs them.
 9. **One FAB per screen**, reserved for that screen's primary action.
 10. **Every nav change updates `site-map.md` in the same unit** (that doc's own
     contract) — its route tables carry the per-route "Back →" mapping; the

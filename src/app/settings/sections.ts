@@ -88,6 +88,15 @@ export function visibleEntries(section: SettingsSection, role: UserRole): Settin
 const isBackOffice = (role: UserRole) =>
   isManagerRole(role) || role === "procurement" || role === "procurement_manager";
 
+// Spec 323 U4: the procurement tiers reach reference data + expenses through
+// the /procurement STR hub (Scope/Resources doors) — those doors leave THEIR
+// ตั้งค่า only. Procurement-scoped by design: every other role's settings view
+// is unchanged (rule 8 / ui-conventions §12 still governs them), and super_admin
+// keeps the full hub as the see-everything fallback. ทีมช่าง stays (the spec
+// relocates the master-data doors + ค่าใช้จ่าย; roster/payroll are dual-homed).
+const isProcurementTier = (role: UserRole) =>
+  role === "procurement" || role === "procurement_manager";
+
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   // My info — EVERY role (spec 317 U2, operator directive 2026-07-14: all types
   // of users edit their own information in settings; instant vs approved tiers).
@@ -132,7 +141,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
     key: "master-data",
     title: "ข้อมูลหลัก",
-    visible: isBackOffice,
+    // Spec 323 U4: hidden from the procurement tiers — every door this section
+    // showed them is a Scope/Resources door on their /procurement hub now.
+    visible: (role) => isBackOffice(role) && !isProcurementTier(role),
     entries: [
       {
         kind: "link",
@@ -268,7 +279,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
     key: "office-expenses",
     title: "ค่าใช้จ่าย",
-    visible: (role) => OFFICE_EXPENSE_ROLES.includes(role),
+    // Spec 323 U4: the procurement tiers reach /expenses via the hub's
+    // Resources door; the rest of OFFICE_EXPENSE_ROLES keep this settings door.
+    visible: (role) => OFFICE_EXPENSE_ROLES.includes(role) && !isProcurementTier(role),
     entries: [
       {
         kind: "link",

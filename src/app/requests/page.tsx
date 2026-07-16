@@ -57,6 +57,7 @@ import { buildWorklistStatusChips } from "@/lib/purchasing/worklist-status-chips
 import { WorklistStatusChips } from "@/components/features/purchasing/worklist-status-chips";
 import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import { ProcurementFilters } from "@/components/features/purchasing/procurement-filters";
+import { ProjectLens } from "@/components/features/common/project-lens";
 import { SiteProjectChips } from "@/components/features/purchasing/site-project-chips";
 import { buildSiteProjectChips } from "@/lib/purchasing/site-project-chips";
 import {
@@ -601,6 +602,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
           ) : isProcurement ? (
             // Spec 104/105: buyer's pipeline + summary strip (workload + overdue).
             <div className="flex flex-col gap-6">
+              {/* Spec 323 U4: the universal cross-project lens — one-tap scoping
+                  for the whole worklist (KPI hero, bands, list). Same ?project=
+                  axis the spec-110 picker below writes; both stay in sync via the
+                  URL. The site branch keeps its spec-311 SiteProjectChips. */}
+              <ProjectLens projects={namedProjectOptions} />
               {/* Spec 138 U2/U4: the KPI hero row. The 2×2 tile grid sits BESIDE the
                   U1 attention panel on lg+ (1fr / 332px) and stacks (panel hidden)
                   on the phone. Tiles are built by the pure helper from the current

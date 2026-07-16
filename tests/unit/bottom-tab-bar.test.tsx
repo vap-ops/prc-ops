@@ -266,10 +266,33 @@ describe("BottomTabBar", () => {
     expect(screen.getByRole("link", { name: /หน้าหลัก/ })).toHaveAttribute("href", "/procurement");
   });
 
-  // SETTINGS_TAB's match prefixes still claim the reference surfaces it always
-  // claimed (/contacts, /catalog, …) — unchanged shared behavior.
-  it("lights ตั้งค่า for procurement on /contacts/vendors (settings match)", () => {
+  // Spec 323 U4: for the procurement tiers the reference surfaces (/contacts,
+  // /catalog, /equipment, /workers, /payroll) are STR hub DOORS now, not
+  // settings sub-surfaces — their ตั้งค่า tab must NOT claim them (it would
+  // light on doors that no longer exist in their settings). They are leaves
+  // (the spec-19 acceptance), like /requests above.
+  it("lights NO tab for procurement on /contacts/vendors (hub door, not a settings leaf)", () => {
     mockUsePathname.mockReturnValue("/contacts/vendors");
+    const { container } = render(<BottomTabBar role="procurement" />);
+    expect(activeTabs(container)).toHaveLength(0);
+    // The bar still renders — the hub tabs are the way back.
+    expect(screen.getByRole("link", { name: /หน้าหลัก/ })).toHaveAttribute("href", "/procurement");
+  });
+
+  // …while every OTHER role's SETTINGS_TAB keeps its match prefixes (the doors
+  // still live in their ตั้งค่า — spec 93 unchanged outside procurement).
+  it("keeps ตั้งค่า lit for project_manager on /contacts/vendors (settings match)", () => {
+    mockUsePathname.mockReturnValue("/contacts/vendors");
+    const { container } = render(<BottomTabBar role="project_manager" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("ตั้งค่า");
+  });
+
+  // /profile stays a settings sub-surface for EVERYONE (my-info is still in
+  // procurement's ตั้งค่า) — the procurement settings tab keeps that one match.
+  it("keeps ตั้งค่า lit for procurement on /profile", () => {
+    mockUsePathname.mockReturnValue("/profile");
     const { container } = render(<BottomTabBar role="procurement" />);
     const active = activeTabs(container);
     expect(active).toHaveLength(1);

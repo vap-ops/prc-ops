@@ -46,6 +46,7 @@ import {
   type PurchaseReportRow,
   type ReportRawQuery,
 } from "@/lib/purchasing/purchase-report-view";
+import { ProjectLens } from "@/components/features/common/project-lens";
 import { ProcurementHomeTiles } from "@/components/features/purchasing/procurement-home-tiles";
 import {
   buildMonthSpendTrend,
@@ -165,6 +166,13 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
             pendingPoSummary={pendingPoSummary}
             pendingStoreReceiptCount={pendingStoreReceiptCount}
           />
+        </div>
+        {/* Spec 323 U4: the universal cross-project lens — one-tap scoping on the
+            same ?project= axis the form's picker + reportHref serialize (the home
+            tiles above stay portfolio-wide by design). empty:hidden so the
+            collapsed single-project state leaves no stray margin. */}
+        <div className="mb-4 empty:hidden">
+          <ProjectLens projects={projects.map((p) => ({ id: p.id, name: p.name ?? p.code }))} />
         </div>
         {/* Period presets — deep-linkable chips (no client JS). */}
         <div className="mb-3 flex flex-wrap gap-2">

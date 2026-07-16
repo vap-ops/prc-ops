@@ -6,6 +6,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 323 — Procurement STR IA — 🔨 U4 relocate + lens (2026-07-16)
+
+- Phase 1 ✅ (U1a #566 · U1b #568 · U1c #571 · U1d #573, mig 075804) · U2 `<ProjectLens>` ✅ #576 ·
+  U3a /procurement hub ✅ #580 · U3b nav flip ✅ #584 (STR spine LIVE, roleHome → /procurement).
+- **U4 (this unit):** procurement-scoped settings relocation — sections.ts hides ข้อมูลหลัก +
+  ค่าใช้จ่าย for the procurement tiers (`isProcurementTier`; every other role unchanged, ทีมช่าง
+  deliberately dual-homed) + `PROCUREMENT_SETTINGS_TAB` (match `/profile` only — hub doors are
+  unlit leaves, decision-A rule) + `<ProjectLens>` mounted on /requests (procurement branch),
+  /requests/orders, /requests/reports, /expenses; the /expenses loaders gain a projectId DB
+  predicate (list + finance queue + BOTH summary reads) with a UUID-shape guard on the param.
+  Docs: ui-conventions §12 rule-8 exception flipped to present tense; site-map header + 8 rows
+  (incl. stale RentalVarianceList + dead รายงาน-tab claims). RED-first (7 reds seen).
+- Open (follow-up candidates, NOT built): /expenses back-chip still targets /settings for
+  procurement arrivals (functional; hub-door ?from affordance = own decision) · /projects
+  procurement chrome branch KEPT (route reachable by URL; removal would mis-chrome it).
+
 ## Spec 317 — Universal profile self-service — 🔨 U1/U3/U4/U5/U7 MERGED · U2 shipping (2026-07-14)
 
 - U1 #533 staff contact + DOB tier · U3 #538 identity requests · U4 #539 staff bank ·
