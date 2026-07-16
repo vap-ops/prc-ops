@@ -24,7 +24,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { BUTTON_SECONDARY_MUTED, CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { DisplayNameSection } from "@/components/features/profile/display-name-section";
 import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
-import { StaffContactForm } from "@/components/features/profile/staff-contact-form";
+import { ProfileContactSection } from "@/components/features/profile/profile-contact-section";
 import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
 import { PendingChangeNotice } from "@/components/features/profile/pending-change-notice";
 import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
@@ -144,8 +144,9 @@ export default async function MyInfoPage() {
         {isStaffHome && registration ? (
           <>
             <h2 className={SECTION_HEADING}>ข้อมูลติดต่อ</h2>
-            <StaffContactForm
-              initial={{
+            <ProfileContactSection
+              audience="staff"
+              current={{
                 phone: registration.phone ?? "",
                 emergencyName: registration.emergency_contact_name ?? "",
                 emergencyRelation: registration.emergency_contact_relation ?? "",

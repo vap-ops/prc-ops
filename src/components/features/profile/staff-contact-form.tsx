@@ -18,7 +18,17 @@ export interface StaffContactInitial {
   emergencyPhone: string;
 }
 
-export function StaffContactForm({ initial }: { initial: StaffContactInitial }) {
+export function StaffContactForm({
+  initial,
+  bare = false,
+  onSaved,
+}: {
+  initial: StaffContactInitial;
+  // Spec 321 U3b — hosted inside a BottomSheet (edit-in-modal, decision 6): drop
+  // the card chrome + redundant heading and close the sheet on save.
+  bare?: boolean;
+  onSaved?: () => void;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -43,13 +53,14 @@ export function StaffContactForm({ initial }: { initial: StaffContactInitial }) 
       }
       toast.success("บันทึกแล้ว");
       router.refresh();
+      onSaved?.();
     });
   }
 
   return (
-    <div className={CARD}>
-      <p className="text-ink text-sm font-semibold">ข้อมูลติดต่อ</p>
-      <p className="text-ink-muted mt-0.5 text-xs">เว้นว่าง = คงค่าเดิม</p>
+    <div className={bare ? "" : CARD}>
+      {bare ? null : <p className="text-ink text-sm font-semibold">ข้อมูลติดต่อ</p>}
+      <p className={`text-ink-muted text-xs ${bare ? "mb-3" : "mt-0.5"}`}>เว้นว่าง = คงค่าเดิม</p>
       <label className="text-ink-secondary mt-3 block text-sm">
         เบอร์โทร
         <input

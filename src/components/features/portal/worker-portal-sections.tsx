@@ -10,7 +10,7 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
-import { WorkerProfileEdit } from "@/components/features/portal/worker-profile-edit";
+import { ProfileContactSection } from "@/components/features/profile/profile-contact-section";
 import { WorkerConsents } from "@/components/features/portal/worker-consents";
 import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
 import { PortalReceipts, type PortalReceipt } from "@/components/features/portal/portal-receipts";
@@ -49,8 +49,9 @@ export function WorkerPortalSections({
 
       <h2 className={SECTION_HEADING}>ข้อมูลของฉัน</h2>
       <div className="mb-3">
-        <WorkerProfileEdit
-          initial={{
+        <ProfileContactSection
+          audience="worker"
+          current={{
             phone: wp.phone ?? "",
             email: wp.email ?? "",
             emergencyName: wp.emergency_contact_name ?? "",
