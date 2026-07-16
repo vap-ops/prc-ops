@@ -14,6 +14,7 @@ import {
   PURCHASE_REQUEST_STATUS_LABEL,
   SITE_EXPENSE_BADGE,
   formatThaiDate,
+  formatThaiDateTime,
 } from "@/lib/i18n/labels";
 import {
   purchaseRequestPriorityPillClasses,
@@ -137,7 +138,7 @@ export function PurchaseRequestCard({
             ) : null}
             ขอซื้อโดย {requesterName ?? "—"}
             <span className="text-ink-muted mx-1">·</span>
-            ขอเมื่อ {formatThaiDate(request.requested_at)}
+            ขอเมื่อ {formatThaiDateTime(request.requested_at)}
           </p>
           {request.needed_by ? (
             <p className="text-ink-secondary text-xs">

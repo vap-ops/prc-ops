@@ -339,7 +339,7 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
             ) : null}
             ขอซื้อโดย {requesterName}
             <span className="text-ink-muted mx-1">·</span>
-            ขอเมื่อ {formatThaiDate(request.requested_at)}
+            ขอเมื่อ {formatThaiDateTime(request.requested_at)}
           </p>
           {request.needed_by ? (
             <p className="text-ink-secondary mt-1 text-xs">

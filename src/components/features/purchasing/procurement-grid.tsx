@@ -33,6 +33,7 @@ import {
   PURCHASE_REQUEST_STATUS_LABEL,
   WORK_CATEGORY_MISMATCH_LABEL,
   formatThaiDate,
+  formatThaiDateTime,
 } from "@/lib/i18n/labels";
 import {
   purchaseOrderStatusPillClasses,
@@ -729,7 +730,7 @@ function DrawerBody({
             {record.requester_name}
           </Fact>
         ) : null}
-        <Fact label="ขอเมื่อ">{formatThaiDate(record.requested_at)}</Fact>
+        <Fact label="ขอเมื่อ">{formatThaiDateTime(record.requested_at)}</Fact>
         {record.supplier ? <Fact label="ผู้ขาย">{record.supplier}</Fact> : null}
         <Fact label="จำนวนเงิน">{record.amount != null ? baht(record.amount) : "—"}</Fact>
         {record.needed_by ? (

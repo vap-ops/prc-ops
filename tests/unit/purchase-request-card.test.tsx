@@ -110,6 +110,24 @@ describe("PurchaseRequestCard (spec 47)", () => {
     expect(name.className).not.toMatch(/truncate/);
   });
 
+  // Feedback 0e5cab6c (procurement_manager) — the order timestamp showed the
+  // date only, hiding the time procurement needs to gauge urgency ("สั่งตอน
+  // 15.00น."). requested_at is a timestamptz; render it with time like the PO
+  // and registration surfaces already do (formatThaiDateTime). needed_by stays
+  // date-only (it is a date column). 08:00Z == 15:00 Asia/Bangkok.
+  it("shows the order time, not just the date, on ขอเมื่อ", () => {
+    const { container } = render(
+      <PurchaseRequestCard
+        request={BASE_REQUEST}
+        workPackage={null}
+        requesterName="สมชาย"
+        isMine={false}
+      />,
+    );
+    expect(container.textContent).toMatch(/ขอเมื่อ/);
+    expect(container.textContent).toContain("15:00");
+  });
+
   it("shows the ของฉัน badge only on the viewer's own request", () => {
     const { rerender } = render(
       <PurchaseRequestCard
