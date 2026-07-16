@@ -23,7 +23,17 @@ export interface WorkerProfileInitial {
   emergencyPhone: string;
 }
 
-export function WorkerProfileEdit({ initial }: { initial: WorkerProfileInitial }) {
+export function WorkerProfileEdit({
+  initial,
+  bare = false,
+  onSaved,
+}: {
+  initial: WorkerProfileInitial;
+  // Spec 321 U3b — when hosted inside a BottomSheet (edit-in-modal, decision 6)
+  // drop the standalone card chrome and notify the host to close on save.
+  bare?: boolean;
+  onSaved?: () => void;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -50,13 +60,15 @@ export function WorkerProfileEdit({ initial }: { initial: WorkerProfileInitial }
       }
       toast.success("บันทึกแล้ว");
       router.refresh();
+      onSaved?.();
     });
   }
 
   const clear = () => setError(null);
 
   return (
-    <div className={CARD}>
+    <div className={bare ? "" : CARD}>
+      <p className="text-ink-muted mb-3 text-xs">เว้นว่าง = คงค่าเดิม</p>
       <label className="text-ink-secondary block text-sm">
         เบอร์โทร
         <input

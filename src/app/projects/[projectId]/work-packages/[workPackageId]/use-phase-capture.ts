@@ -120,6 +120,10 @@ export function usePhaseCapture({
       });
     if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
       console.error("[phase-capture] storage upload failed", uploadError.message);
+      // Feedback 10a15ebe: a real field upload failure was invisible in telemetry
+      // (console-only), so a "ลองใหม่" loop could not be diagnosed. Emit a friction
+      // signal — PDPA-min: stable {kind, stage} only, never the file name/path/error.
+      trackFriction("upload_fail", { kind: "phase_photo", stage: "storage" });
       notifyQueueChanged();
       updatePending(upload.id, {
         status: "upload-error",
@@ -149,6 +153,8 @@ export function usePhaseCapture({
       result = { ok: false, error: "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
     }
     if (!result.ok) {
+      // Feedback 10a15ebe: as above — the insert rejection was console-only.
+      trackFriction("upload_fail", { kind: "phase_photo", stage: "insert" });
       notifyQueueChanged();
       updatePending(upload.id, {
         status: "insert-error",
@@ -197,6 +203,9 @@ export function usePhaseCapture({
         await uploadOne(upload);
       } catch (err) {
         console.error("[phase-capture] unexpected per-file failure", err);
+        // Feedback 10a15ebe: an unexpected throw (e.g. IDB put) also stranded the
+        // user on "ลองใหม่" with no signal — track it too, same PDPA-min shape.
+        trackFriction("upload_fail", { kind: "phase_photo", stage: "unexpected" });
         updatePending(upload.id, {
           status: "upload-error",
           errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",

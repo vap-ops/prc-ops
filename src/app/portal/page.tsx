@@ -19,7 +19,7 @@ import { WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
 import { PortalDocuments } from "@/components/features/portal/portal-documents";
-import { PortalContactInfo } from "@/components/features/portal/portal-contact-info";
+import { ProfileContactSection } from "@/components/features/profile/profile-contact-section";
 import { loadPortalData } from "@/lib/portal/load-portal-data";
 import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
@@ -103,8 +103,9 @@ export default async function PortalPage() {
         <h2 className={SECTION_HEADING}>ข้อมูลของฉัน</h2>
         {profile?.id ? (
           <div className="mb-3">
-            <PortalContactInfo
-              initial={{
+            <ProfileContactSection
+              audience="contractor"
+              current={{
                 phone: profile.phone ?? "",
                 email: profile.email ?? "",
                 contactPerson: profile.contact_person ?? "",

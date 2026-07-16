@@ -1,3 +1,9 @@
+# [0.110.0](https://github.com/VAP-Solution/prc-ops/compare/v0.109.0...v0.110.0) (2026-07-16)
+
+### Features
+
+- **photos:** track upload_fail on WP photo capture failures ([#577](https://github.com/VAP-Solution/prc-ops/issues/577)) ([d6184dd](https://github.com/VAP-Solution/prc-ops/commit/d6184dd8114bc709193af1aed4526ca8fb1bacb9))
+
 # [0.109.0](https://github.com/VAP-Solution/prc-ops/compare/v0.108.2...v0.109.0) (2026-07-16)
 
 ### Features
