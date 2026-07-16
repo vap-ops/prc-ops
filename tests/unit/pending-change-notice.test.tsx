@@ -15,6 +15,8 @@ import {
   BANK_CHANGE_PENDING_PM,
   BANK_CHANGE_TOAST_HR,
   BANK_CHANGE_TOAST_PM,
+  BANK_INSTANT_SUBTITLE,
+  BANK_INSTANT_TOAST,
   IDENTITY_CHANGE_PENDING,
 } from "@/lib/i18n/labels";
 import { BANK_AUDIENCE } from "@/lib/profile/bank-audience";
@@ -58,8 +60,17 @@ describe("approved-tier change copy is single-sourced (U7 SSOT)", () => {
     expect(BANK_AUDIENCE.worker.successToast).toBe(BANK_CHANGE_TOAST_PM);
     expect(BANK_AUDIENCE.contractor.successToast).toBe(BANK_CHANGE_TOAST_PM);
     expect(BANK_AUDIENCE.staff.successToast).toBe(BANK_CHANGE_TOAST_HR);
-    expect(BANK_AUDIENCE.user.successToast).toBe(BANK_CHANGE_TOAST_HR);
     expect(BANK_AUDIENCE.worker.subtitle).toBe(BANK_CHANGE_APPROVER_PM);
     expect(BANK_AUDIENCE.staff.subtitle).toBe(BANK_CHANGE_APPROVER_HR);
+  });
+
+  it("the user (login-keyed) audience is the INSTANT tier — its copy comes from the instant labels (U8a)", () => {
+    expect(BANK_AUDIENCE.user.tierMode).toBe("instant");
+    expect(BANK_AUDIENCE.user.successToast).toBe(BANK_INSTANT_TOAST);
+    expect(BANK_AUDIENCE.user.subtitle).toBe(BANK_INSTANT_SUBTITLE);
+    // the three approved audiences stay on the request/approval tier
+    expect(BANK_AUDIENCE.worker.tierMode).toBe("approved");
+    expect(BANK_AUDIENCE.staff.tierMode).toBe("approved");
+    expect(BANK_AUDIENCE.contractor.tierMode).toBe("approved");
   });
 });

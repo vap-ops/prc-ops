@@ -57,6 +57,9 @@ export function ProfileBankSection({
   hasPending: boolean;
 }) {
   const cfg = BANK_AUDIENCE[audience];
+  // Spec 321 U8a — instant tier (user_bank) saves directly: no pending banner,
+  // "บันทึก" instead of "ส่งคำขอ".
+  const instant = cfg.tierMode === "instant";
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -135,7 +138,7 @@ export function ProfileBankSection({
         <p className="text-ink-secondary text-sm">ยังไม่มีบัญชีธนาคาร</p>
       ) : null}
 
-      {hasPending ? (
+      {!instant && hasPending ? (
         <PendingChangeNotice className="mt-3 rounded-md px-3 py-2">
           {cfg.pendingText}
         </PendingChangeNotice>
@@ -217,7 +220,13 @@ export function ProfileBankSection({
           onClick={submit}
           className={`mt-4 w-full ${BUTTON_PRIMARY}`}
         >
-          {pending ? "กำลังส่ง…" : "ส่งคำขอเปลี่ยนบัญชี"}
+          {instant
+            ? pending
+              ? "กำลังบันทึก…"
+              : "บันทึก"
+            : pending
+              ? "กำลังส่ง…"
+              : "ส่งคำขอเปลี่ยนบัญชี"}
         </button>
       </BottomSheet>
     </div>

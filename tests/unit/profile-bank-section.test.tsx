@@ -117,6 +117,29 @@ describe("ProfileBankSection", () => {
     const contractorAcctName = screen.getByLabelText("ชื่อบัญชี") as HTMLInputElement;
     expect(contractorAcctName.maxLength).toBe(200);
   });
+
+  it("user (instant tier): the sheet saves directly — บันทึก, instant subtitle, no ส่งคำขอ", () => {
+    render(
+      <ProfileBankSection
+        audience="user"
+        ownerId={UID}
+        current={null}
+        showEmptyState
+        hasPending={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    expect(screen.getByRole("button", { name: "บันทึก" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ส่งคำขอเปลี่ยนบัญชี" })).not.toBeInTheDocument();
+    expect(screen.getByText("บันทึกและใช้งานได้ทันที")).toBeInTheDocument();
+  });
+
+  it("user (instant tier): never shows a pending banner (the approval queue is gone)", () => {
+    render(<ProfileBankSection audience="user" ownerId={UID} current={null} hasPending={true} />);
+    // instant ignores hasPending — the แก้ไข control stays, no waiting banner
+    expect(screen.getByRole("button", { name: "แก้ไข" })).toBeInTheDocument();
+    expect(screen.queryByText(/รอการอนุมัติ/)).not.toBeInTheDocument();
+  });
 });
 
 function openAndFill() {

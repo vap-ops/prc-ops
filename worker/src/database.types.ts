@@ -9597,6 +9597,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_own_user_bank: {
+        Args: {
+          p_bank_account_name: string
+          p_bank_account_number: string
+          p_bank_name: string
+          p_book_bank_path: string
+        }
+        Returns: undefined
+      }
       record_purchase: {
         Args: {
           p_amount?: number

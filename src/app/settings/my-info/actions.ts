@@ -182,3 +182,51 @@ export async function submitUserBankChange(input: {
   revalidatePath(MY_INFO_PATH);
   return { ok: true };
 }
+
+// Spec 321 U8a — the login-keyed bank goes INSTANT (operator 2026-07-15): record
+// the caller's own user_bank directly via record_own_user_bank instead of staging
+// a request for the trio. Same passbook rebuild + single-home guards as the submit
+// path; no pending/queue error to map.
+export async function recordUserBank(input: {
+  bankName: string;
+  accountNo: string;
+  accountName: string;
+  attachmentId: string;
+  ext: string;
+}): Promise<ActionResult> {
+  const validation = validateBankChange(input);
+  if (validation) return { ok: false, error: validation };
+  if (!UUID_REGEX.test(input.attachmentId) || !isValidPhotoExt(input.ext)) {
+    return { ok: false, error: GENERIC };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const path = buildTechnicianDocPath(auth.user.id, "book_bank", input.attachmentId, input.ext);
+  if (!path) return { ok: false, error: GENERIC };
+
+  const { error } = await auth.supabase.rpc("record_own_user_bank", {
+    p_bank_name: input.bankName.trim(),
+    p_bank_account_number: input.accountNo.trim(),
+    p_bank_account_name: input.accountName.trim(),
+    p_book_bank_path: path,
+  });
+  if (error) {
+    if (error.message.includes("bound workers")) {
+      return { ok: false, error: "บัญชีช่างแก้ไขได้ที่หน้าหลักช่าง" };
+    }
+    if (error.message.includes("contractors use")) {
+      return { ok: false, error: "บัญชีผู้รับเหมาแก้ไขได้ที่พอร์ทัลผู้รับเหมา" };
+    }
+    if (error.message.includes("approved staff")) {
+      return { ok: false, error: "บัญชีของคุณแก้ไขได้ที่ส่วนบัญชีธนาคารของพนักงาน" };
+    }
+    if (error.message.includes("invalid account number")) {
+      return { ok: false, error: "เลขที่บัญชีไม่ถูกต้อง (ตัวเลข 6-20 หลัก)" };
+    }
+    return { ok: false, error: GENERIC };
+  }
+  revalidatePath(MY_INFO_PATH);
+  return { ok: true };
+}
