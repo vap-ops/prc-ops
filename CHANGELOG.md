@@ -1,3 +1,9 @@
+# [0.117.0](https://github.com/VAP-Solution/prc-ops/compare/v0.116.2...v0.117.0) (2026-07-16)
+
+### Features
+
+- **payroll:** mount cross-project ProjectLens on /payroll (spec 323 U5) ([#595](https://github.com/VAP-Solution/prc-ops/issues/595)) ([17c9216](https://github.com/VAP-Solution/prc-ops/commit/17c92161b922354996c55ea349be6470457bc82b))
+
 ## [0.116.2](https://github.com/VAP-Solution/prc-ops/compare/v0.116.1...v0.116.2) (2026-07-16)
 
 ### Bug Fixes
