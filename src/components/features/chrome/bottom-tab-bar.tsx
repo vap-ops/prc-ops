@@ -128,12 +128,13 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
 // tab (/procurement/scope beats /procurement). Every old destination (worklist,
 // reports, vendors, payroll, …) is one tap in via a hub door; a leaf like
 // /requests lights no tab (the spec-19 acceptance — the bar is the way back).
-// Spec 323 U4: the spine's ตั้งค่า tab does NOT reuse the shared match list —
-// for the procurement tiers the reference surfaces (/contacts, /catalog,
-// /equipment, /workers, /payroll) are hub DOORS (they left procurement's
-// settings in U4), so lighting ตั้งค่า there would point at a home the doors no
-// longer have. They are leaves like /requests (decision A); only /profile is
-// still a settings sub-surface (my-info) and keeps the claim.
+// Spec 323 U4: the spine's ตั้งค่า tab does NOT reuse the shared match list.
+// /contacts, /catalog, /equipment left procurement's settings entirely (the
+// ข้อมูลหลัก section is hidden for the tiers); /workers + /payroll stay
+// dual-homed in ทีมช่าง — but ALL of them are hub doors now, and per decision A
+// a door is an unlit leaf like /requests (the hub tab is the way back), so the
+// procurement tab claims none of them. Only /profile keeps the match (my-info
+// is purely a settings sub-surface).
 const PROCUREMENT_SETTINGS_TAB: TabItem = {
   ...SETTINGS_TAB,
   match: ["/profile"],
