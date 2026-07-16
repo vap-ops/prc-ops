@@ -37,6 +37,16 @@ describe("danger-path guard deny-regex", () => {
     expect(deny.test("src/app/auth/handoff/poll/route.ts")).toBe(true);
   });
 
+  it("protects the photo/storage client pipeline (feedback 10a15ebe follow-up)", () => {
+    // The photo upload/downscale/offline-queue pipeline and storage bucket helpers
+    // are the client side of a security-relevant surface (Storage RLS + append-only
+    // photo_logs); a code change there should be operator-reviewed, not auto-merged.
+    expect(deny.test("src/lib/photos/upload-queue.ts")).toBe(true);
+    expect(deny.test("src/lib/photos/downscale.ts")).toBe(true);
+    expect(deny.test("src/components/features/photos/upload-queue-runner.tsx")).toBe(true);
+    expect(deny.test("src/lib/storage/buckets.ts")).toBe(true);
+  });
+
   it("still protects the pre-existing danger paths (no regression)", () => {
     expect(deny.test("src/lib/auth/session.ts")).toBe(true);
     expect(deny.test("src/lib/db/admin.ts")).toBe(true);
@@ -52,5 +62,11 @@ describe("danger-path guard deny-regex", () => {
     expect(deny.test("src/app/auth-widget/page.tsx")).toBe(false);
     expect(deny.test("src/lib/format.ts")).toBe(false);
     expect(deny.test("src/components/ui/button.tsx")).toBe(false);
+    // Deliberate scope boundary: the WP page dir is too broad to hold wholesale
+    // (it would freeze every unrelated WP-detail change). The photo pipeline it
+    // imports (src/lib/photos/**) IS held, so most photo-write changes are caught.
+    expect(
+      deny.test("src/app/projects/[projectId]/work-packages/[workPackageId]/capture-sheet.tsx"),
+    ).toBe(false);
   });
 });
