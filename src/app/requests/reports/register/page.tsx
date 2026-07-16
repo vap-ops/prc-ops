@@ -17,10 +17,8 @@ import { bangkokTodayIso, ISO_DATE_REGEX } from "@/lib/dates";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
-import {
-  loadPurchaseRegister,
-  type RegisterDimensionFilter,
-} from "@/lib/accounting/load-purchases";
+import { loadPurchaseRegister } from "@/lib/accounting/load-purchases";
+import { parseRegisterSlice } from "@/lib/purchasing/purchase-register-params";
 import {
   summarizePurchases,
   purchaseStatusLabel,
@@ -55,16 +53,9 @@ export default async function ReportRegisterPage({ searchParams }: RegisterPageP
   const today = bangkokTodayIso();
   const from = sp.from && ISO_DATE_REGEX.test(sp.from) ? sp.from : today;
   const to = sp.to && ISO_DATE_REGEX.test(sp.to) ? sp.to : today;
-  const unassigned = sp.unassigned === "1";
-  const key = unassigned ? "" : (sp.key ?? "");
-
-  let projectId: string | undefined;
-  let slice: RegisterDimensionFilter | undefined;
-  if (sp.dim === "project") {
-    projectId = key || undefined;
-  } else if (sp.dim === "supplier" || sp.dim === "category" || sp.dim === "purchaser") {
-    slice = { dimension: sp.dim, key };
-  }
+  // dim/key parse lives in parseRegisterSlice — a hand-typed non-UUID key
+  // renders the window unfiltered instead of 500ing on the uuid predicates.
+  const { projectId, slice } = parseRegisterSlice(sp);
 
   const admin = createAdminClient();
   const rows = await loadPurchaseRegister(admin, from, to, projectId, slice);
