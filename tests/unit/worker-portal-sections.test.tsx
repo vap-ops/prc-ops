@@ -10,8 +10,12 @@ import { describe, expect, it, vi } from "vitest";
 
 // The client child components are tested on their own — mock them so this test
 // isolates WorkerPortalSections' own logic (wage history, tax id, bank display).
-vi.mock("@/components/features/portal/worker-profile-edit", () => ({
-  WorkerProfileEdit: () => <div data-testid="worker-profile-edit" />,
+// Spec 321 U3b — the worker contact block is now the shared ProfileContactSection
+// (read card + edit-in-sheet, decision 6), hosting WorkerProfileEdit inside.
+vi.mock("@/components/features/profile/profile-contact-section", () => ({
+  ProfileContactSection: ({ audience }: { audience: string }) => (
+    <div data-testid="profile-contact-section" data-audience={audience} />
+  ),
 }));
 vi.mock("@/components/features/portal/worker-consents", () => ({
   WorkerConsents: () => <div data-testid="worker-consents" />,
@@ -74,7 +78,10 @@ describe("WorkerPortalSections", () => {
     expect(screen.getByText("1234567890123")).toBeInTheDocument();
     // bank display + form now live in the mocked ProfileBankSection (below)
     // children wired
-    expect(screen.getByTestId("worker-profile-edit")).toBeInTheDocument();
+    expect(screen.getByTestId("profile-contact-section")).toHaveAttribute(
+      "data-audience",
+      "worker",
+    );
     expect(screen.getByTestId("worker-consents")).toBeInTheDocument();
     expect(screen.getByTestId("worker-bank-form")).toHaveAttribute("data-pending", "false");
   });

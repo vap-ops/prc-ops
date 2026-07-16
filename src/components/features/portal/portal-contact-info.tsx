@@ -14,8 +14,14 @@ import { BUTTON_PRIMARY, CARD, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui
 
 export function PortalContactInfo({
   initial,
+  bare = false,
+  onSaved,
 }: {
   initial: { phone: string; email: string; contactPerson: string; mailingAddress: string };
+  // Spec 321 U3b — hosted inside a BottomSheet (edit-in-modal, decision 6): drop
+  // the card chrome and close the sheet on save.
+  bare?: boolean;
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -41,11 +47,12 @@ export function PortalContactInfo({
       }
       toast.success("บันทึกแล้ว");
       router.refresh();
+      onSaved?.();
     });
   }
 
   return (
-    <div className={CARD}>
+    <div className={bare ? "" : CARD}>
       <label className="text-ink-secondary block text-sm">
         ผู้ติดต่อ
         <input
