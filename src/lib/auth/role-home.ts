@@ -475,9 +475,12 @@ export function roleHome(role: UserRole): string {
   // pending-approval count immediately. /review stays a live route reached from
   // that card. (Was /review since spec 82 Unit 4; was the role-named /pm before.)
   if (isManagerRole(role)) return "/dashboard";
-  // Spec 70: procurement is onboarded onto the purchasing worklist.
-  // Spec 261 / ADR 0070: procurement_manager shares that worklist home.
-  if (role === "procurement" || role === "procurement_manager") return "/requests";
+  // Spec 323 U3b (was spec 70's /requests worklist): the procurement tiers land
+  // on the /procurement STR hub — the portfolio home (per-project status strip +
+  // Scope/Time/Resources doors + the คำขอสมัคร nudge). /requests stays a live
+  // route, one tap in via the ขอบเขต section.
+  // Spec 261 / ADR 0070: procurement_manager shares procurement's home.
+  if (role === "procurement" || role === "procurement_manager") return "/procurement";
   // Spec 143 U2 / ADR 0056: project_coordinator oversees all projects — its home
   // is the project hub (no longer bounced to /coming-soon).
   if (role === "project_coordinator") return "/projects";

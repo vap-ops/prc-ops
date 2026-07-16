@@ -49,8 +49,10 @@ describe("roleHome", () => {
       super_admin: "/dashboard",
       project_director: "/dashboard",
       project_coordinator: "/projects",
-      procurement: "/requests",
-      procurement_manager: "/requests",
+      // Spec 323 U3b: the procurement tiers land on the /procurement STR hub
+      // (U3a built the surface; U3b flips the home + tabs).
+      procurement: "/procurement",
+      procurement_manager: "/procurement",
       contractor: "/portal",
       accounting: "/accounting",
       client: "/client",
@@ -72,15 +74,16 @@ describe("roleHome", () => {
     }
   });
 
-  // Spec 70: procurement onboarding — its first real surface is the
-  // /requests purchasing worklist, so it no longer bounces to /coming-soon.
-  it("sends procurement to the purchasing worklist", () => {
-    expect(roleHome("procurement")).toBe("/requests");
+  // Spec 323 U3b (was spec 70's /requests worklist): procurement lands on the
+  // /procurement STR hub — the U3a portfolio home (status strip + Scope/Time/
+  // Resources doors). /requests stays a live route, one tap in via ขอบเขต.
+  it("sends procurement to the /procurement STR hub", () => {
+    expect(roleHome("procurement")).toBe("/procurement");
   });
 
-  // Spec 261 / ADR 0070: procurement_manager shares procurement's worklist home.
-  it("sends procurement_manager to the purchasing worklist", () => {
-    expect(roleHome("procurement_manager")).toBe("/requests");
+  // Spec 261 / ADR 0070: procurement_manager shares procurement's home.
+  it("sends procurement_manager to the /procurement STR hub", () => {
+    expect(roleHome("procurement_manager")).toBe("/procurement");
   });
 
   it("sends still-unserved roles to /coming-soon", () => {

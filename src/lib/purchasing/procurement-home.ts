@@ -139,6 +139,18 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
   },
 ];
 
+// Spec 323 U3b: the /procurement/[section] route param, validated against the
+// STR section keys — anything else is null and the route 404s. Sections are
+// distinct SUB-ROUTES (not ?section=) because the bottom-tab active rule is a
+// query-blind longest-pathname-prefix (bottom-tab-bar.tsx), so only a pathname
+// can light exactly one section tab.
+export function parseProcurementSection(value: string): ProcurementStrSection["key"] | null {
+  for (const section of PROCUREMENT_STR_SECTIONS) {
+    if (section.key === value) return section.key;
+  }
+  return null;
+}
+
 // A door's href with the active project woven in: 🌐 shared doors ignore it; 🔀
 // spanning doors set ?project= (merging any existing query on the href). Mirrors
 // projectLensHref's serialization for a door that may already carry a filter.

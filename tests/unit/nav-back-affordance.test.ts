@@ -173,9 +173,15 @@ const STATIC_DETAIL = [
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is
 // EXCLUDED below rather than required to render DetailHeader.
+// Spec 323 U3b: /procurement/[section] is dynamic but NOT a detail — it is a
+// hub VARIANT (the STR bottom-tab landing: one section of the /procurement
+// hub, same chrome), classified NON_DETAIL + HUB_STRIP below.
 const dynamicDetail = allPages
   .map(routeOf)
-  .filter((r) => hasDynamicSegment(r) && !r.startsWith("client/"));
+  .filter(
+    (r) =>
+      hasDynamicSegment(r) && !r.startsWith("client/") && r !== "procurement/[section]/page.tsx",
+  );
 const DETAIL_ROUTES = [...dynamicDetail, ...STATIC_DETAIL];
 
 // NON-DETAIL: hubs and primary-tab destinations — left via tab bar / HubNav,
@@ -190,6 +196,9 @@ const NON_DETAIL_ROUTES = [
   "team",
   // Spec 323 U3a: the /procurement STR home hub — BottomTabBar + HubNav, no back chip.
   "procurement",
+  // Spec 323 U3b: the focused STR section (the bottom-tab landing) — a hub
+  // variant with the same chrome, never a back chip.
+  "procurement/[section]",
   "review",
   "projects",
   "settings",
@@ -308,6 +317,8 @@ describe("desktop hub-strip coverage (spec 153)", () => {
     "team",
     // Spec 323 U3a: the /procurement STR home hub renders the desktop HubNav strip.
     "procurement",
+    // Spec 323 U3b: the focused STR section renders the same strip.
+    "procurement/[section]",
     "review",
     "projects",
     "requests",

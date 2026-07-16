@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildProcurementProjectStatus,
+  parseProcurementSection,
   procurementDoorHref,
   PROCUREMENT_STR_SECTIONS,
   type HomeCountRow,
@@ -126,5 +127,22 @@ describe("procurementDoorHref", () => {
 
   it("never adds a project filter to a shared (🌐) door", () => {
     expect(procurementDoorHref(shared, "p1")).toBe("/catalog");
+  });
+});
+
+// Spec 323 U3b: /procurement/[section] is a dynamic route — the param must be
+// validated against the STR section keys (anything else → notFound()). Derived
+// from PROCUREMENT_STR_SECTIONS so a section rename cannot drift past this.
+describe("parseProcurementSection", () => {
+  it("parses each STR section key (the [section] route param)", () => {
+    for (const section of PROCUREMENT_STR_SECTIONS) {
+      expect(parseProcurementSection(section.key)).toBe(section.key);
+    }
+  });
+
+  it("rejects any other value with null (the route 404s)", () => {
+    for (const bad of ["", "Scope", "SCOPE", "scope/", "settings", "orders", "0"]) {
+      expect(parseProcurementSection(bad), bad).toBeNull();
+    }
   });
 });
