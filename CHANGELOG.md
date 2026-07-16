@@ -1,3 +1,9 @@
+## [0.116.1](https://github.com/VAP-Solution/prc-ops/compare/v0.116.0...v0.116.1) (2026-07-16)
+
+### Bug Fixes
+
+- **reports:** drop a non-UUID ?project= before it reaches the uuid-typed purchase_report arg ([#592](https://github.com/VAP-Solution/prc-ops/issues/592)) ([8f0afdb](https://github.com/VAP-Solution/prc-ops/commit/8f0afdbae5df4350283aed32483d6836d59ad7ff))
+
 # [0.116.0](https://github.com/VAP-Solution/prc-ops/compare/v0.115.1...v0.116.0) (2026-07-16)
 
 ### Features
