@@ -9215,6 +9215,15 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      decide_receipt_correction_request: {
+        Args: {
+          p_approve: boolean
+          p_note?: string
+          p_request_id: string
+          p_true_qty?: number
+        }
+        Returns: string
+      }
       decide_staff_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
@@ -10354,6 +10363,15 @@ export type Database = {
       }
       submit_identity_change: {
         Args: { p_dob?: string; p_full_name?: string; p_national_id?: string }
+        Returns: string
+      }
+      submit_receipt_correction_request: {
+        Args: {
+          p_photo_path: string
+          p_proposed_qty: number
+          p_reason: string
+          p_receipt_id: string
+        }
         Returns: string
       }
       submit_staff_bank_change: {
