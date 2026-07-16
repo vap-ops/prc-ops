@@ -1,3 +1,9 @@
+# [0.113.0](https://github.com/VAP-Solution/prc-ops/compare/v0.112.1...v0.113.0) (2026-07-16)
+
+### Features
+
+- **profile:** contractor DOB joins the approved identity tier (spec 321 U6) ([#583](https://github.com/VAP-Solution/prc-ops/issues/583)) ([d586f94](https://github.com/VAP-Solution/prc-ops/commit/d586f943d8ba6d6f6438a8d25f3d3c2ffd0afc62))
+
 ## [0.112.1](https://github.com/VAP-Solution/prc-ops/compare/v0.112.0...v0.112.1) (2026-07-16)
 
 ### Bug Fixes
