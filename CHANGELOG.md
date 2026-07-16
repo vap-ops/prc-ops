@@ -1,3 +1,9 @@
+# [0.122.0](https://github.com/VAP-Solution/prc-ops/compare/v0.121.0...v0.122.0) (2026-07-16)
+
+### Features
+
+- **324:** U4 flag lifecycle RPCs + notification capture ([#602](https://github.com/VAP-Solution/prc-ops/issues/602)) ([85e2456](https://github.com/VAP-Solution/prc-ops/commit/85e24566c2c0505fdefcf418d8f4ef3d0e3be808))
+
 # [0.121.0](https://github.com/VAP-Solution/prc-ops/compare/v0.120.0...v0.121.0) (2026-07-16)
 
 ### Features
