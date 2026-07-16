@@ -1,3 +1,9 @@
+## [0.108.1](https://github.com/VAP-Solution/prc-ops/compare/v0.108.0...v0.108.1) (2026-07-16)
+
+### Bug Fixes
+
+- **profile:** spec 321 U3a — worker contact blank=keep (nullif→coalesce) ([#574](https://github.com/VAP-Solution/prc-ops/issues/574)) ([8b2d069](https://github.com/VAP-Solution/prc-ops/commit/8b2d069b318adc916e1eca23c1b7241ef70d8a32))
+
 # [0.108.0](https://github.com/VAP-Solution/prc-ops/compare/v0.107.1...v0.108.0) (2026-07-15)
 
 ### Features
