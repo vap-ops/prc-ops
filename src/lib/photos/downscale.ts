@@ -8,7 +8,7 @@
 // OPTIMIZATION, never a gate — every failure path returns the original
 // file unchanged.
 
-import { mimeToPhotoExt, type PhotoExt } from "@/lib/photos/path";
+import { blobWithType, mimeToPhotoExt, photoExtToMime, type PhotoExt } from "@/lib/photos/path";
 
 export const DOWNSCALE_MAX_EDGE = 2000;
 const DOWNSCALE_QUALITY = 0.8;
@@ -51,7 +51,14 @@ export interface PreparedPhoto {
 export async function preparePhotoForUpload(file: File): Promise<PreparedPhoto | null> {
   const originalExt = mimeToPhotoExt(file.type);
   if (originalExt === null) return null;
-  const passthrough: PreparedPhoto = { blob: file, ext: originalExt, downscaled: false };
+  // Feedback 10a15ebe: normalize the blob's `.type` to the intended mime — the
+  // upload sends the blob's type, not the contentType option, and iOS Safari can
+  // hand back a Blob (from toBlob / an IDB round-trip) with an empty type.
+  const passthrough: PreparedPhoto = {
+    blob: blobWithType(file, photoExtToMime(originalExt)),
+    ext: originalExt,
+    downscaled: false,
+  };
 
   let bitmap: ImageBitmap;
   try {
@@ -82,7 +89,9 @@ export async function preparePhotoForUpload(file: File): Promise<PreparedPhoto |
     });
     if (!blob) return passthrough;
 
-    return { blob, ext: "jpeg", downscaled: true };
+    // iOS Safari's toBlob can produce a Blob with an empty type despite the
+    // requested "image/jpeg" — normalize so the upload sends image/jpeg (10a15ebe).
+    return { blob: blobWithType(blob, "image/jpeg"), ext: "jpeg", downscaled: true };
   } catch {
     return passthrough;
   } finally {
