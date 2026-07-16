@@ -7,6 +7,8 @@
 // intervals these events describe: session_start on foreground, heartbeat every
 // 20s while visible, session_end on hide/pagehide.
 
+import { clientEnv } from "@/lib/env";
+
 import {
   EventBuffer,
   makeEvent,
@@ -18,6 +20,17 @@ import {
 const INGEST_URL = "/api/telemetry";
 const HEARTBEAT_MS = 20_000;
 const FLUSH_MS = 20_000;
+
+// The build's version, inlined by next.config.ts from package.json (+ the Vercel
+// commit SHA when present) and validated through the client-env SSOT (env.ts).
+// Stamped on every event so a friction signal — an upload_fail in the field,
+// say — can be tied to the exact client bundle. Feedback 10a15ebe left
+// app_version NULL on every event, so a stale pre-deploy bundle could not be
+// told apart from a real gap. `?? null` keeps dev/test (where the var is unset)
+// honest rather than sending "undefined".
+function readAppVersion(): string | null {
+  return clientEnv.NEXT_PUBLIC_APP_VERSION ?? null;
+}
 // Cap js_error events per session so an app error loop can't flood the pipe.
 const MAX_ERRORS_PER_SESSION = 25;
 // Cap the other friction signals (rage_tap/form_abandon/validation_error/
@@ -32,6 +45,9 @@ export class UsageTracker {
   private started = false;
   private errorCount = 0;
   private frictionCount = 0;
+
+  // Injectable for tests; defaults to the build-time version.
+  constructor(private readonly appVersion: string | null = readAppVersion()) {}
 
   start(): void {
     if (this.started || typeof window === "undefined") return;
@@ -91,7 +107,11 @@ export class UsageTracker {
       makeEvent(
         this.sessionId,
         type,
-        { route: route ?? this.currentRoute(), context: context ?? null },
+        {
+          route: route ?? this.currentRoute(),
+          context: context ?? null,
+          appVersion: this.appVersion,
+        },
         new Date().toISOString(),
       ),
     );
