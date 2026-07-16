@@ -21,6 +21,8 @@ const ALL_EVENTS = [
   "feedback_submitted",
   "wp_reopened",
   "site_issue_reported",
+  "receipt_correction_flagged",
+  "receipt_correction_resolved",
 ] as const;
 
 describe("notification catalog", () => {
@@ -64,5 +66,11 @@ describe("notification catalog", () => {
     // safety alert: PM tier + procurement_manager
     expect(byEvent.site_issue_reported.audience("procurement_manager")).toBe(true);
     expect(byEvent.site_issue_reported.audience("technician")).toBe(false);
+    // spec 324: correction flag reaches the back-office authority, not the field
+    expect(byEvent.receipt_correction_flagged.audience("procurement")).toBe(true);
+    expect(byEvent.receipt_correction_flagged.audience("technician")).toBe(false);
+    // spec 324: correction result reaches the SA who flagged (site staff)
+    expect(byEvent.receipt_correction_resolved.audience("site_admin")).toBe(true);
+    expect(byEvent.receipt_correction_resolved.audience("legal")).toBe(false);
   });
 });

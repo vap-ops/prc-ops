@@ -41,7 +41,9 @@ select enum_has_labels(
         -- Spec 310: non-WP office expenses.
         'office_expense_record', 'office_expense_reimburse',
         -- Spec 312: void an equipment-rental batch.
-        'equipment_batch_void'],
+        'equipment_batch_void',
+        -- Spec 324: correct an over-accepted store receipt.
+        'stock_receipt_correction'],
   'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
 );
 

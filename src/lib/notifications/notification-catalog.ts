@@ -11,6 +11,7 @@
 
 import type { Database } from "@/lib/db/database.types";
 import {
+  BACK_OFFICE_ROLES,
   PM_ROLES,
   PROCUREMENT_MANAGER_ROLES,
   PURCHASING_ROLES,
@@ -79,6 +80,7 @@ const uploaderTier = (role: UserRole) => SITE_STAFF_ROLES.includes(role);
 const requesterTier = (role: UserRole) => PURCHASING_ROLES.includes(role);
 const operatorOnly = (role: UserRole) => role === "super_admin";
 const siteIssueTier = (role: UserRole) => PROCUREMENT_MANAGER_ROLES.includes(role);
+const backOfficeTier = (role: UserRole) => BACK_OFFICE_ROLES.includes(role);
 
 export const NOTIFICATION_CATALOG_BY_EVENT = {
   wp_pending_approval: {
@@ -152,6 +154,22 @@ export const NOTIFICATION_CATALOG_BY_EVENT = {
     category: "serious_issues",
     audience: siteIssueTier,
     locked: true,
+  },
+  receipt_correction_flagged: {
+    event: "receipt_correction_flagged",
+    label: "แจ้งแก้ไขจำนวนรับของ",
+    description: "หน้างานรายงานว่าบันทึกรับของเกินจำนวนที่มาจริง รอฝ่ายจัดซื้อแก้ไข",
+    category: "approvals",
+    audience: backOfficeTier,
+    locked: false,
+  },
+  receipt_correction_resolved: {
+    event: "receipt_correction_resolved",
+    label: "ผลการแก้ไขจำนวนรับของ",
+    description: "การแจ้งแก้ไขจำนวนรับของที่คุณส่งได้รับการดำเนินการแล้ว",
+    category: "my_work",
+    audience: uploaderTier,
+    locked: false,
   },
 } as const satisfies Record<NotificationEventType, NotificationCatalogEntry>;
 

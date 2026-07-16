@@ -113,6 +113,15 @@ export function composeNotification(
       return lines.join("\n");
     }
 
+    // Spec 324 — an SA reported that a store receipt was booked with the wrong
+    // (over-) count; the back-office correction authority is nudged to true it down.
+    case "receipt_correction_flagged":
+      return `⚠️ แจ้งแก้ไขจำนวนรับของ: ${payload.itemDescription ?? ""} — โปรดตรวจสอบและแก้ไขให้ตรงกับของที่รับจริง`.trim();
+
+    // Spec 324 — the correction was applied or rejected; the SA who flagged is told.
+    case "receipt_correction_resolved":
+      return `การแจ้งแก้ไขจำนวนรับของ${payload.itemDescription ? ` (${payload.itemDescription})` : ""} ได้รับการดำเนินการแล้ว`;
+
     default:
       // Runtime-only: an event type this deploy predates (see unknown-event).
       // `eventType` is `never` here at compile time; at runtime compose to a
