@@ -10,6 +10,8 @@ const SU_1 = "cccccccc-0000-4000-8000-000000000001";
 const SU_2 = "cccccccc-0000-4000-8000-000000000002";
 const DIR_1 = "dddddddd-0000-4000-8000-000000000001";
 const PROC_1 = "eeeeeeee-0000-4000-8000-000000000001";
+const BO_1 = "ffffffff-0000-4000-8000-000000000001";
+const BO_2 = "ffffffff-0000-4000-8000-000000000002";
 
 // Spec 318 U5 — the PM-approval events are project-scoped: the event's own
 // project PMs + the org-wide PD/super pool. eventProjectPmIds === null means
@@ -23,6 +25,7 @@ const ctx = {
   superIds: [SU_1, SU_2],
   siteIssueProjectPmIds: [],
   siteIssueRolePoolIds: [],
+  backOfficeIds: [],
 };
 
 describe("resolveRecipients", () => {
@@ -106,6 +109,7 @@ describe("resolveRecipients", () => {
           superIds: [],
           siteIssueProjectPmIds: [],
           siteIssueRolePoolIds: [],
+          backOfficeIds: [],
         },
       ),
     ).toEqual([SA_1, SA_2]);
@@ -177,6 +181,38 @@ describe("resolveRecipients", () => {
           },
         ),
       ).toEqual([DIR_1]);
+    });
+  });
+
+  describe("receipt correction (spec 324)", () => {
+    it("routes receipt_correction_flagged to the back-office correction pool", () => {
+      expect(
+        resolveRecipients(
+          "receipt_correction_flagged",
+          {},
+          { ...ctx, backOfficeIds: [BO_1, BO_2] },
+        ),
+      ).toEqual([BO_1, BO_2]);
+    });
+
+    it("excludes a back-office user who flagged their own receipt (no self-ping)", () => {
+      expect(
+        resolveRecipients(
+          "receipt_correction_flagged",
+          { requestedBy: BO_1 },
+          { ...ctx, backOfficeIds: [BO_1, BO_2] },
+        ),
+      ).toEqual([BO_2]);
+    });
+
+    it("routes receipt_correction_resolved to the SA who flagged it", () => {
+      expect(resolveRecipients("receipt_correction_resolved", { requestedBy: SA_1 }, ctx)).toEqual([
+        SA_1,
+      ]);
+    });
+
+    it("resolved with no requester (a direct BO correction) reaches nobody", () => {
+      expect(resolveRecipients("receipt_correction_resolved", {}, ctx)).toEqual([]);
     });
   });
 

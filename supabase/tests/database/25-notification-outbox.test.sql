@@ -63,7 +63,9 @@ select has_table('public', 'notification_outbox', 'notification_outbox exists');
 select enum_has_labels('public', 'notification_event_type',
   array['wp_pending_approval', 'wp_decision', 'pr_created',
         'pr_decision', 'pr_progress', 'pr_cancelled',
-        'feedback_submitted', 'wp_reopened', 'site_issue_reported'],
+        'feedback_submitted', 'wp_reopened', 'site_issue_reported',
+        -- Spec 324: SA flags a receipt miscount / BO resolves it.
+        'receipt_correction_flagged', 'receipt_correction_resolved'],
   'notification_event_type labels');
 select enum_has_labels('public', 'notification_status',
   array['pending', 'sending', 'sent', 'failed', 'expired'],

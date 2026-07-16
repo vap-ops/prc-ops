@@ -5180,6 +5180,80 @@ export type Database = {
           },
         ]
       }
+      receipt_correction_requests: {
+        Row: {
+          correction_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          photo_path: string | null
+          proposed_qty: number
+          reason: string
+          receipt_id: string
+          requested_at: string
+          requested_by: string
+          status: string
+        }
+        Insert: {
+          correction_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          photo_path?: string | null
+          proposed_qty: number
+          reason: string
+          receipt_id: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+        }
+        Update: {
+          correction_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          photo_path?: string | null
+          proposed_qty?: number
+          reason?: string
+          receipt_id?: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rcr_correction_fk"
+            columns: ["correction_id"]
+            isOneToOne: false
+            referencedRelation: "stock_receipt_corrections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_correction_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_correction_requests_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "stock_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_correction_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rental_charges: {
         Row: {
           amount: number
@@ -6261,6 +6335,80 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_receipt_corrections: {
+        Row: {
+          corrected_at: string
+          corrected_by: string
+          id: string
+          reason: string
+          receipt_id: string
+          removed_gross: number
+          removed_net: number
+          removed_qty: number
+          removed_vat: number
+          request_id: string | null
+          supplier_id: string | null
+          true_qty: number
+        }
+        Insert: {
+          corrected_at?: string
+          corrected_by?: string
+          id?: string
+          reason: string
+          receipt_id: string
+          removed_gross: number
+          removed_net: number
+          removed_qty: number
+          removed_vat?: number
+          request_id?: string | null
+          supplier_id?: string | null
+          true_qty: number
+        }
+        Update: {
+          corrected_at?: string
+          corrected_by?: string
+          id?: string
+          reason?: string
+          receipt_id?: string
+          removed_gross?: number
+          removed_net?: number
+          removed_qty?: number
+          removed_vat?: number
+          request_id?: string | null
+          supplier_id?: string | null
+          true_qty?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_receipt_corrections_corrected_by_fkey"
+            columns: ["corrected_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_corrections_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "stock_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_corrections_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "receipt_correction_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_corrections_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -10663,6 +10811,7 @@ export type Database = {
         | "office_expense_record"
         | "office_expense_reimburse"
         | "equipment_batch_void"
+        | "stock_receipt_correction"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -10782,6 +10931,8 @@ export type Database = {
         | "feedback_submitted"
         | "wp_reopened"
         | "site_issue_reported"
+        | "receipt_correction_flagged"
+        | "receipt_correction_resolved"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
       office_expense_doc_purpose: "payment_slip" | "tax_invoice"
       pay_type: "monthly" | "daily"
@@ -11087,6 +11238,7 @@ export const Constants = {
         "office_expense_record",
         "office_expense_reimburse",
         "equipment_batch_void",
+        "stock_receipt_correction",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -11218,6 +11370,8 @@ export const Constants = {
         "feedback_submitted",
         "wp_reopened",
         "site_issue_reported",
+        "receipt_correction_flagged",
+        "receipt_correction_resolved",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
       office_expense_doc_purpose: ["payment_slip", "tax_invoice"],

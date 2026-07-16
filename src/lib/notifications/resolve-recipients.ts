@@ -38,6 +38,12 @@ export interface RecipientContext {
    * the project PMs.
    */
   siteIssueRolePoolIds: ReadonlyArray<string>;
+  /**
+   * Spec 324 — the back-office correction authority pool (every BACK_OFFICE_ROLES
+   * user), alerted when an SA flags a receipt miscount. Role-wide (the correction
+   * queue is not project-bound). Empty for every non-correction event.
+   */
+  backOfficeIds: ReadonlyArray<string>;
 }
 
 function unique(ids: ReadonlyArray<string>): string[] {
@@ -90,6 +96,14 @@ export function resolveRecipients(
         [...context.siteIssueProjectPmIds, ...context.siteIssueRolePoolIds],
         payload.reportedBy,
       );
+    // Spec 324 — an SA flagged a receipt miscount; nudge the back-office
+    // correction authority (minus the flagger, if a BO user flagged their own).
+    case "receipt_correction_flagged":
+      return without(context.backOfficeIds, payload.requestedBy);
+    // Spec 324 — the correction was applied/rejected; tell the SA who flagged it
+    // (a direct BO correction with no flag carries no requestedBy → nobody).
+    case "receipt_correction_resolved":
+      return payload.requestedBy ? [payload.requestedBy] : [];
     default:
       // Runtime-only: an event type this deploy predates (see unknown-event).
       // `eventType` is `never` here at compile time, so a new union member
