@@ -47,6 +47,24 @@ describe("danger-path guard deny-regex", () => {
     expect(deny.test("src/lib/storage/buckets.ts")).toBe(true);
   });
 
+  it("protects the money/payroll route surfaces under src/app/ (chip task_4431efbc)", () => {
+    // "money/payroll = operator-held" (CLAUDE.md + autonomous-build-fence): the
+    // regex held the money LOGIC dirs (src/lib/labor|accounting, src/lib/db/admin)
+    // but NOT the money ROUTE pages under src/app/. A page-JSX-only change to a
+    // payroll/accounting/expenses route was guard-CLEAN and would AUTO-MERGE
+    // (PRs #487/#497/#595 payroll changes only held because they ALSO edited
+    // src/lib/labor/*). These are dedicated money surfaces — wages/CSV export, the
+    // GL hub (journal/ledger/payables/WHT/retention/billings/revenue money-writes),
+    // and office-expense recording — with no innocent content mixed in.
+    expect(deny.test("src/app/payroll/page.tsx")).toBe(true);
+    expect(deny.test("src/app/payroll/export/route.ts")).toBe(true);
+    expect(deny.test("src/app/accounting/page.tsx")).toBe(true);
+    expect(deny.test("src/app/accounting/journal/actions.ts")).toBe(true);
+    expect(deny.test("src/app/accounting/wht/record-wht-form.tsx")).toBe(true);
+    expect(deny.test("src/app/expenses/page.tsx")).toBe(true);
+    expect(deny.test("src/app/expenses/actions.ts")).toBe(true);
+  });
+
   it("still protects the pre-existing danger paths (no regression)", () => {
     expect(deny.test("src/lib/auth/session.ts")).toBe(true);
     expect(deny.test("src/lib/db/admin.ts")).toBe(true);
@@ -68,5 +86,20 @@ describe("danger-path guard deny-regex", () => {
     expect(
       deny.test("src/app/projects/[projectId]/work-packages/[workPackageId]/capture-sheet.tsx"),
     ).toBe(false);
+    // Deliberate money-route boundary: only the money-OPERATION routes
+    // (payroll/accounting/expenses) are held. Two neighbours stay auto-mergeable
+    // on purpose:
+    //  - /requests/reports — READ-ONLY purchasing spend reporting (no money-write),
+    //    auto-merged in practice (#592/#593).
+    //  - /requests/orders (PO issuance) + /requests/** at large — the core
+    //    autonomous-build PROCUREMENT surface (raise→approve→purchase→PO), shipped
+    //    code-only and auto-merged across specs 300-323. A PO commits vendor spend,
+    //    but its money CONSEQUENCE (GL/AP posting) lives in src/lib/accounting/ +
+    //    src/app/accounting/payables, which ARE held; holding /requests/** wholesale
+    //    would freeze the primary product surface. Scope confirmed w/ operator.
+    expect(deny.test("src/app/requests/reports/page.tsx")).toBe(false);
+    expect(deny.test("src/app/requests/reports/register/page.tsx")).toBe(false);
+    expect(deny.test("src/app/requests/orders/[poId]/page.tsx")).toBe(false);
+    expect(deny.test("src/app/requests/page.tsx")).toBe(false);
   });
 });
