@@ -65,3 +65,16 @@ export function photoExtToMime(ext: PhotoExt): string {
 // Spec 65: the <input accept> list the three photo uploaders previously
 // hand-wrote. Derived so PHOTO_EXTS stays the single source of truth.
 export const PHOTO_ACCEPT_MIME = PHOTO_EXTS.map(photoExtToMime).join(",");
+
+// Feedback 10a15ebe — guarantee a blob carries the intended upload content-type.
+// supabase-js sends the Blob's `.type` as the storage content-type and IGNORES the
+// `.upload({ contentType })` option (verified against the deployed client); every
+// bucket enforces allowed_mime_types for AUTHENTICATED uploads (service_role
+// bypasses it). iOS Safari's `canvas.toBlob` — and an IndexedDB round-trip of a
+// stored Blob — can yield a Blob whose `.type` is empty, which storage then treats
+// as application/octet-stream and rejects with a 400 "mime type
+// application/octet-stream is not supported". Wrapping normalizes the type without
+// copying when it already matches. Bytes are preserved.
+export function blobWithType(blob: Blob, mime: string): Blob {
+  return blob.type === mime ? blob : new Blob([blob], { type: mime });
+}

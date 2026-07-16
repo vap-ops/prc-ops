@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
-import { photoExtToMime } from "@/lib/photos/path";
+import { blobWithType, photoExtToMime } from "@/lib/photos/path";
 import {
   bucketForKind,
   classifyStorageUploadError,
@@ -51,7 +51,10 @@ async function buildDeps(): Promise<{ deps: ProcessDeps; sessionUserId: string |
     async uploadBytes(item) {
       const { error } = await supabase.storage
         .from(bucketForKind(item.kind))
-        .upload(item.storagePath, item.blob, {
+        // Feedback 10a15ebe: an IndexedDB round-trip on iOS Safari can strip a
+        // stored Blob's `.type`; re-assert it so the upload sends the right mime
+        // (the upload uses the blob's type, not the contentType option).
+        .upload(item.storagePath, blobWithType(item.blob, photoExtToMime(item.ext)), {
           contentType: photoExtToMime(item.ext),
           upsert: false,
         });

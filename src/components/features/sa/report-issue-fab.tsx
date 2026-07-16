@@ -7,13 +7,16 @@
 //
 // Two-phase submit (like the feedback flow): reportSiteIssue creates the issue, then
 // each photo uploads to the private `site-issues` bucket under issue/{issueId}/… and
-// is recorded via addSiteIssueAttachment. Photos are stored unmodified.
+// is recorded via addSiteIssueAttachment. Photos go through the shared
+// preparePhotoForUpload pipeline (spec 34 downscale + mime-normalized blob type).
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, TriangleAlert } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { createClient } from "@/lib/db/browser";
+import { preparePhotoForUpload } from "@/lib/photos/downscale";
+import { photoExtToMime } from "@/lib/photos/path";
 import { SITE_ISSUES_BUCKET } from "@/lib/storage/buckets";
 import {
   SITE_ISSUE_TYPES,
@@ -66,20 +69,26 @@ export function ReportIssueFab({ projectId }: { projectId: string | null }) {
       return;
     }
 
-    // Photos are best-effort: the issue is already filed. Upload each unmodified
-    // into the owner-bound bucket, then record the row.
+    // Photos are best-effort: the issue is already filed. Prepare each through the
+    // shared pipeline (spec 34 downscale + mime-validate + normalize the blob type
+    // so the upload sends a real image mime — feedback 10a15ebe: an empty blob type
+    // on iOS Safari would ride as application/octet-stream and the bucket's
+    // allowed_mime_types would reject it), then upload + record the row.
     if (files.length > 0) {
       const supabase = createClient();
       for (const file of files) {
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-        const storagePath = `issue/${res.issueId}/${crypto.randomUUID()}.${ext}`;
+        const prepared = await preparePhotoForUpload(file);
+        if (!prepared) {
+          setError("ไฟล์รูปบางส่วนไม่รองรับ (ใช้ JPEG, PNG, WebP หรือ HEIC)");
+          continue;
+        }
+        const storagePath = `issue/${res.issueId}/${crypto.randomUUID()}.${prepared.ext}`;
         const { error: upErr } = await supabase.storage
           .from(SITE_ISSUES_BUCKET)
-          .upload(
-            storagePath,
-            file,
-            file.type ? { contentType: file.type, upsert: false } : { upsert: false },
-          );
+          .upload(storagePath, prepared.blob, {
+            contentType: photoExtToMime(prepared.ext),
+            upsert: false,
+          });
         if (upErr) {
           setError("อัปโหลดรูปบางส่วนไม่สำเร็จ");
           continue;
