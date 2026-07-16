@@ -8939,6 +8939,15 @@ export type Database = {
         }
         Returns: string
       }
+      correct_stock_receipt: {
+        Args: {
+          p_reason: string
+          p_receipt_id: string
+          p_request_id?: string
+          p_true_qty: number
+        }
+        Returns: string
+      }
       create_boq_template: {
         Args: { p_code: string; p_description?: string; p_name: string }
         Returns: string
