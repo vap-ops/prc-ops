@@ -131,13 +131,21 @@ function one<T>(v: OneOrArray<T>): T | null {
 }
 
 // The caller's own expenses (RLS restricts rows to own/finance; this scopes to own).
-export async function listMyExpenses(supabase: DB, userId: string): Promise<OfficeExpenseRow[]> {
-  const { data } = await supabase
+// Spec 323 U4: an active project lens narrows to that project's rows (DB
+// predicate — a project-less office expense only shows under ทุกโครงการ).
+export async function listMyExpenses(
+  supabase: DB,
+  userId: string,
+  projectId?: string,
+): Promise<OfficeExpenseRow[]> {
+  let query = supabase
     .from("office_expenses")
     .select(
       "id, description, amount, expense_date, payment_source, reimbursed_at, category:office_expense_categories!office_expenses_category_id_fkey(label_th), project:projects!office_expenses_project_id_fkey(name), card:company_cards!office_expenses_company_card_id_fkey(label), reimburse:users!office_expenses_reimburse_to_user_id_fkey(full_name), attachments:office_expense_attachments(id)",
     )
-    .eq("submitted_by", userId)
+    .eq("submitted_by", userId);
+  if (projectId) query = query.eq("project_id", projectId);
+  const { data } = await query
     .order("expense_date", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -166,15 +174,20 @@ export async function listMyExpenses(supabase: DB, userId: string): Promise<Offi
 // Expenses awaiting reimbursement (target set, not yet reimbursed). RLS restricts
 // rows to finance (accounting/super_admin) — the /expenses page gates the queue to
 // OFFICE_EXPENSE_FINANCE_ROLES, and a submitter only ever sees their own here.
-export async function listReimbursableExpenses(supabase: DB): Promise<ReimbursableRow[]> {
-  const { data } = await supabase
+// Spec 323 U4: the project lens narrows the queue the same way as the own list.
+export async function listReimbursableExpenses(
+  supabase: DB,
+  projectId?: string,
+): Promise<ReimbursableRow[]> {
+  let query = supabase
     .from("office_expenses")
     .select(
       "id, amount, expense_date, description, reimburse_to_user_id, category:office_expense_categories!office_expenses_category_id_fkey(label_th), reimburse:users!office_expenses_reimburse_to_user_id_fkey(full_name)",
     )
     .not("reimburse_to_user_id", "is", null)
-    .is("reimbursed_at", null)
-    .order("expense_date", { ascending: true });
+    .is("reimbursed_at", null);
+  if (projectId) query = query.eq("project_id", projectId);
+  const { data } = await query.order("expense_date", { ascending: true });
 
   return (data ?? []).map((r) => {
     const category = one(r.category as OneOrArray<{ label_th: string }>);
@@ -200,9 +213,12 @@ export interface MyExpenseSummary {
 
 // The caller's personal dashboard: this (Bangkok) month's spend by category +
 // the month total + the amount still owed back to them (pending reimbursement).
+// Spec 323 U4: under an active project lens BOTH figures scope to that project,
+// so the summary card never disagrees with the filtered list below it.
 export async function loadMyExpenseSummary(
   supabase: DB,
   userId: string,
+  projectId?: string,
 ): Promise<MyExpenseSummary> {
   const monthLabel = bangkokTodayIso().slice(0, 7); // YYYY-MM
   const monthStart = `${monthLabel}-01`;
@@ -210,21 +226,22 @@ export async function loadMyExpenseSummary(
   const [y, m] = monthLabel.split("-").map(Number) as [number, number];
   const nextMonthStart = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
 
-  const [monthRes, pendRes] = await Promise.all([
-    supabase
-      .from("office_expenses")
-      .select(
-        "amount, category:office_expense_categories!office_expenses_category_id_fkey(label_th)",
-      )
-      .eq("submitted_by", userId)
-      .gte("expense_date", monthStart)
-      .lt("expense_date", nextMonthStart),
-    supabase
-      .from("office_expenses")
-      .select("amount")
-      .eq("reimburse_to_user_id", userId)
-      .is("reimbursed_at", null),
-  ]);
+  let monthQuery = supabase
+    .from("office_expenses")
+    .select("amount, category:office_expense_categories!office_expenses_category_id_fkey(label_th)")
+    .eq("submitted_by", userId)
+    .gte("expense_date", monthStart)
+    .lt("expense_date", nextMonthStart);
+  let pendQuery = supabase
+    .from("office_expenses")
+    .select("amount")
+    .eq("reimburse_to_user_id", userId)
+    .is("reimbursed_at", null);
+  if (projectId) {
+    monthQuery = monthQuery.eq("project_id", projectId);
+    pendQuery = pendQuery.eq("project_id", projectId);
+  }
+  const [monthRes, pendRes] = await Promise.all([monthQuery, pendQuery]);
 
   const monthRows = (monthRes.data ?? []).map((r) => ({
     label: one(r.category as OneOrArray<{ label_th: string }>)?.label_th ?? null,

@@ -22,6 +22,7 @@ import { CARD, FIELD_INPUT, FIELD_SELECT, BUTTON_PRIMARY } from "@/lib/ui/classe
 import { purchaseOrderStatusPillClasses } from "@/lib/status-colors";
 import { purchaseOrderStatusIcon } from "@/lib/status-icons";
 import { PoNumberTag } from "@/components/features/purchasing/po-number-tag";
+import { ProjectLens } from "@/components/features/common/project-lens";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { loadPurchaseOrderList } from "@/lib/purchasing/load-po-list";
 import { filterPoRows, sortPoRowsByOrderedAtDesc } from "@/lib/purchasing/po-list-view";
@@ -72,6 +73,13 @@ export default async function PurchaseOrdersPage({ searchParams }: OrdersPagePro
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {/* Spec 323 U4: the universal cross-project lens — one-tap scoping on the
+            same ?project= axis the form's picker writes (they stay in sync via
+            the URL; the lens keeps the period/supplier params). empty:hidden so
+            the collapsed single-project state leaves no stray margin. */}
+        <div className="mb-4 empty:hidden">
+          <ProjectLens projects={projects.map((p) => ({ id: p.id, name: p.name ?? p.code }))} />
+        </div>
         <form
           method="get"
           className={`${CARD} mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end`}
