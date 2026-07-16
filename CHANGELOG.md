@@ -1,3 +1,9 @@
+## [0.114.1](https://github.com/VAP-Solution/prc-ops/compare/v0.114.0...v0.114.1) (2026-07-16)
+
+### Bug Fixes
+
+- **profile:** contractor self-edit keeps stored values on blank (spec 321) ([#588](https://github.com/VAP-Solution/prc-ops/issues/588)) ([6ce7b17](https://github.com/VAP-Solution/prc-ops/commit/6ce7b1782549943a4ef5d80da1cd3e7ff542b7c7))
+
 # [0.114.0](https://github.com/VAP-Solution/prc-ops/compare/v0.113.0...v0.114.0) (2026-07-16)
 
 ### Features
