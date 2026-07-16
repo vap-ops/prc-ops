@@ -17,7 +17,7 @@ import {
   projectPmRecipients,
   SITE_ISSUE_ALERT_ROLE_POOL,
 } from "@/lib/notifications/site-issue-recipients";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { BACK_OFFICE_ROLES, PM_ROLES } from "@/lib/auth/role-home";
 import { clientEnv } from "@/lib/env";
 import type { UserRole } from "@/lib/db/enums";
 import {
@@ -434,6 +434,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Spec 324 — the back-office correction pool for receipt_correction_flagged rows.
+  // Role-wide (every BACK_OFFICE_ROLES user; the correction queue is not project-
+  // bound), resolved once, gated on correction rows being present so the shared
+  // drainer stays unchanged for every other event.
+  let backOfficeIds: string[] = [];
+  const correctionFlaggedRows = parsed.filter(
+    ({ row }) => row.event_type === "receipt_correction_flagged",
+  );
+  if (correctionFlaggedRows.length > 0) {
+    const { data: boUsers, error: boError } = await admin
+      .from("users")
+      .select("id, line_user_id, telegram_chat_id")
+      .in("role", [...BACK_OFFICE_ROLES]);
+    if (boError) {
+      console.error("[notifications/drain] back-office pool lookup failed", boError.message);
+      return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+    }
+    for (const u of boUsers ?? []) {
+      if (u.line_user_id) lineIdByUser.set(u.id, u.line_user_id);
+      if (u.telegram_chat_id) telegramChatByUser.set(u.id, u.telegram_chat_id);
+    }
+    backOfficeIds = (boUsers ?? []).map((u) => u.id);
+  }
+
   // --- Deliver --------------------------------------------------------------
 
   let sent = 0;
@@ -463,6 +487,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           ? (projectPmIdsByProject.get(payload.projectId) ?? [])
           : [],
         siteIssueRolePoolIds,
+        backOfficeIds,
       });
       // Spec 318 U3 — apply per-user mutes before contact mapping. A muted
       // recipient is an intentional drop; locked events bypass the filter.
