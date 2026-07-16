@@ -317,15 +317,16 @@ export async function decideUserBankChange(input: {
   return { ok: true };
 }
 
-// Spec 131 U2b — a ช่าง self-edits their own emergency contact + DOB from the
-// portal. The RPC is column-scoped to the four fields for the caller's own
-// contractor (no broad UPDATE policy). Emergency contact is not money — direct,
-// no staging.
+// Spec 131 U2b — a contractor self-edits their own emergency contact from the
+// portal. The RPC is column-scoped to the three emergency fields for the caller's
+// own contractor (no broad UPDATE policy). Emergency contact is not money —
+// direct, no staging. Spec 321 U6: DOB is no longer edited here — it moved to the
+// approved identity tier (submit_identity_change → trio), so the RPC dropped its
+// p_dob arg.
 export async function updateOwnEmergencyContact(input: {
   name: string;
   relation: string;
   phone: string;
-  dob: string;
 }): Promise<ActionResult> {
   const validation = validateEmergencyContact(input);
   if (validation) return { ok: false, error: validation };
@@ -337,7 +338,6 @@ export async function updateOwnEmergencyContact(input: {
     p_name: input.name.trim(),
     p_relation: input.relation.trim(),
     p_phone: input.phone.trim(),
-    ...(input.dob ? { p_dob: input.dob } : {}),
   });
   if (error) return { ok: false, error: GENERIC_BANK };
   revalidatePath("/portal");

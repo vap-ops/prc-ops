@@ -20,6 +20,7 @@ import { ProfileBankSection } from "@/components/features/profile/profile-bank-s
 import { PortalSelfEdit, type PortalConsent } from "@/components/features/portal/portal-self-edit";
 import { PortalDocuments } from "@/components/features/portal/portal-documents";
 import { ProfileContactSection } from "@/components/features/profile/profile-contact-section";
+import { IdentityChangeForm } from "@/components/features/profile/identity-change-form";
 import { loadPortalData } from "@/lib/portal/load-portal-data";
 import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { contractorPacketStatus, dcTypeOfSubtype, type DcPacket } from "@/lib/contacts/packet";
@@ -34,8 +35,15 @@ export default async function PortalPage() {
   // Spec 147 U4: one loader batches the RLS-self-scoped reads (was a serial
   // waterfall). Same queries/columns/results — only the scheduling changes.
   // (spec 131 U2c — own docs + bank-present feed the completeness checklist.)
-  const { profile, consentRows, crew, payments, pendingChange, bankPresent, docs } =
-    await loadPortalData(supabase);
+  // Spec 321 U6: the identity (DOB) pending flag runs alongside — owner-scoped by
+  // the identity_change_requests RLS policy.
+  const [
+    { profile, consentRows, crew, payments, pendingChange, bankPresent, docs },
+    { data: identityPending },
+  ] = await Promise.all([
+    loadPortalData(supabase),
+    supabase.from("identity_change_requests").select("id").eq("status", "pending").limit(1),
+  ]);
 
   const consentActive = (kind: "pdpa_data" | "background_check"): boolean =>
     (consentRows ?? []).some((c) => c.kind === kind && c.revoked_at === null);
@@ -123,6 +131,21 @@ export default async function PortalPage() {
           <div className="mb-6" />
         )}
 
+        {/* Identity — DOB is approval-gated (spec 321 U6): the current value is
+            read-only and the edit routes through the trio-approved change form
+            (was an instant input in the emergency card). */}
+        {profile?.id ? (
+          <>
+            <h2 className={SECTION_HEADING}>ข้อมูลตัวตน</h2>
+            <div className="mb-6 flex flex-col gap-3">
+              {profile.date_of_birth ? (
+                <dl className={CARD}>{detail("วันเกิด", formatThaiDate(profile.date_of_birth))}</dl>
+              ) : null}
+              <IdentityChangeForm hasPending={(identityPending?.length ?? 0) > 0} dobOnly />
+            </div>
+          </>
+        ) : null}
+
         {/* Self-service: emergency contact + PDPA/background-check consent */}
         {profile?.id ? (
           <PortalSelfEdit
@@ -131,7 +154,6 @@ export default async function PortalPage() {
               name: profile.emergency_contact_name ?? "",
               relation: profile.emergency_contact_relation ?? "",
               phone: profile.emergency_contact_phone ?? "",
-              dob: profile.date_of_birth ?? "",
             }}
             consents={(consentRows ?? []) as PortalConsent[]}
           />
