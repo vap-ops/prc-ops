@@ -1,3 +1,9 @@
+## [0.115.1](https://github.com/VAP-Solution/prc-ops/compare/v0.115.0...v0.115.1) (2026-07-16)
+
+### Bug Fixes
+
+- **photos:** send the real image mime on upload — iOS Safari octet-stream 400 (feedback 10a15ebe) ([#590](https://github.com/VAP-Solution/prc-ops/issues/590)) ([155f00f](https://github.com/VAP-Solution/prc-ops/commit/155f00fa7d06cf67784a0be902cbd39e65d05306))
+
 # [0.115.0](https://github.com/VAP-Solution/prc-ops/compare/v0.114.1...v0.115.0) (2026-07-16)
 
 ### Features
