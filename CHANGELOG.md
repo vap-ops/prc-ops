@@ -1,3 +1,9 @@
+## [0.108.2](https://github.com/VAP-Solution/prc-ops/compare/v0.108.1...v0.108.2) (2026-07-16)
+
+### Bug Fixes
+
+- **purchasing:** show order time, not just date, on ขอเมื่อ ([#575](https://github.com/VAP-Solution/prc-ops/issues/575)) ([0bbfac4](https://github.com/VAP-Solution/prc-ops/commit/0bbfac4c27799ab671f94ed7097744cd60af3e90))
+
 ## [0.108.1](https://github.com/VAP-Solution/prc-ops/compare/v0.108.0...v0.108.1) (2026-07-16)
 
 ### Bug Fixes
