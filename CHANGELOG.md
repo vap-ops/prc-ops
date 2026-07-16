@@ -1,3 +1,9 @@
+# [0.112.0](https://github.com/VAP-Solution/prc-ops/compare/v0.111.0...v0.112.0) (2026-07-16)
+
+### Features
+
+- **profile:** spec 321 U8a — login-keyed user_bank goes INSTANT (record_own_user_bank) ([#581](https://github.com/VAP-Solution/prc-ops/issues/581)) ([ddb7de4](https://github.com/VAP-Solution/prc-ops/commit/ddb7de4e044af955ce35eef72f99e7e84036ca9c))
+
 # [0.111.0](https://github.com/VAP-Solution/prc-ops/compare/v0.110.0...v0.111.0) (2026-07-16)
 
 ### Features
