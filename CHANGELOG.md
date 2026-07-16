@@ -1,3 +1,9 @@
+# [0.118.0](https://github.com/VAP-Solution/prc-ops/compare/v0.117.1...v0.118.0) (2026-07-16)
+
+### Features
+
+- **324:** receipt-correction schema (tables, enums, append-only ledger, notify plumbing) ([#598](https://github.com/VAP-Solution/prc-ops/issues/598)) ([f7adad7](https://github.com/VAP-Solution/prc-ops/commit/f7adad792fb1c15bc6d132701772f713a2d59e0b))
+
 ## [0.117.1](https://github.com/VAP-Solution/prc-ops/compare/v0.117.0...v0.117.1) (2026-07-16)
 
 ### Bug Fixes
