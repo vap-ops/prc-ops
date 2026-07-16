@@ -10,6 +10,7 @@
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { THAI_MONTHS } from "@/lib/work-packages/gantt-scale";
 import { ISO_DATE_REGEX } from "@/lib/dates";
+import { isValidUuid } from "@/lib/validate/uuid";
 
 /** Budget-strip cumulative floor — the earliest date the "ยอดสั่งซื้อสะสม"
  * (cumulative committed spend) window looks back to. Well before any real
@@ -269,7 +270,10 @@ export function parseReportQuery(
     group,
     from,
     to,
-    ...(sp.project ? { projectId: sp.project } : {}),
+    // A non-UUID ?project= (hand-typed) is treated as absent — the page/route
+    // feed projectId straight into purchase_report's uuid-typed p_project_id,
+    // and raw garbage would 500 the whole surface (the /expenses U4 posture).
+    ...(isValidUuid(sp.project) ? { projectId: sp.project } : {}),
   };
 }
 

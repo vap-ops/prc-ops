@@ -305,7 +305,12 @@ describe("parseReportQuery (the page + export route share this — no drift betw
   it("parses explicit valid params", () => {
     expect(
       parseReportQuery(
-        { preset: "year", bucket: "month", group: "supplier", project: "p1" },
+        {
+          preset: "year",
+          bucket: "month",
+          group: "supplier",
+          project: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        },
         today,
         false,
       ),
@@ -313,8 +318,18 @@ describe("parseReportQuery (the page + export route share this — no drift betw
       preset: "year",
       bucket: "month",
       group: "supplier",
-      projectId: "p1",
+      projectId: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
       from: "2026-01-01",
+      to: today,
+    });
+  });
+
+  it("drops a non-UUID project param — hand-typed garbage must never reach the uuid-typed RPC arg", () => {
+    expect(parseReportQuery({ project: "garbage" }, today, false)).toEqual({
+      preset: "month",
+      bucket: "day",
+      group: "none",
+      from: "2026-07-01",
       to: today,
     });
   });
