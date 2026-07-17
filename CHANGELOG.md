@@ -1,3 +1,9 @@
+## [0.126.4](https://github.com/VAP-Solution/prc-ops/compare/v0.126.3...v0.126.4) (2026-07-17)
+
+### Bug Fixes
+
+- **nav:** add ทีมงาน SA bottom tab — fixes /team phone-strand (spec 313 D2) ([#613](https://github.com/VAP-Solution/prc-ops/issues/613)) ([dbfd33d](https://github.com/VAP-Solution/prc-ops/commit/dbfd33d695591089b84b3657c0bc167afef65c1c))
+
 ## [0.126.3](https://github.com/VAP-Solution/prc-ops/compare/v0.126.2...v0.126.3) (2026-07-17)
 
 ### Bug Fixes
