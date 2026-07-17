@@ -10,11 +10,14 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
+import { ReceiptCorrectionPanel } from "@/components/features/store/receipt-correction-panel";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import {
   STORE_RECEIVE_LABEL,
   STORE_FIX_WRONG_ENTRY_LABEL,
   STOCK_COUNT_NOT_UNDO_HINT,
+  RECEIPT_CORRECTION_CORRECT_LABEL,
+  RECEIPT_CORRECTION_QUEUE_LABEL,
 } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { storeHref, storeItemHref } from "@/lib/nav/project-paths";
@@ -102,6 +105,8 @@ export function StoreManager({
   categories = [],
   suppliers,
   canIssue,
+  canCorrect = false,
+  correctionsHref = null,
   receipts,
   counts,
   hidePicker = false,
@@ -116,6 +121,12 @@ export function StoreManager({
   categories?: { id: string; name: string }[];
   suppliers: { id: string; name: string }[];
   canIssue: boolean;
+  // Spec 324 U5: back-office may correct an over-booked receipt DOWN to the true
+  // count (correct_stock_receipt). Gates the per-receipt "แก้จำนวนที่รับ" control +
+  // the link to the cross-project correction queue. Field roles (site_admin) get
+  // neither — they escalate via the SA flag (U6).
+  canCorrect?: boolean;
+  correctionsHref?: string | null;
   receipts: ReceiptRow[];
   // Spec 178 B3 — recent physical counts (the ประวัติการนับ history).
   counts: CountRow[];
@@ -147,6 +158,10 @@ export function StoreManager({
   function removeRow(i: number) {
     setRows((rs) => (rs.length <= 1 ? rs : rs.filter((_, idx) => idx !== i)));
   }
+
+  // Spec 324 U5 — the back-office direct-correct sheet, opened for a specific
+  // receipt row (trues its booked qty DOWN to the count that actually arrived).
+  const [correctRow, setCorrectRow] = useState<ReceiptRow | null>(null);
 
   // ตรวจนับ (physical count) sheet — opened for a specific on-hand row.
   const [countRow, setCountRow] = useState<StockRow | null>(null);
@@ -335,7 +350,19 @@ export function StoreManager({
               can กลับรายการ a wrong รับเข้า. */}
           {receipts.length > 0 ? (
             <div className="flex flex-col gap-2">
-              <h2 className="text-ink text-body font-semibold">รับเข้าล่าสุด</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-ink text-body font-semibold">รับเข้าล่าสุด</h2>
+                {/* Spec 324 U5: back-office link to the cross-project correction
+                    queue (SA-flagged over-counts awaiting a fix). */}
+                {canCorrect && correctionsHref ? (
+                  <Link
+                    href={correctionsHref}
+                    className="text-action text-meta font-medium underline"
+                  >
+                    {RECEIPT_CORRECTION_QUEUE_LABEL}
+                  </Link>
+                ) : null}
+              </div>
               <ul className="flex flex-col gap-2">
                 {receipts.map((rc) => (
                   <li
@@ -352,6 +379,18 @@ export function StoreManager({
                     <span className="text-ink text-body shrink-0 font-semibold">
                       {rc.qty} {rc.unit}
                     </span>
+                    {/* Spec 324 U5: back-office trues an over-booked receipt DOWN to
+                        the count that actually arrived (removes the surplus from
+                        on-hand + contra-s the GL). */}
+                    {canCorrect ? (
+                      <button
+                        type="button"
+                        onClick={() => setCorrectRow(rc)}
+                        className={`${BUTTON_SECONDARY} shrink-0`}
+                      >
+                        {RECEIPT_CORRECTION_CORRECT_LABEL}
+                      </button>
+                    ) : null}
                     <ConfirmActionButton
                       idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
                       pendingLabel="กำลังแก้ไข…"
@@ -649,6 +688,35 @@ export function StoreManager({
                 </button>
               </div>
             </form>
+          </BottomSheet>
+
+          {/* Spec 324 U5 — back-office direct-correct: true a receipt DOWN to the
+              count that actually arrived. Reuses the shared correction panel in
+              "direct" mode (reason required; the RPC enforces the fresh-pool gate
+              and shows the guide if the pool was already drawn). */}
+          <BottomSheet
+            open={correctRow !== null}
+            title={RECEIPT_CORRECTION_CORRECT_LABEL}
+            onClose={() => setCorrectRow(null)}
+          >
+            {correctRow ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-ink-secondary text-meta">
+                  <span className="text-ink font-semibold">
+                    {correctRow.baseItem}
+                    {correctRow.specAttrs ? ` · ${correctRow.specAttrs}` : ""}
+                  </span>{" "}
+                  — บันทึกรับไว้ {correctRow.qty} {correctRow.unit}
+                </p>
+                <ReceiptCorrectionPanel
+                  mode="direct"
+                  receiptId={correctRow.id}
+                  orderedQty={correctRow.qty}
+                  unit={correctRow.unit}
+                  onDone={() => setCorrectRow(null)}
+                />
+              </div>
+            ) : null}
           </BottomSheet>
         </>
       ) : (
