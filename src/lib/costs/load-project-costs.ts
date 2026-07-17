@@ -16,13 +16,20 @@ import {
   attributeRentalCost,
   buildWpCostRows,
   projectCostFamilies,
+  reworkMaterialExposure,
+  storeRoutedReworkTotal,
   type ProjectCostFamilies,
   type RentalCostAttribution,
   type WpCostRow,
   type WpLaborRow,
 } from "@/lib/costs/wp-cost-breakdown";
-import { sumStorePool } from "@/lib/dashboard/spend";
+import { sumStorePool, SPEND_STATUSES } from "@/lib/dashboard/spend";
 import { round2 } from "@/lib/format";
+
+// Spec 325 Phase 2 — the reason_code values that route to the ของเสีย/แก้ไข line
+// (waste). Operator decision 2026-07-18: breakage IN. `unplanned_miss` /
+// `scope_change` / `unforeseeable` are legitimate unforecast needs, NOT waste.
+const REWORK_REASON_CODES = ["rework", "breakage"] as const;
 
 type Db = SupabaseClient<Database>;
 
@@ -61,6 +68,7 @@ export async function loadProjectCosts(admin: Db, projectId: string): Promise<Pr
     allAllocRes,
     batchRes,
     settlementRes,
+    reworkPrRes,
   ] = await Promise.all([
     wpIds.length
       ? admin
@@ -73,7 +81,7 @@ export async function loadProjectCosts(admin: Db, projectId: string): Promise<Pr
     wpIds.length
       ? admin
           .from("purchase_requests")
-          .select("id, status, amount, work_package_id")
+          .select("id, status, amount, work_package_id, reason_code")
           .in("work_package_id", wpIds)
       : Promise.resolve({
           data: [] as {
@@ -81,16 +89,19 @@ export async function loadProjectCosts(admin: Db, projectId: string): Promise<Pr
             status: string;
             amount: number | null;
             work_package_id: string | null;
+            reason_code: string | null;
           }[],
         }),
     admin
       .from("stock_issues")
       .select("id, total_cost, work_package_id")
       .eq("project_id", projectId),
-    admin.from("stock_reversals").select("issue_id").not("issue_id", "is", null),
+    // Both issue-level (issue_id) and receipt-level (receipt_id, value_delta)
+    // reversals — the rework carve-out nets the latter (spec 325 Phase 2).
+    admin.from("stock_reversals").select("issue_id, receipt_id, value_delta"),
     admin
       .from("stock_receipts")
-      .select("purchase_request_id")
+      .select("id, purchase_request_id, total_cost")
       .eq("project_id", projectId)
       .not("purchase_request_id", "is", null),
     admin.from("stock_on_hand").select("total_value").eq("project_id", projectId),
@@ -128,6 +139,10 @@ export async function loadProjectCosts(admin: Db, projectId: string): Promise<Pr
             superseded_by: string | null;
           }[],
         }),
+    // Spec 325 Phase 2 — the PR ids carrying a rework/breakage cause. Ids only
+    // (not a money column); intersected with THIS project's receipts below, so
+    // only this project's rework spend is ever summed.
+    admin.from("purchase_requests").select("id").in("reason_code", REWORK_REASON_CODES),
   ]);
 
   const reversedIssueIds = new Set(
@@ -167,11 +182,55 @@ export async function loadProjectCosts(admin: Db, projectId: string): Promise<Pr
     projectId,
   });
 
+  // Spec 325 Phase 2 — the rework carve-out. Two disjoint atoms, both already
+  // inside the material total: store-routed rework = Σ this project's receipts
+  // whose PR carries a rework/breakage cause (the pool holds the receipt figure);
+  // direct rework = WP-bound, spend-status, non-store-routed rework/breakage PRs.
+  const reworkPrIds = new Set((reworkPrRes.data ?? []).map((r) => r.id));
+  // Receipt-level reversals (receipt_id set): Σ value_delta per receipt (≤ 0),
+  // netted so the rework atom tracks the same value stock_on_hand holds.
+  const receiptReversalNet = new Map<string, number>();
+  for (const rv of reversalsRes.data ?? []) {
+    if (rv.receipt_id == null) continue;
+    receiptReversalNet.set(
+      rv.receipt_id,
+      round2((receiptReversalNet.get(rv.receipt_id) ?? 0) + (rv.value_delta ?? 0)),
+    );
+  }
+  const storeRoutedReworkReceipts = storeRoutedReworkTotal(
+    (storeReceiptsRes.data ?? []).map((r) => ({
+      id: r.id,
+      purchaseRequestId: r.purchase_request_id,
+      totalCost: r.total_cost,
+    })),
+    reworkPrIds,
+    receiptReversalNet,
+  );
+  const directWpReworkPurchases = (prRes.data ?? [])
+    .filter(
+      (p) =>
+        p.reason_code != null &&
+        REWORK_REASON_CODES.includes(p.reason_code as (typeof REWORK_REASON_CODES)[number]) &&
+        SPEND_STATUSES.has(p.status) &&
+        !storedPrIds.has(p.id) &&
+        p.amount != null,
+    )
+    .reduce((s, p) => round2(s + (p.amount ?? 0)), 0);
+
+  const materialWpNet = rows.reduce((s, r) => round2(s + r.material.net), 0);
+  const storePool = sumStorePool(poolRes.data ?? []);
+  const reworkMaterial = reworkMaterialExposure({
+    storeRoutedReworkReceipts,
+    directWpReworkPurchases,
+    materialTotal: round2(materialWpNet + storePool),
+  });
+
   const families = projectCostFamilies({
-    materialWpNet: rows.reduce((s, r) => round2(s + r.material.net), 0),
-    storePool: sumStorePool(poolRes.data ?? []),
+    materialWpNet,
+    storePool,
     labourTotal: rows.reduce((s, r) => round2(s + r.labour), 0),
     equipmentAttributed: rental.attributed,
+    reworkMaterial,
   });
 
   return { rows, families, rental };

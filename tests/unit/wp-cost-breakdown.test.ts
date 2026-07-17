@@ -3,6 +3,8 @@ import {
   attributeRentalCost,
   buildWpCostRows,
   projectCostFamilies,
+  reworkMaterialExposure,
+  storeRoutedReworkTotal,
 } from "@/lib/costs/wp-cost-breakdown";
 
 // Spec 325 Phase 1 — per-WP material + labour composition over the EXISTING
@@ -239,6 +241,74 @@ describe("attributeRentalCost", () => {
   });
 });
 
+describe("storeRoutedReworkTotal", () => {
+  const receipts = [
+    { id: "r1", purchaseRequestId: "pA", totalCost: 900 }, // rework, not reversed
+    { id: "r2", purchaseRequestId: "pB", totalCost: 1500 }, // rework, fully reversed
+    { id: "r3", purchaseRequestId: "pC", totalCost: 700 }, // NOT rework
+    { id: "r4", purchaseRequestId: null, totalCost: 300 }, // no PR link
+    { id: "r5", purchaseRequestId: "pD", totalCost: 2000 }, // rework, partially reversed
+  ];
+  const reworkPrIds = new Set(["pA", "pB", "pD"]);
+
+  it("sums only rework receipts and nets receipt-level reversals to match the pool", () => {
+    // A reversed rework receipt leaves its positive stock_receipts row but its
+    // value has already left stock_on_hand (reverse_stock_receipt), so the
+    // carve-out must net the reversal or it over-states rework.
+    const reversalNet = new Map([
+      ["r2", -1500], // full reversal → nets to 0
+      ["r5", -800], // partial → 1200 remains
+    ]);
+    expect(storeRoutedReworkTotal(receipts, reworkPrIds, reversalNet)).toBe(2100); // 900 + 0 + 1200
+  });
+
+  it("with no reversals sums the plain rework receipt costs", () => {
+    expect(storeRoutedReworkTotal(receipts, reworkPrIds, new Map())).toBe(4400); // 900 + 1500 + 2000
+  });
+
+  it("clamps an over-reversed receipt at 0 (never negative)", () => {
+    expect(
+      storeRoutedReworkTotal(
+        [{ id: "r1", purchaseRequestId: "pA", totalCost: 900 }],
+        new Set(["pA"]),
+        new Map([["r1", -1000]]),
+      ),
+    ).toBe(0);
+  });
+});
+
+describe("reworkMaterialExposure", () => {
+  it("sums the store-routed rework receipts and direct WP rework purchases", () => {
+    // Spec 325 Phase 2: cause routed by reason_code IN (rework,breakage). The
+    // store-routed atom is the RECEIPT cost (the pool holds the receipt figure,
+    // not the PR amount); the direct atom is the WP-bound purchase amount.
+    expect(
+      reworkMaterialExposure({
+        storeRoutedReworkReceipts: 4331.79,
+        directWpReworkPurchases: 0,
+        materialTotal: 1_950_138.86,
+      }),
+    ).toBe(4331.79);
+    expect(
+      reworkMaterialExposure({
+        storeRoutedReworkReceipts: 100.005,
+        directWpReworkPurchases: 50,
+        materialTotal: 1000,
+      }),
+    ).toBe(150.01);
+  });
+
+  it("caps at material total so planned can never go negative (valuation edge)", () => {
+    expect(
+      reworkMaterialExposure({
+        storeRoutedReworkReceipts: 1200,
+        directWpReworkPurchases: 0,
+        materialTotal: 1000,
+      }),
+    ).toBe(1000);
+  });
+});
+
 describe("projectCostFamilies", () => {
   it("rolls material (WP-bound + store pool) vs execution (labour + equipment)", () => {
     const fam = projectCostFamilies({
@@ -250,9 +320,43 @@ describe("projectCostFamilies", () => {
     expect(fam.material.wpBound).toBe(1150.01);
     expect(fam.material.storePool).toBe(300);
     expect(fam.material.total).toBe(1450.01);
+    // No rework → planned == gross, rework line = 0.
+    expect(fam.material.planned).toBe(1450.01);
+    expect(fam.rework).toBe(0);
     expect(fam.execution.labour).toBe(900);
     expect(fam.execution.equipment).toBe(3000);
     expect(fam.execution.total).toBe(3900);
     expect(fam.grand).toBe(5350.01);
+  });
+
+  it("carves rework OUT of material as planned, leaving grand + invariant intact", () => {
+    const fam = projectCostFamilies({
+      materialWpNet: 1000,
+      storePool: 950,
+      labourTotal: 900,
+      equipmentAttributed: 100,
+      reworkMaterial: 300, // ⊆ material total (1950), reclassified out
+    });
+    expect(fam.material.total).toBe(1950); // GROSS unchanged
+    expect(fam.material.planned).toBe(1650); // gross − rework
+    expect(fam.rework).toBe(300);
+    expect(fam.execution.total).toBe(1000);
+    // Grand is the SAME as if rework were 0 (reclassification, not addition).
+    expect(fam.grand).toBe(2950); // gross material 1950 + execution 1000
+    // The view's three visible numbers reconcile to grand — no double-count.
+    expect(fam.material.planned + fam.execution.total + fam.rework).toBe(fam.grand);
+  });
+
+  it("caps rework at material total (never a negative planned)", () => {
+    const fam = projectCostFamilies({
+      materialWpNet: 500,
+      storePool: 0,
+      labourTotal: 0,
+      equipmentAttributed: 0,
+      reworkMaterial: 900, // exceeds material — capped
+    });
+    expect(fam.material.planned).toBe(0);
+    expect(fam.rework).toBe(500);
+    expect(fam.grand).toBe(500);
   });
 });

@@ -194,29 +194,100 @@ export function attributeRentalCost(input: RentalCostInput): RentalCostAttributi
   return { attributed: round2(attributed), multiProjectNet: round2(multiProjectNet) };
 }
 
+// Spec 325 Phase 2 — the ของเสีย/แก้ไข (rework/breakage) exposure figure. Cost is
+// routed by CAUSE (purchase_requests.reason_code IN ('rework','breakage')), which
+// survives to the store RECEIPT (stock_receipts.purchase_request_id) — so this is
+// a PROJECT-grain figure. The STORE-ROUTED atom is per-WP-unreachable: the
+// moving-average เบิก (stock_issues) that draws it to a WP carries no cause,
+// exactly the severing that put equipment at project grain (§2). (The direct
+// WP-bound atom below IS per-WP-attributable, but the rework LINE is kept at
+// project grain by operator decision so the two atoms report at one grain.) The
+// line is a RECLASSIFICATION carved OUT of the material family, never an addition
+// — both atoms already sit inside the material total (store-routed rework in the
+// pool via its receipt; direct WP rework in per-WP sumMaterials), so carving them
+// out leaves the grand total unchanged and cannot double-count.
+
+// The store-routed rework atom, netted for receipt-level reversals so it tracks
+// the SAME value stock_on_hand holds (reverse_stock_receipt decrements the pool
+// but leaves the positive stock_receipts row — summing receipts raw would
+// over-state rework and under-state planned). `receiptReversalNet` maps a receipt
+// id to Σ of its stock_reversals.value_delta (≤ 0). A receipt nets at ≥ 0.
+export function storeRoutedReworkTotal(
+  receipts: ReadonlyArray<{
+    id: string;
+    purchaseRequestId: string | null;
+    totalCost: number | null;
+  }>,
+  reworkPrIds: ReadonlySet<string>,
+  receiptReversalNet: ReadonlyMap<string, number>,
+): number {
+  let total = 0;
+  for (const r of receipts) {
+    if (r.purchaseRequestId == null || !reworkPrIds.has(r.purchaseRequestId)) continue;
+    const net = round2((r.totalCost ?? 0) + (receiptReversalNet.get(r.id) ?? 0));
+    total = round2(total + Math.max(0, net));
+  }
+  return total;
+}
+export function reworkMaterialExposure(input: {
+  /** Σ stock_receipts.total_cost for receipts whose PR carries a rework/breakage
+   *  reason_code — the store-routed rework already in the material pool (valued
+   *  at the receipt figure the pool holds, NOT the PR amount). */
+  storeRoutedReworkReceipts: number;
+  /** Σ amount for WP-bound, spend-status, NON-store-routed rework/breakage PRs —
+   *  direct rework already counted in per-WP sumMaterials. */
+  directWpReworkPurchases: number;
+  /** Gross project material total — the carve-out is capped here so the planned
+   *  remainder can never go negative on a valuation/rounding edge. */
+  materialTotal: number;
+}): number {
+  const raw = round2(input.storeRoutedReworkReceipts + input.directWpReworkPurchases);
+  return Math.min(raw, round2(input.materialTotal));
+}
+
 export interface ProjectCostFamilies {
-  material: { wpBound: number; storePool: number; total: number };
+  material: {
+    wpBound: number;
+    storePool: number;
+    /** Gross material (wpBound + storePool) — unchanged by the rework carve-out. */
+    total: number;
+    /** total − rework: the base-category figure that reads truthfully (§1.3 —
+     *  "the work was fine; the waste is the problem"). */
+    planned: number;
+  };
   execution: { labour: number; equipment: number; total: number };
+  /** The ของเสีย/แก้ไข exposure carved out of material (฿0 budget — any amount is
+   *  over). Project grain (spec 325 Phase 2). */
+  rework: number;
   grand: number;
 }
 
 /** The §2 two-family glance: ค่าวัสดุ (WP-bound net + paid stock still in the
- *  store) vs ค่าดำเนินการ (labour + equipment). Disjoint by the dashboard's
- *  no-double-count discipline, so `grand` is a true total. */
+ *  store) vs ค่าดำเนินการ (labour + equipment), plus the ของเสีย/แก้ไข exposure
+ *  line reclassified out of material. Disjoint by the dashboard's no-double-count
+ *  discipline, so `grand` (= gross material + execution) is a true total and
+ *  planned + execution + rework reconciles to it exactly. */
 export function projectCostFamilies(input: {
   materialWpNet: number;
   storePool: number;
   labourTotal: number;
   equipmentAttributed: number;
+  /** Spec 325 Phase 2 — the rework/breakage carve-out (reworkMaterialExposure);
+   *  0 (Phase-1 behaviour) when omitted. */
+  reworkMaterial?: number;
 }): ProjectCostFamilies {
   const wpBound = round2(input.materialWpNet);
   const storePool = round2(input.storePool);
   const labour = round2(input.labourTotal);
   const equipment = round2(input.equipmentAttributed);
   const materialTotal = round2(wpBound + storePool);
+  // Cap defensively (the loader already caps, but keep this pure fn self-safe).
+  const rework = round2(Math.min(input.reworkMaterial ?? 0, materialTotal));
+  const planned = round2(materialTotal - rework);
   const executionTotal = round2(labour + equipment);
   return {
-    material: { wpBound, storePool, total: materialTotal },
+    material: { wpBound, storePool, total: materialTotal, planned },
+    rework,
     execution: { labour, equipment, total: executionTotal },
     grand: round2(materialTotal + executionTotal),
   };

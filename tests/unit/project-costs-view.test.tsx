@@ -17,8 +17,19 @@ const wpRow = (over: Partial<WpCostRow> & { wpId: string; code: string }): WpCos
 });
 
 const families = {
-  material: { wpBound: 1150, storePool: 300, total: 1450 },
+  material: { wpBound: 1150, storePool: 300, total: 1450, planned: 1450 },
   execution: { labour: 900, equipment: 3000, total: 3900 },
+  rework: 0,
+  grand: 5350,
+};
+
+// Spec 325 Phase 2 — a project carrying a rework/breakage carve-out: material
+// gross 1450, of which 200 is rework → planned 1250; grand unchanged at 5350
+// (reclassification, not addition). planned 1250 + execution 3900 + rework 200.
+const familiesWithRework = {
+  material: { wpBound: 1150, storePool: 300, total: 1450, planned: 1250 },
+  execution: { labour: 900, equipment: 3000, total: 3900 },
+  rework: 200,
   grand: 5350,
 };
 
@@ -33,12 +44,45 @@ describe("ProjectCostsView", () => {
     );
     expect(screen.getByText("ค่าวัสดุ")).toBeInTheDocument();
     expect(screen.getByText("ค่าดำเนินการ")).toBeInTheDocument();
-    // family amounts
+    // family amounts (material headline = planned, == gross when no rework)
     expect(screen.getByText("฿1,450.00")).toBeInTheDocument();
     expect(screen.getByText("฿3,900.00")).toBeInTheDocument();
     // sub-lines: store pool under material, labour + equipment under execution
     expect(screen.getByText(/พักในคลังโครงการ/)).toBeInTheDocument();
     expect(screen.getByText(/ค่าเช่าอุปกรณ์/)).toBeInTheDocument();
+  });
+
+  describe("ของเสีย/แก้ไข rework line (spec 325 Phase 2)", () => {
+    it("shows the exposure line always, with ฿0 budget and a calm zero state", () => {
+      render(
+        <ProjectCostsView
+          rows={[]}
+          families={families}
+          rental={{ attributed: 3000, multiProjectNet: 0 }}
+        />,
+      );
+      expect(screen.getByText("ของเสีย/แก้ไข")).toBeInTheDocument();
+      // ฿0 budget indicator present regardless of amount.
+      expect(screen.getByText(/งบ ฿0/)).toBeInTheDocument();
+    });
+
+    it("carves rework out: material headline = planned, exposure line = rework, grand unchanged", () => {
+      render(
+        <ProjectCostsView
+          rows={[]}
+          families={familiesWithRework}
+          rental={{ attributed: 3000, multiProjectNet: 0 }}
+        />,
+      );
+      // material tile shows PLANNED (net of rework), not gross
+      expect(screen.getByText("฿1,250.00")).toBeInTheDocument();
+      // the exposure line shows the rework amount
+      expect(screen.getByText("฿200.00")).toBeInTheDocument();
+      // gross is disclosed so planned reconciles (gross − rework = planned)
+      expect(screen.getByText(/฿1,450\.00/)).toBeInTheDocument();
+      // grand is UNCHANGED by the carve-out (reclassification, not addition)
+      expect(screen.getByText("฿5,350.00")).toBeInTheDocument();
+    });
   });
 
   it("renders WP cards sorted by spend with material+labour lines and collapses zero-cost WPs", () => {

@@ -7683,3 +7683,28 @@ call included); per-WP material budget = Phase 3 (parked, no owner);
 labour per WP currently sparse until spec 306 U5 muster→labor_logs derive
 ships (money unit, operator-held) — the view discloses via the zero-cost
 collapse line.
+
+## Spec 325 — Phase 2 rework line (2026-07-18, operator "Go")
+
+Operator decisions (AskUserQuestion, after an adversarial finding reshaped the
+spec): **project grain · breakage IN**. The spec's §2 "per-WP rework" was an
+internal inconsistency — the moving-average เบิก severs purchase-cause exactly
+as it did for equipment (already project grain), so material rework follows to
+project grain. Cause survives via stock_receipts.purchase_request_id.
+
+- ของเสีย/แก้ไข line = a project-grain RECLASSIFICATION carved OUT of ค่าวัสดุ
+  (grand-total invariant preserved, no double-count), routed by reason_code IN
+  (rework,breakage). Two disjoint atoms, both already inside material.total:
+  store-routed rework receipts (netted for receipt-level reversals) + direct
+  WP-bound rework purchases. ฿0 budget (any amount reads as over).
+- Live: ฿4,331.79 (all breakage; the 4 rework-tagged PRs have ฿0 spend). Grand
+  unchanged. Verified: planned 1,945,807.07 + execution 163,614.91 + rework
+  4,331.79 = 2,113,753.77.
+- Verification: 4-lens adversarial workflow (double-count + tenant-scope SOUND;
+  2 MEDIUMs fixed — reversed-receipt netting + per-WP gross/planned caption) +
+  consolidated fresh-eyes clean.
+
+Open (deferred, NOT built): system-proposed/approver-confirmed cause flow (§3
+anticipation — a later unit; makes cause reliable on the direct channel) ·
+redo-labour (§1.2-gated) · per-WP rework display (needs เบิก-cause capture, the
+same bar equipment failed). Phase 3 budgets remain parked (no owner).
