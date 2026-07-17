@@ -42,6 +42,7 @@ import {
 } from "@/components/features/sa/add-technician-sheet";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
 import { musterHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { MUSTER_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: "ทีมงาน" };
@@ -329,7 +330,10 @@ export default async function TeamPage() {
           </Link>
         ) : null}
         {isCrew ? (
-          <CrewProgressRoster data={crewData} registrationsHref="/sa/registrations" />
+          <CrewProgressRoster
+            data={crewData}
+            registrationsHref={withBackFrom("/sa/registrations", "/team")}
+          />
         ) : null}
         {isCrew && siteBoard ? (
           <div className="flex flex-col gap-3">
@@ -359,7 +363,7 @@ export default async function TeamPage() {
         {isBackOffice ? (
           <div className="grid grid-cols-2 gap-3">
             <Link
-              href="/workers"
+              href={withBackFrom("/workers", "/team")}
               className="rounded-card border-edge bg-card shadow-card hover:bg-sunk flex min-h-11 items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold"
             >
               <HardHat aria-hidden className="size-4 shrink-0" />

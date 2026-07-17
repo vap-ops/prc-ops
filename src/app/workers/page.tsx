@@ -15,6 +15,7 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { safeBackHref } from "@/lib/nav/back-href";
 import {
   WorkerRosterManager,
   type ManagedWorker,
@@ -22,7 +23,15 @@ import {
 
 export const metadata = { title: "ทีมงาน" };
 
-export default async function WorkersPage() {
+// Nav-coherence audit 2026-07: multi-parent (settings hub · /team · /procurement
+// Resources tile) — the back chip resolves the ?from referrer, falling back to
+// /settings for a direct load.
+export default async function WorkersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const { from } = await searchParams;
   const ctx = await requireRole(WORKER_ROSTER_ROLES);
 
   // Admin client: this page needs day_rate, which authenticated cannot
@@ -83,7 +92,7 @@ export default async function WorkersPage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
+      <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="ตั้งค่า">
         <h1 className="text-title text-ink font-bold tracking-tight">รายชื่อทีมงานและค่าแรง</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>

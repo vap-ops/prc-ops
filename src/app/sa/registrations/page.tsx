@@ -13,6 +13,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -26,7 +27,14 @@ import { listRegistrationsWithBank } from "@/lib/register/admin-registration-ban
 
 export const metadata = { title: "คำขอสมัคร (ดูอย่างเดียว)" };
 
-export default async function SaStaffRegistrationsPage() {
+// Nav-coherence audit 2026-07: multi-parent (reached from /sa AND the /team hub) —
+// back chip resolves ?from, else /sa (site_admin's daily home).
+export default async function SaStaffRegistrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const { from } = await searchParams;
   const ctx = await requireRole(["site_admin"]);
   const supabase = await createClient();
 
@@ -55,7 +63,7 @@ export default async function SaStaffRegistrationsPage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/sa" backLabel="กลับไปหน้าหลัก">
+      <DetailHeader backHref={safeBackHref(from, "/sa")} backLabel="กลับไปหน้าหลัก">
         <h1 className="text-ink text-xl font-semibold tracking-tight">คำขอสมัคร (ดูอย่างเดียว)</h1>
       </DetailHeader>
 

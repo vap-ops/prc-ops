@@ -303,9 +303,36 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     "projects/[projectId]/work-packages/[workPackageId]/page.tsx",
     "requests/[requestId]/page.tsx",
     "requests/orders/[poId]/page.tsx",
+    // Nav-coherence audit 2026-07: reached from my-feedback-list AND the review
+    // kanban — already resolves safeBackHref, pinned here so the guard covers it
+    // (the audit flagged it as a COVERED-but-unpinned gap).
+    "feedback/[id]/page.tsx",
   ];
 
   it.each(MULTI_PARENT_DETAILS)("%s resolves its back chip via safeBackHref", (route) => {
+    expect(reads(join(APP, route))).toContain("safeBackHref");
+  });
+
+  // Nav-coherence audit 2026-07 (Decision 1): STATIC drill-down pages that spec
+  // 323 turned multi-parent — each is now reached from BOTH the /settings hub AND
+  // a /procurement STR tile (or /team), so a hardcoded backHref bounces a
+  // procurement/SA user OUT of the surface they arrived from. These must resolve
+  // their chip via safeBackHref(?from, fallback) — the same referrer-aware standard
+  // as the dynamic details above, extended to the static leaves the audit found.
+  // Scope = the two headline hubs (the /procurement STR tiles + /team). Follow-ups
+  // NOT yet in this list: /payroll + /expenses (money-route, danger-path PR);
+  // /nova/dials + /sa/plan (secondary workers→dials / project→plan bounces);
+  // /profile (its only wrong parent is the global avatar — needs page capture).
+  const STATIC_MULTI_PARENT = [
+    "workers/page.tsx",
+    "catalog/page.tsx",
+    "equipment/page.tsx",
+    "equipment/rentals/page.tsx",
+    "contacts/vendors/page.tsx",
+    "sa/registrations/page.tsx",
+  ];
+
+  it.each(STATIC_MULTI_PARENT)("%s resolves its back chip via safeBackHref", (route) => {
     expect(reads(join(APP, route))).toContain("safeBackHref");
   });
 });
