@@ -1,3 +1,9 @@
+## [0.126.1](https://github.com/VAP-Solution/prc-ops/compare/v0.126.0...v0.126.1) (2026-07-17)
+
+### Bug Fixes
+
+- **nav:** referrer-aware back chips on multi-parent settings-leaf pages ([#610](https://github.com/VAP-Solution/prc-ops/issues/610)) ([967e435](https://github.com/VAP-Solution/prc-ops/commit/967e435b430cdfe80a07ff1e84a3e47f900dec1e))
+
 # [0.126.0](https://github.com/VAP-Solution/prc-ops/compare/v0.125.0...v0.126.0) (2026-07-17)
 
 ### Features
