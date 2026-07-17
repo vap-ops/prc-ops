@@ -97,6 +97,8 @@ interface RequestsPageProps {
     overdue?: string | string[];
     // Spec 138 U3: the status-chip band filter (to_order | in_transit | ...).
     band?: string | string[];
+    // Feedback 26425c1e/17cba555: free-text product-name search.
+    q?: string | string[];
     // Spec 300 U1: the SA delivery lens over the incoming band (today | onroute | all).
     incoming?: string | string[];
   }>;
@@ -126,6 +128,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     status: statusParam,
     overdue: overdueParam,
     band: bandParam,
+    q: qParam,
     incoming: incomingParam,
   } = await searchParams;
 
@@ -147,6 +150,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
       bandParamValue !== null && PROCUREMENT_BAND_KEYS.has(bandParamValue)
         ? (bandParamValue as ProcurementBand)
         : null,
+    // Feedback 26425c1e/17cba555: product-name search text.
+    query: singleParam(qParam),
   };
 
   // Bare /requests is a PRIMARY TAB: like /review and /projects it carries the
@@ -271,7 +276,13 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   const filteredRequests = isProcurement
     ? myRequests.filter((r) =>
         matchesProcurementFilter(
-          { status: r.status, eta: r.eta, supplier: r.supplier, projectId: r.project_id },
+          {
+            status: r.status,
+            eta: r.eta,
+            supplier: r.supplier,
+            projectId: r.project_id,
+            itemName: r.item_description,
+          },
           filter,
           today,
         ),
@@ -282,7 +293,8 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     filter.projectId !== null ||
     filter.status !== null ||
     filter.band !== null ||
-    filter.overdue;
+    filter.overdue ||
+    (filter.query?.trim() ?? "") !== "";
   const procurementGroups = !isProcurement
     ? []
     : filter.status !== null

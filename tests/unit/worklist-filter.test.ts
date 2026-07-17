@@ -112,6 +112,50 @@ describe("matchesProcurementFilter", () => {
     expect(matchesProcurementFilter({ ...row, supplier: "SCG" }, f, TODAY)).toBe(false);
     expect(matchesProcurementFilter({ ...row, status: "on_route" }, f, TODAY)).toBe(false);
   });
+
+  // Feedback 26425c1e (procurement_manager) + 17cba555 (PD): a product-name
+  // search box on the worklist ("54-item list, zero search").
+  describe("product-name query", () => {
+    const named = { ...row, itemName: "ปูนซีเมนต์ ตรา TPI 50kg" };
+
+    it("substring-matches the item name, case-insensitive and trimmed", () => {
+      expect(matchesProcurementFilter(named, { ...NONE, query: "ปูน" }, TODAY)).toBe(true);
+      expect(matchesProcurementFilter(named, { ...NONE, query: "tpi" }, TODAY)).toBe(true);
+      expect(matchesProcurementFilter(named, { ...NONE, query: "  ซีเมนต์  " }, TODAY)).toBe(true);
+      expect(matchesProcurementFilter(named, { ...NONE, query: "เหล็ก" }, TODAY)).toBe(false);
+    });
+
+    it("excludes a row with no item name once a query is set", () => {
+      expect(
+        matchesProcurementFilter({ ...named, itemName: null }, { ...NONE, query: "ปูน" }, TODAY),
+      ).toBe(false);
+    });
+
+    it("a blank/whitespace query matches everything (treated as no filter)", () => {
+      expect(matchesProcurementFilter(named, { ...NONE, query: "   " }, TODAY)).toBe(true);
+      expect(
+        matchesProcurementFilter({ ...named, itemName: null }, { ...NONE, query: "" }, TODAY),
+      ).toBe(true);
+    });
+
+    it("AND-composes with the other axes", () => {
+      expect(
+        matchesProcurementFilter(named, { ...NONE, query: "ปูน", supplier: "SCG" }, TODAY),
+      ).toBe(false);
+    });
+  });
+});
+
+describe("buildWorklistQuery — product-name query", () => {
+  it("serializes a non-blank query as ?q= and drops a blank one", () => {
+    expect(buildWorklistQuery({ ...NONE, query: "ปูน" })).toBe(
+      "/requests?" + new URLSearchParams({ q: "ปูน" }).toString(),
+    );
+    expect(buildWorklistQuery({ ...NONE, query: "   " })).toBe("/requests");
+    expect(buildWorklistQuery({ ...NONE, supplier: "TPI", query: "ปูน" })).toBe(
+      "/requests?" + new URLSearchParams({ supplier: "TPI", q: "ปูน" }).toString(),
+    );
+  });
 });
 
 describe("sortByPriority", () => {

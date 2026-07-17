@@ -532,6 +532,10 @@ export const LABOR_BUDGET_UNSET_LABEL = "ยังไม่ได้ตั้ง
 // aria-label, page title, procurement hub door (U3).
 export const PROJECT_COSTS_LABEL = "ต้นทุนโครงการ";
 
+// Feedback 26425c1e/17cba555 — the procurement worklist product-name search.
+export const PRODUCT_SEARCH_LABEL = "ค้นหาสินค้า";
+export const PRODUCT_SEARCH_PLACEHOLDER = "ชื่อสินค้า…";
+
 // Spec 325 Phase 2 — the ของเสีย/แก้ไข (breakage + rework) exposure line: cost
 // routed by cause, carved out of ค่าวัสดุ, budgeted ฿0 (any amount reads as over
 // — accountability by exposure, not burial). Project grain.
