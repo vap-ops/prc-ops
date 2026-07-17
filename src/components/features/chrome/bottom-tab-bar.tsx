@@ -30,6 +30,7 @@ import {
   Settings,
   ShoppingCart,
   UserPlus,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -95,12 +96,17 @@ const REGISTRATIONS_TAB: TabItem = {
 
 // Spec 192 U4: the SA lands on the daily home (/sa, หน้าหลัก). ภาพรวม (the
 // money-free portfolio overview) is dropped from the SA bar — the daily home
-// supersedes it as the SA's at-a-glance surface — keeping the bar to four tabs.
+// supersedes it as the SA's at-a-glance surface.
 export const SA_TABS: ReadonlyArray<TabItem> = [
   { label: "หน้าหลัก", href: "/sa", icon: Home },
   // Spec 82 Unit 3: the project hub folded to the content-named /projects;
   // the tab points straight at it (and lights on every /projects/* screen).
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
+  // Spec 313 D2 (nav-coherence audit 2026-07): the /team people hub was reachable
+  // only from a home tile, so on a phone it lit no tab and showed no back chip —
+  // a dead end. Its own tab fixes that strand (and lights on /team/*, incl.
+  // /team/badges). Position 3 = the spec-313 people-before-purchasing order.
+  { label: "ทีมงาน", href: "/team", icon: Users },
   { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
   SETTINGS_TAB,
 ];
