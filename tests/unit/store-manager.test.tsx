@@ -32,7 +32,11 @@ import {
   type ReceiptRow,
   type CountRow,
 } from "@/components/features/store/store-manager";
-import { STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
+import {
+  STORE_FIX_WRONG_ENTRY_LABEL,
+  RECEIPT_FLAG_LABEL,
+  RECEIPT_CORRECTION_PENDING_LABEL,
+} from "@/lib/i18n/labels";
 
 const projects = [
   { id: "p1", code: "PRC-2026-001", name: "บ้านคุณเอ" },
@@ -72,7 +76,15 @@ const onHand: StockRow[] = [
 ];
 
 const receipts: ReceiptRow[] = [
-  { id: "rc1", baseItem: "ปูนซีเมนต์", specAttrs: null, unit: "ถุง", qty: 50, unitCost: 130 },
+  {
+    id: "rc1",
+    baseItem: "ปูนซีเมนต์",
+    specAttrs: null,
+    unit: "ถุง",
+    qty: 50,
+    unitCost: 130,
+    purchaseRequestId: "pr1",
+  },
 ];
 
 beforeEach(() => {
@@ -88,6 +100,9 @@ function renderManager(opts: {
   selectedProjectId?: string | null;
   onHand?: StockRow[];
   canIssue?: boolean;
+  canCorrect?: boolean;
+  canFlag?: boolean;
+  flaggedReceiptIds?: string[];
   receipts?: ReceiptRow[];
   counts?: CountRow[];
 }) {
@@ -100,6 +115,9 @@ function renderManager(opts: {
       categories={categories}
       suppliers={suppliers}
       canIssue={opts.canIssue ?? false}
+      canCorrect={opts.canCorrect ?? false}
+      canFlag={opts.canFlag ?? false}
+      flaggedReceiptIds={opts.flaggedReceiptIds ?? []}
       receipts={opts.receipts ?? []}
       counts={opts.counts ?? []}
     />,
@@ -247,16 +265,49 @@ describe("StoreManager ตรวจนับ/count (spec 177 U10)", () => {
   });
 });
 
-describe("StoreManager แก้รายการที่บันทึกผิด/reversal (spec 177 U12)", () => {
-  it("lists recent รับเข้า with a แก้รายการที่บันทึกผิด control (any /store user)", () => {
-    renderManager({ canIssue: false, receipts });
+// Spec 324 U6 — the reverse control (BACK_OFFICE-gated RPC) no longer renders to
+// every /store user (the dead-button bug: an SA saw it and the RPC 42501'd). It is
+// gated to back-office (canCorrect); the on-site SA gets a รายงานว่าบันทึกผิด flag
+// instead. A receipt with a pending flag shows ⚠ รอแก้ไข and hides the flag CTA.
+describe("StoreManager receipt controls (spec 324 U6 — reverse gated to BO, SA flags)", () => {
+  it("shows the reverse control to back-office (canCorrect)", () => {
+    renderManager({ canCorrect: true, receipts });
     expect(screen.getByText("ปูนซีเมนต์")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: STORE_FIX_WRONG_ENTRY_LABEL })).toBeInTheDocument();
   });
 
-  it("reverses a receipt after confirm", async () => {
-    renderManager({ canIssue: false, receipts });
-    fireEvent.click(screen.getByRole("button", { name: "แก้รายการที่บันทึกผิด" }));
+  it("hides the reverse control from a non-back-office user (the dead-button fix)", () => {
+    renderManager({ canFlag: true, receipts });
+    expect(screen.queryByRole("button", { name: STORE_FIX_WRONG_ENTRY_LABEL })).toBeNull();
+  });
+
+  it("offers the SA a รายงานว่าบันทึกผิด flag control instead", () => {
+    renderManager({ canFlag: true, receipts });
+    expect(screen.getByRole("button", { name: RECEIPT_FLAG_LABEL })).toBeInTheDocument();
+  });
+
+  it("does not offer the flag control to back-office (they correct directly)", () => {
+    renderManager({ canCorrect: true, receipts });
+    expect(screen.queryByRole("button", { name: RECEIPT_FLAG_LABEL })).toBeNull();
+  });
+
+  it("hides the flag control when the receipt has no purchase request (manual receipt)", () => {
+    renderManager({
+      canFlag: true,
+      receipts: [{ ...receipts[0]!, purchaseRequestId: null }],
+    });
+    expect(screen.queryByRole("button", { name: RECEIPT_FLAG_LABEL })).toBeNull();
+  });
+
+  it("marks a flagged receipt ⚠ รอแก้ไข and hides its flag CTA (one open flag)", () => {
+    renderManager({ canFlag: true, receipts, flaggedReceiptIds: ["rc1"] });
+    expect(screen.getByText(RECEIPT_CORRECTION_PENDING_LABEL)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: RECEIPT_FLAG_LABEL })).toBeNull();
+  });
+
+  it("reverses a receipt after confirm (back-office)", async () => {
+    renderManager({ canCorrect: true, receipts });
+    fireEvent.click(screen.getByRole("button", { name: STORE_FIX_WRONG_ENTRY_LABEL }));
     // ConfirmActionButton opens the dialog; confirm with the ยืนยัน button.
     fireEvent.click(screen.getByRole("button", { name: "ยืนยัน" }));
     await waitFor(() => expect(mockRevReceipt).toHaveBeenCalledWith({ receiptId: "rc1" }));

@@ -114,7 +114,9 @@ export default async function ProjectStorePage({ params }: PageProps) {
     supabase.from("suppliers").select("id, name").order("name", { ascending: true }),
     supabase
       .from("stock_receipts")
-      .select("id, qty, unit, unit_cost, catalog_items ( base_item, spec_attrs )")
+      .select(
+        "id, qty, unit, unit_cost, purchase_request_id, catalog_items ( base_item, spec_attrs )",
+      )
       .eq("project_id", project.id)
       .order("received_at", { ascending: false })
       .limit(10),
@@ -172,6 +174,7 @@ export default async function ProjectStorePage({ params }: PageProps) {
     unit: r.unit,
     qty: Number(r.qty),
     unitCost: Number(r.unit_cost),
+    purchaseRequestId: r.purchase_request_id,
   }));
 
   const counts: CountRow[] = (countRows ?? []).map((r) => ({
@@ -183,11 +186,14 @@ export default async function ProjectStorePage({ params }: PageProps) {
     variance: Number(r.variance),
   }));
 
-  // Second batch: the divert set (needs the delivered-PR ids) and the P&L item
-  // names (needs the P&L rows) — independent of each other.
+  // Second batch: the divert set (needs the delivered-PR ids), the P&L item
+  // names (needs the P&L rows), and the pending receipt-correction flags for the
+  // shown receipts (spec 324 U6 — the ⚠ รอแก้ไข badge + hide an already-flagged
+  // receipt's flag CTA). All independent of each other.
   const prIds = (prRows ?? []).map((r) => r.id);
   const pnlItemIds = (pnl ?? []).map((r) => r.catalog_item_id);
-  const [{ data: srRows }, { data: nameRows }] = await Promise.all([
+  const receiptIds = receipts.map((r) => r.id);
+  const [{ data: srRows }, { data: nameRows }, { data: flagRows }] = await Promise.all([
     prIds.length > 0
       ? supabase
           .from("stock_receipts")
@@ -197,7 +203,18 @@ export default async function ProjectStorePage({ params }: PageProps) {
     pnlItemIds.length > 0
       ? supabase.from("catalog_items").select("id, base_item, spec_attrs").in("id", pnlItemIds)
       : Promise.resolve({ data: null }),
+    receiptIds.length > 0
+      ? supabase
+          .from("receipt_correction_requests")
+          .select("receipt_id")
+          .eq("status", "pending")
+          .in("receipt_id", receiptIds)
+      : Promise.resolve({ data: null }),
   ]);
+  const flaggedReceiptIds = (flagRows ?? []).map((f) => f.receipt_id);
+  // Spec 324 U6: the on-site SA (a WP_DETAIL role that is NOT back-office —
+  // site_admin here) escalates via a flag; back-office corrects/reverses directly.
+  const canFlag = !canCorrect;
 
   let divertLines: DivertLine[] = [];
   if (canIssue) {
@@ -249,7 +266,9 @@ export default async function ProjectStorePage({ params }: PageProps) {
           suppliers={suppliers}
           canIssue={canIssue}
           canCorrect={canCorrect}
+          canFlag={canFlag}
           correctionsHref="/store/corrections"
+          flaggedReceiptIds={flaggedReceiptIds}
           receipts={receipts}
           counts={counts}
           emptyStateSupplyPlanHref={canPlanSupply ? supplyPlanHref(project.id) : null}
