@@ -39,7 +39,15 @@ the repo root.
 4. **The draft is shown to the reporter as `ผู้ช่วย AI`** (transparent that it's AI). Write in
    the reporter's language — these users are Thai, so **draft in Thai** unless the report is in
    another language. Be brief, concrete, kind. One ask at a time (see CLAUDE.md).
-5. **Never double-draft.** Skip any report that already has a pending draft.
+5. **Never double-draft — check the DRAFTS table, not the messages table.** Reply drafts
+   live in `public.feedback_message_drafts`, a SEPARATE table from `public.feedback_messages`
+   (which holds only PUBLISHED messages — a pending draft has NO row there). So the
+   "a reply already exists" check against `feedback_messages` does NOT catch an existing
+   draft. Before staging a draft you MUST query `feedback_message_drafts` for that
+   `feedback_id` and, if one exists, UPDATE it or SKIP — never add a second draft to the same
+   thread. Skipping this is why the 2026-07-17 run re-staged 4 duplicate drafts
+   (feedback c467c25c / 41cd07d9 / f2bb8803 / 03f077bc) that had to be deleted. See the
+   draft de-dup guard in Step 3.
 
 ## Step 1 — pull the queue
 
@@ -104,13 +112,44 @@ pnpm exec supabase db query --linked --file /tmp/reply.sql
 ```
 
 **Flag** — stage for the operator (`draft_feedback_message` works under service-role; born pending,
-invisible to the reporter until the operator publishes):
+invisible to the reporter until the operator publishes).
+
+**DRAFT DE-DUPLICATION GUARD (mandatory — the daily run re-pulls the same `in_progress`
+feedback every pass, so without this it re-stages a duplicate draft for every
+already-drafted thread and the operator's publish queue piles up with dupes; observed
+2026-07-17, 4 dupes deleted).** Reply drafts are stored in `public.feedback_message_drafts`,
+a table SEPARATE from `public.feedback_messages` (a draft has NO row in `feedback_messages`),
+so the auto-publish re-query above does NOT catch an existing draft. Immediately before
+calling `draft_feedback_message`, count existing drafts for this thread:
+
+```bash
+pnpm exec supabase db query --linked "select count(*) from public.feedback_message_drafts where feedback_id = '<FEEDBACK_ID>';"
+```
+
+If the count is `> 0` a draft already exists for this feedback — do NOT add a second one.
+Either **SKIP** (leave the existing draft for the operator), or **UPDATE** the existing draft
+in place if you have a better body:
+
+```bash
+pnpm exec supabase db query --linked "update public.feedback_message_drafts set body = '<thai body>' where feedback_id = '<FEEDBACK_ID>';"
+```
+
+Only when the count is `0` do you insert a fresh draft:
 
 ```bash
 cat > /tmp/draft.sql <<'SQL'
 select public.draft_feedback_message('<FEEDBACK_ID>', '<thai body>');
 SQL
 pnpm exec supabase db query --linked --file /tmp/draft.sql
+```
+
+**Removing a stray draft.** `discard_feedback_draft(p_draft_id)` is `super_admin`-gated and
+raises `42501` under the service-role `db query` connection (same class as
+`set_feedback_status` / `publish_feedback_draft`). Drafts are a working table, NOT append-only,
+so delete a stray draft directly:
+
+```bash
+pnpm exec supabase db query --linked "delete from public.feedback_message_drafts where id = '<DRAFT_ID>';"
 ```
 
 One reply per report per pass. **`feedback_messages` is APPEND-ONLY — a posted reply CANNOT be

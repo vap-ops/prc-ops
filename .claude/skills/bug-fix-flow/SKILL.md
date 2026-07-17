@@ -50,6 +50,12 @@ draft). Read it for the per-step commands. Run everything from the repo root wit
    **Auto-publish is irreversible** (`feedback_messages` is append-only) and the operator may
    publish in-app at the same time — so re-query the thread immediately before posting and SKIP if
    a reply already exists, else you double-post (it happened on the inaugural run).
+   **Before STAGING a draft, run the draft de-dup guard** ([[triage-feedback]] §3): the daily run
+   re-pulls the same `in_progress` feedback every pass, and drafts live in the SEPARATE
+   `public.feedback_message_drafts` table (a draft has NO row in `feedback_messages`), so the
+   reply-exists check above does NOT catch an existing draft — `select count(*) from
+public.feedback_message_drafts where feedback_id = '<id>'` first, and UPDATE or SKIP if one
+   exists (never a second draft per thread; 4 dupes had to be deleted on 2026-07-17).
 4. **Complete** 🤖 — status → `done` once the fix is shipped (+ reply handled per the tier).
    A report you CANNOT auto-complete (product/UX judgment — see § flag) stays `in_progress`
    **and must be flagged**; `done` is only for a shipped fix. `in_progress` + a digest 🔔 entry =
