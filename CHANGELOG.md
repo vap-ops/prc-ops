@@ -1,3 +1,9 @@
+# [0.124.0](https://github.com/VAP-Solution/prc-ops/compare/v0.123.0...v0.124.0) (2026-07-17)
+
+### Features
+
+- **324:** back-office receipt-correction queue + correct panel (U5) ([#605](https://github.com/VAP-Solution/prc-ops/issues/605)) ([caab781](https://github.com/VAP-Solution/prc-ops/commit/caab781b9cc3f29371f69f370cf9de912e6b2f24))
+
 # [0.123.0](https://github.com/VAP-Solution/prc-ops/compare/v0.122.0...v0.123.0) (2026-07-17)
 
 ### Features
