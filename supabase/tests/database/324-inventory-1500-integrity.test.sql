@@ -17,7 +17,7 @@ select plan(3);
 -- A. The scheduled registry now carries an implemented inventory_1500 money check.
 select is(
   (select count(*)::int from public._integrity_check_results()
-     where key = 'inventory_1500' and domain = 'money' and implemented),
+     where key in ('inventory_1500') and domain = 'money' and implemented),
   1, 'scheduled registry has an implemented inventory_1500 money check');
 
 -- B. Inject drift: on-hand gains value with NO matching GL 1500 posting (and no
@@ -40,10 +40,10 @@ insert into public.stock_on_hand (project_id, catalog_item_id, qty_on_hand, tota
   ('aa000000-0000-0000-0000-000000000324', 'ee000000-0000-0000-0000-000000000324', 5, 9999);
 
 select is(
-  (select status from public._integrity_check_results() where key = 'inventory_1500'),
+  (select status from public._integrity_check_results() where key in ('inventory_1500')),
   'red', 'inventory_1500 reds when on-hand gains value with no GL 1500 posting');
 select ok(
-  (select drift from public._integrity_check_results() where key = 'inventory_1500') <> 0,
+  (select drift from public._integrity_check_results() where key in ('inventory_1500')) <> 0,
   'drift is non-zero under the injected divergence');
 
 select * from finish();
