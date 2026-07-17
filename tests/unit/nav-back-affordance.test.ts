@@ -319,10 +319,14 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
   // procurement/SA user OUT of the surface they arrived from. These must resolve
   // their chip via safeBackHref(?from, fallback) — the same referrer-aware standard
   // as the dynamic details above, extended to the static leaves the audit found.
-  // Scope = the two headline hubs (the /procurement STR tiles + /team). Follow-ups
-  // NOT yet in this list: /payroll + /expenses (money-route, danger-path PR);
-  // /nova/dials + /sa/plan (secondary workers→dials / project→plan bounces);
-  // /profile (its only wrong parent is the global avatar — needs page capture).
+  // Scope = the two headline hubs (the /procurement STR tiles + /team) plus the
+  // /expenses money page. Follow-ups NOT yet in this list:
+  //  - /payroll: its ?from param is ALREADY the period-range start date
+  //    (parsePayrollRange(from, to, …), spec 309/311), so it collides with the
+  //    referrer-aware ?from — it needs a period-param rename before adopting the
+  //    standard; deferred as a separate decision;
+  //  - /nova/dials + /sa/plan (secondary workers→dials / project→plan bounces);
+  //  - /profile (its only wrong parent is the global avatar — needs page capture).
   const STATIC_MULTI_PARENT = [
     "workers/page.tsx",
     "catalog/page.tsx",
@@ -330,6 +334,9 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     "equipment/rentals/page.tsx",
     "contacts/vendors/page.tsx",
     "sa/registrations/page.tsx",
+    // Money-route (danger-path). Reached from the /procurement Resources tile AND
+    // the /settings hub; the STR door already threads ?from (PR #610).
+    "expenses/page.tsx",
   ];
 
   it.each(STATIC_MULTI_PARENT)("%s resolves its back chip via safeBackHref", (route) => {

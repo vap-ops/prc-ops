@@ -5,6 +5,7 @@
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PageShell } from "@/components/features/chrome/page-shell";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { ProjectLens } from "@/components/features/common/project-lens";
 import { AddExpenseFab } from "@/components/features/expenses/add-expense-fab";
 import { ExpenseList } from "@/components/features/expenses/expense-list";
@@ -28,7 +29,9 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 export const metadata = { title: OFFICE_EXPENSE_NAV_LABEL };
 
 interface ExpensesPageProps {
-  searchParams: Promise<{ project?: string | string[] }>;
+  // Nav-coherence audit 2026-07: `from` = the referrer-aware back chip (multi-parent
+  // — reached from the /settings hub AND the /procurement Resources tile).
+  searchParams: Promise<{ project?: string | string[]; from?: string }>;
 }
 
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
@@ -39,7 +42,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   // Spec 323 U4: the universal project lens (?project=). Non-UUID garbage is
   // treated as unfiltered rather than passed to a uuid-typed DB predicate; a
   // well-formed unknown id simply matches nothing (the /requests posture).
-  const { project } = await searchParams;
+  const { project, from } = await searchParams;
   const projectParam = Array.isArray(project) ? project[0] : project;
   const projectId = projectParam && UUID_REGEX.test(projectParam) ? projectParam : undefined;
 
@@ -55,7 +58,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/settings" backLabel="กลับไปตั้งค่า">
+      <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="กลับไปตั้งค่า">
         <h1 className="text-ink text-lg font-semibold">{OFFICE_EXPENSE_NAV_LABEL}</h1>
       </DetailHeader>
 
