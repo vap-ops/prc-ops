@@ -1,3 +1,9 @@
+# [0.123.0](https://github.com/VAP-Solution/prc-ops/compare/v0.122.0...v0.123.0) (2026-07-17)
+
+### Features
+
+- **reports:** itemized purchase-line CSV export (FB-4620) ([#603](https://github.com/VAP-Solution/prc-ops/issues/603)) ([be4c95e](https://github.com/VAP-Solution/prc-ops/commit/be4c95e965e07579b0fe0c0881c7b30292f3a173))
+
 # [0.122.0](https://github.com/VAP-Solution/prc-ops/compare/v0.121.0...v0.122.0) (2026-07-16)
 
 ### Features
