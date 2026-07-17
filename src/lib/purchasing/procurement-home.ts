@@ -65,6 +65,18 @@ export function buildProcurementProjectStatus(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// The status-strip row's tap target. The row shows a project's open ขอซื้อ +
+// arrivals-today counts, so the tap goes WHERE THE COUNTS POINT — the จัดซื้อ
+// list scoped to that project. It used to re-scope the hub's own ?project=
+// filter, which is invisible for a single-project user (nav-coherence feedback
+// 2026-07-17, zeeparn); scoping is the lens chips' job. Deliberately NO ?from=
+// referrer: /requests is a TAB page (procurement's จัดซื้อ spine tab) — it
+// renders no back chip by the tab grammar, so the param would be inert; the way
+// back to the hub is the หน้าหลัก tab.
+export function procurementStripHref(projectId: string): string {
+  return `/requests?project=${projectId}`;
+}
+
 // 🌐 shared = one copy across all projects (no lens); 🔀 spanning = default all,
 // filterable to one (carries ?project=). Spec 323 §3.
 export type DoorScope = "shared" | "spanning";
