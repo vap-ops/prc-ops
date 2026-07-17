@@ -13,7 +13,12 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
-import { SITE_STAFF_ROLES, SUPPLY_PLAN_ROLES, WP_DETAIL_ROLES } from "@/lib/auth/role-home";
+import {
+  BACK_OFFICE_ROLES,
+  SITE_STAFF_ROLES,
+  SUPPLY_PLAN_ROLES,
+  WP_DETAIL_ROLES,
+} from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -60,6 +65,10 @@ export default async function ProjectStorePage({ params }: PageProps) {
   // เบิก (issue-out) follows the issue_stock RPC gate (SITE_STAFF): site_admin +
   // the PM tier issue; procurement reaches the page (WP_DETAIL_ROLES) read-only.
   const canIssue = SITE_STAFF_ROLES.includes(ctx.role);
+  // Spec 324 U5: back-office (the correct_stock_receipt gate) may true an
+  // over-booked receipt DOWN to the count that arrived + reach the correction
+  // queue. site_admin (the field storekeeper) gets neither — it escalates (U6).
+  const canCorrect = BACK_OFFICE_ROLES.includes(ctx.role);
   // Store P&L (the margin view) is super_admin / project_director — the store_pnl
   // RPC's money gate (mirrors wp_profit). Procurement/PM/SA never see it.
   const canSeePnl = ctx.role === "super_admin" || ctx.role === "project_director";
@@ -239,6 +248,8 @@ export default async function ProjectStorePage({ params }: PageProps) {
           categories={categories.map((c) => ({ id: c.id, name: c.name }))}
           suppliers={suppliers}
           canIssue={canIssue}
+          canCorrect={canCorrect}
+          correctionsHref="/store/corrections"
           receipts={receipts}
           counts={counts}
           emptyStateSupplyPlanHref={canPlanSupply ? supplyPlanHref(project.id) : null}

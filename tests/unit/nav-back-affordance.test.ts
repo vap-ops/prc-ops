@@ -165,6 +165,10 @@ const STATIC_DETAIL = [
   "sa/plan",
   // Spec 299: the SA help hub (คู่มือ) drills down from /sa (back chip → /sa).
   "sa/help",
+  // Spec 324 U5: the back-office receipt-correction queue drills down from the
+  // projects hub (back chip → /projects); the legacy top-level /store is a thin
+  // redirect (EXCLUDED below), but this sub-route is a real DetailHeader page.
+  "store/corrections",
   // Spec 313 U1: the printable QR badge sheet moved with its /team parent
   // (back chip → /team). Its former /sa/crew/badges route is now a thin redirect
   // (EXCLUDED below).

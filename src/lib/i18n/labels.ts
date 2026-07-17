@@ -414,6 +414,30 @@ export const STORE_ISSUE_LABEL = "เบิกออก";
 export const STORE_FIX_WRONG_ENTRY_LABEL = "แก้รายการที่บันทึกผิด";
 export const STORE_RETURN_TO_STORE_LABEL = "คืนเข้าคลัง";
 
+// Spec 324 — receipt-miscount correction (an over-accepted store delivery trued
+// DOWN to what actually arrived). Back-office (U5) corrects; the on-site SA (U6)
+// escalates via a flag. Single-sourced so the queue, the correct panel, and the
+// receipt-row controls stay in step.
+export const RECEIPT_CORRECTION_QUEUE_LABEL = "รายการรอแก้ไขจำนวนรับ";
+export const RECEIPT_CORRECTION_CORRECT_LABEL = "แก้จำนวนที่รับ"; // BO direct-correct control on a receipt row
+export const RECEIPT_CORRECTION_APPROVE_LABEL = "อนุมัติแก้ไข"; // decide → apply the SA flag
+export const RECEIPT_CORRECTION_REJECT_LABEL = "ปฏิเสธ";
+export const RECEIPT_CORRECTION_CONFIRM_REJECT_LABEL = "ยืนยันปฏิเสธ";
+export const RECEIPT_CORRECTION_SAVE_LABEL = "บันทึกแก้ไข"; // direct-correct submit
+export const RECEIPT_CORRECTION_TRUE_QTY_LABEL = "จำนวนที่รับจริง";
+export const RECEIPT_CORRECTION_REASON_LABEL = "เหตุผล";
+export const RECEIPT_CORRECTION_REJECT_NOTE_LABEL = "เหตุผลที่ปฏิเสธ";
+export const RECEIPT_CORRECTION_QUEUE_EMPTY = "ยังไม่มีรายการรอแก้ไขจำนวนรับ";
+export const RECEIPT_CORRECTION_ORDERED_HINT = "สั่ง"; // "สั่ง {ordered}" — the booked/ordered qty
+export const RECEIPT_CORRECTION_FLAGGED_QTY_HINT = "หน้างานแจ้งว่ารับจริง";
+// The §5 fresh-pool refusal (errcode 22023): the receipt's pool was already
+// issued / returned / re-counted, so a partial receipt-cost correction is no
+// longer provably exact — reverse the เบิก first, or reconcile with ตรวจนับ.
+export const RECEIPT_FRESH_POOL_GUIDE =
+  "ของถูกเบิก/คืน/ปรับยอดไปแล้ว จึงแก้จำนวนรับไม่ได้ — ถ้าจำเป็น ให้กลับรายการเบิกก่อน หรือใช้การตรวจนับเพื่อปรับยอด";
+export const RECEIPT_CORRECTION_NO_PERMISSION = "ไม่มีสิทธิ์ (เฉพาะฝ่ายจัดซื้อ/ผู้จัดการ)";
+export const RECEIPT_CORRECTION_FAILED = "แก้ไขจำนวนรับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
 // Spec 213 — the per-material activity log (ประวัติวัสดุ). STOCK_COUNT_LABEL
 // single-sources the count verb already used inline across the store surfaces.
 export const MATERIAL_LOG_LABEL = "ประวัติวัสดุ";

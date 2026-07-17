@@ -10,6 +10,11 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import {
+  RECEIPT_FRESH_POOL_GUIDE,
+  RECEIPT_CORRECTION_NO_PERMISSION,
+  RECEIPT_CORRECTION_FAILED,
+} from "@/lib/i18n/labels";
 
 export type StockInResult = { ok: true } | { ok: false; error: string };
 
@@ -473,5 +478,81 @@ export async function sitePurchaseUseNow(input: {
   }
 
   revalidatePath(`/projects/${input.projectId}/work-packages/${input.workPackageId}`);
+  return { ok: true };
+}
+
+// Spec 324 U5 — back-office receipt-miscount corrections.
+//
+// Two thin relays over the U2/U4 DEFINER RPCs (both carry the back-office role
+// gate + the §5 fresh-pool precondition in-body; these only shape the input and
+// map the error codes to Thai). Shared code→copy mapping so the correct panel
+// (direct + decide) surfaces one voice: 22023 = the fresh-pool guide.
+const CORRECTIONS_PATH = "/store/corrections";
+function mapCorrectionError(code: string | undefined): string {
+  if (code === "42501") return RECEIPT_CORRECTION_NO_PERMISSION;
+  if (code === "22023") return RECEIPT_FRESH_POOL_GUIDE;
+  return RECEIPT_CORRECTION_FAILED;
+}
+
+// Direct BO correction of a receipt (no flag) — correct_stock_receipt trues the
+// receipt DOWN to p_true_qty, removing the surplus from on-hand + enqueuing the
+// VAT-residual GL contra. Reason is required (audit).
+export async function correctStockReceipt(input: {
+  receiptId: string;
+  trueQty: number;
+  reason: string;
+}): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.receiptId)) return { ok: false, error: RECEIPT_CORRECTION_FAILED };
+  if (!Number.isFinite(input.trueQty) || input.trueQty < 0) {
+    return { ok: false, error: RECEIPT_CORRECTION_FAILED };
+  }
+  if (input.reason.trim() === "") return { ok: false, error: RECEIPT_CORRECTION_FAILED };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("correct_stock_receipt", {
+    p_receipt_id: input.receiptId,
+    p_true_qty: input.trueQty,
+    p_reason: input.reason,
+  });
+  if (error) return { ok: false, error: mapCorrectionError(error.code) };
+
+  revalidatePath(CORRECTIONS_PATH);
+  revalidatePath("/projects", "layout");
+  return { ok: true };
+}
+
+// Decide an SA flag — approve delegates to correct_stock_receipt (via the RPC),
+// reject closes the receipt to further flags with a required note.
+export async function decideReceiptCorrectionRequest(input: {
+  requestId: string;
+  approve: boolean;
+  trueQty?: number;
+  note?: string;
+}): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.requestId)) return { ok: false, error: RECEIPT_CORRECTION_FAILED };
+  if (input.approve && (!Number.isFinite(input.trueQty ?? NaN) || (input.trueQty ?? -1) < 0)) {
+    return { ok: false, error: RECEIPT_CORRECTION_FAILED };
+  }
+  if (!input.approve && (input.note ?? "").trim() === "") {
+    return { ok: false, error: RECEIPT_CORRECTION_FAILED };
+  }
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("decide_receipt_correction_request", {
+    p_request_id: input.requestId,
+    p_approve: input.approve,
+    // The validation above guarantees the branch's arg is defined (approve → a
+    // finite trueQty; reject → a non-empty note); omit the OTHER arg entirely
+    // (exactOptionalPropertyTypes forbids an explicit undefined).
+    ...(input.approve ? { p_true_qty: input.trueQty! } : { p_note: input.note! }),
+  });
+  if (error) return { ok: false, error: mapCorrectionError(error.code) };
+
+  revalidatePath(CORRECTIONS_PATH);
+  revalidatePath("/projects", "layout");
   return { ok: true };
 }
