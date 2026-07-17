@@ -7627,3 +7627,20 @@ NEXT: U3 contracts · U4 document_approvals · U5 /legal surfaces.
   a locked-set — if a 2nd locked event is ever added to the catalog, the app refuses
   it but the DB would not; widen the RPC to a locked-set check when that happens.
   ★★ SPEC 318 COMPLETE (U1-U6 + design + plan).
+
+## Nav-coherence audit 2026-07 (docs-only) — COMPLETE (2026-07-17)
+
+Audit unit (operator prompt): back-threading (?from trail), tab grammar,
+form placement. Deliverable = docs/nav-coherence-audit-2026-07.md
+(findings + recommendations ONLY — zero behavior changes) + this line.
+Branch docs-nav-coherence-audit; lane navaudit in ../LANES.md.
+Results: 87 DetailHeader routes — 7 COVERED / 11 JUMP-RISK / ~69 SAFE;
+back-threading 11 of ~60 inbound links; 1 HARD tab strand (/team);
+52 bottom-sheet forms + 4 mixing entities. Headline: spec 323 made ~8
+settings-leaf pages multi-parent (settings hub + /procurement STR tiles)
+but their back chips stay hardcoded /settings|/equipment → procurement
+users bounce out of the STR hub on back; the nav-back-affordance guard
+pins only the 6 dynamic details, no A2 coverage. Recs (proposals only):
+(a) required ?from on multi-parent href helpers + extend the guard;
+(b) tab-grammar doctrine incl. the procurement section-spine question;
+(c) one form-placement doctrine line. NO fixes started.
