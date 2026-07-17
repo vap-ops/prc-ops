@@ -1,3 +1,9 @@
+# [0.128.0](https://github.com/VAP-Solution/prc-ops/compare/v0.127.1...v0.128.0) (2026-07-17)
+
+### Features
+
+- **costs:** spec 325 U2 — /projects/[id]/costs per-project cost view ([#617](https://github.com/VAP-Solution/prc-ops/issues/617)) ([69dc1c7](https://github.com/VAP-Solution/prc-ops/commit/69dc1c79bfac58f2b5ccafa74eaaff3b84997f46)), closes [#615](https://github.com/VAP-Solution/prc-ops/issues/615)
+
 ## [0.127.1](https://github.com/VAP-Solution/prc-ops/compare/v0.127.0...v0.127.1) (2026-07-17)
 
 ### Bug Fixes
