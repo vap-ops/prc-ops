@@ -7,7 +7,7 @@
 // unit-tested here. The page is thin composition over this + the shared chrome.
 
 import type { Database } from "@/lib/db/database.types";
-import { LABOR_RATES_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, LABOR_RATES_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 import { ACTIVE_REQUEST_BANDS, requestBand } from "./request-bands";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -94,7 +94,7 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
     label: "ขอบเขต",
     doors: [
       { key: "requests", label: "จัดซื้อ", href: "/requests", scope: "spanning" },
-      { key: "catalog", label: "แคตตาล็อก", href: "/catalog", scope: "shared" },
+      { key: "catalog", label: CATALOG_LABEL, href: "/catalog", scope: "shared" },
       {
         key: "ordering-templates",
         label: "แผนสั่งซื้อ",
