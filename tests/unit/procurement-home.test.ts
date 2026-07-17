@@ -14,10 +14,11 @@ import {
   parseProcurementSection,
   procurementDoorHref,
   procurementStripHref,
+  visibleProcurementDoors,
   PROCUREMENT_STR_SECTIONS,
   type HomeCountRow,
 } from "@/lib/purchasing/procurement-home";
-import { CATALOG_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, PROJECT_COSTS_LABEL } from "@/lib/i18n/labels";
 
 const TODAY = "2026-07-16";
 const NAMES = new Map([
@@ -151,6 +152,53 @@ describe("procurementDoorHref", () => {
 
   it("never adds a project filter to a shared (🌐) door", () => {
     expect(procurementDoorHref(shared, "p1")).toBe("/catalog");
+  });
+});
+
+// Spec 325 U3 — the ต้นทุนโครงการ hub door. Target is INHERENTLY per-project
+// (/projects/[id]/costs), so it's a new 📍 "project" door scope: href resolves
+// to the active project's costs page, and the door renders ONLY while the lens
+// has an active project (a door that sometimes dead-ends fails §0).
+describe("project-scope door (ต้นทุนโครงการ)", () => {
+  const costsDoor = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "resources")?.doors.find(
+    (d) => d.key === "costs",
+  );
+
+  it("exists under Resources with the PROJECT_COSTS_LABEL SSOT and project scope", () => {
+    expect(costsDoor).toBeDefined();
+    expect(costsDoor?.label).toBe(PROJECT_COSTS_LABEL);
+    expect(costsDoor?.scope).toBe("project");
+  });
+
+  it("resolves to the active project's costs page", () => {
+    expect(procurementDoorHref(costsDoor!, "p1")).toBe("/projects/p1/costs");
+  });
+
+  it("falls back to its static href when no project is active (never rendered then)", () => {
+    expect(procurementDoorHref(costsDoor!, null)).toBe("/projects");
+  });
+
+  it("is hidden by visibleProcurementDoors without an active project, shown with one", () => {
+    const resources = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "resources")!;
+    const noLens = visibleProcurementDoors(resources, true, null);
+    const withLens = visibleProcurementDoors(resources, true, "p1");
+    expect(noLens.some((d) => d.key === "costs")).toBe(false);
+    expect(withLens.some((d) => d.key === "costs")).toBe(true);
+  });
+
+  it("keeps the managerOnly filter behavior for non-managers", () => {
+    const resources = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "resources")!;
+    const nonManager = visibleProcurementDoors(resources, false, "p1");
+    expect(nonManager.some((d) => d.managerOnly)).toBe(false);
+    expect(nonManager.some((d) => d.key === "costs")).toBe(true); // not managerOnly
+  });
+
+  it("applies both filters at once (non-manager + no lens → neither door class)", () => {
+    const resources = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "resources")!;
+    const doors = visibleProcurementDoors(resources, false, null);
+    expect(doors.some((d) => d.managerOnly)).toBe(false);
+    expect(doors.some((d) => d.scope === "project")).toBe(false);
+    expect(doors.some((d) => d.key === "payroll")).toBe(true); // ordinary doors intact
   });
 });
 
