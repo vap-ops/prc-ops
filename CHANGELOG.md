@@ -1,3 +1,9 @@
+# [0.130.0](https://github.com/VAP-Solution/prc-ops/compare/v0.129.0...v0.130.0) (2026-07-17)
+
+### Features
+
+- **costs:** spec 325 Phase 2 — ของเสีย/แก้ไข rework line (project grain, breakage in) ([#619](https://github.com/VAP-Solution/prc-ops/issues/619)) ([8e44cd5](https://github.com/VAP-Solution/prc-ops/commit/8e44cd5c9758e3827b6c896c6908399893a613ef))
+
 # [0.129.0](https://github.com/VAP-Solution/prc-ops/compare/v0.128.0...v0.129.0) (2026-07-17)
 
 ### Features
