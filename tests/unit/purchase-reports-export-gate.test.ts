@@ -27,4 +27,9 @@ describe("procurement report export gate parity (spec 262 U2)", () => {
     const register = read("register", "page.tsx");
     expect(register).toContain("requireRole(PURCHASE_REPORT_ROLES)");
   });
+
+  it("the itemized (line-level) export route gates on PURCHASE_REPORT_ROLES (FB-4620)", () => {
+    const route = read("export-itemized", "route.ts");
+    expect(route).toContain("requireRole(PURCHASE_REPORT_ROLES)");
+  });
 });
