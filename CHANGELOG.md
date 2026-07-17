@@ -1,3 +1,9 @@
+# [0.125.0](https://github.com/VAP-Solution/prc-ops/compare/v0.124.0...v0.125.0) (2026-07-17)
+
+### Features
+
+- **324:** SA receipt-miscount flag sheet + reverse-button role-gate (U6) ([#606](https://github.com/VAP-Solution/prc-ops/issues/606)) ([d55b3fa](https://github.com/VAP-Solution/prc-ops/commit/d55b3fa07b1828a6c7ce6a50d50d742efd723fd9))
+
 # [0.124.0](https://github.com/VAP-Solution/prc-ops/compare/v0.123.0...v0.124.0) (2026-07-17)
 
 ### Features
