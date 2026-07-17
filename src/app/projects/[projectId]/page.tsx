@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
 import {
+  Banknote,
   CalendarDays,
   CalendarPlus,
   ClipboardList,
@@ -16,6 +17,7 @@ import {
 import {
   BACK_OFFICE_ROLES,
   PROJECT_VIEW_ROLES,
+  PURCHASE_REPORT_ROLES,
   SCHEDULE_VIEW_ROLES,
   SUPPLY_PLAN_ROLES,
   WP_DETAIL_ROLES,
@@ -23,6 +25,7 @@ import {
 } from "@/lib/auth/role-home";
 import {
   projectSettingsHref,
+  projectCostsHref,
   musterHref,
   rentalsHref,
   reportsHref,
@@ -40,6 +43,7 @@ import {
   DAILY_WORK_PLAN_LABEL,
   EQUIPMENT_RENTAL_LABEL,
   MUSTER_LABEL,
+  PROJECT_COSTS_LABEL,
   PROJECT_STATUS_LABEL,
   STORE_LABEL,
   STORE_INCOMING_HEADING,
@@ -141,6 +145,10 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
   // so BACK_OFFICE_ROLES only (the create-RPC audience) — deliberately NEVER
   // site_admin (spec 46 / ADR 0055 decision 6), unlike the store chip above.
   const canSeeRentals = BACK_OFFICE_ROLES.includes(ctx.role);
+  // Spec 325 U2: the ต้นทุนโครงการ chip — the per-project cost view. Money
+  // surface gated to the spec §4 audience (PM tier + procurement tiers +
+  // accounting = PURCHASE_REPORT_ROLES); never a field role (spec 46).
+  const canSeeCosts = PURCHASE_REPORT_ROLES.includes(ctx.role);
   // Spec 273: the SA next-day board (แผนพรุ่งนี้) is SA-oriented (/sa/plan admits
   // site_admin + super_admin). A single-project SA lands on this project screen,
   // so surface the board here too — a labelled full-width entry, not just the
@@ -255,6 +263,16 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
                 className={ICON_CHIP_MUTED}
               >
                 <Forklift aria-hidden className="h-5 w-5" />
+              </Link>
+            ) : null}
+            {/* Spec 325 U2: per-project cost view (money audience only). */}
+            {canSeeCosts ? (
+              <Link
+                href={projectCostsHref(project.id)}
+                aria-label={PROJECT_COSTS_LABEL}
+                className={ICON_CHIP_MUTED}
+              >
+                <Banknote aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
             {isManagerRole(ctx.role) ? (

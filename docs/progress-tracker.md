@@ -7657,3 +7657,29 @@ approver-confirmed (the omotenashi test, spec §0, binding per unit);
 phases actuals → tag → budgets(owner-gated) → anticipation.
 Open operator decisions recorded in spec §6 (view placement · budget
 owner · rework-labour capture).
+
+## Spec 325 — Phase 1 actuals (2026-07-17, operator go)
+
+§6 decisions applied: view = per-project first + hub door (the spec rec);
+budgets PARKED (no owner); breakage routing = Phase-2 topic. Phase 1 =
+compose EXISTING spend only — zero new capture, zero schema.
+
+- U1 ✅ MERGED #615 — pure `src/lib/costs/wp-cost-breakdown.ts`:
+  buildWpCostRows (per-WP material via dashboard wpLevel formula + labour
+  at cost basis) · attributeRentalCost (equipment at PROJECT grain via
+  allocations; multi-project batches disclosed unsplit) ·
+  projectCostFamilies (ค่าวัสดุ vs ค่าดำเนินการ). Fresh-eyes caught a real
+  cross-WP labor-supersede double-count → global anti-join before grouping.
+- U2 🔨 — `/projects/[projectId]/costs` page + loader + Banknote chip on
+  the project header (PURCHASE_REPORT_ROLES gate). Danger-held by design:
+  registers the loader in money-read-policy.ts (wp_economics read).
+- U3 ▶ — /procurement hub door (after #616 lands; same file).
+- Side-PR #616 — hub status-strip tap retarget (user feedback zeeparn):
+  row now opens the project-scoped จัดซื้อ list instead of invisibly
+  re-scoping the hub filter.
+
+Open questions: rework line + reason_code routing = Phase 2 (breakage
+call included); per-WP material budget = Phase 3 (parked, no owner);
+labour per WP currently sparse until spec 306 U5 muster→labor_logs derive
+ships (money unit, operator-held) — the view discloses via the zero-cost
+collapse line.

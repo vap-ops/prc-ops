@@ -75,6 +75,12 @@ export function musterHref(projectId: string): string {
   return `/projects/${projectId}/muster`;
 }
 
+// Spec 325 U2: the per-project cost view (per-WP material + labour + family
+// totals) — money audience only (PURCHASE_REPORT_ROLES at the page gate).
+export function projectCostsHref(projectId: string): string {
+  return `/projects/${projectId}/costs`;
+}
+
 // Spec 275 U5: the equipment-rental recorder relocated from the settings hub
 // (spec 268) into the project — a rental is project-driven, so it records + lists
 // THIS project's rentals and auto-allocates each to it. Money-gated

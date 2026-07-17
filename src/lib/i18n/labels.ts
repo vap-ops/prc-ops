@@ -527,6 +527,11 @@ export const LABOR_BUDGET_REMAINING_LABEL = "คงเหลือ";
 export const LABOR_BUDGET_OVER_LABEL = "เกินงบ";
 export const LABOR_BUDGET_UNSET_LABEL = "ยังไม่ได้ตั้งงบค่าแรง";
 
+// Spec 325 U2 — the per-project cost view (ต้นทุน = per-WP material + labour +
+// project family totals). One term everywhere it appears: project chip
+// aria-label, page title, procurement hub door (U3).
+export const PROJECT_COSTS_LABEL = "ต้นทุนโครงการ";
+
 // Spec 202 U2 — the WP equipment check-out/check-in tab (rate-free field surface).
 export const EQUIPMENT_TAB_LABEL = "อุปกรณ์";
 export const EQUIPMENT_CHECK_OUT_LABEL = "เช็คเอาท์";

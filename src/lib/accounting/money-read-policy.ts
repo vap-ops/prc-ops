@@ -58,6 +58,12 @@ export const FIRM_WIDE_MONEY_READ_SITES: readonly string[] = [
 export const PROJECT_SCOPED_MONEY_READ_SITES: readonly string[] = [
   "src/app/review/work-packages/[workPackageId]/page.tsx",
   "src/lib/labor/wp-budget-summary.ts",
+  // Spec 325 U2: the per-project cost loader reads wp_economics.labor_budget
+  // scoped .in("work_package_id", <this project's WP ids>) behind
+  // requireRole(PURCHASE_REPORT_ROLES). The other reads carry .eq("project_id")
+  // / .in("work_package_id"|batchIds) the same way — except stock_reversals,
+  // a global non-money id-list (the accounting-drill carve-out above).
+  "src/lib/costs/load-project-costs.ts",
   // Spec 253: the finance drill reads ONE project's money — every money-table
   // read carries .eq("project_id", …) / .in("work_package_id", wpIds of that
   // project) (the stock_reversals id-list read is not a money table).
