@@ -1,3 +1,9 @@
+## [0.127.1](https://github.com/VAP-Solution/prc-ops/compare/v0.127.0...v0.127.1) (2026-07-17)
+
+### Bug Fixes
+
+- **procurement:** hub status-strip tap goes to the project's จัดซื้อ list ([#616](https://github.com/VAP-Solution/prc-ops/issues/616)) ([d33e391](https://github.com/VAP-Solution/prc-ops/commit/d33e391b0a23756cbbdc7de00bd1314a7dde91a6))
+
 # [0.127.0](https://github.com/VAP-Solution/prc-ops/compare/v0.126.4...v0.127.0) (2026-07-17)
 
 ### Features
