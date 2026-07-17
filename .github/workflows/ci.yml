@@ -109,7 +109,7 @@ jobs:
           # branch on main's newer protected paths (it spuriously held PR #140).
           changed="$(git diff --name-only "$base...$head")"
           echo "Changed files:"; echo "$changed"
-          deny='^(supabase/migrations/|supabase/tests/|src/lib/auth/|src/app/auth/|proxy\.ts$|middleware\.ts$|src/lib/db/admin\.ts|src/lib/photos/|src/components/features/photos/|src/lib/storage/|src/lib/accounting/|src/lib/labor/|src/app/payroll/|src/app/accounting/|src/app/expenses/|src/lib/notifications/|src/app/api/notifications/|worker/|\.github/|\.claude/|CLAUDE\.md|docs/decisions/|docs/policies/|CODEOWNERS|package\.json|pnpm-lock\.yaml|\.env)'
+          deny='^(supabase/migrations/|supabase/tests/|src/lib/auth/|src/app/auth/|proxy\.ts$|middleware\.ts$|src/lib/db/admin\.ts|src/lib/photos/|src/components/features/photos/|src/lib/storage/|src/lib/store/upload-|src/lib/accounting/|src/lib/labor/|src/app/payroll/|src/app/accounting/|src/app/expenses/|src/lib/notifications/|src/app/api/notifications/|worker/|\.github/|\.claude/|CLAUDE\.md|docs/decisions/|docs/policies/|CODEOWNERS|package\.json|pnpm-lock\.yaml|\.env)'
           hits="$(echo "$changed" | grep -E "$deny" || true)"
           if [ -n "$hits" ]; then
             echo "::error::Protected path(s) touched — this PR needs operator review and cannot auto-merge:"

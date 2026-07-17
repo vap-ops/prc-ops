@@ -65,6 +65,27 @@ describe("danger-path guard deny-regex", () => {
     expect(deny.test("src/app/expenses/actions.ts")).toBe(true);
   });
 
+  it("protects the store-side client Storage-upload helper family (spec 324 U6 blind-spot)", () => {
+    // src/lib/store/upload-receipt-flag-photo.ts is a CLIENT helper that writes
+    // bytes straight into the pr-attachments Storage bucket (downscale → upload),
+    // gated only by Storage-RLS — the exact "client side of a security-relevant
+    // surface" that the src/lib/photos/** + src/lib/storage/** holds already cover.
+    // It escaped that hold and AUTO-MERGED (#606) purely because it lives in
+    // src/lib/store/ (the inventory domain dir), which is substring-distinct from
+    // the held src/lib/storage/. Hold the Storage-write helper FAMILY (upload-*) —
+    // same blind-spot class as auth #463 / photos #585 / money #596.
+    expect(deny.test("src/lib/store/upload-receipt-flag-photo.ts")).toBe(true);
+    expect(deny.test("src/lib/store/upload-any-future-storage-helper.ts")).toBe(true);
+    // Deliberate scope boundary: the rest of src/lib/store/ is pure inventory
+    // logic (no Storage/RLS surface) and must stay auto-mergeable — holding the
+    // whole dir would freeze a growing core domain (store-first material flow),
+    // the same over-match discipline the /requests/** + WP-page boundaries below
+    // enforce.
+    expect(deny.test("src/lib/store/incoming.ts")).toBe(false);
+    expect(deny.test("src/lib/store/material-log.ts")).toBe(false);
+    expect(deny.test("src/lib/store/divert-lines.ts")).toBe(false);
+  });
+
   it("still protects the pre-existing danger paths (no regression)", () => {
     expect(deny.test("src/lib/auth/session.ts")).toBe(true);
     expect(deny.test("src/lib/db/admin.ts")).toBe(true);
