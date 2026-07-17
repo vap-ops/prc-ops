@@ -13,6 +13,7 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { safeBackHref } from "@/lib/nav/back-href";
 import {
   EquipmentManager,
   type ManagedEquipmentItem,
@@ -21,7 +22,14 @@ import {
 
 export const metadata = { title: "อุปกรณ์" };
 
-export default async function EquipmentPage() {
+// Nav-coherence audit 2026-07: multi-parent (settings hub · /procurement Resources
+// tile) — back chip resolves ?from, else /settings.
+export default async function EquipmentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const { from } = await searchParams;
   // U5 — site_admin reaches the field view; only back office edits the registry.
   const ctx = await requireRole(EQUIPMENT_MOVE_ROLES);
   const canManageRegistry = BACK_OFFICE_ROLES.includes(ctx.role);
@@ -69,7 +77,7 @@ export default async function EquipmentPage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
+      <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="ตั้งค่า">
         <h1 className="text-title text-ink font-bold tracking-tight">อุปกรณ์</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>

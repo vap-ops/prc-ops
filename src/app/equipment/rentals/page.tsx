@@ -13,6 +13,7 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { RentalManager } from "@/components/features/equipment/rental-manager";
 import {
   RentalSettlementManager,
@@ -36,7 +37,14 @@ import { EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: EQUIPMENT_RENTAL_LABEL };
 
-export default async function EquipmentRentalsPage() {
+// Nav-coherence audit 2026-07: multi-parent (settings hub · /equipment ·
+// /procurement Resources tile) — back chip resolves ?from, else /equipment.
+export default async function EquipmentRentalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const { from } = await searchParams;
   const ctx = await requireRole(BACK_OFFICE_ROLES);
 
   const supabase = await createServerSupabase();
@@ -168,7 +176,7 @@ export default async function EquipmentRentalsPage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/equipment" backLabel="อุปกรณ์">
+      <DetailHeader backHref={safeBackHref(from, "/equipment")} backLabel="อุปกรณ์">
         <h1 className="text-title text-ink font-bold tracking-tight">{EQUIPMENT_RENTAL_LABEL}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>

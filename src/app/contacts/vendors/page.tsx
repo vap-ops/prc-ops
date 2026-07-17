@@ -13,13 +13,21 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { ContactsTabs } from "@/components/features/contacts/contacts-tabs";
 import type { RecordRow, RecordBadge } from "@/components/features/purchasing/record-manager";
 import { aggregateSupplierSpend, buildSupplierSpendBadges } from "@/lib/purchasing/supplier-spend";
 
 export const metadata = { title: "ผู้ขายและผู้ให้บริการ" };
 
-export default async function ContactsVendorsPage() {
+// Nav-coherence audit 2026-07: multi-parent (settings hub · /procurement Resources
+// tile) — back chip resolves ?from, else the audience fallback below.
+export default async function ContactsVendorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const { from } = await searchParams;
   const ctx = await requireRole(BACK_OFFICE_ROLES);
   const isManager = PM_ROLES.includes(ctx.role);
   const supabase = await createServerSupabase();
@@ -97,7 +105,7 @@ export default async function ContactsVendorsPage() {
     supplierBadges = buildSupplierSpendBadges(aggregateSupplierSpend(prRows ?? []));
   }
 
-  const backHref = isManager ? "/settings" : "/requests";
+  const backHref = safeBackHref(from, isManager ? "/settings" : "/requests");
   const backLabel = isManager ? "ตั้งค่า" : "คำขอซื้อ";
   const title = isManager ? "ผู้ขายและผู้ให้บริการ" : "ผู้ขาย";
 

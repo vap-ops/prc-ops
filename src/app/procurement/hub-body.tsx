@@ -12,6 +12,7 @@ import { UserPlus } from "lucide-react";
 
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { STAFF_APPROVAL_ROLES, type UserRole } from "@/lib/auth/role-home";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
 import { loadProjectLensNames } from "@/lib/nav/project-lens";
@@ -54,6 +55,10 @@ export async function ProcurementHubBody({
 
   const { project } = await searchParams;
   const activeProjectId = typeof project === "string" && project !== "" ? project : null;
+  // Nav-coherence audit 2026-07 (Decision 1): thread this hub as the ?from referrer
+  // on each STR door, so a door page's back chip returns HERE (the exact section +
+  // active project) instead of the door's hardcoded /settings|/equipment fallback.
+  const hubFrom = activeProjectId ? `${currentHref}?project=${activeProjectId}` : currentHref;
   const isManager = role === "procurement_manager" || role === "super_admin";
   const isApprover = STAFF_APPROVAL_ROLES.includes(role);
 
@@ -130,7 +135,7 @@ export async function ProcurementHubBody({
               {doors.map((door) => (
                 <Link
                   key={door.key}
-                  href={procurementDoorHref(door, activeProjectId)}
+                  href={withBackFrom(procurementDoorHref(door, activeProjectId), hubFrom)}
                   className="rounded-card border-edge bg-card shadow-card hover:bg-sunk text-ink flex min-h-11 items-center justify-center border px-4 py-3 text-center text-sm font-semibold"
                 >
                   {door.label}
