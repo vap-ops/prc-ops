@@ -114,7 +114,20 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
         .filter((id): id is string => !!id),
     ),
   ];
-  const categoryCodeById = await loadCategoryCodeById(supabase, movementCategoryIds);
+  // Spec 324 U6: which of this item's receipts carry a PENDING correction flag
+  // (→ ⚠ รอแก้ไข on the receipt entry). Parallel with the category-code reconcile.
+  const receiptIds = (receipts ?? []).map((r) => r.id);
+  const [categoryCodeById, { data: flagRows }] = await Promise.all([
+    loadCategoryCodeById(supabase, movementCategoryIds),
+    receiptIds.length > 0
+      ? supabase
+          .from("receipt_correction_requests")
+          .select("receipt_id")
+          .eq("status", "pending")
+          .in("receipt_id", receiptIds)
+      : Promise.resolve({ data: null }),
+  ]);
+  const flaggedReceiptIds = (flagRows ?? []).map((f) => f.receipt_id);
   const wpRef = (wp: { code: string; name: string; category_id: string | null } | null) =>
     wp
       ? {
@@ -227,7 +240,7 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
           </div>
         </div>
 
-        <MaterialLogView entries={log} unit={item.unit} />
+        <MaterialLogView entries={log} unit={item.unit} flaggedReceiptIds={flaggedReceiptIds} />
       </section>
     </PageShell>
   );

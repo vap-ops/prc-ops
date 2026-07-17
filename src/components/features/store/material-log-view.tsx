@@ -18,6 +18,7 @@ import {
   STOCK_COUNT_LABEL,
   STORE_RETURN_TO_STORE_LABEL,
   STORE_FIX_WRONG_ENTRY_LABEL,
+  RECEIPT_CORRECTION_PENDING_LABEL,
 } from "@/lib/i18n/labels";
 import type { MaterialLogEntry, MaterialLogKind } from "@/lib/store/material-log";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
@@ -36,7 +37,18 @@ function signed(n: number): string {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
-export function MaterialLogView({ entries, unit }: { entries: MaterialLogEntry[]; unit: string }) {
+export function MaterialLogView({
+  entries,
+  unit,
+  // Spec 324 U6: receipt ids with a PENDING correction flag → the receipt entry
+  // shows ⚠ รอแก้ไข (a back-office correction is awaited).
+  flaggedReceiptIds = [],
+}: {
+  entries: MaterialLogEntry[];
+  unit: string;
+  flaggedReceiptIds?: string[];
+}) {
+  const flagged = new Set(flaggedReceiptIds);
   if (entries.length === 0) {
     return (
       <p className="border-edge bg-card text-ink-secondary rounded-control border px-4 py-6 text-center text-sm">
@@ -63,7 +75,14 @@ export function MaterialLogView({ entries, unit }: { entries: MaterialLogEntry[]
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-ink text-body font-semibold">{meta.label}</span>
+                <span className="text-ink text-body font-semibold">
+                  {meta.label}
+                  {e.kind === "receipt" && flagged.has(e.id) ? (
+                    <span className="bg-attn-soft text-attn-ink text-meta ml-2 inline-block rounded-full px-2 py-0.5 font-medium">
+                      {RECEIPT_CORRECTION_PENDING_LABEL}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="text-ink text-body shrink-0 font-bold tabular-nums">
                   {signed(e.qtyDelta)} {unit}
                 </span>

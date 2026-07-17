@@ -11,6 +11,7 @@ import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { ReceiptCorrectionPanel } from "@/components/features/store/receipt-correction-panel";
+import { ReceiptFlagSheet } from "@/components/features/store/receipt-flag-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
 import {
   STORE_RECEIVE_LABEL,
@@ -18,6 +19,8 @@ import {
   STOCK_COUNT_NOT_UNDO_HINT,
   RECEIPT_CORRECTION_CORRECT_LABEL,
   RECEIPT_CORRECTION_QUEUE_LABEL,
+  RECEIPT_CORRECTION_PENDING_LABEL,
+  RECEIPT_FLAG_LABEL,
 } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { storeHref, storeItemHref } from "@/lib/nav/project-paths";
@@ -81,6 +84,10 @@ export type ReceiptRow = {
   unit: string;
   qty: number;
   unitCost: number;
+  // Spec 324 U6: the receipt's PR (null for a manual record_stock_in). The SA
+  // flag is offered only when it is set — the evidence photo is stored under the
+  // PR-keyed pr-attachments path, and a manual receipt has no PR to key it to.
+  purchaseRequestId: string | null;
 };
 
 // Spec 178 B3 — a past physical count, for the ประวัติการนับ history list.
@@ -106,7 +113,9 @@ export function StoreManager({
   suppliers,
   canIssue,
   canCorrect = false,
+  canFlag = false,
   correctionsHref = null,
+  flaggedReceiptIds = [],
   receipts,
   counts,
   hidePicker = false,
@@ -126,7 +135,12 @@ export function StoreManager({
   // the link to the cross-project correction queue. Field roles (site_admin) get
   // neither — they escalate via the SA flag (U6).
   canCorrect?: boolean;
+  // Spec 324 U6: the on-site SA (a non-back-office WP_DETAIL role) escalates a
+  // suspected over-count via a flag instead of the BO-only reverse/correct.
+  canFlag?: boolean;
   correctionsHref?: string | null;
+  // Receipt ids with a PENDING flag → the row shows ⚠ รอแก้ไข and hides its flag CTA.
+  flaggedReceiptIds?: string[];
   receipts: ReceiptRow[];
   // Spec 178 B3 — recent physical counts (the ประวัติการนับ history).
   counts: CountRow[];
@@ -162,6 +176,9 @@ export function StoreManager({
   // Spec 324 U5 — the back-office direct-correct sheet, opened for a specific
   // receipt row (trues its booked qty DOWN to the count that actually arrived).
   const [correctRow, setCorrectRow] = useState<ReceiptRow | null>(null);
+  // Spec 324 U6 — the SA flag sheet, opened for a specific receipt row.
+  const [flagRow, setFlagRow] = useState<ReceiptRow | null>(null);
+  const flagged = new Set(flaggedReceiptIds);
 
   // ตรวจนับ (physical count) sheet — opened for a specific on-hand row.
   const [countRow, setCountRow] = useState<StockRow | null>(null);
@@ -346,8 +363,9 @@ export function StoreManager({
             </ul>
           )}
 
-          {/* รับเข้าล่าสุด — any /store user (BACK_OFFICE = the receipt-reverse gate)
-              can กลับรายการ a wrong รับเข้า. */}
+          {/* รับเข้าล่าสุด — back-office corrects/reverses a wrong รับเข้า
+              (BACK_OFFICE = the receipt-reverse/correct gate); the on-site SA
+              escalates a suspected over-count via a flag (spec 324 U6). */}
           {receipts.length > 0 ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3">
@@ -364,43 +382,71 @@ export function StoreManager({
                 ) : null}
               </div>
               <ul className="flex flex-col gap-2">
-                {receipts.map((rc) => (
-                  <li
-                    key={rc.id}
-                    className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="text-ink text-body block font-semibold">{rc.baseItem}</span>
-                      <span className="text-ink-secondary text-meta block">
-                        {rc.specAttrs ? `${rc.specAttrs} · ` : ""}
-                        ต้นทุน {baht(rc.unitCost)} ฿/{rc.unit}
+                {receipts.map((rc) => {
+                  const isFlagged = flagged.has(rc.id);
+                  return (
+                    <li
+                      key={rc.id}
+                      className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="text-ink text-body block font-semibold">
+                          {rc.baseItem}
+                        </span>
+                        <span className="text-ink-secondary text-meta block">
+                          {rc.specAttrs ? `${rc.specAttrs} · ` : ""}
+                          ต้นทุน {baht(rc.unitCost)} ฿/{rc.unit}
+                        </span>
+                        {/* Spec 324 U6: a pending flag awaits back-office review. */}
+                        {isFlagged ? (
+                          <span className="bg-attn-soft text-attn-ink text-meta mt-1 inline-block rounded-full px-2 py-0.5 font-medium">
+                            {RECEIPT_CORRECTION_PENDING_LABEL}
+                          </span>
+                        ) : null}
                       </span>
-                    </span>
-                    <span className="text-ink text-body shrink-0 font-semibold">
-                      {rc.qty} {rc.unit}
-                    </span>
-                    {/* Spec 324 U5: back-office trues an over-booked receipt DOWN to
-                        the count that actually arrived (removes the surplus from
-                        on-hand + contra-s the GL). */}
-                    {canCorrect ? (
-                      <button
-                        type="button"
-                        onClick={() => setCorrectRow(rc)}
-                        className={`${BUTTON_SECONDARY} shrink-0`}
-                      >
-                        {RECEIPT_CORRECTION_CORRECT_LABEL}
-                      </button>
-                    ) : null}
-                    <ConfirmActionButton
-                      idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
-                      pendingLabel="กำลังแก้ไข…"
-                      confirmMessage={`ลบรายการรับเข้าที่บันทึกผิด — ${rc.baseItem} ${rc.qty} ${rc.unit}? ใช้เมื่อบันทึกผิดเท่านั้น (ของจะถูกตัดออกจากคลัง)`}
-                      confirmLabel="ยืนยัน"
-                      buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
-                      action={() => reverseStockReceipt({ receiptId: rc.id })}
-                    />
-                  </li>
-                ))}
+                      <span className="text-ink text-body shrink-0 font-semibold">
+                        {rc.qty} {rc.unit}
+                      </span>
+                      {/* Spec 324 U5: back-office trues an over-booked receipt DOWN
+                          to the count that actually arrived (removes the surplus
+                          from on-hand + contra-s the GL). */}
+                      {canCorrect ? (
+                        <button
+                          type="button"
+                          onClick={() => setCorrectRow(rc)}
+                          className={`${BUTTON_SECONDARY} shrink-0`}
+                        >
+                          {RECEIPT_CORRECTION_CORRECT_LABEL}
+                        </button>
+                      ) : null}
+                      {/* Spec 324 U6: the on-site SA escalates a suspected over-count.
+                          Offered only on a PO-delivery receipt (has a PR to key the
+                          evidence photo to) that is not already flagged. */}
+                      {canFlag && rc.purchaseRequestId && !isFlagged ? (
+                        <button
+                          type="button"
+                          onClick={() => setFlagRow(rc)}
+                          className={`${BUTTON_SECONDARY} shrink-0`}
+                        >
+                          {RECEIPT_FLAG_LABEL}
+                        </button>
+                      ) : null}
+                      {/* Spec 324 U6: the reverse (full un-receive) is BACK_OFFICE-
+                          gated — the RPC 42501's a site_admin, so the control no
+                          longer renders to them (the dead-button fix). */}
+                      {canCorrect ? (
+                        <ConfirmActionButton
+                          idleLabel={STORE_FIX_WRONG_ENTRY_LABEL}
+                          pendingLabel="กำลังแก้ไข…"
+                          confirmMessage={`ลบรายการรับเข้าที่บันทึกผิด — ${rc.baseItem} ${rc.qty} ${rc.unit}? ใช้เมื่อบันทึกผิดเท่านั้น (ของจะถูกตัดออกจากคลัง)`}
+                          confirmLabel="ยืนยัน"
+                          buttonClassName={`${BUTTON_SECONDARY} shrink-0`}
+                          action={() => reverseStockReceipt({ receiptId: rc.id })}
+                        />
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : null}
@@ -716,6 +762,26 @@ export function StoreManager({
                   onDone={() => setCorrectRow(null)}
                 />
               </div>
+            ) : null}
+          </BottomSheet>
+
+          {/* Spec 324 U6 — the SA flag sheet (true count + reason + required live
+              photo). Only opened for a receipt with a PR (setFlagRow gates on it). */}
+          <BottomSheet
+            open={flagRow !== null}
+            title={RECEIPT_FLAG_LABEL}
+            onClose={() => setFlagRow(null)}
+          >
+            {flagRow && selectedProjectId && flagRow.purchaseRequestId ? (
+              <ReceiptFlagSheet
+                receiptId={flagRow.id}
+                projectId={selectedProjectId}
+                purchaseRequestId={flagRow.purchaseRequestId}
+                orderedQty={flagRow.qty}
+                unit={flagRow.unit}
+                itemLabel={flagRow.baseItem}
+                onDone={() => setFlagRow(null)}
+              />
             ) : null}
           </BottomSheet>
         </>

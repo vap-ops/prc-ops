@@ -437,6 +437,24 @@ export const RECEIPT_FRESH_POOL_GUIDE =
   "ของถูกเบิก/คืน/ปรับยอดไปแล้ว จึงแก้จำนวนรับไม่ได้ — ถ้าจำเป็น ให้กลับรายการเบิกก่อน หรือใช้การตรวจนับเพื่อปรับยอด";
 export const RECEIPT_CORRECTION_NO_PERMISSION = "ไม่มีสิทธิ์ (เฉพาะฝ่ายจัดซื้อ/ผู้จัดการ)";
 export const RECEIPT_CORRECTION_FAILED = "แก้ไขจำนวนรับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+// The flagged-receipt state — shown on the receipt row + the item timeline while
+// a pending flag awaits back-office review (U6 surfaces it in both places).
+export const RECEIPT_CORRECTION_PENDING_LABEL = "⚠ รอแก้ไข";
+
+// Spec 324 U6 — the on-site SA escalation. The SA who received a delivery flags a
+// suspected over-count (true count + reason + a REQUIRED live-camera photo); the
+// back-office correction authority (U5) applies or rejects it. The SA never
+// reverses/corrects the receipt directly (that is BACK_OFFICE-gated).
+export const RECEIPT_FLAG_LABEL = "รายงานว่าบันทึกผิด";
+export const RECEIPT_FLAG_SUBMIT_LABEL = "ส่งรายงาน";
+export const RECEIPT_FLAG_PHOTO_LABEL = "รูปถ่ายหลักฐาน";
+export const RECEIPT_FLAG_PHOTO_REQUIRED = "กรุณาถ่ายรูปหลักฐานก่อนส่ง";
+export const RECEIPT_FLAG_RANGE = "จำนวนที่รับจริงต้องน้อยกว่าที่บันทึกไว้";
+export const RECEIPT_FLAG_REASON_REQUIRED = "กรุณากรอกเหตุผล";
+export const RECEIPT_FLAG_ALREADY_PENDING = "มีการรายงานรออยู่แล้ว รอฝ่ายจัดซื้อตรวจสอบ";
+export const RECEIPT_FLAG_CLOSED = "ใบรับนี้ปิดรับการรายงานแล้ว (เคยถูกปฏิเสธ)";
+export const RECEIPT_FLAG_NOT_MEMBER = "ไม่มีสิทธิ์รายงานสำหรับโครงการนี้";
+export const RECEIPT_FLAG_FAILED = "ส่งรายงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 // Spec 213 — the per-material activity log (ประวัติวัสดุ). STOCK_COUNT_LABEL
 // single-sources the count verb already used inline across the store surfaces.

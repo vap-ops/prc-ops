@@ -12,6 +12,7 @@ import {
   STOCK_COUNT_LABEL,
   STORE_RETURN_TO_STORE_LABEL,
   STORE_FIX_WRONG_ENTRY_LABEL,
+  RECEIPT_CORRECTION_PENDING_LABEL,
 } from "@/lib/i18n/labels";
 
 const sources: MaterialLogSources = {
@@ -123,5 +124,22 @@ describe("MaterialLogView (spec 213 U2)", () => {
     render(<MaterialLogView entries={[]} unit="ท่อน" />);
     expect(screen.queryByRole("list")).toBeNull();
     expect(screen.getByText(/ยังไม่มีความเคลื่อนไหว/)).toBeInTheDocument();
+  });
+
+  // Spec 324 U6 — a receipt with a pending correction flag shows ⚠ รอแก้ไข.
+  it("marks a flagged receipt entry with ⚠ รอแก้ไข", () => {
+    render(
+      <MaterialLogView
+        entries={buildMaterialLog(sources)}
+        unit="ท่อน"
+        flaggedReceiptIds={["r1"]}
+      />,
+    );
+    expect(screen.getByText(RECEIPT_CORRECTION_PENDING_LABEL)).toBeInTheDocument();
+  });
+
+  it("shows no ⚠ รอแก้ไข badge when the receipt is not flagged", () => {
+    render(<MaterialLogView entries={buildMaterialLog(sources)} unit="ท่อน" />);
+    expect(screen.queryByText(RECEIPT_CORRECTION_PENDING_LABEL)).toBeNull();
   });
 });

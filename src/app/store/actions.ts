@@ -14,6 +14,10 @@ import {
   RECEIPT_FRESH_POOL_GUIDE,
   RECEIPT_CORRECTION_NO_PERMISSION,
   RECEIPT_CORRECTION_FAILED,
+  RECEIPT_FLAG_ALREADY_PENDING,
+  RECEIPT_FLAG_CLOSED,
+  RECEIPT_FLAG_NOT_MEMBER,
+  RECEIPT_FLAG_FAILED,
 } from "@/lib/i18n/labels";
 
 export type StockInResult = { ok: true } | { ok: false; error: string };
@@ -554,5 +558,46 @@ export async function decideReceiptCorrectionRequest(input: {
 
   revalidatePath(CORRECTIONS_PATH);
   revalidatePath("/projects", "layout");
+  return { ok: true };
+}
+
+// Spec 324 U6 — the SA escalation. Relays submit_receipt_correction_request
+// (member-gated in-body; floors proposed_qty in [0, booked), non-empty reason +
+// photo path; one PENDING flag per receipt = 23505; a prior reject closes it).
+// The photo is uploaded client-side first (uploadReceiptFlagPhoto); this stores
+// its path.
+export async function submitReceiptCorrectionRequest(input: {
+  receiptId: string;
+  proposedQty: number;
+  reason: string;
+  photoPath: string;
+}): Promise<StockInResult> {
+  if (!UUID_REGEX.test(input.receiptId)) return { ok: false, error: RECEIPT_FLAG_FAILED };
+  if (!Number.isFinite(input.proposedQty) || input.proposedQty < 0) {
+    return { ok: false, error: RECEIPT_FLAG_FAILED };
+  }
+  if (input.reason.trim() === "") return { ok: false, error: RECEIPT_FLAG_FAILED };
+  if (input.photoPath.trim() === "") return { ok: false, error: RECEIPT_FLAG_FAILED };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("submit_receipt_correction_request", {
+    p_receipt_id: input.receiptId,
+    p_proposed_qty: input.proposedQty,
+    p_reason: input.reason,
+    p_photo_path: input.photoPath,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: RECEIPT_FLAG_NOT_MEMBER };
+    if (error.code === "23505") return { ok: false, error: RECEIPT_FLAG_ALREADY_PENDING };
+    // The client validates the floors (qty/reason/photo), so a P0001 reaching
+    // the server is the reject-closed guard.
+    if (error.code === "P0001") return { ok: false, error: RECEIPT_FLAG_CLOSED };
+    return { ok: false, error: RECEIPT_FLAG_FAILED };
+  }
+
+  revalidatePath("/projects", "layout");
+  revalidatePath(CORRECTIONS_PATH);
   return { ok: true };
 }
