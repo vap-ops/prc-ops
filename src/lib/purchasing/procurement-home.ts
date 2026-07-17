@@ -7,7 +7,13 @@
 // unit-tested here. The page is thin composition over this + the shared chrome.
 
 import type { Database } from "@/lib/db/database.types";
-import { CATALOG_LABEL, LABOR_RATES_LABEL, SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
+import {
+  CATALOG_LABEL,
+  LABOR_RATES_LABEL,
+  PROJECT_COSTS_LABEL,
+  SUBCONTRACTOR_LABEL,
+} from "@/lib/i18n/labels";
+import { projectCostsHref } from "@/lib/nav/project-paths";
 import { ACTIVE_REQUEST_BANDS, requestBand } from "./request-bands";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -78,8 +84,11 @@ export function procurementStripHref(projectId: string): string {
 }
 
 // 🌐 shared = one copy across all projects (no lens); 🔀 spanning = default all,
-// filterable to one (carries ?project=). Spec 323 §3.
-export type DoorScope = "shared" | "spanning";
+// filterable to one (carries ?project=). Spec 323 §3. 📍 project = the target
+// EXISTS only per project (/projects/[id]/…): href resolves to the active
+// project and the door renders only while the lens has one (spec 325 U3 — a
+// door that sometimes dead-ends fails the §0 omotenashi test).
+export type DoorScope = "shared" | "spanning" | "project";
 
 export interface ProcurementDoor {
   key: string;
@@ -140,6 +149,9 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
       { key: "workers", label: "รายชื่อช่าง", href: "/workers", scope: "shared" },
       { key: "payroll", label: "ค่าแรง", href: "/payroll", scope: "spanning" },
       { key: "expenses", label: "ค่าใช้จ่าย", href: "/expenses", scope: "spanning" },
+      // Spec 325 U3: the per-project cost view (money reads gated at the page —
+      // PURCHASE_REPORT_ROLES admits both procurement tiers).
+      { key: "costs", label: PROJECT_COSTS_LABEL, href: "/projects", scope: "project" },
       {
         key: "labor-rates",
         label: LABOR_RATES_LABEL,
@@ -164,12 +176,34 @@ export function parseProcurementSection(value: string): ProcurementStrSection["k
 }
 
 // A door's href with the active project woven in: 🌐 shared doors ignore it; 🔀
-// spanning doors set ?project= (merging any existing query on the href). Mirrors
-// projectLensHref's serialization for a door that may already carry a filter.
+// spanning doors set ?project= (merging any existing query on the href); 📍
+// project doors resolve to the active project's own page (falling back to the
+// static href when none is active — they are hidden then anyway, see
+// visibleProcurementDoors). Mirrors projectLensHref's serialization.
 export function procurementDoorHref(door: ProcurementDoor, activeProjectId: string | null): string {
+  if (door.scope === "project") {
+    // ⚠ project-scope == the COSTS page today (the only 📍 door). A second
+    // project-scope door must add door-keyed resolution (e.g. hrefFor) — this
+    // arm would silently send it to /costs otherwise.
+    return activeProjectId ? projectCostsHref(activeProjectId) : door.href;
+  }
   if (door.scope === "shared" || !activeProjectId) return door.href;
   const [path, query = ""] = door.href.split("?");
   const params = new URLSearchParams(query);
   params.set("project", activeProjectId);
   return `${path}?${params.toString()}`;
+}
+
+// Spec 325 U3 — which of a section's doors render for this viewer + lens state:
+// managerOnly doors need the manager tier; 📍 project doors need an active
+// project (they'd dead-end otherwise — §0). Pure so the visibility rule is
+// unit-tested; hub-body renders exactly this list.
+export function visibleProcurementDoors(
+  section: ProcurementStrSection,
+  isManager: boolean,
+  activeProjectId: string | null,
+): ProcurementDoor[] {
+  return section.doors.filter(
+    (d) => (!d.managerOnly || isManager) && (d.scope !== "project" || activeProjectId !== null),
+  );
 }

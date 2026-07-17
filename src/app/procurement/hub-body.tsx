@@ -21,6 +21,7 @@ import {
   buildProcurementProjectStatus,
   procurementDoorHref,
   procurementStripHref,
+  visibleProcurementDoors,
   PROCUREMENT_STR_SECTIONS,
   type ProcurementStrSection,
 } from "@/lib/purchasing/procurement-home";
@@ -122,9 +123,10 @@ export async function ProcurementHubBody({
         </div>
       ) : null}
 
-      {/* STR sections of door tiles; 🔀 doors carry the active project. */}
+      {/* STR sections of door tiles; 🔀 doors carry the active project, 📍
+          doors (per-project targets) render only while the lens has one. */}
       {sections.map((sectionItem) => {
-        const doors = sectionItem.doors.filter((d) => !d.managerOnly || isManager);
+        const doors = visibleProcurementDoors(sectionItem, isManager, activeProjectId);
         return (
           <div key={sectionItem.key} className="flex flex-col gap-3">
             <h2 className="text-body text-ink-secondary font-semibold">{sectionItem.label}</h2>
