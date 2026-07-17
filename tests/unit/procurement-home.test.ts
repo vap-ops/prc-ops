@@ -13,6 +13,7 @@ import {
   buildProcurementProjectStatus,
   parseProcurementSection,
   procurementDoorHref,
+  procurementStripHref,
   PROCUREMENT_STR_SECTIONS,
   type HomeCountRow,
 } from "@/lib/purchasing/procurement-home";
@@ -31,6 +32,17 @@ function row(
 ): HomeCountRow {
   return { projectId, status, eta };
 }
+
+describe("procurementStripHref", () => {
+  // Nav-coherence feedback 2026-07-17 (zeeparn): the strip row LOOKS like "open
+  // this project's ขอซื้อ" but only re-scoped the hub filter — invisible for a
+  // single-project user. The tap now goes WHERE THE COUNTS POINT: the จัดซื้อ
+  // list scoped to that project. No ?from= — /requests is a tab page (no back
+  // chip); the หน้าหลัก tab is the way back.
+  it("targets the project-scoped จัดซื้อ list", () => {
+    expect(procurementStripHref("p1")).toBe("/requests?project=p1");
+  });
+});
 
 describe("buildProcurementProjectStatus", () => {
   it("counts OPEN requests (active bands) per project, excluding done/closed", () => {

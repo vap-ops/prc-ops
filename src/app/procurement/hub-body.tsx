@@ -20,6 +20,7 @@ import { ProjectLens } from "@/components/features/common/project-lens";
 import {
   buildProcurementProjectStatus,
   procurementDoorHref,
+  procurementStripHref,
   PROCUREMENT_STR_SECTIONS,
   type ProcurementStrSection,
 } from "@/lib/purchasing/procurement-home";
@@ -40,7 +41,7 @@ interface ProcurementHubBodyProps {
   role: UserRole;
   /** null = the full hub (all three STR sections); a key = that section only. */
   section: ProcurementStrSection["key"] | null;
-  /** The page's own pathname — strip rows re-scope onto it, keeping the section. */
+  /** The page's own pathname — feeds hubFrom (the ?from= referrer on door tiles). */
   currentHref: string;
   searchParams: Promise<{ project?: string | string[] }>;
 }
@@ -96,32 +97,28 @@ export async function ProcurementHubBody({
       {/* Universal cross-project filter (collapses at ≤1 named project). */}
       <ProjectLens projects={lensProjects} />
 
-      {/* Per-project status strip — open ขอซื้อ + arrivals-today, tap to scope. */}
+      {/* Per-project status strip — open ขอซื้อ + arrivals-today. The tap goes
+          where the counts point (that project's จัดซื้อ list; the หน้าหลัก tab
+          is the way back — /requests is a tab page, no back chip); scoping the
+          hub itself is the lens chips' job (feedback 2026-07-17: re-scoping on
+          tap was invisible for a single-project user). */}
       {projectStatus.length > 0 ? (
         <div className="flex flex-col gap-2">
-          {projectStatus.map((p) => {
-            const active = activeProjectId === p.projectId;
-            return (
-              <Link
-                key={p.projectId}
-                href={`${currentHref}?project=${p.projectId}`}
-                aria-current={active ? "true" : undefined}
-                className={`rounded-card shadow-card flex min-h-11 items-center gap-3 border px-4 py-3 ${
-                  active
-                    ? "border-fill bg-fill/10 text-ink"
-                    : "border-edge bg-card text-ink hover:bg-sunk"
-                }`}
-              >
-                <span className="text-body min-w-0 flex-1 truncate font-semibold">{p.name}</span>
-                <span className="text-ink-secondary text-meta shrink-0">ขอซื้อ {p.openCount}</span>
-                {p.arrivalsToday > 0 ? (
-                  <span className="bg-action text-on-fill text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
-                    ของเข้าวันนี้ {p.arrivalsToday}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
+          {projectStatus.map((p) => (
+            <Link
+              key={p.projectId}
+              href={procurementStripHref(p.projectId)}
+              className="rounded-card shadow-card border-edge bg-card text-ink hover:bg-sunk flex min-h-11 items-center gap-3 border px-4 py-3"
+            >
+              <span className="text-body min-w-0 flex-1 truncate font-semibold">{p.name}</span>
+              <span className="text-ink-secondary text-meta shrink-0">ขอซื้อ {p.openCount}</span>
+              {p.arrivalsToday > 0 ? (
+                <span className="bg-action text-on-fill text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
+                  ของเข้าวันนี้ {p.arrivalsToday}
+                </span>
+              ) : null}
+            </Link>
+          ))}
         </div>
       ) : null}
 
