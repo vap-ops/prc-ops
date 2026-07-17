@@ -26,6 +26,9 @@ export interface ProcurementFilter {
   status: PurchaseRequestStatus | null;
   /** Spec 138 U3: procurement band; null = all. The status-chip filter axis. */
   band: ProcurementBand | null;
+  /** Feedback 26425c1e/17cba555: free-text product-name search (item_description
+   *  substring, case-insensitive). Absent/blank = no filter. */
+  query?: string | null;
 }
 
 interface FilterableRow {
@@ -33,6 +36,8 @@ interface FilterableRow {
   eta: string | null;
   supplier: string | null;
   projectId: string | null;
+  /** item_description — the product name the card shows; null when absent. */
+  itemName?: string | null;
 }
 
 // AND-composes every set axis. todayIso = Bangkok civil date "YYYY-MM-DD";
@@ -49,6 +54,11 @@ export function matchesProcurementFilter(
   if (filter.overdue) {
     if (procurementBand(row.status) !== "in_transit") return false;
     if (row.eta === null || !(row.eta < todayIso)) return false;
+  }
+  const q = filter.query?.trim().toLowerCase();
+  if (q) {
+    if (row.itemName == null) return false;
+    if (!row.itemName.toLowerCase().includes(q)) return false;
   }
   return true;
 }
@@ -97,6 +107,8 @@ export function buildWorklistQuery(filter: ProcurementFilter): string {
   if (filter.band) p.set("band", filter.band);
   if (filter.status) p.set("status", filter.status);
   if (filter.overdue) p.set("overdue", "1");
-  const q = p.toString();
-  return q ? `/requests?${q}` : "/requests";
+  const query = filter.query?.trim();
+  if (query) p.set("q", query);
+  const qs = p.toString();
+  return qs ? `/requests?${qs}` : "/requests";
 }
