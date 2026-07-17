@@ -1,3 +1,9 @@
+## [0.126.2](https://github.com/VAP-Solution/prc-ops/compare/v0.126.1...v0.126.2) (2026-07-17)
+
+### Bug Fixes
+
+- **nav:** referrer-aware back chip on /expenses (money page) ([#611](https://github.com/VAP-Solution/prc-ops/issues/611)) ([e3938a7](https://github.com/VAP-Solution/prc-ops/commit/e3938a70a704100250d883e397fbc6f4ba02b675)), closes [#610](https://github.com/VAP-Solution/prc-ops/issues/610) [#610](https://github.com/VAP-Solution/prc-ops/issues/610)
+
 ## [0.126.1](https://github.com/VAP-Solution/prc-ops/compare/v0.126.0...v0.126.1) (2026-07-17)
 
 ### Bug Fixes
