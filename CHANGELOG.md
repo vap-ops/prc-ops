@@ -1,3 +1,9 @@
+# [0.131.0](https://github.com/VAP-Solution/prc-ops/compare/v0.130.0...v0.131.0) (2026-07-17)
+
+### Features
+
+- **requests:** product-name search on the procurement worklist ([#620](https://github.com/VAP-Solution/prc-ops/issues/620)) ([0df1e03](https://github.com/VAP-Solution/prc-ops/commit/0df1e035b7fc5030d33e44da9184ed5bddc9d16a))
+
 # [0.130.0](https://github.com/VAP-Solution/prc-ops/compare/v0.129.0...v0.130.0) (2026-07-17)
 
 ### Features
