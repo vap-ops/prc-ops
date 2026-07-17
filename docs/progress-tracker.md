@@ -7644,3 +7644,16 @@ pins only the 6 dynamic details, no A2 coverage. Recs (proposals only):
 (a) required ?from on multi-parent href helpers + extend the guard;
 (b) tab-grammar doctrine incl. the procurement section-spine question;
 (c) one form-placement doctrine line. NO fixes started.
+
+## Spec 325 — WP cost categories + rework line — DESIGN SPEC WRITTEN (2026-07-17)
+
+Distilled the operator design session (chat) into
+docs/feature-specs/325-wp-cost-categories.md + README row. DESIGN DRAFT —
+build NOT started; awaits operator review of the spec as a whole.
+Key locked decisions: 3 base categories + rework line (฿0 budget) routed
+by cause; equipment = peer of labour under an execution family (not
+nested); cause tag = neutral planned/rework, system-proposed +
+approver-confirmed (the omotenashi test, spec §0, binding per unit);
+phases actuals → tag → budgets(owner-gated) → anticipation.
+Open operator decisions recorded in spec §6 (view placement · budget
+owner · rework-labour capture).
