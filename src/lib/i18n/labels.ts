@@ -532,6 +532,13 @@ export const LABOR_BUDGET_UNSET_LABEL = "ยังไม่ได้ตั้ง
 // aria-label, page title, procurement hub door (U3).
 export const PROJECT_COSTS_LABEL = "ต้นทุนโครงการ";
 
+// Spec 325 Phase 2 — the ของเสีย/แก้ไข (breakage + rework) exposure line: cost
+// routed by cause, carved out of ค่าวัสดุ, budgeted ฿0 (any amount reads as over
+// — accountability by exposure, not burial). Project grain.
+export const REWORK_LINE_LABEL = "ของเสีย/แก้ไข";
+export const REWORK_LINE_HINT = "ต้นทุนตามสาเหตุ · แยกจากค่าวัสดุเพื่อความรับผิดชอบ";
+export const REWORK_LINE_ZERO = "ยังไม่มีของเสีย/แก้ไขที่บันทึก";
+
 // Spec 202 U2 — the WP equipment check-out/check-in tab (rate-free field surface).
 export const EQUIPMENT_TAB_LABEL = "อุปกรณ์";
 export const EQUIPMENT_CHECK_OUT_LABEL = "เช็คเอาท์";
