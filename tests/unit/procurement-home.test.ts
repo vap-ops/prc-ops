@@ -16,6 +16,7 @@ import {
   PROCUREMENT_STR_SECTIONS,
   type HomeCountRow,
 } from "@/lib/purchasing/procurement-home";
+import { CATALOG_LABEL } from "@/lib/i18n/labels";
 
 const TODAY = "2026-07-16";
 const NAMES = new Map([
@@ -94,6 +95,12 @@ describe("PROCUREMENT_STR_SECTIONS", () => {
     expect(scope?.doors.some((d) => d.href === "/requests")).toBe(true);
     expect(time?.doors.some((d) => d.href === "/requests/orders")).toBe(true);
   });
+
+  it("labels the /catalog door with CATALOG_LABEL (term SSOT — the catalog is ทะเบียนวัสดุ everywhere)", () => {
+    const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
+    const catalog = scope?.doors.find((d) => d.href === "/catalog");
+    expect(catalog?.label).toBe(CATALOG_LABEL);
+  });
 });
 
 describe("procurementDoorHref", () => {
@@ -103,7 +110,12 @@ describe("procurementDoorHref", () => {
     href: "/requests",
     scope: "spanning",
   } as const;
-  const shared = { key: "catalog", label: "แคตตาล็อก", href: "/catalog", scope: "shared" } as const;
+  const shared = {
+    key: "catalog",
+    label: CATALOG_LABEL,
+    href: "/catalog",
+    scope: "shared",
+  } as const;
   const spanningWithQuery = {
     key: "incoming",
     label: "ของเข้า",
