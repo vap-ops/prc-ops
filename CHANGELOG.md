@@ -1,3 +1,9 @@
+# [0.129.0](https://github.com/VAP-Solution/prc-ops/compare/v0.128.0...v0.129.0) (2026-07-17)
+
+### Features
+
+- **procurement:** spec 325 U3 — ต้นทุนโครงการ hub door (project-scope doors) ([#618](https://github.com/VAP-Solution/prc-ops/issues/618)) ([ca57f6c](https://github.com/VAP-Solution/prc-ops/commit/ca57f6c9fea0f4a8b23eea56f4a8f677b0e839b4)), closes [#616](https://github.com/VAP-Solution/prc-ops/issues/616)
+
 # [0.128.0](https://github.com/VAP-Solution/prc-ops/compare/v0.127.1...v0.128.0) (2026-07-17)
 
 ### Features
