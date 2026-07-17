@@ -1,3 +1,9 @@
+# [0.126.0](https://github.com/VAP-Solution/prc-ops/compare/v0.125.0...v0.126.0) (2026-07-17)
+
+### Features
+
+- **324:** inventory_1500 integrity tie, PO-charge-aware (U7) ([#608](https://github.com/VAP-Solution/prc-ops/issues/608)) ([2225fb8](https://github.com/VAP-Solution/prc-ops/commit/2225fb8848608d6a9bf4a8db50c8206600a55a52))
+
 # [0.125.0](https://github.com/VAP-Solution/prc-ops/compare/v0.124.0...v0.125.0) (2026-07-17)
 
 ### Features
