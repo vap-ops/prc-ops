@@ -1,3 +1,9 @@
+# [0.127.0](https://github.com/VAP-Solution/prc-ops/compare/v0.126.4...v0.127.0) (2026-07-17)
+
+### Features
+
+- **costs:** spec 325 U1 — pure WP cost composition model (Phase 1 actuals) ([#615](https://github.com/VAP-Solution/prc-ops/issues/615)) ([5efcc37](https://github.com/VAP-Solution/prc-ops/commit/5efcc378011bb3a641b14802220c89d2e06a3507))
+
 ## [0.126.4](https://github.com/VAP-Solution/prc-ops/compare/v0.126.3...v0.126.4) (2026-07-17)
 
 ### Bug Fixes
