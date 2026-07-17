@@ -2,12 +2,6 @@
   "$schema-note": "Pinned pre-existing pgTAP reds tolerated by scripts/run-pgtap.ts. A CI run passes iff EXACTLY these files fail, each with AT MOST its maxFailures failing assertions; any OTHER red fails the check, a listed file that exceeds maxFailures fails the check (a NEW regression inside a quarantined file is surfaced, not masked), and a listed file that starts passing is surfaced for removal. Residual: a regression that keeps the SAME failing-assertion count in a listed file is still tolerated — keep this list minimal and fix+delete entries. Match on the exact readdir basename under supabase/tests/database/. See ADR 0081.",
   "files": [
     {
-      "file": "200-store-inventory-reconciliation.test.sql",
-      "maxFailures": 3,
-      "reason": "Asserts GL 1500 (Inventory) ties to the on-hand subledger with zero drift. The ONE shared remote DB carries pre-existing inventory drift, so 3 reconciliation assertions fail against live data — a data-state condition, not a code regression. Fix = rewrite the test to seed its own isolated inventory inside the txn (follow-up), then remove this entry.",
-      "since": "2026-07-09"
-    },
-    {
       "file": "221-catalog-categories.test.sql",
       "maxFailures": 1,
       "reason": "Asserts an exact seeded category count (13 enum + 1 user category, spec 239 fasteners). The live catalog has drifted past the seed, so 1 count assertion fails against real data. Fix = assert on the seeded rows only, not a global count (follow-up), then remove this entry.",
