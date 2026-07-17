@@ -1,3 +1,9 @@
+## [0.126.3](https://github.com/VAP-Solution/prc-ops/compare/v0.126.2...v0.126.3) (2026-07-17)
+
+### Bug Fixes
+
+- **procurement:** label hub catalog door ทะเบียนวัสดุ via CATALOG_LABEL ([#612](https://github.com/VAP-Solution/prc-ops/issues/612)) ([3741ea9](https://github.com/VAP-Solution/prc-ops/commit/3741ea995c58adc4c46076fe604a815a581ffe6f))
+
 ## [0.126.2](https://github.com/VAP-Solution/prc-ops/compare/v0.126.1...v0.126.2) (2026-07-17)
 
 ### Bug Fixes
