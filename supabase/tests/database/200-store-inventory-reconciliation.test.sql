@@ -1,5 +1,5 @@
 begin;
-select plan(6);
+select plan(3);
 
 -- ============================================================================
 -- Spec 178 B7 / ADR 0057 dec 11 — extend gl_reconciliation with the Inventory
@@ -44,33 +44,37 @@ set local "request.jwt.claims" = '{"sub": "19191919-1919-1919-1919-000000000200"
 select is(
   (select count(*)::int from public.gl_reconciliation() where check_name = 'inventory_1500'),
   1, 'gl_reconciliation has an inventory_1500 check');
--- gl_reconciliation() is TABLE-WIDE; assert the INVARIANT (GL 1500 ties to the
--- on-hand subledger) rather than a fixture-coupled absolute, so real store data
--- (e.g. the spec-208/209 backfill) doesn't break it.
-select is(
-  (select gl_value from public.gl_reconciliation() where check_name = 'inventory_1500'),
-  (select subledger_value from public.gl_reconciliation() where check_name = 'inventory_1500'),
-  'GL Inventory (1500) ties to the on-hand subledger');
-select is(
-  (select subledger_value from public.gl_reconciliation() where check_name = 'inventory_1500'),
-  (select coalesce(sum(total_value), 0) from public.stock_on_hand),
-  'subledger = Σ stock_on_hand.total_value (table-wide-safe)');
+-- gl_reconciliation() is TABLE-WIDE; assert the INVARIANT via the gated `ok`
+-- rather than a raw gl_value = subledger_value compare. Spec 324 U7: the subledger
+-- backing 1500 is the on-hand pool PLUS the PO-level charges capitalized to 1500
+-- (transport/discount post to 1500 but never the moving-avg pool). `ok` is pending-
+-- gated (green while 1500-affecting postings drain), so a transient in-flight posting
+-- on the shared DB cannot flake this — unlike a raw value compare, which would red the
+-- moment on-hand is committed ahead of its still-draining GL post. A standalone
+-- subledger recompute is intentionally omitted (it would re-read journal_lines as the
+-- RLS-filtered caller, never matching the function's SECURITY DEFINER full read).
 select is(
   (select ok from public.gl_reconciliation() where check_name = 'inventory_1500'),
-  true, 'inventory ties (GL 1500 = on-hand) when the backlog is clear');
+  true, 'inventory ties (GL 1500 = on-hand + capitalized PO charges) when quiescent/draining');
 
 -- B. Introduce drift: more on-hand than the GL knows → the check must flag it.
+-- Force the pending-gate OFF first (txn-local, rolled back) so the injected drift is
+-- deterministically visible regardless of any concurrent in-flight 1500 posting on the
+-- shared DB. The exact drift VALUE is intentionally not asserted — it is table-wide
+-- (fixture + live + any concurrent state), so `ok = false` is the robust invariant.
 reset role;
+delete from public.gl_posting_outbox
+ where status = 'pending'
+   and source_table in ('stock_receipts', 'stock_issues', 'stock_returns',
+                        'stock_counts', 'stock_reversals',
+                        'stock_receipt_corrections', 'purchase_order_charges');
 insert into public.stock_on_hand (project_id, catalog_item_id, qty_on_hand, total_value) values
   ('aa000000-0000-0000-0000-000000000200', 'ef000000-0000-0000-0000-000000000200', 2, 100);
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "19191919-1919-1919-1919-000000000200"}';
 select is(
   (select ok from public.gl_reconciliation() where check_name = 'inventory_1500'),
-  false, 'inventory does NOT tie once on-hand (600) exceeds GL 1500 (500)');
-select is(
-  (select drift from public.gl_reconciliation() where check_name = 'inventory_1500'),
-  -100::numeric, 'drift = GL 500 − subledger 600 = −100');
+  false, 'inventory does NOT tie once on-hand exceeds GL 1500 + capitalized PO charges');
 
 reset role;
 

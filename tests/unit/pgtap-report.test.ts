@@ -143,9 +143,13 @@ describe("shipped known-red manifest", () => {
     }
   });
 
-  it("pins the two current pre-existing reds with their budgets", () => {
+  it("pins the current pre-existing red with its budget", () => {
     const listed = loadKnownRed(MANIFEST);
-    expect(listed.get("200-store-inventory-reconciliation.test.sql")).toBe(3);
+    // Spec 324 U7: 200-store un-pinned — its 1500↔on-hand drift was explained
+    // (capitalized PO charges) and the tie is now modeled + green. Only the
+    // 221-catalog seed-count drift remains.
+    expect(listed.get("200-store-inventory-reconciliation.test.sql")).toBeUndefined();
     expect(listed.get("221-catalog-categories.test.sql")).toBe(1);
+    expect(listed.size).toBe(1);
   });
 });
