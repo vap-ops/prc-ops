@@ -50,9 +50,14 @@ describe("BottomTabBar", () => {
     ]);
     expect(SA_TABS.map((t) => [t.label, t.href])).toEqual([
       // Spec 192 U4: the SA lands on the daily home หน้าหลัก (/sa); ภาพรวม dropped
-      // from the SA bar (the home supersedes it), keeping four tabs.
+      // from the SA bar (the home supersedes it).
       ["หน้าหลัก", "/sa"],
       ["โครงการ", "/projects"],
+      // Spec 313 D2 (nav-coherence audit 2026-07): ทีมงาน is an SA bottom tab — it
+      // was a hub reachable only from a home tile, so /team stranded the phone user
+      // (no lit tab, no back chip). Its own tab fixes the strand; position 3 per
+      // the spec-313 people-before-purchasing order.
+      ["ทีมงาน", "/team"],
       ["จัดซื้อ", "/requests"],
       ["ตั้งค่า", "/settings"],
     ]);

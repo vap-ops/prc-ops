@@ -57,6 +57,9 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "หน้าหลัก", href: "/sa" },
   // Spec 82 Unit 3: the SA project hub folded to the shared /projects hub.
   { label: "โครงการ", href: "/projects" },
+  // Spec 313 D2 (nav-coherence audit): the desktop strip mirrors the bottom bar's
+  // new ทีมงาน tab (nav-law rule 2 — the strip carries every bottom-tab destination).
+  { label: "ทีมงาน", href: "/team" },
   { label: "จัดซื้อ", href: "/requests" },
   { label: "ตั้งค่า", href: "/settings" },
 ];

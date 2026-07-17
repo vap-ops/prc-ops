@@ -222,6 +222,14 @@ bg-red-50 px-3 py-2 text-xs text-red-900`. Message text ends with
   `bg-black/85` scrim (recorded dark exception), `max-w-sm` white box,
   ยกเลิก + red-600 confirm, Escape/overlay-click cancels. No
   `window.confirm`.
+- **Form placement (nav-coherence audit 2026-07).** Every create/edit opens a
+  **bottom sheet** (`common/bottom-sheet` — the app-wide default, ~50 call sites);
+  a dedicated page or an inline-on-detail form requires a recorded reason —
+  an onboarding workspace (`/register/*`, `/portal/claim`), field capture on the
+  WP detail (phase uploader, labour log), or a spec-10 pinned form (the /requests
+  PR raise). Detail and list pages stay read-only; the edit affordance is the
+  sheet (spec 321 rule). A new dedicated-page CRUD without one of those reasons is
+  a review reject.
 
 ## 8. Loading
 
