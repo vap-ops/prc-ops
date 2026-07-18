@@ -36,9 +36,10 @@ function pr(overrides: Partial<TimePrRow>): TimePrRow {
 }
 
 describe("parseTimeView", () => {
-  it("defaults to late; accepts week; garbage falls back", () => {
+  it("defaults to late; accepts week + timeline; garbage falls back", () => {
     expect(parseTimeView(undefined)).toBe("late");
     expect(parseTimeView("week")).toBe("week");
+    expect(parseTimeView("timeline")).toBe("timeline");
     expect(parseTimeView("nonsense")).toBe("late");
   });
 });

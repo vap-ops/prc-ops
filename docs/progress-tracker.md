@@ -7820,3 +7820,41 @@ U3 COMPLETE — code-only, no schema.
   documented in-code). Nits fixed: localeCompare tiebreaks (both sorts),
   เปลี่ยนโครงการ 44px (time+scope), aria-current="page" pills, [section]
   searchParams type carries view.
+
+## Spec 327 U4 — เวลา visual timeline + shelves (2026-07-18)
+
+U4 COMPLETE — code-only, no schema.
+
+- ?view=timeline third pill on /procurement/time: buildProcurementTimeline
+  (pure — spec-92 gantt-scale reuse: WP bars via barFor, PR pins via barFor
+  same-start/end [spec-255 activityGeom precedent], pin etas join the domain,
+  late pins = U1 SSOT); anchorless/foreign pins → คลัง lane; shelves
+  ยังไม่กำหนดวันที่ + ไม่ทราบวันถึง as <details> buckets (§0.1). Renderer
+  'use client' (zoom useState over SCHEDULE_PERIODS ใกล้/กลาง/ไกล — justified:
+  local interaction, ScheduleGantt precedent); sticky name column; pins
+  presentational.
+- ⚖ DELIBERATE plan deviation on the touch pact: [touch-action:manipulation]
+  instead of pan-x_pinch-zoom — this surface is 331 lanes (~12,000px) TALL and
+  pan-x-only would dead-zone vertical page scroll across the viewport.
+  manipulation keeps the bug-class fix (horizontal pan enabled) + pinch (WCAG)
+  - vertical page scroll. ui-class-contracts checker EXTENDED (not weakened:
+    bare overflow-x-auto still fails; manipulation added as the documented
+    tall-2-axis form, self-tested).
+- Labels: UNDATED_WP_LABEL + NO_ETA_LABEL; schedule-gantt.tsx:580 now imports
+  UNDATED_WP_LABEL (2-place SSOT).
+- Verified: suite 4195; live probes — 331 lanes/bars + today line + 2 month
+  bands + zoom pills work; shelves 47 undated WPs / 14 no-eta PRs; ZERO pins =
+  CORRECT (live data moved mid-session: the in-transit/late PRs were received
+  ~19:00-20:00 → no active PR carries an eta right now; dashboard consistently
+  shows zero alert chips + ขอซื้อ 14 = DB truth; pin geometry unit-pinned).
+  Real-device pan feel = operator's U6 phone check.
+
+### U4 fresh-eyes outcome (same day)
+
+- Guard allowance FILE-SCOPED (the review's headline): manipulation counts only
+  for files in MANIPULATION_ALLOWED_FILES (currently the procurement timeline);
+  a thin strip writing manipulation elsewhere keeps failing. Self-tests assert
+  both directions. Month-axis corner mask added (labels no longer bleed under
+  the frozen name column). Accepted-by-design (answered): pins presentational/
+  title-only on touch (the เสี่ยงช้า list is the actionable surface, per plan);
+  331-lane full reconcile per zoom (thin renderer v1, zoom is infrequent).

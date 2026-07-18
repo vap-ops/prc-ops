@@ -90,14 +90,33 @@ describe("absolute-centering contract (#236 bug class)", () => {
 // keeps zoom while still killing the vertical jump.
 // ---------------------------------------------------------------------------
 
-/** String literals that scroll horizontally but never lock the touch gesture
- *  to that axis (or lock it without preserving pinch-zoom) — each is a row
- *  that can bleed a horizontal swipe into a vertical page-scroll jump. */
-export function scrollRowTouchActionViolations(content: string): string[] {
+/** TALL 2-axis surfaces (viewport-filling gantts) where
+ *  `[touch-action:manipulation]` is the compliant form instead of the row-strip
+ *  pair: pan-x-only would dead-zone vertical page scrolling across the whole
+ *  viewport there, while manipulation still enables the horizontal pan the
+ *  bug class is about AND preserves pinch-zoom (WCAG 1.4.10). The allowance is
+ *  FILE-SCOPED on purpose — a thin row strip writing `manipulation` elsewhere
+ *  would re-expose the vertical-jump bug and must keep failing. */
+const MANIPULATION_ALLOWED_FILES = new Set([
+  // Spec 327 U4 — 300+ WP lanes tall; vertical touches must scroll the page.
+  "components/features/purchasing/procurement-timeline.tsx",
+]);
+
+/** String literals that scroll horizontally but never declare a compliant
+ *  touch-action — each is a row that can bleed a horizontal swipe into a
+ *  vertical page-scroll jump. `[touch-action:pan-x_pinch-zoom]` is the default
+ *  contract; `[touch-action:manipulation]` counts ONLY when the caller marks
+ *  the file as an allowed tall-2-axis surface (see MANIPULATION_ALLOWED_FILES). */
+export function scrollRowTouchActionViolations(
+  content: string,
+  opts: { allowManipulation?: boolean } = {},
+): string[] {
   const out: string[] = [];
   for (const [lit] of content.matchAll(STRING_LITERALS)) {
-    if (lit.includes("overflow-x-auto") && !lit.includes("touch-action:pan-x_pinch-zoom"))
+    if (lit.includes("overflow-x-auto") && !lit.includes("touch-action:pan-x_pinch-zoom")) {
+      if (opts.allowManipulation && lit.includes("touch-action:manipulation")) continue;
       out.push(lit);
+    }
   }
   return out;
 }
@@ -116,18 +135,30 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
         'className="flex overflow-x-auto gap-2 [touch-action:pan-x_pinch-zoom]"',
       ),
     ).toHaveLength(0);
+    // manipulation = pan-x + pan-y + pinch-zoom — the tall-2-axis-surface form
+    // (spec 327 U4): compliant ONLY where the file allowance is granted; a thin
+    // strip writing manipulation elsewhere keeps failing (vertical-jump bug).
+    const manipulationLit =
+      'className="relative overflow-x-auto border [touch-action:manipulation]"';
+    expect(
+      scrollRowTouchActionViolations(manipulationLit, { allowManipulation: true }),
+    ).toHaveLength(0);
+    expect(scrollRowTouchActionViolations(manipulationLit)).toHaveLength(1);
     expect(scrollRowTouchActionViolations('className="flex gap-2"')).toHaveLength(0);
   });
 
   it("no className in src/ uses overflow-x-auto without [touch-action:pan-x_pinch-zoom]", () => {
     const srcRoot = path.resolve(__dirname, "../../src");
     const offenders = tsxFiles(srcRoot).flatMap((f) => {
-      const hits = scrollRowTouchActionViolations(fs.readFileSync(f, "utf8"));
-      return hits.map((h) => `${path.relative(srcRoot, f)}: ${h}`);
+      const rel = path.relative(srcRoot, f).replaceAll(path.sep, "/");
+      const hits = scrollRowTouchActionViolations(fs.readFileSync(f, "utf8"), {
+        allowManipulation: MANIPULATION_ALLOWED_FILES.has(rel),
+      });
+      return hits.map((h) => `${rel}: ${h}`);
     });
     expect(
       offenders,
-      "add [touch-action:pan-x_pinch-zoom] next to overflow-x-auto (see feedback 14263ad8)",
+      "add [touch-action:pan-x_pinch-zoom] next to overflow-x-auto (see feedback 14263ad8; tall 2-axis surfaces may use [touch-action:manipulation] once allow-listed in MANIPULATION_ALLOWED_FILES)",
     ).toEqual([]);
   });
 });

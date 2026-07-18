@@ -556,6 +556,12 @@ export const ARRIVALS_TODAY_LABEL = "ของเข้าวันนี้";
 // it a 2+-place term; สัปดาห์นี้ names the week radar.
 export const THIS_WEEK_LABEL = "สัปดาห์นี้";
 export const TIMELINE_LABEL = "ไทม์ไลน์";
+
+// Spec 327 U4 — the timeline shelves (§0.1 labeled buckets). ยังไม่กำหนดวันที่
+// was inline on the WP schedule gantt until the procurement timeline made it a
+// 2+-place term; ไม่ทราบวันถึง names the active-PR no-eta bucket.
+export const UNDATED_WP_LABEL = "ยังไม่กำหนดวันที่";
+export const NO_ETA_LABEL = "ไม่ทราบวันถึง";
 export const PRODUCT_SEARCH_PLACEHOLDER = "ชื่อสินค้า…";
 
 // Spec 325 Phase 2 — the ของเสีย/แก้ไข (breakage + rework) exposure line: cost
