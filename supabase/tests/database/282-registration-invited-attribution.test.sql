@@ -57,8 +57,8 @@ select is(
                                      where a.attrelid=c.conrelid and a.attnum=c.conkey[1])),
   'n', 'invited_project_id FK is ON DELETE SET NULL');
 
-select has_function('public', 'start_staff_registration', array['text','text','text','uuid','uuid'],
-  'start_staff_registration re-signatured (text,text,text,uuid,uuid)');
+select has_function('public', 'start_staff_registration', array['text','text','text','uuid','uuid','uuid'],
+  'start_staff_registration re-signatured (text,text,text,uuid,uuid,uuid) — spec-328 contractor ref');
 select hasnt_function('public', 'start_staff_registration', array['text','text','text'],
   'old 3-arg start_staff_registration overload is GONE (dropped, not left dangling)');
 select is(
@@ -67,7 +67,7 @@ select is(
       and grantee in ('public','anon')),
   0, 'no PUBLIC/anon EXECUTE on start_staff_registration (re-revoked on new signature)');
 select function_privs_are('public', 'start_staff_registration',
-  array['text','text','text','uuid','uuid'],
+  array['text','text','text','uuid','uuid','uuid'],
   'authenticated', array['EXECUTE'], 'authenticated can execute the re-signatured start_staff_registration');
 
 -- ============================================================================

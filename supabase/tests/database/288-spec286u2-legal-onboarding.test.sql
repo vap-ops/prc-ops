@@ -105,7 +105,7 @@ select is(
       and grantee in ('public','anon')),
   0, 'no PUBLIC/anon EXECUTE on approve_staff_registration');
 select function_privs_are('public', 'approve_staff_registration',
-  array['uuid','user_role','uuid','pay_type','employment_type'],
+  array['uuid','user_role','uuid','pay_type','employment_type','uuid'],
   'authenticated', array['EXECUTE'], 'authenticated can execute approve_staff_registration');
 
 select * from finish();

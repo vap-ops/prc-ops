@@ -6065,6 +6065,7 @@ export type Database = {
           full_name: string | null
           id: string
           invited_by: string | null
+          invited_contractor_id: string | null
           invited_project_id: string | null
           phone: string | null
           reject_reason: string | null
@@ -6085,6 +6086,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           invited_by?: string | null
+          invited_contractor_id?: string | null
           invited_project_id?: string | null
           phone?: string | null
           reject_reason?: string | null
@@ -6105,6 +6107,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           invited_by?: string | null
+          invited_contractor_id?: string | null
           invited_project_id?: string | null
           phone?: string | null
           reject_reason?: string | null
@@ -6115,6 +6118,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "staff_registrations_invited_contractor_id_fkey"
+            columns: ["invited_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "contractors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "staff_registrations_invited_project_id_fkey"
             columns: ["invited_project_id"]
@@ -8807,6 +8817,7 @@ export type Database = {
       }
       approve_staff_registration: {
         Args: {
+          p_contractor_id?: string
           p_employment_type?: Database["public"]["Enums"]["employment_type"]
           p_id: string
           p_pay_type?: Database["public"]["Enums"]["pay_type"]
@@ -10316,6 +10327,7 @@ export type Database = {
           p_declared_role_hint?: string
           p_full_name: string
           p_invited_by?: string
+          p_invited_contractor_id?: string
           p_invited_project_id?: string
           p_phone: string
         }
