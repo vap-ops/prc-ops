@@ -115,6 +115,24 @@ describe("PROCUREMENT_STR_SECTIONS", () => {
     expect(time?.doors.some((d) => d.href === "/requests/orders")).toBe(true);
   });
 
+  // Spec 326 — WP-list reachability. The STR spine dropped the pre-323 โครงการ
+  // tab and the hub links /requests?project=, so procurement (a first-class
+  // read-only viewer of /projects/[id], spec 173) had NO discoverable entry to
+  // any /projects surface. One shared door restores it. Shared, NOT 📍 project
+  // scope: a project door hides while 2+ projects have no lens selection, which
+  // would re-open the gap in the hub's default state.
+  it("puts a shared โครงการ door under Scope right after จัดซื้อ (spec 326)", () => {
+    const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
+    const idx = scope?.doors.findIndex((d) => d.key === "projects") ?? -1;
+    const door = scope?.doors[idx];
+    expect(door?.label).toBe("โครงการ");
+    expect(door?.href).toBe("/projects");
+    expect(door?.scope).toBe("shared");
+    expect(scope?.doors[idx - 1]?.key).toBe("requests");
+    // an active project must never leak onto the hub target (shared passthrough)
+    expect(procurementDoorHref(door!, "p1")).toBe("/projects");
+  });
+
   it("labels the /catalog door with CATALOG_LABEL (term SSOT — the catalog is ทะเบียนวัสดุ everywhere)", () => {
     const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
     const catalog = scope?.doors.find((d) => d.href === "/catalog");

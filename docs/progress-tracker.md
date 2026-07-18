@@ -7708,3 +7708,17 @@ Open (deferred, NOT built): system-proposed/approver-confirmed cause flow (§3
 anticipation — a later unit; makes cause reliable on the direct channel) ·
 redo-labour (§1.2-gated) · per-WP rework display (needs เบิก-cause capture, the
 same bar equipment failed). Phase 3 budgets remain parked (no owner).
+
+## Spec 326 — Procurement โครงการ door (2026-07-18, operator "yes build it")
+
+Single code-only unit — COMPLETE 2026-07-18.
+
+- Restores a discoverable /projects entry for the procurement tiers: shared-scope
+  door {key:"projects", label:"โครงการ", href:"/projects"} in ขอบเขต after จัดซื้อ.
+  Amends spec 323 §4 (operator-approved reversal of the U3b no-/projects-door
+  stance); D3 untouched. RED-first pin test (position + shape + shared scope).
+- Files: procurement-home.ts · procurement-home.test.ts · site-map.md /projects
+  row · spec 326 doc + README row.
+
+Open questions: none. Out-of-scope noted for a future pass: `catalog-item-picker.tsx:345`
+stale ตั้งค่า → แคตตาล็อก hint for procurement (flagged by lane catlabel #612, still open).
