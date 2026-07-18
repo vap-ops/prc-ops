@@ -10,6 +10,7 @@ import type { Database } from "@/lib/db/database.types";
 import {
   CATALOG_LABEL,
   LABOR_RATES_LABEL,
+  ORDERING_TEMPLATES_LABEL,
   PROJECT_COSTS_LABEL,
   SUBCONTRACTOR_LABEL,
   SUPPLY_PLAN_LABEL,
@@ -117,15 +118,20 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
     doors: [
       { key: "requests", label: "จัดซื้อ", href: "/requests", scope: "spanning" },
       { key: "catalog", label: CATALOG_LABEL, href: "/catalog", scope: "shared" },
+      // The door read "แผนสั่งซื้อ" — a hardcoded literal that disagreed with its
+      // OWN page (which titles itself ORDERING_TEMPLATES_LABEL) and read like a
+      // PO plan rather than a template (operator 2026-07-18). Point it at the SSOT
+      // so the Scope pair is self-explanatory: แผนจัดหา = the project's plan,
+      // เทมเพลตแผนจัดหา = the template that seeds it.
       {
         key: "ordering-templates",
-        label: "แผนสั่งซื้อ",
+        label: ORDERING_TEMPLATES_LABEL,
         href: "/settings/ordering-templates",
         scope: "shared",
       },
       // Spec 323 follow-up — the per-project supply plan (แผนจัดหา). Its only prior
       // entry was an unlabeled icon chip on the project page; this gives it a named
-      // hub door beside แผนสั่งซื้อ (the templates that seed it). 📍 project scope:
+      // hub door beside the template door that seeds it. 📍 project scope:
       // resolves to the active project's supply-plan page.
       { key: "supply-plan", label: SUPPLY_PLAN_LABEL, href: "/projects", scope: "project" },
     ],
