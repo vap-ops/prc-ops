@@ -1,3 +1,9 @@
+# [0.132.0](https://github.com/VAP-Solution/prc-ops/compare/v0.131.0...v0.132.0) (2026-07-18)
+
+### Features
+
+- **procurement:** add แผนจัดหา supply-plan door to the hub Scope section ([#621](https://github.com/VAP-Solution/prc-ops/issues/621)) ([67ffbb1](https://github.com/VAP-Solution/prc-ops/commit/67ffbb14dcba5f19e9f8f1d15729da1672bfa5eb))
+
 # [0.131.0](https://github.com/VAP-Solution/prc-ops/compare/v0.130.0...v0.131.0) (2026-07-17)
 
 ### Features
