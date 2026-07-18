@@ -7975,3 +7975,14 @@ U6c COMPLETE (final revised-U6 slice) — code-only.
 - Verified: suite 4220; live probes — scope/time grids+lens+nudge GONE, chips
   render on top, views intact, dashboard ทั้งหมด labeled grid live, โครงการ
   door absent.
+
+### U6c fresh-eyes outcome (same day)
+
+- Fixed: site-map table pipes (raw | in the pills cell corrupted the row);
+  dead exports visibleProcurementDoors + effectiveDoorProjectId deleted with
+  their test blocks (consistent with the strip deletion); hub-body vestigial
+  ?project= type key dropped; stale strip/tile comments swept. Answered:
+  procurementDoorHref's spanning ?project= arm KEPT (generic URL scheme,
+  test-covered, used by lens surfaces elsewhere); 📍 doors hiding until a
+  selection exists = intended selection-first (§0 — one card-tap away via the
+  labeled ทั้งหมด grid), confirmed not a regression.

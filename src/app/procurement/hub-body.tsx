@@ -40,7 +40,7 @@ interface ProcurementHubBodyProps {
   section: ProcurementStrSection["key"] | null;
   /** The page's own pathname — the chip row's ?from referrer. */
   currentHref: string;
-  searchParams: Promise<{ project?: string | string[]; view?: string | string[] }>;
+  searchParams: Promise<{ view?: string | string[] }>;
 }
 
 export async function ProcurementHubBody({

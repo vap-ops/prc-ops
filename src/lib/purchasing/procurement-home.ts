@@ -287,13 +287,13 @@ const PROJECT_DOOR_HREF: Record<string, (projectId: string) => string> = {
 // spanning doors set ?project= (merging any existing query on the href); 📍
 // project doors resolve to the active project's own page (falling back to the
 // static href when none is active — they are hidden then anyway, see
-// visibleProcurementDoors). Mirrors projectLensHref's serialization.
+// visibleDoors). Mirrors projectLensHref's serialization.
 export function procurementDoorHref(door: ProcurementDoor, activeProjectId: string | null): string {
   if (door.scope === "project") {
     // Each 📍 door resolves to its OWN per-project page — keyed by door.key so a
     // new project-scope door never silently inherits another's target. No active
     // project → the static href (the door is hidden then anyway, see
-    // visibleProcurementDoors).
+    // visibleDoors).
     const resolve = PROJECT_DOOR_HREF[door.key];
     return activeProjectId && resolve ? resolve(activeProjectId) : door.href;
   }
@@ -308,14 +308,6 @@ export function procurementDoorHref(door: ProcurementDoor, activeProjectId: stri
 // managerOnly doors need the manager tier; 📍 project doors need an active
 // project (they'd dead-end otherwise — §0). Pure so the visibility rule is
 // unit-tested; hub-body renders exactly this list.
-export function visibleProcurementDoors(
-  section: ProcurementStrSection,
-  isManager: boolean,
-  activeProjectId: string | null,
-): ProcurementDoor[] {
-  return visibleDoors(section.doors, isManager, activeProjectId);
-}
-
 /** Spec 327 U6 — the dashboard's quick chip row: the most-used doors in a
  * deliberate order (queue → arriving → orders → catalog). Composed CROSS
  * section rows, so its icon uniqueness gets its own pin (a same-glyph addition
@@ -334,20 +326,4 @@ export function visibleDoors(
   return doors.filter(
     (d) => (!d.managerOnly || isManager) && (d.scope !== "project" || activeProjectId !== null),
   );
-}
-
-// The project a 📍 door resolves to: the lens selection, or — when the caller
-// has exactly ONE project — that sole project. The project lens shows no chips
-// in a single-project world (project-lens.ts collapses at ≤1 named), so
-// activeProjectId is never set there; without this fallback every project-scope
-// door (ต้นทุนโครงการ, แผนจัดหา) would be invisible for the common one-project
-// case. 2+ projects and no selection → null: the door stays hidden rather than
-// pick one arbitrarily (dead-end guard, §0). Pure so hub-body stays thin.
-export function effectiveDoorProjectId(
-  activeProjectId: string | null,
-  projects: ReadonlyArray<{ id: string }>,
-): string | null {
-  if (activeProjectId) return activeProjectId;
-  const [sole] = projects;
-  return projects.length === 1 && sole ? sole.id : null;
 }
