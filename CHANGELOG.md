@@ -1,3 +1,9 @@
+# [0.139.0](https://github.com/VAP-Solution/prc-ops/compare/v0.138.1...v0.139.0) (2026-07-18)
+
+### Features
+
+- **procurement:** icon SSOT + chip rows on top + project-name door (spec 327 U6a) ([#632](https://github.com/VAP-Solution/prc-ops/issues/632)) ([64edea8](https://github.com/VAP-Solution/prc-ops/commit/64edea8269bb27feb0ec538c7efe7ae48d784961))
+
 ## [0.138.1](https://github.com/VAP-Solution/prc-ops/compare/v0.138.0...v0.138.1) (2026-07-18)
 
 ### Bug Fixes
