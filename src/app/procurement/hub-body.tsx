@@ -27,6 +27,7 @@ import {
 } from "@/lib/purchasing/procurement-home";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
 import { parseTimeView } from "@/lib/purchasing/time-view";
+import { ResourcesView } from "./resources-view";
 import { ScopeView } from "./scope-view";
 import { TimeView } from "./time-view";
 
@@ -141,10 +142,11 @@ export async function ProcurementHubBody({
         </div>
       ) : null}
 
-      {/* Spec 327 U2/U3 — the S/T/R project views render ABOVE the door grid
-          (the grid retires in U6); U5 adds the resources view. */}
+      {/* Spec 327 U2/U3/U5 — the S/T/R project views render ABOVE the door
+          grid (the grid retires in U6). */}
       {section === "scope" ? <ScopeView /> : null}
       {section === "time" ? <TimeView view={timeSubView} /> : null}
+      {section === "resources" ? <ResourcesView /> : null}
 
       {/* STR sections of door tiles; 🔀 doors carry the active project, 📍
           doors (per-project targets) render only while the lens has one. */}
