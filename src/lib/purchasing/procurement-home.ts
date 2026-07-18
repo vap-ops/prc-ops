@@ -117,6 +117,15 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
     label: "ขอบเขต",
     doors: [
       { key: "requests", label: "จัดซื้อ", href: "/requests", scope: "spanning" },
+      // Spec 326 — the WP-list entry. The STR spine (323 U3b) dropped the
+      // pre-323 โครงการ tab and the hub strip links /requests?project=, leaving
+      // procurement (read-only viewer of /projects/[id], spec 173) no
+      // discoverable path to any /projects surface. 🌐 shared, NOT 📍 project:
+      // a project door hides while 2+ projects have no lens selection, which
+      // would re-open the gap in the hub's default state; the projects hub is
+      // the cross-project-first target (D3: lens = filter). Label = the
+      // destination's own title (no SSOT constant; tab sets use the literal).
+      { key: "projects", label: "โครงการ", href: "/projects", scope: "shared" },
       { key: "catalog", label: CATALOG_LABEL, href: "/catalog", scope: "shared" },
       // The door read "แผนสั่งซื้อ" — a hardcoded literal that disagreed with its
       // OWN page (which titles itself ORDERING_TEMPLATES_LABEL) and read like a
