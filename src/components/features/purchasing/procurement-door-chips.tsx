@@ -3,7 +3,7 @@
 // checkpoint 2, replacing the text door grids). The door label IS the
 // accessible name (aria-label — SSOT constants); hrefs thread ?from back to
 // the hosting surface; 📍 project doors render only with a project resolved;
-// managerOnly doors render for the manager tier only (visibleProcurementDoors
+// managerOnly doors render for the manager tier only (visibleDoors
 // stays the single visibility judge). Server component.
 
 import Link from "next/link";

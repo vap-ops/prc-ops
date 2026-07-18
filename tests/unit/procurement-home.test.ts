@@ -1,26 +1,21 @@
 // Writing failing test first.
 //
-// Spec 323 U3a — the Procurement Home hub's pure core. The hub (src/app/
-// procurement/page.tsx) is a portfolio landing: a per-project status strip
-// (open ขอซื้อ count + arrivals-today count, derived from the caller's visible
-// purchase_requests) and three STR sections of door tiles (Scope / Time /
-// Resources) that carry the active project filter into every project-spanning
-// (🔀) door. All the logic lives here so it is unit-tested without the page.
+// Spec 323 U3a → 327 — the procurement surfaces' pure core: dashboard cards,
+// the STR door map + icon SSOT, door hrefs and visibility. Since U6c the
+// section pages render icon door chips + project views (grids/strip/lens
+// retired); everything here is unit-tested without the pages.
 
 import { describe, expect, it } from "vitest";
 import { ClipboardList, FileStack, Forklift, Package, ShoppingCart, Truck } from "lucide-react";
 
 import {
   buildDashboardCards,
-  buildProcurementProjectStatus,
-  effectiveDoorProjectId,
   parseProcurementSection,
   procurementDoorHref,
   QUICK_DOORS,
-  visibleProcurementDoors,
+  visibleDoors,
   PROCUREMENT_STR_SECTIONS,
   type DashboardPrRow,
-  type HomeCountRow,
 } from "@/lib/purchasing/procurement-home";
 import {
   CATALOG_LABEL,
@@ -30,64 +25,10 @@ import {
 } from "@/lib/i18n/labels";
 
 const TODAY = "2026-07-16";
-const NAMES = new Map([
-  ["p1", "Alpha"],
-  ["p2", "Beta"],
-]);
-
-function row(
-  projectId: string | null,
-  status: HomeCountRow["status"],
-  eta: string | null = null,
-): HomeCountRow {
-  return { projectId, status, eta };
-}
-
-describe("buildProcurementProjectStatus", () => {
-  it("counts OPEN requests (active bands) per project, excluding done/closed", () => {
-    const rows = [
-      row("p1", "requested"), // awaiting_approval → open
-      row("p1", "approved"), // to_order → open
-      row("p1", "delivered"), // done → NOT open
-      row("p1", "cancelled"), // closed → NOT open
-      row("p2", "on_route"), // in_transit → open
-    ];
-    const out = buildProcurementProjectStatus(rows, NAMES, TODAY);
-    expect(out.find((p) => p.projectId === "p1")?.openCount).toBe(2);
-    expect(out.find((p) => p.projectId === "p2")?.openCount).toBe(1);
-  });
-
-  it("counts arrivals-today = in_transit rows due-or-overdue (eta<=today) or unknown eta", () => {
-    const rows = [
-      row("p1", "on_route", "2026-07-16"), // due today → arrival
-      row("p1", "purchased", "2026-07-10"), // overdue → arrival
-      row("p1", "purchased", null), // unknown eta → arrival (receive pile)
-      row("p1", "on_route", "2026-07-20"), // future → NOT today
-      row("p1", "approved", "2026-07-16"), // to_order (not in_transit) → NOT an arrival
-    ];
-    const p1 = buildProcurementProjectStatus(rows, NAMES, TODAY).find((p) => p.projectId === "p1");
-    expect(p1?.arrivalsToday).toBe(3);
-    expect(p1?.openCount).toBe(5); // all five are active bands
-  });
-
-  it("drops project-level (null projectId) rows and unresolved-name projects, sorts by name", () => {
-    const rows = [
-      row(null, "requested"), // store-bound / project-level → excluded from the per-project strip
-      row("p2", "requested"),
-      row("p1", "requested"),
-      row("p9", "requested"), // p9 has no resolved name → dropped
-    ];
-    const out = buildProcurementProjectStatus(rows, NAMES, TODAY);
-    expect(out.map((p) => p.projectId)).toEqual(["p1", "p2"]); // name-sorted Alpha, Beta; null + p9 gone
-    expect(out.map((p) => p.name)).toEqual(["Alpha", "Beta"]);
-  });
-});
-
 // Spec 327 U1 — the dashboard cards ARE the selection, so the card list comes
 // from the caller's FULL RLS projects read (procurement reads all projects), a
 // LEFT-join over PR rows: a zero-open-PR project still renders a zero-count
-// card (the #621 gap — buildProcurementProjectStatus derives from PR rows and
-// vanishes such projects; that stays strip-only until U6 retires it).
+// card (the #621 gap — closed; the strip that vanished them retired in U6c).
 describe("buildDashboardCards", () => {
   const PROJECTS = [
     { id: "p1", name: "Alpha" },
@@ -190,24 +131,6 @@ describe("PROCUREMENT_STR_SECTIONS", () => {
     expect(time?.doors.some((d) => d.href === "/requests/orders")).toBe(true);
   });
 
-  // Spec 326 — WP-list reachability. The STR spine dropped the pre-323 โครงการ
-  // tab and the hub links /requests?project=, so procurement (a first-class
-  // read-only viewer of /projects/[id], spec 173) had NO discoverable entry to
-  // any /projects surface. One shared door restores it. Shared, NOT 📍 project
-  // scope: a project door hides while 2+ projects have no lens selection, which
-  // would re-open the gap in the hub's default state.
-  it("puts a shared โครงการ door under Scope right after จัดซื้อ (spec 326)", () => {
-    const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
-    const idx = scope?.doors.findIndex((d) => d.key === "projects") ?? -1;
-    const door = scope?.doors[idx];
-    expect(door?.label).toBe("โครงการ");
-    expect(door?.href).toBe("/projects");
-    expect(door?.scope).toBe("shared");
-    expect(scope?.doors[idx - 1]?.key).toBe("requests");
-    // an active project must never leak onto the hub target (shared passthrough)
-    expect(procurementDoorHref(door!, "p1")).toBe("/projects");
-  });
-
   it("labels the /catalog door with CATALOG_LABEL (term SSOT — the catalog is ทะเบียนวัสดุ everywhere)", () => {
     const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
     const catalog = scope?.doors.find((d) => d.href === "/catalog");
@@ -293,24 +216,24 @@ describe("project-scope door (ต้นทุนโครงการ)", () => {
     expect(procurementDoorHref(costsDoor!, null)).toBe("/projects");
   });
 
-  it("is hidden by visibleProcurementDoors without an active project, shown with one", () => {
+  it("is hidden by visibleDoors without an active project, shown with one", () => {
     const resources = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "resources")!;
-    const noLens = visibleProcurementDoors(resources, true, null);
-    const withLens = visibleProcurementDoors(resources, true, "p1");
+    const noLens = visibleDoors(resources.doors, true, null);
+    const withLens = visibleDoors(resources.doors, true, "p1");
     expect(noLens.some((d) => d.key === "costs")).toBe(false);
     expect(withLens.some((d) => d.key === "costs")).toBe(true);
   });
 
   it("keeps the managerOnly filter behavior for non-managers", () => {
     const resources = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "resources")!;
-    const nonManager = visibleProcurementDoors(resources, false, "p1");
+    const nonManager = visibleDoors(resources.doors, false, "p1");
     expect(nonManager.some((d) => d.managerOnly)).toBe(false);
     expect(nonManager.some((d) => d.key === "costs")).toBe(true); // not managerOnly
   });
 
   it("applies both filters at once (non-manager + no lens → neither door class)", () => {
     const resources = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "resources")!;
-    const doors = visibleProcurementDoors(resources, false, null);
+    const doors = visibleDoors(resources.doors, false, null);
     expect(doors.some((d) => d.managerOnly)).toBe(false);
     expect(doors.some((d) => d.scope === "project")).toBe(false);
     expect(doors.some((d) => d.key === "payroll")).toBe(true); // ordinary doors intact
@@ -338,17 +261,13 @@ describe("project-scope door (แผนจัดหา)", () => {
 
   it("is hidden without an active project, shown with one", () => {
     const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope")!;
-    expect(visibleProcurementDoors(scope, false, null).some((d) => d.key === "supply-plan")).toBe(
-      false,
-    );
-    expect(visibleProcurementDoors(scope, false, "p1").some((d) => d.key === "supply-plan")).toBe(
-      true,
-    );
+    expect(visibleDoors(scope.doors, false, null).some((d) => d.key === "supply-plan")).toBe(false);
+    expect(visibleDoors(scope.doors, false, "p1").some((d) => d.key === "supply-plan")).toBe(true);
   });
 });
 
 // Guard: EVERY 📍 project-scope door must have a per-project resolver in
-// PROJECT_DOOR_HREF. visibleProcurementDoors shows a project door once a project
+// PROJECT_DOOR_HREF. visibleDoors shows a project door once a project
 // is active, so an unmapped door would render but its href would fall through to
 // the static "/projects" — a visible dead-end (§0). Assert each resolves to a
 // per-project path so a future door can't silently regress.
@@ -417,23 +336,6 @@ describe("door icons (spec 327 U6 icon SSOT)", () => {
 // project doors reachable (else ต้นทุนโครงการ + แผนจัดหา are invisible for the
 // common one-project case). 2+ projects with no selection → null (stay hidden,
 // no arbitrary pick).
-describe("effectiveDoorProjectId", () => {
-  it("uses the explicit lens selection when present", () => {
-    expect(effectiveDoorProjectId("p2", [{ id: "p1" }, { id: "p2" }])).toBe("p2");
-  });
-
-  it("falls back to the sole project when none is selected", () => {
-    expect(effectiveDoorProjectId(null, [{ id: "p1" }])).toBe("p1");
-  });
-
-  it("stays null with multiple projects and no selection (no arbitrary pick)", () => {
-    expect(effectiveDoorProjectId(null, [{ id: "p1" }, { id: "p2" }])).toBeNull();
-  });
-
-  it("stays null with no projects", () => {
-    expect(effectiveDoorProjectId(null, [])).toBeNull();
-  });
-});
 
 // Spec 323 U3b: /procurement/[section] is a dynamic route — the param must be
 // validated against the STR section keys (anything else → notFound()). Derived

@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { FolderKanban, UserPlus } from "lucide-react";
 
+import { ProcurementAllDoors } from "@/components/features/purchasing/procurement-all-doors";
 import { ProcurementDoorChips } from "@/components/features/purchasing/procurement-door-chips";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { projectHref } from "@/lib/nav/project-paths";
@@ -198,8 +199,17 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
         </div>
       </div>
 
-      {/* Re-homed คำขอสมัคร approval nudge (approvers only) — moved from the
-          hub's section=null branch; the section pages keep their own arm. */}
+      {/* Rule 4 (spec 327 U6c): the labeled path to EVERY door — the icon
+          chips are fast but icon-only; this grid names them all. 📍 doors
+          resolve via the selection. */}
+      <ProcurementAllDoors
+        isManager={role === "procurement_manager" || role === "super_admin"}
+        activeProjectId={selectedProjectId}
+        from="/procurement"
+      />
+
+      {/* Re-homed คำขอสมัคร approval nudge (approvers only) — the section
+          pages' arm retired with the grids (U6c); this is the render site. */}
       {isApprover ? (
         <Link
           href="/registrations"
