@@ -5,6 +5,7 @@
 
 import Link from "next/link";
 
+import { ProcurementProjectHeader } from "@/components/features/purchasing/procurement-project-header";
 import { ProcurementTimeline } from "@/components/features/purchasing/procurement-timeline";
 import { TimeLateRiskList } from "@/components/features/purchasing/time-late-risk-list";
 import { TimeWeekRadar } from "@/components/features/purchasing/time-week-radar";
@@ -66,15 +67,11 @@ export async function TimeView({ view }: { view: TimeSubView }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h2 className="text-body text-ink min-w-0 flex-1 truncate font-semibold">{selectedName}</h2>
-        <Link
-          href="/procurement"
-          className="text-action text-meta inline-flex min-h-11 shrink-0 items-center underline"
-        >
-          เปลี่ยนโครงการ
-        </Link>
-      </div>
+      <ProcurementProjectHeader
+        projectId={selected}
+        projectName={selectedName}
+        from="/procurement/time"
+      />
 
       {/* Sub-view pills — ?view= (query, not a route: the bottom-tab active
           rule is query-blind, a sub-route would double-light tabs). */}

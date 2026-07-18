@@ -17,8 +17,7 @@
 // work_packages), so the spec-277 letter/color/icon resolves for this view's
 // audience without the former admin-client seam.
 
-import Link from "next/link";
-
+import { ProcurementProjectHeader } from "@/components/features/purchasing/procurement-project-header";
 import { ScopeWpList, type ScopeWpItem } from "@/components/features/purchasing/scope-wp-list";
 import { createClient } from "@/lib/db/server";
 import { anchorWorkPackageId } from "@/lib/purchasing/late-risk";
@@ -119,15 +118,11 @@ export async function ScopeView() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h2 className="text-body text-ink min-w-0 flex-1 truncate font-semibold">{selectedName}</h2>
-        <Link
-          href="/procurement"
-          className="text-action text-meta inline-flex min-h-11 shrink-0 items-center underline"
-        >
-          เปลี่ยนโครงการ
-        </Link>
-      </div>
+      <ProcurementProjectHeader
+        projectId={selected}
+        projectName={selectedName}
+        from="/procurement/scope"
+      />
       <ScopeWpList
         projectId={selected}
         wps={wpItems}

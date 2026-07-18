@@ -6,6 +6,27 @@
 // STR door map, and how a door carries the active project filter — is pure and
 // unit-tested here. The page is thin composition over this + the shared chrome.
 
+import type { LucideIcon } from "lucide-react";
+import {
+  BarChart3,
+  ClipboardList,
+  Coins,
+  FileStack,
+  FileText,
+  FolderKanban,
+  Forklift,
+  Hammer,
+  HardHat,
+  Package,
+  PieChart,
+  Receipt,
+  ShoppingCart,
+  Store,
+  Truck,
+  Wallet,
+  Wrench,
+} from "lucide-react";
+
 import type { Database } from "@/lib/db/database.types";
 import {
   CATALOG_LABEL,
@@ -151,6 +172,10 @@ export interface ProcurementDoor {
   label: string;
   href: string;
   scope: DoorScope;
+  /** Spec 327 U6 — the door's glyph for the icon chip rows (icon SSOT: same
+   * icon per destination app-wide, unique within a row; clash resolutions
+   * pinned in procurement-home.test.ts). */
+  icon: LucideIcon;
   /** Resources › labor-rates is procurement_manager + super only (money standard). */
   managerOnly?: boolean;
 }
@@ -170,7 +195,13 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
     key: "scope",
     label: "ขอบเขต",
     doors: [
-      { key: "requests", label: "จัดซื้อ", href: "/requests", scope: "spanning" },
+      {
+        key: "requests",
+        icon: ShoppingCart,
+        label: "จัดซื้อ",
+        href: "/requests",
+        scope: "spanning",
+      },
       // Spec 326 — the WP-list entry. The STR spine (323 U3b) dropped the
       // pre-323 โครงการ tab and the hub strip links /requests?project=, leaving
       // procurement (read-only viewer of /projects/[id], spec 173) no
@@ -179,8 +210,8 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
       // would re-open the gap in the hub's default state; the projects hub is
       // the cross-project-first target (D3: lens = filter). Label = the
       // destination's own title (no SSOT constant; tab sets use the literal).
-      { key: "projects", label: "โครงการ", href: "/projects", scope: "shared" },
-      { key: "catalog", label: CATALOG_LABEL, href: "/catalog", scope: "shared" },
+      { key: "projects", icon: FolderKanban, label: "โครงการ", href: "/projects", scope: "shared" },
+      { key: "catalog", icon: Package, label: CATALOG_LABEL, href: "/catalog", scope: "shared" },
       // The door read "แผนสั่งซื้อ" — a hardcoded literal that disagreed with its
       // OWN page (which titles itself ORDERING_TEMPLATES_LABEL) and read like a
       // PO plan rather than a template (operator 2026-07-18). Point it at the SSOT
@@ -188,6 +219,7 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
       // เทมเพลตแผนจัดหา = the template that seeds it.
       {
         key: "ordering-templates",
+        icon: FileStack,
         label: ORDERING_TEMPLATES_LABEL,
         href: "/settings/ordering-templates",
         scope: "shared",
@@ -196,39 +228,77 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
       // entry was an unlabeled icon chip on the project page; this gives it a named
       // hub door beside the template door that seeds it. 📍 project scope:
       // resolves to the active project's supply-plan page.
-      { key: "supply-plan", label: SUPPLY_PLAN_LABEL, href: "/projects", scope: "project" },
+      {
+        key: "supply-plan",
+        icon: ClipboardList,
+        label: SUPPLY_PLAN_LABEL,
+        href: "/projects",
+        scope: "project",
+      },
     ],
   },
   {
     key: "time",
     label: "เวลา",
     doors: [
-      { key: "orders", label: "ใบสั่งซื้อ", href: "/requests/orders", scope: "spanning" },
-      { key: "incoming", label: "ของเข้า", href: "/requests?band=in_transit", scope: "spanning" },
-      { key: "reports", label: "รายงาน", href: "/requests/reports", scope: "spanning" },
+      {
+        key: "orders",
+        icon: FileText,
+        label: "ใบสั่งซื้อ",
+        href: "/requests/orders",
+        scope: "spanning",
+      },
+      {
+        key: "incoming",
+        icon: Truck,
+        label: "ของเข้า",
+        href: "/requests?band=in_transit",
+        scope: "spanning",
+      },
+      {
+        key: "reports",
+        icon: BarChart3,
+        label: "รายงาน",
+        href: "/requests/reports",
+        scope: "spanning",
+      },
     ],
   },
   {
     key: "resources",
     label: "ทรัพยากร",
     doors: [
-      { key: "vendors", label: "ผู้ขาย", href: "/contacts/vendors", scope: "shared" },
+      { key: "vendors", icon: Store, label: "ผู้ขาย", href: "/contacts/vendors", scope: "shared" },
       {
         key: "subcontractors",
+        icon: Hammer,
         label: SUBCONTRACTOR_LABEL,
         href: "/contacts/subcontractors",
         scope: "shared",
       },
-      { key: "equipment", label: "อุปกรณ์", href: "/equipment", scope: "shared" },
-      { key: "rentals", label: "เช่าอุปกรณ์", href: "/equipment/rentals", scope: "spanning" },
-      { key: "workers", label: "รายชื่อช่าง", href: "/workers", scope: "shared" },
-      { key: "payroll", label: "ค่าแรง", href: "/payroll", scope: "spanning" },
-      { key: "expenses", label: "ค่าใช้จ่าย", href: "/expenses", scope: "spanning" },
+      { key: "equipment", icon: Wrench, label: "อุปกรณ์", href: "/equipment", scope: "shared" },
+      {
+        key: "rentals",
+        icon: Forklift,
+        label: "เช่าอุปกรณ์",
+        href: "/equipment/rentals",
+        scope: "spanning",
+      },
+      { key: "workers", icon: HardHat, label: "รายชื่อช่าง", href: "/workers", scope: "shared" },
+      { key: "payroll", icon: Wallet, label: "ค่าแรง", href: "/payroll", scope: "spanning" },
+      { key: "expenses", icon: Receipt, label: "ค่าใช้จ่าย", href: "/expenses", scope: "spanning" },
       // Spec 325 U3: the per-project cost view (money reads gated at the page —
       // PURCHASE_REPORT_ROLES admits both procurement tiers).
-      { key: "costs", label: PROJECT_COSTS_LABEL, href: "/projects", scope: "project" },
+      {
+        key: "costs",
+        icon: PieChart,
+        label: PROJECT_COSTS_LABEL,
+        href: "/projects",
+        scope: "project",
+      },
       {
         key: "labor-rates",
+        icon: Coins,
         label: LABOR_RATES_LABEL,
         href: "/settings/labor-rates",
         scope: "shared",
@@ -289,7 +359,25 @@ export function visibleProcurementDoors(
   isManager: boolean,
   activeProjectId: string | null,
 ): ProcurementDoor[] {
-  return section.doors.filter(
+  return visibleDoors(section.doors, isManager, activeProjectId);
+}
+
+/** Spec 327 U6 — the dashboard's quick chip row: the most-used doors in a
+ * deliberate order (queue → arriving → orders → catalog). Composed CROSS
+ * section rows, so its icon uniqueness gets its own pin (a same-glyph addition
+ * would render duplicate icons and pass the per-section pins). */
+export const QUICK_DOORS: readonly ProcurementDoor[] = (
+  ["requests", "incoming", "orders", "catalog"] as const
+).map((key) => PROCUREMENT_STR_SECTIONS.flatMap((s) => s.doors).find((d) => d.key === key)!);
+
+/** Doors-level form of the visibility rule (spec 327 U6 — the chip rows filter
+ * arbitrary door lists, not whole sections). */
+export function visibleDoors(
+  doors: ReadonlyArray<ProcurementDoor>,
+  isManager: boolean,
+  activeProjectId: string | null,
+): ProcurementDoor[] {
+  return doors.filter(
     (d) => (!d.managerOnly || isManager) && (d.scope !== "project" || activeProjectId !== null),
   );
 }

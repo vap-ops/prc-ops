@@ -17,6 +17,7 @@ import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
 import { loadProjectLensNames } from "@/lib/nav/project-lens";
 import { ProjectLens } from "@/components/features/common/project-lens";
+import { ProcurementDoorChips } from "@/components/features/purchasing/procurement-door-chips";
 import {
   buildProcurementProjectStatus,
   effectiveDoorProjectId,
@@ -109,6 +110,17 @@ export async function ProcurementHubBody({
 
   return (
     <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
+      {/* Spec 327 U6 — the section's doors as icon chips ON TOP (the idiom
+          users picked at checkpoint 2); the text grid below retires in U6c. */}
+      {section !== null ? (
+        <ProcurementDoorChips
+          doors={PROCUREMENT_STR_SECTIONS.find((s) => s.key === section)?.doors ?? []}
+          isManager={isManager}
+          activeProjectId={doorProjectId}
+          from={currentHref}
+        />
+      ) : null}
+
       {/* Universal cross-project filter (collapses at ≤1 named project). */}
       <ProjectLens projects={lensProjects} />
 
@@ -159,11 +171,12 @@ export async function ProcurementHubBody({
               {doors.map((door) => (
                 <Link
                   key={door.key}
+                  // Spec 327 U6a: spanning tiles are UNSCOPED like the chip row
+                  // above (one doctrine per door — a chip and a tile for the
+                  // same door must not land on different scoping; the lens
+                  // keeps scoping the strip + resolving 📍 doors only).
                   href={withBackFrom(
-                    procurementDoorHref(
-                      door,
-                      door.scope === "project" ? doorProjectId : activeProjectId,
-                    ),
+                    procurementDoorHref(door, door.scope === "project" ? doorProjectId : null),
                     hubFrom,
                   )}
                   className="rounded-card border-edge bg-card shadow-card hover:bg-sunk text-ink flex min-h-11 items-center justify-center border px-4 py-3 text-center text-sm font-semibold"

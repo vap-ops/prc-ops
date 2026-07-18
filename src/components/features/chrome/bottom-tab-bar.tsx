@@ -28,6 +28,7 @@ import {
   LayoutDashboard,
   Scale,
   Settings,
+  ListChecks,
   ShoppingCart,
   UserPlus,
   Users,
@@ -148,7 +149,10 @@ const PROCUREMENT_SETTINGS_TAB: TabItem = {
 
 const PROCUREMENT_STR_SPINE: ReadonlyArray<TabItem> = [
   { label: "หน้าหลัก", href: "/procurement", icon: Home },
-  { label: "ขอบเขต", href: "/procurement/scope", icon: ShoppingCart },
+  // Spec 327 U6 icon SSOT: ListChecks (scope = the work list) — ShoppingCart
+  // is จัดซื้อ's glyph everywhere else, and the ขอบเขต page now hosts a จัดซื้อ
+  // icon chip; the tab and the door must not share a glyph.
+  { label: "ขอบเขต", href: "/procurement/scope", icon: ListChecks },
   { label: "เวลา", href: "/procurement/time", icon: Clock },
   { label: "ทรัพยากร", href: "/procurement/resources", icon: Boxes },
   PROCUREMENT_SETTINGS_TAB,

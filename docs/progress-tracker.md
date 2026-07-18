@@ -7893,3 +7893,34 @@ U5 COMPLETE — code-only, no schema.
   render-what-exists (picker only offers งานย่อย, an anomaly should be visible);
   allocation-end precedence intended (amber = confirm-intent signal, batch-end
   precedence would HIDE real gaps); 307-row details DOM weight accepted v1.
+
+## Spec 327 U6a — icon SSOT + chip rows on top + project door (2026-07-18)
+
+U6a COMPLETE (first of 3 revised-U6 slices; revision recorded in the plan doc).
+
+- Checkpoint-2 operator findings drove a U6 revision: หน้าโครงการ was 5-6 taps
+  away; users prefer the project-page icon-chip-row-on-top idiom over text
+  grids. Consistency audit found 3 icon clashes — resolved + PINNED:
+  จัดซื้อ=ShoppingCart (ขอบเขต tab → ListChecks), แผนจัดหา=ClipboardList vs
+  เทมเพลตแผนจัดหา=FileStack, เช่าอุปกรณ์=Forklift (settings hub off Banknote).
+- ProcurementDoor.icon required (17 doors mapped); <ProcurementDoorChips>
+  (ICON_CHIP 44px, label=aria-label, ?from-threaded, visibleDoors filter;
+  spanning chips deliberately UNSCOPED — U1 invisible-filter trap); mounted on
+  top of each section page + quick subset on the dashboard.
+  <ProcurementProjectHeader>: S/T/R header name now OPENS หน้าโครงการ
+  (?from back); dashboard cards gained a FolderKanban side-door (outside the
+  form — no nested interactive).
+- Verified: suite 4215; DOM probes — dashboard 4 quick chips + 4 card doors
+  (?from), scope 5 chips + header door + grid intact, resources 8 chips
+  (อัตราค่าแรง correctly hidden under view-as procurement).
+
+### U6a fresh-eyes outcome (same day)
+
+- Fixed: section-page grid spanning tiles now UNSCOPED like the chips (one
+  doctrine per door — chip and tile for the same door must not scope
+  differently; lens keeps strip counts + 📍 resolution only); header link
+  aria-label fallback when the project name is unresolved; QUICK_DOORS moved to
+  procurement-home.ts as an ordered SSOT + cross-section icon-uniqueness pin.
+  Answered: displayName-keyed uniqueness fails-safe (lucide sets displayName;
+  vitest not minified); ?from on chip targets without back chips is inert +
+  correct-if-ever-honored.
