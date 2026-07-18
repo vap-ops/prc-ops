@@ -1,3 +1,9 @@
+# [0.136.0](https://github.com/VAP-Solution/prc-ops/compare/v0.135.0...v0.136.0) (2026-07-18)
+
+### Features
+
+- **procurement:** เวลา late-risk list + week radar (spec 327 U3) ([#628](https://github.com/VAP-Solution/prc-ops/issues/628)) ([694dbc4](https://github.com/VAP-Solution/prc-ops/commit/694dbc4d2578e00bd7477d17cbe3e33cfcd2da05))
+
 # [0.135.0](https://github.com/VAP-Solution/prc-ops/compare/v0.134.0...v0.135.0) (2026-07-18)
 
 ### Features
