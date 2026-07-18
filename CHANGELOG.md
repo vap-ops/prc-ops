@@ -1,3 +1,9 @@
+# [0.141.0](https://github.com/VAP-Solution/prc-ops/compare/v0.140.0...v0.141.0) (2026-07-18)
+
+### Features
+
+- **procurement:** retire section grids, ทั้งหมด labeled grid, fold spec-326 door (spec 327 U6c) ([#634](https://github.com/VAP-Solution/prc-ops/issues/634)) ([3ff09b6](https://github.com/VAP-Solution/prc-ops/commit/3ff09b6979c942415425197e5c39ac88174ce485))
+
 # [0.140.0](https://github.com/VAP-Solution/prc-ops/compare/v0.139.0...v0.140.0) (2026-07-18)
 
 ### Features
