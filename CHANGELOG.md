@@ -1,3 +1,9 @@
+# [0.137.0](https://github.com/VAP-Solution/prc-ops/compare/v0.136.0...v0.137.0) (2026-07-18)
+
+### Features
+
+- **procurement:** เวลา visual timeline + shelves (spec 327 U4) ([#629](https://github.com/VAP-Solution/prc-ops/issues/629)) ([e07ecd0](https://github.com/VAP-Solution/prc-ops/commit/e07ecd0f65fe9352f6b9f3b56429165189f983b9))
+
 # [0.136.0](https://github.com/VAP-Solution/prc-ops/compare/v0.135.0...v0.136.0) (2026-07-18)
 
 ### Features
