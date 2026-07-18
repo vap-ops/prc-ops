@@ -12,20 +12,14 @@
 // project's supply-plan line WP set (lines carry no project_id — join through
 // supply_plans, the supply-plan page pattern).
 //
-// ⚠ ADMIN-CLIENT SEAM (flagged for review): project_categories' SELECT policy
-// is `can_see_project` only (live pg_policies, 2026-07-18) — procurement tiers
-// are non-members, so the RLS read returns ZERO rows and the spec-277 category
-// letter/color/icon would silently blank for exactly this view's audience. The
-// category-code map therefore reads via the admin client BEHIND the page's
-// requireRole(PROCUREMENT_HOME_ROLES) gate — non-money taxonomy labels only
-// (badge-codes / spec-320 name-seam precedent). Proper fix = widen the
-// project_categories policy with a procurement arm (schema unit, follow-up —
-// this epic is code-only by design).
+// Category codes read via the RLS server client: project_categories' SELECT
+// policy carries the procurement arm since migration 075814 (mirrors
+// work_packages), so the spec-277 letter/color/icon resolves for this view's
+// audience without the former admin-client seam.
 
 import Link from "next/link";
 
 import { ScopeWpList, type ScopeWpItem } from "@/components/features/purchasing/scope-wp-list";
-import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient } from "@/lib/db/server";
 import { anchorWorkPackageId } from "@/lib/purchasing/late-risk";
 import { resolveSelectedProject } from "@/lib/purchasing/procurement-project";
@@ -33,9 +27,10 @@ import { readProcurementProjectCookie } from "@/lib/purchasing/procurement-proje
 import { buildWpSupplyOverlay } from "@/lib/purchasing/wp-supply-overlay";
 import { ProjectPickerPrompt } from "./project-picker-prompt";
 
-/** wpId → reconciled W0x code, via the admin seam (see module note). */
+/** wpId → reconciled W0x code, via the RLS server client (see module note). */
 async function loadCategoryCodeByWp(projectId: string): Promise<Map<string, string>> {
-  const { data } = await createAdminClient()
+  const supabase = await createClient();
+  const { data } = await supabase
     .from("work_packages")
     .select("id, project_categories ( work_categories ( code ) )")
     .eq("project_id", projectId);
