@@ -144,4 +144,45 @@ describe("ScopeWpList", () => {
     );
     expect(screen.getByText(/ยังไม่มีงาน/)).toBeInTheDocument();
   });
+
+  it("still renders the คลัง bucket on a WP-less project (§0.1 — fresh-eyes catch)", () => {
+    render(
+      <ScopeWpList
+        projectId={PROJECT}
+        wps={[]}
+        overlay={new Map()}
+        projectBucket={{ openCount: 2, incomingCount: 0, nextArrival: null }}
+      />,
+    );
+    expect(screen.getByText(/คลัง/)).toBeInTheDocument();
+    expect(screen.getByText(/ขอซื้อ 2/)).toBeInTheDocument();
+  });
+
+  it("wears group-anchored counts + conflict on the งาน header (§0.1 — fresh-eyes catch)", () => {
+    const group = wp({
+      id: "g1",
+      code: "WP-10",
+      name: "งานโครงสร้าง",
+      isGroup: true,
+      plannedStart: "2026-07-10",
+    });
+    const child = wp({ id: "wp2", code: "WP-11", name: "งานเทพื้น", parentId: "g1" });
+    render(
+      <ScopeWpList
+        projectId={PROJECT}
+        wps={[group, child]}
+        overlay={
+          new Map([
+            ["g1", { ...ZERO, openCount: 5, lateEta: "2026-08-01" }],
+            ["wp2", ZERO],
+          ])
+        }
+        projectBucket={EMPTY_BUCKET}
+      />,
+    );
+    expect(screen.getByText(/ขอซื้อ 5/)).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`ของถึง ${formatThaiDate("2026-08-01")}`)),
+    ).toBeInTheDocument();
+  });
 });

@@ -36,9 +36,15 @@ export interface ScopeWpItem {
   categoryCode: string | null;
 }
 
+function hasChips(overlay: WpSupplyOverlay): boolean {
+  return overlay.openCount > 0 || overlay.incomingCount > 0 || overlay.nextArrival !== null;
+}
+
+/** Null when there is nothing to show, so callers can collapse the row. */
 function SupplyChips({ overlay }: { overlay: WpSupplyOverlay }) {
+  if (!hasChips(overlay)) return null;
   return (
-    <span className="flex flex-wrap items-center gap-2">
+    <>
       {overlay.openCount > 0 ? (
         <span className="text-ink-secondary text-meta shrink-0">ขอซื้อ {overlay.openCount}</span>
       ) : null}
@@ -52,7 +58,23 @@ function SupplyChips({ overlay }: { overlay: WpSupplyOverlay }) {
           ถึง {formatThaiDate(overlay.nextArrival)}
         </span>
       ) : null}
-    </span>
+    </>
+  );
+}
+
+/** The §0.2 conflict statement — rendered wherever a late flag lands. */
+function LateConflict({
+  overlay,
+  plannedStart,
+}: {
+  overlay: WpSupplyOverlay;
+  plannedStart: string | null;
+}) {
+  if (overlay.lateEta === null || plannedStart === null) return null;
+  return (
+    <p className="text-danger text-meta font-semibold">
+      ของถึง {formatThaiDate(overlay.lateEta)} — งานเริ่ม {formatThaiDate(plannedStart)}
+    </p>
   );
 }
 
@@ -66,6 +88,7 @@ function WpRow({
   overlay: WpSupplyOverlay;
 }) {
   const late = overlay.lateEta !== null && wp.plannedStart !== null;
+  const showChipRow = hasChips(overlay) || !overlay.hasPlan;
   return (
     <div
       className={`rounded-card shadow-card bg-card flex flex-col gap-2 border px-4 py-3 ${
@@ -85,22 +108,44 @@ function WpRow({
           {WORK_PACKAGE_STATUS_LABEL[wp.status]}
         </StatusPill>
       </Link>
-      {late ? (
-        <p className="text-danger text-meta font-semibold">
-          ของถึง {formatThaiDate(overlay.lateEta!)} — งานเริ่ม {formatThaiDate(wp.plannedStart!)}
-        </p>
+      <LateConflict overlay={overlay} plannedStart={wp.plannedStart} />
+      {showChipRow ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <SupplyChips overlay={overlay} />
+          {!overlay.hasPlan ? (
+            <Link
+              href={withBackFrom(supplyPlanHref(projectId), SCOPE_FROM)}
+              className="border-edge text-ink-secondary hover:bg-sunk text-meta inline-flex min-h-11 shrink-0 items-center rounded-full border px-3"
+            >
+              ยังไม่มีแผนจัดหา →
+            </Link>
+          ) : null}
+        </div>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2 empty:hidden">
-        <SupplyChips overlay={overlay} />
-        {!overlay.hasPlan ? (
-          <Link
-            href={withBackFrom(supplyPlanHref(projectId), SCOPE_FROM)}
-            className="border-edge text-ink-secondary hover:bg-sunk text-meta shrink-0 rounded-full border px-2 py-0.5"
-          >
-            ยังไม่มีแผนจัดหา →
-          </Link>
-        ) : null}
-      </div>
+    </div>
+  );
+}
+
+/** Anchorless / store-restock PRs — the คลัง project bucket (§0.1). Rendered
+ * even for a WP-less project: those PRs must never vanish. */
+function BucketRow({ projectBucket }: { projectBucket: ProjectBucket }) {
+  if (projectBucket.openCount === 0 && projectBucket.incomingCount === 0) return null;
+  return (
+    <div className="rounded-card shadow-card border-edge bg-sunk text-ink flex min-h-11 flex-wrap items-center gap-3 border px-4 py-3">
+      <span className="text-body min-w-0 flex-1 font-semibold">คลัง · ระดับโครงการ</span>
+      <span className="text-ink-secondary text-meta shrink-0">
+        ขอซื้อ {projectBucket.openCount}
+      </span>
+      {projectBucket.incomingCount > 0 ? (
+        <span className="bg-action text-on-fill text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
+          {INCOMING_LENS_LABEL.onroute} {projectBucket.incomingCount}
+        </span>
+      ) : null}
+      {projectBucket.nextArrival !== null ? (
+        <span className="text-ink-secondary text-meta shrink-0">
+          ถึง {formatThaiDate(projectBucket.nextArrival)}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -126,11 +171,11 @@ export function ScopeWpList({
 }) {
   const roster = buildGroupedRoster(wps);
   const of = (id: string): WpSupplyOverlay => overlay.get(id) ?? ZERO_OVERLAY;
-  const bucketVisible = projectBucket.openCount > 0 || projectBucket.incomingCount > 0;
 
   if (wps.length === 0) {
     return (
       <div className="flex flex-col gap-3">
+        <BucketRow projectBucket={projectBucket} />
         <EmptyNotice>
           ยังไม่มีงานในโครงการนี้ —{" "}
           <Link href={projectHref(projectId)} className="text-action underline">
@@ -143,44 +188,39 @@ export function ScopeWpList({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Anchorless / store-restock PRs — the คลัง project bucket (§0.1). */}
-      {bucketVisible ? (
-        <div className="rounded-card shadow-card border-edge bg-sunk text-ink flex min-h-11 flex-wrap items-center gap-3 border px-4 py-3">
-          <span className="text-body min-w-0 flex-1 font-semibold">คลัง · ระดับโครงการ</span>
-          <span className="text-ink-secondary text-meta shrink-0">
-            ขอซื้อ {projectBucket.openCount}
-          </span>
-          {projectBucket.incomingCount > 0 ? (
-            <span className="bg-action text-on-fill text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
-              {INCOMING_LENS_LABEL.onroute} {projectBucket.incomingCount}
-            </span>
-          ) : null}
-          {projectBucket.nextArrival !== null ? (
-            <span className="text-ink-secondary text-meta shrink-0">
-              ถึง {formatThaiDate(projectBucket.nextArrival)}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
+      <BucketRow projectBucket={projectBucket} />
 
-      {roster.sections.map((section) => (
-        <section key={section.group.id} className="flex flex-col gap-2">
-          <h3 className="text-body text-ink-secondary flex items-center gap-2 font-semibold">
-            <WpCategoryCode
-              code={section.group.code}
-              categoryCode={section.group.categoryCode}
-              className="text-sm"
-            />
-            <span className="min-w-0 flex-1 truncate">{section.group.name}</span>
-            <span className="text-meta shrink-0 font-normal">
-              {section.completeCount}/{section.totalCount}
-            </span>
-          </h3>
-          {section.children.map((child) => (
-            <WpRow key={child.id} projectId={projectId} wp={child} overlay={of(child.id)} />
-          ))}
-        </section>
-      ))}
+      {roster.sections.map((section) => {
+        // A PR can anchor a งาน (group) WP directly — its counts must not
+        // vanish just because headers aren't leaf rows (§0.1): the header
+        // wears the same chips + conflict line (no plan door — plan lines
+        // attach to leaves).
+        const groupOverlay = of(section.group.id);
+        return (
+          <section key={section.group.id} className="flex flex-col gap-2">
+            <h3 className="text-body text-ink-secondary flex items-center gap-2 font-semibold">
+              <WpCategoryCode
+                code={section.group.code}
+                categoryCode={section.group.categoryCode}
+                className="text-sm"
+              />
+              <span className="min-w-0 flex-1 truncate">{section.group.name}</span>
+              <span className="text-meta shrink-0 font-normal">
+                {section.completeCount}/{section.totalCount}
+              </span>
+            </h3>
+            {hasChips(groupOverlay) ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <SupplyChips overlay={groupOverlay} />
+              </div>
+            ) : null}
+            <LateConflict overlay={groupOverlay} plannedStart={section.group.plannedStart} />
+            {section.children.map((child) => (
+              <WpRow key={child.id} projectId={projectId} wp={child} overlay={of(child.id)} />
+            ))}
+          </section>
+        );
+      })}
 
       {roster.ungrouped.map((leaf) => (
         <WpRow key={leaf.id} projectId={projectId} wp={leaf} overlay={of(leaf.id)} />

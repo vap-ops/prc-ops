@@ -4,18 +4,29 @@
 // → the one-tap picker prompt (§0.4 — a compact form of the dashboard cards;
 // selection is never more than one tap away).
 //
-// Reads (all RLS, counts/dates only — no ฿): projects list (picker + selection
-// validation), the selected project's detail (spec-173 read path via
-// loadProjectDetail — WPs, category codes), all visible PR rows (filtered to
-// this project by ADR-0065 anchor OR project_id), and the project's
-// supply-plan line WP set (lines carry no project_id — join through
+// Reads (counts/dates only — no ฿): projects list (picker + selection
+// validation), the selected project's WPs (the spec-173 list select shape,
+// load-detail.ts), its PR rows (project_id matches OR project_id IS NULL with
+// the ADR-0065 anchor landing on a project WP — store-bound rows carry a null
+// project_id, so the two-arm .or() is the cheap server-side filter), and the
+// project's supply-plan line WP set (lines carry no project_id — join through
 // supply_plans, the supply-plan page pattern).
+//
+// ⚠ ADMIN-CLIENT SEAM (flagged for review): project_categories' SELECT policy
+// is `can_see_project` only (live pg_policies, 2026-07-18) — procurement tiers
+// are non-members, so the RLS read returns ZERO rows and the spec-277 category
+// letter/color/icon would silently blank for exactly this view's audience. The
+// category-code map therefore reads via the admin client BEHIND the page's
+// requireRole(PROCUREMENT_HOME_ROLES) gate — non-money taxonomy labels only
+// (badge-codes / spec-320 name-seam precedent). Proper fix = widen the
+// project_categories policy with a procurement arm (schema unit, follow-up —
+// this epic is code-only by design).
 
 import Link from "next/link";
 
 import { ScopeWpList, type ScopeWpItem } from "@/components/features/purchasing/scope-wp-list";
+import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient } from "@/lib/db/server";
-import { loadProjectDetail } from "@/lib/projects/load-detail";
 import { anchorWorkPackageId } from "@/lib/purchasing/late-risk";
 import { resolveSelectedProject } from "@/lib/purchasing/procurement-project";
 import { readProcurementProjectCookie } from "@/lib/purchasing/procurement-project.server";
@@ -46,6 +57,21 @@ function ScopePickerPrompt({
   );
 }
 
+/** wpId → reconciled W0x code, via the admin seam (see module note). */
+async function loadCategoryCodeByWp(projectId: string): Promise<Map<string, string>> {
+  const { data } = await createAdminClient()
+    .from("work_packages")
+    .select("id, project_categories ( work_categories ( code ) )")
+    .eq("project_id", projectId);
+  const map = new Map<string, string>();
+  for (const w of data ?? []) {
+    const rel = w.project_categories?.work_categories;
+    const code = (Array.isArray(rel) ? rel[0]?.code : rel?.code) ?? null;
+    if (code) map.set(w.id, code);
+  }
+  return map;
+}
+
 export async function ScopeView() {
   const supabase = await createClient();
   const { data: projectRows } = await supabase.from("projects").select("id, name").order("name");
@@ -57,20 +83,20 @@ export async function ScopeView() {
   if (!selected) return <ScopePickerPrompt projects={projects} />;
   const selectedName = projects.find((p) => p.id === selected)?.name ?? "";
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("id, client_id, project_lead_id, project_type")
-    .eq("id", selected)
-    .maybeSingle();
-  if (!project) return <ScopePickerPrompt projects={projects} />;
-
-  const [detail, { data: prRows }, { data: planRows }] = await Promise.all([
-    loadProjectDetail(supabase, project, false),
-    supabase
-      .from("purchase_requests")
-      .select("project_id, status, eta, work_package_id, requested_from_work_package_id"),
-    supabase.from("supply_plans").select("id").eq("project_id", selected),
-  ]);
+  const [{ data: wpRows }, { data: prRows }, { data: planRows }, categoryCodeByWp] =
+    await Promise.all([
+      supabase
+        .from("work_packages")
+        .select("id, code, name, status, planned_start, is_group, parent_id")
+        .eq("project_id", selected)
+        .order("code", { ascending: true }),
+      supabase
+        .from("purchase_requests")
+        .select("project_id, status, eta, work_package_id, requested_from_work_package_id")
+        .or(`project_id.eq.${selected},project_id.is.null`),
+      supabase.from("supply_plans").select("id").eq("project_id", selected),
+      loadCategoryCodeByWp(selected),
+    ]);
 
   const planIds = (planRows ?? []).map((p) => p.id);
   const { data: lineRows } =
@@ -84,7 +110,7 @@ export async function ScopeView() {
     (lineRows ?? []).map((l) => l.work_package_id).filter((id): id is string => id !== null),
   );
 
-  const wpItems: ScopeWpItem[] = detail.workPackages.map((w) => ({
+  const wpItems: ScopeWpItem[] = (wpRows ?? []).map((w) => ({
     id: w.id,
     code: w.code,
     name: w.name,
@@ -92,12 +118,12 @@ export async function ScopeView() {
     isGroup: w.is_group,
     parentId: w.parent_id,
     plannedStart: w.planned_start,
-    categoryCode: w.category_id ? (detail.categoryCodeById.get(w.category_id) ?? null) : null,
+    categoryCode: categoryCodeByWp.get(w.id) ?? null,
   }));
 
-  // This project's PR rows: project_id matches, OR the ADR-0065 anchor lands on
-  // one of its WPs (store-bound rows have project_id NULL). Rows matching by
-  // project_id whose anchor is unknown fall into the overlay's project bucket.
+  // Keep rows belonging to this project: project_id matches, or a store-bound
+  // (null-project) row whose ADR-0065 anchor lands on one of its WPs. Null-
+  // project rows anchored elsewhere belong to another project's view.
   const wpIdSet = new Set(wpItems.map((w) => w.id));
   const rows = (prRows ?? [])
     .map((r) => ({
