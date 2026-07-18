@@ -116,7 +116,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
 
         {/* Spec 323 U5: the universal cross-project lens — one-tap scoping on the
             same ?project= axis the form's picker below writes (they stay in sync
-            via the URL; the lens keeps the from/to period params). empty:hidden so
+            via the URL; the lens keeps the start/end period params). empty:hidden so
             the collapsed single-project state leaves no stray margin. Wages are
             project-blind by default (spec 311 P0); this gives them the lens. */}
         <div className="mb-4 empty:hidden">
