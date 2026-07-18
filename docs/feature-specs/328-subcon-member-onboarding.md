@@ -61,11 +61,10 @@ true: U1 skips the `book_bank` + `staff_registration_bank` floors when
 capture step on the register flow when the firm banner is active.
 
 **Trust rule (F2b verbatim):** every QR param is visitor-supplied → advisory display
-
-- pre-select ONLY. Never an authz edge. The binding contractor/project are always the
-  APPROVER's confirmed values, and pre-selects are honored only when the invited id is a
-  visible, active option in the approver's own RLS-scoped list — else fall back to empty
-  (spec 282 hidden-bind lesson).
+and pre-select ONLY. Never an authz edge. The binding contractor/project are always the
+APPROVER's confirmed values, and pre-selects are honored only when the invited id is a
+visible, active option in the approver's own RLS-scoped list — else fall back to empty
+(spec 282 hidden-bind lesson).
 
 ### 2.3 Approve (SA side)
 
