@@ -39,6 +39,7 @@ import { buildSiteTeamBoard, type SiteAccessMember } from "@/lib/sa/site-team-bo
 import {
   AddTechnicianSheet,
   type AddTechnicianQrCard,
+  type SubconFirmQrCard,
 } from "@/components/features/sa/add-technician-sheet";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
 import { musterHref } from "@/lib/nav/project-paths";
@@ -66,6 +67,7 @@ export default async function TeamPage() {
   // non-crew roles (PM tier, procurement) never run the SA-scoped RPCs below.
   let projectList: { id: string; code: string; name: string }[] = [];
   let qrCards: AddTechnicianQrCard[] = [];
+  let firmQrCards: SubconFirmQrCard[] = [];
   let crewData: CrewProgressData = { needsReview: [], awaitingConfirm: [], ready: [] };
   let siteBoard: ReturnType<typeof buildSiteTeamBoard> | null = null;
   let musterProjectId: string | null = null;
@@ -281,6 +283,37 @@ export default async function TeamPage() {
       }),
     );
 
+    // Spec 328 U2 — one bank-free onboarding QR per (active contractor × project).
+    // Contractors are RLS-readable by site_admin ("readable by privileged roles").
+    // The `firm` param is a display label; the `contractor` uuid is advisory and
+    // the approver confirms the binding firm (F2b trust rule).
+    const { data: contractorRows } = await supabase
+      .from("contractors")
+      .select("id, name")
+      .eq("status", "active")
+      .order("name");
+    const activeFirms = contractorRows ?? [];
+    firmQrCards = await Promise.all(
+      projectList.flatMap((project) =>
+        activeFirms.map(async (firm) => {
+          const url = technicianOnboardUrl(clientEnv.NEXT_PUBLIC_APP_URL, {
+            projectId: project.id,
+            siteLabel: project.name,
+            inviterId: ctx.id,
+            contractorId: firm.id,
+            firmLabel: firm.name,
+          });
+          const svg = await QRCode.toString(url, {
+            type: "svg",
+            margin: 1,
+            width: 208,
+            color: { dark: "#000000", light: "#ffffff" },
+          });
+          return { contractor: firm, project: { id: project.id, name: project.name }, url, svg };
+        }),
+      ),
+    );
+
     // The เช็คชื่อ front door: the SA's resolved current project (spec 292). The
     // cockpit route itself stays project-scoped; /team just owns the entry.
     const saCurrent = await getSaCurrentProject(supabase, ctx.id);
@@ -319,7 +352,7 @@ export default async function TeamPage() {
 
         {/* ② Crew sections — moved verbatim from /sa/crew (spec 298/306/282/279). */}
         {isCrew && projectList.length > 0 ? (
-          <AddTechnicianSheet projects={projectList} qrCards={qrCards} />
+          <AddTechnicianSheet projects={projectList} qrCards={qrCards} firmQrCards={firmQrCards} />
         ) : null}
         {isCrew && projectList.length > 0 ? (
           <Link

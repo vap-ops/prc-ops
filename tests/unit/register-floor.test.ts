@@ -68,4 +68,31 @@ describe("registrationApprovalFloor", () => {
     const floor = registrationApprovalFloor(FULL);
     expect(floor.missing).not.toContain("profile_photo");
   });
+
+  // Spec 328 — subcon members are pay-exempt: the firm is paid per WP, PRC never
+  // collects their bank. bankExempt mirrors the approve RPC's contractor arm,
+  // which skips the book_bank + bank-fields floors (id_card + PDPA stay).
+  it("spec 328: bankExempt drops book_bank + bank_fields from the floor", () => {
+    const floor = registrationApprovalFloor({
+      ...FULL,
+      hasBookBank: false,
+      hasBankFields: false,
+      bankExempt: true,
+    });
+    expect(floor.met).toBe(true);
+    expect(floor.missing).toEqual([]);
+  });
+
+  it("spec 328: bankExempt still requires full_name, id_card and consent", () => {
+    const floor = registrationApprovalFloor({
+      fullName: null,
+      hasIdCard: false,
+      hasBookBank: false,
+      hasBankFields: false,
+      hasConsent: false,
+      bankExempt: true,
+    });
+    expect(floor.met).toBe(false);
+    expect(floor.missing).toEqual(["full_name", "id_card", "consent"]);
+  });
 });

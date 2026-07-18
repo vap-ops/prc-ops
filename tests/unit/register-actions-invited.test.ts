@@ -68,6 +68,35 @@ describe("startStaffRegistration — spec 279 F2b invite attribution", () => {
     });
   });
 
+  // Spec 328 — the per-firm QR adds ?contractor=<uuid> (advisory, same trust
+  // model as ?project): uuid-gated at the action boundary, existence-coerced in
+  // the DEFINER body.
+  it("spec 328: forwards a uuid-shaped invitedContractorId", async () => {
+    const FIRM = "55555555-5555-4555-8555-555555555555";
+    await startStaffRegistration({
+      fullName: "สมาชิก ทีมอวย",
+      phone: "0810000328",
+      invitedContractorId: FIRM,
+    });
+    expect(rpc).toHaveBeenCalledWith("start_staff_registration", {
+      p_full_name: "สมาชิก ทีมอวย",
+      p_phone: "0810000328",
+      p_invited_contractor_id: FIRM,
+    });
+  });
+
+  it("spec 328: drops a non-uuid invitedContractorId", async () => {
+    await startStaffRegistration({
+      fullName: "สมาชิก",
+      phone: "0810000328",
+      invitedContractorId: "forged-nonsense",
+    });
+    expect(rpc).toHaveBeenCalledWith("start_staff_registration", {
+      p_full_name: "สมาชิก",
+      p_phone: "0810000328",
+    });
+  });
+
   it("forwards declaredRoleHint alongside the invite refs", async () => {
     await startStaffRegistration({
       fullName: "ช่าง",

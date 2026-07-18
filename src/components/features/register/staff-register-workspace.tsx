@@ -33,13 +33,20 @@ import {
   getOwnStaffBank,
 } from "@/lib/register/own-registration";
 import { staffRegisterCopy, type RegisterVariant } from "@/lib/register/register-entry";
-import { REGISTER_STATUS_HEADING } from "@/lib/i18n/labels";
+import { isValidUuid } from "@/lib/validate/uuid";
+import {
+  REGISTER_STATUS_HEADING,
+  SUBCON_JOIN_PREFIX,
+  SUBCON_REGISTER_BANNER_HINT,
+} from "@/lib/i18n/labels";
 
 export async function StaffRegisterWorkspace({
   variant,
   site,
   project,
   by,
+  contractor,
+  firm,
 }: {
   variant: RegisterVariant;
   // Spec 279 F2a/F2b — the SA's per-project QR carries `?site=<label>` (display),
@@ -50,6 +57,11 @@ export async function StaffRegisterWorkspace({
   site?: string | undefined;
   project?: string | undefined;
   by?: string | undefined;
+  // Spec 328 — the per-firm subcon QR adds `?contractor=<id>` (advisory, uuid-gated
+  // at the action + existence-coerced by the RPC) and `?firm=<label>` (display-only,
+  // SA-minted, React-escaped — same trust class as `site`).
+  contractor?: string | undefined;
+  firm?: string | undefined;
 }) {
   const copy = staffRegisterCopy(variant);
   const supabase = await createClient();
@@ -73,6 +85,14 @@ export async function StaffRegisterWorkspace({
   // technician — an approved office hire has an office role by now).
   if (registration?.status === "approved") redirect(roleHome(userRow?.role ?? "technician"));
 
+  // Spec 328 — subcon (bank-exempt) context. Fresh form: from the QR's advisory
+  // ?contractor (uuid-shaped only). Once a registration exists, the TRUSTED source
+  // is the row's invited_contractor_id (set existence-coerced by the RPC) — the
+  // URL no longer matters.
+  const contractorParam = contractor && isValidUuid(contractor) ? contractor : null;
+  const subconFresh = !registration && contractorParam !== null;
+  const subconPending = Boolean(registration?.invited_contractor_id);
+
   return (
     <PageShell>
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-10`}>
@@ -86,6 +106,15 @@ export async function StaffRegisterWorkspace({
             </p>
           </div>
         ) : null}
+        {subconFresh || subconPending ? (
+          <div className={`${CARD} border-action bg-action-soft`}>
+            <p className="text-ink-secondary text-sm">{SUBCON_JOIN_PREFIX}</p>
+            {subconFresh && firm ? (
+              <p className="text-ink mt-0.5 text-base font-semibold">{firm}</p>
+            ) : null}
+            <p className="text-ink-muted mt-1 text-xs">{SUBCON_REGISTER_BANNER_HINT}</p>
+          </div>
+        ) : null}
         {!registration ? (
           <StaffRegistrationForm
             registrationExists={false}
@@ -94,6 +123,8 @@ export async function StaffRegisterWorkspace({
             consentedAt={null}
             invitedBy={by ?? null}
             invitedProjectId={project ?? null}
+            invitedContractorId={contractorParam}
+            bankExempt={subconFresh}
             initial={{
               fullName: "",
               phone: "",
@@ -169,6 +200,7 @@ async function RegistrationWorkspace({
           uid={uid}
           docUrls={urls}
           consentedAt={consent?.consentedAt ?? null}
+          bankExempt={Boolean(registration.invited_contractor_id)}
           initial={{
             fullName: registration.full_name ?? "",
             phone: registration.phone ?? "",

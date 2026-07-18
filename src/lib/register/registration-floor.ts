@@ -14,6 +14,10 @@ export interface ApprovalFloorInput {
   hasBookBank: boolean;
   hasBankFields: boolean;
   hasConsent: boolean;
+  /** Spec 328 — subcon members are pay-exempt (the firm is paid per WP, PRC never
+   *  collects their bank): mirrors the approve RPC's contractor arm, which skips
+   *  the book_bank + bank-fields floors. id_card + PDPA floors stay. */
+  bankExempt?: boolean;
 }
 
 export interface ApprovalFloor {
@@ -25,8 +29,10 @@ export function registrationApprovalFloor(input: ApprovalFloorInput): ApprovalFl
   const missing: ApprovalRequirement[] = [];
   if (!(input.fullName ?? "").trim()) missing.push("full_name");
   if (!input.hasIdCard) missing.push("id_card");
-  if (!input.hasBookBank) missing.push("book_bank");
-  if (!input.hasBankFields) missing.push("bank_fields");
+  if (!input.bankExempt) {
+    if (!input.hasBookBank) missing.push("book_bank");
+    if (!input.hasBankFields) missing.push("bank_fields");
+  }
   if (!input.hasConsent) missing.push("consent");
   return { met: missing.length === 0, missing };
 }
