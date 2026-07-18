@@ -1,3 +1,9 @@
+# [0.138.0](https://github.com/VAP-Solution/prc-ops/compare/v0.137.0...v0.138.0) (2026-07-18)
+
+### Features
+
+- **procurement:** ทรัพยากร readiness view (spec 327 U5) ([#630](https://github.com/VAP-Solution/prc-ops/issues/630)) ([80a2827](https://github.com/VAP-Solution/prc-ops/commit/80a2827b0190e1ded3954f815ab47a298d68c042))
+
 # [0.137.0](https://github.com/VAP-Solution/prc-ops/compare/v0.136.0...v0.137.0) (2026-07-18)
 
 ### Features
