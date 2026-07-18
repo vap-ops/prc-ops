@@ -7858,3 +7858,38 @@ U4 COMPLETE — code-only, no schema.
   the frozen name column). Accepted-by-design (answered): pins presentational/
   title-only on touch (the เสี่ยงช้า list is the actionable surface, per plan);
   331-lane full reconcile per zoom (thin renderer v1, zoom is infrequent).
+
+## Spec 327 U5 — ทรัพยากร readiness (2026-07-18)
+
+U5 COMPLETE — code-only, no schema.
+
+- /procurement/resources renders <ResourcesView> above the door grid: material
+  coverage per WP (ITEM-presence splits ในคลัง/กำลังมา/ยังไม่สั่งซื้อ with the
+  missing items NAMED — §0.2; per-item qty compare only, units differ across
+  items; approved plans only; grain captions §0.5); project bucket for null-WP
+  lines (§0.1); zero-plan leaves as collapsed ยังไม่มีแผนจัดหา doors (§0.3,
+  NO_PLAN_LABEL lifted to labels.ts, U2 chip now imports it); equipment period
+  rows at PROJECT grain (allocation ends_on ?? batch ends_on vs
+  planned_completion_date; amber หมดก่อนจบโครงการ + rental door; open-ended
+  never flags); D6 dashed labor slot. to_order/awaiting_approval read as
+  ยังไม่สั่งซื้อ (nothing on a truck yet — PURCHASE_ORDER_STATUS_LABEL.open
+  reused); null-catalog legacy PRs can't item-match (labeled approximation).
+- ⚠ Admin-client seam #2 (flagged): equipment_project_allocations +
+  equipment_rental_batches are zero-grant (live pg_policies) → admin reads
+  behind the page gate, columns = starts_on/ends_on/status ONLY (never
+  monthly_rate) — the rentals-page precedent, per plan.
+- Verified: suite 4207 green; live DOM probes (TFM): 3 sections, bucket
+  180/1/20 split, 19 per-WP coverage cards, 9 named-missing lines, 307
+  no-plan doors, 20 rental rows / 19 amber gaps, labor slot, no ฿ anywhere,
+  0 console/server errors.
+
+### U5 fresh-eyes outcome (same day)
+
+- Fixed: grain caption now discloses กำลังมา is project-grain too (an in-transit
+  truck earmarked for WP-A reads กำลังมา on every WP planning the item); null
+  catalog-embed lines get a named fallback instead of dropping; foreign-WP plan
+  lines route to the project bucket instead of a byWp entry that renders
+  nowhere (all §0 catches). Answered: group-bound plan-line coverage cards
+  render-what-exists (picker only offers งานย่อย, an anomaly should be visible);
+  allocation-end precedence intended (amber = confirm-intent signal, batch-end
+  precedence would HIDE real gaps); 307-row details DOM weight accepted v1.

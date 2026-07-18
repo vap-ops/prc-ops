@@ -562,6 +562,10 @@ export const TIMELINE_LABEL = "ไทม์ไลน์";
 // 2+-place term; ไม่ทราบวันถึง names the active-PR no-eta bucket.
 export const UNDATED_WP_LABEL = "ยังไม่กำหนดวันที่";
 export const NO_ETA_LABEL = "ไม่ทราบวันถึง";
+
+// Spec 327 U5 — the no-plan state (2+-place: the U2 scope-row create-plan door
+// + the U5 resources rows). The chip IS a door to supply-plan creation (§0.3).
+export const NO_PLAN_LABEL = "ยังไม่มีแผนจัดหา";
 export const PRODUCT_SEARCH_PLACEHOLDER = "ชื่อสินค้า…";
 
 // Spec 325 Phase 2 — the ของเสีย/แก้ไข (breakage + rework) exposure line: cost

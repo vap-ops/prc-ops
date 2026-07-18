@@ -12,7 +12,12 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import type { WorkPackageStatus } from "@/lib/db/enums";
-import { formatThaiDate, INCOMING_LENS_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
+import {
+  formatThaiDate,
+  INCOMING_LENS_LABEL,
+  NO_PLAN_LABEL,
+  WORK_PACKAGE_STATUS_LABEL,
+} from "@/lib/i18n/labels";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { projectHref, supplyPlanHref, workPackageHref } from "@/lib/nav/project-paths";
 import { buildGroupedRoster } from "@/lib/work-packages/group-roster";
@@ -117,7 +122,7 @@ function WpRow({
               href={withBackFrom(supplyPlanHref(projectId), SCOPE_FROM)}
               className="border-edge text-ink-secondary hover:bg-sunk text-meta inline-flex min-h-11 shrink-0 items-center rounded-full border px-3"
             >
-              ยังไม่มีแผนจัดหา →
+              {NO_PLAN_LABEL} →
             </Link>
           ) : null}
         </div>
