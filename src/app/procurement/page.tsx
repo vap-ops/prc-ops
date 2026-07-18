@@ -10,15 +10,12 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { PROCUREMENT_HOME_ROLES, ProcurementHubBody } from "./hub-body";
+import { PROCUREMENT_HOME_ROLES } from "./hub-body";
+import { ProcurementDashboardBody } from "./dashboard-body";
 
 export const metadata = { title: "จัดซื้อ" };
 
-interface ProcurementHomeProps {
-  searchParams: Promise<{ project?: string | string[] }>;
-}
-
-export default async function ProcurementHomePage({ searchParams }: ProcurementHomeProps) {
+export default async function ProcurementHomePage() {
   const ctx = await requireRole([...PROCUREMENT_HOME_ROLES]);
 
   return (
@@ -31,12 +28,9 @@ export default async function ProcurementHomePage({ searchParams }: ProcurementH
         maxWidthClass={PAGE_MAX_W}
         role={ctx.role}
       />
-      <ProcurementHubBody
-        role={ctx.role}
-        section={null}
-        currentHref="/procurement"
-        searchParams={searchParams}
-      />
+      {/* Spec 327 U1 — the root renders the selection-first dashboard; the
+          section pages (/procurement/[section]) keep ProcurementHubBody. */}
+      <ProcurementDashboardBody role={ctx.role} />
     </PageShell>
   );
 }

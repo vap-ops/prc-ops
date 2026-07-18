@@ -10,13 +10,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDashboardCards,
   buildProcurementProjectStatus,
   effectiveDoorProjectId,
   parseProcurementSection,
   procurementDoorHref,
-  procurementStripHref,
   visibleProcurementDoors,
   PROCUREMENT_STR_SECTIONS,
+  type DashboardPrRow,
   type HomeCountRow,
 } from "@/lib/purchasing/procurement-home";
 import {
@@ -39,17 +40,6 @@ function row(
 ): HomeCountRow {
   return { projectId, status, eta };
 }
-
-describe("procurementStripHref", () => {
-  // Nav-coherence feedback 2026-07-17 (zeeparn): the strip row LOOKS like "open
-  // this project's ขอซื้อ" but only re-scoped the hub filter — invisible for a
-  // single-project user. The tap now goes WHERE THE COUNTS POINT: the จัดซื้อ
-  // list scoped to that project. No ?from= — /requests is a tab page (no back
-  // chip); the หน้าหลัก tab is the way back.
-  it("targets the project-scoped จัดซื้อ list", () => {
-    expect(procurementStripHref("p1")).toBe("/requests?project=p1");
-  });
-});
 
 describe("buildProcurementProjectStatus", () => {
   it("counts OPEN requests (active bands) per project, excluding done/closed", () => {
@@ -89,10 +79,93 @@ describe("buildProcurementProjectStatus", () => {
     expect(out.map((p) => p.projectId)).toEqual(["p1", "p2"]); // name-sorted Alpha, Beta; null + p9 gone
     expect(out.map((p) => p.name)).toEqual(["Alpha", "Beta"]);
   });
+});
 
-  it("omits a project whose requests are all done/closed (no open work → not on the strip)", () => {
-    const rows = [row("p1", "delivered"), row("p1", "cancelled")];
-    expect(buildProcurementProjectStatus(rows, NAMES, TODAY)).toEqual([]);
+// Spec 327 U1 — the dashboard cards ARE the selection, so the card list comes
+// from the caller's FULL RLS projects read (procurement reads all projects), a
+// LEFT-join over PR rows: a zero-open-PR project still renders a zero-count
+// card (the #621 gap — buildProcurementProjectStatus derives from PR rows and
+// vanishes such projects; that stays strip-only until U6 retires it).
+describe("buildDashboardCards", () => {
+  const PROJECTS = [
+    { id: "p1", name: "Alpha" },
+    { id: "p2", name: "Beta" },
+    { id: "p3", name: "Gamma" },
+  ];
+  // wp1 belongs to p1 and starts before the late etas below; wp2 → p2, undated.
+  const WPS = new Map([
+    ["wp1", { plannedStart: "2026-07-10", projectId: "p1" }],
+    ["wp2", { plannedStart: null, projectId: "p2" }],
+  ]);
+
+  function dashRow(overrides: Partial<DashboardPrRow>): DashboardPrRow {
+    return {
+      projectId: "p1",
+      status: "approved",
+      eta: null,
+      workPackageId: null,
+      requestedFromWorkPackageId: null,
+      ...overrides,
+    };
+  }
+
+  it("yields a zero-count card for a zero-PR project (the #621 assertion)", () => {
+    const out = buildDashboardCards(PROJECTS, [], WPS, TODAY);
+    expect(out.map((c) => c.projectId)).toEqual(["p1", "p2", "p3"]);
+    expect(out[0]).toEqual({
+      projectId: "p1",
+      name: "Alpha",
+      openCount: 0,
+      arrivalsToday: 0,
+      lateRisk: 0,
+    });
+  });
+
+  it("counts open + arrivals-today per project with the strip rules (PR.project_id grain)", () => {
+    const rows = [
+      dashRow({ projectId: "p1", status: "requested" }), // open
+      dashRow({ projectId: "p1", status: "on_route", eta: "2026-07-16" }), // open + arrival (due today)
+      dashRow({ projectId: "p1", status: "purchased", eta: null }), // open + arrival (unknown eta)
+      dashRow({ projectId: "p1", status: "on_route", eta: "2026-07-20" }), // open, future → no arrival
+      dashRow({ projectId: "p1", status: "delivered" }), // done → not open
+      dashRow({ projectId: "p2", status: "approved" }), // open on p2
+    ];
+    const out = buildDashboardCards(PROJECTS, rows, WPS, TODAY);
+    const p1 = out.find((c) => c.projectId === "p1");
+    const p2 = out.find((c) => c.projectId === "p2");
+    expect(p1?.openCount).toBe(4);
+    expect(p1?.arrivalsToday).toBe(2);
+    expect(p2?.openCount).toBe(1);
+    expect(p2?.arrivalsToday).toBe(0);
+  });
+
+  it("attributes late-risk via the ANCHOR WP's project — a store-bound null-project PR counts toward its WP's card (ADR 0065, §0.1)", () => {
+    const rows = [
+      // project_id NULL but requested_from wp1 (p1), eta after wp1's start → p1 late-risk
+      dashRow({
+        projectId: null,
+        status: "purchased",
+        eta: "2026-07-20",
+        requestedFromWorkPackageId: "wp1",
+      }),
+      // direct WP-bound, same lateness → p1 late-risk
+      dashRow({ projectId: "p1", status: "approved", eta: "2026-07-15", workPackageId: "wp1" }),
+      // anchor WP undated → never late-risk
+      dashRow({ projectId: "p2", status: "approved", eta: "2026-07-20", workPackageId: "wp2" }),
+    ];
+    const out = buildDashboardCards(PROJECTS, rows, WPS, TODAY);
+    expect(out.find((c) => c.projectId === "p1")?.lateRisk).toBe(2);
+    expect(out.find((c) => c.projectId === "p2")?.lateRisk).toBe(0);
+  });
+
+  it("sorts cards by project name", () => {
+    const shuffled = [
+      { id: "p3", name: "Gamma" },
+      { id: "p1", name: "Alpha" },
+      { id: "p2", name: "Beta" },
+    ];
+    const out = buildDashboardCards(shuffled, [], WPS, TODAY);
+    expect(out.map((c) => c.name)).toEqual(["Alpha", "Beta", "Gamma"]);
   });
 });
 
