@@ -171,11 +171,12 @@ export async function ProcurementHubBody({
               {doors.map((door) => (
                 <Link
                   key={door.key}
+                  // Spec 327 U6a: spanning tiles are UNSCOPED like the chip row
+                  // above (one doctrine per door — a chip and a tile for the
+                  // same door must not land on different scoping; the lens
+                  // keeps scoping the strip + resolving 📍 doors only).
                   href={withBackFrom(
-                    procurementDoorHref(
-                      door,
-                      door.scope === "project" ? doorProjectId : activeProjectId,
-                    ),
+                    procurementDoorHref(door, door.scope === "project" ? doorProjectId : null),
                     hubFrom,
                   )}
                   className="rounded-card border-edge bg-card shadow-card hover:bg-sunk text-ink flex min-h-11 items-center justify-center border px-4 py-3 text-center text-sm font-semibold"

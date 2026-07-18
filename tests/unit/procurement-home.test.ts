@@ -16,6 +16,7 @@ import {
   effectiveDoorProjectId,
   parseProcurementSection,
   procurementDoorHref,
+  QUICK_DOORS,
   visibleProcurementDoors,
   PROCUREMENT_STR_SECTIONS,
   type DashboardPrRow,
@@ -391,6 +392,12 @@ describe("door icons (spec 327 U6 icon SSOT)", () => {
       const names = s.doors.map((d) => d.icon.displayName ?? d.icon.name);
       expect(new Set(names).size, s.key).toBe(names.length);
     }
+  });
+
+  it("QUICK_DOORS: deliberate order + cross-section icon uniqueness (its own row)", () => {
+    expect(QUICK_DOORS.map((d) => d.key)).toEqual(["requests", "incoming", "orders", "catalog"]);
+    const names = QUICK_DOORS.map((d) => d.icon.displayName ?? d.icon.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it("pins the clash resolutions from the 2026-07-18 consistency audit", () => {

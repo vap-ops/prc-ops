@@ -7913,3 +7913,14 @@ U6a COMPLETE (first of 3 revised-U6 slices; revision recorded in the plan doc).
 - Verified: suite 4215; DOM probes — dashboard 4 quick chips + 4 card doors
   (?from), scope 5 chips + header door + grid intact, resources 8 chips
   (อัตราค่าแรง correctly hidden under view-as procurement).
+
+### U6a fresh-eyes outcome (same day)
+
+- Fixed: section-page grid spanning tiles now UNSCOPED like the chips (one
+  doctrine per door — chip and tile for the same door must not scope
+  differently; lens keeps strip counts + 📍 resolution only); header link
+  aria-label fallback when the project name is unresolved; QUICK_DOORS moved to
+  procurement-home.ts as an ordered SSOT + cross-section icon-uniqueness pin.
+  Answered: displayName-keyed uniqueness fails-safe (lucide sets displayName;
+  vitest not minified); ?from on chip targets without back chips is inert +
+  correct-if-ever-honored.

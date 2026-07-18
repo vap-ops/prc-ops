@@ -23,6 +23,9 @@ export function ProcurementProjectHeader({
     <div className="flex items-center gap-3">
       <Link
         href={withBackFrom(projectHref(projectId), from)}
+        // Accessible-name floor: an unresolved name would leave an icon-only
+        // link with no name (fresh-eyes catch).
+        aria-label={projectName || "เปิดหน้าโครงการ"}
         className="text-body text-ink hover:text-action flex min-h-11 min-w-0 flex-1 items-center gap-1 font-semibold"
       >
         <span className="min-w-0 truncate">{projectName}</span>

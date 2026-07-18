@@ -362,6 +362,14 @@ export function visibleProcurementDoors(
   return visibleDoors(section.doors, isManager, activeProjectId);
 }
 
+/** Spec 327 U6 — the dashboard's quick chip row: the most-used doors in a
+ * deliberate order (queue → arriving → orders → catalog). Composed CROSS
+ * section rows, so its icon uniqueness gets its own pin (a same-glyph addition
+ * would render duplicate icons and pass the per-section pins). */
+export const QUICK_DOORS: readonly ProcurementDoor[] = (
+  ["requests", "incoming", "orders", "catalog"] as const
+).map((key) => PROCUREMENT_STR_SECTIONS.flatMap((s) => s.doors).find((d) => d.key === key)!);
+
 /** Doors-level form of the visibility rule (spec 327 U6 — the chip rows filter
  * arbitrary door lists, not whole sections). */
 export function visibleDoors(

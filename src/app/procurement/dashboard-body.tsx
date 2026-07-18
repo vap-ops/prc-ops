@@ -27,7 +27,7 @@ import {
 import {
   buildDashboardCards,
   isArrivalToday,
-  PROCUREMENT_STR_SECTIONS,
+  QUICK_DOORS,
   type DashboardPrRow,
 } from "@/lib/purchasing/procurement-home";
 import { countLateRisk } from "@/lib/purchasing/late-risk";
@@ -36,14 +36,6 @@ import { resolveSelectedProject } from "@/lib/purchasing/procurement-project";
 import { readProcurementProjectCookie } from "@/lib/purchasing/procurement-project.server";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
 import { setProcurementProject } from "./actions";
-
-// Spec 327 U6 — the dashboard's quick chips: the most-used doors, icon-only on
-// top (checkpoint-2 idiom). The full labeled ทั้งหมด grid arrives with the U6c
-// grid retirement; until then every other door stays on its section page.
-const QUICK_DOOR_KEYS = new Set(["requests", "incoming", "orders", "catalog"]);
-const QUICK_DOORS = PROCUREMENT_STR_SECTIONS.flatMap((s) =>
-  s.doors.filter((d) => QUICK_DOOR_KEYS.has(d.key)),
-);
 
 export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
   const supabase = await createClient();
