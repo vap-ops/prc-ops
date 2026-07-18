@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
   const state = parseReportQuery(
     {
       preset: searchParams.get("preset") ?? undefined,
-      from: searchParams.get("from") ?? undefined,
-      to: searchParams.get("to") ?? undefined,
+      start: searchParams.get("start") ?? undefined,
+      end: searchParams.get("end") ?? undefined,
       bucket: searchParams.get("bucket") ?? undefined,
       group: searchParams.get("group") ?? undefined,
       project: searchParams.get("project") ?? undefined,

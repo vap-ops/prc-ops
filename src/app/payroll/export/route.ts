@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
   const range = parsePayrollRange(
-    searchParams.get("from") ?? undefined,
-    searchParams.get("to") ?? undefined,
+    searchParams.get("start") ?? undefined,
+    searchParams.get("end") ?? undefined,
     bangkokTodayIso(),
   );
   // Spec 309 — honour the same project scope as the page so the CSV matches.

@@ -8,6 +8,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { ProjectLens } from "@/components/features/common/project-lens";
@@ -47,7 +48,13 @@ function formatDays(n: number): string {
 }
 
 interface PayrollPageProps {
-  searchParams: Promise<{ from?: string; to?: string; project?: string }>;
+  // ?start/?end = the pay-period range (U6b2 rename); ?from = the back-referrer.
+  searchParams: Promise<{
+    start?: string;
+    end?: string;
+    from?: string | string[];
+    project?: string;
+  }>;
 }
 
 export default async function PayrollPage({ searchParams }: PayrollPageProps) {
@@ -58,8 +65,8 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   // record_wage_payment RPC refuses accounting regardless.
   const ctx = await requireRole(PAYROLL_VIEW_ROLES);
   const canRecord = PAYROLL_ROLES.includes(ctx.role);
-  const { from, to, project } = await searchParams;
-  const range = parsePayrollRange(from, to, bangkokTodayIso());
+  const { start, end, from, project } = await searchParams;
+  const range = parsePayrollRange(start, end, bangkokTodayIso());
   const projectId = project || undefined;
 
   // Spec 309 — project options for the filter dropdown. Server RLS client:
@@ -93,14 +100,14 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   if (annotated) for (const w of annotated.workers) paymentByWorker.set(w.workerId, w.payment);
   const todayIso = bangkokTodayIso();
 
-  const exportHref = `/payroll/export?from=${range.from}&to=${range.to}${
+  const exportHref = `/payroll/export?start=${range.from}&end=${range.to}${
     projectId ? `&project=${projectId}` : ""
   }`;
 
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
+      <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="ตั้งค่า">
         <h1 className="text-title text-ink font-bold tracking-tight">ค่าแรง</h1>
       </DetailHeader>
 
@@ -109,7 +116,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
 
         {/* Spec 323 U5: the universal cross-project lens — one-tap scoping on the
             same ?project= axis the form's picker below writes (they stay in sync
-            via the URL; the lens keeps the from/to period params). empty:hidden so
+            via the URL; the lens keeps the start/end period params). empty:hidden so
             the collapsed single-project state leaves no stray margin. Wages are
             project-blind by default (spec 311 P0); this gives them the lens. */}
         <div className="mb-4 empty:hidden">
@@ -127,7 +134,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
             ตั้งแต่
             <input
               type="date"
-              name="from"
+              name="start"
               defaultValue={range.from}
               className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />
@@ -136,7 +143,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
             ถึง
             <input
               type="date"
-              name="to"
+              name="end"
               defaultValue={range.to}
               className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />

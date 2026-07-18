@@ -320,11 +320,10 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
   // their chip via safeBackHref(?from, fallback) — the same referrer-aware standard
   // as the dynamic details above, extended to the static leaves the audit found.
   // Scope = the two headline hubs (the /procurement STR tiles + /team) plus the
-  // /expenses money page. Follow-ups NOT yet in this list:
-  //  - /payroll: its ?from param is ALREADY the period-range start date
-  //    (parsePayrollRange(from, to, …), spec 309/311), so it collides with the
-  //    referrer-aware ?from — it needs a period-param rename before adopting the
-  //    standard; deferred as a separate decision;
+  // /expenses money page; U6b/U6b2 (spec 327) extended it to the door leaves +
+  // the range families (payroll/orders/reports ranges renamed ?start/?end so
+  // ?from is the referrer everywhere they appear). Follow-ups NOT yet in this
+  // list:
   //  - /nova/dials + /sa/plan (secondary workers→dials / project→plan bounces);
   //  - /profile (its only wrong parent is the global avatar — needs page capture).
   const STATIC_MULTI_PARENT = [
@@ -340,13 +339,15 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // Spec 327 U6b (checkpoint-2 back-button audit): the remaining hardcoded-
     // back pages reached from the /procurement chip rows — their back chips
     // bounced procurement OUT of the STR world (to /settings or the project).
-    // NOT here yet: /requests/orders + /requests/reports + /payroll — all
-    // three use ?from as a DATE-RANGE param (the payroll collision class);
-    // they join after the U6b2 range-param rename (from/to → start/end).
     "settings/ordering-templates/page.tsx",
     "settings/labor-rates/page.tsx",
     "contacts/subcontractors/page.tsx",
     "projects/[projectId]/supply-plan/page.tsx",
+    // Spec 327 U6b2: the from/to DATE-RANGE families renamed to start/end,
+    // freeing ?from for the referrer standard on the last three doors.
+    "requests/orders/page.tsx",
+    "requests/reports/page.tsx",
+    "payroll/page.tsx",
   ];
 
   it.each(STATIC_MULTI_PARENT)("%s resolves its back chip via safeBackHref", (route) => {
