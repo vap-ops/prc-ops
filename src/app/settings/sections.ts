@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
-  Banknote,
+  Forklift,
   Calculator,
   ClipboardList,
   CreditCard,
@@ -181,7 +181,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
       {
         kind: "link",
         href: "/equipment/rentals",
-        icon: Banknote,
+        // Spec 327 U6 icon SSOT: Forklift everywhere for เช่าอุปกรณ์ (the
+        // project-page chip precedent) — Banknote read as generic money and
+        // gave the same destination two glyphs.
+        icon: Forklift,
         label: EQUIPMENT_RENTAL_LABEL,
         hint: "บันทึกการเช่า ตลอดโครงการ/รายวัน · ผูกโครงการ",
       },

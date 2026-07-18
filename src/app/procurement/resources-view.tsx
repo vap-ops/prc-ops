@@ -14,8 +14,7 @@
 //   (rentals/page.tsx admin reads). Selected columns are PERIOD/STATUS ONLY —
 //   starts_on / ends_on / status; monthly_rate is never selected.
 
-import Link from "next/link";
-
+import { ProcurementProjectHeader } from "@/components/features/purchasing/procurement-project-header";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient } from "@/lib/db/server";
 import { flagRentalPeriodGaps } from "@/lib/equipment/rental-period-check";
@@ -161,17 +160,11 @@ export async function ResourcesView() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h2 className="text-body text-ink min-w-0 flex-1 truncate font-semibold">
-          {project?.name ?? ""}
-        </h2>
-        <Link
-          href="/procurement"
-          className="text-action text-meta inline-flex min-h-11 shrink-0 items-center underline"
-        >
-          เปลี่ยนโครงการ
-        </Link>
-      </div>
+      <ProcurementProjectHeader
+        projectId={selected}
+        projectName={project?.name ?? ""}
+        from="/procurement/resources"
+      />
       <ResourcesBody
         projectId={selected}
         coverageRows={coverageRows}

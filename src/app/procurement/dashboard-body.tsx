@@ -8,7 +8,12 @@
 // Reads are COUNTS/dates only — no ฿ column is ever selected.
 
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { FolderKanban, UserPlus } from "lucide-react";
+
+import { ProcurementDoorChips } from "@/components/features/purchasing/procurement-door-chips";
+import { withBackFrom } from "@/lib/nav/back-href";
+import { projectHref } from "@/lib/nav/project-paths";
+import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
 
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { STAFF_APPROVAL_ROLES, type UserRole } from "@/lib/auth/role-home";
@@ -22,6 +27,7 @@ import {
 import {
   buildDashboardCards,
   isArrivalToday,
+  PROCUREMENT_STR_SECTIONS,
   type DashboardPrRow,
 } from "@/lib/purchasing/procurement-home";
 import { countLateRisk } from "@/lib/purchasing/late-risk";
@@ -30,6 +36,14 @@ import { resolveSelectedProject } from "@/lib/purchasing/procurement-project";
 import { readProcurementProjectCookie } from "@/lib/purchasing/procurement-project.server";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
 import { setProcurementProject } from "./actions";
+
+// Spec 327 U6 — the dashboard's quick chips: the most-used doors, icon-only on
+// top (checkpoint-2 idiom). The full labeled ทั้งหมด grid arrives with the U6c
+// grid retirement; until then every other door stays on its section page.
+const QUICK_DOOR_KEYS = new Set(["requests", "incoming", "orders", "catalog"]);
+const QUICK_DOORS = PROCUREMENT_STR_SECTIONS.flatMap((s) =>
+  s.doors.filter((d) => QUICK_DOOR_KEYS.has(d.key)),
+);
 
 export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
   const supabase = await createClient();
@@ -81,6 +95,13 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
 
   return (
     <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
+      {/* Most-used doors as icon chips on top (spec 327 U6, checkpoint-2 idiom). */}
+      <ProcurementDoorChips
+        doors={QUICK_DOORS}
+        isManager={role === "procurement_manager" || role === "super_admin"}
+        activeProjectId={null}
+        from="/procurement"
+      />
       {/* Portfolio alert strip — each count opens its เวลา sub-view (spec 327
           U3; §0.2 alerts carry their action). Grain-labeled ทุกโครงการ (§0.5):
           these totals count EVERY visible PR incl. store-bound null-project
@@ -121,34 +142,52 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
           {cards.map((c) => {
             const selected = c.projectId === selectedProjectId;
             return (
-              <form key={c.projectId} action={setProcurementProject.bind(null, c.projectId)}>
-                <button
-                  type="submit"
-                  // aria-current (not aria-pressed): this is a single-select
-                  // navigation choice, not a toggle (fresh-eyes finding). The
-                  // ทุกโครงการ row below is a door to the spanning queue, not a
-                  // selection state, so it carries no current marker.
-                  aria-current={selected ? "true" : undefined}
-                  className={`rounded-card shadow-card border-edge bg-card text-ink hover:bg-sunk flex min-h-11 w-full items-center gap-3 border px-4 py-3 text-left ${
-                    selected ? "ring-action ring-2" : ""
-                  }`}
+              <div key={c.projectId} className="flex items-stretch gap-2">
+                {/* Secondary door: straight to หน้าโครงการ without selecting
+                    (checkpoint-2 finding) — OUTSIDE the form so the card's
+                    submit button contains no nested interactive element. */}
+                <form
+                  action={setProcurementProject.bind(null, c.projectId)}
+                  className="min-w-0 flex-1"
                 >
-                  <span className="text-body min-w-0 flex-1 truncate font-semibold">{c.name}</span>
-                  <span className="text-ink-secondary text-meta shrink-0">
-                    ขอซื้อ {c.openCount}
-                  </span>
-                  {c.arrivalsToday > 0 ? (
-                    <span className="bg-action text-on-fill text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
-                      {ARRIVALS_TODAY_LABEL} {c.arrivalsToday}
+                  <button
+                    type="submit"
+                    // aria-current (not aria-pressed): this is a single-select
+                    // navigation choice, not a toggle (fresh-eyes finding). The
+                    // ทุกโครงการ row below is a door to the spanning queue, not a
+                    // selection state, so it carries no current marker.
+                    aria-current={selected ? "true" : undefined}
+                    className={`rounded-card shadow-card border-edge bg-card text-ink hover:bg-sunk flex min-h-11 w-full items-center gap-3 border px-4 py-3 text-left ${
+                      selected ? "ring-action ring-2" : ""
+                    }`}
+                  >
+                    <span className="text-body min-w-0 flex-1 truncate font-semibold">
+                      {c.name}
                     </span>
-                  ) : null}
-                  {c.lateRisk > 0 ? (
-                    <span className="bg-danger-soft text-danger text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
-                      {LATE_RISK_LABEL} {c.lateRisk}
+                    <span className="text-ink-secondary text-meta shrink-0">
+                      ขอซื้อ {c.openCount}
                     </span>
-                  ) : null}
-                </button>
-              </form>
+                    {c.arrivalsToday > 0 ? (
+                      <span className="bg-action text-on-fill text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
+                        {ARRIVALS_TODAY_LABEL} {c.arrivalsToday}
+                      </span>
+                    ) : null}
+                    {c.lateRisk > 0 ? (
+                      <span className="bg-danger-soft text-danger text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
+                        {LATE_RISK_LABEL} {c.lateRisk}
+                      </span>
+                    ) : null}
+                  </button>
+                </form>
+                <Link
+                  href={withBackFrom(projectHref(c.projectId), "/procurement")}
+                  aria-label={`เปิดหน้าโครงการ ${c.name}`}
+                  title="เปิดหน้าโครงการ"
+                  className={`${ICON_CHIP_MUTED} self-center`}
+                >
+                  <FolderKanban aria-hidden className="h-5 w-5" />
+                </Link>
+              </div>
             );
           })}
           {cards.length === 0 ? (

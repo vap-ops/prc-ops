@@ -424,3 +424,44 @@ shared primitive in this unit (scope discipline).
 capture UI · supplier-slippage report · labor readiness · per-WP plan-create ·
 queue relocation · SaTools/Tile shared-primitive extraction · portfolio-grain
 Resources.
+
+---
+
+## U6 — REVISED at checkpoint 2 (2026-07-18, operator-approved in chat)
+
+Supersedes the original Task U6 above. Two operator findings after U1-U5 went
+live: (a) หน้าโครงการ took 5-6 taps though the workspace holds the selection;
+(b) users prefer the project-page **icon-chip-row-on-top** idiom (ICON_CHIP,
+44px, aria-label) over text door tiles. A consistency audit found 3 icon
+clashes that an icon-only row would surface (resolutions below, pinned in
+procurement-home.test.ts).
+
+**U6a — icon SSOT + chip rows + project door (code-only):**
+
+- `ProcurementDoor.icon` (required): จัดซื้อ ShoppingCart · โครงการ FolderKanban
+  · ทะเบียนวัสดุ Package · เทมเพลตแผนจัดหา FileStack · แผนจัดหา ClipboardList ·
+  ใบสั่งซื้อ FileText · ของเข้า Truck · รายงาน BarChart3 · ผู้ขาย Store ·
+  ช่างรับเหมา Hammer · อุปกรณ์ Wrench · เช่าอุปกรณ์ Forklift · รายชื่อช่าง
+  HardHat · ค่าแรง Wallet · ค่าใช้จ่าย Receipt · ต้นทุนโครงการ PieChart ·
+  อัตราค่าแรง Coins. Clash fixes: ขอบเขต TAB icon ShoppingCart→ListChecks;
+  settings-hub เช่าอุปกรณ์ Banknote→Forklift.
+- `<ProcurementDoorChips>` — icon-only ICON_CHIP row, label = aria-label,
+  ?from-threaded, visibleDoors filter; mounted ON TOP of each section page
+  (text grid below until U6c) + a quick subset (จัดซื้อ ของเข้า ใบสั่งซื้อ
+  ทะเบียนวัสดุ) on the dashboard. Spanning chips deliberately UNSCOPED (the
+  U1 invisible-filter trap — the cookie never silently filters the queue).
+- `<ProcurementProjectHeader>` — the S/T/R header's project NAME opens
+  /projects/[id] (?from back to the tab); dashboard cards gain a FolderKanban
+  side-chip to หน้าโครงการ (outside the form — no nested interactive).
+
+**U6b — back fixes (code-only; payroll split into its own danger-held PR):**
+the 7 hardcoded-back pages honor ?from via safeBackHref (ordering-templates,
+labor-rates, subcontractors, orders list, reports, supply-plan; payroll after
+its ?from/?to period-param rename); /requests lights the หน้าหลัก tab for the
+procurement tiers (match) so it stops being a strand.
+
+**U6c — retirement (as originally planned, minus the เครื่องมือ text row which
+the chip rows replace):** remove section door grids + strip + lens from
+section pages; dashboard gains the ทั้งหมด labeled grid (rule 4: every door
+keeps a labeled path); delete the spec-326 โครงการ door (selection + the
+header door subsume it); retire buildProcurementProjectStatus; docs + pins.

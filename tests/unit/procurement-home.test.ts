@@ -8,6 +8,7 @@
 // (🔀) door. All the logic lives here so it is unit-tested without the page.
 
 import { describe, expect, it } from "vitest";
+import { ClipboardList, FileStack, Forklift, Package, ShoppingCart, Truck } from "lucide-react";
 
 import {
   buildDashboardCards,
@@ -232,18 +233,21 @@ describe("procurementDoorHref", () => {
     label: "จัดซื้อ",
     href: "/requests",
     scope: "spanning",
+    icon: ShoppingCart,
   } as const;
   const shared = {
     key: "catalog",
     label: CATALOG_LABEL,
     href: "/catalog",
     scope: "shared",
+    icon: Package,
   } as const;
   const spanningWithQuery = {
     key: "incoming",
     label: "ของเข้า",
     href: "/requests?band=in_transit",
     scope: "spanning",
+    icon: Truck,
   } as const;
 
   it("returns the bare href when no project is active", () => {
@@ -362,6 +366,41 @@ describe("project-scope doors all resolve (PROJECT_DOOR_HREF exhaustive)", () =>
       expect(href, door.key).toContain("/projects/pX/");
       expect(href, door.key).not.toBe(door.href);
     }
+  });
+});
+
+// Spec 327 U6 — the door icon SSOT. Users picked the icon-chip-row-on-top idiom
+// (project-page ICON_CHIP precedent); an icon-only row only works if every door
+// has an icon, icons are UNIQUE within a row, and each destination wears the
+// SAME icon app-wide. The three audited clashes are pinned resolved here:
+// จัดซื้อ keeps ShoppingCart (the ขอบเขต tab moved off it), แผนจัดหา keeps the
+// project-chip ClipboardList while เทมเพลตแผนจัดหา takes FileStack, and
+// เช่าอุปกรณ์ = Forklift everywhere (settings hub realigned off Banknote).
+describe("door icons (spec 327 U6 icon SSOT)", () => {
+  it("every door carries an icon", () => {
+    for (const s of PROCUREMENT_STR_SECTIONS) {
+      for (const d of s.doors) {
+        // lucide icons are forwardRef exotic components (objects, not fns).
+        expect(d.icon, `${s.key}:${d.key}`).toBeTruthy();
+      }
+    }
+  });
+
+  it("icons are unique within each section row (icon-only chips must be tellable-apart)", () => {
+    for (const s of PROCUREMENT_STR_SECTIONS) {
+      const names = s.doors.map((d) => d.icon.displayName ?? d.icon.name);
+      expect(new Set(names).size, s.key).toBe(names.length);
+    }
+  });
+
+  it("pins the clash resolutions from the 2026-07-18 consistency audit", () => {
+    const door = (section: string, key: string) =>
+      PROCUREMENT_STR_SECTIONS.find((s) => s.key === section)?.doors.find((d) => d.key === key);
+    expect(door("scope", "requests")?.icon).toBe(ShoppingCart);
+    expect(door("scope", "supply-plan")?.icon).toBe(ClipboardList);
+    expect(door("scope", "ordering-templates")?.icon).toBe(FileStack);
+    expect(door("resources", "rentals")?.icon).toBe(Forklift);
+    expect(door("time", "incoming")?.icon).toBe(Truck);
   });
 });
 
