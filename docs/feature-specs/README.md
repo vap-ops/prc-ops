@@ -322,6 +322,8 @@ for reading the spec itself.
 
 | 327 | Procurement selection-first nav + S/T/R as project views — DESIGN APPROVED 2026-07-18: หน้าหลัก = dashboard whose project cards ARE the selection (sticky, sole-project auto); ขอบเขต = WP list + supply overlay · เวลา = late-risk/week-radar/visual timeline (WP `planned_start/end` × PR/shipment `eta`) · ทรัพยากร = material coverage + equipment period readiness (labor deferred). Retires 323 D3 (filter → selection-first); queue untouched v1; doors re-home to เครื่องมือ row, none die. **§0 omotenashi binding** (no silent drops · alerts carry actions · empty states are doors · zero-cost selection · grain honesty). No schema v1 (dates 84% / eta 86% filled, live-checked). 6 units in `327-procurement-selection-first-str.md`. |
 
+| 328 | Subcontractor-member onboarding QR (ทีมผู้รับเหมา) — DESIGN APPROVED 2026-07-18: per-firm QR on the /team เพิ่มช่างใหม่ sheet (สมัครเข้าทีม selector: ทีม PRC + one row per active contractor); member LINE-logs-in via `/register/technician?contractor=` → SA approves in /registrations → `workers` row with `contractor_id`, role technician, **no bank ever collected, pay-exempt** (day_rate 0, cost_confirmed_at NULL forever; firm is paid per WP, not per head). Muster/badges/daily-report work unchanged. U1 schema (invited_contractor_id + approve arm) · U2 mint/register UI · U3 queue chip + bank-hide · U4 pilot (ช่างอวย crew first). |
+
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30. (235 = account-deactivation draft, parked separately.
 267–269 rows land with their own PRs.)
