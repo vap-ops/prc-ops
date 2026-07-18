@@ -1,3 +1,9 @@
+## [0.138.1](https://github.com/VAP-Solution/prc-ops/compare/v0.138.0...v0.138.1) (2026-07-18)
+
+### Bug Fixes
+
+- **rls:** project_categories SELECT gains the procurement arm (spec 327 follow-up) ([#631](https://github.com/VAP-Solution/prc-ops/issues/631)) ([f4cc83c](https://github.com/VAP-Solution/prc-ops/commit/f4cc83c0becc8c1463ad3f23a3ef7c946d786f99)), closes [#627](https://github.com/VAP-Solution/prc-ops/issues/627)
+
 # [0.138.0](https://github.com/VAP-Solution/prc-ops/compare/v0.137.0...v0.138.0) (2026-07-18)
 
 ### Features
