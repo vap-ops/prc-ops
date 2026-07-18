@@ -31,31 +31,7 @@ import { anchorWorkPackageId } from "@/lib/purchasing/late-risk";
 import { resolveSelectedProject } from "@/lib/purchasing/procurement-project";
 import { readProcurementProjectCookie } from "@/lib/purchasing/procurement-project.server";
 import { buildWpSupplyOverlay } from "@/lib/purchasing/wp-supply-overlay";
-import { setProcurementProject } from "./actions";
-
-function ScopePickerPrompt({
-  projects,
-}: {
-  projects: ReadonlyArray<{ id: string; name: string }>;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-body text-ink-secondary font-semibold">เลือกโครงการเพื่อดูขอบเขตงาน</h2>
-      <div className="flex flex-col gap-2">
-        {projects.map((p) => (
-          <form key={p.id} action={setProcurementProject.bind(null, p.id)}>
-            <button
-              type="submit"
-              className="rounded-card shadow-card border-edge bg-card text-ink hover:bg-sunk flex min-h-11 w-full items-center gap-3 border px-4 py-3 text-left"
-            >
-              <span className="text-body min-w-0 flex-1 truncate font-semibold">{p.name}</span>
-            </button>
-          </form>
-        ))}
-      </div>
-    </div>
-  );
-}
+import { ProjectPickerPrompt } from "./project-picker-prompt";
 
 /** wpId → reconciled W0x code, via the admin seam (see module note). */
 async function loadCategoryCodeByWp(projectId: string): Promise<Map<string, string>> {
@@ -80,7 +56,8 @@ export async function ScopeView() {
     await readProcurementProjectCookie(),
     projects.map((p) => p.id),
   );
-  if (!selected) return <ScopePickerPrompt projects={projects} />;
+  if (!selected)
+    return <ProjectPickerPrompt heading="เลือกโครงการเพื่อดูขอบเขตงาน" projects={projects} />;
   const selectedName = projects.find((p) => p.id === selected)?.name ?? "";
 
   const [{ data: wpRows }, { data: prRows }, { data: planRows }, categoryCodeByWp] =
@@ -149,7 +126,10 @@ export async function ScopeView() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <h2 className="text-body text-ink min-w-0 flex-1 truncate font-semibold">{selectedName}</h2>
-        <Link href="/procurement" className="text-action text-meta shrink-0 underline">
+        <Link
+          href="/procurement"
+          className="text-action text-meta inline-flex min-h-11 shrink-0 items-center underline"
+        >
           เปลี่ยนโครงการ
         </Link>
       </div>

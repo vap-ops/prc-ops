@@ -26,7 +26,9 @@ import {
   type ProcurementStrSection,
 } from "@/lib/purchasing/procurement-home";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
+import { parseTimeView } from "@/lib/purchasing/time-view";
 import { ScopeView } from "./scope-view";
+import { TimeView } from "./time-view";
 
 // The procurement tier only — the STR hub is procurement's home (spec 323 §4),
 // NOT a shared surface. PURCHASING_ROLES is too wide (its site_admin / PM / PD
@@ -45,7 +47,7 @@ interface ProcurementHubBodyProps {
   section: ProcurementStrSection["key"] | null;
   /** The page's own pathname — feeds hubFrom (the ?from= referrer on door tiles). */
   currentHref: string;
-  searchParams: Promise<{ project?: string | string[] }>;
+  searchParams: Promise<{ project?: string | string[]; view?: string | string[] }>;
 }
 
 export async function ProcurementHubBody({
@@ -56,8 +58,9 @@ export async function ProcurementHubBody({
 }: ProcurementHubBodyProps) {
   const supabase = await createClient();
 
-  const { project } = await searchParams;
+  const { project, view } = await searchParams;
   const activeProjectId = typeof project === "string" && project !== "" ? project : null;
+  const timeSubView = parseTimeView(typeof view === "string" ? view : null);
   // Nav-coherence audit 2026-07 (Decision 1): thread this hub as the ?from referrer
   // on each STR door, so a door page's back chip returns HERE (the exact section +
   // active project) instead of the door's hardcoded /settings|/equipment fallback.
@@ -138,9 +141,10 @@ export async function ProcurementHubBody({
         </div>
       ) : null}
 
-      {/* Spec 327 U2 — the ขอบเขต project view renders ABOVE the door grid
-          (the grid retires in U6); U3/U5 add the other sections' views. */}
+      {/* Spec 327 U2/U3 — the S/T/R project views render ABOVE the door grid
+          (the grid retires in U6); U5 adds the resources view. */}
       {section === "scope" ? <ScopeView /> : null}
+      {section === "time" ? <TimeView view={timeSubView} /> : null}
 
       {/* STR sections of door tiles; 🔀 doors carry the active project, 📍
           doors (per-project targets) render only while the lens has one. */}

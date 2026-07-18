@@ -550,6 +550,12 @@ export const PRODUCT_SEARCH_LABEL = "ค้นหาสินค้า";
 // until the dashboard made it a 2+-place term.
 export const LATE_RISK_LABEL = "เสี่ยงช้า";
 export const ARRIVALS_TODAY_LABEL = "ของเข้าวันนี้";
+
+// Spec 327 U3 — the เวลา sub-view pills. ไทม์ไลน์ was inline on the WP
+// schedule switcher (schedule-views.tsx) until the procurement time view made
+// it a 2+-place term; สัปดาห์นี้ names the week radar.
+export const THIS_WEEK_LABEL = "สัปดาห์นี้";
+export const TIMELINE_LABEL = "ไทม์ไลน์";
 export const PRODUCT_SEARCH_PLACEHOLDER = "ชื่อสินค้า…";
 
 // Spec 325 Phase 2 — the ของเสีย/แก้ไข (breakage + rework) exposure line: cost
