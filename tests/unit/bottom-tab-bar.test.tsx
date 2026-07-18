@@ -289,7 +289,7 @@ describe("BottomTabBar", () => {
   // /catalog, /equipment, /workers, /payroll) are STR hub DOORS now, not
   // settings sub-surfaces — their ตั้งค่า tab must NOT claim them (it would
   // light on doors that no longer exist in their settings). They are leaves
-  // (the spec-19 acceptance), like /requests above.
+  // (the spec-19 acceptance), like /catalog above.
   it("lights NO tab for procurement on /contacts/vendors (hub door, not a settings leaf)", () => {
     mockUsePathname.mockReturnValue("/contacts/vendors");
     const { container } = render(<BottomTabBar role="procurement" />);

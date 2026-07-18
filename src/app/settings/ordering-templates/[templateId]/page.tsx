@@ -15,6 +15,7 @@ import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { ORDERING_TEMPLATES_LABEL } from "@/lib/i18n/labels";
 import type { CatalogPick } from "@/components/features/supply-plan/supply-plan-manager";
@@ -27,10 +28,12 @@ export const metadata = { title: ORDERING_TEMPLATES_LABEL };
 
 interface PageProps {
   params: Promise<{ templateId: string }>;
+  searchParams: Promise<{ from?: string | string[] }>;
 }
 
-export default async function OrderingTemplateEditorPage({ params }: PageProps) {
+export default async function OrderingTemplateEditorPage({ params, searchParams }: PageProps) {
   const { templateId } = await params;
+  const { from } = await searchParams;
   const ctx = await requireRole(SUPPLY_PLAN_ROLES);
 
   const supabase = await createClient();
@@ -86,7 +89,10 @@ export default async function OrderingTemplateEditorPage({ params }: PageProps) 
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/settings/ordering-templates" backLabel={ORDERING_TEMPLATES_LABEL}>
+      <DetailHeader
+        backHref={safeBackHref(from, "/settings/ordering-templates")}
+        backLabel={ORDERING_TEMPLATES_LABEL}
+      >
         <h1 className="text-title text-ink font-bold tracking-tight">
           {template.name ?? "เทมเพลต"}
         </h1>

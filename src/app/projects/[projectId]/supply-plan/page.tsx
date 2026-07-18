@@ -62,6 +62,10 @@ const PLAN_DATE_FMT = new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
 export default async function SupplyPlanPage({ params, searchParams }: PageProps) {
   const { projectId } = await params;
   const { plan: planParam, from } = await searchParams;
+  // Spec 327 U6b fresh-eyes: in-page plan switches must carry the referrer
+  // forward, else the back chip silently reverts mid-flow.
+  const fromValue = Array.isArray(from) ? from[0] : from;
+  const fromSuffix = fromValue ? `&from=${encodeURIComponent(fromValue)}` : "";
   const ctx = await requireRole(SUPPLY_PLAN_ROLES);
   const supabase = await createClient();
   // Spec 181: procurement plans in the PM's stead (add/submit), but the
@@ -331,7 +335,7 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
             {planItems.map((p) => (
               <li key={p.id} className="flex items-stretch gap-2">
                 <Link
-                  href={`${supplyPlanHref(project.id)}?plan=${p.id}`}
+                  href={`${supplyPlanHref(project.id)}?plan=${p.id}${fromSuffix}`}
                   aria-current={p.selected ? "true" : undefined}
                   className={`rounded-control flex min-w-0 flex-1 items-center justify-between gap-3 border px-4 py-3 ${
                     p.selected

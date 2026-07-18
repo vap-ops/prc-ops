@@ -7943,3 +7943,13 @@ U6b COMPLETE (2nd revised-U6 slice) — code-only.
   bare loads keep fallbacks, evil ?from rejected (open-redirect guard),
   /requests lights หน้าหลัก (DOM), labor-rates correctly requireRole-bounced
   for base procurement.
+
+### U6b fresh-eyes outcome (same day)
+
+- Fixed both trail-drops: supply-plan's in-page plan links now carry ?from
+  forward (no mid-flow chip revert); ordering-templates rows thread the
+  list-with-from as the child editor's referrer + the child honors ?from
+  (fallback = the list) — the drill round-trip keeps the chip intact.
+  Stale test comment fixed. ❓ answered: /requests/orders + /requests/reports
+  lighting หน้าหลัก via the /requests prefix is accepted-cosmetic until U6b2
+  threads their real back chips.
