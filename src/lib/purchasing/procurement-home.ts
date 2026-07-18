@@ -16,7 +16,7 @@ import {
   SUPPLY_PLAN_LABEL,
 } from "@/lib/i18n/labels";
 import { projectCostsHref, supplyPlanHref } from "@/lib/nav/project-paths";
-import { countLateRisk, type LateRiskRow } from "./late-risk";
+import { anchorWorkPackageId, countLateRisk, type LateRiskRow } from "./late-risk";
 import { ACTIVE_REQUEST_BANDS, requestBand, type RequestBand } from "./request-bands";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -123,7 +123,7 @@ export function buildDashboardCards(
   for (const r of prRows) {
     const flagged = countLateRisk([r], wpById) === 1;
     if (!flagged) continue;
-    const anchorId = r.workPackageId ?? r.requestedFromWorkPackageId;
+    const anchorId = anchorWorkPackageId(r);
     const anchorProject = anchorId ? wpById.get(anchorId)?.projectId : undefined;
     if (anchorProject) bump(late, anchorProject);
   }

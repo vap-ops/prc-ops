@@ -81,9 +81,13 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
 
   return (
     <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
-      {/* Portfolio alert strip — U3 turns these counts into /procurement/time links. */}
+      {/* Portfolio alert strip — U3 turns these counts into /procurement/time
+          links. Grain-labeled ทุกโครงการ (§0.5): these totals count EVERY
+          visible PR incl. store-bound null-project rows, so they can exceed the
+          sum of the per-card badges. */}
       {lateRiskTotal > 0 || arrivalsTotal > 0 ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-ink-secondary text-meta">{ALL_PROJECTS_OPTION_LABEL}:</span>
           {lateRiskTotal > 0 ? (
             <span className="bg-danger-soft text-danger text-meta rounded-full px-3 py-1 font-bold">
               {LATE_RISK_LABEL} {lateRiskTotal}
@@ -108,7 +112,11 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
               <form key={c.projectId} action={setProcurementProject.bind(null, c.projectId)}>
                 <button
                   type="submit"
-                  aria-pressed={selected}
+                  // aria-current (not aria-pressed): this is a single-select
+                  // navigation choice, not a toggle (fresh-eyes finding). The
+                  // ทุกโครงการ row below is a door to the spanning queue, not a
+                  // selection state, so it carries no current marker.
+                  aria-current={selected ? "true" : undefined}
                   className={`rounded-card shadow-card border-edge bg-card text-ink hover:bg-sunk flex min-h-11 w-full items-center gap-3 border px-4 py-3 text-left ${
                     selected ? "ring-action ring-2" : ""
                   }`}
