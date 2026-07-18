@@ -97,8 +97,14 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
             </Link>
           ) : null}
           {arrivalsTotal > 0 ? (
+            // Deliberate deviation from the plan's ?view=week target (fresh-eyes
+            // grain catch): the count is the TODAY receive pile (eta<=today OR
+            // null eta, portfolio) while the week radar shows only in-week etas
+            // of the selected project — rows from the count could vanish at the
+            // destination (§0.2). The spanning ของเข้า queue matches the count's
+            // grain and semantics exactly.
             <Link
-              href="/procurement/time?view=week"
+              href="/requests?band=in_transit"
               className="bg-action text-on-fill text-meta inline-flex min-h-11 items-center rounded-full px-3 font-bold"
             >
               {ARRIVALS_TODAY_LABEL} {arrivalsTotal}

@@ -66,7 +66,7 @@ export function buildLateRiskList(
         },
       ];
     })
-    .sort((a, b) => b.daysLate - a.daysLate || (a.eta! < b.eta! ? -1 : 1));
+    .sort((a, b) => b.daysLate - a.daysLate || a.eta!.localeCompare(b.eta!));
 }
 
 export interface WeekRadar<P extends TimePrRow, W extends TimeWpRow> {
@@ -92,7 +92,7 @@ export function buildWeekRadar<P extends TimePrRow, W extends TimeWpRow>(
         r.eta >= weekStart &&
         r.eta <= weekEnd,
     )
-    .sort((a, b) => (a.eta! < b.eta! ? -1 : 1));
+    .sort((a, b) => a.eta!.localeCompare(b.eta!));
 
   // Undated WPs cannot be placed in a week — they live on the U4
   // ยังไม่กำหนดวันที่ shelf, not silently inside a radar that can't hold them.

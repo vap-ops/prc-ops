@@ -126,7 +126,10 @@ export async function ScopeView() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <h2 className="text-body text-ink min-w-0 flex-1 truncate font-semibold">{selectedName}</h2>
-        <Link href="/procurement" className="text-action text-meta shrink-0 underline">
+        <Link
+          href="/procurement"
+          className="text-action text-meta inline-flex min-h-11 shrink-0 items-center underline"
+        >
           เปลี่ยนโครงการ
         </Link>
       </div>

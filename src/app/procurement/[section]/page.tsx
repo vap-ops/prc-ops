@@ -22,7 +22,7 @@ export const metadata = { title: "จัดซื้อ" };
 
 interface ProcurementSectionProps {
   params: Promise<{ section: string }>;
-  searchParams: Promise<{ project?: string | string[] }>;
+  searchParams: Promise<{ project?: string | string[]; view?: string | string[] }>;
 }
 
 export default async function ProcurementSectionPage({

@@ -7808,3 +7808,15 @@ U3 COMPLETE — code-only, no schema.
 - Verified: suite 4185 green; live probes — late list 2 rows (+12/+4 วัน
   ordering), week radar caption 12–18 ก.ค., 1 arrival × 145 running WPs /
   83 start chips, dashboard links present, 0 console/server errors.
+
+### U3 fresh-eyes outcome (same day)
+
+- ⚖ Grain question answered from spec D3: portfolio radar = the dashboard
+  strip, time TAB = project grain — the labeled hand-off is the approved
+  design; เสี่ยงช้า chip keeps ?view=late. ⭐ REAL semantic catch on
+  ของเข้าวันนี้: today-pile (eta<=today OR null) ≠ week radar (in-week etas) →
+  chip now deep-links /requests?band=in_transit (the spanning ของเข้า queue —
+  exact grain+semantics match; deliberate deviation from the plan's ?view=week,
+  documented in-code). Nits fixed: localeCompare tiebreaks (both sorts),
+  เปลี่ยนโครงการ 44px (time+scope), aria-current="page" pills, [section]
+  searchParams type carries view.
