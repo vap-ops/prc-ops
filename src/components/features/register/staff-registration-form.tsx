@@ -83,6 +83,13 @@ export interface StaffRegistrationFormProps {
    *  the action UUID-gates them and the RPC existence-coerces. Mint-time only. */
   invitedBy?: string | null;
   invitedProjectId?: string | null;
+  /** Spec 328 — the per-firm subcon QR's ?contractor (mint-time, advisory). */
+  invitedContractorId?: string | null;
+  /** Spec 328 — subcon members are pay-exempt: hide the declared-bank fields +
+   *  the book_bank upload and drop both from the approval floor (mirrors the
+   *  approve RPC's contractor arm). Fresh form: from the QR param; pending form:
+   *  from the registration row's invited_contractor_id. */
+  bankExempt?: boolean;
 }
 
 export function StaffRegistrationForm({
@@ -93,6 +100,8 @@ export function StaffRegistrationForm({
   consentedAt,
   invitedBy = null,
   invitedProjectId = null,
+  invitedContractorId = null,
+  bankExempt = false,
 }: StaffRegistrationFormProps) {
   const router = useRouter();
   const toast = useToast();
@@ -126,6 +135,7 @@ export function StaffRegistrationForm({
     hasBookBank: Boolean(docUrls.book_bank),
     hasBankFields: bankSaved,
     hasConsent: Boolean(consentedAt),
+    bankExempt,
   });
 
   function clear() {
@@ -153,6 +163,7 @@ export function StaffRegistrationForm({
             declaredRoleHint,
             ...(invitedBy ? { invitedBy } : {}),
             ...(invitedProjectId ? { invitedProjectId } : {}),
+            ...(invitedContractorId ? { invitedContractorId } : {}),
           });
       if (!result.ok) {
         setError(result.error);
@@ -280,19 +291,27 @@ export function StaffRegistrationForm({
       {registrationExists && uid ? (
         <>
           <hr className="border-edge my-4" />
-          <StaffDocuments uid={uid} urls={docUrls} />
+          <StaffDocuments uid={uid} urls={docUrls} bankExempt={bankExempt} />
+          {!bankExempt ? (
+            <>
+              <hr className="border-edge my-4" />
+              <StaffBankFields
+                bankName={bankName}
+                accountNumber={accountNumber}
+                accountName={accountName}
+                setBankName={setBankName}
+                setAccountNumber={setAccountNumber}
+                setAccountName={setAccountName}
+                saved={bankSaved}
+              />
+            </>
+          ) : null}
           <hr className="border-edge my-4" />
-          <StaffBankFields
-            bankName={bankName}
-            accountNumber={accountNumber}
-            accountName={accountName}
-            setBankName={setBankName}
-            setAccountNumber={setAccountNumber}
-            setAccountName={setAccountName}
-            saved={bankSaved}
+          <StaffConsentCheckbox
+            consentedAt={consentedAt}
+            floorMet={floor.met}
+            bankExempt={bankExempt}
           />
-          <hr className="border-edge my-4" />
-          <StaffConsentCheckbox consentedAt={consentedAt} floorMet={floor.met} />
         </>
       ) : (
         <p className="text-ink-muted mt-3 text-xs">
@@ -309,10 +328,14 @@ type UploadPhase = "idle" | "uploading" | "saving" | "error";
 function StaffDocuments({
   uid,
   urls,
+  bankExempt = false,
 }: {
   uid: string;
   urls: Partial<Record<StaffDocPurpose, string>>;
+  /** Spec 328 — subcon members never upload a passbook (no bank collected). */
+  bankExempt?: boolean;
 }) {
+  const purposes = STAFF_DOC_PURPOSES.filter((p) => !(bankExempt && p === "book_bank"));
   return (
     <div>
       <p className="text-ink text-sm font-semibold">เอกสาร</p>
@@ -320,7 +343,7 @@ function StaffDocuments({
         อัปโหลดเอกสารของท่าน เฉพาะบริษัทและท่านเท่านั้นที่เห็น
       </p>
       <div className="mt-3 flex flex-col gap-4">
-        {STAFF_DOC_PURPOSES.map((purpose) => (
+        {purposes.map((purpose) => (
           <DocRow key={purpose} uid={uid} purpose={purpose} currentUrl={urls[purpose] ?? null} />
         ))}
       </div>
@@ -551,9 +574,13 @@ function StaffBankFields({
 function StaffConsentCheckbox({
   consentedAt,
   floorMet,
+  bankExempt = false,
 }: {
   consentedAt: string | null;
   floorMet: boolean;
+  /** Spec 328 — no bank is collected for a subcon member, so the consent scope
+   *  and the floor hint must not claim bank data is. */
+  bankExempt?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -590,7 +617,7 @@ function StaffConsentCheckbox({
         />
         <span className="text-ink-secondary text-sm">
           ยินยอมตาม PDPA ให้บริษัทเก็บและใช้ข้อมูลส่วนบุคคลของท่านเพื่อการสมัครและว่าจ้างงาน
-          รวมถึงข้อมูลบัญชีธนาคารเพื่อการจ่ายค่าจ้าง
+          {bankExempt ? "" : " รวมถึงข้อมูลบัญชีธนาคารเพื่อการจ่ายค่าจ้าง"}
         </span>
       </label>
       {consentedAt ? (
@@ -607,8 +634,9 @@ function StaffConsentCheckbox({
       ) : null}
       {!floorMet && !consentedAt ? (
         <p className="text-ink-muted mt-2 text-xs">
-          ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน อัปโหลดสมุดบัญชีธนาคาร กรอกบัญชีธนาคาร
-          และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ
+          {bankExempt
+            ? "ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ"
+            : "ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน อัปโหลดสมุดบัญชีธนาคาร กรอกบัญชีธนาคาร และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ"}
         </p>
       ) : null}
     </div>

@@ -38,6 +38,9 @@ export async function startStaffRegistration(input: {
   // which existence-coerces it to NULL. Never an authz signal (advisory only).
   invitedBy?: string;
   invitedProjectId?: string;
+  // Spec 328 — carried by the per-firm subcon QR (?contractor). Same trust model
+  // as invitedProjectId: uuid-gated here, existence-coerced by the RPC, advisory.
+  invitedContractorId?: string;
 }): Promise<StartResult> {
   const fullName = input.fullName.trim();
   const phone = input.phone.trim();
@@ -50,6 +53,10 @@ export async function startStaffRegistration(input: {
     input.invitedProjectId && isValidUuid(input.invitedProjectId)
       ? input.invitedProjectId
       : undefined;
+  const invitedContractorId =
+    input.invitedContractorId && isValidUuid(input.invitedContractorId)
+      ? input.invitedContractorId
+      : undefined;
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -60,6 +67,7 @@ export async function startStaffRegistration(input: {
     ...(declaredRoleHint ? { p_declared_role_hint: declaredRoleHint } : {}),
     ...(invitedBy ? { p_invited_by: invitedBy } : {}),
     ...(invitedProjectId ? { p_invited_project_id: invitedProjectId } : {}),
+    ...(invitedContractorId ? { p_invited_contractor_id: invitedContractorId } : {}),
   });
   if (error) return { ok: false, error: registrationErrorToThai(error.message) };
   if (!data) return { ok: false, error: GENERIC };

@@ -199,6 +199,20 @@ export const ADD_TECHNICIAN_NO_PHONE_HINT =
 export const PASSBOOK_PHOTO_LABEL = "รูปสมุดบัญชีธนาคาร";
 export const BANK_PENDING_CHIP_LABEL = "รอ PM กรอกบัญชี";
 
+// Spec 328 — subcon-member onboarding: the เพิ่มช่างใหม่ sheet's team selector
+// (ทีม PRC = today's pipeline; one row per contractor firm = the bank-free arm)
+// + the per-firm QR card and the register-page firm banner.
+export const TEAM_JOIN_SELECT_LABEL = "สมัครเข้าทีม";
+export const TEAM_PRC_LABEL = "ทีม PRC";
+export const TEAM_PRC_HINT = "ช่างบริษัท / ทีมงาน DC";
+export const SUBCON_TEAM_HINT = "ทีมผู้รับเหมา — ไม่เก็บข้อมูลธนาคาร";
+export const SUBCON_NO_BANK_HINT = "ไม่เก็บข้อมูลธนาคาร";
+export const SUBCON_JOIN_PREFIX = "สมัครทีม";
+export const SUBCON_POSTER_LABEL = "พิมพ์โปสเตอร์";
+export const SUBCON_LINE_SHARE_LABEL = "ส่งลิงก์ทาง LINE";
+export const SUBCON_REGISTER_BANNER_HINT =
+  "สมัครแบบทีมผู้รับเหมา — ไม่ต้องกรอกบัญชีธนาคาร (บริษัทจ่ายค่างานให้ทีมตามงวดงาน)";
+
 export const WORK_PACKAGE_STATUS_LABEL: Record<Enums["work_package_status"], string> = {
   not_started: "ยังไม่เริ่ม",
   in_progress: "กำลังดำเนินการ",

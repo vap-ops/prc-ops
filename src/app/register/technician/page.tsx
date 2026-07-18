@@ -12,8 +12,24 @@ export const metadata = { title: REGISTER_FIELD_HEADING };
 export default async function RegisterTechnicianPage({
   searchParams,
 }: {
-  searchParams: Promise<{ site?: string; project?: string; by?: string }>;
+  searchParams: Promise<{
+    site?: string;
+    project?: string;
+    by?: string;
+    // Spec 328 — the per-firm subcon QR (?contractor advisory uuid, ?firm display label).
+    contractor?: string;
+    firm?: string;
+  }>;
 }) {
-  const { site, project, by } = await searchParams;
-  return <StaffRegisterWorkspace variant="field" site={site} project={project} by={by} />;
+  const { site, project, by, contractor, firm } = await searchParams;
+  return (
+    <StaffRegisterWorkspace
+      variant="field"
+      site={site}
+      project={project}
+      by={by}
+      contractor={contractor}
+      firm={firm}
+    />
+  );
 }

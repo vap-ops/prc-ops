@@ -15,7 +15,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, ScanLine, Camera } from "lucide-react";
+import { UserPlus, ScanLine, Camera, Building2, Users, Printer, Share2 } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { createClient } from "@/lib/db/browser";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
@@ -32,6 +32,13 @@ import {
   ADD_TECHNICIAN_HAS_PHONE_HINT,
   ADD_TECHNICIAN_NO_PHONE_HINT,
   PASSBOOK_PHOTO_LABEL,
+  TEAM_JOIN_SELECT_LABEL,
+  TEAM_PRC_LABEL,
+  TEAM_PRC_HINT,
+  SUBCON_TEAM_HINT,
+  SUBCON_JOIN_PREFIX,
+  SUBCON_POSTER_LABEL,
+  SUBCON_LINE_SHARE_LABEL,
 } from "@/lib/i18n/labels";
 
 export interface AddTechnicianQrCard {
@@ -41,17 +48,31 @@ export interface AddTechnicianQrCard {
   svg: string;
 }
 
+// Spec 328 U2 — one card per (active contractor × project): the bank-free
+// subcon-member onboarding QR. Same URL family as the PRC QR + ?contractor/&firm.
+export interface SubconFirmQrCard {
+  contractor: { id: string; name: string };
+  project: { id: string; name: string };
+  url: string;
+  svg: string;
+}
+
 type Mode = "choose" | "has_phone" | "no_phone";
+/** "prc" = today's pipeline; otherwise the selected contractor id. */
+type Team = "prc" | string;
 
 export function AddTechnicianSheet({
   projects,
   qrCards,
+  firmQrCards = [],
 }: {
   projects: { id: string; code: string; name: string }[];
   qrCards: AddTechnicianQrCard[];
+  firmQrCards?: SubconFirmQrCard[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [team, setTeam] = useState<Team>("prc");
   const [mode, setMode] = useState<Mode>("choose");
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [name, setName] = useState("");
@@ -67,6 +88,7 @@ export function AddTechnicianSheet({
     name.trim().length > 0 && nidOk && dob.length > 0 && projectId.length > 0 && photo !== null;
 
   function reset() {
+    setTeam("prc");
     setMode("choose");
     setName("");
     setNationalId("");
@@ -119,6 +141,17 @@ export function AddTechnicianSheet({
   }
 
   const activeQr = qrCards.find((c) => c.project.id === projectId) ?? qrCards[0] ?? null;
+  // Firms present on ANY project card (order preserved from the server fetch).
+  const firms = firmQrCards.reduce<{ id: string; name: string }[]>((acc, c) => {
+    if (!acc.some((f) => f.id === c.contractor.id)) acc.push(c.contractor);
+    return acc;
+  }, []);
+  const activeFirmQr =
+    team === "prc"
+      ? null
+      : (firmQrCards.find((c) => c.contractor.id === team && c.project.id === projectId) ??
+        firmQrCards.find((c) => c.contractor.id === team) ??
+        null);
 
   return (
     <>
@@ -146,7 +179,87 @@ export function AddTechnicianSheet({
             </label>
           ) : null}
 
-          {mode === "choose" ? (
+          {firms.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-ink-secondary text-sm">{TEAM_JOIN_SELECT_LABEL}</p>
+              <button
+                type="button"
+                aria-pressed={team === "prc"}
+                onClick={() => {
+                  setTeam("prc");
+                  setMode("choose");
+                }}
+                className={`${BUTTON_SECONDARY} h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : ""}`}
+              >
+                <Building2 aria-hidden className="size-5 shrink-0" />
+                <span className="min-w-0 text-left">
+                  {TEAM_PRC_LABEL}
+                  <span className="text-ink-muted block text-xs font-normal">{TEAM_PRC_HINT}</span>
+                </span>
+              </button>
+              {firms.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={team === f.id}
+                  onClick={() => setTeam(f.id)}
+                  className={`${BUTTON_SECONDARY} h-auto min-h-11 justify-start py-2 ${team === f.id ? "border-action" : ""}`}
+                >
+                  <Users aria-hidden className="size-5 shrink-0" />
+                  <span className="min-w-0 text-left">
+                    {f.name}
+                    <span className="text-ink-muted block text-xs font-normal">
+                      {SUBCON_TEAM_HINT}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {team !== "prc" ? (
+            <div className="flex flex-col items-center gap-3">
+              {activeFirmQr ? (
+                <>
+                  <div
+                    className="rounded-lg bg-white p-3"
+                    aria-label={`QR ${SUBCON_JOIN_PREFIX} ${activeFirmQr.contractor.name} — ${activeFirmQr.project.name}`}
+                    dangerouslySetInnerHTML={{ __html: activeFirmQr.svg }}
+                  />
+                  <p className="text-ink text-center text-sm font-semibold">
+                    {SUBCON_JOIN_PREFIX} {activeFirmQr.contractor.name}
+                  </p>
+                  <p className="text-ink-muted text-meta text-center break-all">
+                    {activeFirmQr.url}
+                  </p>
+                  <div className="flex w-full flex-col gap-2">
+                    <a
+                      href={`/team/poster?contractor=${activeFirmQr.contractor.id}&project=${activeFirmQr.project.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`${BUTTON_SECONDARY} justify-center`}
+                    >
+                      <Printer aria-hidden className="size-5 shrink-0" />
+                      {SUBCON_POSTER_LABEL}
+                    </a>
+                    <a
+                      href={`https://line.me/R/share?text=${encodeURIComponent(activeFirmQr.url)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`${BUTTON_SECONDARY} justify-center`}
+                    >
+                      <Share2 aria-hidden className="size-5 shrink-0" />
+                      {SUBCON_LINE_SHARE_LABEL}
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <p className="text-ink-muted text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
+              )}
+            </div>
+          ) : null}
+
+          {team === "prc" && mode === "choose" ? (
             <div className="flex flex-col gap-3">
               <p className="text-ink-secondary text-sm">ช่างคนนี้มีมือถือไหม?</p>
               <button
@@ -168,7 +281,7 @@ export function AddTechnicianSheet({
             </div>
           ) : null}
 
-          {mode === "has_phone" ? (
+          {team === "prc" && mode === "has_phone" ? (
             <div className="flex flex-col items-center gap-3">
               <p className="text-ink-secondary self-start text-sm">
                 {ADD_TECHNICIAN_HAS_PHONE_HINT}
@@ -188,7 +301,7 @@ export function AddTechnicianSheet({
             </div>
           ) : null}
 
-          {mode === "no_phone" ? (
+          {team === "prc" && mode === "no_phone" ? (
             <div className="flex flex-col gap-3">
               <p className="text-ink-secondary text-sm">{ADD_TECHNICIAN_NO_PHONE_HINT}</p>
               <label className="text-ink-secondary block text-sm">
