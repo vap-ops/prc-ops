@@ -7722,3 +7722,29 @@ Single code-only unit — COMPLETE 2026-07-18.
 
 Open questions: none. Out-of-scope noted for a future pass: `catalog-item-picker.tsx:345`
 stale ตั้งค่า → แคตตาล็อก hint for procurement (flagged by lane catlabel #612, still open).
+
+## Spec 327 — Selection-first S/T/R (U1 selection shell + dashboard) (2026-07-18)
+
+U1 COMPLETE — code-only, no schema.
+
+- /procurement root now renders the selection-first dashboard: full RLS project
+  list as cards (zero-open-PR projects render zero-count cards — the #621 gap),
+  each card a <form> bound to the setProcurementProject Server Action →
+  procurement_project httpOnly cookie → redirect /procurement/scope; portfolio
+  alert strip (เสี่ยงช้า + ของเข้าวันนี้); ทุกโครงการ row → /requests; คำขอสมัคร
+  nudge moved here (section pages keep their arm via ProcurementHubBody).
+- New pure SSOTs: resolveSelectedProject (sole-project auto-select, stale-cookie
+  → null) · late-risk.ts (ADR-0065 anchor coalesce; ALL active bands; eta >
+  planned_start) · buildDashboardCards (open/arrivals at PR.project_id grain,
+  late-risk at anchor-WP-project grain). procurementStripHref retired (helper +
+  pin deleted; hub-body strip inlines the href until U6 retires the strip).
+- Labels: LATE_RISK_LABEL + ARRIVALS_TODAY_LABEL lifted into labels.ts.
+- Deviations from plan (deliberate, noted in PR): selectLateRisk drops the
+  plan's unused todayIso param (the SSOT predicate never reads today).
+- Verified: full suite 4157 green; SSR probes as view-as procurement (4 cards,
+  3 zero-count, tap → cookie → scope, ring on return, 0 console/server errors).
+
+Open questions: clearProcurementProject action is exported but unbound in U1
+(the ทุกโครงการ affordance is a Link to /requests; U2's picker prompt / later
+units bind clear). Stale-cookie live probe inconclusive (httpOnly original
+rides along with a JS shadow) — resolver unit tests cover the path.

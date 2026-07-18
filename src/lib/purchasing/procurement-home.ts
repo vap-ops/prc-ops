@@ -16,7 +16,8 @@ import {
   SUPPLY_PLAN_LABEL,
 } from "@/lib/i18n/labels";
 import { projectCostsHref, supplyPlanHref } from "@/lib/nav/project-paths";
-import { ACTIVE_REQUEST_BANDS, requestBand } from "./request-bands";
+import { anchorWorkPackageId, countLateRisk, type LateRiskRow } from "./late-risk";
+import { ACTIVE_REQUEST_BANDS, requestBand, type RequestBand } from "./request-bands";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
@@ -41,6 +42,13 @@ export interface ProcurementProjectStatus {
 // active bands (spec 137, ACTIVE_REQUEST_BANDS SSOT). done/closed never surface it.
 const OPEN_BANDS = new Set<string>(ACTIVE_REQUEST_BANDS);
 
+// Arrivals-today mirrors filterIncomingLens("today"): in_transit + due-or-
+// overdue (eta<=today) OR unknown eta (the real receive pile). Shared by the
+// section-page strip counts and the U1 dashboard cards/alert strip.
+export function isArrivalToday(band: RequestBand, eta: string | null, todayIso: string): boolean {
+  return band === "in_transit" && (eta === null || eta <= todayIso);
+}
+
 // Per-project open + arrivals-today counts, from the caller's visible PR rows.
 // Null-project (store-bound / project-level) rows are excluded from the per-
 // project strip; unresolved-name projects (an own PR in a non-member project —
@@ -58,9 +66,7 @@ export function buildProcurementProjectStatus(
     if (!OPEN_BANDS.has(band)) continue;
     const acc = byId.get(r.projectId) ?? { open: 0, arrivals: 0 };
     acc.open += 1;
-    // Arrivals-today mirrors filterIncomingLens("today"): in_transit + due-or-
-    // overdue (eta<=today) OR unknown eta (the real receive pile).
-    if (band === "in_transit" && (r.eta === null || r.eta <= todayIso)) acc.arrivals += 1;
+    if (isArrivalToday(band, r.eta, todayIso)) acc.arrivals += 1;
     byId.set(r.projectId, acc);
   }
   return Array.from(byId, ([projectId, c]) => ({
@@ -73,16 +79,64 @@ export function buildProcurementProjectStatus(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// The status-strip row's tap target. The row shows a project's open ขอซื้อ +
-// arrivals-today counts, so the tap goes WHERE THE COUNTS POINT — the จัดซื้อ
-// list scoped to that project. It used to re-scope the hub's own ?project=
-// filter, which is invisible for a single-project user (nav-coherence feedback
-// 2026-07-17, zeeparn); scoping is the lens chips' job. Deliberately NO ?from=
-// referrer: /requests is a TAB page (procurement's จัดซื้อ spine tab) — it
-// renders no back chip by the tab grammar, so the param would be inert; the way
-// back to the hub is the หน้าหลัก tab.
-export function procurementStripHref(projectId: string): string {
-  return `/requests?project=${projectId}`;
+// Spec 327 U1 — the dashboard card model. Cards come from the caller's FULL
+// RLS projects read (procurement's projects policy admits every project), LEFT-
+// joined over PR rows so a zero-open-PR project still renders a zero-count card
+// (the #621 gap: buildProcurementProjectStatus derives from PR rows and
+// vanishes such projects — that stays strip-only until U6 retires the strip).
+export interface DashboardPrRow extends HomeCountRow, LateRiskRow {}
+
+export interface DashboardCard {
+  projectId: string;
+  name: string;
+  /** Open ขอซื้อ + arrivals-today at PR.project_id grain — the same rule as the
+   * strip, so the counts mirror what /requests?project= would show. */
+  openCount: number;
+  arrivalsToday: number;
+  /** เสี่ยงช้า at ANCHOR-WP-project grain (ADR 0065): a late PR endangers the
+   * project whose WP it feeds — including store-bound null-project PRs (§0.1). */
+  lateRisk: number;
+}
+
+export function buildDashboardCards(
+  projects: ReadonlyArray<{ id: string; name: string }>,
+  prRows: ReadonlyArray<DashboardPrRow>,
+  wpById: ReadonlyMap<string, { plannedStart: string | null; projectId: string }>,
+  todayIso: string,
+): DashboardCard[] {
+  const open = new Map<string, number>();
+  const arrivals = new Map<string, number>();
+  const late = new Map<string, number>();
+  const bump = (m: Map<string, number>, id: string) => m.set(id, (m.get(id) ?? 0) + 1);
+
+  for (const r of prRows) {
+    if (r.projectId !== null) {
+      const band = requestBand(r.status);
+      if (OPEN_BANDS.has(band)) {
+        bump(open, r.projectId);
+        if (isArrivalToday(band, r.eta, todayIso)) bump(arrivals, r.projectId);
+      }
+    }
+  }
+  // Late-risk attribution rides the anchor WP's project — countLateRisk per
+  // anchor project keeps the SSOT predicate (late-risk.ts) as the only judge.
+  for (const r of prRows) {
+    const flagged = countLateRisk([r], wpById) === 1;
+    if (!flagged) continue;
+    const anchorId = anchorWorkPackageId(r);
+    const anchorProject = anchorId ? wpById.get(anchorId)?.projectId : undefined;
+    if (anchorProject) bump(late, anchorProject);
+  }
+
+  return projects
+    .map((p) => ({
+      projectId: p.id,
+      name: p.name,
+      openCount: open.get(p.id) ?? 0,
+      arrivalsToday: arrivals.get(p.id) ?? 0,
+      lateRisk: late.get(p.id) ?? 0,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // 🌐 shared = one copy across all projects (no lens); 🔀 spanning = default all,

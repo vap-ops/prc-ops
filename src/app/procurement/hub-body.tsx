@@ -21,7 +21,6 @@ import {
   buildProcurementProjectStatus,
   effectiveDoorProjectId,
   procurementDoorHref,
-  procurementStripHref,
   visibleProcurementDoors,
   PROCUREMENT_STR_SECTIONS,
   type ProcurementStrSection,
@@ -118,7 +117,12 @@ export async function ProcurementHubBody({
           {projectStatus.map((p) => (
             <Link
               key={p.projectId}
-              href={procurementStripHref(p.projectId)}
+              // The tap goes where the counts point — the project-scoped จัดซื้อ
+              // list (no ?from=: /requests is a tab page, no back chip). Inline
+              // since spec 327 U1 retired the procurementStripHref helper (the
+              // dashboard cards are the selection now); the strip itself
+              // survives on section pages only until U6.
+              href={`/requests?project=${p.projectId}`}
               className="rounded-card shadow-card border-edge bg-card text-ink hover:bg-sunk flex min-h-11 items-center gap-3 border px-4 py-3"
             >
               <span className="text-body min-w-0 flex-1 truncate font-semibold">{p.name}</span>

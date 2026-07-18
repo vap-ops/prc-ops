@@ -542,6 +542,14 @@ export const SUPPLY_PLAN_LABEL = "แผนจัดหา";
 
 // Feedback 26425c1e/17cba555 — the procurement worklist product-name search.
 export const PRODUCT_SEARCH_LABEL = "ค้นหาสินค้า";
+
+// Spec 327 U1 — the procurement dashboard's alert vocabulary. เสี่ยงช้า = a PR
+// whose eta lands after its anchor WP's planned start (the late-risk SSOT,
+// late-risk.ts); shown on the dashboard alert strip + project cards, the U2
+// scope rows, and the U3 time list. ของเข้าวันนี้ was inline on the hub strip
+// until the dashboard made it a 2+-place term.
+export const LATE_RISK_LABEL = "เสี่ยงช้า";
+export const ARRIVALS_TODAY_LABEL = "ของเข้าวันนี้";
 export const PRODUCT_SEARCH_PLACEHOLDER = "ชื่อสินค้า…";
 
 // Spec 325 Phase 2 — the ของเสีย/แก้ไข (breakage + rework) exposure line: cost
