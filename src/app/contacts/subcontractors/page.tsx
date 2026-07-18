@@ -9,6 +9,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { ContactsTabs } from "@/components/features/contacts/contacts-tabs";
 import type { RecordRow } from "@/components/features/purchasing/record-manager";
@@ -16,7 +17,14 @@ import { SUBCONTRACTOR_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: SUBCONTRACTOR_LABEL };
 
-export default async function ContactsSubcontractorsPage() {
+export default async function ContactsSubcontractorsPage({
+  searchParams,
+}: {
+  // Spec 327 U6b — multi-parent page (settings hub + /procurement chip row):
+  // the back chip follows the ?from referrer (nav-coherence Decision 1).
+  searchParams: Promise<{ from?: string | string[] }>;
+}) {
+  const { from } = await searchParams;
   // Spec 172 Phase B: procurement curates subcontractors (back-office master data,
   // like suppliers) — admitted alongside pm/super/director.
   const ctx = await requireRole(BACK_OFFICE_ROLES);
@@ -48,7 +56,7 @@ export default async function ContactsSubcontractorsPage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/settings" backLabel="ตั้งค่า">
+      <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="ตั้งค่า">
         <h1 className="text-title text-ink font-bold tracking-tight">{SUBCONTRACTOR_LABEL}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>

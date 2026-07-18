@@ -337,6 +337,16 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // Money-route (danger-path). Reached from the /procurement Resources tile AND
     // the /settings hub; the STR door already threads ?from (PR #610).
     "expenses/page.tsx",
+    // Spec 327 U6b (checkpoint-2 back-button audit): the remaining hardcoded-
+    // back pages reached from the /procurement chip rows — their back chips
+    // bounced procurement OUT of the STR world (to /settings or the project).
+    // NOT here yet: /requests/orders + /requests/reports + /payroll — all
+    // three use ?from as a DATE-RANGE param (the payroll collision class);
+    // they join after the U6b2 range-param rename (from/to → start/end).
+    "settings/ordering-templates/page.tsx",
+    "settings/labor-rates/page.tsx",
+    "contacts/subcontractors/page.tsx",
+    "projects/[projectId]/supply-plan/page.tsx",
   ];
 
   it.each(STATIC_MULTI_PARENT)("%s resolves its back chip via safeBackHref", (route) => {

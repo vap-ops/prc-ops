@@ -6,6 +6,7 @@
 
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { LevelRatesForm, type LevelRateRow } from "@/components/features/labor/level-rates-form";
 import { PayModelExplainer } from "@/components/features/labor/pay-model-explainer";
@@ -32,7 +33,14 @@ function grossRate(entered: number | null, basis: WhtBasis, pct: number | null):
   return round2(entered / (1 - p / 100));
 }
 
-export default async function LaborRatesPage() {
+export default async function LaborRatesPage({
+  searchParams,
+}: {
+  // Spec 327 U6b — multi-parent page (settings hub + /procurement chip row):
+  // the back chip follows the ?from referrer (nav-coherence Decision 1).
+  searchParams: Promise<{ from?: string | string[] }>;
+}) {
+  const { from } = await searchParams;
   const ctx = await requireRole(["procurement_manager", "super_admin"]);
   const admin = createAdminClient();
 
@@ -64,7 +72,7 @@ export default async function LaborRatesPage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/settings" backLabel="กลับไปตั้งค่า">
+      <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="กลับไปตั้งค่า">
         <h1 className="text-ink text-lg font-semibold">{LABOR_RATES_LABEL}</h1>
       </DetailHeader>
 

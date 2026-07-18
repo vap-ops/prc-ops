@@ -242,6 +242,18 @@ describe("BottomTabBar", () => {
     expect(active[0]?.textContent).toContain("หน้าหลัก");
   });
 
+  // Spec 327 U6b: /requests was a STRAND for the procurement tiers since the
+  // จัดซื้อ tab dropped (323 U3b) — no lit tab, no back chip. The หน้าหลัก tab
+  // claims it via match (the queue is part of home's ทุกโครงการ world), so the
+  // bar shows where you are and IS the way back.
+  it("lights หน้าหลัก on /requests for the procurement tiers (the queue strand fix)", () => {
+    mockUsePathname.mockReturnValue("/requests");
+    const { container } = render(<BottomTabBar role="procurement" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("หน้าหลัก");
+  });
+
   // The whole reason the sections are distinct SUB-ROUTES (not ?section=): the
   // active rule is a query-blind longest-PATHNAME-prefix, so /procurement/scope
   // (len 18) beats /procurement (len 12) and exactly one tab lights.
@@ -260,11 +272,13 @@ describe("BottomTabBar", () => {
     }
   });
 
-  // Door surfaces are reached THROUGH the hub, not pinned as tabs — on a leaf
-  // like /requests no procurement tab claims the path (the spec-19 acceptance:
-  // a cross-surface path matches no tab; the bar still renders for navigation).
-  it("lights no tab for procurement on a hub-door leaf like /requests", () => {
-    mockUsePathname.mockReturnValue("/requests");
+  // SUPERSEDED (spec 327 U6b, checkpoint-2): /requests as a lights-nothing leaf
+  // was the 323-U3b acceptance, but with no back chip either it was a genuine
+  // STRAND — the operator's back-button audit reversed it. The หน้าหลัก tab now
+  // claims the queue family (see the spine's match). Other door leaves
+  // (/catalog, /contacts/…) keep the lights-nothing acceptance below.
+  it("lights no tab for procurement on a non-queue door leaf like /catalog", () => {
+    mockUsePathname.mockReturnValue("/catalog");
     const { container } = render(<BottomTabBar role="procurement" />);
     expect(activeTabs(container)).toHaveLength(0);
     // The bar itself still renders — it is the way back to the hub.
@@ -275,7 +289,7 @@ describe("BottomTabBar", () => {
   // /catalog, /equipment, /workers, /payroll) are STR hub DOORS now, not
   // settings sub-surfaces — their ตั้งค่า tab must NOT claim them (it would
   // light on doors that no longer exist in their settings). They are leaves
-  // (the spec-19 acceptance), like /requests above.
+  // (the spec-19 acceptance), like /catalog above.
   it("lights NO tab for procurement on /contacts/vendors (hub door, not a settings leaf)", () => {
     mockUsePathname.mockReturnValue("/contacts/vendors");
     const { container } = render(<BottomTabBar role="procurement" />);
