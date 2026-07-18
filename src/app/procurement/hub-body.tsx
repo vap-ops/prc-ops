@@ -26,6 +26,7 @@ import {
   type ProcurementStrSection,
 } from "@/lib/purchasing/procurement-home";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
+import { ScopeView } from "./scope-view";
 
 // The procurement tier only — the STR hub is procurement's home (spec 323 §4),
 // NOT a shared surface. PURCHASING_ROLES is too wide (its site_admin / PM / PD
@@ -136,6 +137,10 @@ export async function ProcurementHubBody({
           ))}
         </div>
       ) : null}
+
+      {/* Spec 327 U2 — the ขอบเขต project view renders ABOVE the door grid
+          (the grid retires in U6); U3/U5 add the other sections' views. */}
+      {section === "scope" ? <ScopeView /> : null}
 
       {/* STR sections of door tiles; 🔀 doors carry the active project, 📍
           doors (per-project targets) render only while the lens has one. */}

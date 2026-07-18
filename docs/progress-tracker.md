@@ -7748,3 +7748,44 @@ Open questions: clearProcurementProject action is exported but unbound in U1
 (the ทุกโครงการ affordance is a Link to /requests; U2's picker prompt / later
 units bind clear). Stale-cookie live probe inconclusive (httpOnly original
 rides along with a JS shadow) — resolver unit tests cover the path.
+
+## Spec 327 U2 — ขอบเขต WP list + supply overlay (2026-07-18)
+
+U2 COMPLETE — code-only, no schema.
+
+- /procurement/scope now renders <ScopeView> above the door grid: the selected
+  project's grouped WP roster (spec-270 idiom, loadProjectDetail read path)
+  wearing supply chips {ขอซื้อ, กำลังมา, ถึง <next-arrival>} from the pure
+  buildWpSupplyOverlay (ADR-0065 anchor coalesce via the U1 late-risk SSOT);
+  late-risk rows border-danger + conflict line ของถึง X — งานเริ่ม Y (§0.2);
+  no-plan rows carry the supply-plan door (§0.3); anchorless/foreign-anchor PRs
+  = คลัง · ระดับโครงการ bucket above the list (§0.1); rows ?from-thread back to
+  /procurement/scope; no selection → one-tap picker prompt (§0.4).
+- New: wp-supply-overlay.ts (pure) · scope-wp-list.tsx (procurement variant —
+  deliberately NOT the SA/PM work-package-list) · scope-view.tsx (server
+  wrapper). hub-body mounts it for section==='scope' only.
+- Verified: suite 4176 green; SSR+DOM probes on dev preview (TFM: 331 WP rows /
+  47 groups / 2 conflict rows matching dashboard เสี่ยงช้า 2 / 309 no-plan
+  doors / bucket; selection switch to บ้านคุณกฤษณ์ → 11 rows; 0 console/server
+  errors).
+
+Open questions: picker-prompt branch live-probe not possible (httpOnly cookie
+can't be unset from the probe context; resolver + branch unit-covered). 309
+no-plan chips on the big project = spec-mandated (§0.3) but visually heavy —
+flag for operator at the U6 checkpoint if it reads as noise.
+
+### U2 fresh-eyes outcome (same day)
+
+- ⭐ CONFIRMED live: project_categories SELECT policy = can_see_project only →
+  real procurement reads ZERO category rows (my earlier probe masked it —
+  view-as flips ctx.role, RLS still runs as the super_admin JWT). Fixed with an
+  admin-client seam for the wpId→W0x map behind the page gate (badge-codes
+  precedent); ▶ FOLLOW-UP (schema unit): widen project_categories policy with a
+  procurement arm, then retire the seam.
+- Other fixes: PR read now .or(project_id.eq.X, project_id.is.null) instead of
+  a full-table scan; loadProjectDetail dropped for a direct WP select (leaner —
+  plan's intent was the select shape, U3 does the same); คลัง bucket renders on
+  WP-less projects; group-anchored PR counts + conflict now wear on the งาน
+  header (both §0.1 catches, both RED-tested); no-plan door min-h-11 (44px
+  floor); dead empty:hidden removed. Dual-channel note (?project= lens vs
+  cookie coexist on section pages) = interim by design until U6.
