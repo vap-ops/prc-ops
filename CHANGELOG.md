@@ -1,3 +1,9 @@
+# [0.135.0](https://github.com/VAP-Solution/prc-ops/compare/v0.134.0...v0.135.0) (2026-07-18)
+
+### Features
+
+- **procurement:** ขอบเขต WP list + supply overlay (spec 327 U2) ([#627](https://github.com/VAP-Solution/prc-ops/issues/627)) ([56b9047](https://github.com/VAP-Solution/prc-ops/commit/56b9047fe21a373ece98a639f2fa0255b6c9bc66))
+
 # [0.134.0](https://github.com/VAP-Solution/prc-ops/compare/v0.133.0...v0.134.0) (2026-07-18)
 
 ### Features
