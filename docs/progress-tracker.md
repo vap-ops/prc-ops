@@ -7986,3 +7986,21 @@ U6c COMPLETE (final revised-U6 slice) — code-only.
   test-covered, used by lens surfaces elsewhere); 📍 doors hiding until a
   selection exists = intended selection-first (§0 — one card-tap away via the
   labeled ทั้งหมด grid), confirmed not a regression.
+
+## Spec 327 U6b2 — range-param rename + last 3 referrers (2026-07-18)
+
+U6b2 COMPLETE — code-only; DANGER-HELD (touches src/app/payroll/\*\*) → operator merge.
+
+- ?from/?to DATE-RANGE params renamed → ?start/?end across the three families:
+  reports (ReportRawQuery keys, reportHref + registerDrillHref serialization,
+  both export routes, register page, form inputs), payroll (page + export
+  route + form + exportHref; parsePayrollRange signature unchanged), orders
+  (page + form). ONE convention now: from = referrer, start/end = ranges.
+- The last 3 doors adopt safeBackHref (STATIC_MULTI_PARENT pins, RED ×3 seen):
+  reports + orders (fallback /requests), payroll (fallback /settings).
+- Old bookmarks degrade gracefully (live-probed): a date in ?from fails the
+  referrer guard → fallback chip; the range falls back to its default; 200.
+- Verified: suite 4219; live probes — back → /procurement/time|resources on
+  all 3, range chips + exports serialize start/end, forms renamed, old-key
+  hrefs gone. Payroll export link is manager-arm-gated (pre-existing) —
+  verified at source + route.

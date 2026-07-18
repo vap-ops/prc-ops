@@ -340,13 +340,15 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // Spec 327 U6b (checkpoint-2 back-button audit): the remaining hardcoded-
     // back pages reached from the /procurement chip rows — their back chips
     // bounced procurement OUT of the STR world (to /settings or the project).
-    // NOT here yet: /requests/orders + /requests/reports + /payroll — all
-    // three use ?from as a DATE-RANGE param (the payroll collision class);
-    // they join after the U6b2 range-param rename (from/to → start/end).
     "settings/ordering-templates/page.tsx",
     "settings/labor-rates/page.tsx",
     "contacts/subcontractors/page.tsx",
     "projects/[projectId]/supply-plan/page.tsx",
+    // Spec 327 U6b2: the from/to DATE-RANGE families renamed to start/end,
+    // freeing ?from for the referrer standard on the last three doors.
+    "requests/orders/page.tsx",
+    "requests/reports/page.tsx",
+    "payroll/page.tsx",
   ];
 
   it.each(STATIC_MULTI_PARENT)("%s resolves its back chip via safeBackHref", (route) => {

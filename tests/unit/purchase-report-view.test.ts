@@ -247,14 +247,14 @@ describe("reportHref (deep-linkable query builder, no client JS)", () => {
   it("serialises the full state", () => {
     const href = reportHref(state);
     expect(href).toBe(
-      "/requests/reports?preset=month&from=2026-07-01&to=2026-07-04&bucket=day&group=none",
+      "/requests/reports?preset=month&start=2026-07-01&end=2026-07-04&bucket=day&group=none",
     );
   });
 
   it("applies an override while preserving the rest", () => {
     const href = reportHref(state, { bucket: "month" });
     expect(href).toBe(
-      "/requests/reports?preset=month&from=2026-07-01&to=2026-07-04&bucket=month&group=none",
+      "/requests/reports?preset=month&start=2026-07-01&end=2026-07-04&bucket=month&group=none",
     );
   });
 
@@ -267,14 +267,14 @@ describe("reportHref (deep-linkable query builder, no client JS)", () => {
 describe("registerDrillHref (bucket×group row → the filtered register)", () => {
   it("links with just the date window for the 'none' group (no dimension)", () => {
     expect(registerDrillHref({ from: "2026-07-01", to: "2026-07-31" })).toBe(
-      "/requests/reports/register?from=2026-07-01&to=2026-07-31",
+      "/requests/reports/register?start=2026-07-01&end=2026-07-31",
     );
   });
 
   it("links with the dimension + key for a named slice", () => {
     expect(
       registerDrillHref({ from: "2026-07-01", to: "2026-07-31", dim: "supplier", key: "s1" }),
-    ).toBe("/requests/reports/register?from=2026-07-01&to=2026-07-31&dim=supplier&key=s1");
+    ).toBe("/requests/reports/register?start=2026-07-01&end=2026-07-31&dim=supplier&key=s1");
   });
 
   it("links with unassigned=1 for the null bucket, omitting key", () => {
@@ -285,7 +285,7 @@ describe("registerDrillHref (bucket×group row → the filtered register)", () =
         dim: "category",
         unassigned: true,
       }),
-    ).toBe("/requests/reports/register?from=2026-07-01&to=2026-07-31&dim=category&unassigned=1");
+    ).toBe("/requests/reports/register?start=2026-07-01&end=2026-07-31&dim=category&unassigned=1");
   });
 });
 
@@ -349,9 +349,9 @@ describe("parseReportQuery (the page + export route share this — no drift betw
     expect(parseReportQuery({ group: "purchaser" }, today, true).group).toBe("purchaser");
   });
 
-  it("resolves a custom range from from/to", () => {
+  it("resolves a custom range from ?start/?end (U6b2 — ?from is the referrer now)", () => {
     expect(
-      parseReportQuery({ preset: "custom", from: "2026-02-01", to: "2026-02-15" }, today, false),
+      parseReportQuery({ preset: "custom", start: "2026-02-01", end: "2026-02-15" }, today, false),
     ).toEqual({
       preset: "custom",
       bucket: "day",

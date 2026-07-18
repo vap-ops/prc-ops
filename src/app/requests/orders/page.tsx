@@ -9,6 +9,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
@@ -33,8 +34,10 @@ interface OrdersPageProps {
   searchParams: Promise<{
     supplier?: string;
     project?: string;
-    from?: string;
-    to?: string;
+    start?: string;
+    end?: string;
+    // ?from = the back-referrer (U6b2 freed it — the range rides ?start/?end).
+    from?: string | string[];
     pending?: string;
   }>;
 }
@@ -44,8 +47,8 @@ export default async function PurchaseOrdersPage({ searchParams }: OrdersPagePro
   const sp = await searchParams;
   const supplierId = sp.supplier || undefined;
   const projectId = sp.project || undefined;
-  const from = sp.from || undefined;
-  const to = sp.to || undefined;
+  const from = sp.start || undefined;
+  const to = sp.end || undefined;
   const pendingOnly = sp.pending === "1";
 
   const admin = createAdminClient();
@@ -68,7 +71,7 @@ export default async function PurchaseOrdersPage({ searchParams }: OrdersPagePro
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/requests" backLabel="งานจัดซื้อ">
+      <DetailHeader backHref={safeBackHref(sp.from, "/requests")} backLabel="งานจัดซื้อ">
         <h1 className="text-title text-ink font-bold tracking-tight">ใบสั่งซื้อ</h1>
       </DetailHeader>
 
@@ -89,7 +92,7 @@ export default async function PurchaseOrdersPage({ searchParams }: OrdersPagePro
             ตั้งแต่
             <input
               type="date"
-              name="from"
+              name="start"
               defaultValue={from ?? ""}
               className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />
@@ -98,7 +101,7 @@ export default async function PurchaseOrdersPage({ searchParams }: OrdersPagePro
             ถึง
             <input
               type="date"
-              name="to"
+              name="end"
               defaultValue={to ?? ""}
               className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />

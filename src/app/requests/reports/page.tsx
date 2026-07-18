@@ -10,6 +10,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
@@ -60,7 +61,8 @@ import { loadPendingStoreReceiptCount } from "@/lib/purchasing/load-pending-stor
 export const metadata = { title: "รายงานยอดสั่งซื้อ" };
 
 interface ReportsPageProps {
-  searchParams: Promise<ReportRawQuery>;
+  // ?from is the back-referrer (U6b2 freed it — the range rides ?start/?end).
+  searchParams: Promise<ReportRawQuery & { from?: string | string[] }>;
 }
 
 export default async function PurchaseReportsPage({ searchParams }: ReportsPageProps) {
@@ -152,7 +154,7 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/requests" backLabel="งานจัดซื้อ">
+      <DetailHeader backHref={safeBackHref(sp.from, "/requests")} backLabel="งานจัดซื้อ">
         <h1 className="text-title text-ink font-bold tracking-tight">รายงานยอดสั่งซื้อ</h1>
       </DetailHeader>
 
@@ -212,7 +214,7 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
             ตั้งแต่
             <input
               type="date"
-              name="from"
+              name="start"
               defaultValue={from}
               className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />
@@ -221,7 +223,7 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
             ถึง
             <input
               type="date"
-              name="to"
+              name="end"
               defaultValue={to}
               className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
             />

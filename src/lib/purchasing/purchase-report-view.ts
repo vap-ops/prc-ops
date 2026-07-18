@@ -235,7 +235,7 @@ export interface ReportQueryState {
  * can never drift (the payroll page/route gate-drift anti-pattern, applied
  * to param parsing rather than the role gate). */
 export type ReportRawQuery = Partial<
-  Record<"preset" | "from" | "to" | "bucket" | "group" | "project", string | undefined>
+  Record<"preset" | "start" | "end" | "bucket" | "group" | "project", string | undefined>
 >;
 
 function isBucketValue(v: string | undefined): v is ReportBucket {
@@ -263,7 +263,7 @@ export function parseReportQuery(
   const preset: PeriodPreset = isPresetValue(sp.preset) ? sp.preset : "month";
   const bucket: ReportBucket = isBucketValue(sp.bucket) ? sp.bucket : "day";
   const group = resolveGroupBy(isGroupByValue(sp.group) ? sp.group : "none", canSeePurchaser);
-  const { from, to } = resolvePeriod(preset, todayIso, sp.from, sp.to);
+  const { from, to } = resolvePeriod(preset, todayIso, sp.start, sp.end);
   return {
     preset,
     bucket,
@@ -286,10 +286,12 @@ export function reportHref(
   base = "/requests/reports",
 ): string {
   const merged = { ...state, ...overrides };
+  // Spec 327 U6b2: the range rides ?start/?end — ?from is the app-wide
+  // back-referrer param now (nav-coherence Decision 1).
   const q = new URLSearchParams({
     preset: merged.preset,
-    from: merged.from,
-    to: merged.to,
+    start: merged.from,
+    end: merged.to,
     bucket: merged.bucket,
     group: merged.group,
   });
@@ -308,7 +310,7 @@ export interface RegisterDrillParams {
 /** A bucket×group table row → the register-style list filtered to that
  * slice. No dim = the 'none' group (date window only). */
 export function registerDrillHref(params: RegisterDrillParams): string {
-  const q = new URLSearchParams({ from: params.from, to: params.to });
+  const q = new URLSearchParams({ start: params.from, end: params.to });
   if (params.dim) {
     q.set("dim", params.dim);
     if (params.unassigned) q.set("unassigned", "1");

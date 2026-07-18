@@ -193,7 +193,8 @@ export function monthRangeOf(todayIso: string): PayrollRange {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Accept ?from/&to query params; fall back to the current month on missing,
+// Accept ?start/&end query params (U6b2 — ?from is the back-referrer now);
+// fall back to the current month on missing,
 // malformed, or inverted input so a bad URL never crashes the page.
 export function parsePayrollRange(
   from: string | undefined,
