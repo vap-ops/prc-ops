@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildProcurementProjectStatus,
+  effectiveDoorProjectId,
   parseProcurementSection,
   procurementDoorHref,
   procurementStripHref,
@@ -18,7 +19,7 @@ import {
   PROCUREMENT_STR_SECTIONS,
   type HomeCountRow,
 } from "@/lib/purchasing/procurement-home";
-import { CATALOG_LABEL, PROJECT_COSTS_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, PROJECT_COSTS_LABEL, SUPPLY_PLAN_LABEL } from "@/lib/i18n/labels";
 
 const TODAY = "2026-07-16";
 const NAMES = new Map([
@@ -114,6 +115,13 @@ describe("PROCUREMENT_STR_SECTIONS", () => {
     const catalog = scope?.doors.find((d) => d.href === "/catalog");
     expect(catalog?.label).toBe(CATALOG_LABEL);
   });
+
+  it("puts แผนจัดหา under Scope as a project-scope door with the SUPPLY_PLAN_LABEL SSOT", () => {
+    const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
+    const plan = scope?.doors.find((d) => d.key === "supply-plan");
+    expect(plan?.label).toBe(SUPPLY_PLAN_LABEL);
+    expect(plan?.scope).toBe("project");
+  });
 });
 
 describe("procurementDoorHref", () => {
@@ -199,6 +207,83 @@ describe("project-scope door (ต้นทุนโครงการ)", () => {
     expect(doors.some((d) => d.managerOnly)).toBe(false);
     expect(doors.some((d) => d.scope === "project")).toBe(false);
     expect(doors.some((d) => d.key === "payroll")).toBe(true); // ordinary doors intact
+  });
+});
+
+// The แผนจัดหา (supply plan) hub door — spec 323 follow-up. Same 📍 project scope
+// as ต้นทุนโครงการ; its target is /projects/[id]/supply-plan, so the project arm
+// must resolve per-door (not the costs hardcode it started as).
+describe("project-scope door (แผนจัดหา)", () => {
+  const planDoor = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope")?.doors.find(
+    (d) => d.key === "supply-plan",
+  );
+
+  it("resolves to the active project's supply-plan page (NOT the costs page)", () => {
+    expect(procurementDoorHref(planDoor!, "p1")).toBe("/projects/p1/supply-plan");
+  });
+
+  it("still resolves the costs door to its own page (door-keyed, no cross-wiring)", () => {
+    const costsDoor = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "resources")?.doors.find(
+      (d) => d.key === "costs",
+    );
+    expect(procurementDoorHref(costsDoor!, "p1")).toBe("/projects/p1/costs");
+  });
+
+  it("is hidden without an active project, shown with one", () => {
+    const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope")!;
+    expect(visibleProcurementDoors(scope, false, null).some((d) => d.key === "supply-plan")).toBe(
+      false,
+    );
+    expect(visibleProcurementDoors(scope, false, "p1").some((d) => d.key === "supply-plan")).toBe(
+      true,
+    );
+  });
+});
+
+// Guard: EVERY 📍 project-scope door must have a per-project resolver in
+// PROJECT_DOOR_HREF. visibleProcurementDoors shows a project door once a project
+// is active, so an unmapped door would render but its href would fall through to
+// the static "/projects" — a visible dead-end (§0). Assert each resolves to a
+// per-project path so a future door can't silently regress.
+describe("project-scope doors all resolve (PROJECT_DOOR_HREF exhaustive)", () => {
+  const projectDoors = PROCUREMENT_STR_SECTIONS.flatMap((s) => s.doors).filter(
+    (d) => d.scope === "project",
+  );
+
+  it("has at least the costs + supply-plan project doors", () => {
+    expect(projectDoors.map((d) => d.key).sort()).toEqual(["costs", "supply-plan"]);
+  });
+
+  it("resolves every project-scope door to a per-project href (never the static fallback)", () => {
+    for (const door of projectDoors) {
+      const href = procurementDoorHref(door, "pX");
+      expect(href, door.key).toContain("/projects/pX/");
+      expect(href, door.key).not.toBe(door.href);
+    }
+  });
+});
+
+// effectiveDoorProjectId — which project a 📍 door resolves to. In a single-
+// project world the lens shows no chips (project-lens collapses at ≤1 named), so
+// activeProjectId is never set; falling back to the SOLE project keeps the
+// project doors reachable (else ต้นทุนโครงการ + แผนจัดหา are invisible for the
+// common one-project case). 2+ projects with no selection → null (stay hidden,
+// no arbitrary pick).
+describe("effectiveDoorProjectId", () => {
+  it("uses the explicit lens selection when present", () => {
+    expect(effectiveDoorProjectId("p2", [{ id: "p1" }, { id: "p2" }])).toBe("p2");
+  });
+
+  it("falls back to the sole project when none is selected", () => {
+    expect(effectiveDoorProjectId(null, [{ id: "p1" }])).toBe("p1");
+  });
+
+  it("stays null with multiple projects and no selection (no arbitrary pick)", () => {
+    expect(effectiveDoorProjectId(null, [{ id: "p1" }, { id: "p2" }])).toBeNull();
+  });
+
+  it("stays null with no projects", () => {
+    expect(effectiveDoorProjectId(null, [])).toBeNull();
   });
 });
 
