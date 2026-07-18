@@ -1,3 +1,9 @@
+# [0.134.0](https://github.com/VAP-Solution/prc-ops/compare/v0.133.0...v0.134.0) (2026-07-18)
+
+### Features
+
+- **procurement:** selection-first dashboard — project cards are the selection (spec 327 U1) ([#626](https://github.com/VAP-Solution/prc-ops/issues/626)) ([d014d72](https://github.com/VAP-Solution/prc-ops/commit/d014d723fafdce85e47e360b4f54f7a9f62965c1))
+
 # [0.133.0](https://github.com/VAP-Solution/prc-ops/compare/v0.132.1...v0.133.0) (2026-07-18)
 
 ### Features
