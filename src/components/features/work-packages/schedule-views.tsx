@@ -24,6 +24,7 @@ import {
   getSchedulePhotos,
   type SchedulePhotoEntry,
 } from "@/app/projects/[projectId]/schedule/actions";
+import { TIMELINE_LABEL } from "@/lib/i18n/labels";
 
 // Spec 257 — signed thumbnail/full URLs expire in 120s, so photos refresh
 // well before that while a day/week view is open (a lingering viewer must
@@ -36,7 +37,8 @@ const VIEWS: ReadonlyArray<{ key: ScheduleView; label: string }> = [
   { key: "month", label: "เดือน" },
   { key: "week", label: "สัปดาห์" },
   { key: "day", label: "วัน" },
-  { key: "timeline", label: "ไทม์ไลน์" },
+  // Spec 327 U3 made ไทม์ไลน์ a 2+-place term (procurement time view) → SSOT.
+  { key: "timeline", label: TIMELINE_LABEL },
 ];
 
 interface ScheduleViewsProps {

@@ -81,22 +81,28 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
 
   return (
     <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
-      {/* Portfolio alert strip — U3 turns these counts into /procurement/time
-          links. Grain-labeled ทุกโครงการ (§0.5): these totals count EVERY
-          visible PR incl. store-bound null-project rows, so they can exceed the
-          sum of the per-card badges. */}
+      {/* Portfolio alert strip — each count opens its เวลา sub-view (spec 327
+          U3; §0.2 alerts carry their action). Grain-labeled ทุกโครงการ (§0.5):
+          these totals count EVERY visible PR incl. store-bound null-project
+          rows, so they can exceed the sum of the per-card badges. */}
       {lateRiskTotal > 0 || arrivalsTotal > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-ink-secondary text-meta">{ALL_PROJECTS_OPTION_LABEL}:</span>
           {lateRiskTotal > 0 ? (
-            <span className="bg-danger-soft text-danger text-meta rounded-full px-3 py-1 font-bold">
+            <Link
+              href="/procurement/time?view=late"
+              className="bg-danger-soft text-danger text-meta inline-flex min-h-11 items-center rounded-full px-3 font-bold"
+            >
               {LATE_RISK_LABEL} {lateRiskTotal}
-            </span>
+            </Link>
           ) : null}
           {arrivalsTotal > 0 ? (
-            <span className="bg-action text-on-fill text-meta rounded-full px-3 py-1 font-bold">
+            <Link
+              href="/procurement/time?view=week"
+              className="bg-action text-on-fill text-meta inline-flex min-h-11 items-center rounded-full px-3 font-bold"
+            >
               {ARRIVALS_TODAY_LABEL} {arrivalsTotal}
-            </span>
+            </Link>
           ) : null}
         </div>
       ) : null}

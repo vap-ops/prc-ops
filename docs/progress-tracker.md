@@ -7789,3 +7789,22 @@ flag for operator at the U6 checkpoint if it reads as noise.
   header (both §0.1 catches, both RED-tested); no-plan door min-h-11 (44px
   floor); dead empty:hidden removed. Dual-channel note (?project= lens vs
   cookie coexist on section pages) = interim by design until U6.
+
+## Spec 327 U3 — เวลา late-risk list + week radar (2026-07-18)
+
+U3 COMPLETE — code-only, no schema.
+
+- /procurement/time renders <TimeView> above the door grid: ?view= pill
+  switcher (เสี่ยงช้า default | สัปดาห์นี้; U4 adds ไทม์ไลน์) — query param,
+  not a sub-route (bottom-tab active rule is query-blind). Late list =
+  buildLateRiskList (U1 SSOT rows enriched w/ anchor WP, most-late first,
+  +N วัน chip, each row opens its PR ?from-threaded — §0.2). Week radar =
+  buildWeekRadar (in_transit arrivals in the Sunday-first weekOf window ×
+  WPs starting/running; undated WPs excluded = the U4 shelf's job).
+- Dashboard alert-strip counts became links (?view=late / ?view=week).
+- Shared <ProjectPickerPrompt> extracted (scope-view now uses it too).
+- Labels: THIS_WEEK_LABEL + TIMELINE_LABEL (schedule-views.tsx imports the
+  latter — ไทม์ไลน์ now 2-place SSOT).
+- Verified: suite 4185 green; live probes — late list 2 rows (+12/+4 วัน
+  ordering), week radar caption 12–18 ก.ค., 1 arrival × 145 running WPs /
+  83 start chips, dashboard links present, 0 console/server errors.
