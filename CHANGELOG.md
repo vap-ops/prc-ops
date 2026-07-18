@@ -1,3 +1,9 @@
+# [0.143.0](https://github.com/VAP-Solution/prc-ops/compare/v0.142.0...v0.143.0) (2026-07-18)
+
+### Features
+
+- **db:** spec 328 U1 — subcon-member onboarding schema (invited_contractor_id + contractor arm on approve) ([#637](https://github.com/VAP-Solution/prc-ops/issues/637)) ([117cefa](https://github.com/VAP-Solution/prc-ops/commit/117cefaa7421cd48971659ef589740b7efa3785b))
+
 # [0.142.0](https://github.com/VAP-Solution/prc-ops/compare/v0.141.0...v0.142.0) (2026-07-18)
 
 ### Features
