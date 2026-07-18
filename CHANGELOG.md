@@ -1,3 +1,9 @@
+# [0.142.0](https://github.com/VAP-Solution/prc-ops/compare/v0.141.0...v0.142.0) (2026-07-18)
+
+### Features
+
+- **nav:** range params from/to→start/end + referrer on reports/orders/payroll (spec 327 U6b2) ([#635](https://github.com/VAP-Solution/prc-ops/issues/635)) ([9b351c1](https://github.com/VAP-Solution/prc-ops/commit/9b351c187246161e067efee23883a4c37fffffb7))
+
 # [0.141.0](https://github.com/VAP-Solution/prc-ops/compare/v0.140.0...v0.141.0) (2026-07-18)
 
 ### Features
