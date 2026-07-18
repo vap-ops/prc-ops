@@ -89,10 +89,13 @@ export function ResourcesBody({
       {/* วัสดุ — coverage at plan grain. */}
       <section className="flex flex-col gap-2">
         <h3 className="text-body text-ink-secondary font-semibold">วัสดุ</h3>
-        {/* §0.5 grain honesty: stock pool is PROJECT grain (two WPs planning
-            the same item read the same pool) and only APPROVED plans count. */}
+        {/* §0.5 grain honesty: BOTH the stock pool and the incoming set are
+            PROJECT grain — two WPs planning the same item read the same pool,
+            and an in-transit truck earmarked for one WP reads กำลังมา on every
+            WP planning that item. Only APPROVED plans count. */}
         <p className="text-ink-muted text-meta">
-          สต็อกนับที่ระดับโครงการ · เฉพาะแผนจัดหาที่อนุมัติแล้ว · นับเป็นจำนวนรายการวัสดุ
+          สต็อกและของกำลังมานับที่ระดับโครงการ · เฉพาะแผนจัดหาที่อนุมัติแล้ว ·
+          นับเป็นจำนวนรายการวัสดุ
         </p>
 
         {coverageRows.length === 0 && projectBucket.plannedItems === 0 ? (

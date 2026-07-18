@@ -105,19 +105,19 @@ export async function ResourcesView() {
   const wps = wpRows ?? [];
   const wpIdSet = new Set(wps.map((w) => w.id));
 
-  const lines: CoveragePlanLine[] = (lineRows ?? []).flatMap((l) => {
-    if (!l.catalog_item_id || !l.catalog_items) return [];
-    return [
-      {
-        workPackageId: l.work_package_id,
-        catalogItemId: l.catalog_item_id,
-        qty: l.qty,
-        baseItem: l.catalog_items.base_item,
-        specAttrs: l.catalog_items.spec_attrs,
-        unit: l.catalog_items.unit,
-      },
-    ];
-  });
+  // §0.1 — no silent drops: a null catalog embed (RLS-denied / removed item)
+  // still yields a named-fallback line, and a line whose WP belongs to another
+  // project (FK doesn't enforce same-project) routes to the PROJECT bucket
+  // instead of a byWp entry that would render nowhere (fresh-eyes catches).
+  const lines: CoveragePlanLine[] = (lineRows ?? []).map((l) => ({
+    workPackageId:
+      l.work_package_id !== null && wpIdSet.has(l.work_package_id) ? l.work_package_id : null,
+    catalogItemId: l.catalog_item_id,
+    qty: l.qty,
+    baseItem: l.catalog_items?.base_item ?? "(ไม่ทราบชื่อวัสดุ)",
+    specAttrs: l.catalog_items?.spec_attrs ?? null,
+    unit: l.catalog_items?.unit ?? "",
+  }));
 
   const coveragePrs = (prRows ?? [])
     .filter((r) => {

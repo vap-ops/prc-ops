@@ -7882,3 +7882,14 @@ U5 COMPLETE — code-only, no schema.
   180/1/20 split, 19 per-WP coverage cards, 9 named-missing lines, 307
   no-plan doors, 20 rental rows / 19 amber gaps, labor slot, no ฿ anywhere,
   0 console/server errors.
+
+### U5 fresh-eyes outcome (same day)
+
+- Fixed: grain caption now discloses กำลังมา is project-grain too (an in-transit
+  truck earmarked for WP-A reads กำลังมา on every WP planning the item); null
+  catalog-embed lines get a named fallback instead of dropping; foreign-WP plan
+  lines route to the project bucket instead of a byWp entry that renders
+  nowhere (all §0 catches). Answered: group-bound plan-line coverage cards
+  render-what-exists (picker only offers งานย่อย, an anomaly should be visible);
+  allocation-end precedence intended (amber = confirm-intent signal, batch-end
+  precedence would HIDE real gaps); 307-row details DOM weight accepted v1.
