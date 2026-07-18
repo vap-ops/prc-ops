@@ -7748,3 +7748,28 @@ Open questions: clearProcurementProject action is exported but unbound in U1
 (the ทุกโครงการ affordance is a Link to /requests; U2's picker prompt / later
 units bind clear). Stale-cookie live probe inconclusive (httpOnly original
 rides along with a JS shadow) — resolver unit tests cover the path.
+
+## Spec 327 U2 — ขอบเขต WP list + supply overlay (2026-07-18)
+
+U2 COMPLETE — code-only, no schema.
+
+- /procurement/scope now renders <ScopeView> above the door grid: the selected
+  project's grouped WP roster (spec-270 idiom, loadProjectDetail read path)
+  wearing supply chips {ขอซื้อ, กำลังมา, ถึง <next-arrival>} from the pure
+  buildWpSupplyOverlay (ADR-0065 anchor coalesce via the U1 late-risk SSOT);
+  late-risk rows border-danger + conflict line ของถึง X — งานเริ่ม Y (§0.2);
+  no-plan rows carry the supply-plan door (§0.3); anchorless/foreign-anchor PRs
+  = คลัง · ระดับโครงการ bucket above the list (§0.1); rows ?from-thread back to
+  /procurement/scope; no selection → one-tap picker prompt (§0.4).
+- New: wp-supply-overlay.ts (pure) · scope-wp-list.tsx (procurement variant —
+  deliberately NOT the SA/PM work-package-list) · scope-view.tsx (server
+  wrapper). hub-body mounts it for section==='scope' only.
+- Verified: suite 4176 green; SSR+DOM probes on dev preview (TFM: 331 WP rows /
+  47 groups / 2 conflict rows matching dashboard เสี่ยงช้า 2 / 309 no-plan
+  doors / bucket; selection switch to บ้านคุณกฤษณ์ → 11 rows; 0 console/server
+  errors).
+
+Open questions: picker-prompt branch live-probe not possible (httpOnly cookie
+can't be unset from the probe context; resolver + branch unit-covered). 309
+no-plan chips on the big project = spec-mandated (§0.3) but visually heavy —
+flag for operator at the U6 checkpoint if it reads as noise.
