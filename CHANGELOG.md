@@ -1,3 +1,9 @@
+# [0.133.0](https://github.com/VAP-Solution/prc-ops/compare/v0.132.1...v0.133.0) (2026-07-18)
+
+### Features
+
+- **procurement:** โครงการ door in ขอบเขต — restore /projects reachability (spec 326) ([#623](https://github.com/VAP-Solution/prc-ops/issues/623)) ([13667c9](https://github.com/VAP-Solution/prc-ops/commit/13667c9b01372c7f202eb10c8a70b9dff4cbac4d))
+
 ## [0.132.1](https://github.com/VAP-Solution/prc-ops/compare/v0.132.0...v0.132.1) (2026-07-18)
 
 ### Bug Fixes
