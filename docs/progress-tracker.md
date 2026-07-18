@@ -7848,3 +7848,13 @@ U4 COMPLETE — code-only, no schema.
   ~19:00-20:00 → no active PR carries an eta right now; dashboard consistently
   shows zero alert chips + ขอซื้อ 14 = DB truth; pin geometry unit-pinned).
   Real-device pan feel = operator's U6 phone check.
+
+### U4 fresh-eyes outcome (same day)
+
+- Guard allowance FILE-SCOPED (the review's headline): manipulation counts only
+  for files in MANIPULATION_ALLOWED_FILES (currently the procurement timeline);
+  a thin strip writing manipulation elsewhere keeps failing. Self-tests assert
+  both directions. Month-axis corner mask added (labels no longer bleed under
+  the frozen name column). Accepted-by-design (answered): pins presentational/
+  title-only on touch (the เสี่ยงช้า list is the actionable surface, per plan);
+  331-lane full reconcile per zoom (thin renderer v1, zoom is infrequent).

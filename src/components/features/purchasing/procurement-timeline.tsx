@@ -90,13 +90,19 @@ export function ProcurementTimeline({
           className="border-edge bg-card rounded-card relative [touch-action:manipulation] overflow-x-auto border"
         >
           <div style={{ width: NAME_W + timeline.widthPx, minWidth: "100%" }}>
-            {/* Month axis */}
-            <div className="border-edge relative h-6 border-b" style={{ marginLeft: NAME_W }}>
+            {/* Month axis — the sticky corner span masks the 0–128px strip the
+                lane name columns keep frozen (labels no longer bleed through). */}
+            <div className="border-edge relative h-6 border-b">
+              <span
+                aria-hidden
+                className="bg-card sticky left-0 z-10 inline-block h-full"
+                style={{ width: NAME_W }}
+              />
               {timeline.months.map((m) => (
                 <span
                   key={m.label + m.x}
                   className="text-ink-secondary absolute top-1 text-[10px] font-semibold"
-                  style={{ left: m.x + 4 }}
+                  style={{ left: NAME_W + m.x + 4 }}
                 >
                   {m.label}
                 </span>
