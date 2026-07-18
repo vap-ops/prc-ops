@@ -14,6 +14,7 @@ import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
+import { SUPPLY_PLAN_LABEL } from "@/lib/i18n/labels";
 import {
   loadCatalogCategories,
   categoryNameById,
@@ -48,7 +49,7 @@ interface PageProps {
   searchParams: Promise<{ plan?: string }>;
 }
 
-export const metadata = { title: "แผนจัดหา" };
+export const metadata = { title: SUPPLY_PLAN_LABEL };
 
 const PLAN_DATE_FMT = new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
   day: "numeric",
@@ -302,7 +303,7 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
         <div>
           <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
           <h1 className="text-title text-ink font-bold tracking-tight">
-            แผนจัดหา — {project.name}
+            {SUPPLY_PLAN_LABEL} — {project.name}
           </h1>
         </div>
       </DetailHeader>

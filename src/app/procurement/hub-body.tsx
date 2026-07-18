@@ -19,6 +19,7 @@ import { loadProjectLensNames } from "@/lib/nav/project-lens";
 import { ProjectLens } from "@/components/features/common/project-lens";
 import {
   buildProcurementProjectStatus,
+  effectiveDoorProjectId,
   procurementDoorHref,
   procurementStripHref,
   visibleProcurementDoors,
@@ -80,6 +81,15 @@ export async function ProcurementHubBody({
   const names = await loadProjectLensNames(supabase, projectIds);
   const projectStatus = buildProcurementProjectStatus(rows, names, bangkokTodayIso());
   const lensProjects = projectStatus.map((p) => ({ id: p.projectId, name: p.name }));
+  // 📍 project-scope doors (ต้นทุนโครงการ, แผนจัดหา) resolve to the selected
+  // project — or, in a single-project world where the lens shows no chips, the
+  // sole project — so they aren't invisible for the common one-project case.
+  // ONLY 📍 doors use this: shared/spanning doors + the lens/strip/hubFrom keep
+  // the raw activeProjectId, so a single-project user's จัดซื้อ/payroll/expenses
+  // doors are NOT silently scoped to ?project= (that would drop store-bound
+  // null-project rows + suppress payroll reconciliation — the invisible-filter
+  // trap removed from the strip, zeeparn 2026-07-17).
+  const doorProjectId = effectiveDoorProjectId(activeProjectId, lensProjects);
 
   // Re-homed staff-registration queue (retired /team tab): approvers get a nudge
   // + pending count. RLS hands approvers all statuses → narrow to pending.
@@ -126,7 +136,7 @@ export async function ProcurementHubBody({
       {/* STR sections of door tiles; 🔀 doors carry the active project, 📍
           doors (per-project targets) render only while the lens has one. */}
       {sections.map((sectionItem) => {
-        const doors = visibleProcurementDoors(sectionItem, isManager, activeProjectId);
+        const doors = visibleProcurementDoors(sectionItem, isManager, doorProjectId);
         return (
           <div key={sectionItem.key} className="flex flex-col gap-3">
             <h2 className="text-body text-ink-secondary font-semibold">{sectionItem.label}</h2>
@@ -134,7 +144,13 @@ export async function ProcurementHubBody({
               {doors.map((door) => (
                 <Link
                   key={door.key}
-                  href={withBackFrom(procurementDoorHref(door, activeProjectId), hubFrom)}
+                  href={withBackFrom(
+                    procurementDoorHref(
+                      door,
+                      door.scope === "project" ? doorProjectId : activeProjectId,
+                    ),
+                    hubFrom,
+                  )}
                   className="rounded-card border-edge bg-card shadow-card hover:bg-sunk text-ink flex min-h-11 items-center justify-center border px-4 py-3 text-center text-sm font-semibold"
                 >
                   {door.label}

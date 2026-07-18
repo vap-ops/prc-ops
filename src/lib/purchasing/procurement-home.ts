@@ -12,8 +12,9 @@ import {
   LABOR_RATES_LABEL,
   PROJECT_COSTS_LABEL,
   SUBCONTRACTOR_LABEL,
+  SUPPLY_PLAN_LABEL,
 } from "@/lib/i18n/labels";
-import { projectCostsHref } from "@/lib/nav/project-paths";
+import { projectCostsHref, supplyPlanHref } from "@/lib/nav/project-paths";
 import { ACTIVE_REQUEST_BANDS, requestBand } from "./request-bands";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
@@ -122,6 +123,11 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
         href: "/settings/ordering-templates",
         scope: "shared",
       },
+      // Spec 323 follow-up — the per-project supply plan (แผนจัดหา). Its only prior
+      // entry was an unlabeled icon chip on the project page; this gives it a named
+      // hub door beside แผนสั่งซื้อ (the templates that seed it). 📍 project scope:
+      // resolves to the active project's supply-plan page.
+      { key: "supply-plan", label: SUPPLY_PLAN_LABEL, href: "/projects", scope: "project" },
     ],
   },
   {
@@ -175,6 +181,15 @@ export function parseProcurementSection(value: string): ProcurementStrSection["k
   return null;
 }
 
+// Per-door resolution for 📍 project-scope doors: door.key → its per-project
+// page builder. Every project-scope door MUST appear here; an absent key falls
+// through to the door's static href (a visible dead-end would fail §0, but the
+// door is hidden without an active project anyway).
+const PROJECT_DOOR_HREF: Record<string, (projectId: string) => string> = {
+  costs: projectCostsHref,
+  "supply-plan": supplyPlanHref,
+};
+
 // A door's href with the active project woven in: 🌐 shared doors ignore it; 🔀
 // spanning doors set ?project= (merging any existing query on the href); 📍
 // project doors resolve to the active project's own page (falling back to the
@@ -182,10 +197,12 @@ export function parseProcurementSection(value: string): ProcurementStrSection["k
 // visibleProcurementDoors). Mirrors projectLensHref's serialization.
 export function procurementDoorHref(door: ProcurementDoor, activeProjectId: string | null): string {
   if (door.scope === "project") {
-    // ⚠ project-scope == the COSTS page today (the only 📍 door). A second
-    // project-scope door must add door-keyed resolution (e.g. hrefFor) — this
-    // arm would silently send it to /costs otherwise.
-    return activeProjectId ? projectCostsHref(activeProjectId) : door.href;
+    // Each 📍 door resolves to its OWN per-project page — keyed by door.key so a
+    // new project-scope door never silently inherits another's target. No active
+    // project → the static href (the door is hidden then anyway, see
+    // visibleProcurementDoors).
+    const resolve = PROJECT_DOOR_HREF[door.key];
+    return activeProjectId && resolve ? resolve(activeProjectId) : door.href;
   }
   if (door.scope === "shared" || !activeProjectId) return door.href;
   const [path, query = ""] = door.href.split("?");
@@ -206,4 +223,20 @@ export function visibleProcurementDoors(
   return section.doors.filter(
     (d) => (!d.managerOnly || isManager) && (d.scope !== "project" || activeProjectId !== null),
   );
+}
+
+// The project a 📍 door resolves to: the lens selection, or — when the caller
+// has exactly ONE project — that sole project. The project lens shows no chips
+// in a single-project world (project-lens.ts collapses at ≤1 named), so
+// activeProjectId is never set there; without this fallback every project-scope
+// door (ต้นทุนโครงการ, แผนจัดหา) would be invisible for the common one-project
+// case. 2+ projects and no selection → null: the door stays hidden rather than
+// pick one arbitrarily (dead-end guard, §0). Pure so hub-body stays thin.
+export function effectiveDoorProjectId(
+  activeProjectId: string | null,
+  projects: ReadonlyArray<{ id: string }>,
+): string | null {
+  if (activeProjectId) return activeProjectId;
+  const [sole] = projects;
+  return projects.length === 1 && sole ? sole.id : null;
 }
