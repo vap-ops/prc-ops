@@ -1,3 +1,9 @@
+## [0.132.1](https://github.com/VAP-Solution/prc-ops/compare/v0.132.0...v0.132.1) (2026-07-18)
+
+### Bug Fixes
+
+- **procurement:** label the hub template door เทมเพลตแผนจัดหา (SSOT) ([#622](https://github.com/VAP-Solution/prc-ops/issues/622)) ([ecef6a7](https://github.com/VAP-Solution/prc-ops/commit/ecef6a7f44b4adc0c8604f9ea44ea1e6a04ead01)), closes [#612](https://github.com/VAP-Solution/prc-ops/issues/612) [#621](https://github.com/VAP-Solution/prc-ops/issues/621) [#612](https://github.com/VAP-Solution/prc-ops/issues/612)
+
 # [0.132.0](https://github.com/VAP-Solution/prc-ops/compare/v0.131.0...v0.132.0) (2026-07-18)
 
 ### Features
