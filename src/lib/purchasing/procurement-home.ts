@@ -1,10 +1,9 @@
 // Spec 323 U3a — the Procurement Home hub's pure core (no UI, no DB).
 //
-// The hub (src/app/procurement/page.tsx) is procurement's portfolio landing: a
-// per-project status strip + three STR sections of door tiles. Everything the
-// page needs to decide — which projects to strip, their open/arrival counts, the
-// STR door map, and how a door carries the active project filter — is pure and
-// unit-tested here. The page is thin composition over this + the shared chrome.
+// Since spec 327: the dashboard (หน้าหลัก) is the selection surface and the
+// section pages render project views with icon door chips on top. Everything
+// they decide — the dashboard cards, the STR door map + icons, door hrefs and
+// visibility — is pure and unit-tested here; the pages are thin composition.
 
 import type { LucideIcon } from "lucide-react";
 import {
@@ -13,7 +12,6 @@ import {
   Coins,
   FileStack,
   FileText,
-  FolderKanban,
   Forklift,
   Hammer,
   HardHat,
@@ -42,7 +40,7 @@ import { ACTIVE_REQUEST_BANDS, requestBand, type RequestBand } from "./request-b
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 
-// A lightweight PR projection — just the fields the strip counts (no ฿). RLS on
+// A lightweight PR projection — just the fields the counts read (no ฿). RLS on
 // the caller's client already scopes which rows resolve.
 export interface HomeCountRow {
   projectId: string | null;
@@ -50,61 +48,22 @@ export interface HomeCountRow {
   eta: string | null;
 }
 
-export interface ProcurementProjectStatus {
-  projectId: string;
-  name: string;
-  /** Open ขอซื้อ — requests in an active band (awaiting_approval / to_order / in_transit). */
-  openCount: number;
-  /** Arrivals-today — in_transit rows due-or-overdue (eta<=today) or with unknown eta. */
-  arrivalsToday: number;
-}
-
-// A project appears on the strip only when it has OPEN procurement work — the
-// active bands (spec 137, ACTIVE_REQUEST_BANDS SSOT). done/closed never surface it.
+// OPEN work = the active bands (spec 137, ACTIVE_REQUEST_BANDS SSOT);
+// done/closed never count.
 const OPEN_BANDS = new Set<string>(ACTIVE_REQUEST_BANDS);
 
 // Arrivals-today mirrors filterIncomingLens("today"): in_transit + due-or-
-// overdue (eta<=today) OR unknown eta (the real receive pile). Shared by the
-// section-page strip counts and the U1 dashboard cards/alert strip.
+// overdue (eta<=today) OR unknown eta (the real receive pile). Consumed by the
+// U1 dashboard cards + alert strip.
 export function isArrivalToday(band: RequestBand, eta: string | null, todayIso: string): boolean {
   return band === "in_transit" && (eta === null || eta <= todayIso);
-}
-
-// Per-project open + arrivals-today counts, from the caller's visible PR rows.
-// Null-project (store-bound / project-level) rows are excluded from the per-
-// project strip; unresolved-name projects (an own PR in a non-member project —
-// RLS admits the row but the membership-scoped projects read resolves no name)
-// are dropped, mirroring spec 311 U1. Name-sorted.
-export function buildProcurementProjectStatus(
-  rows: ReadonlyArray<HomeCountRow>,
-  names: ReadonlyMap<string, string>,
-  todayIso: string,
-): ProcurementProjectStatus[] {
-  const byId = new Map<string, { open: number; arrivals: number }>();
-  for (const r of rows) {
-    if (r.projectId === null) continue;
-    const band = requestBand(r.status);
-    if (!OPEN_BANDS.has(band)) continue;
-    const acc = byId.get(r.projectId) ?? { open: 0, arrivals: 0 };
-    acc.open += 1;
-    if (isArrivalToday(band, r.eta, todayIso)) acc.arrivals += 1;
-    byId.set(r.projectId, acc);
-  }
-  return Array.from(byId, ([projectId, c]) => ({
-    projectId,
-    name: names.get(projectId) ?? "",
-    openCount: c.open,
-    arrivalsToday: c.arrivals,
-  }))
-    .filter((p) => p.name !== "")
-    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // Spec 327 U1 — the dashboard card model. Cards come from the caller's FULL
 // RLS projects read (procurement's projects policy admits every project), LEFT-
 // joined over PR rows so a zero-open-PR project still renders a zero-count card
-// (the #621 gap: buildProcurementProjectStatus derives from PR rows and
-// vanishes such projects — that stays strip-only until U6 retires the strip).
+// (the #621 gap — the retired per-project strip derived from PR rows and
+// vanished zero-PR projects; U6c removed it).
 export interface DashboardPrRow extends HomeCountRow, LateRiskRow {}
 
 export interface DashboardCard {
@@ -202,15 +161,10 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
         href: "/requests",
         scope: "spanning",
       },
-      // Spec 326 — the WP-list entry. The STR spine (323 U3b) dropped the
-      // pre-323 โครงการ tab and the hub strip links /requests?project=, leaving
-      // procurement (read-only viewer of /projects/[id], spec 173) no
-      // discoverable path to any /projects surface. 🌐 shared, NOT 📍 project:
-      // a project door hides while 2+ projects have no lens selection, which
-      // would re-open the gap in the hub's default state; the projects hub is
-      // the cross-project-first target (D3: lens = filter). Label = the
-      // destination's own title (no SSOT constant; tab sets use the literal).
-      { key: "projects", icon: FolderKanban, label: "โครงการ", href: "/projects", scope: "shared" },
+      // Spec 326's โครงการ door FOLDED by 327 U6c (D5): selection subsumes the
+      // reachability it restored — every dashboard card carries a หน้าโครงการ
+      // side-door and the S/T/R headers' project name opens the project page,
+      // so the /projects HUB detour is no longer the path.
       { key: "catalog", icon: Package, label: CATALOG_LABEL, href: "/catalog", scope: "shared" },
       // The door read "แผนสั่งซื้อ" — a hardcoded literal that disagreed with its
       // OWN page (which titles itself ORDERING_TEMPLATES_LABEL) and read like a

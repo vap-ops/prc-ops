@@ -294,18 +294,19 @@ chat, so "the home tiles over-promise" is a complete sentence. This table names
 the SURFACES; the current items live in code (the SSOT column) — read the
 component for today's contents, never trust a doc-pinned list (see §6 note).
 
-| Canonical name | What it is                                                                 | Code SSOT                                                                                                              |
-| -------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| bottom tabs    | phone bar, fixed bottom; per-role sets (`SA_TABS`, `PM_TABS`, …)           | [bottom-tab-bar.tsx](../src/components/features/chrome/bottom-tab-bar.tsx)                                             |
-| hub strip      | desktop-only top strip; per-role sets (`*_HUB_NAV`) mirror the bottom tabs | [hub-nav.tsx](../src/components/features/chrome/hub-nav.tsx)                                                           |
-| home tiles     | เครื่องมือ quick-action grid on a role home (today: `/sa`)                 | [sa-tools.tsx](../src/components/features/sa/sa-tools.tsx)                                                             |
-| settings hub   | grouped section rows on `/settings`                                        | [sections.ts](../src/app/settings/sections.ts)                                                                         |
-| FAB            | floating action button — THE primary action of a screen (today: ถ่ายรูป)   | [camera-fab.tsx](../src/components/features/sa/camera-fab.tsx)                                                         |
-| card chips     | inline quick-action row on a list card (e.g. รูปถ่าย · ทีมงาน · คำขอซื้อ)  | `ActionChip` in [sa/page.tsx](../src/app/sa/page.tsx)                                                                  |
-| detail tabs    | segmented tab row inside a detail page                                     | [wp-detail-tabs.tsx](../src/components/features/work-packages/wp-detail-tabs.tsx)                                      |
-| back chip      | the ← up affordance in every `DetailHeader`                                | [detail-header.tsx](../src/components/features/chrome/detail-header.tsx) + [back-href.ts](../src/lib/nav/back-href.ts) |
-| switcher chip  | context switcher chip + sheet (today: ไซต์ปัจจุบัน on `/sa`, spec 292)     | [current-project-switcher.tsx](../src/components/features/sa/current-project-switcher.tsx)                             |
-| nudge          | conditional entry banner — renders only while actionable (count > 0)       | e.g. the คำขอสมัคร nudge in [sa/page.tsx](../src/app/sa/page.tsx)                                                      |
+| Canonical name | What it is                                                                                                                                        | Code SSOT                                                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| bottom tabs    | phone bar, fixed bottom; per-role sets (`SA_TABS`, `PM_TABS`, …)                                                                                  | [bottom-tab-bar.tsx](../src/components/features/chrome/bottom-tab-bar.tsx)                                                                                                                    |
+| hub strip      | desktop-only top strip; per-role sets (`*_HUB_NAV`) mirror the bottom tabs                                                                        | [hub-nav.tsx](../src/components/features/chrome/hub-nav.tsx)                                                                                                                                  |
+| home tiles     | เครื่องมือ quick-action grid on a role home (today: `/sa`)                                                                                        | [sa-tools.tsx](../src/components/features/sa/sa-tools.tsx)                                                                                                                                    |
+| door chips     | icon-only 44px door row on top of a surface (spec 327 U6: `/procurement` + its sections; the ทั้งหมด grid on หน้าหลัก is the labeled rule-4 path) | [procurement-door-chips.tsx](../src/components/features/purchasing/procurement-door-chips.tsx) + [procurement-all-doors.tsx](../src/components/features/purchasing/procurement-all-doors.tsx) |
+| settings hub   | grouped section rows on `/settings`                                                                                                               | [sections.ts](../src/app/settings/sections.ts)                                                                                                                                                |
+| FAB            | floating action button — THE primary action of a screen (today: ถ่ายรูป)                                                                          | [camera-fab.tsx](../src/components/features/sa/camera-fab.tsx)                                                                                                                                |
+| card chips     | inline quick-action row on a list card (e.g. รูปถ่าย · ทีมงาน · คำขอซื้อ)                                                                         | `ActionChip` in [sa/page.tsx](../src/app/sa/page.tsx)                                                                                                                                         |
+| detail tabs    | segmented tab row inside a detail page                                                                                                            | [wp-detail-tabs.tsx](../src/components/features/work-packages/wp-detail-tabs.tsx)                                                                                                             |
+| back chip      | the ← up affordance in every `DetailHeader`                                                                                                       | [detail-header.tsx](../src/components/features/chrome/detail-header.tsx) + [back-href.ts](../src/lib/nav/back-href.ts)                                                                        |
+| switcher chip  | context switcher chip + sheet (today: ไซต์ปัจจุบัน on `/sa`, spec 292)                                                                            | [current-project-switcher.tsx](../src/components/features/sa/current-project-switcher.tsx)                                                                                                    |
+| nudge          | conditional entry banner — renders only while actionable (count > 0)                                                                              | e.g. the คำขอสมัคร nudge in [sa/page.tsx](../src/app/sa/page.tsx)                                                                                                                             |
 
 Role variants read "SA bottom tabs", "PM hub strip" — matching the code
 constants (`SA_TABS`, `PM_HUB_NAV`).
@@ -340,15 +341,15 @@ constants (`SA_TABS`, `PM_HUB_NAV`).
    in 2+ files (§1).
 8. **Settings hub = reference data + account, never daily decisions**
    (spec 93). Daily decisions live on tabs / home surfaces. _Procurement
-   exception (spec 323):_ for the procurement tiers the `/procurement` STR hub
-   is THE door to their reference data (แคตตาล็อก, ผู้ขาย, อุปกรณ์, …, as
-   ขอบเขต/ทรัพยากร doors) — U4 removed the ข้อมูลหลัก + ค่าใช้จ่าย rows from
-   procurement's ตั้งค่า (sections.ts gates them off `isProcurementTier`), and
-   their ตั้งค่า tab no longer claims those routes as sub-surfaces
-   (`PROCUREMENT_SETTINGS_TAB` match = `/profile` only — a hub door is a leaf,
-   rule-1 spec-19 acceptance). ทีมช่าง (roster/payroll/labor-rates) stays
-   dual-homed by design. Other roles' settings view + tab matches are
-   unchanged — rule 8 still governs them.
+   exception (spec 323 → 327):_ for the procurement tiers the `/procurement`
+   surfaces are THE door to their reference data — since spec 327 U6c as
+   icon **door chips** on top of หน้าหลัก + each S/T/R section page (the
+   section text grids retired; the ทั้งหมด labeled grid on หน้าหลัก is the
+   rule-4 labeled path). ตั้งค่า stays shrunk (sections.ts
+   `isProcurementTier`) and `PROCUREMENT_SETTINGS_TAB` match = `/profile`
+   only; the หน้าหลัก tab claims `/requests` (U6b strand fix). ทีมช่าง
+   (roster/payroll/labor-rates) stays dual-homed by design. Other roles'
+   settings view + tab matches are unchanged — rule 8 still governs them.
 9. **One FAB per screen**, reserved for that screen's primary action.
 10. **Every nav change updates `site-map.md` in the same unit** (that doc's own
     contract) — its route tables carry the per-route "Back →" mapping; the

@@ -12,7 +12,6 @@ import { ClipboardList, FileStack, Forklift, Package, ShoppingCart, Truck } from
 
 import {
   buildDashboardCards,
-  buildProcurementProjectStatus,
   effectiveDoorProjectId,
   parseProcurementSection,
   procurementDoorHref,
@@ -20,7 +19,6 @@ import {
   visibleProcurementDoors,
   PROCUREMENT_STR_SECTIONS,
   type DashboardPrRow,
-  type HomeCountRow,
 } from "@/lib/purchasing/procurement-home";
 import {
   CATALOG_LABEL,
@@ -30,64 +28,10 @@ import {
 } from "@/lib/i18n/labels";
 
 const TODAY = "2026-07-16";
-const NAMES = new Map([
-  ["p1", "Alpha"],
-  ["p2", "Beta"],
-]);
-
-function row(
-  projectId: string | null,
-  status: HomeCountRow["status"],
-  eta: string | null = null,
-): HomeCountRow {
-  return { projectId, status, eta };
-}
-
-describe("buildProcurementProjectStatus", () => {
-  it("counts OPEN requests (active bands) per project, excluding done/closed", () => {
-    const rows = [
-      row("p1", "requested"), // awaiting_approval → open
-      row("p1", "approved"), // to_order → open
-      row("p1", "delivered"), // done → NOT open
-      row("p1", "cancelled"), // closed → NOT open
-      row("p2", "on_route"), // in_transit → open
-    ];
-    const out = buildProcurementProjectStatus(rows, NAMES, TODAY);
-    expect(out.find((p) => p.projectId === "p1")?.openCount).toBe(2);
-    expect(out.find((p) => p.projectId === "p2")?.openCount).toBe(1);
-  });
-
-  it("counts arrivals-today = in_transit rows due-or-overdue (eta<=today) or unknown eta", () => {
-    const rows = [
-      row("p1", "on_route", "2026-07-16"), // due today → arrival
-      row("p1", "purchased", "2026-07-10"), // overdue → arrival
-      row("p1", "purchased", null), // unknown eta → arrival (receive pile)
-      row("p1", "on_route", "2026-07-20"), // future → NOT today
-      row("p1", "approved", "2026-07-16"), // to_order (not in_transit) → NOT an arrival
-    ];
-    const p1 = buildProcurementProjectStatus(rows, NAMES, TODAY).find((p) => p.projectId === "p1");
-    expect(p1?.arrivalsToday).toBe(3);
-    expect(p1?.openCount).toBe(5); // all five are active bands
-  });
-
-  it("drops project-level (null projectId) rows and unresolved-name projects, sorts by name", () => {
-    const rows = [
-      row(null, "requested"), // store-bound / project-level → excluded from the per-project strip
-      row("p2", "requested"),
-      row("p1", "requested"),
-      row("p9", "requested"), // p9 has no resolved name → dropped
-    ];
-    const out = buildProcurementProjectStatus(rows, NAMES, TODAY);
-    expect(out.map((p) => p.projectId)).toEqual(["p1", "p2"]); // name-sorted Alpha, Beta; null + p9 gone
-    expect(out.map((p) => p.name)).toEqual(["Alpha", "Beta"]);
-  });
-});
-
 // Spec 327 U1 — the dashboard cards ARE the selection, so the card list comes
 // from the caller's FULL RLS projects read (procurement reads all projects), a
 // LEFT-join over PR rows: a zero-open-PR project still renders a zero-count
-// card (the #621 gap — buildProcurementProjectStatus derives from PR rows and
-// vanishes such projects; that stays strip-only until U6 retires it).
+// card (the #621 gap — closed; the strip that vanished them retired in U6c).
 describe("buildDashboardCards", () => {
   const PROJECTS = [
     { id: "p1", name: "Alpha" },
@@ -188,24 +132,6 @@ describe("PROCUREMENT_STR_SECTIONS", () => {
     const time = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "time");
     expect(scope?.doors.some((d) => d.href === "/requests")).toBe(true);
     expect(time?.doors.some((d) => d.href === "/requests/orders")).toBe(true);
-  });
-
-  // Spec 326 — WP-list reachability. The STR spine dropped the pre-323 โครงการ
-  // tab and the hub links /requests?project=, so procurement (a first-class
-  // read-only viewer of /projects/[id], spec 173) had NO discoverable entry to
-  // any /projects surface. One shared door restores it. Shared, NOT 📍 project
-  // scope: a project door hides while 2+ projects have no lens selection, which
-  // would re-open the gap in the hub's default state.
-  it("puts a shared โครงการ door under Scope right after จัดซื้อ (spec 326)", () => {
-    const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
-    const idx = scope?.doors.findIndex((d) => d.key === "projects") ?? -1;
-    const door = scope?.doors[idx];
-    expect(door?.label).toBe("โครงการ");
-    expect(door?.href).toBe("/projects");
-    expect(door?.scope).toBe("shared");
-    expect(scope?.doors[idx - 1]?.key).toBe("requests");
-    // an active project must never leak onto the hub target (shared passthrough)
-    expect(procurementDoorHref(door!, "p1")).toBe("/projects");
   });
 
   it("labels the /catalog door with CATALOG_LABEL (term SSOT — the catalog is ทะเบียนวัสดุ everywhere)", () => {

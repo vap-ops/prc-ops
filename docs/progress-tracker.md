@@ -7953,3 +7953,25 @@ U6b COMPLETE (2nd revised-U6 slice) — code-only.
   Stale test comment fixed. ❓ answered: /requests/orders + /requests/reports
   lighting หน้าหลัก via the /requests prefix is accepted-cosmetic until U6b2
   threads their real back chips.
+
+## Spec 327 U6c — grid retirement + ทั้งหมด grid + spec-326 fold (2026-07-18)
+
+U6c COMPLETE (final revised-U6 slice) — code-only.
+
+- Section pages = door chips on top + project view ONLY: text grids, the
+  per-project strip, <ProjectLens>, and the section-page คำขอสมัคร nudge all
+  retired (dashboard = selection + alerts + nudge). 📍 chips now resolve via
+  the SELECTION cookie against the full RLS project list (also retires the
+  strip's open-PR-only project source).
+- New <ProcurementAllDoors>: collapsed ทั้งหมด labeled grid on หน้าหลัก — the
+  rule-4 labeled path to every door (3 STR groups, icon+label rows, 📍 via
+  selection, managerOnly filtered). RED-first RTL.
+- spec-326 โครงการ door FOLDED (D5): dashboard card side-doors + the S/T/R
+  header project-name door subsume it; pin deliberately deleted.
+- buildProcurementProjectStatus + ProcurementProjectStatus deleted (strip
+  retired); deliberate pin removals documented; module headers updated.
+- Docs: ui-conventions §12 gains the "door chips" row + rule-8 procurement
+  wording updated; site-map /procurement + [section] rows rewritten.
+- Verified: suite 4220; live probes — scope/time grids+lens+nudge GONE, chips
+  render on top, views intact, dashboard ทั้งหมด labeled grid live, โครงการ
+  door absent.
