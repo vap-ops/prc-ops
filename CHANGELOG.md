@@ -1,3 +1,9 @@
+# [0.140.0](https://github.com/VAP-Solution/prc-ops/compare/v0.139.0...v0.140.0) (2026-07-18)
+
+### Features
+
+- **nav:** honor ?from on multi-parent doors + fix the /requests strand (spec 327 U6b) ([#633](https://github.com/VAP-Solution/prc-ops/issues/633)) ([ff680dd](https://github.com/VAP-Solution/prc-ops/commit/ff680dd05e4443eaed94ac2127bf51d2d060453e))
+
 # [0.139.0](https://github.com/VAP-Solution/prc-ops/compare/v0.138.1...v0.139.0) (2026-07-18)
 
 ### Features
