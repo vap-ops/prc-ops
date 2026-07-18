@@ -20,7 +20,7 @@ import { withBackFrom } from "@/lib/nav/back-href";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
-import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
+import { UNDATED_WP_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import {
   buildTimeline,
   barFor,
@@ -577,7 +577,7 @@ export function ScheduleGantt({
                           </button>
                         ) : a ? null : (
                           <span className="text-ink-muted absolute top-1/2 left-2 -translate-y-1/2 text-[10px]">
-                            ยังไม่กำหนดวันที่
+                            {UNDATED_WP_LABEL}
                           </span>
                         )}
                         {/* Spec 255 — photo-evidence activity strip: under the

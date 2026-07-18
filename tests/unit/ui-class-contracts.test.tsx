@@ -90,13 +90,24 @@ describe("absolute-centering contract (#236 bug class)", () => {
 // keeps zoom while still killing the vertical jump.
 // ---------------------------------------------------------------------------
 
-/** String literals that scroll horizontally but never lock the touch gesture
- *  to that axis (or lock it without preserving pinch-zoom) — each is a row
- *  that can bleed a horizontal swipe into a vertical page-scroll jump. */
+/** String literals that scroll horizontally but never declare an explicit
+ *  touch-action — each is a row that can bleed a horizontal swipe into a
+ *  vertical page-scroll jump. Two compliant forms:
+ *  - `[touch-action:pan-x_pinch-zoom]` — ROW STRIPS (the default): locks the
+ *    gesture horizontal so the vertical component never jumps the page.
+ *  - `[touch-action:manipulation]` — TALL 2-axis surfaces (spec 327 U4
+ *    procurement timeline): pan-x-only would dead-zone vertical page
+ *    scrolling across a viewport-filling surface, so both pans stay enabled
+ *    (diagonal drift is expected on a gantt, exactly like a map) while
+ *    pinch-zoom is preserved (the WCAG 1.4.10 half of the contract). */
 export function scrollRowTouchActionViolations(content: string): string[] {
   const out: string[] = [];
   for (const [lit] of content.matchAll(STRING_LITERALS)) {
-    if (lit.includes("overflow-x-auto") && !lit.includes("touch-action:pan-x_pinch-zoom"))
+    if (
+      lit.includes("overflow-x-auto") &&
+      !lit.includes("touch-action:pan-x_pinch-zoom") &&
+      !lit.includes("touch-action:manipulation")
+    )
       out.push(lit);
   }
   return out;
@@ -114,6 +125,13 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
     expect(
       scrollRowTouchActionViolations(
         'className="flex overflow-x-auto gap-2 [touch-action:pan-x_pinch-zoom]"',
+      ),
+    ).toHaveLength(0);
+    // manipulation = pan-x + pan-y + pinch-zoom — the tall-2-axis-surface form
+    // (spec 327 U4): horizontal pan enabled (the bug class), pinch preserved.
+    expect(
+      scrollRowTouchActionViolations(
+        'className="relative overflow-x-auto border [touch-action:manipulation]"',
       ),
     ).toHaveLength(0);
     expect(scrollRowTouchActionViolations('className="flex gap-2"')).toHaveLength(0);

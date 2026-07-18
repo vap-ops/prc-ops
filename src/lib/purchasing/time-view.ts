@@ -11,11 +11,11 @@
 import { anchorWorkPackageId, selectLateRisk, type LateRiskRow } from "./late-risk";
 import { requestBand } from "./request-bands";
 
-/** U4 adds "timeline" to this union — one switcher, three sub-views. */
-export type TimeView = "late" | "week";
+/** One switcher, three sub-views (U4 added ไทม์ไลน์). */
+export type TimeView = "late" | "week" | "timeline";
 
 export function parseTimeView(value: string | null | undefined): TimeView {
-  return value === "week" ? "week" : "late";
+  return value === "week" || value === "timeline" ? value : "late";
 }
 
 /** The PR fields the เวลา lists render (no ฿ — PR_LIST_COLUMNS subset). */

@@ -5,11 +5,12 @@
 
 import Link from "next/link";
 
+import { ProcurementTimeline } from "@/components/features/purchasing/procurement-timeline";
 import { TimeLateRiskList } from "@/components/features/purchasing/time-late-risk-list";
 import { TimeWeekRadar } from "@/components/features/purchasing/time-week-radar";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
-import { LATE_RISK_LABEL, THIS_WEEK_LABEL } from "@/lib/i18n/labels";
+import { LATE_RISK_LABEL, THIS_WEEK_LABEL, TIMELINE_LABEL } from "@/lib/i18n/labels";
 import {
   buildLateRiskList,
   buildWeekRadar,
@@ -25,6 +26,7 @@ import { ProjectPickerPrompt } from "./project-picker-prompt";
 const PILLS: ReadonlyArray<{ key: TimeSubView; label: string }> = [
   { key: "late", label: LATE_RISK_LABEL },
   { key: "week", label: THIS_WEEK_LABEL },
+  { key: "timeline", label: TIMELINE_LABEL },
 ];
 
 function WeekArm({
@@ -95,6 +97,8 @@ export async function TimeView({ view }: { view: TimeSubView }) {
 
       {view === "week" ? (
         <WeekArm projectId={selected} wps={wps} prRows={prRows} />
+      ) : view === "timeline" ? (
+        <ProcurementTimeline wps={wps} prRows={prRows} todayIso={bangkokTodayIso()} />
       ) : (
         <TimeLateRiskList items={buildLateRiskList(prRows, wps)} />
       )}
