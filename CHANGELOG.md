@@ -1,3 +1,9 @@
+# [0.144.0](https://github.com/VAP-Solution/prc-ops/compare/v0.143.0...v0.144.0) (2026-07-18)
+
+### Features
+
+- **team:** spec 328 U2 — per-firm subcon onboarding QR + bank-exempt register flow ([#638](https://github.com/VAP-Solution/prc-ops/issues/638)) ([5a87f80](https://github.com/VAP-Solution/prc-ops/commit/5a87f800a515f09e12e348778527d9eb19d5609c))
+
 # [0.143.0](https://github.com/VAP-Solution/prc-ops/compare/v0.142.0...v0.143.0) (2026-07-18)
 
 ### Features
