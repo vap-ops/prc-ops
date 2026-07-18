@@ -13,12 +13,20 @@ import { requireRole } from "@/lib/auth/require-role";
 import { SUPPLY_PLAN_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { ORDERING_TEMPLATES_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: ORDERING_TEMPLATES_LABEL };
 
-export default async function OrderingTemplatesPage() {
+export default async function OrderingTemplatesPage({
+  searchParams,
+}: {
+  // Spec 327 U6b — multi-parent page (settings hub + /procurement chip row):
+  // the back chip follows the ?from referrer (nav-coherence Decision 1).
+  searchParams: Promise<{ from?: string | string[] }>;
+}) {
+  const { from } = await searchParams;
   const ctx = await requireRole(SUPPLY_PLAN_ROLES);
 
   const supabase = await createClient();
@@ -32,7 +40,7 @@ export default async function OrderingTemplatesPage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/settings" backLabel="กลับไปตั้งค่า">
+      <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="กลับไปตั้งค่า">
         <h1 className="text-title text-ink font-bold tracking-tight">{ORDERING_TEMPLATES_LABEL}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>

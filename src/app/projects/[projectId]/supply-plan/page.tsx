@@ -22,6 +22,7 @@ import {
 } from "@/lib/catalog/categories";
 import { resolveWorkCategoryScopes } from "@/lib/catalog/scoped-categories";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { projectHref, supplyPlanHref } from "@/lib/nav/project-paths";
 import {
@@ -46,7 +47,7 @@ import {
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ plan?: string }>;
+  searchParams: Promise<{ plan?: string; from?: string | string[] }>;
 }
 
 export const metadata = { title: SUPPLY_PLAN_LABEL };
@@ -60,7 +61,7 @@ const PLAN_DATE_FMT = new Intl.DateTimeFormat("th-TH-u-ca-gregory", {
 
 export default async function SupplyPlanPage({ params, searchParams }: PageProps) {
   const { projectId } = await params;
-  const { plan: planParam } = await searchParams;
+  const { plan: planParam, from } = await searchParams;
   const ctx = await requireRole(SUPPLY_PLAN_ROLES);
   const supabase = await createClient();
   // Spec 181: procurement plans in the PM's stead (add/submit), but the
@@ -299,7 +300,10 @@ export default async function SupplyPlanPage({ params, searchParams }: PageProps
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref={projectHref(project.id)} backLabel="กลับไปโครงการ">
+      <DetailHeader
+        backHref={safeBackHref(from, projectHref(project.id))}
+        backLabel="กลับไปโครงการ"
+      >
         <div>
           <p className="text-meta text-ink-secondary font-mono">{project.code}</p>
           <h1 className="text-title text-ink font-bold tracking-tight">

@@ -148,7 +148,11 @@ const PROCUREMENT_SETTINGS_TAB: TabItem = {
 };
 
 const PROCUREMENT_STR_SPINE: ReadonlyArray<TabItem> = [
-  { label: "หน้าหลัก", href: "/procurement", icon: Home },
+  // Spec 327 U6b: หน้าหลัก claims /requests — since the จัดซื้อ tab dropped
+  // (323 U3b) the queue lit no tab and had no back chip (a strand); the queue
+  // is home's ทุกโครงการ world, so the home tab shows where you are and is the
+  // way back. Longest-prefix still lights section tabs on their own routes.
+  { label: "หน้าหลัก", href: "/procurement", icon: Home, match: ["/requests"] },
   // Spec 327 U6 icon SSOT: ListChecks (scope = the work list) — ShoppingCart
   // is จัดซื้อ's glyph everywhere else, and the ขอบเขต page now hosts a จัดซื้อ
   // icon chip; the tab and the door must not share a glyph.

@@ -7924,3 +7924,22 @@ U6a COMPLETE (first of 3 revised-U6 slices; revision recorded in the plan doc).
   Answered: displayName-keyed uniqueness fails-safe (lucide sets displayName;
   vitest not minified); ?from on chip targets without back chips is inert +
   correct-if-ever-honored.
+
+## Spec 327 U6b — back fixes (2026-07-18)
+
+U6b COMPLETE (2nd revised-U6 slice) — code-only.
+
+- 4 hardcoded-back pages now honor ?from via safeBackHref (guard-pinned in
+  STATIC_MULTI_PARENT, RED-first ×6→scoped to 4): ordering-templates,
+  labor-rates, subcontractors (→/settings fallbacks), supply-plan (→project
+  fallback). ⭐ COLLISION found at gate: /requests/orders + /requests/reports
+  use ?from/?to as DATE-RANGE params (the payroll class) → they + payroll =
+  U6b2 (range rename from/to→start/end, one danger-held PR).
+- /requests strand fixed: procurement spine's หน้าหลัก tab claims /requests via
+  match (queue = home's ทุกโครงการ world). The 323-U3b "lights nothing" pin
+  deliberately rewritten (superseded by the operator's back-button audit);
+  other door leaves keep the lights-nothing acceptance (/catalog re-pinned).
+- Verified: suite 4221; live probes — ?from back to scope/resources honored,
+  bare loads keep fallbacks, evil ?from rejected (open-redirect guard),
+  /requests lights หน้าหลัก (DOM), labor-rates correctly requireRole-bounced
+  for base procurement.
