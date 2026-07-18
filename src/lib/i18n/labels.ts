@@ -340,7 +340,9 @@ export const MANAGE_TAXONOMY_LABEL = "จัดการหมวดหมู่
 
 // Spec 245 U4 — ordering-plan templates (เทมเพลตแผนจัดหา): the 2 seeded
 // qty-only TFM templates, edited at /settings/ordering-templates. Term SSOT for
-// the settings-hub link, the list page title, and the editor's back label.
+// the settings-hub link, the list page title, the editor's back label, and the
+// procurement hub's ขอบเขต door (that door hardcoded "แผนสั่งซื้อ" until
+// 2026-07-18 — ambiguous, and it disagreed with its own page).
 // "เทมเพลต" matches the clone button's wording on the supply-plan page (U2).
 export const ORDERING_TEMPLATES_LABEL = "เทมเพลตแผนจัดหา";
 
@@ -534,8 +536,8 @@ export const PROJECT_COSTS_LABEL = "ต้นทุนโครงการ";
 
 // Spec 323 follow-up — the per-project supply plan (แผนจัดหา). One term
 // everywhere it appears: the supply-plan page title/heading, the project chip
-// aria-label, and the procurement hub Scope door. Distinct from แผนสั่งซื้อ
-// (ordering templates) — the plan vs the template that seeds it.
+// aria-label, and the procurement hub Scope door. Distinct from
+// ORDERING_TEMPLATES_LABEL — the project's plan vs the template that seeds it.
 export const SUPPLY_PLAN_LABEL = "แผนจัดหา";
 
 // Feedback 26425c1e/17cba555 — the procurement worklist product-name search.

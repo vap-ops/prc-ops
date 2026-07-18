@@ -19,7 +19,12 @@ import {
   PROCUREMENT_STR_SECTIONS,
   type HomeCountRow,
 } from "@/lib/purchasing/procurement-home";
-import { CATALOG_LABEL, PROJECT_COSTS_LABEL, SUPPLY_PLAN_LABEL } from "@/lib/i18n/labels";
+import {
+  CATALOG_LABEL,
+  ORDERING_TEMPLATES_LABEL,
+  PROJECT_COSTS_LABEL,
+  SUPPLY_PLAN_LABEL,
+} from "@/lib/i18n/labels";
 
 const TODAY = "2026-07-16";
 const NAMES = new Map([
@@ -114,6 +119,12 @@ describe("PROCUREMENT_STR_SECTIONS", () => {
     const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
     const catalog = scope?.doors.find((d) => d.href === "/catalog");
     expect(catalog?.label).toBe(CATALOG_LABEL);
+  });
+
+  it("labels the ordering-templates door with ORDERING_TEMPLATES_LABEL (term SSOT — the tile must match its own page, and read as a TEMPLATE not a plan)", () => {
+    const scope = PROCUREMENT_STR_SECTIONS.find((s) => s.key === "scope");
+    const templates = scope?.doors.find((d) => d.key === "ordering-templates");
+    expect(templates?.label).toBe(ORDERING_TEMPLATES_LABEL);
   });
 
   it("puts แผนจัดหา under Scope as a project-scope door with the SUPPLY_PLAN_LABEL SSOT", () => {
