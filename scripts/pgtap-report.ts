@@ -60,6 +60,36 @@ export function partitionResults(results: readonly FileResult[], knownRed: Known
   };
 }
 
+export interface PlanMismatch {
+  planned: number;
+  ran: number;
+}
+
+/**
+ * Compare a file's TAP plan header (`1..N`, emitted by plan()) against the test
+ * lines it actually produced. pgTAP's finish() reports a mismatch only as a
+ * `# Looks like you planned N tests but ran M` diagnostic, which the ok/not-ok
+ * counters never see — so a file that silently loses (or grows) tests kept the
+ * gate green. Computed from the header, not the diagnostic wording, so it also
+ * catches a file whose finish() never ran. Null = no plan header, or plan met.
+ */
+export function detectPlanMismatch(lines: readonly string[]): PlanMismatch | null {
+  let planned: number | null = null;
+  let ran = 0;
+  for (const line of lines) {
+    if (planned === null) {
+      const m = /^1\.\.(\d+)$/.exec(line.trim());
+      if (m) {
+        planned = Number.parseInt(m[1] ?? "", 10);
+        continue;
+      }
+    }
+    if (line.startsWith("ok ") || line.startsWith("not ok ")) ran++;
+  }
+  if (planned === null || planned === ran) return null;
+  return { planned, ran };
+}
+
 interface KnownRedManifest {
   files?: Array<{ file?: unknown; maxFailures?: unknown }>;
 }

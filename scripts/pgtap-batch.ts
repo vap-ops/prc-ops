@@ -186,6 +186,82 @@ export function hasTopLevelDo(statements: string[]): boolean {
   });
 }
 
+/**
+ * Rewrite a WITH-led statement whose terminal top-level clause is a SELECT so its
+ * result set is collected: `with … select …` → `with … insert into _tap_buf(line)
+ * select …`. Postgres permits an INSERT under a top-level WITH even when a CTE
+ * modifies data — which is exactly the pgTAP idiom this rescues (`with u as
+ * (update … returning 1) select is(count(*), …)`): before this, the assert RAN but
+ * its TAP line fell out of the single collected result set, so 261/288 silently
+ * reported fewer tests than planned. Returns null when the statement is not
+ * WITH-led or its terminal clause is not a depth-0 SELECT (those run verbatim).
+ */
+export function rewriteWithSelect(stmt: string): string | null {
+  if (!normalizeForKeyword(stmt).startsWith("with ")) return null;
+  let depth = 0;
+  let i = 0;
+  while (i < stmt.length) {
+    const ch = stmt[i];
+    const two = stmt.slice(i, i + 2);
+    if (two === "--") {
+      const nl = stmt.indexOf("\n", i);
+      i = nl < 0 ? stmt.length : nl + 1;
+      continue;
+    }
+    if (two === "/*") {
+      const end = stmt.indexOf("*/", i + 2);
+      i = end < 0 ? stmt.length : end + 2;
+      continue;
+    }
+    if (ch === "'") {
+      // E'…' strings also escape with backslash; plain '…' only with ''.
+      const isEString = /e$/i.test(stmt.slice(0, i)) && !/[\w$]e$/i.test(stmt.slice(0, i));
+      i++;
+      while (i < stmt.length) {
+        if (isEString && stmt[i] === "\\") i += 2;
+        else if (stmt[i] === "'" && stmt[i + 1] === "'") i += 2;
+        else if (stmt[i] === "'") break;
+        else i++;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      const end = stmt.indexOf('"', i + 1);
+      i = end < 0 ? stmt.length : end + 1;
+      continue;
+    }
+    if (ch === "$") {
+      // Tag grammar: $$ or $tag$ where tag starts with a letter/underscore and
+      // may CONTAIN digits ($q1$ is legal).
+      const m = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/.exec(stmt.slice(i));
+      if (m) {
+        const tag = m[0];
+        const end = stmt.indexOf(tag, i + tag.length);
+        i = end < 0 ? stmt.length : end + tag.length;
+        continue;
+      }
+    }
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (depth === 0) {
+      const prev = i === 0 ? " " : (stmt[i - 1] ?? " ");
+      if (/[\s),]/.test(prev)) {
+        // A depth-0 DML keyword means the WITH's main query is INSERT/UPDATE/
+        // DELETE/MERGE — a later depth-0 `select` (e.g. INSERT … SELECT's
+        // source) is NOT a terminal result query. Splicing there would emit
+        // invalid SQL; leave the statement verbatim.
+        if (/^(insert|update|delete|merge)\b/i.test(stmt.slice(i))) return null;
+        if (/^select\b/i.test(stmt.slice(i))) {
+          return `${stmt.slice(0, i)}insert into _tap_buf(line) ${stmt.slice(i)}`;
+        }
+      }
+    }
+    i++;
+  }
+  return null;
+}
+
 // Middle statements (between begin and rollback), rewritten so every assertion
 // `select` collects into `_tap_buf` and everything else runs verbatim. Shared by
 // the batch wrapper and the raw fallback so the two agree statement-for-statement.
@@ -196,9 +272,14 @@ function collectStatements(statements: string[]): string[] {
     if (isBegin(k) || isRollback(k)) continue;
     if (k.startsWith("select ")) {
       out.push(`insert into _tap_buf(line) ${stmt.replace(/;\s*$/, "")};`);
-    } else {
-      out.push(stmt);
+      continue;
     }
+    const withRewrite = rewriteWithSelect(stmt);
+    if (withRewrite !== null) {
+      out.push(withRewrite);
+      continue;
+    }
+    out.push(stmt);
   }
   return out;
 }

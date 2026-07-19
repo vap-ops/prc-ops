@@ -6,7 +6,7 @@
 -- Data asserts are scoped to THIS file's fixture ids (spec 310 lesson, recurred
 -- 2026-07-19 in #652): never a bare count(*) over a table real uploads touch.
 begin;
-select plan(33);
+select plan(40);
 
 -- ── registry structure ───────────────────────────────────────
 select has_table('public', 'company_document_categories', 'categories table exists');

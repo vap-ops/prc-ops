@@ -1,5 +1,5 @@
 begin;
-select plan(22);
+select plan(27);
 
 -- ============================================================================
 -- Spec 279 U2 / ADR 0079 — crew-lead adds a member → staging → PM confirms.

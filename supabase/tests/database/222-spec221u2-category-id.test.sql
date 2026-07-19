@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(17);
 
 -- ============================================================================
 -- Spec 221 U2 — category_id becomes the source of truth; the item_category enum

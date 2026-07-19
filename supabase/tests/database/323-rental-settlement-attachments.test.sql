@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(20);
 
 -- ============================================================================
 -- Spec 323 U1d — rental_settlement_attachments: the vendor tax-invoice / payment

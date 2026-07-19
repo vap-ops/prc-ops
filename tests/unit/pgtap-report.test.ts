@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { loadKnownRed, partitionResults, type FileResult } from "../../scripts/pgtap-report";
+import {
+  detectPlanMismatch,
+  loadKnownRed,
+  partitionResults,
+  type FileResult,
+} from "../../scripts/pgtap-report";
 
 // The pgTAP runner hits the ONE shared remote DB and carries a small, pinned set
 // of pre-existing red files with a per-file failing-assertion budget (the
@@ -78,6 +83,68 @@ describe("partitionResults", () => {
     expect(v.ok).toBe(false);
     expect(v.unexpectedFailures).toEqual(["999-new.test.sql"]);
     expect(v.expectedFailures).toEqual(["200-known.test.sql"]);
+  });
+});
+
+// A file whose `1..N` plan disagrees with the number of test lines it actually
+// emitted has silently lost (or silently grown) coverage — pgTAP's finish()
+// prints only a "# Looks like you planned N tests but ran M" DIAGNOSTIC, which
+// the ok/not-ok counters never see, so the gate stayed green (279 precedent:
+// ran 21 under plan(20); 222/323 shipped running FEWER tests than planned).
+// detectPlanMismatch computes the mismatch from the plan header itself.
+describe("detectPlanMismatch", () => {
+  it("returns null when the plan matches the emitted test lines", () => {
+    expect(detectPlanMismatch(["1..2", "ok 1 - a", "ok 2 - b"])).toBeNull();
+  });
+
+  it("flags a file that ran FEWER tests than planned (silent coverage loss)", () => {
+    expect(detectPlanMismatch(["1..3", "ok 1 - a", "ok 2 - b"])).toEqual({ planned: 3, ran: 2 });
+  });
+
+  it("flags a file that ran MORE tests than planned", () => {
+    expect(detectPlanMismatch(["1..1", "ok 1 - a", "not ok 2 - b"])).toEqual({
+      planned: 1,
+      ran: 2,
+    });
+  });
+
+  it("counts not-ok and SKIP lines toward the plan, like TAP does", () => {
+    expect(
+      detectPlanMismatch(["1..3", "ok 1 - a", "not ok 2 - b", "ok 3 # SKIP no fixture"]),
+    ).toBeNull();
+  });
+
+  it("ignores diagnostics and non-test lines (no double counting)", () => {
+    expect(
+      detectPlanMismatch([
+        "1..2",
+        "ok 1 - a",
+        "# a diagnostic mentioning ok 99 - decoy",
+        "ok 2 - b",
+        "# Looks like you planned 18 tests but ran 17",
+      ]),
+    ).toBeNull();
+  });
+
+  it("returns null when there is no plan header to check against", () => {
+    expect(detectPlanMismatch(["ok 1 - a", "ok 2 - b"])).toBeNull();
+  });
+
+  it("uses the FIRST plan header if several appear", () => {
+    expect(detectPlanMismatch(["1..1", "ok 1 - a", "1..5"])).toBeNull();
+  });
+
+  it("handles a TRAILING plan header (no_plan/finish shape) — lines before it count", () => {
+    expect(detectPlanMismatch(["ok 1 - a", "ok 2 - b", "1..2"])).toBeNull();
+    expect(detectPlanMismatch(["ok 1 - a", "1..3"])).toEqual({ planned: 3, ran: 1 });
+  });
+
+  it("treats 1..0 with no tests as a met plan", () => {
+    expect(detectPlanMismatch(["1..0"])).toBeNull();
+  });
+
+  it("counts a not-ok TODO line toward the plan", () => {
+    expect(detectPlanMismatch(["1..1", "not ok 1 - x # TODO later"])).toBeNull();
   });
 });
 

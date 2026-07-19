@@ -10,6 +10,7 @@ import {
   BODY_ERROR,
   hasTopLevelDo,
   parseChunkRows,
+  rewriteWithSelect,
   splitStatements,
 } from "../../scripts/pgtap-batch";
 
@@ -170,6 +171,107 @@ describe("buildRawFileSql (unchanged per-file fallback, parity with the old runn
 
   it("refuses a COMMIT here too", () => {
     expect(() => buildRawFileSql(splitStatements("begin; commit; rollback;"))).toThrow(/COMMIT/);
+  });
+});
+
+// A pgTAP assert written as a data-modifying CTE — `with u as (update … returning 1)
+// select is(…)` — executed fine but its TAP line was DISCARDED: collectStatements
+// only rewrote statements STARTING with `select`, so the CTE assert's result set
+// fell out of the single collected result. 261/288 silently emitted 19/22 and 1/5
+// tests for months. The fix rewrites `with … select` into a top-level-WITH INSERT
+// (`with … insert into _tap_buf(line) select …`), which Postgres permits even when
+// the CTE modifies data. A with-led statement whose terminal clause is NOT a
+// depth-0 select stays verbatim.
+describe("rewriteWithSelect", () => {
+  it("rewrites a data-modifying-CTE assert so its TAP line is collected", () => {
+    const stmt =
+      "with u as (update t set s='x' where id=1 returning 1)\nselect is((select count(*)::int from u), 1, 'desc');";
+    expect(rewriteWithSelect(stmt)).toBe(
+      "with u as (update t set s='x' where id=1 returning 1)\ninsert into _tap_buf(line) select is((select count(*)::int from u), 1, 'desc');",
+    );
+  });
+
+  it("handles multiple CTEs and WITH RECURSIVE", () => {
+    const stmt = "with recursive a as (select 1), b as (select 2) select ok(true, 'x');";
+    expect(rewriteWithSelect(stmt)).toBe(
+      "with recursive a as (select 1), b as (select 2) insert into _tap_buf(line) select ok(true, 'x');",
+    );
+  });
+
+  it("leaves a with-led statement whose terminal clause is not a select verbatim", () => {
+    const stmt = "with u as (select 1) update t set n = (select * from u);";
+    expect(rewriteWithSelect(stmt)).toBeNull();
+  });
+
+  it("is not fooled by 'select' inside string literals, comments, or CTE bodies", () => {
+    const stmt =
+      "with u as (update t set s='select decoy' where id=1 returning 1) -- select comment decoy\nselect ok(true, 'x');";
+    expect(rewriteWithSelect(stmt)).toBe(
+      "with u as (update t set s='select decoy' where id=1 returning 1) -- select comment decoy\ninsert into _tap_buf(line) select ok(true, 'x');",
+    );
+  });
+
+  it("is not fooled by dollar-quoted select decoys", () => {
+    const stmt = "with u as (select $tag$select decoy$tag$ as s) select ok(true, 'x');";
+    expect(rewriteWithSelect(stmt)).toBe(
+      "with u as (select $tag$select decoy$tag$ as s) insert into _tap_buf(line) select ok(true, 'x');",
+    );
+  });
+
+  it("returns null for a statement that does not start with WITH", () => {
+    expect(rewriteWithSelect("select ok(true, 'x');")).toBeNull();
+  });
+
+  it("bails on WITH-led DML — INSERT…SELECT's depth-0 select is NOT a terminal query", () => {
+    expect(rewriteWithSelect("with a as (select 1) insert into t select * from a;")).toBeNull();
+    expect(rewriteWithSelect("with a as (select 1) update t set n = 1;")).toBeNull();
+    expect(rewriteWithSelect("with a as (select 1) delete from t;")).toBeNull();
+  });
+
+  it("tracks dollar tags CONTAINING digits ($q1$ is legal Postgres)", () => {
+    expect(
+      rewriteWithSelect("with u as (select $q1$select ( decoy$q1$ as s) select ok(true, 'x');"),
+    ).toBe(
+      "with u as (select $q1$select ( decoy$q1$ as s) insert into _tap_buf(line) select ok(true, 'x');",
+    );
+  });
+
+  it("is not fooled by block comments or double-quoted identifiers", () => {
+    expect(
+      rewriteWithSelect(
+        "with u as (select 1 as \"select)col\") /* select ( decoy */ select ok(true, 'x');",
+      ),
+    ).toBe(
+      "with u as (select 1 as \"select)col\") /* select ( decoy */ insert into _tap_buf(line) select ok(true, 'x');",
+    );
+  });
+
+  it("survives a backslash-escaped quote in an E-string", () => {
+    expect(
+      rewriteWithSelect("with u as (select E'a\\'select ( decoy' as s) select ok(true, 'x');"),
+    ).toBe(
+      "with u as (select E'a\\'select ( decoy' as s) insert into _tap_buf(line) select ok(true, 'x');",
+    );
+  });
+
+  it("leaves a parenthesized terminal select verbatim (uncollected — not a pgTAP assert shape)", () => {
+    expect(rewriteWithSelect("with a as (select 1) (select 2) union (select 3);")).toBeNull();
+  });
+});
+
+describe("with-led asserts are collected by both transforms", () => {
+  const file =
+    "begin; with u as (update t set s='x' returning 1) select is((select count(*)::int from u), 1, 'd'); rollback;";
+
+  it("raw path collects the CTE assert", () => {
+    const sql = buildRawFileSql(splitStatements(file));
+    expect(sql).toContain("insert into _tap_buf(line) select is(");
+    expect(sql).toContain("with u as (update t set s='x' returning 1)");
+  });
+
+  it("batch path collects the CTE assert", () => {
+    const fn = buildFileFunctionSql("pg_temp._f0", "n0nce", splitStatements(file));
+    expect(fn).toContain("insert into _tap_buf(line) select is(");
   });
 });
 

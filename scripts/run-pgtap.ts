@@ -31,7 +31,13 @@ import {
   splitStatements,
   type ChunkEntry,
 } from "./pgtap-batch";
-import { loadKnownRed, partitionResults, type FileResult } from "./pgtap-report";
+import {
+  detectPlanMismatch,
+  loadKnownRed,
+  partitionResults,
+  type FileResult,
+  type PlanMismatch,
+} from "./pgtap-report";
 
 const TESTS_DIR = "supabase/tests/database";
 // Pinned pre-existing reds tolerated in CI (see scripts/pgtap-report.ts + ADR 0081).
@@ -136,6 +142,8 @@ interface TestRunResult {
   failures: number;
   output: string[];
   error?: string;
+  /** `1..N` plan disagrees with the emitted test count — silent coverage drift. */
+  planMismatch?: PlanMismatch;
 }
 
 // The unchanged single-file path: one CLI invocation for one file. Used for
@@ -196,7 +204,15 @@ function runTestRaw(file: string): TestRunResult {
       failures++;
     }
   }
-  return { file, passed: failures === 0, assertions, failures, output: lines };
+  const planMismatch = detectPlanMismatch(lines);
+  return {
+    file,
+    passed: failures === 0 && planMismatch === null,
+    assertions,
+    failures,
+    output: lines,
+    ...(planMismatch ? { planMismatch } : {}),
+  };
 }
 
 interface Fallback {
@@ -249,12 +265,14 @@ function runChunk(
       fallback.push({ file: pf.file, reason: pf.errored ? "errored" : "unaccounted" });
       continue;
     }
+    const planMismatch = detectPlanMismatch(pf.lines);
     accepted.push({
       file: pf.file,
-      passed: pf.failures === 0,
+      passed: pf.failures === 0 && planMismatch === null,
       assertions: pf.assertions,
       failures: pf.failures,
       output: pf.lines,
+      ...(planMismatch ? { planMismatch } : {}),
     });
   }
   return { accepted, fallback };
@@ -354,13 +372,28 @@ function main(): void {
   // red file fails the check; an allowlisted file that now passes is surfaced so
   // the quarantine list can be pruned. Fail-closed: a missing manifest tolerates
   // nothing.
+  const planMismatches = results.filter((r) => r.planMismatch);
+  if (planMismatches.length > 0) {
+    console.log(
+      `# FAIL — plan mismatch (${planMismatches.length}): ` +
+        planMismatches
+          .map((r) => `${r.file} (planned ${r.planMismatch?.planned}, ran ${r.planMismatch?.ran})`)
+          .join(", "),
+    );
+  }
+
   const knownRed = loadKnownRed(KNOWN_RED_MANIFEST);
   const fileResults: FileResult[] = results.map((r) => ({
     file: r.file,
     // A runner ERROR (transform/connection blip) is not a normal assertion red
     // and must never be masked by a file's budget — count it as infinite
-    // failures so an allowlisted file cannot swallow it.
-    failures: r.error ? Number.POSITIVE_INFINITY : r.failures,
+    // failures so an allowlisted file cannot swallow it. A plan mismatch is
+    // silent coverage drift, not a budgetable assertion red — same treatment.
+    // Coupling to note: this means known-red can only quarantine files that
+    // fail via `not ok` lines with their plan intact; a file that dies mid-run
+    // (emits fewer lines than planned) hard-fails regardless of allowlisting.
+    // That is deliberate — fix the file, don't pin a truncated run.
+    failures: r.error || r.planMismatch ? Number.POSITIVE_INFINITY : r.failures,
   }));
   const verdict = partitionResults(fileResults, knownRed);
 
