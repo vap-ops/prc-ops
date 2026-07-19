@@ -1,3 +1,9 @@
+# [0.156.0](https://github.com/VAP-Solution/prc-ops/compare/v0.155.0...v0.156.0) (2026-07-19)
+
+### Features
+
+- spec 331 §5 — super_admin document-type registry editor ([#658](https://github.com/VAP-Solution/prc-ops/issues/658)) ([fa049bb](https://github.com/VAP-Solution/prc-ops/commit/fa049bb77136a7db900f639241a1d41650ed1fc2)), closes [#657](https://github.com/VAP-Solution/prc-ops/issues/657)
+
 # [0.155.0](https://github.com/VAP-Solution/prc-ops/compare/v0.154.0...v0.155.0) (2026-07-19)
 
 ### Features
