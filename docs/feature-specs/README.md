@@ -324,6 +324,8 @@ for reading the spec itself.
 
 | 328 | Subcontractor-member onboarding QR (ทีมผู้รับเหมา) — DESIGN APPROVED 2026-07-18: per-firm QR on the /team เพิ่มช่างใหม่ sheet (สมัครเข้าทีม selector: ทีม PRC + one row per active contractor); member LINE-logs-in via `/register/technician?contractor=` → SA approves in /registrations → `workers` row with `contractor_id`, role technician, **no bank ever collected, pay-exempt** (day_rate 0, cost_confirmed_at NULL forever; firm is paid per WP, not per head). Muster/badges/daily-report work unchanged. U1 schema (invited_contractor_id + approve arm) · U2 mint/register UI · U3 queue chip + bank-hide · U4 pilot (ช่างอวย crew first). |
 
+| 329 | Company documents library (เอกสารบริษัท) — DESIGN APPROVED 2026-07-19: firm-level papers (หนังสือรับรองบริษัท, ภ.พ.20, company profile, bank letters) in ONE append-only supersede table `company_documents` (version = new row, tombstone retire) + private `company-docs` bucket + `/settings/company-docs` (expiry badges หมดอายุ/ใกล้หมดอายุ, version history, 7-day signed-URL share) + /accounting door. Manage = `ACCOUNTING_ROLES`; read = NEW `COMPANY_DOC_VIEW_ROLES` (back office + accounting + legal). U1 schema+bucket+RLS · U2 role set + UI. |
+
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30. (235 = account-deactivation draft, parked separately.
 267–269 rows land with their own PRs.)
