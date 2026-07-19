@@ -1074,3 +1074,22 @@ export const COMPANY_DOC_TITLE_LABEL = "ชื่อเอกสาร";
 export const COMPANY_DOC_NOTE_LABEL = "หมายเหตุ";
 export const COMPANY_DOC_FILE_LABEL = "ไฟล์เอกสาร";
 export const COMPANY_DOC_EMPTY_LABEL = "ยังไม่มีเอกสารบริษัท";
+
+// Spec 329 follow-up — upload picker affordance (operator feedback 2026-07-19).
+export const COMPANY_DOC_PICK_LABEL = "แตะเพื่อเลือกไฟล์";
+export const COMPANY_DOC_PICK_HINT = "PDF หรือรูปภาพ · ไม่เกิน 25MB";
+export const COMPANY_DOC_PICK_CHANGE_LABEL = "แตะเพื่อเปลี่ยนไฟล์";
+export const COMPANY_DOC_FILE_TOO_BIG = "ไฟล์ใหญ่เกิน 25MB กรุณาเลือกไฟล์ที่เล็กกว่า";
+// Spec 331 — document type registry (มาตรฐานเอกสารบริษัท).
+export const COMPANY_DOC_CATEGORY_LABEL = "หมวดเอกสาร";
+export const COMPANY_DOC_TYPE_LABEL = "ประเภทเอกสาร";
+export const COMPANY_DOC_TYPE_PLACEHOLDER = "เลือกประเภทเอกสาร";
+export const COMPANY_DOC_INSTANCE_LABEL = "รายละเอียด (เช่น ธนาคาร / โครงการ)";
+export const COMPANY_DOC_MISSING_HEADING = "ยังขาด";
+export const COMPANY_DOC_MISSING_HINT = "เอกสารที่บริษัทควรมีแต่ยังไม่ได้อัปโหลด";
+export const COMPANY_DOC_MISSING_NONE = "เอกสารที่จำเป็นครบแล้ว";
+export const COMPANY_DOC_TYPES_LABEL = "ตั้งค่าประเภทเอกสาร";
+export const COMPANY_DOC_TYPES_HINT = "หมวดและประเภทเอกสารบริษัท (เฉพาะผู้ดูแลระบบ)";
+export const COMPANY_DOC_DUPLICATE_ERROR = "มีเอกสารประเภทนี้อยู่แล้ว ใช้ปุ่มเวอร์ชันใหม่แทน";
+export const COMPANY_DOC_REQUIRED_BADGE = "ต้องมี";
+export const COMPANY_DOC_PICK_TYPE_FIRST = "กรุณาเลือกไฟล์ ประเภทเอกสาร และกรอกรายละเอียดให้ครบ";

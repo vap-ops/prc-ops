@@ -11,6 +11,8 @@ import { CompanyDocsView } from "@/components/features/company-docs/company-docs
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES, COMPANY_DOC_VIEW_ROLES } from "@/lib/auth/role-home";
 import { listCompanyDocuments } from "@/lib/company-docs/list-documents";
+import { listDocumentRegistry } from "@/lib/company-docs/list-registry";
+import { groupTypesByCategory, missingRequiredTypes } from "@/lib/company-docs/registry";
 import { bangkokTodayIso } from "@/lib/dates";
 import { COMPANY_DOCS_LABEL } from "@/lib/i18n/labels";
 import { COMPANY_DOCS_BUCKET } from "@/lib/storage/buckets";
@@ -22,9 +24,23 @@ export const metadata = { title: "เอกสารบริษัท" };
 export default async function CompanyDocsPage() {
   const ctx = await requireRole(COMPANY_DOC_VIEW_ROLES);
 
-  const docs = await listCompanyDocuments();
+  const [docs, registry] = await Promise.all([listCompanyDocuments(), listDocumentRegistry()]);
   const allRows = docs.flatMap((d) => [d.head, ...d.history]);
   const urlMap = await mintSignedUrls(COMPANY_DOCS_BUCKET, allRows);
+
+  // Spec 331: the picker's option list, the id→type map the cards render from,
+  // and the ยังขาด set (required types with no live document).
+  const groups = groupTypesByCategory(registry.categories, registry.types);
+  const typesById = Object.fromEntries(registry.types.map((t) => [t.id, t]));
+  const today = bangkokTodayIso();
+  const missing = missingRequiredTypes(
+    registry.types,
+    docs.map((d) => d.head),
+    {
+      todayIso: today,
+      activeCategoryIds: new Set(registry.categories.filter((c) => c.is_active).map((c) => c.id)),
+    },
+  );
 
   return (
     <PageShell>
@@ -38,7 +54,10 @@ export default async function CompanyDocsPage() {
           docs={docs}
           downloadUrls={Object.fromEntries(urlMap)}
           canManage={ACCOUNTING_ROLES.includes(ctx.role)}
-          todayIso={bangkokTodayIso()}
+          todayIso={today}
+          groups={groups}
+          typesById={typesById}
+          missing={missing}
         />
       </section>
     </PageShell>

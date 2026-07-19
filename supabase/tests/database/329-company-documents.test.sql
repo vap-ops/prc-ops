@@ -51,6 +51,16 @@ update public.users set role = 'accounting'
 update public.users set role = 'technician'
   where id = '00000000-0000-4329-a000-000000000002';
 
+-- Spec 331: every content row now needs a type_id, so this file gets its own
+-- fixture type. MULTI + no-expiry on purpose — this file exercises the spec-329
+-- supersede/tombstone mechanics, not spec-331's singleton/expiry rules (those
+-- live in 331-company-document-types.test.sql), so the fixture must not trip them.
+insert into public.company_document_categories (code, name_th)
+values ('T329', 'หมวดทดสอบ 329');
+insert into public.company_document_types (category_id, code, name_th, is_singleton)
+select id, 'T329_ANY', 'ประเภททดสอบ 329', false
+  from public.company_document_categories where code = 'T329';
+
 -- runner collector must stay writable under role-sim (323 template)
 grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
@@ -60,16 +70,16 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "00000000-0000-4329-a000-000000000001"}';
 select lives_ok($$
-  insert into public.company_documents (id, title, storage_path, created_by)
-  values ('00000000-0000-4329-d000-000000000001', 'หนังสือรับรองบริษัท',
+  insert into public.company_documents (id, type_id, label, title, storage_path, created_by)
+  values ('00000000-0000-4329-d000-000000000001', (select id from public.company_document_types where code='T329_ANY'), 'ทดสอบ', 'หนังสือรับรองบริษัท',
           '00000000-0000-4329-d000-000000000001/cert.pdf',
           '00000000-0000-4329-a000-000000000001')
 $$, 'accounting inserts a document');
 
 -- version row: content + superseded_by TOGETHER is legal here (chain = history)
 select lives_ok($$
-  insert into public.company_documents (id, title, storage_path, superseded_by, created_by)
-  values ('00000000-0000-4329-d000-000000000002', 'หนังสือรับรองบริษัท',
+  insert into public.company_documents (id, type_id, label, title, storage_path, superseded_by, created_by)
+  values ('00000000-0000-4329-d000-000000000002', (select id from public.company_document_types where code='T329_ANY'), 'ทดสอบ', 'หนังสือรับรองบริษัท',
           '00000000-0000-4329-d000-000000000002/cert-2.pdf',
           '00000000-0000-4329-d000-000000000001',
           '00000000-0000-4329-a000-000000000001')
@@ -77,8 +87,8 @@ $$, 'content row may supersede (version chain)');
 
 -- single-child: second superseder of the same row → unique violation
 select throws_ok($$
-  insert into public.company_documents (title, storage_path, superseded_by, created_by)
-  values ('x', 'x/x.pdf', '00000000-0000-4329-d000-000000000001',
+  insert into public.company_documents (type_id, label, title, storage_path, superseded_by, created_by)
+  values ((select id from public.company_document_types where code='T329_ANY'), 'ทดสอบ', 'x', 'x/x.pdf', '00000000-0000-4329-d000-000000000001',
           '00000000-0000-4329-a000-000000000001')
 $$, '23505', null, 'a row can be superseded once');
 
@@ -95,19 +105,22 @@ select throws_ok($$
   values ('00000000-0000-4329-a000-000000000001')
 $$, '23514', null, 'all-NULL row without supersede rejected');
 select throws_ok($$
-  insert into public.company_documents (storage_path, created_by)
-  values ('y/y.pdf', '00000000-0000-4329-a000-000000000001')
+  insert into public.company_documents (type_id, label, storage_path, created_by)
+  values ((select id from public.company_document_types where code='T329_ANY'), 'ทดสอบ', 'y/y.pdf', '00000000-0000-4329-a000-000000000001')
 $$, '23514', null, 'payload without title rejected');
 select throws_ok($$
-  insert into public.company_documents (title, storage_path, created_by)
-  values ('blankpath', '   ', '00000000-0000-4329-a000-000000000001')
+  insert into public.company_documents (type_id, label, title, storage_path, created_by)
+  values ((select id from public.company_document_types where code='T329_ANY'), 'ทดสอบ', 'blankpath', '   ', '00000000-0000-4329-a000-000000000001')
 $$, '23514', null, 'whitespace-only storage_path rejected');
 select throws_ok($$
-  insert into public.company_documents (id, title, storage_path, superseded_by, created_by)
-  values ('00000000-0000-4329-d000-00000000000e', 'self', 'self/x.pdf',
+  insert into public.company_documents (id, type_id, label, title, storage_path, superseded_by, created_by)
+  values ('00000000-0000-4329-d000-00000000000e', (select id from public.company_document_types where code='T329_ANY'), 'ทดสอบ', 'self', 'self/x.pdf',
           '00000000-0000-4329-d000-00000000000e',
           '00000000-0000-4329-a000-000000000001')
-$$, '23514', null, 'self-supersede rejected');
+-- spec 331's trigger now reaches this first (a row cannot supersede one that
+-- does not exist — and a self-reference never does); the no_self_supersede
+-- CHECK stays as belt-and-braces for any trigger-bypassing path.
+$$, 'P0001', null, 'self-supersede rejected');
 
 -- accounting reads what it wrote — scoped to THIS test's seeded ids: the
 -- shared live DB already holds real company documents (the U2 verify uploaded
@@ -133,8 +146,8 @@ set local "request.jwt.claims" = '{"sub": "00000000-0000-4329-a000-000000000002"
 select is((select count(*) from public.company_documents), 0::bigint,
   'technician sees zero rows');
 select throws_ok($$
-  insert into public.company_documents (title, storage_path, created_by)
-  values ('z', 'z/z.pdf', '00000000-0000-4329-a000-000000000002')
+  insert into public.company_documents (type_id, label, title, storage_path, created_by)
+  values ((select id from public.company_document_types where code='T329_ANY'), 'ทดสอบ', 'z', 'z/z.pdf', '00000000-0000-4329-a000-000000000002')
 $$, '42501', null, 'technician insert denied');
 
 -- ── storage: accounting upload allowed, technician denied ────
@@ -165,10 +178,12 @@ select throws_ok(
   $$delete from public.company_documents
     where id = '00000000-0000-4329-d000-000000000001'$$,
   'P0001', null, 'DELETE blocked');
+-- 2 spec-329 freeze triggers (update/delete + truncate) + the spec-331
+-- enforce-type INSERT trigger.
 select is(
   (select count(*) from pg_trigger
     where tgrelid = 'public.company_documents'::regclass and not tgisinternal),
-  2::bigint, 'both freeze triggers present');
+  3::bigint, 'freeze triggers + the spec-331 type guard present');
 
 select * from finish();
 rollback;

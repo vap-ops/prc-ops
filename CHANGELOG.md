@@ -1,3 +1,21 @@
+# [0.155.0](https://github.com/VAP-Solution/prc-ops/compare/v0.154.0...v0.155.0) (2026-07-19)
+
+### Features
+
+- spec 331 — company document type registry (มาตรฐานเอกสารบริษัท) ([#657](https://github.com/VAP-Solution/prc-ops/issues/657)) ([b531f3c](https://github.com/VAP-Solution/prc-ops/commit/b531f3c720b1ab0c901dea4700f5e4caf77542e7))
+
+# [0.154.0](https://github.com/VAP-Solution/prc-ops/compare/v0.153.0...v0.154.0) (2026-07-19)
+
+### Features
+
+- spec 329 — intuitive upload picker on the company-doc sheet ([#654](https://github.com/VAP-Solution/prc-ops/issues/654)) ([0c07310](https://github.com/VAP-Solution/prc-ops/commit/0c07310de6b7527508c8a1ec07d58736389234c6))
+
+# [0.153.0](https://github.com/VAP-Solution/prc-ops/compare/v0.152.0...v0.153.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 330 U3a — contractor money wall in Postgres (mig 075818) ([#656](https://github.com/VAP-Solution/prc-ops/issues/656)) ([5140dbf](https://github.com/VAP-Solution/prc-ops/commit/5140dbf96c05d1a6d3e8e9a6a8dd0587dacb2ee4))
+
 # [0.152.0](https://github.com/VAP-Solution/prc-ops/compare/v0.151.0...v0.152.0) (2026-07-19)
 
 ### Features
