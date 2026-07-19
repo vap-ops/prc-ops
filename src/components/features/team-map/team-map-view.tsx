@@ -9,6 +9,7 @@
 // 'use client': collapse state, sheet state, and action relays live here.
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
@@ -16,8 +17,10 @@ import {
   CircleHelp,
   ClipboardList,
   Eye,
+  Inbox,
   Info,
   KeyRound,
+  MapPin,
   Settings,
   Star,
   UserPlus,
@@ -29,6 +32,17 @@ import {
   removeProjectMember,
   setPrimaryProjectFor,
 } from "@/app/projects/[projectId]/settings/actions";
+import {
+  addDailyPlanItem,
+  applyPlanSuggestions,
+  setDailyPlanItemCrew,
+} from "@/app/sa/plan/actions";
+import {
+  buildDayAssignments,
+  type DayPlanWpItem,
+  type TeamDayAssignment,
+  type TeamMapDayPlan,
+} from "@/lib/work-plans/day-assignments";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
 import { TEAM_MAP_ROLE_HELP } from "@/lib/help/team-map-roles";
@@ -69,7 +83,16 @@ type SheetState =
   | { type: "team"; team: TeamMapTeamCard }
   | { type: "chip"; chip: TeamMapWorkerChip; team: TeamMapTeamCard }
   | { type: "info"; tier: InfoTier }
+  | { type: "planChip"; entry: TeamDayAssignment; team: TeamMapTeamCard }
+  | { type: "addPlanWp" }
   | null;
+
+/** Leaf WPs offered by เพิ่มงานเข้าแผน (page pre-filters groups + complete). */
+export interface PlanWpOption {
+  id: string;
+  code: string;
+  name: string;
+}
 
 const TIER_HEADING = "text-ink-secondary text-xs font-medium";
 // U5 map-look: every tier renders inside a bordered container whose header row
@@ -151,12 +174,20 @@ function TeamCard({
   onToggle,
   onManage,
   onChip,
+  planChips,
+  onPlanChip,
+  placing,
+  onPlaceHere,
 }: {
   team: TeamMapTeamCard;
   expanded: boolean;
   onToggle: () => void;
   onManage: () => void;
   onChip: (chip: TeamMapWorkerChip) => void;
+  planChips?: TeamDayAssignment[];
+  onPlanChip?: (entry: TeamDayAssignment) => void;
+  placing?: boolean;
+  onPlaceHere?: () => void;
 }) {
   const Icon = team.kind === "firm" ? Building2 : team.kind === "unassigned" ? CircleHelp : Users;
   const subtitle =
@@ -190,6 +221,35 @@ function TeamCard({
           {expanded ? "ซ่อน" : "แสดง"}
         </button>
       </div>
+      {/* U6 placing mode: while a WP is picked up, CREW cards (and only crew
+          cards — the parent passes onPlaceHere for kind:"crew" alone) offer an
+          explicit drop target. A SIBLING row, never wrapping the header. */}
+      {placing && onPlaceHere ? (
+        <button
+          type="button"
+          className="border-edge-strong text-action flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-xs font-medium"
+          onClick={onPlaceHere}
+        >
+          <MapPin aria-hidden className="size-3.5" /> วางที่ทีมนี้
+        </button>
+      ) : null}
+      {/* U6: the team's plan-of-day WPs — derived worker-overlap chips. */}
+      {planChips && planChips.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {planChips.map((entry) => (
+            <button
+              key={entry.item.itemId}
+              type="button"
+              className="bg-sunk text-ink inline-flex min-h-11 items-center gap-1 rounded-lg px-2.5 text-xs"
+              onClick={() => onPlanChip?.(entry)}
+            >
+              <MapPin aria-hidden className="text-ink-secondary size-3" />
+              <span className="font-medium">{entry.item.code}</span>
+              <span className="text-ink-secondary max-w-32 truncate">{entry.item.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {/* U5: a crew with NO lead surfaces that as a visible to-do while the
           card is collapsed — tapping it expands the list so the lead can be
           set by tapping a member (the existing chip-sheet flow). Members must
@@ -252,11 +312,17 @@ export function TeamMapView({
   map,
   addableStaff,
   currentUserId,
+  dayPlans,
+  planWps,
 }: {
   projectId: string;
   map: ProjectTeamMap;
   addableStaff: AddableStaff[];
   currentUserId: string;
+  /** U6: the two writable boards. Omitted → the plan layer does not render. */
+  dayPlans?: { today: TeamMapDayPlan; tomorrow: TeamMapDayPlan };
+  /** U6: leaf WPs for เพิ่มงานเข้าแผน (page pre-filters groups/complete). */
+  planWps?: PlanWpOption[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -267,11 +333,20 @@ export function TeamMapView({
   const [confirmSelfRemove, setConfirmSelfRemove] = useState<TeamMapStaffNode | null>(null);
   const [confirmDissolve, setConfirmDissolve] = useState<TeamMapTeamCard | null>(null);
   const [crewName, setCrewName] = useState("");
+  // U6: selected board + the picked-up WP. Both days are pre-loaded so the
+  // toggle is instant; `placing` holds the tray/moved item awaiting a team.
+  const [day, setDay] = useState<"today" | "tomorrow">("today");
+  const [placing, setPlacing] = useState<DayPlanWpItem | null>(null);
 
   const allExpanded = map.teams.length > 0 && map.teams.every((t) => expanded.has(t.id));
   const teamHref = `/projects/${projectId}/team`;
   const teamSheet = sheet?.type === "team" ? sheet.team : null;
   const chipSheet = sheet?.type === "chip" ? sheet : null;
+  const planDate = dayPlans ? dayPlans[day].date : null;
+  const assignments = useMemo(
+    () => (dayPlans ? buildDayAssignments(dayPlans[day].items, map.teams) : null),
+    [dayPlans, day, map.teams],
+  );
   // Move/add targets are CREW cards only — never a firm card (its id is a
   // contractor uuid) and never the pool (id is the string "unassigned").
   const otherCrews = (currentId: string) =>
@@ -281,6 +356,37 @@ export function TeamMapView({
   // the card read "crew" (spec 328 §2.4).
   const chipIsPayExempt = chipSheet !== null && chipSheet.chip.contractorId !== null;
   const chipInCrew = chipSheet !== null && chipSheet.team.kind === "crew";
+
+  // U6: expand a team into the plan RPC's worker-set shape. Crews are
+  // contractor-free by mig 075818; the filter is belt-and-braces so a
+  // pay-exempt worker can never enter the plan→labor money chain (§2.4).
+  function teamGrainCrew(team: TeamMapTeamCard) {
+    const members = team.members.filter((m) => m.contractorId === null);
+    return {
+      workerIds: members.map((m) => m.workerId),
+      lead: members.find((m) => m.isTeamLead)?.workerId ?? null,
+    };
+  }
+
+  function placeOnTeam(team: TeamMapTeamCard) {
+    if (!placing || !planDate) return;
+    const item = placing;
+    setPlacing(null);
+    // applyPlanSuggestions = idempotent add + full-replace set-crew in one
+    // action — a tray item is already on the board, a moved item is replaced.
+    run(
+      () =>
+        applyPlanSuggestions(projectId, planDate, [
+          { wp: item.workPackageId, crew: teamGrainCrew(team) },
+        ]),
+      "มอบงานแล้ว",
+    );
+  }
+
+  function switchDay(next: "today" | "tomorrow") {
+    setDay(next);
+    setPlacing(null);
+  }
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -463,6 +569,83 @@ export function TeamMapView({
             </button>
           ) : null}
         </div>
+        {/* ── U6: the day's plan — tray of unassigned WPs + date toggle ── */}
+        {dayPlans && assignments ? (
+          <div
+            data-testid="wp-tray"
+            className="border-edge-strong mb-2 rounded-lg border border-dashed p-2"
+          >
+            <div className="mb-1.5 flex items-center gap-2">
+              <Inbox aria-hidden className="text-ink-secondary size-4 shrink-0" />
+              <span className="text-ink-secondary min-w-0 flex-1 truncate text-xs font-medium">
+                งานที่ยังไม่มอบทีม
+              </span>
+              <div className="flex gap-1" role="group" aria-label="เลือกวัน">
+                <button
+                  type="button"
+                  aria-pressed={day === "today"}
+                  className={`${TIER_ACTION} ${day === "today" ? "" : "text-ink-secondary"}`}
+                  onClick={() => switchDay("today")}
+                >
+                  วันนี้
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={day === "tomorrow"}
+                  className={`${TIER_ACTION} ${day === "tomorrow" ? "" : "text-ink-secondary"}`}
+                  onClick={() => switchDay("tomorrow")}
+                >
+                  พรุ่งนี้
+                </button>
+              </div>
+              <button
+                type="button"
+                className={TIER_ACTION}
+                onClick={() => openSheet({ type: "addPlanWp" })}
+              >
+                เพิ่มงานเข้าแผน
+              </button>
+            </div>
+            {placing ? (
+              <p className="text-action mb-1.5 text-xs">
+                กำลังมอบ {placing.code} — แตะทีมที่จะรับงาน
+                <button
+                  type="button"
+                  className="text-ink-secondary ml-2 underline"
+                  onClick={() => setPlacing(null)}
+                >
+                  ยกเลิก
+                </button>
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-1.5">
+              {assignments.tray.map((item) => (
+                <button
+                  key={item.itemId}
+                  type="button"
+                  className={`bg-card text-ink inline-flex min-h-11 items-center gap-1 rounded-lg border px-2.5 text-xs ${
+                    placing?.itemId === item.itemId ? "border-edge-strong" : "border-edge"
+                  }`}
+                  onClick={() => setPlacing((cur) => (cur?.itemId === item.itemId ? null : item))}
+                >
+                  <MapPin aria-hidden className="text-ink-secondary size-3" />
+                  <span className="font-medium">{item.code}</span>
+                  <span className="text-ink-secondary max-w-32 truncate">{item.name}</span>
+                </button>
+              ))}
+              {assignments.tray.length === 0 ? (
+                <span className="text-ink-muted text-xs">
+                  ไม่มีงานค้างมอบ{day === "today" ? "วันนี้" : "พรุ่งนี้"}
+                </span>
+              ) : null}
+            </div>
+            {assignments.individual.length > 0 ? (
+              <p className="text-ink-muted mt-1.5 text-xs">
+                จัดคนรายบุคคลไว้ {assignments.individual.length} งาน — ดูที่แผนงาน
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
           {map.teams.map((t) => (
             <TeamCard
@@ -472,6 +655,16 @@ export function TeamMapView({
               onToggle={() => toggle(t.id)}
               onManage={() => openSheet({ type: "team", team: t })}
               onChip={(chip) => openSheet({ type: "chip", chip, team: t })}
+              {...(assignments
+                ? {
+                    planChips: assignments.byTeam.get(t.id) ?? [],
+                    onPlanChip: (entry: TeamDayAssignment) =>
+                      openSheet({ type: "planChip", entry, team: t }),
+                  }
+                : {})}
+              {...(placing && t.kind === "crew"
+                ? { placing: true, onPlaceHere: () => placeOnTeam(t) }
+                : {})}
             />
           ))}
           {map.teams.length === 0 ? (
@@ -707,6 +900,93 @@ export function TeamMapView({
             {error ? <p className={INLINE_ERROR}>{error}</p> : null}
           </div>
         ) : null}
+      </BottomSheet>
+
+      {/* ── U6: assigned plan-chip actions ─────────────────────────────── */}
+      <BottomSheet
+        open={sheet?.type === "planChip"}
+        title={sheet?.type === "planChip" ? `${sheet.entry.item.code} · ${sheet.team.name}` : ""}
+        onClose={closeSheet}
+      >
+        {sheet?.type === "planChip" ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-ink-secondary text-xs">{sheet.entry.item.name}</p>
+            {sheet.entry.mixed ? (
+              // The SA hand-tuned this item's workers on /sa/plan — team-grain
+              // writes would clobber it (full-replace RPC), so none are offered.
+              <p className="text-ink-secondary text-sm">
+                งานนี้จัดคนรายบุคคลไว้ — แก้ได้ที่{" "}
+                <Link className="text-action underline" href="/sa/plan">
+                  แผนงาน
+                </Link>
+              </p>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className={SHEET_ACTION}
+                  onClick={() => {
+                    const item = sheet.entry.item;
+                    closeSheet();
+                    setPlacing(item);
+                  }}
+                >
+                  <MapPin aria-hidden className="text-ink-secondary size-4" /> ย้ายไปทีมอื่น
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className={SHEET_ACTION}
+                  onClick={() =>
+                    run(
+                      () => setDailyPlanItemCrew(sheet.entry.item.itemId, [], null),
+                      "เอางานออกจากทีมแล้ว",
+                    )
+                  }
+                >
+                  เอาออกจากทีม
+                </button>
+              </>
+            )}
+            <Link
+              className={SHEET_ACTION}
+              href={`/projects/${projectId}/work-packages/${sheet.entry.item.workPackageId}`}
+            >
+              เปิดหน้างาน
+            </Link>
+            {error ? <p className={INLINE_ERROR}>{error}</p> : null}
+          </div>
+        ) : null}
+      </BottomSheet>
+
+      {/* ── U6: เพิ่มงานเข้าแผน ─────────────────────────────────────────── */}
+      <BottomSheet
+        open={sheet?.type === "addPlanWp"}
+        title={`เพิ่มงานเข้าแผน${day === "today" ? "วันนี้" : "พรุ่งนี้"}`}
+        onClose={closeSheet}
+      >
+        <div className="flex flex-col gap-2">
+          {(planWps ?? []).map((wp) => (
+            <button
+              key={wp.id}
+              type="button"
+              disabled={busy}
+              className={SHEET_ACTION}
+              onClick={() => {
+                if (!planDate) return;
+                run(() => addDailyPlanItem(projectId, planDate, wp.id), "เพิ่มงานเข้าแผนแล้ว");
+              }}
+            >
+              <span className="font-medium">{wp.code}</span>
+              <span className="text-ink-secondary min-w-0 flex-1 truncate text-xs">{wp.name}</span>
+            </button>
+          ))}
+          {(planWps ?? []).length === 0 ? (
+            <p className="text-ink-muted text-xs">ไม่มีงานให้เพิ่ม</p>
+          ) : null}
+          {error ? <p className={INLINE_ERROR}>{error}</p> : null}
+        </div>
       </BottomSheet>
 
       {/* ── ⓘ role explainers (U5) ──────────────────────────────────────── */}
