@@ -372,15 +372,29 @@ export function TeamMapView({
     if (!placing || !planDate) return;
     const item = placing;
     setPlacing(null);
-    // applyPlanSuggestions = idempotent add + full-replace set-crew in one
-    // action — a tray item is already on the board, a moved item is replaced.
-    run(
-      () =>
-        applyPlanSuggestions(projectId, planDate, [
+    // NOT run(): placement fires with NO sheet open, and run() surfaces
+    // failures only through the sheet-inline error — a rejected write would be
+    // silent on a payroll-adjacent path (fresh-eyes). Toast both outcomes.
+    setBusy(true);
+    void (async () => {
+      try {
+        // applyPlanSuggestions = idempotent add + full-replace set-crew in one
+        // action — a tray item is already on the board, a move is replaced.
+        const r = await applyPlanSuggestions(projectId, planDate, [
           { wp: item.workPackageId, crew: teamGrainCrew(team) },
-        ]),
-      "มอบงานแล้ว",
-    );
+        ]);
+        if (!r.ok) {
+          toast.error(r.error ?? "มอบงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+          return;
+        }
+        toast.success("มอบงานแล้ว");
+        router.refresh();
+      } catch {
+        toast.error("มอบงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      } finally {
+        setBusy(false);
+      }
+    })();
   }
 
   function switchDay(next: "today" | "tomorrow") {
@@ -641,7 +655,7 @@ export function TeamMapView({
             </div>
             {assignments.individual.length > 0 ? (
               <p className="text-ink-muted mt-1.5 text-xs">
-                จัดคนรายบุคคลไว้ {assignments.individual.length} งาน — ดูที่แผนงาน
+                มีอีก {assignments.individual.length} งานที่จัดคนไว้แบบอื่น — ดูที่แผนงาน
               </p>
             ) : null}
           </div>
@@ -967,24 +981,41 @@ export function TeamMapView({
         onClose={closeSheet}
       >
         <div className="flex flex-col gap-2">
-          {(planWps ?? []).map((wp) => (
-            <button
-              key={wp.id}
-              type="button"
-              disabled={busy}
-              className={SHEET_ACTION}
-              onClick={() => {
-                if (!planDate) return;
-                run(() => addDailyPlanItem(projectId, planDate, wp.id), "เพิ่มงานเข้าแผนแล้ว");
-              }}
-            >
-              <span className="font-medium">{wp.code}</span>
-              <span className="text-ink-secondary min-w-0 flex-1 truncate text-xs">{wp.name}</span>
-            </button>
-          ))}
-          {(planWps ?? []).length === 0 ? (
-            <p className="text-ink-muted text-xs">ไม่มีงานให้เพิ่ม</p>
-          ) : null}
+          {/* WPs already on the selected day's board are hidden: re-adding is
+              an on-conflict no-op that would still toast success (fresh-eyes). */}
+          {(() => {
+            const onBoard = new Set(
+              (dayPlans ? dayPlans[day].items : []).map((i) => i.workPackageId),
+            );
+            const offerable = (planWps ?? []).filter((wp) => !onBoard.has(wp.id));
+            return (
+              <>
+                {offerable.map((wp) => (
+                  <button
+                    key={wp.id}
+                    type="button"
+                    disabled={busy}
+                    className={SHEET_ACTION}
+                    onClick={() => {
+                      if (!planDate) return;
+                      run(
+                        () => addDailyPlanItem(projectId, planDate, wp.id),
+                        "เพิ่มงานเข้าแผนแล้ว",
+                      );
+                    }}
+                  >
+                    <span className="font-medium">{wp.code}</span>
+                    <span className="text-ink-secondary min-w-0 flex-1 truncate text-xs">
+                      {wp.name}
+                    </span>
+                  </button>
+                ))}
+                {offerable.length === 0 ? (
+                  <p className="text-ink-muted text-xs">ไม่มีงานให้เพิ่ม</p>
+                ) : null}
+              </>
+            );
+          })()}
           {error ? <p className={INLINE_ERROR}>{error}</p> : null}
         </div>
       </BottomSheet>
