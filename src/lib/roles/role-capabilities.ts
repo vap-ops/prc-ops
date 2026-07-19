@@ -17,6 +17,7 @@ import type { UserRole } from "@/lib/db/enums";
 import {
   ACCOUNTING_ROLES,
   BACK_OFFICE_ROLES,
+  COMPANY_DOC_VIEW_ROLES,
   CLIENT_ISSUER_ROLES,
   DASHBOARD_VIEW_ROLES,
   DOC_APPROVAL_ROLES,
@@ -31,6 +32,7 @@ import {
   PM_ROLES,
   PO_DETAIL_VIEW_ROLES,
   PROCUREMENT_MANAGER_ROLES,
+  PROJECT_TEAM_STAFF_ROLES,
   PROJECT_VIEW_ROLES,
   PR_DECIDER_ROLES,
   PURCHASE_REPORT_ROLES,
@@ -250,6 +252,17 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     domain: "team",
   },
   {
+    // Spec 330: classification set — the roles a PM can ADD to a project team
+    // (membership drives can_see_project for PM/SA/site_owner/auditor). Not a
+    // capability of the listed roles themselves, so never rendered.
+    key: "project-team-addable",
+    setName: "PROJECT_TEAM_STAFF_ROLES",
+    roles: PROJECT_TEAM_STAFF_ROLES,
+    labelTh: "เพิ่มเข้าทีมโครงการได้ (รายการสิทธิ์ที่เลือกได้)",
+    domain: "team",
+    hidden: true,
+  },
+  {
     key: "staff-approve",
     setName: "STAFF_APPROVAL_ROLES",
     roles: STAFF_APPROVAL_ROLES,
@@ -299,6 +312,14 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     roles: ACCOUNTING_ROLES,
     labelTh: "ใช้งานหน้าบัญชี (งบทดลอง/กระทบยอด)",
     domain: "money",
+  },
+  // Spec 329: read/download/share the firm's document library (เอกสารบริษัท).
+  {
+    key: "company-doc-view",
+    setName: "COMPANY_DOC_VIEW_ROLES",
+    roles: COMPANY_DOC_VIEW_ROLES,
+    labelTh: "ดู/ดาวน์โหลดเอกสารบริษัท",
+    domain: "documents",
   },
   {
     key: "office-expense",

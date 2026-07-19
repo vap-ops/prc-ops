@@ -12,6 +12,7 @@ import {
   PO_DETAIL_VIEW_ROLES,
   PROCUREMENT_MANAGER_ROLES,
   PR_DECIDER_ROLES,
+  PROJECT_TEAM_STAFF_ROLES,
   PURCHASING_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
@@ -82,6 +83,21 @@ describe("role sets", () => {
       "project_manager",
       "super_admin",
       "project_director",
+    ]);
+  });
+
+  // Spec 330: the team-map staff picker — the roles whose project visibility
+  // runs on project_members (can_see_project membership arm: PM/SA/site_owner/
+  // auditor) plus the see-all seniors already in SITE_STAFF_ROLES. Pinned so a
+  // future widen is a deliberate act (membership grants visibility).
+  it("PROJECT_TEAM_STAFF_ROLES is SITE_STAFF_ROLES plus site_owner + auditor", () => {
+    expect([...PROJECT_TEAM_STAFF_ROLES]).toEqual([
+      "site_admin",
+      "project_manager",
+      "super_admin",
+      "project_director",
+      "site_owner",
+      "auditor",
     ]);
   });
 

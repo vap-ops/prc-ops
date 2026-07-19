@@ -88,6 +88,23 @@ export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 330: the team-map staff ADD picker — every role whose project
+ * visibility runs on a `project_members` row (the live `can_see_project`
+ * membership arm covers project_manager, site_admin, site_owner, auditor)
+ * plus the see-all seniors already in SITE_STAFF_ROLES. Adding a member of
+ * these roles GRANTS project visibility — that is the feature. Roles outside
+ * this set (procurement, accounting, …) stay out: membership is a no-op for
+ * them (their access is per-table role arms), so offering them would only
+ * mislead. Kept distinct from SITE_STAFF_ROLES ("who is site staff" vs "who
+ * belongs on a project team").
+ */
+export const PROJECT_TEAM_STAFF_ROLES: ReadonlyArray<UserRole> = [
+  ...SITE_STAFF_ROLES,
+  "site_owner",
+  "auditor",
+];
+
+/**
  * Spec 171: who may OPEN the work-package detail screen — site staff PLUS
  * procurement. The operator wants procurement to raise a purchase request from
  * that screen "instead of the site admins", seeing it like a site admin but
@@ -319,6 +336,19 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
  * four /accounting route guards follow automatically.
  */
 export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
+
+/**
+ * Spec 329: who can OPEN /settings/company-docs — read, download, and share-link
+ * the firm's own papers (หนังสือรับรอง, ภ.พ.20, company profile). Wider than
+ * BACK_OFFICE_ROLES on purpose (accounting + legal join); MANAGE (upload /
+ * new version / retire) stays ACCOUNTING_ROLES. New meaning → its own set
+ * (role doctrine), mirrored by the company_documents SELECT policy — keep in sync.
+ */
+export const COMPANY_DOC_VIEW_ROLES: ReadonlyArray<UserRole> = [
+  ...BACK_OFFICE_ROLES,
+  "accounting",
+  "legal",
+];
 
 // Spec 310: non-WP office expenses. OFFICE_EXPENSE_ROLES may submit an expense +
 // see their own; OFFICE_EXPENSE_FINANCE_ROLES additionally see every expense and

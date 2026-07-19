@@ -11,8 +11,12 @@ const FEATURES_DIR = join(process.cwd(), "src", "components", "features");
 const ALLOWED_DOMAINS = [
   "purchasing",
   "work-packages",
+  // Spec 330: the per-project team map (ทีมงานโครงการ) feature components.
+  "team-map",
   "photos",
   "labor",
+  // Spec 329: the company documents library (เอกสารบริษัท).
+  "company-docs",
   // Spec 320: the temporary payout-nominee PM surface (form + clear button).
   "payroll",
   "contacts",

@@ -128,6 +128,8 @@ const STATIC_DETAIL = [
   "settings/payout-nominees/edit",
   // Spec 310: the company-card registry drills down from /settings (back chip).
   "settings/cards",
+  // Spec 329: the company documents library drills down from /settings (back chip).
+  "settings/company-docs",
   // Spec 314 U2: the level-standard labor-rate editor drills down from /settings (back chip).
   "settings/labor-rates",
   // Spec 318 U4: the per-user notification settings drill down from /settings (back chip).
