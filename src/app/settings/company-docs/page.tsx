@@ -11,6 +11,7 @@ import { CompanyDocsView } from "@/components/features/company-docs/company-docs
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES, COMPANY_DOC_VIEW_ROLES } from "@/lib/auth/role-home";
 import { listCompanyDocuments } from "@/lib/company-docs/list-documents";
+import { bangkokTodayIso } from "@/lib/dates";
 import { COMPANY_DOCS_LABEL } from "@/lib/i18n/labels";
 import { COMPANY_DOCS_BUCKET } from "@/lib/storage/buckets";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
@@ -37,7 +38,7 @@ export default async function CompanyDocsPage() {
           docs={docs}
           downloadUrls={Object.fromEntries(urlMap)}
           canManage={ACCOUNTING_ROLES.includes(ctx.role)}
-          todayIso={new Date().toISOString().slice(0, 10)}
+          todayIso={bangkokTodayIso()}
         />
       </section>
     </PageShell>

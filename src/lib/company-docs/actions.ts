@@ -11,6 +11,16 @@ import { revalidatePath } from "next/cache";
 const SHARE_TTL_SECONDS = 7 * 24 * 60 * 60;
 const PAGE_PATH = "/settings/company-docs";
 
+// The partial UNIQUE index on superseded_by rejects a write against a stale
+// head (someone else already versioned/retired it) as 23505 — map it to a
+// refresh hint instead of a raw constraint message.
+const STALE_HEAD_MESSAGE = "เอกสารนี้ถูกแก้ไขไปแล้ว กรุณารีเฟรชหน้าแล้วลองใหม่";
+
+function insertErrorMessage(prefix: string, error: { code?: string; message: string }): string {
+  if (error.code === "23505") return STALE_HEAD_MESSAGE;
+  return `${prefix}: ${error.message}`;
+}
+
 interface DocInput {
   id: string;
   title: string;
@@ -36,7 +46,7 @@ async function insertDocument(input: DocInput, supersedes: string | null): Promi
     superseded_by: supersedes,
     created_by: user.id,
   });
-  if (error) return { ok: false, error: `บันทึกเอกสารไม่สำเร็จ: ${error.message}` };
+  if (error) return { ok: false, error: insertErrorMessage("บันทึกเอกสารไม่สำเร็จ", error) };
   revalidatePath(PAGE_PATH);
   return { ok: true };
 }
@@ -59,7 +69,7 @@ export async function retireCompanyDocument(input: { headId: string }): Promise<
     superseded_by: input.headId,
     created_by: user.id,
   });
-  if (error) return { ok: false, error: `ถอนเอกสารไม่สำเร็จ: ${error.message}` };
+  if (error) return { ok: false, error: insertErrorMessage("ถอนเอกสารไม่สำเร็จ", error) };
   revalidatePath(PAGE_PATH);
   return { ok: true };
 }

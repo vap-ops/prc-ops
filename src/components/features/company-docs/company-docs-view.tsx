@@ -46,31 +46,47 @@ function ExpiryBadge({ expiresAt, todayIso }: { expiresAt: string | null; todayI
 function RetireControl({ headId }: { headId: string }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function retire() {
+    setBusy(true);
     const r = await retireCompanyDocument({ headId });
+    setBusy(false);
     if (!r.ok) {
       setError(r.error);
+      setConfirming(false);
       return;
     }
     router.refresh();
   }
 
   return (
-    <span className="inline-flex flex-col">
-      <button
-        type="button"
-        onClick={() => (confirming ? void retire() : setConfirming(true))}
-        className={
-          confirming
-            ? "bg-danger-soft text-danger-ink border-danger-edge rounded-control border px-3 py-1.5 text-sm"
-            : "border-edge bg-card hover:bg-sunk text-ink-secondary rounded-control border px-3 py-1.5 text-sm"
-        }
-      >
-        {confirming ? COMPANY_DOC_RETIRE_CONFIRM_LABEL : COMPANY_DOC_RETIRE_LABEL}
-      </button>
-      {error ? <span className="text-danger text-meta mt-1">{error}</span> : null}
+    <span className="inline-flex items-center gap-1">
+      <span aria-live="polite" className="inline-flex flex-col">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => (confirming ? void retire() : setConfirming(true))}
+          className={
+            confirming
+              ? "bg-danger-soft text-danger-ink border-danger-edge rounded-control border px-3 py-1.5 text-sm disabled:opacity-60"
+              : "border-edge bg-card hover:bg-sunk text-ink-secondary rounded-control border px-3 py-1.5 text-sm"
+          }
+        >
+          {confirming ? COMPANY_DOC_RETIRE_CONFIRM_LABEL : COMPANY_DOC_RETIRE_LABEL}
+        </button>
+        {error ? <span className="text-danger text-meta mt-1">{error}</span> : null}
+      </span>
+      {confirming && !busy ? (
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          className="text-ink-muted text-sm underline"
+        >
+          ยกเลิก
+        </button>
+      ) : null}
     </span>
   );
 }
