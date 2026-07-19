@@ -34,6 +34,12 @@ const firmQrCards = [
     url: "https://app.example/register/technician?project=abc&contractor=def",
     svg: "<svg data-testid='firm-qr-svg'></svg>",
   },
+  {
+    contractor: { id: "33333333-3333-4333-8333-333333333333", name: "ช่างสุทิน (ฐานราก)" },
+    project: { id: projects[0]!.id, name: "TFM Site" },
+    url: "https://app.example/register/technician?project=abc&contractor=ghi",
+    svg: "<svg data-testid='firm-qr-svg-2'></svg>",
+  },
 ];
 
 function openSheet(withFirms = false) {
@@ -102,10 +108,37 @@ describe("AddTechnicianSheet — spec 298 U2 front door", () => {
     const dialog = openSheet(true);
     fireEvent.click(within(dialog).getByRole("button", { name: /ช่างอวย/ }));
     expect(within(dialog).getByText(/contractor=def/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/ไม่เก็บข้อมูลธนาคาร/)).toBeInTheDocument();
+    expect(within(dialog).getAllByText(/ไม่เก็บข้อมูลธนาคาร/).length).toBeGreaterThan(0);
     expect(
       within(dialog).queryByRole("button", { name: ADD_TECHNICIAN_HAS_PHONE_LABEL }),
     ).toBeNull();
+  });
+
+  it("spec 328 U2b: the QR expands UNDER the tapped firm row (accordion), not below the list", () => {
+    const dialog = openSheet(true);
+    const aueyBtn = within(dialog).getByRole("button", { name: /ช่างอวย/ });
+    const sutinBtn = within(dialog).getByRole("button", { name: /ช่างสุทิน/ });
+    fireEvent.click(aueyBtn);
+    const qr = within(dialog).getByText(/contractor=def/);
+    // Accordion placement: อวย's QR sits AFTER its own row and BEFORE สุทิน's row.
+    expect(aueyBtn.compareDocumentPosition(qr) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(qr.compareDocumentPosition(sutinBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("spec 328 U2b: opening another firm collapses the first (one panel at a time)", () => {
+    const dialog = openSheet(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: /ช่างอวย/ }));
+    expect(within(dialog).getByText(/contractor=def/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: /ช่างสุทิน/ }));
+    expect(within(dialog).queryByText(/contractor=def/)).toBeNull();
+    expect(within(dialog).getByText(/contractor=ghi/)).toBeInTheDocument();
+  });
+
+  it("spec 328 U2b: the PRC branch UI renders under the ทีม PRC row (above the firm rows)", () => {
+    const dialog = openSheet(true);
+    const phoneQ = within(dialog).getByText(/ช่างคนนี้มีมือถือไหม/);
+    const aueyBtn = within(dialog).getByRole("button", { name: /ช่างอวย/ });
+    expect(phoneQ.compareDocumentPosition(aueyBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("spec 328: no firms → no selector, legacy behavior untouched", () => {
