@@ -52,6 +52,20 @@ describe("updateWorker — DC edit matrix forwarding", () => {
     expect(rpc).toHaveBeenCalledWith("update_worker", { p_id: WORKER, p_phone: "0899999999" });
   });
 
+  // Spec 328 firm move — contractorId forwards as p_contractor (set/change only;
+  // the RPC coalesce cannot clear, so the action never sends an empty value).
+  it("forwards contractorId as p_contractor", async () => {
+    const FIRM = "22222222-2222-4222-8222-222222222222";
+    await updateWorker({ id: WORKER, contractorId: FIRM });
+    expect(rpc).toHaveBeenCalledWith("update_worker", { p_id: WORKER, p_contractor: FIRM });
+  });
+
+  it("rejects a malformed contractorId before any RPC", async () => {
+    const r = await updateWorker({ id: WORKER, contractorId: "not-a-uuid" });
+    expect(r.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("rejects an invalid pay_type before any RPC", async () => {
     const r = await updateWorker({ id: WORKER, payType: "weekly" as never });
     expect(r.ok).toBe(false);
