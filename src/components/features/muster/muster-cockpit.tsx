@@ -382,7 +382,9 @@ function TeamCard({
                   ) : null}
                 </div>
               </div>
-              {movePickFor === m.workerId ? (
+              {/* Picker gated on เข้า mode too — the toggle hides on a mode
+                  flip but this open panel would otherwise survive it live. */}
+              {mode === "in" && movePickFor === m.workerId ? (
                 <div className="border-edge bg-sunk flex flex-wrap items-center gap-2 rounded-lg border p-2">
                   <span className="text-ink-muted text-meta">ย้ายไปทีมของ:</span>
                   {otherTeams.map((t) => (

@@ -97,7 +97,6 @@ function renderCockpit(board: MusterBoard) {
     <MusterCockpit projectId={PROJECT} date={DATE} revalidate="/projects/x/muster" board={board} />,
   );
 }
-
 beforeEach(() => {
   openMusterTeam.mockReset().mockResolvedValue({ ok: true, id: "new" });
   musterScan.mockReset().mockResolvedValue({ ok: true, id: "att" });
@@ -116,6 +115,17 @@ describe("MusterCockpit — move worker between teams", () => {
   it("hides the ย้าย control on a single-team board", () => {
     renderCockpit(ONE_TEAM);
     expect(screen.queryByRole("button", { name: "ย้าย" })).not.toBeInTheDocument();
+  });
+
+  it("an open move picker does not survive flipping to ออก mode", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAMS);
+    const team1 = within(screen.getByTestId(`team-${T1}`));
+    const kongRow = team1.getByText("ก้อง").closest("li")!;
+    await user.click(within(kongRow as HTMLElement).getByRole("button", { name: "ย้าย" }));
+    expect(screen.getByText("ย้ายไปทีมของ:")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "ออก" }));
+    expect(screen.queryByText("ย้ายไปทีมของ:")).not.toBeInTheDocument();
   });
 
   it("picking a target team calls moveMusterWorker with worker + date + team", async () => {
