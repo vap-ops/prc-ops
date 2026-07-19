@@ -1,3 +1,9 @@
+# [0.148.0](https://github.com/VAP-Solution/prc-ops/compare/v0.147.0...v0.148.0) (2026-07-19)
+
+### Features
+
+- **workers:** spec 328 — firm-member assign/move picker on the roster edit sheet ([#642](https://github.com/VAP-Solution/prc-ops/issues/642)) ([3f79435](https://github.com/VAP-Solution/prc-ops/commit/3f7943585a4df9b4ac574ce1508017bc919dfa01))
+
 # [0.147.0](https://github.com/VAP-Solution/prc-ops/compare/v0.146.0...v0.147.0) (2026-07-19)
 
 ### Features
