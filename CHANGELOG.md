@@ -1,3 +1,9 @@
+# [0.149.0](https://github.com/VAP-Solution/prc-ops/compare/v0.148.0...v0.149.0) (2026-07-19)
+
+### Features
+
+- spec 329 U1 — company_documents schema + bucket + RLS ([#647](https://github.com/VAP-Solution/prc-ops/issues/647)) ([9ef5513](https://github.com/VAP-Solution/prc-ops/commit/9ef5513c2ba8a1e283e6212ee4810560a3af36a3))
+
 # [0.148.0](https://github.com/VAP-Solution/prc-ops/compare/v0.147.0...v0.148.0) (2026-07-19)
 
 ### Features
