@@ -100,4 +100,37 @@ describe("WorkerPortalSections", () => {
     expect(screen.getByText("ยังไม่มีประวัติการจ่ายเงิน")).toBeInTheDocument();
     expect(screen.getByTestId("worker-bank-form")).toHaveAttribute("data-pending", "true");
   });
+
+  // Spec 328 U3 — a contractor-tied (pay-exempt) member never sees the bank
+  // section: PRC never pays them (the firm does), so there is no bank to keep.
+  it("hides the bank section entirely for a contractor-tied member (bankExempt)", () => {
+    render(
+      <WorkerPortalSections
+        uid="11111111-1111-1111-1111-111111111111"
+        wp={WP}
+        payments={[]}
+        consents={[]}
+        receipts={[]}
+        hasPendingBank={false}
+        bankExempt
+      />,
+    );
+    expect(screen.queryByText("บัญชีธนาคาร")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("worker-bank-form")).not.toBeInTheDocument();
+  });
+
+  it("keeps the bank section for a regular (non-exempt) worker", () => {
+    render(
+      <WorkerPortalSections
+        uid="11111111-1111-1111-1111-111111111111"
+        wp={WP}
+        payments={[]}
+        consents={[]}
+        receipts={[]}
+        hasPendingBank={false}
+      />,
+    );
+    expect(screen.getByText("บัญชีธนาคาร")).toBeInTheDocument();
+    expect(screen.getByTestId("worker-bank-form")).toBeInTheDocument();
+  });
 });

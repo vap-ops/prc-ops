@@ -72,11 +72,16 @@ export default async function SaPlanPage({
     .eq("project_id", selectedProjectId);
   const wps = wpRows ?? [];
 
+  // Spec 328 U3 — contractor-tied workers (pay-exempt subcon members) are
+  // excluded: planned crew flows into labor_logs via mark-present →
+  // logLaborDays, and their labor is not PRC cost (§2.4 money wall — same
+  // filter as the WP capture picker's groupRoster).
   const { data: workerRows } = await supabase
     .from("workers")
     .select("id, name")
     .eq("project_id", selectedProjectId)
     .eq("active", true)
+    .is("contractor_id", null)
     .order("name");
   const workers = workerRows ?? [];
 

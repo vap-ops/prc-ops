@@ -70,6 +70,7 @@ export default async function TechnicianHomePage() {
     // Spec 306 U3a — the caller's own workers.id for their muster check-in QR
     // (self-scoped; null for non-workers). Batched here to avoid an extra hop.
     { data: workerId },
+    { data: ownWorkerRow },
   ] = await Promise.all([
     supabase.rpc("get_my_wage_payments"),
     supabase
@@ -85,7 +86,14 @@ export default async function TechnicianHomePage() {
       .order("issued_at", { ascending: false }),
     supabase.from("worker_bank_change_requests").select("id").eq("status", "pending").limit(1),
     supabase.rpc("current_user_worker_id"),
+    // Spec 328 U3 — is this ช่าง a contractor-tied (pay-exempt) member?
+    // Self-scoped RLS read ("workers readable by self (portal)"); tied ⇒ the
+    // bank section is hidden below (the firm pays them, PRC holds no bank).
+    // get_my_worker_profile doesn't return contractor_id, hence the extra read.
+    supabase.from("workers").select("contractor_id").eq("user_id", uid).maybeSingle(),
   ]);
+
+  const bankExempt = ownWorkerRow?.contractor_id != null;
 
   // Spec 306 U3a — present the QR on their home so they can show it at the morning
   // talk instead of carrying a printed badge. Payload = the caller's workers.id
@@ -153,6 +161,7 @@ export default async function TechnicianHomePage() {
               consents={(workerConsentRows ?? []) as PortalConsent[]}
               receipts={receipts}
               hasPendingBank={(pendingBankRows?.length ?? 0) > 0}
+              bankExempt={bankExempt}
             />
           </div>
         ) : null}

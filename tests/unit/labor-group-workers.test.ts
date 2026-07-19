@@ -26,19 +26,18 @@ function worker(overrides: Partial<RosterWorker>): RosterWorker {
 }
 
 describe("groupRoster", () => {
-  it("splits own and dc, dc grouped by contractor with names resolved", () => {
+  it("splits own (monthly) and dc (daily, no firm) workers", () => {
     const grouped = groupRoster(
       [
         worker({ id: "w1", name: "Tech One" }),
-        worker({ id: "w2", name: "DC One", pay_type: "daily", contractor_id: "c1" }),
-        worker({ id: "w3", name: "DC Two", pay_type: "daily", contractor_id: "c2" }),
-        worker({ id: "w4", name: "DC Three", pay_type: "daily", contractor_id: "c1" }),
+        worker({ id: "w2", name: "DC One", pay_type: "daily" }),
+        worker({ id: "w3", name: "DC Two", pay_type: "daily" }),
       ],
       CONTRACTORS,
     );
     expect(grouped.own.map((w) => w.id)).toEqual(["w1"]);
-    expect(grouped.dc.map((g) => g.contractorName)).toEqual(["DC Crew A", "DC Crew B"]);
-    expect(grouped.dc[0]?.workers.map((w) => w.id)).toEqual(["w2", "w4"]);
+    expect(grouped.dc).toHaveLength(1);
+    expect(grouped.dc[0]?.workers.map((w) => w.id)).toEqual(["w2", "w3"]);
   });
 
   it("excludes inactive workers", () => {
@@ -49,26 +48,52 @@ describe("groupRoster", () => {
     expect(grouped.own.map((w) => w.id)).toEqual(["w2"]);
   });
 
-  it("falls back to a placeholder name for an unknown contractor", () => {
+  // Spec 328 U3 — the money wall, enforced at the picker: a contractor-tied
+  // worker (workers.contractor_id NOT NULL ⇒ pay-exempt subcon member; their
+  // labor cost lives inside the WP contract price) must NEVER surface in the
+  // labor capture picker, else they could be ticked into labor_logs and appear
+  // on payroll at gross 0.
+  it("spec 328: excludes contractor-tied workers from the picker entirely", () => {
     const grouped = groupRoster(
-      [worker({ id: "w1", pay_type: "daily", contractor_id: "missing" })],
+      [
+        worker({ id: "w1", name: "PRC Tech" }),
+        worker({ id: "w2", name: "PRC Daily", pay_type: "daily" }),
+        worker({ id: "w3", name: "Member Daily", pay_type: "daily", contractor_id: "c1" }),
+        worker({ id: "w4", name: "Member Monthly", contractor_id: "c2" }),
+      ],
       CONTRACTORS,
     );
+    const allIds = [...grouped.own, ...grouped.dc.flatMap((g) => g.workers)].map((w) => w.id);
+    expect(allIds).toEqual(["w1", "w2"]);
+  });
+
+  it("labels the no-firm daily group with the fallback placeholder", () => {
+    const grouped = groupRoster([worker({ id: "w1", pay_type: "daily" })], CONTRACTORS);
     expect(grouped.dc[0]?.contractorName).toBeTruthy();
   });
 });
 
+// filterRoster / partitionRosterByProject operate on an already-built
+// GroupedRoster — their grouping mechanics are independent of how groups
+// formed, so the fixtures are literals (groupRoster itself now excludes
+// contractor-tied workers per spec 328, see above).
+function dcWorker(id: string, name: string, contractor_id: string): RosterWorker {
+  return { id, name, pay_type: "daily", contractor_id, active: true };
+}
+
 describe("filterRoster (spec 158 U1)", () => {
   // A grouped roster: one own tech + two DC crews (Crew A has two workers).
-  const grouped = groupRoster(
-    [
-      worker({ id: "w1", name: "ช่างสมชาย" }),
-      worker({ id: "w2", name: "สมหญิง", pay_type: "daily", contractor_id: "c1" }),
-      worker({ id: "w3", name: "Somsak", pay_type: "daily", contractor_id: "c1" }),
-      worker({ id: "w4", name: "วิชัย", pay_type: "daily", contractor_id: "c2" }),
+  const grouped = {
+    own: [worker({ id: "w1", name: "ช่างสมชาย" })],
+    dc: [
+      {
+        contractorId: "c1",
+        contractorName: "DC Crew A",
+        workers: [dcWorker("w2", "สมหญิง", "c1"), dcWorker("w3", "Somsak", "c1")],
+      },
+      { contractorId: "c2", contractorName: "DC Crew B", workers: [dcWorker("w4", "วิชัย", "c2")] },
     ],
-    CONTRACTORS,
-  );
+  };
 
   it("returns the roster unchanged for an empty / whitespace query", () => {
     expect(filterRoster(grouped, "")).toEqual(grouped);
@@ -105,15 +130,17 @@ describe("filterRoster (spec 158 U1)", () => {
 
 describe("partitionRosterByProject (spec 158 U2)", () => {
   // own w1 + Crew A (w2, w3) + Crew B (w4).
-  const grouped = groupRoster(
-    [
-      worker({ id: "w1", name: "ช่างสมชาย" }),
-      worker({ id: "w2", name: "สมหญิง", pay_type: "daily", contractor_id: "c1" }),
-      worker({ id: "w3", name: "Somsak", pay_type: "daily", contractor_id: "c1" }),
-      worker({ id: "w4", name: "วิชัย", pay_type: "daily", contractor_id: "c2" }),
+  const grouped = {
+    own: [worker({ id: "w1", name: "ช่างสมชาย" })],
+    dc: [
+      {
+        contractorId: "c1",
+        contractorName: "DC Crew A",
+        workers: [dcWorker("w2", "สมหญิง", "c1"), dcWorker("w3", "Somsak", "c1")],
+      },
+      { contractorId: "c2", contractorName: "DC Crew B", workers: [dcWorker("w4", "วิชัย", "c2")] },
     ],
-    CONTRACTORS,
-  );
+  };
 
   it("splits own and dc into in-project vs others by worker id", () => {
     // w1 (own) + w2 (Crew A) are on the project; w3 + w4 are not.

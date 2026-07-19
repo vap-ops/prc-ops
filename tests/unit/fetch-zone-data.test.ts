@@ -91,10 +91,13 @@ describe("fetchLaborZoneData", () => {
       Promise.resolve([{ id: "c1", name: "ผู้รับเหมา ก" }]),
     );
     expect(tables).not.toContain("contractors");
-    // the shared rows actually reach groupRoster — w2 (contractor c1) groups
-    // under the shared contractor's name
-    const c1Group = zone.roster.dc.find((g) => g.contractorId === "c1");
-    expect(c1Group?.contractorName).toBe("ผู้รับเหมา ก");
+    // Spec 328 U3 — w2 (contractor-tied = pay-exempt member) never reaches the
+    // capture picker roster at all; the no-firm daily workers remain.
+    expect(zone.roster.dc.find((g) => g.contractorId === "c1")).toBeUndefined();
+    const pickerIds = [...zone.roster.own, ...zone.roster.dc.flatMap((g) => g.workers)].map(
+      (w) => w.id,
+    );
+    expect(pickerIds).toEqual(["w1", "w4"]);
   });
 
   it("reads contractors itself when no shared promise is given (review-page path)", async () => {

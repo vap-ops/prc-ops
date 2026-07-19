@@ -100,9 +100,12 @@ export interface BanklessWorker {
 
 // The picker population: active workers with no bank account on file (the marker
 // is NULL — verified live: 0 empty-string, 13 NULL) — the people a nominee is
-// for. ⚠ MUST only be called from a procurement_manager-gated surface (admin
-// client bypasses RLS + the workers-PII wall; the caller's requireRole IS the
-// authorization, per the badge-codes seam).
+// for. Spec 328 U3: contractor-tied workers are excluded (pay-exempt subcon
+// members are permanently bankless BY DESIGN — the firm pays them, so routing a
+// nominee payout for one would move money PRC never owes). ⚠ MUST only be
+// called from a procurement_manager-gated surface (admin client bypasses RLS +
+// the workers-PII wall; the caller's requireRole IS the authorization, per the
+// badge-codes seam).
 export async function listBanklessWorkers(): Promise<BanklessWorker[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -110,6 +113,7 @@ export async function listBanklessWorkers(): Promise<BanklessWorker[]> {
     .select("id, name, employee_id")
     .eq("active", true)
     .is("bank_account_number", null)
+    .is("contractor_id", null)
     .order("name");
   if (error) throw new Error(`bankless workers: ${error.message}`);
   return (data ?? []).map((r) => ({ id: r.id, name: r.name, code: r.employee_id }));

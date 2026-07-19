@@ -24,6 +24,7 @@ const BASE: RegistrationQueueInput = {
   uploadedPurposes: [],
   hasBank: false,
   hasReviewerNote: false,
+  invitedFirm: null,
 };
 
 // A registration that satisfies the full mirrored floor (spec 296): name +
