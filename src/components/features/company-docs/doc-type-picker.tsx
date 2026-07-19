@@ -9,9 +9,7 @@
 // these are the courteous front half.
 import type { DocTypeGroup, DocTypeRow } from "@/lib/company-docs/registry";
 import {
-  COMPANY_DOC_EXPIRES_LABEL,
   COMPANY_DOC_INSTANCE_LABEL,
-  COMPANY_DOC_ISSUED_LABEL,
   COMPANY_DOC_TYPE_LABEL,
   COMPANY_DOC_TYPE_PLACEHOLDER,
 } from "@/lib/i18n/labels";
@@ -64,23 +62,6 @@ export function DocTypePicker({
           <input type="text" name="label" maxLength={200} required className={FIELD} />
         </label>
       ) : null}
-
-      <div className="flex gap-3">
-        <label className="flex flex-1 flex-col gap-1">
-          <span className="text-ink-secondary text-sm">{COMPANY_DOC_ISSUED_LABEL}</span>
-          <input type="date" name="issued_at" className={FIELD} />
-        </label>
-        <label className="flex flex-1 flex-col gap-1">
-          <span className="text-ink-secondary text-sm">{COMPANY_DOC_EXPIRES_LABEL}</span>
-          <input
-            type="date"
-            name="expires_at"
-            data-testid="company-doc-expires"
-            required={selected?.requires_expiry ?? false}
-            className={FIELD}
-          />
-        </label>
-      </div>
     </>
   );
 }
