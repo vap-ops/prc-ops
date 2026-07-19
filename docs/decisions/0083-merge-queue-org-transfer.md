@@ -58,40 +58,86 @@ built to avoid. Declined unless A is rejected.
 
 ## 4. Design once on an org
 
-- `ci.yml` gains `merge_group:` in `on:` — same jobs run for queued candidates;
-  the `pgtap-shared-db` concurrency group stays global (one shared DB) so
-  merge-group pgTAP runs serialize exactly like today, but ordered.
+- `ci.yml` gains `merge_group:` in `on:` — same jobs run for queued candidates.
+  **✅ pre-staged (PR #666, 2026-07-19)** so enabling the queue never races a
+  missing trigger (a required check that never reports on the merge ref trips
+  `check_response_timeout_minutes` and EJECTS the queued PRs).
+- **`db-test` must drop its `pull_request` trigger at queue-enable time**
+  (amendment 2026-07-19, from the review of #666). The `pgtap-shared-db` group
+  holds ONE pending slot; leaving both triggers on means a merge-group pgTAP run
+  and a PR pgTAP run evict each other, and an evicted merge-group run reports
+  `cancelled` — a FAILED required check → the PR is ejected and requeued →
+  loop. Since the queue tests the merge ref (the ref that actually lands), PR-ref
+  pgTAP becomes redundant, not merely advisory: drop it. A schema bug then
+  surfaces as a queue ejection, which is the intended merge-queue workflow.
+- The danger-path guard runs on merge_group and exits 0 immediately (explicit
+  `success`, not a `skipped` conclusion whose acceptance by branch protection is
+  unverified). Pre-staged in #666.
 - Branch protection on `main` adds **Require merge queue**; the full required
   set carries over unchanged (lint/typecheck/test, secret scan, and the two
   ADR-0081 checks pgTAP + Build).
 - Danger-path guard interplay unchanged: a deny-path PR fails the guard → never
   enters the queue → operator (or the standing-grant admin-merge) bypasses via
   the ruleset bypass list, exactly today's held-PR flow.
-- `scripts/ship-pr.sh` unchanged in interface: it arms auto-merge via a
-  GraphQL `enablePullRequestAutoMerge` mutation (not the `gh` CLI); on a
-  queue-protected branch that same mutation enqueues instead. Migration step:
-  verify with the canary PR that this path enqueues correctly.
+- `scripts/ship-pr.sh` keeps its interface: it arms auto-merge via a GraphQL
+  `enablePullRequestAutoMerge` mutation (not the `gh` CLI); on a queue-protected
+  branch that same mutation enqueues instead. Verify on the canary PR.
+- **⚠ Correction (2026-07-19, preflight sweep): the script was NOT
+  transfer-safe.** Line 20 hardcoded `repo="VAP-Solution/prc-ops"`, feeding the
+  REST PR-create call — the ONLY executable owner literal in the repo. GitHub's
+  redirect does not rescue it: an authenticated POST to a transferred repo
+  returns 301, this `curl` has no `-L`, and following it would demote POST to
+  GET, so no PR is created either way. Every post-transfer ship would have
+  failed at the mandated ship gate — and re-scoping the PATs (§5 step 2) does
+  not cover it. Worse, the file is version-controlled, so ~20 sibling worktrees
+  each carry their own copy and would each need a rebase. **Fixed in #666:**
+  the slug is now derived from `origin` (explicit `SHIP_REPO` override; `origin`
+  deliberately outranks any ambient env var, since the branch is pushed there),
+  host-anchored and shape-guarded, and covers org **SSH-certificate** remotes
+  (`org-1234@github.com:owner/repo`) — the exact shape an org may hand out after
+  this transfer. Pinned by `tests/unit/ship-pr-repo-derivation.test.ts`, which
+  executes the real block extracted from the script. The single shared
+  `.git/config` therefore heals the main repo and all linked worktrees at once,
+  and no post-transfer edit to this file is required.
 
 ## 5. Migration checklist (one-time, operator + one session)
 
 1. Operator creates free org; transfers repo (GitHub redirects old URLs).
 2. Re-scope the fine-grained PATs to the new owner: `RELEASE_TOKEN` +
    the pipeline PAT used for admin-merges.
-3. Verify post-transfer (transfer preserves most settings; trust nothing
-   silently): Actions secrets (`SUPABASE_ACCESS_TOKEN`, Telegram, …), branch
-   protection, environments.
+3. Verify post-transfer against the captured baseline (transfer preserves most
+   settings; trust nothing silently). Baseline as of 2026-07-19 — 6 required
+   checks (Lint/Typecheck/Test · Worker · Secret scan · Danger-path guard ·
+   Database (pgTAP) · Build), `strict=false`, **`enforce_admins=false`** (this
+   is what lets the standing-grant admin-merge work — if it flips on, every
+   held PR becomes hard-blocked), 4 secrets (`RELEASE_TOKEN`,
+   `SUPABASE_ACCESS_TOKEN`, `SANDBOX_DB_PASSWORD`, `SANDBOX_SERVICE_ROLE_KEY`),
+   4 Vercel environments, no repo webhooks, no rulesets.
 4. Re-link integrations to the new repo path: Vercel ×2 (`prc-ops`,
    `prc-ops-sandbox`), Railway worker (watch-paths), Supabase GitHub
    integration if linked.
-5. Sessions update local remotes (`git remote set-url`) in main repo +
-   worktrees; LANES note.
-6. Enable merge queue; add `merge_group:` trigger PR; one canary PR through
-   the queue before declaring done.
+5. Update the remote: ONE `git remote set-url origin <new-url>` in the main repo
+   covers all ~21 linked worktrees (they share `.git/config` — verified via
+   `git rev-parse --git-common-dir`). Nothing else in the repo carries an owner
+   literal (preflight sweep, 2026-07-19: `.releaserc.json` has no
+   `repositoryUrl`, neither `package.json` has a `repository` field, no workflow
+   pins a repo path, `src/**` and `supabase/**` have zero GitHub references —
+   all of these derive from the remote or `GITHUB_REPOSITORY` and auto-follow).
+   LANES note. ⚠ Out-of-repo and NOT covered by the transfer: the PAT at
+   `../.github.env` (see step 2).
+6. Ship the CI trigger change FIRST, then enable the queue (this order is
+   load-bearing — see §4): `merge_group:` is already pre-staged (#666), so the
+   remaining edit is dropping `pull_request` from `db-test`. Then enable
+   Require merge queue and push ONE canary PR through it before declaring done
+   — the canary must prove (a) `ship-pr.sh`'s GraphQL
+   `enablePullRequestAutoMerge` enqueues rather than merges, and (b) the
+   danger-path guard's merge_group short-circuit reports `success`.
 
 ## 6. Consequences
 
-- Each merge runs CI twice (PR ref + merge-group ref); pgTAP is batched
-  (~5.5 min) — acceptable.
+- Each merge runs CI twice (PR ref + merge-group ref), minus pgTAP, which moves
+  to the merge ref only (§4). Second run doubles exposure to the unauthenticated
+  gitleaks-release-download 403 flake — watch for it on the canary.
 - Auto-merge semantics shift from "merge when green" to "enqueue when green";
   the fence's auto/held split is preserved by the guard + bypass list.
 - Until A is executed, the interim rule stays: drain the pgTAP group before

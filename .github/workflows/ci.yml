@@ -5,6 +5,16 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Merge-queue candidates (ADR 0083). Inert until a queue exists — GitHub emits
+  # merge_group only once "Require merge queue" is on — but it MUST land BEFORE
+  # the queue is enabled: a required check that never reports on the merge ref
+  # trips check_response_timeout_minutes and EJECTS the queued PRs.
+  # ⚠ Pre-staging this trigger is necessary but NOT sufficient. At queue-enable
+  # time `db-test` must also drop its `pull_request` trigger (ADR 0083 §5 step 6):
+  # its `pgtap-shared-db` group holds ONE pending slot, so merge-group and PR runs
+  # would evict each other — an evicted merge-group run reports `cancelled`, i.e.
+  # a failed required check, ejecting and requeueing the PR in a loop.
+  merge_group:
   workflow_dispatch:
 
 jobs:
@@ -90,10 +100,15 @@ jobs:
   # PR with everything green merges itself. The single-account-friendly stand-in for
   # CODEOWNERS (which would deadlock when the only reviewer authored the PR). The
   # operator can still merge a held PR via admin override after reviewing.
+  # The guard is a PR-LEVEL gate by design: it stops a dangerous PR from being
+  # auto-merged/enqueued at all, and it reads pull_request.base/head, which a
+  # merge_group event does not carry. It still RUNS (not `if:`-skipped) on
+  # merge_group and exits 0 immediately — reporting an explicit `success` rather
+  # than relying on branch protection to accept a `skipped` conclusion.
   danger-path-guard:
     name: Danger-path guard
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name != 'push'
 
     steps:
       - uses: actions/checkout@v4
@@ -102,6 +117,10 @@ jobs:
 
       - name: Block auto-merge of protected paths
         run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "Not a pull_request event ($GITHUB_EVENT_NAME) — PR-level gate, n/a here."
+            exit 0
+          fi
           base="${{ github.event.pull_request.base.sha }}"
           head="${{ github.event.pull_request.head.sha }}"
           # 3-dot (merge-base) so we see only what THIS branch changed, not files

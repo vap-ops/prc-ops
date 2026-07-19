@@ -17,7 +17,34 @@ command -v node >/dev/null 2>&1 || PATH="/c/Program Files/nodejs:$PATH"
 
 title="${1:?usage: scripts/ship-pr.sh <title> [body]}"
 body="${2:-}"
-repo="VAP-Solution/prc-ops"
+# >>> repo-derivation (tested by ship-pr-repo-derivation.test.ts)
+# owner/repo is DERIVED from `origin`, never hardcoded (ADR 0083): the API path
+# must follow the repo if it is transferred to an org. GitHub's redirect does NOT
+# rescue a hardcoded path — an authenticated POST gets a 301 this curl does not
+# follow, and following it would demote POST to GET, so no PR is created either
+# way. Deriving also means the ONE shared .git/config heals every worktree at
+# once, instead of each needing this tracked file rebased.
+#
+# `origin` wins over any ambient env var on purpose: the branch is pushed to
+# `origin`, so taking the PR target from elsewhere could open the PR against a
+# different repo than the one just pushed to. SHIP_REPO is the explicit escape
+# hatch and is shape-checked like any other value.
+origin_url=""
+repo="${SHIP_REPO:-}"
+if [ -z "$repo" ]; then
+  origin_url="$(git remote get-url origin 2>/dev/null || true)"
+  # Host-anchored: <user>@github.com:owner/repo(.git) — <user> covers org SSH-CA
+  # remotes (org-1234@github.com:...) — or https://[user@]github.com/owner/repo.
+  repo="$(printf '%s' "$origin_url" | sed -E 's#^(ssh://)?[A-Za-z0-9._-]+@github\.com[:/]##; s#^https://([^/@]+@)?github\.com/##; s#\.git$##')"
+fi
+# Anchored at STRING ends (not per line, which `grep -E '^…$'` would allow), and
+# `.`/`..` owners are rejected so a relative remote can never build a
+# path-traversing API URL.
+if ! [[ "$repo" =~ ^[A-Za-z0-9_-][A-Za-z0-9._-]*/[A-Za-z0-9_-][A-Za-z0-9._-]*$ ]]; then
+  echo "cannot derive a github owner/repo — got '${repo:-empty}' (SHIP_REPO='${SHIP_REPO:-unset}', origin='${origin_url:-unset}')" >&2
+  exit 1
+fi
+# <<< repo-derivation
 
 root="$(git rev-parse --show-toplevel)"
 env_file="$root/../.github.env"
