@@ -130,6 +130,8 @@ const STATIC_DETAIL = [
   "settings/cards",
   // Spec 329: the company documents library drills down from /settings (back chip).
   "settings/company-docs",
+  // Spec 331: the document-type registry (super_admin) drills down from /settings.
+  "settings/company-doc-types",
   // Spec 314 U2: the level-standard labor-rate editor drills down from /settings (back chip).
   "settings/labor-rates",
   // Spec 318 U4: the per-user notification settings drill down from /settings (back chip).
