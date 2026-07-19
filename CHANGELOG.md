@@ -1,3 +1,9 @@
+## [0.157.2](https://github.com/VAP-Solution/prc-ops/compare/v0.157.1...v0.157.2) (2026-07-19)
+
+### Bug Fixes
+
+- **ci:** pgTAP gate — fail on plan mismatch, collect CTE-led asserts ([#665](https://github.com/VAP-Solution/prc-ops/issues/665)) ([05392c8](https://github.com/VAP-Solution/prc-ops/commit/05392c835d8bc8c39d08fe8981320fbcb9f894ce)), closes [#660](https://github.com/VAP-Solution/prc-ops/issues/660)
+
 ## [0.157.1](https://github.com/VAP-Solution/prc-ops/compare/v0.157.0...v0.157.1) (2026-07-19)
 
 ### Bug Fixes
