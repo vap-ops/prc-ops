@@ -320,6 +320,19 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
  */
 export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
 
+/**
+ * Spec 329: who can OPEN /settings/company-docs — read, download, and share-link
+ * the firm's own papers (หนังสือรับรอง, ภ.พ.20, company profile). Wider than
+ * BACK_OFFICE_ROLES on purpose (accounting + legal join); MANAGE (upload /
+ * new version / retire) stays ACCOUNTING_ROLES. New meaning → its own set
+ * (role doctrine), mirrored by the company_documents SELECT policy — keep in sync.
+ */
+export const COMPANY_DOC_VIEW_ROLES: ReadonlyArray<UserRole> = [
+  ...BACK_OFFICE_ROLES,
+  "accounting",
+  "legal",
+];
+
 // Spec 310: non-WP office expenses. OFFICE_EXPENSE_ROLES may submit an expense +
 // see their own; OFFICE_EXPENSE_FINANCE_ROLES additionally see every expense and
 // mark it reimbursed. The DEFINER RPCs (record_office_expense /

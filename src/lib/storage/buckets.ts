@@ -12,3 +12,5 @@ export const CONTACT_DOCS_BUCKET = "contact-docs";
 export const CATALOG_IMAGES_BUCKET = "catalog-images";
 // Spec 277 P1a — site-issue (แจ้งปัญหา) photos, private, owner-bound upload.
 export const SITE_ISSUES_BUCKET = "site-issues";
+// Spec 329 — firm-level documents (private; accounting upload, signed-URL reads).
+export const COMPANY_DOCS_BUCKET = "company-docs";
