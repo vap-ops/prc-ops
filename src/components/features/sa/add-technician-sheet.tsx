@@ -13,7 +13,7 @@
 // The SA sets NO bank and NO pay/level (ADR 0079). 'use client': open + branch state and
 // the upload state machine.
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UserPlus, ScanLine, Camera, Building2, Users, Printer, Share2 } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
@@ -153,6 +153,20 @@ export function AddTechnicianSheet({
         firmQrCards.find((c) => c.contractor.id === team) ??
         null);
 
+  // Spec 328 U2b (operator UX call): accordion — the active team's content renders
+  // directly UNDER its own row, not below the whole selector list (with 9+ firms
+  // the QR otherwise lands off-screen). One open panel at a time; auto-scroll the
+  // freshly opened panel into view when it expands near the sheet bottom.
+  const nested = firms.length > 0;
+  const panelClass = nested
+    ? "border-edge ml-1.5 flex flex-col gap-3 border-l pl-3"
+    : "flex flex-col gap-3";
+  const activePanelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (open && nested)
+      activePanelRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [team, open, nested]);
+
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={BUTTON_PRIMARY}>
@@ -179,27 +193,136 @@ export function AddTechnicianSheet({
             </label>
           ) : null}
 
-          {firms.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-ink-secondary text-sm">{TEAM_JOIN_SELECT_LABEL}</p>
-              <button
-                type="button"
-                aria-pressed={team === "prc"}
-                onClick={() => {
-                  setTeam("prc");
-                  setMode("choose");
-                }}
-                className={`${BUTTON_SECONDARY} h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : ""}`}
-              >
-                <Building2 aria-hidden className="size-5 shrink-0" />
-                <span className="min-w-0 text-left">
-                  {TEAM_PRC_LABEL}
-                  <span className="text-ink-muted block text-xs font-normal">{TEAM_PRC_HINT}</span>
-                </span>
-              </button>
-              {firms.map((f) => (
+          <div className="flex flex-col gap-2">
+            {nested ? (
+              <>
+                <p className="text-ink-secondary text-sm">{TEAM_JOIN_SELECT_LABEL}</p>
                 <button
-                  key={f.id}
+                  type="button"
+                  aria-pressed={team === "prc"}
+                  onClick={() => {
+                    setTeam("prc");
+                    setMode("choose");
+                  }}
+                  className={`${BUTTON_SECONDARY} h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : ""}`}
+                >
+                  <Building2 aria-hidden className="size-5 shrink-0" />
+                  <span className="min-w-0 text-left">
+                    {TEAM_PRC_LABEL}
+                    <span className="text-ink-muted block text-xs font-normal">
+                      {TEAM_PRC_HINT}
+                    </span>
+                  </span>
+                </button>
+              </>
+            ) : null}
+
+            {team === "prc" ? (
+              <div ref={activePanelRef} className={panelClass}>
+                {mode === "choose" ? (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-ink-secondary text-sm">ช่างคนนี้มีมือถือไหม?</p>
+                    <button
+                      type="button"
+                      onClick={() => setMode("has_phone")}
+                      className={`${BUTTON_SECONDARY} justify-start`}
+                    >
+                      <ScanLine aria-hidden className="size-5 shrink-0" />
+                      {ADD_TECHNICIAN_HAS_PHONE_LABEL}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMode("no_phone")}
+                      className={`${BUTTON_SECONDARY} justify-start`}
+                    >
+                      <Camera aria-hidden className="size-5 shrink-0" />
+                      {ADD_TECHNICIAN_NO_PHONE_LABEL}
+                    </button>
+                  </div>
+                ) : null}
+
+                {mode === "has_phone" ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-ink-secondary self-start text-sm">
+                      {ADD_TECHNICIAN_HAS_PHONE_HINT}
+                    </p>
+                    {activeQr ? (
+                      <>
+                        <div
+                          className="rounded-lg bg-white p-3"
+                          aria-label={`QR สมัครเป็นช่าง — ${activeQr.project.name}`}
+                          dangerouslySetInnerHTML={{ __html: activeQr.svg }}
+                        />
+                        <p className="text-ink-muted text-meta text-center break-all">
+                          {activeQr.url}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-ink-muted text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
+                    )}
+                  </div>
+                ) : null}
+
+                {mode === "no_phone" ? (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-ink-secondary text-sm">{ADD_TECHNICIAN_NO_PHONE_HINT}</p>
+                    <label className="text-ink-secondary block text-sm">
+                      ชื่อ–สกุล
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        maxLength={120}
+                        className={FIELD_STACKED}
+                      />
+                    </label>
+                    <label className="text-ink-secondary block text-sm">
+                      เลขบัตรประชาชน (13 หลัก)
+                      <input
+                        inputMode="numeric"
+                        value={nationalId}
+                        onChange={(e) =>
+                          setNationalId(e.target.value.replace(/\D/g, "").slice(0, 13))
+                        }
+                        className={FIELD_STACKED}
+                      />
+                    </label>
+                    <label className="text-ink-secondary block text-sm">
+                      วันเกิด
+                      <input
+                        type="date"
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        className={FIELD_STACKED}
+                      />
+                    </label>
+                    <label className="text-ink-secondary block text-sm">
+                      {PASSBOOK_PHOTO_LABEL}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        aria-label={PASSBOOK_PHOTO_LABEL}
+                        onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                        className={FIELD_STACKED}
+                      />
+                    </label>
+                    {photo ? <p className="text-ink-muted text-meta">แนบรูปสมุดบัญชีแล้ว</p> : null}
+                    {error ? <p className="text-danger text-sm">{error}</p> : null}
+                    <button
+                      type="button"
+                      disabled={busy || !canSubmit}
+                      onClick={() => void submitNoPhone()}
+                      className={BUTTON_PRIMARY}
+                    >
+                      {busy ? "กำลังบันทึก…" : "เพิ่มช่างเข้าทีม"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {firms.map((f) => (
+              <div key={f.id} className="flex flex-col gap-2">
+                <button
                   type="button"
                   aria-pressed={team === f.id}
                   onClick={() => setTeam(f.id)}
@@ -213,146 +336,50 @@ export function AddTechnicianSheet({
                     </span>
                   </span>
                 </button>
-              ))}
-            </div>
-          ) : null}
-
-          {team !== "prc" ? (
-            <div className="flex flex-col items-center gap-3">
-              {activeFirmQr ? (
-                <>
-                  <div
-                    className="rounded-lg bg-white p-3"
-                    aria-label={`QR ${SUBCON_JOIN_PREFIX} ${activeFirmQr.contractor.name} — ${activeFirmQr.project.name}`}
-                    dangerouslySetInnerHTML={{ __html: activeFirmQr.svg }}
-                  />
-                  <p className="text-ink text-center text-sm font-semibold">
-                    {SUBCON_JOIN_PREFIX} {activeFirmQr.contractor.name}
-                  </p>
-                  <p className="text-ink-muted text-meta text-center break-all">
-                    {activeFirmQr.url}
-                  </p>
-                  <div className="flex w-full flex-col gap-2">
-                    <a
-                      href={`/team/poster?contractor=${activeFirmQr.contractor.id}&project=${activeFirmQr.project.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`${BUTTON_SECONDARY} justify-center`}
-                    >
-                      <Printer aria-hidden className="size-5 shrink-0" />
-                      {SUBCON_POSTER_LABEL}
-                    </a>
-                    <a
-                      href={`https://line.me/R/share?text=${encodeURIComponent(activeFirmQr.url)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`${BUTTON_SECONDARY} justify-center`}
-                    >
-                      <Share2 aria-hidden className="size-5 shrink-0" />
-                      {SUBCON_LINE_SHARE_LABEL}
-                    </a>
+                {team === f.id ? (
+                  <div ref={activePanelRef} className={`${panelClass} items-center`}>
+                    {activeFirmQr ? (
+                      <>
+                        <div
+                          className="rounded-lg bg-white p-3"
+                          aria-label={`QR ${SUBCON_JOIN_PREFIX} ${activeFirmQr.contractor.name} — ${activeFirmQr.project.name}`}
+                          dangerouslySetInnerHTML={{ __html: activeFirmQr.svg }}
+                        />
+                        <p className="text-ink text-center text-sm font-semibold">
+                          {SUBCON_JOIN_PREFIX} {activeFirmQr.contractor.name}
+                        </p>
+                        <p className="text-ink-muted text-meta text-center break-all">
+                          {activeFirmQr.url}
+                        </p>
+                        <div className="flex w-full flex-col gap-2">
+                          <a
+                            href={`/team/poster?contractor=${activeFirmQr.contractor.id}&project=${activeFirmQr.project.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`${BUTTON_SECONDARY} justify-center`}
+                          >
+                            <Printer aria-hidden className="size-5 shrink-0" />
+                            {SUBCON_POSTER_LABEL}
+                          </a>
+                          <a
+                            href={`https://line.me/R/share?text=${encodeURIComponent(activeFirmQr.url)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`${BUTTON_SECONDARY} justify-center`}
+                          >
+                            <Share2 aria-hidden className="size-5 shrink-0" />
+                            {SUBCON_LINE_SHARE_LABEL}
+                          </a>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-ink-muted text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
+                    )}
                   </div>
-                </>
-              ) : (
-                <p className="text-ink-muted text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
-              )}
-            </div>
-          ) : null}
-
-          {team === "prc" && mode === "choose" ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-ink-secondary text-sm">ช่างคนนี้มีมือถือไหม?</p>
-              <button
-                type="button"
-                onClick={() => setMode("has_phone")}
-                className={`${BUTTON_SECONDARY} justify-start`}
-              >
-                <ScanLine aria-hidden className="size-5 shrink-0" />
-                {ADD_TECHNICIAN_HAS_PHONE_LABEL}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("no_phone")}
-                className={`${BUTTON_SECONDARY} justify-start`}
-              >
-                <Camera aria-hidden className="size-5 shrink-0" />
-                {ADD_TECHNICIAN_NO_PHONE_LABEL}
-              </button>
-            </div>
-          ) : null}
-
-          {team === "prc" && mode === "has_phone" ? (
-            <div className="flex flex-col items-center gap-3">
-              <p className="text-ink-secondary self-start text-sm">
-                {ADD_TECHNICIAN_HAS_PHONE_HINT}
-              </p>
-              {activeQr ? (
-                <>
-                  <div
-                    className="rounded-lg bg-white p-3"
-                    aria-label={`QR สมัครเป็นช่าง — ${activeQr.project.name}`}
-                    dangerouslySetInnerHTML={{ __html: activeQr.svg }}
-                  />
-                  <p className="text-ink-muted text-meta text-center break-all">{activeQr.url}</p>
-                </>
-              ) : (
-                <p className="text-ink-muted text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
-              )}
-            </div>
-          ) : null}
-
-          {team === "prc" && mode === "no_phone" ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-ink-secondary text-sm">{ADD_TECHNICIAN_NO_PHONE_HINT}</p>
-              <label className="text-ink-secondary block text-sm">
-                ชื่อ–สกุล
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  maxLength={120}
-                  className={FIELD_STACKED}
-                />
-              </label>
-              <label className="text-ink-secondary block text-sm">
-                เลขบัตรประชาชน (13 หลัก)
-                <input
-                  inputMode="numeric"
-                  value={nationalId}
-                  onChange={(e) => setNationalId(e.target.value.replace(/\D/g, "").slice(0, 13))}
-                  className={FIELD_STACKED}
-                />
-              </label>
-              <label className="text-ink-secondary block text-sm">
-                วันเกิด
-                <input
-                  type="date"
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
-                  className={FIELD_STACKED}
-                />
-              </label>
-              <label className="text-ink-secondary block text-sm">
-                {PASSBOOK_PHOTO_LABEL}
-                <input
-                  type="file"
-                  accept="image/*"
-                  aria-label={PASSBOOK_PHOTO_LABEL}
-                  onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-                  className={FIELD_STACKED}
-                />
-              </label>
-              {photo ? <p className="text-ink-muted text-meta">แนบรูปสมุดบัญชีแล้ว</p> : null}
-              {error ? <p className="text-danger text-sm">{error}</p> : null}
-              <button
-                type="button"
-                disabled={busy || !canSubmit}
-                onClick={() => void submitNoPhone()}
-                className={BUTTON_PRIMARY}
-              >
-                {busy ? "กำลังบันทึก…" : "เพิ่มช่างเข้าทีม"}
-              </button>
-            </div>
-          ) : null}
+                ) : null}
+              </div>
+            ))}
+          </div>
         </div>
       </BottomSheet>
     </>
