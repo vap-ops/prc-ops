@@ -8004,3 +8004,28 @@ U6b2 COMPLETE — code-only; DANGER-HELD (touches src/app/payroll/\*\*) → oper
   all 3, range chips + exports serialize start/end, forms renamed, old-key
   hrefs gone. Payroll export link is manager-arm-gated (pre-existing) —
   verified at source + route.
+
+## Spec 330 U1 — per-project team map: read view + staff manage + door (2026-07-19)
+
+- New `/projects/[projectId]/team` (PM_ROLES) — the tiered team map:
+  ผู้บริหารโครงการ (lead ★, phantom-lead guard tier-wide) → หน้างาน (primary
+  SA ★ first) → ทีมช่าง team cards (crews w/ per-team lead chip first /
+  contractor firms w/ pay-exempt hint / ยังไม่จัดทีม dashed pool). Per-card
+  แสดง/ซ่อน + master toggle; counts + tier sum stay visible collapsed.
+- Pure builder `src/lib/team-map/build-team-map.ts` (10 unit tests) +
+  loader `load-team-map.ts` (session-client reads, admin seam ONLY for users
+  names/roles — ADR 0011 settings precedent; contractors via RLS).
+- Staff manage sheet over the EXISTING spec-80/292 actions (add / remove w/
+  last-member block + self-remove ConfirmDialog / set-primary). Add picker =
+  NEW `PROJECT_TEAM_STAFF_ROLES` (SITE_STAFF + site_owner + auditor — the
+  can_see_project membership-arm roles; registry entry hidden).
+- ทีมงานโครงการ (Users) chip on the project header, isManagerRole gate.
+- Fresh-eyes (opus): 1🔴 site-role-lead phantom duplicate + 3🟡 (subset
+  member count / run() catch / test gaps) — ALL fixed + pinned (18 tests).
+- Verified: SSR probes live (tiers render, รวม 25 คน · 0 ทีม on PRC-2026-004,
+  pool card, door aria+href), site_admin gate probe = NEXT_REDIRECT + zero
+  content leak, hydrated-DOM structure probe, console errors 0. Click wedge
+  (known box class) → RTL suite is the interaction pin.
+- Worker chips read-only until U3; crews empty live so pool = current truth.
+- Open (U2+): crew RPC migration (add/move/remove/set-lead/rename/dissolve),
+  crew manage UI, firms link-outs, /team hub row, settings-block retire.
