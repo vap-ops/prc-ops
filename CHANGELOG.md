@@ -1,3 +1,9 @@
+# [0.145.0](https://github.com/VAP-Solution/prc-ops/compare/v0.144.0...v0.145.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 328 U2b — firm QR expands under its team row (accordion) ([#639](https://github.com/VAP-Solution/prc-ops/issues/639)) ([069ea70](https://github.com/VAP-Solution/prc-ops/commit/069ea7067a14f4c1c617a434dab5abcfc29da403))
+
 # [0.144.0](https://github.com/VAP-Solution/prc-ops/compare/v0.143.0...v0.144.0) (2026-07-18)
 
 ### Features
