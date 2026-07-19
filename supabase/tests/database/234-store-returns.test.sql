@@ -1,5 +1,5 @@
 begin;
-select plan(16);
+select plan(17);
 
 -- ============================================================================
 -- Spec 209 U1 — WP→store RETURN (distinct from the mistake-undo). A return is a
