@@ -1,3 +1,9 @@
+# [0.150.0](https://github.com/VAP-Solution/prc-ops/compare/v0.149.0...v0.150.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 330 U1 — per-project team map (ทีมงานโครงการ) ([#648](https://github.com/VAP-Solution/prc-ops/issues/648)) ([401afc4](https://github.com/VAP-Solution/prc-ops/commit/401afc4bd04827861fd3b4e60cbbe4991bf78614))
+
 # [0.149.0](https://github.com/VAP-Solution/prc-ops/compare/v0.148.0...v0.149.0) (2026-07-19)
 
 ### Features
