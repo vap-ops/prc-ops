@@ -59,11 +59,11 @@ built to avoid. Declined unless A is rejected.
 ## 4. Design once on an org
 
 - `ci.yml` gains `merge_group:` in `on:` — same jobs run for queued candidates.
-  **✅ pre-staged (PR #664, 2026-07-19)** so enabling the queue never races a
+  **✅ pre-staged (PR #666, 2026-07-19)** so enabling the queue never races a
   missing trigger (a required check that never reports on the merge ref trips
   `check_response_timeout_minutes` and EJECTS the queued PRs).
 - **`db-test` must drop its `pull_request` trigger at queue-enable time**
-  (amendment 2026-07-19, from the review of #664). The `pgtap-shared-db` group
+  (amendment 2026-07-19, from the review of #666). The `pgtap-shared-db` group
   holds ONE pending slot; leaving both triggers on means a merge-group pgTAP run
   and a PR pgTAP run evict each other, and an evicted merge-group run reports
   `cancelled` — a FAILED required check → the PR is ejected and requeued →
@@ -72,7 +72,7 @@ built to avoid. Declined unless A is rejected.
   surfaces as a queue ejection, which is the intended merge-queue workflow.
 - The danger-path guard runs on merge_group and exits 0 immediately (explicit
   `success`, not a `skipped` conclusion whose acceptance by branch protection is
-  unverified). Pre-staged in #664.
+  unverified). Pre-staged in #666.
 - Branch protection on `main` adds **Require merge queue**; the full required
   set carries over unchanged (lint/typecheck/test, secret scan, and the two
   ADR-0081 checks pgTAP + Build).
@@ -103,7 +103,7 @@ built to avoid. Declined unless A is rejected.
 5. Sessions update local remotes (`git remote set-url`) in main repo +
    worktrees; LANES note.
 6. Ship the CI trigger change FIRST, then enable the queue (this order is
-   load-bearing — see §4): `merge_group:` is already pre-staged (#664), so the
+   load-bearing — see §4): `merge_group:` is already pre-staged (#666), so the
    remaining edit is dropping `pull_request` from `db-test`. Then enable
    Require merge queue and push ONE canary PR through it before declaring done
    — the canary must prove (a) `ship-pr.sh`'s GraphQL
