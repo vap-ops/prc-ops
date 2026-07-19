@@ -1116,6 +1116,101 @@ export type Database = {
           },
         ]
       }
+      company_document_categories: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name_en: string | null
+          name_th: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name_en?: string | null
+          name_th: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name_en?: string | null
+          name_th?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      company_document_types: {
+        Row: {
+          category_id: string
+          code: string
+          created_at: string
+          created_by: string | null
+          hint: string | null
+          id: string
+          is_active: boolean
+          is_required: boolean
+          is_singleton: boolean
+          name_en: string | null
+          name_th: string
+          requires_expiry: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          hint?: string | null
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          is_singleton?: boolean
+          name_en?: string | null
+          name_th: string
+          requires_expiry?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          hint?: string | null
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          is_singleton?: boolean
+          name_en?: string | null
+          name_th?: string
+          requires_expiry?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_document_types_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "company_document_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_documents: {
         Row: {
           created_at: string
@@ -1123,10 +1218,12 @@ export type Database = {
           expires_at: string | null
           id: string
           issued_at: string | null
+          label: string | null
           note: string | null
           storage_path: string | null
           superseded_by: string | null
           title: string | null
+          type_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1134,10 +1231,12 @@ export type Database = {
           expires_at?: string | null
           id?: string
           issued_at?: string | null
+          label?: string | null
           note?: string | null
           storage_path?: string | null
           superseded_by?: string | null
           title?: string | null
+          type_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1145,10 +1244,12 @@ export type Database = {
           expires_at?: string | null
           id?: string
           issued_at?: string | null
+          label?: string | null
           note?: string | null
           storage_path?: string | null
           superseded_by?: string | null
           title?: string | null
+          type_id?: string | null
         }
         Relationships: [
           {
@@ -1163,6 +1264,13 @@ export type Database = {
             columns: ["superseded_by"]
             isOneToOne: false
             referencedRelation: "company_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_documents_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "company_document_types"
             referencedColumns: ["id"]
           },
         ]
@@ -9094,6 +9202,29 @@ export type Database = {
         }
         Returns: string
       }
+      create_company_document_category: {
+        Args: {
+          p_code: string
+          p_name_en?: string
+          p_name_th: string
+          p_sort_order?: number
+        }
+        Returns: undefined
+      }
+      create_company_document_type: {
+        Args: {
+          p_category_code: string
+          p_code: string
+          p_hint?: string
+          p_is_required?: boolean
+          p_is_singleton?: boolean
+          p_name_en?: string
+          p_name_th: string
+          p_requires_expiry?: boolean
+          p_sort_order?: number
+        }
+        Returns: undefined
+      }
       create_contract: {
         Args: {
           p_agreed_amount?: number
@@ -10155,6 +10286,14 @@ export type Database = {
         Args: { p_billing_id: string; p_installment_id: string }
         Returns: string
       }
+      set_company_document_category_active: {
+        Args: { p_code: string; p_is_active: boolean }
+        Returns: undefined
+      }
+      set_company_document_type_active: {
+        Args: { p_code: string; p_is_active: boolean }
+        Returns: undefined
+      }
       set_contact_bank: {
         Args: {
           p_bank_account_name?: string
@@ -10624,6 +10763,28 @@ export type Database = {
           p_quotation_id?: string
         }
         Returns: string
+      }
+      update_company_document_category: {
+        Args: {
+          p_code: string
+          p_name_en?: string
+          p_name_th: string
+          p_sort_order?: number
+        }
+        Returns: undefined
+      }
+      update_company_document_type: {
+        Args: {
+          p_code: string
+          p_hint?: string
+          p_is_required?: boolean
+          p_is_singleton?: boolean
+          p_name_en?: string
+          p_name_th: string
+          p_requires_expiry?: boolean
+          p_sort_order?: number
+        }
+        Returns: undefined
       }
       update_contract: {
         Args: {

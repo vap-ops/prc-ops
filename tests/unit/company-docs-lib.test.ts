@@ -14,6 +14,9 @@ const base = (over: Partial<Row>): Row => ({
   superseded_by: null,
   created_by: "u",
   created_at: "2026-07-01T00:00:00Z",
+  // Spec 331 columns — the identity + multi-instance label.
+  type_id: null,
+  label: null,
   ...over,
 });
 const today = new Date("2026-07-19T00:00:00Z");

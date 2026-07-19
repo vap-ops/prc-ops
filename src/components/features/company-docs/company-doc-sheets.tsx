@@ -10,6 +10,8 @@ import { FileText, UploadCloud } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { addCompanyDocument, addCompanyDocumentVersion } from "@/lib/company-docs/actions";
 import { uploadCompanyDocFile } from "@/lib/company-docs/upload-company-doc";
+import type { DocTypeGroup, DocTypeRow } from "@/lib/company-docs/registry";
+import { DocTypePicker } from "./doc-type-picker";
 import {
   COMPANY_DOC_EXPIRES_LABEL,
   COMPANY_DOC_FILE_LABEL,
@@ -20,7 +22,7 @@ import {
   COMPANY_DOC_PICK_CHANGE_LABEL,
   COMPANY_DOC_PICK_HINT,
   COMPANY_DOC_PICK_LABEL,
-  COMPANY_DOC_TITLE_LABEL,
+  COMPANY_DOC_PICK_TYPE_FIRST,
   COMPANY_DOC_UPLOAD_LABEL,
 } from "@/lib/i18n/labels";
 
@@ -36,15 +38,19 @@ function fileSizeLabel(bytes: number): string {
 export interface SheetMode {
   kind: "new" | "version";
   supersedes?: string;
-  prefillTitle?: string;
   prefillNote?: string;
+  // Spec 331: a version keeps its chain's type (the DB refuses a change), and
+  // the ยังขาด list opens the sheet with the missing type already chosen.
+  lockedType?: DocTypeRow;
 }
 
 export function CompanyDocSheet({
   mode,
+  groups,
   onClose,
 }: {
   mode: SheetMode | null;
+  groups: DocTypeGroup[];
   onClose: () => void;
 }) {
   return (
@@ -57,18 +63,34 @@ export function CompanyDocSheet({
           the mode switches — a reopened sheet can never silently reuse the
           PREVIOUS file's bytes under a new title (fresh-eyes 🔴, 2026-07-19). */}
       {mode !== null ? (
-        <SheetForm key={`${mode.kind}:${mode.supersedes ?? "new"}`} mode={mode} onClose={onClose} />
+        <SheetForm
+          key={`${mode.kind}:${mode.supersedes ?? "new"}`}
+          mode={mode}
+          groups={groups}
+          onClose={onClose}
+        />
       ) : null}
     </BottomSheet>
   );
 }
 
-function SheetForm({ mode, onClose }: { mode: SheetMode; onClose: () => void }) {
+function SheetForm({
+  mode,
+  groups,
+  onClose,
+}: {
+  mode: SheetMode;
+  groups: DocTypeGroup[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<File | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
+  // A version's type is fixed by its chain; the ยังขาด list also opens the sheet
+  // with the type already chosen. Otherwise the user picks.
+  const [docType, setDocType] = useState<DocTypeRow | null>(mode.lockedType ?? null);
 
   function onPick(files: FileList | null) {
     const file = files?.[0] ?? null;
@@ -84,11 +106,17 @@ function SheetForm({ mode, onClose }: { mode: SheetMode; onClose: () => void }) 
 
   async function submit(form: FormData) {
     const file = picked;
-    const title = String(form.get("title") ?? "").trim();
-    if (file === null || file.size === 0 || title === "") {
-      setError("กรุณาเลือกไฟล์และกรอกชื่อเอกสาร");
+    if (file === null || file.size === 0 || docType === null) {
+      setError(COMPANY_DOC_PICK_TYPE_FIRST);
       return;
     }
+    const label = String(form.get("label") ?? "").trim();
+    if (!docType.is_singleton && label === "") {
+      setError(COMPANY_DOC_PICK_TYPE_FIRST);
+      return;
+    }
+    // Spec 331: `title` is a DERIVED display snapshot — identity is the type.
+    const title = docType.is_singleton ? docType.name_th : `${docType.name_th} – ${label}`;
     setBusy(true);
     setError(null);
     const uploaded = await uploadCompanyDocFile(file);
@@ -102,6 +130,8 @@ function SheetForm({ mode, onClose }: { mode: SheetMode; onClose: () => void }) 
     const expiresAt = String(form.get("expires_at") ?? "");
     const input = {
       id: uploaded.id,
+      typeId: docType.id,
+      label: docType.is_singleton ? null : label,
       title,
       note: note === "" ? null : note,
       issuedAt: issuedAt === "" ? null : issuedAt,
@@ -185,17 +215,12 @@ function SheetForm({ mode, onClose }: { mode: SheetMode; onClose: () => void }) 
             </p>
           ) : null}
         </div>
-        <label className="flex flex-col gap-1">
-          <span className="text-ink-secondary text-sm">{COMPANY_DOC_TITLE_LABEL}</span>
-          <input
-            type="text"
-            name="title"
-            defaultValue={mode?.prefillTitle ?? ""}
-            maxLength={200}
-            className="border-edge bg-card text-ink rounded-control border px-3 py-2 text-base"
-            required
-          />
-        </label>
+        <DocTypePicker
+          groups={groups}
+          selected={docType}
+          onSelect={setDocType}
+          locked={mode.lockedType !== undefined}
+        />
         <label className="flex flex-col gap-1">
           <span className="text-ink-secondary text-sm">{COMPANY_DOC_NOTE_LABEL}</span>
           <input

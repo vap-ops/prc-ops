@@ -28,7 +28,7 @@ categories** — users pick from the list, never mint their own.
   at once. So each type carries `is_singleton`, and the DB refuses a second live
   document only for singleton types.
 
-## 2. The standard list — 7 categories, 31 types
+## 2. The standard list — 7 categories, 35 types
 
 Seeded by the migration. ⭐ = required (counts toward the missing-documents
 checklist, §6). S = singleton (one live doc). M = multi (many live, each labelled).
@@ -242,8 +242,8 @@ their types, inline add/edit sheets, active toggles, the four flags.
 
 ## 8. Units
 
-- **U1 — schema (additive migration `20260813075818`, schema lane; pgTAP `331`,
-  RED-first).** Two registry tables + RLS + seed (7 categories, 31 types) +
+- **U1 — schema (additive migration `20260813075819`, schema lane; pgTAP `331`,
+  RED-first).** Two registry tables + RLS + seed (7 categories, 35 types) +
   `type_id`/`label` on `company_documents` + the `type_required` CHECK (`NOT VALID`)
   - the enforcement trigger + the six super RPCs + `db:types` (+ the worker's
     vendored copy — `db-types-sync` guard). Danger-path → held; **additive** (nothing

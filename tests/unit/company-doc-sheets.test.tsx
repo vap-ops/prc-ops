@@ -14,7 +14,7 @@ import {
   COMPANY_DOC_PICK_CHANGE_LABEL,
   COMPANY_DOC_PICK_HINT,
   COMPANY_DOC_PICK_LABEL,
-  COMPANY_DOC_TITLE_LABEL,
+  COMPANY_DOC_TYPE_LABEL,
 } from "@/lib/i18n/labels";
 
 vi.mock("next/navigation", () => ({
@@ -28,12 +28,38 @@ vi.mock("@/lib/company-docs/upload-company-doc", () => ({
   uploadCompanyDocFile: vi.fn(),
 }));
 
+const GROUPS = [
+  {
+    category: {
+      id: "cat-1",
+      code: "REG",
+      name_th: "จดทะเบียนบริษัท",
+      sort_order: 10,
+      is_active: true,
+    },
+    types: [
+      {
+        id: "type-1",
+        category_id: "cat-1",
+        code: "REG_CERT",
+        name_th: "หนังสือรับรองบริษัท",
+        hint: null,
+        is_singleton: true,
+        is_required: true,
+        requires_expiry: false,
+        sort_order: 10,
+        is_active: true,
+      },
+    ],
+  },
+];
+
 const pdf = (name: string, bytes: number) =>
   new File([new Uint8Array(bytes)], name, { type: "application/pdf" });
 
 describe("CompanyDocSheet picker", () => {
   it("shows the pick-area affordance, not a bare input", () => {
-    render(<CompanyDocSheet mode={{ kind: "new" }} onClose={() => {}} />);
+    render(<CompanyDocSheet groups={GROUPS} mode={{ kind: "new" }} onClose={() => {}} />);
     expect(screen.getByText(COMPANY_DOC_PICK_LABEL)).toBeInTheDocument();
     expect(screen.getByText(COMPANY_DOC_PICK_HINT)).toBeInTheDocument();
     const input = screen.getByLabelText(COMPANY_DOC_PICK_LABEL, { selector: "input" });
@@ -41,7 +67,7 @@ describe("CompanyDocSheet picker", () => {
   });
 
   it("selecting a file flips to the chosen state with name + change affordance", () => {
-    render(<CompanyDocSheet mode={{ kind: "new" }} onClose={() => {}} />);
+    render(<CompanyDocSheet groups={GROUPS} mode={{ kind: "new" }} onClose={() => {}} />);
     const input = screen.getByLabelText(COMPANY_DOC_PICK_LABEL, { selector: "input" });
     fireEvent.change(input, { target: { files: [pdf("cert.pdf", 2048)] } });
     expect(screen.getByText("cert.pdf")).toBeInTheDocument();
@@ -50,12 +76,14 @@ describe("CompanyDocSheet picker", () => {
   });
 
   it("reopening the sheet clears the previously picked file (stale-bytes guard)", () => {
-    const { rerender } = render(<CompanyDocSheet mode={{ kind: "new" }} onClose={() => {}} />);
+    const { rerender } = render(
+      <CompanyDocSheet groups={GROUPS} mode={{ kind: "new" }} onClose={() => {}} />,
+    );
     const input = screen.getByLabelText(COMPANY_DOC_PICK_LABEL, { selector: "input" });
     fireEvent.change(input, { target: { files: [pdf("old.pdf", 2048)] } });
     expect(screen.getByText("old.pdf")).toBeInTheDocument();
-    rerender(<CompanyDocSheet mode={null} onClose={() => {}} />);
-    rerender(<CompanyDocSheet mode={{ kind: "new" }} onClose={() => {}} />);
+    rerender(<CompanyDocSheet groups={GROUPS} mode={null} onClose={() => {}} />);
+    rerender(<CompanyDocSheet groups={GROUPS} mode={{ kind: "new" }} onClose={() => {}} />);
     expect(screen.queryByText("old.pdf")).not.toBeInTheDocument();
     expect(screen.getByText(COMPANY_DOC_PICK_LABEL)).toBeInTheDocument();
   });
@@ -63,12 +91,13 @@ describe("CompanyDocSheet picker", () => {
   it("submit hands the picked file to the upload helper", async () => {
     const { uploadCompanyDocFile } = await import("@/lib/company-docs/upload-company-doc");
     vi.mocked(uploadCompanyDocFile).mockResolvedValue({ error: "stop-here" });
-    render(<CompanyDocSheet mode={{ kind: "new" }} onClose={() => {}} />);
+    render(<CompanyDocSheet groups={GROUPS} mode={{ kind: "new" }} onClose={() => {}} />);
     const input = screen.getByLabelText(COMPANY_DOC_PICK_LABEL, { selector: "input" });
     const file = pdf("real.pdf", 2048);
     fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.change(screen.getByLabelText(COMPANY_DOC_TITLE_LABEL), {
-      target: { value: "ทดสอบ" },
+    // Spec 331: the free-text title is gone — a type must be chosen instead.
+    fireEvent.change(screen.getByLabelText(COMPANY_DOC_TYPE_LABEL), {
+      target: { value: GROUPS[0]!.types[0]!.id },
     });
     fireEvent.submit(screen.getByRole("dialog").querySelector("form")!);
     await screen.findByText("stop-here");
@@ -76,7 +105,7 @@ describe("CompanyDocSheet picker", () => {
   });
 
   it("rejects an oversize file with the Thai limit message", () => {
-    render(<CompanyDocSheet mode={{ kind: "new" }} onClose={() => {}} />);
+    render(<CompanyDocSheet groups={GROUPS} mode={{ kind: "new" }} onClose={() => {}} />);
     const input = screen.getByLabelText(COMPANY_DOC_PICK_LABEL, { selector: "input" });
     const big = pdf("huge.pdf", 10);
     Object.defineProperty(big, "size", { value: 26 * 1024 * 1024 });
