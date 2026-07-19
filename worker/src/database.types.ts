@@ -8852,6 +8852,10 @@ export type Database = {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
+      add_worker_to_crew: {
+        Args: { p_crew: string; p_worker: string }
+        Returns: string
+      }
       apply_wp_template: { Args: { p_project_id: string }; Returns: number }
       approve_crew_registration: {
         Args: {
@@ -9319,6 +9323,7 @@ export type Database = {
         Args: { p_delivery_id: string }
         Returns: number
       }
+      dissolve_crew: { Args: { p_crew: string }; Returns: string }
       distribute_project_coins: {
         Args: { p_project: string }
         Returns: {
@@ -9576,6 +9581,10 @@ export type Database = {
       }
       move_muster_worker: {
         Args: { p_date: string; p_to_team: string; p_worker: string }
+        Returns: string
+      }
+      move_worker_between_crews: {
+        Args: { p_from: string; p_to: string; p_worker: string }
         Returns: string
       }
       muster_scan_in: {
@@ -10008,6 +10017,11 @@ export type Database = {
         Args: { p_predecessor: string; p_successor: string }
         Returns: boolean
       }
+      remove_worker_from_crew: {
+        Args: { p_crew: string; p_worker: string }
+        Returns: string
+      }
+      rename_crew: { Args: { p_crew: string; p_name: string }; Returns: string }
       reopen_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       reopen_work_package_for_defect: {
         Args: {
@@ -10150,6 +10164,10 @@ export type Database = {
           p_service_provider_id?: string
           p_supplier_id?: string
         }
+        Returns: string
+      }
+      set_crew_lead: {
+        Args: { p_crew: string; p_worker: string }
         Returns: string
       }
       set_daily_plan_item_crew: {

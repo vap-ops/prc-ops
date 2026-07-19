@@ -17,7 +17,7 @@ import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { COMPANY_DOCS_HINT, COMPANY_DOCS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { loadAccountingDashboard } from "@/lib/accounting/load-dashboard";
@@ -136,6 +136,13 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
             { href: "/accounting/purchases", label: "การจัดซื้อ", hint: "ตรวจสอบเอกสารการซื้อ" },
             // Spec 196 Tier 4: month-end close (open → closing → closed → locked).
             { href: "/accounting/periods", label: "ปิดงวดบัญชี", hint: "เปิด/ปิดงวดบัญชีรายเดือน" },
+            // Spec 329: the firm's document library lives under settings, but
+            // accounting are its primary users — their home advertises it.
+            {
+              href: "/settings/company-docs",
+              label: COMPANY_DOCS_LABEL,
+              hint: COMPANY_DOCS_HINT,
+            },
           ].map((l) => (
             <Link
               key={l.href}

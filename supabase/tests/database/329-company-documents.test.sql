@@ -109,15 +109,21 @@ select throws_ok($$
           '00000000-0000-4329-a000-000000000001')
 $$, '23514', null, 'self-supersede rejected');
 
--- accounting reads what it wrote
+-- accounting reads what it wrote — scoped to THIS test's seeded ids: the
+-- shared live DB already holds real company documents (the U2 verify uploaded
+-- some), so a bare count(*) reds on live-data drift (caught 2026-07-19 when
+-- it blocked an unrelated PR's required pgTAP check).
 select is(
-  (select count(*) from public.company_documents),
-  3::bigint, 'accounting sees all rows');
+  (select count(*) from public.company_documents
+    where created_by = '00000000-0000-4329-a000-000000000001'),
+  3::bigint, 'accounting sees all rows it seeded');
 
--- current-set read (both filters) returns nothing (chain fully retired)
+-- current-set read (both filters) returns nothing (chain fully retired) —
+-- scoped to the seeded chain (live docs are legitimately current).
 select is(
   (select count(*) from public.company_documents d
-    where d.storage_path is not null
+    where d.created_by = '00000000-0000-4329-a000-000000000001'
+      and d.storage_path is not null
       and not exists (select 1 from public.company_documents newer
                       where newer.superseded_by = d.id)),
   0::bigint, 'retired chain leaves the current set');
