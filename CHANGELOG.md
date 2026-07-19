@@ -1,3 +1,9 @@
+# [0.157.0](https://github.com/VAP-Solution/prc-ops/compare/v0.156.0...v0.157.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 330 U3c — scope every crew RPC to its own project (+ U3b review fixes) ([#660](https://github.com/VAP-Solution/prc-ops/issues/660)) ([702ef45](https://github.com/VAP-Solution/prc-ops/commit/702ef456c7241b867c46c21e3ded0836a37a3c8a))
+
 # [0.156.0](https://github.com/VAP-Solution/prc-ops/compare/v0.155.0...v0.156.0) (2026-07-19)
 
 ### Features
