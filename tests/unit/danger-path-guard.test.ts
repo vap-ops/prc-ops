@@ -103,6 +103,33 @@ describe("danger-path guard deny-regex", () => {
     expect(deny.test("src/lib/payroll-report.ts")).toBe(false);
   });
 
+  it("protects the crew-mutation lib dir src/lib/team-map/ (spec 330 U3c)", () => {
+    // src/lib/team-map/crew-actions.ts relays seven DEFINER crew RPCs
+    // (add/remove/move/set-lead/create/rename/dissolve). Crew membership feeds
+    // the /sa/plan draft → set_daily_plan_item_crew → mark-present →
+    // log_labor_day → labor_logs → payroll, so these are money-adjacent WRITES
+    // — yet the dir was never listed, so a change to them was guard-CLEAN and
+    // would AUTO-MERGE. PR #660 was held only because it also carried a
+    // migration; the relays themselves rode in unheld.
+    //
+    // build-team-map.ts is money-adjacent for a subtler reason: it is where each
+    // chip's contractor_id is emitted, and that value IS the spec-328 §2.4
+    // pay-exempt wall in the UI. Hardcoding it to null there disarms the wall.
+    // So hold the whole dir — all three files are crew/pay domain, no innocent
+    // content to over-match. Same blind-spot class as auth #463 / photos #585 /
+    // money routes #596 / store uploads #607 / payroll lib #643.
+    expect(deny.test("src/lib/team-map/crew-actions.ts")).toBe(true);
+    expect(deny.test("src/lib/team-map/build-team-map.ts")).toBe(true);
+    expect(deny.test("src/lib/team-map/load-team-map.ts")).toBe(true);
+    expect(deny.test("src/lib/team-map/any-future-crew-module.ts")).toBe(true);
+    // Slash boundary: the token stays `src/lib/team-map/` (dir) and must never
+    // widen to a bare `src/lib/team-map` prefix that would hold flat siblings.
+    expect(deny.test("src/lib/team-map-labels.ts")).toBe(false);
+    // The team-map COMPONENT tree stays auto-mergeable: it is presentation over
+    // these actions, and the guard holds the write surface, not every caller.
+    expect(deny.test("src/components/features/team-map/team-map-view.tsx")).toBe(false);
+  });
+
   it("still protects the pre-existing danger paths (no regression)", () => {
     expect(deny.test("src/lib/auth/session.ts")).toBe(true);
     expect(deny.test("src/lib/db/admin.ts")).toBe(true);
