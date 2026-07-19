@@ -83,14 +83,21 @@ planned).
 Form-placement doctrine: bottom sheet is the default. Tap any card/chip →
 sheet with actions scoped to the node type:
 
-| Node                   | Actions (v1)                                                                                                  | Backing                                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Staff member           | ถอดออกจากทีมโครงการ (last-member block + self-remove confirm via `evaluateMemberRemoval`)                     | existing `removeProjectMember`                                                             |
-| SA member              | + ตั้งเป็น SA หลัก                                                                                            | existing `setPrimaryProjectFor`                                                            |
-| PRC worker chip        | ตั้งเป็นหัวหน้าทีม · ย้ายทีม · ย้ายโครงการ · ดูข้อมูลช่าง (→ /workers)                                        | U2 RPCs (`set_crew_lead`, `move/remove crew member`) + existing `assign_worker_to_project` |
-| Firm worker chip       | ย้ายทีมผู้รับเหมา (→ /workers edit flow) · ดูข้อมูลช่าง                                                       | existing #642 firm picker (link out v1)                                                    |
-| Team card              | เปลี่ยนชื่อทีม · ยุบทีม (members → ยังไม่จัดทีม)                                                              | U2 RPCs                                                                                    |
-| เพิ่มสมาชิก (page CTA) | เพิ่มพนักงาน (staff picker) · เพิ่มช่างเข้าโครงการ · ตั้งทีม (`create_crew`) · เปิด QR สมัครเข้าทีม (→ /team) | existing `addProjectMember`, `assignWorkerToProject`, `create_crew`                        |
+| Node                   | Actions (v1)                                                                                                                             | Backing                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Staff member           | ถอดออกจากทีมโครงการ (last-member block + self-remove confirm via `evaluateMemberRemoval`)                                                | existing `removeProjectMember`                                                             |
+| SA member              | + ตั้งเป็น SA หลัก                                                                                                                       | existing `setPrimaryProjectFor`                                                            |
+| PRC worker chip        | ตั้งเป็นหัวหน้าทีม · ย้ายทีม · ย้ายโครงการ · ดูข้อมูลช่าง (→ /workers)                                                                   | U2 RPCs (`set_crew_lead`, `move/remove crew member`) + existing `assign_worker_to_project` |
+| Firm worker chip       | ย้ายทีมผู้รับเหมา (→ /workers edit flow) · ดูข้อมูลช่าง                                                                                  | existing #642 firm picker (link out v1)                                                    |
+| Team card              | เปลี่ยนชื่อทีม · ยุบทีม (members → ยังไม่จัดทีม)                                                                                         | U2 RPCs                                                                                    |
+| เพิ่มสมาชิก (page CTA) | เพิ่มพนักงาน (staff picker) — as built, the sheet is the staff picker ONLY; เพิ่มช่างเข้าโครงการ + QR link-out remain unbuilt candidates | existing `addProjectMember`                                                                |
+
+**U5 amendment (operator, in-chat 2026-07-19 evening): ตั้งทีมใหม่ must NOT
+hide behind เพิ่มสมาชิก.** It moves out of the add sheet to a visible action
+button in the ทีมช่าง tier header (see §11). The add sheet keeps the staff
+picker only. Per-tier header actions replace the single page-bottom CTA:
+each staff tier header carries its own เพิ่มสมาชิก, the ทีมช่าง header
+carries ตั้งทีมใหม่.
 
 **Staff add picker widened** (from `SITE_STAFF_ROLES`) to the
 membership-driven roles: project_manager, site_admin, **site_owner, auditor**
@@ -187,6 +194,12 @@ muster reads crews at open time, no FK needed).
 | U2   | Crew RPC migration (§5) + pgTAP                                                                                                                       | additive mig, self-merge grant |
 | U3   | Crew manage UI: ตั้งทีม, membership add/move/remove, set lead, rename/dissolve — wires U2                                                             | code-only                      |
 | U4   | Firms polish (firm cards link-outs), /team hub row, settings-block retire, `?from` threading sweep                                                    | code-only                      |
+| U5   | Map-look redesign (§11): tier containers + connectors + role icons + ⓘ role explainers + per-tier header actions (ตั้งทีมใหม่ un-buried)              | code-only, auto-merge          |
+| U6   | WP↔team assignment (§12): crewless-WP tray + tap-tap placing + per-chip ย้าย/เอาออก + วันนี้/พรุ่งนี้ toggle, over EXISTING daily-plan RPCs           | code-only, auto-merge          |
+
+**U4 is PARKED pending the pilot (operator, 2026-07-19).** U5/U6 were
+approved via three in-chat interactive mockups the same evening and slot
+ahead of it.
 
 Each unit shippable alone; map degrades gracefully (no crews → workers all in
 ยังไม่จัดทีม pool; that IS the current prod truth: crews has 0 rows).
@@ -204,3 +217,78 @@ crewMembers, project)` → tier/team/pool structure — unit-tested RED-first
   untouched (verified — pins only the 4 config blocks).
 - SSR probe as super_admin + view-as PM on the live project before ship
   (dev-preview login recipe).
+
+## 11. U5 — map-look redesign (approved via mockups, 2026-07-19 evening)
+
+Operator: "map is still not perceived as map." The tiers must read as an org
+chart at a glance — containers, structure lines, faces — not stacked lists.
+
+- **Tier containers.** Each tier renders inside a bordered, rounded container
+  (`border-edge` + `bg-sunk`-family tokens ONLY — the design-doctrine guard
+  bans raw Tailwind palette, so the mockups' purple/teal tints land as
+  border/weight/icon hierarchy, not color ramps). Container header row =
+  tier icon + label + counts + ⓘ + the tier's own action button.
+- **Per-tier header actions.** ผู้บริหารโครงการ and หน้างาน headers each get
+  เพิ่มสมาชิก (opens the existing add-staff sheet); ทีมช่าง header gets
+  **ตั้งทีมใหม่** (opens the existing createCrew sheet). The page-bottom
+  เพิ่มสมาชิก CTA is removed. All new header buttons are SIBLINGS in the
+  header flex row — never wrapping the existing master toggle.
+- **Connectors.** A centered vertical trunk between tier containers on `sm:`
+  (today's `border-l` stub, strengthened), plus a horizontal rail with two
+  drops above the ทีมช่าง grid. Pure CSS.
+- **Role icons.** Staff rows gain a leading avatar circle with a lucide icon
+  per role: star (project lead), briefcase (PM/PD), settings (super_admin),
+  clipboard-list (site_admin), key-round (site_owner), eye (auditor). Icon map
+  lives beside the view (presentational, exhaustive over the tier buckets).
+- **ⓘ role explainers.** Each tier header's ⓘ opens a BottomSheet (new
+  `info` member of the SheetState union) with short Thai explanations of the
+  tier's roles. Copy lives in `src/lib/help/team-map-roles.ts` (spec-314
+  PayModelExplainer precedent — help content stays out of money/label SSOTs).
+- **HT affordance.** A crew card whose lead is unset renders a dashed
+  "ยังไม่ตั้งหัวหน้าทีม — แตะเพื่อเลือก" row; tapping it expands the member
+  list (the lead is then set by tapping a member chip, exactly the existing
+  flow). A set lead renders as the existing ★ first chip, restyled as an
+  emphasized band.
+- One DOM, `sm:` only (no new breakpoints); phone keeps the vertical stack
+  inside the same containers.
+
+## 12. U6 — WP↔team assignment (approved via interactive mockup, 2026-07-19)
+
+The map shows and edits **which team works which WP on a day**, at team
+grain, over the EXISTING daily-plan machinery (ADR 0076 seed-only per-item
+worker rows; no team FK, NO schema change).
+
+- **Data.** For the selected date: `daily_work_plans(project, date)` →
+  `daily_work_plan_items`(WP) → `daily_work_plan_crew`(workers). All three
+  are RLS-readable via `can_see_project`. A NEW read-only loader
+  (`src/lib/work-plans/day-assignments.ts` + page.tsx wiring) assembles:
+  - **tray** = items with ZERO crew rows (planned-but-unassigned), and
+  - **per-team chips** = items whose crew overlaps the team's active members.
+    `build-team-map.ts` / `load-team-map.ts` are NOT touched (danger-held).
+- **Date toggle.** วันนี้ / พรุ่งนี้ (`bangkokTodayIso` / `addDaysIso`),
+  default วันนี้. Assignment writes target the selected day's board.
+- **Assign (tap-tap, not drag).** Tap a tray chip → placing mode: `kind:
+"crew"` cards ONLY light up as dashed targets (firm/pool are NEVER targets
+  — spec 328 §2.4; crews are contractor-free by mig 075818, and the
+  expansion filters `contractorId === null` belt-and-braces). Tap a team →
+  `setDailyPlanItemCrew(item, team's member workerIds, lead = the isTeamLead
+member ?? null)`. Teams without a lead accept work.
+- **Modify.** Tap an assigned chip → sheet: ย้ายไปทีมอื่น (re-place; full
+  replace with the target team's set) · เอาออกจากทีม (crew := empty; item
+  returns to the tray, WP stays on the board) · เปิดหน้างาน (→ WP detail).
+  **Mixed-item lockout:** if the item's current crew is NOT a subset of the
+  card's team members (an SA hand-tuned a per-worker set on /sa/plan), the
+  sheet offers NO team-grain writes — only "งานนี้จัดคนรายบุคคลไว้ —
+  แก้ที่แผนงาน" with a link. The map must never clobber worker-grain edits.
+- **Add to plan.** เพิ่มงานเข้าแผน opens a picker (leaf WPs only,
+  `is_group=false`, status ≠ complete — `add_daily_plan_item` hard-rejects
+  groups) → `addDailyPlanItem` → the item lands in the tray.
+- **Writes reuse `src/app/sa/plan/actions.ts` verbatim** — zero new
+  write-path code. Their hardcoded `revalidatePath("/sa/plan")` is fine: the
+  map routes every write through `run()`, whose `router.refresh()` re-renders
+  the team page. Non-atomic add→assign (two RPCs) is acceptable: add is
+  idempotent, a mid-sequence failure leaves a crewless tray item (retry-safe).
+- **Grain contract.** Map = team-grain; /sa/plan = worker-grain; same truth
+  (`daily_work_plan_crew`), last writer wins, and the mixed-item lockout
+  keeps the map from overwriting finer-grained knowledge. Muster remains the
+  attendance truth; the plan is intent.

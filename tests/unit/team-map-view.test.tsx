@@ -169,7 +169,13 @@ describe("TeamMapView (spec 330 U1)", () => {
   it("เพิ่มสมาชิก opens the add sheet listing only addable staff", async () => {
     const user = userEvent.setup();
     renderView();
-    await user.click(screen.getByRole("button", { name: /เพิ่มสมาชิก/ }));
+    // U5: the CTA lives in each staff tier's header (2 of them), not at the
+    // page bottom — open via the management tier's own button.
+    await user.click(
+      within(screen.getByRole("region", { name: /ผู้บริหารโครงการ/ })).getByRole("button", {
+        name: /เพิ่มสมาชิก/,
+      }),
+    );
     const sheet = screen.getByRole("dialog");
     expect(within(sheet).getByText("คนใหม่")).toBeInTheDocument();
     expect(within(sheet).queryByText("สมชาย ใจดี")).not.toBeInTheDocument();

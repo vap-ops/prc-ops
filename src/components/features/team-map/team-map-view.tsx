@@ -1,15 +1,28 @@
 "use client";
 
-// Spec 330 U1 — the per-project team map (ทีมงานโครงการ). Three tiers:
-// ผู้บริหารโครงการ → หน้างาน → ทีมช่าง. Team-card member lists collapse per
-// card + a master toggle; counts stay visible collapsed (operator requirement).
-// U1 manage surface = STAFF only (add / remove / set-primary over the existing
-// spec-80/292 actions); worker chips are read-only until U3 wires the crew RPCs.
+// Spec 330 U1+U5 — the per-project team map (ทีมงานโครงการ). Three tiers:
+// ผู้บริหารโครงการ → หน้างาน → ทีมช่าง, each a bordered container whose header
+// carries the tier's own action (เพิ่มสมาชิก / ตั้งทีมใหม่ — U5 un-buried it
+// from the add sheet, operator ask 2026-07-19) plus an ⓘ role explainer.
+// Member lists collapse per card + a master toggle; counts stay visible
+// collapsed (operator requirement).
 // 'use client': collapse state, sheet state, and action relays live here.
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CircleHelp, Star, UserPlus, Users } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  CircleHelp,
+  ClipboardList,
+  Eye,
+  Info,
+  KeyRound,
+  Settings,
+  Star,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
 import {
   addProjectMember,
@@ -18,6 +31,7 @@ import {
 } from "@/app/projects/[projectId]/settings/actions";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
+import { TEAM_MAP_ROLE_HELP } from "@/lib/help/team-map-roles";
 import type {
   ProjectTeamMap,
   TeamMapStaffNode,
@@ -46,15 +60,27 @@ export interface AddableStaff {
 
 // ONE sheet at a time — every surface rides the same union so two dialogs can
 // never stack.
+type InfoTier = "management" | "site" | "crew";
+
 type SheetState =
   | { type: "staff"; node: TeamMapStaffNode }
   | { type: "add" }
   | { type: "createCrew" }
   | { type: "team"; team: TeamMapTeamCard }
   | { type: "chip"; chip: TeamMapWorkerChip; team: TeamMapTeamCard }
+  | { type: "info"; tier: InfoTier }
   | null;
 
 const TIER_HEADING = "text-ink-secondary text-xs font-medium";
+// U5 map-look: every tier renders inside a bordered container whose header row
+// carries the tier icon, counts, ⓘ, and the tier's OWN action button. Token
+// classes only — the design-doctrine guard bans raw Tailwind palette.
+const TIER_BOX = "border-edge bg-sunk rounded-card border p-3";
+const TIER_ACTION =
+  "text-action border-edge bg-card inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
+const INFO_BTN = "text-ink-muted min-h-11 shrink-0 px-1";
+const AVATAR =
+  "bg-sunk text-ink-secondary flex size-8 shrink-0 items-center justify-center rounded-full";
 const CARD = "rounded-card border-edge bg-card flex flex-col gap-2 border px-3 py-2";
 const STAFF_ROW =
   "rounded-card border-edge bg-card flex min-h-11 w-full items-center gap-3 border px-3 py-2 text-left";
@@ -69,9 +95,36 @@ function roleLabel(role: string): string {
   return (USER_ROLE_LABEL as Record<string, string>)[role] ?? role;
 }
 
+// U5: one face-icon per role so the tiers read as an org chart, not a list.
+// The project lead outranks their role icon (★). Exhaustive over the builder's
+// tier buckets (MANAGEMENT_ROLES + SITE_TIER_ROLES); anything else falls back
+// to the generic user glyph.
+function RoleIcon({ node }: { node: TeamMapStaffNode }) {
+  const cls = "size-4";
+  if (node.isLead) return <Star aria-hidden className={cls} />;
+  switch (node.role) {
+    case "project_manager":
+    case "project_director":
+      return <Briefcase aria-hidden className={cls} />;
+    case "super_admin":
+      return <Settings aria-hidden className={cls} />;
+    case "site_admin":
+      return <ClipboardList aria-hidden className={cls} />;
+    case "site_owner":
+      return <KeyRound aria-hidden className={cls} />;
+    case "auditor":
+      return <Eye aria-hidden className={cls} />;
+    default:
+      return <Users aria-hidden className={cls} />;
+  }
+}
+
 function StaffRow({ node, onOpen }: { node: TeamMapStaffNode; onOpen: () => void }) {
   return (
     <button type="button" className={STAFF_ROW} onClick={onOpen}>
+      <span className={AVATAR} aria-hidden>
+        <RoleIcon node={node} />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="text-ink block truncate text-sm font-medium">
           {node.name ?? node.userId.slice(0, 8)}
@@ -137,27 +190,57 @@ function TeamCard({
           {expanded ? "ซ่อน" : "แสดง"}
         </button>
       </div>
+      {/* U5: a crew with NO lead surfaces that as a visible to-do while the
+          card is collapsed — tapping it expands the list so the lead can be
+          set by tapping a member (the existing chip-sheet flow). Members must
+          exist: on an empty crew the prompt would be a dead end (fresh-eyes). */}
+      {!expanded &&
+      team.kind === "crew" &&
+      team.members.length > 0 &&
+      !team.members.some((m) => m.isTeamLead) ? (
+        <button
+          type="button"
+          className="border-edge-strong text-ink-muted flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed px-3 text-left text-xs"
+          onClick={onToggle}
+        >
+          <Star aria-hidden className="size-3.5" /> ยังไม่ตั้งหัวหน้าทีม — แตะเพื่อเลือก
+        </button>
+      ) : null}
       {expanded ? (
-        <div className="border-edge flex flex-wrap gap-1.5 border-t pt-2">
-          {team.members.map((m) => (
-            <button
-              key={m.workerId}
-              type="button"
-              className={`${CHIP} min-h-11`}
-              onClick={() => onChip(m)}
-            >
-              {m.isTeamLead ? (
-                <span className="text-ink inline-flex items-center gap-1 font-medium">
-                  <Star aria-hidden className="size-3" /> {m.name} · หัวหน้าทีม
-                </span>
-              ) : (
-                m.name
-              )}
-            </button>
-          ))}
-          {team.members.length === 0 ? (
-            <span className="text-ink-muted text-xs">ยังไม่มีสมาชิก</span>
-          ) : null}
+        <div className="border-edge flex flex-col gap-1.5 border-t pt-2">
+          {/* U5 lead band: the หัวหน้าทีม renders as an emphasized full-width
+              band above the member chips (still a button — same chip sheet). */}
+          {team.members
+            .filter((m) => m.isTeamLead)
+            .map((m) => (
+              <button
+                key={m.workerId}
+                type="button"
+                data-testid="crew-lead-band"
+                className="border-edge bg-card text-ink flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left text-xs font-medium"
+                onClick={() => onChip(m)}
+              >
+                <Star aria-hidden className="size-3.5" /> {m.name}
+                <span className="text-ink-secondary font-normal">หัวหน้าทีม</span>
+              </button>
+            ))}
+          <div className="flex flex-wrap gap-1.5">
+            {team.members
+              .filter((m) => !m.isTeamLead)
+              .map((m) => (
+                <button
+                  key={m.workerId}
+                  type="button"
+                  className={`${CHIP} min-h-11`}
+                  onClick={() => onChip(m)}
+                >
+                  {m.name}
+                </button>
+              ))}
+            {team.members.length === 0 ? (
+              <span className="text-ink-muted text-xs">ยังไม่มีสมาชิก</span>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>
@@ -273,8 +356,24 @@ export function TeamMapView({
 
   return (
     <div className="flex flex-col">
-      <section aria-label="ผู้บริหารโครงการ">
-        <p className={`${TIER_HEADING} mb-2`}>ผู้บริหารโครงการ · {map.management.length} คน</p>
+      <section aria-label="ผู้บริหารโครงการ" className={TIER_BOX}>
+        <div className="mb-2 flex items-center gap-2">
+          <Briefcase aria-hidden className="text-ink-secondary size-4 shrink-0" />
+          <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
+            ผู้บริหารโครงการ · {map.management.length} คน
+          </p>
+          <button
+            type="button"
+            className={INFO_BTN}
+            aria-label="คำอธิบายบทบาทผู้บริหารโครงการ"
+            onClick={() => openSheet({ type: "info", tier: "management" })}
+          >
+            <Info aria-hidden className="size-4" />
+          </button>
+          <button type="button" className={TIER_ACTION} onClick={() => openSheet({ type: "add" })}>
+            <UserPlus aria-hidden className="size-3.5" /> เพิ่มสมาชิก
+          </button>
+        </div>
         <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-center sm:[&>button]:min-w-56 sm:[&>button]:flex-none">
           {map.management.map((n) => (
             <StaffRow
@@ -289,10 +388,26 @@ export function TeamMapView({
         </div>
       </section>
 
-      <div className="border-edge-strong ml-4 h-3 border-l sm:mx-auto" aria-hidden />
+      <div className="border-edge-strong ml-6 h-4 border-l sm:mx-auto" aria-hidden />
 
-      <section aria-label="หน้างาน">
-        <p className={`${TIER_HEADING} mb-2`}>หน้างาน · {map.site.length} คน</p>
+      <section aria-label="หน้างาน" className={TIER_BOX}>
+        <div className="mb-2 flex items-center gap-2">
+          <ClipboardList aria-hidden className="text-ink-secondary size-4 shrink-0" />
+          <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
+            หน้างาน · {map.site.length} คน
+          </p>
+          <button
+            type="button"
+            className={INFO_BTN}
+            aria-label="คำอธิบายบทบาทหน้างาน"
+            onClick={() => openSheet({ type: "info", tier: "site" })}
+          >
+            <Info aria-hidden className="size-4" />
+          </button>
+          <button type="button" className={TIER_ACTION} onClick={() => openSheet({ type: "add" })}>
+            <UserPlus aria-hidden className="size-3.5" /> เพิ่มสมาชิก
+          </button>
+        </div>
         <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-center sm:[&>button]:min-w-56 sm:[&>button]:flex-none">
           {map.site.map((n) => (
             <StaffRow
@@ -307,13 +422,35 @@ export function TeamMapView({
         </div>
       </section>
 
-      <div className="border-edge-strong ml-4 h-3 border-l sm:mx-auto" aria-hidden />
+      {/* Trunk + rail: the หน้างาน tier "branches" into the team grid on sm. */}
+      <div className="border-edge-strong ml-6 h-4 border-l sm:mx-auto" aria-hidden />
+      <div className="border-edge-strong mx-10 hidden border-t sm:block" aria-hidden />
+      <div className="mx-10 hidden justify-between sm:flex" aria-hidden>
+        <div className="border-edge-strong h-3 border-l" />
+        <div className="border-edge-strong h-3 border-l" />
+      </div>
 
-      <section aria-label="ทีมช่าง">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className={TIER_HEADING}>
+      <section aria-label="ทีมช่าง" className={TIER_BOX}>
+        <div className="mb-2 flex items-center gap-2">
+          <Users aria-hidden className="text-ink-secondary size-4 shrink-0" />
+          <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
             ทีมช่าง · รวม {map.crewTotal} คน · {map.teamCount} ทีม
           </p>
+          <button
+            type="button"
+            className={INFO_BTN}
+            aria-label="คำอธิบายบทบาททีมช่าง"
+            onClick={() => openSheet({ type: "info", tier: "crew" })}
+          >
+            <Info aria-hidden className="size-4" />
+          </button>
+          <button
+            type="button"
+            className={TIER_ACTION}
+            onClick={() => openSheet({ type: "createCrew" })}
+          >
+            <Users aria-hidden className="size-3.5" /> ตั้งทีมใหม่
+          </button>
           {map.teams.length > 0 ? (
             <button
               type="button"
@@ -342,16 +479,6 @@ export function TeamMapView({
           ) : null}
         </div>
       </section>
-
-      <div className="mt-4 flex justify-end">
-        <button
-          type="button"
-          className="text-action border-edge flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium"
-          onClick={() => openSheet({ type: "add" })}
-        >
-          <UserPlus aria-hidden className="size-4" /> เพิ่มสมาชิก
-        </button>
-      </div>
 
       {error && !sheet ? <p className={`${INLINE_ERROR} mt-2`}>{error}</p> : null}
 
@@ -393,17 +520,11 @@ export function TeamMapView({
         ) : null}
       </BottomSheet>
 
+      {/* U5: staff picker ONLY — ตั้งทีมใหม่ moved to the ทีมช่าง tier header
+          (operator: it must not hide behind เพิ่มสมาชิก). */}
       <BottomSheet open={sheet?.type === "add"} title="เพิ่มสมาชิกทีมโครงการ" onClose={closeSheet}>
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            className={SHEET_ACTION}
-            onClick={() => openSheet({ type: "createCrew" })}
-          >
-            <Users aria-hidden className="text-ink-secondary size-4" /> ตั้งทีมใหม่
-          </button>
-          <p className="text-ink-secondary mt-1 text-xs">เพิ่มพนักงานเข้าโครงการ</p>
+          <p className="text-ink-secondary text-xs">เพิ่มพนักงานเข้าโครงการ</p>
           {sortedAddable.map((s) => (
             <button
               key={s.id}
@@ -584,6 +705,32 @@ export function TeamMapView({
               <p className="text-ink-muted text-xs">ยังไม่มีทีมอื่นให้ย้ายไป</p>
             )}
             {error ? <p className={INLINE_ERROR}>{error}</p> : null}
+          </div>
+        ) : null}
+      </BottomSheet>
+
+      {/* ── ⓘ role explainers (U5) ──────────────────────────────────────── */}
+      <BottomSheet
+        open={sheet?.type === "info"}
+        title={
+          sheet?.type === "info"
+            ? sheet.tier === "management"
+              ? "บทบาท — ผู้บริหารโครงการ"
+              : sheet.tier === "site"
+                ? "บทบาท — หน้างาน"
+                : "บทบาท — ทีมช่าง"
+            : ""
+        }
+        onClose={closeSheet}
+      >
+        {sheet?.type === "info" ? (
+          <div className="flex flex-col gap-3">
+            {TEAM_MAP_ROLE_HELP[sheet.tier].map((entry) => (
+              <div key={entry.label}>
+                <p className="text-ink text-sm font-medium">{entry.label}</p>
+                <p className="text-ink-secondary text-xs">{entry.description}</p>
+              </div>
+            ))}
           </div>
         ) : null}
       </BottomSheet>
