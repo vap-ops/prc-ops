@@ -1,3 +1,9 @@
+# [0.147.0](https://github.com/VAP-Solution/prc-ops/compare/v0.146.0...v0.147.0) (2026-07-19)
+
+### Features
+
+- **muster:** surface move_muster_worker as a cockpit day-of correction (spec 306) ([#641](https://github.com/VAP-Solution/prc-ops/issues/641)) ([241917e](https://github.com/VAP-Solution/prc-ops/commit/241917eb44c7f144c48401193820c9620b0fbff4))
+
 # [0.146.0](https://github.com/VAP-Solution/prc-ops/compare/v0.145.0...v0.146.0) (2026-07-19)
 
 ### Features
