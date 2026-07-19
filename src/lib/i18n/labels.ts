@@ -1074,3 +1074,9 @@ export const COMPANY_DOC_TITLE_LABEL = "ชื่อเอกสาร";
 export const COMPANY_DOC_NOTE_LABEL = "หมายเหตุ";
 export const COMPANY_DOC_FILE_LABEL = "ไฟล์เอกสาร";
 export const COMPANY_DOC_EMPTY_LABEL = "ยังไม่มีเอกสารบริษัท";
+
+// Spec 329 follow-up — upload picker affordance (operator feedback 2026-07-19).
+export const COMPANY_DOC_PICK_LABEL = "แตะเพื่อเลือกไฟล์";
+export const COMPANY_DOC_PICK_HINT = "PDF หรือรูปภาพ · ไม่เกิน 25MB";
+export const COMPANY_DOC_PICK_CHANGE_LABEL = "แตะเพื่อเปลี่ยนไฟล์";
+export const COMPANY_DOC_FILE_TOO_BIG = "ไฟล์ใหญ่เกิน 25MB กรุณาเลือกไฟล์ที่เล็กกว่า";
