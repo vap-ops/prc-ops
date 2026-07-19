@@ -37,25 +37,47 @@ same as `photo_logs`). Each row = one **version** of one document. A logical edi
 or re-issued cert = INSERT a new row with `superseded_by` pointing at the row it
 replaces. No UPDATE/DELETE ever (freeze trigger, P0001).
 
-| column          | type        | notes                                                                                                                                                                     |
-| --------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`            | uuid PK     | `gen_random_uuid()`                                                                                                                                                       |
-| `title`         | text        | not null, nonblank, ≤200 (Thai)                                                                                                                                           |
-| `note`          | text null   | free remark                                                                                                                                                               |
-| `storage_path`  | text        | not null — object key in `company-docs` bucket                                                                                                                            |
-| `issued_at`     | date null   | document issue date                                                                                                                                                       |
-| `expires_at`    | date null   | validity end (หนังสือรับรอง practical ~6 months)                                                                                                                          |
-| `retired`       | boolean     | not null default false — tombstone version: supersede with `retired=true` removes the document from the current list (wrong-doc-entirely case) while history stays intact |
-| `superseded_by` | uuid null   | FK → `company_documents(id)` — the row THIS row replaces (new points at old, per CLAUDE.md)                                                                               |
-| `created_by`    | uuid        | FK → `users(id)`                                                                                                                                                          |
-| `created_at`    | timestamptz | default now()                                                                                                                                                             |
+| column          | type        | notes                                                                                       |
+| --------------- | ----------- | ------------------------------------------------------------------------------------------- |
+| `id`            | uuid PK     | `gen_random_uuid()`                                                                         |
+| `title`         | text null   | nonblank ≤200 when present (Thai); NULL only on a tombstone row                             |
+| `note`          | text null   | free remark                                                                                 |
+| `storage_path`  | text null   | object key in `company-docs` bucket; NULL only on a tombstone row                           |
+| `issued_at`     | date null   | document issue date                                                                         |
+| `expires_at`    | date null   | validity end (หนังสือรับรอง practical ~6 months)                                            |
+| `superseded_by` | uuid null   | FK → `company_documents(id)` — the row THIS row replaces (new points at old, per CLAUDE.md) |
+| `created_by`    | uuid        | FK → `users(id)`                                                                            |
+| `created_at`    | timestamptz | default now()                                                                               |
+
+**Retire (wrong-doc-entirely case) = a TOMBSTONE row per ADR 0015:** an INSERT
+whose payload columns (`title`, `note`, `storage_path`, `issued_at`,
+`expires_at`) are ALL NULL and whose `superseded_by` points at the head being
+retired. (Amended 2026-07-19 during planning: the earlier `retired boolean`
+column is replaced by the house tombstone form — `signed-urls.ts` already
+treats `storage_path IS NULL` as a tombstone.)
+
+**Deliberate deviation from photo_logs' strict CHECK** (`(storage_path IS
+NULL) = (superseded_by IS NOT NULL)`, which forecloses atomic replacement):
+here a CONTENT row may also supersede — the chain IS the version history the
+operator asked for. Well-formedness CHECK for this table instead:
+
+```sql
+constraint company_documents_well_formed check (
+  (storage_path is not null and title is not null)
+  or (storage_path is null and title is null and note is null
+      and issued_at is null and expires_at is null
+      and superseded_by is not null)
+)
+```
 
 Invariants:
 
-- **Single-child chain:** partial unique index on `superseded_by` (where not
-  null) — a version can be replaced by exactly one newer version.
-- **Current set** = anti-join (`WHERE NOT EXISTS (newer.superseded_by = d.id)`)
-  AND `retired = false`.
+- **Single-child chain:** partial UNIQUE index on `superseded_by` (where not
+  null) — a version can be replaced by exactly one newer version; doubles as
+  the anti-join index the supersede skill requires.
+- **Current set** = `storage_path IS NOT NULL` (tombstone filter) AND
+  anti-join (`WHERE NOT EXISTS (newer.superseded_by = d.id)`) — both filters,
+  per ADR 0015.
 - **Version history** of a doc = walk the `superseded_by` chain from the head.
 
 RLS (fail-closed per `rls-self-check-coalesce` lesson — role checks via the
@@ -79,9 +101,13 @@ swap in U1.
   `src/lib/storage/buckets.ts`).
 - Object path: `<document_row_id>/<sanitized original filename>` — row id minted
   server-side before upload so path and row bind.
-- `storage.objects` policies mirror the table: INSERT (upload) gated
-  `ACCOUNTING_ROLES`; download runs through the existing signed-URL helper
-  pattern (`src/lib/storage/signed-urls.ts`) behind the page's role gate.
+- `storage.objects` gets an INSERT policy ONLY, gated `ACCOUNTING_ROLES`
+  (+ one-folder path shape). NO SELECT/UPDATE/DELETE policies — house doctrine
+  (`pr-attachments`/`contact-docs` precedent): downloads run through the
+  service-role signed-URL helper (`src/lib/storage/signed-urls.ts`) behind the
+  page's role gate. Uploads follow the app's client-upload + metadata-action
+  split (`upload-expense-receipt.ts` pattern), so the storage policy is what
+  actually gates the bytes.
 - ⚠ pgTAP must assert the `storage.objects` policies directly — parity sweeps
   that scan only `public` miss storage policies (lesson
   `delivery-photo-storage-rls-fix-2026-07`, #456).
