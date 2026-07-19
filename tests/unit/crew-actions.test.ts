@@ -131,6 +131,11 @@ describe("crew actions — Thai error map (message-keyed, per the muster precede
     ["contractor-tied worker is pay-exempt and cannot join a crew", "ช่างของผู้รับเหมา"],
     ["contractor-tied worker is pay-exempt and cannot lead a crew", "ช่างของผู้รับเหมา"],
     ["not authorized to manage crew members", "ไม่มีสิทธิ์"],
+    // Spec 330 U3c project scope. Distinct from "not authorized" (a role
+    // refusal): here the role is fine and the PROJECT is not, so the message
+    // must tell the user which of the two it is.
+    ["not a member of this project", "ไม่ได้อยู่ในทีมของโครงการนี้"],
+    ["source crew not found", "ไม่พบทีม"],
     ["crew is dissolved", "ทีมนี้ถูกยุบแล้ว"],
     ["worker not found or inactive", "ไม่พบช่าง"],
     ["worker belongs to another project", "ช่างอยู่คนละโครงการ"],

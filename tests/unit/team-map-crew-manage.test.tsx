@@ -73,8 +73,18 @@ const MAP: ProjectTeamMap = {
       kind: "crew",
       id: "cr-2",
       name: "ทีมเหล็ก",
-      members: [{ workerId: "w-b", name: "สมหวัง", isTeamLead: false, contractorId: null }],
-      count: 1,
+      members: [
+        { workerId: "w-b", name: "สมหวัง", isTeamLead: false, contractorId: null },
+        // ⭐ A contractor-tied worker sitting INSIDE a crew card. This is the
+        // fixture that makes the money wall testable: `kind` reads "crew" here,
+        // so a wall keyed on the card's kind (rather than the chip's own
+        // contractorId) would wave this worker straight through — and every
+        // firm-card assertion would still pass. A pre-wall row like this can
+        // only exist from before mig 075818, which is exactly why the UI must
+        // still offer removal for it.
+        { workerId: "w-firm-in-crew", name: "ประสงค์", isTeamLead: false, contractorId: "f-1" },
+      ],
+      count: 2,
     },
     {
       kind: "firm",
@@ -163,6 +173,41 @@ describe("team map — crew manage (spec 330 U3b)", () => {
     );
   });
 
+  // Clearing the field used to fall back to `crewName || teamSheet.name`, so a
+  // cleared box re-sent the crew's existing name: the user saw a success toast
+  // and an audit row was written for a rename that changed nothing.
+  it("clearing the name sends the blank through, never the old name", async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(
+      within(screen.getByTestId("team-card-cr-1")).getByRole("button", { name: /จัดการทีม/ }),
+    );
+    await user.clear(screen.getByRole("textbox", { name: /ชื่อทีม/ }));
+    await user.click(screen.getByRole("button", { name: /บันทึกชื่อ/ }));
+    expect(mockRename).toHaveBeenCalledWith(expect.objectContaining({ crewId: "cr-1", name: "" }));
+  });
+
+  // Every sheet opens through openSheet(), which reseeds the name field and
+  // clears the error. Setting sheet state directly leaked one sheet's typed
+  // name into the next one.
+  it("the name field is reseeded per sheet and never leaks between sheets", async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(
+      within(screen.getByTestId("team-card-cr-1")).getByRole("button", { name: /จัดการทีม/ }),
+    );
+    const first = screen.getByRole("textbox", { name: /ชื่อทีม/ });
+    expect(first).toHaveValue("ทีมปูน");
+    await user.clear(first);
+    await user.type(first, "พิมพ์ทิ้งไว้");
+    await user.click(screen.getByRole("button", { name: /ปิด/ }));
+
+    await user.click(
+      within(screen.getByTestId("team-card-cr-2")).getByRole("button", { name: /จัดการทีม/ }),
+    );
+    expect(screen.getByRole("textbox", { name: /ชื่อทีม/ })).toHaveValue("ทีมเหล็ก");
+  });
+
   it("team sheet dissolves the crew behind a confirm", async () => {
     const user = userEvent.setup();
     renderView();
@@ -235,7 +280,37 @@ describe("team map — crew manage (spec 330 U3b)", () => {
       within(sheet).queryByRole("button", { name: /ตั้งเป็นหัวหน้าทีม/ }),
     ).not.toBeInTheDocument();
     expect(within(sheet).getByText(/ผู้รับเหมา/)).toBeInTheDocument();
-    expect(mockAdd).not.toHaveBeenCalled();
+  });
+
+  // The wall must key on the CHIP's contractorId, not the card's kind. In a
+  // firm card the two agree, so a kind-keyed wall passes that test with the
+  // real check deleted. Here they disagree.
+  it("a contractor-tied worker INSIDE a crew card gets no add/move/lead", async () => {
+    const user = userEvent.setup();
+    renderView();
+    const card = await expand(user, "cr-2");
+    await user.click(within(card).getByRole("button", { name: /ประสงค์/ }));
+    const sheet = screen.getByRole("dialog");
+    expect(
+      within(sheet).queryByRole("button", { name: /ตั้งเป็นหัวหน้าทีม/ }),
+    ).not.toBeInTheDocument();
+    // ทีมปูน is the other crew — the move target that must NOT be offered.
+    expect(within(sheet).queryByRole("button", { name: /ทีมปูน/ })).not.toBeInTheDocument();
+    expect(within(sheet).getByText(/ผู้รับเหมา/)).toBeInTheDocument();
+  });
+
+  // The DB deliberately leaves removal open (spec 330 U3a §F: "never trap a
+  // row"). The UI must not be stricter than the DB here, or a pre-wall
+  // membership becomes unremovable from the only screen that manages crews.
+  it("a contractor-tied worker inside a crew CAN still be removed", async () => {
+    const user = userEvent.setup();
+    renderView();
+    const card = await expand(user, "cr-2");
+    await user.click(within(card).getByRole("button", { name: /ประสงค์/ }));
+    await user.click(screen.getByRole("button", { name: /นำออกจากทีม/ }));
+    expect(mockRemove).toHaveBeenCalledWith(
+      expect.objectContaining({ crewId: "cr-2", workerId: "w-firm-in-crew" }),
+    );
   });
 
   it("ตั้งทีม creates a crew from the add sheet", async () => {

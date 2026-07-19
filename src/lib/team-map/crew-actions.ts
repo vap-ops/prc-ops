@@ -2,10 +2,11 @@
 
 // Spec 330 U3b — crew manage actions for the per-project team map.
 // Authorization is the DB's: every crew RPC is SECURITY DEFINER and gates on
-// is_back_office (the create_crew family's own audience — see mig 075817), and
-// the spec-328 §2.4 money wall lives in Postgres too (function arms + triggers,
-// mig 075818). These actions validate shape, relay to the RPC, and map its
-// errors to Thai — the same division of labour as spec 306's muster actions.
+// BOTH is_back_office (role — mig 075817) and can_see_project (scope, derived
+// from the crew's own project — mig 075820), and the spec-328 §2.4 money wall
+// lives in Postgres too (function arms + triggers, mig 075818). These actions
+// validate shape, relay to the RPC, and map its errors to Thai — the same
+// division of labour as spec 306's muster actions.
 
 import "server-only";
 
@@ -30,6 +31,12 @@ function crewErrorToThai(message: string): string {
     return "ช่างของผู้รับเหมาไม่สามารถอยู่ในทีมช่างได้ (ผู้รับเหมาเป็นผู้จ่ายค่าแรงเอง)";
   }
   if (message.includes("not authorized")) return "ไม่มีสิทธิ์จัดการทีมช่าง";
+  // Spec 330 U3c project scope. Kept distinct from the role refusal above: the
+  // caller's ROLE is fine and their PROJECT is not, and "you lack permission"
+  // would send a PM hunting the wrong thing.
+  if (message.includes("not a member of this project")) {
+    return "คุณไม่ได้อยู่ในทีมของโครงการนี้";
+  }
   if (message.includes("crew is dissolved") || message.includes("target crew is dissolved")) {
     return "ทีมนี้ถูกยุบแล้ว";
   }
