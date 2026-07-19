@@ -79,10 +79,26 @@ built to avoid. Declined unless A is rejected.
 - Danger-path guard interplay unchanged: a deny-path PR fails the guard → never
   enters the queue → operator (or the standing-grant admin-merge) bypasses via
   the ruleset bypass list, exactly today's held-PR flow.
-- `scripts/ship-pr.sh` unchanged in interface: it arms auto-merge via a
-  GraphQL `enablePullRequestAutoMerge` mutation (not the `gh` CLI); on a
-  queue-protected branch that same mutation enqueues instead. Migration step:
-  verify with the canary PR that this path enqueues correctly.
+- `scripts/ship-pr.sh` keeps its interface: it arms auto-merge via a GraphQL
+  `enablePullRequestAutoMerge` mutation (not the `gh` CLI); on a queue-protected
+  branch that same mutation enqueues instead. Verify on the canary PR.
+- **⚠ Correction (2026-07-19, preflight sweep): the script was NOT
+  transfer-safe.** Line 20 hardcoded `repo="VAP-Solution/prc-ops"`, feeding the
+  REST PR-create call — the ONLY executable owner literal in the repo. GitHub's
+  redirect does not rescue it: an authenticated POST to a transferred repo
+  returns 301, this `curl` has no `-L`, and following it would demote POST to
+  GET, so no PR is created either way. Every post-transfer ship would have
+  failed at the mandated ship gate — and re-scoping the PATs (§5 step 2) does
+  not cover it. Worse, the file is version-controlled, so ~20 sibling worktrees
+  each carry their own copy and would each need a rebase. **Fixed in #666:**
+  the slug is now derived from `origin` (explicit `SHIP_REPO` override; `origin`
+  deliberately outranks any ambient env var, since the branch is pushed there),
+  host-anchored and shape-guarded, and covers org **SSH-certificate** remotes
+  (`org-1234@github.com:owner/repo`) — the exact shape an org may hand out after
+  this transfer. Pinned by `tests/unit/ship-pr-repo-derivation.test.ts`, which
+  executes the real block extracted from the script. The single shared
+  `.git/config` therefore heals the main repo and all linked worktrees at once,
+  and no post-transfer edit to this file is required.
 
 ## 5. Migration checklist (one-time, operator + one session)
 
@@ -100,8 +116,15 @@ built to avoid. Declined unless A is rejected.
 4. Re-link integrations to the new repo path: Vercel ×2 (`prc-ops`,
    `prc-ops-sandbox`), Railway worker (watch-paths), Supabase GitHub
    integration if linked.
-5. Sessions update local remotes (`git remote set-url`) in main repo +
-   worktrees; LANES note.
+5. Update the remote: ONE `git remote set-url origin <new-url>` in the main repo
+   covers all ~21 linked worktrees (they share `.git/config` — verified via
+   `git rev-parse --git-common-dir`). Nothing else in the repo carries an owner
+   literal (preflight sweep, 2026-07-19: `.releaserc.json` has no
+   `repositoryUrl`, neither `package.json` has a `repository` field, no workflow
+   pins a repo path, `src/**` and `supabase/**` have zero GitHub references —
+   all of these derive from the remote or `GITHUB_REPOSITORY` and auto-follow).
+   LANES note. ⚠ Out-of-repo and NOT covered by the transfer: the PAT at
+   `../.github.env` (see step 2).
 6. Ship the CI trigger change FIRST, then enable the queue (this order is
    load-bearing — see §4): `merge_group:` is already pre-staged (#666), so the
    remaining edit is dropping `pull_request` from `db-test`. Then enable
