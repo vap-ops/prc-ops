@@ -313,11 +313,14 @@ describe("team map — crew manage (spec 330 U3b)", () => {
     );
   });
 
-  it("ตั้งทีม creates a crew from the add sheet", async () => {
+  it("ตั้งทีม creates a crew from the ทีมช่าง header button (U5: not behind เพิ่มสมาชิก)", async () => {
     const user = userEvent.setup();
     renderView();
-    await user.click(screen.getByRole("button", { name: /เพิ่มสมาชิก/ }));
-    await user.click(screen.getByRole("button", { name: /ตั้งทีมใหม่/ }));
+    await user.click(
+      within(screen.getByRole("region", { name: /ทีมช่าง/ })).getByRole("button", {
+        name: /ตั้งทีมใหม่/,
+      }),
+    );
     const input = screen.getByRole("textbox", { name: /ชื่อทีม/ });
     await user.type(input, "ทีมใหม่");
     await user.click(screen.getByRole("button", { name: /สร้างทีม/ }));
