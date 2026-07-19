@@ -1,3 +1,9 @@
+# [0.146.0](https://github.com/VAP-Solution/prc-ops/compare/v0.145.0...v0.146.0) (2026-07-19)
+
+### Features
+
+- **registrations:** spec 328 U3 — firm pass-through at approval + contractor money wall ([#640](https://github.com/VAP-Solution/prc-ops/issues/640)) ([82e6522](https://github.com/VAP-Solution/prc-ops/commit/82e6522b41c271515c16957b553b53ab9e8ff039))
+
 # [0.145.0](https://github.com/VAP-Solution/prc-ops/compare/v0.144.0...v0.145.0) (2026-07-19)
 
 ### Features
