@@ -22,7 +22,8 @@ import {
   COMPANY_DOC_NEW_VERSION_LABEL,
   COMPANY_DOC_RETIRE_CONFIRM_LABEL,
   COMPANY_DOC_RETIRE_LABEL,
-  COMPANY_DOC_UPLOAD_LABEL,
+  COMPANY_DOC_OTHER_CATEGORY_LABEL,
+  COMPANY_DOC_UPLOAD_OTHER_LABEL,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 
@@ -124,19 +125,26 @@ export function CompanyDocsView({
 }) {
   const [sheet, setSheet] = useState<SheetMode | null>(null);
 
-  return (
-    <div className="flex flex-col gap-3">
-      {canManage ? (
-        <button
-          type="button"
-          onClick={() => setSheet({ kind: "new" })}
-          className="border-edge bg-card hover:bg-sunk text-ink rounded-control flex items-center justify-center gap-2 border px-4 py-2.5 font-semibold"
-        >
-          <Upload aria-hidden className="h-5 w-5" />
-          {COMPANY_DOC_UPLOAD_LABEL}
-        </button>
-      ) : null}
+  // Spec 331 §6: cards sit under their CATEGORY heading — the registry is what
+  // makes that possible, and a flat list wastes it. Category order follows the
+  // registry's sort_order; a category with no documents is not rendered.
+  const sections = groups
+    .map((g) => ({
+      category: g.category,
+      docs: docs.filter(({ head }) => {
+        const t = head.type_id === null ? undefined : typesById[head.type_id];
+        return t !== undefined && t.category_id === g.category.id;
+      }),
+    }))
+    .filter((s) => s.docs.length > 0);
 
+  // Anything whose type was removed from the registry (or the grandfathered
+  // pre-331 rows) must still appear — never silently drop a document.
+  const grouped = new Set(sections.flatMap((s) => s.docs.map((d) => d.head.id)));
+  const ungrouped = docs.filter((d) => !grouped.has(d.head.id));
+
+  return (
+    <div className="flex flex-col gap-5">
       <MissingDocsList
         missing={missing}
         canManage={canManage}
@@ -148,101 +156,140 @@ export function CompanyDocsView({
           {COMPANY_DOC_EMPTY_LABEL}
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {docs.map(({ head, history }) => (
-            <li key={head.id} className="border-edge bg-card rounded-control border p-3">
-              <div className="flex items-start gap-3">
-                <FileText aria-hidden className="text-ink-secondary mt-0.5 h-5 w-5 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-ink text-body font-semibold">
-                      {docDisplayName(head, typesById)}
-                    </span>
-                    <ExpiryBadge expiresAt={head.expires_at} todayIso={todayIso} />
-                  </div>
-                  <div className="text-ink-secondary text-meta mt-0.5 flex flex-wrap gap-x-2">
-                    {head.issued_at ? <span>ออกให้ {formatThaiDate(head.issued_at)}</span> : null}
-                    {head.expires_at ? (
-                      <span>· หมดอายุ {formatThaiDate(head.expires_at)}</span>
-                    ) : null}
-                  </div>
-                  {head.note ? (
-                    <p className="text-ink-muted text-meta mt-0.5">{head.note}</p>
-                  ) : null}
+        <>
+          {[
+            ...sections.map((s) => ({
+              key: s.category.id,
+              title: s.category.name_th,
+              docs: s.docs,
+            })),
+            ...(ungrouped.length > 0
+              ? [{ key: "other", title: COMPANY_DOC_OTHER_CATEGORY_LABEL, docs: ungrouped }]
+              : []),
+          ].map((section) => (
+            <section key={section.key} aria-label={section.title} className="flex flex-col gap-2">
+              <h2 className="text-ink-secondary text-meta font-semibold">{section.title}</h2>
+              <ul className="flex flex-col gap-2">
+                {section.docs.map(({ head, history }) => (
+                  <li key={head.id} className="border-edge bg-card rounded-control border p-3">
+                    <div className="flex items-start gap-3">
+                      <FileText
+                        aria-hidden
+                        className="text-ink-secondary mt-0.5 h-5 w-5 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-ink text-body font-semibold">
+                            {docDisplayName(head, typesById)}
+                          </span>
+                          <ExpiryBadge expiresAt={head.expires_at} todayIso={todayIso} />
+                        </div>
+                        <div className="text-ink-secondary text-meta mt-0.5 flex flex-wrap gap-x-2">
+                          {head.issued_at ? (
+                            <span>ออกให้ {formatThaiDate(head.issued_at)}</span>
+                          ) : null}
+                          {head.expires_at ? (
+                            <span>· หมดอายุ {formatThaiDate(head.expires_at)}</span>
+                          ) : null}
+                        </div>
+                        {head.note ? (
+                          <p className="text-ink-muted text-meta mt-0.5">{head.note}</p>
+                        ) : null}
 
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {downloadUrls[head.id] ? (
-                      <a
-                        href={downloadUrls[head.id]}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="border-edge bg-card hover:bg-sunk text-ink rounded-control border px-3 py-1.5 text-sm"
-                      >
-                        {COMPANY_DOC_DOWNLOAD_LABEL}
-                      </a>
-                    ) : null}
-                    {head.storage_path ? <ShareLinkButton storagePath={head.storage_path} /> : null}
-                    {canManage ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSheet({
-                              kind: "version",
-                              supersedes: head.id,
-                              prefillNote: head.note ?? "",
-                              // the DB refuses a type change on a version, so the
-                              // picker opens locked to the chain's own type
-                              ...(head.type_id !== null && typesById[head.type_id] !== undefined
-                                ? { lockedType: typesById[head.type_id] as DocTypeRow }
-                                : {}),
-                            })
-                          }
-                          className="border-edge bg-card hover:bg-sunk text-ink rounded-control border px-3 py-1.5 text-sm"
-                        >
-                          {COMPANY_DOC_NEW_VERSION_LABEL}
-                        </button>
-                        <RetireControl headId={head.id} />
-                      </>
-                    ) : null}
-                  </div>
-
-                  {history.length > 0 ? (
-                    <details className="mt-2">
-                      <summary className="text-ink-secondary text-meta cursor-pointer">
-                        {COMPANY_DOC_HISTORY_LABEL} ({history.length})
-                      </summary>
-                      <ul className="mt-1 flex flex-col gap-1 pl-4">
-                        {history.map((v) => (
-                          <li
-                            key={v.id}
-                            className="text-ink-muted text-meta flex items-center justify-between gap-2"
-                          >
-                            <span>
-                              ฉบับ {formatThaiDate(v.created_at)}
-                              {v.issued_at ? ` (ออกให้ ${formatThaiDate(v.issued_at)})` : ""}
-                            </span>
-                            {downloadUrls[v.id] ? (
-                              <a
-                                href={downloadUrls[v.id]}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-action underline"
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {downloadUrls[head.id] ? (
+                            <a
+                              href={downloadUrls[head.id]}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="border-edge bg-card hover:bg-sunk text-ink rounded-control border px-3 py-1.5 text-sm"
+                            >
+                              {COMPANY_DOC_DOWNLOAD_LABEL}
+                            </a>
+                          ) : null}
+                          {head.storage_path ? (
+                            <ShareLinkButton storagePath={head.storage_path} />
+                          ) : null}
+                          {canManage ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSheet({
+                                    kind: "version",
+                                    supersedes: head.id,
+                                    prefillNote: head.note ?? "",
+                                    // the DB refuses a type change on a version, so the
+                                    // picker opens locked to the chain's own type
+                                    ...(head.type_id !== null &&
+                                    typesById[head.type_id] !== undefined
+                                      ? { lockedType: typesById[head.type_id] as DocTypeRow }
+                                      : {}),
+                                  })
+                                }
+                                className="border-edge bg-card hover:bg-sunk text-ink rounded-control border px-3 py-1.5 text-sm"
                               >
-                                {COMPANY_DOC_DOWNLOAD_LABEL}
-                              </a>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  ) : null}
-                </div>
-              </div>
-            </li>
+                                {COMPANY_DOC_NEW_VERSION_LABEL}
+                              </button>
+                              <RetireControl headId={head.id} />
+                            </>
+                          ) : null}
+                        </div>
+
+                        {history.length > 0 ? (
+                          <details className="mt-2">
+                            <summary className="text-ink-secondary text-meta cursor-pointer">
+                              {COMPANY_DOC_HISTORY_LABEL} ({history.length})
+                            </summary>
+                            <ul className="mt-1 flex flex-col gap-1 pl-4">
+                              {history.map((v) => (
+                                <li
+                                  key={v.id}
+                                  className="text-ink-muted text-meta flex items-center justify-between gap-2"
+                                >
+                                  <span>
+                                    ฉบับ {formatThaiDate(v.created_at)}
+                                    {v.issued_at ? ` (ออกให้ ${formatThaiDate(v.issued_at)})` : ""}
+                                  </span>
+                                  {downloadUrls[v.id] ? (
+                                    <a
+                                      href={downloadUrls[v.id]}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-action underline"
+                                    >
+                                      {COMPANY_DOC_DOWNLOAD_LABEL}
+                                    </a>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        ) : null}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </>
       )}
+
+      {/* The generic upload. ยังขาด drives the REQUIRED documents with a button
+          per row, so this only covers extras (an insurance policy, an ISO cert)
+          — a quiet action at the end, not a banner at the top (operator
+          feedback 2026-07-19). */}
+      {canManage ? (
+        <button
+          type="button"
+          onClick={() => setSheet({ kind: "new" })}
+          className="border-edge bg-card hover:bg-sunk text-ink-secondary rounded-control flex items-center justify-center gap-2 self-start border px-3 py-1.5 text-sm"
+        >
+          <Upload aria-hidden className="h-4 w-4" />
+          {COMPANY_DOC_UPLOAD_OTHER_LABEL}
+        </button>
+      ) : null}
 
       {canManage ? (
         <CompanyDocSheet mode={sheet} groups={groups} onClose={() => setSheet(null)} />

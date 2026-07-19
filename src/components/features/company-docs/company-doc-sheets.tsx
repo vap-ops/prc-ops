@@ -240,10 +240,18 @@ function SheetForm({
             />
           </label>
           <label className="flex flex-1 flex-col gap-1">
-            <span className="text-ink-secondary text-sm">{COMPANY_DOC_EXPIRES_LABEL}</span>
+            <span className="text-ink-secondary text-sm">
+              {COMPANY_DOC_EXPIRES_LABEL}
+              {docType?.requires_expiry ? <span className="text-danger"> *</span> : null}
+            </span>
+            {/* The DATES live here, in the form that owns them — the type picker
+                picks a type. (They briefly lived in both, and form.get() read the
+                picker's copy, silently discarding what the user typed here.) */}
             <input
               type="date"
               name="expires_at"
+              data-testid="company-doc-expires"
+              required={docType?.requires_expiry ?? false}
               className="border-edge bg-card text-ink rounded-control border px-3 py-2 text-base"
             />
           </label>

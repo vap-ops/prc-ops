@@ -76,12 +76,7 @@ describe("DocTypePicker", () => {
     expect(screen.getByLabelText(COMPANY_DOC_INSTANCE_LABEL)).toBeRequired();
   });
 
-  it("marks expiry required exactly when the type demands it", () => {
-    const { rerender } = render(
-      <DocTypePicker groups={GROUPS} selected={PP20} onSelect={vi.fn()} />,
-    );
-    expect(screen.getByTestId("company-doc-expires")).not.toBeRequired();
-    rerender(<DocTypePicker groups={GROUPS} selected={CAR} onSelect={vi.fn()} />);
-    expect(screen.getByTestId("company-doc-expires")).toBeRequired();
-  });
+  // NOTE: the expiry field moved OUT of the picker into the sheet that owns the
+  // form (they briefly lived in both, and form.get() read the picker's copy).
+  // The requires_expiry behaviour is asserted in company-docs-grouping.test.tsx.
 });

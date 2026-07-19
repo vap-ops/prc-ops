@@ -31,7 +31,7 @@ import {
   COMPANY_DOC_HISTORY_LABEL,
   COMPANY_DOC_NEW_VERSION_LABEL,
   COMPANY_DOC_RETIRE_LABEL,
-  COMPANY_DOC_UPLOAD_LABEL,
+  COMPANY_DOC_UPLOAD_OTHER_LABEL,
 } from "@/lib/i18n/labels";
 
 const row = (over: Partial<CompanyDocument["head"]>): CompanyDocument["head"] => ({
@@ -94,7 +94,7 @@ describe("CompanyDocsView", () => {
         todayIso={TODAY}
       />,
     );
-    expect(screen.queryByText(COMPANY_DOC_UPLOAD_LABEL)).not.toBeInTheDocument();
+    expect(screen.queryByText(COMPANY_DOC_UPLOAD_OTHER_LABEL)).not.toBeInTheDocument();
     expect(screen.queryByText(COMPANY_DOC_NEW_VERSION_LABEL)).not.toBeInTheDocument();
     expect(screen.queryByText(COMPANY_DOC_RETIRE_LABEL)).not.toBeInTheDocument();
   });
@@ -108,7 +108,7 @@ describe("CompanyDocsView", () => {
         todayIso={TODAY}
       />,
     );
-    expect(screen.getByText(COMPANY_DOC_UPLOAD_LABEL)).toBeInTheDocument();
+    expect(screen.getByText(COMPANY_DOC_UPLOAD_OTHER_LABEL)).toBeInTheDocument();
     expect(screen.getByText(COMPANY_DOC_NEW_VERSION_LABEL)).toBeInTheDocument();
     expect(screen.getByText(COMPANY_DOC_RETIRE_LABEL)).toBeInTheDocument();
   });
