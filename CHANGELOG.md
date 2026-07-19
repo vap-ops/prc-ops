@@ -1,3 +1,9 @@
+# [0.155.0](https://github.com/VAP-Solution/prc-ops/compare/v0.154.0...v0.155.0) (2026-07-19)
+
+### Features
+
+- spec 331 — company document type registry (มาตรฐานเอกสารบริษัท) ([#657](https://github.com/VAP-Solution/prc-ops/issues/657)) ([b531f3c](https://github.com/VAP-Solution/prc-ops/commit/b531f3c720b1ab0c901dea4700f5e4caf77542e7))
+
 # [0.154.0](https://github.com/VAP-Solution/prc-ops/compare/v0.153.0...v0.154.0) (2026-07-19)
 
 ### Features
