@@ -19,6 +19,7 @@ import { RegistrationQueueList } from "@/components/features/registrations/regis
 import {
   listVisibleTechnicianRegistrations,
   listLiveAttachmentPurposes,
+  listContractorNames,
 } from "@/lib/register/admin-registrations";
 import { buildRegistrationQueueRow } from "@/lib/register/registration-queue-view";
 import { listRegistrationsWithBank } from "@/lib/register/admin-registration-bank";
@@ -32,9 +33,16 @@ export default async function StaffRegistrationQueuePage() {
 
   const registrations = await listVisibleTechnicianRegistrations(supabase);
   const ids = registrations.map((r) => r.id);
-  const [purposesByRegistration, bankByRegistration] = await Promise.all([
+  // Spec 328 U3 — firm names for the invited-firm chips (RLS-scoped read).
+  const invitedFirmIds = [
+    ...new Set(
+      registrations.map((r) => r.invited_contractor_id).filter((v): v is string => v !== null),
+    ),
+  ];
+  const [purposesByRegistration, bankByRegistration, firmNames] = await Promise.all([
     listLiveAttachmentPurposes(supabase, ids),
     listRegistrationsWithBank(ids),
+    listContractorNames(supabase, invitedFirmIds),
   ]);
 
   const rows = registrations.map((r) =>
@@ -47,6 +55,9 @@ export default async function StaffRegistrationQueuePage() {
       uploadedPurposes: purposesByRegistration.get(r.id) ?? [],
       hasBank: bankByRegistration.has(r.id),
       hasReviewerNote: Boolean(r.reject_reason && r.reject_reason.trim()),
+      invitedFirm: r.invited_contractor_id
+        ? { id: r.invited_contractor_id, name: firmNames.get(r.invited_contractor_id) ?? null }
+        : null,
     }),
   );
 

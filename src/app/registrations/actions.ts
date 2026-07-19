@@ -39,6 +39,10 @@ export async function approveStaffRegistration(input: {
   /** Optional site to assign — forwarded as p_project_id. A blank/absent
    *  selection always normalizes to null. */
   projectId?: string | null;
+  /** Spec 328 U3 — the approver-confirmed firm, forwarded as p_contractor_id.
+   *  The RPC (mig 075815) owns the authoritative guards: firm existence, role
+   *  forced technician, bank-floor carve, worker minted pay-exempt. */
+  contractorId?: string | null;
 }): Promise<ActionResult> {
   if (!isValidUuid(input.registrationId)) return { ok: false, error: GENERIC };
   // The picked role must be one the operator may onboard-and-approve. The RPC
@@ -50,6 +54,13 @@ export async function approveStaffRegistration(input: {
   if ("error" in gate) return { ok: false, error: gate.error };
 
   const projectId = input.projectId?.trim() || null;
+  // NOTE: not re-checked against the approver's RLS-visible contractor set —
+  // safe today because contractors SELECT is role-based (every approver sees
+  // every firm), so a forged id can only name a firm the approver could pick
+  // anyway; the RPC validates existence. Revisit if contractor RLS ever
+  // becomes row/project-scoped.
+  const contractorId = input.contractorId?.trim() || null;
+  if (contractorId && !isValidUuid(contractorId)) return { ok: false, error: GENERIC };
 
   // p_project_id?: string in the generated RPC Args (exactOptionalPropertyTypes
   // forbids passing `null` where only `string | undefined` is typed) — so an
@@ -61,6 +72,9 @@ export async function approveStaffRegistration(input: {
     p_id: input.registrationId,
     p_role: input.role,
     ...(projectId ? { p_project_id: projectId } : {}),
+    // Same omit-when-null convention as p_project_id (exactOptionalPropertyTypes
+    // + the generated `p_contractor_id?: string` arg type; SQL defaults null).
+    ...(contractorId ? { p_contractor_id: contractorId } : {}),
   });
   if (error) return { ok: false, error: registrationErrorToThai(error.message) };
 

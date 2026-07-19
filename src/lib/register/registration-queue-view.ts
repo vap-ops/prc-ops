@@ -26,6 +26,15 @@ export interface RegistrationQueueInput {
   /** Spec 322 — whether the row carries a reviewer note (reject_reason non-blank).
    *  On a PENDING row this means it was SENT BACK for edit; the queue flags it. */
   hasReviewerNote: boolean;
+  /** Spec 328 U3 — the firm whose QR invited this applicant
+   *  (staff_registrations.invited_contractor_id, advisory). Presence makes the
+   *  row BANK-EXEMPT in the floor hint (mirrors the approve RPC's contractor
+   *  arm, which skips the book_bank + bank-row floors) and surfaces a firm chip.
+   *  Trustworthy enough for a hint: start_staff_registration existence-coerces
+   *  the visitor-supplied id (a forged uuid never lands in the column), and a
+   *  later-deleted firm SET-NULLs it. `name` is null only when the id no longer
+   *  resolves to a readable contractor. */
+  invitedFirm: { id: string; name: string | null } | null;
 }
 
 export interface RegistrationQueueRow {
@@ -43,9 +52,12 @@ export interface RegistrationQueueRow {
   /** Spec 322 — a pending row with this set was sent back for edit; the list
    *  gates the "ส่งกลับแก้ไข" chip on `status === 'pending' && hasReviewerNote`. */
   hasReviewerNote: boolean;
+  /** Spec 328 U3 — firm chip label for a firm-invited row (null otherwise). */
+  firmName: string | null;
 }
 
 const NO_NAME_PLACEHOLDER = "ยังไม่กรอกชื่อ-นามสกุล";
+const UNRESOLVED_FIRM_LABEL = "ทีมผู้รับเหมา";
 
 function isNonBlank(value: string | null): value is string {
   return value !== null && value.trim().length > 0;
@@ -68,6 +80,7 @@ export function buildRegistrationQueueRow(input: RegistrationQueueInput): Regist
     docsTotal: STAFF_DOC_PURPOSES.length,
     meetsFloor: meetsApprovalFloor(input),
     hasReviewerNote: input.hasReviewerNote,
+    firmName: input.invitedFirm ? (input.invitedFirm.name ?? UNRESOLVED_FIRM_LABEL) : null,
   };
 }
 
@@ -84,10 +97,10 @@ export function buildRegistrationQueueRow(input: RegistrationQueueInput): Regist
  * presence here is a follow-up (see progress-tracker open questions).
  */
 export function meetsApprovalFloor(input: RegistrationQueueInput): boolean {
-  return (
-    isNonBlank(input.fullName) &&
-    input.uploadedPurposes.includes("id_card") &&
-    input.uploadedPurposes.includes("book_bank") &&
-    input.hasBank
-  );
+  if (!isNonBlank(input.fullName) || !input.uploadedPurposes.includes("id_card")) return false;
+  // Spec 328 U3 — a firm-invited applicant is bank-exempt: the approve RPC's
+  // contractor arm (mig 075815) skips the book_bank + staff_registration_bank
+  // floors (id_card + PDPA stay), so the hint mirrors that carve.
+  if (input.invitedFirm) return true;
+  return input.uploadedPurposes.includes("book_bank") && input.hasBank;
 }

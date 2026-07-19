@@ -80,14 +80,21 @@ export default async function StaffRegistrationDetailPage({
   // RLS-scoped read (never admin) — mirrors /workers' project picker. Active
   // only: the operator's ask is "active projects", and an approver has no
   // reason to hand a new hire a completed/on-hold/archived site.
-  const { data: projectRows } =
+  // Spec 328 U3 — active firms for the decision's ทีมผู้รับเหมา selector fetched
+  // alongside (RLS: "contractors readable by privileged roles" covers every
+  // approver; active-only mirrors the /team QR mint). The invited firm
+  // pre-selects subject to the F2b trust rule inside RegistrationDecision.
+  const [{ data: projectRows }, { data: contractorRows }] =
     registration.status === "pending"
-      ? await supabase
-          .from("projects")
-          .select("id, code, name")
-          .eq("status", "active")
-          .order("code", { ascending: true })
-      : { data: null };
+      ? await Promise.all([
+          supabase
+            .from("projects")
+            .select("id, code, name")
+            .eq("status", "active")
+            .order("code", { ascending: true }),
+          supabase.from("contractors").select("id, name").eq("status", "active").order("name"),
+        ])
+      : [{ data: null }, { data: null }];
 
   return (
     <PageShell>
@@ -139,6 +146,8 @@ export default async function StaffRegistrationDetailPage({
             declaredRoleHint={registration.declared_role_hint}
             projects={projectRows ?? []}
             invitedProjectId={registration.invited_project_id}
+            contractors={contractorRows ?? []}
+            invitedContractorId={registration.invited_contractor_id}
           />
         ) : null}
       </section>

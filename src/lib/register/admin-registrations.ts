@@ -49,6 +49,25 @@ export async function listVisibleTechnicianRegistrations(
   return data ?? [];
 }
 
+/**
+ * Spec 328 U3 — resolve firm names for the queue's invited-firm chips. RLS-scoped
+ * read: contractors are readable by the whole approver/queue audience
+ * ("contractors readable by privileged roles" — site_admin, PM, PD,
+ * procurement, procurement_manager, super_admin). An id that no longer
+ * resolves simply stays absent (the view-model falls back to a generic label).
+ */
+export async function listContractorNames(
+  supabase: ServerClient,
+  contractorIds: readonly string[],
+): Promise<Map<string, string>> {
+  if (contractorIds.length === 0) return new Map();
+  const { data } = await supabase
+    .from("contractors")
+    .select("id, name")
+    .in("id", contractorIds as string[]);
+  return new Map((data ?? []).map((c) => [c.id, c.name]));
+}
+
 export async function getTechnicianRegistrationById(
   supabase: ServerClient,
   id: string,

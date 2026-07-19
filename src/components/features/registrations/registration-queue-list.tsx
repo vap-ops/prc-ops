@@ -61,6 +61,14 @@ export function RegistrationQueueList({
                 <span>
                   เอกสาร {row.docsUploadedCount}/{row.docsTotal}
                 </span>
+                {/* Spec 328 U3 — firm-invited applicant: which ทีมผู้รับเหมา QR
+                    they came through (advisory; the approver confirms on the
+                    detail). Neutral tone — it's context, not a state. */}
+                {row.firmName ? (
+                  <span className="border-edge bg-sunk text-ink-secondary inline-flex items-center rounded-full border px-2 py-0.5">
+                    {row.firmName}
+                  </span>
+                ) : null}
                 {row.status === "pending" && row.hasReviewerNote ? (
                   <span className="border-attn-edge bg-attn-soft text-attn-ink inline-flex items-center rounded-full border px-2 py-0.5 font-semibold">
                     ส่งกลับแก้ไข

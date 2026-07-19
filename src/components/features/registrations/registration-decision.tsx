@@ -62,11 +62,18 @@ export interface RegistrationProjectOption {
 const QR_ROLE_OPTIONS: readonly UserRole[] = ["technician", "site_admin"];
 const DEFAULT_ROLE: UserRole = "technician";
 
+export interface RegistrationContractorOption {
+  id: string;
+  name: string;
+}
+
 export function RegistrationDecision({
   registrationId,
   declaredRoleHint,
   projects = [],
   invitedProjectId = null,
+  contractors = [],
+  invitedContractorId = null,
 }: {
   registrationId: string;
   declaredRoleHint?: string | null;
@@ -80,6 +87,13 @@ export function RegistrationDecision({
    *  the visible selection and the submitted p_project_id never diverge — an
    *  unverified ref must never silently drive the binding. */
   invitedProjectId?: string | null;
+  /** Spec 328 U3 — active firms the approver may bind the applicant to. */
+  contractors?: ReadonlyArray<RegistrationContractorOption>;
+  /** Spec 328 U3 — the firm whose QR invited this applicant. Same trust rule as
+   *  invitedProjectId: advisory pre-select ONLY, honored when it matches one of
+   *  the approver's RLS-scoped `contractors` options; else falls back to empty
+   *  (= ทีม PRC, full bank floor applies at the RPC). */
+  invitedContractorId?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -90,6 +104,12 @@ export function RegistrationDecision({
   // yet keeps the value in state, which would submit a hidden, unconfirmed id.
   const [projectId, setProjectId] = useState(
     invitedProjectId && projects.some((p) => p.id === invitedProjectId) ? invitedProjectId : "",
+  );
+  // Spec 328 U3 — same trust-rule pre-select for the firm.
+  const [contractorId, setContractorId] = useState(
+    invitedContractorId && contractors.some((c) => c.id === invitedContractorId)
+      ? invitedContractorId
+      : "",
   );
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
@@ -105,6 +125,7 @@ export function RegistrationDecision({
         registrationId,
         role,
         projectId: projectId || null,
+        contractorId: contractorId || null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -172,12 +193,48 @@ export function RegistrationDecision({
               className={FIELD_STACKED}
             >
               {QR_ROLE_OPTIONS.map((r) => (
-                <option key={r} value={r}>
+                <option
+                  key={r}
+                  value={r}
+                  // Spec 328 U3 — a firm member is ALWAYS a technician (the
+                  // RPC's contractor arm refuses any other role); disable the
+                  // rest while a firm is picked so the UI can't hit that error.
+                  disabled={contractorId !== "" && r !== "technician"}
+                >
                   {USER_ROLE_LABEL[r]}
                 </option>
               ))}
             </select>
             {hint ? <p className="text-ink-muted text-xs">ผู้สมัครระบุว่า: {hint}</p> : null}
+          </div>
+          {/* Spec 328 U3 — the firm the applicant joins (ทีมผู้รับเหมา). Empty =
+              ทีม PRC (regular hire, full bank floor). Picking a firm forces the
+              role to technician and makes the approval bank-exempt (RPC arm). */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="approve-contractor" className="text-ink text-sm font-medium">
+              ทีมผู้รับเหมา
+            </label>
+            <select
+              id="approve-contractor"
+              value={contractorId}
+              disabled={pending}
+              onChange={(e) => {
+                setContractorId(e.target.value);
+                if (e.target.value !== "") setRole("technician");
+              }}
+              className={FIELD_STACKED}
+            >
+              <option value="">— ทีม PRC (ไม่สังกัดผู้รับเหมา) —</option>
+              {contractors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-ink-muted text-xs">
+              สมาชิกทีมผู้รับเหมาจะเป็นช่างเสมอ และไม่ต้องมีบัญชีธนาคาร
+              (ผู้รับเหมาเป็นผู้จ่ายค่าแรง)
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="approve-project" className="text-ink text-sm font-medium">

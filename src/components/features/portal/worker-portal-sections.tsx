@@ -28,6 +28,7 @@ export function WorkerPortalSections({
   consents,
   receipts,
   hasPendingBank,
+  bankExempt = false,
 }: {
   /** Spec 315 U2 — the bank-change form uploads to technician/<uid>/book_bank/. */
   uid: string;
@@ -36,6 +37,9 @@ export function WorkerPortalSections({
   consents: PortalConsent[];
   receipts: PortalReceipt[];
   hasPendingBank: boolean;
+  /** Spec 328 U3 — contractor-tied (pay-exempt) member: PRC never pays them, so
+   *  the bank section is hidden entirely (no display, no change form). */
+  bankExempt?: boolean;
 }) {
   const sortedPayments = [...payments].sort((a, b) => b.period_to.localeCompare(a.period_to));
 
@@ -78,25 +82,31 @@ export function WorkerPortalSections({
       </div>
 
       {/* Bank — display + self-service staged change → PM approval (U4c-2, the
-          ADR-0051 §6 anti-fraud gate). The PM may also enter/edit it on /workers. */}
-      <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
-      <div className="mb-6">
-        <ProfileBankSection
-          audience="worker"
-          ownerId={uid}
-          current={
-            wp.bank_name || wp.bank_account_number || wp.bank_account_name
-              ? {
-                  bankName: wp.bank_name ?? "",
-                  accountNo: wp.bank_account_number ?? "",
-                  accountName: wp.bank_account_name ?? "",
-                }
-              : null
-          }
-          showEmptyState
-          hasPending={hasPendingBank}
-        />
-      </div>
+          ADR-0051 §6 anti-fraud gate). The PM may also enter/edit it on /workers.
+          Spec 328 U3: hidden entirely for a contractor-tied member (pay-exempt —
+          the firm pays them, PRC holds no bank for them). */}
+      {bankExempt ? null : (
+        <>
+          <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
+          <div className="mb-6">
+            <ProfileBankSection
+              audience="worker"
+              ownerId={uid}
+              current={
+                wp.bank_name || wp.bank_account_number || wp.bank_account_name
+                  ? {
+                      bankName: wp.bank_name ?? "",
+                      accountNo: wp.bank_account_number ?? "",
+                      accountName: wp.bank_account_name ?? "",
+                    }
+                  : null
+              }
+              showEmptyState
+              hasPending={hasPendingBank}
+            />
+          </div>
+        </>
+      )}
 
       <h2 className={SECTION_HEADING}>ประวัติการจ่ายเงิน</h2>
       {sortedPayments.length > 0 ? (

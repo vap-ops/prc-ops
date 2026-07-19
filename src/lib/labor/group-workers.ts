@@ -1,6 +1,12 @@
 // Spec 46 P1 — roster grouping for the capture picker. Monthly ช่าง
 // first, daily ช่าง grouped per contractor (sorted by contractor name).
 // Inactive workers never appear in the picker.
+//
+// Spec 328 U3 — contractor-tied workers (workers.contractor_id NOT NULL =
+// pay-exempt subcon member; the firm pays them, their labor cost lives inside
+// the WP contract price) never appear either: surfacing them here would let
+// them be ticked into labor_logs and show on payroll at gross 0. This is the
+// enforced arm of the spec-328 §2.4 money wall (pinned by test).
 
 import type { Database } from "@/lib/db/database.types";
 
@@ -26,7 +32,10 @@ export function groupRoster(
   contractors: { id: string; name: string }[],
 ): GroupedRoster {
   const names = new Map(contractors.map((c) => [c.id, c.name]));
-  const active = workers.filter((w) => w.active);
+  // active only + the spec-328 money wall (contractor-tied = pay-exempt, never
+  // capturable). The dc grouping below therefore only ever groups no-firm daily
+  // workers now — kept for shape stability across its consumers.
+  const active = workers.filter((w) => w.active && w.contractor_id === null);
 
   const own = active.filter((w) => w.pay_type === "monthly");
   const dcByContractor = new Map<string, RosterWorker[]>();
