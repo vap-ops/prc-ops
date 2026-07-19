@@ -1,3 +1,9 @@
+# [0.152.0](https://github.com/VAP-Solution/prc-ops/compare/v0.151.0...v0.152.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 330 U2 — crew membership + lifecycle RPCs (mig 075817) ([#651](https://github.com/VAP-Solution/prc-ops/issues/651)) ([cfec60b](https://github.com/VAP-Solution/prc-ops/commit/cfec60b0549742d9d08b7419a0cecb73b728733b))
+
 # [0.151.0](https://github.com/VAP-Solution/prc-ops/compare/v0.150.0...v0.151.0) (2026-07-19)
 
 ### Features
