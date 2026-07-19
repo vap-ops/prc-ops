@@ -9,11 +9,11 @@ on:
   # merge_group only once "Require merge queue" is on — but it MUST land BEFORE
   # the queue is enabled: a required check that never reports on the merge ref
   # trips check_response_timeout_minutes and EJECTS the queued PRs.
-  # ⚠ Pre-staging this trigger is necessary but NOT sufficient. At queue-enable
-  # time `db-test` must also drop its `pull_request` trigger (ADR 0083 §5 step 6):
-  # its `pgtap-shared-db` group holds ONE pending slot, so merge-group and PR runs
-  # would evict each other — an evicted merge-group run reports `cancelled`, i.e.
-  # a failed required check, ejecting and requeueing the PR in a loop.
+  # ✅ Done alongside this (ADR 0083 §5 step 6): `db-test` no longer touches the DB
+  # on a PR ref — see the short-circuit in that job. Its `pgtap-shared-db` group
+  # holds ONE pending slot, so merge-group and PR runs would otherwise evict each
+  # other, and an evicted merge-group run reports `cancelled` = a failed required
+  # check, ejecting and requeueing the PR in a loop.
   merge_group:
   workflow_dispatch:
 
@@ -157,24 +157,47 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # On a PR ref this job REPORTS SUCCESS WITHOUT TOUCHING THE DB (ADR 0083 §4).
+      # The merge queue verifies the merge ref — the ref that actually lands — so a
+      # PR-ref run adds nothing but contention: `pgtap-shared-db` holds ONE pending
+      # slot, and a merge-group run evicted by a PR run reports `cancelled`, i.e. a
+      # FAILED required check, which ejects and requeues the PR in a loop.
+      #
+      # Deliberately a short-circuit, NOT a job-level `if:` (which would report
+      # `skipped`): `Database (pgTAP)` is a REQUIRED check, and whether the queue
+      # accepts `skipped` is unverified. An explicit `success` has no such doubt.
+      # A schema bug therefore surfaces as a queue ejection, not a merged break.
+      - name: PR ref — pgTAP is verified on the merge ref instead
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "pgTAP runs on merge_group (the merge ref) and on push to main."
+          echo "Skipping the DB on a PR ref avoids evicting merge-group runs from"
+          echo "the single pgtap-shared-db slot. See ADR 0083 §4."
+
       - uses: actions/checkout@v4
+        if: github.event_name != 'pull_request'
 
       - uses: pnpm/action-setup@v4
+        if: github.event_name != 'pull_request'
 
       - uses: actions/setup-node@v4
+        if: github.event_name != 'pull_request'
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
+        if: github.event_name != 'pull_request'
         run: pnpm install --frozen-lockfile
 
       - name: Link Supabase CLI
+        if: github.event_name != 'pull_request'
         run: pnpm db:link
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: pgTAP
+        if: github.event_name != 'pull_request'
         run: pnpm db:test
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
