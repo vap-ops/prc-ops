@@ -81,6 +81,11 @@ export function projectCostsHref(projectId: string): string {
   return `/projects/${projectId}/costs`;
 }
 
+// Spec 330: the per-project team map (ทีมงานโครงการ) — PM-tier people cockpit.
+export function projectTeamHref(projectId: string): string {
+  return `/projects/${projectId}/team`;
+}
+
 // Spec 275 U5: the equipment-rental recorder relocated from the settings hub
 // (spec 268) into the project — a rental is project-driven, so it records + lists
 // THIS project's rentals and auto-allocates each to it. Money-gated

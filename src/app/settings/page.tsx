@@ -133,6 +133,7 @@ export default async function SettingsPage() {
         {configSection("master-data")}
         {configSection("labor-team")}
         {configSection("finance")}
+        {configSection("company-docs")}
         {configSection("office-expenses")}
 
         {/* Appearance — everyone (spec 190). Light by default (sun-first); dark

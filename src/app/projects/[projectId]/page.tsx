@@ -12,6 +12,7 @@ import {
   ScanLine,
   Settings,
   Truck,
+  Users,
   Warehouse,
 } from "lucide-react";
 import {
@@ -26,6 +27,7 @@ import {
 import {
   projectSettingsHref,
   projectCostsHref,
+  projectTeamHref,
   musterHref,
   rentalsHref,
   reportsHref,
@@ -44,6 +46,7 @@ import {
   EQUIPMENT_RENTAL_LABEL,
   MUSTER_LABEL,
   PROJECT_COSTS_LABEL,
+  PROJECT_TEAM_LABEL,
   PROJECT_STATUS_LABEL,
   STORE_LABEL,
   STORE_INCOMING_HEADING,
@@ -277,6 +280,16 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
             ) : null}
             {isManagerRole(ctx.role) ? (
               <>
+                {/* Spec 330 U1: the per-project team map — the PM-tier people
+                    cockpit (staff tiers + crew teams). Same manager gate as the
+                    page's own PM_ROLES. */}
+                <Link
+                  href={projectTeamHref(project.id)}
+                  aria-label={PROJECT_TEAM_LABEL}
+                  className={ICON_CHIP_MUTED}
+                >
+                  <Users aria-hidden className="h-5 w-5" />
+                </Link>
                 <Link
                   href={reportsHref(project.id)}
                   aria-label="รายงานโครงการ"

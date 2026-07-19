@@ -1,3 +1,27 @@
+# [0.152.0](https://github.com/VAP-Solution/prc-ops/compare/v0.151.0...v0.152.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 330 U2 — crew membership + lifecycle RPCs (mig 075817) ([#651](https://github.com/VAP-Solution/prc-ops/issues/651)) ([cfec60b](https://github.com/VAP-Solution/prc-ops/commit/cfec60b0549742d9d08b7419a0cecb73b728733b))
+
+# [0.151.0](https://github.com/VAP-Solution/prc-ops/compare/v0.150.0...v0.151.0) (2026-07-19)
+
+### Features
+
+- spec 329 U2 — company documents library UI (เอกสารบริษัท) ([#650](https://github.com/VAP-Solution/prc-ops/issues/650)) ([2abe86b](https://github.com/VAP-Solution/prc-ops/commit/2abe86b7fde6d4897a68887e2b9ba8caddb866a9))
+
+# [0.150.0](https://github.com/VAP-Solution/prc-ops/compare/v0.149.0...v0.150.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 330 U1 — per-project team map (ทีมงานโครงการ) ([#648](https://github.com/VAP-Solution/prc-ops/issues/648)) ([401afc4](https://github.com/VAP-Solution/prc-ops/commit/401afc4bd04827861fd3b4e60cbbe4991bf78614))
+
+# [0.149.0](https://github.com/VAP-Solution/prc-ops/compare/v0.148.0...v0.149.0) (2026-07-19)
+
+### Features
+
+- spec 329 U1 — company_documents schema + bucket + RLS ([#647](https://github.com/VAP-Solution/prc-ops/issues/647)) ([9ef5513](https://github.com/VAP-Solution/prc-ops/commit/9ef5513c2ba8a1e283e6212ee4810560a3af36a3))
+
 # [0.148.0](https://github.com/VAP-Solution/prc-ops/compare/v0.147.0...v0.148.0) (2026-07-19)
 
 ### Features
