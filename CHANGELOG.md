@@ -1,3 +1,9 @@
+# [0.159.0](https://github.com/VAP-Solution/prc-ops/compare/v0.158.0...v0.159.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 330 U6 — WP-to-team assignment on the map ([#668](https://github.com/VAP-Solution/prc-ops/issues/668)) ([020a0ea](https://github.com/VAP-Solution/prc-ops/commit/020a0ea80a30ec450e26e695b4751869d37742ba))
+
 # [0.158.0](https://github.com/VAP-Solution/prc-ops/compare/v0.157.2...v0.158.0) (2026-07-19)
 
 ### Features
