@@ -116,7 +116,7 @@ Multiple sessions may run against this repo, but two in the SAME working dir clo
 
 - Skills at `.claude/skills/` provide procedural knowledge. Currently installed: `ship-unit` (the gated unit loop — load for EVERY unit); `supersede-pattern`; `bug-fix-flow` (the autonomous bug-fix pipeline — discover→triage→fix→ship→reply→complete, driven by CC, flagging the operator only at genuine decision points; runs scheduled daily + on demand); `triage-feedback` (spec 201 — the queue/message/status mechanics `bug-fix-flow` builds on: CC investigates reports, sets status off `ใหม่`, and replies tiered — auto-publishes low-risk replies, stages a draft + flags the operator for anything that declines/commits/is uncertain). Load them when touching matching areas.
 - Hooks at `.claude/hooks/` enforce constraints automatically. Currently installed: `protect-audit-log.js` (blocks edits to audit_log migrations unless `CLAUDE_ALLOW_AUDIT_LOG_EDIT=1` is set); `require-lane-claim.js` (blocks migration writes unless the current branch is claimed in `../LANES.md`; always blocks migrations on `main`). Do not attempt to bypass.
-- Subagents are not yet installed. Add when a recurring specialized review need emerges (e.g., RLS reviews across many tables).
+- Subagents at `.claude/agents/` package recurring specialized reviews. Currently installed: `spec-fact-checker` (refute-first fact-checker — verifies the factual claims in a spec, plan, or task-prompt against the live DB and the code at your worktree HEAD, returning a claim-by-claim verdict table; the doctrine §4 gate). Dispatch it BEFORE shipping any spec/plan and before building from a task-prompt or audit finding that names tables, columns, or files.
 
 ## Commands
 
