@@ -82,7 +82,19 @@ if [ -z "${SHIP_SKIP_CONFLICT_PROBE:-}" ]; then
 fi
 
 # Push the branch (deploy key); idempotent.
-git push -u origin "$branch" >/dev/null 2>&1 || git push origin "$branch"
+# Push with the same token the API calls use, so shipping depends on ONE credential.
+# The org disables deploy keys, so the pre-transfer SSH deploy key can no longer
+# push (ADR 0083); an HTTPS `origin` alone would need interactive credentials,
+# which a non-interactive session cannot supply. Pushing to an explicit tokenised
+# URL keeps the secret out of .git/config and off the remote definition.
+# `origin` stays plain HTTPS so anonymous fetch keeps working for every worktree.
+push_url="$(printf '%s' "https://x-access-token:${token}@github.com/${repo}.git")"
+if ! git push "$push_url" "HEAD:refs/heads/${branch}" >/dev/null 2>&1; then
+  # Re-run visibly on failure, but never let the token reach the log.
+  git push "$push_url" "HEAD:refs/heads/${branch}" 2>&1 | sed -E 's#https://[^@]*@#https://#g' >&2
+  exit 1
+fi
+git branch --set-upstream-to="origin/${branch}" "$branch" >/dev/null 2>&1 || true
 
 # Open the PR (REST). Build/parse JSON with node since jq isn't installed.
 # Pipe the payload via stdin (--data @-), NOT -d "$payload": this box's mingw curl
