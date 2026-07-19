@@ -1,3 +1,9 @@
+# [0.154.0](https://github.com/VAP-Solution/prc-ops/compare/v0.153.0...v0.154.0) (2026-07-19)
+
+### Features
+
+- spec 329 — intuitive upload picker on the company-doc sheet ([#654](https://github.com/VAP-Solution/prc-ops/issues/654)) ([0c07310](https://github.com/VAP-Solution/prc-ops/commit/0c07310de6b7527508c8a1ec07d58736389234c6))
+
 # [0.153.0](https://github.com/VAP-Solution/prc-ops/compare/v0.152.0...v0.153.0) (2026-07-19)
 
 ### Features
