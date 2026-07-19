@@ -32,6 +32,14 @@ insert into public.projects (id, code, name) values
   ('a2000000-0330-0330-0330-a20000000330', 'TAP-330B', 'โครงการอื่น');
 insert into public.project_members (project_id, user_id, added_by) values
   ('a1000000-0330-0330-0330-a10000000330', '70000000-0330-0330-0330-700000000330',
+   '70000000-0330-0330-0330-700000000330'),
+  -- Membership in project B is DELIBERATE and load-bearing: spec 330 U3c gates
+  -- every crew RPC on can_see_project, and the cross-project asserts below are
+  -- about the RPCs' OWN project-consistency rules ('worker belongs to another
+  -- project', 22023). Without this row the U3c scope gate (42501) fires first
+  -- and those asserts would silently stop testing what they name. The scope
+  -- gate itself is covered by 332-crew-project-scope.test.sql.
+  ('a2000000-0330-0330-0330-a20000000330', '70000000-0330-0330-0330-700000000330',
    '70000000-0330-0330-0330-700000000330');
 
 insert into public.workers (id, name, pay_type, employment_type, day_rate, active, project_id, created_by) values
@@ -101,22 +109,32 @@ select ok(
 -- JWT-less caller: current_user_role() is NULL → is_back_office must fail
 -- CLOSED (the rls_null_safe_role_wrappers class).
 set local role authenticated;
+-- ⭐ The MESSAGE is pinned on all three. Since spec 330 U3c these functions
+-- raise 42501 from TWO different guards — the role gate here and the
+-- can_see_project scope gate — and none of these callers passes either. With
+-- only the errcode pinned, deleting `is_back_office` from add_worker_to_crew
+-- would leave all three green off the scope gate, and nothing else pins the
+-- role gate. (Same discipline as 332's header: pin the message whenever one
+-- function raises the same errcode from more than one place.)
 set local "request.jwt.claims" = '{}';
 select throws_ok(
   $$ select public.add_worker_to_crew('c1000000-0330-0330-0330-c10000000330',
        'e1000000-0330-0330-0330-e10000000330') $$,
-  '42501', null, 'a roleless/JWT-less caller is refused (null-safe gate)');
+  '42501', 'not authorized to manage crew members',
+  'a roleless/JWT-less caller is refused ON THE ROLE GATE (null-safe)');
 
 set local "request.jwt.claims" = '{"sub": "71000000-0330-0330-0330-710000000330"}';
 select throws_ok(
   $$ select public.add_worker_to_crew('c1000000-0330-0330-0330-c10000000330',
        'e1000000-0330-0330-0330-e10000000330') $$,
-  '42501', null, 'a visitor cannot add a crew member (role gate)');
+  '42501', 'not authorized to manage crew members',
+  'a visitor cannot add a crew member (role gate)');
 set local "request.jwt.claims" = '{"sub": "72000000-0330-0330-0330-720000000330"}';
 select throws_ok(
   $$ select public.add_worker_to_crew('c1000000-0330-0330-0330-c10000000330',
        'e1000000-0330-0330-0330-e10000000330') $$,
-  '42501', null, 'a technician cannot add a crew member (role gate)');
+  '42501', 'not authorized to manage crew members',
+  'a technician cannot add a crew member (role gate)');
 
 set local "request.jwt.claims" = '{"sub": "70000000-0330-0330-0330-700000000330"}';
 select ok(
