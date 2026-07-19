@@ -1,3 +1,9 @@
+# [0.158.0](https://github.com/VAP-Solution/prc-ops/compare/v0.157.2...v0.158.0) (2026-07-19)
+
+### Features
+
+- **team:** spec 330 U5 — map-look tiers, per-tier actions, role icons, info explainers ([#667](https://github.com/VAP-Solution/prc-ops/issues/667)) ([9feb7ca](https://github.com/VAP-Solution/prc-ops/commit/9feb7ca71e794f6b8573b81a0a5feb42018b14e5))
+
 ## [0.157.2](https://github.com/VAP-Solution/prc-ops/compare/v0.157.1...v0.157.2) (2026-07-19)
 
 ### Bug Fixes
