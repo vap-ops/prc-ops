@@ -1116,6 +1116,57 @@ export type Database = {
           },
         ]
       }
+      company_documents: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          issued_at: string | null
+          note: string | null
+          storage_path: string | null
+          superseded_by: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          issued_at?: string | null
+          note?: string | null
+          storage_path?: string | null
+          superseded_by?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          issued_at?: string | null
+          note?: string | null
+          storage_path?: string | null
+          superseded_by?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_documents_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "company_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_attachments: {
         Row: {
           contractor_id: string | null
