@@ -15,6 +15,8 @@ const ALLOWED_DOMAINS = [
   "team-map",
   "photos",
   "labor",
+  // Spec 329: the company documents library (เอกสารบริษัท).
+  "company-docs",
   // Spec 320: the temporary payout-nominee PM surface (form + clear button).
   "payroll",
   "contacts",

@@ -27,12 +27,15 @@ import {
 } from "lucide-react";
 import {
   ACCOUNTING_ROLES,
+  COMPANY_DOC_VIEW_ROLES,
   isManagerRole,
   OFFICE_EXPENSE_ROLES,
   type UserRole,
 } from "@/lib/auth/role-home";
 import {
   CARD_REGISTRY_HINT,
+  COMPANY_DOCS_HINT,
+  COMPANY_DOCS_LABEL,
   CARD_REGISTRY_LABEL,
   CATALOG_LABEL,
   EQUIPMENT_RENTAL_LABEL,
@@ -272,6 +275,26 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: "Nova",
         hint: "เหรียญรางวัลทีมงาน · มอบเหรียญ",
         visible: (role) => role === "super_admin",
+      },
+    ],
+  },
+
+  // Spec 329: the firm's own papers. Its OWN section (not nested under การเงิน,
+  // which deliberately excludes accounting — the spec-166 nesting pin; same
+  // precedent as office-expenses) so every COMPANY_DOC_VIEW_ROLES member —
+  // back office + accounting + legal — reaches it via ตั้งค่า.
+  {
+    key: "company-docs",
+    title: "บริษัท",
+    visible: (role) => COMPANY_DOC_VIEW_ROLES.includes(role),
+    entries: [
+      {
+        kind: "link",
+        href: "/settings/company-docs",
+        icon: Files,
+        label: COMPANY_DOCS_LABEL,
+        hint: COMPANY_DOCS_HINT,
+        visible: (role) => COMPANY_DOC_VIEW_ROLES.includes(role),
       },
     ],
   },

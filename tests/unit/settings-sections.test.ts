@@ -79,6 +79,24 @@ describe("settings sections config (role → entries matrix)", () => {
     expect(hrefs("finance", "super_admin")).toEqual(["/accounting", "/nova"]);
   });
 
+  it("company-docs: its own section so accounting + legal reach it (spec 329)", () => {
+    // การเงิน deliberately excludes accounting (spec 166 nesting pin) — the
+    // document library follows the office-expenses own-section precedent.
+    for (const role of [
+      "accounting",
+      "legal",
+      "project_manager",
+      "project_director",
+      "procurement",
+      "procurement_manager",
+      "super_admin",
+    ] as const) {
+      expect(hrefs("company-docs", role)).toEqual(["/settings/company-docs"]);
+    }
+    expect(hrefs("company-docs", "site_admin")).toEqual([]);
+    expect(hrefs("company-docs", "technician")).toEqual([]);
+  });
+
   it("ทีมช่าง groups the ช่าง roster + ค่าแรง for the back-office tier (spec 266 U6)", () => {
     // The new section holds the roster + payroll, moved out of master-data + finance;
     // same audience (isBackOffice), so no door's visibility widens or narrows.
