@@ -77,7 +77,7 @@ const TIER_HEADING = "text-ink-secondary text-xs font-medium";
 // classes only — the design-doctrine guard bans raw Tailwind palette.
 const TIER_BOX = "border-edge bg-sunk rounded-card border p-3";
 const TIER_ACTION =
-  "text-action border-edge bg-card ml-auto inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
+  "text-action border-edge bg-card inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
 const INFO_BTN = "text-ink-muted min-h-11 shrink-0 px-1";
 const AVATAR =
   "bg-sunk text-ink-secondary flex size-8 shrink-0 items-center justify-center rounded-full";
@@ -192,8 +192,12 @@ function TeamCard({
       </div>
       {/* U5: a crew with NO lead surfaces that as a visible to-do while the
           card is collapsed — tapping it expands the list so the lead can be
-          set by tapping a member (the existing chip-sheet flow). */}
-      {!expanded && team.kind === "crew" && !team.members.some((m) => m.isTeamLead) ? (
+          set by tapping a member (the existing chip-sheet flow). Members must
+          exist: on an empty crew the prompt would be a dead end (fresh-eyes). */}
+      {!expanded &&
+      team.kind === "crew" &&
+      team.members.length > 0 &&
+      !team.members.some((m) => m.isTeamLead) ? (
         <button
           type="button"
           className="border-edge-strong text-ink-muted flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed px-3 text-left text-xs"
@@ -355,7 +359,9 @@ export function TeamMapView({
       <section aria-label="ผู้บริหารโครงการ" className={TIER_BOX}>
         <div className="mb-2 flex items-center gap-2">
           <Briefcase aria-hidden className="text-ink-secondary size-4 shrink-0" />
-          <p className={TIER_HEADING}>ผู้บริหารโครงการ · {map.management.length} คน</p>
+          <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
+            ผู้บริหารโครงการ · {map.management.length} คน
+          </p>
           <button
             type="button"
             className={INFO_BTN}
@@ -387,7 +393,9 @@ export function TeamMapView({
       <section aria-label="หน้างาน" className={TIER_BOX}>
         <div className="mb-2 flex items-center gap-2">
           <ClipboardList aria-hidden className="text-ink-secondary size-4 shrink-0" />
-          <p className={TIER_HEADING}>หน้างาน · {map.site.length} คน</p>
+          <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
+            หน้างาน · {map.site.length} คน
+          </p>
           <button
             type="button"
             className={INFO_BTN}
@@ -438,7 +446,7 @@ export function TeamMapView({
           </button>
           <button
             type="button"
-            className={`${TIER_ACTION} ml-0`}
+            className={TIER_ACTION}
             onClick={() => openSheet({ type: "createCrew" })}
           >
             <Users aria-hidden className="size-3.5" /> ตั้งทีมใหม่

@@ -83,14 +83,14 @@ planned).
 Form-placement doctrine: bottom sheet is the default. Tap any card/chip →
 sheet with actions scoped to the node type:
 
-| Node                   | Actions (v1)                                                                                      | Backing                                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Staff member           | ถอดออกจากทีมโครงการ (last-member block + self-remove confirm via `evaluateMemberRemoval`)         | existing `removeProjectMember`                                                             |
-| SA member              | + ตั้งเป็น SA หลัก                                                                                | existing `setPrimaryProjectFor`                                                            |
-| PRC worker chip        | ตั้งเป็นหัวหน้าทีม · ย้ายทีม · ย้ายโครงการ · ดูข้อมูลช่าง (→ /workers)                            | U2 RPCs (`set_crew_lead`, `move/remove crew member`) + existing `assign_worker_to_project` |
-| Firm worker chip       | ย้ายทีมผู้รับเหมา (→ /workers edit flow) · ดูข้อมูลช่าง                                           | existing #642 firm picker (link out v1)                                                    |
-| Team card              | เปลี่ยนชื่อทีม · ยุบทีม (members → ยังไม่จัดทีม)                                                  | U2 RPCs                                                                                    |
-| เพิ่มสมาชิก (page CTA) | เพิ่มพนักงาน (staff picker) · เพิ่มช่างเข้าโครงการ · ~~ตั้งทีม~~ · เปิด QR สมัครเข้าทีม (→ /team) | existing `addProjectMember`, `assignWorkerToProject`                                       |
+| Node                   | Actions (v1)                                                                                                                             | Backing                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Staff member           | ถอดออกจากทีมโครงการ (last-member block + self-remove confirm via `evaluateMemberRemoval`)                                                | existing `removeProjectMember`                                                             |
+| SA member              | + ตั้งเป็น SA หลัก                                                                                                                       | existing `setPrimaryProjectFor`                                                            |
+| PRC worker chip        | ตั้งเป็นหัวหน้าทีม · ย้ายทีม · ย้ายโครงการ · ดูข้อมูลช่าง (→ /workers)                                                                   | U2 RPCs (`set_crew_lead`, `move/remove crew member`) + existing `assign_worker_to_project` |
+| Firm worker chip       | ย้ายทีมผู้รับเหมา (→ /workers edit flow) · ดูข้อมูลช่าง                                                                                  | existing #642 firm picker (link out v1)                                                    |
+| Team card              | เปลี่ยนชื่อทีม · ยุบทีม (members → ยังไม่จัดทีม)                                                                                         | U2 RPCs                                                                                    |
+| เพิ่มสมาชิก (page CTA) | เพิ่มพนักงาน (staff picker) — as built, the sheet is the staff picker ONLY; เพิ่มช่างเข้าโครงการ + QR link-out remain unbuilt candidates | existing `addProjectMember`                                                                |
 
 **U5 amendment (operator, in-chat 2026-07-19 evening): ตั้งทีมใหม่ must NOT
 hide behind เพิ่มสมาชิก.** It moves out of the add sheet to a visible action
