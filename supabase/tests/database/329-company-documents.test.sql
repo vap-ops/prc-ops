@@ -109,15 +109,20 @@ select throws_ok($$
           '00000000-0000-4329-a000-000000000001')
 $$, '23514', null, 'self-supersede rejected');
 
--- accounting reads what it wrote
+-- accounting reads what it wrote — scoped to THIS file's seed user: the live
+-- table carries real rows (append-only, they never leave), so an unscoped
+-- count() goes red the moment the feature is used (G11 fixture-scope class)
 select is(
-  (select count(*) from public.company_documents),
+  (select count(*) from public.company_documents
+    where created_by = '00000000-0000-4329-a000-000000000001'),
   3::bigint, 'accounting sees all rows');
 
--- current-set read (both filters) returns nothing (chain fully retired)
+-- current-set read (both filters) returns nothing (chain fully retired);
+-- same seed-user scope as above
 select is(
   (select count(*) from public.company_documents d
-    where d.storage_path is not null
+    where d.created_by = '00000000-0000-4329-a000-000000000001'
+      and d.storage_path is not null
       and not exists (select 1 from public.company_documents newer
                       where newer.superseded_by = d.id)),
   0::bigint, 'retired chain leaves the current set');
