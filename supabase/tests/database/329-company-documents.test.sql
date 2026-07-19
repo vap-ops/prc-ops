@@ -2,18 +2,23 @@
 -- RLS (view roles read / accounting insert), private company-docs bucket,
 -- storage INSERT policy. Runner form: begin → plan → asserts → finish → rollback.
 begin;
-select plan(25);
+select plan(27);
 
 -- ── structure ────────────────────────────────────────────────
 select has_table('public', 'company_documents', 'table exists');
 select col_is_pk('public', 'company_documents', 'id', 'id is pk');
 select col_type_is('public', 'company_documents', 'superseded_by', 'uuid', 'superseded_by uuid');
-select has_check('public', 'company_documents', 'has check constraint');
+select ok(
+  exists(select 1 from pg_constraint
+    where conrelid = 'public.company_documents'::regclass
+      and conname = 'company_documents_well_formed'),
+  'well-formedness check pinned by name');
 select is(
   (select count(*) from pg_indexes
     where schemaname = 'public' and tablename = 'company_documents'
-      and indexdef like '%UNIQUE%superseded_by%'),
-  1::bigint, 'partial unique index on superseded_by');
+      and indexdef like '%UNIQUE%superseded_by%'
+      and indexdef like '%WHERE%superseded_by IS NOT NULL%'),
+  1::bigint, 'PARTIAL unique index on superseded_by (where-clause verified)');
 
 -- ── RLS enabled + policies exist ─────────────────────────────
 select is(
@@ -93,6 +98,16 @@ select throws_ok($$
   insert into public.company_documents (storage_path, created_by)
   values ('y/y.pdf', '00000000-0000-4329-a000-000000000001')
 $$, '23514', null, 'payload without title rejected');
+select throws_ok($$
+  insert into public.company_documents (title, storage_path, created_by)
+  values ('blankpath', '   ', '00000000-0000-4329-a000-000000000001')
+$$, '23514', null, 'whitespace-only storage_path rejected');
+select throws_ok($$
+  insert into public.company_documents (id, title, storage_path, superseded_by, created_by)
+  values ('00000000-0000-4329-d000-00000000000e', 'self', 'self/x.pdf',
+          '00000000-0000-4329-d000-00000000000e',
+          '00000000-0000-4329-a000-000000000001')
+$$, '23514', null, 'self-supersede rejected');
 
 -- accounting reads what it wrote
 select is(

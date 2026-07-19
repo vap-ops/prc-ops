@@ -20,12 +20,19 @@ create table public.company_documents (
     title is null or length(btrim(title)) between 1 and 200
   ),
   constraint company_documents_well_formed check (
-    (storage_path is not null and title is not null)
+    (storage_path is not null and length(btrim(storage_path)) > 0 and title is not null)
     or (storage_path is null and title is null and note is null
         and issued_at is null and expires_at is null
         and superseded_by is not null)
+  ),
+  -- a row hiding itself from the anti-join would strand the chain forever
+  constraint company_documents_no_self_supersede check (
+    superseded_by is distinct from id
   )
 );
+-- Accepted (documented, not an oversight): a content row MAY supersede a
+-- tombstone — that un-retires the chain with full history intact, which is the
+-- desired recovery path for a mistaken retire.
 
 comment on table public.company_documents is
   'Spec 329: firm-level documents (append-only; version = superseding content row, retire = tombstone).';
