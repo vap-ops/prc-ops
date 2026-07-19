@@ -86,6 +86,23 @@ describe("danger-path guard deny-regex", () => {
     expect(deny.test("src/lib/store/divert-lines.ts")).toBe(false);
   });
 
+  it("protects the payroll money-logic lib dir src/lib/payroll/ (chip task_a316fac1)", () => {
+    // src/lib/payroll/payout-nominee.ts (spec 320) reads workers-PII-walled bank
+    // columns through the ADMIN client (RLS bypass) — the exact money/PII logic
+    // surface the src/lib/labor/ + src/lib/accounting/ holds already cover. It
+    // escaped them purely because it lives in the sibling dir src/lib/payroll/,
+    // which the regex never listed — a change there was guard-CLEAN and would
+    // AUTO-MERGE. Same blind-spot class as auth #463 / photos #585 / money
+    // routes #596 / store uploads #607. Hold the whole dir: everything in it is
+    // payroll money domain (no innocent content to over-match).
+    expect(deny.test("src/lib/payroll/payout-nominee.ts")).toBe(true);
+    expect(deny.test("src/lib/payroll/payout-nominee-path.ts")).toBe(true);
+    expect(deny.test("src/lib/payroll/any-future-payroll-module.ts")).toBe(true);
+    // Slash boundary: the token must stay `src/lib/payroll/` (dir), never widen
+    // to a bare `src/lib/payroll` prefix that would hold unrelated siblings.
+    expect(deny.test("src/lib/payroll-report.ts")).toBe(false);
+  });
+
   it("still protects the pre-existing danger paths (no regression)", () => {
     expect(deny.test("src/lib/auth/session.ts")).toBe(true);
     expect(deny.test("src/lib/db/admin.ts")).toBe(true);
