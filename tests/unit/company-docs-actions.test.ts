@@ -39,6 +39,8 @@ import { ACCOUNTING_ROLES, COMPANY_DOC_VIEW_ROLES } from "@/lib/auth/role-home";
 
 const docInput = {
   id: "d-1",
+  typeId: "type-1",
+  label: null,
   title: "หนังสือรับรองบริษัท",
   note: null,
   issuedAt: "2026-02-12",
@@ -67,6 +69,8 @@ describe("addCompanyDocument", () => {
     expect(requireActionRole).toHaveBeenCalledWith(ACCOUNTING_ROLES);
     expect(insert).toHaveBeenCalledWith({
       id: "d-1",
+      type_id: "type-1",
+      label: null,
       title: "หนังสือรับรองบริษัท",
       note: null,
       issued_at: "2026-02-12",

@@ -56,10 +56,29 @@ export function groupTypesByCategory(
  */
 export function missingRequiredTypes(
   types: DocTypeRow[],
-  liveDocuments: ReadonlyArray<{ type_id: string | null }>,
+  liveDocuments: ReadonlyArray<{ type_id: string | null; expires_at?: string | null }>,
+  options: { todayIso?: string; activeCategoryIds?: ReadonlySet<string> } = {},
 ): DocTypeRow[] {
+  const { todayIso, activeCategoryIds } = options;
+  // An EXPIRED document does not satisfy the requirement — หนังสือรับรอง is the
+  // flagship case (⭐ required, ~6-month life): without this it would silently
+  // pass the checklist forever.
   const held = new Set(
-    liveDocuments.map((d) => d.type_id).filter((id): id is string => id !== null),
+    liveDocuments
+      .filter((d) => {
+        if (todayIso === undefined) return true;
+        const exp = d.expires_at ?? null;
+        return exp === null || exp >= todayIso;
+      })
+      .map((d) => d.type_id)
+      .filter((id): id is string => id !== null),
   );
-  return types.filter((t) => t.is_active && t.is_required && !held.has(t.id)).sort(bySortOrder);
+  return types
+    .filter((t) => {
+      if (!t.is_active || !t.is_required || held.has(t.id)) return false;
+      // a type whose category was deactivated has no picker entry, so nagging
+      // for it would be unsatisfiable
+      return activeCategoryIds === undefined || activeCategoryIds.has(t.category_id);
+    })
+    .sort(bySortOrder);
 }

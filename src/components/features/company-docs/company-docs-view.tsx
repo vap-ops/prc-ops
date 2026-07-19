@@ -9,7 +9,9 @@ import { FileText, Upload } from "lucide-react";
 import { retireCompanyDocument } from "@/lib/company-docs/actions";
 import { expiryStatus } from "@/lib/company-docs/expiry";
 import type { CompanyDocument } from "@/lib/company-docs/group-documents";
+import type { DocTypeGroup, DocTypeRow } from "@/lib/company-docs/registry";
 import { CompanyDocSheet, type SheetMode } from "./company-doc-sheets";
+import { MissingDocsList } from "./missing-docs-list";
 import { ShareLinkButton } from "./share-link-button";
 import {
   COMPANY_DOC_DOWNLOAD_LABEL,
@@ -23,6 +25,18 @@ import {
   COMPANY_DOC_UPLOAD_LABEL,
   formatThaiDate,
 } from "@/lib/i18n/labels";
+
+// Spec 331: a card's name comes from its TYPE (+ label for multi types).
+// `title` is only the snapshot taken at upload, and the three grandfathered
+// pre-331 rows carry no type at all — they fall back to it.
+function docDisplayName(
+  head: CompanyDocument["head"],
+  typesById: Record<string, DocTypeRow>,
+): string {
+  const type = head.type_id === null ? undefined : typesById[head.type_id];
+  if (type === undefined) return head.title ?? "";
+  return head.label === null ? type.name_th : `${type.name_th} – ${head.label}`;
+}
 
 function ExpiryBadge({ expiresAt, todayIso }: { expiresAt: string | null; todayIso: string }) {
   const status = expiryStatus(expiresAt, new Date(`${todayIso}T00:00:00Z`));
@@ -96,11 +110,17 @@ export function CompanyDocsView({
   downloadUrls,
   canManage,
   todayIso,
+  groups = [],
+  typesById = {},
+  missing = [],
 }: {
   docs: CompanyDocument[];
   downloadUrls: Record<string, string>;
   canManage: boolean;
   todayIso: string;
+  groups?: DocTypeGroup[];
+  typesById?: Record<string, DocTypeRow>;
+  missing?: DocTypeRow[];
 }) {
   const [sheet, setSheet] = useState<SheetMode | null>(null);
 
@@ -117,6 +137,12 @@ export function CompanyDocsView({
         </button>
       ) : null}
 
+      <MissingDocsList
+        missing={missing}
+        canManage={canManage}
+        onUpload={(t) => setSheet({ kind: "new", lockedType: t })}
+      />
+
       {docs.length === 0 ? (
         <p className="border-edge bg-card text-ink-secondary rounded-control border px-4 py-6 text-center text-sm">
           {COMPANY_DOC_EMPTY_LABEL}
@@ -129,7 +155,9 @@ export function CompanyDocsView({
                 <FileText aria-hidden className="text-ink-secondary mt-0.5 h-5 w-5 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-ink text-body font-semibold">{head.title}</span>
+                    <span className="text-ink text-body font-semibold">
+                      {docDisplayName(head, typesById)}
+                    </span>
                     <ExpiryBadge expiresAt={head.expires_at} todayIso={todayIso} />
                   </div>
                   <div className="text-ink-secondary text-meta mt-0.5 flex flex-wrap gap-x-2">
@@ -162,8 +190,12 @@ export function CompanyDocsView({
                             setSheet({
                               kind: "version",
                               supersedes: head.id,
-                              prefillTitle: head.title ?? "",
                               prefillNote: head.note ?? "",
+                              // the DB refuses a type change on a version, so the
+                              // picker opens locked to the chain's own type
+                              ...(head.type_id !== null && typesById[head.type_id] !== undefined
+                                ? { lockedType: typesById[head.type_id] as DocTypeRow }
+                                : {}),
                             })
                           }
                           className="border-edge bg-card hover:bg-sunk text-ink rounded-control border px-3 py-1.5 text-sm"
@@ -212,7 +244,9 @@ export function CompanyDocsView({
         </ul>
       )}
 
-      {canManage ? <CompanyDocSheet mode={sheet} onClose={() => setSheet(null)} /> : null}
+      {canManage ? (
+        <CompanyDocSheet mode={sheet} groups={groups} onClose={() => setSheet(null)} />
+      ) : null}
     </div>
   );
 }

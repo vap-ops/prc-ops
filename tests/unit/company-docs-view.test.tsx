@@ -44,6 +44,9 @@ const row = (over: Partial<CompanyDocument["head"]>): CompanyDocument["head"] =>
   superseded_by: null,
   created_by: "u",
   created_at: "2026-07-01T00:00:00Z",
+  // Spec 331 columns — the identity + multi-instance label.
+  type_id: null,
+  label: null,
   ...over,
 });
 

@@ -26,7 +26,12 @@ create table public.company_document_categories (
   created_by  uuid references auth.users (id),
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
-  constraint company_document_categories_name_th_not_blank check (length(btrim(name_th)) > 0)
+  constraint company_document_categories_name_th_not_blank check (length(btrim(name_th)) > 0),
+  constraint company_document_categories_text_bounds check (
+    length(code) <= 40
+    and length(name_th) <= 200
+    and (name_en is null or length(name_en) <= 200)
+  )
 );
 
 create table public.company_document_types (
@@ -44,7 +49,13 @@ create table public.company_document_types (
   created_by      uuid references auth.users (id),
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
-  constraint company_document_types_name_th_not_blank check (length(btrim(name_th)) > 0)
+  constraint company_document_types_name_th_not_blank check (length(btrim(name_th)) > 0),
+  constraint company_document_types_text_bounds check (
+    length(code) <= 40
+    and length(name_th) <= 200
+    and (name_en is null or length(name_en) <= 200)
+    and (hint is null or length(hint) <= 300)
+  )
 );
 
 create index company_document_types_category_idx
@@ -103,20 +114,42 @@ alter table public.company_documents
     label is null or length(btrim(label)) between 1 and 200
   );
 
+-- A tombstone carries NO payload — spec 329's well_formed predates type_id/label,
+-- so extend the same invariant to the new columns rather than leaving a shape
+-- (retired row that still claims a type) nothing rejects.
+alter table public.company_documents
+  add constraint company_documents_tombstone_bare check (
+    storage_path is not null or (type_id is null and label is null)
+  ) not valid;
+
 -- 3. The enforcement trigger ────────────────────────────────────────────────────
 -- The rules span two tables, so no CHECK or unique index can express them.
 -- Tombstones (all payload NULL) skip everything — they carry no document.
+-- SECURITY DEFINER on purpose: the guard READS company_documents to count live
+-- documents and to read the superseded row. Under the caller's RLS those reads
+-- would fail OPEN (rows the inserter cannot see count as zero → duplicate
+-- accepted). The gate must see the whole table.
 create function public.company_documents_enforce_type()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   v_type       public.company_document_types%rowtype;
-  v_prev_type  uuid;
+  v_prev       public.company_documents%rowtype;
   v_live_count int;
 begin
   if new.storage_path is null then
     return new;                                  -- tombstone: nothing to police
+  end if;
+
+  -- the trigger fires BEFORE the company_documents_type_required CHECK, so the
+  -- null case is answered here (the CHECK stays as belt-and-braces for any path
+  -- that bypasses triggers).
+  if new.type_id is null then
+    raise exception 'company_documents: a document type is required'
+      using errcode = 'P0001';
   end if;
 
   select * into v_type
@@ -126,12 +159,30 @@ begin
     raise exception 'company_documents: unknown document type'
       using errcode = 'P0001';
   end if;
+  if not v_type.is_active then
+    raise exception 'company_documents: this document type is no longer in use'
+      using errcode = 'P0001';
+  end if;
 
-  -- a version must keep its chain's type (no ภ.พ.20 → insurance morphing)
   if new.superseded_by is not null then
-    select type_id into v_prev_type
+    select * into v_prev
       from public.company_documents where id = new.superseded_by;
-    if v_prev_type is not null and v_prev_type is distinct from new.type_id then
+    if not found then
+      raise exception 'company_documents: the superseded document does not exist'
+        using errcode = 'P0001';
+    end if;
+    -- Retire is FINAL: a tombstone may not be superseded. Without this, a
+    -- version row could hang off a tombstone and skip the singleton guard
+    -- (`superseded_by is not null` exempts versions) — two live documents of a
+    -- singleton type. Re-uploading after a retire is a FRESH row, which the
+    -- singleton count then governs correctly.
+    if v_prev.storage_path is null then
+      raise exception 'company_documents: a retired document cannot be versioned — upload a new one'
+        using errcode = 'P0001';
+    end if;
+    -- a version must keep its chain's type (no ภ.พ.20 → insurance morphing).
+    -- v_prev.type_id is NULL only on the three grandfathered pre-331 rows.
+    if v_prev.type_id is distinct from new.type_id and v_prev.type_id is not null then
       raise exception 'company_documents: a new version cannot change the document type'
         using errcode = 'P0001';
     end if;
@@ -181,7 +232,7 @@ create trigger company_documents_enforce_type
 comment on function public.company_documents_enforce_type() is
   'Spec 331 — INSERT-time rules for company documents: known type · versions keep their type · one live document per singleton type (P0001 "ใช้ปุ่มเวอร์ชันใหม่แทน") · multi types need a label, singletons refuse one · requires_expiry types need expires_at. Tombstones skip all of it.';
 
--- 4. Seed — 7 categories, 31 types (spec 331 §2) ────────────────────────────────
+-- 4. Seed — 7 categories, 35 types (spec 331 §2) ────────────────────────────────
 insert into public.company_document_categories (code, name_th, name_en, sort_order) values
   ('REG', 'จดทะเบียนบริษัท',     'Corporate registration',   10),
   ('TAX', 'ภาษี',                 'Tax',                      20),

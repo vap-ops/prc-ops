@@ -22,10 +22,13 @@ export function DocTypePicker({
   groups,
   selected,
   onSelect,
+  locked = false,
 }: {
   groups: DocTypeGroup[];
   selected: DocTypeRow | null;
   onSelect: (type: DocTypeRow | null) => void;
+  /** A version keeps its chain type; the ยังขาด list preselects one. */
+  locked?: boolean;
 }) {
   const byId = new Map(groups.flatMap((g) => g.types).map((t) => [t.id, t]));
 
@@ -36,6 +39,7 @@ export function DocTypePicker({
         <select
           name="type_id"
           required
+          disabled={locked}
           value={selected?.id ?? ""}
           onChange={(e) => onSelect(byId.get(e.target.value) ?? null)}
           className={FIELD}

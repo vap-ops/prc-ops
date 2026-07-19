@@ -6,7 +6,7 @@
 -- Data asserts are scoped to THIS file's fixture ids (spec 310 lesson, recurred
 -- 2026-07-19 in #652): never a bare count(*) over a table real uploads touch.
 begin;
-select plan(30);
+select plan(33);
 
 -- ── registry structure ───────────────────────────────────────
 select has_table('public', 'company_document_categories', 'categories table exists');
@@ -24,10 +24,14 @@ select is(
   (select count(*) from public.company_document_categories
     where code in ('REG', 'TAX', 'SSO', 'FIN', 'LIC', 'INS', 'PRF')),
   7::bigint, 'seven categories seeded');
+-- scoped to the SEEDED codes: super_admin adds types in-app through the RPCs
+-- this spec ships, so a bare count(*) would red the first time they do.
 select is(
   (select count(*) from public.company_document_types t
-    join public.company_document_categories c on c.id = t.category_id),
-  31::bigint, 'thirty-one types seeded, all category-bound');
+    join public.company_document_categories c on c.id = t.category_id
+   where c.code in ('REG', 'TAX', 'SSO', 'FIN', 'LIC', 'INS', 'PRF')
+     and t.code like any (array['REG\_%', 'TAX\_%', 'SSO\_%', 'FIN\_%', 'LIC\_%', 'INS\_%', 'PRF\_%'])),
+  35::bigint, 'the 35 seeded types are present and category-bound');
 select ok(
   (select is_singleton and is_required from public.company_document_types
     where code = 'TAX_PP20'),
@@ -59,6 +63,12 @@ update public.users set role = 'accounting'
 update public.users set role = 'super_admin'
   where id = '00000000-0000-4331-a000-000000000002';
 
+-- a deactivated type, seeded as superuser (the registry has no write policy —
+-- super_admin's RPCs are the only in-app path, and this file asserts that below)
+insert into public.company_document_types (category_id, code, name_th, is_singleton, is_active)
+select id, 'T331_OFF', 'ปิดใช้งาน', true, false
+  from public.company_document_categories where code = 'REG';
+
 grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
 grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
@@ -70,7 +80,7 @@ set local "request.jwt.claims" = '{"sub": "00000000-0000-4331-a000-000000000001"
 select throws_ok($$
   insert into public.company_documents (title, storage_path, created_by)
   values ('no type', 'x331/a.pdf', '00000000-0000-4331-a000-000000000001')
-$$, '23514', null, 'content row without type_id rejected');
+$$, 'P0001', null, 'content row without type_id rejected (trigger precedes the CHECK)');
 
 -- singleton type, first document → allowed
 select lives_ok($$
@@ -149,6 +159,34 @@ select lives_ok($$
   values ('00000000-0000-4331-d000-000000000003',
           '00000000-0000-4331-a000-000000000001')
 $$, 'tombstone (retire) needs no type/label/expiry');
+
+-- ⭐ the singleton-bypass the fresh-eyes review found: hanging a version off a
+-- TOMBSTONE would skip the singleton guard (versions are exempt) and leave two
+-- live documents of one singleton type. Retire is final — versioning a tombstone
+-- is refused outright, which closes both that hole and the type-morph hole.
+select throws_ok($$
+  insert into public.company_documents (type_id, title, storage_path, superseded_by, created_by)
+  select t.id, t.name_th, 'x331/revive.pdf',
+         (select d.id from public.company_documents d
+           where d.superseded_by = '00000000-0000-4331-d000-000000000003'
+             and d.storage_path is null limit 1),
+         '00000000-0000-4331-a000-000000000001'
+  from public.company_document_types t where t.code = 'INS_CAR'
+$$, 'P0001', null, 'a retired (tombstoned) document cannot be versioned');
+
+-- an unknown type id is refused (not silently accepted as NULL)
+select throws_ok($$
+  insert into public.company_documents (type_id, title, storage_path, created_by)
+  values ('00000000-0000-4331-f000-00000000dead', 'ผี', 'x331/ghost.pdf',
+          '00000000-0000-4331-a000-000000000001')
+$$, 'P0001', null, 'unknown type_id rejected');
+
+-- a DEACTIVATED type disappears from the picker AND stops accepting uploads
+select throws_ok($$
+  insert into public.company_documents (type_id, title, storage_path, created_by)
+  select t.id, t.name_th, 'x331/off.pdf', '00000000-0000-4331-a000-000000000001'
+  from public.company_document_types t where t.code = 'T331_OFF'
+$$, 'P0001', null, 'a deactivated type refuses new documents');
 
 -- retiring the singleton frees its slot again
 select lives_ok($$
