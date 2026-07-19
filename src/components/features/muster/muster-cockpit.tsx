@@ -11,7 +11,13 @@
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatThaiDate } from "@/lib/i18n/labels";
-import { openMusterTeam, musterScan, setMusterTeamWps, closeMusterDay } from "@/lib/muster/actions";
+import {
+  openMusterTeam,
+  musterScan,
+  setMusterTeamWps,
+  closeMusterDay,
+  moveMusterWorker,
+} from "@/lib/muster/actions";
 import type { MusterBoard, MusterTeam, MusterWp } from "@/lib/muster/load-muster";
 import { MusterCamera } from "./muster-camera";
 
@@ -95,6 +101,11 @@ export function MusterCockpit({
   const saveWps = (teamId: string, wpIds: string[]) =>
     run(() => setMusterTeamWps({ teamId, wpIds, revalidate }));
 
+  // Spec 306 move UI — day-of correction: reassign a member's attendance to
+  // another team (same date; the RPC guards project + date + existence).
+  const move = (workerId: string, toTeamId: string) =>
+    run(() => moveMusterWorker({ workerId, date, toTeamId, revalidate }));
+
   const closeDay = () => {
     setConfirmClose(false);
     run(() => closeMusterDay({ projectId, date, revalidate }));
@@ -169,9 +180,13 @@ export function MusterCockpit({
             mode={mode}
             pending={pending}
             availableToAdd={addableTo(team.id)}
+            otherTeams={board.teams
+              .filter((t) => t.id !== team.id)
+              .map((t) => ({ id: t.id, leadName: t.leadName }))}
             hasCamera={hasCamera}
             onScan={scan}
             onSaveWps={saveWps}
+            onMove={move}
             onOpenCamera={() => setScanTeamId(team.id)}
           />
         ))
@@ -229,9 +244,11 @@ function TeamCard({
   mode,
   pending,
   availableToAdd,
+  otherTeams,
   hasCamera,
   onScan,
   onSaveWps,
+  onMove,
   onOpenCamera,
 }: {
   team: MusterTeam;
@@ -239,14 +256,19 @@ function TeamCard({
   mode: Mode;
   pending: boolean;
   availableToAdd: { id: string; name: string }[];
+  /** Spec 306 move UI — the OTHER teams today (move targets, by lead name). */
+  otherTeams: { id: string; leadName: string }[];
   hasCamera: boolean;
   onScan: (teamId: string, workerId: string, method: "qr" | "manual") => void;
   onSaveWps: (teamId: string, wpIds: string[]) => void;
+  onMove: (workerId: string, toTeamId: string) => void;
   onOpenCamera: () => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set(team.wpIds));
+  // Spec 306 move UI — which member's move picker is open (one at a time).
+  const [movePickFor, setMovePickFor] = useState<string | null>(null);
 
   const openEditor = () => {
     setChecked(new Set(team.wpIds));
@@ -326,26 +348,59 @@ function TeamCard({
 
         <ul className="flex flex-col gap-1.5">
           {team.members.map((m) => (
-            <li key={m.workerId} className="flex items-center justify-between gap-2">
-              <span className="text-ink text-sm">{m.name}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-ink-muted text-meta tabular-nums">
-                  {bangkokTime(m.inAt)}
-                  {m.outAt ? ` – ${bangkokTime(m.outAt)}` : ""}
-                  {m.outAt && m.outAuto ? " (อัตโนมัติ)" : ""}
-                  {m.otHours ? ` · OT ${m.otHours} ชม.` : ""}
-                </span>
-                {mode === "out" && m.inAt && !m.outAt ? (
-                  <button
-                    type="button"
-                    onClick={() => onScan(team.id, m.workerId, "manual")}
-                    disabled={pending}
-                    className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
-                  >
-                    เช็คออก
-                  </button>
-                ) : null}
+            <li key={m.workerId} className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink text-sm">{m.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-ink-muted text-meta tabular-nums">
+                    {bangkokTime(m.inAt)}
+                    {m.outAt ? ` – ${bangkokTime(m.outAt)}` : ""}
+                    {m.outAt && m.outAuto ? " (อัตโนมัติ)" : ""}
+                    {m.otHours ? ` · OT ${m.otHours} ชม.` : ""}
+                  </span>
+                  {/* Spec 306 move UI — day-of correction, เข้า mode, only when
+                      there is another team to move to. */}
+                  {mode === "in" && otherTeams.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setMovePickFor((v) => (v === m.workerId ? null : m.workerId))}
+                      disabled={pending}
+                      className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
+                    >
+                      ย้าย
+                    </button>
+                  ) : null}
+                  {mode === "out" && m.inAt && !m.outAt ? (
+                    <button
+                      type="button"
+                      onClick={() => onScan(team.id, m.workerId, "manual")}
+                      disabled={pending}
+                      className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
+                    >
+                      เช็คออก
+                    </button>
+                  ) : null}
+                </div>
               </div>
+              {movePickFor === m.workerId ? (
+                <div className="border-edge bg-sunk flex flex-wrap items-center gap-2 rounded-lg border p-2">
+                  <span className="text-ink-muted text-meta">ย้ายไปทีมของ:</span>
+                  {otherTeams.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        onMove(m.workerId, t.id);
+                        setMovePickFor(null);
+                      }}
+                      disabled={pending}
+                      className="bg-card text-ink border-edge min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
+                    >
+                      {t.leadName}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>
