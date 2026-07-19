@@ -35,6 +35,10 @@ function scanErrorToThai(message: string): string {
     return "ช่างคนนี้อยู่ในทีมอื่นแล้ววันนี้";
   }
   if (message.includes("no attendance")) return "ยังไม่ได้เช็คชื่อเข้าของช่างคนนี้";
+  // move_muster_worker guards (spec 306 move UI).
+  if (message.includes("cannot move across projects")) return "ย้ายข้ามโครงการไม่ได้";
+  if (message.includes("target team is not for this date")) return "ทีมปลายทางไม่ใช่ของวันนี้";
+  if (message.includes("target team not found")) return "ไม่พบทีมปลายทาง";
   if (message.includes("another team")) return "ช่างอยู่คนละทีม — ต้องย้ายก่อน";
   if (message.includes("role not permitted")) return "ไม่มีสิทธิ์เช็คชื่อ";
   if (message.includes("not a member of this project")) return "ไม่มีสิทธิ์ในโครงการนี้";
@@ -117,6 +121,37 @@ export async function setMusterTeamWps(input: {
   if (error) return { ok: false, error: scanErrorToThai(error.message) };
   revalidatePath(input.revalidate);
   return { ok: true };
+}
+
+// Spec 306 (deferred move UI, 2026-07-19) — day-of correction: move a worker's
+// attendance to another team on the SAME date. move_muster_worker owns the
+// guards (SA/super + can_see_project, same-date team, same-project, attendance
+// exists, no-op when already there) and audits crew_change/muster_move.
+export async function moveMusterWorker(input: {
+  workerId: string;
+  date: string;
+  toTeamId: string;
+  revalidate: string;
+}): Promise<MusterResult> {
+  if (
+    !UUID_REGEX.test(input.workerId) ||
+    !UUID_REGEX.test(input.toTeamId) ||
+    !ISO_DATE_REGEX.test(input.date) ||
+    !input.revalidate.startsWith("/")
+  ) {
+    return { ok: false, error: GENERIC };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { data, error } = await auth.supabase.rpc("move_muster_worker", {
+    p_worker: input.workerId,
+    p_date: input.date,
+    p_to_team: input.toTeamId,
+  });
+  if (error) return { ok: false, error: scanErrorToThai(error.message) };
+  revalidatePath(input.revalidate);
+  return { ok: true, id: data as string };
 }
 
 // Spec 306 U4 — ปิดวัน (close the muster day). close_muster_day auto-outs any
