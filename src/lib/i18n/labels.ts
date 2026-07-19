@@ -548,6 +548,10 @@ export const LABOR_BUDGET_UNSET_LABEL = "ยังไม่ได้ตั้ง
 // aria-label, page title, procurement hub door (U3).
 export const PROJECT_COSTS_LABEL = "ต้นทุนโครงการ";
 
+// Spec 330 — the per-project team map (staff tiers + crew teams). One term
+// everywhere it appears: page title/heading + the project cockpit door aria.
+export const PROJECT_TEAM_LABEL = "ทีมงานโครงการ";
+
 // Spec 323 follow-up — the per-project supply plan (แผนจัดหา). One term
 // everywhere it appears: the supply-plan page title/heading, the project chip
 // aria-label, and the procurement hub Scope door. Distinct from

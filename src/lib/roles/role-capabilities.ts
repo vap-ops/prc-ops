@@ -31,6 +31,7 @@ import {
   PM_ROLES,
   PO_DETAIL_VIEW_ROLES,
   PROCUREMENT_MANAGER_ROLES,
+  PROJECT_TEAM_STAFF_ROLES,
   PROJECT_VIEW_ROLES,
   PR_DECIDER_ROLES,
   PURCHASE_REPORT_ROLES,
@@ -248,6 +249,17 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     roles: WORKER_ROSTER_ROLES,
     labelTh: "จัดการรายชื่อช่าง + เพิ่มช่างใหม่",
     domain: "team",
+  },
+  {
+    // Spec 330: classification set — the roles a PM can ADD to a project team
+    // (membership drives can_see_project for PM/SA/site_owner/auditor). Not a
+    // capability of the listed roles themselves, so never rendered.
+    key: "project-team-addable",
+    setName: "PROJECT_TEAM_STAFF_ROLES",
+    roles: PROJECT_TEAM_STAFF_ROLES,
+    labelTh: "เพิ่มเข้าทีมโครงการได้ (รายการสิทธิ์ที่เลือกได้)",
+    domain: "team",
+    hidden: true,
   },
   {
     key: "staff-approve",
