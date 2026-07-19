@@ -1,5 +1,5 @@
 begin;
-select plan(41);
+select plan(42);
 
 -- ============================================================================
 -- Spec 224 — Catalog item facets (ADR 0066 / S2, decision D3). Three facet

@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(22);
 
 -- ============================================================================
 -- Spec 208 U3 — multi-line เบิก (bulk withdrawal). issue_stock_bulk(project, wp,
