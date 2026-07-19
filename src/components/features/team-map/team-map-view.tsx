@@ -22,7 +22,17 @@ import type {
   ProjectTeamMap,
   TeamMapStaffNode,
   TeamMapTeamCard,
+  TeamMapWorkerChip,
 } from "@/lib/team-map/build-team-map";
+import {
+  addWorkerToCrew,
+  createCrew,
+  dissolveCrew,
+  moveWorkerBetweenCrews,
+  removeWorkerFromCrew,
+  renameCrew,
+  setCrewLead,
+} from "@/lib/team-map/crew-actions";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { INLINE_ERROR } from "@/lib/ui/classes";
 import { evaluateMemberRemoval } from "@/lib/projects/member-removal";
@@ -34,7 +44,15 @@ export interface AddableStaff {
   role: string;
 }
 
-type SheetState = { type: "staff"; node: TeamMapStaffNode } | { type: "add" } | null;
+// ONE sheet at a time — every surface rides the same union so two dialogs can
+// never stack.
+type SheetState =
+  | { type: "staff"; node: TeamMapStaffNode }
+  | { type: "add" }
+  | { type: "createCrew" }
+  | { type: "team"; team: TeamMapTeamCard }
+  | { type: "chip"; chip: TeamMapWorkerChip; team: TeamMapTeamCard }
+  | null;
 
 const TIER_HEADING = "text-ink-secondary text-xs font-medium";
 const CARD = "rounded-card border-edge bg-card flex flex-col gap-2 border px-3 py-2";
@@ -78,10 +96,14 @@ function TeamCard({
   team,
   expanded,
   onToggle,
+  onManage,
+  onChip,
 }: {
   team: TeamMapTeamCard;
   expanded: boolean;
   onToggle: () => void;
+  onManage: () => void;
+  onChip: (chip: TeamMapWorkerChip) => void;
 }) {
   const Icon = team.kind === "firm" ? Building2 : team.kind === "unassigned" ? CircleHelp : Users;
   const subtitle =
@@ -101,6 +123,16 @@ function TeamCard({
           <span className="text-ink block truncate text-sm font-medium">{team.name}</span>
           <span className="text-ink-secondary block text-xs">{subtitle}</span>
         </span>
+        {/* SIBLING of the toggle, never a wrapper: a wrapping button would
+            swallow the toggle into its accessible name and is invalid HTML —
+            the real parser flattens it, so the tap region would exist in jsdom
+            and not in the browser. Crew cards only: a firm card's id is a
+            contractor uuid and the pool has no crew to manage. */}
+        {team.kind === "crew" ? (
+          <button type="button" className={TOGGLE} onClick={onManage} aria-label="จัดการทีม">
+            จัดการทีม
+          </button>
+        ) : null}
         <button type="button" className={TOGGLE} onClick={onToggle}>
           {expanded ? "ซ่อน" : "แสดง"}
         </button>
@@ -108,7 +140,12 @@ function TeamCard({
       {expanded ? (
         <div className="border-edge flex flex-wrap gap-1.5 border-t pt-2">
           {team.members.map((m) => (
-            <span key={m.workerId} className={CHIP}>
+            <button
+              key={m.workerId}
+              type="button"
+              className={`${CHIP} min-h-11`}
+              onClick={() => onChip(m)}
+            >
               {m.isTeamLead ? (
                 <span className="text-ink inline-flex items-center gap-1 font-medium">
                   <Star aria-hidden className="size-3" /> {m.name} · หัวหน้าทีม
@@ -116,7 +153,7 @@ function TeamCard({
               ) : (
                 m.name
               )}
-            </span>
+            </button>
           ))}
           {team.members.length === 0 ? (
             <span className="text-ink-muted text-xs">ยังไม่มีสมาชิก</span>
@@ -145,8 +182,17 @@ export function TeamMapView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmSelfRemove, setConfirmSelfRemove] = useState<TeamMapStaffNode | null>(null);
+  const [confirmDissolve, setConfirmDissolve] = useState<TeamMapTeamCard | null>(null);
+  const [crewName, setCrewName] = useState("");
 
   const allExpanded = map.teams.length > 0 && map.teams.every((t) => expanded.has(t.id));
+  const teamHref = `/projects/${projectId}/team`;
+  const teamSheet = sheet?.type === "team" ? sheet.team : null;
+  const chipSheet = sheet?.type === "chip" ? sheet : null;
+  // Move/add targets are CREW cards only — never a firm card (its id is a
+  // contractor uuid) and never the pool (id is the string "unassigned").
+  const otherCrews = (currentId: string) =>
+    map.teams.filter((t) => t.kind === "crew" && t.id !== currentId);
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -160,6 +206,7 @@ export function TeamMapView({
   function closeSheet() {
     setSheet(null);
     setError(null);
+    setCrewName("");
   }
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>, done: string) {
@@ -261,6 +308,8 @@ export function TeamMapView({
               team={t}
               expanded={expanded.has(t.id)}
               onToggle={() => toggle(t.id)}
+              onManage={() => setSheet({ type: "team", team: t })}
+              onChip={(chip) => setSheet({ type: "chip", chip, team: t })}
             />
           ))}
           {map.teams.length === 0 ? (
@@ -321,6 +370,14 @@ export function TeamMapView({
 
       <BottomSheet open={sheet?.type === "add"} title="เพิ่มสมาชิกทีมโครงการ" onClose={closeSheet}>
         <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            className={SHEET_ACTION}
+            onClick={() => setSheet({ type: "createCrew" })}
+          >
+            <Users aria-hidden className="text-ink-secondary size-4" /> ตั้งทีมใหม่
+          </button>
+          <p className="text-ink-secondary mt-1 text-xs">เพิ่มพนักงานเข้าโครงการ</p>
           {sortedAddable.map((s) => (
             <button
               key={s.id}
@@ -339,6 +396,211 @@ export function TeamMapView({
           {error ? <p className={INLINE_ERROR}>{error}</p> : null}
         </div>
       </BottomSheet>
+
+      {/* ── crew card manage: rename + dissolve ─────────────────────────── */}
+      <BottomSheet
+        open={sheet?.type === "team"}
+        title={teamSheet ? `จัดการทีม · ${teamSheet.name}` : ""}
+        onClose={closeSheet}
+      >
+        {teamSheet ? (
+          <div className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-ink-secondary text-xs">ชื่อทีม</span>
+              <input
+                type="text"
+                aria-label="ชื่อทีม"
+                maxLength={80}
+                defaultValue={teamSheet.name}
+                onChange={(e) => setCrewName(e.target.value)}
+                className="border-edge bg-card text-ink min-h-11 rounded-lg border px-3 text-sm"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={busy}
+              className={SHEET_ACTION}
+              onClick={() =>
+                run(
+                  () =>
+                    renameCrew({
+                      crewId: teamSheet.id,
+                      name: crewName || teamSheet.name,
+                      revalidate: teamHref,
+                    }),
+                  "เปลี่ยนชื่อทีมแล้ว",
+                )
+              }
+            >
+              บันทึกชื่อ
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              className={SHEET_ACTION}
+              onClick={() => setConfirmDissolve(teamSheet)}
+            >
+              ยุบทีม
+            </button>
+            <p className="text-ink-muted text-xs">
+              ยุบทีมแล้วสมาชิกจะกลับไปอยู่ในกลุ่ม “ยังไม่จัดทีม” — ประวัติทีมยังคงอยู่
+            </p>
+            {error ? <p className={INLINE_ERROR}>{error}</p> : null}
+          </div>
+        ) : null}
+      </BottomSheet>
+
+      {/* ── worker chip: actions scoped to WHERE the worker sits ─────────── */}
+      <BottomSheet
+        open={sheet?.type === "chip"}
+        title={chipSheet ? chipSheet.chip.name : ""}
+        onClose={closeSheet}
+      >
+        {chipSheet ? (
+          <div className="flex flex-col gap-2">
+            {/* A contractor-tied worker is pay-exempt (spec 328 §2.4, walled in
+                Postgres by mig 075818) — no crew operation is offered at all. */}
+            {chipSheet.chip.contractorId !== null ? (
+              <p className="text-ink-secondary text-sm">
+                ช่างของผู้รับเหมา — ผู้รับเหมาเป็นผู้จ่ายค่าแรงเอง จึงจัดเข้าทีมช่างของบริษัทไม่ได้
+              </p>
+            ) : (
+              <>
+                {chipSheet.team.kind === "crew" ? (
+                  <>
+                    {!chipSheet.chip.isTeamLead ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className={SHEET_ACTION}
+                        onClick={() =>
+                          run(
+                            () =>
+                              setCrewLead({
+                                crewId: chipSheet.team.id,
+                                workerId: chipSheet.chip.workerId,
+                                revalidate: teamHref,
+                              }),
+                            "ตั้งหัวหน้าทีมแล้ว",
+                          )
+                        }
+                      >
+                        <Star aria-hidden className="text-ink-secondary size-4" />{" "}
+                        ตั้งเป็นหัวหน้าทีม
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className={SHEET_ACTION}
+                      onClick={() =>
+                        run(
+                          () =>
+                            removeWorkerFromCrew({
+                              crewId: chipSheet.team.id,
+                              workerId: chipSheet.chip.workerId,
+                              revalidate: teamHref,
+                            }),
+                          "นำออกจากทีมแล้ว",
+                        )
+                      }
+                    >
+                      นำออกจากทีม
+                    </button>
+                  </>
+                ) : null}
+
+                {otherCrews(chipSheet.team.id).length > 0 ? (
+                  <>
+                    <p className="text-ink-secondary mt-1 text-xs">
+                      {chipSheet.team.kind === "crew" ? "ย้ายไปทีม" : "เพิ่มเข้าทีม"}
+                    </p>
+                    {otherCrews(chipSheet.team.id).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        disabled={busy}
+                        className={SHEET_ACTION}
+                        onClick={() =>
+                          run(
+                            () =>
+                              chipSheet.team.kind === "crew"
+                                ? moveWorkerBetweenCrews({
+                                    fromCrewId: chipSheet.team.id,
+                                    toCrewId: t.id,
+                                    workerId: chipSheet.chip.workerId,
+                                    revalidate: teamHref,
+                                  })
+                                : addWorkerToCrew({
+                                    crewId: t.id,
+                                    workerId: chipSheet.chip.workerId,
+                                    revalidate: teamHref,
+                                  }),
+                            chipSheet.team.kind === "crew" ? "ย้ายทีมแล้ว" : "เพิ่มเข้าทีมแล้ว",
+                          )
+                        }
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </>
+                ) : (
+                  <p className="text-ink-muted text-xs">ยังไม่มีทีมอื่นให้ย้ายไป</p>
+                )}
+              </>
+            )}
+            {error ? <p className={INLINE_ERROR}>{error}</p> : null}
+          </div>
+        ) : null}
+      </BottomSheet>
+
+      {/* ── ตั้งทีมใหม่ ───────────────────────────────────────────────────── */}
+      <BottomSheet open={sheet?.type === "createCrew"} title="ตั้งทีมใหม่" onClose={closeSheet}>
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-ink-secondary text-xs">ชื่อทีม</span>
+            <input
+              type="text"
+              aria-label="ชื่อทีม"
+              maxLength={80}
+              onChange={(e) => setCrewName(e.target.value)}
+              className="border-edge bg-card text-ink min-h-11 rounded-lg border px-3 text-sm"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={busy}
+            className={SHEET_ACTION}
+            onClick={() =>
+              run(
+                () => createCrew({ projectId, name: crewName, revalidate: teamHref }),
+                "ตั้งทีมแล้ว",
+              )
+            }
+          >
+            สร้างทีม
+          </button>
+          {error ? <p className={INLINE_ERROR}>{error}</p> : null}
+        </div>
+      </BottomSheet>
+
+      <ConfirmDialog
+        open={confirmDissolve !== null}
+        message={
+          confirmDissolve
+            ? `ยุบทีม “${confirmDissolve.name}”?\nสมาชิกจะกลับไปอยู่ในกลุ่มยังไม่จัดทีม`
+            : ""
+        }
+        confirmLabel="ยืนยันยุบทีม"
+        onConfirm={() => {
+          const team = confirmDissolve;
+          setConfirmDissolve(null);
+          if (team) {
+            run(() => dissolveCrew({ crewId: team.id, revalidate: teamHref }), "ยุบทีมแล้ว");
+          }
+        }}
+        onCancel={() => setConfirmDissolve(null)}
+      />
 
       <ConfirmDialog
         open={confirmSelfRemove !== null}
