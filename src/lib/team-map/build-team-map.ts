@@ -21,6 +21,11 @@ export interface TeamMapWorkerChip {
   workerId: string;
   name: string;
   isTeamLead: boolean;
+  // Carried on the CHIP, not inferred from the card's `kind`: once a firm
+  // worker sits in a crew the card reads `kind: "crew"`, so kind is
+  // self-erasing as a pay-exempt discriminator (spec 328 §2.4). The DB wall
+  // (mig 075818) makes that unreachable — this keeps the UI honest anyway.
+  contractorId: string | null;
 }
 
 export interface TeamMapTeamCard {
@@ -108,6 +113,7 @@ export function buildProjectTeamMap(input: BuildProjectTeamMapInput): ProjectTea
         workerId: id,
         name: workerById.get(id)?.name ?? "",
         isTeamLead: id === crew.lead_worker_id,
+        contractorId: workerById.get(id)?.contractor_id ?? null,
       }));
       return {
         kind: "crew" as const,
@@ -133,7 +139,12 @@ export function buildProjectTeamMap(input: BuildProjectTeamMapInput): ProjectTea
       kind: "firm" as const,
       id: contractorId,
       name: input.contractors.get(contractorId) ?? "ทีมผู้รับเหมา",
-      members: list.map((w) => ({ workerId: w.id, name: w.name, isTeamLead: false })),
+      members: list.map((w) => ({
+        workerId: w.id,
+        name: w.name,
+        isTeamLead: false,
+        contractorId: w.contractor_id,
+      })),
       count: list.length,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "th"));
@@ -145,7 +156,12 @@ export function buildProjectTeamMap(input: BuildProjectTeamMapInput): ProjectTea
       kind: "unassigned",
       id: "unassigned",
       name: "ยังไม่จัดทีม",
-      members: pooled.map((w) => ({ workerId: w.id, name: w.name, isTeamLead: false })),
+      members: pooled.map((w) => ({
+        workerId: w.id,
+        name: w.name,
+        isTeamLead: false,
+        contractorId: w.contractor_id,
+      })),
       count: pooled.length,
     });
   }

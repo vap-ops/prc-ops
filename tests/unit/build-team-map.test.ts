@@ -111,6 +111,31 @@ describe("buildProjectTeamMap (spec 330)", () => {
     expect(firm?.members.map((m) => m.workerId)).toEqual(["w-firm1", "w-firm2"]);
   });
 
+  // Every chip carries the worker's own contractor_id. The card's `kind` cannot
+  // stand in for it: the moment a contractor-tied worker sits in a crew the
+  // card reads "crew", so a UI money wall keyed on kind would wave them
+  // through. Asserting the EMITTED value means hardcoding `contractorId: null`
+  // on crew chips can no longer disarm that wall with the suite still green.
+  it("emits each chip's own contractorId — including inside a CREW card", () => {
+    const map = build({
+      crewMembers: [
+        { crew_id: "cr-1", worker_id: "w-lead", removed_at: null },
+        { crew_id: "cr-1", worker_id: "w-firm2", removed_at: null },
+      ],
+    });
+    const crew = map.teams.find((t) => t.kind === "crew");
+    expect(crew?.members).toEqual([
+      expect.objectContaining({ workerId: "w-lead", contractorId: null }),
+      expect.objectContaining({ workerId: "w-firm2", contractorId: "c-uay" }),
+    ]);
+    expect(map.teams.find((t) => t.kind === "firm")?.members.map((m) => m.contractorId)).toEqual([
+      "c-uay",
+    ]);
+    expect(
+      map.teams.find((t) => t.kind === "unassigned")?.members.every((m) => m.contractorId === null),
+    ).toBe(true);
+  });
+
   it("unassigned pool: project workers in no active crew and no firm, last card", () => {
     const map = build();
     const pool = map.teams[map.teams.length - 1];
