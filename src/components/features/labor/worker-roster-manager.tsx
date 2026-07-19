@@ -293,6 +293,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
 function WorkerRow({
   worker,
   contractorName,
+  firms,
   projects,
   canGrade = false,
   canAssignHt = false,
@@ -301,6 +302,8 @@ function WorkerRow({
 }: {
   worker: ManagedWorker;
   contractorName: string | null;
+  /** Spec 328 firm move — ACTIVE firms the edit sheet may assign/move to. */
+  firms: { id: string; name: string }[];
   projects: AssignableProject[];
   // Spec 272: UI gates mirroring the RPC gates (set_worker_level = super_admin;
   // assign_project_ht = pm/pd/super) — the DEFINER RPCs re-check server-side.
@@ -325,6 +328,10 @@ function WorkerRow({
   // unbound worker (the loader withholds a bound worker's bank).
   const [payType, setPayType] = useState<PayType>(worker.pay_type);
   const [employmentType, setEmploymentType] = useState<EmploymentType>(worker.employment_type);
+  // Spec 328 firm move — "" = ทีม PRC (untied). A tied worker can only move
+  // firm→firm (update_worker's p_contractor coalesce cannot clear; remove = an
+  // operator money-judgment, deliberately not offered here).
+  const [contractorPick, setContractorPick] = useState(worker.contractor_id ?? "");
   const [phone, setPhone] = useState(worker.phone ?? "");
   const [taxId, setTaxId] = useState(worker.tax_id ?? "");
   const [bankName, setBankName] = useState(worker.bank_name ?? "");
@@ -356,6 +363,9 @@ function WorkerRow({
     // routes through the portal request/approval flow, so it is never sent here.
     const payTypeChanged = payType !== worker.pay_type;
     const employmentTypeChanged = employmentType !== worker.employment_type;
+    // Spec 328: only a real firm value ever forwards ("" = untied stays as-is).
+    const contractorChanged =
+      contractorPick !== "" && contractorPick !== (worker.contractor_id ?? "");
     const phoneChanged = phone !== (worker.phone ?? "");
     const taxIdChanged = taxId !== (worker.tax_id ?? "");
     const bankEditable = !worker.portalBound;
@@ -375,7 +385,8 @@ function WorkerRow({
       taxIdChanged ||
       bankNameChanged ||
       bankAccountNumberChanged ||
-      bankAccountNameChanged;
+      bankAccountNameChanged ||
+      contractorChanged;
     const nameResult: WorkerActionResult = anyUpdate
       ? await updateWorker({
           id: worker.id,
@@ -383,6 +394,7 @@ function WorkerRow({
           ...(noteChanged ? { note } : {}),
           ...(payTypeChanged ? { payType } : {}),
           ...(employmentTypeChanged ? { employmentType } : {}),
+          ...(contractorChanged ? { contractorId: contractorPick } : {}),
           ...(phoneChanged ? { phone } : {}),
           ...(taxIdChanged ? { taxId } : {}),
           ...(bankNameChanged ? { bankName } : {}),
@@ -576,6 +588,44 @@ function WorkerRow({
               ))}
             </div>
           </div>
+          {/* Spec 328 firm move — assign an untied ช่าง to a ทีมผู้รับเหมา
+              (roster backfill; they become pay-exempt — the firm pays them) or
+              move a member firm→firm. Daily-paid only (a contractor member is
+              always daily per the 328 approve arm; a monthly+firm row would be
+              off-model). A tied worker gets NO ทีม PRC option: converting back
+              to payable is operator-gated, not a sheet edit. */}
+          {payType === "daily" ? (
+            <>
+              <label className="text-ink-secondary mt-2 block text-sm">
+                ทีมผู้รับเหมา
+                <select
+                  value={contractorPick}
+                  onChange={(e) => setContractorPick(e.target.value)}
+                  className={FIELD_STACKED}
+                >
+                  {worker.contractor_id === null ? <option value="">— ทีม PRC —</option> : null}
+                  {/* A tied worker's current firm stays selectable even if it
+                      later left the active list — the select shows the truth. */}
+                  {worker.contractor_id !== null &&
+                  !firms.some((f) => f.id === worker.contractor_id) ? (
+                    <option value={worker.contractor_id}>{contractorName ?? "ทีมปัจจุบัน"}</option>
+                  ) : null}
+                  {firms.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {contractorPick !== "" && contractorPick !== (worker.contractor_id ?? "") ? (
+                <p className="text-ink-muted mt-1 text-xs">
+                  ช่างในทีมผู้รับเหมาไม่รับค่าแรงจาก PRC (ผู้รับเหมาเป็นผู้จ่าย) —
+                  การบันทึกวันทำงานหยุดทันที ส่วนวันที่บันทึกไว้แล้วยังจ่ายตามเดิม
+                  และเปลี่ยนกลับเป็นทีม PRC ไม่ได้จากหน้านี้
+                </p>
+              ) : null}
+            </>
+          ) : null}
           {/* DC edit matrix: payee fields (money/PII, admin-client behind the page
               gate). phone/tax editable for every worker; bank is bind-gated below. */}
           <label className="text-ink-secondary mt-2 block text-sm">
@@ -750,6 +800,11 @@ export function WorkerRosterManager({
   canAssignHt?: boolean;
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
+  // Spec 328 firm move — the edit sheet's assign/move targets: ACTIVE firms only
+  // (spec-89 discipline: blacklisted/probation crews never join pickers).
+  const activeFirms = contractors
+    .filter((c) => c.status === "active")
+    .map((c) => ({ id: c.id, name: c.name }));
   // Spec 266 U3: group the roster by การจ่าย / pay_type (no legacy own/contractor vocabulary).
   const monthlyWorkers = workers.filter((w) => w.pay_type === "monthly");
   const dailyWorkers = workers.filter((w) => w.pay_type === "daily");
@@ -785,6 +840,7 @@ export function WorkerRosterManager({
                   contractorName={
                     w.contractor_id ? (contractorNames.get(w.contractor_id) ?? null) : null
                   }
+                  firms={activeFirms}
                   projects={projects}
                   canGrade={canGrade}
                   canAssignHt={canAssignHt}

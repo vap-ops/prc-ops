@@ -154,8 +154,15 @@ export async function updateWorker(input: {
   bankName?: string;
   bankAccountNumber?: string;
   bankAccountName?: string;
+  // Spec 328 firm move — assign/change the worker's ทีมผู้รับเหมา (p_contractor).
+  // Set/change ONLY: the RPC coalesce-preserves, so a member cannot be cleared
+  // back to ทีม PRC here (deliberate — pay-exempt → payable is operator-gated).
+  contractorId?: string;
 }): Promise<WorkerActionResult> {
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  if (input.contractorId !== undefined && !UUID_REGEX.test(input.contractorId)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
   if (input.name !== undefined && !validName(input.name)) {
     return { ok: false, error: GENERIC_ERROR };
   }
@@ -187,6 +194,7 @@ export async function updateWorker(input: {
       ? { p_bank_account_number: input.bankAccountNumber }
       : {}),
     ...(input.bankAccountName !== undefined ? { p_bank_account_name: input.bankAccountName } : {}),
+    ...(input.contractorId !== undefined ? { p_contractor: input.contractorId } : {}),
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
 
