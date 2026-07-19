@@ -42,7 +42,7 @@ replaces. No UPDATE/DELETE ever (freeze trigger, P0001).
 | `id`            | uuid PK     | `gen_random_uuid()`                                                                         |
 | `title`         | text null   | nonblank ≤200 when present (Thai); NULL only on a tombstone row                             |
 | `note`          | text null   | free remark                                                                                 |
-| `storage_path`  | text        | not null — object key in `company-docs` bucket                                              |
+| `storage_path`  | text null   | object key in `company-docs` bucket; NULL only on a tombstone row                           |
 | `issued_at`     | date null   | document issue date                                                                         |
 | `expires_at`    | date null   | validity end (หนังสือรับรอง practical ~6 months)                                            |
 | `superseded_by` | uuid null   | FK → `company_documents(id)` — the row THIS row replaces (new points at old, per CLAUDE.md) |
