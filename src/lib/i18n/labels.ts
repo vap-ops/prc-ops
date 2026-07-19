@@ -1050,3 +1050,23 @@ export const PAYOUT_NOMINEE_SUBMIT = "บันทึกบัญชีตัว
 export const PAYOUT_NOMINEE_CONSENT_REQUIRED = "กรุณาแนบรูปหนังสือยินยอม";
 export const PAYOUT_NOMINEE_PROMPTPAY_HINT =
   "ถ้าช่างมีพร้อมเพย์ ให้ลงทะเบียนบัญชีตัวเองแทนการใช้บัญชีตัวแทน";
+
+// Spec 329 — company documents library (เอกสารบริษัท).
+export const COMPANY_DOCS_LABEL = "เอกสารบริษัท";
+export const COMPANY_DOCS_HINT = "หนังสือรับรอง · ภ.พ.20 · โปรไฟล์บริษัท";
+export const COMPANY_DOC_UPLOAD_LABEL = "อัปโหลดเอกสาร";
+export const COMPANY_DOC_NEW_VERSION_LABEL = "เวอร์ชันใหม่";
+export const COMPANY_DOC_RETIRE_LABEL = "ถอนเอกสารออก";
+export const COMPANY_DOC_RETIRE_CONFIRM_LABEL = "ยืนยันถอนเอกสาร";
+export const COMPANY_DOC_SHARE_LABEL = "แชร์ลิงก์";
+export const COMPANY_DOC_SHARE_COPIED_LABEL = "คัดลอกลิงก์แล้ว (ใช้ได้ 7 วัน)";
+export const COMPANY_DOC_DOWNLOAD_LABEL = "ดาวน์โหลด";
+export const COMPANY_DOC_HISTORY_LABEL = "ประวัติเวอร์ชัน";
+export const COMPANY_DOC_EXPIRED_LABEL = "หมดอายุ";
+export const COMPANY_DOC_EXPIRING_LABEL = "ใกล้หมดอายุ";
+export const COMPANY_DOC_ISSUED_LABEL = "วันที่ออกเอกสาร";
+export const COMPANY_DOC_EXPIRES_LABEL = "วันหมดอายุ";
+export const COMPANY_DOC_TITLE_LABEL = "ชื่อเอกสาร";
+export const COMPANY_DOC_NOTE_LABEL = "หมายเหตุ";
+export const COMPANY_DOC_FILE_LABEL = "ไฟล์เอกสาร";
+export const COMPANY_DOC_EMPTY_LABEL = "ยังไม่มีเอกสารบริษัท";

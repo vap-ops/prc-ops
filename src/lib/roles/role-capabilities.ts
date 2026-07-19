@@ -17,6 +17,7 @@ import type { UserRole } from "@/lib/db/enums";
 import {
   ACCOUNTING_ROLES,
   BACK_OFFICE_ROLES,
+  COMPANY_DOC_VIEW_ROLES,
   CLIENT_ISSUER_ROLES,
   DASHBOARD_VIEW_ROLES,
   DOC_APPROVAL_ROLES,
@@ -299,6 +300,14 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     roles: ACCOUNTING_ROLES,
     labelTh: "ใช้งานหน้าบัญชี (งบทดลอง/กระทบยอด)",
     domain: "money",
+  },
+  // Spec 329: read/download/share the firm's document library (เอกสารบริษัท).
+  {
+    key: "company-doc-view",
+    setName: "COMPANY_DOC_VIEW_ROLES",
+    roles: COMPANY_DOC_VIEW_ROLES,
+    labelTh: "ดู/ดาวน์โหลดเอกสารบริษัท",
+    domain: "documents",
   },
   {
     key: "office-expense",
