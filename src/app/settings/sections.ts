@@ -34,6 +34,8 @@ import {
 } from "@/lib/auth/role-home";
 import {
   CARD_REGISTRY_HINT,
+  COMPANY_DOC_TYPES_HINT,
+  COMPANY_DOC_TYPES_LABEL,
   COMPANY_DOCS_HINT,
   COMPANY_DOCS_LABEL,
   CARD_REGISTRY_LABEL,
@@ -405,6 +407,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         icon: Network,
         label: "โครงสร้างองค์กร",
         hint: "แผนก · หัวหน้าแผนก · สมาชิก (อ่านอย่างเดียว)",
+      },
+      {
+        // Spec 331: the document-type registry — the anti-redundancy control
+        // point (accounting picks types, only super_admin creates them).
+        kind: "link",
+        href: "/settings/company-doc-types",
+        icon: Files,
+        label: COMPANY_DOC_TYPES_LABEL,
+        hint: COMPANY_DOC_TYPES_HINT,
       },
       {
         // Spec 274: view the app as any role (see what they see) without impersonating a person.

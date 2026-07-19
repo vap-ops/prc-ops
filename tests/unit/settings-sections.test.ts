@@ -158,6 +158,8 @@ describe("settings sections config (role → entries matrix)", () => {
       "/settings/roles",
       // Spec 284 / ADR 0080: the org chart (departments → head → members).
       "/settings/org-chart",
+      // Spec 331: the document-type registry (super_admin mints types).
+      "/settings/company-doc-types",
       // Spec 274: super_admin "view as role" picker.
       "/settings/view-as",
       "/settings/usage",
