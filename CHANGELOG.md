@@ -1,3 +1,9 @@
+## [0.157.1](https://github.com/VAP-Solution/prc-ops/compare/v0.157.0...v0.157.1) (2026-07-19)
+
+### Bug Fixes
+
+- spec 331 — group documents by category, demote the upload button, kill duplicate dates ([#664](https://github.com/VAP-Solution/prc-ops/issues/664)) ([5efc4de](https://github.com/VAP-Solution/prc-ops/commit/5efc4de7498ba7fddb8662f5a35aef93c58e4b46))
+
 # [0.157.0](https://github.com/VAP-Solution/prc-ops/compare/v0.156.0...v0.157.0) (2026-07-19)
 
 ### Features
