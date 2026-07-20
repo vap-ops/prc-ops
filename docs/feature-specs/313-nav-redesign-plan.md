@@ -559,6 +559,44 @@ const backHref = safeBackHref(from, ctx.role === "site_admin" ? "/projects?view=
 
 ### Unit 5: Hub promotion — /accounting · /legal · /expenses
 
+> ## ⚠️ AMENDED 2026-07-20 — `/expenses` DEFERRED TO U6. Read before the steps below.
+>
+> **U5 shipped `/accounting` + `/legal` only.** Gate-checking against HEAD found an
+> **ordering bug in this plan**: U5's `/expenses` promotion depends on U6's role
+> plumbing, but U5 is sequenced _before_ U6 — and U6 as written only adds a _tab_,
+> not the hub-nav coverage the promotion actually needs.
+>
+> **Why `/expenses` cannot be promoted yet.** `hubNavForRole()` returns **null**
+> for `site_owner` and `auditor` — the exact roles U6 homes on `/expenses`. A hub
+> has no back chip by convention, and `HubNav items={hubNavForRole(...) ?? []}`
+> renders an _empty_ strip for an unserved role. Promoting today would leave those
+> two roles with **no back chip, no strip, and no tab** (U6 is danger-path and
+> operator-held) — stranded on a money page, strictly worse than the status quo.
+>
+> **It would also regress spec 327 U6b.** `/expenses` has TWO parents today —
+> `/settings` (`settings/sections.ts:316`) and the `/procurement` Resources tile
+> (`purchasing/procurement-home.ts:243`) — and 327 U6b deliberately gave it
+> `safeBackHref(from, "/settings")` precisely so a procurement user was not
+> bounced out of the STR world. A hub promotion deletes that back chip.
+>
+> **What U6 must therefore do** (in addition to its tab work): add `site_owner`
+> and `auditor` arms to `hubNavForRole`, then promote `/expenses` and move it from
+> `STATIC_DETAIL` + `STATIC_MULTI_PARENT` into `NON_DETAIL_ROUTES` +
+> `HUB_STRIP_ROUTES`. Decide explicitly what happens to procurement's `?from` back
+> path at that point.
+>
+> **Shipped in U5:** `/accounting` + `/legal` promoted (both clean — a single
+> `/settings` parent and a real strip via `ACCOUNTING_HUB_NAV` / `LEGAL_HUB_NAV`),
+> plus `SETTINGS_TAB.match += "/expenses"` (independent of the promotion, and now
+> _more_ correct since `/expenses` remains a settings drill-down).
+>
+> Step-1 line numbers drifted: legal's DetailHeader is at :33 (not :81) and
+> expenses' at :61 (not :45).
+>
+> ⭐ **Process note:** this is the second stale step found in this plan (see the U3
+> amendment). Gate-check every remaining unit's pins against HEAD before building
+> — U7 has not been checked.
+
 **Files:**
 
 - Modify: `src/app/accounting/page.tsx`, `src/app/legal/page.tsx`, `src/app/expenses/page.tsx` (DetailHeader → AppHeader + HubNav)

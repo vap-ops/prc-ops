@@ -8220,3 +8220,64 @@ client, query="")` and `getSaCurrentProject(sb, userId, opts?)` both match,
    a current project lands there rather than on the list. Left as-is — "เริ่มจาก
    โครงการ" reads fine as "start from your project" — but noted so it is a choice
    rather than an oversight.
+
+## Spec 313 U5′ — hub promotion, RE-SCOPED to /accounting + /legal (2026-07-20)
+
+- **Gate-check found an ORDERING BUG in the plan, not a supersession.** U5's
+  `/expenses` promotion depends on U6's role plumbing but is sequenced before it —
+  and U6 as written adds only a _tab_, not the hub-nav coverage the promotion
+  needs. Operator confirmed the re-scope.
+- **Why `/expenses` was deferred:** `hubNavForRole()` returns **null** for
+  `site_owner` and `auditor` — the exact roles U6 homes there. A hub has no back
+  chip, and `HubNav items={hubNavForRole(...) ?? []}` renders an empty strip for
+  an unserved role, so promoting today = no chip + no strip + no tab = stranded on
+  a money page. It would also regress spec 327 U6b, which gave `/expenses` a
+  `?from` back chip precisely because it has TWO parents (`/settings` +
+  the `/procurement` Resources tile) and procurement was being bounced out of the
+  STR world.
+- **Shipped:** `/accounting` + `/legal` promoted to hub chrome (AppHeader +
+  HubNav, DetailHeader dropped) — both clean: a single `/settings` parent and a
+  real strip. Each is where `roleHome()` lands its role, so the old back chip
+  claimed a parent that role never came from; `/legal`'s own header comment
+  already said "U1 deferred it; U5 lands it". Sub-surfaces (`/accounting/*`,
+  `/legal/contracts`, `/legal/approvals`) stay detail routes drilling down from
+  them. Plus `SETTINGS_TAB.match += "/expenses"` — independent of the promotion,
+  and now _more_ correct since `/expenses` stays a settings drill-down.
+- RED-first: 3 nav-back-affordance failures + 1 tab-lighting failure. The
+  classification guard then caught that removing the two from `STATIC_DETAIL`
+  without adding them to `NON_DETAIL_ROUTES` left them unclassified — the guard
+  working exactly as intended.
+- ⚠️ **This PR is DANGER-PATH HELD** (`src/app/accounting/` is in the ci.yml deny
+  regex) — it will not auto-enqueue like U2–U4; it waits for an operator tap. The
+  change is chrome-only, no money logic touched.
+
+### What U6 must now also do
+
+Add `site_owner` + `auditor` arms to `hubNavForRole`, THEN promote `/expenses` and
+move it from `STATIC_DETAIL` + `STATIC_MULTI_PARENT` into `NON_DETAIL_ROUTES` +
+`HUB_STRIP_ROUTES`. Decide explicitly what happens to procurement's `?from` back
+path at that point — a hub promotion deletes it.
+
+### ⚠️ View-as coverage gap found during U5 verification
+
+`ASSUMABLE_ROLES` (`src/lib/auth/effective-role.ts`) omits **`legal`, `site_owner`
+and `auditor`**. The view-as cookie is ignored for them, so `ctx.role` silently
+stays `super_admin` and the page renders with PM chrome — a probe reads as
+"working" while measuring the wrong role entirely. This cost a debug loop here:
+`/legal` appeared to render the PM strip, which looked like a U5 bug and was not.
+
+Consequences worth knowing:
+
+- **`/legal` cannot be browser-verified at all.** U5 verified it structurally
+  (hub chrome renders, no back chip, body intact, correct title, no redirect) but
+  the strip it shows a REAL legal user is only provable by unit test. U5 therefore
+  added the missing `LEGAL_HUB_NAV` coverage — it had **none** before, neither its
+  contents nor its `hubNavForRole` mapping — including an assert that the strip is
+  non-empty and contains its own href. Mutation-checked: deleting the `legal` arm
+  from `hubNavForRole` reds it.
+- **U6 targets `site_owner` + `auditor`, neither of which is assumable.** Its
+  browser verification will hit the same wall — plan for unit/RTL proof, or add
+  those roles to `ASSUMABLE_ROLES` first (that file is `src/lib/auth/**`, a danger
+  path, so it needs its own operator-held PR).
+- Probe rule: when view-as appears not to change a page, check `ASSUMABLE_ROLES`
+  before suspecting the page.

@@ -66,6 +66,22 @@ const SETTINGS_TAB: TabItem = {
     // the settings tab no longer claims either.
     "/payroll",
     "/accounting",
+    // Spec 313 U5: /legal joins its sibling. Both are role-HOMES that U5 promoted
+    // to hubs — so they no longer carry a back chip, and for a role that does not
+    // home there the tab bar is the only "you are here". /accounting was already
+    // claimed here; /legal was claimed by nothing, so super_admin (in LEGAL_ROLES,
+    // but served PM_TABS) lit zero tabs on a chip-less page. The roles that DO home
+    // there are unaffected — their own tab is the same length and wins on index.
+    "/legal",
+    // Spec 313 U5: the office-expense surface is a /settings drill-down for every
+    // role that does not home there, so the tab claims it — before this it lit no
+    // tab at all and read as belonging to no section. The procurement tiers are
+    // unaffected: PROCUREMENT_SETTINGS_TAB overrides `match` to /profile only, so
+    // /expenses stays an unlit leaf for them (spec 323 U4's rule). When U6 gives
+    // site_owner/auditor their own /expenses tab, that tab and this entry are the
+    // same length, so the winner is decided by index order (strict `>` below keeps
+    // whichever comes first) — put the U6 tab ahead of SETTINGS_TAB deliberately.
+    "/expenses",
   ],
 };
 
