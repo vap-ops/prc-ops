@@ -230,7 +230,8 @@ off origin/main `8a7ba934`. **CODE-ONLY** (no `supabase/migrations`, no `src/lib
 on green.
 
 - **`src/lib/register/register-entry.ts`** (new, pure) — SSOT for the two entry variants: `RegisterVariant`
-  (`field` | `office`), `staffRegisterCopy(variant)` → `{ heading, path, loginNext }`, `REGISTER_FIELD_PATH`
+  (`field` | `office`), `staffRegisterCopy(variant)` → `{ heading, path }` (the static `loginNext` field was
+  replaced 2026-07-21 by `registerLoginNext(variant, params)` — the QR-param-preserving builder), `REGISTER_FIELD_PATH`
   (= `REGISTER_WORKSPACE_PATH`, the post-submit redirect target) / `REGISTER_OFFICE_PATH`,
   `VISITOR_REGISTER_ENTRIES` (on-site first, office second).
 - **`src/components/features/register/staff-register-workspace.tsx`** (new) — the workspace body extracted
@@ -8312,3 +8313,33 @@ Consequences worth knowing:
   path, so it needs its own operator-held PR).
 - Probe rule: when view-as appears not to change a page, check `ASSUMABLE_ROLES`
   before suspecting the page.
+
+## Fix — QR attribution params lost across the LINE login round-trip (2026-07-21)
+
+Specs 279 F2a/F2b + 328 — the register QRs' `?project ?site ?by ?contractor
+?firm` never survived login: a brand-new worker is ALWAYS logged out at first
+scan, and `StaffRegisterWorkspace` redirected to a STATIC
+`/login?next=%2Fregister%2Ftechnician` (register-entry `loginNext`), so the
+return leg landed on a bare form. Consequences: subcon bank-exempt mode never
+triggered (bank fields shown to firm members), and the mint-once
+`start_staff_registration` recorded NULL attribution — live evidence: **0 of 18
+real registrations ever carried invited_project_id / invited_contractor_id /
+invited_by**, 15 of them post-F2b.
+
+- Fix: `registerLoginNext(variant, params)` (pure, register-entry.ts) replaces
+  the `loginNext` field — builds the login return path WITH the QR params.
+  uuid bindings gated by `isValidUuid`; whole candidate must pass
+  `safeNextPath` (which preserves query strings — verified); a label the guard
+  rejects (only literal `/` or `\` content — URLSearchParams encodes the rest)
+  drops labels but keeps uuid bindings; no-params output byte-identical to the
+  old static path. Workspace passes its 5 props.
+- Tests: builder contract (7 asserts incl. safeNextPath round-trip + a
+  technicianOnboardUrl tie-test) + behavior-level workspace test (mocked
+  createClient/redirect; mutation-checked — static-path regression reds it).
+- Real-flow: dev server + logged-out curl — 307 Location carries all 5 params;
+  `/login` renders the LINE anchor with the same `next`; `/auth/line/start`
+  stashes it in the state cookie and the callback redirects to it (both hops
+  re-validate via safeNextPath; code-verified).
+- Open question (not built): no UI hint on a shared phone when an existing
+  session blocks a new member's registration (Finding 2 of the 2026-07-21 QR
+  login/logout audit — separate decision).
