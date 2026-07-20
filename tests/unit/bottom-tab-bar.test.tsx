@@ -201,6 +201,26 @@ describe("BottomTabBar", () => {
     expect(active[0]?.textContent).toContain("โครงการ");
   });
 
+  // Spec 313 U5: /expenses is a /settings drill-down for every role that does not
+  // home there, so the ตั้งค่า tab lights on it — before this it lit nothing and
+  // the page read as belonging to no section at all.
+  it("lights ตั้งค่า for the PM tier on /expenses", () => {
+    mockUsePathname.mockReturnValue("/expenses");
+    const { container } = render(<BottomTabBar role="project_manager" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("ตั้งค่า");
+  });
+
+  // Spec 323 U4's unlit-leaf rule still governs the procurement tiers: their
+  // settings tab deliberately matches only /profile, so a door like /expenses
+  // lights nothing for them and the STR hub tab is the way back.
+  it("keeps /expenses unlit for procurement (spec 323 U4 unlit-leaf rule)", () => {
+    mockUsePathname.mockReturnValue("/expenses");
+    const { container } = render(<BottomTabBar role="procurement" />);
+    expect(activeTabs(container)).toHaveLength(0);
+  });
+
   // Spec 313 U3: the ทีมงาน tab lights across the /team hub and its sub-screens.
   it("lights ทีมงาน for the PM tier on /team and /team/badges", () => {
     for (const path of ["/team", "/team/badges"]) {

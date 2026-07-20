@@ -57,8 +57,8 @@ const STATIC_DETAIL = [
   // auto-classified above). Both legacy top-level routes are now thin
   // redirects → EXCLUDED below.
   "payroll",
-  // Spec 149 U9: the read-only ledger surface, drilled down from /settings.
-  "accounting",
+  // Spec 313 U5: /accounting was PROMOTED to a hub — see HUB_STRIP_ROUTES. Its
+  // registers below still drill down from it.
   // Spec 149 U9b: the registers drill down from /accounting (back chip → /accounting).
   "accounting/retention",
   "accounting/billings",
@@ -101,7 +101,8 @@ const STATIC_DETAIL = [
   // exactly like /accounting. /legal/contracts + /legal/approvals drill down from
   // /legal (back chip → /legal). The /legal/contracts/[contractId] detail is a
   // dynamic DetailHeader route, auto-classified above.
-  "legal",
+  // Spec 313 U5: /legal was PROMOTED to a hub — see HUB_STRIP_ROUTES. Its two
+  // sub-surfaces below still drill down from it.
   "legal/contracts",
   "legal/approvals",
   // Spec 274: the super_admin "view as role" picker drills down from /settings (back chip).
@@ -226,6 +227,18 @@ const NON_DETAIL_ROUTES = [
   // (room to grow into the real WP list later), so it is excluded from the
   // HUB_STRIP_ROUTES coverage below, like /portal.
   "technician",
+  // Spec 313 U5: the department role-homes. Each is where roleHome() lands its
+  // role, so the old back chip to /settings claimed a parent that role never
+  // came from. Promoted to hub chrome (AppHeader + HubNav, no back chip); both
+  // have a real strip via hubNavForRole, so they also appear in
+  // HUB_STRIP_ROUTES. Their sub-surfaces (/accounting/*, /legal/contracts,
+  // /legal/approvals) stay DETAIL routes drilling down from them.
+  // ⚠️ /expenses was NOT promoted alongside them: hubNavForRole returns null for
+  // site_owner + auditor, so it would render no strip AND no back chip for the
+  // roles U6 homes there. It stays a multi-parent detail route until U6 adds
+  // that coverage.
+  "accounting",
+  "legal",
 ].map((r) => `${r}/page.tsx`);
 
 // EXCLUDED: bespoke layouts that use neither header — the root dispatcher,
@@ -386,6 +399,16 @@ describe("desktop hub-strip coverage (spec 153)", () => {
     "requests",
     "settings",
     "dashboard",
+    // Spec 313 U5: the department role-homes are hubs, not drill-downs — each is
+    // its role's LANDING surface, so a back chip to /settings was a lie (that
+    // role never came from there). Both have a real strip via hubNavForRole
+    // (ACCOUNTING_HUB_NAV / LEGAL_HUB_NAV), which is what makes the promotion
+    // safe: a hub has no back chip, so the strip is the only nav affordance.
+    // ⚠️ /expenses is NOT here — hubNavForRole returns null for site_owner and
+    // auditor, so promoting it would leave them with no chip AND no strip. It
+    // waits for U6 to add that coverage.
+    "accounting",
+    "legal",
   ].map((r) => `${r}/page.tsx`);
 
   it.each(HUB_STRIP_ROUTES)("hub route %s renders HubNav", (route) => {

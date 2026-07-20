@@ -66,6 +66,13 @@ const SETTINGS_TAB: TabItem = {
     // the settings tab no longer claims either.
     "/payroll",
     "/accounting",
+    // Spec 313 U5: the office-expense surface is a /settings drill-down for every
+    // role that does not home there, so the tab claims it — before this it lit no
+    // tab at all and read as belonging to no section. The procurement tiers are
+    // unaffected: PROCUREMENT_SETTINGS_TAB overrides `match` to /profile only, so
+    // /expenses stays an unlit leaf for them (spec 323 U4's rule). site_owner and
+    // auditor get their own /expenses tab in U6, which wins by array order.
+    "/expenses",
   ],
 };
 

@@ -12,6 +12,7 @@ import {
   PROCUREMENT_MANAGER_HUB_NAV,
   COORDINATOR_HUB_NAV,
   ACCOUNTING_HUB_NAV,
+  LEGAL_HUB_NAV,
   hubNavForRole,
 } from "@/components/features/chrome/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -83,6 +84,27 @@ describe("canonical nav sets", () => {
       { label: "บัญชี", href: "/accounting" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
+  });
+
+  // Spec 313 U5: LEGAL_HUB_NAV had NO coverage at all before this — neither its
+  // contents nor its hubNavForRole mapping. U5 promoted /legal to a hub whose ONLY
+  // nav affordance is this strip, and `legal` is absent from ASSUMABLE_ROLES so
+  // view-as cannot exercise the page in a browser. These asserts are therefore the
+  // only thing standing between a bad edit here and a legal user stranded on their
+  // own role-home with an empty strip and no back chip.
+  it("pins the legal set's destinations and order", () => {
+    expect(LEGAL_HUB_NAV).toEqual([
+      { label: "ฝ่ายกฎหมาย", href: "/legal" },
+      { label: "ตั้งค่า", href: "/settings" },
+    ]);
+  });
+
+  it("gives the legal role a NON-empty strip (the /legal hub has no other way out)", () => {
+    const items = hubNavForRole("legal");
+    expect(items).toBe(LEGAL_HUB_NAV);
+    expect(items?.length ?? 0).toBeGreaterThan(0);
+    // The hub must carry its own href, or nothing on the strip is marked current.
+    expect(items?.some((i) => i.href === "/legal")).toBe(true);
   });
 
   // Spec 323 U3b: procurement_manager rides the SAME STR spine — its old
