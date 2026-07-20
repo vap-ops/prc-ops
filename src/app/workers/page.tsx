@@ -16,12 +16,13 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { safeBackHref } from "@/lib/nav/back-href";
+import { WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
 import {
   WorkerRosterManager,
   type ManagedWorker,
 } from "@/components/features/labor/worker-roster-manager";
 
-export const metadata = { title: "ทีมงาน" };
+export const metadata = { title: WORKER_ROSTER_LABEL };
 
 // Nav-coherence audit 2026-07: multi-parent (settings hub · /team · /procurement
 // Resources tile) — the back chip resolves the ?from referrer, falling back to
@@ -93,7 +94,9 @@ export default async function WorkersPage({
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="ตั้งค่า">
-        <h1 className="text-title text-ink font-bold tracking-tight">รายชื่อทีมงานและค่าแรง</h1>
+        <h1 className="text-title text-ink font-bold tracking-tight">
+          {WORKER_ROSTER_LABEL}และค่าแรง
+        </h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         {/* Spec 272 U3: the per-level sell-rate table already has its editor at

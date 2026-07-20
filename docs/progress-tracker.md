@@ -8029,3 +8029,26 @@ U6b2 COMPLETE — code-only; DANGER-HELD (touches src/app/payroll/\*\*) → oper
 - Worker chips read-only until U3; crews empty live so pool = current truth.
 - Open (U2+): crew RPC migration (add/move/remove/set-lead/rename/dissolve),
   crew manage UI, firms link-outs, /team hub row, settings-block retire.
+
+## Spec 313 U2 — nav-term label split (2026-07-20)
+
+- D4 "one term per concept" SSOT: `TEAM_HUB_LABEL` (ทีมงาน — the /team people
+  hub) · `WORKER_ROSTER_LABEL` (รายชื่อช่าง — the company roster surface) ·
+  `LABOR_TAB_LABEL` (แรงงาน — the WP daily labor log) in `src/lib/i18n/labels.ts`.
+- Call sites migrated off the literal: WP detail labor tab · `/sa` labor
+  ActionChip (href `#wp-labor`) · `/workers` metadata title + h1.
+- `TEAM_HUB_LABEL` is produced-not-yet-consumed by design — U3's tab/strip
+  arrays consume all three.
+- RED-first `tests/unit/labels-nav-terms.test.ts` (3 tests); full suite 4454.
+- Verified by authed SSR probes on a dev server: `/workers` `<title>` =
+  "รายชื่อช่าง — PRC Ops" + new h1 present + old h1 gone; WP detail serves the
+  แรงงาน tab with `>ทีมงาน<` gone; `/sa` serves the แรงงาน chip.
+
+### Open questions (for U3)
+
+- `src/components/features/chrome/hub-nav.tsx` carries TWO items labelled
+  ทีมงาน with DIFFERENT destinations — `PM_HUB_NAV` line 45 → `/workers`
+  (should become `WORKER_ROSTER_LABEL`) and `SA_HUB_NAV` line 62 → `/team`
+  (should become `TEAM_HUB_LABEL`). This is the exact collision D4 exists to
+  kill. Left to U3 because the plan assigns nav strips to U3; note that until
+  U3 lands, the PM strip's ทีมงาน item lands on a page now headed รายชื่อช่าง.

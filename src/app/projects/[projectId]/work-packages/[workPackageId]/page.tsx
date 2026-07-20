@@ -32,6 +32,7 @@ import {
   WORK_PACKAGE_STATUS_LABEL,
   PHOTO_PHASE_LABEL,
   SITE_EXPENSE_TAB_LABEL,
+  LABOR_TAB_LABEL,
   reworkSourceLabel,
   formatThaiDateTime,
   formatThaiTime,
@@ -590,7 +591,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       : []),
     {
       key: "labor",
-      label: "ทีมงาน",
+      label: LABOR_TAB_LABEL,
       panel: (
         <LaborLogZone
           workPackageId={wp.id}
