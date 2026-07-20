@@ -1,3 +1,9 @@
+## [0.164.1](https://github.com/vap-ops/prc-ops/compare/v0.164.0...v0.164.1) (2026-07-20)
+
+### Bug Fixes
+
+- **register:** preserve QR attribution params across the LINE login round-trip ([018b0d7](https://github.com/vap-ops/prc-ops/commit/018b0d74b30f91f667b5ab443cb9772b76ddd498))
+
 # [0.164.0](https://github.com/vap-ops/prc-ops/compare/v0.163.1...v0.164.0) (2026-07-20)
 
 ### Features
