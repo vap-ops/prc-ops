@@ -1,3 +1,9 @@
+# [0.164.0](https://github.com/vap-ops/prc-ops/compare/v0.163.1...v0.164.0) (2026-07-20)
+
+### Features
+
+- **nav:** spec 313 U2b — finish D4 term split in roster/labor bodies ([b80bbcd](https://github.com/vap-ops/prc-ops/commit/b80bbcd547827b5e59e4b251b979725a839a0a07))
+
 ## [0.163.1](https://github.com/vap-ops/prc-ops/compare/v0.163.0...v0.163.1) (2026-07-20)
 
 ### Bug Fixes
