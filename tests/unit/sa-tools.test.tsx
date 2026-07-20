@@ -40,9 +40,12 @@ describe("SaTools", () => {
     expect(screen.getByRole("link", { name: /ตารางงาน/ })).toHaveAttribute("href", "/projects");
   });
 
-  it("links the ทีมงาน tile to the /team people hub (spec 313 U1)", () => {
+  // Spec 313 U3: the ทีมงาน tile is RETIRED. U1 added it as the only way into
+  // /team; the SA bar now carries a real ทีมงาน tab, so the tile was a duplicate
+  // door competing with it for the same destination.
+  it("no longer renders a ทีมงาน tile (the SA bar's tab owns /team now)", () => {
     render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
-    expect(screen.getByRole("link", { name: /ทีมงาน/ })).toHaveAttribute("href", "/team");
+    expect(screen.queryByRole("link", { name: /ทีมงาน/ })).toBeNull();
   });
 
   it("links the คู่มือ tile to the in-app help hub (spec 299 U1)", () => {

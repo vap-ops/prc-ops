@@ -30,10 +30,10 @@ import {
   Settings,
   ListChecks,
   ShoppingCart,
-  UserPlus,
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { TEAM_HUB_LABEL } from "@/lib/i18n/labels";
 
 export interface TabItem {
   label: string;
@@ -83,18 +83,6 @@ const DASHBOARD_TAB: TabItem = {
   match: ["/review"],
 };
 
-// Spec 263 follow-up / spec 264 G4: the staff-registration approval queue was
-// added to the desktop HubNav strip (spec 263 U3) but never to this bottom bar,
-// so super_admin/project_director on a phone had no way to reach /registrations
-// at all. Role-neutral short label (bottom-tab space is tight; the page itself
-// is titled the fuller "คำขอสมัคร"). PM_TABS only since spec 323 U3b —
-// procurement_manager's queue path is the /procurement hub's nudge now.
-const REGISTRATIONS_TAB: TabItem = {
-  label: "คำขอสมัคร",
-  href: "/registrations",
-  icon: UserPlus,
-};
-
 // Spec 192 U4: the SA lands on the daily home (/sa, หน้าหลัก). ภาพรวม (the
 // money-free portfolio overview) is dropped from the SA bar — the daily home
 // supersedes it as the SA's at-a-glance surface.
@@ -107,7 +95,7 @@ export const SA_TABS: ReadonlyArray<TabItem> = [
   // only from a home tile, so on a phone it lit no tab and showed no back chip —
   // a dead end. Its own tab fixes that strand (and lights on /team/*, incl.
   // /team/badges). Position 3 = the spec-313 people-before-purchasing order.
-  { label: "ทีมงาน", href: "/team", icon: Users },
+  { label: TEAM_HUB_LABEL, href: "/team", icon: Users },
   { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
   SETTINGS_TAB,
 ];
@@ -120,10 +108,18 @@ export const PM_TABS: ReadonlyArray<TabItem> = [
   // Spec 82 Unit 3: same folded /projects hub for PM/super; the href lights
   // on the hub and every /projects/* detail screen, so no extra match.
   { label: "โครงการ", href: "/projects", icon: FolderKanban },
+  // Spec 313 U3: the /team people hub joins the PM bar, in the same
+  // people-before-purchasing slot the SA bar uses. Lights on /team/* (incl.
+  // /team/badges). This is also where the คำขอสมัคร queue now lives for the
+  // phone — /team renders it as an approver card with a pending count for
+  // STAFF_APPROVAL_ROLES, so the fold below has a real landing place.
+  { label: TEAM_HUB_LABEL, href: "/team", icon: Users },
   { label: "จัดซื้อ", href: "/requests", icon: ShoppingCart },
   DASHBOARD_TAB,
-  // Spec 263 follow-up: the approval queue, mirroring PM_HUB_NAV (desktop).
-  REGISTRATIONS_TAB,
+  // Spec 313 U3: the คำขอสมัคร tab (spec 263 follow-up / 264 G4) is FOLDED into
+  // the ทีมงาน tab above. /registrations keeps its route and its desktop
+  // hub-strip item (nav-law rule 2 superset) — it simply lights no tab now,
+  // the accepted cost of keeping the phone bar at five.
   SETTINGS_TAB,
 ];
 

@@ -28,11 +28,18 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // Same label/href as those strips; placed before คำขอสมัคร, mirroring
 // PROCUREMENT_MANAGER_HUB_NAV's ordering. Access unchanged (PM tier is already
 // in WORKER_ROSTER_ROLES).
+// Spec 313 U3 (D4 "one term per concept"): the strip's ทีมงาน item now names the
+// /team people hub — mirroring the new PM bottom tab (nav-law rule 2: the strip
+// carries every bottom-tab destination). The roster keeps its URL under its OWN
+// name, รายชื่อช่าง, which is what /workers has been titled since U2 — before this
+// the strip said ทีมงาน and landed on a page headed รายชื่อช่าง. คำขอสมัคร STAYS on
+// the strip (rule 2 superset: desktop loses nothing when the phone tab folds).
 const PM_ITEMS = [
   { label: "โครงการและรายงาน", href: "/projects" },
+  { label: "ทีมงาน", href: "/team" },
   { label: "จัดซื้อ", href: "/requests" },
   { label: "ภาพรวม", href: "/dashboard" },
-  { label: "ทีมงาน", href: "/workers" },
+  { label: "รายชื่อช่าง", href: "/workers" },
   { label: "คำขอสมัคร", href: "/registrations" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
