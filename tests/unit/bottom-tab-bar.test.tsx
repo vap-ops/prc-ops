@@ -38,13 +38,16 @@ describe("BottomTabBar", () => {
       // /review (the queue is now a sub-surface of ภาพรวม).
       // Spec 82 Unit 3: the project hub folded to /projects.
       ["โครงการ", "/projects"],
+      // Spec 313 U3: the /team people hub joins the PM bar, in the
+      // people-before-purchasing position the SA bar already uses.
+      ["ทีมงาน", "/team"],
       ["จัดซื้อ", "/requests"],
       // Spec 100: ภาพรวม is the live dashboard tab (last content tab).
       ["ภาพรวม", "/dashboard"],
-      // Spec 263 follow-up / spec 264 G4: the staff-registration approval queue
-      // (role-neutral) — was reachable on desktop (HubNav) only; mobile had no
-      // way in at all.
-      ["คำขอสมัคร", "/registrations"],
+      // Spec 313 U3: the คำขอสมัคร tab (spec 263 follow-up / 264 G4) FOLDED into
+      // /team, which carries the same queue as an approver card + pending count.
+      // The desktop hub strip keeps a direct คำขอสมัคร item, so only the phone
+      // bar trades a tab for one extra tap.
       // Spec 93: contacts/payroll/workers/account moved into the ตั้งค่า hub.
       ["ตั้งค่า", "/settings"],
     ]);
@@ -196,6 +199,27 @@ describe("BottomTabBar", () => {
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("โครงการ");
+  });
+
+  // Spec 313 U3: the ทีมงาน tab lights across the /team hub and its sub-screens.
+  it("lights ทีมงาน for the PM tier on /team and /team/badges", () => {
+    for (const path of ["/team", "/team/badges"]) {
+      mockUsePathname.mockReturnValue(path);
+      const { container, unmount } = render(<BottomTabBar role="project_manager" />);
+      const active = activeTabs(container);
+      expect(active).toHaveLength(1);
+      expect(active[0]?.textContent).toContain("ทีมงาน");
+      unmount();
+    }
+  });
+
+  // Spec 313 U3: /registrations lost its PM tab (folded into /team). It is now an
+  // unlit leaf — the deliberate cost of the fold, pinned so it reads as intended
+  // rather than as a regression.
+  it("lights NO tab for the PM tier on /registrations after the fold", () => {
+    mockUsePathname.mockReturnValue("/registrations");
+    const { container } = render(<BottomTabBar role="project_manager" />);
+    expect(activeTabs(container)).toHaveLength(0);
   });
 
   // Spec 192 U4: the SA daily home is the landing — its หน้าหลัก tab lights on /sa.

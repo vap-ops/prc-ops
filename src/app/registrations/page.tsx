@@ -4,7 +4,10 @@
 // (procurement_manager/project_director/super_admin — role-home.ts, mirrors the
 // approve_staff_registration RPC's inline literal EXACTLY: the route gate MUST
 // equal the page gate, the anti-pattern named on that constant's comment).
-// Drilled down from the PM hub strip (back chip → /dashboard, the PM_ROLES home).
+// Spec 313 U3: MULTI-PARENT now. The PM คำขอสมัคร bottom tab folded into ทีมงาน,
+// so /team's approver card is the phone's door here, alongside the PM hub strip
+// item and the /procurement nudge. The back chip resolves the ?from referrer and
+// falls back to /dashboard (the old hardcoded target, still right for the strip).
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -24,10 +27,16 @@ import {
 import { buildRegistrationQueueRow } from "@/lib/register/registration-queue-view";
 import { listRegistrationsWithBank } from "@/lib/register/admin-registration-bank";
 import { AWAITING_BANK_TITLE } from "@/lib/i18n/labels";
+import { safeBackHref } from "@/lib/nav/back-href";
 
 export const metadata = { title: "คำขอสมัคร" };
 
-export default async function StaffRegistrationQueuePage() {
+export default async function StaffRegistrationQueuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const { from } = await searchParams;
   const ctx = await requireRole(STAFF_APPROVAL_ROLES);
   const supabase = await createClient();
 
@@ -64,7 +73,7 @@ export default async function StaffRegistrationQueuePage() {
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref="/dashboard" backLabel="กลับไปหน้าภาพรวม">
+      <DetailHeader backHref={safeBackHref(from, "/dashboard")} backLabel="กลับไปหน้าภาพรวม">
         <h1 className="text-ink text-xl font-semibold tracking-tight">คำขอสมัคร</h1>
       </DetailHeader>
 

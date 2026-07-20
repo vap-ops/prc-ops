@@ -379,7 +379,10 @@ export default async function TeamPage() {
             read-only nudge stays on /sa, and the pipeline above already shows รอตรวจ). */}
         {isApprover ? (
           <Link
-            href="/registrations"
+            // Spec 313 U3: thread the referrer — this card is the phone's door to
+            // the queue now that the คำขอสมัคร tab folded in here, so its back chip
+            // must return to /team rather than the hardcoded /dashboard.
+            href={withBackFrom("/registrations", "/team")}
             className="rounded-card border-edge bg-card shadow-card hover:bg-sunk flex items-center gap-3 border px-4 py-3"
           >
             <UserPlus aria-hidden className="text-action size-5 shrink-0" />

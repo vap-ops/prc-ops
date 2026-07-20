@@ -317,6 +317,49 @@ WP detail page line 621: `label: "ทีมงาน",` → `label: LABOR_TAB_LA
 
 ### Unit 3: The map flip — tabs + strips + folds + รายงาน in-page link
 
+> ## ⚠️ AMENDED 2026-07-20 — U3 WAS RE-SCOPED. Read this before the steps below.
+>
+> **The unit as originally written (2026-07-13) was overtaken by spec 323 U3b and
+> would have REVERTED it.** Gate-checked against HEAD before building; the
+> operator confirmed the re-scope. What actually shipped as U3:
+>
+> | Original step                                                              | Reality at HEAD                                                                      | Outcome                      |
+> | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------- |
+> | `SA_TABS` += ทีมงาน `/team`                                                | already shipped (`bottom-tab-bar.tsx`, credited "spec 313 D2 / nav-coherence audit") | no-op                        |
+> | SA hub strip += ทีมงาน `/team`                                             | already shipped (`SA_HUB_NAV`)                                                       | no-op                        |
+> | `PM_TABS` += ทีมงาน, − `REGISTRATIONS_TAB`                                 | not done                                                                             | ✅ **shipped**               |
+> | PM strip ทีมงาน→`/team`, roster→`รายชื่อช่าง`                              | not done                                                                             | ✅ **shipped**               |
+> | `sa-tools` remove ทีมงาน tile                                              | still present                                                                        | ✅ **shipped**               |
+> | `PROCUREMENT_TABS` = flat 6 (จัดซื้อ·โครงการ·ทีมงาน·ผู้ขาย·ค่าแรง·ตั้งค่า) | **superseded** by `PROCUREMENT_STR_SPINE` (หน้าหลัก·ขอบเขต·เวลา·ทรัพยากร·ตั้งค่า)    | ❌ **DROPPED**               |
+> | `PROCUREMENT_MANAGER_TABS` = flat 6                                        | same spine; its คำขอสมัคร tab already dropped by 323 U3b                             | ❌ **DROPPED**               |
+> | "รายงาน tab demoted to an in-page link on `/requests`"                     | procurement has no รายงาน tab at all any more                                        | ❌ **DROPPED, premise gone** |
+>
+> **Why the procurement half is dead:** spec 323 U3b replaced procurement's flat
+> tab set with the STR spine (`/procurement` hub + three section sub-routes). The
+> code says so in `bottom-tab-bar.tsx`: _"supersedes spec 70/101/102/262/309's
+> flat set"_. This plan predates that decision. **Do not re-apply the
+> `PROCUREMENT_*` pins below** — they are kept only as a record of what was
+> originally intended.
+>
+> **Also note, on step 1's test instructions:** deleting the "รายงาน-lighting
+> cases" and adding a `/requests/orders` lighting case does not apply — those
+> tests do not exist in that form. The `/registrations`-lights-no-tab assertion
+> WAS added. The `/team/badges`-lights-ทีมงาน case was added for the **PM** tier
+> rather than the SA tier as written; behaviourally identical (SA_TABS' ทีมงาน
+> href lights by the same longest-prefix rule), but not literally as specified.
+>
+> **U3 also shipped two things the plan did not ask for**, both consequences of
+> the fold rather than scope creep: `/registrations` became multi-parent
+> (`safeBackHref` + `?from` from the `/team` card + the nav-back-affordance
+> guard entry) because the fold made `/team` its phone door while the page
+> hardcoded `backHref="/dashboard"`; and `nav-law-strip-superset.test.ts` now
+> derives rule 2 from `tabsForRole` × `hubNavForRole`, which previously had no
+> mechanical guard at all.
+>
+> ⭐ **Process lesson:** a nav plan is a snapshot of a map that other lanes keep
+> editing. Gate-check every pin against HEAD before building — the plan is not
+> the SSOT, the code is. This is what unit gate 2 exists to catch.
+
 **Files:**
 
 - Modify: `src/components/features/chrome/bottom-tab-bar.tsx` (all changed sets; remove `REGISTRATIONS_TAB` from sets it leaves)

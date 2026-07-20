@@ -6,6 +6,7 @@ import {
   PendingApprovalsBadge,
   PendingPurchaseDecisionsBadge,
 } from "@/components/features/dashboard/pending-approvals-badge";
+import { TEAM_HUB_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
 
 // Shared hub nav strip (spec 18). One consistent item set per role
 // surface — the PM pages all show the same four destinations, /sa shows
@@ -34,15 +35,21 @@ export interface HubNavItem {
 export const PM_HUB_NAV: ReadonlyArray<HubNavItem> = [
   // Spec 82 Unit 3: the project hub folded to the content-named /projects.
   { label: "โครงการและรายงาน", href: "/projects" },
+  // Spec 313 U3: mirrors the new PM bottom tab (nav-law rule 2 — the strip
+  // carries every bottom-tab destination).
+  { label: TEAM_HUB_LABEL, href: "/team" },
   { label: "จัดซื้อ", href: "/requests" },
   // Spec 100: ภาพรวม is the live role-aware dashboard.
   { label: "ภาพรวม", href: "/dashboard" },
   // Operator report 2026-07-06: the ช่าง roster was reachable only through the
   // /settings hub for the PM tier ("cannot find menu about technicians'
-  // information") while both procurement strips carry a direct ทีมงาน item.
-  // Same destination + label as those strips; PM tier is already in
-  // WORKER_ROSTER_ROLES so this widens discoverability, not access.
-  { label: "ทีมงาน", href: "/workers" },
+  // information"). PM tier is already in WORKER_ROSTER_ROLES so this widens
+  // discoverability, not access.
+  // Spec 313 U3 (D4): this item used to be labelled ทีมงาน, which since U2 landed
+  // the user on a page headed รายชื่อช่าง — and collided with the SA strip's
+  // ทีมงาน item pointing at a DIFFERENT destination (/team). The roster now
+  // carries its own name.
+  { label: WORKER_ROSTER_LABEL, href: "/workers" },
   // Spec 263 U3 / spec 264 G4: the staff-registration approval queue. Reaches
   // project_director + super_admin here; procurement_manager (also a
   // STAFF_APPROVAL_ROLES member) gets its own item in PROCUREMENT_MANAGER_HUB_NAV
@@ -59,7 +66,7 @@ export const SA_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "โครงการ", href: "/projects" },
   // Spec 313 D2 (nav-coherence audit): the desktop strip mirrors the bottom bar's
   // new ทีมงาน tab (nav-law rule 2 — the strip carries every bottom-tab destination).
-  { label: "ทีมงาน", href: "/team" },
+  { label: TEAM_HUB_LABEL, href: "/team" },
   { label: "จัดซื้อ", href: "/requests" },
   { label: "ตั้งค่า", href: "/settings" },
 ];

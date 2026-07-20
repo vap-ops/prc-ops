@@ -16,7 +16,6 @@ import {
   ClipboardCheck,
   ShoppingCart,
   Truck,
-  Users,
   Warehouse,
   type LucideIcon,
 } from "lucide-react";
@@ -77,16 +76,10 @@ export function SaTools({
           subtitle="แผนพรุ่งนี้"
           pulse={showCloseNudge}
         />
-        {/* Temporary — SA-assisted onboarding: the crew roster + the technician
-            self-onboard QR. Full-width row below the tools grid. */}
-        <Tile
-          href="/team"
-          icon={Users}
-          accent="text-cat-w06"
-          title="ทีมงาน"
-          subtitle="ช่างในโครงการ · เพิ่มช่างใหม่"
-          fullWidth
-        />
+        {/* Spec 313 U3: the ทีมงาน tile is RETIRED. U1 added it as the only door
+            into /team; the SA bottom bar now carries a real ทีมงาน tab, so the
+            tile was a second door competing for the same destination — and the
+            comment above already called it "temporary". */}
         {/* Spec 299 U1 — the in-app help hub (คู่มือ): how to use the app day-to-day. */}
         <Tile
           href="/sa/help"
