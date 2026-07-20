@@ -83,7 +83,12 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   // link INTO the hub pins it below, or this redirect would re-fire immediately.
   const view = pick(sp.view);
   const isSaLanding = ctx.role === "site_admin";
-  if (isSaLanding) {
+  // `view === "all"` short-circuits the resolver anyway, so skip the read entirely
+  // on the escape path — otherwise every SA hub render pays a `projects` select
+  // (plus its project_members embed) serially AHEAD of loadProjectsHub, which
+  // reads the same table again. The hub is the one /projects view an SA reaches
+  // deliberately; it should not be the slow one.
+  if (isSaLanding && view !== "all") {
     const { current } = await getSaCurrentProject(supabase, ctx.id);
     const target = saProjectsLandingTarget({
       role: ctx.role,
