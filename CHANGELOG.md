@@ -1,3 +1,9 @@
+# [0.160.0](https://github.com/vap-ops/prc-ops/compare/v0.159.0...v0.160.0) (2026-07-20)
+
+### Features
+
+- **nav:** spec 313 U2 — split the ทีมงาน nav term into three SSOT labels ([57bfa98](https://github.com/vap-ops/prc-ops/commit/57bfa98dc086e8974267e00a485d0fd3db473071)), closes [#wp-labor](https://github.com/vap-ops/prc-ops/issues/wp-labor)
+
 # [0.159.0](https://github.com/VAP-Solution/prc-ops/compare/v0.158.0...v0.159.0) (2026-07-19)
 
 ### Features
