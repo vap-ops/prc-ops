@@ -76,7 +76,6 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
   // Back-nav sweep 2026-07-11: reached from /projects AND the dashboard project
   // cards — referrer first, the projects hub as the hierarchical fallback.
   const { from } = await searchParams;
-  const backHref = safeBackHref(from, "/projects");
   // Perf (RUM-aimed TTFB): requireRole (its own users read) and the project read are
   // independent — the project fetch needs only projectId, and a wrong-role redirect just
   // discards its result — so run them in one wave instead of serially (−1 serial layer on
@@ -92,6 +91,15 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
       .eq("id", projectId)
       .maybeSingle(),
   ]);
+
+  // Back-nav sweep 2026-07-11: reached from /projects AND the dashboard project
+  // cards — referrer first, the projects hub as the hierarchical fallback.
+  // Spec 313 U4: for a site_admin the bare hub REDIRECTS back to this page, so
+  // the fallback must request the hub explicitly or the back chip is a no-op loop.
+  const backHref = safeBackHref(
+    from,
+    ctx.role === "site_admin" ? "/projects?view=all" : "/projects",
+  );
 
   if (!project) {
     // Spec 192 U3: the user session can't see it — but is it RLS-hidden (the

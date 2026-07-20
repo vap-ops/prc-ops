@@ -123,11 +123,21 @@ export function viewProjects<T extends ProjectListItem>(
 
 // Clean, deep-linkable URLs: omit a param when it equals its default (status=all
 // / client=all / empty query) so the canonical hub URL stays "/projects".
-export function projectListHref(status: ProjectStatusFilter, client: string, query = ""): string {
+// Spec 313 U4: `pinViewAll` appends ?view=all — the SA hub redirects to their
+// current project without it, so every href an SA can follow back INTO the hub
+// must carry the flag or the redirect re-fires and the filter looks broken. It is
+// opt-in so non-SA URLs stay canonical.
+export function projectListHref(
+  status: ProjectStatusFilter,
+  client: string,
+  query = "",
+  opts?: { pinViewAll?: boolean },
+): string {
   const params = new URLSearchParams();
   if (status !== "all") params.set("status", status);
   if (client !== PROJECT_CLIENT_ALL) params.set("client", client);
   if (query.trim() !== "") params.set("q", query.trim());
+  if (opts?.pinViewAll) params.set("view", "all");
   const qs = params.toString();
   return qs ? `/projects?${qs}` : "/projects";
 }
@@ -145,8 +155,10 @@ export function buildProjectStatusChips(input: {
   status: ProjectStatusFilter;
   client: string;
   query?: string;
+  // Spec 313 U4: pin ?view=all so an SA switching status stays in the hub.
+  pinViewAll?: boolean;
 }): ProjectStatusChip[] {
-  const { counts, status, client, query = "" } = input;
+  const { counts, status, client, query = "", pinViewAll = false } = input;
   const defs: ReadonlyArray<{ key: ProjectStatusFilter; label: string; count: number }> = [
     { key: "all", label: "ทั้งหมด", count: counts.all },
     { key: "active", label: PROJECT_STATUS_LABEL.active, count: counts.active },
@@ -156,7 +168,7 @@ export function buildProjectStatusChips(input: {
   ];
   return defs.map((d) => ({
     ...d,
-    href: projectListHref(d.key, client, query), // switching status keeps client + search
+    href: projectListHref(d.key, client, query, { pinViewAll }), // switching status keeps client + search
     active: status === d.key,
   }));
 }
@@ -175,8 +187,10 @@ export function buildProjectClientChips(input: {
   status: ProjectStatusFilter;
   client: string;
   query?: string;
+  // Spec 313 U4: pin ?view=all so an SA switching client stays in the hub.
+  pinViewAll?: boolean;
 }): ProjectClientChip[] {
-  const { clientCounts, clientNames, status, client, query = "" } = input;
+  const { clientCounts, clientNames, status, client, query = "", pinViewAll = false } = input;
   // The "ทั้งหมด" count is the facet total, so it always equals the row count of
   // the current status view (every project in the set falls in exactly one chip).
   const allCount = [...clientCounts.values()].reduce((sum, n) => sum + n, 0);
@@ -205,7 +219,7 @@ export function buildProjectClientChips(input: {
 
   return chips.map((c) => ({
     ...c,
-    href: projectListHref(status, c.key, query), // switching client keeps status + search
+    href: projectListHref(status, c.key, query, { pinViewAll }), // switching client keeps status + search
     active: client === c.key,
   }));
 }

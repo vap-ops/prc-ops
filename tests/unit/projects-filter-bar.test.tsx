@@ -105,3 +105,18 @@ describe("ProjectsFilterBar — project search", () => {
     );
   });
 });
+
+// Spec 313 U4 — the SA hub redirects to their current project unless the URL says
+// ?view=all, and a GET form REPLACES the whole query string. Without this hidden
+// input an SA searching from the hub would be bounced straight back out of it.
+describe("ProjectsFilterBar — spec 313 U4 view=all pinning", () => {
+  it("carries view=all as a hidden input when pinned", () => {
+    const { container } = render(<ProjectsFilterBar {...base} pinViewAll />);
+    expect(container.querySelector('input[type="hidden"][name="view"]')).toHaveValue("all");
+  });
+
+  it("omits it by default, so non-SA search URLs stay clean", () => {
+    const { container } = render(<ProjectsFilterBar {...base} />);
+    expect(container.querySelector('input[type="hidden"][name="view"]')).toBeNull();
+  });
+});

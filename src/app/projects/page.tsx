@@ -15,6 +15,9 @@ import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PROJECT_VIEW_ROLES, isManagerRole, isProcurementWorklist } from "@/lib/auth/role-home";
 import { projectHref } from "@/lib/nav/project-paths";
+import { redirect } from "next/navigation";
+import { getSaCurrentProject } from "@/lib/sa/current-project.server";
+import { saProjectsLandingTarget } from "@/lib/nav/projects-landing";
 import { NewProjectSheet } from "./new-project-sheet";
 import { createClient } from "@/lib/db/server";
 import { loadProjectsHub } from "@/lib/projects/load-hub";
@@ -48,6 +51,9 @@ interface ProjectsHubPageProps {
     status?: string | string[];
     client?: string | string[];
     q?: string | string[];
+    // Spec 313 U4: ?view=all is the SA's explicit "show me the hub" escape from
+    // the direct-landing redirect below.
+    view?: string | string[];
   }>;
 }
 
@@ -70,6 +76,23 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   // Spec 143 U2: project_coordinator is the see-all oversight role.
   const isCoordinator = ctx.role === "project_coordinator";
 
+  // Spec 313 U4 (D3): SA direct landing. The SA belongs to one project at a time,
+  // so the hub is a guaranteed extra tap — send them to its WP list instead. The
+  // resolver runs only for site_admin, so this is one extra read on exactly the
+  // role that owns the shortcut. ?view=all opts back into the hub; every SA-facing
+  // link INTO the hub pins it below, or this redirect would re-fire immediately.
+  const view = pick(sp.view);
+  const isSaLanding = ctx.role === "site_admin";
+  if (isSaLanding) {
+    const { current } = await getSaCurrentProject(supabase, ctx.id);
+    const target = saProjectsLandingTarget({
+      role: ctx.role,
+      view,
+      currentProjectId: current.projectId,
+    });
+    if (target) redirect(target);
+  }
+
   // Spec 148 U4: one loader batches the hub reads (was a serial waterfall). The
   // PM-only create-sheet data (suggested code + clients) joins the same fan as the
   // row client names. Same queries/columns/results — only the scheduling changes.
@@ -83,10 +106,21 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   // (membership-bounded), so filter/count in JS — keeps the chip counts live with
   // one query and no extra round-trips.
   const { rows, counts, clientCounts } = viewProjects(projects, { status, client, query });
-  const statusChips = buildProjectStatusChips({ counts, status, client, query });
-  const clientChips = buildProjectClientChips({ clientCounts, clientNames, status, client, query });
+  // Spec 313 U4: only the SA's hub redirects, so only its hrefs pin ?view=all.
+  // An SA reaching this line asked for the hub explicitly (?view=all) — every
+  // link out of it must keep saying so or the redirect above re-fires.
+  const pinViewAll = isSaLanding;
+  const statusChips = buildProjectStatusChips({ counts, status, client, query, pinViewAll });
+  const clientChips = buildProjectClientChips({
+    clientCounts,
+    clientNames,
+    status,
+    client,
+    query,
+    pinViewAll,
+  });
   // "×" target: the current facet view with the search cleared.
-  const searchClearHref = projectListHref(status, client);
+  const searchClearHref = projectListHref(status, client, "", { pinViewAll });
 
   // Spec 102: procurement browses projects read-only for purchase context.
   const kicker = isCoordinator
@@ -133,6 +167,7 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
               status={status}
               client={client}
               searchClearHref={searchClearHref}
+              pinViewAll={pinViewAll}
             />
             {rows.length === 0 ? (
               <EmptyNotice>ไม่มีโครงการในตัวกรองนี้</EmptyNotice>
