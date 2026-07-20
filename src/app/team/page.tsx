@@ -44,7 +44,7 @@ import {
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
 import { musterHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { MUSTER_LABEL } from "@/lib/i18n/labels";
+import { MUSTER_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: "ทีมงาน" };
 
@@ -403,7 +403,7 @@ export default async function TeamPage() {
               className="rounded-card border-edge bg-card shadow-card hover:bg-sunk flex min-h-11 items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold"
             >
               <HardHat aria-hidden className="size-4 shrink-0" />
-              รายชื่อช่าง
+              {WORKER_ROSTER_LABEL}
             </Link>
             <Link
               // Spec 313 U4 review follow-up: /team is a hub with NO back chip, so

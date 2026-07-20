@@ -342,7 +342,7 @@ export function LaborLogZone({
             <p className="text-ink-secondary mt-3 text-sm">
               {/* Spec 67: /workers had no nav entry — PM/super get a real
                   link here instead of dead prose. */}
-              ยังไม่มีรายชื่อทีมงาน —{" "}
+              ยังไม่มีรายชื่อช่าง —{" "}
               {showFlags ? (
                 <>
                   เพิ่มได้ที่หน้า{" "}
@@ -350,11 +350,11 @@ export function LaborLogZone({
                     href="/workers"
                     className="text-action font-medium underline-offset-2 hover:underline"
                   >
-                    ทีมงาน
+                    รายชื่อช่าง
                   </Link>
                 </>
               ) : (
-                "ให้ผู้จัดการโครงการเพิ่มที่หน้า ทีมงาน"
+                "ให้ผู้จัดการโครงการเพิ่มที่หน้า รายชื่อช่าง"
               )}
             </p>
           ) : (
@@ -364,12 +364,12 @@ export function LaborLogZone({
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาทีมงาน"
-                aria-label="ค้นหาทีมงาน"
+                placeholder="ค้นหาช่าง"
+                aria-label="ค้นหาช่าง"
                 className="border-edge-strong bg-card text-ink focus-visible:ring-action mt-3 block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2"
               />
               {noMatch ? (
-                <p className="text-ink-secondary mt-3 text-sm">ไม่พบทีมงานที่ค้นหา</p>
+                <p className="text-ink-secondary mt-3 text-sm">ไม่พบช่างที่ค้นหา</p>
               ) : null}
               {/* Spec 158 U2: this project's crew first. */}
               {inProjectHasWorkers ? (
@@ -388,7 +388,7 @@ export function LaborLogZone({
                   // Only contrast with a heading when there is an in-project group
                   // above; otherwise the roster renders plain, exactly like before.
                   <div className="border-edge mt-4 border-t pt-2">
-                    <p className="text-ink-secondary text-xs font-bold">ทีมงานอื่น</p>
+                    <p className="text-ink-secondary text-xs font-bold">ช่างอื่น</p>
                     <RosterGroups
                       roster={others}
                       selected={selected}
@@ -435,7 +435,7 @@ export function LaborLogZone({
                 onClick={() => void submit()}
                 className="bg-fill text-on-fill hover:bg-fill-press mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-medium shadow-xs transition-colors active:translate-y-px disabled:opacity-50"
               >
-                บันทึกทีมงาน
+                บันทึกแรงงาน
               </button>
             </>
           )}

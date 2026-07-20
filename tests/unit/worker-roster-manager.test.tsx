@@ -87,7 +87,7 @@ describe("WorkerRosterManager notes", () => {
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
     // monthly (default) needs no day rate; the note still forwards.
     fireEvent.change(screen.getByLabelText("หมายเหตุ"), { target: { value: "ทดลองงาน" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ note: "ทดลองงาน" })),
     );
@@ -129,7 +129,7 @@ describe("WorkerRosterManager notes", () => {
     fireEvent.click(screen.getByRole("radio", { name: "ชั่วคราว" })); // สถานะ
     fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "420" } });
     fireEvent.change(screen.getByLabelText("เลขบัญชีธนาคาร"), { target: { value: "1234567890" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -149,7 +149,7 @@ describe("WorkerRosterManager notes", () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างรายเดือน" } });
     // การจ่าย stays รายเดือน; the button enables without a day rate.
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -275,7 +275,7 @@ describe("WorkerRosterManager project assignment", () => {
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างใหม่" } });
     // monthly (default) → no day-rate field; the project still forwards.
     fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p2" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มทีมงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({ name: "ช่างใหม่", projectId: "p2" }),

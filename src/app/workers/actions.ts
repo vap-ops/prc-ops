@@ -21,7 +21,9 @@ type EmploymentType = Database["public"]["Enums"]["employment_type"];
 // vocabulary, mapped onto pay_type/employment_type at the RPC-call boundary below.
 type WorkerType = "own" | "dc";
 
-const GENERIC_ERROR = "บันทึกทีมงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+// Spec 313 U2b (D4): these toasts fire from /workers, the ช่าง roster — the
+// people-hub term (TEAM_HUB_LABEL) now names only /team.
+const GENERIC_ERROR = "บันทึกช่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export type WorkerActionResult = { ok: true } | { ok: false; error: string };
 
@@ -124,7 +126,7 @@ export async function createWorker(
     });
     if (assignError) {
       revalidatePath("/workers");
-      return { ok: false, error: "เพิ่มทีมงานแล้ว แต่กำหนดโครงการไม่สำเร็จ — กำหนดได้ในเมนูแก้ไข" };
+      return { ok: false, error: "เพิ่มช่างแล้ว แต่กำหนดโครงการไม่สำเร็จ — กำหนดได้ในเมนูแก้ไข" };
     }
   }
 

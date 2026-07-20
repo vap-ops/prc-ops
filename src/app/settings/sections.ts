@@ -48,6 +48,7 @@ import {
   OFFICE_EXPENSE_NAV_LABEL,
   ORDERING_TEMPLATES_LABEL,
   SUBCONTRACTOR_LABEL,
+  WORKER_ROSTER_LABEL,
   WORKER_TEAM_LABEL,
 } from "@/lib/i18n/labels";
 
@@ -225,7 +226,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         kind: "link",
         href: "/workers",
         icon: HardHat,
-        label: "รายชื่อช่าง",
+        label: WORKER_ROSTER_LABEL,
         hint: "ทะเบียนช่าง · การจ่าย/สถานะ · ค่าแรง",
       },
       {
