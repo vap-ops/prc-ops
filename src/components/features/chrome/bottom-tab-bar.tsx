@@ -193,7 +193,11 @@ export const LEGAL_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
-function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
+// Exported for the nav-law rule 2 invariant test (spec 313 U3): the strip must
+// carry every bottom-tab destination, and that was previously asserted only by
+// hand-maintained literal arrays in two separate test files — which agree with
+// each other whenever the author updates both, even if rule 2 is broken.
+export function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "site_admin") return SA_TABS;
   // Spec 152 / ADR 0058: project_director gets the PM tab set (see-all PM).
   if (isManagerRole(role as UserRole)) return PM_TABS;

@@ -354,6 +354,12 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // freeing ?from for the referrer standard on the last three doors.
     "requests/orders/page.tsx",
     "requests/reports/page.tsx",
+    // Spec 313 U3: /registrations became multi-parent when the PM คำขอสมัคร
+    // bottom tab folded into ทีมงาน — /team's approver card is now the phone's
+    // door to it, alongside the desktop strip item and the /procurement nudge.
+    // Its hardcoded backHref="/dashboard" would have ejected a director/super
+    // out of /team on the way back.
+    "registrations/page.tsx",
     "payroll/page.tsx",
   ];
 

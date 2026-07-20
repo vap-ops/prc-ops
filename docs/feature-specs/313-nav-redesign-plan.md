@@ -341,9 +341,20 @@ WP detail page line 621: `label: "ทีมงาน",` → `label: LABOR_TAB_LA
 > `PROCUREMENT_*` pins below** — they are kept only as a record of what was
 > originally intended.
 >
-> **Also note:** the step-1 instruction to delete "รายงาน-lighting cases" and add
-> a `/requests/orders` lighting case does not apply — those tests do not exist in
-> that form. The `/registrations`-lights-no-tab assertion WAS added.
+> **Also note, on step 1's test instructions:** deleting the "รายงาน-lighting
+> cases" and adding a `/requests/orders` lighting case does not apply — those
+> tests do not exist in that form. The `/registrations`-lights-no-tab assertion
+> WAS added. The `/team/badges`-lights-ทีมงาน case was added for the **PM** tier
+> rather than the SA tier as written; behaviourally identical (SA_TABS' ทีมงาน
+> href lights by the same longest-prefix rule), but not literally as specified.
+>
+> **U3 also shipped two things the plan did not ask for**, both consequences of
+> the fold rather than scope creep: `/registrations` became multi-parent
+> (`safeBackHref` + `?from` from the `/team` card + the nav-back-affordance
+> guard entry) because the fold made `/team` its phone door while the page
+> hardcoded `backHref="/dashboard"`; and `nav-law-strip-superset.test.ts` now
+> derives rule 2 from `tabsForRole` × `hubNavForRole`, which previously had no
+> mechanical guard at all.
 >
 > ⭐ **Process lesson:** a nav plan is a snapshot of a map that other lanes keep
 > editing. Gate-check every pin against HEAD before building — the plan is not
