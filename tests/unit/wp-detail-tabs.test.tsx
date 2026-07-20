@@ -14,7 +14,9 @@ import { WpDetailTabs } from "@/components/features/work-packages/wp-detail-tabs
 const TABS = [
   { key: "photos", label: "รูปถ่าย", panel: <p>PHOTO ZONE</p> },
   { key: "purchases", label: "คำขอซื้อ", panel: <p>PURCHASE FORMS</p> },
-  { key: "labor", label: "ทีมงาน", panel: <p>LABOR ZONE</p> },
+  // Spec 313 U2 (D4): the labor tab is แรงงาน — ทีมงาน now names ONLY the
+  // /team people hub. Kept in step with the page's real tab array.
+  { key: "labor", label: "แรงงาน", panel: <p>LABOR ZONE</p> },
   { key: "info", label: "ข้อมูล", panel: <p>NOTES</p> },
 ];
 
@@ -45,8 +47,8 @@ describe("WpDetailTabs", () => {
 
   it("switches the active panel on tab click", () => {
     render(<WpDetailTabs tabs={TABS} />);
-    fireEvent.click(tab("ทีมงาน"));
-    expect(tab("ทีมงาน")).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(tab("แรงงาน"));
+    expect(tab("แรงงาน")).toHaveAttribute("aria-selected", "true");
     expect(tab("รูปถ่าย")).toHaveAttribute("aria-selected", "false");
     expect(panelOf("LABOR ZONE")).not.toHaveAttribute("hidden");
     expect(panelOf("PHOTO ZONE")).toHaveAttribute("hidden");

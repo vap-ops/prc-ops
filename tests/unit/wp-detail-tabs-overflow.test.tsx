@@ -3,7 +3,7 @@
 // `flex-1 whitespace-nowrap` with NO `min-w-0`/`min-w-max` and NO overflow
 // containment. A flex item's default min-width:auto refuses to shrink below its
 // content, and whitespace-nowrap forbids wrapping — so on a narrow phone the 6
-// tabs (ค่าใช้จ่าย · คำขอซื้อ · ทีมงาน · อุปกรณ์ · ข้อมูล · จัดการ) overflow the
+// tabs (ค่าใช้จ่าย · คำขอซื้อ · แรงงาน · อุปกรณ์ · ข้อมูล · จัดการ) overflow the
 // row, and because nothing contained it the overflow escaped to the page
 // scroller and the WHOLE page scrolled left-right.
 //

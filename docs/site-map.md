@@ -37,6 +37,17 @@ The desktop hub strip (`hub-nav.tsx` `*_HUB_NAV`) carries every bottom-tab
 destination per role and may add reference surfaces the phone bar omits
 (PM: + ทีมงาน `/workers`) — nav law §12, ui-conventions.md.
 
+> **Term note (spec 313 U2, D4 "one term per concept").** ทีมงาน used to name
+> three different things. It now names ONLY the `/team` people hub
+> (`TEAM_HUB_LABEL`); the `/workers` company roster is **รายชื่อช่าง**
+> (`WORKER_ROSTER_LABEL`) and the per-work-package daily labor log is
+> **แรงงาน** (`LABOR_TAB_LABEL`) — all three in `src/lib/i18n/labels.ts`.
+> U2 migrated the WP detail labor tab, the `/sa` labor chip, and the
+> `/workers` title + h1. **The nav strips still carry the old term** — the PM
+> hub strip's ทีมงาน item (→ `/workers`) and the SA strip's ทีมงาน item
+> (→ `/team`) are still literals in `hub-nav.tsx`, so the PM strip currently
+> lands on a page headed รายชื่อช่าง. U3 flips the strips onto the consts.
+
 - SA (spec 192 U4 · 313 D2): หน้าหลัก `/sa` · โครงการ `/projects` · ทีมงาน `/team`
   · จัดซื้อ `/requests` · ตั้งค่า `/settings` — ภาพรวม dropped (the daily home
   supersedes it); ทีมงาน added as a tab (nav-coherence audit 2026-07 — /team was
