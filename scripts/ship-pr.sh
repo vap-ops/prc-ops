@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Autonomous-build ship gate — open a gated PR for the current branch → main and
+# Autonomous-build ship gate — push the current branch, open a gated PR → main and
 # request auto-merge, using the pipeline's fine-grained PAT (kept OUTSIDE the repo at
-# ../.github.env; never commit a token). The pipeline pushes a branch and calls this
-# instead of pushing to main. CI runs on the PR: a clean code-only PR auto-merges
+# ../.github.env; never commit a token). The pipeline calls this instead of pushing
+# to main. CI runs on the PR: a clean code-only PR auto-merges
 # itself once green; a PR that trips the danger-path guard fails that required check
 # and waits for the operator's manual merge.
 #
 # Usage:  scripts/ship-pr.sh "<title>" ["<body>"]
-# Needs:  node on PATH (no jq on this box); the SSH deploy key for the branch push.
+# Needs:  node on PATH (no jq on this box); GITHUB_TOKEN in ../.github.env — the same
+#         fine-grained PAT is used for BOTH the API calls and the branch push (the org
+#         disables deploy keys, so there is no SSH key path any more — ADR 0083 §5).
+#         `origin` is plain HTTPS with no credential, so a manual `git push` fails:
+#         this script is the only working push path.
 set -euo pipefail
 
 # This box keeps node outside the default PATH (cloud-PC quirk — see the
@@ -25,10 +29,12 @@ body="${2:-}"
 # way. Deriving also means the ONE shared .git/config heals every worktree at
 # once, instead of each needing this tracked file rebased.
 #
-# `origin` wins over any ambient env var on purpose: the branch is pushed to
-# `origin`, so taking the PR target from elsewhere could open the PR against a
-# different repo than the one just pushed to. SHIP_REPO is the explicit escape
-# hatch and is shape-checked like any other value.
+# `origin` wins over any ambient env var on purpose: it is the repo the caller
+# actually works in, so taking the PR target from elsewhere could open the PR
+# against a repo the caller never intended. Since #669 this one value also builds
+# the push URL below, so the push destination and the PR target cannot diverge —
+# an override moves BOTH. SHIP_REPO is the explicit escape hatch and is
+# shape-checked like any other value.
 origin_url=""
 repo="${SHIP_REPO:-}"
 if [ -z "$repo" ]; then
@@ -81,7 +87,7 @@ if [ -z "${SHIP_SKIP_CONFLICT_PROBE:-}" ]; then
   fi
 fi
 
-# Push the branch (deploy key); idempotent.
+# Push the branch; idempotent.
 # Push with the same token the API calls use, so shipping depends on ONE credential.
 # The org disables deploy keys, so the pre-transfer SSH deploy key can no longer
 # push (ADR 0083); an HTTPS `origin` alone would need interactive credentials,
