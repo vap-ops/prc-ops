@@ -1,3 +1,13 @@
+# [0.161.0](https://github.com/vap-ops/prc-ops/compare/v0.160.0...v0.161.0) (2026-07-20)
+
+### Bug Fixes
+
+- **nav:** spec 313 U3 — honest back chip for the folded queue + a rule-2 guard ([693ff32](https://github.com/vap-ops/prc-ops/commit/693ff32be67cf592149e98c01a600d12b3af08f9))
+
+### Features
+
+- **nav:** spec 313 U3 — fold the PM queue tab into ทีมงาน, name the roster ([42052c1](https://github.com/vap-ops/prc-ops/commit/42052c1f7619fa9c54ff191f71ee6ed269efaac9))
+
 # [0.160.0](https://github.com/vap-ops/prc-ops/compare/v0.159.0...v0.160.0) (2026-07-20)
 
 ### Features
