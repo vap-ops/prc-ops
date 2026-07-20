@@ -1,3 +1,9 @@
+# [0.163.0](https://github.com/vap-ops/prc-ops/compare/v0.162.0...v0.163.0) (2026-07-20)
+
+### Features
+
+- **nav:** spec 313 U5 — promote /accounting + /legal to hubs ([#674](https://github.com/vap-ops/prc-ops/issues/674)) ([22720d1](https://github.com/vap-ops/prc-ops/commit/22720d174bf574d6a6acf193f8fda2d0fb480133))
+
 # [0.162.0](https://github.com/vap-ops/prc-ops/compare/v0.161.0...v0.162.0) (2026-07-20)
 
 ### Bug Fixes
