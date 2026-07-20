@@ -1,3 +1,13 @@
+# [0.162.0](https://github.com/vap-ops/prc-ops/compare/v0.161.0...v0.162.0) (2026-07-20)
+
+### Bug Fixes
+
+- **nav:** spec 313 U4 — skip the resolver on the escape path, harden the loop test ([69b99ac](https://github.com/vap-ops/prc-ops/commit/69b99ac8d5723122baaa2dc65a3ab46827889966))
+
+### Features
+
+- **nav:** spec 313 U4 — SA โครงการ lands on their project, not the hub ([6db30ce](https://github.com/vap-ops/prc-ops/commit/6db30ce441db6e4c5f8e7f8fabc77f8427b4422e))
+
 # [0.161.0](https://github.com/vap-ops/prc-ops/compare/v0.160.0...v0.161.0) (2026-07-20)
 
 ### Bug Fixes
