@@ -96,13 +96,12 @@ const STATIC_DETAIL = [
   "settings/roles/capabilities",
   // Spec 284 / ADR 0080: the org-chart read drills down from /settings (back chip).
   "settings/org-chart",
-  // Spec 284 U5 / ADR 0080: the Legal surfaces. /legal is the Legal role's home —
-  // a role-home rendered as a drill-down from /settings (back chip → /settings),
-  // exactly like /accounting. /legal/contracts + /legal/approvals drill down from
-  // /legal (back chip → /legal). The /legal/contracts/[contractId] detail is a
-  // dynamic DetailHeader route, auto-classified above.
-  // Spec 313 U5: /legal was PROMOTED to a hub — see HUB_STRIP_ROUTES. Its two
-  // sub-surfaces below still drill down from it.
+  // Spec 284 U5 / ADR 0080: the Legal surfaces. /legal is the Legal role's home;
+  // spec 313 U5 PROMOTED it to a hub (it is in NON_DETAIL_ROUTES +
+  // HUB_STRIP_ROUTES now, not here) because a back chip to /settings claimed a
+  // parent that role never came from. Its two sub-surfaces below still drill down
+  // from /legal (back chip → /legal), and /legal/contracts/[contractId] is a
+  // dynamic DetailHeader route auto-classified above.
   "legal/contracts",
   "legal/approvals",
   // Spec 274: the super_admin "view as role" picker drills down from /settings (back chip).

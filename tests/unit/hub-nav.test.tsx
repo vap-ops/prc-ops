@@ -99,12 +99,13 @@ describe("canonical nav sets", () => {
     ]);
   });
 
-  it("gives the legal role a NON-empty strip (the /legal hub has no other way out)", () => {
-    const items = hubNavForRole("legal");
-    expect(items).toBe(LEGAL_HUB_NAV);
-    expect(items?.length ?? 0).toBeGreaterThan(0);
-    // The hub must carry its own href, or nothing on the strip is marked current.
-    expect(items?.some((i) => i.href === "/legal")).toBe(true);
+  // The mapping itself — previously unpinned, so hubNavForRole could stop serving
+  // `legal` entirely and nothing would notice. (The non-empty / carries-own-href
+  // properties are asserted structurally in nav-law-strip-superset.test.ts, over
+  // every gated role of every promoted hub, rather than restated here where the
+  // toEqual above already implies them.)
+  it("maps the legal role to that strip", () => {
+    expect(hubNavForRole("legal")).toBe(LEGAL_HUB_NAV);
   });
 
   // Spec 323 U3b: procurement_manager rides the SAME STR spine — its old
