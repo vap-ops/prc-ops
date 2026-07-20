@@ -1,3 +1,9 @@
+## [0.163.1](https://github.com/vap-ops/prc-ops/compare/v0.163.0...v0.163.1) (2026-07-20)
+
+### Bug Fixes
+
+- **nav:** thread the ?from referrer on /team's ค่าแรง link ([53481d7](https://github.com/vap-ops/prc-ops/commit/53481d75857b2f8f16d49357492741c59f98554e))
+
 # [0.163.0](https://github.com/vap-ops/prc-ops/compare/v0.162.0...v0.163.0) (2026-07-20)
 
 ### Features
