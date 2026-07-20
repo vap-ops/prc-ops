@@ -406,7 +406,11 @@ export default async function TeamPage() {
               รายชื่อช่าง
             </Link>
             <Link
-              href="/payroll"
+              // Spec 313 U4 review follow-up: /team is a hub with NO back chip, so
+              // a bare href let /payroll fall back to its own /settings parent —
+              // ejecting the user somewhere they never came from. Its three sibling
+              // drill-downs already threaded the referrer; this one was missed.
+              href={withBackFrom("/payroll", "/team")}
               className="rounded-card border-edge bg-card shadow-card hover:bg-sunk flex min-h-11 items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold"
             >
               <Wallet aria-hidden className="size-4 shrink-0" />

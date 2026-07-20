@@ -36,3 +36,29 @@ describe("/team hub (spec 313 U1)", () => {
     expect(read("src/app/sa/crew/badges/page.tsx")).toContain('redirect("/team/badges")');
   });
 });
+
+// /team is a HUB — it has no back chip of its own, so every card that drills OUT
+// of it must hand the destination a `?from` referrer. Otherwise the destination's
+// own back chip falls back to its hierarchical parent and silently ejects the user
+// somewhere they never came from.
+//
+// Spec 313 U3 fixed the คำขอสมัคร card this way (it was landing people on
+// /dashboard). The U4 review then found ค่าแรง had the same defect and it was
+// recorded as an open question rather than fixed inline. This pins ALL of them
+// together so the next one added cannot quietly omit it.
+describe("/team drill-downs thread the ?from referrer", () => {
+  const DRILL_DOWNS = ["/sa/registrations", "/registrations", "/workers", "/payroll"];
+
+  it.each(DRILL_DOWNS)("%s is wrapped in withBackFrom(..., '/team')", (href) => {
+    const src = read("src/app/team/page.tsx");
+    const normalised = src.replace(/\s+/g, " ");
+    expect(normalised).toContain(`withBackFrom("${href}", "/team")`);
+  });
+
+  it("leaves no bare href to a drill-down destination", () => {
+    const src = read("src/app/team/page.tsx");
+    for (const href of DRILL_DOWNS) {
+      expect(src).not.toContain(`href="${href}"`);
+    }
+  });
+});
