@@ -33,6 +33,7 @@ import {
   PROJECT_COSTS_LABEL,
   SUBCONTRACTOR_LABEL,
   SUPPLY_PLAN_LABEL,
+  WORKER_ROSTER_LABEL,
 } from "@/lib/i18n/labels";
 import { projectCostsHref, supplyPlanHref } from "@/lib/nav/project-paths";
 import { anchorWorkPackageId, countLateRisk, type LateRiskRow } from "./late-risk";
@@ -238,7 +239,13 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
         href: "/equipment/rentals",
         scope: "spanning",
       },
-      { key: "workers", icon: HardHat, label: "รายชื่อช่าง", href: "/workers", scope: "shared" },
+      {
+        key: "workers",
+        icon: HardHat,
+        label: WORKER_ROSTER_LABEL,
+        href: "/workers",
+        scope: "shared",
+      },
       { key: "payroll", icon: Wallet, label: "ค่าแรง", href: "/payroll", scope: "spanning" },
       { key: "expenses", icon: Receipt, label: "ค่าใช้จ่าย", href: "/expenses", scope: "spanning" },
       // Spec 325 U3: the per-project cost view (money reads gated at the page —

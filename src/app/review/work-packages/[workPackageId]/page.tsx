@@ -216,7 +216,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
 
   // Close-out variance: photo-activity days vs labor days (Asia/Bangkok).
   // Spec 248: defect photos are the PM's INSPECTION evidence, not site work —
-  // counting them would flag "มีรูปแต่ไม่ได้ลงทีมงาน" on inspection days.
+  // counting them would flag "มีรูปแต่ไม่ได้ลงแรงงาน" on inspection days.
   const photoDays = Array.from(
     new Set(
       allPhotos
@@ -378,7 +378,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         </section>
 
         <section>
-          <h2 className={SECTION_HEADING}>บันทึกทีมงานรายวัน</h2>
+          <h2 className={SECTION_HEADING}>บันทึกแรงงานรายวัน</h2>
           <LaborLogZone
             workPackageId={wp.id}
             revalidate={`/review/work-packages/${workPackageId}`}
@@ -404,16 +404,16 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
               revalidate={`/review/work-packages/${workPackageId}`}
             />
             {variance.surfaces ? (
-              <AttentionCard tone="amber" title="ภาพถ่ายกับวันลงทีมงานไม่ตรงกัน">
+              <AttentionCard tone="amber" title="ภาพถ่ายกับวันลงแรงงานไม่ตรงกัน">
                 <p className="text-ink-secondary text-xs">
                   {variance.photoOnlyDays.length > 0
-                    ? `มีรูปแต่ไม่ได้ลงทีมงาน ${variance.photoOnlyDays.length} วัน`
+                    ? `มีรูปแต่ไม่ได้ลงแรงงาน ${variance.photoOnlyDays.length} วัน`
                     : null}
                   {variance.photoOnlyDays.length > 0 && variance.laborOnlyDays.length > 0
                     ? " · "
                     : null}
                   {variance.laborOnlyDays.length > 0
-                    ? `ลงทีมงานแต่ไม่มีรูป ${variance.laborOnlyDays.length} วัน`
+                    ? `ลงแรงงานแต่ไม่มีรูป ${variance.laborOnlyDays.length} วัน`
                     : null}
                 </p>
               </AttentionCard>

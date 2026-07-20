@@ -153,7 +153,11 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
 
   return (
     <div className={CARD}>
-      <p className="text-ink text-sm font-semibold">เพิ่มทีมงาน</p>
+      {/* Spec 313 U2b (D4): this card lives on /workers, whose heading U2 renamed
+          to รายชื่อช่างและค่าแรง — and it adds ONE person, a ช่าง, so the add
+          strings use that term. The people-hub term (TEAM_HUB_LABEL) now names
+          only /team. */}
+      <p className="text-ink text-sm font-semibold">เพิ่มช่าง</p>
       <label className="text-ink-secondary mt-2 block text-sm">
         ชื่อ
         <input
@@ -284,7 +288,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
         onClick={() => void submit()}
         className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
       >
-        เพิ่มทีมงาน
+        เพิ่มช่าง
       </button>
     </div>
   );
