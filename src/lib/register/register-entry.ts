@@ -10,6 +10,8 @@
 
 import { REGISTER_FIELD_HEADING, REGISTER_OFFICE_HEADING } from "@/lib/i18n/labels";
 import { REGISTER_WORKSPACE_PATH } from "@/lib/auth/visitor-router";
+import { safeNextPath } from "@/lib/auth/next-path";
+import { isValidUuid } from "@/lib/validate/uuid";
 
 /** Which self-onboard door the applicant entered. Label-only (spec 286): the
  * two variants share one form, one document set, one queue, and one approval
@@ -26,25 +28,64 @@ export interface StaffRegisterCopy {
   heading: string;
   /** The route path for this door (also the metadata title source). */
   path: string;
-  /** Where /login returns a logged-out visitor who tapped this door. */
-  loginNext: string;
 }
 
 const COPY: Record<RegisterVariant, StaffRegisterCopy> = {
   field: {
     heading: REGISTER_FIELD_HEADING,
     path: REGISTER_FIELD_PATH,
-    loginNext: `/login?next=${encodeURIComponent(REGISTER_FIELD_PATH)}`,
   },
   office: {
     heading: REGISTER_OFFICE_HEADING,
     path: REGISTER_OFFICE_PATH,
-    loginNext: `/login?next=${encodeURIComponent(REGISTER_OFFICE_PATH)}`,
   },
 };
 
 export function staffRegisterCopy(variant: RegisterVariant): StaffRegisterCopy {
   return COPY[variant];
+}
+
+/** The QR attribution params a register door may carry (spec 279 F2a/F2b +
+ * spec 328) — the same names technicianOnboardUrl mints. `project`/`by`/
+ * `contractor` are uuid bindings; `site`/`firm` are display labels. */
+export interface RegisterQrParams {
+  project?: string | undefined;
+  site?: string | undefined;
+  by?: string | undefined;
+  contractor?: string | undefined;
+  firm?: string | undefined;
+}
+
+/** Where /login returns a logged-out visitor who tapped this door.
+ *
+ * A brand-new worker is ALWAYS logged out at first scan, so the QR's
+ * attribution params must survive the LINE login round-trip — a static path
+ * here silently orphaned every real registration (0 of 18 live rows ever
+ * carried attribution). The produced `next` must pass safeNextPath at every
+ * hop (/login → /auth/line/start → callback). URLSearchParams percent-encodes
+ * label content, so the only label content the guard rejects is a literal
+ * slash/backslash (%2F/%5C); such a label drops ALL labels in favor of keeping
+ * the uuid bindings, and the no-params output stays byte-identical to the
+ * historical static path. */
+export function registerLoginNext(variant: RegisterVariant, params?: RegisterQrParams): string {
+  const path = COPY[variant].path;
+  const bindings = new URLSearchParams();
+  for (const key of ["project", "by", "contractor"] as const) {
+    const value = params?.[key];
+    if (isValidUuid(value)) bindings.set(key, value);
+  }
+  const full = new URLSearchParams(bindings);
+  for (const key of ["site", "firm"] as const) {
+    const value = params?.[key];
+    if (value) full.set(key, value);
+  }
+  for (const candidate of [full, bindings]) {
+    const qs = candidate.toString();
+    if (!qs) continue;
+    const next = safeNextPath(`${path}?${qs}`);
+    if (next) return `/login?next=${encodeURIComponent(next)}`;
+  }
+  return `/login?next=${encodeURIComponent(path)}`;
 }
 
 export interface VisitorRegisterEntry {

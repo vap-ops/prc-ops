@@ -32,7 +32,11 @@ import {
   getOwnStaffConsent,
   getOwnStaffBank,
 } from "@/lib/register/own-registration";
-import { staffRegisterCopy, type RegisterVariant } from "@/lib/register/register-entry";
+import {
+  staffRegisterCopy,
+  registerLoginNext,
+  type RegisterVariant,
+} from "@/lib/register/register-entry";
 import { isValidUuid } from "@/lib/validate/uuid";
 import {
   REGISTER_STATUS_HEADING,
@@ -69,8 +73,11 @@ export async function StaffRegisterWorkspace({
   const { data } = await supabase.auth.getClaims();
   // Thread a return path so a logged-out visitor who taps this door comes BACK
   // here after LINE login instead of being stranded on /coming-soon (a fresh
-  // account defaults to role `visitor`). /login re-validates via safeNextPath.
-  if (!data) redirect(copy.loginNext);
+  // account defaults to role `visitor`) — WITH the QR attribution params, or a
+  // new subcon/project registrant loses their firm/project binding for good
+  // (start_staff_registration is mint-once). /login re-validates the whole
+  // value via safeNextPath.
+  if (!data) redirect(registerLoginNext(variant, { project, site, by, contractor, firm }));
   const uid = data.claims.sub;
 
   const { data: userRow } = await supabase

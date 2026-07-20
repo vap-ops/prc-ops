@@ -7,26 +7,134 @@
 import { describe, it, expect } from "vitest";
 import {
   staffRegisterCopy,
+  registerLoginNext,
   VISITOR_REGISTER_ENTRIES,
   REGISTER_FIELD_PATH,
   REGISTER_OFFICE_PATH,
 } from "@/lib/register/register-entry";
+import { technicianOnboardUrl } from "@/lib/register/onboard-link";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { REGISTER_FIELD_HEADING, REGISTER_OFFICE_HEADING } from "@/lib/i18n/labels";
 import { REGISTER_WORKSPACE_PATH } from "@/lib/auth/visitor-router";
+
+const PROJECT = "123e4567-e89b-12d3-a456-426614174000";
+const BY = "223e4567-e89b-12d3-a456-426614174000";
+const CONTRACTOR = "323e4567-e89b-12d3-a456-426614174000";
 
 describe("staffRegisterCopy", () => {
   it("field variant → the on-site (technician) door", () => {
     const c = staffRegisterCopy("field");
     expect(c.heading).toBe(REGISTER_FIELD_HEADING);
     expect(c.path).toBe("/register/technician");
-    expect(c.loginNext).toBe("/login?next=%2Fregister%2Ftechnician");
   });
 
   it("office variant → the office door", () => {
     const c = staffRegisterCopy("office");
     expect(c.heading).toBe(REGISTER_OFFICE_HEADING);
     expect(c.path).toBe("/register/office");
-    expect(c.loginNext).toBe("/login?next=%2Fregister%2Foffice");
+  });
+});
+
+describe("registerLoginNext", () => {
+  function parseNext(loginUrl: string): URL {
+    expect(loginUrl.startsWith("/login?next=")).toBe(true);
+    const next = decodeURIComponent(loginUrl.slice("/login?next=".length));
+    return new URL(next, "https://prc.invalid");
+  }
+
+  it("no params → byte-identical to the historical static path", () => {
+    expect(registerLoginNext("field")).toBe("/login?next=%2Fregister%2Ftechnician");
+    expect(registerLoginNext("office")).toBe("/login?next=%2Fregister%2Foffice");
+  });
+
+  it("carries all five QR attribution params through the round-trip", () => {
+    const parsed = parseNext(
+      registerLoginNext("field", {
+        project: PROJECT,
+        site: "TFM โพธิ์ทอง",
+        by: BY,
+        contractor: CONTRACTOR,
+        firm: "ช่างอวย",
+      }),
+    );
+    expect(parsed.pathname).toBe("/register/technician");
+    expect(parsed.searchParams.get("project")).toBe(PROJECT);
+    expect(parsed.searchParams.get("site")).toBe("TFM โพธิ์ทอง");
+    expect(parsed.searchParams.get("by")).toBe(BY);
+    expect(parsed.searchParams.get("contractor")).toBe(CONTRACTOR);
+    expect(parsed.searchParams.get("firm")).toBe("ช่างอวย");
+  });
+
+  it("the produced next value passes the login return-path guard unchanged", () => {
+    const loginUrl = registerLoginNext("field", {
+      project: PROJECT,
+      site: "TFM โพธิ์ทอง",
+      by: BY,
+      contractor: CONTRACTOR,
+      firm: "ช่างอวย",
+    });
+    const next = decodeURIComponent(loginUrl.slice("/login?next=".length));
+    expect(safeNextPath(next)).toBe(next);
+  });
+
+  it("a slash label (the one content the guard rejects) drops labels, keeps uuid bindings", () => {
+    const parsed = parseNext(
+      registerLoginNext("field", {
+        project: PROJECT,
+        site: "โพธิ์ทอง",
+        by: BY,
+        contractor: CONTRACTOR,
+        firm: "a/b",
+      }),
+    );
+    expect(parsed.searchParams.get("project")).toBe(PROJECT);
+    expect(parsed.searchParams.get("by")).toBe(BY);
+    expect(parsed.searchParams.get("contractor")).toBe(CONTRACTOR);
+    expect(parsed.searchParams.get("site")).toBeNull();
+    expect(parsed.searchParams.get("firm")).toBeNull();
+  });
+
+  it("an '@' in a label is percent-encoded and survives (guard never sees a raw '@')", () => {
+    const parsed = parseNext(registerLoginNext("field", { project: PROJECT, site: "evil@label" }));
+    expect(parsed.searchParams.get("project")).toBe(PROJECT);
+    expect(parsed.searchParams.get("site")).toBe("evil@label");
+  });
+
+  it("a non-uuid binding param is dropped; clean labels survive", () => {
+    const parsed = parseNext(
+      registerLoginNext("field", {
+        project: "not-a-uuid",
+        site: "โพธิ์ทอง",
+        firm: "ช่างอวย",
+      }),
+    );
+    expect(parsed.searchParams.get("project")).toBeNull();
+    expect(parsed.searchParams.get("site")).toBe("โพธิ์ทอง");
+    expect(parsed.searchParams.get("firm")).toBe("ช่างอวย");
+  });
+
+  it("every param minted by technicianOnboardUrl survives into the login next", () => {
+    const qr = new URL(
+      technicianOnboardUrl("https://app.example", {
+        projectId: PROJECT,
+        siteLabel: "TFM โพธิ์ทอง",
+        inviterId: BY,
+        contractorId: CONTRACTOR,
+        firmLabel: "ช่างอวย",
+      }),
+    );
+    const parsed = parseNext(
+      registerLoginNext("field", {
+        project: qr.searchParams.get("project") ?? undefined,
+        site: qr.searchParams.get("site") ?? undefined,
+        by: qr.searchParams.get("by") ?? undefined,
+        contractor: qr.searchParams.get("contractor") ?? undefined,
+        firm: qr.searchParams.get("firm") ?? undefined,
+      }),
+    );
+    for (const key of ["project", "site", "by", "contractor", "firm"]) {
+      expect(parsed.searchParams.get(key)).toBe(qr.searchParams.get(key));
+    }
   });
 });
 
