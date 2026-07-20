@@ -290,3 +290,59 @@ describe("buildProjectClientChips (feedback 7d9d2c2b)", () => {
     );
   });
 });
+
+// Spec 313 U4 — loop-proofing. The SA's /projects hub redirects to their current
+// project unless the URL says ?view=all, so EVERY href the SA can follow back into
+// the hub has to carry it. A chip that drops the flag bounces them straight back
+// out of the hub they just asked for, which is indistinguishable from the filter
+// being broken. These pin the flag onto each href builder.
+describe("spec 313 U4 — pinViewAll keeps the SA inside the hub", () => {
+  it("projectListHref omits view by default (canonical URLs stay clean)", () => {
+    expect(projectListHref("all", PROJECT_CLIENT_ALL)).toBe("/projects");
+    expect(projectListHref("active", PROJECT_CLIENT_ALL)).toBe("/projects?status=active");
+  });
+
+  it("projectListHref pins view=all when asked, even on the otherwise-bare URL", () => {
+    expect(projectListHref("all", PROJECT_CLIENT_ALL, "", { pinViewAll: true })).toBe(
+      "/projects?view=all",
+    );
+    expect(projectListHref("active", PROJECT_CLIENT_ALL, "", { pinViewAll: true })).toBe(
+      "/projects?status=active&view=all",
+    );
+    expect(projectListHref("active", "c1", "ถนน", { pinViewAll: true })).toBe(
+      "/projects?status=active&client=c1&q=%E0%B8%96%E0%B8%99%E0%B8%99&view=all",
+    );
+  });
+
+  it("every status chip href carries view=all when pinned", () => {
+    const chips = buildProjectStatusChips({
+      counts: { all: 3, active: 2, on_hold: 1, completed: 0, archived: 0 },
+      status: "all",
+      client: PROJECT_CLIENT_ALL,
+      pinViewAll: true,
+    });
+    expect(chips.length).toBeGreaterThan(0);
+    for (const c of chips) expect(c.href).toContain("view=all");
+  });
+
+  it("every client chip href carries view=all when pinned", () => {
+    const chips = buildProjectClientChips({
+      clientCounts: new Map([["c1", 2]]),
+      clientNames: new Map([["c1", "ลูกค้า ก"]]),
+      status: "all",
+      client: PROJECT_CLIENT_ALL,
+      pinViewAll: true,
+    });
+    expect(chips.length).toBeGreaterThan(0);
+    for (const c of chips) expect(c.href).toContain("view=all");
+  });
+
+  it("chips stay clean for non-SA roles (flag off)", () => {
+    const chips = buildProjectStatusChips({
+      counts: { all: 1, active: 1, on_hold: 0, completed: 0, archived: 0 },
+      status: "all",
+      client: PROJECT_CLIENT_ALL,
+    });
+    for (const c of chips) expect(c.href).not.toContain("view=");
+  });
+});

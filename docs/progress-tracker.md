@@ -8142,3 +8142,81 @@ three hardcoded `"รายชื่อช่าง"` literals (`team/page.tsx:4
 const · `workers/actions.ts` :24/:127 toasts. Migrating the first and third will
 red `worker-roster-manager.test.tsx` / `labor-log-zone.test.tsx` — update those
 deliberately.
+
+## Spec 313 U4 — SA โครงการ direct landing (2026-07-20)
+
+- Gate-checked the plan's pins against HEAD FIRST (the U3 lesson). **U4's pins all
+  hold — nothing superseded**: `projects-landing.ts` absent as expected,
+  `isCoordinator` at `projects/page.tsx:71` exactly, `projectListHref(status,
+client, query="")` and `getSaCurrentProject(sb, userId, opts?)` both match,
+  `PROJECT_VIEW_ROLES` includes `site_admin`. Only drift: the `[projectId]`
+  backHref is at :79, not the plan's :72.
+- `saProjectsLandingTarget({role, view, currentProjectId})` → the redirect target
+  or null. `/projects` redirects a `site_admin` with a current project to its WP
+  list; `?view=all` opts back into the hub; no current project → hub; other roles
+  never redirect.
+- **Loop-proofing is the substance of this unit** — a redirect on a hub is easy to
+  make inescapable. `pinViewAll` threaded through `projectListHref`, both chip
+  builders, `searchClearHref`, and a hidden `view=all` input on the GET search form
+  (a GET form REPLACES the query string, so without it a search bounces the SA
+  out). The project-detail back chip falls back to `/projects?view=all` for a
+  site_admin. **The `?view` check is STRICT `=== "all"`** — added beyond the plan
+  and pinned by test, because a loose check would turn a truncated or typo'd query
+  string into a hub the SA can never reach.
+- Verified live (content-absence, not status — RSC redirects surface as 200 with a
+  NEXT_REDIRECT payload): super_admin bare renders the hub; site_admin bare and
+  `?view=mine` both carry NEXT_REDIRECT with the hub's search input ABSENT;
+  site_admin `?view=all` renders the hub. On the SA hub every `/projects?` href
+  carries `view=all`, the hidden input is `all`, and **on that page** the only bare
+  `/projects` links are the tab + strip (`inNav`, `aria-current="page"` — the
+  intended entries; this is a claim about the hub page, NOT repo-wide — see open
+  question 6). Project-detail back chip as SA = `/projects?view=all`. super_admin's
+  hrefs stay clean (zero `view=`). Zero console errors. Suite 4481.
+- ⓘ Not browser-verified: the zero-project SA path (needs a persona with no
+  visible project); covered by unit test.
+
+### Fresh-eyes findings — fixed
+
+- **Wasted read on the escape path.** `getSaCurrentProject` ran for every SA hub
+  render even when `?view=all` made the result unused, adding a serial `projects`
+  select (+ its `project_members` embed) ahead of `loadProjectsHub`, which reads
+  the same table again. Now gated `isSaLanding && view !== "all"`. The hub is the
+  one `/projects` view an SA reaches deliberately; it shouldn't be the slow one.
+- **A trivially-passing assertion.** The back-chip source test asserted
+  `'ctx.role === "site_admin"'` as a separate fragment — but that string already
+  existed in that file at the parent commit (the `canPlanTomorrow` flag), so it
+  could not fail on the code it claimed to guard. Now pins the whole
+  `safeBackHref(...)` expression as one normalised string, plus a behavioural half
+  asserting the fallback survives `safeBackHref` AND that the resolver honours it
+  as an escape. Mutation-checked: deleting the role-conditional fallback reds it.
+
+### Open questions (operator design calls, deliberately not fixed)
+
+1. **The SA has no forward door to the full project list.** Their โครงการ tab and
+   hub strip both point at bare `/projects`, which always redirects, so the only
+   way in is the back chip from a project, or a chip once already there. Intended
+   for a one-project SA — but the shared-worker decision (multi-project readiness
+   audit) would require an explicit "ดูโครงการทั้งหมด" affordance.
+2. **The tab is `aria-current="page"` while standing on the hub, yet tapping it
+   navigates away.** A control marked as your current location that moves you is
+   the sharper form of (1). Fixing means changing either the tab's href or the
+   longest-prefix active rule — both nav SSOTs, so it wants a deliberate decision.
+3. **Redirect target is status-blind.** `getSaVisibleProjects` doesn't filter on
+   status, so an SA whose only membership is a completed/archived project is sent
+   into a dead project on every โครงการ tap. Pre-existing in the SaTools tiles;
+   U4 promotes it from one odd tile to the whole hub.
+4. **Filtered hub deep-links are destroyed for an SA.** A PM sharing
+   `/projects?status=active&q=ถนน` sends an SA to their own project with the
+   payload silently dropped. Inherent to the design (strict `?view=all` is what
+   makes typos fail closed); worth knowing before someone reports it as a bug.
+5. **View-as fidelity wrinkle.** A super_admin with `assumed_role=site_admin`
+   does enter the redirect branch (`ctx.role` is the effective role), but
+   `getSaVisibleProjects` runs under the REAL role's RLS — super sees every
+   project — so the "current" project derives to an arbitrary lowest-code one.
+   `?view=all` still escapes, so this is a view-as inspection wart, not a user
+   bug. Deliberately NOT gated on the real role: that would break the fidelity
+   view-as exists to provide.
+6. `sa/page.tsx:281`'s งานของฉัน empty-state links bare `/projects`, so an SA with
+   a current project lands there rather than on the list. Left as-is — "เริ่มจาก
+   โครงการ" reads fine as "start from your project" — but noted so it is a choice
+   rather than an oversight.

@@ -27,6 +27,10 @@ interface ProjectsFilterBarProps {
   client: string;
   /** Href that clears the search but keeps the active facets. */
   searchClearHref: string;
+  // Spec 313 U4: the SA hub redirects away unless the URL says ?view=all, and a
+  // GET form REPLACES the query string — so without this hidden input a search
+  // would bounce the SA straight back out of the hub.
+  pinViewAll?: boolean;
 }
 
 const CHIP_BASE =
@@ -64,6 +68,7 @@ export function ProjectsFilterBar({
   status,
   client,
   searchClearHref,
+  pinViewAll = false,
 }: ProjectsFilterBarProps) {
   return (
     <div className="mb-4 flex flex-col gap-2.5">
@@ -74,6 +79,7 @@ export function ProjectsFilterBar({
         {client !== PROJECT_CLIENT_ALL ? (
           <input type="hidden" name="client" value={client} />
         ) : null}
+        {pinViewAll ? <input type="hidden" name="view" value="all" /> : null}
         <Search
           aria-hidden
           className="text-ink-secondary pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
