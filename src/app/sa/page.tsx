@@ -22,7 +22,7 @@ import { loadNotificationReadiness } from "@/lib/notifications/readiness";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { WORK_PACKAGE_STATUS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import { WORK_PACKAGE_STATUS_LABEL, LABOR_TAB_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { DailyPlanWorklist } from "@/components/features/sa/daily-plan-worklist";
 import { MusterStrip } from "@/components/features/sa/muster-strip";
 import { SaTools } from "@/components/features/sa/sa-tools";
@@ -320,7 +320,7 @@ export default async function SaHomePage() {
                     <ActionChip
                       href={withBackFrom(`${workPackageHref(it.projectId, it.id)}#wp-labor`, "/sa")}
                       icon={HardHat}
-                      label="ทีมงาน"
+                      label={LABOR_TAB_LABEL}
                     />
                     <ActionChip
                       href={withBackFrom(

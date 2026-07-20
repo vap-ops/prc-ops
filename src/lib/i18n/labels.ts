@@ -24,6 +24,12 @@ export const SUBCONTRACTOR_LABEL = "ผู้รับเหมาช่วง";
 export const WORKER_LABEL = "ช่าง";
 export const WORKER_TEAM_LABEL = "ทีมช่าง";
 
+// Spec 313 D4 — the nav-term split: ทีมงาน names ONLY the /team people hub;
+// the company roster surface is รายชื่อช่าง; the WP daily labor log is แรงงาน.
+export const TEAM_HUB_LABEL = "ทีมงาน";
+export const WORKER_ROSTER_LABEL = "รายชื่อช่าง";
+export const LABOR_TAB_LABEL = "แรงงาน";
+
 // Spec 321 U1 — profile-edit door names. Single-sourced so the canonical
 // self-service door ("ข้อมูลของฉัน" = /settings/my-info) and the read-only
 // identity card ("โปรไฟล์" = /profile) never drift across the settings hub,

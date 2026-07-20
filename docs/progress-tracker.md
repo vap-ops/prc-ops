@@ -8029,3 +8029,45 @@ U6b2 COMPLETE — code-only; DANGER-HELD (touches src/app/payroll/\*\*) → oper
 - Worker chips read-only until U3; crews empty live so pool = current truth.
 - Open (U2+): crew RPC migration (add/move/remove/set-lead/rename/dissolve),
   crew manage UI, firms link-outs, /team hub row, settings-block retire.
+
+## Spec 313 U2 — nav-term label split (2026-07-20)
+
+- D4 "one term per concept" SSOT: `TEAM_HUB_LABEL` (ทีมงาน — the /team people
+  hub) · `WORKER_ROSTER_LABEL` (รายชื่อช่าง — the company roster surface) ·
+  `LABOR_TAB_LABEL` (แรงงาน — the WP daily labor log) in `src/lib/i18n/labels.ts`.
+- Call sites migrated off the literal: WP detail labor tab · `/sa` labor
+  ActionChip (href `#wp-labor`) · `/workers` metadata title + h1.
+- `TEAM_HUB_LABEL` is produced-not-yet-consumed by design — U3's tab/strip
+  arrays consume all three.
+- RED-first `tests/unit/labels-nav-terms.test.ts` (3 tests); full suite 4454.
+- Verified by authed SSR probes on a dev server: `/workers` `<title>` =
+  "รายชื่อช่าง — PRC Ops" + new h1 present + old h1 gone; WP detail serves the
+  แรงงาน tab with `>ทีมงาน<` gone; `/sa` serves the แรงงาน chip.
+
+### Open questions — un-migrated call sites (fresh-eyes sweep, 2026-07-20)
+
+A reviewer sweep found the literal survives in more places than U2's four call
+sites. None are in U3's file list either, so they need an explicit owner or
+they get orphaned. Left un-migrated deliberately (U2's scope is the four sites
+the plan names); listed here so U3 — or a small U2b — can pick them up.
+
+1. **Nav strips (U3 owns these).** `chrome/hub-nav.tsx` carries TWO items
+   labelled ทีมงาน with DIFFERENT destinations: `PM_HUB_NAV:45` → `/workers`
+   (wants `WORKER_ROSTER_LABEL`) and `SA_HUB_NAV:62` → `/team` (wants
+   `TEAM_HUB_LABEL`). The exact collision D4 exists to kill. **Until U3 lands,
+   the PM strip's ทีมงาน item lands on a page now headed รายชื่อช่าง.**
+2. **Same-page contradiction on `/workers`.** `labor/worker-roster-manager.tsx`
+   renders inside `/workers` with "เพิ่มทีมงาน" at :156 and :287, now sitting
+   under the new h1 รายชื่อช่างและค่าแรง. Migrating reds
+   `worker-roster-manager.test.tsx` — update those assertions deliberately.
+3. **Labor concept, missed surface.** `review/work-packages/[workPackageId]/
+page.tsx:381` heads the SAME `<LaborLogZone>` with "บันทึกทีมงานรายวัน"
+   while the WP detail tab now says แรงงาน. One component, two names.
+4. **Roster concept, missed surface.** `labor/labor-log-zone.tsx` :345 / :353 /
+   :357 — link text and empty-state prose pointing at `/workers` still say
+   ทีมงาน. Migrating reds `labor-log-zone.test.tsx`.
+5. **Three un-single-sourced copies of the produced const.** `team/page.tsx:403`,
+   `settings/sections.ts:228`, `purchasing/procurement-home.ts:241` each hold a
+   literal "รายชื่อช่าง" pointing at `/workers` — byte-identical to
+   `WORKER_ROSTER_LABEL`, so they violate the ui-term-consistency SSOT rule.
+6. Nit: `workers/actions.ts:24` / `:127` toast strings still say ทีมงาน.
