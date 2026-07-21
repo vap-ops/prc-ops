@@ -351,7 +351,9 @@ function StaffDocuments({
   );
 }
 
-function DocRow({
+// Exported for spec 333's DocsOwedCard (post-approval deferred-docs uploads) —
+// the same upload flow, hosted outside this form.
+export function DocRow({
   uid,
   purpose,
   currentUrl,
@@ -473,8 +475,9 @@ function DocRow({
 // Spec 296 — the applicant's declared bank fields. Stored in the zero-grant
 // staff_registration_bank via recordOwnStaffBank (own + pending). The parent owns
 // the values (they drive the approval-floor `hasBankFields`); this child renders
-// the inputs and handles the save.
-function StaffBankFields({
+// the inputs and handles the save. Exported for spec 333's DocsOwedCard
+// (post-approval deferred bank details) — the save RPC carries the carve.
+export function StaffBankFields({
   bankName,
   accountNumber,
   accountName,

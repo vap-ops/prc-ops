@@ -69,6 +69,13 @@ export function RegistrationQueueList({
                     {row.firmName}
                   </span>
                 ) : null}
+                {/* Spec 333 — approved with deferred docs, still incomplete:
+                    the chase-the-documents flag for HR. */}
+                {row.docsOwed ? (
+                  <span className="border-attn-edge bg-attn-soft text-attn-ink inline-flex items-center rounded-full border px-2 py-0.5 font-semibold">
+                    เอกสารค้าง
+                  </span>
+                ) : null}
                 {row.status === "pending" && row.hasReviewerNote ? (
                   <span className="border-attn-edge bg-attn-soft text-attn-ink inline-flex items-center rounded-full border px-2 py-0.5 font-semibold">
                     ส่งกลับแก้ไข

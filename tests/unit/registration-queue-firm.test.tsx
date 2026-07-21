@@ -28,6 +28,7 @@ function input(overrides: Partial<RegistrationQueueInput>): RegistrationQueueInp
     hasBank: false,
     hasReviewerNote: false,
     invitedFirm: null,
+    documentsDeferredAt: null,
     ...overrides,
   };
 }

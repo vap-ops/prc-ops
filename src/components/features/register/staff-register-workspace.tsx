@@ -26,6 +26,8 @@ import { StaffRegistrationForm } from "@/components/features/register/staff-regi
 import { ShareCardButton } from "@/components/features/register/share-card-button";
 import { RegistrationPendingNotice } from "@/components/features/register/registration-pending-notice";
 import { RegistrationReturnedNotice } from "@/components/features/register/registration-returned-notice";
+import { DocsOwedCard } from "@/components/features/register/docs-owed-card";
+import { deferredDocsOwed } from "@/lib/register/docs-owed";
 import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
@@ -90,7 +92,42 @@ export async function StaffRegisterWorkspace({
   const registration = await getOwnTechnicianRegistration(supabase, uid);
   // Approved → their real home (roleHome of the assigned role, not hard-coded
   // technician — an approved office hire has an office role by now).
-  if (registration?.status === "approved") redirect(roleHome(userRow?.role ?? "technician"));
+  // Spec 333 U2: EXCEPT a deferred-docs approval (documents_deferred_at, mig
+  // 075822) that still owes documents — that renders the docs-owed view
+  // instead; once nothing is owed the redirect behaves exactly as before.
+  if (registration?.status === "approved") {
+    const home = roleHome(userRow?.role ?? "technician");
+    if (registration.documents_deferred_at !== null) {
+      const [{ urls }, bank] = await Promise.all([
+        getOwnRegistrationDocuments(supabase, registration.id),
+        getOwnStaffBank(supabase),
+      ]);
+      const owed = deferredDocsOwed({
+        status: registration.status,
+        documentsDeferredAt: registration.documents_deferred_at,
+        hasIdCard: Boolean(urls.id_card),
+        hasBookBank: Boolean(urls.book_bank),
+        hasBankFields: bank !== null,
+      });
+      if (owed.length > 0) {
+        return (
+          <PageShell>
+            <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 py-10`}>
+              <h1 className={SECTION_HEADING}>{REGISTER_STATUS_HEADING}</h1>
+              <DocsOwedCard
+                uid={uid}
+                owed={owed}
+                docUrls={urls}
+                homeHref={home}
+                initialBank={bank}
+              />
+            </section>
+          </PageShell>
+        );
+      }
+    }
+    redirect(home);
+  }
 
   // Spec 328 — subcon (bank-exempt) context. Fresh form: from the QR's advisory
   // ?contractor (uuid-shaped only). Once a registration exists, the TRUSTED source

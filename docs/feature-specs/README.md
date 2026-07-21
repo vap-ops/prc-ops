@@ -351,6 +351,8 @@ retry). Specs written before 2026-07-19 are exempt until next touched.
 
 | 331 | Company document type registry (มาตรฐานเอกสารบริษัท) — DESIGN APPROVED 2026-07-19: retires spec 329's free-text title. Two curated registry tables (`company_document_categories` 7 + `company_document_types` 35 seeded, house `code`/`name_th`/`sort_order`/`is_active` pattern, **super_admin-only DEFINER RPCs** — users pick, never mint) + `type_id`/`label` on `company_documents`. Per-type flags: `is_singleton` (DB trigger refuses a 2nd live doc → "ใช้เวอร์ชันใหม่แทน"; multi types need a label), `is_required` (feeds the new **ยังขาด** checklist), `requires_expiry`. Identity docs only — periodic filings excluded. U1 schema+seed+trigger+RPCs · U2 pickers + missing-list + `/settings/company-doc-types`. |
 
+| 333 | Deferred-docs office approve (เข้าระบบก่อน ส่งเอกสารภายหลัง) — operator directive 2026-07-21 (legal-dept hires จารุวัฒน์/ณัฐวุฒิ stalled at the doc floors): `approve_staff_registration` gains `p_defer_documents` (office arm only — technician refused; **full_name + PDPA floors KEPT**, id_card/book_bank/bank floors deferred; `documents_deferred_at` stamp, mig 075822) + upload-later carves (`add_staff_registration_doc` book_bank-while-deferred, `record_own_staff_bank` while-deferred) + decision-sheet ส่งเอกสารภายหลัง checkbox on the WIDENED role selector (STAFF_ONBOARDABLE_ROLES grouped หน้างาน/ออฟฟิศ — supersedes the 07-08 two-role narrowing) + workspace DocsOwedCard + queue เอกสารค้าง chip. U1 schema · U2 code. |
+
 **Absent spec numbers** (no spec file — covered by ADRs or folded into another
 unit): 25, 26, 29, 30. (235 = account-deactivation draft, parked separately.
 267–269 rows land with their own PRs.)

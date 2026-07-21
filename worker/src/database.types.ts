@@ -6217,6 +6217,7 @@ export type Database = {
           created_at: string
           date_of_birth: string | null
           declared_role_hint: string | null
+          documents_deferred_at: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relation: string | null
@@ -6238,6 +6239,7 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           declared_role_hint?: string | null
+          documents_deferred_at?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
@@ -6259,6 +6261,7 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           declared_role_hint?: string | null
+          documents_deferred_at?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
@@ -9027,6 +9030,7 @@ export type Database = {
       approve_staff_registration: {
         Args: {
           p_contractor_id?: string
+          p_defer_documents?: boolean
           p_employment_type?: Database["public"]["Enums"]["employment_type"]
           p_id: string
           p_pay_type?: Database["public"]["Enums"]["pay_type"]

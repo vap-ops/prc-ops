@@ -35,6 +35,11 @@ export interface RegistrationQueueInput {
    *  later-deleted firm SET-NULLs it. `name` is null only when the id no longer
    *  resolves to a readable contractor. */
   invitedFirm: { id: string; name: string | null } | null;
+  /** Spec 333 — staff_registrations.documents_deferred_at: the approval
+   *  deferred the document floors (office arm). On an APPROVED row whose plain
+   *  floor is still unmet this yields the เอกสารค้าง chip so HR can chase the
+   *  owed documents from the existing list. */
+  documentsDeferredAt: string | null;
 }
 
 export interface RegistrationQueueRow {
@@ -54,6 +59,8 @@ export interface RegistrationQueueRow {
   hasReviewerNote: boolean;
   /** Spec 328 U3 — firm chip label for a firm-invited row (null otherwise). */
   firmName: string | null;
+  /** Spec 333 — approved with deferred docs, documents still incomplete. */
+  docsOwed: boolean;
 }
 
 const NO_NAME_PLACEHOLDER = "ยังไม่กรอกชื่อ-นามสกุล";
@@ -81,6 +88,10 @@ export function buildRegistrationQueueRow(input: RegistrationQueueInput): Regist
     meetsFloor: meetsApprovalFloor(input),
     hasReviewerNote: input.hasReviewerNote,
     firmName: input.invitedFirm ? (input.invitedFirm.name ?? UNRESOLVED_FIRM_LABEL) : null,
+    docsOwed:
+      input.status === "approved" &&
+      input.documentsDeferredAt !== null &&
+      !meetsApprovalFloor(input),
   };
 }
 
