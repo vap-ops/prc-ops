@@ -72,6 +72,9 @@ function renderCockpit(board: MusterBoard = BOARD) {
       date="2026-07-13"
       revalidate="/projects/x/muster"
       board={board}
+      // Pre-334-follow-up semantics for the legacy cases: every fixture worker
+      // is an HT, so these tests keep exercising the non-filter behaviour.
+      htWorkerIds={board.workers.map((w) => w.id)}
     />,
   );
 }
@@ -151,4 +154,55 @@ describe("MusterCockpit", () => {
       expect.objectContaining({ teamId: T1, wpIds: [WPA] }),
     );
   });
+});
+
+// Spec 334 follow-up (operator 2026-07-21): หัวหน้าทีม can only be an HT — a worker
+// who leads a crew (crews.lead_worker_id, the spec 330/332 headship axis). The
+// picker must not offer the whole roster.
+describe("lead picker — HT only", () => {
+  it("offers only htWorkerIds (minus already-leading), not every worker", () => {
+    render(
+      <MusterCockpit
+        projectId={PROJECT}
+        date="2026-07-13"
+        revalidate="/projects/x/muster"
+        board={BOARD}
+        htWorkerIds={[W1, W2]}
+      />,
+    );
+    const select = screen.getByLabelText("เลือกหัวหน้าทีม");
+    const names = Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
+    // W1 ลี already leads the fixture team; W3 ก้อง is not an HT → only สมชาย.
+    expect(names).toContain("สมชาย");
+    expect(names).not.toContain("ก้อง");
+    expect(names).not.toContain("ลี");
+  });
+
+  it("no HT in the project → guidance message instead of an empty opener", () => {
+    render(
+      <MusterCockpit
+        projectId={PROJECT}
+        date="2026-07-13"
+        revalidate="/projects/x/muster"
+        board={{ ...BOARD, teams: [] }}
+        htWorkerIds={[]}
+      />,
+    );
+    expect(screen.getByText(/ยังไม่มีหัวหน้าทีม/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("เลือกหัวหน้าทีม")).not.toBeInTheDocument();
+  });
+});
+
+it("HT exists but is not on the active roster (deactivated lead) → guidance, not a dead picker", () => {
+  render(
+    <MusterCockpit
+      projectId={PROJECT}
+      date="2026-07-13"
+      revalidate="/projects/x/muster"
+      board={{ ...BOARD, teams: [] }}
+      htWorkerIds={["ghost-not-in-workers"]}
+    />,
+  );
+  expect(screen.getByText(/ยังไม่มีหัวหน้าทีม/)).toBeInTheDocument();
+  expect(screen.queryByLabelText("เลือกหัวหน้าทีม")).not.toBeInTheDocument();
 });

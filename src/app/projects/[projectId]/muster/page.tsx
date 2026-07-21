@@ -16,6 +16,7 @@ import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
 import { MUSTER_LABEL } from "@/lib/i18n/labels";
 import { loadMusterBoard } from "@/lib/muster/load-muster";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { musterHref, projectHref } from "@/lib/nav/project-paths";
 import { MusterCockpit } from "@/components/features/muster/muster-cockpit";
 
@@ -23,10 +24,14 @@ export const metadata = { title: MUSTER_LABEL };
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
+  // Spec 334 follow-up: multi-parent page (project cockpit AND the /team hero) —
+  // the back chip resolves ?from, else the project (the 313-U4 class).
+  searchParams: Promise<{ from?: string }>;
 }
 
-export default async function MusterPage({ params }: PageProps) {
+export default async function MusterPage({ params, searchParams }: PageProps) {
   const { projectId } = await params;
+  const { from } = await searchParams;
   await requireRole(["site_admin", "super_admin"]);
   const supabase = await createClient();
 
@@ -40,9 +45,22 @@ export default async function MusterPage({ params }: PageProps) {
   const date = bangkokTodayIso();
   const board = await loadMusterBoard(supabase, projectId, date);
 
+  // The HT axis (spec 330/332): only crew leads may open a muster team as its
+  // หัวหน้าทีม (operator rule 2026-07-21). RLS-scoped read; null leads drop out.
+  const { data: crewLeads } = await supabase
+    .from("crews")
+    .select("lead_worker_id")
+    .eq("project_id", projectId)
+    .eq("active", true);
+  const htWorkerIds = [
+    ...new Set(
+      (crewLeads ?? []).map((c) => c.lead_worker_id).filter((v): v is string => v !== null),
+    ),
+  ];
+
   return (
     <PageShell>
-      <DetailHeader backHref={projectHref(projectId)} backLabel="กลับไปโครงการ">
+      <DetailHeader backHref={safeBackHref(from, projectHref(projectId))} backLabel="กลับ">
         <h1 className={DETAIL_TITLE}>{MUSTER_LABEL}</h1>
       </DetailHeader>
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-4 px-5 py-6`}>
@@ -52,6 +70,7 @@ export default async function MusterPage({ params }: PageProps) {
           date={date}
           revalidate={musterHref(projectId)}
           board={board}
+          htWorkerIds={htWorkerIds}
         />
       </section>
     </PageShell>

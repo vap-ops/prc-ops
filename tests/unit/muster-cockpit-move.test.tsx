@@ -94,7 +94,13 @@ const ONE_TEAM: MusterBoard = {
 
 function renderCockpit(board: MusterBoard) {
   return render(
-    <MusterCockpit projectId={PROJECT} date={DATE} revalidate="/projects/x/muster" board={board} />,
+    <MusterCockpit
+      projectId={PROJECT}
+      date={DATE}
+      revalidate="/projects/x/muster"
+      board={board}
+      htWorkerIds={board.workers.map((w) => w.id)}
+    />,
   );
 }
 beforeEach(() => {
