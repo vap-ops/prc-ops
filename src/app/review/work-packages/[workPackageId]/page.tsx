@@ -136,8 +136,11 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
   // Spec 216: the หลังแก้ไข bucket surfaces only inside a rework cycle, grouped by
-  // round, each labelled with the defect reason that opened it (one
-  // wp_reopened_for_defect audit row per round; audit_log SELECT is using(true)).
+  // round, each labelled with the reason that opened it (one
+  // wp_reopened_for_defect audit row per round — written by the defect reopen
+  // and, since spec 337 F3, by a review rejection too). This page's readers are
+  // PM_ROLES, who hold the broad audit_log select policy; the site_admin one is
+  // an event allowlist, NOT `using(true)` as this comment used to claim.
   const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
   const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
   // Spec 248 — the current round's defect→fix pairs (the reviewer verifies

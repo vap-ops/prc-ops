@@ -12,8 +12,10 @@ import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
 
 export type { PhotoPhase, WorkPackageStatus };
 
-// The statuses a WP may be submitted for approval FROM — consumed by the
-// submitWorkPackageForApproval action's SQL guard. Spec 144: 'rework' (a defect
+// The statuses a WP may be submitted for approval FROM — the WP detail page's
+// gate for rendering ส่งงานเข้าตรวจ. Spec 337 U1 moved the ENFORCEMENT into
+// submit_work_package_for_approval, which re-states this set in SQL; this array
+// stays the UI's copy of the same rule. Spec 144: 'rework' (a defect
 // reopened a complete WP) is included — fixing it and submitting sends it back to
 // review, same as the other pre-approval states. pending_approval / complete are
 // excluded so a submit can never regress them.

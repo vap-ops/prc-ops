@@ -99,6 +99,14 @@ export const NOTIFICATION_CATALOG_BY_EVENT = {
     audience: uploaderTier,
     locked: false,
   },
+  wp_evidence_resubmitted: {
+    event: "wp_evidence_resubmitted",
+    label: "ส่งตรวจอีกครั้ง",
+    description: "งานที่คุณให้ถ่ายรูปใหม่ถูกถ่ายเพิ่มและส่งกลับมาให้ตรวจแล้ว",
+    category: "approvals",
+    audience: pmTier,
+    locked: false,
+  },
   wp_reopened: {
     event: "wp_reopened",
     label: "งานถูกเปิดแก้ไขใหม่",

@@ -8,12 +8,7 @@ import {
   selectLatestDecisionByWorkPackage,
   type ApprovalRow,
 } from "@/lib/approvals/latest-decision";
-import {
-  commentRequiredFor,
-  isCommentValid,
-  shouldTransitionToComplete,
-  APPROVAL_DECISIONS,
-} from "@/lib/approvals/predicates";
+import { commentRequiredFor, isCommentValid, APPROVAL_DECISIONS } from "@/lib/approvals/predicates";
 
 function row(partial: Partial<ApprovalRow> & Pick<ApprovalRow, "id" | "decided_at">): ApprovalRow {
   return {
@@ -132,31 +127,11 @@ describe("isCommentValid", () => {
   });
 });
 
-describe("shouldTransitionToComplete", () => {
-  it("transitions ONLY on approved+pending_approval", () => {
-    expect(shouldTransitionToComplete("approved", "pending_approval")).toBe(true);
-  });
-
-  it("does NOT transition non-approved decisions, regardless of status", () => {
-    for (const decision of ["rejected", "needs_revision"] as const) {
-      for (const status of [
-        "not_started",
-        "in_progress",
-        "on_hold",
-        "pending_approval",
-        "complete",
-      ] as const) {
-        expect(shouldTransitionToComplete(decision, status)).toBe(false);
-      }
-    }
-  });
-
-  it("does NOT transition approved when the WP is not at pending_approval", () => {
-    for (const status of ["not_started", "in_progress", "on_hold", "complete"] as const) {
-      expect(shouldTransitionToComplete("approved", status)).toBe(false);
-    }
-  });
-});
+// Spec 337 U1 — the shouldTransitionToComplete block that sat here is gone with
+// the predicate: decide_work_package owns the flip and returns the resulting
+// status, so the rule is asserted in pgTAP `337-approval-rpcs` (approved →
+// complete, rejected → rework + round++, needs_revision → no flip) against the
+// real DB rather than re-derived in JS.
 
 describe("APPROVAL_DECISIONS", () => {
   it("contains exactly the three enum values in a known order", () => {

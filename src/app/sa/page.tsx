@@ -51,8 +51,11 @@ export default async function SaHomePage() {
 
   // RLS scopes work_packages to the SA's member projects (can_see_wp / ADR 0056),
   // so this is already "my" work. Spec 218: keep pending_approval (drop only
-  // complete) — a WP the PM bounced (ให้แก้ไข / ไม่อนุมัติ) stays pending_approval
-  // but is back on the SA's plate; we surface it from its latest decision.
+  // complete) — a WP the PM sent back for new photos (ให้แก้ไข) stays
+  // pending_approval but is back on the SA's plate; we surface it from its
+  // latest decision. Spec 337 F3: a ส่งกลับแก้งาน (rejected) no longer stays
+  // pending_approval — it flips to rework and arrives through the rework lane
+  // below, carrying the PM's comment as the round's reason.
   const { data: wpRows } = await supabase
     .from("work_packages")
     .select("id, code, name, status, project_id, category_id, rework_round")

@@ -68,6 +68,11 @@ export function composeNotification(
       return `งานถูกเปิดใหม่เพื่อแก้ไข${round}: ${payload.code ?? ""} ${payload.name ?? ""} — เปิดแอปดูข้อบกพร่อง`.trim();
     }
 
+    // Spec 337 U1 (F2) — the SA re-shot what the decision asked for and pressed
+    // ส่งตรวจอีกครั้ง; the decider is told this one is ready to look at again.
+    case "wp_evidence_resubmitted":
+      return `ส่งตรวจอีกครั้ง: ${payload.code ?? ""} ${payload.name ?? ""} — ถ่ายรูปเพิ่มหลังให้แก้ไขแล้ว`.trim();
+
     case "pr_created":
       return `คำขอซื้อใหม่ ${prRef(payload.prNumber, context.poNumber)}: ${payload.itemDescription ?? ""} (${String(payload.quantity ?? "")} ${payload.unit ?? ""})`;
 
