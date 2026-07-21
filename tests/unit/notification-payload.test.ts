@@ -101,4 +101,24 @@ describe("parseNotificationPayload", () => {
       reportedBy: "51700000-0000-4000-8000-000000000003",
     });
   });
+
+  // Spec 337 U1 — wp_evidence_resubmitted snapshot: the answered decision's
+  // decider (the recipient) plus the SA who resubmitted (the self-ping exclusion).
+  it("parses the wp_evidence_resubmitted snapshot fields", () => {
+    expect(
+      parseNotificationPayload({
+        code: "W05-03",
+        name: "งานฉาบผนัง",
+        project_id: "33700000-0000-4000-8000-000000000001",
+        decided_by: "33700000-0000-4000-8000-000000000002",
+        resubmitted_by: "33700000-0000-4000-8000-000000000003",
+      }),
+    ).toEqual({
+      code: "W05-03",
+      name: "งานฉาบผนัง",
+      projectId: "33700000-0000-4000-8000-000000000001",
+      decidedBy: "33700000-0000-4000-8000-000000000002",
+      resubmittedBy: "33700000-0000-4000-8000-000000000003",
+    });
+  });
 });

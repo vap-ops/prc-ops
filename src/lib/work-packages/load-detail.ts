@@ -243,9 +243,14 @@ async function loadPlanner(
 }
 
 // Spec 144/216: a WP reopened for a defect records one wp_reopened_for_defect
-// audit_log row per round (newest first). One read serves both the rework banner
-// (the latest reason, only while in rework) and the per-round หลังแก้ไข gallery
-// reasons (round → reason, every round). audit_log SELECT is using(true).
+// audit_log row per round (newest first) — spec 337 F3 adds a second writer, a
+// review rejection, which records the PM's comment in the same shape (payload
+// `via: 'review_rejection'`). One read serves both the rework banner (the latest
+// reason, only while in rework) and the per-round หลังแก้ไข gallery reasons
+// (round → reason, every round). NOTE: audit_log SELECT is NOT `using(true)` —
+// the site_admin/procurement policy is an EVENT ALLOWLIST, and this event is on
+// it (verified live 2026-07-22); a new audit event is invisible to those roles
+// until the policy names it.
 async function loadReworkData(
   supabase: Db,
   wpId: string,

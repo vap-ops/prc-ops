@@ -23,6 +23,7 @@ const ALL_EVENTS = [
   "site_issue_reported",
   "receipt_correction_flagged",
   "receipt_correction_resolved",
+  "wp_evidence_resubmitted",
 ] as const;
 
 describe("notification catalog", () => {
@@ -72,5 +73,9 @@ describe("notification catalog", () => {
     // spec 324: correction result reaches the SA who flagged (site staff)
     expect(byEvent.receipt_correction_resolved.audience("site_admin")).toBe(true);
     expect(byEvent.receipt_correction_resolved.audience("legal")).toBe(false);
+    // spec 337 U1: the re-shoot ping goes back to the DECIDER — PM tier, never
+    // the SA who resubmitted.
+    expect(byEvent.wp_evidence_resubmitted.audience("project_manager")).toBe(true);
+    expect(byEvent.wp_evidence_resubmitted.audience("site_admin")).toBe(false);
   });
 });

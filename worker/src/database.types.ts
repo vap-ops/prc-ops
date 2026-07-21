@@ -9480,6 +9480,14 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
       }
+      decide_work_package: {
+        Args: {
+          p_comment?: string
+          p_decision: Database["public"]["Enums"]["approval_decision"]
+          p_wp: string
+        }
+        Returns: string
+      }
       decide_worker_bank_change: {
         Args: { p_approve: boolean; p_id: string }
         Returns: undefined
@@ -10232,6 +10240,10 @@ export type Database = {
       }
       resolve_posting_period: { Args: { p_date: string }; Returns: string }
       resolve_site_issue: { Args: { p_site_issue_id: string }; Returns: string }
+      resubmit_work_package_evidence: {
+        Args: { p_wp: string }
+        Returns: boolean
+      }
       return_stock_to_store: {
         Args: { p_issue_id: string; p_note?: string; p_qty: number }
         Returns: string
@@ -10667,6 +10679,10 @@ export type Database = {
           p_book_bank_path: string
         }
         Returns: string
+      }
+      submit_work_package_for_approval: {
+        Args: { p_wp: string }
+        Returns: boolean
       }
       submit_worker_bank_change: {
         Args: {
@@ -11265,6 +11281,7 @@ export type Database = {
         | "site_issue_reported"
         | "receipt_correction_flagged"
         | "receipt_correction_resolved"
+        | "wp_evidence_resubmitted"
       notification_status: "pending" | "sending" | "sent" | "failed" | "expired"
       office_expense_doc_purpose: "payment_slip" | "tax_invoice"
       pay_type: "monthly" | "daily"
@@ -11704,6 +11721,7 @@ export const Constants = {
         "site_issue_reported",
         "receipt_correction_flagged",
         "receipt_correction_resolved",
+        "wp_evidence_resubmitted",
       ],
       notification_status: ["pending", "sending", "sent", "failed", "expired"],
       office_expense_doc_purpose: ["payment_slip", "tax_invoice"],

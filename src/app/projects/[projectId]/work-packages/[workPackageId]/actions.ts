@@ -50,7 +50,6 @@ import type { ReworkSource } from "@/lib/db/enums";
 import {
   shouldTransitionToInProgress,
   submitGateReason,
-  TRANSITIONABLE_FROM_STATUSES,
   type PhotoPhase,
 } from "@/lib/photos/transitions";
 import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
@@ -231,11 +230,16 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
 
 // FB2 (b9e942f0) — explicit "ส่งงานเข้าตรวจ": the SA submits a finished WP for
 // approval. Replaces the addPhoto auto-flip (above) so a partly-done WP is no
-// longer pushed to review on its first "after" photo. Same shape as that flip:
-// gate the caller, then an admin-client status UPDATE doubly guarded by the SQL
-// `status in (TRANSITIONABLE)` net so it can never regress a pending/complete WP
-// (work_packages UPDATE RLS does not admit site_admin — admin client per the
-// spec-03 decision-15 option (a) escalation).
+// longer pushed to review on its first "after" photo.
+//
+// Spec 337 U1 — the transition runs through submit_work_package_for_approval,
+// a SECURITY DEFINER RPC, on the CALLER's session. `authenticated` holds no
+// UPDATE grant on work_packages.status (revoked at ERD-audit M2), and the old
+// admin-client escalation made every transition ANONYMOUS: the service-role
+// session has no JWT `sub`, so wp_transition_audit stored actor_id NULL for
+// 100% of rows (F1). The RPC re-checks role (SITE_STAFF_ROLES), membership
+// (can_see_wp) and the allowed-from status set; the PHOTO gate below stays here
+// because it needs the RLS-scoped current-photos anti-join read.
 export interface SubmitForApprovalInput {
   projectId: string;
   workPackageId: string;
@@ -275,20 +279,24 @@ export async function submitWorkPackageForApproval(
     return { ok: false, error: gateReason };
   }
 
-  const admin = createAdminClient();
-  const { data: updated, error: updateError } = await admin
-    .from("work_packages")
-    .update({ status: "pending_approval" })
-    .eq("id", wp.id)
-    .in("status", TRANSITIONABLE_FROM_STATUSES)
-    .select("id");
-  if (updateError) {
-    return { ok: false, error: "ส่งงานเข้าตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-  }
-  if (!updated || updated.length === 0) {
-    // Already pending_approval / complete (or a concurrent change) — the SQL
-    // guard no-opped. Tell the SA plainly rather than silently "succeeding".
-    return { ok: false, error: "งานนี้ส่งตรวจแล้ว หรือยังไม่พร้อมส่ง" };
+  const { error: rpcError } = await supabase.rpc("submit_work_package_for_approval", {
+    p_wp: wp.id,
+  });
+  if (rpcError) {
+    // 22023 = the RPC's status guard: already pending_approval / complete, or a
+    // colleague moved it while this page was open. Tell the SA plainly rather
+    // than silently "succeeding". 42501 = role/membership, which the gates above
+    // already cover, so reaching it means the session desynced — answer with the
+    // same RLS-shaped refusal the WP read gives.
+    return {
+      ok: false,
+      error:
+        rpcError.code === "22023"
+          ? "งานนี้ส่งตรวจแล้ว หรือยังไม่พร้อมส่ง"
+          : rpcError.code === "42501"
+            ? "ไม่พบรายการงาน"
+            : "ส่งงานเข้าตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    };
   }
 
   revalidatePath(workPackageHref(wp.project_id, wp.id));

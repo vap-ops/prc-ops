@@ -9,6 +9,11 @@ import type { ApprovalDecision, WorkPackageStatus } from "@/lib/db/enums";
 
 export type { ApprovalDecision, WorkPackageStatus };
 
+// NOTE (spec 337 U1): shouldTransitionToComplete lived here and told the action
+// whether to run its own admin-client flip. decide_work_package now owns the
+// flip and RETURNS the resulting status, so the predicate had exactly one
+// caller and no remaining truth to hold — removed rather than left orphaned.
+
 // Sorted alphabetically — matches the enum's natural order and gives
 // the form a deterministic radio ordering.
 export const APPROVAL_DECISIONS: ReadonlyArray<ApprovalDecision> = [
@@ -25,14 +30,4 @@ export function isCommentValid(decision: ApprovalDecision, comment: string | nul
   if (!commentRequiredFor(decision)) return true;
   if (comment === null) return false;
   return comment.trim().length > 0;
-}
-
-// approved + the WP is currently pending_approval → flip to complete.
-// Mirrors shouldTransitionToPendingApproval (spec 03 option-(a) pattern)
-// — predicate decides, SQL guard reinforces.
-export function shouldTransitionToComplete(
-  decision: ApprovalDecision,
-  currentStatus: WorkPackageStatus,
-): boolean {
-  return decision === "approved" && currentStatus === "pending_approval";
 }

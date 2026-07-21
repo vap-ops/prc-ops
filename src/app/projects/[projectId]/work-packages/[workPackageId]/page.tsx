@@ -901,7 +901,11 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           complete WP offers "report defect" (reopens to rework). */}
       {wp.status === "rework" ? (
         <div className={`mx-auto ${PAGE_MAX_W} px-5 pt-5`}>
-          <AttentionCard tone="amber" title="งานแก้ไข — เปิดใหม่จากข้อบกพร่อง">
+          {/* Spec 337 F3: rework is now reached TWO ways — a defect reopen on a
+              complete WP, and a review rejection on a WP that was never
+              complete — so the title no longer claims "เปิดใหม่จากข้อบกพร่อง".
+              The ที่มา line below and the reason text carry the provenance. */}
+          <AttentionCard tone="amber" title="งานแก้ไข">
             {/* Spec 217: who called this rework (ตรวจภายใน / ลูกค้าแจ้ง). */}
             {defectSource ? (
               <p className="text-meta text-ink-secondary mb-1 font-semibold">

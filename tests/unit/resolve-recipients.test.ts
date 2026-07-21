@@ -216,6 +216,45 @@ describe("resolveRecipients", () => {
     });
   });
 
+  // Spec 337 U1 (F2) — the cure loop closes by an EXPLICIT resubmit, and the
+  // ping goes to the PERSON who asked for the re-shoot, not the approval pool:
+  // they wrote the free-text ask, so only they can judge whether it is answered.
+  describe("wp_evidence_resubmitted (spec 337)", () => {
+    it("routes the resubmit ping to the decider who asked for the re-shoot", () => {
+      expect(
+        resolveRecipients("wp_evidence_resubmitted", { decidedBy: PM_A, resubmittedBy: SA_1 }, ctx),
+      ).toEqual([PM_A]);
+    });
+
+    it("never fans out to the approval pool", () => {
+      const recipients = resolveRecipients(
+        "wp_evidence_resubmitted",
+        { decidedBy: PM_A, resubmittedBy: SA_1 },
+        ctx,
+      );
+      expect(recipients).not.toContain(PM_B);
+      expect(recipients).not.toContain(DIR_1);
+      expect(recipients).not.toContain(SU_1);
+    });
+
+    it("excludes a decider who resubmitted their own WP (no self-ping)", () => {
+      expect(
+        resolveRecipients("wp_evidence_resubmitted", { decidedBy: SU_1, resubmittedBy: SU_1 }, ctx),
+      ).toEqual([]);
+    });
+
+    // Defensive only: resubmit_work_package_evidence always writes decided_by,
+    // so a payload without one is a pre-deploy/legacy row. This pins the SAFE
+    // skip, NOT a decision about the spec's "decider is inactive/unresolvable →
+    // fall back to the approval pool" rule — that case is decided in the DRAIN
+    // (the contact map knows who is reachable) and belongs to U2.
+    it("reaches nobody when the decision carries no decider", () => {
+      expect(resolveRecipients("wp_evidence_resubmitted", { resubmittedBy: SA_1 }, ctx)).toEqual(
+        [],
+      );
+    });
+  });
+
   // Hardening (2026-07-11) — an event type the compiled code predates (a DB enum
   // value written to the outbox ahead of this deploy) must resolve to NO
   // recipients: a safe skip, never `undefined` that crashes the shared drain

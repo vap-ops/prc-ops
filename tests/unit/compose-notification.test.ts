@@ -184,6 +184,14 @@ describe("composeNotification", () => {
     );
   });
 
+  // Spec 337 U1 (F2) — the SA answered a needs_revision and pressed
+  // ส่งตรวจอีกครั้ง; the decider is told the WP is ready to look at again.
+  it("composes wp_evidence_resubmitted naming the WP", () => {
+    expect(
+      composeNotification("wp_evidence_resubmitted", { code: "W05-03", name: "งานฉาบผนัง" }, {}),
+    ).toBe("ส่งตรวจอีกครั้ง: W05-03 งานฉาบผนัง — ถ่ายรูปเพิ่มหลังให้แก้ไขแล้ว");
+  });
+
   // Hardening (2026-07-11) — an event type the compiled code predates must
   // compose to a neutral empty string: a safe skip, never `undefined` that
   // crashes the drain loop. Exhaustiveness for KNOWN events is preserved.

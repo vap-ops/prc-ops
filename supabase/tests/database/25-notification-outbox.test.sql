@@ -65,7 +65,9 @@ select enum_has_labels('public', 'notification_event_type',
         'pr_decision', 'pr_progress', 'pr_cancelled',
         'feedback_submitted', 'wp_reopened', 'site_issue_reported',
         -- Spec 324: SA flags a receipt miscount / BO resolves it.
-        'receipt_correction_flagged', 'receipt_correction_resolved'],
+        'receipt_correction_flagged', 'receipt_correction_resolved',
+        -- Spec 337 U1: SA answered a needs_revision and pressed ส่งตรวจอีกครั้ง.
+        'wp_evidence_resubmitted'],
   'notification_event_type labels');
 select enum_has_labels('public', 'notification_status',
   array['pending', 'sending', 'sent', 'failed', 'expired'],

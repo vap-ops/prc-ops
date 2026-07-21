@@ -20,16 +20,21 @@ import {
 } from "@/lib/approvals/predicates";
 import { recordDecision } from "./actions";
 
+// Spec 337 F3 — `rejected` used to record a comment and change nothing; it now
+// sends the WORK back: the WP flips to งานแก้ไข, its rework round advances, and
+// it leaves the review queue. The label and hint say so, because a PM choosing
+// between "ให้แก้ไข" (re-shoot the photos, stays in the queue) and this one is
+// choosing between two very different outcomes.
 const DECISION_LABEL: Record<ApprovalDecision, string> = {
   approved: "อนุมัติ",
   needs_revision: "ให้แก้ไข",
-  rejected: "ไม่อนุมัติ",
+  rejected: "ส่งกลับแก้งาน",
 };
 
 const DECISION_HINT: Record<ApprovalDecision, string> = {
   approved: "รายการงานจะเปลี่ยนเป็นเสร็จสิ้น",
-  needs_revision: "ส่งกลับให้ถ่ายรูปใหม่ — ต้องใส่ความเห็น",
-  rejected: "ไม่อนุมัติงานตามที่ส่งมา — ต้องใส่ความเห็น",
+  needs_revision: "ส่งกลับให้ถ่ายรูปใหม่ — ยังอยู่ในคิวตรวจ — ต้องใส่ความเห็น",
+  rejected: "งานต้องแก้ไข — จะกลับไปเป็นงานแก้ไข ความเห็นของคุณคือสิ่งที่ต้องแก้",
 };
 
 interface RecordDecisionFormProps {
@@ -61,10 +66,11 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
         setError(result.error);
         return;
       }
-      // Decision recorded. On 'approved' the WP flips to 'complete'
-      // and drops off the queue; on the other two it remains
-      // pending_approval with an updated latest-decision label.
-      // Either way, the queue is the right landing.
+      // Decision recorded. 'approved' flips the WP to 'complete' and 'rejected'
+      // flips it to 'rework' (spec 337 F3) — both drop off the queue;
+      // 'needs_revision' stays pending_approval awaiting the SA's re-shoot,
+      // with an updated latest-decision label. Either way, the queue is the
+      // right landing.
       router.push("/review");
       router.refresh();
     });

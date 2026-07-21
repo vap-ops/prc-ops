@@ -3,24 +3,30 @@
 // recordDecision: the PM approval write path.
 //
 // Validates the caller role, the decision, the comment-required rule,
-// and that the WP is currently up for review (status = pending_approval).
-// Inserts the approvals row under the user's session — the photo_logs /
-// approvals split puts INSERT on approvals at PM + super_admin, so RLS
-// is the load-bearing authorisation primitive for the write. After a
-// successful approved decision, runs the option-(a) guarded transition
-// (mirrors addPhoto): a single admin-client UPDATE of work_packages
-// flipping the WP to 'complete', narrow to status only, only from
-// pending_approval. rejected / needs_revision never change status.
+// and that the WP is currently up for review (status = pending_approval),
+// then hands BOTH writes — the approvals row and the status flip — to the
+// decide_work_package SECURITY DEFINER RPC, on the PM's own session.
+//
+// Spec 337 U1: the approvals INSERT used to run under the user's session with
+// RLS as the load-bearing authorisation primitive, and the flip afterwards ran
+// on the ADMIN client. That split made every transition ANONYMOUS — the
+// service-role session carries no JWT `sub`, so wp_transition_audit recorded
+// actor_id NULL for 100% of rows (F1). Inside the RPC, RLS no longer applies
+// (SECURITY DEFINER runs as the owner), so the RPC's own role gate (PM_ROLES) +
+// can_see_wp are what authorise the write; the checks below stay for a clean
+// Thai error surface before the round-trip.
+//
+// Spec 337 F3: `rejected` now means "send the work back" — the RPC flips the WP
+// to the EXISTING rework status and advances rework_round, reusing the spec
+// 144/216-218 machinery. `needs_revision` still leaves the status alone.
 
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { createClient as createAdminClient } from "@/lib/db/admin";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import {
   APPROVAL_DECISIONS,
   isCommentValid,
-  shouldTransitionToComplete,
   type ApprovalDecision,
 } from "@/lib/approvals/predicates";
 import { canHold, canRelease } from "@/lib/work-packages/hold";
@@ -56,9 +62,9 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { supabase, user } = auth;
 
-  // Explicit role check so the error surface is clean. RLS on
-  // approvals INSERT is the load-bearing backstop — site_admin's
-  // session would be refused there too, with a less useful error.
+  // Explicit role check so the error surface is clean. The RPC's own PM_ROLES
+  // gate is the load-bearing backstop — site_admin's session would be refused
+  // there too, with a less useful error.
   const { data: userRow } = await supabase
     .from("users")
     .select("role")
@@ -88,50 +94,48 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
   // needs_revision, so this branch only triggers for approved.
   const normalisedComment = comment && comment.trim().length > 0 ? comment.trim() : null;
 
-  const { error: insertError } = await supabase.from("approvals").insert({
-    work_package_id: wp.id,
-    decision: input.decision,
-    comment: normalisedComment,
-    decided_by: user.id,
+  // One atomic, attributed call: the approvals row + the status flip the
+  // decision implies. Returns the WP's status AFTER the decision — 'complete'
+  // (approved), 'rework' (rejected, F3), or the unchanged 'pending_approval'
+  // (needs_revision) — which is the honest source for `transitioned`.
+  // p_comment is omitted rather than sent as null when there is no comment:
+  // the RPC declares it `default null`, and supabase-js drops undefined keys, so
+  // the two are identical at the DB while satisfying the generated arg type.
+  const { data: newStatus, error: rpcError } = await supabase.rpc("decide_work_package", {
+    p_wp: wp.id,
+    p_decision: input.decision,
+    ...(normalisedComment !== null ? { p_comment: normalisedComment } : {}),
   });
-  if (insertError) {
-    return { ok: false, error: "บันทึกผลการตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  if (rpcError) {
+    // 22023 = the RPC's status guard (a colleague decided first) or the
+    // comment rule, both pre-checked above. 42501 = role/membership, likewise
+    // pre-checked — reaching either means the session desynced from the page.
+    return {
+      ok: false,
+      error:
+        rpcError.code === "22023"
+          ? "รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ"
+          : rpcError.code === "42501"
+            ? "ไม่พบรายการงาน"
+            : "บันทึกผลการตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    };
   }
 
-  let transitioned = false;
-  if (shouldTransitionToComplete(input.decision, wp.status)) {
-    // Option (a) escalation, narrow to status-only and pending→complete
-    // only. The .eq("status", "pending_approval") clause is the SQL
-    // safety net — even if the JS predicate above were broken, this
-    // UPDATE will only fire against a WP that's actually pending.
-    const admin = createAdminClient();
-    const { data: updated, error: updateError } = await admin
-      .from("work_packages")
-      .update({ status: "complete" })
-      .eq("id", wp.id)
-      .eq("status", "pending_approval")
-      .select("id");
-    if (updateError) {
-      console.error("[recordDecision] WP status transition failed", {
+  const transitioned = newStatus === "complete";
+  if (transitioned) {
+    // Spec 68: freeze the WP's labor cost into wp_labor_costs at close. Stays
+    // action-side on the caller's authenticated PM session so current_user_role()
+    // passes the RPC gate and frozen_by / the audit actor is this PM. Non-fatal:
+    // a missed freeze is recoverable via the explicit re-freeze (spec 46 C6), so
+    // it never fails the approve.
+    const { error: freezeError } = await supabase.rpc("freeze_wp_labor_cost", {
+      p_wp: wp.id,
+    });
+    if (freezeError) {
+      console.error("[recordDecision] labor cost freeze failed", {
         workPackageId: wp.id,
-        error: updateError.message,
+        error: freezeError.message,
       });
-    } else if (updated && updated.length > 0) {
-      transitioned = true;
-      // Spec 68: freeze the WP's labor cost into wp_labor_costs at close.
-      // Called on the caller's authenticated PM session (NOT the admin
-      // client) so current_user_role() passes the RPC gate and frozen_by /
-      // the audit actor is this PM. Non-fatal: a missed freeze is recoverable
-      // via the explicit re-freeze (spec 46 C6), so it never fails the approve.
-      const { error: freezeError } = await supabase.rpc("freeze_wp_labor_cost", {
-        p_wp: wp.id,
-      });
-      if (freezeError) {
-        console.error("[recordDecision] labor cost freeze failed", {
-          workPackageId: wp.id,
-          error: freezeError.message,
-        });
-      }
     }
   }
 

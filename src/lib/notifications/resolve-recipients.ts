@@ -78,6 +78,12 @@ export function resolveRecipients(
     // reopener — no self-notification) to come fix it.
     case "wp_reopened":
       return without(context.wpUploaderIds, payload.reopenedBy);
+    // Spec 337 U1 (F2) — the SA answered a needs_revision and pressed
+    // ส่งตรวจอีกครั้ง. Targets the DECIDER, a PERSON, deliberately NOT the approval
+    // pool: they wrote the free-text ask, so only they can judge whether it was
+    // answered, and the queue is already 40 deep without a pool-wide re-ping.
+    case "wp_evidence_resubmitted":
+      return payload.decidedBy ? without([payload.decidedBy], payload.resubmittedBy) : [];
     case "pr_decision":
       return payload.requestedBy ? without([payload.requestedBy], payload.decidedBy) : [];
     case "pr_progress":

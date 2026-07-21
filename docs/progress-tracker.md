@@ -6,6 +6,124 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 337 U1 — attributed WP transitions (DEFINER RPCs) — 🔨 built (2026-07-22)
+
+Closes F1 from the WP lifecycle-gates audit: **361/361 `wp_status_transition`
+audit rows carried `actor_id NULL`** because all three status writes ran on the
+service-role client, which has no JWT `sub` for `wp_transition_audit()` to read.
+Carries F3 in the same call (`rejected` → the EXISTING `rework` status +
+`rework_round + 1`, no new enum value) and lays the DB half of F2 (the explicit
+resubmit + its ping).
+
+**Schema (migs `20260813075826` + `20260813075827`, both additive):**
+`075826` is the enum add alone (`notification_event_type` +=
+`wp_evidence_resubmitted`) — its own file per the `…075660` precedent, because
+`ALTER TYPE ADD VALUE` cannot be referenced in the transaction that adds it.
+`075827` adds three SECURITY DEFINER RPCs, all
+`revoke all … from public, anon` + `grant execute … to authenticated`:
+
+- `submit_work_package_for_approval(p_wp)` — SITE_STAFF_ROLES + `can_see_wp` +
+  from `not_started/in_progress/on_hold/rework`, `FOR UPDATE`. The PHOTO gate
+  stays in the server action (it needs the RLS-scoped current-photos anti-join).
+- `decide_work_package(p_wp, p_decision, p_comment)` — PM_ROLES + `can_see_wp` +
+  `pending_approval` + comment-required; INSERTs `approvals` and flips status in
+  one call; returns the resulting status (`complete` / `rework` /
+  `pending_approval`). `freeze_wp_labor_cost` stays action-side on the PM
+  session, non-fatal (spec 68 / 46 C6).
+- `resubmit_work_package_evidence(p_wp)` — SITE_STAFF_ROLES + `pending_approval`
+  - latest decision `needs_revision` + ≥1 CURRENT after/after_fix photo newer
+    than that `decided_at`; writes the attributed audit row + the outbox ping.
+
+**Code:** both server actions swapped off the admin client onto the RPCs, with
+per-errcode Thai mapping (22023 → the status refusal, 42501 → the RLS-shaped
+`ไม่พบรายการงาน`, else the retry string). Notification consumers extended for the
+new enum value (catalog, `resolve-recipients`, `compose-notification`, `payload`
+— the drain route needed NO change: `payload.decided_by` already rides its
+`individualIds` contact lookup). `shouldTransitionToComplete` removed — the RPC
+returns the truth, leaving the predicate with zero callers.
+
+**Fresh-eyes fixes (mig `20260813075828`, a NEW file — `…075827` was already
+applied, and re-pushing an edited applied migration silently no-ops):**
+
+1. 🟠 **F3 was surfacing nothing to the SA.** `rejected` flipped the WP to
+   rework, but every "why is this in rework" reader (`/sa`'s ต้องแก้ไข list, the
+   WP rework banner, the per-round หลังแก้ไข labels, the review page) reads ONLY
+   `wp_reopened_for_defect` audit rows — and, verified live, that is the _only_
+   audit event `site_admin` may read at all (their policy is an event allowlist,
+   not `using(true)` as two code comments claimed). The PM's mandatory rejection
+   comment was invisible to the person who had to act on it. `decide_work_package`
+   now writes the rejection as a rework-round row in that same shape (reason =
+   the comment, `source: 'internal'`, plus `via: 'review_rejection'` so the spec
+   325 §3 arm can still tell the two rework doors apart).
+2. 🟠 **The `rejected` radio still said ไม่อนุมัติ** with a hint describing the
+   old inert behaviour. Now `ส่งกลับแก้งาน` + a hint that names the consequence
+   (spec 337 line 114 pre-recorded these strings). The rework banner title
+   dropped its "เปิดใหม่จากข้อบกพร่อง" claim, which is false for a WP that was
+   never complete; the ที่มา line and reason text still carry provenance.
+3. 🟡 `resubmit_work_package_evidence` took no row lock and was not idempotent —
+   a double-tap pinged the decider twice. Now `FOR UPDATE` + one resubmit per
+   answered decision.
+4. 🟡 `btrim(x)` strips **spaces only**, so a tab/newline-only comment passed the
+   comment-required guard the form's JS `.trim()` rejects. Both RPCs now trim the
+   full whitespace set.
+5. 🟡 The SA authors the `wp_evidence_resubmitted` audit row but could not read
+   it back (same allowlist policy) — which also blocks U2's "clear the action-list
+   item once a resubmit newer than the decision exists" condition. Policy widened
+   to name the event.
+6. ⭐ **A guard caught me, in mig `20260813075829`.** Recreating that policy in
+   `…075828` dropped its scalar-subselect wrapper, leaving a BARE
+   `current_user_role()` — a SECURITY DEFINER call the planner would then run
+   once PER ROW of `audit_log` instead of once per query. `40-rls-eval-once`
+   turned red on exactly that; the predicate is unchanged, the wrapper restored.
+   Lesson: `drop policy` + `create policy` is a REWRITE, so every invariant the
+   original satisfied has to be re-established, not just the one being changed.
+
+**Verification:** pgTAP `337-approval-rpcs` **65/65** RED-first (incl. the F1
+pin: zero NULL-actor rows after submit / approve / **reject** / resubmit) ·
+enum-lockstep pin in `25-notification-outbox` updated deliberately (REDs by
+design on the add) · full pgTAP 306/307 files, the only red the known-red
+`221-catalog` · vitest full suite · **6 mutation-checks**: dropping
+`rework_round + 1` REDs the F3 assert; dropping the `created_at > decided_at`
+boundary REDs the stale-photo refusal; re-introducing the admin client REDs the
+submit-action seam; routing the resubmit ping to the approval pool REDs the
+decider-targeting tests; dropping the rework-reason audit row REDs 4 asserts;
+reverting to plain `btrim` lets a tab-only rejection through and aborts the file.
+**Live probe on prod (committed):** a throwaway WP submitted under the Dev
+Preview session recorded `actor = Dev Preview (CC) · actor_role = super_admin ·
+null_actor_rows = 0` — the F1 fix proven on the real database, WP + outbox row
+cleaned up after. All three RPCs answer `42501 permission denied` (not
+`PGRST202`) to an anon PostgREST call, so they are in the schema cache and the
+grant lockdown holds over HTTP.
+
+**Open questions:**
+
+1. During-photo auto-flip (`not_started → in_progress` in `addPhoto`) keeps its
+   admin-client write — a deliberate U1 scope cut (auto-transition, no human
+   decision to attribute; the photo row itself is attributed). Revisit if full
+   attribution is wanted.
+2. `recordDecision` revalidates only the `/review` paths, so a `rejected` WP's
+   project-side detail page relies on dynamic render rather than an explicit
+   `revalidatePath(workPackageHref(...))`. Pre-existing shape (the approve path
+   is identical); flagged, not changed.
+3. `docs/automations.md` was missing AUT-N9/N10 (spec 324's
+   `receipt_correction_*` events, live since `…075809`). Added while documenting
+   AUT-N11 — worth a broader sweep of that file against the live enum.
+4. The resubmit freshness gate uses `photo_logs.created_at` (server insert time)
+   as the spec specifies, and U2's approver-side "new photos" strip uses the same
+   boundary. With the offline upload queue, a photo _shot_ before the
+   needs_revision but _synced_ after it satisfies the gate, and the tile shows
+   `captured_at_client`, so the two timestamps can disagree on screen. Left as
+   specified (client time is user-supplied); revisit in U2 if it misleads.
+5. `SaActionItem.kind === "rejected"` is now legacy-only: a rejected WP leaves
+   `pending_approval`, so new rejections arrive through the rework lane. The
+   branch still serves any WP rejected before this deploy (live count: 0).
+6. The spec's "fall back to the approval pool when the decider is
+   inactive/unresolvable" is a DRAIN-side decision (only the contact map knows
+   who is reachable) and stays U2's; `resolveRecipients` returning `[]` for a
+   payload with no `decided_by` is the defensive skip, not that rule.
+
+---
+
 ## Spec 336 — category-derived งานย่อย codes (`W05-01`) — 🔨 U1 built (2026-07-21)
 
 Operator: "we don't use WP as code anymore, redesign", then chose the

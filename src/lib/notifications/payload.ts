@@ -13,6 +13,10 @@ export interface NotificationPayload {
   // wp_reopened (spec 218 U5) — code/name reused from above; round + the reopener.
   round?: number;
   reopenedBy?: string;
+  // wp_evidence_resubmitted (spec 337 U1) — code/name/decidedBy reused from
+  // above (decidedBy is the RECIPIENT here: the decider being answered);
+  // resubmittedBy is the SA who pressed ส่งตรวจอีกครั้ง, for the self-ping exclusion.
+  resubmittedBy?: string;
   // pr_*
   itemDescription?: string;
   quantity?: number;
@@ -75,6 +79,8 @@ export function parseNotificationPayload(json: unknown): NotificationPayload {
   if (round !== undefined) payload.round = round;
   const reopenedBy = str(record["reopened_by"]);
   if (reopenedBy !== undefined) payload.reopenedBy = reopenedBy;
+  const resubmittedBy = str(record["resubmitted_by"]);
+  if (resubmittedBy !== undefined) payload.resubmittedBy = resubmittedBy;
   const itemDescription = str(record["item_description"]);
   if (itemDescription !== undefined) payload.itemDescription = itemDescription;
   const quantity = num(record["quantity"]);
