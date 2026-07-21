@@ -137,6 +137,15 @@ describe("team map legibility — U1 button hierarchy (spec 338)", () => {
     expect(create.className).toContain("bg-action");
   });
 
+  it("จัดการทีม is a bordered secondary — distinct from the plain ซ่อน/แสดง toggle", () => {
+    renderView();
+    const crew = screen.getByTestId("team-card-cr-1");
+    const manage = within(crew).getByRole("button", { name: /จัดการทีม/ });
+    expect(manage.className).toContain("border-edge");
+    const toggle = within(crew).getByRole("button", { name: /^แสดง$/ });
+    expect(toggle.className).not.toContain("border-edge");
+  });
+
   it("ยุบทีม renders as danger while บันทึกชื่อ is the sheet's primary", async () => {
     const user = userEvent.setup();
     renderView();

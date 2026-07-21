@@ -82,7 +82,7 @@ Model decisions locked by the operator 2026-07-22:
 ## Out of scope (listed so review rejects drift)
 
 - Any write path, any `src/lib/team-map/` edit, any schema.
-- Trades on firm cards (firm teams are lead-less by design; revisit after the 328 pilot).
+- **Card-level capability** on firm cards (firm teams are lead-less by design — no lead, no derived capability; revisit after the 328 pilot). Per-MEMBER tiles are deliberately uniform: a trade is a worker attribute, so a contractor worker with trade rows shows tiles on their chip like anyone else (fresh-eyes resolution 2026-07-22).
 - Sorting/filtering the lead picker by trades (follow-up when trade fill-rate is real).
 - Muster cockpit / roster surfaces (this spec is the map; chip reuse comes later).
 - The trade-vs-firm card grain question from the 19/07 daily report (parked with 330 U4).

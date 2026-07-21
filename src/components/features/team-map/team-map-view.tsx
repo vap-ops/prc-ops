@@ -276,7 +276,9 @@ function TeamCard({
             and not in the browser. Crew cards only: a firm card's id is a
             contractor uuid and the pool has no crew to manage. */}
         {team.kind === "crew" ? (
-          <button type="button" className={TOGGLE} onClick={onManage} aria-label="จัดการทีม">
+          // Spec 338 U1 (fresh-eyes): a bordered SECONDARY, not the plain
+          // toggle look — pain 4 named this exact pair as indistinguishable.
+          <button type="button" className={TIER_ACTION} onClick={onManage} aria-label="จัดการทีม">
             จัดการทีม
           </button>
         ) : null}
