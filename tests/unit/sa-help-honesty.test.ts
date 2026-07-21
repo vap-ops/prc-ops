@@ -15,11 +15,18 @@
 //
 // These assertions pin the instruction against the nav SSOTs it describes, so a
 // future nav change reds the help text instead of silently orphaning it.
+//
+// Spec 334 U4 — the /team hub recompose retired two blocks these cards leaned on:
+// CrewProgressRoster (the รอตรวจ→รอยืนยัน→พร้อม gate) is DELETED and the site board
+// moved to /team/roster (reached via the รายชื่อทีม tile), and the flat เช็คชื่อ link
+// became the วันนี้ hero card whose CTA is เริ่มเช็คชื่อ. Both cards were rewritten
+// against the shipped affordances; the pins below now cover the roster tile + its
+// ยังไม่ได้จัดทีม bucket / รอ PM ยืนยัน chip, and the muster door's new CTA.
 
 import { describe, expect, it } from "vitest";
 import { HELP_CARDS } from "@/lib/sa/help-content";
 import { SA_TABS } from "@/components/features/chrome/bottom-tab-bar";
-import { TEAM_HUB_LABEL } from "@/lib/i18n/labels";
+import { TEAM_HUB_LABEL, UNASSIGNED_TEAM_LABEL } from "@/lib/i18n/labels";
 
 const card = (id: string) => {
   const found = HELP_CARDS.find((c) => c.id === id);
@@ -47,14 +54,40 @@ describe("spec 313 U7 — SA help cards name doors that exist", () => {
     expect(stepsOf("manage")).toContain(`แท็บ “${TEAM_HUB_LABEL}”`);
   });
 
+  // Spec 334 U4: the manage card's real path — the ทีมงาน tab, the รายชื่อทีม tile
+  // (team-tiles.tsx ROSTER_TILE_LABEL / the /team/roster page), and the roster's
+  // ยังไม่ได้จัดทีม bucket + รอ PM ยืนยัน chip (site-team-board.tsx). Pin the strings
+  // the card quotes so a rename reds the prose. ยังไม่ได้จัดทีม has an exported SSOT
+  // (UNASSIGNED_TEAM_LABEL); the tile + chip labels are component-local, so they are
+  // pinned as the file's existing hardcoded-literal idiom (cf. the cockpit buttons).
+  it("the manage card names the รายชื่อทีม tile and the roster's real bucket + chip", () => {
+    const steps = stepsOf("manage");
+    expect(steps).toContain("รายชื่อทีม");
+    expect(steps).toContain(UNASSIGNED_TEAM_LABEL);
+    expect(steps).toContain("รอ PM ยืนยัน");
+  });
+
+  it("the manage card names no retired hub block (spec 334 recompose)", () => {
+    // U3 deleted CrewProgressRoster (its รอตรวจ→รอยืนยัน→พร้อม gate) and moved the
+    // site board off the hub; the old “ทีมหน้างาน” section and the รอตรวจ status
+    // word are gone from /team. The card must not send an SA hunting for either.
+    const steps = stepsOf("manage");
+    expect(steps).not.toContain("รอตรวจ");
+    expect(steps).not.toContain("ทีมหน้างาน");
+  });
+
   // The muster card's steps are pinned to the affordance labels the cockpit
   // ACTUALLY renders. A first draft of this card passed a bare toContain("สแกน")
   // while describing a flow that does not exist (scan-to-check-out, and scanning
   // before a team is open). Pinning the real button text makes the assertion
   // fail when the prose drifts from the UI — which is the whole point of the file.
-  it("the muster card walks the cockpit's real affordances in order", () => {
+  // Spec 334 U4: the door moved — U1 replaced the flat เช็คชื่อ link with the
+  // วันนี้ hero card, whose CTA is เริ่มเช็คชื่อ (muster-today-card.tsx). Step 1 now
+  // names that CTA; เปิดทีม / + เพิ่มช่าง / เช็คออก are the cockpit's own buttons
+  // (muster-cockpit.tsx), re-verified unchanged by this spec.
+  it("the muster card walks the real door + cockpit affordances in order", () => {
     const steps = stepsOf("muster");
-    for (const affordance of ["เช็คชื่อ", "เปิดทีม", "+ เพิ่มช่าง", "เช็คออก"]) {
+    for (const affordance of ["เริ่มเช็คชื่อ", "เปิดทีม", "+ เพิ่มช่าง", "เช็คออก"]) {
       expect(steps).toContain(affordance);
     }
   });

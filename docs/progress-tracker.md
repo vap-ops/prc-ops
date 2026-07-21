@@ -6,6 +6,61 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 334 — /team hub focus (ทีมงาน: วันนี้ ก่อน) — 🔨 U1–U4 built, ships as one PR (2026-07-21)
+
+Read-only recompose of `/team` — วันนี้-first for the SA (attendance hero + icon
+tiles), the merged roster on its own `/team/roster` route. Zero schema, zero new
+write paths. Units map to the plan's build tasks (`334-team-hub-focus-plan.md`):
+
+- **U1 — วันนี้ hero (plan tasks 1+2):** `src/lib/muster/day-summary.ts` —
+  `summariseMusterDay` (pure state machine not_started/open/closed, distinct
+  `worker_id` present count) + `loadMusterDaySummary` (narrow 3-number read,
+  null-tolerant → falls back to not_started, never blanks the hub).
+  `MUSTER_DAY_CLOSED_LABEL` moved to labels.ts (the cockpit now consumes it — UI-term
+  SSOT). `<MusterTodayCard>` — the 3-state hero (+ expected-0 and closed-empty forms),
+  pure props, every CTA → `musterHref`. RED-first both.
+- **U2 — /team/roster (plan task 3):** new route, DetailHeader back → /team,
+  crew-pair gate (site_admin+super_admin literal, NOT TEAM_PAGE_ROLES). Lifted the
+  crew-block queries off the hub; `SiteTeamMember.costPending` → รอ PM ยืนยัน chip
+  (beside the existing รอ PM กรอกบัญชี bankPending); SiteTeamBoard empty state now keys
+  on WORKERS not the grand total. `nav-back-affordance` classifies team/roster detail.
+- **U3 — hub recompose (plan task 4):** `team-tiles.tsx` — `teamTilesForRole` (the
+  pure SSOT for which door + bubble tone + zero-suppression) + `TeamTiles` grid.
+  `CrewProgressRoster` + its test DELETED. Hub body = hero + tile grid, nothing else
+  (~30 rows → ~9). `AddTechnicianSheet` gains `initialMode` + `SheetOpenerButton`
+  (context) so เพิ่มช่าง + QR สมัคร open the ONE sheet from two tiles.
+- **U4 — pins/map/help/tracker (plan task 5):** nav-back + sa-help-honesty pins;
+  site-map `/team` row rewritten + `/team/roster` row added + the ทีมงาน term-note
+  file relocated (team/page.tsx → team-tiles.tsx, matching the guard's CONST_CONSUMERS);
+  `help-content.ts` manage card rewritten against the shipped affordances (แตะ
+  รายชื่อทีม → roster ยังไม่ได้จัดทีม bucket + รอ PM ยืนยัน chip) and the muster card's
+  door repointed to the hero CTA (เริ่มเช็คชื่อ / ไปหน้าเช็คชื่อ, cockpit steps re-verified
+  unchanged); this tracker section.
+
+Decisions (locked 2026-07-21 design chat): D1 hub subject = วันนี้ · D2 check-in
+stays at /projects/:id/muster (hub read-only over the muster tables) · D3 every
+remaining destination = icon tile + count bubble · D4 bubble colour = ownership not
+severity (danger SA-must-act · warning SA-may-act · neutral reference · none tool) ·
+D5 รอยืนยัน leaves the hub (→ per-name chip on the roster) · D6 roster gets its own
+`/team/roster` route · D7 เพิ่มช่าง + QR สมัคร = two tiles over one sheet.
+
+Review fixes (fresh-eyes, 2026-07-21): roster gate narrowed to the crew pair (not
+TEAM_PAGE_ROLES — "no role gain") · ยังไม่จัดทีม bubble is NEUTRAL not warning (D4
+honesty — no SA-reachable affordance assigns a crew yet) · present may legitimately
+exceed expected, rendered uncapped (`26 / 25` is true — never clamp, never crash).
+
+Open questions (surfaced, NOT built):
+
+- `docs/feature-specs/README.md` is stale by two specs — 332 and 333 shipped without
+  index rows (verified 2026-07-21). Out of scope here; worth a one-line backfill by
+  whoever touches the index next.
+- `/team`'s N×M QR generation (projects × active contractors, rendered server-side per
+  request) is already flagged in the backlog as needing memoisation before project #2.
+  U3 keeps the same cards behind a tile; it neither fixes nor worsens this.
+- If the hero still reads `0 /` after a week of the ช่างอวย pilot, the leak is not the
+  hub and D2 should be revisited — the 2026-07-08 memo's option of putting check-in on
+  `/projects/:id`, beside the photo loop, becomes the next bet.
+
 ## Spec 333 — Deferred-docs office approve — 🔨 U1+U2 (2026-07-21)
 
 - **U1 schema (mig `075822` LIVE):** `approve_staff_registration` 6→7 args
