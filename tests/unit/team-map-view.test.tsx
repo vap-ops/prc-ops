@@ -107,9 +107,13 @@ describe("TeamMapView (spec 330 U1)", () => {
     // Tier sum: total workers + team count, visible while collapsed.
     expect(screen.getByText(/รวม 3 คน/)).toBeInTheDocument();
     expect(screen.getByText("ทีมปูน")).toBeInTheDocument();
-    // Collapsed: member chips hidden, per-card count shown.
-    expect(screen.queryByText(/แก้ว บุญวัง/)).not.toBeInTheDocument();
-    expect(within(screen.getByTestId("team-card-cr-1")).getByText(/2 คน/)).toBeInTheDocument();
+    // Collapsed: member chips hidden, per-card count shown. The LEAD alone is
+    // visible on the collapsed lead line (spec 338 U2 — deliberate supersede
+    // of the collapsed-counts-only rule; operator pain 2).
+    expect(screen.queryByText(/ภานุพงษ์/)).not.toBeInTheDocument();
+    const crewCard = screen.getByTestId("team-card-cr-1");
+    expect(within(crewCard).getByTestId("collapsed-lead-line")).toHaveTextContent("แก้ว บุญวัง");
+    expect(within(crewCard).getByText(/2 คน/)).toBeInTheDocument();
   });
 
   it("แสดง toggle reveals member chips and keeps the count visible", async () => {

@@ -44,8 +44,10 @@ import {
   type TeamMapDayPlan,
 } from "@/lib/work-plans/day-assignments";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
+import { CategoryChip } from "@/components/features/work-packages/category-chip";
 import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
 import { TEAM_MAP_ROLE_HELP } from "@/lib/help/team-map-roles";
+import { tradeMismatchCode, type WorkerTrade } from "@/lib/workers/trades";
 import type {
   ProjectTeamMap,
   TeamMapStaffNode,
@@ -61,7 +63,7 @@ import {
   renameCrew,
   setCrewLead,
 } from "@/lib/team-map/crew-actions";
-import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { TRADE_MISMATCH_HINT, USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { INLINE_ERROR } from "@/lib/ui/classes";
 import { evaluateMemberRemoval } from "@/lib/projects/member-removal";
 import { useToast } from "@/lib/ui/use-toast";
@@ -101,15 +103,31 @@ const TIER_HEADING = "text-ink-secondary text-xs font-medium";
 const TIER_BOX = "border-edge bg-sunk rounded-card border p-3";
 const TIER_ACTION =
   "text-action border-edge bg-card inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
+// Spec 338 U1 — the 3-tier button hierarchy. Exactly ONE primary per surface
+// (the constructive action); danger = the wp-delete-control pattern so every
+// destructive control reads the same app-wide. Everything else stays secondary.
+const TIER_ACTION_PRIMARY =
+  "bg-action text-on-fill inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-xs font-medium";
+const SHEET_PRIMARY =
+  "bg-action text-on-fill flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium";
+const SHEET_DANGER =
+  "border-edge-strong bg-card text-danger hover:bg-danger-soft flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left text-sm";
 const INFO_BTN = "text-ink-muted min-h-11 shrink-0 px-1";
 const AVATAR =
   "bg-sunk text-ink-secondary flex size-8 shrink-0 items-center justify-center rounded-full";
-const CARD = "rounded-card border-edge bg-card flex flex-col gap-2 border px-3 py-2";
+// Border colour is per-kind (firm cards read stronger) — keep it OUT of CARD
+// so the two utilities never compete on the same element.
+const CARD = "rounded-card bg-card flex flex-col gap-2 border px-3 py-2";
 const STAFF_ROW =
   "rounded-card border-edge bg-card flex min-h-11 w-full items-center gap-3 border px-3 py-2 text-left";
 const BADGE =
   "bg-sunk text-ink-secondary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium";
 const CHIP = "bg-sunk text-ink rounded-full px-2.5 py-1 text-xs";
+// Spec 338 U1 — a contractor-tied worker's chip is dashed wherever it renders.
+// Keyed on the CHIP's contractorId, never the card's kind (spec 328 §2.4: kind
+// self-erases the moment such a worker sits in a crew).
+const CHIP_EXEMPT =
+  "border-edge-strong text-ink-secondary bg-card rounded-full border border-dashed px-2.5 py-1 text-xs";
 const TOGGLE = "text-action min-h-11 shrink-0 px-2 text-xs font-medium";
 const SHEET_ACTION =
   "border-edge text-ink flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left text-sm";
@@ -168,15 +186,42 @@ function StaffRow({ node, onOpen }: { node: TeamMapStaffNode; onOpen: () => void
   );
 }
 
+// Spec 338 U2 — the trade tiles beside a name. Icon-only CategoryChips,
+// primary-first order comes from the fold; chips show the FIRST tile only
+// (compact), the lead band/line shows them all.
+function TradeTiles({ trades, firstOnly }: { trades: WorkerTrade[]; firstOnly?: boolean }) {
+  const shown = firstOnly ? trades.slice(0, 1) : trades;
+  if (shown.length === 0) return null;
+  return (
+    <>
+      {shown.map((t) => (
+        <CategoryChip key={t.categoryId} code={t.code} />
+      ))}
+    </>
+  );
+}
+
+// Spec 338 U3 — team capability = the LEAD's trades (operator model). Empty
+// for a leadless crew, so the mismatch predicate stays silent there.
+function leadTradesOf(
+  team: TeamMapTeamCard,
+  trades?: Record<string, WorkerTrade[]>,
+): WorkerTrade[] {
+  const lead = team.members.find((m) => m.isTeamLead);
+  return lead ? (trades?.[lead.workerId] ?? []) : [];
+}
+
 function TeamCard({
   team,
   expanded,
   onToggle,
   onManage,
   onChip,
+  tradesByWorker,
   planChips,
   onPlanChip,
   placing,
+  placingCategoryCode,
   onPlaceHere,
 }: {
   team: TeamMapTeamCard;
@@ -184,22 +229,37 @@ function TeamCard({
   onToggle: () => void;
   onManage: () => void;
   onChip: (chip: TeamMapWorkerChip) => void;
+  tradesByWorker?: Record<string, WorkerTrade[]>;
   planChips?: TeamDayAssignment[];
   onPlanChip?: (entry: TeamDayAssignment) => void;
   placing?: boolean;
+  placingCategoryCode?: string | null;
   onPlaceHere?: () => void;
 }) {
+  const tradesFor = (workerId: string) => tradesByWorker?.[workerId] ?? [];
+  const lead = team.members.find((m) => m.isTeamLead);
+  const placingMismatch = placing
+    ? tradeMismatchCode(placingCategoryCode, leadTradesOf(team, tradesByWorker))
+    : null;
   const Icon = team.kind === "firm" ? Building2 : team.kind === "unassigned" ? CircleHelp : Users;
+  // Spec 338 U1: the ผู้รับเหมา word moves into the header badge — the subtitle
+  // stops repeating it and the card border reads stronger than a crew's.
   const subtitle =
     team.kind === "firm"
-      ? `ผู้รับเหมา · ${team.count} คน · เบิกจ่ายผ่านหัวหน้าทีม`
+      ? `${team.count} คน · เบิกจ่ายผ่านหัวหน้าทีม`
       : team.kind === "unassigned"
         ? `${team.count} คน`
         : `ทีม PRC · ${team.count} คน`;
   return (
     <div
       data-testid={`team-card-${team.id}`}
-      className={`${CARD} ${team.kind === "unassigned" ? "border-dashed" : ""}`}
+      className={`${CARD} ${
+        team.kind === "unassigned"
+          ? "border-edge border-dashed"
+          : team.kind === "firm"
+            ? "border-edge-strong"
+            : "border-edge"
+      }`}
     >
       <div className="flex items-center gap-3">
         <Icon aria-hidden className="text-ink-secondary size-5 shrink-0" />
@@ -207,6 +267,9 @@ function TeamCard({
           <span className="text-ink block truncate text-sm font-medium">{team.name}</span>
           <span className="text-ink-secondary block text-xs">{subtitle}</span>
         </span>
+        {team.kind === "firm" ? (
+          <span className={`${BADGE} border-edge-strong border`}>ผู้รับเหมา</span>
+        ) : null}
         {/* SIBLING of the toggle, never a wrapper: a wrapping button would
             swallow the toggle into its accessible name and is invalid HTML —
             the real parser flattens it, so the tap region would exist in jsdom
@@ -225,13 +288,22 @@ function TeamCard({
           cards — the parent passes onPlaceHere for kind:"crew" alone) offer an
           explicit drop target. A SIBLING row, never wrapping the header. */}
       {placing && onPlaceHere ? (
-        <button
-          type="button"
-          className="border-edge-strong text-action flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-xs font-medium"
-          onClick={onPlaceHere}
-        >
-          <MapPin aria-hidden className="size-3.5" /> วางที่ทีมนี้
-        </button>
+        <>
+          <button
+            type="button"
+            className="border-edge-strong text-action flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-xs font-medium"
+            onClick={onPlaceHere}
+          >
+            <MapPin aria-hidden className="size-3.5" /> วางที่ทีมนี้
+          </button>
+          {/* Advisory ONLY — the drop above never disables: a wrong hint costs
+              a glance, a wrong block costs a work assignment (spec 338 U3). */}
+          {placingMismatch ? (
+            <p className="text-ink-muted flex items-center gap-1.5 text-xs">
+              <CategoryChip code={placingMismatch} /> {TRADE_MISMATCH_HINT}
+            </p>
+          ) : null}
+        </>
       ) : null}
       {/* U6: the team's plan-of-day WPs — derived worker-overlap chips. */}
       {planChips && planChips.length > 0 ? (
@@ -249,6 +321,21 @@ function TeamCard({
             </button>
           ))}
         </div>
+      ) : null}
+      {/* Spec 338 U2: the lead is visible WITHOUT expanding — ★ name + trade
+          tiles (deliberately supersedes U1's collapsed-counts-only rule for
+          the lead alone; operator pain 2). Same chip sheet as the band. */}
+      {!expanded && team.kind === "crew" && lead ? (
+        <button
+          type="button"
+          data-testid="collapsed-lead-line"
+          className="border-edge bg-sunk text-ink flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left text-xs font-medium"
+          onClick={() => onChip(lead)}
+        >
+          <Star aria-hidden className="size-3.5 shrink-0" />
+          <span className="min-w-0 truncate">{lead.name}</span>
+          <TradeTiles trades={tradesFor(lead.workerId)} />
+        </button>
       ) : null}
       {/* U5: a crew with NO lead surfaces that as a visible to-do while the
           card is collapsed — tapping it expands the list so the lead can be
@@ -282,6 +369,7 @@ function TeamCard({
               >
                 <Star aria-hidden className="size-3.5" /> {m.name}
                 <span className="text-ink-secondary font-normal">หัวหน้าทีม</span>
+                <TradeTiles trades={tradesFor(m.workerId)} />
               </button>
             ))}
           <div className="flex flex-wrap gap-1.5">
@@ -291,10 +379,11 @@ function TeamCard({
                 <button
                   key={m.workerId}
                   type="button"
-                  className={`${CHIP} min-h-11`}
+                  className={`${m.contractorId !== null ? CHIP_EXEMPT : CHIP} inline-flex min-h-11 items-center gap-1`}
                   onClick={() => onChip(m)}
                 >
                   {m.name}
+                  <TradeTiles trades={tradesFor(m.workerId)} firstOnly />
                 </button>
               ))}
             {team.members.length === 0 ? (
@@ -312,6 +401,7 @@ export function TeamMapView({
   map,
   addableStaff,
   currentUserId,
+  tradesByWorker,
   dayPlans,
   planWps,
 }: {
@@ -319,6 +409,8 @@ export function TeamMapView({
   map: ProjectTeamMap;
   addableStaff: AddableStaff[];
   currentUserId: string;
+  /** Spec 338 U2: per-worker trades (primary-first). Omitted → no tiles. */
+  tradesByWorker?: Record<string, WorkerTrade[]>;
   /** U6: the two writable boards. Omitted → the plan layer does not render. */
   dayPlans?: { today: TeamMapDayPlan; tomorrow: TeamMapDayPlan };
   /** U6: leaf WPs for เพิ่มงานเข้าแผน (page pre-filters groups/complete). */
@@ -566,7 +658,7 @@ export function TeamMapView({
           </button>
           <button
             type="button"
-            className={TIER_ACTION}
+            className={TIER_ACTION_PRIMARY}
             onClick={() => openSheet({ type: "createCrew" })}
           >
             <Users aria-hidden className="size-3.5" /> ตั้งทีมใหม่
@@ -669,6 +761,7 @@ export function TeamMapView({
               onToggle={() => toggle(t.id)}
               onManage={() => openSheet({ type: "team", team: t })}
               onChip={(chip) => openSheet({ type: "chip", chip, team: t })}
+              {...(tradesByWorker ? { tradesByWorker } : {})}
               {...(assignments
                 ? {
                     planChips: assignments.byTeam.get(t.id) ?? [],
@@ -677,7 +770,11 @@ export function TeamMapView({
                   }
                 : {})}
               {...(placing && t.kind === "crew"
-                ? { placing: true, onPlaceHere: () => placeOnTeam(t) }
+                ? {
+                    placing: true,
+                    placingCategoryCode: placing.categoryCode ?? null,
+                    onPlaceHere: () => placeOnTeam(t),
+                  }
                 : {})}
             />
           ))}
@@ -712,7 +809,7 @@ export function TeamMapView({
               <button
                 type="button"
                 disabled={busy}
-                className={SHEET_ACTION}
+                className={SHEET_DANGER}
                 onClick={() => onRemove(staffSheet)}
               >
                 ถอดออกจากทีมโครงการ
@@ -773,7 +870,7 @@ export function TeamMapView({
             <button
               type="button"
               disabled={busy}
-              className={SHEET_ACTION}
+              className={SHEET_PRIMARY}
               onClick={() =>
                 // The field is CONTROLLED and seeded with the crew's current
                 // name by openSheet, so `crewName` is the truth. The old
@@ -797,7 +894,7 @@ export function TeamMapView({
             <button
               type="button"
               disabled={busy}
-              className={SHEET_ACTION}
+              className={SHEET_DANGER}
               onClick={() => setConfirmDissolve(teamSheet)}
             >
               ยุบทีม
@@ -831,6 +928,19 @@ export function TeamMapView({
               </p>
             ) : null}
 
+            {/* Spec 338 U2: the worker's trades, read-only — the editor stays
+                on /workers (spec 332), ONE write home. */}
+            {(tradesByWorker?.[chipSheet.chip.workerId] ?? []).length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-ink-secondary text-xs">สายงาน</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                  {(tradesByWorker?.[chipSheet.chip.workerId] ?? []).map((t) => (
+                    <CategoryChip key={t.categoryId} code={t.code} label={t.nameTh} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {chipInCrew ? (
               <>
                 {!chipIsPayExempt && !chipSheet.chip.isTeamLead ? (
@@ -856,7 +966,7 @@ export function TeamMapView({
                 <button
                   type="button"
                   disabled={busy}
-                  className={SHEET_ACTION}
+                  className={SHEET_DANGER}
                   onClick={() =>
                     run(
                       () =>
@@ -911,6 +1021,9 @@ export function TeamMapView({
             ) : (
               <p className="text-ink-muted text-xs">ยังไม่มีทีมอื่นให้ย้ายไป</p>
             )}
+            <Link className={SHEET_ACTION} href="/workers">
+              แก้ไขสายงานที่รายชื่อช่าง
+            </Link>
             {error ? <p className={INLINE_ERROR}>{error}</p> : null}
           </div>
         ) : null}
@@ -925,6 +1038,17 @@ export function TeamMapView({
         {sheet?.type === "planChip" ? (
           <div className="flex flex-col gap-2">
             <p className="text-ink-secondary text-xs">{sheet.entry.item.name}</p>
+            {(() => {
+              const mm = tradeMismatchCode(
+                sheet.entry.item.categoryCode,
+                leadTradesOf(sheet.team, tradesByWorker),
+              );
+              return mm ? (
+                <p className="text-ink-muted flex items-center gap-1.5 text-xs">
+                  <CategoryChip code={mm} /> {TRADE_MISMATCH_HINT}
+                </p>
+              ) : null;
+            })()}
             {sheet.entry.mixed ? (
               // The SA hand-tuned this item's workers on /sa/plan — team-grain
               // writes would clobber it (full-replace RPC), so none are offered.
@@ -1063,7 +1187,7 @@ export function TeamMapView({
           <button
             type="button"
             disabled={busy}
-            className={SHEET_ACTION}
+            className={SHEET_PRIMARY}
             onClick={() =>
               run(
                 () => createCrew({ projectId, name: crewName, revalidate: teamHref }),
