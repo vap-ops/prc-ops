@@ -121,10 +121,20 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   if (pre.is_group) {
     // Spec 335: the project's own status gates the add-งานย่อย door and depends
     // only on projectId, so it rides alongside the children read (no waterfall).
-    const [children, projectRow] = await Promise.all([
+    // Spec 336: the suggested งานย่อย code is derived from this งาน's work
+    // category (W05-03) by one read-only RPC — no waterfall, and null whenever
+    // the งาน has no category, in which case the sheet suggests nothing rather
+    // than inventing a prefix.
+    const [children, projectRow, suggestedCode] = await Promise.all([
       loadGroupChildren(supabase, pre.id),
       isPlanner
         ? supabase.from("projects").select("status").eq("id", projectId).maybeSingle()
+        : null,
+      isPlanner && pre.category_id
+        ? supabase.rpc("suggest_work_package_code", {
+            p_project_id: projectId,
+            p_category_id: pre.category_id,
+          })
         : null,
     ]);
     // Money = leaf-bound sums (returns netted) — manager tier only, admin
@@ -142,6 +152,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     // answer with P0002). Pinned by tests/unit/wp-group-add-child-gate.test.ts.
     const projectStatus = projectRow?.data?.status;
     const canAddChild = isPlanner && (projectStatus === "active" || projectStatus === "on_hold");
+    // A failing suggester degrades to an empty code field, which reads as "this
+    // งาน has no category" — so say so in the log rather than silently.
+    if (suggestedCode?.error) {
+      console.error("[wp-group] suggest_work_package_code failed", {
+        projectId,
+        categoryId: pre.category_id,
+        error: suggestedCode.error.message,
+      });
+    }
     return (
       <PageShell>
         <DetailHeader backHref={safeBackHref(from, projectHref(projectId))} backLabel="กลับ">
@@ -170,6 +189,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 <AddWorkPackageSheet
                   projectId={projectId}
                   fixedParent={{ id: pre.id, code: pre.code, name: pre.name }}
+                  {...(suggestedCode?.data ? { suggestedCode: suggestedCode.data } : {})}
+                  {...(pre.category_id ? { categoryId: pre.category_id } : {})}
                 />
               ) : null
             }

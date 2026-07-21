@@ -3,6 +3,12 @@
 **Status:** operator directive 2026-07-21 — "add เพิ่มงานย่อย button in main WP
 detail view". Single code-only unit (U1). No schema.
 
+> ⚠️ **D4 is SUPERSEDED by spec 336** (same day): the operator retired the `WP-`
+> convention, so the suggested code is no longer built from the parent's code —
+> it is derived from the งาน's work category (`W05-03`). Everything else here —
+> the door, its placement, the gate, the fixed-parent sheet mode, the
+> untouched-suggestion guard — still stands as shipped.
+
 ## Problem
 
 Spec 270 D6 made grouping mandatory: in an adopted project every งานย่อย must

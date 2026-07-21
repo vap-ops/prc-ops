@@ -11,7 +11,8 @@ select plan(14);
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- A. Catalog: one overload, the 5-arg signature, definer, grants.
+-- A. Catalog: one overload, the 6-arg signature (spec 336 added p_category_id),
+--    definer, grants.
 -- ---------------------------------------------------------------------------
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -19,8 +20,8 @@ select is(
   1, 'exactly one create_work_package overload (old 4-arg dropped)');
 
 select has_function('public', 'create_work_package',
-  array['uuid','text','text','text','uuid'],
-  'create_work_package(uuid, text, text, text, uuid) exists');
+  array['uuid','text','text','text','uuid','uuid'],
+  'create_work_package(uuid, text, text, text, uuid, uuid) exists');
 
 select is(
   (select p.prosecdef from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -29,12 +30,12 @@ select is(
 
 select is(
   has_function_privilege('anon',
-    'public.create_work_package(uuid, text, text, text, uuid)', 'execute'),
+    'public.create_work_package(uuid, text, text, text, uuid, uuid)', 'execute'),
   false, 'anon cannot execute create_work_package');
 
 select is(
   has_function_privilege('authenticated',
-    'public.create_work_package(uuid, text, text, text, uuid)', 'execute'),
+    'public.create_work_package(uuid, text, text, text, uuid, uuid)', 'execute'),
   true, 'authenticated can execute create_work_package');
 
 -- ---------------------------------------------------------------------------
