@@ -1,3 +1,9 @@
+# [0.166.0](https://github.com/vap-ops/prc-ops/compare/v0.165.0...v0.166.0) (2026-07-21)
+
+### Features
+
+- **register:** deferred-docs office approve — spec 333 U1+U2 ([#680](https://github.com/vap-ops/prc-ops/issues/680)) ([ecbf833](https://github.com/vap-ops/prc-ops/commit/ecbf83359d5bd3e2e44d11b6e0c72cfd9e453d6c))
+
 # [0.165.0](https://github.com/vap-ops/prc-ops/compare/v0.164.1...v0.165.0) (2026-07-21)
 
 ### Features
