@@ -53,6 +53,7 @@ import { wpWalkFrom } from "@/lib/work-packages/wp-walk";
 import { WpWalkBar } from "@/components/features/work-packages/wp-walk-bar";
 import { loadGroupChildren, loadGroupMoney } from "@/lib/work-packages/load-group-detail";
 import { GroupDetailView } from "@/components/features/work-packages/group-detail-view";
+import { AddWorkPackageSheet } from "../../add-work-package-sheet";
 import { WpParentCrumb } from "@/components/features/work-packages/wp-parent-crumb";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { WpAssignmentPanel } from "@/components/features/work-packages/wp-assignment-panel";
@@ -118,7 +119,14 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   if (!pre || pre.project_id !== projectId) notFound();
 
   if (pre.is_group) {
-    const children = await loadGroupChildren(supabase, pre.id);
+    // Spec 335: the project's own status gates the add-งานย่อย door and depends
+    // only on projectId, so it rides alongside the children read (no waterfall).
+    const [children, projectRow] = await Promise.all([
+      loadGroupChildren(supabase, pre.id),
+      isPlanner
+        ? supabase.from("projects").select("status").eq("id", projectId).maybeSingle()
+        : null,
+    ]);
     // Money = leaf-bound sums (returns netted) — manager tier only, admin
     // client behind that gate (dashboard posture).
     const money = isPlanner
@@ -128,6 +136,12 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           children.map((c) => c.id),
         )
       : null;
+    // Gate = the PM tier (isManagerRole IS PM_ROLES, exactly what
+    // createWorkPackage enforces — so the button can never be a dead door) AND
+    // an open project (the project page's own rule; the RPC would otherwise
+    // answer with P0002). Pinned by tests/unit/wp-group-add-child-gate.test.ts.
+    const projectStatus = projectRow?.data?.status;
+    const canAddChild = isPlanner && (projectStatus === "active" || projectStatus === "on_hold");
     return (
       <PageShell>
         <DetailHeader backHref={safeBackHref(from, projectHref(projectId))} backLabel="กลับ">
@@ -151,6 +165,14 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             }))}
             money={money}
             canOpenChildren
+            addChildAction={
+              canAddChild ? (
+                <AddWorkPackageSheet
+                  projectId={projectId}
+                  fixedParent={{ id: pre.id, code: pre.code, name: pre.name }}
+                />
+              ) : null
+            }
           />
         </section>
       </PageShell>

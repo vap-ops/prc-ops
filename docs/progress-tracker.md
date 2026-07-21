@@ -6,6 +6,68 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 335 — เพิ่มงานย่อย from the งาน (main WP) detail — 🔨 U1 built (2026-07-21)
+
+Operator directive: "add เพิ่มงานย่อย button in main WP detail view". Code-only,
+no schema — the `p_parent_id` arm of `create_work_package` (spec 270 U4, mig
+`072700`) and the `createWorkPackage` action already do the work; the งาน detail
+just supplies the parent instead of the project page's 47-option select.
+
+- `AddWorkPackageSheet` gains a `fixedParent` mode: parent select → static
+  `อยู่ในงาน WP-05 งานหลังคา` context (tied to the form by `aria-describedby`),
+  trigger/title/submit compose from `WP_LEAF_LABEL`, and `code` starts at
+  `` `${parent.code}-` `` (and resets back there after a create). Default mode is
+  byte-identical — its three existing tests are the regression pin.
+- `GroupDetailView` gains an `addChildAction?: ReactNode` slot in the children
+  section header. The view stays server-safe and gate-free; the page decides.
+- The WP-detail `is_group` branch computes `canAddChild` = `isPlanner` (=
+  `isManagerRole` = `PM_ROLES`, exactly the action's own gate, so the door can
+  never be dead) AND project `active`/`on_hold`. The planner-only
+  `projects.status` read rides `loadGroupChildren`'s `Promise.all`.
+- Code prefill is grounded, not guessed: all **331** live children under all
+  **47** parents carry the parent code as prefix (queried 2026-07-21).
+
+**Verification:** RED-first — 5 of the 6 first-round tests failed (the sixth is a
+forward pin: no door renders either way today), then the review's prefix-guard
+test RED-first again. **9 mutation checks**, each RED-ing the intended test:
+slot placement, `initialCode`, the fixed-parent payload spread, a
+default-rendered door, the sheet title, the `fixedParent`-beats-`groups`
+precedence, and the gate pin three ways (`isPlanner`→`isAssigner`, dropping
+`on_hold`, un-gating the sheet). Suite 4615/4615 + lint + typecheck green.
+Live verify on the dev server against prod data: the door renders for the PM
+tier and is **absent** under a `site_admin` view-as cookie (same page, otherwise
+identical); a real งานย่อย created through `create_work_package` under the
+dev-preview identity rendered on a fresh fetch (1 → 2) and was removed again
+with `delete_work_package` (1). ⚠️ The click leg could not be driven — every
+element inside `main` measures 0px in the in-app browser, including untouched
+pre-existing buttons, which is the documented dev-browser wedge, not this diff.
+
+### Fresh-eyes findings — all addressed
+
+1. 🟡 **Prefill defeated the empty-code guard** (real regression): `WP-05-`
+   passes `validateWorkPackageCode`, so a PM could submit the bare prefix. Fixed
+   with a `code.trim() !== initialCode` arm on `canSubmit`, RED-first.
+2. 🟡 **Fourth serial round-trip** on a branch whose leaf sibling was explicitly
+   de-waterfalled → folded into `Promise.all`.
+3. 🟡 **The gate had no test** → new `wp-group-add-child-gate.test.ts`, mutation-
+   checked three ways.
+4. 🟡 **Fake coverage**: the no-select assertion passed with or without the
+   `fixedParent === undefined` clause because that render passed no `groups` →
+   the fixed-parent suite now renders both props.
+5. 🔵 Sheet title asserted; parent context tied to the form with
+   `aria-describedby`; slot wrapped `shrink-0` so a long heading cannot squeeze
+   the button under the 44px tap floor.
+
+### Open questions (not implemented — scope)
+
+- The project page's trigger still reads `+ เพิ่มงาน` while in an adopted project
+  it creates a งานย่อย. Renaming it is a UI-term call across a shared surface,
+  not this unit's business.
+- No code-prefix validation anywhere (DB has no constraint). Prefill is a
+  default; a PM may still type a code that breaks the sort convention.
+
+---
+
 ## Spec 334 — /team hub focus (ทีมงาน: วันนี้ ก่อน) — 🔨 U1–U4 built, ships as one PR (2026-07-21)
 
 Read-only recompose of `/team` — วันนี้-first for the SA (attendance hero + icon

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
+import { WP_GROUP_LABEL, WP_LEAF_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_PRIMARY, INLINE_ERROR } from "@/lib/ui/classes";
 import {
   WP_CODE_MAX,
@@ -30,27 +31,37 @@ export interface ParentGroupOption {
   name: string;
 }
 
+// Spec 335 — opened from the งาน detail the parent is already known, so the
+// select is replaced by static context, the code starts at the parent's prefix
+// (all 331 live children follow it) and the wording speaks งานย่อย throughout.
 export function AddWorkPackageSheet({
   projectId,
   groups = [],
+  fixedParent,
 }: {
   projectId: string;
   groups?: ReadonlyArray<ParentGroupOption>;
+  fixedParent?: ParentGroupOption;
 }) {
   const router = useRouter();
+  const initialCode = fixedParent ? `${fixedParent.code}-` : "";
   const [open, setOpen] = useState(false);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(initialCode);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [parentId, setParentId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
-  const needsParent = groups.length > 0;
+  const needsParent = fixedParent === undefined && groups.length > 0;
   const canSubmit =
     validateWorkPackageCode(code).ok &&
     validateWorkPackageName(name).ok &&
     (!needsParent || parentId !== "") &&
+    // The prefill is a head start, not a code: `WP-05-` passes the non-empty
+    // validator, so without this the guard that used to hold an untouched code
+    // field disabled would be gone in fixedParent mode.
+    code.trim() !== initialCode &&
     !submitting;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -64,13 +75,13 @@ export function AddWorkPackageSheet({
         name,
         description,
         // Legacy projects keep the exact old payload (key omitted).
-        ...(needsParent ? { parentId } : {}),
+        ...(fixedParent ? { parentId: fixedParent.id } : needsParent ? { parentId } : {}),
       });
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      setCode("");
+      setCode(initialCode);
       setName("");
       setDescription("");
       setParentId("");
@@ -82,11 +93,24 @@ export function AddWorkPackageSheet({
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={BUTTON_PRIMARY}>
-        + เพิ่มงาน
+        {fixedParent ? `+ เพิ่ม${WP_LEAF_LABEL}` : "+ เพิ่มงาน"}
       </button>
 
-      <BottomSheet open={open} title="เพิ่มรายการงาน" onClose={() => setOpen(false)}>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <BottomSheet
+        open={open}
+        title={fixedParent ? `เพิ่ม${WP_LEAF_LABEL}` : "เพิ่มรายการงาน"}
+        onClose={() => setOpen(false)}
+      >
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4"
+          {...(fixedParent ? { "aria-describedby": "new-wp-fixed-parent" } : {})}
+        >
+          {fixedParent ? (
+            <p id="new-wp-fixed-parent" className="text-meta text-ink-secondary">
+              {`อยู่ใน${WP_GROUP_LABEL} ${fixedParent.code} ${fixedParent.name}`}
+            </p>
+          ) : null}
           {needsParent ? (
             <div className="flex flex-col gap-1.5">
               <label htmlFor="new-wp-parent" className={LABEL}>
@@ -161,7 +185,7 @@ export function AddWorkPackageSheet({
 
           <div className="flex items-center justify-end">
             <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
-              {submitting ? "กำลังเพิ่ม…" : "สร้างงาน"}
+              {submitting ? "กำลังเพิ่ม…" : fixedParent ? `สร้าง${WP_LEAF_LABEL}` : "สร้างงาน"}
             </button>
           </div>
         </form>

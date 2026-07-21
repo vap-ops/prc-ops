@@ -6,6 +6,7 @@
 // (leaf-bound sums, returns netted — see group-detail.ts), and the งานย่อย
 // list. Server-safe (no hooks) — rendered by the WP detail page's group branch.
 
+import type { ReactNode } from "react";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { WorklistRow } from "@/components/features/chrome/worklist-row";
@@ -43,6 +44,9 @@ export interface GroupDetailViewProps {
   money: GroupSpendSummary | null;
   /** Whether this viewer may open the child งานย่อย details. */
   canOpenChildren: boolean;
+  /** Spec 335: the add-งานย่อย door, rendered in the children section header.
+   *  The page owns the gate (PM tier + open project) — omitted means no door. */
+  addChildAction?: ReactNode;
 }
 
 export function GroupDetailView({
@@ -51,6 +55,7 @@ export function GroupDetailView({
   childItems,
   money,
   canOpenChildren,
+  addChildAction,
 }: GroupDetailViewProps) {
   const progress = deriveDeliverableProgress(childItems.map((c) => c.status));
   return (
@@ -127,9 +132,12 @@ export function GroupDetailView({
 
       {/* The งานย่อย inside. */}
       <section className="flex flex-col gap-2.5">
-        <h2 className="text-section text-ink font-semibold">
-          {WP_LEAF_LABEL}ใน{WP_GROUP_LABEL}นี้ ({childItems.length})
-        </h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-section text-ink font-semibold">
+            {WP_LEAF_LABEL}ใน{WP_GROUP_LABEL}นี้ ({childItems.length})
+          </h2>
+          {addChildAction ? <div className="shrink-0">{addChildAction}</div> : null}
+        </div>
         {childItems.length === 0 ? (
           <EmptyNotice>
             ยังไม่มี{WP_LEAF_LABEL}ใน{WP_GROUP_LABEL}นี้
