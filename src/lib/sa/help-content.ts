@@ -40,8 +40,12 @@ export const HELP_CARDS: HelpCard[] = [
     // button that appears after switching to ออก. The camera button renders only
     // where BarcodeDetector exists (Android/PWA), so tapping leads and scanning
     // is named as the shortcut, not the path.
+    // Spec 334 U4: the DOOR moved — U1 replaced the flat เช็คชื่อ link at the top of
+    // /team with the วันนี้ hero card (muster-today-card.tsx), whose CTA is เริ่มเช็คชื่อ
+    // (not_started) / ไปหน้าเช็คชื่อ (open). Step 1 now names that CTA; steps 2–5 (the
+    // cockpit) were re-verified against muster-cockpit.tsx and are unchanged.
     steps: [
-      "เปิดแท็บ “ทีมงาน” แล้วกดปุ่ม เช็คชื่อ (ปุ่มนี้จะขึ้นเมื่อเลือกไซต์ปัจจุบันแล้ว)",
+      "เปิดแท็บ “ทีมงาน” — การ์ด วันนี้ ด้านบนจะขึ้นเมื่อเลือกไซต์ปัจจุบันแล้ว กดปุ่ม เริ่มเช็คชื่อ บนการ์ด (ถ้าเปิดทีมของวันนี้แล้ว ปุ่มจะเป็น ไปหน้าเช็คชื่อ)",
       "ครั้งแรกของวัน: เลือกหัวหน้าทีม แล้วกด เปิดทีม",
       "โหมด เข้า: กด + เพิ่มช่าง แล้วเลือกชื่อ — ถ้าเครื่องสแกนได้ จะมีปุ่ม สแกน QR บัตรช่าง ให้ใช้แทนได้",
       "ตอนเลิกงาน: สลับเป็นโหมด ออก แล้วกด เช็คออก ที่ชื่อช่างแต่ละคน",
@@ -60,7 +64,9 @@ export const HELP_CARDS: HelpCard[] = [
     title: "เพิ่มช่างใหม่",
     whenToUse: "มีช่างใหม่เข้าทีม",
     steps: [
-      "ไปที่ “ทีมงาน” แล้วกดปุ่ม “เพิ่มช่างใหม่”",
+      // Spec 334 U3: the door is the เพิ่มช่าง tile (team-tiles.tsx ADD_TILE_LABEL);
+      // เพิ่มช่างใหม่ survives only as the sheet's title once it opens.
+      "ไปที่ “ทีมงาน” แล้วแตะ “เพิ่มช่าง”",
       "ช่างมีมือถือ: ให้สแกน QR ของโครงการด้วยมือถือตัวเอง แล้วกรอกข้อมูลและบัญชีธนาคารเอง",
       "ช่างไม่มีมือถือ: กรอกชื่อ–เลขบัตรประชาชน–วันเกิด แล้วถ่ายรูปหรือแนบรูปสมุดบัญชี",
       "เสร็จแล้ว ช่างจะขึ้นในรายชื่อทีม รอผู้จัดการยืนยัน",
@@ -72,12 +78,17 @@ export const HELP_CARDS: HelpCard[] = [
     title: "จัดการทีม",
     whenToUse: "ดูสมาชิกทีม และสถานะการรับช่างเข้าทีม",
     steps: [
-      // Spec 313 U7: U3 retired the SaTools ทีมงาน tile once /team got its own
-      // bottom tab; this step named the retired door.
+      // Spec 334 U4: the hub recompose (U3) retired CrewProgressRoster (the
+      // รอตรวจ→รอยืนยัน→พร้อม onboarding gate) and moved SiteTeamBoard to its own
+      // /team/roster route. Rewritten against the shipped affordances: the ทีมงาน
+      // tab → the “รายชื่อทีม” tile (team-tiles.tsx) → the roster's ยังไม่ได้จัดทีม
+      // bucket + รอ PM ยืนยัน chip (site-team-board.tsx). No step names a hub block
+      // that no longer exists.
       "เปิดแท็บ “ทีมงาน” ที่แถบล่าง",
-      "ดูสถานะการรับเข้า: รอตรวจ → รอยืนยัน → พร้อม",
-      "ดู “ทีมหน้างาน” เพื่อเห็นว่าใครอยู่ทีมไหน",
+      "แตะ “รายชื่อทีม” เพื่อเปิดหน้ารายชื่อทั้งหมด",
+      "หน้านี้จัดคนเป็นทีมให้เห็นว่าใครอยู่ทีมไหน — คนที่ยังไม่เข้าทีมจะอยู่กลุ่ม “ยังไม่ได้จัดทีม”",
+      "ช่างที่ผู้จัดการ (PM) ยังไม่ยืนยันค่าจ้าง/ระดับ จะมีป้าย “รอ PM ยืนยัน” ติดที่ชื่อ",
     ],
-    tip: "ช่างใหม่จะขึ้น “รอยืนยัน” จนกว่าผู้จัดการ (PM) จะยืนยันค่าจ้าง/ระดับ — เรื่องเงินเป็นหน้าที่ PM ไม่ใช่ SA",
+    tip: "ช่างใหม่จะมีป้าย “รอ PM ยืนยัน” จนกว่าผู้จัดการ (PM) จะยืนยันค่าจ้าง/ระดับ — เรื่องเงินเป็นหน้าที่ PM ไม่ใช่ SA",
   },
 ];

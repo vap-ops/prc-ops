@@ -128,6 +128,10 @@ export const DAILY_WORK_PLAN_LABEL = "แผนพรุ่งนี้";
 // Spec 306 U3 — the morning-talk muster (check-in). SSOT'd because the project
 // cockpit CTA, the /projects/[id]/muster page title + header all name it.
 export const MUSTER_LABEL = "เช็คชื่อ";
+// Spec 334 U1 — the ปิดวันแล้ว banner is now a 2-surface string: the muster cockpit
+// (muster-cockpit.tsx) and the /team วันนี้ hero (MusterTodayCard), so it is SSOT'd
+// here per the UI-term rule. The card's other strings are single-surface → local.
+export const MUSTER_DAY_CLOSED_LABEL = "ปิดวันแล้ว";
 export const SUBWP_RESPONSIBLE_LABEL = "ผู้รับผิดชอบงานย่อย";
 // Spec 273 U5 — relative-day qualifiers for the date-navigable board stepper (and
 // the /sa "แก้ไขแผนวันนี้" deep-link). SSOT'd because both surfaces use them.

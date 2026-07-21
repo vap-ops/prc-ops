@@ -57,7 +57,8 @@ describe("spec 313 U2b — ทีมงาน no longer leaks into roster/labor 
 // labels.ts) — and it is what stops the next rename from missing a surface.
 describe("spec 313 U2b — the roster name is single-sourced", () => {
   const CONST_CONSUMERS = [
-    "src/app/team/page.tsx",
+    // Spec 334 U3 moved the รายชื่อช่าง tile off the hub page into the tile SSOT.
+    "src/components/features/sa/team-tiles.tsx",
     "src/app/settings/sections.ts",
     "src/lib/purchasing/procurement-home.ts",
   ];

@@ -48,6 +48,19 @@ const toTeamMember = (w: WorkerRow): CrewTeamMember => ({
   employmentType: w.employmentType,
 });
 
+/** The ONE "assigned" rule (spec 334 review fix): a worker is on a team if they
+ * are a member OR the lead of a crew — a lead without a member row must not show
+ * up as loose/unassigned. Exported so the /team hub's ยังไม่จัดทีม bubble counts
+ * with the same rule this file's roster grouping renders with. */
+export function assignedWorkerIdSet(
+  members: ReadonlyArray<{ worker_id: string }>,
+  crews: ReadonlyArray<{ lead_worker_id: string | null }>,
+): Set<string> {
+  const assigned = new Set<string>(members.map((m) => m.worker_id));
+  for (const c of crews) if (c.lead_worker_id) assigned.add(c.lead_worker_id);
+  return assigned;
+}
+
 export function buildCrewTeams(input: {
   workers: WorkerRow[];
   crews: CrewRow[];
@@ -104,10 +117,7 @@ export function buildCrewTeams(input: {
     };
   });
 
-  // A worker is "on a team" if they are a member OR the lead of a crew — a lead
-  // without a member row must not show up as loose/unassigned.
-  const assigned = new Set<string>(members.map((m) => m.worker_id));
-  for (const c of crews) if (c.lead_worker_id) assigned.add(c.lead_worker_id);
+  const assigned = assignedWorkerIdSet(members, crews);
 
   const unassigned = workers.filter((w) => !assigned.has(w.id)).map(toTeamMember);
 

@@ -13,7 +13,15 @@
 // The SA sets NO bank and NO pay/level (ADR 0079). 'use client': open + branch state and
 // the upload state machine.
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { UserPlus, ScanLine, Camera, Building2, Users, Printer, Share2 } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
@@ -61,19 +69,58 @@ type Mode = "choose" | "has_phone" | "no_phone";
 /** "prc" = today's pipeline; otherwise the selected contractor id. */
 type Team = "prc" | string;
 
+// Spec 334 U3 — the /team hub opens this ONE sheet from two tiles (เพิ่มช่าง →
+// "choose", QR สมัคร → "has_phone"). Those tiles are rendered inside the server tile
+// grid (icons + labels), so they can't hold the client open() directly; a context
+// lets the sheet publish open() and the tile buttons consume it — one sheet, N
+// openers, and nothing but strings/elements crosses the RSC boundary.
+type OpenSheet = (mode: "choose" | "has_phone") => void;
+const OpenSheetContext = createContext<OpenSheet | null>(null);
+
+/**
+ * A grid tile that opens the shared AddTechnicianSheet in a given mode. The visual
+ * (icon + label) is server-rendered by the tile grid and handed in as `children`,
+ * so this client button carries only the mode + the shared tile className — no icon
+ * component crosses the server→client boundary.
+ */
+export function SheetOpenerButton({
+  mode,
+  className,
+  children,
+}: {
+  mode: "choose" | "has_phone";
+  className: string;
+  children: ReactNode;
+}) {
+  const open = useContext(OpenSheetContext);
+  return (
+    <button type="button" onClick={() => open?.(mode)} className={className}>
+      {children}
+    </button>
+  );
+}
+
 export function AddTechnicianSheet({
   projects,
   qrCards,
   firmQrCards = [],
+  initialMode = "choose",
+  children,
 }: {
   projects: { id: string; code: string; name: string }[];
   qrCards: AddTechnicianQrCard[];
   firmQrCards?: SubconFirmQrCard[];
+  /** The mode the DEFAULT trigger opens in (spec 334 U3). The /team hub instead
+   * passes `children` and opens each tile with an explicit mode via context. */
+  initialMode?: "choose" | "has_phone";
+  /** When provided, renders in place of the default trigger button; its
+   * SheetOpenerButton tiles open the sheet via context (one sheet, two openers). */
+  children?: ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [team, setTeam] = useState<Team>("prc");
-  const [mode, setMode] = useState<Mode>("choose");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [name, setName] = useState("");
   const [nationalId, setNationalId] = useState("");
@@ -89,7 +136,7 @@ export function AddTechnicianSheet({
 
   function reset() {
     setTeam("prc");
-    setMode("choose");
+    setMode(initialMode);
     setName("");
     setNationalId("");
     setDob("");
@@ -167,12 +214,21 @@ export function AddTechnicianSheet({
       activePanelRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   }, [team, open, nested]);
 
+  function openWith(m: "choose" | "has_phone") {
+    setMode(m);
+    setOpen(true);
+  }
+
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={BUTTON_PRIMARY}>
-        <UserPlus aria-hidden className="size-5 shrink-0" />
-        {ADD_TECHNICIAN_LABEL}
-      </button>
+      {children ? (
+        <OpenSheetContext.Provider value={openWith}>{children}</OpenSheetContext.Provider>
+      ) : (
+        <button type="button" onClick={() => openWith(initialMode)} className={BUTTON_PRIMARY}>
+          <UserPlus aria-hidden className="size-5 shrink-0" />
+          {ADD_TECHNICIAN_LABEL}
+        </button>
+      )}
 
       <BottomSheet open={open} title={ADD_TECHNICIAN_LABEL} onClose={close}>
         <div className="flex flex-col gap-4">

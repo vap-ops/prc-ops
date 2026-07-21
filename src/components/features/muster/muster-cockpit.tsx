@@ -10,7 +10,7 @@
 
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { formatThaiDate, MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
 import {
   openMusterTeam,
   musterScan,
@@ -135,7 +135,7 @@ export function MusterCockpit({
 
       {board.closure ? (
         <p className="border-edge bg-sunk text-ink-secondary rounded-card border px-3 py-2 text-sm font-semibold">
-          ปิดวันแล้ว · {bangkokTime(board.closure.closedAt)}
+          {MUSTER_DAY_CLOSED_LABEL} · {bangkokTime(board.closure.closedAt)}
         </p>
       ) : null}
 
