@@ -1,3 +1,9 @@
+# [0.165.0](https://github.com/vap-ops/prc-ops/compare/v0.164.1...v0.165.0) (2026-07-21)
+
+### Features
+
+- **workers:** worker trades — สายงาน (spec 332 U1+U2) ([#678](https://github.com/vap-ops/prc-ops/issues/678)) ([2ea0a0f](https://github.com/vap-ops/prc-ops/commit/2ea0a0f568b28733179c1ad9a27ea74609a16ea4))
+
 ## [0.164.1](https://github.com/vap-ops/prc-ops/compare/v0.164.0...v0.164.1) (2026-07-20)
 
 ### Bug Fixes
