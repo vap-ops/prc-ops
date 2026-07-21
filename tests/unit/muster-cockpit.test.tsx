@@ -28,6 +28,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { MusterCockpit } from "@/components/features/muster/muster-cockpit";
 import type { MusterBoard } from "@/lib/muster/load-muster";
+import { MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
 
 const PROJECT = "11111111-1111-1111-1111-111111111111";
 const W1 = "aaaaaaaa-1111-1111-1111-111111111111";
@@ -135,7 +136,8 @@ describe("MusterCockpit", () => {
 
   it("shows the closed banner when the day is already closed", () => {
     renderCockpit({ ...BOARD, closure: { closedAt: "2026-07-13T10:00:00Z" } });
-    expect(screen.getByText(/ปิดวันแล้ว/)).toBeInTheDocument();
+    // Spec 334 U1 — pin the closed banner to the SSOT const, not a retyped literal.
+    expect(screen.getByText(new RegExp(MUSTER_DAY_CLOSED_LABEL))).toBeInTheDocument();
   });
 
   it("saves an edited WP set for a team", async () => {
