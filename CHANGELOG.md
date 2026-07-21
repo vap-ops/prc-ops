@@ -1,3 +1,9 @@
+# [0.169.0](https://github.com/vap-ops/prc-ops/compare/v0.168.0...v0.169.0) (2026-07-21)
+
+### Features
+
+- **work-packages:** derive งานย่อย codes from the work category (spec 336) ([#684](https://github.com/vap-ops/prc-ops/issues/684)) ([0cc93b6](https://github.com/vap-ops/prc-ops/commit/0cc93b6d70b4c918fccefe8165a49e214da1553e))
+
 # [0.168.0](https://github.com/vap-ops/prc-ops/compare/v0.167.1...v0.168.0) (2026-07-21)
 
 ### Features
