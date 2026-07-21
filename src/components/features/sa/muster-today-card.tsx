@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { ScanLine, ArrowRight } from "lucide-react";
 import { MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { musterHref } from "@/lib/nav/project-paths";
 import type { MusterDaySummary } from "@/lib/muster/day-summary";
 
@@ -76,7 +77,9 @@ export function MusterTodayCard({
       ) : null}
 
       <Link
-        href={musterHref(projectId)}
+        // Spec 334 follow-up: thread ?from=/team so the cockpit's back chip
+        // returns to this hub, not the project page (multi-parent class).
+        href={withBackFrom(musterHref(projectId), "/team")}
         className={
           primary
             ? "bg-fill text-on-fill flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold"

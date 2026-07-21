@@ -8,10 +8,13 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { MusterTodayCard } from "@/components/features/sa/muster-today-card";
 import { musterHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
 import type { MusterDaySummary } from "@/lib/muster/day-summary";
 
-const HREF = musterHref("p1");
+// Spec 334 follow-up: every hero CTA threads ?from=/team so the cockpit's back
+// chip returns HERE, not to the project page (the multi-parent back-chip class).
+const HREF = withBackFrom(musterHref("p1"), "/team");
 
 function renderCard(summary: MusterDaySummary) {
   return render(

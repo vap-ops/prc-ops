@@ -47,11 +47,15 @@ export function MusterCockpit({
   date,
   revalidate,
   board,
+  htWorkerIds,
 }: {
   projectId: string;
   date: string;
   revalidate: string;
   board: MusterBoard;
+  /** Spec 334 follow-up — the HT axis (crews.lead_worker_id, spec 330/332): only
+   * these workers may be picked as a muster team's หัวหน้าทีม. */
+  htWorkerIds: readonly string[];
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("in");
@@ -64,7 +68,10 @@ export function MusterCockpit({
 
   const musteredIds = new Set(board.teams.flatMap((t) => t.members.map((m) => m.workerId)));
   const leadIds = new Set(board.teams.map((t) => t.leadWorkerId));
-  const availableLeads = board.workers.filter((w) => !leadIds.has(w.id));
+  // หัวหน้าทีม = HT only (operator rule 2026-07-21): a worker who leads a crew
+  // (htWorkerIds, from crews.lead_worker_id) and is not already leading today.
+  const htIds = new Set(htWorkerIds);
+  const availableLeads = board.workers.filter((w) => htIds.has(w.id) && !leadIds.has(w.id));
   // A worker is addable to team T if not already mustered AND not the lead of
   // ANOTHER team (their own lead may be scanned into their own team). Excluding
   // all leadIds globally would wrongly block adding a lead to their own team.
@@ -145,29 +152,37 @@ export function MusterCockpit({
         </p>
       ) : null}
 
-      <div className="border-edge bg-card rounded-card flex flex-wrap items-center gap-2 border px-4 py-3">
-        <select
-          aria-label="เลือกหัวหน้าทีม"
-          value={leadPick}
-          onChange={(e) => setLeadPick(e.target.value)}
-          className="border-edge bg-card text-ink min-h-11 flex-1 rounded-lg border px-3 text-sm"
-        >
-          <option value="">เลือกหัวหน้าทีม…</option>
-          {availableLeads.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={openTeam}
-          disabled={!leadPick || pending}
-          className="bg-fill text-on-fill min-h-11 rounded-lg px-4 text-sm font-bold disabled:opacity-50"
-        >
-          เปิดทีม
-        </button>
-      </div>
+      {htWorkerIds.length === 0 ? (
+        // No HT bound in this project — an empty opener would be a dead door;
+        // point at the fix (a PM sets หัวหน้า on the project team map, spec 330).
+        <p className="border-edge bg-sunk text-ink-secondary rounded-card border px-3 py-2 text-sm">
+          ยังไม่มีหัวหน้าทีม (HT) ในโครงการนี้ — ให้ผู้จัดการกำหนดหัวหน้าทีมที่หน้าทีมงานโครงการก่อน
+        </p>
+      ) : (
+        <div className="border-edge bg-card rounded-card flex flex-wrap items-center gap-2 border px-4 py-3">
+          <select
+            aria-label="เลือกหัวหน้าทีม"
+            value={leadPick}
+            onChange={(e) => setLeadPick(e.target.value)}
+            className="border-edge bg-card text-ink min-h-11 flex-1 rounded-lg border px-3 text-sm"
+          >
+            <option value="">เลือกหัวหน้าทีม…</option>
+            {availableLeads.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={openTeam}
+            disabled={!leadPick || pending}
+            className="bg-fill text-on-fill min-h-11 rounded-lg px-4 text-sm font-bold disabled:opacity-50"
+          >
+            เปิดทีม
+          </button>
+        </div>
+      )}
 
       {board.teams.length === 0 ? (
         <p className="text-ink-muted text-sm">ยังไม่มีทีมวันนี้ — เลือกหัวหน้าทีมเพื่อเปิดทีมแรก</p>
