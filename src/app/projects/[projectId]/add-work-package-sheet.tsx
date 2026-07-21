@@ -32,19 +32,27 @@ export interface ParentGroupOption {
 }
 
 // Spec 335 — opened from the งาน detail the parent is already known, so the
-// select is replaced by static context, the code starts at the parent's prefix
-// (all 331 live children follow it) and the wording speaks งานย่อย throughout.
+// select is replaced by static context and the wording speaks งานย่อย throughout.
+// Spec 336 — the code is no longer built from the parent's own code (the retired
+// WP- convention): the page supplies a suggestion derived from the งาน's work
+// category (W05-03) plus that category, which rides the payload so the new row
+// holds the category its code claims. No suggestion → an empty field, never a
+// fabricated prefix.
 export function AddWorkPackageSheet({
   projectId,
   groups = [],
   fixedParent,
+  suggestedCode,
+  categoryId,
 }: {
   projectId: string;
   groups?: ReadonlyArray<ParentGroupOption>;
   fixedParent?: ParentGroupOption;
+  suggestedCode?: string;
+  categoryId?: string;
 }) {
   const router = useRouter();
-  const initialCode = fixedParent ? `${fixedParent.code}-` : "";
+  const initialCode = suggestedCode ?? "";
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState(initialCode);
   const [name, setName] = useState("");
@@ -54,15 +62,23 @@ export function AddWorkPackageSheet({
   const [submitting, startSubmit] = useTransition();
 
   const needsParent = fixedParent === undefined && groups.length > 0;
+  // Spec 335 held submit until the code changed, because `WP-05-` was a PARTIAL
+  // prefix. A 336 suggestion is a COMPLETE code — the exact next free one — so
+  // there is nothing left to complete and the plain validators are the gate.
   const canSubmit =
     validateWorkPackageCode(code).ok &&
     validateWorkPackageName(name).ok &&
     (!needsParent || parentId !== "") &&
-    // The prefill is a head start, not a code: `WP-05-` passes the non-empty
-    // validator, so without this the guard that used to hold an untouched code
-    // field disabled would be gone in fixedParent mode.
-    code.trim() !== initialCode &&
     !submitting;
+
+  // The suggestion advances after each create (router.refresh re-renders the
+  // page with the next free code), and useState only ever seeds. Re-seeding on
+  // OPEN is what keeps a second create off the code the first one just took.
+  function openSheet() {
+    setCode(initialCode);
+    setError(null);
+    setOpen(true);
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -76,6 +92,8 @@ export function AddWorkPackageSheet({
         description,
         // Legacy projects keep the exact old payload (key omitted).
         ...(fixedParent ? { parentId: fixedParent.id } : needsParent ? { parentId } : {}),
+        // Spec 336: the category the suggested code claims, so the row holds it.
+        ...(categoryId !== undefined ? { categoryId } : {}),
       });
       if (!result.ok) {
         setError(result.error);
@@ -92,7 +110,7 @@ export function AddWorkPackageSheet({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={BUTTON_PRIMARY}>
+      <button type="button" onClick={openSheet} className={BUTTON_PRIMARY}>
         {fixedParent ? `+ เพิ่ม${WP_LEAF_LABEL}` : "+ เพิ่มงาน"}
       </button>
 
@@ -143,7 +161,7 @@ export function AddWorkPackageSheet({
               onChange={(e) => setCode(e.target.value)}
               disabled={submitting}
               className="border-edge-strong bg-card text-ink h-11 font-mono"
-              placeholder="เช่น WP-001"
+              placeholder="เช่น W05-01"
             />
           </div>
 

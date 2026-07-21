@@ -139,6 +139,9 @@ export interface CreateWorkPackageInput {
   /** Spec 270 U4: the parent งาน — required in practice for an adopted project
    *  (the U6 DB guard rejects a parentless งานย่อย there); omit for legacy. */
   parentId?: string;
+  /** Spec 336: the work category the derived code (W05-03) claims. The RPC
+   *  validates it belongs to the project and stores it on the new row. */
+  categoryId?: string;
 }
 
 export type CreateWorkPackageResult = { ok: true; id: string } | { ok: false; error: string };
@@ -172,6 +175,9 @@ export async function createWorkPackage(
   if (input.parentId !== undefined && !isValidUuid(input.parentId)) {
     return { ok: false, error: "งานหลักไม่ถูกต้อง" };
   }
+  if (input.categoryId !== undefined && !isValidUuid(input.categoryId)) {
+    return { ok: false, error: "หมวดงานไม่ถูกต้อง" };
+  }
 
   const rpcArgs: Database["public"]["Functions"]["create_work_package"]["Args"] = {
     p_project_id: input.projectId,
@@ -183,6 +189,8 @@ export async function createWorkPackage(
   // Spec 270 U4: pass the parent through; wp_hierarchy_guard validates it
   // (same-project · is_group · depth · U6 grouping-mandatory).
   if (input.parentId !== undefined) rpcArgs.p_parent_id = input.parentId;
+  // Spec 336: the RPC re-validates that the category belongs to the project.
+  if (input.categoryId !== undefined) rpcArgs.p_category_id = input.categoryId;
 
   const { data: newId, error } = await supabase.rpc("create_work_package", rpcArgs);
   if (error) {

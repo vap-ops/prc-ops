@@ -6,6 +6,97 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 336 — category-derived งานย่อย codes (`W05-01`) — 🔨 U1 built (2026-07-21)
+
+Operator: "we don't use WP as code anymore, redesign", then chose the
+work-category scheme over dropping codes from the UI entirely. Supersedes spec
+335's D4 (parent-code prefix) hours after it shipped.
+
+- **Migration `075823`:** `create_work_package` += trailing `p_category_id`
+  (DROP+CREATE from the LIVE body, the shape 270 U4 used for `p_parent_id`),
+  validated against the project (`22023`) and stored on the new row — otherwise
+  the code would claim `W05` on a category-less row. New read-only
+  `suggest_work_package_code`, SECURITY INVOKER so the caller's RLS is the gate.
+- **Migration `075824`:** closes an anon-EXECUTE hole `075823` left — see below.
+- Sheet: `initialCode` is now the supplied suggestion, never a code built from
+  the parent; `categoryId` rides the payload. No suggestion → empty field.
+- Numbering is per **project + category**, forced by `unique(project_id, code)`:
+  per-งาน numbering would collide across two งาน sharing a category.
+
+**Grounded in live data, not assumption:** 47 of 47 งาน carry a category and 47
+of 47 have children in exactly ONE category with **zero** children differing from
+their parent — so the parent determines the category and the sheet never has to
+ask. 385 of 396 codes are `WP-*`; the other 11 are a legacy solar project
+(`SL-001`, `WP01`…), so nothing collides with `Wnn-nn`.
+
+**Verification:** pgTAP RED-first (336 the only unexpected red pre-migration) →
+18 assertions green, full pgTAP 305 pass / only known-red 221. vitest RED-first
+(4) → 4620 green; **2 mutation checks** (reverting `initialCode` to the parent
+prefix, dropping `categoryId` from the payload) each RED the intended test.
+Live on prod: the suggester returns `W05-01` for all three W05 งาน in TFM, a real
+row created through the 6-arg RPC held code `W05-01` **and** category W05, the
+suggester then advanced to `W05-02`, and the row was deleted (0 leftovers). The
+served page carries `suggestedCode:"W05-01"` beside a still-legacy
+`fixedParent.code:"WP-12"` — the redesign end to end.
+
+### Fresh-eyes findings — 3🔴 8🟡 2🔵, all addressed (migration `075825`)
+
+1. 🔴 **`lpad` truncates on the right.** `lpad('100', 2, '0')` = `'10'` (verified
+   live). Past 99 — or the moment anyone hand-types `W05-100`, which D4 allows —
+   every later suggestion for that category would collide forever. Padding is now
+   explicit and never shortens. New pgTAP asserts `W09-100`; it would RED on
+   `075823`.
+2. 🔴 **Stale prefill handed out a duplicate.** `useState` only seeds, so after a
+   create `router.refresh()` advanced the suggestion while the field still held
+   the code just taken — one click from a guaranteed 23505. The sheet now
+   re-seeds on OPEN. Pinned by a rerender test, mutation-checked.
+3. 🔴 **The "must differ from the prefill" guard was inverted by 336.** In 335
+   `WP-05-` was a PARTIAL prefix needing completion; a 336 suggestion is the
+   COMPLETE correct answer, so the guard made the one right code the only string
+   you could not submit. Dropped; non-empty validation already covers it.
+4. 🟡 `pc.code` was interpolated into a regex unescaped (a code like `W(5` would
+   kill the suggester; `W.5` would over-match) and `::int` could overflow on a
+   long hand-typed run. Prefix matching is now plain string comparison and the
+   only regex left is a constant, bounded to 9 digits and cast to `bigint`.
+5. 🟡 `create_work_package` accepted a **deactivated** category that the
+   designated writer `set_work_package_category` refuses. Now matches, and the
+   `category_id` column comment (which claimed "set only via
+   set_work_package_category") is corrected. pgTAP pins it.
+6. 🟡 The suggester's RPC error was discarded, so a failure looked like "this งาน
+   has no category". Now logged.
+7. 🟡 **D3's justification was inverted:** `categoryId` follows the PARENT, not
+   the typed code, so a hand-edited code can disagree with the stored category.
+   The behaviour is right (the งาน determines the category, 47/47); the claim was
+   wrong. Spec now says so as D4b.
+8. 🟡 Two test gaps closed: numbering aggregating across งาน sharing a category
+   (the stated reason for per-project numbering, previously untested) and the
+   inactive-category rejection. One assertion that could not fail independently
+   was replaced.
+9. 🔵 `comment on function` added to both; placeholder `เช่น WP-001` → `เช่น W05-01`.
+
+### My own bug, caught by the repo's guard
+
+`075823` wrote `revoke execute … from anon`, which does **not** remove the
+EXECUTE Postgres grants to PUBLIC by default — so anon could still reach both
+functions through PUBLIC. The repo's established pattern (`20260727000000`,
+`20260813072700`) is `revoke all … from public, anon`. The `229` anon-exec
+lockdown pgTAP failed and named it. Fixed in `075824` (new file — applied
+migrations are never edited).
+
+### Open questions
+
+- **Codes lose parent locality.** All three W05 งาน in TFM currently suggest
+  `W05-01`; whoever creates first takes it and the next gets `W05-02`, so a code
+  no longer tells you which งาน it belongs to (the old `WP-12-01` did). Inherent
+  to a category-numbered scheme under `unique(project_id, code)` — the only way
+  to keep locality is to put the งาน back in the code. Operator call.
+- **Recode the 385 legacy `WP-*` rows?** Not done: forward-only. Means mixed
+  codes inside one งาน. Cheap later, expensive to undo.
+- Group (งาน) codes are untouched; recoding them would change the
+  `WP-05 › WP-05-03` breadcrumb shape.
+
+---
+
 ## Spec 335 — เพิ่มงานย่อย from the งาน (main WP) detail — 🔨 U1 built (2026-07-21)
 
 Operator directive: "add เพิ่มงานย่อย button in main WP detail view". Code-only,
@@ -26,6 +117,10 @@ just supplies the parent instead of the project page's 47-option select.
   `projects.status` read rides `loadGroupChildren`'s `Promise.all`.
 - Code prefill is grounded, not guessed: all **331** live children under all
   **47** parents carry the parent code as prefix (queried 2026-07-21).
+  ⚠️ **Superseded the same day by spec 336** — the operator retired the `WP-`
+  convention, so the suggestion now comes from the งาน's work category. The
+  prefill mechanism and its untouched-suggestion guard survive; only the source
+  of the suggested string changed.
 
 **Verification:** RED-first — 5 of the 6 first-round tests failed (the sixth is a
 forward pin: no door renders either way today), then the review's prefix-guard

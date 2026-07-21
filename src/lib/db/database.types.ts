@@ -9401,6 +9401,7 @@ export type Database = {
       }
       create_work_package: {
         Args: {
+          p_category_id?: string
           p_code: string
           p_description?: string
           p_name: string
@@ -10677,6 +10678,10 @@ export type Database = {
         Returns: string
       }
       suggest_project_code: { Args: never; Returns: string }
+      suggest_work_package_code: {
+        Args: { p_category_id: string; p_project_id: string }
+        Returns: string
+      }
       supersede_client_receipt: {
         Args: {
           p_amount: number
