@@ -69,7 +69,9 @@ export function MusterTodayCard({
 
       <Headline summary={summary} />
 
-      {summary.state === "not_started" ? (
+      {/* Review fix: with zero workers the no-technicians headline already says it
+          all — the "no one checked in yet" sub-line would be redundant noise. */}
+      {summary.state === "not_started" && summary.expected > 0 ? (
         <p className="text-ink-secondary text-meta">{NO_CHECKIN_YET}</p>
       ) : null}
 

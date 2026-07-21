@@ -81,6 +81,9 @@ describe("MusterTodayCard", () => {
     });
     expect(container.textContent).toContain("ยังไม่มีช่างในโครงการนี้");
     expect(container.textContent).not.toContain("/"); // no denominator when there are no workers
+    // Review fix (spec U1 zero-worker row): the no-workers headline REPLACES the
+    // whole count block — the "no one checked in yet" sub-line would be redundant.
+    expect(container.textContent).not.toContain("ยังไม่มีใครเช็คชื่อวันนี้");
     const link = screen.getByRole("link");
     expect(link).toHaveAttribute("href", HREF);
     expect(link.textContent).toContain("เริ่มเช็คชื่อ");

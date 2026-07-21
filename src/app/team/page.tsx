@@ -32,6 +32,7 @@ import { MusterTodayCard } from "@/components/features/sa/muster-today-card";
 import { loadMusterDaySummary, type MusterDaySummary } from "@/lib/muster/day-summary";
 import { TeamTiles, teamTilesForRole } from "@/components/features/sa/team-tiles";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
+import { assignedWorkerIdSet } from "@/lib/sa/crew-teams";
 
 export const metadata = { title: "ทีมงาน" };
 
@@ -70,7 +71,7 @@ export default async function TeamPage() {
       .eq("is_group", false);
     const projectIds = Array.from(new Set((wpRows ?? []).map((w) => w.project_id)));
 
-    const [projectRes, workerRes, memberRes, saQueue] = await Promise.all([
+    const [projectRes, workerRes, memberRes, crewRes, saQueue] = await Promise.all([
       projectIds.length
         ? supabase.from("projects").select("id, code, name").in("id", projectIds)
         : Promise.resolve({ data: null }),
@@ -84,6 +85,16 @@ export default async function TeamPage() {
       projectIds.length
         ? supabase.from("crew_members").select("worker_id").is("removed_at", null)
         : Promise.resolve({ data: null }),
+      // Crew leads count as assigned too (assignedWorkerIdSet — the same rule the
+      // roster's buildCrewTeams renders with; review fix: a lead without a member
+      // row must not inflate the ยังไม่จัดทีม bubble over the page it opens).
+      projectIds.length
+        ? supabase
+            .from("crews")
+            .select("lead_worker_id")
+            .eq("active", true)
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: null }),
       // /sa/registrations is the site_admin queue (RLS returns pending only) — its
       // length is the คำขอสมัคร bubble for site_admin; super_admin uses the approver
       // path below, so it fetches nothing here.
@@ -96,7 +107,7 @@ export default async function TeamPage() {
 
     const workerRows = workerRes.data ?? [];
     activeWorkerCount = workerRows.length;
-    const assignedWorkerIds = new Set((memberRes.data ?? []).map((m) => m.worker_id));
+    const assignedWorkerIds = assignedWorkerIdSet(memberRes.data ?? [], crewRes.data ?? []);
     unassignedCount = workerRows.filter((w) => !assignedWorkerIds.has(w.id)).length;
     saPendingCount = saQueue.length;
 
