@@ -27,6 +27,7 @@ vi.mock("@/app/workers/actions", () => ({
   setWorkerDayRate: mockSetRate,
   assignWorkerToProject: mockAssign,
   setWorkerLevel: vi.fn(),
+  setWorkerTrades: vi.fn(),
   assignProjectHt: vi.fn(),
 }));
 vi.mock("@/lib/ui/use-toast", () => ({
@@ -57,6 +58,7 @@ function worker(overrides: Partial<ManagedWorker>): ManagedWorker {
     portalBound: false,
     project_id: null,
     level: null,
+    trades: [],
     phone: null,
     tax_id: null,
     bank_name: null,

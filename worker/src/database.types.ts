@@ -8300,6 +8300,52 @@ export type Database = {
           },
         ]
       }
+      worker_trades: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          is_primary: boolean
+          work_category_id: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          is_primary?: boolean
+          work_category_id: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          is_primary?: boolean
+          work_category_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_trades_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_trades_work_category_id_fkey"
+            columns: ["work_category_id"]
+            isOneToOne: false
+            referencedRelation: "work_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_trades_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workers: {
         Row: {
           active: boolean
@@ -10474,6 +10520,10 @@ export type Database = {
           p_worker_id: string
         }
         Returns: string
+      }
+      set_worker_trades: {
+        Args: { p_categories: string[]; p_primary?: string; p_worker: string }
+        Returns: undefined
       }
       set_wp_budget: {
         Args: { p_budget: number; p_wp: string }
