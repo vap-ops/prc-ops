@@ -34,6 +34,7 @@ vi.mock("@/lib/ui/use-toast", () => ({
 }));
 
 import { RegistrationDecision } from "@/components/features/registrations/registration-decision";
+import { STAFF_ONBOARDABLE_ROLES } from "@/lib/auth/role-home";
 
 const PROJECTS = [
   { id: "p1", code: "PRJ-01", name: "โครงการหนึ่ง" },
@@ -85,14 +86,17 @@ describe("RegistrationDecision — site assignment selector", () => {
   });
 });
 
-describe("RegistrationDecision — role selector (self-onboard: 2 field roles)", () => {
-  it("offers only technician + site_admin, defaulting to technician", () => {
+describe("RegistrationDecision — role selector (spec 333 U2a: the SSOT list)", () => {
+  // CHANGED (spec 333 U2a): the 2026-07-08 two-role narrowing is superseded —
+  // the selector now offers exactly STAFF_ONBOARDABLE_ROLES, field roles first
+  // (the หน้างาน optgroup), still defaulting to technician. Full grouping +
+  // defer behavior: registration-decision-defer.test.tsx.
+  it("offers exactly STAFF_ONBOARDABLE_ROLES, field roles first, defaulting to technician", () => {
     render(<RegistrationDecision registrationId="reg-1" projects={PROJECTS} />);
     const roleSelect = screen.getByLabelText("มอบหมายบทบาท") as HTMLSelectElement;
-    expect(Array.from(roleSelect.options).map((o) => o.value)).toEqual([
-      "technician",
-      "site_admin",
-    ]);
+    const values = Array.from(roleSelect.options).map((o) => o.value);
+    expect(values.slice(0, 2)).toEqual(["technician", "site_admin"]);
+    expect([...values].sort()).toEqual([...STAFF_ONBOARDABLE_ROLES].sort());
     expect(roleSelect.value).toBe("technician");
   });
 
