@@ -16,6 +16,7 @@ vi.mock("next/navigation", () => ({
 import {
   BottomTabBar,
   COORDINATOR_TABS,
+  LEGAL_TABS,
   PM_TABS,
   PROCUREMENT_TABS,
   PROCUREMENT_MANAGER_TABS,
@@ -80,6 +81,15 @@ describe("BottomTabBar", () => {
     // don't admit it).
     expect(COORDINATOR_TABS.map((t) => [t.label, t.href])).toEqual([
       ["โครงการ", "/projects"],
+      ["ตั้งค่า", "/settings"],
+    ]);
+    // Spec 313 U7: LEGAL_TABS was the one exported tab set with NO pin at all —
+    // not even imported here. `legal` is absent from ASSUMABLE_ROLES so view-as
+    // cannot reach it, and U5 promoted /legal to a hub (no back chip), which
+    // makes this bar the role's only "you are here" on a phone. Pinned last
+    // because it is the newest set (spec 284 U5).
+    expect(LEGAL_TABS.map((t) => [t.label, t.href])).toEqual([
+      ["กฎหมาย", "/legal"],
       ["ตั้งค่า", "/settings"],
     ]);
     // Spec 323 U3b: procurement_manager collapses to the SAME STR spine — its
