@@ -88,10 +88,15 @@ export function buildRegistrationQueueRow(input: RegistrationQueueInput): Regist
     meetsFloor: meetsApprovalFloor(input),
     hasReviewerNote: input.hasReviewerNote,
     firmName: input.invitedFirm ? (input.invitedFirm.name ?? UNRESOLVED_FIRM_LABEL) : null,
+    // Spec 333 — the invited firm is IGNORED here: a deferred approval is never
+    // the contractor arm (the RPC refuses defer for technician, and the firm arm
+    // is technician-only), so a stale advisory invited_contractor_id must not
+    // let the bank-exempt short-circuit hide genuinely owed documents
+    // (fresh-eyes finding, 2026-07-21).
     docsOwed:
       input.status === "approved" &&
       input.documentsDeferredAt !== null &&
-      !meetsApprovalFloor(input),
+      !meetsApprovalFloor({ ...input, invitedFirm: null }),
   };
 }
 

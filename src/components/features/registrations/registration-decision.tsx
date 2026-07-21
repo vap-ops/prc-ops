@@ -70,7 +70,7 @@ const DEFAULT_ROLE: UserRole = "technician";
 
 // Spec 333 U2b — the ส่งเอกสารภายหลัง helper copy (single surface — this sheet).
 const DEFER_DOCS_HINT =
-  "อนุมัติได้โดยยังไม่มีบัตรประชาชน/สมุดบัญชี ผู้สมัครส่งเอกสารเพิ่มภายหลัง (เฉพาะตำแหน่งออฟฟิศ)";
+  "อนุมัติได้โดยยังไม่มีบัตรประชาชน/สมุดบัญชี ผู้สมัครส่งเอกสารเพิ่มภายหลัง (ใช้ไม่ได้กับตำแหน่งช่าง)";
 
 export interface RegistrationContractorOption {
   id: string;

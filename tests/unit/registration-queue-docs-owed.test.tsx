@@ -53,6 +53,20 @@ describe("buildRegistrationQueueRow — docsOwed (spec 333 U2)", () => {
   it("never flags a pending row (the pending hint owns that state)", () => {
     expect(buildRegistrationQueueRow(input({ status: "pending" })).docsOwed).toBe(false);
   });
+
+  it("ignores a stale invited firm — a deferred approval is never the contractor arm", () => {
+    // Registered via a firm QR (advisory invited_contractor_id) but approved as
+    // an office role with defer: meetsApprovalFloor's bank-exempt short-circuit
+    // must NOT hide the owed book_bank/bank (fresh-eyes finding 1, 2026-07-21).
+    const row = buildRegistrationQueueRow(
+      input({
+        invitedFirm: { id: "c1", name: "ช่างอวย" },
+        uploadedPurposes: ["id_card"],
+        hasBank: false,
+      }),
+    );
+    expect(row.docsOwed).toBe(true);
+  });
 });
 
 describe("RegistrationQueueList — เอกสารค้าง chip (spec 333 U2)", () => {

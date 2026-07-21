@@ -100,7 +100,10 @@ documents_deferred_at is not null` (else pending-only, unchanged).
    2026-07-21 — the earlier "pending-only" premise was false). Approved rows
    with `documents_deferred_at` set whose plain approval floor is still unmet
    get an `เอกสารค้าง` chip, so HR can chase the owed documents from the
-   existing list. No new surface.
+   existing list. No new surface. The floor is evaluated with the invited firm
+   IGNORED (fresh-eyes 2026-07-21): a deferred approval is never the contractor
+   arm, so a stale advisory `invited_contractor_id` must not let the
+   bank-exempt short-circuit hide owed documents.
 
 Out of scope (open questions if wanted later): a roleHome nag banner,
 extending deferral to field roles, auto-reminder pings.
