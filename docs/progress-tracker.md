@@ -6,6 +6,31 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 333 — Deferred-docs office approve — 🔨 U1+U2 (2026-07-21)
+
+- **U1 schema (mig `075822` LIVE):** `approve_staff_registration` 6→7 args
+  (`p_defer_documents`, old arity dropped, ACL replicated from pre-migration
+  capture); office-only (technician → P0001, Thai-mapped); full_name + PDPA
+  floors KEPT, id_card/book_bank/bank floors deferred; `documents_deferred_at`
+  stamp + audit payload flag; upload-later carves on `add_staff_registration_doc`
+  (approved book_bank while deferred; spec-315 id_card carve untouched) +
+  `record_own_staff_bank` (approved-while-deferred). pgTAP
+  `334-deferred-docs-approve` 21/21 RED-first; arity pins 264/288/328 updated
+  (282 pins nothing — fact-check corrected the plan).
+- **U2 code:** decision sheet role selector widened to STAFF_ONBOARDABLE_ROLES
+  (optgroups หน้างาน/ออฟฟิศ; supersedes the 2026-07-08 two-role narrowing —
+  operator 2026-07-21) + ส่งเอกสารภายหลัง checkbox (non-technician, no firm;
+  cleared on hide transitions) → action forwards `p_defer_documents`
+  omit-when-false; F1 Thai mapping in registration-error.ts; workspace
+  approved+deferred+owed → `DocsOwedCard` (reuses exported DocRow +
+  StaffBankFields; ไปหน้าหลัก → roleHome) else redirect unchanged; queue
+  เอกสารค้าง chip on approved+deferred+floor-unmet rows (queue already lists
+  approved rows — fact-check killed the "pending-only" premise).
+- Open questions / follow-ups (NOT built): roleHome nag banner for owed docs ·
+  auto-reminder pings · `meetsApprovalFloor` still ignores consent (pre-existing
+  omission, noted on its docstring) · pending ธีรรัตน์ PRC-26-0007 (ช่างไฟ =
+  field role, defer not applicable — operator decision owed on send-back).
+
 ## Spec 323 — Procurement STR IA — 🔨 U4 relocate + lens (2026-07-16)
 
 - Phase 1 ✅ (U1a #566 · U1b #568 · U1c #571 · U1d #573, mig 075804) · U2 `<ProjectLens>` ✅ #576 ·

@@ -56,8 +56,8 @@ select hasnt_function('public', 'start_staff_registration',
   array['text','text','text','uuid','uuid'],
   'old 5-arg start_staff_registration is dropped');
 select has_function('public', 'approve_staff_registration',
-  array['uuid','user_role','uuid','pay_type','employment_type','uuid'],
-  'approve_staff_registration has the 6-arg signature');
+  array['uuid','user_role','uuid','pay_type','employment_type','uuid','boolean'],
+  'approve_staff_registration has the 7-arg signature (spec 333 defer)');
 select hasnt_function('public', 'approve_staff_registration',
   array['uuid','user_role','uuid','pay_type','employment_type'],
   'old 5-arg approve_staff_registration is dropped');

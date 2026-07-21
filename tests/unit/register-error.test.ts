@@ -58,6 +58,14 @@ describe("registrationErrorToThai", () => {
     ).toMatch(/ไม่ได้อยู่ในสถานะรออนุมัติ/);
   });
 
+  it("maps the spec-333 defer-technician refusal to its exact Thai string", () => {
+    expect(
+      registrationErrorToThai(
+        "approve_staff_registration: deferred documents are not available for the technician role",
+      ),
+    ).toBe("ส่งเอกสารภายหลังใช้ไม่ได้กับตำแหน่งช่าง");
+  });
+
   it("maps the approval floor raises (missing name / missing id_card) distinctly", () => {
     expect(
       registrationErrorToThai(

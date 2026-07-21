@@ -43,6 +43,10 @@ export async function approveStaffRegistration(input: {
    *  The RPC (mig 075815) owns the authoritative guards: firm existence, role
    *  forced technician, bank-floor carve, worker minted pay-exempt. */
   contractorId?: string | null;
+  /** Spec 333 U2 — approve with deferred document floors (office arm). The RPC
+   *  (mig 075822) owns the authoritative guards: technician refused, full_name
+   *  + PDPA floors kept, documents_deferred_at stamped. */
+  deferDocuments?: boolean;
 }): Promise<ActionResult> {
   if (!isValidUuid(input.registrationId)) return { ok: false, error: GENERIC };
   // The picked role must be one the operator may onboard-and-approve. The RPC
@@ -75,6 +79,8 @@ export async function approveStaffRegistration(input: {
     // Same omit-when-null convention as p_project_id (exactOptionalPropertyTypes
     // + the generated `p_contractor_id?: string` arg type; SQL defaults null).
     ...(contractorId ? { p_contractor_id: contractorId } : {}),
+    // Spec 333 — omit-when-false (SQL defaults false).
+    ...(input.deferDocuments ? { p_defer_documents: true } : {}),
   });
   if (error) return { ok: false, error: registrationErrorToThai(error.message) };
 

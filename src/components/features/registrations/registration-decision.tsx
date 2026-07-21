@@ -34,7 +34,7 @@ import {
   rejectStaffRegistration,
   sendBackStaffRegistration,
 } from "@/app/registrations/actions";
-import type { UserRole } from "@/lib/auth/role-home";
+import { STAFF_ONBOARDABLE_ROLES, type UserRole } from "@/lib/auth/role-home";
 import {
   USER_ROLE_LABEL,
   REGISTRATION_SITE_ASSIGN_LABEL,
@@ -56,11 +56,21 @@ export interface RegistrationProjectOption {
   name: string;
 }
 
-// The self-onboard entry (/register/technician) yields only field roles, so the
-// approver picks between just ช่าง and ผู้ดูแลไซต์ — not the full staff-onboard list
-// (operator directive, 2026-07-08). Default = ช่าง (technician), the common case.
-const QR_ROLE_OPTIONS: readonly UserRole[] = ["technician", "site_admin"];
+// Spec 333 U2a — the selector is the documented SSOT (STAFF_ONBOARDABLE_ROLES),
+// grouped หน้างาน (field) / ออฟฟิศ. This supersedes the 2026-07-08 two-role
+// narrowing (technician + site_admin), which pre-dated any real office
+// applicant and made `legal` unassignable from the UI (operator directive
+// 2026-07-21: the legal-dept hires are approved through this queue).
+// Default = ช่าง (technician), the common case.
+const FIELD_ROLE_OPTIONS: readonly UserRole[] = ["technician", "site_admin"];
+const OFFICE_ROLE_OPTIONS: readonly UserRole[] = STAFF_ONBOARDABLE_ROLES.filter(
+  (r) => !FIELD_ROLE_OPTIONS.includes(r),
+);
 const DEFAULT_ROLE: UserRole = "technician";
+
+// Spec 333 U2b — the ส่งเอกสารภายหลัง helper copy (single surface — this sheet).
+const DEFER_DOCS_HINT =
+  "อนุมัติได้โดยยังไม่มีบัตรประชาชน/สมุดบัญชี ผู้สมัครส่งเอกสารเพิ่มภายหลัง (ใช้ไม่ได้กับตำแหน่งช่าง)";
 
 export interface RegistrationContractorOption {
   id: string;
@@ -111,6 +121,11 @@ export function RegistrationDecision({
       ? invitedContractorId
       : "",
   );
+  // Spec 333 U2b — ส่งเอกสารภายหลัง: visible only for a non-technician role with
+  // no firm picked; cleared whenever either transition hides it so a later
+  // re-pick never resurfaces a stale tick. The RPC is the sole gate.
+  const [deferDocs, setDeferDocs] = useState(false);
+  const deferVisible = role !== "technician" && contractorId === "";
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState("");
   // Spec 322 — the non-terminal "send back for edit" flow (parallel to reject).
@@ -126,6 +141,7 @@ export function RegistrationDecision({
         role,
         projectId: projectId || null,
         contractorId: contractorId || null,
+        deferDocuments: deferVisible && deferDocs,
       });
       if (!result.ok) {
         setError(result.error);
@@ -180,7 +196,8 @@ export function RegistrationDecision({
     <div className="flex flex-col gap-3">
       {!showReject && !showSendBack ? (
         <>
-          {/* Role: only the two self-onboard field roles — ช่าง (default) or ผู้ดูแลไซต์. */}
+          {/* Role: the STAFF_ONBOARDABLE_ROLES SSOT, grouped field/office
+              (spec 333 U2a). Default stays ช่าง. */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="approve-role" className="text-ink text-sm font-medium">
               มอบหมายบทบาท
@@ -189,24 +206,52 @@ export function RegistrationDecision({
               id="approve-role"
               value={role}
               disabled={pending}
-              onChange={(e) => setRole(e.target.value as UserRole)}
+              onChange={(e) => {
+                const next = e.target.value as UserRole;
+                setRole(next);
+                // Spec 333 U2b — returning to the field role hides the defer
+                // checkbox; clear it so a later office re-pick starts unticked.
+                if (next === "technician") setDeferDocs(false);
+              }}
               className={FIELD_STACKED}
             >
-              {QR_ROLE_OPTIONS.map((r) => (
-                <option
-                  key={r}
-                  value={r}
-                  // Spec 328 U3 — a firm member is ALWAYS a technician (the
-                  // RPC's contractor arm refuses any other role); disable the
-                  // rest while a firm is picked so the UI can't hit that error.
-                  disabled={contractorId !== "" && r !== "technician"}
-                >
-                  {USER_ROLE_LABEL[r]}
-                </option>
-              ))}
+              {/* Spec 328 U3 — a firm member is ALWAYS a technician (the RPC's
+                  contractor arm refuses any other role); disable the rest while
+                  a firm is picked so the UI can't hit that error. */}
+              <optgroup label="หน้างาน">
+                {FIELD_ROLE_OPTIONS.map((r) => (
+                  <option key={r} value={r} disabled={contractorId !== "" && r !== "technician"}>
+                    {USER_ROLE_LABEL[r]}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="ออฟฟิศ">
+                {OFFICE_ROLE_OPTIONS.map((r) => (
+                  <option key={r} value={r} disabled={contractorId !== ""}>
+                    {USER_ROLE_LABEL[r]}
+                  </option>
+                ))}
+              </optgroup>
             </select>
             {hint ? <p className="text-ink-muted text-xs">ผู้สมัครระบุว่า: {hint}</p> : null}
           </div>
+          {/* Spec 333 U2b — deferred documents (office roles only; the RPC is
+              the authoritative gate, mig 075822). */}
+          {deferVisible ? (
+            <div className="flex flex-col gap-1">
+              <label className="text-ink flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={deferDocs}
+                  disabled={pending}
+                  onChange={(e) => setDeferDocs(e.target.checked)}
+                  className="size-4"
+                />
+                ส่งเอกสารภายหลัง
+              </label>
+              <p className="text-ink-muted text-xs">{DEFER_DOCS_HINT}</p>
+            </div>
+          ) : null}
           {/* Spec 328 U3 — the firm the applicant joins (ทีมผู้รับเหมา). Empty =
               ทีม PRC (regular hire, full bank floor). Picking a firm forces the
               role to technician and makes the approval bank-exempt (RPC arm). */}
@@ -220,7 +265,12 @@ export function RegistrationDecision({
               disabled={pending}
               onChange={(e) => {
                 setContractorId(e.target.value);
-                if (e.target.value !== "") setRole("technician");
+                // Spec 333 U2b — the contractor arm is never deferred; picking
+                // a firm forces technician and clears any stale tick.
+                if (e.target.value !== "") {
+                  setRole("technician");
+                  setDeferDocs(false);
+                }
               }}
               className={FIELD_STACKED}
             >

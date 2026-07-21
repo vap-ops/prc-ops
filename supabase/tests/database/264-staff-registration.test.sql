@@ -109,8 +109,8 @@ select has_table('public', 'staff_consents', 'staff_consents table exists');
 select has_function('public', 'record_staff_consent', array['staff_consent_kind'],
   'record_staff_consent(staff_consent_kind) exists');
 select has_function('public', 'approve_staff_registration',
-  array['uuid','user_role','uuid','pay_type','employment_type','uuid'],
-  'approve_staff_registration(uuid, user_role, uuid, pay_type, employment_type, uuid) — role-parametric + spec-328 contractor arm');
+  array['uuid','user_role','uuid','pay_type','employment_type','uuid','boolean'],
+  'approve_staff_registration(uuid, user_role, uuid, pay_type, employment_type, uuid, boolean) — role-parametric + spec-328 contractor arm + spec-333 defer');
 select has_function('public', 'reject_staff_registration', array['uuid','text'],
   'reject_staff_registration(uuid, text) exists');
 
@@ -145,7 +145,7 @@ select is(
       and grantee in ('public','anon')),
   0, 'no PUBLIC/anon EXECUTE on any spec-264 function');
 select function_privs_are('public', 'approve_staff_registration',
-  array['uuid','user_role','uuid','pay_type','employment_type','uuid'],
+  array['uuid','user_role','uuid','pay_type','employment_type','uuid','boolean'],
   'authenticated', array['EXECUTE'], 'authenticated can execute approve_staff_registration');
 select function_privs_are('public', 'record_staff_consent', array['staff_consent_kind'],
   'authenticated', array['EXECUTE'], 'authenticated can execute record_staff_consent');

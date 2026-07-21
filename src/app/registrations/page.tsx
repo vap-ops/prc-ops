@@ -67,6 +67,7 @@ export default async function StaffRegistrationQueuePage({
       invitedFirm: r.invited_contractor_id
         ? { id: r.invited_contractor_id, name: firmNames.get(r.invited_contractor_id) ?? null }
         : null,
+      documentsDeferredAt: r.documents_deferred_at,
     }),
   );
 
