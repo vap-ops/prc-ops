@@ -177,6 +177,10 @@ const STATIC_DETAIL = [
   // (back chip → /team). Its former /sa/crew/badges route is now a thin redirect
   // (EXCLUDED below).
   "team/badges",
+  // Spec 334 U2: the merged team roster (site team board + the รอ PM ยืนยัน /
+  // รอ PM กรอกบัญชี onboarding chips) drills down from the /team hub (back chip
+  // → /team) — moved off the hub so /team stays วันนี้-first. A DetailHeader page.
+  "team/roster",
   // Spec 328 U2: the printable per-firm subcon onboarding poster drills down
   // from /team's เพิ่มช่างใหม่ sheet (back chip → /team, print-first like badges).
   "team/poster",

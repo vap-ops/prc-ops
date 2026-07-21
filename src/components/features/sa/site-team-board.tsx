@@ -15,6 +15,7 @@ import { WpCategoryCode } from "@/components/features/work-packages/wp-category-
 import { CountBadge, EmploymentBadge } from "@/components/features/sa/crew-team-roster";
 import { WORKER_LEVEL_LABEL } from "@/lib/nova/dials";
 import {
+  BANK_PENDING_CHIP_LABEL,
   EXCEPTION_OUR_TECH_EXTERNAL_LABEL,
   EXCEPTION_SUBCON_INTERNAL_LABEL,
   SITE_ACCESS_LABEL,
@@ -46,17 +47,24 @@ function ExceptionBadge({ exception }: { exception: TeamException }) {
   );
 }
 
+// Spec 334 U2 — the per-name status chips CrewProgressRoster used to own as whole
+// sections. Chip classes ported from the retired component so the visual stays put.
+const CHIP_CLASS =
+  "border-edge bg-sunk text-ink-secondary text-meta rounded-full border px-2 py-0.5";
+// Single-surface string (this board is its only home) — stays local per the SSOT rule.
+const COST_PENDING_CHIP_LABEL = "รอ PM ยืนยัน";
+
 function MemberRow({ member }: { member: SiteTeamMember }) {
   return (
     <li className="border-edge text-ink flex min-h-11 items-center justify-between gap-3 border-b py-2.5 text-sm last:border-b-0">
       <span className="min-w-0 truncate font-medium">{member.name}</span>
       <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         {member.exception ? <ExceptionBadge exception={member.exception} /> : null}
+        {member.costPending ? <span className={CHIP_CLASS}>{COST_PENDING_CHIP_LABEL}</span> : null}
+        {member.bankPending ? <span className={CHIP_CLASS}>{BANK_PENDING_CHIP_LABEL}</span> : null}
         {member.employmentType ? <EmploymentBadge type={member.employmentType} /> : null}
         {member.level ? (
-          <span className="border-edge bg-sunk text-ink-secondary text-meta rounded-full border px-2 py-0.5">
-            {WORKER_LEVEL_LABEL[member.level]}
-          </span>
+          <span className={CHIP_CLASS}>{WORKER_LEVEL_LABEL[member.level]}</span>
         ) : null}
       </span>
     </li>
@@ -166,8 +174,24 @@ function PeopleList({ people }: { people: { key: string; name: string | null }[]
   );
 }
 
-export function SiteTeamBoard({ board }: { board: SiteTeamBoardData }) {
+// The hub's historical empty copy — the default so the /team call site renders
+// byte-identically until task 4 removes the board from the hub.
+const DEFAULT_EMPTY_LABEL = "ยังไม่มีคนหน้างาน — เพิ่มช่างแล้วให้หัวหน้าจัดเป็นทีม";
+
+export function SiteTeamBoard({
+  board,
+  emptyLabel = DEFAULT_EMPTY_LABEL,
+}: {
+  board: SiteTeamBoardData;
+  /** Spec 334 U2 — the /team/roster page overrides the empty copy (ช่าง-first). */
+  emptyLabel?: string;
+}) {
   const { total, internal, external, siteAccess, unassigned } = board;
+  // Spec 334 U2 review fix: the empty notice keys on WORKERS, not total — a real
+  // SA always appears in ฝ่ายไซต์ (project_site_management returns the viewer),
+  // so a total===0 branch could never fire in production. Zero workers → show the
+  // notice AND still render whatever buckets exist (ฝ่ายไซต์).
+  const workerTotal = memberCount(internal) + memberCount(external) + unassigned.length;
 
   return (
     <section className="flex flex-col gap-4">
@@ -177,9 +201,8 @@ export function SiteTeamBoard({ board }: { board: SiteTeamBoardData }) {
         <CountBadge n={total} />
       </header>
 
-      {total === 0 ? (
-        <EmptyNotice>ยังไม่มีคนหน้างาน — เพิ่มช่างแล้วให้หัวหน้าจัดเป็นทีม</EmptyNotice>
-      ) : (
+      {workerTotal === 0 ? <EmptyNotice>{emptyLabel}</EmptyNotice> : null}
+      {total > 0 ? (
         <div className="flex flex-col gap-5">
           {internal.length > 0 ? (
             <Bucket label={TEAM_INTERNAL_LABEL} count={memberCount(internal)}>
@@ -211,11 +234,20 @@ export function SiteTeamBoard({ board }: { board: SiteTeamBoardData }) {
 
           {unassigned.length > 0 ? (
             <Bucket label={UNASSIGNED_TEAM_LABEL} count={unassigned.length}>
-              <PeopleList people={unassigned.map((m) => ({ key: m.id, name: m.name }))} />
+              {/* Spec 334 U2 review fix: MemberRow, not PeopleList — crewless
+                  workers carry the same status chips as crewed ones (on prod
+                  every unassigned worker is cost-pending; PeopleList stripped
+                  exactly their chips). ฝ่ายไซต์ stays PeopleList (users, not
+                  workers — no flags exist for them). */}
+              <ul className="rounded-card border-edge bg-card shadow-card flex flex-col border px-4">
+                {unassigned.map((m) => (
+                  <MemberRow key={m.id} member={m} />
+                ))}
+              </ul>
             </Bucket>
           ) : null}
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

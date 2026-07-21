@@ -23,6 +23,10 @@ export type TeamException =
 export interface SiteTeamMember extends CrewTeamMember {
   /** Set only when the member's contractor_id disagrees with their team's nature. */
   exception?: TeamException;
+  /** Spec 334 U2 — a PM has not cost/level-confirmed the worker (cost_confirmed_at IS NULL). */
+  costPending?: boolean;
+  /** Spec 334 U2 (spec 298 U2) — a phoneless SA-add awaiting a PM's bank transcription. */
+  bankPending?: boolean;
 }
 
 export interface SiteTeamGroup extends Omit<CrewTeam, "members"> {
@@ -52,22 +56,48 @@ export interface SiteTeamBoardInput {
   /** worker.id → workers.contractor_id (null = our company worker). */
   contractorByWorker: ReadonlyMap<string, string | null>;
   siteAccess: SiteAccessMember[];
+  /**
+   * Spec 334 U2 — worker ids a PM has not cost/level-confirmed (the รอ PM ยืนยัน chip).
+   * Optional: callers that don't surface the chip (today's hub) omit it → no chip.
+   */
+  costPendingByWorker?: ReadonlySet<string>;
+  /** Spec 334 U2 — worker ids awaiting a PM bank transcription (the รอ PM กรอกบัญชี chip). */
+  bankPendingByWorker?: ReadonlySet<string>;
+}
+
+/** The per-member onboarding chips (spec 334 U2), applied by worker id. */
+function chipFlags(
+  id: string,
+  costPendingByWorker: ReadonlySet<string> | undefined,
+  bankPendingByWorker: ReadonlySet<string> | undefined,
+): Pick<SiteTeamMember, "costPending" | "bankPending"> {
+  return {
+    ...(costPendingByWorker?.has(id) ? { costPending: true } : {}),
+    ...(bankPendingByWorker?.has(id) ? { bankPending: true } : {}),
+  };
 }
 
 function annotate(
   member: CrewTeamMember,
   isExternal: boolean,
   contractorByWorker: ReadonlyMap<string, string | null>,
+  costPendingByWorker: ReadonlySet<string> | undefined,
+  bankPendingByWorker: ReadonlySet<string> | undefined,
 ): SiteTeamMember {
   const contractorId = contractorByWorker.get(member.id) ?? null;
   let exception: TeamException | undefined;
   if (isExternal && contractorId === null) exception = "our_tech_external";
   else if (!isExternal && contractorId !== null) exception = "subcon_internal";
-  return exception ? { ...member, exception } : { ...member };
+  return {
+    ...member,
+    ...(exception ? { exception } : {}),
+    ...chipFlags(member.id, costPendingByWorker, bankPendingByWorker),
+  };
 }
 
 export function buildSiteTeamBoard(input: SiteTeamBoardInput): SiteTeamBoard {
   const { teams, unassigned, crewKindById, contractorByWorker, siteAccess } = input;
+  const { costPendingByWorker, bankPendingByWorker } = input;
 
   const internal: SiteTeamGroup[] = [];
   const external: SiteTeamGroup[] = [];
@@ -76,12 +106,19 @@ export function buildSiteTeamBoard(input: SiteTeamBoardInput): SiteTeamBoard {
     const isExternal = crewKindById.get(t.id) === SUBCON_KIND;
     const group: SiteTeamGroup = {
       ...t,
-      members: t.members.map((m) => annotate(m, isExternal, contractorByWorker)),
+      members: t.members.map((m) =>
+        annotate(m, isExternal, contractorByWorker, costPendingByWorker, bankPendingByWorker),
+      ),
     };
     (isExternal ? external : internal).push(group);
   }
 
-  const looseMembers: SiteTeamMember[] = unassigned.map((m) => ({ ...m }));
+  // Loose (teamless) workers carry the same onboarding chips but no team-nature
+  // exception — there is no team for their contractor_id to disagree with.
+  const looseMembers: SiteTeamMember[] = unassigned.map((m) => ({
+    ...m,
+    ...chipFlags(m.id, costPendingByWorker, bankPendingByWorker),
+  }));
 
   const crewCount = teams.reduce((n, t) => n + t.members.length, 0);
   const total = crewCount + looseMembers.length + siteAccess.length;
