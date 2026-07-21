@@ -578,6 +578,11 @@ export const PROJECT_COSTS_LABEL = "ต้นทุนโครงการ";
 // everywhere it appears: page title/heading + the project cockpit door aria.
 export const PROJECT_TEAM_LABEL = "ทีมงานโครงการ";
 
+// Spec 338 U3 — the placing trade-mismatch hint on the team map. ADVISORY
+// only (the drop never disables); rendered on the crew card while placing AND
+// in the assigned plan-chip sheet — 2 surfaces, so it lives here.
+export const TRADE_MISMATCH_HINT = "หัวหน้าทีมยังไม่มีสายงานนี้";
+
 // Spec 323 follow-up — the per-project supply plan (แผนจัดหา). One term
 // everywhere it appears: the supply-plan page title/heading, the project chip
 // aria-label, and the procurement hub Scope door. Distinct from

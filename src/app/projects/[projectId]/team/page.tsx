@@ -15,6 +15,7 @@ import { PROJECT_TEAM_LABEL } from "@/lib/i18n/labels";
 import { projectHref } from "@/lib/nav/project-paths";
 import { loadTeamMapPageData } from "@/lib/team-map/load-team-map";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { foldWorkerTrades, type WorkerTrade } from "@/lib/workers/trades";
 import type { TeamMapDayPlan } from "@/lib/work-plans/day-assignments";
 
 // Spec 330 U1+U5+U6 — the per-project team map (ทีมงานโครงการ): the PM-tier
@@ -39,9 +40,15 @@ async function loadDayPlan(
     .maybeSingle();
   if (!plan) return { date, items: [] };
 
+  // Spec 338 U3: the WP's firm W-code rides along. TWO-hop embed — the
+  // category FK targets project_categories, whose work_category_id reaches the
+  // firm taxonomy (project_categories.code is a per-project editable string,
+  // NOT the taxonomy; fact-checked live 2026-07-22).
   const { data: items } = await supabase
     .from("daily_work_plan_items")
-    .select("id, work_package_id, sort_order, work_packages(code, name)")
+    .select(
+      "id, work_package_id, sort_order, work_packages(code, name, project_categories(work_categories(code)))",
+    )
     .eq("plan_id", plan.id)
     .order("sort_order", { ascending: true });
   if (!items || items.length === 0) return { date, items: [] };
@@ -68,6 +75,7 @@ async function loadDayPlan(
       code: i.work_packages?.code ?? "",
       name: i.work_packages?.name ?? "",
       workerIds: byItem.get(i.id) ?? [],
+      categoryCode: i.work_packages?.project_categories?.work_categories?.code ?? null,
     })),
   };
 }
@@ -108,6 +116,20 @@ export default async function ProjectTeamPage({ params }: PageProps) {
       .order("code", { ascending: true }),
   ]);
 
+  // Spec 338 U2: trades ride a page-level prop — the builder stays a pure
+  // structure fold. RLS: worker_trades_select is authenticated-wide (verified
+  // live), so the user's own client reads it; a fetch error degrades to no
+  // tiles, never an error surface.
+  const workerIds = map.teams.flatMap((t) => t.members.map((m) => m.workerId));
+  let tradesByWorker: Record<string, WorkerTrade[]> = {};
+  if (workerIds.length > 0) {
+    const { data: tradeRows } = await supabase
+      .from("worker_trades")
+      .select("worker_id, work_category_id, is_primary, work_categories(code, name_th)")
+      .in("worker_id", workerIds);
+    tradesByWorker = foldWorkerTrades(tradeRows ?? []);
+  }
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -124,6 +146,7 @@ export default async function ProjectTeamPage({ params }: PageProps) {
           map={map}
           addableStaff={addableStaff}
           currentUserId={ctx.id}
+          tradesByWorker={tradesByWorker}
           dayPlans={{ today: todayPlan, tomorrow: tomorrowPlan }}
           planWps={leafWps ?? []}
         />

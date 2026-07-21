@@ -20,6 +20,12 @@ export interface DayPlanWpItem {
   name: string;
   /** Current daily_work_plan_crew worker ids for the item (may be empty). */
   workerIds: ReadonlyArray<string>;
+  /**
+   * Spec 338 U3 — the WP's firm work-category code (work_categories.code, two
+   * hops via project_categories), raw; null/absent = uncategorised and the
+   * placing hint stays silent.
+   */
+  categoryCode?: string | null;
 }
 
 export interface TeamDayAssignment {

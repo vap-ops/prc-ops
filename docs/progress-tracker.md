@@ -8674,3 +8674,30 @@ invited_by**, 15 of them post-F2b.
 - Open question (not built): no UI hint on a shared phone when an existing
   session blocks a new member's registration (Finding 2 of the 2026-07-21 QR
   login/logout audit — separate decision).
+
+## Spec 338 — Team-map legibility (2026-07-22)
+
+- **U1 ✅ built** — firm-card identity (border-edge-strong + ผู้รับเหมา badge;
+  the subtitle stops repeating the word) + dashed CHIP_EXEMPT chips keyed on
+  the chip's contractorId (never card kind) + 3-tier button hierarchy
+  (TIER_ACTION_PRIMARY/SHEET_PRIMARY = bg-action; SHEET_DANGER = the
+  wp-delete-control pattern on ยุบทีม/นำออกจากทีม/ถอดออกจากทีมโครงการ).
+  Mutation-checked (danger revert + chip-key revert → exactly 2 targeted reds).
+- **U2 ✅ built** — trades read layer: `foldWorkerTrades` (lib/workers/trades),
+  page-level fetch on the RLS server client (worker_trades_select =
+  authenticated-wide, verified live), collapsed-lead-line (★ name + tiles —
+  deliberate supersede of U1 collapsed-counts-only for the lead alone),
+  lead-band + chip primary-first tiles, chip-sheet สายงาน read block +
+  แก้ไขสายงานที่รายชื่อช่าง link → /workers. Builder untouched (danger fence).
+  Mutation-checked (fold-sort + firstOnly → targeted reds; band-order stays
+  green under fold mutation BY LAYERING — order is fold's contract, fold's own
+  test reds).
+- **U3 ✅ built** — `tradeMismatchCode` predicate (provable-mismatch-only:
+  resolvable category AND lead has ≥1 trade), `DayPlanWpItem.categoryCode?`
+  via the TWO-hop embed `work_packages → project_categories → work_categories`
+  (fact-checker catch: category_id FK targets project_categories, NOT
+  work_categories — single-hop embed would throw), TRADE_MISMATCH_HINT
+  (labels.ts, 2 surfaces: placing card line + plan-chip sheet). Advisory only —
+  drop button never disables. Mutation-checked (2 targeted reds).
+- Open questions: none new. Follow-ups already in spec (trades on firm cards
+  after 328 pilot; lead-picker sort by trades when fill-rate is real).
