@@ -1,3 +1,16 @@
+# [0.167.0](https://github.com/vap-ops/prc-ops/compare/v0.166.0...v0.167.0) (2026-07-21)
+
+### Bug Fixes
+
+- **team:** spec 334 T6 review fixes — assigned rule single-sourced + hero zero-state + stale doc ([293f5ee](https://github.com/vap-ops/prc-ops/commit/293f5ee9ff78d134a8bea40cc157a50b02ee5fed))
+
+### Features
+
+- **team:** spec 334 T1 — muster day-summary lib + MUSTER_DAY_CLOSED_LABEL SSOT ([91bbe63](https://github.com/vap-ops/prc-ops/commit/91bbe63217bd99bf116d87fc09fbe4c2b4f6a107))
+- **team:** spec 334 T2 — MusterTodayCard วันนี้ hero (3-state, pure props) ([95bc97e](https://github.com/vap-ops/prc-ops/commit/95bc97ec30eb248fccf57c5bcc23ea1d37b58442))
+- **team:** spec 334 T3 — /team/roster merged board + status chips ([63fefea](https://github.com/vap-ops/prc-ops/commit/63fefea1575f6750e01ca088751b1341ed4841c4))
+- **team:** spec 334 T4 — hub recompose: วันนี้ hero + ownership tiles ([0a28906](https://github.com/vap-ops/prc-ops/commit/0a28906a1fb00903be98285f0232d4dd3be7ee2f))
+
 # [0.166.0](https://github.com/vap-ops/prc-ops/compare/v0.165.0...v0.166.0) (2026-07-21)
 
 ### Features
