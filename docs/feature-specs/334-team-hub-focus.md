@@ -105,6 +105,13 @@ staff row. The Why section's "26 of 26" is the firm-wide figure the hub's retire
 รอยืนยัน block was rendering; the hero deliberately shows the project number,
 because attendance is a per-site act.
 
+**`present` can legitimately exceed `expected`.** `muster_scan_in` gates the
+CALLER (`can_see_project`) and the one-team-per-worker-per-day rule, but does NOT
+require `workers.project_id` to equal the team's project (verified in the live
+body 2026-07-21) — so a scanned-in null-project staff row or cross-project worker
+lands in `present` while sitting outside `expected`'s denominator. `26 / 25` must
+render as-is (it is true), never clamp, never crash — pinned in the shaper test.
+
 ## Units
 
 ### U1 — วันนี้ hero card
@@ -144,8 +151,13 @@ state via RTL.
 
 ### U2 — `/team/roster`, the merged roster
 
-New route, same role gate as `/team` (`TEAM_PAGE_ROLES`, composed at the call site —
-no new auth set). One list grouped by the existing `buildSiteTeamBoard` buckets
+New route. **Gate = the crew view's audience only** (`site_admin` + `super_admin` —
+the same `isCrew` pair that renders these components on `/team` today), NOT the full
+`TEAM_PAGE_ROLES`. The `crews_select` RLS would let back-office roles read the data
+(verified live: `is_back_office(...) OR lead OR sa-visible-crews`), but no non-crew
+role sees this board on `/team` today, and widening it would contradict "no role
+gain" — if a PM/procurement roster view is ever wanted, that is its own spec. One
+list grouped by the existing `buildSiteTeamBoard` buckets
 (ทีมภายใน · ทีมภายนอก · ฝ่ายไซต์ · ยังไม่ได้จัดทีม), each name carrying the status chips
 that `CrewProgressRoster` used to own as separate sections:
 
@@ -154,7 +166,9 @@ that `CrewProgressRoster` used to own as separate sections:
 - the worker level badge, when set
 
 `CrewProgressRoster` is deleted; its รอตรวจ gate becomes the คำขอสมัคร tile's bubble
-(U3) and its two remaining gates become chips here. `SiteTeamBoard` moves to this
+(U3) and its two remaining gates become chips here. Accepted trade, recorded: the
+pending applicants' NAMES leave the hub — the tile shows only the count, and the
+names live one tap away at the registrations queue. `SiteTeamBoard` moves to this
 route unchanged apart from accepting the chips. It is a detail page, so it carries
 `DetailHeader` with a back chip to `/team` — not hub chrome.
 
@@ -177,7 +191,7 @@ output; RTL for the empty state and for a member row carrying two chips at once.
 | tile                 | icon              | bubble                            | destination                                                                                                                        |
 | -------------------- | ----------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | คำขอสมัคร            | user-check        | **danger**, pending registrations | `/sa/registrations` (site_admin) or `/registrations` (approvers), referrer threaded                                                |
-| ยังไม่จัดทีม         | users-plus        | **warning**, unassigned count     | `/team/roster`                                                                                                                     |
+| ยังไม่จัดทีม         | users-plus        | **neutral**, unassigned count     | `/team/roster`                                                                                                                     |
 | รายชื่อทีม           | users-group       | **neutral**, active-worker count  | `/team/roster`                                                                                                                     |
 | เพิ่มช่าง            | user-plus         | none                              | the existing `AddTechnicianSheet`                                                                                                  |
 | บัตร QR              | id-badge          | none                              | `/team/badges`                                                                                                                     |
@@ -188,6 +202,20 @@ Rules: **a zero count renders no bubble** (never a "0" chip). Tiles the role has
 door for are not rendered. `CrewProgressRoster` and the inline `SiteTeamBoard` block
 both leave the hub in this unit — that is the change that takes the page from ~30
 rows to ~9.
+
+**Per-tile audience** (explicit, so no reader has to infer it): คำขอสมัคร renders
+for `site_admin` (→ `/sa/registrations`) and `STAFF_APPROVAL_ROLES`
+(→ `/registrations`); ยังไม่จัดทีม + รายชื่อทีม + เพิ่มช่าง + บัตร QR + QR สมัคร render
+for the crew pair (`site_admin` + `super_admin`) only — matching exactly which
+roles see those surfaces on `/team` today; รายชื่อช่าง + ค่าแรง render for
+`WORKER_ROSTER_ROLES`, as now. No role gains or loses a door.
+
+**ยังไม่จัดทีม is deliberately a NEUTRAL bubble, not warning** — D4's own rule:
+warning means the SA can act, and today no SA-reachable affordance assigns a
+worker to a crew (`move_crew_member` is spec 279 U5, unbuilt; the cockpit forms
+muster day-teams, not crews; the spec-330 assignment surface is PM-only). The
+mockup showed it amber; applying D4 honestly downgrades it. It flips to warning
+in the unit that ships an SA assign affordance, not before.
 
 **Negative cases**
 
