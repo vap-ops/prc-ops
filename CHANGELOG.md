@@ -1,3 +1,9 @@
+# [0.170.0](https://github.com/vap-ops/prc-ops/compare/v0.169.0...v0.170.0) (2026-07-21)
+
+### Features
+
+- **team-map:** trades on map, HT visible collapsed, contractor identity, button hierarchy (spec 338) ([#686](https://github.com/vap-ops/prc-ops/issues/686)) ([2aa7d60](https://github.com/vap-ops/prc-ops/commit/2aa7d60056123e62ea7c476194f212ec8246f7bf))
+
 # [0.169.0](https://github.com/vap-ops/prc-ops/compare/v0.168.0...v0.169.0) (2026-07-21)
 
 ### Features
