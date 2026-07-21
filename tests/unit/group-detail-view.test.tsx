@@ -99,3 +99,46 @@ describe("GroupDetailView", () => {
     expect(screen.getByText(/ยังไม่มีงานย่อย/)).toBeInTheDocument();
   });
 });
+
+// Spec 335 — the งาน detail is the one screen that already knows the parent, so
+// it hosts the add-งานย่อย door. The view stays server-safe and dumb: the page
+// owns the gate (PM tier + open project) and passes the sheet in as a node.
+describe("GroupDetailView add-งานย่อย slot (spec 335)", () => {
+  const ACTION_LABEL = "+ เพิ่มงานย่อย";
+
+  it("renders the supplied action beside the งานย่อย section heading", () => {
+    render(
+      <GroupDetailView
+        projectId="proj-1"
+        group={GROUP}
+        childItems={CHILDREN}
+        money={null}
+        canOpenChildren
+        addChildAction={
+          <button type="button" onClick={() => {}}>
+            {ACTION_LABEL}
+          </button>
+        }
+      />,
+    );
+    // Placement, not mere presence: the door sits in the children section's own
+    // header row, so it reads as "add one of THESE".
+    const heading = screen.getByRole("heading", { name: /งานย่อยในงานนี้/ });
+    expect(heading.parentElement).toContainElement(
+      screen.getByRole("button", { name: ACTION_LABEL }),
+    );
+  });
+
+  it("renders no add door when the page supplies none (non-PM / closed project)", () => {
+    render(
+      <GroupDetailView
+        projectId="proj-1"
+        group={GROUP}
+        childItems={CHILDREN}
+        money={null}
+        canOpenChildren
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /เพิ่มงานย่อย/ })).not.toBeInTheDocument();
+  });
+});
