@@ -1,3 +1,9 @@
+# [0.168.0](https://github.com/vap-ops/prc-ops/compare/v0.167.1...v0.168.0) (2026-07-21)
+
+### Features
+
+- **work-packages:** add เพิ่มงานย่อย door on the งาน detail (spec 335) ([1a7fc77](https://github.com/vap-ops/prc-ops/commit/1a7fc77c2d012c3508afa3995eb66347ebc0efca))
+
 ## [0.167.1](https://github.com/vap-ops/prc-ops/compare/v0.167.0...v0.167.1) (2026-07-21)
 
 ### Bug Fixes
