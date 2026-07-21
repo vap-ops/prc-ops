@@ -20,7 +20,10 @@ import { WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
 import {
   WorkerRosterManager,
   type ManagedWorker,
+  type TradeOption,
 } from "@/components/features/labor/worker-roster-manager";
+import type { WorkerTrade } from "@/lib/workers/trades";
+import { isWorkCategoryTopCode } from "@/lib/work-categories/identity";
 
 export const metadata = { title: WORKER_ROSTER_LABEL };
 
@@ -43,46 +46,85 @@ export default async function WorkersPage({
   // Perf debt rank 4 (architecture audit 2026-06): the three roster reads are
   // independent, so they ride ONE Promise.all (the spec 147 U1 pattern). Same
   // queries/columns/results — only the scheduling changes.
-  const [{ data: workerRows }, { data: contractorRows }, { data: projectRows }] = await Promise.all(
-    [
-      admin
-        .from("workers")
-        .select(
-          // Spec 272 U1: + level (a readable category, ADR 0060 — not money).
-          // DC edit matrix: + phone/tax_id/bank_* so the row edit sheet can prefill
-          // and edit them (money/PII — authorized by the requireRole gate above).
-          "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level, phone, tax_id, bank_name, bank_account_number, bank_account_name",
-        )
-        .order("name", { ascending: true }),
-      // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-ช่าง
-      // crews from the new-ช่าง picker while still resolving existing names.
-      supabase
-        .from("contractors")
-        .select("id, name, status, contractor_category")
-        .order("name", { ascending: true }),
-      // Spec 200: the projects the assigner can put a worker on. RLS-scoped (the
-      // assign gate is PM/super/director/procurement, the same audience as this page);
-      // procurement sees all, PM sees members, super/director all.
-      // Spec 272 U2: + ht_worker_id (granted column) — feeds the หัวหน้าช่าง
-      // badge + the assign block's replace-warning.
-      supabase
-        .from("projects")
-        .select("id, code, name, ht_worker_id")
-        .order("code", { ascending: true }),
-    ],
-  );
+  const [
+    { data: workerRows },
+    { data: contractorRows },
+    { data: projectRows },
+    { data: tradeRows },
+    { data: tradeCategoryRows },
+  ] = await Promise.all([
+    admin
+      .from("workers")
+      .select(
+        // Spec 272 U1: + level (a readable category, ADR 0060 — not money).
+        // DC edit matrix: + phone/tax_id/bank_* so the row edit sheet can prefill
+        // and edit them (money/PII — authorized by the requireRole gate above).
+        "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level, phone, tax_id, bank_name, bank_account_number, bank_account_name",
+      )
+      .order("name", { ascending: true }),
+    // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-ช่าง
+    // crews from the new-ช่าง picker while still resolving existing names.
+    supabase
+      .from("contractors")
+      .select("id, name, status, contractor_category")
+      .order("name", { ascending: true }),
+    // Spec 200: the projects the assigner can put a worker on. RLS-scoped (the
+    // assign gate is PM/super/director/procurement, the same audience as this page);
+    // procurement sees all, PM sees members, super/director all.
+    // Spec 272 U2: + ht_worker_id (granted column) — feeds the หัวหน้าช่าง
+    // badge + the assign block's replace-warning.
+    supabase
+      .from("projects")
+      .select("id, code, name, ht_worker_id")
+      .order("code", { ascending: true }),
+    // Spec 332: each worker's trade tags (สายงาน) + the category identity to
+    // render them. Read via the same admin client as the roster (RLS on
+    // worker_trades is select-for-authenticated; the admin read is authorized
+    // by the requireRole gate above and keeps the reads on one client).
+    admin
+      .from("worker_trades")
+      .select("worker_id, work_category_id, is_primary, work_categories(code, name_th)"),
+    // The top-9 global work-categories (W01–W09) = the trade options the sheet
+    // offers. isWorkCategoryTopCode keeps it top-level (5-char subsections excluded).
+    supabase
+      .from("work_categories")
+      .select("id, code, name_th")
+      .eq("is_active", true)
+      .order("code", { ascending: true }),
+  ]);
 
   // ADR 0062 U4a: derive portalBound from user_id (the LINE binding); user_id
   // itself stays server-side — only the boolean reaches the client roster.
   // DC edit matrix: withhold a bound worker's bank from the client entirely — once
   // bound, the ช่าง owns their bank via the portal request/approval flow, and the
   // edit sheet won't render it, so it must not ship in the props either.
+  // Spec 332: group trade tags by worker (primary-first ordering lives in the
+  // component). Only tags whose category is a top-level W0x survive — a defensive
+  // filter mirroring the RPC's own grain guard.
+  const tradesByWorker = new Map<string, WorkerTrade[]>();
+  for (const t of tradeRows ?? []) {
+    const cat = t.work_categories;
+    if (!cat || !isWorkCategoryTopCode(cat.code)) continue;
+    const list = tradesByWorker.get(t.worker_id) ?? [];
+    list.push({
+      categoryId: t.work_category_id,
+      code: cat.code,
+      nameTh: cat.name_th,
+      isPrimary: t.is_primary,
+    });
+    tradesByWorker.set(t.worker_id, list);
+  }
+  const tradeOptions: TradeOption[] = (tradeCategoryRows ?? [])
+    .filter((c) => isWorkCategoryTopCode(c.code))
+    .map((c) => ({ id: c.id, code: c.code, nameTh: c.name_th }));
+
   const workers: ManagedWorker[] = (workerRows ?? []).map(
     ({ user_id, bank_name, bank_account_number, bank_account_name, ...w }) => {
       const portalBound = user_id !== null;
       return {
         ...w,
         portalBound,
+        trades: tradesByWorker.get(w.id) ?? [],
         bank_name: portalBound ? null : bank_name,
         bank_account_number: portalBound ? null : bank_account_number,
         bank_account_name: portalBound ? null : bank_account_name,
@@ -115,6 +157,8 @@ export default async function WorkersPage({
           projects={projectRows ?? []}
           canGrade={ctx.role === "super_admin"}
           canAssignHt={PM_ROLES.includes(ctx.role)}
+          canSetTrades={PM_ROLES.includes(ctx.role)}
+          tradeOptions={tradeOptions}
         />
       </div>
     </PageShell>

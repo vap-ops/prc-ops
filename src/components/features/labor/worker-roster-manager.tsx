@@ -24,11 +24,24 @@ import {
   createWorker,
   setWorkerDayRate,
   setWorkerLevel,
+  setWorkerTrades,
   updateWorker,
   type WorkerActionResult,
 } from "@/app/workers/actions";
 import type { Database } from "@/lib/db/database.types";
 import { WORKER_LEVEL_LABEL, WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
+import { CategoryChip } from "@/components/features/work-packages/category-chip";
+import {
+  sortTradesPrimaryFirst,
+  tradeSelectionChanged,
+  type WorkerTrade,
+} from "@/lib/workers/trades";
+import {
+  TRADE_LABEL,
+  TRADE_PRIMARY_CLEAR_LABEL,
+  TRADE_PRIMARY_LABEL,
+  TRADES_EMPTY_LABEL,
+} from "@/lib/i18n/labels";
 import { BankSelect } from "@/components/features/common/bank-select";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { WorkerInviteBlock } from "@/components/features/portal/worker-invite-block";
@@ -69,6 +82,8 @@ export type ManagedWorker = {
   project_id: string | null;
   // Spec 272 U1 / ADR 0060: skill grade (null = ยังไม่ประเมิน; super_admin sets).
   level: WorkerLevel | null;
+  // Spec 332: the worker's trade tags (สายงาน) — assignment axis, W01–W09.
+  trades: WorkerTrade[];
   // DC edit matrix: payee fields, editable from the row's edit sheet. Money/PII —
   // reach this gated page via the admin client. bank_* is null for a portal-bound
   // worker (the loader withholds it — a bound worker owns their bank via the portal
@@ -301,6 +316,8 @@ function WorkerRow({
   projects,
   canGrade = false,
   canAssignHt = false,
+  canSetTrades = false,
+  tradeOptions = [],
   htCodes,
   currentProjectHt,
 }: {
@@ -313,6 +330,9 @@ function WorkerRow({
   // assign_project_ht = pm/pd/super) — the DEFINER RPCs re-check server-side.
   canGrade?: boolean;
   canAssignHt?: boolean;
+  // Spec 332: PM_ROLES edit trades (mirrors set_worker_trades); the W0x options.
+  canSetTrades?: boolean;
+  tradeOptions?: TradeOption[];
   // Spec 272 U2: codes of the projects this worker heads (the row badge)…
   htCodes: string[];
   // …and the current หัวหน้าช่าง of the worker's own project (replace-warning).
@@ -328,6 +348,12 @@ function WorkerRow({
   const [project, setProject] = useState(worker.project_id ?? "");
   // Spec 272 U1: the grade selector value ("" = still ungraded).
   const [level, setLevel] = useState<string>(worker.level ?? "");
+  // Spec 332: trade selection (category ids) + the one primary. Seeded from the
+  // worker's current tags; the sheet edits both, save() diffs before calling.
+  const [tradeIds, setTradeIds] = useState<string[]>(worker.trades.map((t) => t.categoryId));
+  const [primaryTradeId, setPrimaryTradeId] = useState<string | null>(
+    worker.trades.find((t) => t.isPrimary)?.categoryId ?? null,
+  );
   // DC edit matrix: การจ่าย × สถานะ + payee fields. Bank prefills only for an
   // unbound worker (the loader withholds a bound worker's bank).
   const [payType, setPayType] = useState<PayType>(worker.pay_type);
@@ -360,78 +386,92 @@ function WorkerRow({
   async function save() {
     setBusy(true);
     setError(null);
-    const nameChanged = name.trim() !== worker.name;
-    const noteChanged = note !== (worker.note ?? "");
-    // DC edit matrix: pay_type × employment_type + payee fields. Bank is only
-    // editable (and only forwarded) for an unbound worker — a bound worker's bank
-    // routes through the portal request/approval flow, so it is never sent here.
-    const payTypeChanged = payType !== worker.pay_type;
-    const employmentTypeChanged = employmentType !== worker.employment_type;
-    // Spec 328: only a real firm value ever forwards ("" = untied stays as-is).
-    const contractorChanged =
-      contractorPick !== "" && contractorPick !== (worker.contractor_id ?? "");
-    const phoneChanged = phone !== (worker.phone ?? "");
-    const taxIdChanged = taxId !== (worker.tax_id ?? "");
-    const bankEditable = !worker.portalBound;
-    const bankNameChanged = bankEditable && bankName !== (worker.bank_name ?? "");
-    const bankAccountNumberChanged =
-      bankEditable && bankAccountNumber !== (worker.bank_account_number ?? "");
-    const bankAccountNameChanged =
-      bankEditable && bankAccountName !== (worker.bank_account_name ?? "");
-    // One update call carries any changed field (the RPC coalesce-preserves
-    // omitted fields; note "" clears).
-    const anyUpdate =
-      nameChanged ||
-      noteChanged ||
-      payTypeChanged ||
-      employmentTypeChanged ||
-      phoneChanged ||
-      taxIdChanged ||
-      bankNameChanged ||
-      bankAccountNumberChanged ||
-      bankAccountNameChanged ||
-      contractorChanged;
-    const nameResult: WorkerActionResult = anyUpdate
-      ? await updateWorker({
-          id: worker.id,
-          ...(nameChanged ? { name } : {}),
-          ...(noteChanged ? { note } : {}),
-          ...(payTypeChanged ? { payType } : {}),
-          ...(employmentTypeChanged ? { employmentType } : {}),
-          ...(contractorChanged ? { contractorId: contractorPick } : {}),
-          ...(phoneChanged ? { phone } : {}),
-          ...(taxIdChanged ? { taxId } : {}),
-          ...(bankNameChanged ? { bankName } : {}),
-          ...(bankAccountNumberChanged ? { bankAccountNumber } : {}),
-          ...(bankAccountNameChanged ? { bankAccountName } : {}),
-        })
-      : { ok: true };
-    const newRate = Number(rate);
-    const rateResult: WorkerActionResult =
-      newRate !== worker.day_rate
-        ? await setWorkerDayRate({
+    // Spec 330 U1 lesson: a thrown action must not leave busy=true (the save
+    // button is disabled={busy} — a wedge locks the sheet). finally always resets.
+    try {
+      const nameChanged = name.trim() !== worker.name;
+      const noteChanged = note !== (worker.note ?? "");
+      // DC edit matrix: pay_type × employment_type + payee fields. Bank is only
+      // editable (and only forwarded) for an unbound worker — a bound worker's bank
+      // routes through the portal request/approval flow, so it is never sent here.
+      const payTypeChanged = payType !== worker.pay_type;
+      const employmentTypeChanged = employmentType !== worker.employment_type;
+      // Spec 328: only a real firm value ever forwards ("" = untied stays as-is).
+      const contractorChanged =
+        contractorPick !== "" && contractorPick !== (worker.contractor_id ?? "");
+      const phoneChanged = phone !== (worker.phone ?? "");
+      const taxIdChanged = taxId !== (worker.tax_id ?? "");
+      const bankEditable = !worker.portalBound;
+      const bankNameChanged = bankEditable && bankName !== (worker.bank_name ?? "");
+      const bankAccountNumberChanged =
+        bankEditable && bankAccountNumber !== (worker.bank_account_number ?? "");
+      const bankAccountNameChanged =
+        bankEditable && bankAccountName !== (worker.bank_account_name ?? "");
+      // One update call carries any changed field (the RPC coalesce-preserves
+      // omitted fields; note "" clears).
+      const anyUpdate =
+        nameChanged ||
+        noteChanged ||
+        payTypeChanged ||
+        employmentTypeChanged ||
+        phoneChanged ||
+        taxIdChanged ||
+        bankNameChanged ||
+        bankAccountNumberChanged ||
+        bankAccountNameChanged ||
+        contractorChanged;
+      const nameResult: WorkerActionResult = anyUpdate
+        ? await updateWorker({
             id: worker.id,
-            dayRate: Number.isFinite(newRate) ? newRate : -1,
+            ...(nameChanged ? { name } : {}),
+            ...(noteChanged ? { note } : {}),
+            ...(payTypeChanged ? { payType } : {}),
+            ...(employmentTypeChanged ? { employmentType } : {}),
+            ...(contractorChanged ? { contractorId: contractorPick } : {}),
+            ...(phoneChanged ? { phone } : {}),
+            ...(taxIdChanged ? { taxId } : {}),
+            ...(bankNameChanged ? { bankName } : {}),
+            ...(bankAccountNumberChanged ? { bankAccountNumber } : {}),
+            ...(bankAccountNameChanged ? { bankAccountName } : {}),
           })
         : { ok: true };
-    // Spec 200: move the worker's project if it changed ("" = unassign).
-    const projectChanged = project !== (worker.project_id ?? "");
-    const projectResult: WorkerActionResult = projectChanged
-      ? await assignWorkerToProject({ workerId: worker.id, projectId: project })
-      : { ok: true };
-    // Spec 272 U1: grade change rides the same save ("" placeholder never sends).
-    const levelChanged = canGrade && level !== "" && level !== (worker.level ?? "");
-    const levelResult: WorkerActionResult = levelChanged
-      ? await setWorkerLevel({ id: worker.id, level: level as WorkerLevel })
-      : { ok: true };
-    setBusy(false);
-    const failed = [nameResult, rateResult, projectResult, levelResult].find((r) => !r.ok);
-    if (failed && !failed.ok) {
-      setError(failed.error);
-      return;
+      const newRate = Number(rate);
+      const rateResult: WorkerActionResult =
+        newRate !== worker.day_rate
+          ? await setWorkerDayRate({
+              id: worker.id,
+              dayRate: Number.isFinite(newRate) ? newRate : -1,
+            })
+          : { ok: true };
+      // Spec 200: move the worker's project if it changed ("" = unassign).
+      const projectChanged = project !== (worker.project_id ?? "");
+      const projectResult: WorkerActionResult = projectChanged
+        ? await assignWorkerToProject({ workerId: worker.id, projectId: project })
+        : { ok: true };
+      // Spec 272 U1: grade change rides the same save ("" placeholder never sends).
+      const levelChanged = canGrade && level !== "" && level !== (worker.level ?? "");
+      const levelResult: WorkerActionResult = levelChanged
+        ? await setWorkerLevel({ id: worker.id, level: level as WorkerLevel })
+        : { ok: true };
+      // Spec 332: trades ride the same save; full-replace only when the set/primary
+      // actually changed (the RPC is a delete+insert, so skip the no-op call).
+      const tradesChanged =
+        canSetTrades && tradeSelectionChanged(worker.trades, tradeIds, primaryTradeId);
+      const tradesResult: WorkerActionResult = tradesChanged
+        ? await setWorkerTrades({ id: worker.id, categoryIds: tradeIds, primaryId: primaryTradeId })
+        : { ok: true };
+      const failed = [nameResult, rateResult, projectResult, levelResult, tradesResult].find(
+        (r) => !r.ok,
+      );
+      if (failed && !failed.ok) {
+        setError(failed.error);
+        return;
+      }
+      setEditing(false);
+      router.refresh();
+    } finally {
+      setBusy(false);
     }
-    setEditing(false);
-    router.refresh();
   }
 
   // Spec 272 U2: instant action (not save-coupled) — the RPC is last-wins; a
@@ -494,6 +534,14 @@ function WorkerRow({
               <span className="text-ink-muted ml-1.5 text-xs">(ปิดใช้งาน)</span>
             ) : null}
           </p>
+          {/* Spec 332: trade tags (สายงาน), primary first — compact letter tiles. */}
+          {worker.trades.length > 0 ? (
+            <span className="mt-0.5 flex flex-wrap items-center gap-1">
+              {sortTradesPrimaryFirst(worker.trades).map((t) => (
+                <CategoryChip key={t.categoryId} code={t.code} />
+              ))}
+            </span>
+          ) : null}
           <p className="text-ink-secondary text-xs">
             {worker.day_rate.toLocaleString("th-TH")} บาท/วัน
           </p>
@@ -724,6 +772,62 @@ function WorkerRow({
               </select>
             </label>
           ) : null}
+          {/* Spec 332: trade tags (สายงาน) — beside the level picker. Checkbox set
+              + one primary radio. Deselecting the primary clears it. */}
+          {canSetTrades ? (
+            <fieldset className="mt-2">
+              <legend className="text-ink-secondary text-sm">{TRADE_LABEL}</legend>
+              <div className="mt-1 flex flex-col gap-1.5">
+                {tradeOptions.map((opt) => {
+                  const selected = tradeIds.includes(opt.id);
+                  return (
+                    <div key={opt.id} className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          aria-label={opt.nameTh}
+                          onChange={() => {
+                            setTradeIds((prev) =>
+                              selected ? prev.filter((id) => id !== opt.id) : [...prev, opt.id],
+                            );
+                            if (selected && primaryTradeId === opt.id) setPrimaryTradeId(null);
+                          }}
+                        />
+                        <CategoryChip code={opt.code} label={opt.nameTh} />
+                      </label>
+                      {selected ? (
+                        <label className="text-ink-muted flex items-center gap-1 text-xs">
+                          <input
+                            type="radio"
+                            name={`trade-primary-${worker.id}`}
+                            checked={primaryTradeId === opt.id}
+                            aria-label={`${TRADE_PRIMARY_LABEL}: ${opt.nameTh}`}
+                            onChange={() => setPrimaryTradeId(opt.id)}
+                          />
+                          {TRADE_PRIMARY_LABEL}
+                        </label>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                {tradeOptions.length === 0 ? (
+                  <p className="text-ink-muted text-xs">{TRADES_EMPTY_LABEL}</p>
+                ) : null}
+                {/* A radio can't be un-checked by clicking, so keep-trades-but-no-
+                    primary (a valid RPC target) needs its own affordance. */}
+                {primaryTradeId !== null ? (
+                  <button
+                    type="button"
+                    onClick={() => setPrimaryTradeId(null)}
+                    className="text-action self-start text-xs hover:underline"
+                  >
+                    {TRADE_PRIMARY_CLEAR_LABEL}
+                  </button>
+                ) : null}
+              </div>
+            </fieldset>
+          ) : null}
           {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
           <div className="mt-3 flex gap-2">
             <button
@@ -786,12 +890,17 @@ function WorkerRow({
   );
 }
 
+// Spec 332: a top-level work-category the trade picker offers.
+export type TradeOption = { id: string; code: string; nameTh: string };
+
 export function WorkerRosterManager({
   workers,
   contractors,
   projects = [],
   canGrade = false,
   canAssignHt = false,
+  canSetTrades = false,
+  tradeOptions = [],
 }: {
   workers: ManagedWorker[];
   // Legacy contractor parents (pre-ADR-0062) still resolve a name for display; new
@@ -802,6 +911,9 @@ export function WorkerRosterManager({
   // Spec 272: page-derived UI gates (super_admin grades; PM_ROLES assign HT).
   canGrade?: boolean;
   canAssignHt?: boolean;
+  // Spec 332: PM_ROLES edit trades; the W01–W09 options the sheet offers.
+  canSetTrades?: boolean;
+  tradeOptions?: TradeOption[];
 }) {
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
   // Spec 328 firm move — the edit sheet's assign/move targets: ACTIVE firms only
@@ -848,6 +960,8 @@ export function WorkerRosterManager({
                   projects={projects}
                   canGrade={canGrade}
                   canAssignHt={canAssignHt}
+                  canSetTrades={canSetTrades}
+                  tradeOptions={tradeOptions}
                   htCodes={htCodesByWorker.get(w.id) ?? []}
                   currentProjectHt={currentProjectHtOf(w)}
                 />

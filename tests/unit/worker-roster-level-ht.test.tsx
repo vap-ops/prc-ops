@@ -26,6 +26,7 @@ vi.mock("@/app/workers/actions", () => ({
   setWorkerDayRate: mockSetRate,
   assignWorkerToProject: mockAssign,
   setWorkerLevel: mockSetLevel,
+  setWorkerTrades: vi.fn(),
   assignProjectHt: mockAssignHt,
 }));
 vi.mock("@/lib/ui/use-toast", () => ({
@@ -57,6 +58,7 @@ const DAILY: ManagedWorker = {
   portalBound: false,
   project_id: "p1",
   level: null,
+  trades: [],
   phone: null,
   tax_id: null,
   bank_name: null,

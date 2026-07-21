@@ -13,6 +13,7 @@ import type { Database } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
 import { WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
+import { TRADE_ERROR_BY_MESSAGE, TRADE_SAVE_GENERIC_ERROR } from "@/lib/i18n/labels";
 
 type PayType = Database["public"]["Enums"]["pay_type"];
 type EmploymentType = Database["public"]["Enums"]["employment_type"];
@@ -258,6 +259,40 @@ export async function setWorkerLevel(input: {
     p_level: input.level,
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
+
+  revalidatePath("/workers");
+  return { ok: true };
+}
+
+// Spec 332 U2: set a worker's trades (สายงาน) — full-replace against W01–W09.
+// The set_worker_trades DEFINER RPC re-gates PM/PD/super and validates the
+// categories/primary; this action validates shape and maps the RPC's raised
+// message to a Thai string (never surfaces a raw Postgres error).
+export async function setWorkerTrades(input: {
+  id: string;
+  categoryIds: string[];
+  primaryId: string | null;
+}): Promise<WorkerActionResult> {
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: TRADE_SAVE_GENERIC_ERROR };
+  if (!input.categoryIds.every((c) => UUID_REGEX.test(c))) {
+    return { ok: false, error: TRADE_SAVE_GENERIC_ERROR };
+  }
+  if (input.primaryId !== null && !UUID_REGEX.test(input.primaryId)) {
+    return { ok: false, error: TRADE_SAVE_GENERIC_ERROR };
+  }
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("set_worker_trades", {
+    p_worker: input.id,
+    p_categories: input.categoryIds,
+    // The RPC arg is optional (DEFAULT NULL); omit it for "no primary". Spread so
+    // exactOptionalPropertyTypes never sees an explicit undefined.
+    ...(input.primaryId !== null ? { p_primary: input.primaryId } : {}),
+  });
+  if (error) {
+    const key = error.message.replace(/^set_worker_trades:\s*/, "").trim();
+    return { ok: false, error: TRADE_ERROR_BY_MESSAGE[key] ?? TRADE_SAVE_GENERIC_ERROR };
+  }
 
   revalidatePath("/workers");
   return { ok: true };

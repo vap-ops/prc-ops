@@ -30,6 +30,22 @@ export const TEAM_HUB_LABEL = "ทีมงาน";
 export const WORKER_ROSTER_LABEL = "รายชื่อช่าง";
 export const LABOR_TAB_LABEL = "แรงงาน";
 
+// Spec 332 — worker trades (สายงาน): the assignment axis, tags on W01–W09.
+// One home for the roster sheet's trade labels + the message-keyed error map
+// (never let a raw set_worker_trades Postgres error reach the user).
+export const TRADE_LABEL = "สายงาน";
+export const TRADE_PRIMARY_LABEL = "สายงานหลัก";
+export const TRADE_PRIMARY_CLEAR_LABEL = "ไม่ระบุสายงานหลัก";
+export const TRADES_EMPTY_LABEL = "ยังไม่ระบุสายงาน";
+export const TRADE_SAVE_GENERIC_ERROR = "บันทึกสายงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+// Keyed on the RPC's raised message (set_worker_trades: <key>).
+export const TRADE_ERROR_BY_MESSAGE: Record<string, string> = {
+  "role not permitted": "ไม่มีสิทธิ์แก้ไขสายงาน",
+  "worker not found": "ไม่พบช่างคนนี้ กรุณารีเฟรชหน้า",
+  "invalid category": "หมวดงานไม่ถูกต้อง กรุณารีเฟรชหน้า",
+  "primary not in set": "สายงานหลักต้องเป็นหนึ่งในสายงานที่เลือก",
+};
+
 // Spec 321 U1 — profile-edit door names. Single-sourced so the canonical
 // self-service door ("ข้อมูลของฉัน" = /settings/my-info) and the read-only
 // identity card ("โปรไฟล์" = /profile) never drift across the settings hub,
