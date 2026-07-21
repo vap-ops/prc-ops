@@ -108,6 +108,18 @@ describe("canonical nav sets", () => {
     expect(hubNavForRole("legal")).toBe(LEGAL_HUB_NAV);
   });
 
+  // Spec 313 U7: COORDINATOR_HUB_NAV had its hubNavForRole mapping pinned but
+  // never its CONTENTS — so an edit could empty it, reorder it, or point โครงการ
+  // somewhere else and only the mapping assert (which compares identity, not
+  // shape) would still pass. project_coordinator is absent from ASSUMABLE_ROLES,
+  // so view-as cannot catch that in a browser either.
+  it("pins the coordinator set's destinations and order", () => {
+    expect(COORDINATOR_HUB_NAV).toEqual([
+      { label: "โครงการ", href: "/projects" },
+      { label: "ตั้งค่า", href: "/settings" },
+    ]);
+  });
+
   // Spec 323 U3b: procurement_manager rides the SAME STR spine — its old
   // คำขอสมัคร strip item is gone because the approval queue re-homed as the
   // /procurement hub's nudge + count (U3a).
