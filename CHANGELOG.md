@@ -1,3 +1,10 @@
+## [0.167.1](https://github.com/vap-ops/prc-ops/compare/v0.167.0...v0.167.1) (2026-07-21)
+
+### Bug Fixes
+
+- **muster:** HT-only lead picker + multi-parent back chip (spec 334 follow-up) ([bdd2722](https://github.com/vap-ops/prc-ops/commit/bdd2722a2f90bdb763976375d49b47a95e7f2d6b))
+- **muster:** review fixes — pickable-HT guard, honest subcon copy, arg-order pin ([a6cfcc0](https://github.com/vap-ops/prc-ops/commit/a6cfcc0dbea3f733cd815475c9d4f68cb6a09af0))
+
 # [0.167.0](https://github.com/vap-ops/prc-ops/compare/v0.166.0...v0.167.0) (2026-07-21)
 
 ### Bug Fixes
