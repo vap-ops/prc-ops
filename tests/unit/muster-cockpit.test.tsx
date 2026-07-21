@@ -192,3 +192,17 @@ describe("lead picker — HT only", () => {
     expect(screen.queryByLabelText("เลือกหัวหน้าทีม")).not.toBeInTheDocument();
   });
 });
+
+it("HT exists but is not on the active roster (deactivated lead) → guidance, not a dead picker", () => {
+  render(
+    <MusterCockpit
+      projectId={PROJECT}
+      date="2026-07-13"
+      revalidate="/projects/x/muster"
+      board={{ ...BOARD, teams: [] }}
+      htWorkerIds={["ghost-not-in-workers"]}
+    />,
+  );
+  expect(screen.getByText(/ยังไม่มีหัวหน้าทีม/)).toBeInTheDocument();
+  expect(screen.queryByLabelText("เลือกหัวหน้าทีม")).not.toBeInTheDocument();
+});

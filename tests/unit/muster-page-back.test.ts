@@ -16,6 +16,9 @@ describe("muster page back chip", () => {
   it("resolves ?from via safeBackHref (usage, not just import)", () => {
     expect(src.split("safeBackHref").length - 1).toBeGreaterThanOrEqual(2);
     expect(src).toContain("from?: string");
+    // Pin the exact call shape — swapped args (wrong fallback) must red this
+    // (fresh-eyes 334fix: occurrence-counting alone survives an arg swap).
+    expect(src).toContain("safeBackHref(from, projectHref(projectId))");
   });
   it("no longer hardcodes the project back", () => {
     expect(src).not.toContain("backHref={projectHref(projectId)}");

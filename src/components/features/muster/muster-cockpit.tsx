@@ -70,8 +70,11 @@ export function MusterCockpit({
   const leadIds = new Set(board.teams.map((t) => t.leadWorkerId));
   // หัวหน้าทีม = HT only (operator rule 2026-07-21): a worker who leads a crew
   // (htWorkerIds, from crews.lead_worker_id) and is not already leading today.
+  // pickableHts intersects with the ACTIVE roster — a deactivated crew lead must
+  // trigger the guidance below, not a dead picker (fresh-eyes 334fix).
   const htIds = new Set(htWorkerIds);
-  const availableLeads = board.workers.filter((w) => htIds.has(w.id) && !leadIds.has(w.id));
+  const pickableHts = board.workers.filter((w) => htIds.has(w.id));
+  const availableLeads = pickableHts.filter((w) => !leadIds.has(w.id));
   // A worker is addable to team T if not already mustered AND not the lead of
   // ANOTHER team (their own lead may be scanned into their own team). Excluding
   // all leadIds globally would wrongly block adding a lead to their own team.
@@ -152,11 +155,14 @@ export function MusterCockpit({
         </p>
       ) : null}
 
-      {htWorkerIds.length === 0 ? (
-        // No HT bound in this project — an empty opener would be a dead door;
-        // point at the fix (a PM sets หัวหน้า on the project team map, spec 330).
+      {pickableHts.length === 0 ? (
+        // No pickable HT on the active roster — an empty opener would be a dead
+        // door. Copy is scoped honestly: setting an HT happens on the project
+        // team map and (contractor wall, mig 075818) works for PRC ช่าง only —
+        // never point a subcon-only project at an action the DB refuses.
         <p className="border-edge bg-sunk text-ink-secondary rounded-card border px-3 py-2 text-sm">
           ยังไม่มีหัวหน้าทีม (HT) ในโครงการนี้ — ให้ผู้จัดการกำหนดหัวหน้าทีมที่หน้าทีมงานโครงการก่อน
+          (กำหนดได้เฉพาะช่าง PRC)
         </p>
       ) : (
         <div className="border-edge bg-card rounded-card flex flex-wrap items-center gap-2 border px-4 py-3">
