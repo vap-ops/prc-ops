@@ -1,3 +1,9 @@
+# [0.171.0](https://github.com/vap-ops/prc-ops/compare/v0.170.0...v0.171.0) (2026-07-21)
+
+### Features
+
+- **approvals:** attribute WP transitions via DEFINER RPCs (spec 337 U1) ([#687](https://github.com/vap-ops/prc-ops/issues/687)) ([67b2936](https://github.com/vap-ops/prc-ops/commit/67b2936975555ca56d6d2c9971b50deb45dd5c28))
+
 # [0.170.0](https://github.com/vap-ops/prc-ops/compare/v0.169.0...v0.170.0) (2026-07-21)
 
 ### Features
