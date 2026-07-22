@@ -6,7 +6,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { VisitorLanding } from "@/components/features/register/visitor-landing";
-import { REGISTER_FIELD_HEADING, OFFICE_ASK_INVITE_LINE } from "@/lib/i18n/labels";
+import {
+  REGISTER_FIELD_HEADING,
+  OFFICE_ASK_INVITE_LINE,
+  REGISTER_OFFICE_HEADING,
+} from "@/lib/i18n/labels";
 
 describe("VisitorLanding", () => {
   it("offers the field door only; office becomes an ask-for-a-link line", () => {
@@ -15,7 +19,7 @@ describe("VisitorLanding", () => {
     const field = screen.getByRole("link", { name: REGISTER_FIELD_HEADING });
     expect(field).toHaveAttribute("href", "/register/technician");
     // Spec 342 D3 — no office LINK; the line names who to ask instead.
-    expect(screen.queryByRole("link", { name: /สมัครงานสำนักงาน/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: REGISTER_OFFICE_HEADING })).not.toBeInTheDocument();
     expect(screen.getByText(OFFICE_ASK_INVITE_LINE)).toBeInTheDocument();
   });
 
