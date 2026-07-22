@@ -33,7 +33,6 @@ const phases: PhaseData[] = PHASES.map(({ phase, label }) => ({
   label,
   photos: [],
   lastUpdatedLabel: null,
-  removed: [],
 }));
 
 function renderZone(props: { showAfterFix?: boolean; currentReworkRound?: number } = {}) {
@@ -47,6 +46,7 @@ function renderZone(props: { showAfterFix?: boolean; currentReworkRound?: number
       showAfterFix={props.showAfterFix ?? true}
       currentReworkRound={props.currentReworkRound ?? 1}
       canDelete
+      removedTrace={[]}
     />,
   );
 }
@@ -91,34 +91,27 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307, spec 216)", () => 
 // and bought accountability with visibility instead. photo_logs was already
 // recording who removed what; nothing surfaced it.
 describe("removal trace (spec 341 U1)", () => {
-  function withRemoved(removed: Array<{ seq: number; byName: string | null; atLabel: string }>) {
-    return PHASES.map(({ phase, label }) => ({
-      phase,
-      label,
-      photos: [],
-      lastUpdatedLabel: null,
-      // Filed under a zone the page is NOT showing — the trace must still surface.
-      removed: phase === "after" ? removed : [],
-    }));
-  }
-
   it("names the retired number, the remover and the time", () => {
     render(
       <PhotoCaptureZone
         projectId="p1"
         workPackageId="w1"
         userId="u1"
-        phases={withRemoved([{ seq: 4, byName: "อรปรีญา", atLabel: "22 ก.ค. 15:30" }])}
+        phases={phases}
         currentPhase="before"
         showAfterFix={false}
         currentReworkRound={0}
         canDelete
+        removedTrace={[
+          { id: "d1", zone: "จุดบกพร่อง", seq: 4, byName: "อรปรีญา", atLabel: "22 ก.ค. 15:30" },
+        ]}
       />,
     );
     expect(screen.getByText("ลบไปแล้ว 1 รูป")).toBeInTheDocument();
-    // Zone-prefixed AND filed under a tile the page is not showing — the pin for
-    // the live-probe defect where a per-zone trace rendered nothing at all.
-    expect(screen.getByText(/แล้วเสร็จ #4 · ลบโดย อรปรีญา · 22 ก.ค. 15:30/)).toBeInTheDocument();
+    // The zone is จุดบกพร่อง — a zone with NO capture tile at all. Driving the
+    // trace off the tile list dropped exactly these, and they are the reviewer's
+    // own evidence on a WP in rework: the deletion that most needs a record.
+    expect(screen.getByText(/จุดบกพร่อง #4 · ลบโดย อรปรีญา · 22 ก.ค. 15:30/)).toBeInTheDocument();
   });
 
   it("says ไม่ทราบชื่อ rather than dropping the entry when the name cannot be resolved", () => {
@@ -129,11 +122,14 @@ describe("removal trace (spec 341 U1)", () => {
         projectId="p1"
         workPackageId="w1"
         userId="u1"
-        phases={withRemoved([{ seq: 2, byName: null, atLabel: "22 ก.ค. 09:00" }])}
+        phases={phases}
         currentPhase="before"
         showAfterFix={false}
         currentReworkRound={0}
         canDelete
+        removedTrace={[
+          { id: "p2", zone: "ระหว่างทำ", seq: 2, byName: null, atLabel: "22 ก.ค. 09:00" },
+        ]}
       />,
     );
     expect(screen.getByText(/#2 · ลบโดย ไม่ทราบชื่อ/)).toBeInTheDocument();
@@ -145,11 +141,12 @@ describe("removal trace (spec 341 U1)", () => {
         projectId="p1"
         workPackageId="w1"
         userId="u1"
-        phases={withRemoved([])}
+        phases={phases}
         currentPhase="before"
         showAfterFix={false}
         currentReworkRound={0}
         canDelete
+        removedTrace={[]}
       />,
     );
     expect(screen.queryByText(/ลบไปแล้ว/)).toBeNull();

@@ -48,8 +48,18 @@ interface ThumbnailPhoto {
   uploaderName: string | null;
 }
 
-/** Spec 341 U1 — one line of the removal trace. */
+/**
+ * Spec 341 U1 — one line of the removal trace.
+ *
+ * A FLAT list, not a field on PhaseData: `phases` is the four-tile capture list
+ * and carries no `defect` entry, so hanging the trace off it silently dropped
+ * every removed จุดบกพร่อง photo — the reviewer's evidence on a WP in rework,
+ * i.e. the deletion that matters most. The zone travels on the line itself.
+ */
 export interface RemovedTrace {
+  /** The removed photo's id — the render key; `seq` is not unique across zones. */
+  id: string;
+  zone: string;
   seq: number;
   byName: string | null;
   atLabel: string | null;
@@ -60,8 +70,6 @@ export interface PhaseData {
   label: string;
   photos: ReadonlyArray<ThumbnailPhoto>;
   lastUpdatedLabel: string | null;
-  /** Spec 341 U1 — photos removed from this zone, newest number last. */
-  removed: ReadonlyArray<RemovedTrace>;
 }
 
 interface PhotoCaptureZoneProps {
@@ -80,6 +88,8 @@ interface PhotoCaptureZoneProps {
   /** Spec 291 U1 — passed to the CaptureSheet: false once the WP is submitted
    *  for approval or complete, so the in-detail delete is not offered. */
   canDelete: boolean;
+  /** Spec 341 U1 — every removed photo on this WP, any zone. */
+  removedTrace: ReadonlyArray<RemovedTrace>;
   /** Spec 248 U3 — the current round's defect photos + answer state; null
    *  outside a rework with defect photos. While any is unanswered, free
    *  after_fix capture redirects to the first open slot. */
@@ -95,6 +105,7 @@ export function PhotoCaptureZone({
   showAfterFix,
   currentReworkRound,
   canDelete,
+  removedTrace,
   defectPairs = null,
 }: PhotoCaptureZoneProps) {
   const [open, setOpen] = useState(false);
@@ -141,9 +152,6 @@ export function PhotoCaptureZone({
 
   const currentLabel = phases.find((p) => p.phase === currentPhase)?.label ?? "";
   const currentData = phases.find((p) => p.phase === currentPhase) ?? fallback;
-
-  // Spec 341 U1 — every zone's removals in one list, each line naming its zone.
-  const removedAcrossZones = phases.flatMap((p) => p.removed.map((r) => ({ ...r, zone: p.label })));
 
   // Lightbox grouping (spec 50/51) for the current-phase strip.
   const stripPhotos = currentData.photos;
@@ -362,14 +370,14 @@ export function PhotoCaptureZone({
             tile, so a per-zone trace showed nothing at all. Accountability you
             have to go looking for is not accountability. Collapsed by default so
             a WP that never lost a photo reads clean. */}
-        {removedAcrossZones.length > 0 ? (
+        {removedTrace.length > 0 ? (
           <details className="mt-2">
-            <summary className="text-meta text-ink-secondary min-h-11 cursor-pointer content-center">
-              ลบไปแล้ว {removedAcrossZones.length} รูป
+            <summary className="text-meta text-ink-secondary flex min-h-11 cursor-pointer items-center">
+              ลบไปแล้ว {removedTrace.length} รูป
             </summary>
-            <ul className="text-meta text-ink-muted mt-1 flex flex-col gap-0.5">
-              {removedAcrossZones.map((r) => (
-                <li key={`${r.zone}-${r.seq}`}>
+            <ul className="text-meta text-ink-secondary mt-1 flex flex-col gap-0.5">
+              {removedTrace.map((r) => (
+                <li key={r.id}>
                   {r.zone} #{r.seq} · ลบโดย {r.byName ?? "ไม่ทราบชื่อ"}
                   {r.atLabel ? ` · ${r.atLabel}` : ""}
                 </li>

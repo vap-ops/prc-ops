@@ -423,15 +423,24 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         uploaderName: uploaderNames.get(p.uploaded_by) ?? null,
       })),
       lastUpdatedLabel: latest ? formatThaiTime(latest) : null,
-      // Spec 341 U1 — the removal trace for this zone. Staff-only surface
-      // (WP_DETAIL_ROLES has no client), so naming the remover is safe here.
-      removed: removedByPhase[phase].map((r) => ({
-        seq: r.seq,
-        byName: r.removedBy ? (displayNames.get(r.removedBy) ?? null) : null,
-        atLabel: r.removedAt ? formatThaiDateTime(r.removedAt) : null,
-      })),
     };
   });
+
+  // Spec 341 U1 — the removal trace, built from EVERY zone in removedByPhase,
+  // not from PHASES: that list is the four capture tiles and carries no defect
+  // entry, so driving the trace off it silently dropped removed จุดบกพร่อง
+  // photos — the reviewer's evidence on a WP in rework, the deletion that most
+  // needs a record. Staff-only surface (WP_DETAIL_ROLES has no client), so
+  // naming the remover here exposes nothing to a customer.
+  const removedTrace = Object.entries(removedByPhase).flatMap(([phase, entries]) =>
+    entries.map((r) => ({
+      id: r.id,
+      zone: PHOTO_PHASE_LABEL[phase as keyof typeof PHOTO_PHASE_LABEL] ?? phase,
+      seq: r.seq,
+      byName: r.removedBy ? (displayNames.get(r.removedBy) ?? null) : null,
+      atLabel: r.removedAt ? formatThaiDateTime(r.removedAt) : null,
+    })),
+  );
 
   // Spec 177 U5/U7: shape the store reads for the WP เบิก control. Spec 289 U2:
   // the receiver list comes from the labor zone's workers read (same filter,
@@ -564,6 +573,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           showAfterFix={showAfterFix}
           currentReworkRound={wp.rework_round}
           defectPairs={defectPairSlots}
+          removedTrace={removedTrace}
           canDelete={canDeleteWpPhotos({
             status: wp.status,
             latestDecision: latestDecision?.decision ?? null,

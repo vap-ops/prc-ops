@@ -206,30 +206,39 @@ describe("photo numbering — spec 340 U2", () => {
       ["zz", 2],
     ]);
   });
-  // Spec 340 U2 fresh-eyes catch: the tile LABELS captured_at_client ?? created_at
-  // (page.tsx), but numbering by created_at alone would order by upload time. The
-  // ADR 0039 offline queue can flush minutes-to-hours after capture, so a queued
-  // photo would take a higher number than photos captured after it — and since the
-  // grid is now SORTED by that number, the times would render visibly out of order.
-  it("numbers by capture time, not upload time, so an offline flush cannot reorder the grid", () => {
-    const out = selectCurrentPhotosByPhase([
-      row({
-        id: "queued",
-        phase: "during",
-        captured_at_client: "2026-07-13T07:00:00Z",
-        created_at: "2026-07-13T09:30:00Z", // uploaded much later
-      }),
+  // Spec 340 U2, second fresh-eyes pass: numbering and DISPLAY use different
+  // clocks, and only one of them can be stable. A backdated offline flush (ADR
+  // 0039) inserts a row whose capture time predates existing photos — numbering
+  // by capture time would renumber everything after it and invalidate any number
+  // already quoted. So numbers are insert order (append-only ⇒ fixed forever) and
+  // the grid is sorted by capture time (what the tile labels).
+  it("numbers by insert order but renders in capture order", () => {
+    const existing = [
       row({
         id: "live",
         phase: "during",
         captured_at_client: "2026-07-13T08:00:00Z",
         created_at: "2026-07-13T08:00:05Z",
       }),
+    ];
+    expect(selectCurrentPhotosByPhase(existing).during.map((p) => [p.id, p.seq])).toEqual([
+      ["live", 1],
     ]);
-    expect(out.during.map((p) => [p.id, p.seq])).toEqual([
-      ["queued", 1],
-      ["live", 2],
+
+    const afterFlush = selectCurrentPhotosByPhase([
+      ...existing,
+      row({
+        id: "queued",
+        phase: "during",
+        captured_at_client: "2026-07-13T07:00:00Z", // taken EARLIER…
+        created_at: "2026-07-13T09:30:00Z", // …uploaded much later
+      }),
     ]);
+    // The already-quoted number survives the flush — the whole point.
+    expect(afterFlush.during.find((p) => p.id === "live")?.seq).toBe(1);
+    expect(afterFlush.during.find((p) => p.id === "queued")?.seq).toBe(2);
+    // …while the grid still reads chronologically.
+    expect(afterFlush.during.map((p) => p.id)).toEqual(["queued", "live"]);
   });
 });
 
@@ -307,6 +316,75 @@ describe("selectRemovedPhotosByPhase — spec 341 U1", () => {
       }),
     ]);
     expect(out.before.map((r) => r.id)).toEqual(["p1"]);
+    expect(out.during).toEqual([]);
+  });
+
+  it("counts a photo ONCE even if two tombstones raced onto it", () => {
+    // removePhoto's already-removed guard is select-then-insert and superseded_by
+    // has no unique index, so two concurrent removes can both land. Reporting both
+    // would double the count and collide the render keys. Earliest wins — it is
+    // the one that actually removed the photo.
+    const out = selectRemovedPhotosByPhase([
+      row({ id: "p1", phase: "during", created_at: "2026-07-11T01:00:00Z" }),
+      row({
+        id: "t-late",
+        phase: "during",
+        storage_path: null,
+        superseded_by: "p1",
+        uploaded_by: "second",
+        created_at: "2026-07-22T09:00:00Z",
+      }),
+      row({
+        id: "t-first",
+        phase: "during",
+        storage_path: null,
+        superseded_by: "p1",
+        uploaded_by: "first",
+        created_at: "2026-07-22T08:00:00Z",
+      }),
+    ]);
+    expect(out.during).toEqual([
+      { id: "p1", seq: 1, removedBy: "first", removedAt: "2026-07-22T08:00:00Z" },
+    ]);
+  });
+
+  it("reports a removed จุดบกพร่อง photo — the defect zone is not exempt", () => {
+    // A WP in rework carries the reviewer's defect evidence, and removePhoto
+    // applies no phase filter, so those are removable like any other. A trace
+    // that skipped them would hide exactly the deletion that matters most.
+    const out = selectRemovedPhotosByPhase([
+      row({ id: "d1", phase: "defect", created_at: "2026-07-11T01:00:00Z" }),
+      row({
+        id: "td1",
+        phase: "defect",
+        storage_path: null,
+        superseded_by: "d1",
+        uploaded_by: "someone",
+        created_at: "2026-07-22T01:00:00Z",
+      }),
+    ]);
+    expect(out.defect.map((r) => [r.id, r.seq])).toEqual([["d1", 1]]);
+  });
+
+  it("drops an entry it cannot number rather than reporting #0", () => {
+    // A tombstone pointing at another tombstone has no real photo behind it, so
+    // there is no number to report; "#0" would also sort to the head of the list.
+    const out = selectRemovedPhotosByPhase([
+      row({
+        id: "t1",
+        phase: "during",
+        storage_path: null,
+        superseded_by: "gone",
+        created_at: "2026-07-22T01:00:00Z",
+      }),
+      row({
+        id: "t2",
+        phase: "during",
+        storage_path: null,
+        superseded_by: "t1",
+        created_at: "2026-07-22T02:00:00Z",
+      }),
+    ]);
     expect(out.during).toEqual([]);
   });
 

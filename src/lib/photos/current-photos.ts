@@ -39,24 +39,33 @@ export interface CurrentPhotosByPhase {
   defect: NumberedPhoto[];
 }
 
-// Capture order — the same clock the tile LABELS (`captured_at_client ??
-// created_at`). Ordering by `created_at` alone would be UPLOAD order, and the
-// ADR 0039 offline queue can flush long after the shot: a queued photo would
-// outrank photos taken after it, and since each phase is sorted by this number
-// the grid would render its times visibly out of order. `created_at` then `id`
-// break ties so two shots in the same second never swap between reads.
-function captureKey(r: PhotoLogRow): string {
-  return r.captured_at_client ?? r.created_at ?? "";
-}
-
-function byCaptureOrder(a: PhotoLogRow, b: PhotoLogRow): number {
-  const ak = captureKey(a);
-  const bk = captureKey(b);
-  if (ak !== bk) return ak < bk ? -1 : 1;
+// TWO orders, deliberately different — a fresh-eyes pass caught me conflating
+// them, and only one of them can be stable.
+//
+// NUMBERING uses insert order (`created_at`, then `id`). photo_logs is
+// append-only, so an id assigned this way is fixed forever. Numbering by capture
+// time looked nicer but is NOT stable: the ADR 0039 offline queue can flush a
+// backdated photo hours later, and a row inserting ahead of existing ones would
+// renumber every photo after it — silently invalidating any number already
+// quoted in a screenshot or a message, which is the one property spec 340 sells.
+//
+// DISPLAY uses capture time (`captured_at_client ?? created_at`), the same clock
+// the tile labels, so the grid reads chronologically. The consequence is
+// accepted and narrow: after a late offline flush the badges can appear out of
+// numeric order. A number that means "this photo" beats a number that means
+// "this position".
+function byInsertOrder(a: PhotoLogRow, b: PhotoLogRow): number {
   const at = a.created_at ?? "";
   const bt = b.created_at ?? "";
   if (at !== bt) return at < bt ? -1 : 1;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+function byCaptureOrder(a: NumberedPhoto, b: NumberedPhoto): number {
+  const ak = a.captured_at_client ?? a.created_at ?? "";
+  const bk = b.captured_at_client ?? b.created_at ?? "";
+  if (ak !== bk) return ak < bk ? -1 : 1;
+  return byInsertOrder(a, b);
 }
 
 function emptyByPhase(): CurrentPhotosByPhase {
@@ -79,7 +88,7 @@ function numberPhotos(rows: ReadonlyArray<PhotoLogRow>): Map<string, number> {
     else realByPhase.set(r.phase, [r]);
   }
   for (const bucket of realByPhase.values()) {
-    bucket.sort(byCaptureOrder);
+    bucket.sort(byInsertOrder);
     bucket.forEach((r, i) => numbered.set(r.id, i + 1));
   }
   return numbered;
@@ -114,19 +123,35 @@ export function selectRemovedPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): Re
     after_fix: [],
     defect: [],
   };
+  // One entry per REMOVED PHOTO, not per tombstone. removePhoto's
+  // already-superseded guard is select-then-insert, so two concurrent removes can
+  // both land a tombstone on the same target (superseded_by has no unique index);
+  // reporting both would double the count and collide the render keys. Earliest
+  // tombstone wins — it is the one that actually removed the photo.
+  const byTarget = new Map<string, PhotoLogRow>();
   for (const r of rows) {
     // A removal is a tombstone: storage_path null AND superseded_by set (the
     // photo_logs_path_supersede_well_formed CHECK makes the pair inseparable).
     if (r.storage_path !== null || r.superseded_by === null) continue;
-    const target = byId.get(r.superseded_by);
+    const held = byTarget.get(r.superseded_by);
+    if (!held || byInsertOrder(r, held) < 0) byTarget.set(r.superseded_by, r);
+  }
+
+  for (const [targetId, tombstone] of byTarget) {
+    const target = byId.get(targetId);
     // The TARGET decides the phase — a tombstone copies it at write time and a
     // stale copy must not file the trace under the wrong zone.
     if (!target || !Object.prototype.hasOwnProperty.call(result, target.phase)) continue;
+    const seq = numbered.get(targetId);
+    // No number means the target is not a real photo of a known phase — a
+    // tombstone-of-a-tombstone chain, say. Drop it rather than render "#0",
+    // which would also sort to the front of the list.
+    if (seq === undefined) continue;
     result[target.phase].push({
       id: target.id,
-      seq: numbered.get(target.id) ?? 0,
-      removedBy: r.uploaded_by,
-      removedAt: r.created_at,
+      seq,
+      removedBy: tombstone.uploaded_by,
+      removedAt: tombstone.created_at,
     });
   }
   for (const phase of Object.keys(result) as Array<keyof RemovedPhotosByPhase>) {
@@ -155,10 +180,10 @@ export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): Cu
     if (!Object.prototype.hasOwnProperty.call(result, r.phase)) continue;
     result[r.phase].push({ ...r, seq: numbered.get(r.id) ?? 0 });
   }
-  // The read itself has no `order by`, so sort here: a number that appears in a
-  // random grid position is worse than no number at all.
+  // The read itself has no `order by`, so sort here — by CAPTURE time, which is
+  // what the tile labels. (Numbering is insert order; see the two-orders note.)
   for (const phase of Object.keys(result) as Array<keyof CurrentPhotosByPhase>) {
-    result[phase].sort((a, b) => a.seq - b.seq);
+    result[phase].sort(byCaptureOrder);
   }
   return result;
 }

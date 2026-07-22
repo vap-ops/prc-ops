@@ -51,6 +51,7 @@ function renderZone(defectPairs: ReadonlyArray<DefectPairSlot> | null) {
       showAfterFix
       currentReworkRound={2}
       canDelete
+      removedTrace={[]}
       defectPairs={defectPairs}
     />,
   );
