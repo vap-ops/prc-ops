@@ -12,13 +12,22 @@
 //     the slot exists and is style-pinned for when the engine lights it.
 
 import Link from "next/link";
-import { ChevronRight, Camera, UserPlus, PauseCircle, AlertTriangle, Flame } from "lucide-react";
+import {
+  ChevronRight,
+  Camera,
+  UserPlus,
+  PauseCircle,
+  AlertTriangle,
+  Flame,
+  RotateCcw,
+} from "lucide-react";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
+import { defectHref } from "@/lib/work-packages/defect-deep-link";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { CRITICAL_BADGE } from "@/lib/ui/classes";
 import { listEnterProps } from "@/lib/ui/list-enter";
-import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
+import { REPORT_DEFECT_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
@@ -81,6 +90,13 @@ interface WorklistRowProps {
    * the arrival surface — the project WP list.
    */
   backFrom?: string;
+  /**
+   * Spec 337 U5: offer the defect door under a เสร็จแล้ว row — a SIBLING link
+   * (never nested inside the row's anchor, spec 47) deep-linking to the WP with
+   * the report sheet already open. Opt-in per surface, and inert on any row that
+   * is not complete or cannot be opened at all.
+   */
+  showDefectDoor?: boolean;
 }
 
 export function WorklistRow({
@@ -91,6 +107,7 @@ export function WorklistRow({
   enterIndex,
   canOpen = true,
   backFrom,
+  showDefectDoor = false,
 }: WorklistRowProps) {
   const action = compact ? null : nextAction(wp.status, wp.hasContractor);
   const ActionIcon = action ? ACTION_ICON[action.kind] : null;
@@ -173,7 +190,7 @@ export function WorklistRow({
   }
 
   const href = workPackageHref(projectId, wp.id);
-  return (
+  const row = (
     <Link
       href={backFrom ? withBackFrom(href, backFrom) : href}
       className={`rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex items-stretch gap-0 overflow-hidden border transition-colors [content-visibility:auto] focus:outline-none focus-visible:ring-2 [contain-intrinsic-size:auto_96px]${
@@ -186,5 +203,22 @@ export function WorklistRow({
         <ChevronRight className="h-5 w-5" />
       </span>
     </Link>
+  );
+
+  // Spec 337 U5 — the defect door. Only a finished งานย่อย can be reopened, so
+  // the door tracks that status exactly rather than the (broader) action band.
+  if (!showDefectDoor || wp.status !== "complete") return row;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {row}
+      <Link
+        href={defectHref(projectId, wp.id)}
+        className="rounded-control border-edge bg-card text-meta text-ink-secondary hover:bg-sunk focus-visible:ring-action inline-flex min-h-11 items-center gap-1.5 self-end border px-3 font-bold transition-colors focus:outline-none focus-visible:ring-2"
+      >
+        <RotateCcw aria-hidden className="h-4 w-4" />
+        {REPORT_DEFECT_LABEL}
+      </Link>
+    </div>
   );
 }

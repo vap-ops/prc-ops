@@ -30,6 +30,7 @@ vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/use-defect-pho
 }));
 
 import { ReportDefectControl } from "@/app/projects/[projectId]/work-packages/[workPackageId]/report-defect-control";
+import { REPORT_DEFECT_LABEL } from "@/lib/i18n/labels";
 
 beforeEach(() => {
   mockReport.mockReset().mockResolvedValue({ ok: true });
@@ -161,5 +162,19 @@ describe("ReportDefectControl", () => {
     // Defect already filed — the form must NOT re-fire the RPC on retry;
     // the sheet stays open so the retry buttons on the photos are reachable.
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  // Spec 337 U5 — arriving from the list's เสร็จแล้ว door (?defect=1) lands
+  // with the sheet already open, so the deep link costs one tap, not two.
+  it("opens the sheet on mount with initialOpen (the ?defect=1 arrival)", () => {
+    render(<ReportDefectControl projectId="p1" workPackageId="wp1" initialOpen />);
+    expect(screen.getByLabelText("รายละเอียดข้อบกพร่อง")).toBeInTheDocument();
+  });
+
+  it("stays closed on a normal arrival (no initialOpen)", () => {
+    render(<ReportDefectControl projectId="p1" workPackageId="wp1" />);
+    expect(screen.queryByLabelText("รายละเอียดข้อบกพร่อง")).not.toBeInTheDocument();
+    // The trigger is still the only thing on screen.
+    expect(screen.getByRole("button", { name: REPORT_DEFECT_LABEL })).toBeInTheDocument();
   });
 });

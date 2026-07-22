@@ -25,6 +25,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Search, X } from "lucide-react";
 import { workPackageHref } from "@/lib/nav/project-paths";
+import { isReadOnlyWpViewer } from "@/lib/auth/role-home";
 import { FIELD_INPUT } from "@/lib/ui/classes";
 import { filterWorkPackages } from "@/lib/work-packages/filter-work-packages";
 import { EmptyNotice } from "@/components/features/common/notices";
@@ -111,6 +112,11 @@ export function WorkPackageList({
   // are grouping entities, not actionable rows (DB rejects all work on them).
   const roster = useMemo(() => buildGroupedRoster(workPackages), [workPackages]);
   const leaves = roster.leaves;
+  // Spec 337 U5: who may file a defect on a finished งานย่อย. Same predicate the
+  // WP detail branches on (spec 171) — procurement reads the WP to raise a PR and
+  // is suppressed from every capture, defect filing included. A row that cannot
+  // be opened at all carries no door either.
+  const canReportDefect = canOpen && !isReadOnlyWpViewer(role);
   const [lens, setLens] = useState<Lens>(() => defaultLens(role, roster.adopted));
   // Spec 293: type-to-find over the whole in-memory roster. A non-empty
   // query replaces the lens with a flat, priority-ranked hit list — "find
@@ -210,6 +216,7 @@ export function WorkPackageList({
                 compact
                 enterIndex={i}
                 canOpen={canOpen}
+                showDefectDoor={canReportDefect}
               />
             ))
           )}
@@ -258,6 +265,7 @@ export function WorkPackageList({
               }
               toRowItem={toRowItem}
               canOpen={canOpen}
+              canReportDefect={canReportDefect}
             />
           ) : lens === "action" ? (
             <ActionLens
@@ -270,6 +278,7 @@ export function WorkPackageList({
               onToggleDone={() => setShowDone((v) => !v)}
               toRowItem={toRowItem}
               canOpen={canOpen}
+              canReportDefect={canReportDefect}
             />
           ) : (
             <DeliverableLens
@@ -287,6 +296,7 @@ export function WorkPackageList({
               }
               toRowItem={toRowItem}
               canOpen={canOpen}
+              canReportDefect={canReportDefect}
             />
           )}
         </>
@@ -306,6 +316,8 @@ interface GroupLensProps {
   onToggle: (key: string) => void;
   toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
   canOpen: boolean;
+  /** Spec 337 U5: viewer may file a defect on a เสร็จแล้ว row (door per row). */
+  canReportDefect: boolean;
 }
 
 function GroupLens({
@@ -316,6 +328,7 @@ function GroupLens({
   onToggle,
   toRowItem,
   canOpen,
+  canReportDefect,
 }: GroupLensProps) {
   return (
     <div className="flex flex-col gap-3">
@@ -411,6 +424,7 @@ function GroupLens({
                         compact
                         enterIndex={i}
                         canOpen={canOpen}
+                        showDefectDoor={canReportDefect}
                       />
                     </li>
                   ))
@@ -434,6 +448,7 @@ function GroupLens({
               compact
               enterIndex={i}
               canOpen={canOpen}
+              showDefectDoor={canReportDefect}
             />
           ))}
         </section>
@@ -455,6 +470,8 @@ interface ActionLensProps {
   onToggleDone: () => void;
   toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
   canOpen: boolean;
+  /** Spec 337 U5: viewer may file a defect on a เสร็จแล้ว row (door per row). */
+  canReportDefect: boolean;
 }
 
 function ActionLens({
@@ -467,6 +484,7 @@ function ActionLens({
   onToggleDone,
   toRowItem,
   canOpen,
+  canReportDefect,
 }: ActionLensProps) {
   // The three triage tiles the operator named. Tapping filters to that
   // band; tapping the active tile clears the filter.
@@ -536,6 +554,7 @@ function ActionLens({
                   compact={band === "review" || band === "done"}
                   enterIndex={i}
                   canOpen={canOpen}
+                  showDefectDoor={canReportDefect}
                 />
               ))}
             </section>
@@ -574,6 +593,8 @@ interface DeliverableLensProps {
   onToggle: (key: string) => void;
   toRowItem: (wp: WorkPackageListItem) => WorklistRowItem;
   canOpen: boolean;
+  /** Spec 337 U5: viewer may file a defect on a เสร็จแล้ว row (door per row). */
+  canReportDefect: boolean;
 }
 
 function DeliverableLens({
@@ -584,6 +605,7 @@ function DeliverableLens({
   onToggle,
   toRowItem,
   canOpen,
+  canReportDefect,
 }: DeliverableLensProps) {
   // Degraded (no-deliverables) flat list: finished WPs stay hidden until
   // asked for, same spec-56 intent the action lens honors.
@@ -625,6 +647,7 @@ function DeliverableLens({
               spine={ACTION_BAND_META[deriveActionBand(wp.status)].spine}
               enterIndex={i}
               canOpen={canOpen}
+              showDefectDoor={canReportDefect}
             />
           ))
         )}
@@ -729,6 +752,7 @@ function DeliverableLens({
                       compact
                       enterIndex={i}
                       canOpen={canOpen}
+                      showDefectDoor={canReportDefect}
                     />
                   </li>
                 ))}
