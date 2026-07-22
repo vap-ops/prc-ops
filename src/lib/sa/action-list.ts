@@ -30,6 +30,15 @@ export interface BouncedWp {
   wp: MyWorkWp;
   decision: "needs_revision" | "rejected";
   comment: string | null;
+  /**
+   * Spec 337 U2a — the SA has already pressed ส่งตรวจอีกครั้ง for THIS decision,
+   * so the ball is back with the decider and the item leaves the SA's list. The
+   * WP stays `pending_approval` the whole time, so status cannot tell us; the
+   * fact lives in the `wp_evidence_resubmitted` audit row. Required (not
+   * optional-defaulting-false) so a caller that forgets it fails typecheck
+   * rather than silently pinning items to the list forever.
+   */
+  answered: boolean;
 }
 
 export interface ReworkInfo {
@@ -75,18 +84,21 @@ export function buildSaActionList(input: {
       };
     });
 
-  const bouncedActions: SaActionItem[] = bounced.map((b) => ({
-    id: b.wp.id,
-    code: b.wp.code,
-    name: b.wp.name,
-    projectId: b.wp.project_id,
-    projectCode: project(b.wp.project_id)?.code ?? "",
-    projectName: project(b.wp.project_id)?.name ?? "—",
-    kind: b.decision === "rejected" ? "rejected" : "revision",
-    reason: b.comment,
-    source: null,
-    round: null,
-  }));
+  // Spec 337 U2a: an answered bounce is waiting on the DECIDER, not the SA.
+  const bouncedActions: SaActionItem[] = bounced
+    .filter((b) => !b.answered)
+    .map((b) => ({
+      id: b.wp.id,
+      code: b.wp.code,
+      name: b.wp.name,
+      projectId: b.wp.project_id,
+      projectCode: project(b.wp.project_id)?.code ?? "",
+      projectName: project(b.wp.project_id)?.name ?? "—",
+      kind: b.decision === "rejected" ? "rejected" : "revision",
+      reason: b.comment,
+      source: null,
+      round: null,
+    }));
 
   const actions = [...reworkActions, ...bouncedActions].sort(
     (a, b) =>

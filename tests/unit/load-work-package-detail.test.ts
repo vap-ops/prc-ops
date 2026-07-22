@@ -89,11 +89,27 @@ const LIST: Record<string, unknown[]> = {
   work_package_dependencies: DEPS,
 };
 
+// Spec 337 U2a — audit_log is read TWICE (rework reasons + resubmits) and the
+// two must not be interchangeable, so the stub honours the `payload->>event`
+// filter. Without this the resubmit assertion below would stay green even if the
+// production read filtered on the wrong event, the wrong target, or nothing.
+const AUDIT_BY_EVENT: Record<string, unknown[]> = {
+  wp_evidence_resubmitted: [
+    { payload: { event: "wp_evidence_resubmitted", answers_decision_id: "a1" } },
+  ],
+  wp_reopened_for_defect: [],
+};
+
 function makeQuery(table: string) {
-  const q: Record<string, unknown> = { __single: false };
-  for (const m of ["select", "eq", "neq", "in", "order", "limit"]) {
+  const q: Record<string, unknown> = { __single: false, __event: null as string | null };
+  for (const m of ["select", "neq", "in", "order", "limit"]) {
     q[m] = () => q;
   }
+  // Capture the event filter so audit_log reads are told apart (see AUDIT_BY_EVENT).
+  q.eq = (col: string, val: unknown) => {
+    if (col === "payload->>event") q.__event = String(val);
+    return q;
+  };
   q.maybeSingle = () => {
     q.__single = true;
     return q;
@@ -105,7 +121,11 @@ function makeQuery(table: string) {
     return new Promise((r) => setTimeout(r, 5))
       .then(() => {
         inFlight--;
-        const data = q.__single ? SINGLE[table] : (LIST[table] ?? []);
+        const data = q.__single
+          ? SINGLE[table]
+          : table === "audit_log"
+            ? (AUDIT_BY_EVENT[String(q.__event)] ?? [])
+            : (LIST[table] ?? []);
         return { data, error: null };
       })
       .then(resolve, reject);
@@ -127,9 +147,15 @@ describe("loadWorkPackageDetail", () => {
       projectId: "proj1",
       isPlanner: true,
     });
-    // contractors + approvals + purchase_requests + siblings + deps = 5 queries
-    // that depend only on the root → must overlap. Serial would peak at 1.
-    expect(maxInFlight).toBeGreaterThanOrEqual(5);
+    // contractors + approvals + purchase_requests + siblings + deps + the two
+    // audit_log reads (rework reasons, spec 337 resubmits) = 7 queries that
+    // depend only on the root → must overlap. Serial would peak at 1.
+    //
+    // The floor tracks the ACTUAL fan width rather than staying at the original
+    // 5: a loose floor cannot notice a new read being appended as a serial
+    // waterfall step, which is exactly the regression this test exists to catch.
+    // Adding a fan read? Raise this. Removing one? Lower it deliberately.
+    expect(maxInFlight).toBeGreaterThanOrEqual(7);
   });
 
   it("assembles the correct shape", async () => {
@@ -145,6 +171,9 @@ describe("loadWorkPackageDetail", () => {
     expect(data.siblingWps).toEqual(SIBLINGS);
     expect(data.predecessorIds).toEqual(["wp2"]);
     expect(data.defectReason).toBeNull();
+    // Spec 337 U2a — the resubmit audit rows reduce to the set of answered
+    // decision ids the ส่งตรวจอีกครั้ง rule consumes.
+    expect(data.answeredDecisionIds).toEqual(new Set(["a1"]));
     expect(data.displayNames.get("u1")).toBe("ชื่อ");
     // spec 289 U2: the zone's projectWorkers passes through untouched
     expect(data.labor.projectWorkers).toEqual([{ id: "w1", name: "สมชาย" }]);

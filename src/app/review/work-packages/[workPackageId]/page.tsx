@@ -25,6 +25,7 @@ import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decision";
+import { NOT_PENDING_REVIEW_ERROR } from "@/lib/approvals/predicates";
 import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
@@ -467,9 +468,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
           {wp.status === "pending_approval" ? (
             <RecordDecisionForm workPackageId={wp.id} />
           ) : (
-            <EmptyNotice className="text-ink-secondary">
-              รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ
-            </EmptyNotice>
+            <EmptyNotice className="text-ink-secondary">{NOT_PENDING_REVIEW_ERROR}</EmptyNotice>
           )}
         </section>
       </div>

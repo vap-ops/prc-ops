@@ -6,6 +6,105 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 337 U2 — the cure loop (ส่งตรวจอีกครั้ง + queue split) — 🔨 built (2026-07-22)
+
+**A split I made and then reversed — worth recording.** I first scoped this as
+U2a (SA side only), deferring the approver-side queue split to a later unit. The
+fresh-eyes pass showed the split was what made the change unsafe: the SA-side
+clear REMOVES the item from the only worklist carrying it, while `/review` stayed
+byte-identical before and after a resubmit (the RPC never touches `updated_at`),
+so the sole remaining signal was one push notification — which is `locked: false`
+in the catalog, honours per-user mutes, and needs an OA binding to deliver. A
+muted decider ⇒ a WP in nobody's list. The queue split is not polish; it is the
+half that makes the removal safe. Folded back in. The review-detail
+`รูปใหม่หลังให้แก้ไข` strip + `ใหม่` chips remain genuinely separable → U2b.
+
+**Gate-check finding:** U2's first bullet ("action-list item / notification
+deep-links to the WP detail photo section, where the decision banner already
+shows the PM comment") is **already built** — spec 218 shipped that banner with a
+`ถ่ายรูปเพิ่ม` deep-link to `#wp-photos`. Not rebuilt.
+
+**Built:**
+
+- `src/lib/approvals/resubmit.ts` — `resubmitState()` is the WHOLE rule as one
+  pure function (hidden / ready / blocked+hint / done) plus its three Thai
+  strings. The control renders from it and the server action refuses from it, so
+  the button the SA sees and the gate the server applies cannot drift.
+  Boundaries: STRICTLY newer than `decided_at` (a photo stamped at the decision
+  instant is what the decider already saw), and `Date.parse` rather than string
+  compare because the two timestamps come from different tables.
+- `resubmitWorkPackageEvidence` server action → the `resubmit_work_package_evidence`
+  DEFINER RPC on the caller's session, per-errcode Thai mapping, and
+  `revalidatePath("/sa")` so the action list drops the item.
+- `ResubmitEvidenceControl` — mirrors `SubmitForApprovalControl`'s slot/sheet
+  shape. `done` renders a calm confirmation instead of a button: the RPC is
+  idempotent per decision, so a button there could only ever error (§0 dead-door
+  rule).
+- `loadWorkPackageDetail` + `/sa` both read the `wp_evidence_resubmitted` audit
+  rows (readable by site_admin only because U1's `…075828` named that event in
+  their allowlist — that policy is an allowlist, NOT `using(true)`).
+- `BouncedWp.answered` (required, not optional-defaulting-false, so a caller that
+  forgets it fails typecheck rather than silently pinning items to the list) →
+  an answered bounce leaves the SA's ต้องแก้ไข list.
+- `NOT_PENDING_REVIEW_ERROR` single-sourced in `predicates.ts` — the same
+  sentence now has two writers (recordDecision + resubmit).
+
+**Fresh-eyes fixes (all found by the reviewer, none by me):**
+
+1. 🟠 **The SA badge kept counting answered bounces.** `sa-action-badge.tsx`
+   inlines its own latest-decision reduce (the canonical helper is server-only),
+   so my filter reached the section and not the badge: a phantom count on the tab
+   bar over an empty ต้องแก้ไข section — the opposite of the unit's purpose. The
+   badge now applies the same clear rule.
+2. 🟠 **The decider could resubmit their own bounce.** PM_ROLES ⊂
+   SITE_STAFF_ROLES and the page renders the control for every non-read-only
+   viewer. Pressing it there notifies NOBODY (`resolveRecipients` excludes the
+   actor), burns the RPC's one-resubmit-per-decision, and clears the SA's item —
+   a WP in nobody's queue. `resubmitState` now hides it from them; their control
+   is the decision form.
+3. 🟠 The queue split — see above.
+4. 🟡 **The control tests never pressed anything.** Deleting the whole handler,
+   the sheet and `router.refresh()` left all four render assertions green.
+   Added press + server-refusal tests, mutation-checked.
+5. 🟡 **`22023` conflated two very different outcomes.** A double-tap races past
+   the pre-check; `FOR UPDATE` serialises and the second call is refused as
+   ALREADY ANSWERED — success from the SA's view. The action re-reads to tell it
+   from a genuine status race.
+6. 🟡/⚪ third copy of the not-pending sentence · missing `target_table` filter on
+   both new audit reads (the index is `(target_table, target_id)`, so they were
+   seq scans of a growing table on every WP-detail and /sa render) · latest-
+   decision tie-break now mirrors the RPC's `decided_at desc, id desc` ·
+   `ResubmitDecision.id` made required so a caller cannot omit it from its select.
+
+**Verification:** RED-first throughout · full vitest **4705 / 656 files** · lint
+
+- typecheck · **8 mutation-checks** (photo boundary, done-ordering, hidden,
+  loader serialisation, decider guard, control press, audit event filter, action
+  seam) · **live read-only browser probe on production data**, both directions.
+
+ⓘ **What the queue split immediately showed on prod:** of 52 items in `/review`,
+**40 are `รอถ่ายเพิ่ม`** (waiting on the SA) and only 12 are first reviews. The
+PM's queue was four-fifths items that were not their move, all previously
+rendered with the same label — F5 made visible on day one.
+
+⭐ **A green I expected to be red:** adding an 8th read to the WP-detail loader's
+`Promise.all` did NOT fail `load-work-package-detail.test.ts`, because its
+concurrency assertion is a floor (`>= 5`) rather than the fan width. A loose
+floor cannot notice a new read appended as a serial waterfall step — precisely
+the regression that test exists to catch. Raised to the real width and pinned
+`answeredDecisionIds`; mutation-checked by serialising the new read (fails at
+`expected 6 to be >= 7`).
+
+ⓘ **Live state at build time:** 4+ real WPs are sitting in `pending_approval`
+with a `needs_revision` decision and **zero** new photos since it — the F2 stall
+the spec describes, observable in production right now.
+
+**Open questions:** the approver-side split + `รูปใหม่` strip are U2b · the
+spec's "decider inactive/unresolvable → fall back to the approval pool" remains a
+DRAIN-side decision, not a `resolveRecipients` one.
+
+---
+
 ## Spec 337 U1 — attributed WP transitions (DEFINER RPCs) — 🔨 built (2026-07-22)
 
 Closes F1 from the WP lifecycle-gates audit: **361/361 `wp_status_transition`
@@ -111,7 +210,7 @@ grant lockdown holds over HTTP.
 4. The resubmit freshness gate uses `photo_logs.created_at` (server insert time)
    as the spec specifies, and U2's approver-side "new photos" strip uses the same
    boundary. With the offline upload queue, a photo _shot_ before the
-   needs_revision but _synced_ after it satisfies the gate, and the tile shows
+   needs*revision but \_synced* after it satisfies the gate, and the tile shows
    `captured_at_client`, so the two timestamps can disagree on screen. Left as
    specified (client time is user-supplied); revisit in U2 if it misleads.
 5. `SaActionItem.kind === "rejected"` is now legacy-only: a rejected WP leaves

@@ -22,6 +22,15 @@ export const APPROVAL_DECISIONS: ReadonlyArray<ApprovalDecision> = [
   "rejected",
 ];
 
+/**
+ * "This WP is not up for review." Shared by every write that only makes sense
+ * while the WP sits in the queue — recordDecision and, since spec 337 U2a, the
+ * ส่งตรวจอีกครั้ง resubmit — so the two cannot drift into different wordings for
+ * the same situation (UI-term SSOT rule: a user-facing sentence used by 2+
+ * surfaces gets one home).
+ */
+export const NOT_PENDING_REVIEW_ERROR = "รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ";
+
 export function commentRequiredFor(decision: ApprovalDecision): boolean {
   return decision !== "approved";
 }

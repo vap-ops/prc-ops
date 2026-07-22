@@ -80,6 +80,7 @@ export default async function SaHomePage() {
     pendingRegistrations,
     latestDecisions,
     reopenRes,
+    resubmitRes,
     saCurrent,
     // Spec 318 U2 — OA-friend readiness rides the wave (independent self-read).
     readiness,
@@ -120,6 +121,21 @@ export default async function SaHomePage() {
           )
           .eq("payload->>event", "wp_reopened_for_defect")
           .order("created_at", { ascending: false })
+      : Promise.resolve({ data: null }),
+    // Spec 337 U2a — bounces the SA has already answered with ส่งตรวจอีกครั้ง.
+    // Those are waiting on the DECIDER, so they drop off the SA's ต้องแก้ไข list
+    // even though the WP is still pending_approval. Readable by site_admin
+    // because …075828 named this event in their audit_log allowlist.
+    pendingWps.length
+      ? supabase
+          .from("audit_log")
+          .select("payload")
+          .eq("target_table", "work_packages")
+          .in(
+            "target_id",
+            pendingWps.map((w) => w.id),
+          )
+          .eq("payload->>event", "wp_evidence_resubmitted")
       : Promise.resolve({ data: null }),
     // Spec 292 U3 — the SA's resolved current project (override > primary >
     // derived-most-recent-membership), from project_members, independent of the
@@ -166,10 +182,24 @@ export default async function SaHomePage() {
 
   // pending_approval WPs whose LATEST decision is negative = the PM bounced them back
   // to the SA (spec 218). latestDecisions was read in the batch above.
+  // Spec 337 U2a — every decision the SA has already answered with ส่งตรวจอีกครั้ง.
+  const answeredDecisionIds = new Set(
+    (resubmitRes.data ?? [])
+      .map((r) => (r.payload as { answers_decision_id?: string } | null)?.answers_decision_id)
+      .filter((id): id is string => typeof id === "string"),
+  );
   const bounced: BouncedWp[] = pendingWps.flatMap((w) => {
     const dec = latestDecisions.get(w.id);
     if (dec?.decision === "needs_revision" || dec?.decision === "rejected") {
-      return [{ wp: w, decision: dec.decision, comment: dec.comment }];
+      return [
+        {
+          wp: w,
+          decision: dec.decision,
+          comment: dec.comment,
+          // Answered → the ball is with the decider; the item leaves this list.
+          answered: dec.id !== undefined && answeredDecisionIds.has(dec.id),
+        },
+      ];
     }
     return [];
   });
