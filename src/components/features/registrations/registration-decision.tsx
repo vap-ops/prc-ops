@@ -34,7 +34,7 @@ import {
   rejectStaffRegistration,
   sendBackStaffRegistration,
 } from "@/app/registrations/actions";
-import { STAFF_ONBOARDABLE_ROLES, type UserRole } from "@/lib/auth/role-home";
+import { type UserRole } from "@/lib/auth/role-home";
 import {
   USER_ROLE_LABEL,
   REGISTRATION_SITE_ASSIGN_LABEL,
@@ -42,6 +42,7 @@ import {
   REGISTRATION_SITE_ASSIGN_EMPTY_OPTION,
 } from "@/lib/i18n/labels";
 import { validateRejectReason } from "@/lib/register/reject-reason";
+import { FIELD_ROLE_OPTIONS, OFFICE_ROLE_OPTIONS } from "@/lib/register/office-roles";
 import { useToast } from "@/lib/ui/use-toast";
 import {
   BUTTON_PRIMARY,
@@ -62,10 +63,7 @@ export interface RegistrationProjectOption {
 // applicant and made `legal` unassignable from the UI (operator directive
 // 2026-07-21: the legal-dept hires are approved through this queue).
 // Default = ช่าง (technician), the common case.
-const FIELD_ROLE_OPTIONS: readonly UserRole[] = ["technician", "site_admin"];
-const OFFICE_ROLE_OPTIONS: readonly UserRole[] = STAFF_ONBOARDABLE_ROLES.filter(
-  (r) => !FIELD_ROLE_OPTIONS.includes(r),
-);
+// Field/office role options now live in @/lib/register/office-roles (spec 342 U1.2).
 const DEFAULT_ROLE: UserRole = "technician";
 
 // Spec 333 U2b — the ส่งเอกสารภายหลัง helper copy (single surface — this sheet).

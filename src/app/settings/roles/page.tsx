@@ -14,6 +14,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { type RoleUserVM } from "@/components/features/roles/role-admin-list";
 import { RoleDirectory } from "@/components/features/roles/role-directory";
+import { OfficeInviteLinkBlock } from "@/components/features/roles/office-invite-link-block";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -60,6 +61,9 @@ export default async function RolesPage() {
           สิทธิ์การใช้งานของแต่ละบทบาท
           <ChevronRight aria-hidden className="size-4 shrink-0" />
         </Link>
+
+        {/* Spec 342 U1.3 — mint a reusable office invite link (invite-only door). */}
+        <OfficeInviteLinkBlock inviterId={ctx.id} />
 
         {users.length === 0 ? (
           <EmptyNotice>ยังไม่มีผู้ใช้</EmptyNotice>

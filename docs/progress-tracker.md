@@ -9132,3 +9132,25 @@ id="cold-restart">` in the /settings เกี่ยวกับ card, under the
 - The Android force-stop fallback was dropped as unverifiable for a WebAPK
   install. If the field reports the switcher swipe is not enough on some device,
   verify on that device before writing a replacement line.
+
+## Spec 342 — invite-only office onboarding, PR A = U1+U2 (2026-07-22)
+
+- **Status:** built + verified, shipping. PR B (U3 approver prefill) queued next.
+- **What:** office onboarding is invite-only — super_admin mints a reusable
+  `/register/office?by=<uuid>&role=<key>` link on /settings/roles; the applicant
+  sees the role as read-only fact (no free-text hint); a bare /register/office
+  renders a gate screen (never 404); /coming-soon offers the field door + an
+  ask-for-a-link line. NO schema — invited_by + declared_role_hint carry it.
+- **Build:** 8 code commits via subagent-driven micro-tasks, each task-reviewed;
+  2 review findings fixed pre-ship (SSOT label constant in a test; stale
+  site-map row). Full suite 664 files / 4779 green; lint+typecheck clean.
+- **Verified (real principals):** logged-out leg preserves ?by&?role through
+  /login?next (probe A — the historically fragile hop, 0/18 class); throwaway
+  VISITOR renders locked-role form with hint input ABSENT (B), gate on bare hit
+  (C) and on garbage role (C2), /coming-soon field-only + ask line (D);
+  dev-preview super_admin sees the mint block (E). Zero server errors.
+  Throwaway user deleted.
+- **Open questions / follow-ups:** U3 ships as PR B (until then an invited row
+  shows raw key under ผู้สมัครระบุว่า — interim, documented); one-week prod
+  fill-rate query (spec Testing section) ~2026-07-29; widening mint gate to hr
+  = operator call (D8).

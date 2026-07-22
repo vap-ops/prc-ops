@@ -950,6 +950,20 @@ export const REGISTER_FIELD_HEADING = "สมัครเป็นช่าง";
 export const REGISTER_OFFICE_HEADING = "สมัครงานสำนักงาน";
 export const REGISTER_STATUS_HEADING = "ใบสมัครของคุณ";
 
+// Spec 342 — invite-only office onboarding.
+/** The read-only invited-role line on the register form (approver sheet: spec 342 U3). */
+export const INVITED_ROLE_LABEL = "ตำแหน่งที่เชิญ";
+/** The /register/office gate screen (no valid invite link). */
+export const OFFICE_INVITE_REQUIRED_HEADING = "หน้านี้ต้องเปิดจากลิงก์เชิญ";
+export const OFFICE_INVITE_REQUIRED_HINT =
+  "การสมัครงานสำนักงานต้องใช้ลิงก์เชิญ กรุณาติดต่อฝ่ายบุคคลหรือผู้จัดการเพื่อขอลิงก์";
+/** The /coming-soon replacement line for the retired office door. */
+export const OFFICE_ASK_INVITE_LINE = "สมัครงานสำนักงาน? ติดต่อฝ่ายบุคคลเพื่อขอลิงก์เชิญ";
+/** The /settings/roles mint block. */
+export const OFFICE_INVITE_BLOCK_TITLE = "ลิงก์เชิญพนักงานออฟฟิศ";
+export const OFFICE_INVITE_BLOCK_HINT =
+  "สร้างลิงก์เชิญตามตำแหน่ง ส่งให้ผู้สมัครทาง LINE — ลิงก์ใช้ซ้ำได้ ผู้อนุมัติยืนยันตำแหน่งอีกครั้งตอนอนุมัติ";
+
 // Spec 264 follow-up (Handoff Unit A) — the Web Share/clipboard-fallback
 // button on the same page. Operator: the receiving SA had no idea what was
 // wanted of them. Demoted to an optional courtesy ("ถ้ามี") and the shared

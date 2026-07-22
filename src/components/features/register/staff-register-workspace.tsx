@@ -23,6 +23,7 @@ import { roleHome } from "@/lib/auth/role-home";
 import { EmployeeCard } from "@/components/features/register/employee-card";
 import { resolveCardPhoto } from "@/lib/register/card-view";
 import { StaffRegistrationForm } from "@/components/features/register/staff-registration-form";
+import { OfficeInviteGate } from "@/components/features/register/office-invite-gate";
 import { ShareCardButton } from "@/components/features/register/share-card-button";
 import { RegistrationPendingNotice } from "@/components/features/register/registration-pending-notice";
 import { RegistrationReturnedNotice } from "@/components/features/register/registration-returned-notice";
@@ -37,8 +38,10 @@ import {
 import {
   staffRegisterCopy,
   registerLoginNext,
+  officeInviteParams,
   type RegisterVariant,
 } from "@/lib/register/register-entry";
+import { invitedRoleFromHint } from "@/lib/register/office-roles";
 import { isValidUuid } from "@/lib/validate/uuid";
 import {
   REGISTER_STATUS_HEADING,
@@ -53,13 +56,16 @@ export async function StaffRegisterWorkspace({
   by,
   contractor,
   firm,
+  role,
 }: {
   variant: RegisterVariant;
   // Spec 279 F2a/F2b — the SA's per-project QR carries `?site=<label>` (display),
   // `?project=<id>` and `?by=<sa_uid>` (attribution). Only the on-site (field)
-  // door forwards these; the office door omits them (office roles are not
-  // project-scoped and get no workers row). `| undefined` is explicit so a
-  // possibly-undefined searchParam is assignable under exactOptionalPropertyTypes.
+  // door forwards these; office doesn't get project/site/firm (office roles are
+  // not project-scoped and get no workers row) — but spec 342 has the office
+  // door forward `?by` + `?role` (see `role` below). `| undefined` is explicit
+  // so a possibly-undefined searchParam is assignable under
+  // exactOptionalPropertyTypes.
   site?: string | undefined;
   project?: string | undefined;
   by?: string | undefined;
@@ -68,8 +74,11 @@ export async function StaffRegisterWorkspace({
   // SA-minted, React-escaped — same trust class as `site`).
   contractor?: string | undefined;
   firm?: string | undefined;
+  /** Spec 342 — the office invite's ?role key (advisory, D5). */
+  role?: string | undefined;
 }) {
   const copy = staffRegisterCopy(variant);
+  const officeInvite = variant === "office" ? officeInviteParams({ by, role }) : null;
   const supabase = await createClient();
 
   const { data } = await supabase.auth.getClaims();
@@ -79,7 +88,7 @@ export async function StaffRegisterWorkspace({
   // new subcon/project registrant loses their firm/project binding for good
   // (start_staff_registration is mint-once). /login re-validates the whole
   // value via safeNextPath.
-  if (!data) redirect(registerLoginNext(variant, { project, site, by, contractor, firm }));
+  if (!data) redirect(registerLoginNext(variant, { project, site, by, contractor, firm, role }));
   const uid = data.claims.sub;
 
   const { data: userRow } = await supabase
@@ -160,28 +169,36 @@ export async function StaffRegisterWorkspace({
           </div>
         ) : null}
         {!registration ? (
-          <StaffRegistrationForm
-            registrationExists={false}
-            uid={null}
-            docUrls={{}}
-            consentedAt={null}
-            invitedBy={by ?? null}
-            invitedProjectId={project ?? null}
-            invitedContractorId={contractorParam}
-            bankExempt={subconFresh}
-            initial={{
-              fullName: "",
-              phone: "",
-              dob: "",
-              emergencyName: "",
-              emergencyRelation: "",
-              emergencyPhone: "",
-              declaredRoleHint: "",
-              bankName: "",
-              accountNumber: "",
-              accountName: "",
-            }}
-          />
+          variant === "office" && officeInvite === null ? (
+            // Spec 342 D3 — no valid invite, no existing registration: the
+            // organic office door is closed. Order matters: an applicant WITH a
+            // registration never sees this gate (the status view wins below).
+            <OfficeInviteGate />
+          ) : (
+            <StaffRegistrationForm
+              registrationExists={false}
+              uid={null}
+              docUrls={{}}
+              consentedAt={null}
+              invitedBy={variant === "office" ? (officeInvite?.by ?? null) : (by ?? null)}
+              invitedProjectId={project ?? null}
+              invitedContractorId={contractorParam}
+              bankExempt={subconFresh}
+              invitedRole={officeInvite?.role ?? null}
+              initial={{
+                fullName: "",
+                phone: "",
+                dob: "",
+                emergencyName: "",
+                emergencyRelation: "",
+                emergencyPhone: "",
+                declaredRoleHint: officeInvite?.role ?? "",
+                bankName: "",
+                accountNumber: "",
+                accountName: "",
+              }}
+            />
+          )
         ) : (
           <RegistrationWorkspace
             uid={uid}
@@ -245,6 +262,7 @@ async function RegistrationWorkspace({
           docUrls={urls}
           consentedAt={consent?.consentedAt ?? null}
           bankExempt={Boolean(registration.invited_contractor_id)}
+          invitedRole={invitedRoleFromHint(registration.declared_role_hint)}
           initial={{
             fullName: registration.full_name ?? "",
             phone: registration.phone ?? "",
