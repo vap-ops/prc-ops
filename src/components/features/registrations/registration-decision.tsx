@@ -3,8 +3,10 @@
 // Spec 263 U3 / spec 264 G4 — the back-office approve/reject control on a
 // registration's review detail. Approve now carries a ROLE SELECTOR: the approver
 // picks which role the applicant becomes (options = STAFF_ONBOARDABLE_ROLES,
-// labels from USER_ROLE_LABEL), defaulting to `technician` (the common case + the
-// current open entry link). The picked role is passed as p_role to
+// labels from USER_ROLE_LABEL), defaulting to `technician` (the common case) —
+// EXCEPT an invited office applicant (spec 342 U3): a declared_role_hint that
+// parses as an onboardable role prefills the selector, unless a firm pre-select
+// forces technician. The picked role is passed as p_role to
 // approve_staff_registration; the RPC's floor asserts full_name + id_card +
 // consent and re-guards the role against the DB allowlist (a denial surfaces as
 // the Thai-mapped error). The applicant's optional declared_role_hint is shown
