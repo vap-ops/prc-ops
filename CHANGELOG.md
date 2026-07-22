@@ -1,3 +1,9 @@
+# [0.182.0](https://github.com/vap-ops/prc-ops/compare/v0.181.0...v0.182.0) (2026-07-22)
+
+### Features
+
+- **accounting:** spec 345 U1 — money-event review schema + stale-verify triggers ([#702](https://github.com/vap-ops/prc-ops/issues/702)) ([990edae](https://github.com/vap-ops/prc-ops/commit/990edae33dcd93217db7b7a1a972c915576fb0ad))
+
 # [0.181.0](https://github.com/vap-ops/prc-ops/compare/v0.180.0...v0.181.0) (2026-07-22)
 
 ### Features
