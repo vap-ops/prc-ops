@@ -83,6 +83,15 @@ describe("StaffRegistrationForm — required steps precede the CTA (spec 343 D2)
     expect(screen.getByTestId("reg-primary")).toHaveTextContent(REGISTER_SAVE_AND_NEXT_LABEL);
   });
 
+  it("still promises a next step when ONLY the consent is outstanding", () => {
+    // Covers the consent arm of nextAnchor on its own. Without this case, every
+    // other test has id_card missing too, so the documents anchor wins and the
+    // consent arm could be deleted with the suite staying green (found by
+    // mutation-check).
+    renderForm({ docUrls: { id_card: "https://example.test/a.jpg" } });
+    expect(screen.getByTestId("reg-primary")).toHaveTextContent(REGISTER_SAVE_AND_NEXT_LABEL);
+  });
+
   it("reverts to a plain save once the floor is met", () => {
     renderForm(MET);
     const cta = screen.getByTestId("reg-primary");
