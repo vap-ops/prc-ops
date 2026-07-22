@@ -109,6 +109,9 @@ declare
   v_id uuid;
   v_review_id uuid;
 begin
+  -- A nonexistent v_id_col silently yields NULL here (no error) — a mis-wired
+  -- trigger would never fire. The pgTAP suite pins every wired trigger's id
+  -- column against the table's real columns; keep that assert when adding one.
   v_id := (to_jsonb(new) ->> v_id_col)::uuid;
   if v_id is null then
     return null;
@@ -183,6 +186,8 @@ create trigger client_billings_money_review_stale
   when (new.gross_amount is distinct from old.gross_amount
      or new.vat_amount is distinct from old.vat_amount
      or new.retention_amount is distinct from old.retention_amount
+     or new.net_receivable is distinct from old.net_receivable
+     or new.wht_suffered is distinct from old.wht_suffered
      or new.vat_rate is distinct from old.vat_rate
      or new.retention_rate is distinct from old.retention_rate
      or new.wht_rate is distinct from old.wht_rate

@@ -1,5 +1,5 @@
 begin;
-select plan(46);
+select plan(49);
 
 -- ============================================================================
 -- Spec 345 U1 — money-event review layer: money_event_reviews + money_review_flags
@@ -95,6 +95,18 @@ select is((select prosecdef from pg_proc p join pg_namespace n on n.oid = p.pron
 select is((select count(*) from pg_trigger t join pg_class c on c.oid = t.tgrelid
            where not t.tgisinternal and t.tgname like '%\_money\_review\_stale'),
   15::bigint, 'exactly 15 stale-verify triggers are wired');
+-- The generic fn silently no-ops on a nonexistent id column (to_jsonb ->> null),
+-- so pin every wired trigger's tg_argv[1] against the table's REAL columns —
+-- a mis-wired future trigger must red here, not ship green and never fire.
+select is(
+  (select count(*) from pg_trigger t
+     join pg_class c on c.oid = t.tgrelid
+    where not t.tgisinternal and t.tgname like '%\_money\_review\_stale'
+      and exists (select 1 from information_schema.columns col
+                   where col.table_schema = 'public'
+                     and col.table_name = c.relname
+                     and col.column_name = (string_to_array(encode(t.tgargs, 'escape'), '\000'))[2])),
+  15::bigint, 'every stale trigger names an id column that exists on its table (no silent no-op wiring)');
 select has_trigger('public', 'wp_labor_costs', 'wp_labor_costs_money_review_stale',
   'wp_labor_costs stale trigger exists (source_id = work_package_id)');
 
@@ -110,6 +122,19 @@ select throws_ok($$
   insert into public.money_event_reviews (source_table, source_id, status)
   values ('wage_payments', 'd9000000-0000-4000-8000-000000000345', 'verified')
 $$, '23514', null, 'a verified review without verified_at/verified_via is refused');
+
+select throws_ok($$
+  insert into public.money_event_reviews (source_table, source_id, status, verified_at, verified_via)
+  values ('wage_payments', 'd8000000-0000-4000-8000-000000000345', 'verified', now(), 'reviewer')
+$$, '23514', null, 'a reviewer-verified review without verified_by is refused');
+
+insert into public.money_event_reviews
+  (id, source_table, source_id, status, verified_at, verified_via) values
+  ('b4000000-0000-4000-8000-000000000345', 'wage_payments',
+   'd7000000-0000-4000-8000-000000000345', 'verified', now(), 'agent');
+select is((select status from public.money_event_reviews where id = 'b4000000-0000-4000-8000-000000000345'),
+  'verified'::public.money_review_status,
+  'an agent-verified review carries no verified_by (the U8b auto-verify shape)');
 
 -- Seed the three reviews the behavior tests drive (as owner; verified shape).
 insert into public.money_event_reviews
