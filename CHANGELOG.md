@@ -1,3 +1,13 @@
+# [0.174.0](https://github.com/vap-ops/prc-ops/compare/v0.173.0...v0.174.0) (2026-07-22)
+
+### Bug Fixes
+
+- **settings:** make the cold-restart card's freshness check honest ([6c36d9f](https://github.com/vap-ops/prc-ops/commit/6c36d9f6bae76ec9747b6a556b4f12aef550a92c))
+
+### Features
+
+- **settings:** add an illustrated ปิดแอปสนิท card so a stranded PWA can be fixed in-app ([29cc5ab](https://github.com/vap-ops/prc-ops/commit/29cc5abd91ef684020bf1506ff3330ff232bddfe))
+
 # [0.173.0](https://github.com/vap-ops/prc-ops/compare/v0.172.0...v0.173.0) (2026-07-22)
 
 ### Features
