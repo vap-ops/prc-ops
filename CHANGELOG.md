@@ -1,3 +1,15 @@
+# [0.180.0](https://github.com/vap-ops/prc-ops/compare/v0.179.0...v0.180.0) (2026-07-22)
+
+### Bug Fixes
+
+- **register:** documents and consent render above the primary CTA (spec 343 U1/D2) ([45ecb32](https://github.com/vap-ops/prc-ops/commit/45ecb320ba478b07a4319db4cb116c76ec3562c7))
+- **register:** outstanding-items hint survives a given consent (spec 343 U1/D3) ([8bf2eee](https://github.com/vap-ops/prc-ops/commit/8bf2eee9d9682662fb1bc2436d702fdfd0fe0e9c))
+- **register:** pending notice stops claiming submission below the approval floor (spec 343 U1/D1) ([05b2bf4](https://github.com/vap-ops/prc-ops/commit/05b2bf4805ebc9fc13b530c2b709818cc29f8ee0))
+
+### Features
+
+- **register:** derive the approval floor from loaded data in one place (spec 343 U1) ([1dd67f3](https://github.com/vap-ops/prc-ops/commit/1dd67f3c8c57533c2ec416f2c6faf9d356a46836))
+
 # [0.179.0](https://github.com/vap-ops/prc-ops/compare/v0.178.0...v0.179.0) (2026-07-22)
 
 ### Features
