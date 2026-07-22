@@ -12,6 +12,8 @@ import { REGISTER_FIELD_HEADING, REGISTER_OFFICE_HEADING } from "@/lib/i18n/labe
 import { REGISTER_WORKSPACE_PATH } from "@/lib/auth/visitor-router";
 import { safeNextPath } from "@/lib/auth/next-path";
 import { isValidUuid } from "@/lib/validate/uuid";
+import { invitedRoleFromHint } from "@/lib/register/office-roles";
+import type { UserRole } from "@/lib/auth/role-home";
 
 /** Which self-onboard door the applicant entered. Label-only (spec 286): the
  * two variants share one form, one document set, one queue, and one approval
@@ -54,6 +56,8 @@ export interface RegisterQrParams {
   by?: string | undefined;
   contractor?: string | undefined;
   firm?: string | undefined;
+  /** Spec 342 — the office invite's role KEY (advisory, D5). */
+  role?: string | undefined;
 }
 
 /** Where /login returns a logged-out visitor who tapped this door.
@@ -74,6 +78,8 @@ export function registerLoginNext(variant: RegisterVariant, params?: RegisterQrP
     const value = params?.[key];
     if (isValidUuid(value)) bindings.set(key, value);
   }
+  const role = invitedRoleFromHint(params?.role);
+  if (role) bindings.set("role", role);
   const full = new URLSearchParams(bindings);
   for (const key of ["site", "firm"] as const) {
     const value = params?.[key];
@@ -86,6 +92,24 @@ export function registerLoginNext(variant: RegisterVariant, params?: RegisterQrP
     if (next) return `/login?next=${encodeURIComponent(next)}`;
   }
   return `/login?next=${encodeURIComponent(path)}`;
+}
+
+/** Spec 342 U2.1 — a valid office invite = a uuid-shaped `by` AND an
+ * onboardable `role`, both from the URL. UX gate only (D4): the uuid is not
+ * verified to belong to a real inviter — anyone past this gate is merely an
+ * applicant, and every approval floor sits downstream. */
+export interface OfficeInvite {
+  by: string;
+  role: UserRole;
+}
+
+export function officeInviteParams(params: {
+  by?: string | undefined;
+  role?: string | undefined;
+}): OfficeInvite | null {
+  const role = invitedRoleFromHint(params.role);
+  if (!isValidUuid(params.by) || !role) return null;
+  return { by: params.by, role };
 }
 
 export interface VisitorRegisterEntry {

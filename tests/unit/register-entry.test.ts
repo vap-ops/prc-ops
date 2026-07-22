@@ -11,6 +11,7 @@ import {
   VISITOR_REGISTER_ENTRIES,
   REGISTER_FIELD_PATH,
   REGISTER_OFFICE_PATH,
+  officeInviteParams,
 } from "@/lib/register/register-entry";
 import { technicianOnboardUrl } from "@/lib/register/onboard-link";
 import { safeNextPath } from "@/lib/auth/next-path";
@@ -159,5 +160,51 @@ describe("VISITOR_REGISTER_ENTRIES", () => {
   it("labels each door with its variant heading", () => {
     expect(VISITOR_REGISTER_ENTRIES[0]?.label).toBe(REGISTER_FIELD_HEADING);
     expect(VISITOR_REGISTER_ENTRIES[1]?.label).toBe(REGISTER_OFFICE_HEADING);
+  });
+});
+
+// Spec 342 U2.1 — the office invite parse + the role's login round-trip.
+// `role` joins the BINDINGS group of registerLoginNext (not the droppable
+// label group): a role key is neither a uuid nor display text, and it must
+// survive the label-dropping fallback. The logged-out leg is the historically
+// fragile one — the static next-path silently orphaned all 18 real
+// registrations' attribution (0/18 invited_by, PR #677).
+describe("officeInviteParams", () => {
+  const BY = "223e4567-e89b-12d3-a456-426614174000";
+
+  it("accepts a uuid inviter + onboardable role", () => {
+    expect(officeInviteParams({ by: BY, role: "accounting" })).toEqual({
+      by: BY,
+      role: "accounting",
+    });
+  });
+
+  it("rejects missing/malformed by, missing/prose/non-onboardable role", () => {
+    expect(officeInviteParams({ role: "accounting" })).toBeNull();
+    expect(officeInviteParams({ by: "not-a-uuid", role: "accounting" })).toBeNull();
+    expect(officeInviteParams({ by: BY })).toBeNull();
+    expect(officeInviteParams({ by: BY, role: "จัดซื้อ" })).toBeNull();
+    expect(officeInviteParams({ by: BY, role: "super_admin" })).toBeNull();
+  });
+});
+
+describe("registerLoginNext — office invite role threading", () => {
+  const BY = "223e4567-e89b-12d3-a456-426614174000";
+
+  it("keeps by + role across the round trip", () => {
+    const next = registerLoginNext("office", { by: BY, role: "hr" });
+    const decoded = decodeURIComponent(next.slice("/login?next=".length));
+    const parsed = new URL(decoded, "https://prc.invalid");
+    expect(parsed.pathname).toBe("/register/office");
+    expect(parsed.searchParams.get("by")).toBe(BY);
+    expect(parsed.searchParams.get("role")).toBe("hr");
+  });
+
+  it("drops a garbage role but keeps the by binding", () => {
+    const next = registerLoginNext("office", { by: BY, role: "<script>" });
+    const decoded = decodeURIComponent(next.slice("/login?next=".length));
+    const parsed = new URL(decoded, "https://prc.invalid");
+    expect(parsed.searchParams.get("by")).toBe(BY);
+    expect(parsed.searchParams.get("role")).toBeNull();
   });
 });
