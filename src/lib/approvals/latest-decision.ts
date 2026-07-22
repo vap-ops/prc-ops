@@ -28,7 +28,14 @@ export function selectLatestDecisionByWorkPackage(
   const latest = new Map<string, ApprovalRow>();
   for (const r of rows) {
     const current = latest.get(r.work_package_id);
-    if (!current || r.decided_at > current.decided_at) {
+    // The id tiebreak mirrors resubmit_work_package_evidence's
+    // `order by decided_at desc, id desc`, so the UI and the DB can never
+    // disagree about which decision is current when two share a decided_at.
+    const newer =
+      !current ||
+      r.decided_at > current.decided_at ||
+      (r.decided_at === current.decided_at && (r.id ?? "") > (current.id ?? ""));
+    if (newer) {
       latest.set(r.work_package_id, r);
     }
   }
@@ -42,7 +49,9 @@ export async function getLatestDecisionsForWorkPackages(
   if (workPackageIds.length === 0) return new Map();
   const { data, error } = await supabase
     .from("approvals")
-    .select("work_package_id, decision, comment, decided_by, decided_at")
+    // Spec 337 U2a: `id` joins a decision to the wp_evidence_resubmitted audit
+    // row that answered it, which is how /sa clears a bounce the SA has cured.
+    .select("id, work_package_id, decision, comment, decided_by, decided_at")
     .in("work_package_id", workPackageIds as string[]);
   if (error) throw error;
   return selectLatestDecisionByWorkPackage(data ?? []);

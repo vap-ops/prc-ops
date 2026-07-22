@@ -27,6 +27,7 @@ import { workPackageHref } from "@/lib/nav/project-paths";
 import {
   APPROVAL_DECISIONS,
   isCommentValid,
+  NOT_PENDING_REVIEW_ERROR,
   type ApprovalDecision,
 } from "@/lib/approvals/predicates";
 import { canHold, canRelease } from "@/lib/work-packages/hold";
@@ -86,7 +87,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     .maybeSingle();
   if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
   if (wp.status !== "pending_approval") {
-    return { ok: false, error: "รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ" };
+    return { ok: false, error: NOT_PENDING_REVIEW_ERROR };
   }
 
   // Trim to the visible text; whitespace-only or null collapses to null.
@@ -114,7 +115,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
       ok: false,
       error:
         rpcError.code === "22023"
-          ? "รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ"
+          ? NOT_PENDING_REVIEW_ERROR
           : rpcError.code === "42501"
             ? "ไม่พบรายการงาน"
             : "บันทึกผลการตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",

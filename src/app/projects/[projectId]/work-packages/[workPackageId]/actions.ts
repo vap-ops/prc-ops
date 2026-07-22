@@ -53,6 +53,8 @@ import {
   type PhotoPhase,
 } from "@/lib/photos/transitions";
 import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
+import { resubmitState, RESUBMIT_DONE_NOTE } from "@/lib/approvals/resubmit";
+import { NOT_PENDING_REVIEW_ERROR } from "@/lib/approvals/predicates";
 
 // Spec 248: 'defect' is insertable ONLY through the scoped branch inside
 // addPhoto (filing roles + WP in rework) — listing it here just admits it to
@@ -300,6 +302,119 @@ export async function submitWorkPackageForApproval(
   }
 
   revalidatePath(workPackageHref(wp.project_id, wp.id));
+  return { ok: true };
+}
+
+// Spec 337 U2a (F2) — "ส่งตรวจอีกครั้ง": the SA answers a needs_revision and
+// hands the WP back to the DECIDER. The cure loop had no closing act, so a
+// re-shot WP sat indistinguishable in a 40-deep queue; the explicit press is
+// what pings the person who asked (spec 337 U1's RPC does the ping).
+//
+// The gate is resubmitState — the SAME pure rule the control renders from, so
+// the disabled button and this refusal can never disagree — and
+// resubmit_work_package_evidence re-checks every clause at the DB, idempotently.
+export interface ResubmitEvidenceInput {
+  projectId: string;
+  workPackageId: string;
+}
+
+export type ResubmitEvidenceResult = { ok: true } | { ok: false; error: string };
+
+export async function resubmitWorkPackageEvidence(
+  input: ResubmitEvidenceInput,
+): Promise<ResubmitEvidenceResult> {
+  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
+
+  // Same audience as the submit it repeats.
+  const gate = await requireActionRole(SITE_STAFF_ROLES);
+  if ("error" in gate) return { ok: false, error: gate.error };
+  const { supabase } = gate.auth;
+
+  // RLS-scoped read = the membership/visibility gate (as in submit).
+  const { data: wp, error: wpError } = await supabase
+    .from("work_packages")
+    .select("id, project_id, status")
+    .eq("id", input.workPackageId)
+    .maybeSingle();
+  if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
+
+  const { data: decisionRows } = await supabase
+    .from("approvals")
+    .select("id, decision, decided_at, decided_by")
+    .eq("work_package_id", wp.id)
+    // The id tiebreak mirrors the RPC's own `order by decided_at desc, id desc`,
+    // so the UI and the DB can never disagree about which decision is current.
+    .order("decided_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1);
+  const latestDecision = decisionRows?.[0] ?? null;
+
+  // Which bounces have already been answered. Readable by the SA since spec 337
+  // U1's …075828 widened their audit_log allowlist to this event — deliberately
+  // NOT notification_outbox, which has RLS on and zero policies.
+  const { data: answeredRows } = await supabase
+    .from("audit_log")
+    .select("payload")
+    // target_table first: audit_log_target_idx is (target_table, target_id), and a
+    // btree cannot be used from its second column — without this it is a seq scan.
+    .eq("target_table", "work_packages")
+    .eq("target_id", wp.id)
+    .eq("payload->>event", "wp_evidence_resubmitted");
+  const answeredDecisionIds = new Set(
+    (answeredRows ?? [])
+      .map((r) => (r.payload as { answers_decision_id?: string } | null)?.answers_decision_id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+
+  const currentPhotos = await getCurrentPhotosForWorkPackage(supabase, wp.id);
+  const state = resubmitState({
+    status: wp.status,
+    latestDecision,
+    currentPhotos,
+    answeredDecisionIds,
+    viewerId: gate.auth.user.id,
+  });
+  if (state.kind === "blocked") return { ok: false, error: state.hint };
+  if (state.kind === "done") return { ok: false, error: RESUBMIT_DONE_NOTE };
+  if (state.kind !== "ready") return { ok: false, error: NOT_PENDING_REVIEW_ERROR };
+
+  const { error: rpcError } = await supabase.rpc("resubmit_work_package_evidence", {
+    p_wp: wp.id,
+  });
+  if (rpcError) {
+    if (rpcError.code === "22023") {
+      // The RPC raises 22023 for five guards; the two reachable ones mean very
+      // different things to the SA. A double-tap (phone + tablet, or a retry)
+      // races past the pre-check above — FOR UPDATE serialises the two calls and
+      // the second is refused as ALREADY ANSWERED, which is a success from the
+      // SA's point of view, not "this WP is not up for review". Re-read to tell
+      // them apart rather than guessing.
+      const { data: recheck } = await supabase
+        .from("audit_log")
+        .select("payload")
+        .eq("target_table", "work_packages")
+        .eq("target_id", wp.id)
+        .eq("payload->>event", "wp_evidence_resubmitted");
+      const nowAnswered = (recheck ?? []).some(
+        (r) =>
+          (r.payload as { answers_decision_id?: string } | null)?.answers_decision_id ===
+          latestDecision?.id,
+      );
+      return { ok: false, error: nowAnswered ? RESUBMIT_DONE_NOTE : NOT_PENDING_REVIEW_ERROR };
+    }
+    // 42501 = role/membership, pre-checked above; answer as the WP read would.
+    return {
+      ok: false,
+      error:
+        rpcError.code === "42501"
+          ? "ไม่พบรายการงาน"
+          : "ส่งตรวจอีกครั้งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    };
+  }
+
+  revalidatePath(workPackageHref(wp.project_id, wp.id));
+  // The SA action list drops the bounce item once it is answered.
+  revalidatePath("/sa");
   return { ok: true };
 }
 

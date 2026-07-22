@@ -23,6 +23,7 @@ import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-
 import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import { submitGateReason, TRANSITIONABLE_FROM_STATUSES } from "@/lib/photos/transitions";
+import { resubmitState } from "@/lib/approvals/resubmit";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { WorkPackageInfoButton } from "@/components/features/work-packages/work-package-info-button";
@@ -85,6 +86,7 @@ import { fetchWpLaborBudgetSummary } from "@/lib/labor/wp-budget-summary";
 import { PhotoCaptureZone } from "./phase-uploader";
 import { ReportDefectControl } from "./report-defect-control";
 import { SubmitForApprovalControl } from "./submit-for-approval-control";
+import { ResubmitEvidenceControl } from "./resubmit-evidence-control";
 
 interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
@@ -336,6 +338,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     reworkReasons,
     reworkSources,
     defectSource,
+    answeredDecisionIds,
   } = data;
 
   const assignedContractor = wp.contractor_id
@@ -344,6 +347,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   const pickerContractors = pickableContractors(contractors, wp.contractor_id);
 
   const latestDecision = approvals[0] ?? null;
+  // Spec 337 U2a — the whole ส่งตรวจอีกครั้ง rule, computed once on the server and
+  // handed to the control; the server action refuses from the same function.
+  const resubmit = resubmitState({
+    status: wp.status,
+    latestDecision,
+    currentPhotos: photosByPhase,
+    answeredDecisionIds,
+    viewerId: ctx.id,
+  });
   const attention =
     latestDecision &&
     (latestDecision.decision === "needs_revision" || latestDecision.decision === "rejected")
@@ -966,6 +978,21 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             workPackageId={wp.id}
             // Spec 247 + 248 U4: floor AND pairing — null means submittable.
             disabledHint={submitGateReason(wp.status, photosByPhase, wp.rework_round)}
+          />
+        </div>
+      ) : null}
+      {/* Spec 337 U2a (F2): the cure loop's closing act. A needs_revision leaves
+          the WP in the queue awaiting new photos, and nothing used to tell the
+          decider when the SA had answered. resubmitState decides everything —
+          it renders nothing outside the pending_approval + needs_revision pair,
+          disabled-with-hint until a photo newer than the decision exists, and a
+          plain confirmation once this bounce has been answered. */}
+      {!readOnly && resubmit.kind !== "hidden" ? (
+        <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
+          <ResubmitEvidenceControl
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            state={resubmit}
           />
         </div>
       ) : null}

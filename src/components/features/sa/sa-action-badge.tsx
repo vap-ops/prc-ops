@@ -26,22 +26,48 @@ async function loadSaActionCount(): Promise<number | null> {
   const pendingIds = (pendingRes.data ?? []).map((w) => w.id);
   if (pendingIds.length === 0) return reworkCount;
 
-  const { data: approvals } = await supabase
-    .from("approvals")
-    .select("work_package_id, decision, decided_at")
-    .in("work_package_id", pendingIds);
+  // Spec 337 U2a — the badge must apply the SAME clear rule as the section it
+  // counts (src/lib/sa/action-list.ts): a bounce the SA has already answered with
+  // ส่งตรวจอีกครั้ง is waiting on the DECIDER. Without this the badge keeps its
+  // count while the ต้องแก้ไข section renders empty — a permanent phantom on the
+  // tab bar, which is the opposite of what the unit is for.
+  const [{ data: approvals }, { data: resubmits }] = await Promise.all([
+    supabase
+      .from("approvals")
+      .select("id, work_package_id, decision, decided_at")
+      .in("work_package_id", pendingIds),
+    supabase
+      .from("audit_log")
+      .select("payload")
+      .eq("target_table", "work_packages")
+      .in("target_id", pendingIds)
+      .eq("payload->>event", "wp_evidence_resubmitted"),
+  ]);
 
-  // Latest decision per WP (max decided_at), then count the negative ones.
-  const latest = new Map<string, { decision: string; decided_at: string }>();
+  const answeredDecisionIds = new Set(
+    (resubmits ?? [])
+      .map((r) => (r.payload as { answers_decision_id?: string } | null)?.answers_decision_id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+
+  // Latest decision per WP (max decided_at, id as the tiebreak — mirrors the
+  // RPC's ordering), then count the negative ones the SA has not yet answered.
+  const latest = new Map<string, { id: string; decision: string; decided_at: string }>();
   for (const a of approvals ?? []) {
     const cur = latest.get(a.work_package_id);
-    if (!cur || a.decided_at > cur.decided_at) {
-      latest.set(a.work_package_id, { decision: a.decision, decided_at: a.decided_at });
+    if (
+      !cur ||
+      a.decided_at > cur.decided_at ||
+      (a.decided_at === cur.decided_at && a.id > cur.id)
+    ) {
+      latest.set(a.work_package_id, { id: a.id, decision: a.decision, decided_at: a.decided_at });
     }
   }
   let bounced = 0;
   for (const d of latest.values()) {
-    if (d.decision === "needs_revision" || d.decision === "rejected") bounced += 1;
+    if (d.decision !== "needs_revision" && d.decision !== "rejected") continue;
+    if (answeredDecisionIds.has(d.id)) continue;
+    bounced += 1;
   }
   return reworkCount + bounced;
 }

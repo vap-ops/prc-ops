@@ -19,8 +19,18 @@ describe("buildSaActionList", () => {
     const { actions, rest } = buildSaActionList({
       inPlay: [wp("a", "in_progress"), wp("b", "rework"), wp("c", "on_hold")],
       bounced: [
-        { wp: wp("d", "pending_approval"), decision: "needs_revision", comment: "ขอรูปเพิ่ม" },
-        { wp: wp("e", "pending_approval"), decision: "rejected", comment: "ทำใหม่" },
+        {
+          wp: wp("d", "pending_approval"),
+          decision: "needs_revision",
+          comment: "ขอรูปเพิ่ม",
+          answered: false,
+        },
+        {
+          wp: wp("e", "pending_approval"),
+          decision: "rejected",
+          comment: "ทำใหม่",
+          answered: false,
+        },
       ],
       reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2 }]]),
       projectsById,
@@ -37,7 +47,12 @@ describe("buildSaActionList", () => {
     const { actions } = buildSaActionList({
       inPlay: [wp("b", "rework")],
       bounced: [
-        { wp: wp("d", "pending_approval"), decision: "needs_revision", comment: "ขอรูปเพิ่ม" },
+        {
+          wp: wp("d", "pending_approval"),
+          decision: "needs_revision",
+          comment: "ขอรูปเพิ่ม",
+          answered: false,
+        },
       ],
       reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2 }]]),
       projectsById,
@@ -51,6 +66,53 @@ describe("buildSaActionList", () => {
     expect(rev.reason).toBe("ขอรูปเพิ่ม");
     expect(rev.source).toBeNull();
     expect(rev.round).toBeNull();
+  });
+
+  // Spec 337 U2a — the cure loop's clear condition. Once the SA has pressed
+  // ส่งตรวจอีกครั้ง the ball is back with the decider, so the item must leave the
+  // SA's ต้องแก้ไข list; leaving it there is what made the old loop feel endless.
+  // The WP stays pending_approval throughout, so status alone cannot tell.
+  it("drops a ให้แก้ไข item once the SA has answered it", () => {
+    const { actions, rest } = buildSaActionList({
+      inPlay: [],
+      bounced: [
+        {
+          wp: wp("d", "pending_approval"),
+          decision: "needs_revision",
+          comment: "ขอรูปเพิ่ม",
+          answered: true,
+        },
+      ],
+      reworkInfo: new Map(),
+      projectsById,
+    });
+    expect(actions).toEqual([]);
+    // …and it does NOT reappear in the ordinary worklist: it is still in the
+    // review queue, just not the SA's move.
+    expect(rest).toEqual([]);
+  });
+
+  it("keeps an unanswered bounce alongside an answered one", () => {
+    const { actions } = buildSaActionList({
+      inPlay: [],
+      bounced: [
+        {
+          wp: wp("d", "pending_approval"),
+          decision: "needs_revision",
+          comment: "ขอรูปเพิ่ม",
+          answered: true,
+        },
+        {
+          wp: wp("f", "pending_approval"),
+          decision: "needs_revision",
+          comment: "อีกจุด",
+          answered: false,
+        },
+      ],
+      reworkInfo: new Map(),
+      projectsById,
+    });
+    expect(actions.map((x) => x.id)).toEqual(["f"]);
   });
 
   it("returns no actions when nothing needs the SA's fix", () => {

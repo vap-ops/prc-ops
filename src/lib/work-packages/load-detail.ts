@@ -97,6 +97,9 @@ export interface WorkPackageDetailData {
   /** Spec 217: the current (latest) rework's source — for the rework banner; null
    *  when not in rework or a legacy reopen carried no source. */
   defectSource: ReworkSource | null;
+  /** Spec 337 U2a: `answers_decision_id` of every resubmit already recorded on
+   *  this WP — the cure loop is closed for those bounces. */
+  answeredDecisionIds: Set<string>;
 }
 
 type Db = SupabaseClient<Database>;
@@ -131,6 +134,7 @@ export async function loadWorkPackageDetail(
       reworkReasons: new Map(),
       reworkSources: new Map(),
       defectSource: null,
+      answeredDecisionIds: new Set<string>(),
     };
   }
 
@@ -151,6 +155,7 @@ export async function loadWorkPackageDetail(
     labor,
     photosByPhase,
     reworkData,
+    { data: resubmitRows },
   ] = await Promise.all([
     contractorsShared,
     supabase
@@ -169,10 +174,25 @@ export async function loadWorkPackageDetail(
     fetchLaborZoneData(supabase, wp.id, wp.project_id, contractorsShared),
     getCurrentPhotosForWorkPackage(supabase, wp.id),
     loadReworkData(supabase, wp.id, wp.status),
+    // Spec 337 U2a — which needs_revision bounces the SA has already answered.
+    // Readable by site_admin because …075828 named this event in their audit_log
+    // allowlist (that policy is an allowlist, NOT `using(true)`).
+    supabase
+      .from("audit_log")
+      .select("payload")
+      // target_table first — audit_log_target_idx is (target_table, target_id).
+      .eq("target_table", "work_packages")
+      .eq("target_id", wp.id)
+      .eq("payload->>event", "wp_evidence_resubmitted"),
   ]);
 
   const approvals = approvalRows ?? [];
   const wpRequests = requestRows ?? [];
+  const answeredDecisionIds = new Set(
+    (resubmitRows ?? [])
+      .map((r) => (r.payload as { answers_decision_id?: string } | null)?.answers_decision_id)
+      .filter((id): id is string => typeof id === "string"),
+  );
 
   // Dependent tail: display names need the ids from approvals+requests+photo
   // uploaders (spec 289 U1 — one users read serves the lightbox uploader line
@@ -216,6 +236,7 @@ export async function loadWorkPackageDetail(
     reworkReasons: reworkData.reworkReasons,
     reworkSources: reworkData.reworkSources,
     defectSource: reworkData.defectSource,
+    answeredDecisionIds,
   };
 }
 
