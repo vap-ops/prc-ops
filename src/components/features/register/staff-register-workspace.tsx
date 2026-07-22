@@ -29,6 +29,8 @@ import { RegistrationPendingNotice } from "@/components/features/register/regist
 import { RegistrationReturnedNotice } from "@/components/features/register/registration-returned-notice";
 import { DocsOwedCard } from "@/components/features/register/docs-owed-card";
 import { deferredDocsOwed } from "@/lib/register/docs-owed";
+import { approvalFloorFromLoaded } from "@/lib/register/registration-floor";
+import { validateRegistrationBank } from "@/lib/register/registration-bank";
 import {
   getOwnTechnicianRegistration,
   getOwnRegistrationDocuments,
@@ -227,6 +229,24 @@ async function RegistrationWorkspace({
     getOwnStaffBank(supabase),
   ]);
 
+  // Spec 343 U1 — the approval floor, derived ONCE here from the data this
+  // component already loaded, so the pending notice cannot claim the application
+  // is submitted while the form below still shows outstanding requirements.
+  const floor = approvalFloorFromLoaded({
+    fullName: registration.full_name,
+    docUrls: urls,
+    consentedAt: consent?.consentedAt ?? null,
+    // Mirrors the form's own rule: the floor counts PERSISTED bank fields, never
+    // unsaved typed state (staff-registration-form.tsx `bankSaved`).
+    bankSaved:
+      validateRegistrationBank({
+        bankName: bank?.bankName ?? "",
+        accountNumber: bank?.accountNumber ?? "",
+        accountName: bank?.accountName ?? "",
+      }) === null,
+    bankExempt: Boolean(registration.invited_contractor_id),
+  });
+
   return (
     <>
       <EmployeeCard
@@ -248,7 +268,7 @@ async function RegistrationWorkspace({
           // "sit tight" pending notice; the edit form below still renders.
           <RegistrationReturnedNotice note={registration.reject_reason} />
         ) : (
-          <RegistrationPendingNotice employeeId={registration.employee_id} />
+          <RegistrationPendingNotice employeeId={registration.employee_id} floor={floor} />
         )
       ) : null}
       <ShareCardButton
