@@ -726,6 +726,11 @@ export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {
   defect: "จุดบกพร่อง",
 };
 
+// Spec 144 / 337 U5 — filing a defect on a finished งานย่อย, which reopens it to
+// งานแก้ไข. Single-sourced once the list's เสร็จแล้ว door joined the WP detail's
+// own control as a second surface.
+export const REPORT_DEFECT_LABEL = "รายงานข้อบกพร่อง";
+
 // Spec 217 — who called a rework round: internal QA/SA vs the client.
 export const REWORK_SOURCE_LABEL: Record<Enums["rework_source"], string> = {
   internal: "ตรวจภายใน",

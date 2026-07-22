@@ -84,6 +84,7 @@ import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
 import { fetchWpLaborBudgetSummary } from "@/lib/labor/wp-budget-summary";
 import { PhotoCaptureZone } from "./phase-uploader";
+import { DEFECT_PARAM, shouldOpenDefectSheet } from "@/lib/work-packages/defect-deep-link";
 import { ReportDefectControl } from "./report-defect-control";
 import { SubmitForApprovalControl } from "./submit-for-approval-control";
 import { ResubmitEvidenceControl } from "./resubmit-evidence-control";
@@ -92,14 +93,20 @@ interface PageProps {
   params: Promise<{ projectId: string; workPackageId: string }>;
   // The back chip follows where you came from — /sa, the schedule, a purchase
   // request, a งวด — falling back to the project page (see safeBackHref).
-  searchParams: Promise<{ from?: string }>;
+  // Spec 337 U5: `defect=1` arrives from the project list's เสร็จแล้ว door and
+  // opens the report sheet on landing; any other value is ignored silently.
+  // Keyed off DEFECT_PARAM, not a literal, so the door and this reader cannot
+  // drift apart.
+  searchParams: Promise<{ from?: string } & { [K in typeof DEFECT_PARAM]?: string | string[] }>;
 }
 
 export const metadata = { title: "รูปถ่ายงาน" };
 
 export default async function WorkPackagePhotoScreen({ params, searchParams }: PageProps) {
   const { projectId, workPackageId } = await params;
-  const { from } = await searchParams;
+  const sp = await searchParams;
+  const from = sp.from;
+  const defect = sp[DEFECT_PARAM];
   const ctx = await requireRole(WP_DETAIL_ROLES);
   const supabase = await createClient();
   // Spec 171: procurement opens this screen to raise a purchase request, seeing
@@ -1006,11 +1013,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       ) : null}
       {wp.status === "complete" && !readOnly ? (
         <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
-          {/* Spec 248: photo attach = filing roles (PM/PD/super); SA files text-only. */}
+          {/* Spec 248: photo attach = filing roles (PM/PD/super); SA files text-only.
+              Spec 337 U5: ?defect=1 lands with the sheet open. The gate above
+              (complete + !readOnly) is the only thing that decides whether this
+              control exists at all, so the param opens nothing on its own. */}
           <ReportDefectControl
             projectId={wp.project_id}
             workPackageId={wp.id}
             canAttachPhotos={isPlanner}
+            initialOpen={shouldOpenDefectSheet(defect)}
           />
         </div>
       ) : null}

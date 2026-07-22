@@ -7,7 +7,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { WorklistRow, type WorklistRowItem } from "@/components/features/chrome/worklist-row";
-import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
+import { REPORT_DEFECT_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 
 const PROJECT_ID = "proj-1";
 const WP: WorklistRowItem = {
@@ -106,5 +106,42 @@ describe("WorklistRow content-visibility (spec 243)", () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root.className).toContain("[content-visibility:auto]");
     expect(root.className).toContain("[contain-intrinsic-size:auto_96px]");
+  });
+});
+
+// Spec 337 U5 — the defect door rides as a SIBLING of the row's single anchor.
+// A surface that threads ?from must not lose the back trail on the door alone,
+// so the door gets the same withBackFrom treatment as the row above it.
+describe("WorklistRow defect door (spec 337 U5)", () => {
+  const DONE: WorklistRowItem = { ...WP, status: "complete" };
+
+  it("threads ?from into the door as well as the row", () => {
+    const backFrom = "/projects/proj-1/work-packages/group-9";
+    render(
+      <WorklistRow
+        projectId={PROJECT_ID}
+        wp={DONE}
+        spine="bg-done"
+        showDefectDoor
+        backFrom={backFrom}
+      />,
+    );
+    const door = screen.getByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) });
+    expect(door).toHaveAttribute("href", `${HREF}?defect=1&from=${encodeURIComponent(backFrom)}`);
+  });
+
+  it("keeps the bare deep link when no backFrom is threaded", () => {
+    render(<WorklistRow projectId={PROJECT_ID} wp={DONE} spine="bg-done" showDefectDoor />);
+    expect(screen.getByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) })).toHaveAttribute(
+      "href",
+      `${HREF}?defect=1`,
+    );
+  });
+
+  it("renders no door without the opt-in, even on a เสร็จแล้ว row", () => {
+    render(<WorklistRow projectId={PROJECT_ID} wp={DONE} spine="bg-done" />);
+    expect(
+      screen.queryByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) }),
+    ).not.toBeInTheDocument();
   });
 });

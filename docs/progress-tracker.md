@@ -6,6 +6,81 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 337 U5 — defect-reopen discoverability — 🔨 built (2026-07-22)
+
+**U3 was the assigned unit; I declined it on evidence and built U5 instead**
+(operator confirmed in chat). U3 pre-proposes `reason_code='rework'` for a PR
+raised against a WP in rework — but live, **0 of 396 WPs have ever been in
+`rework`, 0 have `rework_round > 0`, and `approvals` holds 0 `rejected` against
+107 approved + 35 needs_revision.** The window has no domain: U1's F3 opened the
+first door into `rework` hours earlier and nobody had walked through it. Two more
+gate-check findings are recorded in the spec itself: U3 (and U4) name
+`work_package_id`, which store-first procurement force-nulls (4/553 filled vs
+124/553 on `requested_from_work_package_id`), and `reason_code` is already at
+**124/124** on exactly the channel U3 targets. U5 is the unit that manufactures
+U3's population, so it goes first.
+
+**What shipped.** A `เสร็จแล้ว` row in the project WP list carries a
+`รายงานข้อบกพร่อง` door deep-linking to `?defect=1`, and the WP detail opens the
+existing `ReportDefectControl` sheet on that arrival. No new filing path — the
+spec-144/248 machinery, gates and RPC are untouched; only the way in changed.
+
+**Design constraint found at gate-check.** `WorklistRow` is a single-anchor row
+(the whole row is one `Link`, "preserved from spec 47"), so the spec's wording —
+"complete WP rows gain an action" — could not be a control _inside_ the row
+without nesting an `<a>` in an `<a>`. The door ships as a **sibling** beneath the
+row, and a test pins that (`door.parentElement?.closest("a")` is null).
+
+**Producer/consumer share one module.** `src/lib/work-packages/defect-deep-link.ts`
+owns `DEFECT_PARAM`, `defectHref()` and `shouldOpenDefectSheet()`, and **both ends
+key off it** — the page reads `sp[DEFECT_PARAM]`, not a `defect` literal (the
+first cut hardcoded the literal on the read side, so the module single-sourced
+only the producer; fresh-eyes caught it). A query key that drifted between the
+link and the page would render a door that opens nothing, and no type would catch
+it; a round-trip test pins the pairing and a wiring test pins the seam.
+
+**Verification:** vitest full suite; **5 mutation-checks** (status gate · role
+gate · param parser · `initialOpen` · the `canOpen` early return); live
+browser drive.
+
+⭐ **Two lessons the mutation-checks bought, both mine:**
+
+1. **A `git checkout --` restore during a mutation-check wipes UNCOMMITTED
+   implementation.** I mutated, ran the test, restored — and the restore took
+   three production files back to `HEAD`, deleting the unit I had just written
+   (the new untracked module survived, still carrying its mutation). Commit
+   first, then mutate; the restore is only safe against a committed base.
+2. **A mutation that DOESN'T red is a finding.** Deleting the role gate left the
+   procurement test green: `procurement` and `project_coordinator` default to
+   the _deliverable_ lens, where the เสร็จแล้ว band does not exist — so the test
+   was asserting the lens default, never the gate. Fixed by selecting the
+   ตามสถานะ lens explicitly. A second non-red proved `canOpen &&` in the gate
+   was **unreachable** (the row returns its non-interactive form first), so it
+   was removed rather than kept as decoration — an unreachable guard implies a
+   hazard that isn't there (spec 340 lesson).
+
+**Open questions:**
+
+- 🔔 **The `ลูกค้าแจ้ง` trap, surfaced by fresh-eyes and confirmed against the live
+  RPC — out of scope, needs an operator call.** `reopen_work_package_for_defect`
+  refuses `p_source='client'` for `site_admin` and `auditor` (client defects are a
+  PM-tier act, spec 217 D2/D5) with a 42501, and `actions.ts:598` answers every
+  42501 with `คุณไม่มีสิทธิ์เปิดงานนี้ใหม่ (ต้องเป็นทีมงานของโครงการ)` — a
+  MEMBERSHIP diagnosis for a ROLE rule. Pre-existing, but U5 is what drives the SA
+  (the primary filer) into this control for the first time, so an SA who taps
+  ลูกค้าแจ้ง will be told they are not on the project. Fix is either splitting the
+  42501 message or hiding/disabling ลูกค้าแจ้ง below PM tier — both change behaviour
+  beyond this spec.
+- `group-detail-view.tsx` renders the same `WorklistRow` for a งาน's children and
+  does NOT get the door — the prop is opt-in and that surface was out of the
+  spec's "project WP list" scope. One-line change if wanted.
+- The door repeats per finished row. If the เสร็จแล้ว band gets long in the field,
+  a band-level affordance may read calmer than N per-row doors.
+- Success probe (spec 337): `wp_reopened_for_defect` events > 0 within ~30 days,
+  else the placement is still wrong.
+
+---
+
 ## Spec 337 U2 — the cure loop (ส่งตรวจอีกครั้ง + queue split) — 🔨 built (2026-07-22)
 
 **A split I made and then reversed — worth recording.** I first scoped this as
@@ -8977,7 +9052,7 @@ app?" — operator chose both units; this is U1.
 **Built**
 
 - `src/components/features/chrome/cold-restart-help.tsx` — a `<details
-  id="cold-restart">` in the /settings เกี่ยวกับ card, under the version row:
+id="cold-restart">` in the /settings เกี่ยวกับ card, under the version row:
   the refresh-is-not-enough warning (with the button located, since /settings
   renders neither AppHeader nor DetailHeader), one app-switcher flick
   illustration, an iPhone line and an Android line, and the verdict line.

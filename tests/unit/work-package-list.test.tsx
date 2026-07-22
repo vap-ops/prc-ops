@@ -13,6 +13,8 @@ import {
   WorkPackageList,
   type WorkPackageListItem,
 } from "@/app/projects/[projectId]/work-package-list";
+import { REPORT_DEFECT_LABEL } from "@/lib/i18n/labels";
+import { defectHref } from "@/lib/work-packages/defect-deep-link";
 
 const PROJECT_ID = "proj-1";
 const HREF = "/projects/proj-1/work-packages/wp-1";
@@ -102,6 +104,123 @@ describe("WorkPackageList canOpen", () => {
     );
     expect(screen.queryAllByRole("link")).toHaveLength(0);
     expect(screen.getByText("งานเทคอนกรีต")).toBeInTheDocument();
+  });
+});
+
+// Spec 337 U5 — the defect door. F6 of the WP-gates audit: reopen_work_package_for_defect
+// has NEVER been used on prod, and the only entry point is buried on the finished WP's
+// own detail page. The เสร็จแล้ว band is where someone looking at finished work already
+// is, so the door goes there — as a SIBLING of the row, never nested inside it (the
+// WorklistRow single-anchor invariant, spec 47).
+const DEFECT_FIXTURE: WorkPackageListItem[] = [
+  ...WPS,
+  {
+    id: "wp-done",
+    code: "WP-002",
+    name: "งานฉาบผนัง",
+    status: "complete",
+    deliverableId: null,
+    hasContractor: true,
+    priority: "normal",
+    priorityRank: 2,
+    isCritical: false,
+    isGroup: false,
+    parentId: null,
+    categoryCode: null,
+  },
+];
+
+// Only site_admin defaults to the action lens; every other role lands on
+// deliverable/group, where the เสร็จแล้ว band does not exist. Select the lens
+// explicitly so a role-gate assertion below is really about the ROLE GATE and
+// not about which lens that role happens to open on (a mutation-check caught
+// exactly that fake pass).
+function openDoneBand() {
+  fireEvent.click(screen.getByRole("radio", { name: "ตามสถานะ" }));
+  fireEvent.click(screen.getByRole("button", { name: /เสร็จแล้ว 1 รายการ/ }));
+}
+
+describe("WorkPackageList defect door (spec 337 U5)", () => {
+  it("offers the defect door on a เสร็จแล้ว row, deep-linking to the WP with ?defect=1", () => {
+    render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="site_admin"
+        workPackages={DEFECT_FIXTURE}
+        deliverables={[]}
+      />,
+    );
+    openDoneBand();
+    const door = screen.getByRole("link", { name: `${REPORT_DEFECT_LABEL} WP-002 งานฉาบผนัง` });
+    // Pinned as a LITERAL, not via defectHref() — asserting the producer against
+    // itself would let the key change on both sides and stay green.
+    expect(door).toHaveAttribute("href", "/projects/proj-1/work-packages/wp-done?defect=1");
+    expect(door).toHaveAttribute("href", defectHref(PROJECT_ID, "wp-done"));
+  });
+
+  it("keeps the row itself a single anchor — the door is a sibling, not nested", () => {
+    render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="site_admin"
+        workPackages={DEFECT_FIXTURE}
+        deliverables={[]}
+      />,
+    );
+    openDoneBand();
+    const door = screen.getByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) });
+    // Spec 47: nesting an <a> inside the row's <a> is invalid HTML and breaks
+    // the whole-row tap. The door must have NO anchor ancestor.
+    expect(door.parentElement?.closest("a")).toBeNull();
+  });
+
+  it("offers no door on a row that is not เสร็จแล้ว", () => {
+    render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="site_admin"
+        workPackages={WPS}
+        deliverables={[]}
+      />,
+    );
+    // The ต้องทำ row is visible without any disclosure; no door anywhere.
+    expect(screen.getByText("งานเทคอนกรีต")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the door from the read-only WP viewer (procurement)", () => {
+    render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="procurement"
+        workPackages={DEFECT_FIXTURE}
+        deliverables={[]}
+      />,
+    );
+    openDoneBand();
+    // The row still opens (procurement reads the WP to raise a PR) — only the
+    // defect door is suppressed, matching the detail page's readOnly branch.
+    expect(screen.getByText("งานฉาบผนัง")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the door when rows are not openable at all (canOpen=false)", () => {
+    render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="project_coordinator"
+        workPackages={DEFECT_FIXTURE}
+        deliverables={[]}
+        canOpen={false}
+      />,
+    );
+    openDoneBand();
+    expect(screen.getByText("งานฉาบผนัง")).toBeInTheDocument();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 });
 

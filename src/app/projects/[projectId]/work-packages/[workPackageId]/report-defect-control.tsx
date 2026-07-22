@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { REWORK_SOURCE_LABEL } from "@/lib/i18n/labels";
+import { REPORT_DEFECT_LABEL, REWORK_SOURCE_LABEL } from "@/lib/i18n/labels";
 import type { ReworkSource } from "@/lib/db/enums";
 import { reportDefect } from "./actions";
 import { useDefectPhotos } from "./use-defect-photos";
@@ -49,15 +49,21 @@ export function ReportDefectControl({
   projectId,
   workPackageId,
   canAttachPhotos = false,
+  initialOpen = false,
 }: {
   projectId: string;
   workPackageId: string;
   /** Spec 248: photo attach is for the filing roles (PM/PD/super) — the page
    *  passes isPlanner. SA keeps text-only filing (the reopen RPC admits SA). */
   canAttachPhotos?: boolean;
+  /** Spec 337 U5: arrived from the list's เสร็จแล้ว door (?defect=1) — the sheet
+   *  opens on mount so the deep link costs one tap, not two. The page only
+   *  renders this control on a complete WP for a non-read-only viewer, so the
+   *  param can never open a sheet the viewer wasn't already entitled to. */
+  initialOpen?: boolean;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [reason, setReason] = useState("");
   const [source, setSource] = useState<ReworkSource>("internal");
   const [error, setError] = useState<string | null>(null);
@@ -111,10 +117,10 @@ export function ReportDefectControl({
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={BUTTON_SECONDARY}>
-        รายงานข้อบกพร่อง
+        {REPORT_DEFECT_LABEL}
       </button>
 
-      <BottomSheet open={open} title="รายงานข้อบกพร่อง" onClose={() => setOpen(false)}>
+      <BottomSheet open={open} title={REPORT_DEFECT_LABEL} onClose={() => setOpen(false)}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <p className="text-ink-secondary text-sm">
             งานนี้เสร็จแล้ว การรายงานข้อบกพร่องจะเปิดงานกลับเป็น “งานแก้ไข” เพื่อแก้ไขและส่งตรวจใหม่

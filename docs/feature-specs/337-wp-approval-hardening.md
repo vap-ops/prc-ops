@@ -79,13 +79,21 @@ Approver side (`/review` + review detail):
 
 ## U3 — 325 rework-window consumer (code; coordinate with spec 325 §3)
 
-When a PR is created for / bound to a WP whose status is `rework` (or whose `rework_round` advanced since the PR's creation — window = status-based, primary), the PR approval surface PRE-PROPOSES `reason_code = 'rework'` (existing enum value, spec 325). Approver one-tap confirms or overrides — proposal only, never silent write. WP-less PRs: no proposal. This delivers the "anticipation layer" signal 325 §3 was missing; the fuller cause flow stays in spec 325.
+When a PR is bound to a WP whose status is `rework` (or whose `rework_round` advanced since the PR's creation — window = status-based, primary), the PR approval surface PRE-PROPOSES `reason_code = 'rework'` (existing enum value, spec 325). Approver one-tap confirms or overrides — proposal only, never silent write. WP-less PRs: no proposal. This delivers the "anticipation layer" signal 325 §3 was missing; the fuller cause flow stays in spec 325.
+
+⚠️ **Gate-check 2026-07-22 — read before building this. Three live facts change the unit:**
+
+1. **The WP link is `requested_from_work_package_id`, NOT `work_package_id`.** Store-first procurement (ADR 0065 / spec 208 U4a) makes the server force `work_package_id` to null on every raise — a PR lands in the project store and is เบิก'd to a WP later. Live: 4 of 553 rows carry `work_package_id` (all legacy), 124 of 553 carry the provenance column. A window predicate on the named column fires on nothing, forever.
+2. **The window's domain is empty and always has been.** 0 of 396 WPs have ever been `status='rework'`, 0 have `rework_round > 0`, and `approvals` holds 107 approved + 35 needs_revision + **0 rejected**. Two doors into `rework` exist — `reopen_work_package_for_defect` since spec 144/216 (U5 now surfaces it) and U1's F3 rejection path — and **neither has ever been walked through**; they are unused, not absent. Until rework rows exist, this unit cannot be live-verified and its own success metric cannot be computed.
+3. **The channel is already at 100% fill.** `reasonCode` is required at raise (`validate-purchase-request.ts`, spec 176 U4) and **124/124** WP-provenance PRs carry one. The reason gap is entirely PRs with no WP context, which this signal cannot reach. So U3 hardens reliability, it does not close a capture hole.
+
+**Boundary:** the PR-approval surface (a reason control at approval, override, persistence) belongs to spec 325 §3's approver-confirm flow, which covers all five reason codes plus the repeat-purchase signal. 337 owns the WP-lifecycle side — the window predicate — and should hand 325 the arming signal rather than build a second approval UI. **Recommended sequencing: after U5, and only once `wp_reopened_for_defect` events or `rejected` decisions are non-zero.**
 
 **Negative cases:** proposal on a WP that left rework before PR approval → still proposed, approver judges (disclose `งานนี้เคยถูกส่งกลับแก้งาน`) · no reason_code selected → existing 325 behavior unchanged. RED-first: proposal renders exactly when window predicate true; override persists approver's choice.
 
 ## U4 — review-page money card (code, display-only)
 
-On `/review/work-packages/:wpid`: a card listing open money against the WP — open PRs (non-terminal statuses) with count + total, pending เบิก, undrained GL outbox rows for WP-scoped sources. Zero state `ไม่มีรายการเงินค้าง` (calm, §0). Photo-days-vs-labor-days variance already exists on the page — this card sits beside it. Approval is NOT blocked (display-first per audit; a blocking gate is a future operator call).
+On `/review/work-packages/:wpid`: a card listing open money against the WP — open PRs (non-terminal statuses) with count + total, pending เบิก, undrained GL outbox rows for WP-scoped sources. ⚠️ **Same column trap as U3 (gate-checked 2026-07-22): "open PRs on the WP" must join `requested_from_work_package_id`, not `work_package_id`** — the latter is force-nulled by store-first procurement, so a card built on it renders `ไม่มีรายการเงินค้าง` on every WP forever. `stock_issues` (the เบิก side) does carry `work_package_id` (14/14 filled). Zero state `ไม่มีรายการเงินค้าง` (calm, §0). Photo-days-vs-labor-days variance already exists on the page — this card sits beside it. Approval is NOT blocked (display-first per audit; a blocking gate is a future operator call).
 
 **Negative cases:** money read gates — `src/lib/accounting/money-read-policy.ts` (exact path, fact-checked); the review WP-detail page is ALREADY a registered PROJECT_SCOPED money-read site, so new reads likely extend the existing registration rather than add one (gate-check at build; audience = the page's existing PM_ROLES, no new role set) · partial load failure → card shows per-section `โหลดไม่สำเร็จ` not a crash. RED-first: card sections render per fixture; zero state; role gate probe (content-absence, not HTTP status).
 
@@ -93,7 +101,7 @@ On `/review/work-packages/:wpid`: a card listing open money against the WP — o
 
 Entry doors from surfaces users actually occupy (WP detail stays the home; the control itself is unchanged):
 
-- Project WP list: `complete` WP rows gain a `แจ้งงานมีปัญหา` action (reuse the control's existing label wording at build) that deep-links `/projects/:pid/work-packages/:wpid?defect=1`.
+- Project WP list: `complete` WP rows gain a **`รายงานข้อบกพร่อง`** action deep-linking `/projects/:pid/work-packages/:wpid?defect=1`. ✅ **BUILT 2026-07-22.** The label is the control's existing wording as this bullet instructed (the draft's `แจ้งงานมีปัญหา` never existed in the code) and now lives in `labels.ts` as `REPORT_DEFECT_LABEL`. ⚠️ The action is a **SIBLING** of the row, not a control inside it: `WorklistRow` is a single-anchor row (spec 47) and an `<a>` nested in an `<a>` is invalid HTML.
 - WP detail: `?defect=1` auto-opens the existing `ReportDefectControl` sheet when (and only when) status = `complete` and the viewer passes the existing gates; otherwise the param is ignored silently (no error — the page renders normally).
 
 **Negative cases:** param on non-complete WP → ignored (assert no sheet) · offline filing → existing online-only block unchanged · role gates unchanged (RPC refuses; SA text-only, planners attach photos — spec 248 split intact). RED-first: RTL param-open matrix; row action renders only on complete rows.
