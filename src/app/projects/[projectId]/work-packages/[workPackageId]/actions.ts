@@ -48,6 +48,7 @@ import {
   isRevisionWindowOpen,
   PHOTO_DELETE_LOCKED_ERROR,
   PHOTO_DELETE_NOT_OWNER_ERROR,
+  canRemoveInRevisionWindow,
 } from "@/lib/photos/deletable";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -515,7 +516,18 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     const gate = await revisionWindowFor(supabase, target.work_package_id, wp.status);
     if (!gate.open) return { ok: false, error: PHOTO_DELETE_LOCKED_ERROR };
     if (target.uploaded_by !== user.id) {
-      return { ok: false, error: PHOTO_DELETE_NOT_OWNER_ERROR };
+      // Spec 340 U1: super_admin may remove on the uploader's behalf — the ask
+      // is the reviewer's, but the person who can act on it may be off site.
+      // The role read only happens on this rare branch. It is `users` RLS
+      // read-self, and a failed read leaves role null → refused (fail closed).
+      const { data: me } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!canRemoveInRevisionWindow({ isUploader: false, role: me?.role ?? null })) {
+        return { ok: false, error: PHOTO_DELETE_NOT_OWNER_ERROR };
+      }
     }
   }
 

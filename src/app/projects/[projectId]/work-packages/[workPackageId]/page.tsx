@@ -415,6 +415,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       photos: rows.map((p) => ({
         id: p.id,
         url: signedUrls.get(p.id) ?? null,
+        // Spec 340 U2: the number the field quotes ("ระหว่างทำ #4"). Stable —
+        // computed in selectCurrentPhotosByPhase over the append-only history.
+        seq: p.seq,
         timeLabel: formatThaiTime(p.captured_at_client ?? p.created_at),
         uploaderName: uploaderNames.get(p.uploaded_by) ?? null,
       })),

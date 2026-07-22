@@ -14,6 +14,7 @@
 import type { Database } from "@/lib/db/database.types";
 
 type WorkPackageStatus = Database["public"]["Enums"]["work_package_status"];
+type UserRole = Database["public"]["Enums"]["user_role"];
 type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
 
 // Deletable = not_started · in_progress · on_hold · rework. Locked = the two
@@ -56,6 +57,27 @@ export function isRevisionWindowOpen({
  */
 export function canDeleteWpPhotos(input: RevisionWindowInput): boolean {
   return isPhotoWpDeletable(input.status) || isRevisionWindowOpen(input);
+}
+
+/**
+ * Spec 340 U1 — WHO may remove inside an open ให้แก้ไข window. Mirrors the
+ * ownership conjunct of `photo_removal_allowed()` (migration 075833):
+ * the uploader, or super_admin acting on their behalf.
+ *
+ * Deliberately says nothing about WP status. The freeze is a STATE rule and is
+ * evaluated by the caller before this is ever reached — super_admin does not get
+ * to delete on a submitted or complete WP, and folding a status test in here is
+ * how that guarantee would quietly disappear.
+ */
+export function canRemoveInRevisionWindow({
+  isUploader,
+  role,
+}: {
+  isUploader: boolean;
+  /** The caller's own role, or null when it could not be read — fails closed. */
+  role: UserRole | null;
+}): boolean {
+  return isUploader || role === "super_admin";
 }
 
 /** Friendly Thai refusal shown when a delete is attempted on a locked WP. */

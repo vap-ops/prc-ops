@@ -17,15 +17,35 @@ import type { Database, Tables } from "@/lib/db/database.types";
 export type PhotoLogRow = Tables<"photo_logs">;
 export type { PhotoPhase } from "@/lib/db/enums";
 
+/**
+ * Spec 340 U2 — a photo plus the number the field sees ("ระหว่างทำ #4").
+ *
+ * `seq` is an ordinal over the phase's REAL photos (tombstones excluded) by
+ * (created_at, id), assigned BEFORE the anti-join drops removed ones. Because
+ * photo_logs is append-only, a removed photo's row never leaves the table, so
+ * its number is retired and no surviving photo is ever renumbered — the
+ * property that makes a number safe to quote in a screenshot or a message.
+ */
+export type NumberedPhoto = PhotoLogRow & { seq: number };
+
 export interface CurrentPhotosByPhase {
-  before: PhotoLogRow[];
-  during: PhotoLogRow[];
-  after: PhotoLogRow[];
+  before: NumberedPhoto[];
+  during: NumberedPhoto[];
+  after: NumberedPhoto[];
   // Feedback 0fa23307 — rework-completion photos.
-  after_fix: PhotoLogRow[];
+  after_fix: NumberedPhoto[];
   // Spec 248 — the PM's defect-report photos (round-stamped, paired by
   // answers_photo_id from after_fix rows).
-  defect: PhotoLogRow[];
+  defect: NumberedPhoto[];
+}
+
+// Capture order. `created_at` alone is not enough: two photos uploaded in the
+// same second would swap numbers between reads.
+function byCaptureOrder(a: PhotoLogRow, b: PhotoLogRow): number {
+  const at = a.created_at ?? "";
+  const bt = b.created_at ?? "";
+  if (at !== bt) return at < bt ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
 export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): CurrentPhotosByPhase {
@@ -43,6 +63,23 @@ export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): Cu
     after_fix: [],
     defect: [],
   };
+  // Number over the REAL photos of each phase — including ones later removed —
+  // then drop the removed ones. Numbering after the anti-join would renumber the
+  // survivors on every delete, which is the whole failure this avoids.
+  const numbered = new Map<string, number>();
+  const realByPhase = new Map<string, PhotoLogRow[]>();
+  for (const r of rows) {
+    if (r.storage_path === null) continue;
+    if (!Object.prototype.hasOwnProperty.call(result, r.phase)) continue;
+    const bucket = realByPhase.get(r.phase);
+    if (bucket) bucket.push(r);
+    else realByPhase.set(r.phase, [r]);
+  }
+  for (const bucket of realByPhase.values()) {
+    bucket.sort(byCaptureOrder);
+    bucket.forEach((r, i) => numbered.set(r.id, i + 1));
+  }
+
   for (const r of rows) {
     if (r.storage_path === null) continue;
     if (supersededIds.has(r.id)) continue;
@@ -50,7 +87,12 @@ export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): Cu
     // know yet (the DB enum can grow before the next deploy) is skipped —
     // one unknown row must never TypeError the whole WP's photo read.
     if (!Object.prototype.hasOwnProperty.call(result, r.phase)) continue;
-    result[r.phase].push(r);
+    result[r.phase].push({ ...r, seq: numbered.get(r.id) ?? 0 });
+  }
+  // The read itself has no `order by`, so sort here: a number that appears in a
+  // random grid position is worse than no number at all.
+  for (const phase of Object.keys(result) as Array<keyof CurrentPhotosByPhase>) {
+    result[phase].sort((a, b) => a.seq - b.seq);
   }
   return result;
 }

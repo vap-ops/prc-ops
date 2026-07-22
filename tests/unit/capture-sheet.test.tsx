@@ -63,6 +63,8 @@ function renderSheet(photos: ReadonlyArray<SheetPhoto> = [], canDelete = true) {
 const LOADED: SheetPhoto = {
   id: "photo-1-id",
   url: "https://example.test/storage/photo-1.jpg",
+  // Spec 340 U2 — the stable per-phase number rendered on the tile.
+  seq: 1,
   timeLabel: "09:00",
 };
 
