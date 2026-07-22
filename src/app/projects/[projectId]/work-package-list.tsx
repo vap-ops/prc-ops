@@ -114,9 +114,11 @@ export function WorkPackageList({
   const leaves = roster.leaves;
   // Spec 337 U5: who may file a defect on a finished งานย่อย. Same predicate the
   // WP detail branches on (spec 171) — procurement reads the WP to raise a PR and
-  // is suppressed from every capture, defect filing included. A row that cannot
-  // be opened at all carries no door either.
-  const canReportDefect = canOpen && !isReadOnlyWpViewer(role);
+  // is suppressed from every capture, defect filing included. Reachability is NOT
+  // re-checked here: a row rendered with canOpen={false} returns its
+  // non-interactive form before any door is built (spec 154), so an extra
+  // `canOpen &&` would be an unreachable guard implying a hazard that isn't there.
+  const canReportDefect = !isReadOnlyWpViewer(role);
   const [lens, setLens] = useState<Lens>(() => defaultLens(role, roster.adopted));
   // Spec 293: type-to-find over the whole in-memory roster. A non-empty
   // query replaces the lens with a flat, priority-ranked hit list — "find
