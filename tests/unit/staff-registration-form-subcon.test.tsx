@@ -56,6 +56,25 @@ function renderExisting(bankExempt: boolean) {
   );
 }
 
+/** Spec 343 — renderExisting hardcodes an empty docUrls and a null consent, so
+ *  it cannot express the partially-complete states this unit is about. */
+function renderExistingWith(props: {
+  bankExempt: boolean;
+  docUrls?: Record<string, string>;
+  consentedAt?: string | null;
+}) {
+  return render(
+    <StaffRegistrationForm
+      registrationExists
+      uid="00000000-0000-4000-8000-000000000328"
+      docUrls={props.docUrls ?? {}}
+      consentedAt={props.consentedAt ?? null}
+      initial={INITIAL}
+      bankExempt={props.bankExempt}
+    />,
+  );
+}
+
 describe("StaffRegistrationForm — spec 328 bank-exempt (subcon member) mode", () => {
   it("hides the declared-bank section when bankExempt", () => {
     renderExisting(true);
@@ -73,5 +92,29 @@ describe("StaffRegistrationForm — spec 328 bank-exempt (subcon member) mode", 
     renderExisting(false);
     expect(screen.getByText(STAFF_DOC_LABELS.book_bank)).toBeInTheDocument();
     expect(screen.getAllByText(/บัญชี/).length).toBeGreaterThan(0);
+  });
+});
+
+describe("StaffRegistrationForm — outstanding-items hint (spec 343 D3)", () => {
+  it("still names the outstanding id_card after consent is given", () => {
+    // The hint used to be gated on `!consentedAt`, so it vanished the moment the
+    // applicant ticked consent — exactly one step from done, with an id_card
+    // still owed and nothing on screen saying so.
+    renderExistingWith({ bankExempt: true, consentedAt: "2026-07-22T13:09:53Z" });
+    // Asserted by intent, not by the whole sentence: the hint is a STATIC list of
+    // every floor requirement, so pinning it verbatim here would also pin the
+    // now-satisfied consent clause it still contains (tracker open question).
+    const hint = screen.getByText(/ก่อนที่จะได้รับการอนุมัติ/);
+    expect(hint).toBeInTheDocument();
+    expect(hint).toHaveTextContent("อัปโหลดบัตรประชาชน");
+  });
+
+  it("drops the hint once the floor is actually met", () => {
+    renderExistingWith({
+      bankExempt: true,
+      docUrls: { id_card: "https://example.test/a.jpg" },
+      consentedAt: "2026-07-22T13:09:53Z",
+    });
+    expect(screen.queryByText(/ก่อนที่จะได้รับการอนุมัติ/)).toBeNull();
   });
 });

@@ -8,6 +8,7 @@ import type { PurchaseOrderStatus } from "@/lib/purchasing/purchase-order";
 import type { PurchaseReasonCode } from "@/lib/purchasing/reason-code";
 import type { IncomingLens } from "@/lib/purchasing/request-bands";
 import type { FrictionEventType } from "@/lib/telemetry/session";
+import type { ApprovalRequirement } from "@/lib/register/registration-floor";
 
 type Enums = Database["public"]["Enums"];
 
@@ -933,6 +934,34 @@ export const REGISTRATION_PENDING_NOTICE_BODY =
 export function registrationPendingEmployeeIdLine(employeeId: string): string {
   return `รหัสพนักงานของคุณ: ${employeeId} — เก็บไว้อ้างอิง`;
 }
+
+// Spec 343 U1 — the pending notice is floor-aware. The copy above is the
+// floor-MET branch ONLY: it was rendering the instant the profile saved, while
+// the id_card and PDPA consent were still outstanding, and all 4 live pending
+// applicants stopped there (two for 14 days after being chased in person).
+export const REGISTRATION_INCOMPLETE_NOTICE_HEADING = "ยังส่งไม่ครบ";
+export function registrationIncompleteBody(count: number): string {
+  return `ใบสมัครของคุณยังส่งไม่สมบูรณ์ เหลืออีก ${count} อย่าง แล้วทีมงานจะพิจารณาให้`;
+}
+/** Rewritten from the pending body's "ไม่ต้องส่งบัตรให้ใครเพิ่ม" (spec 343 D1):
+ *  that line was anti-phishing advice — don't hand your card to a middleman —
+ *  but above an unfinished upload step it reads as "no ID card is needed". */
+export const REGISTRATION_ANTI_PHISHING_LINE = "อย่าส่งบัตรให้คนอื่น — อัปโหลดในแอปนี้เท่านั้น";
+/** What the applicant still owes, in their own words. Keyed by the pure floor's
+ *  requirement ids so a new requirement cannot ship without a Thai label. */
+export const APPROVAL_REQUIREMENT_LABEL: Record<ApprovalRequirement, string> = {
+  full_name: "กรอกชื่อ-นามสกุล",
+  id_card: "อัปโหลดบัตรประชาชน",
+  book_bank: "อัปโหลดสมุดบัญชีธนาคาร",
+  bank_fields: "กรอกเลขบัญชีธนาคาร",
+  consent: "ให้ความยินยอม (PDPA)",
+};
+/** Anchor ids the incomplete checklist jumps to (spec 343 U1). */
+export const REGISTER_DOCUMENTS_ANCHOR = "reg-documents";
+export const REGISTER_CONSENT_ANCHOR = "reg-consent";
+/** Spec 343 U1 — below the floor the primary CTA names the next step AND
+ *  performs it (the form scrolls to the first outstanding control on save). */
+export const REGISTER_SAVE_AND_NEXT_LABEL = "บันทึกและไปขั้นต่อไป";
 
 // Spec 322 — the applicant "sent back for edit" card (sibling of the pending
 // notice; shown in the same slot when the approver returned the row with a note).

@@ -9154,3 +9154,37 @@ id="cold-restart">` in the /settings เกี่ยวกับ card, under the
   shows raw key under ผู้สมัครระบุว่า — interim, documented); one-week prod
   fill-rate query (spec Testing section) ~2026-07-29; widening mint gate to hr
   = operator call (D8).
+
+## 2026-07-22 — spec 343 U1: the pending state stops lying (COMPLETE, PR pending)
+
+- **Why:** operator report "users reported nowhere to give consent, nor uploads".
+  Live: **4 of 4** pending registrations held `full_name` only (0 id_card,
+  0 PDPA consent), two stuck 14 days after being chased in person.
+- **What:** three compounding defects. **D1** `RegistrationPendingNotice` claimed
+  `ส่งใบสมัครแล้ว รอการอนุมัติ` the instant the profile saved — now floor-aware
+  (`ยังส่งไม่ครบ` + the outstanding items as tap-to-jump links below the floor),
+  and its anti-phishing line, which read as _no card needed_, is rewritten.
+  **D2** the document + consent controls rendered AFTER the full-width primary
+  CTA — moved above it; below the floor the CTA reads `บันทึกและไปขั้นต่อไป` and
+  actually scrolls to the first outstanding control. **D3** the outstanding-items
+  hint was gated `!floorMet && !consentedAt`, so it vanished the moment consent
+  was ticked with an id_card still owed — un-gated. NO schema.
+- **Build:** 7 commits, RED-first per task. Suite 670 files / 4839 green;
+  lint + typecheck clean. **6 mutation-checks**, one of which found a real hole:
+  deleting the `consent` arm of `nextAnchor` left every test green because each
+  case also lacked an id_card — a consent-only pin was added.
+- **Verified:** the workspace→notice WIRING seam had zero coverage (spec 337 U5
+  class: producer covered, wiring not), so `RegistrationWorkspace` is now
+  exported for test and rendered directly — RTL cannot resolve an async
+  component nested in a parent's JSX. Mutating `floor={floor}` to a constant
+  reds it.
+- **NOT browser-verified, disclosed:** the honest drive needs a PENDING
+  registration; dev-preview's is approved (the workspace redirects it), and the
+  spec-328 precedent — minting a throwaway visitor — would have put a decoy
+  applicant into the live /registrations queue the operator was actively working
+  that evening. RTL + the wiring pin + mutation-checks are the substitute.
+- **Open questions / follow-ups:** the un-gated D3 hint is a STATIC sentence
+  listing every floor requirement, so a user who has consented is still told to
+  consent — the notice above now carries the precise outstanding list, so the
+  hint is arguably redundant; decide whether to make it dynamic or drop it.
+  U2 (เตรียมตัว prep screen) + U3 (poster/LINE prepare line) not started.

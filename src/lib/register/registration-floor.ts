@@ -6,6 +6,8 @@
 // PDPA consent record. `profile_photo` is intentionally never part of the floor —
 // it's optional (the e-card falls back to the LINE avatar). Pure — no RPC/DB access.
 
+import type { StaffDocPurpose } from "@/lib/register/document-types";
+
 export type ApprovalRequirement = "full_name" | "id_card" | "book_bank" | "bank_fields" | "consent";
 
 export interface ApprovalFloorInput {
@@ -35,4 +37,31 @@ export function registrationApprovalFloor(input: ApprovalFloorInput): ApprovalFl
   }
   if (!input.hasConsent) missing.push("consent");
   return { met: missing.length === 0, missing };
+}
+
+/**
+ * Spec 343 U1 — ONE derivation of the floor input from loaded registration data.
+ * The pending notice (server, in RegistrationWorkspace) and the form (client)
+ * both need to know what is still outstanding; deriving it in two places is how
+ * they would come to disagree. Pure — no DB access, no signed-URL fetching.
+ */
+export interface LoadedRegistrationFloorInput {
+  fullName: string | null;
+  /** Signed URLs of the CURRENT upload per purpose (getOwnRegistrationDocuments). */
+  docUrls: Partial<Record<StaffDocPurpose, string>>;
+  consentedAt: string | null;
+  /** True once a staff_registration_bank row is PERSISTED — never typed state. */
+  bankSaved: boolean;
+  bankExempt: boolean;
+}
+
+export function approvalFloorFromLoaded(input: LoadedRegistrationFloorInput): ApprovalFloor {
+  return registrationApprovalFloor({
+    fullName: input.fullName,
+    hasIdCard: Boolean(input.docUrls.id_card),
+    hasBookBank: Boolean(input.docUrls.book_bank),
+    hasBankFields: input.bankSaved,
+    hasConsent: Boolean(input.consentedAt),
+    bankExempt: input.bankExempt,
+  });
 }
