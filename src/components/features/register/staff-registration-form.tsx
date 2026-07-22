@@ -48,7 +48,8 @@ import {
   type StaffDocPurpose,
 } from "@/lib/register/document-types";
 import { useToast } from "@/lib/ui/use-toast";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { formatThaiDate, INVITED_ROLE_LABEL, USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import type { UserRole } from "@/lib/auth/role-home";
 import {
   BUTTON_PRIMARY,
   BUTTON_SECONDARY_MUTED,
@@ -90,6 +91,12 @@ export interface StaffRegistrationFormProps {
    *  approve RPC's contractor arm). Fresh form: from the QR param; pending form:
    *  from the registration row's invited_contractor_id. */
   bankExempt?: boolean;
+  /** Spec 342 D2 — the invite link's role (or the pending row's parsed
+   *  declared_role_hint). Non-null → the role renders as read-only fact and
+   *  the free-text hint input does not render. The submitted
+   *  declaredRoleHint still comes from `initial` (the workspace seeds it with
+   *  the role key), so the mint writes it — spec U2.4. */
+  invitedRole?: UserRole | null;
 }
 
 export function StaffRegistrationForm({
@@ -102,6 +109,7 @@ export function StaffRegistrationForm({
   invitedProjectId = null,
   invitedContractorId = null,
   bankExempt = false,
+  invitedRole = null,
 }: StaffRegistrationFormProps) {
   const router = useRouter();
   const toast = useToast();
@@ -217,20 +225,27 @@ export function StaffRegistrationForm({
           className={`${FIELD_STACKED} appearance-none`}
         />
       </label>
-      <label className="text-ink-secondary mt-3 block text-sm">
-        คาดว่าจะทำงานตำแหน่งใด (ไม่บังคับ)
-        <input
-          value={declaredRoleHint}
-          maxLength={120}
-          disabled={pending}
-          placeholder="เช่น ช่างเทคนิค, จัดซื้อ"
-          onChange={(e) => {
-            setDeclaredRoleHint(e.target.value);
-            clear();
-          }}
-          className={FIELD_STACKED}
-        />
-      </label>
+      {invitedRole ? (
+        <div className="mt-3">
+          <p className="text-ink-secondary text-sm">{INVITED_ROLE_LABEL}</p>
+          <p className="text-ink mt-0.5 text-base font-semibold">{USER_ROLE_LABEL[invitedRole]}</p>
+        </div>
+      ) : (
+        <label className="text-ink-secondary mt-3 block text-sm">
+          คาดว่าจะทำงานตำแหน่งใด (ไม่บังคับ)
+          <input
+            value={declaredRoleHint}
+            maxLength={120}
+            disabled={pending}
+            placeholder="เช่น ช่างเทคนิค, จัดซื้อ"
+            onChange={(e) => {
+              setDeclaredRoleHint(e.target.value);
+              clear();
+            }}
+            className={FIELD_STACKED}
+          />
+        </label>
+      )}
 
       <p className="text-ink mt-4 text-sm font-semibold">ผู้ติดต่อฉุกเฉิน (ไม่บังคับ)</p>
       <label className="text-ink-secondary mt-2 block text-sm">
