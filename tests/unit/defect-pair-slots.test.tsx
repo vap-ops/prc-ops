@@ -37,6 +37,7 @@ const phases: PhaseData[] = PHASES.map(({ phase, label }) => ({
   label,
   photos: [],
   lastUpdatedLabel: null,
+  removed: [],
 }));
 
 function renderZone(defectPairs: ReadonlyArray<DefectPairSlot> | null) {

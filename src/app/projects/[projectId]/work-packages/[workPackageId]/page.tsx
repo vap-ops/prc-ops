@@ -332,6 +332,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     predecessorIds,
     labor,
     photosByPhase,
+    removedByPhase,
     signedUrls,
     displayNames,
     defectReason,
@@ -422,6 +423,13 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         uploaderName: uploaderNames.get(p.uploaded_by) ?? null,
       })),
       lastUpdatedLabel: latest ? formatThaiTime(latest) : null,
+      // Spec 341 U1 — the removal trace for this zone. Staff-only surface
+      // (WP_DETAIL_ROLES has no client), so naming the remover is safe here.
+      removed: removedByPhase[phase].map((r) => ({
+        seq: r.seq,
+        byName: r.removedBy ? (displayNames.get(r.removedBy) ?? null) : null,
+        atLabel: r.removedAt ? formatThaiDateTime(r.removedAt) : null,
+      })),
     };
   });
 

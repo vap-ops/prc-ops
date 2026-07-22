@@ -59,29 +59,21 @@ function byCaptureOrder(a: PhotoLogRow, b: PhotoLogRow): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): CurrentPhotosByPhase {
-  const supersededIds = new Set<string>();
-  for (const r of rows) {
-    if (r.superseded_by !== null) {
-      supersededIds.add(r.superseded_by);
-    }
-  }
+function emptyByPhase(): CurrentPhotosByPhase {
+  return { before: [], during: [], after: [], after_fix: [], defect: [] };
+}
 
-  const result: CurrentPhotosByPhase = {
-    before: [],
-    during: [],
-    after: [],
-    after_fix: [],
-    defect: [],
-  };
-  // Number over the REAL photos of each phase — including ones later removed —
-  // then drop the removed ones. Numbering after the anti-join would renumber the
-  // survivors on every delete, which is the whole failure this avoids.
+// Number over the REAL photos of each phase — including ones later removed —
+// so the anti-join can drop the removed ones afterwards without renumbering the
+// survivors. Shared by both selectors so a live photo and its own removal trace
+// can never disagree about which number it had.
+function numberPhotos(rows: ReadonlyArray<PhotoLogRow>): Map<string, number> {
+  const known = emptyByPhase();
   const numbered = new Map<string, number>();
   const realByPhase = new Map<string, PhotoLogRow[]>();
   for (const r of rows) {
     if (r.storage_path === null) continue;
-    if (!Object.prototype.hasOwnProperty.call(result, r.phase)) continue;
+    if (!Object.prototype.hasOwnProperty.call(known, r.phase)) continue;
     const bucket = realByPhase.get(r.phase);
     if (bucket) bucket.push(r);
     else realByPhase.set(r.phase, [r]);
@@ -90,6 +82,69 @@ export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): Cu
     bucket.sort(byCaptureOrder);
     bucket.forEach((r, i) => numbered.set(r.id, i + 1));
   }
+  return numbered;
+}
+
+/**
+ * Spec 341 U1 — one removed photo, as the WP detail reports it.
+ *
+ * `id`/`seq` are the REMOVED photo's, not the tombstone's: the number is the one
+ * the tile showed before it went, so a screenshot taken earlier still matches.
+ * `removedBy`/`removedAt` come from the tombstone, which photo_logs' append-only
+ * rule guarantees is never rewritten.
+ */
+export interface RemovedPhoto {
+  id: string;
+  seq: number;
+  removedBy: string | null;
+  removedAt: string | null;
+}
+
+export type RemovedPhotosByPhase = Record<keyof CurrentPhotosByPhase, RemovedPhoto[]>;
+
+export function selectRemovedPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): RemovedPhotosByPhase {
+  const numbered = numberPhotos(rows);
+  const byId = new Map<string, PhotoLogRow>();
+  for (const r of rows) byId.set(r.id, r);
+
+  const result: RemovedPhotosByPhase = {
+    before: [],
+    during: [],
+    after: [],
+    after_fix: [],
+    defect: [],
+  };
+  for (const r of rows) {
+    // A removal is a tombstone: storage_path null AND superseded_by set (the
+    // photo_logs_path_supersede_well_formed CHECK makes the pair inseparable).
+    if (r.storage_path !== null || r.superseded_by === null) continue;
+    const target = byId.get(r.superseded_by);
+    // The TARGET decides the phase — a tombstone copies it at write time and a
+    // stale copy must not file the trace under the wrong zone.
+    if (!target || !Object.prototype.hasOwnProperty.call(result, target.phase)) continue;
+    result[target.phase].push({
+      id: target.id,
+      seq: numbered.get(target.id) ?? 0,
+      removedBy: r.uploaded_by,
+      removedAt: r.created_at,
+    });
+  }
+  for (const phase of Object.keys(result) as Array<keyof RemovedPhotosByPhase>) {
+    result[phase].sort((a, b) => a.seq - b.seq);
+  }
+  return result;
+}
+
+export function selectCurrentPhotosByPhase(rows: ReadonlyArray<PhotoLogRow>): CurrentPhotosByPhase {
+  const supersededIds = new Set<string>();
+  for (const r of rows) {
+    if (r.superseded_by !== null) {
+      supersededIds.add(r.superseded_by);
+    }
+  }
+
+  const result: CurrentPhotosByPhase = emptyByPhase();
+  const numbered = numberPhotos(rows);
 
   for (const r of rows) {
     if (r.storage_path === null) continue;
@@ -118,4 +173,27 @@ export async function getCurrentPhotosForWorkPackage(
     .eq("work_package_id", workPackageId);
   if (error) throw error;
   return selectCurrentPhotosByPhase(data ?? []);
+}
+
+/**
+ * Spec 341 U1 — the WP detail's photo view: what is there, and what was removed.
+ *
+ * One read, two derivations. The rows this fetches ALREADY include the
+ * tombstones (the filtering is in-memory, per ADR 0015), so the removal trace
+ * costs nothing extra — it was being thrown away.
+ */
+export async function getPhotoViewForWorkPackage(
+  supabase: SupabaseClient<Database>,
+  workPackageId: string,
+): Promise<{ current: CurrentPhotosByPhase; removed: RemovedPhotosByPhase }> {
+  const { data, error } = await supabase
+    .from("photo_logs")
+    .select("*")
+    .eq("work_package_id", workPackageId);
+  if (error) throw error;
+  const rows = data ?? [];
+  return {
+    current: selectCurrentPhotosByPhase(rows),
+    removed: selectRemovedPhotosByPhase(rows),
+  };
 }

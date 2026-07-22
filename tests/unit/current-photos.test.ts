@@ -7,7 +7,11 @@
 
 import { describe, it, expect } from "vitest";
 
-import { selectCurrentPhotosByPhase, type PhotoLogRow } from "@/lib/photos/current-photos";
+import {
+  selectCurrentPhotosByPhase,
+  selectRemovedPhotosByPhase,
+  type PhotoLogRow,
+} from "@/lib/photos/current-photos";
 
 function row(partial: Partial<PhotoLogRow> & Pick<PhotoLogRow, "id">): PhotoLogRow {
   return {
@@ -226,5 +230,96 @@ describe("photo numbering — spec 340 U2", () => {
       ["queued", 1],
       ["live", 2],
     ]);
+  });
+});
+
+// ============================================================================
+// Spec 341 U1 — the removal TRACE.
+//
+// Operator call 2026-07-22: pre-submit deletion stays open to any project member
+// (an approval queue for a draft photo would not be staffed, and deleting before
+// submit is indistinguishable from never having taken the shot). Accountability
+// comes from VISIBILITY instead — and the data is already there, because
+// photo_logs is append-only: the tombstone knows who removed what and when, and
+// the target still carries the number the tile used to show.
+//
+// Deliberately NOT routed to /settings/integrity: that board reports invariant
+// VIOLATIONS (green/amber/red from run_integrity_checks). A deletion is normal
+// activity; as a check it would sit amber forever and train people to ignore the
+// board.
+// ============================================================================
+describe("selectRemovedPhotosByPhase — spec 341 U1", () => {
+  it("reports who removed which number, and when", () => {
+    const out = selectRemovedPhotosByPhase([
+      row({ id: "p1", phase: "during", created_at: "2026-07-11T01:00:00Z" }),
+      row({ id: "p2", phase: "during", created_at: "2026-07-11T02:00:00Z" }),
+      row({
+        id: "t2",
+        phase: "during",
+        storage_path: null,
+        superseded_by: "p2",
+        uploaded_by: "remover-1",
+        created_at: "2026-07-22T05:00:00Z",
+      }),
+    ]);
+    expect(out.during).toEqual([
+      { id: "p2", seq: 2, removedBy: "remover-1", removedAt: "2026-07-22T05:00:00Z" },
+    ]);
+    expect(out.before).toEqual([]);
+  });
+
+  it("reports the number the tile actually showed, not a position", () => {
+    // #1 and #3 removed: #3 must read as 3, the number quoted in any screenshot
+    // taken before the deletion.
+    const rows = [
+      row({ id: "p1", phase: "after", created_at: "2026-07-11T01:00:00Z" }),
+      row({ id: "p2", phase: "after", created_at: "2026-07-11T02:00:00Z" }),
+      row({ id: "p3", phase: "after", created_at: "2026-07-11T03:00:00Z" }),
+      row({
+        id: "t1",
+        phase: "after",
+        storage_path: null,
+        superseded_by: "p1",
+        created_at: "2026-07-22T01:00:00Z",
+      }),
+      row({
+        id: "t3",
+        phase: "after",
+        storage_path: null,
+        superseded_by: "p3",
+        created_at: "2026-07-22T02:00:00Z",
+      }),
+    ];
+    expect(selectRemovedPhotosByPhase(rows).after.map((r) => r.seq)).toEqual([1, 3]);
+    // …and the survivor keeps its own.
+    expect(selectCurrentPhotosByPhase(rows).after.map((p) => p.seq)).toEqual([2]);
+  });
+
+  it("files the entry under the TARGET's phase, never the tombstone's own", () => {
+    const out = selectRemovedPhotosByPhase([
+      row({ id: "p1", phase: "before", created_at: "2026-07-11T01:00:00Z" }),
+      row({
+        id: "t1",
+        phase: "during", // a wrong/stale phase on the tombstone must not decide
+        storage_path: null,
+        superseded_by: "p1",
+        created_at: "2026-07-22T01:00:00Z",
+      }),
+    ]);
+    expect(out.before.map((r) => r.id)).toEqual(["p1"]);
+    expect(out.during).toEqual([]);
+  });
+
+  it("ignores a tombstone whose target is not in the rows", () => {
+    const out = selectRemovedPhotosByPhase([
+      row({
+        id: "orphan",
+        phase: "during",
+        storage_path: null,
+        superseded_by: "not-here",
+        created_at: "2026-07-22T01:00:00Z",
+      }),
+    ]);
+    expect(out.during).toEqual([]);
   });
 });

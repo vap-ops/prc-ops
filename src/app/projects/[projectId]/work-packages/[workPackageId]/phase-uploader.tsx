@@ -48,11 +48,20 @@ interface ThumbnailPhoto {
   uploaderName: string | null;
 }
 
+/** Spec 341 U1 — one line of the removal trace. */
+export interface RemovedTrace {
+  seq: number;
+  byName: string | null;
+  atLabel: string | null;
+}
+
 export interface PhaseData {
   phase: PhotoPhase;
   label: string;
   photos: ReadonlyArray<ThumbnailPhoto>;
   lastUpdatedLabel: string | null;
+  /** Spec 341 U1 — photos removed from this zone, newest number last. */
+  removed: ReadonlyArray<RemovedTrace>;
 }
 
 interface PhotoCaptureZoneProps {
@@ -132,6 +141,9 @@ export function PhotoCaptureZone({
 
   const currentLabel = phases.find((p) => p.phase === currentPhase)?.label ?? "";
   const currentData = phases.find((p) => p.phase === currentPhase) ?? fallback;
+
+  // Spec 341 U1 — every zone's removals in one list, each line naming its zone.
+  const removedAcrossZones = phases.flatMap((p) => p.removed.map((r) => ({ ...r, zone: p.label })));
 
   // Lightbox grouping (spec 50/51) for the current-phase strip.
   const stripPhotos = currentData.photos;
@@ -340,6 +352,31 @@ export function PhotoCaptureZone({
             </li>
           ))}
         </PhotoStrip>
+
+        {/* Spec 341 U1 — the removal trace. The operator's call was to keep
+            pre-submit deletion open to any project member and buy accountability
+            with VISIBILITY instead of an approval queue nobody would staff. The
+            data was always there (photo_logs is append-only); nothing surfaced it.
+            Spans EVERY zone, not just the selected one: a live probe found a WP
+            whose six removals sat in ระหว่างทำ while the page opened on another
+            tile, so a per-zone trace showed nothing at all. Accountability you
+            have to go looking for is not accountability. Collapsed by default so
+            a WP that never lost a photo reads clean. */}
+        {removedAcrossZones.length > 0 ? (
+          <details className="mt-2">
+            <summary className="text-meta text-ink-secondary min-h-11 cursor-pointer content-center">
+              ลบไปแล้ว {removedAcrossZones.length} รูป
+            </summary>
+            <ul className="text-meta text-ink-muted mt-1 flex flex-col gap-0.5">
+              {removedAcrossZones.map((r) => (
+                <li key={`${r.zone}-${r.seq}`}>
+                  {r.zone} #{r.seq} · ลบโดย {r.byName ?? "ไม่ทราบชื่อ"}
+                  {r.atLabel ? ` · ${r.atLabel}` : ""}
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
       </div>
 
       {/* HERO capture bar — fixed in the thumb zone (replaces the tab bar

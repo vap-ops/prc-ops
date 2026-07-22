@@ -13,7 +13,8 @@ import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { groupRoster, type GroupedRoster } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
 import {
-  getCurrentPhotosForWorkPackage,
+  getPhotoViewForWorkPackage,
+  type RemovedPhotosByPhase,
   type PhotoLogRow,
   type CurrentPhotosByPhase,
 } from "@/lib/photos/current-photos";
@@ -86,6 +87,8 @@ export interface WorkPackageDetailData {
     rows: LaborDisplayRow[];
   };
   photosByPhase: CurrentPhotosByPhase;
+  /** Spec 341 U1 — the removal trace: which number went, who took it, when. */
+  removedByPhase: RemovedPhotosByPhase;
   signedUrls: Map<string, string>;
   displayNames: Map<string, string>;
   defectReason: string | null;
@@ -128,6 +131,7 @@ export async function loadWorkPackageDetail(
       predecessorIds: [],
       labor: { roster: groupRoster([], []), projectWorkerIds: [], projectWorkers: [], rows: [] },
       photosByPhase: { before: [], during: [], after: [], after_fix: [], defect: [] },
+      removedByPhase: { before: [], during: [], after: [], after_fix: [], defect: [] },
       signedUrls: new Map(),
       displayNames: new Map(),
       defectReason: null,
@@ -153,7 +157,7 @@ export async function loadWorkPackageDetail(
     { data: requestRows },
     planner,
     labor,
-    photosByPhase,
+    photoView,
     reworkData,
     { data: resubmitRows },
   ] = await Promise.all([
@@ -176,7 +180,7 @@ export async function loadWorkPackageDetail(
       .order("requested_at", { ascending: false }),
     loadPlanner(supabase, wp.id, wp.project_id, isPlanner),
     fetchLaborZoneData(supabase, wp.id, wp.project_id, contractorsShared),
-    getCurrentPhotosForWorkPackage(supabase, wp.id),
+    getPhotoViewForWorkPackage(supabase, wp.id),
     loadReworkData(supabase, wp.id, wp.status),
     // Spec 337 U2a — which needs_revision bounces the SA has already answered.
     // Readable by site_admin because …075828 named this event in their audit_log
@@ -202,6 +206,8 @@ export async function loadWorkPackageDetail(
   // uploaders (spec 289 U1 — one users read serves the lightbox uploader line
   // too, replacing the page's second serial fetchDisplayNames); signed URLs
   // need the photo rows. Both batch.
+  const photosByPhase = photoView.current;
+  const removedByPhase = photoView.removed;
   const allPhotos: PhotoLogRow[] = [
     ...photosByPhase.before,
     ...photosByPhase.during,
@@ -217,6 +223,9 @@ export async function loadWorkPackageDetail(
         ...approvals.map((a) => a.decided_by),
         ...wpRequests.map((r) => r.requested_by),
         ...allPhotos.map((p) => p.uploaded_by),
+        // Spec 341 U1 — whoever REMOVED a photo is named in the trace too, and
+        // they need not be among the uploaders still on the WP.
+        ...Object.values(removedByPhase).flatMap((entries) => entries.map((e) => e.removedBy)),
       ].filter((id): id is string => typeof id === "string"),
     ),
   );
@@ -234,6 +243,7 @@ export async function loadWorkPackageDetail(
     predecessorIds: planner.predecessorIds,
     labor,
     photosByPhase,
+    removedByPhase,
     signedUrls,
     displayNames,
     defectReason: reworkData.defectReason,
