@@ -1,3 +1,9 @@
+# [0.179.0](https://github.com/vap-ops/prc-ops/compare/v0.178.0...v0.179.0) (2026-07-22)
+
+### Features
+
+- **registrations:** prefill approver role from the invite (spec 342 U3) ([237971b](https://github.com/vap-ops/prc-ops/commit/237971bf23d6256ee39b1e34ec28e054f58b63ee))
+
 # [0.178.0](https://github.com/vap-ops/prc-ops/compare/v0.177.1...v0.178.0) (2026-07-22)
 
 ### Features
