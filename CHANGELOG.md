@@ -1,3 +1,9 @@
+## [0.177.1](https://github.com/vap-ops/prc-ops/compare/v0.177.0...v0.177.1) (2026-07-22)
+
+### Bug Fixes
+
+- **work-packages:** answer a client-source defect refusal honestly (spec 337 U5b) ([#694](https://github.com/vap-ops/prc-ops/issues/694)) ([5dd1197](https://github.com/vap-ops/prc-ops/commit/5dd11978b02107b6a327bb958b8fbef4890c9848))
+
 # [0.177.0](https://github.com/vap-ops/prc-ops/compare/v0.176.0...v0.177.0) (2026-07-22)
 
 ### Features
