@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canDeleteWpPhotos,
+  canRemoveInRevisionWindow,
   isPhotoWpDeletable,
   isRevisionWindowOpen,
 } from "@/lib/photos/deletable";
@@ -124,5 +125,56 @@ describe("the WP-detail page routes canDelete through that one function", () => 
   it("keeps no delete rule of its own", () => {
     expect(pageSrc).not.toContain("isPhotoWpDeletable(");
     expect(pageSrc).not.toContain("isRevisionWindowOpen(");
+  });
+});
+
+// ============================================================================
+// Spec 340 U1 — who may remove inside the window.
+//
+// 291's rule: the reviewer asks, the uploader fixes — an approver must not alter
+// the evidence they are judging. That left nobody able to help when the uploader
+// cannot (off site, phone lost). Operator call 2026-07-22: super_admin bypasses
+// the UPLOADER check only. The FREEZE is a state rule, not a role rule, and stays
+// — which is why this predicate is about the window's OWNER, never its status.
+// ============================================================================
+describe("canRemoveInRevisionWindow — spec 340 U1", () => {
+  it("admits the uploader whatever their role", () => {
+    expect(canRemoveInRevisionWindow({ isUploader: true, role: "site_admin" })).toBe(true);
+    expect(canRemoveInRevisionWindow({ isUploader: true, role: null })).toBe(true);
+  });
+
+  it("admits super_admin acting for someone else", () => {
+    expect(canRemoveInRevisionWindow({ isUploader: false, role: "super_admin" })).toBe(true);
+  });
+
+  it("refuses every other non-uploader, including the roles that can judge the WP", () => {
+    for (const role of ["site_admin", "project_manager", "project_director"] as const) {
+      expect(canRemoveInRevisionWindow({ isUploader: false, role })).toBe(false);
+    }
+  });
+
+  it("fails closed on an unknown role", () => {
+    expect(canRemoveInRevisionWindow({ isUploader: false, role: null })).toBe(false);
+  });
+
+  it("says nothing about WP status — the freeze is enforced separately", () => {
+    // A regression here would mean someone folded a status test into the owner
+    // test and quietly handed super_admin a delete on submitted evidence.
+    //
+    // The first draft of this sliced to `fn.indexOf("}")`, which lands on the
+    // brace closing the DESTRUCTURING PATTERN — 66 characters that never reach
+    // the body, so the very regression named above stayed green. Slice to the
+    // `}` in column 0 that ends the declaration instead, and assert the slice
+    // actually contains the return so a future refactor cannot silently empty it.
+    const src = readFileSync(join(process.cwd(), "src/lib/photos/deletable.ts"), "utf8");
+    const start = src.indexOf("export function canRemoveInRevisionWindow");
+    expect(start).toBeGreaterThan(-1);
+    const rest = src.slice(start);
+    // "\n}" alone is still not enough — it first matches the `}` of `}: {` that
+    // closes the destructuring TYPE. The declaration ends at a brace on its own
+    // line: "\n}\n".
+    const body = rest.slice(0, rest.indexOf("\n}\n") + 3);
+    expect(body).toContain("return isUploader");
+    expect(body).not.toMatch(/status|pending_approval|complete/);
   });
 });

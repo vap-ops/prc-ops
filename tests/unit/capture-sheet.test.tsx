@@ -63,6 +63,8 @@ function renderSheet(photos: ReadonlyArray<SheetPhoto> = [], canDelete = true) {
 const LOADED: SheetPhoto = {
   id: "photo-1-id",
   url: "https://example.test/storage/photo-1.jpg",
+  // Spec 340 U2 — the stable per-phase number rendered on the tile.
+  seq: 1,
   timeLabel: "09:00",
 };
 
@@ -141,5 +143,24 @@ describe("CaptureSheet submit gate (spec 291 U1)", () => {
     // Await the overlay chunk (its dialog), then assert the delete is absent.
     await screen.findByRole("dialog", { name: "รูปขยาย" });
     expect(screen.queryByRole("button", { name: "ลบรูป" })).not.toBeInTheDocument();
+  });
+});
+
+// Spec 340 U2 — the number has to render on the tile, because the tile is what
+// the operator screenshots when asking for a photo to be removed. The numbering
+// itself is unit-tested on the pure function; this pins that it survives the trip
+// into the grid, where a grep-only assertion would not (a `#{photo.seq}` behind a
+// false branch or a `hidden` class still greps fine).
+describe("photo number badge — spec 340 U2", () => {
+  it("renders each loaded photo's number", () => {
+    renderSheet([
+      { ...LOADED, id: "a", seq: 1 },
+      { ...LOADED, id: "b", seq: 4 },
+    ]);
+    expect(screen.getByText("#1")).toBeInTheDocument();
+    // Not #2 — a retired number is exactly what a delete leaves behind, and the
+    // grid must show the real one, never a position index.
+    expect(screen.getByText("#4")).toBeInTheDocument();
+    expect(screen.queryByText("#2")).toBeNull();
   });
 });

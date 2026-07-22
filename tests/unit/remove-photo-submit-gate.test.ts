@@ -18,6 +18,7 @@ const {
   insertMock,
   latestDecisionsMock,
   answeredMock,
+  roleMock,
 } = vi.hoisted(() => ({
   mockGetActionUser: vi.fn(),
   targetMock: vi.fn(),
@@ -26,6 +27,7 @@ const {
   insertMock: vi.fn(),
   latestDecisionsMock: vi.fn(),
   answeredMock: vi.fn(),
+  roleMock: vi.fn(),
 }));
 
 const PHOTO = "22222222-2222-4222-8222-222222222222";
@@ -47,6 +49,13 @@ function rlsClient() {
             eq: () => ({ eq: () => ({ eq: () => ({ eq: answeredMock }) }) }),
           }),
         };
+      }
+      if (table === "users") {
+        // Spec 340 U1: the caller-role read on the non-uploader branch. Before
+        // this arm existed the query fell through to the photo_logs builder and
+        // resolved the PHOTO row, whose `role` is undefined — so the refusal
+        // test passed for the wrong reason and nothing covered the admit path.
+        return { select: () => ({ eq: () => ({ maybeSingle: roleMock }) }) };
       }
       // photo_logs — target load (.eq().maybeSingle()) + anti-join (.eq().limit())
       return {
@@ -88,9 +97,20 @@ import { removePhoto } from "@/app/projects/[projectId]/work-packages/[workPacka
 
 function setup(
   wpStatus: string,
-  opts: { latestDecision?: string | null; answered?: boolean; uploadedBy?: string } = {},
+  opts: {
+    latestDecision?: string | null;
+    answered?: boolean;
+    uploadedBy?: string;
+    callerRole?: string;
+  } = {},
 ) {
-  const { latestDecision = null, answered = false, uploadedBy = "u1" } = opts;
+  const {
+    latestDecision = null,
+    answered = false,
+    uploadedBy = "u1",
+    callerRole = "site_admin",
+  } = opts;
+  roleMock.mockResolvedValue({ data: { role: callerRole }, error: null });
   mockGetActionUser.mockResolvedValue({ supabase: rlsClient(), user: { id: "u1" } });
   latestDecisionsMock.mockResolvedValue(
     latestDecision === null
@@ -223,5 +243,44 @@ describe("removePhoto during an outstanding ให้แก้ไข ask", () =>
     const r = await removePhoto({ photoLogId: PHOTO });
     expect(r).toEqual({ ok: false, error: LOCKED_ERROR });
     expect(insertMock).not.toHaveBeenCalled();
+  });
+});
+
+// Spec 340 U1 — delete-on-behalf. The uploader may be off site or unable to find
+// the button; super_admin can act for them, and ONLY inside the window (the
+// freeze is checked before this branch is ever reached, above).
+describe("removePhoto on the uploader's behalf (spec 340 U1)", () => {
+  it("lets super_admin tombstone someone else's photo inside the window", async () => {
+    setup("pending_approval", {
+      latestDecision: "needs_revision",
+      uploadedBy: "someone-else",
+      callerRole: "super_admin",
+    });
+    const r = await removePhoto({ photoLogId: PHOTO });
+    expect(r).toEqual({ ok: true });
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ superseded_by: PHOTO, storage_path: null }),
+    );
+  });
+
+  it("still refuses super_admin on a frozen WP — the freeze is not a role check", async () => {
+    setup("complete", { uploadedBy: "someone-else", callerRole: "super_admin" });
+    const r = await removePhoto({ photoLogId: PHOTO });
+    expect(r).toEqual({ ok: false, error: LOCKED_ERROR });
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses every other role acting for someone else", async () => {
+    for (const callerRole of ["site_admin", "project_manager", "project_director"]) {
+      insertMock.mockClear();
+      setup("pending_approval", {
+        latestDecision: "needs_revision",
+        uploadedBy: "someone-else",
+        callerRole,
+      });
+      const r = await removePhoto({ photoLogId: PHOTO });
+      expect(r).toEqual({ ok: false, error: NOT_OWNER_ERROR });
+      expect(insertMock).not.toHaveBeenCalled();
+    }
   });
 });

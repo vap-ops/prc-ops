@@ -41,6 +41,7 @@ export interface DefectPairSlot {
 interface ThumbnailPhoto {
   id: string;
   url: string | null;
+  seq: number;
   timeLabel: string | null;
   /** Display name of who uploaded the photo (feedback a6037564). Shown in
    *  the lightbox detail; null when the name can't be resolved. */
@@ -326,6 +327,11 @@ export function PhotoCaptureZone({
                   ไม่พร้อมแสดง
                 </div>
               )}
+              {/* Spec 340 U2 — the stable number, top-left so it survives a
+                  screenshot cropped to the grid. */}
+              <span className="pointer-events-none absolute top-0 left-0 rounded-br-md bg-black/60 px-1.5 py-0.5 text-[11px] font-bold text-white">
+                #{p.seq}
+              </span>
               {p.timeLabel ? (
                 <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 pt-4 pb-1 text-[11px] font-bold text-white">
                   {p.timeLabel}

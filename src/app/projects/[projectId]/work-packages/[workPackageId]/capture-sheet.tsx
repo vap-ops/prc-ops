@@ -26,6 +26,7 @@ import { usePhaseCapture, type PendingUpload } from "./use-phase-capture";
 export interface SheetPhoto {
   id: string;
   url: string | null;
+  seq: number;
   timeLabel: string | null;
 }
 
@@ -388,6 +389,11 @@ function LoadedTile({
           ไม่พร้อม
         </span>
       )}
+      {/* Spec 340 U2 — same stable number as the zone strip; this is the grid
+          the operator screenshots when asking for a photo to be removed. */}
+      <span className="pointer-events-none absolute top-0 left-0 rounded-br-md bg-black/60 px-1 py-0.5 text-[11px] font-bold text-white">
+        #{photo.seq}
+      </span>
       {photo.timeLabel ? (
         <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1 pt-3 pb-0.5 text-right text-[11px] font-bold text-white">
           {photo.timeLabel}

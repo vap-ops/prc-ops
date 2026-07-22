@@ -110,3 +110,121 @@ describe("selectCurrentPhotosByPhase", () => {
     expect(result.during.map((r) => r.id)).toEqual(["id-B"]);
   });
 });
+
+// ============================================================================
+// Spec 340 U2 — every photo carries a stable number.
+//
+// Operator, 2026-07-22: "We need to have a way to identify the images (id no.)".
+// During the 291 rollout two thumbnails were circled in a screenshot and only one
+// could be identified from the database — three photos shared the displayed
+// minute. The UUID is unusable in the field.
+//
+// The number is DERIVED, not stored: an ordinal over the phase's non-tombstone
+// rows by (created_at, id). photo_logs is append-only, so a removed photo's row
+// never leaves the table — its number is retired and nothing renumbers. A stored
+// column would have bought the same property for a migration plus a backfill.
+// ============================================================================
+describe("photo numbering — spec 340 U2", () => {
+  it("numbers per phase, 1-based, in capture order", () => {
+    const out = selectCurrentPhotosByPhase([
+      row({ id: "d2", phase: "during", created_at: "2026-07-13T07:04:00Z" }),
+      row({ id: "d1", phase: "during", created_at: "2026-07-11T07:58:00Z" }),
+      row({ id: "b1", phase: "before", created_at: "2026-07-20T01:00:00Z" }),
+    ]);
+    expect(out.during.map((p) => [p.id, p.seq])).toEqual([
+      ["d1", 1],
+      ["d2", 2],
+    ]);
+    // Per phase, not per WP — a before photo taken last is still #1 of its zone.
+    expect(out.before.map((p) => p.seq)).toEqual([1]);
+  });
+
+  it("retires a removed photo's number instead of renumbering the survivors", () => {
+    const rows = [
+      row({ id: "p1", phase: "during", created_at: "2026-07-11T01:00:00Z" }),
+      row({ id: "p2", phase: "during", created_at: "2026-07-11T02:00:00Z" }),
+      row({ id: "p3", phase: "during", created_at: "2026-07-11T03:00:00Z" }),
+    ];
+    expect(selectCurrentPhotosByPhase(rows).during.map((p) => p.seq)).toEqual([1, 2, 3]);
+
+    // p2 is deleted: an append-only tombstone pointing at it. p3 must stay #3,
+    // or every number quoted in a screenshot or a message goes stale on deletion.
+    const afterDelete = selectCurrentPhotosByPhase([
+      ...rows,
+      row({
+        id: "t2",
+        phase: "during",
+        storage_path: null,
+        superseded_by: "p2",
+        created_at: "2026-07-22T05:00:00Z",
+      }),
+    ]);
+    expect(afterDelete.during.map((p) => [p.id, p.seq])).toEqual([
+      ["p1", 1],
+      ["p3", 3],
+    ]);
+  });
+
+  it("never lets a tombstone consume a number", () => {
+    const out = selectCurrentPhotosByPhase([
+      row({
+        id: "t0",
+        phase: "during",
+        storage_path: null,
+        superseded_by: "gone",
+        created_at: "2026-07-01T00:00:00Z",
+      }),
+      row({ id: "p1", phase: "during", created_at: "2026-07-02T00:00:00Z" }),
+    ]);
+    expect(out.during.map((p) => p.seq)).toEqual([1]);
+  });
+
+  it("returns each phase ordered by that number, whatever order the rows arrive in", () => {
+    // The read has no `order by` (PostgREST select *), so row order is not
+    // guaranteed — a number rendered in a random grid position is worse than no
+    // number at all.
+    const out = selectCurrentPhotosByPhase([
+      row({ id: "c", phase: "after", created_at: "2026-07-03T00:00:00Z" }),
+      row({ id: "a", phase: "after", created_at: "2026-07-01T00:00:00Z" }),
+      row({ id: "b", phase: "after", created_at: "2026-07-02T00:00:00Z" }),
+    ]);
+    expect(out.after.map((p) => p.id)).toEqual(["a", "b", "c"]);
+    expect(out.after.map((p) => p.seq)).toEqual([1, 2, 3]);
+  });
+
+  it("breaks a created_at tie by id so two same-second photos never swap numbers", () => {
+    const out = selectCurrentPhotosByPhase([
+      row({ id: "zz", phase: "during", created_at: "2026-07-13T07:04:00Z" }),
+      row({ id: "aa", phase: "during", created_at: "2026-07-13T07:04:00Z" }),
+    ]);
+    expect(out.during.map((p) => [p.id, p.seq])).toEqual([
+      ["aa", 1],
+      ["zz", 2],
+    ]);
+  });
+  // Spec 340 U2 fresh-eyes catch: the tile LABELS captured_at_client ?? created_at
+  // (page.tsx), but numbering by created_at alone would order by upload time. The
+  // ADR 0039 offline queue can flush minutes-to-hours after capture, so a queued
+  // photo would take a higher number than photos captured after it — and since the
+  // grid is now SORTED by that number, the times would render visibly out of order.
+  it("numbers by capture time, not upload time, so an offline flush cannot reorder the grid", () => {
+    const out = selectCurrentPhotosByPhase([
+      row({
+        id: "queued",
+        phase: "during",
+        captured_at_client: "2026-07-13T07:00:00Z",
+        created_at: "2026-07-13T09:30:00Z", // uploaded much later
+      }),
+      row({
+        id: "live",
+        phase: "during",
+        captured_at_client: "2026-07-13T08:00:00Z",
+        created_at: "2026-07-13T08:00:05Z",
+      }),
+    ]);
+    expect(out.during.map((p) => [p.id, p.seq])).toEqual([
+      ["queued", 1],
+      ["live", 2],
+    ]);
+  });
+});
