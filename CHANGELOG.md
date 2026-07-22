@@ -1,3 +1,9 @@
+# [0.177.0](https://github.com/vap-ops/prc-ops/compare/v0.176.0...v0.177.0) (2026-07-22)
+
+### Features
+
+- **photos:** show who removed which photo, instead of gating the removal (spec 341) ([#693](https://github.com/vap-ops/prc-ops/issues/693)) ([3392746](https://github.com/vap-ops/prc-ops/commit/339274691efdb66e512d8f83347ecf9d159f8d3e)), closes [#N](https://github.com/vap-ops/prc-ops/issues/N)
+
 # [0.176.0](https://github.com/vap-ops/prc-ops/compare/v0.175.0...v0.176.0) (2026-07-22)
 
 ### Bug Fixes
