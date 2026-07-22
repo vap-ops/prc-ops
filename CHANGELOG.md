@@ -1,3 +1,15 @@
+# [0.178.0](https://github.com/vap-ops/prc-ops/compare/v0.177.1...v0.178.0) (2026-07-22)
+
+### Features
+
+- **register:** close the organic office door on /coming-soon (spec 342 D3) ([4dc12ed](https://github.com/vap-ops/prc-ops/commit/4dc12edd123bad0d0085f69fec3d366855576c42))
+- **register:** invite-only office door with gate screen (spec 342 U2) ([ff9d036](https://github.com/vap-ops/prc-ops/commit/ff9d03659bbb6f18a52024880b85af0970256466))
+- **register:** lift field/office role partition into office-roles.ts (spec 342 U1.2) ([7a7353a](https://github.com/vap-ops/prc-ops/commit/7a7353a88f009b5d4ff93092c37b817aaf090896))
+- **register:** locked invited-role display on the registration form (spec 342 D2) ([60ad193](https://github.com/vap-ops/prc-ops/commit/60ad193a9c0407a7440bb12c68ff8edab7464735))
+- **register:** officeInviteParams + role through the login round-trip (spec 342 U2.1) ([ea4ca1a](https://github.com/vap-ops/prc-ops/commit/ea4ca1ae715faf9b2376f8e5ac4f824bec55c512))
+- **register:** officeInviteUrl mint builder (spec 342 U1.1) ([9a19533](https://github.com/vap-ops/prc-ops/commit/9a19533c2ce337136639104119feb96c2ff0ead5))
+- **roles:** office invite link mint block on /settings/roles (spec 342 U1.3) ([f368a18](https://github.com/vap-ops/prc-ops/commit/f368a18883a2fd377802d2900dc5c4115014d3a6))
+
 ## [0.177.1](https://github.com/vap-ops/prc-ops/compare/v0.177.0...v0.177.1) (2026-07-22)
 
 ### Bug Fixes
