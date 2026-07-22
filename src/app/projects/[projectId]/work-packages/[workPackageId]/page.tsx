@@ -1039,6 +1039,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             projectId={wp.project_id}
             workPackageId={wp.id}
             canAttachPhotos={isPlanner}
+            canFileClientSource={isPlanner}
             initialOpen={shouldOpenDefectSheet(defect)}
           />
         </div>

@@ -731,6 +731,12 @@ export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {
 // own control as a second surface.
 export const REPORT_DEFECT_LABEL = "รายงานข้อบกพร่อง";
 
+// Spec 217 / 337 U5 follow-up — a client-reported defect is a PM-tier act, so
+// `reopen_work_package_for_defect` refuses p_source='client' for site_admin and
+// auditor. The RPC answers 42501, which the action otherwise reads as a
+// MEMBERSHIP failure; this is the honest reason for that specific refusal.
+export const CLIENT_DEFECT_NOT_PERMITTED = "เฉพาะผู้จัดการโครงการจึงแจ้งแบบ “ลูกค้าแจ้ง” ได้";
+
 // Spec 217 — who called a rework round: internal QA/SA vs the client.
 export const REWORK_SOURCE_LABEL: Record<Enums["rework_source"], string> = {
   internal: "ตรวจภายใน",
