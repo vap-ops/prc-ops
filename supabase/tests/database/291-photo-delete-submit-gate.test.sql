@@ -12,6 +12,10 @@ select plan(14);
 -- Authority = the photo_logs INSERT policy, extended with
 --   AND (superseded_by IS NULL OR photo_wp_deletable(work_package_id))
 -- so it gates ONLY the supersede-insert (the delete), never a normal upload.
+-- (Since migration 075831 that conjunct calls photo_removal_allowed(wp, target),
+-- of which photo_wp_deletable is one arm — see 291-revision-photo-unfreeze. The
+-- assertions below still hold: none of these WPs carries an approvals row, so
+-- the revision window is shut and the status-only answer is the whole answer.)
 -- photo_wp_deletable(uuid) is a SECURITY DEFINER helper = status NOT IN
 -- (pending_approval, complete), coalesce-false so a missing WP fails CLOSED.
 --
