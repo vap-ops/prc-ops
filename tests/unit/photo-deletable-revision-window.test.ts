@@ -160,8 +160,21 @@ describe("canRemoveInRevisionWindow — spec 340 U1", () => {
   it("says nothing about WP status — the freeze is enforced separately", () => {
     // A regression here would mean someone folded a status test into the owner
     // test and quietly handed super_admin a delete on submitted evidence.
+    //
+    // The first draft of this sliced to `fn.indexOf("}")`, which lands on the
+    // brace closing the DESTRUCTURING PATTERN — 66 characters that never reach
+    // the body, so the very regression named above stayed green. Slice to the
+    // `}` in column 0 that ends the declaration instead, and assert the slice
+    // actually contains the return so a future refactor cannot silently empty it.
     const src = readFileSync(join(process.cwd(), "src/lib/photos/deletable.ts"), "utf8");
-    const fn = src.slice(src.indexOf("export function canRemoveInRevisionWindow"));
-    expect(fn.slice(0, fn.indexOf("}"))).not.toMatch(/status|pending_approval|complete/);
+    const start = src.indexOf("export function canRemoveInRevisionWindow");
+    expect(start).toBeGreaterThan(-1);
+    const rest = src.slice(start);
+    // "\n}" alone is still not enough — it first matches the `}` of `}: {` that
+    // closes the destructuring TYPE. The declaration ends at a brace on its own
+    // line: "\n}\n".
+    const body = rest.slice(0, rest.indexOf("\n}\n") + 3);
+    expect(body).toContain("return isUploader");
+    expect(body).not.toMatch(/status|pending_approval|complete/);
   });
 });

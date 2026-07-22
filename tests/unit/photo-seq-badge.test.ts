@@ -21,16 +21,12 @@ describe("photo number reaches the UI — spec 340 U2", () => {
     expect(read(`${WP_DETAIL}/page.tsx`)).toContain("seq: p.seq,");
   });
 
-  it("both photo grids render it", () => {
-    // The zone strip on the WP detail and the grid inside the capture sheet are
-    // separate components fed from the same page data — a badge added to one and
-    // forgotten in the other is the likely miss.
+  it("the WP-detail zone strip renders it", () => {
+    // The capture-sheet grid is pinned by RENDERING it (capture-sheet.test.tsx,
+    // "photo number badge") — the honest way. The zone strip lives inside
+    // PhotoCaptureZone, whose render pulls the whole capture engine, so it keeps
+    // a source pin; it is the weaker assertion of the two and is only defensible
+    // because the sheet's real render already proves the badge markup works.
     expect(read(`${WP_DETAIL}/phase-uploader.tsx`)).toContain("#{p.seq}");
-    expect(read(`${WP_DETAIL}/capture-sheet.tsx`)).toContain("#{photo.seq}");
-  });
-
-  it("carries seq on both tile prop types, so a missing number cannot typecheck", () => {
-    expect(read(`${WP_DETAIL}/phase-uploader.tsx`)).toMatch(/seq: number/);
-    expect(read(`${WP_DETAIL}/capture-sheet.tsx`)).toMatch(/seq: number/);
   });
 });

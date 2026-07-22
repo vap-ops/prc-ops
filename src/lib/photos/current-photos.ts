@@ -39,9 +39,20 @@ export interface CurrentPhotosByPhase {
   defect: NumberedPhoto[];
 }
 
-// Capture order. `created_at` alone is not enough: two photos uploaded in the
-// same second would swap numbers between reads.
+// Capture order — the same clock the tile LABELS (`captured_at_client ??
+// created_at`). Ordering by `created_at` alone would be UPLOAD order, and the
+// ADR 0039 offline queue can flush long after the shot: a queued photo would
+// outrank photos taken after it, and since each phase is sorted by this number
+// the grid would render its times visibly out of order. `created_at` then `id`
+// break ties so two shots in the same second never swap between reads.
+function captureKey(r: PhotoLogRow): string {
+  return r.captured_at_client ?? r.created_at ?? "";
+}
+
 function byCaptureOrder(a: PhotoLogRow, b: PhotoLogRow): number {
+  const ak = captureKey(a);
+  const bk = captureKey(b);
+  if (ak !== bk) return ak < bk ? -1 : 1;
   const at = a.created_at ?? "";
   const bt = b.created_at ?? "";
   if (at !== bt) return at < bt ? -1 : 1;

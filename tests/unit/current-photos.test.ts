@@ -202,4 +202,29 @@ describe("photo numbering — spec 340 U2", () => {
       ["zz", 2],
     ]);
   });
+  // Spec 340 U2 fresh-eyes catch: the tile LABELS captured_at_client ?? created_at
+  // (page.tsx), but numbering by created_at alone would order by upload time. The
+  // ADR 0039 offline queue can flush minutes-to-hours after capture, so a queued
+  // photo would take a higher number than photos captured after it — and since the
+  // grid is now SORTED by that number, the times would render visibly out of order.
+  it("numbers by capture time, not upload time, so an offline flush cannot reorder the grid", () => {
+    const out = selectCurrentPhotosByPhase([
+      row({
+        id: "queued",
+        phase: "during",
+        captured_at_client: "2026-07-13T07:00:00Z",
+        created_at: "2026-07-13T09:30:00Z", // uploaded much later
+      }),
+      row({
+        id: "live",
+        phase: "during",
+        captured_at_client: "2026-07-13T08:00:00Z",
+        created_at: "2026-07-13T08:00:05Z",
+      }),
+    ]);
+    expect(out.during.map((p) => [p.id, p.seq])).toEqual([
+      ["queued", 1],
+      ["live", 2],
+    ]);
+  });
 });
