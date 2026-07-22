@@ -1,3 +1,9 @@
+# [0.172.0](https://github.com/vap-ops/prc-ops/compare/v0.171.0...v0.172.0) (2026-07-22)
+
+### Features
+
+- **approvals:** close the WP cure loop with ส่งตรวจอีกครั้ง (spec 337 U2) ([1490952](https://github.com/vap-ops/prc-ops/commit/149095256aeadaf7c348f337daf4d54a0ff0d49c))
+
 # [0.171.0](https://github.com/vap-ops/prc-ops/compare/v0.170.0...v0.171.0) (2026-07-21)
 
 ### Features
