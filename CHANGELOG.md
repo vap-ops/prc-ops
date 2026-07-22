@@ -1,3 +1,9 @@
+# [0.175.0](https://github.com/vap-ops/prc-ops/compare/v0.174.0...v0.175.0) (2026-07-22)
+
+### Features
+
+- **photos:** super_admin removes on the uploader's behalf + a stable number on every photo (spec 340) ([#691](https://github.com/vap-ops/prc-ops/issues/691)) ([7969826](https://github.com/vap-ops/prc-ops/commit/796982620ee9ded656936877c097325ac88b0e31)), closes [1..#6](https://github.com/1../issues/6)
+
 # [0.174.0](https://github.com/vap-ops/prc-ops/compare/v0.173.0...v0.174.0) (2026-07-22)
 
 ### Bug Fixes
