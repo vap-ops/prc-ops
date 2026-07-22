@@ -9188,3 +9188,34 @@ id="cold-restart">` in the /settings เกี่ยวกับ card, under the
   consent — the notice above now carries the precise outstanding list, so the
   hint is arguably redundant; decide whether to make it dynamic or drop it.
   U2 (เตรียมตัว prep screen) + U3 (poster/LINE prepare line) not started.
+
+## Spec 345 U1 — money-event review schema + stale-verify triggers (2026-07-23)
+
+- **Why:** operator directive (spec 345): accounting reviews every payment
+  document; "verified" must mean verified-as-of-the-current-numbers, so the
+  schema ships with the staleness guarantee from day one.
+- **What:** mig `20260813075838` — 5 enums; `money_event_reviews` (unique
+  `(source_table, source_id)`, 15-source CHECK allowlist, one-directional
+  verified-attribution CHECK per plan D-4); append-only `money_review_flags`
+  (reviewer-attribution + closed-shape CHECKs); both RLS-sealed zero-grant (no
+  policies — DEFINER-only access); generic SECURITY DEFINER
+  `money_review_mark_stale_tg(source, id_col)` + 15 triggers (9 AFTER UPDATE
+  change-detection WHENs mirroring GL enqueue predicates minus posting
+  eligibility (plan D-2); 4 supersede AFTER INSERT on `superseded_by`; 2
+  correction-ledger AFTER INSERT keying `'stock_receipts'` via `receipt_id`).
+  Staleness = status→`pending` + ONE system flag born `suggested` (plan D-1).
+- **Build:** pgTAP `345-money-reviews.test.sql` RED first (46 asserts; observed
+  failing pre-migration), GREEN post-push; full suite 310/311 (only tolerated
+  known-red 221) — zero collateral; vitest 4847/671, lint + typecheck clean.
+- **Verified:** M1 trigger-causality mutation (drop trigger in rolled-back txn →
+  no flip → the suite's asserts would RED); M2 real-flow on a REAL prod
+  purchase_requests row (amount +0.01 → pending + one system/suggested flag,
+  Thai detail, full PR trigger chain fired, txn rolled back — zero committed
+  writes). RED run also surfaced the live `dc_payments_reason_iff_supersede`
+  CHECK (superseding wage rows REQUIRE `correction_reason`) — folded into the
+  plan's Evidence.
+- **Open questions / follow-ups:** U3's verify RPC must dismiss outstanding
+  `suggested` system flags on verify (plan D-1 loop-closer). U4 CREATES
+  `supersede_wage_payment` (fact-check: only 3 supersede RPCs exist at HEAD —
+  wage has the column + CHECK but no writer). stock_returns has no correction
+  ledger → no stale path (plan D-5), revisit only if one ships.

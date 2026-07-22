@@ -3519,6 +3519,133 @@ export type Database = {
         }
         Relationships: []
       }
+      money_event_reviews: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          project_id: string | null
+          source_id: string
+          source_table: string
+          status: Database["public"]["Enums"]["money_review_status"]
+          updated_at: string
+          verified_at: string | null
+          verified_by: string | null
+          verified_via:
+            | Database["public"]["Enums"]["money_review_verified_via"]
+            | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          project_id?: string | null
+          source_id: string
+          source_table: string
+          status?: Database["public"]["Enums"]["money_review_status"]
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_via?:
+            | Database["public"]["Enums"]["money_review_verified_via"]
+            | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          project_id?: string | null
+          source_id?: string
+          source_table?: string
+          status?: Database["public"]["Enums"]["money_review_status"]
+          updated_at?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_via?:
+            | Database["public"]["Enums"]["money_review_verified_via"]
+            | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_event_reviews_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_event_reviews_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_review_flags: {
+        Row: {
+          detail: string | null
+          flag_type: Database["public"]["Enums"]["money_flag_type"]
+          flagged_at: string
+          flagged_by: string | null
+          id: string
+          raised_by_kind: Database["public"]["Enums"]["money_flag_raised_by_kind"]
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          review_id: string
+          status: Database["public"]["Enums"]["money_flag_status"]
+        }
+        Insert: {
+          detail?: string | null
+          flag_type: Database["public"]["Enums"]["money_flag_type"]
+          flagged_at?: string
+          flagged_by?: string | null
+          id?: string
+          raised_by_kind: Database["public"]["Enums"]["money_flag_raised_by_kind"]
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          review_id: string
+          status: Database["public"]["Enums"]["money_flag_status"]
+        }
+        Update: {
+          detail?: string | null
+          flag_type?: Database["public"]["Enums"]["money_flag_type"]
+          flagged_at?: string
+          flagged_by?: string | null
+          id?: string
+          raised_by_kind?: Database["public"]["Enums"]["money_flag_raised_by_kind"]
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          review_id?: string
+          status?: Database["public"]["Enums"]["money_flag_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_review_flags_flagged_by_fkey"
+            columns: ["flagged_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_review_flags_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_review_flags_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "money_event_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       muster_attendance: {
         Row: {
           id: string
@@ -11286,6 +11413,20 @@ export type Database = {
         | "custom_fabrication"
       journal_entry_status: "draft" | "posted" | "reversed"
       login_handoff_status: "pending" | "approved" | "consumed"
+      money_flag_raised_by_kind: "reviewer" | "agent" | "system"
+      money_flag_status: "suggested" | "open" | "resolved" | "dismissed"
+      money_flag_type:
+        | "missing_doc"
+        | "wrong_doc_type"
+        | "amount_mismatch"
+        | "sum_mismatch"
+        | "unreadable"
+        | "duplicate_doc"
+        | "wrong_vendor"
+        | "changed_after_verified"
+        | "other"
+      money_review_status: "pending" | "verified" | "flagged"
+      money_review_verified_via: "reviewer" | "agent"
       muster_method: "qr" | "manual"
       notification_event_type:
         | "wp_pending_approval"
@@ -11726,6 +11867,21 @@ export const Constants = {
       ],
       journal_entry_status: ["draft", "posted", "reversed"],
       login_handoff_status: ["pending", "approved", "consumed"],
+      money_flag_raised_by_kind: ["reviewer", "agent", "system"],
+      money_flag_status: ["suggested", "open", "resolved", "dismissed"],
+      money_flag_type: [
+        "missing_doc",
+        "wrong_doc_type",
+        "amount_mismatch",
+        "sum_mismatch",
+        "unreadable",
+        "duplicate_doc",
+        "wrong_vendor",
+        "changed_after_verified",
+        "other",
+      ],
+      money_review_status: ["pending", "verified", "flagged"],
+      money_review_verified_via: ["reviewer", "agent"],
       muster_method: ["qr", "manual"],
       notification_event_type: [
         "wp_pending_approval",
