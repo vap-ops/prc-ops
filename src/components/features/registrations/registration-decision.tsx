@@ -3,8 +3,10 @@
 // Spec 263 U3 / spec 264 G4 — the back-office approve/reject control on a
 // registration's review detail. Approve now carries a ROLE SELECTOR: the approver
 // picks which role the applicant becomes (options = STAFF_ONBOARDABLE_ROLES,
-// labels from USER_ROLE_LABEL), defaulting to `technician` (the common case + the
-// current open entry link). The picked role is passed as p_role to
+// labels from USER_ROLE_LABEL), defaulting to `technician` (the common case) —
+// EXCEPT an invited office applicant (spec 342 U3): a declared_role_hint that
+// parses as an onboardable role prefills the selector, unless a firm pre-select
+// forces technician. The picked role is passed as p_role to
 // approve_staff_registration; the RPC's floor asserts full_name + id_card +
 // consent and re-guards the role against the DB allowlist (a denial surfaces as
 // the Thai-mapped error). The applicant's optional declared_role_hint is shown
@@ -37,12 +39,17 @@ import {
 import { type UserRole } from "@/lib/auth/role-home";
 import {
   USER_ROLE_LABEL,
+  INVITED_ROLE_LABEL,
   REGISTRATION_SITE_ASSIGN_LABEL,
   REGISTRATION_SITE_ASSIGN_HINT,
   REGISTRATION_SITE_ASSIGN_EMPTY_OPTION,
 } from "@/lib/i18n/labels";
 import { validateRejectReason } from "@/lib/register/reject-reason";
-import { FIELD_ROLE_OPTIONS, OFFICE_ROLE_OPTIONS } from "@/lib/register/office-roles";
+import {
+  FIELD_ROLE_OPTIONS,
+  OFFICE_ROLE_OPTIONS,
+  invitedRoleFromHint,
+} from "@/lib/register/office-roles";
 import { useToast } from "@/lib/ui/use-toast";
 import {
   BUTTON_PRIMARY,
@@ -106,7 +113,15 @@ export function RegistrationDecision({
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
-  const [role, setRole] = useState<UserRole>(DEFAULT_ROLE);
+  // Spec 342 U3 — prefill from the invite's role key (advisory, D5 — one
+  // deliberate confirming tap still binds). A firm pre-select outranks it:
+  // the RPC's contractor arm refuses any role but technician.
+  const invitedRole = invitedRoleFromHint(declaredRoleHint);
+  const firmPreselected =
+    invitedContractorId !== null && contractors.some((c) => c.id === invitedContractorId);
+  const [role, setRole] = useState<UserRole>(
+    firmPreselected ? DEFAULT_ROLE : (invitedRole ?? DEFAULT_ROLE),
+  );
   // Pre-select the invited project ONLY if it's a selectable option (see prop
   // docs) — a controlled <select> whose value matches no <option> renders blank
   // yet keeps the value in state, which would submit a hidden, unconfirmed id.
@@ -114,11 +129,7 @@ export function RegistrationDecision({
     invitedProjectId && projects.some((p) => p.id === invitedProjectId) ? invitedProjectId : "",
   );
   // Spec 328 U3 — same trust-rule pre-select for the firm.
-  const [contractorId, setContractorId] = useState(
-    invitedContractorId && contractors.some((c) => c.id === invitedContractorId)
-      ? invitedContractorId
-      : "",
-  );
+  const [contractorId, setContractorId] = useState(firmPreselected ? invitedContractorId : "");
   // Spec 333 U2b — ส่งเอกสารภายหลัง: visible only for a non-technician role with
   // no firm picked; cleared whenever either transition hides it so a later
   // re-pick never resurfaces a stale tick. The RPC is the sole gate.
@@ -231,7 +242,13 @@ export function RegistrationDecision({
                 ))}
               </optgroup>
             </select>
-            {hint ? <p className="text-ink-muted text-xs">ผู้สมัครระบุว่า: {hint}</p> : null}
+            {invitedRole ? (
+              <p className="text-ink-muted text-xs">
+                {INVITED_ROLE_LABEL}: {USER_ROLE_LABEL[invitedRole]}
+              </p>
+            ) : hint ? (
+              <p className="text-ink-muted text-xs">ผู้สมัครระบุว่า: {hint}</p>
+            ) : null}
           </div>
           {/* Spec 333 U2b — deferred documents (office roles only; the RPC is
               the authoritative gate, mig 075822). */}
