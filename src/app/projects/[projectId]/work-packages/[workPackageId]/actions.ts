@@ -32,7 +32,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN, requireActionRole } from "@/lib/auth/action-gate";
-import { isManagerRole, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { isManagerRole, PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
 import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
@@ -62,6 +62,7 @@ import {
   type PhotoPhase,
 } from "@/lib/photos/transitions";
 import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
+import { CLIENT_DEFECT_NOT_PERMITTED } from "@/lib/i18n/labels";
 import { resubmitState, RESUBMIT_DONE_NOTE } from "@/lib/approvals/resubmit";
 import { NOT_PENDING_REVIEW_ERROR } from "@/lib/approvals/predicates";
 
@@ -583,7 +584,23 @@ export async function reportDefect(input: ReportDefectInput): Promise<ReportDefe
     return { ok: false, error: "ระบุที่มาของข้อบกพร่องไม่ถูกต้อง" };
   }
 
-  const auth = await getActionUser();
+  // Spec 337 U5 follow-up: a CLIENT-reported defect is PM tier only — the RPC
+  // refuses site_admin/auditor with a 42501 that is indistinguishable from a
+  // membership failure below, so ask first and answer honestly. PM_ROLES is the
+  // exact mirror of the RPC rule (its overall gate admits SA/PM/PD/super/auditor;
+  // the client arm removes site_admin + auditor). The RPC remains the enforcer.
+  // Spec 274 note: requireActionRole resolves the ASSUMED role while the RPC
+  // sees the REAL one via auth.uid(). resolveEffectiveRole overrides only when
+  // the real role is super_admin, so this check is never MORE permissive than
+  // the RPC — a super_admin viewing-as-site_admin is denied here and would have
+  // been allowed at the DB, which is the intended fidelity direction.
+  const gate =
+    input.source === "client"
+      ? await requireActionRole(PM_ROLES, CLIENT_DEFECT_NOT_PERMITTED)
+      : null;
+  if (gate && "error" in gate) return { ok: false, error: gate.error };
+
+  const auth = gate && "auth" in gate ? gate.auth : await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { supabase } = auth;
 
@@ -595,6 +612,8 @@ export async function reportDefect(input: ReportDefectInput): Promise<ReportDefe
   if (error) {
     console.error("[reportDefect] RPC failed", { wp: input.workPackageId, error: error.message });
     if (error.code === "42501") {
+      // The role/source arm is pre-checked above, so what reaches here is a
+      // membership failure (or a race on a role change) — the wording is true.
       return { ok: false, error: "คุณไม่มีสิทธิ์เปิดงานนี้ใหม่ (ต้องเป็นทีมงานของโครงการ)" };
     }
     if (error.code === "22023") {

@@ -6,6 +6,57 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 337 U5b — the ลูกค้าแจ้ง refusal told the truth about the wrong thing — 🔨 built (2026-07-22)
+
+Operator-approved follow-up to the open question U5 recorded.
+`reopen_work_package_for_defect` raises **42501 for two different reasons** — not
+a member of the project, or `p_source='client'` while the role is
+site_admin/auditor ("only PM tier may file a client defect", spec 217 D2/D5) —
+and `actions.ts` mapped every 42501 to the membership message. So a site admin
+who **is** on the project, filing a defect and picking ลูกค้าแจ้ง, was told they
+are not on the project team. U5's new door is what makes that one tap away for
+the SA, a role that had never called this RPC before.
+
+**Fixed on both sides.** The source picker is PM-tier only (below it the answer
+is always ตรวจภายใน, so the whole picker goes rather than a one-option control
+whose second button only ever errors); the action pre-checks the client path with
+the house `requireActionRole` and returns the honest reason. `PM_ROLES` is the
+exact mirror of the RPC rule — its overall gate admits SA/PM/PD/super/auditor and
+the client arm removes site_admin + auditor — verified against
+`pg_get_functiondef` and independently re-derived from the migration by the
+reviewer. The RPC stays the enforcement point.
+
+**pgTAP 75 asserted the positive and never the refusal** (a PM _can_ file
+client-source; nothing said a member SA _cannot_), so the rule the app now
+mirrors was unpinned on the DB side. B.7 adds it, pinning the **message** as well
+as the errcode — all three 42501 arms share the code, so matching the code alone
+would let a `can_see_wp` regression keep the test green while proving the wrong
+rule.
+
+**Verification:** vitest full suite; 4 mutation-checks; pgTAP 75 green (`ok 17`).
+
+⭐ **Fresh-eyes found the honesty hole my fix introduced.** Dropping the picker
+left the filing still stamped `source='internal'` with nothing on screen saying
+so — an SA relaying a _customer_ complaint would silently record a false
+provenance and then see it back as the ตรวจภายใน chip on their own home. The
+picker is now replaced by a read-only disclosure line, not by nothing. It also
+caught that my "PM_ROLES can't drift" assertion was **self-referential**
+(`toHaveBeenCalledWith(PM_ROLES, …)` holds for any contents of that array) — the
+membership is now pinned against literals.
+
+**Open questions:**
+
+- 🔔 **pgTAP `119-item-catalog` is RED on live data and is NOT pinned** — found
+  while running this unit, unrelated to it. It asserts
+  `base_item = 'เหล็กข้ออ้อย'` exactly, but every live row is now
+  `เหล็กข้ออ้อยDB…`; it also expects 14 catalog categories against 15 live. Same
+  drift class as the already-pinned `221-catalog-categories`. Since pgTAP runs on
+  the MERGE ref, this will **eject** PRs from the merge queue until it is fixed
+  or pinned. Fix is to assert the seeded rows by prefix rather than by exact
+  equality (the file's own comment already anticipates operator edits).
+
+---
+
 ## Spec 337 U5 — defect-reopen discoverability — 🔨 built (2026-07-22)
 
 **U3 was the assigned unit; I declined it on evidence and built U5 instead**

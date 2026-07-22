@@ -18,7 +18,12 @@ import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { REPORT_DEFECT_LABEL, REWORK_SOURCE_LABEL } from "@/lib/i18n/labels";
+import {
+  DEFECT_SOURCE_CLIENT_IS_PM,
+  DEFECT_SOURCE_FIXED_INTERNAL,
+  REPORT_DEFECT_LABEL,
+  REWORK_SOURCE_LABEL,
+} from "@/lib/i18n/labels";
 import type { ReworkSource } from "@/lib/db/enums";
 import { reportDefect } from "./actions";
 import { useDefectPhotos } from "./use-defect-photos";
@@ -49,6 +54,7 @@ export function ReportDefectControl({
   projectId,
   workPackageId,
   canAttachPhotos = false,
+  canFileClientSource = false,
   initialOpen = false,
 }: {
   projectId: string;
@@ -56,6 +62,12 @@ export function ReportDefectControl({
   /** Spec 248: photo attach is for the filing roles (PM/PD/super) — the page
    *  passes isPlanner. SA keeps text-only filing (the reopen RPC admits SA). */
   canAttachPhotos?: boolean;
+  /** Spec 337 U5 follow-up: may this viewer file a CLIENT-reported defect? The
+   *  RPC refuses p_source='client' below PM tier (site_admin + auditor file
+   *  internal only, spec 217 D2/D5), so offering the button lower down is a dead
+   *  door that answers with an error. False (the default) drops the whole picker
+   *  rather than leaving a one-option control, and the filing stays ตรวจภายใน. */
+  canFileClientSource?: boolean;
   /** Spec 337 U5: arrived from the list's เสร็จแล้ว door (?defect=1) — the sheet
    *  opens on mount so the deep link costs one tap, not two. The page only
    *  renders this control on a complete WP for a non-read-only viewer, so the
@@ -125,31 +137,43 @@ export function ReportDefectControl({
           <p className="text-ink-secondary text-sm">
             งานนี้เสร็จแล้ว การรายงานข้อบกพร่องจะเปิดงานกลับเป็น “งานแก้ไข” เพื่อแก้ไขและส่งตรวจใหม่
           </p>
-          {/* Spec 217: who called this rework — ตรวจภายใน vs ลูกค้าแจ้ง. */}
-          <div className="flex flex-col gap-1.5">
-            <span className={LABEL}>ที่มาของข้อบกพร่อง</span>
-            <div className="grid grid-cols-2 gap-2">
-              {SOURCES.map((s) => {
-                const selected = source === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setSource(s)}
-                    disabled={submitting || reopened}
-                    className={`rounded-control focus-visible:ring-action border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 ${
-                      selected
-                        ? "border-attn bg-attn-soft text-attn-ink ring-attn/25 ring-2"
-                        : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
-                    }`}
-                  >
-                    {REWORK_SOURCE_LABEL[s]}
-                  </button>
-                );
-              })}
+          {/* Spec 217: who called this rework — ตรวจภายใน vs ลูกค้าแจ้ง.
+              Spec 337 U5 follow-up: PM tier only — below it the answer is always
+              ตรวจภายใน, so the picker is not rendered at all. */}
+          {canFileClientSource ? (
+            <div className="flex flex-col gap-1.5">
+              <span className={LABEL}>ที่มาของข้อบกพร่อง</span>
+              <div className="grid grid-cols-2 gap-2">
+                {SOURCES.map((s) => {
+                  const selected = source === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setSource(s)}
+                      disabled={submitting || reopened}
+                      className={`rounded-control focus-visible:ring-action border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 ${
+                        selected
+                          ? "border-attn bg-attn-soft text-attn-ink ring-attn/25 ring-2"
+                          : "border-edge-strong bg-card text-ink-secondary hover:bg-sunk"
+                      }`}
+                    >
+                      {REWORK_SOURCE_LABEL[s]}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            // Below PM tier the filing IS stamped ตรวจภายใน — say so instead of
+            // hiding the provenance, or an SA relaying a customer complaint
+            // records a source they never chose and later sees it back as the
+            // ตรวจภายใน chip on their own home.
+            <p className="text-ink-secondary text-sm">
+              {DEFECT_SOURCE_FIXED_INTERNAL} · {DEFECT_SOURCE_CLIENT_IS_PM}
+            </p>
+          )}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="defect-reason" className={LABEL}>
               รายละเอียดข้อบกพร่อง

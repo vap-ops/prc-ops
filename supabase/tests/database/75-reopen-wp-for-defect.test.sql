@@ -1,5 +1,5 @@
 begin;
-select plan(16);
+select plan(17);
 
 -- ============================================================================
 -- Spec 144 U1 — reopen_work_package_for_defect(p_wp, p_reason).
@@ -134,6 +134,23 @@ set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111111111"
 select is(
   (select public.reopen_work_package_for_defect('c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3', 'พื้นไม่เรียบ')),
   true, 'super_admin reopens a complete WP');
+
+-- B.7 Spec 217 D2/D5 + spec 337 U5 follow-up: a MEMBER site_admin still cannot
+-- file a CLIENT-reported defect — client defects are a PM-tier act. The file
+-- asserted the positive (B.1 round-2, run as the PM lead) but never this
+-- refusal, so the rule the app now mirrors in TS was unpinned on the DB side.
+-- B.1 already proved this user IS a member, which is the point: the 42501 here
+-- is about the ROLE, not the project. The MESSAGE is pinned because all three
+-- 42501 arms share the errcode — matching only the code would let a can_see_wp
+-- regression keep this green while proving the wrong rule.
+reset role;
+update public.work_packages set status='complete' where id='c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222222222"}';
+select throws_ok(
+  $$ select public.reopen_work_package_for_defect('c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'ลูกค้าโทรมาแจ้ง', 'client') $$,
+  '42501', 'reopen_work_package_for_defect: only PM tier may file a client defect',
+  'a MEMBER site_admin cannot file a client-source defect');
 
 reset role;
 

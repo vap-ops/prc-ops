@@ -48,11 +48,18 @@ set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333333175"
 select cmp_ok(
   (select count(*)::int from public.catalog_items),
   '>', 0, 'catalog seeded, readable by staff');
--- A known seed base_item is present (by base_item only — the operator may edit
--- spec_attrs, e.g. 'เหล็กข้ออ้อย 12 มิล' → '… 12 มิล 10 เมตร', spec 175).
+-- A known seed base_item is present. The assertion was written as an EXACT
+-- match on the reasoning that only spec_attrs would be edited (spec 175) — but
+-- the operator has since renamed the base_item itself, and every live row now
+-- reads 'เหล็กข้ออ้อยDB…'. That made this red on real data (found 2026-07-22
+-- while running spec 337 U5b), and because pgTAP runs on the MERGE ref an
+-- unpinned red EJECTS green PRs from the merge queue. Matching the PREFIX keeps
+-- the original intent — "a known seed family survived" — while tolerating the
+-- catalog edits the comment already anticipated. Same drift class as the pinned
+-- 221-catalog-categories; fix the assertion rather than quarantine the file.
 select cmp_ok(
-  (select count(*)::int from public.catalog_items where base_item='เหล็กข้ออ้อย'),
-  '>', 0, 'a known seed item (เหล็กข้ออ้อย) is present');
+  (select count(*)::int from public.catalog_items where base_item like 'เหล็กข้ออ้อย%'),
+  '>', 0, 'a known seed item family (เหล็กข้ออ้อย…) is present');
 select cmp_ok(
   (select count(*)::int from public.catalog_items where stockable),
   '>', 0, 'stockable items exist');

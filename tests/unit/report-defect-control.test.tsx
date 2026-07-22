@@ -30,7 +30,12 @@ vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/use-defect-pho
 }));
 
 import { ReportDefectControl } from "@/app/projects/[projectId]/work-packages/[workPackageId]/report-defect-control";
-import { REPORT_DEFECT_LABEL } from "@/lib/i18n/labels";
+import {
+  DEFECT_SOURCE_CLIENT_IS_PM,
+  DEFECT_SOURCE_FIXED_INTERNAL,
+  REPORT_DEFECT_LABEL,
+  REWORK_SOURCE_LABEL,
+} from "@/lib/i18n/labels";
 
 beforeEach(() => {
   mockReport.mockReset().mockResolvedValue({ ok: true });
@@ -42,7 +47,7 @@ beforeEach(() => {
   Object.defineProperty(window.navigator, "onLine", { value: true, configurable: true });
 });
 
-function open(props: { canAttachPhotos?: boolean } = {}) {
+function open(props: { canAttachPhotos?: boolean; canFileClientSource?: boolean } = {}) {
   render(<ReportDefectControl projectId="p1" workPackageId="wp1" {...props} />);
   fireEvent.click(screen.getByRole("button", { name: /รายงานข้อบกพร่อง/ }));
 }
@@ -77,8 +82,10 @@ describe("ReportDefectControl", () => {
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
   });
 
-  it("passes source=client when ลูกค้าแจ้ง is selected (spec 217)", async () => {
-    open();
+  it("passes source=client when ลูกค้าแจ้ง is selected (spec 217, PM tier)", async () => {
+    // Spec 337 U5 follow-up: the picker exists only at PM tier now, so this
+    // spec-217 behaviour is asserted with the tier that actually has it.
+    open({ canFileClientSource: true });
     fireEvent.change(screen.getByLabelText("รายละเอียดข้อบกพร่อง"), {
       target: { value: "ลูกค้าพบรอยรั่ว" },
     });
@@ -162,6 +169,56 @@ describe("ReportDefectControl", () => {
     // Defect already filed — the form must NOT re-fire the RPC on retry;
     // the sheet stays open so the retry buttons on the photos are reachable.
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  // Spec 337 U5 follow-up — the source picker is PM-tier only. The RPC refuses
+  // p_source='client' below PM tier, so offering the button to an SA is a dead
+  // door that answers with an error. Below PM tier the filing is always
+  // ตรวจภายใน, so the whole picker goes rather than a one-option control.
+  it("offers the ที่มา picker to PM tier (canFileClientSource)", () => {
+    render(
+      <ReportDefectControl projectId="p1" workPackageId="wp1" canFileClientSource initialOpen />,
+    );
+    expect(screen.getByRole("button", { name: REWORK_SOURCE_LABEL.client })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: REWORK_SOURCE_LABEL.internal })).toBeInTheDocument();
+  });
+
+  it("hides the whole ที่มา picker below PM tier — no dead ลูกค้าแจ้ง button", () => {
+    render(<ReportDefectControl projectId="p1" workPackageId="wp1" initialOpen />);
+    expect(
+      screen.queryByRole("button", { name: REWORK_SOURCE_LABEL.client }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: REWORK_SOURCE_LABEL.internal }),
+    ).not.toBeInTheDocument();
+    // The form still works — the reason field and submit are untouched.
+    expect(screen.getByLabelText("รายละเอียดข้อบกพร่อง")).toBeInTheDocument();
+  });
+
+  it("still DISCLOSES the recorded provenance below PM tier, rather than hiding it", () => {
+    // The filing is stamped source='internal' either way, and the SA sees that
+    // back as the ตรวจภายใน chip on their own home — so a dropped picker must not
+    // become a silently-stamped provenance.
+    render(<ReportDefectControl projectId="p1" workPackageId="wp1" initialOpen />);
+    expect(screen.getByText(new RegExp(DEFECT_SOURCE_FIXED_INTERNAL))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(DEFECT_SOURCE_CLIENT_IS_PM))).toBeInTheDocument();
+  });
+
+  it("drops that disclosure once the picker is offered (PM tier chooses for itself)", () => {
+    render(
+      <ReportDefectControl projectId="p1" workPackageId="wp1" canFileClientSource initialOpen />,
+    );
+    expect(screen.queryByText(new RegExp(DEFECT_SOURCE_FIXED_INTERNAL))).not.toBeInTheDocument();
+  });
+
+  it("files as internal when the picker is hidden", async () => {
+    render(<ReportDefectControl projectId="p1" workPackageId="wp1" initialOpen />);
+    fireEvent.change(screen.getByLabelText("รายละเอียดข้อบกพร่อง"), {
+      target: { value: "รอยร้าว" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "เปิดงานใหม่" }));
+    await waitFor(() => expect(mockReport).toHaveBeenCalled());
+    expect(mockReport).toHaveBeenCalledWith(expect.objectContaining({ source: "internal" }));
   });
 
   // Spec 337 U5 — arriving from the list's เสร็จแล้ว door (?defect=1) lands
