@@ -650,7 +650,10 @@ function StaffConsentCheckbox({
           {error}
         </p>
       ) : null}
-      {!floorMet && !consentedAt ? (
+      {/* Spec 343 D3 — was `!floorMet && !consentedAt`: the only line naming what
+          is still required vanished the moment consent was ticked, i.e. exactly
+          one step from done with an id_card still owed. */}
+      {!floorMet ? (
         <p className="text-ink-muted mt-2 text-xs">
           {bankExempt
             ? "ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ"
