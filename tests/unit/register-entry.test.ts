@@ -150,16 +150,15 @@ describe("register entry paths", () => {
 });
 
 describe("VISITOR_REGISTER_ENTRIES", () => {
-  it("offers the on-site door first, then the office door", () => {
-    expect(VISITOR_REGISTER_ENTRIES.map((e) => e.path)).toEqual([
-      "/register/technician",
-      "/register/office",
-    ]);
+  // Spec 342 D3 — the office door is invite-only; /coming-soon offers ONLY the
+  // field door. Absence pinned BARE (house rule).
+  it("offers only the on-site door", () => {
+    expect(VISITOR_REGISTER_ENTRIES.map((e) => e.path)).toEqual(["/register/technician"]);
+    expect(VISITOR_REGISTER_ENTRIES.map((e) => e.path)).not.toContain("/register/office");
   });
 
-  it("labels each door with its variant heading", () => {
+  it("labels the door with the field heading", () => {
     expect(VISITOR_REGISTER_ENTRIES[0]?.label).toBe(REGISTER_FIELD_HEADING);
-    expect(VISITOR_REGISTER_ENTRIES[1]?.label).toBe(REGISTER_OFFICE_HEADING);
   });
 });
 

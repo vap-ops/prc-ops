@@ -117,9 +117,9 @@ export interface VisitorRegisterEntry {
   label: string;
 }
 
-/** The self-serve doors offered to an organic visitor on /coming-soon, in
- * order: on-site first (the common case), office second. */
+/** The self-serve doors offered to an organic visitor on /coming-soon. Spec
+ * 342 D3: office is INVITE-ONLY now — only the on-site door remains open;
+ * VisitorLanding renders the ask-for-a-link line in the office door's place. */
 export const VISITOR_REGISTER_ENTRIES: readonly VisitorRegisterEntry[] = [
   { path: REGISTER_FIELD_PATH, label: REGISTER_FIELD_HEADING },
-  { path: REGISTER_OFFICE_PATH, label: REGISTER_OFFICE_HEADING },
 ];
