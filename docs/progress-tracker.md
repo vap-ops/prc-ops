@@ -8918,3 +8918,49 @@ invited_by**, 15 of them post-F2b.
   drop button never disables. Mutation-checked (2 targeted reds).
 - Open questions: none new. Follow-ups already in spec (trades on firm cards
   after 328 pilot; lead-picker sort by trades when fill-rate is real).
+
+## Spec 291 amendment — photo delete during ให้แก้ไข (2026-07-22)
+
+From in-app feedback `f2096ee4` (ผอ.โครงการ, `/review`: "ลบรูปที่ไม่ตรงกับงานที่
+แอดมินบันทึกได้"). Operator picked the "unfreeze for the uploader" option over
+giving the reviewer a delete button.
+
+- **The real gap** (verified live, not from the report text): `needs_revision`
+  leaves the WP at `pending_approval`, and `photo_wp_deletable()` froze that
+  status outright — so an SA told to re-shoot could add a corrected photo but
+  never remove the wrong one. The only cure that removed it was `rejected` →
+  rework (spec 337 F3), which charges a rework round to the WORK for a
+  photo-only mistake. 20 WPs sat in that state on prod when this shipped.
+- **Authority**: mig `075831` adds `photo_removal_allowed(p_wp, p_target)` and
+  repoints the `photo_logs` INSERT `WITH CHECK` at it; `photo_wp_deletable`
+  is restored to its original status-only body as one arm. (Mig `075830` was
+  the first cut — it widened `photo_wp_deletable` itself; `075831` supersedes
+  that shape. Forward-only, no edit of an applied migration.)
+- **Window closes on ANSWER, not on a new decision** — `resubmit_work_package_evidence`
+  writes a `wp_evidence_resubmitted` audit row and no `approvals` row, so a rule
+  keyed on the latest decision alone would have stayed open while the reviewer
+  re-reviewed. Fresh-eyes 🔴 #2.
+- **Uploader-only inside the window** — `project_manager`/`project_director`
+  reach the same WP-detail `PhotoCaptureZone` delete (only procurement is a
+  read-only WP viewer), so the first cut handed the approver a way to alter the
+  evidence they are judging. Fresh-eyes 🔴 #1. `/review` itself is read-only
+  (PhaseGallery wires no delete) — that part of the original claim held.
+- TS: `isPhotoWpDeletable(status)` unchanged + new `isRevisionWindowOpen()`;
+  `removePhoto` fails CLOSED on any error reading the window and returns
+  `PHOTO_DELETE_NOT_OWNER_ERROR` for someone else's photo.
+- Verified: pgTAP `291-revision-photo-unfreeze` 14/14 (incl. the tie on
+  `decided_at`, the answered case, and the PM-refused case) · full pgTAP 307/308,
+  only known-red 221 · vitest 4723 · 3 mutation-checks · live probes under a real
+  authenticated session — the open-window WP page renders `canDelete:true`, a
+  frozen control `false`, and `photo_removal_allowed()` returns `false` for a
+  photo the viewer did not upload.
+
+### Open questions
+
+- The lightbox knows uploader _names_ but not ids, so `canDelete` is zone-level:
+  inside the window a non-uploader is still offered a delete that then refuses
+  with a Thai message. Threading `uploaded_by` ids into `photo-lightbox` would
+  hide it. Not done — out of this unit's scope.
+- Pre-F3 rows stuck at `pending_approval` + latest `rejected` would stay frozen.
+  Checked live: **zero** such rows (all 20 pending_approval WPs carry
+  `needs_revision`), so nothing is trapped today.

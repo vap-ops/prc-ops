@@ -121,10 +121,13 @@ describe("CaptureSheet delete relocation (feedback 7c3347b3)", () => {
   });
 });
 
-// Spec 291 U1 — the CaptureSheet delete is gated by the WP status. The page
-// passes canDelete = isPhotoWpDeletable(wp.status); once the WP is submitted for
-// approval or complete it is false, so the in-detail "ลบรูป" affordance is not
-// offered at all (the photo_logs WITH CHECK / migration 075630 is the backstop).
+// Spec 291 U1 — the CaptureSheet delete is gated from the page. canDelete is
+// `isPhotoWpDeletable(wp.status) || isRevisionWindowOpen(...)`: false once the WP
+// is submitted for approval or complete, EXCEPT while an unanswered ให้แก้ไข ask
+// is outstanding (the amendment for feedback f2096ee4). When false the in-detail
+// "ลบรูป" affordance is not offered at all; photo_removal_allowed (migration
+// 075831) is the backstop, and it additionally requires the caller to be the
+// photo's uploader — a check this zone-level flag cannot make.
 describe("CaptureSheet submit gate (spec 291 U1)", () => {
   it("offers the in-detail delete while the WP is deletable (canDelete=true)", async () => {
     renderSheet([LOADED], true);

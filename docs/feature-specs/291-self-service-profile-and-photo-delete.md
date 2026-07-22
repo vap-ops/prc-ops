@@ -27,7 +27,7 @@ PDPA-sensitive data.
 Operator decisions (2026-07-10):
 
 - **Delete = own uploads only** (already RLS-enforced via `uploaded_by =
-  auth.uid()`), **locked once submitted for approval**, affordance on the SA
+auth.uid()`), **locked once submitted for approval**, affordance on the SA
   capture-sheet **and** the WP-detail gallery (option **B**), enforced at
   **RLS + server action + UI** (option **B1** — the rule lives at the data
   layer, not just the UI).
@@ -58,17 +58,51 @@ Deletable WP statuses = `not_started · in_progress · on_hold · rework`.
 Locked (delete refused) = `pending_approval · complete`. (Rework = a reopened,
 not-yet-resubmitted WP → still deletable.)
 
+> **Amendment 2026-07-22 (feedback `f2096ee4`, migrations `075830`+`075831`).**
+> The rule above trapped the case the reviewer themselves asks for. A
+> `needs_revision` decision ("ให้แก้ไข") tells the SA to re-shoot and **leaves the
+> WP at `pending_approval`**, so the wrong photo could be added-around but never
+> removed; the only cure that removed it was `rejected` → rework (spec 337 F3),
+> which charges a rework round to the WORK when only the PHOTO was wrong.
+>
+> The authority is now `photo_removal_allowed(p_wp, p_target)` (the `photo_logs`
+> INSERT `WITH CHECK` calls it in place of `photo_wp_deletable`, which keeps its
+> original status-only meaning as one arm). A tombstone is admitted when the WP
+> is in an editable status **or** the ให้แก้ไข window is genuinely open:
+>
+> - `status = pending_approval`, and
+> - the latest decision (`decided_at desc, id desc`) is `needs_revision`, and
+> - that decision has **not** been answered by a `wp_evidence_resubmitted` audit
+>   row (`resubmit_work_package_evidence` writes no `approvals` row, so a rule
+>   keyed on the decision alone would never close), and
+> - the caller **uploaded the photo being removed** — the reviewer asks, the
+>   uploader fixes. `project_manager`/`project_director` reach the same WP-detail
+>   delete affordance (only procurement is a read-only WP viewer), so without
+>   this conjunct the amendment would hand the approver a way to alter the
+>   evidence they are judging.
+>
+> TS mirrors: `isPhotoWpDeletable(status)` (unchanged) + `isRevisionWindowOpen()`
+> in `src/lib/photos/deletable.ts`. The page's `canDelete` is zone-level and
+> therefore carries only the WP-level arms; the per-photo uploader check lives in
+> `removePhoto` (`PHOTO_DELETE_NOT_OWNER_ERROR`) and RLS. **Open question:** the
+> lightbox has uploader _names_ but not ids, so inside the window a non-uploader
+> is still offered a delete that then refuses — threading `uploaded_by` ids into
+> `photo-lightbox` would hide it. pgTAP `291-revision-photo-unfreeze`.
+
 Changes:
 
 1. **RLS (migration, the authority).** Add a `SECURITY DEFINER` helper
    `photo_wp_deletable(p_wp uuid) returns boolean` = the WP's `status NOT IN
-   ('pending_approval','complete')` (mirrors the `can_see_wp` helper idiom;
+('pending_approval','complete')` (mirrors the `can_see_wp` helper idiom;
    explicit `revoke ... from anon`). Extend the tombstone-insert `WITH CHECK`
    so a **tombstone** row (`superseded_by IS NOT NULL`) additionally requires
    `photo_wp_deletable(work_package_id)`. Normal photo inserts
    (`superseded_by IS NULL`) are unchanged — this gates the delete, not the
    upload. Predicate shape:
    `... existing conditions ... AND (superseded_by IS NULL OR photo_wp_deletable(work_package_id))`.
+   **Superseded by the amendment above** — the conjunct now calls
+   `photo_removal_allowed(work_package_id, superseded_by)` (mig `075831`), which
+   also requires the target photo to live on that same work package (`075832`).
 2. **Server (`removePhoto`).** After loading the target photo, read its WP
    `status`; if `∈ {pending_approval, complete}` return a friendly Thai error
    (e.g. `"งานนี้ส่งตรวจแล้ว ลบรูปไม่ได้"`) before attempting the insert. UX

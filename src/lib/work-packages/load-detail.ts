@@ -162,7 +162,11 @@ export async function loadWorkPackageDetail(
       .from("approvals")
       .select("id, decision, comment, decided_by, decided_at")
       .eq("work_package_id", wp.id)
-      .order("decided_at", { ascending: false }),
+      // The id tiebreak matches selectLatestDecisionByWorkPackage,
+      // resubmit_work_package_evidence and photo_removal_allowed, so
+      // `approvals[0]` is the same row every one of them calls current.
+      .order("decided_at", { ascending: false })
+      .order("id", { ascending: false }),
     supabase
       .from("purchase_requests")
       .select(

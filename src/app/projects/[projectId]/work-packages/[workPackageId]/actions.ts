@@ -43,7 +43,15 @@ import {
   type PhotoExt,
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
-import { isPhotoWpDeletable, PHOTO_DELETE_LOCKED_ERROR } from "@/lib/photos/deletable";
+import {
+  isPhotoWpDeletable,
+  isRevisionWindowOpen,
+  PHOTO_DELETE_LOCKED_ERROR,
+  PHOTO_DELETE_NOT_OWNER_ERROR,
+} from "@/lib/photos/deletable";
+import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/db/database.types";
 import { PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
@@ -418,6 +426,45 @@ export async function resubmitWorkPackageEvidence(
   return { ok: true };
 }
 
+/**
+ * Is the ให้แก้ไข window open on this WP? Mirrors photo_removal_allowed()
+ * (migration 075831) minus the per-photo uploader check, which the caller makes.
+ * Reads fail CLOSED — a transient approvals/audit_log error must never widen a
+ * security gate, and RLS refuses the insert anyway.
+ */
+async function revisionWindowFor(
+  supabase: SupabaseClient<Database>,
+  workPackageId: string,
+  status: Database["public"]["Enums"]["work_package_status"],
+): Promise<{ open: boolean }> {
+  try {
+    const latest = (await getLatestDecisionsForWorkPackages(supabase, [workPackageId])).get(
+      workPackageId,
+    );
+    // No decision, or one we cannot correlate to a resubmit → nothing to
+    // reopen. `id` is optional on ApprovalRow, and an uncorrelatable probe
+    // would match zero rows and read as "unanswered" — i.e. fail OPEN.
+    if (!latest?.id) return { open: false };
+    const { data: answered, error } = await supabase
+      .from("audit_log")
+      .select("payload")
+      .eq("target_table", "work_packages")
+      .eq("target_id", workPackageId)
+      .eq("payload->>event", "wp_evidence_resubmitted")
+      .eq("payload->>answers_decision_id", latest.id);
+    if (error) return { open: false };
+    return {
+      open: isRevisionWindowOpen({
+        status,
+        latestDecision: latest.decision,
+        revisionAnswered: (answered ?? []).length > 0,
+      }),
+    };
+  } catch {
+    return { open: false };
+  }
+}
+
 export interface RemovePhotoInput {
   photoLogId: string;
 }
@@ -437,7 +484,7 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
   // tombstone) — guards against double-remove from a stale UI.
   const { data: target, error: targetError } = await supabase
     .from("photo_logs")
-    .select("id, work_package_id, phase, storage_path, rework_round")
+    .select("id, work_package_id, phase, storage_path, rework_round, uploaded_by")
     .eq("id", input.photoLogId)
     .maybeSingle();
   if (targetError || !target) return { ok: false, error: "ไม่พบรูป" };
@@ -448,7 +495,8 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
   // Spec 291 U1: a progress photo is per-WP approval evidence — deletion is
   // locked once the WP is submitted for approval or complete, so a submitted
   // set cannot be altered. Read the WP status first and refuse with a friendly
-  // message; the photo_logs WITH CHECK (migration 075630) is the RLS backstop.
+  // message; the photo_logs WITH CHECK (photo_removal_allowed, migration
+  // 075832) is the RLS backstop.
   // project_id doubles as the revalidatePath key below — one WP read, not two.
   const { data: wp } = await supabase
     .from("work_packages")
@@ -457,7 +505,18 @@ export async function removePhoto(input: RemovePhotoInput): Promise<RemovePhotoR
     .maybeSingle();
   if (!wp) return { ok: false, error: "ไม่พบงาน" };
   if (!isPhotoWpDeletable(wp.status)) {
-    return { ok: false, error: PHOTO_DELETE_LOCKED_ERROR };
+    // Spec 291 amendment (feedback f2096ee4): an OUTSTANDING ให้แก้ไข ask
+    // unfreezes the set — the reviewer asked for a re-shoot and the WP stayed at
+    // pending_approval. It re-freezes the moment ส่งตรวจอีกครั้ง answers that
+    // decision, and only the person who took the photo may replace it (the
+    // approver must not alter the evidence they are judging). RLS
+    // (photo_removal_allowed, migration 075831) is the authority; this is the
+    // friendly Thai layer. Any failure reading the window fails CLOSED.
+    const gate = await revisionWindowFor(supabase, target.work_package_id, wp.status);
+    if (!gate.open) return { ok: false, error: PHOTO_DELETE_LOCKED_ERROR };
+    if (target.uploaded_by !== user.id) {
+      return { ok: false, error: PHOTO_DELETE_NOT_OWNER_ERROR };
+    }
   }
 
   // Anti-join guard: refuse if some other row already supersedes
