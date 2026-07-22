@@ -7,6 +7,7 @@ import { BellRing, ChevronRight } from "lucide-react";
 import { NOTIF_SETTINGS_LABEL, NOTIF_SETTINGS_HINT, PROFILE_LABEL } from "@/lib/i18n/labels";
 import { AvatarSurface } from "@/components/features/common/avatar-surface";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { ColdRestartHelp } from "@/components/features/chrome/cold-restart-help";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { ThemeToggle } from "@/components/features/chrome/theme-toggle";
 import { ApprovalsBadge } from "@/components/features/dashboard/pending-approvals-badge";
@@ -174,6 +175,10 @@ export default async function SettingsPage() {
               <span className="text-ink text-body font-semibold">PRC Ops</span>
               <span className="text-ink-secondary text-meta font-mono">เวอร์ชัน {pkg.version}</span>
             </div>
+            {/* Spec 339 U1 — sits directly under the version row on purpose:
+                this is the line a stranded user is told to check, and the card
+                explains what to do when it reads low. */}
+            <ColdRestartHelp version={pkg.version} />
           </div>
         </div>
       </section>

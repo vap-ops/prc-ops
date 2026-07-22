@@ -91,4 +91,20 @@ export const HELP_CARDS: HelpCard[] = [
     ],
     tip: "ช่างใหม่จะมีป้าย “รอ PM ยืนยัน” จนกว่าผู้จัดการ (PM) จะยืนยันค่าจ้าง/ระดับ — เรื่องเงินเป็นหน้าที่ PM ไม่ใช่ SA",
   },
+  {
+    // Spec 339 U1 — troubleshooting, so it sits after the daily-use block. TEXT
+    // ONLY on purpose: the illustrated version lives on /settings → เกี่ยวกับ,
+    // which every role can open (this hub is site_admin-gated), directly under
+    // the เวอร์ชัน row the reader is sent here to check.
+    id: "cold-restart",
+    title: "แอปไม่อัปเดต? ปิดแอปสนิท",
+    whenToUse: "มีฟีเจอร์ใหม่แล้วแต่ยังไม่เห็นในแอป หรือแอปยังทำงานแบบเดิม",
+    steps: [
+      "iPhone: ปัดขึ้นจากขอบล่างสุดแล้วค้างไว้ 1 วินาที (รุ่นมีปุ่มโฮม กดปุ่มโฮม 2 ครั้งเร็ว ๆ)",
+      "Android: กดปุ่มสี่เหลี่ยม หรือปัดขึ้นจากขอบล่างค้างไว้",
+      "ปัดการ์ด PRC Ops ขึ้นจนหลุดจอ แล้วแตะไอคอนเปิดใหม่",
+      "เช็คที่ ตั้งค่า → เกี่ยวกับ ว่าเลขเวอร์ชันเปลี่ยนแล้ว",
+    ],
+    tip: "ปุ่มรีเฟรชในแอปไม่พอ — ได้แค่ข้อมูลใหม่ ไม่ได้ตัวแอปใหม่ · ดูรูปประกอบได้ที่ ตั้งค่า → เกี่ยวกับ → “แอปไม่อัปเดต? ปิดแอปสนิท”",
+  },
 ];
