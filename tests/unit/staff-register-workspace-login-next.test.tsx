@@ -72,7 +72,16 @@ describe("StaffRegisterWorkspace — logged-out login round-trip", () => {
     expect(url).toBe("/login?next=%2Fregister%2Ftechnician");
   });
 
-  it("the office door (no QR params by design) is unchanged", async () => {
+  it("office door with an invite keeps by + role across the login round-trip", async () => {
+    const url = await captureRedirect({ variant: "office", by: BY, role: "legal" });
+    const next = decodeURIComponent(url.slice("/login?next=".length));
+    const parsed = new URL(next, "https://prc.invalid");
+    expect(parsed.pathname).toBe("/register/office");
+    expect(parsed.searchParams.get("by")).toBe(BY);
+    expect(parsed.searchParams.get("role")).toBe("legal");
+  });
+
+  it("office door without params keeps the historical bare path", async () => {
     const url = await captureRedirect({ variant: "office" });
     expect(url).toBe("/login?next=%2Fregister%2Foffice");
   });
