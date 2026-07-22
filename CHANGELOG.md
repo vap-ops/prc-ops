@@ -1,3 +1,13 @@
+# [0.176.0](https://github.com/vap-ops/prc-ops/compare/v0.175.0...v0.176.0) (2026-07-22)
+
+### Bug Fixes
+
+- **work-packages:** close the review findings on the defect door ([5af0a62](https://github.com/vap-ops/prc-ops/commit/5af0a62c83a1c25021f14330de3da73a3dded379))
+
+### Features
+
+- **work-packages:** defect door on finished rows + ?defect=1 deep link ([b331067](https://github.com/vap-ops/prc-ops/commit/b33106727c759a582b282db82c021835b9ed3b0e))
+
 # [0.175.0](https://github.com/vap-ops/prc-ops/compare/v0.174.0...v0.175.0) (2026-07-22)
 
 ### Features
