@@ -151,7 +151,10 @@ describe("WorkPackageList defect door (spec 337 U5)", () => {
       />,
     );
     openDoneBand();
-    const door = screen.getByRole("link", { name: REPORT_DEFECT_LABEL });
+    const door = screen.getByRole("link", { name: `${REPORT_DEFECT_LABEL} WP-002 งานฉาบผนัง` });
+    // Pinned as a LITERAL, not via defectHref() — asserting the producer against
+    // itself would let the key change on both sides and stay green.
+    expect(door).toHaveAttribute("href", "/projects/proj-1/work-packages/wp-done?defect=1");
     expect(door).toHaveAttribute("href", defectHref(PROJECT_ID, "wp-done"));
   });
 
@@ -165,7 +168,7 @@ describe("WorkPackageList defect door (spec 337 U5)", () => {
       />,
     );
     openDoneBand();
-    const door = screen.getByRole("link", { name: REPORT_DEFECT_LABEL });
+    const door = screen.getByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) });
     // Spec 47: nesting an <a> inside the row's <a> is invalid HTML and breaks
     // the whole-row tap. The door must have NO anchor ancestor.
     expect(door.parentElement?.closest("a")).toBeNull();
@@ -182,7 +185,9 @@ describe("WorkPackageList defect door (spec 337 U5)", () => {
     );
     // The ต้องทำ row is visible without any disclosure; no door anywhere.
     expect(screen.getByText("งานเทคอนกรีต")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: REPORT_DEFECT_LABEL })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) }),
+    ).not.toBeInTheDocument();
   });
 
   it("hides the door from the read-only WP viewer (procurement)", () => {
@@ -198,7 +203,9 @@ describe("WorkPackageList defect door (spec 337 U5)", () => {
     // The row still opens (procurement reads the WP to raise a PR) — only the
     // defect door is suppressed, matching the detail page's readOnly branch.
     expect(screen.getByText("งานฉาบผนัง")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: REPORT_DEFECT_LABEL })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) }),
+    ).not.toBeInTheDocument();
   });
 
   it("hides the door when rows are not openable at all (canOpen=false)", () => {

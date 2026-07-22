@@ -28,7 +28,11 @@ export function defectHref(projectId: string, workPackageId: string): string {
 /**
  * Whether an arriving `?defect=` value asks for the sheet. The page still gates
  * on status + role — this answers only "was the sheet requested".
+ *
+ * Next hands a repeated query key (`?defect=1&defect=1`) through as an array, so
+ * the parameter is typed the way the framework actually delivers it; anything
+ * that is not exactly the declared scalar reads as "not requested".
  */
-export function shouldOpenDefectSheet(value: string | undefined): boolean {
+export function shouldOpenDefectSheet(value: string | string[] | undefined): boolean {
   return value === DEFECT_PARAM_OPEN;
 }

@@ -71,7 +71,9 @@ export function BottomSheet({
   // in-place `fixed z-50` overlay is still capped at the header's stacking
   // context (z-20) page-wide, so the fixed capture bar (z-40) paints over it
   // (spec 94: "WP general information hidden behind camera button"). Rendering
-  // at the document root lets z-50 win. Guarded for SSR (open starts false).
+  // at the document root lets z-50 win. Guarded for SSR — and since spec 337 U5
+  // a caller MAY start open (?defect=1), so this guard is load-bearing on the
+  // server render, not merely defensive.
   if (typeof document === "undefined") return null;
 
   const isRight = side === "right";

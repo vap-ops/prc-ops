@@ -209,11 +209,17 @@ export function WorklistRow({
   // the door tracks that status exactly rather than the (broader) action band.
   if (!showDefectDoor || wp.status !== "complete") return row;
 
+  const door = defectHref(projectId, wp.id);
   return (
     <div className="flex flex-col gap-1.5">
       {row}
       <Link
-        href={defectHref(projectId, wp.id)}
+        // Same back-trail discipline as the row above it: a surface that threads
+        // ?from must not lose it on the door alone.
+        href={backFrom ? withBackFrom(door, backFrom) : door}
+        // N finished rows would otherwise hand a screen reader N links all named
+        // รายงานข้อบกพร่อง with nothing to tell them apart.
+        aria-label={`${REPORT_DEFECT_LABEL} ${wp.code} ${wp.name}`}
         className="rounded-control border-edge bg-card text-meta text-ink-secondary hover:bg-sunk focus-visible:ring-action inline-flex min-h-11 items-center gap-1.5 self-end border px-3 font-bold transition-colors focus:outline-none focus-visible:ring-2"
       >
         <RotateCcw aria-hidden className="h-4 w-4" />

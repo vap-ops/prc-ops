@@ -84,7 +84,7 @@ import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
 import { fetchWpLaborBudgetSummary } from "@/lib/labor/wp-budget-summary";
 import { PhotoCaptureZone } from "./phase-uploader";
-import { shouldOpenDefectSheet } from "@/lib/work-packages/defect-deep-link";
+import { DEFECT_PARAM, shouldOpenDefectSheet } from "@/lib/work-packages/defect-deep-link";
 import { ReportDefectControl } from "./report-defect-control";
 import { SubmitForApprovalControl } from "./submit-for-approval-control";
 import { ResubmitEvidenceControl } from "./resubmit-evidence-control";
@@ -95,14 +95,18 @@ interface PageProps {
   // request, a งวด — falling back to the project page (see safeBackHref).
   // Spec 337 U5: `defect=1` arrives from the project list's เสร็จแล้ว door and
   // opens the report sheet on landing; any other value is ignored silently.
-  searchParams: Promise<{ from?: string; defect?: string }>;
+  // Keyed off DEFECT_PARAM, not a literal, so the door and this reader cannot
+  // drift apart.
+  searchParams: Promise<{ from?: string } & { [K in typeof DEFECT_PARAM]?: string | string[] }>;
 }
 
 export const metadata = { title: "รูปถ่ายงาน" };
 
 export default async function WorkPackagePhotoScreen({ params, searchParams }: PageProps) {
   const { projectId, workPackageId } = await params;
-  const { from, defect } = await searchParams;
+  const sp = await searchParams;
+  const from = sp.from;
+  const defect = sp[DEFECT_PARAM];
   const ctx = await requireRole(WP_DETAIL_ROLES);
   const supabase = await createClient();
   // Spec 171: procurement opens this screen to raise a purchase request, seeing

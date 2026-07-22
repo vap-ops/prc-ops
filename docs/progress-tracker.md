@@ -32,9 +32,12 @@ without nesting an `<a>` in an `<a>`. The door ships as a **sibling** beneath th
 row, and a test pins that (`door.parentElement?.closest("a")` is null).
 
 **Producer/consumer share one module.** `src/lib/work-packages/defect-deep-link.ts`
-owns both `defectHref()` and `shouldOpenDefectSheet()`. A query key that drifted
-between the link and the page would render a door that opens nothing, and no type
-would catch it; a round-trip test pins the pairing.
+owns `DEFECT_PARAM`, `defectHref()` and `shouldOpenDefectSheet()`, and **both ends
+key off it** — the page reads `sp[DEFECT_PARAM]`, not a `defect` literal (the
+first cut hardcoded the literal on the read side, so the module single-sourced
+only the producer; fresh-eyes caught it). A query key that drifted between the
+link and the page would render a door that opens nothing, and no type would catch
+it; a round-trip test pins the pairing and a wiring test pins the seam.
 
 **Verification:** vitest full suite; **5 mutation-checks** (status gate · role
 gate · param parser · `initialOpen` · the `canOpen` early return); live
@@ -58,6 +61,16 @@ browser drive.
 
 **Open questions:**
 
+- 🔔 **The `ลูกค้าแจ้ง` trap, surfaced by fresh-eyes and confirmed against the live
+  RPC — out of scope, needs an operator call.** `reopen_work_package_for_defect`
+  refuses `p_source='client'` for `site_admin` and `auditor` (client defects are a
+  PM-tier act, spec 217 D2/D5) with a 42501, and `actions.ts:598` answers every
+  42501 with `คุณไม่มีสิทธิ์เปิดงานนี้ใหม่ (ต้องเป็นทีมงานของโครงการ)` — a
+  MEMBERSHIP diagnosis for a ROLE rule. Pre-existing, but U5 is what drives the SA
+  (the primary filer) into this control for the first time, so an SA who taps
+  ลูกค้าแจ้ง will be told they are not on the project. Fix is either splitting the
+  42501 message or hiding/disabling ลูกค้าแจ้ง below PM tier — both change behaviour
+  beyond this spec.
 - `group-detail-view.tsx` renders the same `WorklistRow` for a งาน's children and
   does NOT get the door — the prop is opt-in and that surface was out of the
   spec's "project WP list" scope. One-line change if wanted.
