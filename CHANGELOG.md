@@ -1,3 +1,9 @@
+# [0.181.0](https://github.com/vap-ops/prc-ops/compare/v0.180.0...v0.181.0) (2026-07-22)
+
+### Features
+
+- **catalog:** merge duplicate catalog items (spec 344 U1 + U1b) ([#699](https://github.com/vap-ops/prc-ops/issues/699)) ([6a3147c](https://github.com/vap-ops/prc-ops/commit/6a3147ce7a3cf139bbba210e1ac1862dea846223))
+
 # [0.180.0](https://github.com/vap-ops/prc-ops/compare/v0.179.0...v0.180.0) (2026-07-22)
 
 ### Bug Fixes
