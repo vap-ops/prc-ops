@@ -213,7 +213,10 @@ export async function StaffRegisterWorkspace({
   );
 }
 
-async function RegistrationWorkspace({
+/** Exported for test only (spec 343 U1): it is an async component nested inside
+ *  the parent's JSX, so RTL cannot resolve it through StaffRegisterWorkspace —
+ *  the floor→notice seam has to be rendered directly to be pinned at all. */
+export async function RegistrationWorkspace({
   uid,
   registration,
   lineAvatarUrl,
