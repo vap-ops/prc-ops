@@ -1,3 +1,6 @@
+import { isStaffOnboardableRole, type UserRole } from "@/lib/auth/role-home";
+import { REGISTER_OFFICE_PATH } from "@/lib/register/register-entry";
+
 // Spec 279 F2a — the self-onboard link a SA hands a technician (via a per-project
 // QR on /sa/crew). It carries three params so the QR is final ahead of F2b's
 // attribution schema:
@@ -33,5 +36,25 @@ export function technicianOnboardUrl(
   url.searchParams.set("by", opts.inviterId);
   if (opts.contractorId) url.searchParams.set("contractor", opts.contractorId);
   if (opts.firmLabel) url.searchParams.set("firm", opts.firmLabel);
+  return url.toString();
+}
+
+// Spec 342 U1.1 — the reusable per-inviter OFFICE invite link
+// (/register/office?by=<inviter uuid>&role=<onboardable role key>). Same pure
+// style as technicianOnboardUrl. No ?project (D7 — office staff are not
+// project-bound) and no display label (the role label is derived from the key
+// at render via USER_ROLE_LABEL). Returns null for a non-onboardable role:
+// the refusal is runtime-only, because STAFF_ONBOARDABLE_ROLES's
+// ReadonlyArray<UserRole> annotation erases the literal types and re-typing it
+// would touch src/lib/auth/** (danger path). The role in the URL is advisory
+// end-to-end (D5) — the approver's confirm is the only binding.
+export function officeInviteUrl(
+  base: string,
+  opts: { inviterId: string; role: UserRole },
+): string | null {
+  if (!isStaffOnboardableRole(opts.role)) return null;
+  const url = new URL(REGISTER_OFFICE_PATH, base);
+  url.searchParams.set("by", opts.inviterId);
+  url.searchParams.set("role", opts.role);
   return url.toString();
 }

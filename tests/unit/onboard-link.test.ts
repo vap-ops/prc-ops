@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { technicianOnboardUrl } from "@/lib/register/onboard-link";
+import { technicianOnboardUrl, officeInviteUrl } from "@/lib/register/onboard-link";
 
 describe("technicianOnboardUrl", () => {
   it("builds a per-project, per-inviter self-onboard URL", () => {
@@ -48,5 +48,35 @@ describe("technicianOnboardUrl", () => {
     });
     expect(url).not.toContain(" ");
     expect(new URL(url).searchParams.get("site")).toBe("บ้านคุณกฤษณ์");
+  });
+});
+
+// Spec 342 U1.1 — the reusable office invite link. `by` is the inviter's own
+// uuid (server-supplied at the call site), `role` an onboardable role KEY.
+// Refusal is runtime (isStaffOnboardableRole): the STAFF_ONBOARDABLE_ROLES
+// annotation erases literal types, and re-typing it means editing
+// src/lib/auth/** — a danger-path file (fact-check finding 2026-07-22).
+describe("officeInviteUrl", () => {
+  const INVITER = "223e4567-e89b-12d3-a456-426614174000";
+
+  it("mints /register/office with by + role", () => {
+    const url = officeInviteUrl("https://app.example.com", {
+      inviterId: INVITER,
+      role: "procurement",
+    });
+    expect(url).not.toBeNull();
+    const parsed = new URL(url as string);
+    expect(parsed.pathname).toBe("/register/office");
+    expect(parsed.searchParams.get("by")).toBe(INVITER);
+    expect(parsed.searchParams.get("role")).toBe("procurement");
+  });
+
+  it("refuses a non-onboardable role at runtime", () => {
+    expect(
+      officeInviteUrl("https://app.example.com", {
+        inviterId: INVITER,
+        role: "super_admin" as never,
+      }),
+    ).toBeNull();
   });
 });
