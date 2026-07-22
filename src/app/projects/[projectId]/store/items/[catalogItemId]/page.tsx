@@ -18,6 +18,7 @@ import { createClient } from "@/lib/db/server";
 import { storeHref } from "@/lib/nav/project-paths";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { buildMaterialLog, type MaterialLogSources } from "@/lib/store/material-log";
+import { mergedItemIds } from "@/lib/store/merged-item-ids";
 import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { baht } from "@/lib/format";
 import { MATERIAL_LOG_LABEL, STORE_LABEL } from "@/lib/i18n/labels";
@@ -42,28 +43,40 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
   // cross-project leak. A hidden/absent project or unknown item 404s. Spec 221
   // cleanup — the category is shown by its managed name (via category_id), not
   // the vestigial item_category enum.
-  const [{ data: project }, { data: item }, { data: onHandRow }, categories] = await Promise.all([
-    supabase.from("projects").select("id, code, name").eq("id", projectId).maybeSingle(),
-    supabase
-      .from("catalog_items")
-      .select("id, base_item, spec_attrs, unit, category_id")
-      .eq("id", catalogItemId)
-      .maybeSingle(),
-    supabase
-      .from("stock_on_hand")
-      .select("qty_on_hand, total_value")
-      .eq("project_id", projectId)
-      .eq("catalog_item_id", catalogItemId)
-      .maybeSingle(),
-    loadCatalogCategories(supabase),
-  ]);
+  const [{ data: project }, { data: item }, { data: onHandRow }, { data: mergedFrom }, categories] =
+    await Promise.all([
+      supabase.from("projects").select("id, code, name").eq("id", projectId).maybeSingle(),
+      supabase
+        .from("catalog_items")
+        .select("id, base_item, spec_attrs, unit, category_id")
+        .eq("id", catalogItemId)
+        .maybeSingle(),
+      supabase
+        .from("stock_on_hand")
+        .select("qty_on_hand, total_value")
+        .eq("project_id", projectId)
+        .eq("catalog_item_id", catalogItemId)
+        .maybeSingle(),
+      // Spec 344: rows folded into this one by merge_catalog_items. Their balance
+      // moved here; their append-only ledger did not.
+      supabase
+        .from("catalog_items")
+        .select("id, base_item, spec_attrs")
+        .eq("merged_into", catalogItemId),
+      loadCatalogCategories(supabase),
+    ]);
   if (!project || !item) notFound();
 
   const categoryName = item.category_id
     ? (categoryNameById(categories).get(item.category_id) ?? null)
     : null;
 
-  const where = { project_id: projectId, catalog_item_id: catalogItemId };
+  // Spec 344: read the timeline over the item AND everything merged into it —
+  // otherwise the folded on-hand number has no movements to explain it.
+  const itemIds = mergedItemIds(catalogItemId, mergedFrom);
+  const mergedFromNames = (mergedFrom ?? []).map((row) =>
+    [row.base_item, row.spec_attrs].filter(Boolean).join(" "),
+  );
   const [
     { data: receipts },
     { data: issues },
@@ -76,32 +89,37 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
       .select(
         "id, qty, unit_cost, total_cost, received_at, created_at, created_by, note, suppliers ( name )",
       )
-      .match(where),
+      .eq("project_id", projectId)
+      .in("catalog_item_id", itemIds),
     supabase
       .from("stock_issues")
       // Spec 301 U3: + category_id for the letter-code reconcile below.
       .select(
         "id, qty, unit_cost, total_cost, issued_at, created_at, issued_by, note, work_packages ( code, name, category_id )",
       )
-      .match(where),
+      .eq("project_id", projectId)
+      .in("catalog_item_id", itemIds),
     supabase
       .from("stock_counts")
       .select(
         "id, counted_qty, system_qty, variance, variance_value, counted_at, created_at, counted_by, note",
       )
-      .match(where),
+      .eq("project_id", projectId)
+      .in("catalog_item_id", itemIds),
     supabase
       .from("stock_returns")
       .select(
         "id, qty, total_cost, returned_at, created_at, returned_by, note, work_packages ( code, name, category_id )",
       )
-      .match(where),
+      .eq("project_id", projectId)
+      .in("catalog_item_id", itemIds),
     supabase
       .from("stock_reversals")
       .select(
         "id, qty, value_delta, receipt_id, issue_id, reversed_at, created_at, reversed_by, note",
       )
-      .match(where),
+      .eq("project_id", projectId)
+      .in("catalog_item_id", itemIds),
   ]);
 
   // Spec 301 U3: batch-reconcile the movement WPs' categories → W0x codes for
@@ -220,6 +238,12 @@ export default async function MaterialLogPage({ params, searchParams }: PageProp
             {item.base_item}
             {specSuffix}
           </h1>
+          {/* Spec 344: the timeline below includes movements booked against a row
+              that was merged into this one. Name it, or those entries look like
+              they belong to a material nobody recognises. */}
+          {mergedFromNames.length > 0 ? (
+            <p className="text-meta text-ink-secondary">รวมมาจาก {mergedFromNames.join(" · ")}</p>
+          ) : null}
         </div>
       </DetailHeader>
 

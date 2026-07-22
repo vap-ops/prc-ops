@@ -412,6 +412,7 @@ export type Database = {
           is_active: boolean
           kind: Database["public"]["Enums"]["catalog_item_kind"]
           lead_time_days: number | null
+          merged_into: string | null
           note: string | null
           owner_supplied: boolean
           product_code: string | null
@@ -432,6 +433,7 @@ export type Database = {
           is_active?: boolean
           kind?: Database["public"]["Enums"]["catalog_item_kind"]
           lead_time_days?: number | null
+          merged_into?: string | null
           note?: string | null
           owner_supplied?: boolean
           product_code?: string | null
@@ -452,6 +454,7 @@ export type Database = {
           is_active?: boolean
           kind?: Database["public"]["Enums"]["catalog_item_kind"]
           lead_time_days?: number | null
+          merged_into?: string | null
           note?: string | null
           owner_supplied?: boolean
           product_code?: string | null
@@ -467,6 +470,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "catalog_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_items_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
             referencedColumns: ["id"]
           },
           {
@@ -9769,6 +9779,10 @@ export type Database = {
         Args: { p_due_date: string; p_id: string }
         Returns: string
       }
+      merge_catalog_items: {
+        Args: { p_drop: string; p_keep: string }
+        Returns: undefined
+      }
       move_muster_worker: {
         Args: { p_date: string; p_to_team: string; p_worker: string }
         Returns: string
@@ -9801,6 +9815,10 @@ export type Database = {
       }
       photo_markup_tombstone_target_ok: {
         Args: { p_photo_log_id: string; p_superseded_by: string }
+        Returns: boolean
+      }
+      photo_removal_allowed: {
+        Args: { p_target: string; p_wp: string }
         Returns: boolean
       }
       photo_wp_deletable: { Args: { p_wp: string }; Returns: boolean }
