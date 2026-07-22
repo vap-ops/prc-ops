@@ -48,7 +48,14 @@ import {
   type StaffDocPurpose,
 } from "@/lib/register/document-types";
 import { useToast } from "@/lib/ui/use-toast";
-import { formatThaiDate, INVITED_ROLE_LABEL, USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import {
+  formatThaiDate,
+  INVITED_ROLE_LABEL,
+  USER_ROLE_LABEL,
+  REGISTER_CONSENT_ANCHOR,
+  REGISTER_DOCUMENTS_ANCHOR,
+  REGISTER_SAVE_AND_NEXT_LABEL,
+} from "@/lib/i18n/labels";
 import type { UserRole } from "@/lib/auth/role-home";
 import {
   BUTTON_PRIMARY,
@@ -146,6 +153,18 @@ export function StaffRegistrationForm({
     bankExempt,
   });
 
+  // Spec 343 D2 — the first outstanding requirement that actually HAS a control
+  // on this page. Null when the floor is met, or when the only gaps are inline
+  // profile fields (full_name / bank_fields) the applicant is already looking
+  // at. Drives BOTH the CTA label and the post-save scroll, so the two can never
+  // disagree about whether there is a next step to go to.
+  const nextAnchor =
+    floor.missing.includes("id_card") || floor.missing.includes("book_bank")
+      ? REGISTER_DOCUMENTS_ANCHOR
+      : floor.missing.includes("consent")
+        ? REGISTER_CONSENT_ANCHOR
+        : null;
+
   function clear() {
     setError(null);
   }
@@ -179,6 +198,13 @@ export function StaffRegistrationForm({
       }
       toast.success("บันทึกแล้ว");
       router.refresh();
+      // Spec 343 D2 — the CTA below says "บันทึกและไปขั้นต่อไป" whenever an
+      // outstanding step has a control on this page, so it must actually go
+      // there. A label naming a step it does not perform is the same defect
+      // class as the pending notice claiming a submission it does not have.
+      if (nextAnchor) {
+        document.getElementById(nextAnchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     });
   }
 
@@ -294,19 +320,16 @@ export function StaffRegistrationForm({
           {error}
         </p>
       ) : null}
-      <button
-        type="button"
-        disabled={pending}
-        onClick={submit}
-        className={`mt-4 w-full ${BUTTON_PRIMARY}`}
-      >
-        {pending ? "กำลังบันทึก…" : registrationExists ? "บันทึก" : "เริ่มสมัคร"}
-      </button>
-
+      {/* Spec 343 D2 — these two REQUIRED steps used to render after the button
+          below. A full-width primary CTA reads as the end of the form on a
+          phone, so the upload and the consent sat past the apparent finish
+          line and every live applicant stopped at it. */}
       {registrationExists && uid ? (
         <>
           <hr className="border-edge my-4" />
-          <StaffDocuments uid={uid} urls={docUrls} bankExempt={bankExempt} />
+          <div id={REGISTER_DOCUMENTS_ANCHOR}>
+            <StaffDocuments uid={uid} urls={docUrls} bankExempt={bankExempt} />
+          </div>
           {!bankExempt ? (
             <>
               <hr className="border-edge my-4" />
@@ -322,11 +345,13 @@ export function StaffRegistrationForm({
             </>
           ) : null}
           <hr className="border-edge my-4" />
-          <StaffConsentCheckbox
-            consentedAt={consentedAt}
-            floorMet={floor.met}
-            bankExempt={bankExempt}
-          />
+          <div id={REGISTER_CONSENT_ANCHOR}>
+            <StaffConsentCheckbox
+              consentedAt={consentedAt}
+              floorMet={floor.met}
+              bankExempt={bankExempt}
+            />
+          </div>
         </>
       ) : (
         <p className="text-ink-muted mt-3 text-xs">
@@ -334,6 +359,22 @@ export function StaffRegistrationForm({
           จากนั้นจะสามารถอัปโหลดเอกสารและให้ความยินยอมได้ในหน้าเดียวกันนี้
         </p>
       )}
+
+      <button
+        type="button"
+        data-testid="reg-primary"
+        disabled={pending}
+        onClick={submit}
+        className={`mt-4 w-full ${BUTTON_PRIMARY}`}
+      >
+        {pending
+          ? "กำลังบันทึก…"
+          : registrationExists
+            ? nextAnchor
+              ? REGISTER_SAVE_AND_NEXT_LABEL
+              : "บันทึก"
+            : "เริ่มสมัคร"}
+      </button>
     </div>
   );
 }
