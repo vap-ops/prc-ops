@@ -47,9 +47,17 @@ money_review_flag_dismissed · money_review_corrected` (U3/U4).
 - `project_id` exists on: client_billings, client_receipts, office_expenses,
   purchase_requests, retention_receivables, stock_receipts, stock_returns. The other 8
   sources are project-less at the row (derive via joins at U2 read time).
-- Append-only sources (`*_no_update_delete` triggers, correct by superseding INSERT with
-  `superseded_by` on the NEW row): wage_payments, client_receipts, rental_settlements,
-  subcontract_payments, stock_receipts, stock_returns, stock_receipt_corrections.
+- Append-only sources (`*_no_update_delete` triggers): wage_payments, client_receipts,
+  rental_settlements, subcontract_payments (these four correct by a superseding INSERT
+  carrying `superseded_by` on the NEW row) + stock_receipts, stock_returns,
+  stock_receipt_corrections (no `superseded_by` column — the stock family corrects via
+  `receipt_id` ledgers instead).
+- **Supersede RPC inventory at HEAD: exactly 3** — `supersede_client_receipt`,
+  `supersede_rental_settlement`, `supersede_subcontract_payment`. **No wage-payment
+  supersede/void/correct RPC exists**; `record_wage_payment` only inserts fresh rows.
+  The `superseded_by` column + `dc_payments_reason_iff_supersede` CHECK (a superseding
+  row MUST carry `correction_reason`, a fresh row must not) are live and waiting for a
+  writer — U4 creates it (fact-check catch, 2026-07-23).
 - In-place-updatable sources (no block trigger): purchase_requests, office_expenses,
   purchase_order_charges, rental_charges, equipment_rental_batches, client_billings,
   retention_receivables, wht_certificates, wp_labor_costs.
@@ -62,7 +70,8 @@ money_review_flag_dismissed · money_review_corrected` (U3/U4).
   (spec 324) and `stock_reversals.receipt_id` (nullable — issue reversals carry
   `issue_id` instead). stock_returns has **no** correction ledger → no stale path exists.
 - `office_expenses` has **no status column** (cols: amount, expense_date, payment_source,
-  reimbursed_at/by, …) and **zero triggers** (fact-check ③ confirmed: no GL enqueue).
+  reimbursed_at/by, …) and — pre-U1 — had **zero triggers** (fact-check ③ confirmed: no
+  GL enqueue; U1 adds its stale trigger as the table's first).
 - All GL trigger functions are `SECURITY DEFINER` — the stale-verify function follows.
 - `public.set_updated_at()` exists (reused for `updated_at`).
 - **audit_log SELECT "internal privileged" arm already includes `accounting`** (reads ALL
@@ -262,10 +271,14 @@ pinned by a test.
 
 Per spec D4 exactly; **gate-check every live RPC def (`pg_get_functiondef`) before
 widening** — the list to widen: `decide_receipt_correction_request`,
-`correct_stock_receipt`, the 4 supersede RPCs (wage/client-receipt/rental-settlement/
-subcontract-payment), + new `correct_purchase_amount(p_purchase, p_amount, p_vat_rate,
-p_reason)` (plain UPDATE — U1's stale trigger + GL's own enqueue react). Open item 3
-(office_expenses edit path) answered here. client_billings + wht = flag-only (NO RPC).
+`correct_stock_receipt`, and the **3 existing** supersede RPCs (client-receipt /
+rental-settlement / subcontract-payment). Wage payments have NO supersede RPC at HEAD
+(Evidence) — U4 **creates** `supersede_wage_payment` (writes `superseded_by` +
+`correction_reason` per the live `dc_payments_reason_iff_supersede` CHECK; U1's stale
+trigger + the GL enqueue already react to the superseding insert). Plus new
+`correct_purchase_amount(p_purchase, p_amount, p_vat_rate, p_reason)` (plain UPDATE —
+U1's stale trigger + GL's own enqueue react). Open item 3 (office_expenses edit path)
+answered here. client_billings + wht = flag-only (NO RPC).
 Audit `money_review_corrected` + notify origin (U5's event if merged order allows, else
 existing notify shape). pgTAP: each widened gate positive+negative.
 
