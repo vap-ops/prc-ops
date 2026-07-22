@@ -8964,3 +8964,45 @@ giving the reviewer a delete button.
 - Pre-F3 rows stuck at `pending_approval` + latest `rejected` would stay frozen.
   Checked live: **zero** such rows (all 20 pending_approval WPs carry
   `needs_revision`), so nothing is trapped today.
+
+## Spec 339 U1 — "ปิดแอปสนิท" cold-restart help on /settings (2026-07-22)
+
+**Status:** complete. Code-only, no schema.
+
+Operator directive after spec 291 shipped: the field user could not see the new
+delete button until she fully closed and reopened the PWA, so the recovery is
+oral knowledge the SA has to pass on. "Can we visualize it in helper somewhere in
+app?" — operator chose both units; this is U1.
+
+**Built**
+
+- `src/components/features/chrome/cold-restart-help.tsx` — a `<details
+  id="cold-restart">` in the /settings เกี่ยวกับ card, under the version row:
+  the refresh-is-not-enough warning (with the button located, since /settings
+  renders neither AppHeader nor DetailHeader), one app-switcher flick
+  illustration, an iPhone line and an Android line, and the verdict line.
+- `src/components/features/chrome/app-version-check.tsx` — the one client island.
+  `useSyncExternalStore` renders the neutral line on the server and the verdict
+  on the client, so a stale bundle surfaces without a hydration mismatch.
+- `src/lib/sa/help-content.ts` — a text-only `cold-restart` card (5th, after the
+  daily-use block) pointing at /settings, which every role can open.
+
+**Verification**
+
+- vitest 4746 / 659 files; lint; typecheck. 4 mutation-checks: the /settings
+  mount pin, the server-pass pin, the shape-wording pin, and the version-prop pin.
+- Live on the dev server: card renders, chevron present, SSR pass carries the
+  neutral line and NO verdict (`GET /settings 200`, zero console errors).
+- Prod evidence that the compared value is real and that the problem is real:
+  `interaction_events.app_version` over 7 days shows live clients on
+  `0.132.0+a17e7bc`, `0.159.0+8726395`, `0.163.1+de49ede` … while the deployed
+  build is `0.173.0`.
+
+### Open questions
+
+- U2 (the non-forcing "มีเวอร์ชันใหม่" chip) is now cheaper than specced: the
+  comparison logic exists, so U2 is the placement + dismissal + `location.reload()`
+  tap, and needs no `/api/health` fetch on /settings.
+- The Android force-stop fallback was dropped as unverifiable for a WebAPK
+  install. If the field reports the switcher swipe is not enough on some device,
+  verify on that device before writing a replacement line.
