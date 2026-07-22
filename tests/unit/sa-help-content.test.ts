@@ -24,10 +24,23 @@ describe("HELP_CARDS — spec 299", () => {
     ]);
   });
 
-  it("the cold-restart card sends the reader to the illustrated card on /settings", () => {
+  it("the cold-restart card's TIP is the pointer to the illustrated card", () => {
+    // Asserted on `tip` alone: the steps also mention ตั้งค่า, so a combined
+    // haystack would stay green with the pointer deleted outright.
     const card = HELP_CARDS.find((c) => c.id === "cold-restart");
     expect(card).toBeDefined();
-    expect(`${card?.tip ?? ""}${card?.steps.join(" ")}`).toMatch(/ตั้งค่า/);
+    expect(card?.tip).toContain("เกี่ยวกับ");
+    expect(card?.title).toBe("แอปไม่อัปเดต? ปิดแอปสนิท");
+  });
+
+  it("never tells the reader the server-rendered version number proves freshness", () => {
+    // The เวอร์ชัน row on /settings is server-rendered, so it reads CURRENT on the
+    // very device that is stuck on an old bundle. Any step saying "check that the
+    // version number changed" would send an SA away believing a failed restart
+    // worked — the exact failure this card exists to prevent.
+    const card = HELP_CARDS.find((c) => c.id === "cold-restart");
+    const copy = `${card?.steps.join(" ")} ${card?.tip ?? ""}`;
+    expect(copy).not.toMatch(/เลขเวอร์ชันเปลี่ยน/);
   });
 
   it("every card has a title, a when-to-use, and non-empty steps", () => {

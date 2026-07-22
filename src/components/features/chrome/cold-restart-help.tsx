@@ -16,23 +16,32 @@
 // the card flick is identical on both platforms, only the way to open the app
 // switcher differs, and drawing it twice would imply a difference that isn't there.
 
-import { RotateCw } from "lucide-react";
+import { ChevronDown, RotateCw } from "lucide-react";
+
+import { AppVersionCheck } from "@/components/features/chrome/app-version-check";
 
 export function ColdRestartHelp({ version }: { version: string }) {
   return (
-    <details id="cold-restart" className="px-4 py-3">
-      <summary className="text-ink text-body flex min-h-11 cursor-pointer items-center font-semibold">
-        แอปไม่อัปเดต? ปิดแอปสนิท
+    <details id="cold-restart" className="group px-4 py-3">
+      {/* flex on <summary> suppresses the native disclosure marker, and every
+          sibling row in this grouped card ends in a chevron — so the affordance
+          is drawn explicitly rather than left looking like static text. */}
+      <summary className="text-ink text-body flex min-h-11 cursor-pointer items-center gap-2 font-semibold">
+        <span className="flex-1">แอปไม่อัปเดต? ปิดแอปสนิท</span>
+        <ChevronDown
+          aria-hidden
+          className="text-ink-muted h-5 w-5 shrink-0 transition-transform group-open:rotate-180"
+        />
       </summary>
 
       <div className="mt-2 flex flex-col gap-3">
         <p className="bg-attn-soft text-attn-ink rounded-control text-meta px-3 py-2 leading-relaxed">
-          กดปุ่ม
+          ปุ่ม
           {/* align-middle rather than the text-bottom variant: the design-doctrine
               guard reads that utility as a colour token and flags it as phantom. */}
           <RotateCw aria-hidden className="mx-1 inline h-4 w-4 align-middle" />
-          รีเฟรชในแอป <span className="font-semibold">ไม่พอ</span> — ได้แค่ข้อมูลใหม่
-          ไม่ได้ตัวแอปใหม่
+          มุมบนขวาของหน้าอื่น ๆ (รีเฟรช) <span className="font-semibold">ไม่พอ</span> —
+          ได้แค่ข้อมูลใหม่ ไม่ได้ตัวแอปใหม่
         </p>
 
         <div className="text-ink-muted flex flex-col items-center gap-1">
@@ -89,16 +98,16 @@ export function ColdRestartHelp({ version }: { version: string }) {
           <p className="text-meta leading-relaxed">
             <span className="text-ink block font-semibold">Android</span>
             <span className="text-ink-secondary block">
-              กดปุ่มสี่เหลี่ยม หรือปัดขึ้นจากขอบล่างค้างไว้ — ถ้ายังไม่ได้ ไปที่ ตั้งค่า → แอป → PRC
-              Ops → บังคับหยุด
+              ปัดขึ้นจากขอบล่างค้างไว้ หรือกดปุ่มแสดงแอปที่เปิดอยู่ (ปุ่มล่างสุด ข้างปุ่มโฮม) —
+              ถ้ามีปุ่ม ปิดทั้งหมด ให้กดได้เลย
             </span>
           </p>
         </div>
 
-        <p className="bg-done-soft text-done-ink rounded-control text-meta px-3 py-2 leading-relaxed">
-          เช็คว่าได้ตัวใหม่แล้ว: กลับมาที่หน้านี้ ต้องขึ้น เวอร์ชัน{" "}
-          <span className="font-mono font-semibold">{version}</span> หรือสูงกว่า
-        </p>
+        {/* NOT the version row above (server-rendered = always current, so it
+            reads "up to date" on the very device that is stuck). This compares
+            the client bundle's build against the deployed one. */}
+        <AppVersionCheck deployed={version} />
       </div>
     </details>
   );
