@@ -1,3 +1,9 @@
+# [0.173.0](https://github.com/vap-ops/prc-ops/compare/v0.172.0...v0.173.0) (2026-07-22)
+
+### Features
+
+- **photos:** allow the uploader to delete a wrong photo during ให้แก้ไข ([#689](https://github.com/vap-ops/prc-ops/issues/689)) ([76032bd](https://github.com/vap-ops/prc-ops/commit/76032bdacf9e9f1bfdf56fd361627c61e6c3dd98))
+
 # [0.172.0](https://github.com/vap-ops/prc-ops/compare/v0.171.0...v0.172.0) (2026-07-22)
 
 ### Features
