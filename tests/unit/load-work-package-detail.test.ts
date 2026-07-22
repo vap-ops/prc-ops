@@ -16,13 +16,12 @@ vi.mock("@/lib/labor/fetch-zone-data", () => ({
     rows: [],
   })),
 }));
+const EMPTY_BY_PHASE = { before: [], during: [], after: [], after_fix: [], defect: [] };
 vi.mock("@/lib/photos/current-photos", () => ({
-  getCurrentPhotosForWorkPackage: vi.fn(async () => ({
-    before: [],
-    during: [],
-    after: [],
-    after_fix: [],
-    defect: [],
+  // Spec 341 U1 — the WP detail reads BOTH derivations off one photo_logs fetch.
+  getPhotoViewForWorkPackage: vi.fn(async () => ({
+    current: { ...EMPTY_BY_PHASE },
+    removed: { ...EMPTY_BY_PHASE },
   })),
 }));
 vi.mock("@/lib/photos/signed-urls", () => ({
@@ -33,7 +32,7 @@ vi.mock("@/lib/users/display-names", () => ({
 }));
 
 import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
-import { getCurrentPhotosForWorkPackage } from "@/lib/photos/current-photos";
+import { getPhotoViewForWorkPackage } from "@/lib/photos/current-photos";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 
 // --- in-flight-tracking supabase stub ---
@@ -194,12 +193,21 @@ describe("loadWorkPackageDetail", () => {
   it("resolves photo-uploader ids in the single display-names tail read", async () => {
     const photo = (id: string, uploaded_by: string) =>
       ({ id, uploaded_by, captured_at_client: null, created_at: "2026-07-10" }) as never;
-    vi.mocked(getCurrentPhotosForWorkPackage).mockResolvedValueOnce({
-      before: [photo("p1", "u9")],
-      during: [],
-      after: [],
-      after_fix: [],
-      defect: [photo("p2", "u10")],
+    vi.mocked(getPhotoViewForWorkPackage).mockResolvedValueOnce({
+      current: {
+        before: [photo("p1", "u9")],
+        during: [],
+        after: [],
+        after_fix: [],
+        defect: [photo("p2", "u10")],
+      },
+      // Spec 341 U1 — a REMOVER need not be among the uploaders still on the WP,
+      // so their id has to reach the same single names read or the trace renders
+      // "ไม่ทราบชื่อ" for somebody the app can name.
+      removed: {
+        ...EMPTY_BY_PHASE,
+        during: [{ id: "p3", seq: 2, removedBy: "u11", removedAt: "2026-07-22" }],
+      },
     });
     vi.mocked(fetchDisplayNames).mockClear();
     await loadWorkPackageDetail(supabase, {
@@ -210,7 +218,7 @@ describe("loadWorkPackageDetail", () => {
     expect(vi.mocked(fetchDisplayNames)).toHaveBeenCalledTimes(1);
     const ids = vi.mocked(fetchDisplayNames).mock.calls[0]![0];
     // actor id from approvals/requests AND both uploader ids (incl. defect phase)
-    expect(ids).toEqual(expect.arrayContaining(["u1", "u9", "u10"]));
+    expect(ids).toEqual(expect.arrayContaining(["u1", "u9", "u10", "u11"]));
   });
 
   it("skips planner queries when isPlanner is false", async () => {

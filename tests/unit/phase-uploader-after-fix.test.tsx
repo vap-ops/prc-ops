@@ -46,6 +46,7 @@ function renderZone(props: { showAfterFix?: boolean; currentReworkRound?: number
       showAfterFix={props.showAfterFix ?? true}
       currentReworkRound={props.currentReworkRound ?? 1}
       canDelete
+      removedTrace={[]}
     />,
   );
 }
@@ -82,5 +83,72 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307, spec 216)", () => 
     renderZone({ currentReworkRound: 2 });
     const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
     expect(afterFix).toHaveTextContent("รอบ 2");
+  });
+});
+
+// Spec 341 U1 — the removal trace. The operator kept pre-submit deletion open to
+// any project member (an approval queue for a draft photo would not be staffed)
+// and bought accountability with visibility instead. photo_logs was already
+// recording who removed what; nothing surfaced it.
+describe("removal trace (spec 341 U1)", () => {
+  it("names the retired number, the remover and the time", () => {
+    render(
+      <PhotoCaptureZone
+        projectId="p1"
+        workPackageId="w1"
+        userId="u1"
+        phases={phases}
+        currentPhase="before"
+        showAfterFix={false}
+        currentReworkRound={0}
+        canDelete
+        removedTrace={[
+          { id: "d1", zone: "จุดบกพร่อง", seq: 4, byName: "อรปรีญา", atLabel: "22 ก.ค. 15:30" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("ลบไปแล้ว 1 รูป")).toBeInTheDocument();
+    // The zone is จุดบกพร่อง — a zone with NO capture tile at all. Driving the
+    // trace off the tile list dropped exactly these, and they are the reviewer's
+    // own evidence on a WP in rework: the deletion that most needs a record.
+    expect(screen.getByText(/จุดบกพร่อง #4 · ลบโดย อรปรีญา · 22 ก.ค. 15:30/)).toBeInTheDocument();
+  });
+
+  it("says ไม่ทราบชื่อ rather than dropping the entry when the name cannot be resolved", () => {
+    // A remover who has left the project still owes the record — an unnamed row
+    // must stay visible, never silently vanish.
+    render(
+      <PhotoCaptureZone
+        projectId="p1"
+        workPackageId="w1"
+        userId="u1"
+        phases={phases}
+        currentPhase="before"
+        showAfterFix={false}
+        currentReworkRound={0}
+        canDelete
+        removedTrace={[
+          { id: "p2", zone: "ระหว่างทำ", seq: 2, byName: null, atLabel: "22 ก.ค. 09:00" },
+        ]}
+      />,
+    );
+    expect(screen.getByText(/#2 · ลบโดย ไม่ทราบชื่อ/)).toBeInTheDocument();
+  });
+
+  it("renders nothing at all for a zone that has never lost a photo", () => {
+    render(
+      <PhotoCaptureZone
+        projectId="p1"
+        workPackageId="w1"
+        userId="u1"
+        phases={phases}
+        currentPhase="before"
+        showAfterFix={false}
+        currentReworkRound={0}
+        canDelete
+        removedTrace={[]}
+      />,
+    );
+    expect(screen.queryByText(/ลบไปแล้ว/)).toBeNull();
   });
 });

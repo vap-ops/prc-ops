@@ -37,6 +37,7 @@ const phases: PhaseData[] = PHASES.map(({ phase, label }) => ({
   label,
   photos: [],
   lastUpdatedLabel: null,
+  removed: [],
 }));
 
 function renderZone(defectPairs: ReadonlyArray<DefectPairSlot> | null) {
@@ -50,6 +51,7 @@ function renderZone(defectPairs: ReadonlyArray<DefectPairSlot> | null) {
       showAfterFix
       currentReworkRound={2}
       canDelete
+      removedTrace={[]}
       defectPairs={defectPairs}
     />,
   );
