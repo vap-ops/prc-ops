@@ -589,12 +589,18 @@ export async function reportDefect(input: ReportDefectInput): Promise<ReportDefe
   // membership failure below, so ask first and answer honestly. PM_ROLES is the
   // exact mirror of the RPC rule (its overall gate admits SA/PM/PD/super/auditor;
   // the client arm removes site_admin + auditor). The RPC remains the enforcer.
-  if (input.source === "client") {
-    const gate = await requireActionRole(PM_ROLES, CLIENT_DEFECT_NOT_PERMITTED);
-    if ("error" in gate) return { ok: false, error: gate.error };
-  }
+  // Spec 274 note: requireActionRole resolves the ASSUMED role while the RPC
+  // sees the REAL one via auth.uid(). resolveEffectiveRole overrides only when
+  // the real role is super_admin, so this check is never MORE permissive than
+  // the RPC — a super_admin viewing-as-site_admin is denied here and would have
+  // been allowed at the DB, which is the intended fidelity direction.
+  const gate =
+    input.source === "client"
+      ? await requireActionRole(PM_ROLES, CLIENT_DEFECT_NOT_PERMITTED)
+      : null;
+  if (gate && "error" in gate) return { ok: false, error: gate.error };
 
-  const auth = await getActionUser();
+  const auth = gate && "auth" in gate ? gate.auth : await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { supabase } = auth;
 

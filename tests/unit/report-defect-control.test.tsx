@@ -30,7 +30,12 @@ vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/use-defect-pho
 }));
 
 import { ReportDefectControl } from "@/app/projects/[projectId]/work-packages/[workPackageId]/report-defect-control";
-import { REPORT_DEFECT_LABEL, REWORK_SOURCE_LABEL } from "@/lib/i18n/labels";
+import {
+  DEFECT_SOURCE_CLIENT_IS_PM,
+  DEFECT_SOURCE_FIXED_INTERNAL,
+  REPORT_DEFECT_LABEL,
+  REWORK_SOURCE_LABEL,
+} from "@/lib/i18n/labels";
 
 beforeEach(() => {
   mockReport.mockReset().mockResolvedValue({ ok: true });
@@ -186,9 +191,24 @@ describe("ReportDefectControl", () => {
     expect(
       screen.queryByRole("button", { name: REWORK_SOURCE_LABEL.internal }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("ที่มาของข้อบกพร่อง")).not.toBeInTheDocument();
     // The form still works — the reason field and submit are untouched.
     expect(screen.getByLabelText("รายละเอียดข้อบกพร่อง")).toBeInTheDocument();
+  });
+
+  it("still DISCLOSES the recorded provenance below PM tier, rather than hiding it", () => {
+    // The filing is stamped source='internal' either way, and the SA sees that
+    // back as the ตรวจภายใน chip on their own home — so a dropped picker must not
+    // become a silently-stamped provenance.
+    render(<ReportDefectControl projectId="p1" workPackageId="wp1" initialOpen />);
+    expect(screen.getByText(new RegExp(DEFECT_SOURCE_FIXED_INTERNAL))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(DEFECT_SOURCE_CLIENT_IS_PM))).toBeInTheDocument();
+  });
+
+  it("drops that disclosure once the picker is offered (PM tier chooses for itself)", () => {
+    render(
+      <ReportDefectControl projectId="p1" workPackageId="wp1" canFileClientSource initialOpen />,
+    );
+    expect(screen.queryByText(new RegExp(DEFECT_SOURCE_FIXED_INTERNAL))).not.toBeInTheDocument();
   });
 
   it("files as internal when the picker is hidden", async () => {

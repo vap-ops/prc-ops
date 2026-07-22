@@ -18,7 +18,12 @@ import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import { REPORT_DEFECT_LABEL, REWORK_SOURCE_LABEL } from "@/lib/i18n/labels";
+import {
+  DEFECT_SOURCE_CLIENT_IS_PM,
+  DEFECT_SOURCE_FIXED_INTERNAL,
+  REPORT_DEFECT_LABEL,
+  REWORK_SOURCE_LABEL,
+} from "@/lib/i18n/labels";
 import type { ReworkSource } from "@/lib/db/enums";
 import { reportDefect } from "./actions";
 import { useDefectPhotos } from "./use-defect-photos";
@@ -160,7 +165,15 @@ export function ReportDefectControl({
                 })}
               </div>
             </div>
-          ) : null}
+          ) : (
+            // Below PM tier the filing IS stamped ตรวจภายใน — say so instead of
+            // hiding the provenance, or an SA relaying a customer complaint
+            // records a source they never chose and later sees it back as the
+            // ตรวจภายใน chip on their own home.
+            <p className="text-ink-secondary text-sm">
+              {DEFECT_SOURCE_FIXED_INTERNAL} · {DEFECT_SOURCE_CLIENT_IS_PM}
+            </p>
+          )}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="defect-reason" className={LABEL}>
               รายละเอียดข้อบกพร่อง

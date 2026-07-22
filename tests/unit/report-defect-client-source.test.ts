@@ -83,10 +83,19 @@ describe("reportDefect — client-source authority", () => {
       source: "client",
     });
 
-    // The live RPC refuses v_role in ('site_admin','auditor'); its overall gate
-    // admits SA/PM/PD/super/auditor, so the permitted remainder is exactly
-    // PM_ROLES. Pinned here so the two can't drift apart silently.
     expect(mockRequireActionRole).toHaveBeenCalledWith(PM_ROLES, CLIENT_DEFECT_NOT_PERMITTED);
+
+    // …but asserting "it was called with PM_ROLES" is self-referential — it holds
+    // for ANY contents of that array, including a widened one that re-opens the
+    // dead-door bug. So pin the MEMBERSHIP against the live RPC's rule: its
+    // overall gate admits SA/PM/PD/super/auditor, and the client arm removes
+    // site_admin + auditor, leaving exactly these three.
+    const [passedRoles] = mockRequireActionRole.mock.calls[0] as [readonly string[], string];
+    expect([...passedRoles].sort()).toEqual(
+      ["project_director", "project_manager", "super_admin"].sort(),
+    );
+    expect(passedRoles).not.toContain("site_admin");
+    expect(passedRoles).not.toContain("auditor");
   });
 
   it("lets a PM-tier client-source filing through to the RPC", async () => {
