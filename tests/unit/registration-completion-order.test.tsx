@@ -5,15 +5,18 @@
 // These pins fix the DOM order and the CTA's promise.
 
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/ui/use-toast", () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
+const { updateOwnStaffRegistration } = vi.hoisted(() => ({
+  updateOwnStaffRegistration: vi.fn(),
+}));
 vi.mock("@/lib/register/actions", () => ({
   startStaffRegistration: vi.fn(),
-  updateOwnStaffRegistration: vi.fn(),
+  updateOwnStaffRegistration,
   addStaffRegistrationDoc: vi.fn(),
   recordOwnStaffConsent: vi.fn(),
   recordOwnStaffBank: vi.fn(),
@@ -97,5 +100,39 @@ describe("StaffRegistrationForm — required steps precede the CTA (spec 343 D2)
     const cta = screen.getByTestId("reg-primary");
     expect(cta).toHaveTextContent("บันทึก");
     expect(cta).not.toHaveTextContent("ไปขั้นต่อไป");
+  });
+});
+
+describe("StaffRegistrationForm — the CTA performs what it promises (spec 343 D2)", () => {
+  // The label says "บันทึกและไปขั้นต่อไป". A label naming a step it does not
+  // actually perform is the same defect class as the pending notice claiming a
+  // submission it does not have — so the scroll is pinned, not just the wording.
+  it("scrolls to the first outstanding control after a successful save", async () => {
+    const scrollIntoView = vi.fn();
+    // jsdom implements no scrollIntoView at all.
+    Element.prototype.scrollIntoView = scrollIntoView;
+    updateOwnStaffRegistration.mockResolvedValue({ ok: true });
+
+    renderForm({});
+    await act(async () => {
+      screen.getByTestId("reg-primary").click();
+    });
+
+    expect(updateOwnStaffRegistration).toHaveBeenCalled();
+    expect(scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("does NOT yank the page when there is no outstanding step", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    updateOwnStaffRegistration.mockResolvedValue({ ok: true });
+
+    renderForm(MET);
+    await act(async () => {
+      screen.getByTestId("reg-primary").click();
+    });
+
+    expect(updateOwnStaffRegistration).toHaveBeenCalled();
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });
