@@ -9735,6 +9735,21 @@ export type Database = {
           started_at: string
         }[]
       }
+      get_my_assigned_work: {
+        Args: never
+        Returns: {
+          code: string
+          group_child_statuses: Database["public"]["Enums"]["work_package_status"][]
+          is_group: boolean
+          name: string
+          parent_code: string
+          parent_id: string
+          parent_name: string
+          status: Database["public"]["Enums"]["work_package_status"]
+          work_date: string
+          wp_id: string
+        }[]
+      }
       get_my_crew_assignments: {
         Args: never
         Returns: {
