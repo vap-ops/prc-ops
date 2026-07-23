@@ -107,21 +107,20 @@ select ok(
      null, 'dc', null)) is not null,
   'project_manager creates a second, lead-less crew');
 
--- ⚖️ CONTRACT CHANGE (spec 330 U3c). This assert previously read
--- "procurement_manager (verified in is_back_office) create_crew is admitted".
--- is_back_office does admit procurement_manager — but can_see_project never
--- does, and procurement is not in PM_ROLES so /projects/:id/team is closed to
--- it. Being able to form the crews that feed the plan → mark-present →
--- log_labor_day → payroll chain, in any project, through a screen it cannot
--- open, was the hole U3c closes. The role gate is unchanged; the scope gate is
--- what refuses here. The only production caller of create_crew is the
--- PM_ROLES-gated team map, so nothing live depended on the old behaviour.
+-- ⚖️ CONTRACT CHANGE (spec 348 U1 / ADR 0084, reverses the spec 330 U3c block
+-- FOR procurement_manager only). U3c refused procurement here because
+-- can_see_project returned false for it, even though is_back_office admitted the
+-- role. Spec 348 adds procurement_manager to the SEE-ALL arm of can_see_project
+-- (a full project_director peer for visibility), so the scope gate now passes and
+-- create_crew is admitted — the operator's "match project_director" decision
+-- (2026-07-23). Plain `procurement` is NOT widened and is still refused (pinned
+-- in 348-sa-parity-read); the role/scope gates are unchanged, only membership
+-- flipped for this one role.
 set local "request.jwt.claims" = '{"sub": "73000000-0279-0279-0279-730000000279"}';
-select throws_ok(
-  $$ select public.create_crew('72000000-0279-0279-0279-720000000201', 'ชุดต้องห้าม',
-       null, 'dc', null) $$,
-  '42501', 'not a member of this project',
-  'procurement_manager is back-office but sees NO project — create_crew refuses it');
+select ok(
+  (select public.create_crew('72000000-0279-0279-0279-720000000201', 'ชุดจัดซื้อ',
+     null, 'dc', null)) is not null,
+  'procurement_manager now sees every project (spec 348) → create_crew is admitted');
 
 set local "request.jwt.claims" = '{"sub": "70000000-0279-0279-0279-700000000279"}';
 select lives_ok(

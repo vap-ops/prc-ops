@@ -6,6 +6,24 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 348 U1 — procurement_manager see-all read parity — 🔨 built (2026-07-23)
+
+Migration `20260813075842`. Added `procurement_manager` to the SEE-ALL arm of
+`can_see_project()` (a project_director visibility peer) + to the six bare
+SITE_STAFF-array SELECT policies (clients, contractor_consents,
+service_providers, work_package_members, subcontract_crew_members/attachments).
+Gate-check (all 54 write RPCs sourced live) moved `is_site_staff` widening to U3
+(it feeds only writes) and found `audit_log` reader already admits her (no-op).
+
+**Operator decisions (2026-07-23):** full parity + see-all-like-PD; and — because
+the see-all widening also grants her the 8 crew-management RPCs +
+`submit_receipt_correction_request` on every project (they gate is_back_office/
+membership + can_see_project, and she is is_back_office) — GRANT those (match
+project_director). Plain `procurement` stays blocked (only procurement_manager
+widened). 279's create_crew denial for this role flipped to lives_ok.
+
+pgTAP `348-sa-parity-read` (18) RED-first. **Open questions:** none blocking U2.
+
 ## Spec 337 U5b — the ลูกค้าแจ้ง refusal told the truth about the wrong thing — 🔨 built (2026-07-22)
 
 Operator-approved follow-up to the open question U5 recorded.
