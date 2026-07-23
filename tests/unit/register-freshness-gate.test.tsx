@@ -69,6 +69,13 @@ const RELOAD_KEY = "app-freshness-reloaded-for";
 
 const reloadMock = vi.fn();
 const fetchMock = vi.fn();
+const realSessionStorage = window.sessionStorage;
+
+// jsdom's sessionStorage is proxy-backed, so vi.spyOn on its methods does not
+// take — swap the whole object to simulate storage that throws.
+function useSessionStorage(fake: Partial<Storage>) {
+  Object.defineProperty(window, "sessionStorage", { configurable: true, value: fake });
+}
 
 function stubHealth(version: string | null, ok = true) {
   fetchMock.mockResolvedValue({
@@ -99,6 +106,10 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: realSessionStorage,
+  });
   vi.resetModules();
   document.body.innerHTML = "";
 });
@@ -160,5 +171,35 @@ describe("RegisterFreshnessGate — spec 339 U2 wiring", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     await vi.waitFor(() => expect(reloadMock).toHaveBeenCalledTimes(1));
     expect(window.sessionStorage.getItem(RELOAD_KEY)).toBe("0.174.0");
+  });
+
+  // Storage can throw (private mode, storage disabled, quota). The guard MUST be
+  // durably persisted before a reload — a reload whose guard did not stick would
+  // re-mount, re-read nothing, and reload again (an infinite loop).
+  it("does not reload when the loop-guard cannot be persisted (storage disabled)", async () => {
+    useSessionStorage({
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("storage disabled");
+      },
+    });
+    stubHealth("0.173.0");
+    const Gate = await loadGate("0.172.0");
+    render(<Gate />);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(reloadMock).not.toHaveBeenCalled();
+  });
+
+  it("treats a throwing sessionStorage.getItem as no guard and still reloads a stale bundle", async () => {
+    useSessionStorage({
+      getItem: () => {
+        throw new Error("read denied");
+      },
+      setItem: () => {}, // set succeeds, so the guard sticks and the reload proceeds
+    });
+    stubHealth("0.173.0");
+    const Gate = await loadGate("0.172.0");
+    render(<Gate />);
+    await vi.waitFor(() => expect(reloadMock).toHaveBeenCalledTimes(1));
   });
 });

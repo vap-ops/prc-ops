@@ -30,6 +30,30 @@ import { clientEnv } from "@/lib/env";
 // and reset on a genuine fresh launch, never persist across launches.
 const RELOAD_KEY = "app-freshness-reloaded-for";
 
+// sessionStorage access can THROW (private mode, storage disabled, quota). A read
+// that throws is treated as "no guard recorded".
+function readReloadGuard(): string | null {
+  try {
+    return window.sessionStorage.getItem(RELOAD_KEY);
+  } catch {
+    return null;
+  }
+}
+
+// Persist the guard, reporting whether it actually stuck. This is load-bearing:
+// we reload ONLY when the guard was durably written, because a reload whose guard
+// did not persist would re-mount, re-read null, and reload again — the exact loop
+// the guard exists to prevent. If storage is unavailable, we would rather never
+// reload than risk that loop.
+function persistReloadGuard(version: string): boolean {
+  try {
+    window.sessionStorage.setItem(RELOAD_KEY, version);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Vercel appends a short commit SHA to the client version (`0.173.0+7f3a1c2`);
 // /api/health never carries one, so compare the semver part. Mirrors U1.
 function baseVersion(v: string): string {
@@ -101,11 +125,13 @@ export function RegisterFreshnessGate() {
       const decision = shouldReload({
         clientVersion,
         deployedVersion,
-        alreadyReloadedFor: window.sessionStorage.getItem(RELOAD_KEY),
+        alreadyReloadedFor: readReloadGuard(),
         isTyping: isTyping(), // re-read AFTER the await — they may have started typing
       });
       if (!decision || deployedVersion === null) return;
-      window.sessionStorage.setItem(RELOAD_KEY, deployedVersion);
+      // Set the guard FIRST and reload only if it stuck — an un-guarded reload can
+      // loop (see persistReloadGuard).
+      if (!persistReloadGuard(deployedVersion)) return;
       window.location.reload();
     }
 
