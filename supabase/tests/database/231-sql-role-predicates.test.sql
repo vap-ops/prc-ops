@@ -56,13 +56,16 @@ select is(public.is_back_office('auditor'::public.user_role), false, 'is_back_of
 -- --- is_site_staff = SITE_STAFF_ROLES (site_admin + the PM set) ---
 select is(
   (select count(*)::int from unnest(enum_range(null::public.user_role)) r where public.is_site_staff(r)),
-  4, 'is_site_staff admits exactly 4 roles (site_admin + PM set)');
+  5, 'is_site_staff admits exactly 5 roles (site_admin + PM set + procurement_manager, spec 348 U3)');
 select is(public.is_site_staff('site_admin'::public.user_role), true, 'is_site_staff: site_admin');
 select is(public.is_site_staff('project_manager'::public.user_role), true, 'is_site_staff: project_manager');
 select is(public.is_site_staff('super_admin'::public.user_role), true, 'is_site_staff: super_admin');
 select is(public.is_site_staff('project_director'::public.user_role), true, 'is_site_staff: project_director');
 select is(public.is_site_staff('procurement'::public.user_role), false, 'is_site_staff: procurement denied (read-only viewer, not staff)');
-select is(public.is_site_staff('procurement_manager'::public.user_role), false, 'is_site_staff: procurement_manager denied (dept manager, not site staff)');
+-- Spec 348 U3 / ADR 0084: is_site_staff now admits procurement_manager — she is a
+-- full site_admin superset (SA write parity). It gates only write RPCs
+-- (set_work_package_notes, enqueue_peak_sync); the widening is deliberate.
+select is(public.is_site_staff('procurement_manager'::public.user_role), true, 'is_site_staff: procurement_manager NOW admitted (spec 348 U3 SA write parity)');
 select is(public.is_site_staff('site_owner'::public.user_role), false, 'is_site_staff: site_owner denied (behavior-free, spec 263)');
 select is(public.is_site_staff('auditor'::public.user_role), false, 'is_site_staff: auditor denied (behavior-free, spec 263)');
 
