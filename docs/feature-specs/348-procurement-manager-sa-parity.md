@@ -1,8 +1,8 @@
 # Spec 348 — procurement_manager = site_admin superset (SA parity, see-all)
 
-Status: 📝 SPEC — approved in chat 2026-07-23, build not started
+Status: 🔨 BUILDING — U1 built + shipping 2026-07-23 (migration `075842`); U2 next
 Owner units: U1–U6 below
-ADR: 0084 (this spec's companion, same PR)
+ADR: 0084 (this spec's companion, merged #711)
 
 ## 1. The ask
 
@@ -126,12 +126,12 @@ Corrections to the original plan, forced by the gate-check:
   already admits procurement_manager (verified live). Pinned, not changed.
 
 **WRITE CONSEQUENCE — operator decision 2026-07-23 (both "grant / match
-project_director").** Widening can_see_project also grants procurement_manager,
+project_director").** Widening can*see_project also grants procurement_manager,
 on every project: (a) the 8 crew-management RPCs (create/dissolve/rename crew,
 add/move/remove worker, set/reassign lead — they gate `is_back_office +
 can_see_project`, and she is is_back_office), and (b) `submit_receipt_correction_request`
 (gates project-visibility alone). This exactly mirrors project_director (also
-is_back_office + see-all); spec 332 U3c had blocked _procurement_ there only
+is_back_office + see-all); spec 332 U3c had blocked \_procurement* there only
 because can_see_project was false for it. Plain `procurement` stays blocked
 (only procurement_manager widened). Site_admin cannot do these (not is_back_office)
 — so this is broader than strict SA-parity, accepted under the see-all-like-PD
@@ -147,7 +147,7 @@ role — is updated to `lives_ok` in the same PR.
 - Migration hygiene: live-sourced; `create or replace` preserves can_see_project's
   grants; policy drop+create reproduces the `(select current_user_role())`
   initplan wrapper (guard `40-rls-eval-once`).
-- pgTAP `348-sa-parity-read` (18): can_see_project grant + directional non-grant
+- pgTAP `348-sa-parity-read` (16): can_see_project grant + directional non-grant
   (plain procurement stays false); the 4 bare widened policies read (pm sees,
   procurement doesn't) + 2 subcontract pinned by qual; the create_crew write
   consequence (pm lives_ok, procurement + site_admin still 42501); audit_log

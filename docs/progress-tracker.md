@@ -22,7 +22,7 @@ membership + can_see_project, and she is is_back_office) — GRANT those (match
 project_director). Plain `procurement` stays blocked (only procurement_manager
 widened). 279's create_crew denial for this role flipped to lives_ok.
 
-pgTAP `348-sa-parity-read` (18) RED-first. **Open questions:** none blocking U2.
+pgTAP `348-sa-parity-read` (16) RED-first. **Open questions:** none blocking U2.
 
 ## Spec 337 U5b — the ลูกค้าแจ้ง refusal told the truth about the wrong thing — 🔨 built (2026-07-22)
 

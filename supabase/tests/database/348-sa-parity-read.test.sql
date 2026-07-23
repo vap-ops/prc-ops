@@ -78,8 +78,10 @@ select is(
 
 -- ============================================================================
 -- B. Cross-project staff reads — the six widened SELECT policies.
---    Runtime-pin the four bare-array tables; the two subcontract policies share
---    the identical array edit and are pinned by qual below.
+--    Runtime-pin two bare-array tables (clients + service_providers) with real
+--    RLS-filtered reads, pmgr-sees / procurement-doesn't; the other four
+--    (contractor_consents, work_package_members + the two subcontract policies)
+--    share the identical array edit and are pinned by qual in section C.
 -- ============================================================================
 set local "request.jwt.claims" = '{"sub": "a0000000-0348-0348-0348-a00000000348"}';
 select is(
