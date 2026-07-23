@@ -1,3 +1,9 @@
+# [0.192.0](https://github.com/vap-ops/prc-ops/compare/v0.191.1...v0.192.0) (2026-07-23)
+
+### Features
+
+- **nav:** spec 349 U1 — accounting work-queue-first 4-tab set + strip mirror ([7ca5c42](https://github.com/vap-ops/prc-ops/commit/7ca5c42e64f79f03e621f151b633b90ad1dd5f9e))
+
 ## [0.191.1](https://github.com/vap-ops/prc-ops/compare/v0.191.0...v0.191.1) (2026-07-23)
 
 ### Bug Fixes
