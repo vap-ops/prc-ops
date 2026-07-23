@@ -41,6 +41,24 @@ widened). 279's create_crew denial for this role flipped to lives_ok.
 
 pgTAP `348-sa-parity-read` (16) RED-first. **Open questions:** none blocking U2.
 
+## Spec 348 U3 — procurement_manager SA write parity — 🔨 built (2026-07-23)
+
+Migration `20260813075843`. Widened 25 write RPCs + 3 role helpers (is_site_staff
+[deferred from U1], daily_work_plan_assert_writer, sa_worker_bank_status) + 5
+non-SELECT policies (photo_logs/photo_markups INSERT + 3 storage arms) to admit
+procurement_manager — GENERATED from live defs, byte-for-byte except the added
+role literal (byte-diff: 26 pure + 2 deliberate comment clarifications). Live-
+verified: 0 non-skip write RPCs still exclude her; 4 skips still exclude her.
+
+`reopen_work_package_for_defect` widened on BOTH arms (internal admit + client
+refusal) so she mirrors site_admin. SKIPS (SA not admitted): decide_work_package,
+record_wage_payment, confirm_stock_issue_on_behalf, set_primary_project_for,
+project_site_management, current_user_sa_visible_crew_ids.
+
+pgTAP `348b-sa-parity-write` (13). **Open questions:** none (a suspected
+record_wage_payment gap was refuted in review — she's already admitted via
+is_back_office). ▶ U4 (isReadOnlyWpViewer) + U5 (lens).
+
 ## Spec 337 U5b — the ลูกค้าแจ้ง refusal told the truth about the wrong thing — 🔨 built (2026-07-22)
 
 Operator-approved follow-up to the open question U5 recorded.

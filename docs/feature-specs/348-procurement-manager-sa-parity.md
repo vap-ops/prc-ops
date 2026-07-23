@@ -1,6 +1,6 @@
 # Spec 348 — procurement_manager = site_admin superset (SA parity, see-all)
 
-Status: 🔨 BUILDING — U1 built + shipping 2026-07-23 (migration `075842`); U2 next
+Status: 🔨 BUILDING — U1 reads MERGED (#713) · U2 page-gates #715 (held) · U3 write-parity built (mig `075843`) 2026-07-23; ▶ U4 (isReadOnlyWpViewer) + U5 (lens) remain
 Owner units: U1–U6 below
 ADR: 0084 (this spec's companion, merged #711)
 
@@ -184,11 +184,49 @@ SITE_STAFF_ROLES untouched:
 - NOT changed: `CLIENT_ISSUER_ROLES`, `ACCOUNTING_ROLES`, money sets, `PM_ROLES`,
   the team-add picker audience. `STAFF_APPROVAL_ROLES` already has her.
 
-### U3 — DB write parity (migration, the big one)
+### U3 — DB write parity (migration `20260813075843`) — BUILT 2026-07-23
 
-Widen each SA-admitting write gate to also admit `procurement_manager`, same
-arm, same conditions. Inventory from the 2026-07-23 live sweep (re-sweep at
-build; families grouped):
+**Widened (25 write RPCs + 3 role helpers + 5 non-SELECT policies), generated
+from the live defs byte-for-byte except `procurement_manager` added to the
+site_admin role array** (byte-diff verified: 26 pure, 2 differ only by a
+deliberate "plain procurement is excluded" comment clarification). CREATE OR
+REPLACE preserves each function's ACL — no re-grant. Live-verified post-push:
+0 non-skip write RPCs still exclude her; the 4 skips still exclude her (no
+over-widen); is_site_staff + all 5 policies now admit her.
+
+- Muster 6, labor (log/correct), WP submit/resubmit, stock
+  (issue/issue_bulk/return/reverse/count/divert/split), site purchase (record/
+  use_now), sa_add_project_worker(+\_with_bank), record_contractor_consent, site
+  issues (report/resolve).
+- **`reopen_work_package_for_defect` — BOTH arms**: added to the internal-defect
+  admit arm AND the client-source refusal arm, so she mirrors site_admin exactly
+  (files internal, refused client-source below PM tier).
+- Helpers: `is_site_staff` (deferred from U1 — gates only write RPCs), `daily_work_plan_assert_writer`, `sa_worker_bank_status`.
+- Policies: `photo_logs` + `photo_markups` INSERT; `storage.objects` photos /
+  po-attachment / sa-bank-capture uploads.
+
+**Deliberate SKIPS** (site_admin is a comment/exclusion/data-filter — SA not
+admitted, so parity keeps her out): `decide_work_package` (PM-tier, SA in a
+comment only), `record_wage_payment` (refuses SA; money), `confirm_stock_issue_on_behalf`
+("NOT site_admin"), `set_primary_project_for` + `project_site_management` (site_admin
+is the SUBJECT selected, `u.role='site_admin'`, not the caller), `current_user_sa_visible_crew_ids`
+(redundant — she reads crews via is_back_office).
+
+ⓘ **Non-finding (corrected in fresh-eyes review):** `record_wage_payment` gates on
+`is_back_office(current_user_role())`, which INCLUDES procurement_manager — she is
+already admitted to record wage payments by design (back-office tier), no gap. Its
+body comment "pm/super/director/procurement only" is stale (predates
+procurement_manager joining is_back_office). site_admin is refused (money), so SA
+parity leaves it untouched.
+
+pgTAP `348b-sa-parity-write` (13): is_site_staff effect + directional; report_site_issue
+(role-gate-opens via fake-project existence trick); open_muster_team (muster shape);
+reopen BOTH arms (internal lives / client refused); decide_work_package skip stays
+42501; 5-policy pin. Full suite green.
+
+---
+
+_Original inventory (pre-build snapshot; families grouped):_
 
 - WP lifecycle: `submit_work_package_for_approval`,
   `resubmit_work_package_evidence`, `reopen_work_package_for_defect` (SA arms
