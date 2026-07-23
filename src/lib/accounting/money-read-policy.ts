@@ -27,6 +27,10 @@ export const MONEY_TABLES = [
   "wp_labor_costs",
   "client_billings",
   "retention_receivables",
+  // Spec 345: the review layer's sealed tables — zero-grant, DEFINER-write;
+  // the only admin-client reads are the registered voucher loader below.
+  "money_event_reviews",
+  "money_review_flags",
 ] as const;
 
 export type MoneyTable = (typeof MONEY_TABLES)[number];
@@ -48,6 +52,9 @@ export const FIRM_WIDE_MONEY_READ_SITES: readonly string[] = [
   // Spec 253: the finance project LIST aggregates billings + receipts across
   // every project (one funnel line per project) behind requireRole(MONEY_VIEW_ROLES).
   "src/app/accounting/projects/page.tsx",
+  // Spec 345 U3: the review voucher reads the sealed review/flag rows + the GL
+  // trail for ONE addressed event, firm-wide behind requireRole(ACCOUNTING_ROLES).
+  "src/lib/accounting/load-review-voucher.ts",
 ];
 
 /**

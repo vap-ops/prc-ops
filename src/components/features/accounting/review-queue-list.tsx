@@ -1,7 +1,7 @@
-// Spec 345 U2 — the /accounting/review queue rows. Server-renderable, zero
-// client JS. Rows are NOT links yet: the voucher page is U3, and a door to a
-// route that does not exist is a dead door (spec 313 lesson).
+// Spec 345 U2/U3 — the /accounting/review queue rows. Server-renderable, zero
+// client JS. U3: each row links to its voucher (/accounting/review/[source]/[id]).
 
+import Link from "next/link";
 import { Flag } from "lucide-react";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { formatThaiDate } from "@/lib/i18n/labels";
@@ -39,7 +39,10 @@ export function ReviewQueueList({ rows }: { rows: ReviewQueueRow[] }) {
         const docsBadge = docsBadgeLabel(row);
         return (
           <li key={`${row.sourceTable}:${row.sourceId}`} className={CARD}>
-            <div className="flex items-start justify-between gap-3">
+            <Link
+              href={`/accounting/review/${row.sourceTable}/${row.sourceId}`}
+              className="flex items-start justify-between gap-3"
+            >
               <div className="min-w-0">
                 <p className="text-foreground text-sm font-medium">
                   {moneySourceLabel(row.sourceTable)}
@@ -67,7 +70,7 @@ export function ReviewQueueList({ rows }: { rows: ReviewQueueRow[] }) {
                   </p>
                 ) : null}
               </div>
-            </div>
+            </Link>
           </li>
         );
       })}
