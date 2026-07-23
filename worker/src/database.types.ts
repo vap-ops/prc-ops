@@ -9300,6 +9300,15 @@ export type Database = {
         }
         Returns: string
       }
+      correct_office_expense: {
+        Args: {
+          p_amount: number
+          p_expense_date: string
+          p_expense_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
       correct_stock_receipt: {
         Args: {
           p_reason: string
@@ -10928,6 +10937,18 @@ export type Database = {
           p_note?: string
           p_paid_date: string
           p_payment_id: string
+        }
+        Returns: string
+      }
+      supersede_wage_payment: {
+        Args: {
+          p_correction_reason: string
+          p_method: Database["public"]["Enums"]["wage_payment_method"]
+          p_note: string
+          p_paid_amount: number
+          p_paid_at: string
+          p_payment_id: string
+          p_reference: string
         }
         Returns: string
       }
