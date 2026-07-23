@@ -1,3 +1,9 @@
+# [0.185.0](https://github.com/vap-ops/prc-ops/compare/v0.184.0...v0.185.0) (2026-07-23)
+
+### Features
+
+- **register:** เตรียมบัตรประชาชนก่อนสแกน on the poster + LINE share (spec 343 U3) ([#705](https://github.com/vap-ops/prc-ops/issues/705)) ([834d19b](https://github.com/vap-ops/prc-ops/commit/834d19be2b9846591fd1370ca7e555e35177dd42))
+
 # [0.184.0](https://github.com/vap-ops/prc-ops/compare/v0.183.0...v0.184.0) (2026-07-23)
 
 ### Features
