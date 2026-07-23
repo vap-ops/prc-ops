@@ -1,3 +1,9 @@
+# [0.191.0](https://github.com/vap-ops/prc-ops/compare/v0.190.0...v0.191.0) (2026-07-23)
+
+### Features
+
+- **auth:** spec 348 U3 — procurement_manager SA write parity ([#716](https://github.com/vap-ops/prc-ops/issues/716)) ([6681cb8](https://github.com/vap-ops/prc-ops/commit/6681cb8657ae6d421a93826a44425e4d39196b6f))
+
 # [0.190.0](https://github.com/vap-ops/prc-ops/compare/v0.189.0...v0.190.0) (2026-07-23)
 
 ### Features
