@@ -1,3 +1,9 @@
+# [0.184.0](https://github.com/vap-ops/prc-ops/compare/v0.183.0...v0.184.0) (2026-07-23)
+
+### Features
+
+- **register:** เตรียมตัว prep screen before the fresh registration form (spec 343 U2) ([#704](https://github.com/vap-ops/prc-ops/issues/704)) ([310392c](https://github.com/vap-ops/prc-ops/commit/310392c278a58f1107be2a807d9d91304bb11226))
+
 # [0.183.0](https://github.com/vap-ops/prc-ops/compare/v0.182.0...v0.183.0) (2026-07-23)
 
 ### Features
