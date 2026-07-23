@@ -1,3 +1,13 @@
+# [0.187.0](https://github.com/vap-ops/prc-ops/compare/v0.186.0...v0.187.0) (2026-07-23)
+
+### Bug Fixes
+
+- **register:** reload only when the freshness loop-guard durably persists ([530fe11](https://github.com/vap-ops/prc-ops/commit/530fe1158b5e1207126c06ed277290f7d119003a))
+
+### Features
+
+- **register:** auto-reload unapproved users onto the current build (spec 339 U2) ([4f9b302](https://github.com/vap-ops/prc-ops/commit/4f9b302eb9a7b6812c1526f1cbe2c6dcda988fe4))
+
 # [0.186.0](https://github.com/vap-ops/prc-ops/compare/v0.185.0...v0.186.0) (2026-07-23)
 
 ### Features
