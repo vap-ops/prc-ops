@@ -1,3 +1,9 @@
+# [0.189.0](https://github.com/vap-ops/prc-ops/compare/v0.188.0...v0.189.0) (2026-07-23)
+
+### Features
+
+- **auth:** spec 348 U1 — procurement_manager see-all read parity ([#713](https://github.com/vap-ops/prc-ops/issues/713)) ([e86434a](https://github.com/vap-ops/prc-ops/commit/e86434ae2942623163dcfacc620b21e16a3368af))
+
 # [0.188.0](https://github.com/vap-ops/prc-ops/compare/v0.187.0...v0.188.0) (2026-07-23)
 
 ### Features
