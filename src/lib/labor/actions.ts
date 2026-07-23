@@ -14,7 +14,7 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { PM_ROLES, PAYROLL_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { bangkokTodayIso } from "./dates";
 import { validateCorrection, validateWagePayment, validateLaborEntry } from "./validate";
@@ -202,11 +202,14 @@ export async function setWpLaborBudget(input: {
 }
 
 // Spec 127 U2 / spec 170 U3 / spec 266 U4 — record a wage payment for a
-// ช่าง × period. pm/super only (money). The record_wage_payment RPC recomputes
-// the owed amount server-side, re-gates the role, locks per (worker, period) and
-// refuses a duplicate — this action validates shape and maps RPC errors to Thai.
-// Authenticated session so the RPC gate passes and paid_by/the audit actor is
-// the PM. The payee bound here is the worker (ช่าง).
+// ช่าง × period. Gated on PAYROLL_ROLES (PM set + procurement + procurement_manager,
+// specs 187/261) — the SAME set the /payroll affordance is shown to and the
+// record_wage_payment RPC admits via is_back_office(); keeping the three in lockstep
+// avoids affordance-then-refuse (cf. payroll-export-gate). The RPC recomputes the
+// owed amount server-side, re-gates the role, locks per (worker, period) and refuses
+// a duplicate — this action validates shape and maps RPC errors to Thai.
+// Authenticated session so the RPC gate passes and paid_by/the audit actor is the
+// payer. The payee bound here is the worker (ช่าง).
 export type RecordWagePaymentResult = { ok: true } | { ok: false; error: string };
 
 const GENERIC_PAYMENT_ERROR = "บันทึกการจ่ายเงินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
@@ -238,7 +241,7 @@ export async function recordWagePayment(input: {
 
   const { data: me } = await supabase.from("users").select("role").eq("id", user.id).maybeSingle();
   const effectiveRole = await applyAssumedRole(me?.role);
-  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
+  if (!effectiveRole || !PAYROLL_ROLES.includes(effectiveRole)) {
     return { ok: false, error: "เฉพาะผู้จัดการโครงการเท่านั้นที่บันทึกการจ่ายเงินได้" };
   }
 
