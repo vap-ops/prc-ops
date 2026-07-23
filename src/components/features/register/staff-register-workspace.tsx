@@ -24,6 +24,7 @@ import { EmployeeCard } from "@/components/features/register/employee-card";
 import { resolveCardPhoto } from "@/lib/register/card-view";
 import { StaffRegistrationForm } from "@/components/features/register/staff-registration-form";
 import { OfficeInviteGate } from "@/components/features/register/office-invite-gate";
+import { RegisterPrepGate } from "@/components/features/register/register-prep-gate";
 import { ShareCardButton } from "@/components/features/register/share-card-button";
 import { RegistrationPendingNotice } from "@/components/features/register/registration-pending-notice";
 import { RegistrationReturnedNotice } from "@/components/features/register/registration-returned-notice";
@@ -177,29 +178,34 @@ export async function StaffRegisterWorkspace({
             // registration never sees this gate (the status view wins below).
             <OfficeInviteGate />
           ) : (
-            <StaffRegistrationForm
-              registrationExists={false}
-              uid={null}
-              docUrls={{}}
-              consentedAt={null}
-              invitedBy={variant === "office" ? (officeInvite?.by ?? null) : (by ?? null)}
-              invitedProjectId={project ?? null}
-              invitedContractorId={contractorParam}
-              bankExempt={subconFresh}
-              invitedRole={officeInvite?.role ?? null}
-              initial={{
-                fullName: "",
-                phone: "",
-                dob: "",
-                emergencyName: "",
-                emergencyRelation: "",
-                emergencyPhone: "",
-                declaredRoleHint: officeInvite?.role ?? "",
-                bankName: "",
-                accountNumber: "",
-                accountName: "",
-              }}
-            />
+            // Spec 343 U2 — the เตรียมตัว landing wraps the FRESH form: the
+            // applicant sees what to bring, then taps into the same form (state,
+            // not a route, so the QR params below are never re-threaded).
+            <RegisterPrepGate bankExempt={subconFresh}>
+              <StaffRegistrationForm
+                registrationExists={false}
+                uid={null}
+                docUrls={{}}
+                consentedAt={null}
+                invitedBy={variant === "office" ? (officeInvite?.by ?? null) : (by ?? null)}
+                invitedProjectId={project ?? null}
+                invitedContractorId={contractorParam}
+                bankExempt={subconFresh}
+                invitedRole={officeInvite?.role ?? null}
+                initial={{
+                  fullName: "",
+                  phone: "",
+                  dob: "",
+                  emergencyName: "",
+                  emergencyRelation: "",
+                  emergencyPhone: "",
+                  declaredRoleHint: officeInvite?.role ?? "",
+                  bankName: "",
+                  accountNumber: "",
+                  accountName: "",
+                }}
+              />
+            </RegisterPrepGate>
           )
         ) : (
           <RegistrationWorkspace

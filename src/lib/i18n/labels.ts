@@ -963,6 +963,17 @@ export const REGISTER_CONSENT_ANCHOR = "reg-consent";
  *  performs it (the form scrolls to the first outstanding control on save). */
 export const REGISTER_SAVE_AND_NEXT_LABEL = "บันทึกและไปขั้นต่อไป";
 
+// Spec 343 U2 — the เตรียมตัว landing shown BEFORE the fresh registration form,
+// so a first-time applicant knows what to bring (esp. their ID card) before they
+// start, instead of dropping onto the form cold at a site with no card on hand.
+export const REGISTER_PREP_HEADING = "เตรียมตัวก่อนสมัคร";
+export const REGISTER_PREP_ITEMS_LABEL = "สิ่งที่ต้องเตรียม";
+export const REGISTER_PREP_ID_CARD_ITEM = "บัตรประชาชน (ถ่ายรูปได้เลย)";
+export const REGISTER_PREP_BANK_ITEM = "สมุดบัญชีธนาคาร";
+export const REGISTER_PREP_TIME_LINE = "ใช้เวลาประมาณ 2 นาที";
+export const REGISTER_PREP_CONSENT_LINE = "จะมีขั้นตอนให้ยินยอมการเก็บข้อมูลส่วนบุคคล (PDPA)";
+export const REGISTER_PREP_START_LABEL = "เริ่มกรอกข้อมูล";
+
 // Spec 322 — the applicant "sent back for edit" card (sibling of the pending
 // notice; shown in the same slot when the approver returned the row with a note).
 // Copy centralized alongside the pending-notice copy above (its direct sibling).
