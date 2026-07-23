@@ -1,3 +1,9 @@
+# [0.183.0](https://github.com/vap-ops/prc-ops/compare/v0.182.0...v0.183.0) (2026-07-23)
+
+### Features
+
+- **accounting:** spec 345 U2 — money-event review queue (/accounting/review) ([#703](https://github.com/vap-ops/prc-ops/issues/703)) ([63934c9](https://github.com/vap-ops/prc-ops/commit/63934c9fa8005baa96d28e282f720db19bed6be3))
+
 # [0.182.0](https://github.com/vap-ops/prc-ops/compare/v0.181.0...v0.182.0) (2026-07-22)
 
 ### Features
