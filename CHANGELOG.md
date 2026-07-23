@@ -1,3 +1,9 @@
+## [0.191.1](https://github.com/vap-ops/prc-ops/compare/v0.191.0...v0.191.1) (2026-07-23)
+
+### Bug Fixes
+
+- **payroll:** align record-payment action gate to PAYROLL_ROLES ([#719](https://github.com/vap-ops/prc-ops/issues/719)) ([282de17](https://github.com/vap-ops/prc-ops/commit/282de1767847b12dedd984e3e6524ea811ff5e80))
+
 # [0.191.0](https://github.com/vap-ops/prc-ops/compare/v0.190.0...v0.191.0) (2026-07-23)
 
 ### Features
