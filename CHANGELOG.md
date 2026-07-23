@@ -1,3 +1,9 @@
+# [0.194.0](https://github.com/vap-ops/prc-ops/compare/v0.193.0...v0.194.0) (2026-07-23)
+
+### Features
+
+- **auth:** spec 348 U5 — procurement_manager teaching lens (view-as site_admin) ([#721](https://github.com/vap-ops/prc-ops/issues/721)) ([ed7e406](https://github.com/vap-ops/prc-ops/commit/ed7e40668d3d65907c71d24b543b360551d4e201))
+
 # [0.193.0](https://github.com/vap-ops/prc-ops/compare/v0.192.0...v0.193.0) (2026-07-23)
 
 ### Features
