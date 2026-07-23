@@ -30,7 +30,10 @@ describe("spec 252 read-scoped role sets", () => {
     expect(PM_ROLES).not.toContain("accounting");
   });
 
-  it("accounting still lands on /accounting", () => {
-    expect(roleHome("accounting")).toBe("/accounting");
+  // Spec 349 U2: accounting goes work-queue-first — its home flips to the
+  // /accounting/review money-event queue (the GL dashboard /accounting stays a
+  // sibling tab). The spec-252 READ widenings above are unaffected by the flip.
+  it("accounting lands on the /accounting/review queue (spec 349 U2)", () => {
+    expect(roleHome("accounting")).toBe("/accounting/review");
   });
 });

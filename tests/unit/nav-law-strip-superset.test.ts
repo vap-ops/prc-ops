@@ -51,6 +51,11 @@ describe("nav law rule 2 — the hub strip is a superset of the bottom bar", () 
 describe("spec 313 U5 — no role is stranded on a promoted (chip-less) hub", () => {
   const PROMOTED: ReadonlyArray<{ href: string; roles: ReadonlyArray<string> }> = [
     { href: "/accounting", roles: ACCOUNTING_ROLES },
+    // Spec 349 U2: /accounting/review is the accounting role's promoted home hub.
+    // accounting reaches it on its own strip (ACCOUNTING_HUB_NAV); super_admin gets
+    // PM chrome carrying neither href, so it must be claimed by SETTINGS_TAB.match
+    // (the D4 (ii) edit) — this fixture entry is what forces that match to exist.
+    { href: "/accounting/review", roles: ACCOUNTING_ROLES },
     { href: "/legal", roles: LEGAL_ROLES },
   ];
 

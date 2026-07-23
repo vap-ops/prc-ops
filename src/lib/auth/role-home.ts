@@ -584,8 +584,12 @@ export function roleHome(role: UserRole): string {
   // Spec 130 / ADR 0051: external direct contractors land on the self-service
   // portal segment (hard-bounded from internal surfaces by middleware).
   if (role === "contractor") return "/portal";
-  // Spec 149 U9: the accounting role is onboarded onto the read-only ledger surface.
-  if (role === "accounting") return "/accounting";
+  // Spec 149 U9 → 349 U2 (D1 landing flip): the accounting role goes work-queue-
+  // first. Its home flips from the GL dashboard (/accounting) to the
+  // /accounting/review money-event queue — the daily work (spec 345). /accounting
+  // stays a live sibling tab (ACCOUNTING_TABS / ACCOUNTING_HUB_NAV), so no surface
+  // is lost; the affordance moves up, never away.
+  if (role === "accounting") return "/accounting/review";
   // Spec 284 U5 / ADR 0080: the Legal department role lands on its own /legal home
   // (contracts + the document-approval queue). U1 added the role but deferred the
   // landing (it fell through to /coming-soon); U5 flips it now the surfaces exist.

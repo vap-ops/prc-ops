@@ -67,6 +67,13 @@ const SETTINGS_TAB: TabItem = {
     // the settings tab no longer claims either.
     "/payroll",
     "/accounting",
+    // Spec 349 U2 (D4): /accounting/review became the accounting role's HOME hub.
+    // For super_admin (served PM chrome, not ACCOUNTING_TABS) the settings tab is
+    // the only "you are here" on that page. The "/accounting" prefix above already
+    // lights it at runtime (startsWith), so this literal is a runtime no-op — but
+    // the promoted-hub invariant (nav-law-strip-superset) tests EXACT membership,
+    // so the review href must be listed for super_admin's case to hold.
+    "/accounting/review",
     // Spec 313 U5: /legal joins its sibling. Both are role-HOMES that U5 promoted
     // to hubs — so they no longer carry a back chip, and for a role that does not
     // home there the tab bar is the only "you are here". /accounting was already
