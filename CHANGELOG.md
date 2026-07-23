@@ -1,3 +1,9 @@
+# [0.195.0](https://github.com/vap-ops/prc-ops/compare/v0.194.0...v0.195.0) (2026-07-23)
+
+### Features
+
+- **nav:** spec 349 U2 — accounting home → /accounting/review + review hub chrome ([#723](https://github.com/vap-ops/prc-ops/issues/723)) ([63590bb](https://github.com/vap-ops/prc-ops/commit/63590bb966f88ce4f082007b2942d6e2bebc758c))
+
 # [0.194.0](https://github.com/vap-ops/prc-ops/compare/v0.193.0...v0.194.0) (2026-07-23)
 
 ### Features
