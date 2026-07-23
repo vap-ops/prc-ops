@@ -47,6 +47,7 @@ import {
   SUBCON_JOIN_PREFIX,
   SUBCON_POSTER_LABEL,
   SUBCON_LINE_SHARE_LABEL,
+  REGISTER_PREP_POSTER_LINE,
 } from "@/lib/i18n/labels";
 
 export interface AddTechnicianQrCard {
@@ -418,7 +419,10 @@ export function AddTechnicianSheet({
                             {SUBCON_POSTER_LABEL}
                           </a>
                           <a
-                            href={`https://line.me/R/share?text=${encodeURIComponent(activeFirmQr.url)}`}
+                            // Spec 343 U3 — lead the forwarded text with the
+                            // "bring your ID card" line so the recipient reads it
+                            // before opening the QR.
+                            href={`https://line.me/R/share?text=${encodeURIComponent(`${REGISTER_PREP_POSTER_LINE}\n${activeFirmQr.url}`)}`}
                             target="_blank"
                             rel="noreferrer"
                             className={`${BUTTON_SECONDARY} justify-center`}

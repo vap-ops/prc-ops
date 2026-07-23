@@ -14,7 +14,11 @@ import { createClient } from "@/lib/db/server";
 import { clientEnv } from "@/lib/env";
 import { technicianOnboardUrl } from "@/lib/register/onboard-link";
 import { isValidUuid } from "@/lib/validate/uuid";
-import { SUBCON_JOIN_PREFIX, SUBCON_NO_BANK_HINT } from "@/lib/i18n/labels";
+import {
+  SUBCON_JOIN_PREFIX,
+  SUBCON_NO_BANK_HINT,
+  REGISTER_PREP_POSTER_LINE,
+} from "@/lib/i18n/labels";
 
 export const metadata = { title: "โปสเตอร์สมัครทีมผู้รับเหมา" };
 
@@ -81,6 +85,8 @@ export default async function SubconPosterPage({
               dangerouslySetInnerHTML={{ __html: svg }}
             />
             <p className="text-base text-black">สแกนด้วยมือถือของท่านเพื่อสมัครเข้าทีม</p>
+            {/* Spec 343 U3 — tell them what to bring before they scan the wall. */}
+            <p className="text-base font-semibold text-black">{REGISTER_PREP_POSTER_LINE}</p>
             <p className="text-sm text-black">{SUBCON_NO_BANK_HINT}</p>
           </div>
         ) : (
