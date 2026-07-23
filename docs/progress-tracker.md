@@ -9219,3 +9219,33 @@ id="cold-restart">` in the /settings เกี่ยวกับ card, under the
   `supersede_wage_payment` (fact-check: only 3 supersede RPCs exist at HEAD —
   wage has the column + CHECK but no writer). stock_returns has no correction
   ledger → no stale path (plan D-5), revisit only if one ships.
+
+## Spec 345 U2 — /accounting/review money-event review queue (2026-07-23)
+
+- **What:** mig `20260813075839` — `money_review_docs_expected(source)` (the
+  docs-expected SSOT: expected = PR + office expense + rental settlement ·
+  not_expected = labor · else no_path_yet; 22023 on unknown) + DEFINER
+  `list_money_events_for_review(tab, project, month, limit, offset)` unioning
+  all 15 sources LEFT JOIN reviews (absent = pending), gate accounting +
+  super_admin (42501 message-pinned), supersede sources contribute CURRENT rows
+  only (ADR 0009 anti-join). Page `/accounting/review`: 4 tabs (รอตรวจ/ติดธง/
+  ไม่มีเอกสาร/ตรวจแล้ว), month + project GET filters, hub door on /accounting.
+  Rows deliberately un-linked (voucher = U3; no dead doors). TS view layer maps
+  classes to copy only — never re-derives membership (no dual SSOT).
+- **Build:** pgTAP `345b` 30/30 RED-first; full suite 311/312 (tolerated 221
+  only); vitest 4857/673; lint+typecheck clean. Guard updates alongside:
+  `accounting` → ALLOWED_DOMAINS, `accounting/review` → nav-back drill list.
+- **Verified:** dev-preview browser session — SSR fetch probes all 4 tabs on
+  REAL prod data (200s; pending carried live July events; flagged/verified
+  honest-empty), denied-role probe = NEXT_REDIRECT + zero money content, hub
+  door renders, zero console errors, server logs all 200 (~400-750ms warm).
+  Screenshot/a11y wedge hit (documented in-app-browser class) — sanctioned
+  substitute trio used. 1 component mutation-check (expected-branch kill →
+  2 REDs).
+- **The test run caught two real RPC bugs pre-ship:** `coalesce(enum,'')` on
+  `current_user_role()` dies 22P02 for null-role callers (cast ::text first —
+  the rls-self-check-coalesce trap); and my first fixture asserted membership
+  through the DEFAULT 50-row window that live prod data crowds out — fixture
+  moved to 2001 months (prod-free), counts stay deterministic forever.
+- **Open questions / follow-ups:** rental deposit granularity (spec open item 4) surfaced as display choice only (batch row shows monthly_rate); voucher
+  links + verify/flag actions land in U3.
