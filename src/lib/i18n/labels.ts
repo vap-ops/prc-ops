@@ -1190,3 +1190,8 @@ export const COMPANY_DOC_PICK_TYPE_FIRST = "กรุณาเลือกไฟ
 // end-of-page action for documents the ยังขาด checklist doesn't cover.
 export const COMPANY_DOC_UPLOAD_OTHER_LABEL = "อัปโหลดเอกสารอื่น";
 export const COMPANY_DOC_OTHER_CATEGORY_LABEL = "อื่น ๆ";
+
+// Spec 345 U2: the accounting money-event review queue (ตรวจเอกสารการเงิน) —
+// used on the /accounting hub door, the /accounting/review header and title.
+export const MONEY_REVIEW_LABEL = "ตรวจเอกสารการเงิน";
+export const MONEY_REVIEW_HINT = "ตรวจ ติดธง และติดตามเอกสารการเงินทุกรายการ";

@@ -9,6 +9,8 @@ import { join } from "node:path";
 const FEATURES_DIR = join(process.cwd(), "src", "components", "features");
 
 const ALLOWED_DOMAINS = [
+  // Spec 345 U2: the accounting money-event review queue components.
+  "accounting",
   "purchasing",
   "work-packages",
   // Spec 330: the per-project team map (ทีมงานโครงการ) feature components.

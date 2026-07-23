@@ -18,7 +18,13 @@ import { ACCOUNTING_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
-import { COMPANY_DOCS_HINT, COMPANY_DOCS_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import {
+  COMPANY_DOCS_HINT,
+  COMPANY_DOCS_LABEL,
+  MONEY_REVIEW_HINT,
+  MONEY_REVIEW_LABEL,
+  formatThaiDate,
+} from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { loadAccountingDashboard } from "@/lib/accounting/load-dashboard";
@@ -143,6 +149,13 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
             { href: "/accounting/payables", label: "เจ้าหนี้การค้า", hint: "ยอดค้างชำระรายผู้ขาย" },
             // Spec 196 Tier 3: purchase register → voucher (source docs + GL entry).
             { href: "/accounting/purchases", label: "การจัดซื้อ", hint: "ตรวจสอบเอกสารการซื้อ" },
+            // Spec 345 U2: the money-event review queue — every payment document
+            // across all sources, verify/flag from one place.
+            {
+              href: "/accounting/review",
+              label: MONEY_REVIEW_LABEL,
+              hint: MONEY_REVIEW_HINT,
+            },
             // Spec 196 Tier 4: month-end close (open → closing → closed → locked).
             { href: "/accounting/periods", label: "ปิดงวดบัญชี", hint: "เปิด/ปิดงวดบัญชีรายเดือน" },
             // Spec 329: the firm's document library lives under settings, but
