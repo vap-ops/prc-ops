@@ -10,6 +10,7 @@ import { comingSoonDecision } from "@/lib/auth/visitor-router";
 import { roleHome } from "@/lib/auth/role-home";
 import { getOwnTechnicianRegistration } from "@/lib/register/own-registration";
 import { VisitorLanding } from "@/components/features/register/visitor-landing";
+import { RegisterFreshnessGate } from "@/components/features/chrome/register-freshness-gate";
 
 export const metadata = { title: "เร็ว ๆ นี้" };
 
@@ -64,11 +65,18 @@ export default async function ComingSoonPage() {
     if (decision.kind === "redirect") redirect(decision.to);
     if (decision.kind === "visitor-landing") {
       return (
-        <VisitorLanding
-          greeting={row.full_name ? `สวัสดี คุณ${row.full_name}` : "สวัสดี"}
-          lineAvatarUrl={row.line_avatar_url}
-          fullName={row.full_name}
-        />
+        <>
+          {/* Spec 339 U2 — force a stale bundle current for an unapproved visitor.
+              Scoped to THIS branch only: the super_admin OperatorHub and the
+              approved-unserved card below are approved users and keep U1's passive
+              chip — a forced reload would discard their in-flight work. */}
+          <RegisterFreshnessGate />
+          <VisitorLanding
+            greeting={row.full_name ? `สวัสดี คุณ${row.full_name}` : "สวัสดี"}
+            lineAvatarUrl={row.line_avatar_url}
+            fullName={row.full_name}
+          />
+        </>
       );
     }
     // decision.kind === "static" is unreachable for a visitor, but fall through to
