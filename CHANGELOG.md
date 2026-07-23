@@ -1,3 +1,9 @@
+# [0.193.0](https://github.com/vap-ops/prc-ops/compare/v0.192.0...v0.193.0) (2026-07-23)
+
+### Features
+
+- **auth:** spec 348 U4 — procurement_manager full WP-detail affordances ([#720](https://github.com/vap-ops/prc-ops/issues/720)) ([81d71f9](https://github.com/vap-ops/prc-ops/commit/81d71f971a41adb173e0a6237e290f5db9d3776b))
+
 # [0.192.0](https://github.com/vap-ops/prc-ops/compare/v0.191.1...v0.192.0) (2026-07-23)
 
 ### Features
