@@ -1,8 +1,8 @@
 # Spec 348 — procurement_manager = site_admin superset (SA parity, see-all)
 
-Status: 📝 SPEC — approved in chat 2026-07-23, build not started
+Status: 🔨 BUILDING — U1 built + shipping 2026-07-23 (migration `075842`); U2 next
 Owner units: U1–U6 below
-ADR: 0084 (this spec's companion, same PR)
+ADR: 0084 (this spec's companion, merged #711)
 
 ## 1. The ask
 
@@ -98,33 +98,60 @@ Sequencing: **U1 → U2 ship "see everything"** (one session). **U3 → U4 → U
 ship "do everything" + the lens.** U6 rides along. Every unit is danger-path
 (auth/RLS/migrations) → operator-held merges throughout.
 
-### U1 — DB read parity (migration)
+### U1 — DB read parity (migration `20260813075842`) — BUILT 2026-07-23
 
-- `can_see_project`: add `procurement_manager` to the **see-all arm**. This one
-  function is the read gate for muster\_\* tables, crews/team surfaces, daily
-  work plans, and every other `can_see_project`-scoped SELECT policy.
-  Gate-check block (run at build): list consumers via
-  `pg_policies where qual ilike '%can_see_project%'` + function bodies; confirm
-  no consumer uses it as a WRITE gate that must stay narrower (spec 306 RPCs do
-  their own role gates — those are U3, not U1).
-- `is_site_staff()`: add `procurement_manager`. Gate-check every consumer the
-  same way; any consumer where "site staff" must stay membership-scoped or
-  SA-tier-exact gets an explicit carve-out DECISION in the build plan, not a
-  silent inherit.
-- Widen the remaining SELECT-policy literal arms that name `site_admin` but do
-  not already admit `procurement_manager` (many "readable by staff" arms
-  already do via procurement/back-office wording — DIFF each policy, touch only
-  the ones that exclude her).
-- `audit_log` reader arms: the SA-visible event allowlist policy
-  (`audit_log select wp rework events`) admits procurement_manager wherever
-  site_admin is admitted (memory: new-audit-event ⇒ reader-RLS rule).
-- Migration hygiene: source every function/policy body from the LIVE DB, not a
-  migration file; `drop policy`+`create policy` = REWRITE — preserve
-  `(select …)` initplan wrappers (guard `40-rls-eval-once`); `revoke all … from
-public, anon` on any touched function.
-- pgTAP: RED-first per family; role-switch asserts (`_tap_buf` grant) proving
-  procurement_manager NOW reads muster/team/plan rows AND plain `procurement`
-  still cannot.
+Gate-check (all 54 write RPCs + every SELECT policy touching the helpers,
+sourced live) reshaped this unit from the original plan. Final scope:
+
+- **`can_see_project`: add `procurement_manager` to the SEE-ALL arm** (alongside
+  super*admin / project_coordinator / project_director — a full project_director
+  peer for visibility). This one helper is the read gate behind muster*\*,
+  daily_work_plans, work_packages and every other can_see_project-scoped SELECT
+  policy, so widening it opens all of them at once.
+- **Six cross-project staff-read SELECT policies** that used the bare SITE_STAFF
+  array and excluded her → add procurement_manager: `clients`,
+  `contractor_consents`, `service_providers`, `work_package_members`,
+  `subcontract_crew_members`, `subcontract_crew_attachments`. (The other 14
+  site_admin-naming SELECT policies already admit her via procurement/back-office
+  arms; the `reports` policy excludes only site_admin, so she gains it via
+  see-all like PD — a read, in scope.)
+
+Corrections to the original plan, forced by the gate-check:
+
+- **`is_site_staff()` moves to U3, NOT U1.** It gates ZERO SELECT policies (does
+  nothing for reads) and is consumed only by write RPCs (`set_work_package_notes`,
+  `enqueue_peak_sync`) + write-flow read helpers — widening it in a read unit
+  would leak writes. Deferred to write parity.
+- **`audit_log` reader = no-op.** The `audit_log select wp rework events` policy
+  already admits procurement_manager (verified live). Pinned, not changed.
+
+**WRITE CONSEQUENCE — operator decision 2026-07-23 (both "grant / match
+project_director").** Widening can*see_project also grants procurement_manager,
+on every project: (a) the 8 crew-management RPCs (create/dissolve/rename crew,
+add/move/remove worker, set/reassign lead — they gate `is_back_office +
+can_see_project`, and she is is_back_office), and (b) `submit_receipt_correction_request`
+(gates project-visibility alone). This exactly mirrors project_director (also
+is_back_office + see-all); spec 332 U3c had blocked \_procurement* there only
+because can_see_project was false for it. Plain `procurement` stays blocked
+(only procurement_manager widened). Site_admin cannot do these (not is_back_office)
+— so this is broader than strict SA-parity, accepted under the see-all-like-PD
+choice. No crew/receipt RPC is edited; the grant is a pure consequence of the
+helper. The one existing assert that flips — 279's `create_crew` denial for this
+role — is updated to `lives_ok` in the same PR.
+
+- Not leaked (verified): muster writes, stock issue/count/return, site purchase,
+  `sa_add_project_worker`, deliverables (is_manager), supply approve/reject,
+  project-category writes — all gate on role-sets that exclude procurement_manager.
+  Supply-plan + stock-in + receipt-correct/reverse already admit her via a
+  procurement exemption arm (no change). Full analysis in the lane record.
+- Migration hygiene: live-sourced; `create or replace` preserves can_see_project's
+  grants; policy drop+create reproduces the `(select current_user_role())`
+  initplan wrapper (guard `40-rls-eval-once`).
+- pgTAP `348-sa-parity-read` (16): can_see_project grant + directional non-grant
+  (plain procurement stays false); the 4 bare widened policies read (pm sees,
+  procurement doesn't) + 2 subcontract pinned by qual; the create_crew write
+  consequence (pm lives_ok, procurement + site_admin still 42501); audit_log
+  reader pin.
 
 ### U2 — TS read surfaces (code)
 
