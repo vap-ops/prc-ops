@@ -75,6 +75,32 @@ form.
   (`sessionStorage`).
 - Never reloads on its own. Never blocks. Fetch failure → render nothing.
 
+### U2 refined 2026-07-23 — split by cohort (operator decision)
+
+The 2026-07-16 objection behind D5 was about _forcing a field worker mid-task_.
+That objection does not hold for the **unapproved** cohort: a `visitor` sitting on
+a pre-approval screen (`/register/technician`, `/register/office`, or the visitor
+branch of `/coming-soon`) has no task in flight, and is the exact population the
+spec-343 registration-cliff fix cannot reach unless their PWA is running it. So
+U2 splits:
+
+- **U2a — auto-reload, UNAPPROVED only (SHIPPED 2026-07-23).** New client island
+  `RegisterFreshnessGate` mounted on the three pre-approval routes (visitor branch
+  of `/coming-soon` only). On mount and on `visibilitychange → visible` it fetches
+  `/api/health` (no-store), compares `version` with the semver part of
+  `NEXT_PUBLIC_APP_VERSION`, and `location.reload()`s on mismatch. Loop-guarded via
+  `sessionStorage(app-freshness-reloaded-for=<deployed>)` (reload at most once per
+  deployed version), never fires while a text input is focused, and is scoped by
+  route placement so an approved user is never reloaded — the `/coming-soon`
+  super_admin OperatorHub and the approved-unserved card stay gate-free and keep
+  U1's passive line. Operator confirmed the reload-flash on resume is acceptable
+  for this cohort. Decision logic is a pure `shouldReload()`; route wiring is
+  source-pinned.
+- **U2b — the non-forcing chip, APPROVED users (still owed).** The dismissible
+  `มีเวอร์ชันใหม่ · แตะเพื่ออัปเดต` chip above stays the design for approved users,
+  where forcing a reload could discard in-flight work. Not yet built; U1's passive
+  `AppVersionCheck` line on `/settings` is the interim signal.
+
 ## Verification
 
 - U1: unit test asserts the card's warning, both platform lines, the anchor id,
