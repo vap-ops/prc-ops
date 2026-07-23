@@ -12,6 +12,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { requireRole } from "@/lib/auth/require-role";
+import { SA_SURFACE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
 import { MUSTER_LABEL } from "@/lib/i18n/labels";
@@ -32,7 +33,7 @@ interface PageProps {
 export default async function MusterPage({ params, searchParams }: PageProps) {
   const { projectId } = await params;
   const { from } = await searchParams;
-  await requireRole(["site_admin", "super_admin"]);
+  await requireRole(SA_SURFACE_ROLES);
   const supabase = await createClient();
 
   const { data: project } = await supabase

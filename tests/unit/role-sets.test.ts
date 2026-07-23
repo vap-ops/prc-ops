@@ -14,6 +14,8 @@ import {
   PR_DECIDER_ROLES,
   PROJECT_TEAM_STAFF_ROLES,
   PURCHASING_ROLES,
+  SA_SURFACE_ROLES,
+  SA_REGISTRATION_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
   STAFF_APPROVAL_ROLES,
@@ -99,6 +101,38 @@ describe("role sets", () => {
       "site_owner",
       "auditor",
     ]);
+  });
+
+  // Spec 348 U2 / ADR 0084: the SA READ-surface reach set — the existing
+  // site_admin + super_admin page gate PLUS procurement_manager (SA parity). Its
+  // whole reason to exist is to widen page REACH without touching SITE_STAFF_ROLES
+  // (which gates writes / membership / notification fan-out).
+  it("SA_SURFACE_ROLES is site_admin + super_admin + procurement_manager", () => {
+    expect([...SA_SURFACE_ROLES]).toEqual(["site_admin", "super_admin", "procurement_manager"]);
+    // plain procurement is NOT admitted — parity is procurement_manager's alone.
+    expect(SA_SURFACE_ROLES).not.toContain("procurement");
+    // no field/other role leaks in.
+    expect(SA_SURFACE_ROLES).not.toContain("technician");
+    expect(SA_SURFACE_ROLES).not.toContain("auditor");
+  });
+
+  // Spec 348 U2: the SA-scoped applicant view (/sa/registrations) is site_admin-
+  // only by design (spec 295); parity adds procurement_manager and NOTHING else —
+  // super_admin is deliberately absent (it uses the back-office queue).
+  it("SA_REGISTRATION_VIEW_ROLES is site_admin + procurement_manager only", () => {
+    expect([...SA_REGISTRATION_VIEW_ROLES]).toEqual(["site_admin", "procurement_manager"]);
+    expect(SA_REGISTRATION_VIEW_ROLES).not.toContain("super_admin");
+    expect(SA_REGISTRATION_VIEW_ROLES).not.toContain("procurement");
+  });
+
+  // Spec 348 U2 SAFETY PIN: the parity widening went into the NEW sets above, never
+  // into the write/membership sets. If a future edit adds procurement_manager to
+  // SITE_STAFF_ROLES (or PROJECT_TEAM_STAFF_ROLES), it would silently leak her into
+  // store-issue / WP-submit writes, the uploader notification tier, and the
+  // team-add picker — this pin fails first.
+  it("SITE_STAFF_ROLES / PROJECT_TEAM_STAFF_ROLES do NOT contain procurement_manager", () => {
+    expect(SITE_STAFF_ROLES).not.toContain("procurement_manager");
+    expect(PROJECT_TEAM_STAFF_ROLES).not.toContain("procurement_manager");
   });
 
   // Spec 101: the back-office write set (suppliers master + purchase/shipment

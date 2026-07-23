@@ -10,6 +10,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { requireRole } from "@/lib/auth/require-role";
+import { SA_SURFACE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { buildBadgeGroups } from "@/lib/sa/badges";
 import { fetchWorkerBadgeCodes } from "@/lib/sa/badge-codes";
@@ -22,7 +23,7 @@ interface BadgesPageProps {
 }
 
 export default async function SaCrewBadgesPage({ searchParams }: BadgesPageProps) {
-  await requireRole(["site_admin", "super_admin"]);
+  await requireRole(SA_SURFACE_ROLES);
   const { worker } = await searchParams;
   // Repeated/empty ?worker= must not collapse the sheet to the empty state —
   // anything but one non-empty value means "no reprint filter".

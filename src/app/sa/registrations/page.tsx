@@ -15,6 +15,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { requireRole } from "@/lib/auth/require-role";
+import { SA_REGISTRATION_VIEW_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { RegistrationQueueList } from "@/components/features/registrations/registration-queue-list";
@@ -36,7 +37,7 @@ export default async function SaStaffRegistrationsPage({
   searchParams: Promise<{ from?: string }>;
 }) {
   const { from } = await searchParams;
-  const ctx = await requireRole(["site_admin"]);
+  const ctx = await requireRole(SA_REGISTRATION_VIEW_ROLES);
   const supabase = await createClient();
 
   // RLS already scopes this to the pending queue for site_admin

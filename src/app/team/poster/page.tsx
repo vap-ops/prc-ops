@@ -10,6 +10,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { requireRole } from "@/lib/auth/require-role";
+import { SA_SURFACE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { clientEnv } from "@/lib/env";
 import { technicianOnboardUrl } from "@/lib/register/onboard-link";
@@ -27,7 +28,7 @@ export default async function SubconPosterPage({
 }: {
   searchParams: Promise<{ contractor?: string; project?: string }>;
 }) {
-  const gate = await requireRole(["site_admin", "super_admin"]);
+  const gate = await requireRole(SA_SURFACE_ROLES);
   const { contractor, project } = await searchParams;
   const contractorId = isValidUuid(contractor) ? contractor : null;
   const projectId = isValidUuid(project) ? project : null;

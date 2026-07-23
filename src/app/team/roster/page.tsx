@@ -16,6 +16,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { requireRole } from "@/lib/auth/require-role";
+import { SA_SURFACE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
 import { buildCrewTeams } from "@/lib/sa/crew-teams";
@@ -25,7 +26,7 @@ import { SiteTeamBoard } from "@/components/features/sa/site-team-board";
 export const metadata = { title: "รายชื่อทีม" };
 
 export default async function TeamRosterPage() {
-  await requireRole(["site_admin", "super_admin"]);
+  await requireRole(SA_SURFACE_ROLES);
   const supabase = await createClient();
 
   // The SA's projects (RLS-scoped via their visible work packages, ADR 0056) →
