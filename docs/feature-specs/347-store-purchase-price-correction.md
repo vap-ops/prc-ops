@@ -54,9 +54,10 @@ version — NOT the original `075810`).
 - **536 of 540** money-event purchases (`delivered/purchased/site_purchased/cancelled`)
   are wp-null = store-first. (The spec-345 U4 probe said 484/484; the table grew by the
   time of this spec's probe — the ratio is the point.) Breakdown of the 536: 485
-  `delivered` (484 with receipts) · 49 `cancelled` (1 still carries a live receipt —
-  correctable if never reversed, guard 5 handles the reversed case) · 2 `purchased`
-  (pre-delivery, no receipt, nothing booked yet).
+  `delivered` (484 with receipts) · 49 `cancelled` (1 has a receipt row, but it is
+  already REVERSED — guard 5 refuses it, so correctable cancelled receipts today = 0;
+  fact-check 2026-07-23) · 2 `purchased` (pre-delivery, no receipt, nothing booked
+  yet).
 - ⚠️ **1 delivered wp-null PR is OFF-CATALOG** (`catalog_item_id` null):
   `stock_in_on_receive` skips it, so it has NO receipt, NO inventory, and NO GL entry —
   its money is booked nowhere. Pre-existing gap, out of this spec's scope (no receipt =
@@ -319,10 +320,10 @@ null`** → P0001 (v1 scope = purchase receipts; manual stock-ins are out — no
     from `verified` to `pending` + insert the standard `changed_after_verified`
     suggested system flag (same shape as `money_review_mark_stale_tg` — done in-RPC
     because no trigger on the PR fires). If `p_flag_id` given: lock the flag row,
-    re-assert it is still resolvable (else P0001 — the 324 double-apply shape; the
-    accepted status set is `open`, plus `suggested` only if the live 345-U3 resolve RPC
-    accepts it — gate-check at build time), then resolve it (`status='resolved'`,
-    `resolved_by/at`, `resolution = p_reason`).
+    re-assert `status='open'` (else P0001 — the 324 double-apply shape; `open` ONLY:
+    the live `resolve_money_flag` accepts only `open` and reviewer flags are born
+    `open`; `suggested` is system-reserved — fact-checked 2026-07-23, do NOT widen),
+    then resolve it (`status='resolved'`, `resolved_by/at`, `resolution = p_reason`).
 13. Audit: `action='other'`, `payload->>'event'='purchase_price_corrected'` +
     `receipt_id, purchase_request_id, corrected_amount, corrected_vat_rate, delta_net,
 delta_vat, delta_gross, reason, flag_id` (lane-344/345 convention — no
