@@ -42,31 +42,37 @@ export interface ReviewVoucherData {
   } | null;
   flags: ReviewVoucherFlag[];
   docs: ReviewVoucherDoc[];
-  journal: { id: string; entryNo: number; entryDate: string } | null;
+  journal: { id: string; entryNo: number; entryDate: string; count: number } | null;
 }
 
 // The three sources that carry documents today (spec 345 §1.1); U6 adds wage +
 // client-receipt attachments and extends this map.
 const DOC_SOURCES: Partial<
-  Record<MoneySourceTable, { bucket: string; table: string; fk: string; label: string }>
+  Record<
+    MoneySourceTable,
+    { bucket: string; table: string; fk: string; label: string; hasSupersede: boolean }
+  >
 > = {
   purchase_requests: {
     bucket: "pr-attachments",
     table: "purchase_request_attachments",
     fk: "purchase_request_id",
     label: "เอกสารใบขอซื้อ",
+    hasSupersede: true,
   },
   office_expenses: {
     bucket: "expense-attachments",
     table: "office_expense_attachments",
     fk: "office_expense_id",
     label: "ใบเสร็จ",
+    hasSupersede: false,
   },
   rental_settlements: {
     bucket: "rental-settlement-receipts",
     table: "rental_settlement_attachments",
     fk: "settlement_id",
     label: "เอกสารปิดยอด",
+    hasSupersede: false,
   },
 };
 
@@ -149,12 +155,31 @@ export async function loadReviewVoucher(
   let docs: ReviewVoucherDoc[] = [];
   const docSource = DOC_SOURCES[sourceTable];
   if (docSource) {
-    const { data: docRows } = await admin
-      .from(docSource.table as "office_expense_attachments")
-      .select("id, storage_path")
-      .eq(docSource.fk as "office_expense_id", sourceId);
-    const paths = (docRows ?? []).filter(
-      (d): d is { id: string; storage_path: string } => d.storage_path !== null,
+    // PR attachments use the supersede pattern (ADR 0009): a NEWER row's
+    // superseded_by points at the row it replaced — exclude replaced originals
+    // (the queue RPC anti-joins the same way; without this, a removed doc
+    // resurfaces here with a fresh signed URL — fresh-eyes catch, live-proven).
+    // Only purchase_request_attachments carries the column (selecting it on the
+    // other two would 400), and the select strings must stay static literals
+    // for the client's template-literal typing.
+    let rows: Array<{ id: string; storage_path: string | null; superseded_by?: string | null }>;
+    if (docSource.hasSupersede) {
+      const { data: docRows } = await admin
+        .from("purchase_request_attachments")
+        .select("id, storage_path, superseded_by")
+        .eq("purchase_request_id", sourceId);
+      rows = docRows ?? [];
+    } else {
+      const { data: docRows } = await admin
+        .from(docSource.table as "office_expense_attachments")
+        .select("id, storage_path")
+        .eq(docSource.fk as "office_expense_id", sourceId);
+      rows = docRows ?? [];
+    }
+    const supersededIds = new Set(rows.map((d) => d.superseded_by).filter(Boolean));
+    const paths = rows.filter(
+      (d): d is { id: string; storage_path: string } =>
+        d.storage_path !== null && !supersededIds.has(d.id),
     );
     const urls = await mintSignedUrls(docSource.bucket, paths);
     docs = paths
@@ -165,15 +190,25 @@ export async function loadReviewVoucher(
       .filter((d) => d.url !== "");
   }
 
-  const { data: je } = await admin
+  // A corrected event carries multiple entries (reversal + repost) — order by
+  // the monotonic entry_no (entry_date ties are nondeterministic) and surface
+  // the count so the contra never masquerades as "the" entry.
+  const { data: jes } = await admin
     .from("journal_entries")
     .select("id, entry_no, entry_date")
     .eq("source_table", sourceTable)
     .eq("source_id", sourceId)
-    .order("entry_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const journal = je ? { id: je.id, entryNo: Number(je.entry_no), entryDate: je.entry_date } : null;
+    .order("entry_no", { ascending: false })
+    .limit(20);
+  const latest = jes?.[0];
+  const journal = latest
+    ? {
+        id: latest.id,
+        entryNo: Number(latest.entry_no),
+        entryDate: latest.entry_date,
+        count: jes?.length ?? 1,
+      }
+    : null;
 
   return { event, review, flags, docs, journal };
 }

@@ -31,7 +31,11 @@ as $$
    where r.id = p_review_id;
 $$;
 
-revoke all on function public.money_review_recompute(uuid) from public, anon;
+-- Internal helper: only the DEFINER siblings call it (owner context ignores
+-- ACLs), so strip the default-privilege authenticated grant too — an unguarded
+-- DEFINER writer on a sealed money table must not be POSTable by every login
+-- (the 336 default-privilege trap, caught by fresh-eyes here).
+revoke all on function public.money_review_recompute(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 2. verify_money_event — creates the review on first admin action; refuses
@@ -51,6 +55,7 @@ as $$
 declare
   v_role text := coalesce((select public.current_user_role())::text, '');
   v_review public.money_event_reviews;
+  v_dismissed jsonb;
 begin
   if v_role not in ('accounting', 'super_admin') then
     raise exception 'verify_money_event: role not permitted' using errcode = '42501';
@@ -74,25 +79,33 @@ begin
     raise exception 'verify_money_event: resolve open flags first' using errcode = 'P0001';
   end if;
 
-  update public.money_review_flags
-     set status = 'dismissed',
-         resolved_by = auth.uid(),
-         resolved_at = now(),
-         resolution = 'ยกเลิกอัตโนมัติเมื่อตรวจผ่าน'
-   where review_id = v_review.id and status = 'suggested';
+  with dismissed as (
+    update public.money_review_flags
+       set status = 'dismissed',
+           resolved_by = auth.uid(),
+           resolved_at = now(),
+           resolution = 'ยกเลิกอัตโนมัติเมื่อตรวจผ่าน'
+     where review_id = v_review.id and status = 'suggested'
+    returning id
+  )
+  select coalesce(jsonb_agg(id), '[]'::jsonb) into v_dismissed from dismissed;
 
+  -- note = p_note, NOT coalesce: each verify's note describes THIS verification
+  -- (a stale-flip re-verify must not display the old note against a new
+  -- verified_at). Prior notes live in the earlier audit payloads.
   update public.money_event_reviews
      set status = 'verified',
          verified_by = auth.uid(),
          verified_at = now(),
          verified_via = 'reviewer',
-         note = coalesce(p_note, note)
+         note = p_note
    where id = v_review.id;
 
   insert into public.audit_log (actor_id, actor_role, action, target_table, target_id, payload)
   values (auth.uid(), public.current_user_role(), 'other', p_source_table, p_source_id,
     jsonb_build_object('event', 'money_review_verified',
-                       'review_id', v_review.id, 'note', p_note));
+                       'review_id', v_review.id, 'note', p_note,
+                       'dismissed_suggested_flag_ids', v_dismissed));
 end;
 $$;
 
@@ -275,7 +288,7 @@ grant execute on function public.dismiss_money_flag(uuid, text) to authenticated
 --    5-arg signature is dropped (its only caller, /accounting/review, moves to
 --    named args that omit the new params).
 -- ---------------------------------------------------------------------------
-drop function public.list_money_events_for_review(text, uuid, date, int, int);
+drop function if exists public.list_money_events_for_review(text, uuid, date, int, int);
 
 create function public.list_money_events_for_review(
   p_tab text,

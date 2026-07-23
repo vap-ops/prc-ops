@@ -10,7 +10,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
-import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
+import { ACCOUNTING_ROLES, MONEY_REVIEW_ROLES } from "@/lib/auth/role-home";
 import { MONEY_REVIEW_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
@@ -126,22 +126,31 @@ export default async function ReviewVoucherPage({ params }: VoucherPageProps) {
         <h2 className={SECTION_HEADING}>การลงบัญชี</h2>
         <p className="text-muted-foreground mb-4 text-sm">
           {journal
-            ? `ลงบัญชีแล้ว — JE #${journal.entryNo} (${formatThaiDate(journal.entryDate)})`
+            ? `ลงบัญชีแล้ว — JE #${journal.entryNo} (${formatThaiDate(journal.entryDate)})${
+                journal.count > 1 ? ` · ล่าสุดจากทั้งหมด ${journal.count} รายการ` : ""
+              }`
             : "ยังไม่มีรายการลงบัญชีสำหรับเหตุการณ์นี้"}
         </p>
 
         <h2 className={SECTION_HEADING}>การตรวจ</h2>
-        <ReviewVoucherActions
-          source={event.sourceTable}
-          sourceId={event.sourceId}
-          reviewStatus={status}
-          openFlags={openFlags}
-          suggestedFlags={suggestedFlags}
-          verify={verifyMoneyEventAction}
-          flag={flagMoneyEventAction}
-          resolve={resolveMoneyFlagAction}
-          dismiss={dismissMoneyFlagAction}
-        />
+        {(MONEY_REVIEW_ROLES as readonly string[]).includes(ctx.role) ? (
+          <ReviewVoucherActions
+            source={event.sourceTable}
+            sourceId={event.sourceId}
+            reviewStatus={status}
+            openFlags={openFlags}
+            suggestedFlags={suggestedFlags}
+            verify={verifyMoneyEventAction}
+            flag={flagMoneyEventAction}
+            resolve={resolveMoneyFlagAction}
+            dismiss={dismissMoneyFlagAction}
+          />
+        ) : (
+          // ACCOUNTING_ROLES may read the voucher; the write authority is the
+          // deliberately-separate MONEY_REVIEW_ROLES (role-home) — if the sets
+          // ever diverge, a read-only accountant sees the state, not dead buttons.
+          <p className="text-muted-foreground text-sm">ดูอย่างเดียว — ไม่มีสิทธิ์ตรวจ/ติดธง</p>
+        )}
 
         {closedFlags.length > 0 ? (
           <>

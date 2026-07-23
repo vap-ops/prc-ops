@@ -1,5 +1,5 @@
 begin;
-select plan(39);
+select plan(41);
 
 -- ============================================================================
 -- Spec 345 U3 — the review action RPCs: verify_money_event / flag_money_event /
@@ -65,6 +65,10 @@ select is((select count(*) from pg_proc p join pg_namespace n on n.oid = p.prona
              and p.proname in ('verify_money_event', 'flag_money_event',
                                'resolve_money_flag', 'dismiss_money_flag')),
   4::bigint, 'all four action RPCs are SECURITY DEFINER');
+select is(
+  has_function_privilege('authenticated', 'public.money_review_recompute(uuid)', 'execute'),
+  false,
+  'the recompute helper is NOT executable by authenticated (unguarded DEFINER writer — 336 trap)');
 
 grant insert on _tap_buf to authenticated, anon;
 grant select on _tap_buf to authenticated, anon;
@@ -149,6 +153,10 @@ select is((select count(*) from public.money_review_flags f
              and r.source_id = 'e0000000-0000-4000-8000-000000000446'
              and f.status = 'dismissed' and f.resolved_by is not null),
   1::bigint, 'the dismissal carries resolved_by (attribution, never silent)');
+select is((select note from public.money_event_reviews
+           where source_table = 'wp_labor_costs'
+             and source_id = 'e0000000-0000-4000-8000-000000000446'),
+  null, 'a re-verify without a note CLEARS the old note (each verify owns its note)');
 
 -- ============================================================================
 -- C. Flag — open reviewer flag, reserved type, blank-other refusal, verify
