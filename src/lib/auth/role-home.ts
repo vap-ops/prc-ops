@@ -186,10 +186,29 @@ export const RECEIVE_ROLES: ReadonlyArray<UserRole> = [
  * the page branches on, so the read-only treatment lives in one place.
  */
 export function isReadOnlyWpViewer(role: UserRole): boolean {
-  // Spec 261 / ADR 0070: procurement_manager is a superset of procurement, so it
-  // reaches the WP detail as the same read-only viewer (PR-raise only).
-  return role === "procurement" || role === "procurement_manager";
+  // Spec 348 U4 / ADR 0084: procurement_manager is NO LONGER the read-only viewer
+  // — she has full SA capture parity on the WP detail (U1 reads, U3 writes back
+  // it at the DB). Only PLAIN `procurement` stays the read-only, PR-raise-only
+  // viewer (spec 171/261). The WP detail page + the defect-door list branch on
+  // this, so the flip renders every SA affordance for her.
+  return role === "procurement";
 }
+
+/**
+ * Spec 348 U4: who may SUBMIT / RESUBMIT a work package for approval at the
+ * server-action layer (submitWorkPackageForApproval / resubmitWorkPackageEvidence).
+ * MIRRORS the submit_work_package_for_approval / resubmit_work_package_evidence
+ * RPC gates, which spec 348 U3 widened to SITE_STAFF + procurement_manager. The TS
+ * action gate MUST stay in lockstep with the RPC — a narrower TS gate would open
+ * the affordance-then-refuse the U4 viewer flip otherwise creates (she sees the
+ * submit button, so it must work). Deliberately NOT `SITE_STAFF_ROLES` itself
+ * (that gates the uploader-notification tier + the team-add picker, which must
+ * NOT gain procurement_manager). Pinned by role-sets.test.ts.
+ */
+export const WP_SUBMIT_ROLES: ReadonlyArray<UserRole> = [
+  ...SITE_STAFF_ROLES,
+  "procurement_manager",
+];
 
 /**
  * Spec 280 (ADR 0070 parity): who sees the PROCUREMENT worklist view on /requests

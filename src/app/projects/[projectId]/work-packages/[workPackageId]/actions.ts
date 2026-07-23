@@ -32,7 +32,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN, requireActionRole } from "@/lib/auth/action-gate";
-import { isManagerRole, PM_ROLES, SITE_STAFF_ROLES } from "@/lib/auth/role-home";
+import { isManagerRole, PM_ROLES, WP_SUBMIT_ROLES } from "@/lib/auth/role-home";
 import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
@@ -249,7 +249,7 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
 // UPDATE grant on work_packages.status (revoked at ERD-audit M2), and the old
 // admin-client escalation made every transition ANONYMOUS: the service-role
 // session has no JWT `sub`, so wp_transition_audit stored actor_id NULL for
-// 100% of rows (F1). The RPC re-checks role (SITE_STAFF_ROLES), membership
+// 100% of rows (F1). The RPC re-checks role (WP_SUBMIT_ROLES), membership
 // (can_see_wp) and the allowed-from status set; the PHOTO gate below stays here
 // because it needs the RLS-scoped current-photos anti-join read.
 export interface SubmitForApprovalInput {
@@ -264,9 +264,10 @@ export async function submitWorkPackageForApproval(
 ): Promise<SubmitForApprovalResult> {
   if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
 
-  // Site staff only — the field-capture population that drove the old auto-flip.
-  // Procurement is a read-only WP viewer (isReadOnlyWpViewer) and must not submit.
-  const gate = await requireActionRole(SITE_STAFF_ROLES);
+  // Site staff PLUS procurement_manager (spec 348 U4 — SA capture parity), the
+  // exact mirror of the submit RPC's gate (U3). Plain `procurement` stays the
+  // read-only WP viewer (isReadOnlyWpViewer) and must not submit.
+  const gate = await requireActionRole(WP_SUBMIT_ROLES);
   if ("error" in gate) return { ok: false, error: gate.error };
   const { supabase } = gate.auth;
 
@@ -335,8 +336,8 @@ export async function resubmitWorkPackageEvidence(
 ): Promise<ResubmitEvidenceResult> {
   if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
 
-  // Same audience as the submit it repeats.
-  const gate = await requireActionRole(SITE_STAFF_ROLES);
+  // Same audience as the submit it repeats (WP_SUBMIT_ROLES, spec 348 U4).
+  const gate = await requireActionRole(WP_SUBMIT_ROLES);
   if ("error" in gate) return { ok: false, error: gate.error };
   const { supabase } = gate.auth;
 

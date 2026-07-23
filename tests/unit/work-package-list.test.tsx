@@ -208,6 +208,22 @@ describe("WorkPackageList defect door (spec 337 U5)", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the door to procurement_manager (spec 348 U4 — SA capture parity)", () => {
+    render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="procurement_manager"
+        workPackages={DEFECT_FIXTURE}
+        deliverables={[]}
+      />,
+    );
+    openDoneBand();
+    // procurement_manager is no longer the read-only viewer (U4) — she files
+    // defects like an SA, so the door renders.
+    expect(screen.getByText("งานฉาบผนัง")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: new RegExp(REPORT_DEFECT_LABEL) })).toBeInTheDocument();
+  });
+
   it("hides the door when rows are not openable at all (canOpen=false)", () => {
     render(
       <WorkPackageList

@@ -18,6 +18,7 @@ import {
   SA_REGISTRATION_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
+  WP_SUBMIT_ROLES,
   STAFF_APPROVAL_ROLES,
   STAFF_ONBOARDABLE_ROLES,
   SUPPLY_PLAN_ROLES,
@@ -169,6 +170,10 @@ describe("isManagerRole", () => {
     for (const role of [
       "site_admin",
       "procurement",
+      // Spec 348: procurement_manager is a site_admin superset (capture), NOT a
+      // manager — so manager-tier oversight affordances (e.g. the WP-detail labor
+      // flags / complete-WP correction) stay off for her, matching site_admin.
+      "procurement_manager",
       "project_coordinator",
       "accounting",
       "visitor",
@@ -437,14 +442,30 @@ describe("PO_DETAIL_VIEW_ROLES (spec 211 U9b)", () => {
   });
 });
 
-describe("isReadOnlyWpViewer (spec 171 / spec 261)", () => {
-  it("is true for procurement and procurement_manager (its superset)", () => {
+describe("isReadOnlyWpViewer (spec 171 / spec 261 / spec 348 U4)", () => {
+  // Spec 348 U4 / ADR 0084: procurement_manager is NO LONGER the read-only WP
+  // viewer — she gets the full SA capture affordances on the WP detail (U3 backs
+  // the writes at the DB). Plain `procurement` stays the read-only viewer.
+  it("is true for plain procurement only", () => {
     expect(isReadOnlyWpViewer("procurement")).toBe(true);
-    expect(isReadOnlyWpViewer("procurement_manager")).toBe(true);
+    expect(isReadOnlyWpViewer("procurement_manager")).toBe(false);
   });
 
-  it("is false for full-capability site staff", () => {
+  it("is false for full-capability site staff (and procurement_manager, spec 348)", () => {
     for (const role of SITE_STAFF_ROLES) expect(isReadOnlyWpViewer(role)).toBe(false);
+    expect(isReadOnlyWpViewer("procurement_manager")).toBe(false);
+  });
+});
+
+describe("WP_SUBMIT_ROLES (spec 348 U4)", () => {
+  // The WP submit / resubmit server actions gate on this — it MIRRORS the
+  // submit_work_package_for_approval / resubmit_work_package_evidence RPC gates
+  // (U3 widened those to SITE_STAFF + procurement_manager). Keeping the TS
+  // action gate in lockstep avoids the affordance-then-refuse the U4 viewer flip
+  // would otherwise open (she sees the submit button; it must also work).
+  it("is SITE_STAFF_ROLES plus procurement_manager", () => {
+    expect([...WP_SUBMIT_ROLES]).toEqual([...SITE_STAFF_ROLES, "procurement_manager"]);
+    expect(WP_SUBMIT_ROLES).not.toContain("procurement");
   });
 });
 
