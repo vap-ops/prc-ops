@@ -88,6 +88,45 @@ export const SITE_STAFF_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 348 U2 / ADR 0084 — who may REACH the site-admin READ surfaces (the /sa
+ * worklist home, /sa/plan, /sa/help, the /projects/:id/muster cockpit, and the
+ * /team badges/poster/roster pages). = the surfaces' existing inline
+ * `["site_admin", "super_admin"]` gate PLUS `procurement_manager`, who trains and
+ * supports the site admins and (spec 348) is a full see-all peer of
+ * project_director. The DB reads behind these pages are already open to her (U1);
+ * this set is the page-gate counterpart so she can navigate in and demonstrate.
+ *
+ * Deliberately NOT `SITE_STAFF_ROLES`: that set gates WRITE capability, project
+ * membership, and notification fan-out (store issue, WP submit actions, the
+ * uploader notification tier, the primary-site-admin picker) — widening it would
+ * leak procurement_manager into all of those. This is READ-reach only; the write
+ * affordances on these pages stay gated on their own RPC/action sets until U3.
+ * Plain `procurement` is excluded (SA parity is procurement_manager's, not the
+ * whole procurement audience). Pinned by role-sets.test.ts.
+ */
+export const SA_SURFACE_ROLES: ReadonlyArray<UserRole> = [
+  "site_admin",
+  "super_admin",
+  "procurement_manager",
+];
+
+/**
+ * Spec 348 U2 — the SA applicant-registration read view (`/sa/registrations` +
+ * its detail). That surface is site_admin-only by design (spec 295: an SA sees
+ * pending applicants scoped to a project it can see; super_admin uses the
+ * back-office registrations queue, not this SA-scoped view). SA parity adds
+ * `procurement_manager` — via can_see_staff_registration's back-office arm she
+ * already sees every registration, so this is the page-gate counterpart. Kept a
+ * DISTINCT set from SA_SURFACE_ROLES precisely because super_admin is NOT added
+ * here — this widens for procurement_manager only, nothing else. Pinned by
+ * role-sets.test.ts.
+ */
+export const SA_REGISTRATION_VIEW_ROLES: ReadonlyArray<UserRole> = [
+  "site_admin",
+  "procurement_manager",
+];
+
+/**
  * Spec 330: the team-map staff ADD picker — every role whose project
  * visibility runs on a `project_members` row (the live `can_see_project`
  * membership arm covers project_manager, site_admin, site_owner, auditor)

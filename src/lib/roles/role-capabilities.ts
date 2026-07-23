@@ -39,6 +39,8 @@ import {
   PURCHASE_REPORT_ROLES,
   PURCHASING_ROLES,
   RECEIVE_ROLES,
+  SA_SURFACE_ROLES,
+  SA_REGISTRATION_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
   STAFF_APPROVAL_ROLES,
@@ -164,6 +166,21 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     setName: "WP_DETAIL_ROLES",
     roles: WP_DETAIL_ROLES,
     labelTh: "เปิดดูรายละเอียดชุดงาน (WP)",
+    domain: "site",
+  },
+  // Spec 348 U2 / ADR 0084 — procurement_manager's SA read-surface reach.
+  {
+    key: "sa-surface",
+    setName: "SA_SURFACE_ROLES",
+    roles: SA_SURFACE_ROLES,
+    labelTh: "เข้าถึงหน้าจอไซต์แอดมิน (งานวันนี้/เช็คชื่อ/บัตรช่าง)",
+    domain: "site",
+  },
+  {
+    key: "sa-registration-view",
+    setName: "SA_REGISTRATION_VIEW_ROLES",
+    roles: SA_REGISTRATION_VIEW_ROLES,
+    labelTh: "ดูผู้สมัครของไซต์ (หน้าไซต์แอดมิน)",
     domain: "site",
   },
   {

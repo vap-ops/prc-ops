@@ -7,6 +7,7 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { requireRole } from "@/lib/auth/require-role";
+import { SA_SURFACE_ROLES } from "@/lib/auth/role-home";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { HELP_CARDS } from "@/lib/sa/help-content";
 import { HelpCard } from "@/components/features/sa/help/help-card";
@@ -14,7 +15,7 @@ import { HelpCard } from "@/components/features/sa/help/help-card";
 export const metadata = { title: "คู่มือการใช้งาน" };
 
 export default async function SaHelpPage() {
-  await requireRole(["site_admin", "super_admin"]);
+  await requireRole(SA_SURFACE_ROLES);
 
   return (
     <PageShell>

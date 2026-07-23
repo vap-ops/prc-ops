@@ -153,26 +153,36 @@ role — is updated to `lives_ok` in the same PR.
   consequence (pm lives_ok, procurement + site_admin still 42501); audit_log
   reader pin.
 
-### U2 — TS read surfaces (code)
+### U2 — TS read surfaces (code) — BUILT 2026-07-23
 
-- `SITE_STAFF_ROLES` += `procurement_manager`, with a **consumer-by-consumer
-  audit table** in the build plan: derived sets (`PROJECT_TEAM_STAFF_ROLES`,
-  `WP_DETAIL_ROLES`, `RECEIVE_ROLES`, `SCHEDULE_VIEW_ROLES`,
-  `DASHBOARD_VIEW_ROLES`) and every direct consumer (grep at HEAD). Sets that
-  spread SITE_STAFF_ROLES and ALSO append a `procurement_manager` literal
-  (WP_DETAIL / RECEIVE / SCHEDULE_VIEW) end up holding it twice — remove the
-  now-redundant literal + its spec-261 comment so exact-array pins stay honest.
-- Page gates with inline literals (`/sa`, `/team`\*, muster page, project store
-  page, dashboard, sa/registrations, …) — sweep the full `site_admin` grep (88
-  files at 2026-07-23 HEAD) and admit procurement_manager wherever the gate is
-  SA-tier.
-- Sets/gates that must NOT change: `CLIENT_ISSUER_ROLES`, `ACCOUNTING_ROLES`,
-  `OFFICE_EXPENSE_FINANCE_ROLES`, `MONEY_VIEW_ROLES`, `PM_ROLES`,
-  `STAFF_APPROVAL_ROLES` (already has her), team-add picker audience (see §6).
-- Guard pins trip on purpose: `role-sets.test.ts`, nav-back-affordance buckets,
-  `sa-help-honesty`, site-map — update deliberately, never by weakening.
-- Prose gate-check: any help card / label describing who can do what on touched
-  surfaces re-justified against the NEW behavior (doctrine §3).
+The original plan (`SITE_STAFF_ROLES += procurement_manager`) was REJECTED at
+build: SITE_STAFF_ROLES is consumed by WRITE gates (store issue `canIssue`, WP
+submit `requireActionRole`), the uploader NOTIFICATION tier
+(`notification-catalog`), and the team-add picker (`PROJECT_TEAM_STAFF_ROLES`
+spreads it — spec §6 says she must NOT appear there). Widening it would leak her
+into all of those. `/team` itself already admits her (its gate is an explicit
+`new Set([...SITE_STAFF_ROLES, procurement, procurement_manager])`).
+
+Built instead — two NEW intent-named sets in `role-home.ts`, leaving
+SITE_STAFF_ROLES untouched:
+
+- **`SA_SURFACE_ROLES`** = `[site_admin, super_admin, procurement_manager]` — the
+  SA READ-hub reach set. Applied to the 7 pages gated on the inline
+  `["site_admin", "super_admin"]`: `/sa`, `/sa/plan`, `/sa/help`,
+  `/projects/:id/muster`, `/team/badges`, `/team/poster`, `/team/roster`.
+- **`SA_REGISTRATION_VIEW_ROLES`** = `[site_admin, procurement_manager]` — the
+  SA-scoped applicant view `/sa/registrations` + `[id]`, which were
+  site_admin-only (spec 295; super_admin uses the back-office queue, so it is
+  deliberately NOT added — parity widens for procurement_manager only).
+
+- **Safety pin (role-sets.test.ts):** both sets pinned by exact membership +
+  `SITE_STAFF_ROLES` / `PROJECT_TEAM_STAFF_ROLES` asserted to NOT contain
+  procurement_manager (the whole reason the new sets exist), mutation-checked.
+- Intermediate state (until U3): she REACHES these pages and sees real data
+  (U1), but write affordances on them still error (their RPC/action gates are
+  U3). Acceptable for training-by-demonstration; documented in the PR.
+- NOT changed: `CLIENT_ISSUER_ROLES`, `ACCOUNTING_ROLES`, money sets, `PM_ROLES`,
+  the team-add picker audience. `STAFF_APPROVAL_ROLES` already has her.
 
 ### U3 — DB write parity (migration, the big one)
 

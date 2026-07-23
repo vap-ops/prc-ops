@@ -9,6 +9,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
+import { SA_REGISTRATION_VIEW_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
@@ -31,7 +32,7 @@ export default async function SaTechnicianRegistrationDetailPage({
   const { id } = await params;
   if (!isValidUuid(id)) notFound();
 
-  const ctx = await requireRole(["site_admin"]);
+  const ctx = await requireRole(SA_REGISTRATION_VIEW_ROLES);
   const supabase = await createClient();
 
   const registration = await getTechnicianRegistrationById(supabase, id);

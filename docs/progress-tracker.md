@@ -6,6 +6,23 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 348 U2 — procurement_manager reaches the SA read surfaces — 🔨 built (2026-07-23)
+
+Code-only. Two new intent-named sets in `role-home.ts` — `SA_SURFACE_ROLES`
+(site_admin+super_admin+procurement_manager) for the 7 SA read hubs (/sa,
+/sa/plan, /sa/help, muster cockpit, /team badges|poster|roster) and
+`SA_REGISTRATION_VIEW_ROLES` (site_admin+procurement_manager) for
+/sa/registrations + [id]. Rewired all 9 `requireRole([...])` gates onto them.
+
+`SITE_STAFF_ROLES` deliberately NOT widened (it gates writes / notification tier
+/ team-add picker — leak). Pinned in role-sets.test.ts (both new sets +
+SITE_STAFF/PROJECT_TEAM_STAFF do-not-contain-procurement_manager), mutation-
+checked. Real-flow: super_admin→assume procurement_manager reaches the pages
+(requireRole uses the effective role).
+
+**Open questions:** write affordances on these pages error until U3 (intended
+intermediate state). U4/U5 still owed.
+
 ## Spec 348 U1 — procurement_manager see-all read parity — 🔨 built (2026-07-23)
 
 Migration `20260813075842`. Added `procurement_manager` to the SEE-ALL arm of

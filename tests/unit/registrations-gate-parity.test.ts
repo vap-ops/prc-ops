@@ -31,13 +31,25 @@ describe("staff-registration approval gate parity (spec 263 U3 / spec 264 G4)", 
     expect(actions).toContain("requireActionRole(STAFF_APPROVAL_ROLES)");
   });
 
-  it("the SA read view gates on site_admin only (read-only, never the approver set)", () => {
+  // Spec 348 U2 / ADR 0084: the SA read view gains procurement_manager (SA parity)
+  // via SA_REGISTRATION_VIEW_ROLES = [site_admin, procurement_manager]. The
+  // load-bearing invariant this test protects is UNCHANGED: the SA view stays
+  // READ-ONLY (never renders the decision control), so no affordance-then-refuse
+  // even though procurement_manager is an approver elsewhere. It is also NOT the
+  // full approver surface — super_admin/PD are absent here (they use /registrations),
+  // pinned by role-sets.test.ts.
+  it("the SA read view gates on SA_REGISTRATION_VIEW_ROLES, read-only (never the decision control)", () => {
     const saQueue = read("sa", "registrations", "page.tsx");
     const saDetail = read("sa", "registrations", "[id]", "page.tsx");
-    expect(saQueue).toContain('requireRole(["site_admin"])');
-    expect(saDetail).toContain('requireRole(["site_admin"])');
-    // The SA pages must never import the decision control (read-only surface).
+    expect(saQueue).toContain("requireRole(SA_REGISTRATION_VIEW_ROLES)");
+    expect(saDetail).toContain("requireRole(SA_REGISTRATION_VIEW_ROLES)");
+    // Load-bearing: the SA pages must never import the decision control — the
+    // surface is read-only, so admitting an approver (procurement_manager) grants
+    // no approve affordance here.
     expect(saQueue).not.toContain("RegistrationDecision");
     expect(saDetail).not.toContain("RegistrationDecision");
+    // And it must NOT be silently widened to the full approver set.
+    expect(saQueue).not.toContain("STAFF_APPROVAL_ROLES");
+    expect(saDetail).not.toContain("STAFF_APPROVAL_ROLES");
   });
 });

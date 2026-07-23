@@ -16,6 +16,7 @@ import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
+import { SA_SURFACE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
 import { loadNotificationReadiness } from "@/lib/notifications/readiness";
@@ -45,7 +46,7 @@ import type { ReworkSource } from "@/lib/db/enums";
 export const metadata = { title: "หน้าหลัก" };
 
 export default async function SaHomePage() {
-  const ctx = await requireRole(["site_admin", "super_admin"]);
+  const ctx = await requireRole(SA_SURFACE_ROLES);
   const supabase = await createClient();
   const today = bangkokTodayIso();
 
