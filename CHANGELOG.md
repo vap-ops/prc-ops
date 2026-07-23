@@ -1,3 +1,9 @@
+# [0.190.0](https://github.com/vap-ops/prc-ops/compare/v0.189.0...v0.190.0) (2026-07-23)
+
+### Features
+
+- **auth:** spec 348 U2 — procurement_manager reaches the SA read surfaces ([#715](https://github.com/vap-ops/prc-ops/issues/715)) ([f9a3ac4](https://github.com/vap-ops/prc-ops/commit/f9a3ac4c037aefce9f98e082606f7165675e0c5e))
+
 # [0.189.0](https://github.com/vap-ops/prc-ops/compare/v0.188.0...v0.189.0) (2026-07-23)
 
 ### Features
