@@ -689,7 +689,13 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           projectWorkerIds={labor.projectWorkerIds}
           // Spec 171: procurement reads labour history only — no flags, no capture
           // (locked drops the capture form and the per-row edit button).
-          showFlags={!readOnly && ctx.role !== "site_admin"}
+          // The flags (self-log badge + per-row correction, incl. on a complete WP)
+          // are a MANAGER-tier oversight affordance: PM/PD/super get them, site_admin
+          // does NOT. Gate on isManagerRole directly — the old `!readOnly &&
+          // !site_admin` proxy quietly granted them to procurement_manager once
+          // spec 348 U4 cleared her readOnly, exceeding the SA-parity ceiling (she
+          // captures like an SA, who has no flags). isManagerRole keeps her out.
+          showFlags={isManagerRole(ctx.role)}
           locked={readOnly || wp.status === "complete"}
         />
       ),

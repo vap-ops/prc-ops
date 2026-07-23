@@ -43,16 +43,21 @@ describe("WP detail page — defect deep-link wiring", () => {
 describe("defect door audience", () => {
   // The list renders a door when `canReportDefect` AND the row is openable.
   // canOpen is WP_DETAIL_ROLES membership (project page), canReportDefect is
-  // "not the read-only WP viewer" — the intersection must be exactly the site
-  // staff, i.e. the roles the reopen RPC accepts.
+  // "not the read-only WP viewer" — the intersection is the reopen-RPC internal
+  // roles that are ALSO WP_DETAIL_ROLES: site staff PLUS procurement_manager
+  // (spec 348 U3+U4 — she gained SA capture parity). (The RPC also accepts
+  // auditor, but auditor is not in WP_DETAIL_ROLES so never sees the door.) Plain
+  // procurement stays the read-only viewer and out of the door audience.
   const effectiveAudience = WP_DETAIL_ROLES.filter((r) => !isReadOnlyWpViewer(r));
 
-  it("resolves to exactly SITE_STAFF_ROLES", () => {
-    expect([...effectiveAudience].sort()).toEqual([...SITE_STAFF_ROLES].sort());
+  it("resolves to SITE_STAFF_ROLES plus procurement_manager", () => {
+    expect([...effectiveAudience].sort()).toEqual(
+      [...SITE_STAFF_ROLES, "procurement_manager"].sort(),
+    );
   });
 
-  it("admits neither procurement tier", () => {
+  it("admits procurement_manager (spec 348) but not plain procurement", () => {
+    expect(effectiveAudience).toContain("procurement_manager");
     expect(effectiveAudience).not.toContain("procurement");
-    expect(effectiveAudience).not.toContain("procurement_manager");
   });
 });

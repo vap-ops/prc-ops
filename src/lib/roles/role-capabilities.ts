@@ -43,6 +43,7 @@ import {
   SA_REGISTRATION_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
   SITE_STAFF_ROLES,
+  WP_SUBMIT_ROLES,
   STAFF_APPROVAL_ROLES,
   STAFF_ONBOARDABLE_ROLES,
   SUPPLY_PLAN_ROLES,
@@ -181,6 +182,14 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     setName: "SA_REGISTRATION_VIEW_ROLES",
     roles: SA_REGISTRATION_VIEW_ROLES,
     labelTh: "ดูผู้สมัครของไซต์ (หน้าไซต์แอดมิน)",
+    domain: "site",
+  },
+  // Spec 348 U4 — who may submit/resubmit a WP for approval (mirrors the RPC gate).
+  {
+    key: "wp-submit",
+    setName: "WP_SUBMIT_ROLES",
+    roles: WP_SUBMIT_ROLES,
+    labelTh: "ส่งชุดงานให้ตรวจ / ส่งตรวจอีกครั้ง",
     domain: "site",
   },
   {
