@@ -9276,3 +9276,24 @@ id="cold-restart">` in the /settings เกี่ยวกับ card, under the
   drive. RTL covers the component, the workspace wiring, and the tap→form
   interaction; that is the substitute.
 - **▶ Remaining:** U3 poster + LINE "เตรียมบัตรประชาชนก่อนสแกน" line.
+
+## 2026-07-23 — spec 343 U3: เตรียมบัตรประชาชนก่อนสแกน (COMPLETE, PR pending) — SPEC 343 DONE
+
+- **Why:** the poster and the LINE forward reach a firm member BEFORE they scan,
+  and both said nothing about bringing an ID card (poster read only
+  สแกนด้วยมือถือของท่านเพื่อสมัครเข้าทีม). U1 fixed the stuck pending state, U2 the
+  on-page prep; U3 sets the expectation earliest of all.
+- **What:** one SSOT label REGISTER_PREP_POSTER_LINE on two surfaces — printed on
+  /team/poster under the scan line, and led into the LINE share ?text= (line then
+  URL). NO schema.
+- **Build:** 1 commit, RED-first. Suite 673/4858 green; lint + typecheck clean.
+  LINE-share text pinned + mutation-checked (revert to bare URL → red). ⚠️ the
+  poster render is NOT independently unit-tested (requireRole server component,
+  no harness) — it reuses the pinned SSOT constant, so a wrong line reds the sheet
+  test; disclosed in the PR, not faked.
+- **⭐ lesson:** the first mutation-check via `perl` stayed GREEN — not because the
+  test was vacuous but because the perl pattern never matched, so no mutation was
+  applied. A green mutation-check is a finding either way: re-ran via the Edit
+  tool, saw the real RED. Prefer Edit over perl for mutations on template
+  literals.
+- **Spec 343 COMPLETE:** U1 #698 (live 0.180.0) · U2 #704 · U3 #705.
