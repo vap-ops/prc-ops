@@ -3,6 +3,7 @@
 // workspace renders a gate screen when they are absent/invalid. The role in
 // the URL never binds — the approver confirms at approval (D5).
 
+import { RegisterFreshnessGate } from "@/components/features/chrome/register-freshness-gate";
 import { StaffRegisterWorkspace } from "@/components/features/register/staff-register-workspace";
 import { REGISTER_OFFICE_HEADING } from "@/lib/i18n/labels";
 
@@ -14,5 +15,12 @@ export default async function RegisterOfficePage({
   searchParams: Promise<{ by?: string; role?: string }>;
 }) {
   const { by, role } = await searchParams;
-  return <StaffRegisterWorkspace variant="office" by={by} role={role} />;
+  return (
+    <>
+      {/* Spec 339 U2 — see register/technician/page.tsx. Office workspace also
+          redirects approved users (and gates un-invited ones) before render. */}
+      <RegisterFreshnessGate />
+      <StaffRegisterWorkspace variant="office" by={by} role={role} />
+    </>
+  );
 }

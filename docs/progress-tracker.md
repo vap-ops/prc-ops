@@ -9133,6 +9133,52 @@ id="cold-restart">` in the /settings เกี่ยวกับ card, under the
   install. If the field reports the switcher swipe is not enough on some device,
   verify on that device before writing a replacement line.
 
+## Spec 339 U2a — auto-reload unapproved users onto the current build (2026-07-23)
+
+**Status:** complete. Code-only, no schema. Operator chose auto-reload (over the
+non-forcing chip) for the UNAPPROVED cohort this session; spec doc updated to
+record the U2a/U2b split. Builds on U1's `AppVersionCheck`.
+
+**Why:** the stuck spec-343 applicants predate the cliff fix, and a PWA resumed
+from background keeps its old in-memory bundle — so they hit the OLD cliff on
+reopen. D5's "don't force a field worker mid-task" objection does not apply to a
+visitor on a pre-approval screen: no task in flight.
+
+**Built**
+
+- `src/components/features/chrome/register-freshness-gate.tsx` — client island.
+  Pure `shouldReload()` (clientVersion / deployedVersion / loop-guard / isTyping)
+  - the effect wiring: fetch `/api/health` (no-store), compare to the semver part
+    of `NEXT_PUBLIC_APP_VERSION`, `location.reload()` on mismatch, on mount and on
+    `visibilitychange → visible`. Loop-guard `sessionStorage(app-freshness-reloaded-for)`;
+    skips a focused text input; returns null.
+- Mounted on `src/app/register/technician/page.tsx`, `.../office/page.tsx`, and the
+  **visitor branch only** of `src/app/coming-soon/page.tsx` — the super_admin
+  OperatorHub + approved-unserved card stay gate-free (a forced reload would drop
+  an approved user's in-flight work).
+
+**Verification**
+
+- vitest: 14 island tests (`register-freshness-gate.test.tsx`) + 4 route-wiring
+  pins (`register-freshness-gate-wiring.test.ts`); full suite 678 files / 4891.
+  lint + typecheck clean. 3 mutation-checks: the field-route wiring pin, the
+  over-wire guard (adding the gate to OperatorHub reds both the count + not-in-hub
+  pins), and the loop-guard (reds both the pure + wired tests).
+- Correctness crux verified analytically: `next.config.ts` derives
+  `NEXT_PUBLIC_APP_VERSION` from `package.json` version (+ optional `+sha`), and
+  `/api/health` returns the bare `version` — both the same source, sha stripped by
+  `baseVersion` — so a fresh user never reloads, only a genuinely stale bundle does.
+  Prod `/api/health` returns `{"version":"0.186.0"}` live (the parsed shape).
+- Full browser drive of the reload NOT done: needs a version mismatch + a visitor
+  session, and a throwaway visitor would drop a decoy into the live /registrations
+  queue (the spec-343 concern). SSR-safety: island is `'use client'` returning
+  null; all DOM/fetch/sessionStorage access is inside the effect.
+
+### Open questions
+
+- U2b (the non-forcing chip for APPROVED users) is still owed — U1's passive
+  `/settings` line is the interim signal there.
+
 ## Spec 342 — invite-only office onboarding, PR A = U1+U2 (2026-07-22)
 
 - **Status:** built + verified, shipping. PR B (U3 approver prefill) queued next.
