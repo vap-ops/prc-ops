@@ -23,6 +23,7 @@ import {
   Boxes,
   Calculator,
   Clock,
+  FileText,
   FolderKanban,
   Home,
   LayoutDashboard,
@@ -191,11 +192,17 @@ export const COORDINATOR_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
-// Spec 149 U9: the accounting role is onboarded onto the read-only ledger surface
-// (/accounting) + the universal settings hub. A lean two-tab set, like the
-// coordinator's — every tab a live destination.
+// Spec 149 U9 → 349 U1: accounting goes work-queue-first — the spec-345 review
+// queue and the company-document library (its #1 real destination, 100 hits/30d,
+// previously two taps deep behind ตั้งค่า) join the bar. Short tab labels
+// diverge from the page titles on purpose for the tight bottom-bar space (the
+// LEGAL_TABS precedent): งานตรวจ for ตรวจเอกสารการเงิน, เอกสาร for เอกสารบริษัท.
+// Longest-prefix keeps exactly one tab lit: /accounting/review beats /accounting,
+// /settings/company-docs beats /settings.
 export const ACCOUNTING_TABS: ReadonlyArray<TabItem> = [
+  { label: "งานตรวจ", href: "/accounting/review", icon: ListChecks },
   { label: "บัญชี", href: "/accounting", icon: Calculator },
+  { label: "เอกสาร", href: "/settings/company-docs", icon: FileText },
   SETTINGS_TAB,
 ];
 
