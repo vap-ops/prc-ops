@@ -41,21 +41,34 @@ function asTab(raw: string | undefined): ReviewTabKey {
   return keys.includes(raw as ReviewTabKey) ? (raw as ReviewTabKey) : "pending";
 }
 
+// Crafted query params must degrade to defaults, never reach the RPC as a
+// cast error (22008/22P02 → 500).
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ALL_MONTHS = "all";
+
 export default async function MoneyReviewPage({ searchParams }: ReviewPageProps) {
   const ctx = await requireRole(ACCOUNTING_ROLES);
   const { tab: qTab, m: qMonth, project: qProject } = await searchParams;
   const tab = asTab(qTab);
   const today = bangkokTodayIso();
-  const month = /^\d{4}-\d{2}$/.test(qMonth ?? "") ? (qMonth as string) : today.slice(0, 7);
-  const projectId = qProject || undefined;
+  // "all" = no month filter — a review queue must be able to show the whole
+  // backlog, not just the current month (fresh-eyes 🟠).
+  const month =
+    qMonth === ALL_MONTHS
+      ? ALL_MONTHS
+      : MONTH_RE.test(qMonth ?? "")
+        ? (qMonth as string)
+        : today.slice(0, 7);
+  const projectId = qProject && UUID_RE.test(qProject) ? qProject : undefined;
 
   // The DB gate needs the CALLER's role — user-session client, not admin.
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("list_money_events_for_review", {
     p_tab: tab,
-    p_month: `${month}-01`,
     p_limit: PAGE_SIZE,
     p_offset: 0,
+    ...(month !== ALL_MONTHS ? { p_month: `${month}-01` } : {}),
     ...(projectId ? { p_project: projectId } : {}),
   });
   if (error) throw new Error(`list_money_events_for_review: ${error.message}`);
@@ -78,10 +91,10 @@ export default async function MoneyReviewPage({ searchParams }: ReviewPageProps)
   const { data: projectRows } = await admin.from("projects").select("id, code, name").order("name");
   const projects = projectRows ?? [];
 
-  const withParams = (nextTab: ReviewTabKey) => {
+  const withParams = (nextTab: ReviewTabKey, nextMonth = month) => {
     const q = new URLSearchParams();
     if (nextTab !== "pending") q.set("tab", nextTab);
-    if (month !== today.slice(0, 7)) q.set("m", month);
+    if (nextMonth !== today.slice(0, 7)) q.set("m", nextMonth);
     if (projectId) q.set("project", projectId);
     const s = q.toString();
     return s ? `/accounting/review?${s}` : "/accounting/review";
@@ -120,8 +133,25 @@ export default async function MoneyReviewPage({ searchParams }: ReviewPageProps)
           {tab !== "pending" ? <input type="hidden" name="tab" value={tab} /> : null}
           <label className="text-muted-foreground flex flex-col gap-1 text-xs">
             เดือน
-            <input type="month" name="m" defaultValue={month} className={FIELD_INPUT} />
+            <input
+              type="month"
+              name="m"
+              defaultValue={month === ALL_MONTHS ? "" : month}
+              className={FIELD_INPUT}
+            />
           </label>
+          {month === ALL_MONTHS ? (
+            <Link
+              href={withParams(tab, today.slice(0, 7))}
+              className="text-action pb-2 text-sm underline"
+            >
+              เดือนนี้
+            </Link>
+          ) : (
+            <Link href={withParams(tab, ALL_MONTHS)} className="text-action pb-2 text-sm underline">
+              ดูทุกเดือน
+            </Link>
+          )}
           <label className="text-muted-foreground flex flex-col gap-1 text-xs">
             โครงการ
             <select name="project" defaultValue={projectId ?? ""} className={FIELD_INPUT}>

@@ -151,10 +151,14 @@ select is((select count(*) from public.list_money_events_for_review('pending', n
   0::bigint, 'the superseded wage payment has left the queue');
 
 select is(
-  (select array_agg(source_table) from public.list_money_events_for_review(
-     'pending', 'c1000000-0000-4000-8000-000000000445', date '2001-01-01')),
+  (select array_agg(t.source_table order by t.ord)
+     from public.list_money_events_for_review(
+       'pending', 'c1000000-0000-4000-8000-000000000445', date '2001-01-01')
+       with ordinality as t(source_table, source_id, project_id, project_name, amount,
+         event_date, counterparty, doc_count, review_status, open_flag_count,
+         docs_expected, ord)),
   array['office_expenses', 'wp_labor_costs'],
-  'within a tab the older event ranks first (07-05 expense before 07-20 labor freeze)');
+  'within a tab the older event ranks first (01-05 expense before 01-20 labor freeze)');
 
 select is((select count(*) from public.list_money_events_for_review('pending', null, date '2001-02-01')
            where source_id = 'd3000000-0000-4000-8000-000000000445'),

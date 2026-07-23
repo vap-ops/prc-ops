@@ -42,7 +42,10 @@ begin
 end;
 $$;
 
-revoke all on function public.money_review_docs_expected(text) from public, anon, authenticated;
+-- Only public + anon: Supabase default privileges re-grant authenticated on
+-- creation, so an authenticated revoke here does not stick (verified live,
+-- the 336-lesson family). Harmless — the fn is a pure static classifier.
+revoke all on function public.money_review_docs_expected(text) from public, anon;
 
 create function public.list_money_events_for_review(
   p_tab text,
@@ -158,7 +161,10 @@ begin
            coalesce(cb.certified_at::date, cb.created_at::date), null::text, 0
       from public.client_billings cb
     union all
-    select 'client_receipts', cr.id, cr.project_id, cr.amount, cr.received_date, null::text, 0
+    -- received_date is nullable — coalesce like the siblings, or a null-dated
+    -- receipt vanishes from every month-filtered tab of an audit queue.
+    select 'client_receipts', cr.id, cr.project_id, cr.amount,
+           coalesce(cr.received_date, cr.created_at::date), null::text, 0
       from public.client_receipts cr
      where not exists (select 1 from public.client_receipts nc where nc.superseded_by = cr.id)
     union all
