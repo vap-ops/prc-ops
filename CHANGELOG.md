@@ -1,3 +1,9 @@
+# [0.196.0](https://github.com/vap-ops/prc-ops/compare/v0.195.0...v0.196.0) (2026-07-23)
+
+### Features
+
+- **accounting:** spec 347 U1 — store-first purchase price-correction ledger + GL plumbing ([#726](https://github.com/vap-ops/prc-ops/issues/726)) ([45231dc](https://github.com/vap-ops/prc-ops/commit/45231dca8770d2eb9b1dba58c09b117da54faf48))
+
 # [0.195.0](https://github.com/vap-ops/prc-ops/compare/v0.194.0...v0.195.0) (2026-07-23)
 
 ### Features
