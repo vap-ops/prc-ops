@@ -116,6 +116,9 @@ export const HOME_LABEL: Record<string, string> = {
   "/projects": "โครงการ",
   "/portal": "พอร์ทัลผู้รับเหมา",
   "/accounting": "บัญชี",
+  // Spec 349 U2: accounting's home flipped from the GL dashboard to the
+  // money-event review queue (/accounting stays a live sibling tab).
+  "/accounting/review": "ตรวจเอกสารการเงิน",
   "/legal": "กฎหมาย",
   "/client": "พอร์ทัลลูกค้า",
   "/technician": "หน้าช่าง",

@@ -54,7 +54,10 @@ describe("roleHome", () => {
       procurement: "/procurement",
       procurement_manager: "/procurement",
       contractor: "/portal",
-      accounting: "/accounting",
+      // Spec 349 U2 (D1 landing flip): accounting goes work-queue-first — its home
+      // moves from the GL dashboard /accounting to the /accounting/review money-event
+      // queue. /accounting stays a live sibling tab, so no surface is lost.
+      accounting: "/accounting/review",
       client: "/client",
       // The one arm G3 changes:
       technician: "/technician",

@@ -69,9 +69,9 @@ const STATIC_DETAIL = [
   "accounting/payables",
   "accounting/periods",
   "accounting/purchases",
-  // Spec 345 U2: the money-event review queue drills down from /accounting
-  // (back chip → /accounting), gated ACCOUNTING_ROLES.
-  "accounting/review",
+  // Spec 349 U2: /accounting/review was PROMOTED to the accounting role's HOME
+  // (roleHome flip) — hub chrome (AppHeader + HubNav, no back chip), so it moved
+  // to NON_DETAIL_ROUTES + HUB_STRIP_ROUTES below, not here.
   // Gap G8: the manual general-journal surface drills down from /accounting
   // (back chip → /accounting). Gated to PM_ROLES (the post/reverse RPCs' roles).
   "accounting/journal",
@@ -244,6 +244,10 @@ const NON_DETAIL_ROUTES = [
   // roles U6 homes there. It stays a multi-parent detail route until U6 adds
   // that coverage.
   "accounting",
+  // Spec 349 U2: /accounting/review is now the accounting role's HOME (roleHome
+  // flip, work-queue-first). Promoted to hub chrome (AppHeader + HubNav, no back
+  // chip); /accounting stays a live sibling tab. Its strip is ACCOUNTING_HUB_NAV.
+  "accounting/review",
   "legal",
 ].map((r) => `${r}/page.tsx`);
 
@@ -414,6 +418,10 @@ describe("desktop hub-strip coverage (spec 153)", () => {
     // auditor, so promoting it would leave them with no chip AND no strip. It
     // waits for U6 to add that coverage.
     "accounting",
+    // Spec 349 U2: /accounting/review became the accounting role's home hub — it
+    // renders the ACCOUNTING_HUB_NAV strip (its only nav affordance now the back
+    // chip is gone).
+    "accounting/review",
     "legal",
   ].map((r) => `${r}/page.tsx`);
 

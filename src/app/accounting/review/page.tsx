@@ -9,7 +9,8 @@
 import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { AppHeader } from "@/components/features/chrome/app-header";
+import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
@@ -101,11 +102,22 @@ export default async function MoneyReviewPage({ searchParams }: ReviewPageProps)
   };
 
   return (
-    <>
-      <DetailHeader backHref="/accounting" backLabel="บัญชี">
-        <h1 className="text-foreground text-lg font-semibold">{MONEY_REVIEW_LABEL}</h1>
-      </DetailHeader>
-      <PageShell className={PAGE_MAX_W}>
+    <PageShell>
+      <BottomTabBar role={ctx.role} />
+      {/* Spec 349 U2: /accounting/review is now the accounting role's LANDING
+          (roleHome), so a back chip to /accounting was a lie — that role lands
+          here, it does not come from there. Hub chrome instead: AppHeader + the
+          ACCOUNTING_HUB_NAV strip, the only nav affordance a chip-less hub gets
+          (the bottom bar is sm:hidden). The exact swap spec 313 U5 did for
+          /accounting. */}
+      <AppHeader kicker={MONEY_REVIEW_LABEL} fullName={ctx.fullName} maxWidthClass={PAGE_MAX_W} />
+      <HubNav
+        maxWidthClass={PAGE_MAX_W}
+        items={hubNavForRole(ctx.role) ?? []}
+        currentHref="/accounting/review"
+        role={ctx.role}
+      />
+      <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <p className="text-muted-foreground mb-4 text-sm">{MONEY_REVIEW_HINT}</p>
 
         <nav aria-label="มุมมอง" className="mb-4 flex flex-wrap gap-2">
@@ -173,8 +185,7 @@ export default async function MoneyReviewPage({ searchParams }: ReviewPageProps)
           {rows.length >= PAGE_SIZE ? ` (${PAGE_SIZE} รายการแรก)` : ` (${rows.length})`}
         </h2>
         <ReviewQueueList rows={rows} />
-      </PageShell>
-      <BottomTabBar role={ctx.role} />
-    </>
+      </section>
+    </PageShell>
   );
 }

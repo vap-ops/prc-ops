@@ -6,6 +6,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 349 U2 — accounting landing flip + review hub chrome — 🔨 built (2026-07-24)
+
+Code-only, DANGER-PATH (`role-home.ts`). D1: `roleHome("accounting")` flips
+`/accounting` → `/accounting/review` (the spec-345 money-event queue = the daily
+work; the GL dashboard `/accounting` stays a live sibling tab from U1's 4-tab
+set). D2: `/accounting/review` page swaps `DetailHeader` (back → /accounting) for
+hub chrome (`AppHeader kicker=MONEY_REVIEW_LABEL` + `HubNav` strip, no back chip),
+mirroring the spec-313 U5 `/accounting` promotion — a landing with a sideways
+back chip is incoherent. D4 (super_admin never strands): `SETTINGS_TAB.match`
+gains `"/accounting/review"` (runtime no-op — the `/accounting` prefix already
+lights ตั้งค่า via startsWith — but the promoted-hub invariant tests EXACT
+membership), and the `nav-law-strip-superset` `PROMOTED` fixture gains the review
+hub. Test reclass: `/accounting/review` moved STATIC_DETAIL → NON_DETAIL_ROUTES +
+HUB_STRIP_ROUTES in `nav-back-affordance.test.ts`; roleHome fixture + spec252 pin
+updated. All 5 RED-first pins observed red on unchanged production, green after.
+
+**Open questions:** U3 (home trim — remove the now-redundant review + docs rows
+from the `/accounting` page) still owed.
+
 ## Spec 348 U2 — procurement_manager reaches the SA read surfaces — 🔨 built (2026-07-23)
 
 Code-only. Two new intent-named sets in `role-home.ts` — `SA_SURFACE_ROLES`
