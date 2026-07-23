@@ -9883,6 +9883,28 @@ export type Database = {
           worker_id: string
         }[]
       }
+      list_money_events_for_review: {
+        Args: {
+          p_limit?: number
+          p_month?: string
+          p_offset?: number
+          p_project?: string
+          p_tab: string
+        }
+        Returns: {
+          amount: number
+          counterparty: string
+          doc_count: number
+          docs_expected: string
+          event_date: string
+          open_flag_count: number
+          project_id: string
+          project_name: string
+          review_status: Database["public"]["Enums"]["money_review_status"]
+          source_id: string
+          source_table: string
+        }[]
+      }
       log_labor_day: {
         Args: {
           p_date: string
@@ -9909,6 +9931,10 @@ export type Database = {
       merge_catalog_items: {
         Args: { p_drop: string; p_keep: string }
         Returns: undefined
+      }
+      money_review_docs_expected: {
+        Args: { p_source: string }
+        Returns: string
       }
       move_muster_worker: {
         Args: { p_date: string; p_to_team: string; p_worker: string }

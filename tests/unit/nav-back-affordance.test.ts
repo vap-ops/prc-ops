@@ -69,6 +69,9 @@ const STATIC_DETAIL = [
   "accounting/payables",
   "accounting/periods",
   "accounting/purchases",
+  // Spec 345 U2: the money-event review queue drills down from /accounting
+  // (back chip → /accounting), gated ACCOUNTING_ROLES.
+  "accounting/review",
   // Gap G8: the manual general-journal surface drills down from /accounting
   // (back chip → /accounting). Gated to PM_ROLES (the post/reverse RPCs' roles).
   "accounting/journal",
