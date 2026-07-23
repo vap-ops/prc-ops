@@ -99,11 +99,13 @@ export const COORDINATOR_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
-// Spec 153: accounting's desktop strip — the read-only ledger surface + settings.
-// Mirrors ACCOUNTING_TABS (spec 149 U9, the phone bottom bar); a lean two-set,
-// every entry a live destination.
+// Spec 153 → 349 U1: accounting's desktop strip went work-queue-first. Mirrors
+// ACCOUNTING_TABS (the phone bottom bar) exactly — nav law rule 2 (strip ⊇ bar),
+// enforced by nav-law-strip-superset; every entry a live destination.
 export const ACCOUNTING_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "งานตรวจ", href: "/accounting/review" },
   { label: "บัญชี", href: "/accounting" },
+  { label: "เอกสาร", href: "/settings/company-docs" },
   { label: "ตั้งค่า", href: "/settings" },
 ];
 

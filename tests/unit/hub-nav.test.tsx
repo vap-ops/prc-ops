@@ -77,11 +77,13 @@ describe("canonical nav sets", () => {
     ]);
   });
 
-  // Spec 153: accounting's desktop strip — the ledger surface + settings,
-  // mirroring ACCOUNTING_TABS (the phone bottom bar).
+  // Spec 153 → 349 U1: accounting's desktop strip went work-queue-first, still
+  // mirroring ACCOUNTING_TABS (the phone bottom bar) per nav law rule 2.
   it("pins the accounting set's destinations and order", () => {
     expect(ACCOUNTING_HUB_NAV).toEqual([
+      { label: "งานตรวจ", href: "/accounting/review" },
       { label: "บัญชี", href: "/accounting" },
+      { label: "เอกสาร", href: "/settings/company-docs" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
   });

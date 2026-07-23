@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import {
+  ACCOUNTING_TABS,
   BottomTabBar,
   COORDINATOR_TABS,
   LEGAL_TABS,
@@ -231,6 +232,46 @@ describe("BottomTabBar", () => {
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("บัญชี");
+  });
+
+  // Spec 349 U1: accounting's bar goes work-queue-first — 4 destinations. Short
+  // tab labels diverge from the page titles on purpose (the LEGAL_TABS
+  // precedent): งานตรวจ for ตรวจเอกสารการเงิน, เอกสาร for เอกสารบริษัท.
+  it("pins the accounting tab set (labels, hrefs, order)", () => {
+    expect(ACCOUNTING_TABS.map((t) => [t.label, t.href])).toEqual([
+      ["งานตรวจ", "/accounting/review"],
+      ["บัญชี", "/accounting"],
+      ["เอกสาร", "/settings/company-docs"],
+      ["ตั้งค่า", "/settings"],
+    ]);
+  });
+
+  // Spec 349 U1: /accounting/review is prefix-claimed by BOTH งานตรวจ (own href)
+  // and บัญชี (/accounting) — longest wins, exactly one lights.
+  it("lights งานตรวจ (not บัญชี) for accounting on /accounting/review", () => {
+    mockUsePathname.mockReturnValue("/accounting/review");
+    const { container } = render(<BottomTabBar role="accounting" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("งานตรวจ");
+  });
+
+  // Spec 349 U1: /settings/company-docs is prefix-claimed by BOTH เอกสาร (own
+  // href) and ตั้งค่า (/settings) — longest wins, exactly one lights.
+  it("lights เอกสาร (not ตั้งค่า) for accounting on /settings/company-docs", () => {
+    mockUsePathname.mockReturnValue("/settings/company-docs");
+    const { container } = render(<BottomTabBar role="accounting" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("เอกสาร");
+  });
+
+  it("lights ตั้งค่า for accounting on /settings itself", () => {
+    mockUsePathname.mockReturnValue("/settings");
+    const { container } = render(<BottomTabBar role="accounting" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("ตั้งค่า");
   });
 
   it("lights กฎหมาย for the legal role on /legal (its own tab wins)", () => {
