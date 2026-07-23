@@ -44,26 +44,60 @@ export const ASSUMABLE_ROLES: ReadonlyArray<UserRole> = [
   "client",
 ];
 
-/** Narrows an arbitrary string (a raw cookie value) to an assumable role. */
-export function isAssumableRole(raw: string): raw is UserRole {
-  return (ASSUMABLE_ROLES as ReadonlyArray<string>).includes(raw);
+/**
+ * Spec 348 U5 / ADR 0084 — the PER-ASSUMER view-as allowlist. Was a flat
+ * "super_admin may assume anything in ASSUMABLE_ROLES"; now a map so a second
+ * role can view-as a NARROWER role.
+ *
+ * SECURITY INVARIANT (load-bearing): a real role R may assume role A only if R's
+ * real authority already ⊇ A's. Then assuming A grants NOTHING new — it only
+ * RESTRICTS the TS experience to A's nav/home/gates — and every write still
+ * executes under R's real authority at the DB (RLS + DEFINER RPCs resolve role
+ * via auth.uid(), never the cookie). So the lens can never escalate; the worst a
+ * bad map entry could do is show A's affordances that R's real role then refuses
+ * at the DB (a broken experience, not a hole).
+ *   - super_admin ⊇ every role → it keeps the full ASSUMABLE_ROLES list.
+ *   - procurement_manager ⊇ site_admin (spec 348 U1–U4 made it a full site_admin
+ *     superset) → it may assume site_admin, and ONLY site_admin. It is NOT ⊇
+ *     project_manager / project_director / accounting / etc., so those are out.
+ * Pinned by effective-role.test.ts; any new pair is a deliberate ⊇ decision.
+ */
+const VIEW_AS_MAP: Partial<Record<UserRole, ReadonlyArray<UserRole>>> = {
+  super_admin: ASSUMABLE_ROLES,
+  procurement_manager: ["site_admin"],
+};
+
+/** The roles this real role may view-as (empty for a non-assumer). Drives the picker. */
+export function assumableRolesFor(realRole: UserRole): ReadonlyArray<UserRole> {
+  return VIEW_AS_MAP[realRole] ?? [];
+}
+
+/** True if this real role may use view-as at all (has ≥1 assumable role). */
+export function isViewAsAssumer(realRole: UserRole): boolean {
+  return assumableRolesFor(realRole).length > 0;
+}
+
+/** True if this real role may assume this specific target role — a type guard, so
+ * a passing `target` narrows to UserRole. The single gate the setter + resolver
+ * share. */
+export function canAssume(realRole: UserRole, target: string): target is UserRole {
+  return (assumableRolesFor(realRole) as ReadonlyArray<string>).includes(target);
 }
 
 /**
- * The caller's EFFECTIVE role = the assumed role IFF the REAL role is super_admin
- * AND the cookie value is a valid assumable role; otherwise the real role,
- * unchanged.
+ * The caller's EFFECTIVE role = the assumed role IFF the caller's REAL role may
+ * assume that specific target (canAssume); otherwise the real role, unchanged.
  *
- * The `realRole === "super_admin"` check is the security boundary (the
- * "forge-guard"): a non-super user who forges an `assumed_role` cookie gets ZERO
- * effect. This must be re-evaluated on EVERY request that reads role — never
- * cached across identities. Pure by construction so callers can't skip it.
+ * canAssume is the security boundary (the "forge-guard"): a non-assumer real role
+ * has an empty allowlist, so a forged cookie gets ZERO effect; an assumer forging
+ * a role OUTSIDE its allowlist (e.g. procurement_manager → project_director) also
+ * gets zero effect. Re-evaluated on EVERY request that reads role — never cached
+ * across identities. Pure by construction so callers can't skip it.
  */
 export function resolveEffectiveRole(
   realRole: UserRole,
   assumedRaw: string | null | undefined,
 ): UserRole {
-  if (realRole !== "super_admin") return realRole;
-  if (assumedRaw && isAssumableRole(assumedRaw)) return assumedRaw;
+  if (assumedRaw && canAssume(realRole, assumedRaw)) return assumedRaw;
   return realRole;
 }

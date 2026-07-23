@@ -3,8 +3,10 @@
 // next/headers never reaches a client bundle. The cookie is httpOnly (only the
 // server ever reads it) + secure + lax, mirroring the LINE state-cookie posture
 // (src/app/auth/line/start/route.ts). Forgeability is a non-issue: the override
-// is gated on the REAL role being super_admin (see resolveEffectiveRole), so a
-// forged cookie is inert — httpOnly is defence-in-depth, not the boundary.
+// only takes effect when the caller's REAL role may assume that specific value
+// (canAssume — super_admin → any served role, procurement_manager → site_admin;
+// see resolveEffectiveRole), so a forged cookie is inert — httpOnly is
+// defence-in-depth, not the boundary.
 
 import "server-only";
 
@@ -27,7 +29,7 @@ export async function readAssumedRoleCookie(): Promise<string | null> {
 }
 
 /** Enter "view as": persist the assumed role. Caller MUST have verified the real
- * role is super_admin first (requireRealSuperAdmin). */
+ * role may assume this target first (canAssume, in the setAssumedRole action). */
 export async function setAssumedRoleCookie(role: UserRole): Promise<void> {
   const jar = await cookies();
   jar.set(ASSUMED_ROLE_COOKIE, role, {

@@ -343,3 +343,17 @@ ejection lesson).
 - None blocking U1–U2. U3 per-function dispositions (the `decide_work_package`
   refusal arm, `project_site_management`, `set_primary_project_for`) are
   build-time decisions recorded in the build plan's gate-check blocks.
+- **REAL-ROLE AFFORDANCE PARITY (surfaced by the U5 review, 2026-07-23) — a
+  DECISION, deferred.** U2 opened SA page REACH and U4 opened the WP-detail
+  affordances, but some IN-PAGE affordance gates on other SA surfaces still key
+  on `SITE_STAFF_ROLES` (which deliberately excludes her) — e.g.
+  `store/page.tsx` `canIssue = SITE_STAFF_ROLES.includes(role)`. So on her REAL
+  role she has the DB permission (U3 widened `issue_stock`) but the button is
+  hidden; the U5 lens (view-as site_admin) surfaces every such button and it
+  works. This is NOT escalation (the DB enforces her real role) and the lens is
+  the intended training vehicle, so it is not a bug. The question: should her
+  REAL-role view ALSO carry these SA affordances (so she does SA actions
+  natively, not only via the lens)? If yes, it's a follow-up "affordance parity
+  sweep" unit — grep every `SITE_STAFF_ROLES`/`isReadOnlyWpViewer`-gated in-page
+  affordance on an SA surface (store, muster cockpit, team) and widen with a
+  WP_SUBMIT_ROLES-style set. If the lens suffices, leave as-is.

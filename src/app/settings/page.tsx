@@ -167,6 +167,10 @@ export default async function SettingsPage() {
 
         {configSection("admin")}
 
+        {/* Spec 348 U5: view-as tools — renders for any assumer (super_admin or
+            procurement_manager); the section gate hides it from everyone else. */}
+        {configSection("tools")}
+
         {/* About — everyone */}
         <div className="flex flex-col gap-2">
           <h2 className="text-meta text-ink-secondary font-semibold">เกี่ยวกับ</h2>

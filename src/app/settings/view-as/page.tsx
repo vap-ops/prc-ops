@@ -11,8 +11,9 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { CARD } from "@/lib/ui/classes";
 import { createClient } from "@/lib/db/server";
-import { ASSUMABLE_ROLES } from "@/lib/auth/effective-role";
+import { assumableRolesFor, isViewAsAssumer } from "@/lib/auth/effective-role";
 import { getActiveViewAs } from "@/lib/auth/view-as-state.server";
+import type { UserRole } from "@/lib/db/enums";
 import { setAssumedRole, clearAssumedRole } from "../roles-view-as/actions";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 
@@ -27,15 +28,19 @@ export default async function ViewAsPage() {
     .select("role")
     .eq("id", claims.claims.sub)
     .maybeSingle();
-  if (row?.role !== "super_admin") redirect("/");
+  const realRole = row?.role as UserRole | undefined;
+  // Spec 348 U5: any view-as assumer (super_admin, or procurement_manager who
+  // may assume site_admin only) reaches the picker. Gated on the REAL role.
+  if (!realRole || !isViewAsAssumer(realRole)) redirect("/");
 
   const active = await getActiveViewAs();
+  const options = assumableRolesFor(realRole);
 
   return (
     <PageShell>
-      {/* Real-identity control surface — the super_admin's own tab bar + a back
-          chip to /settings (spec 63). Reachable even while a role is assumed. */}
-      <BottomTabBar role="super_admin" />
+      {/* Real-identity control surface — the assumer's OWN tab bar + a back chip
+          to /settings (spec 63). Reachable even while a role is assumed. */}
+      <BottomTabBar role={realRole} />
       <DetailHeader backHref="/settings" backLabel="กลับไปตั้งค่า">
         <h1 className="text-ink text-xl font-semibold tracking-tight">ดูมุมมองตาม role</h1>
       </DetailHeader>
@@ -66,7 +71,7 @@ export default async function ViewAsPage() {
         ) : null}
 
         <div className="grid grid-cols-2 gap-2">
-          {ASSUMABLE_ROLES.map((r) => {
+          {options.map((r) => {
             const isActive = active === r;
             return (
               <form key={r} action={setAssumedRole.bind(null, r)}>

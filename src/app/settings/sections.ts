@@ -32,6 +32,7 @@ import {
   OFFICE_EXPENSE_ROLES,
   type UserRole,
 } from "@/lib/auth/role-home";
+import { isViewAsAssumer } from "@/lib/auth/effective-role";
 import {
   CARD_REGISTRY_HINT,
   COMPANY_DOC_TYPES_HINT,
@@ -419,14 +420,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         hint: COMPANY_DOC_TYPES_HINT,
       },
       {
-        // Spec 274: view the app as any role (see what they see) without impersonating a person.
-        kind: "link",
-        href: "/settings/view-as",
-        icon: Eye,
-        label: "ดูมุมมองตาม role",
-        hint: "เปิดแอปเสมือนเป็น role อื่น เพื่อดูเมนู หน้าหลัก และหน้าต่าง ๆ ที่เขาเห็น",
-      },
-      {
         kind: "link",
         href: "/settings/usage",
         icon: Activity,
@@ -439,6 +432,24 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         icon: TriangleAlert,
         label: "จุดสะดุดรายจอ",
         hint: "จอไหนที่ผู้ใช้เจอปัญหามากที่สุด เพื่อจัดลำดับการปรับ UX",
+      },
+    ],
+  },
+  {
+    // Spec 274 / spec 348 U5: "view as role" — its own section so the picker
+    // reaches every view-as ASSUMER (super_admin, or procurement_manager who may
+    // assume site_admin only) without exposing the super-only Admin tiles. The
+    // page + resolver re-gate on the real role; this tile is discovery only.
+    key: "tools",
+    title: "เครื่องมือ",
+    visible: (role) => isViewAsAssumer(role),
+    entries: [
+      {
+        kind: "link",
+        href: "/settings/view-as",
+        icon: Eye,
+        label: "ดูมุมมองตาม role",
+        hint: "เปิดแอปเสมือนเป็น role อื่น เพื่อดูเมนู หน้าหลัก และหน้าต่าง ๆ ที่เขาเห็น",
       },
     ],
   },
