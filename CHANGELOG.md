@@ -1,3 +1,9 @@
+# [0.188.0](https://github.com/vap-ops/prc-ops/compare/v0.187.0...v0.188.0) (2026-07-23)
+
+### Features
+
+- **accounting:** spec 345 U4 — open money-event corrections to accounting ([#708](https://github.com/vap-ops/prc-ops/issues/708)) ([e38e1d2](https://github.com/vap-ops/prc-ops/commit/e38e1d2937fc4a4cef4a90ae990ff3daf8db3c18))
+
 # [0.187.0](https://github.com/vap-ops/prc-ops/compare/v0.186.0...v0.187.0) (2026-07-23)
 
 ### Bug Fixes
