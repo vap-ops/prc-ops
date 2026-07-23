@@ -9249,3 +9249,30 @@ id="cold-restart">` in the /settings เกี่ยวกับ card, under the
   moved to 2001 months (prod-free), counts stay deterministic forever.
 - **Open questions / follow-ups:** rental deposit granularity (spec open item 4) surfaced as display choice only (batch row shows monthly_rate); voucher
   links + verify/flag actions land in U3.
+
+## 2026-07-23 — spec 343 U2: เตรียมตัว prep screen (COMPLETE, PR pending)
+
+- **Why:** operator, seeing the fresh scan land straight on the form — "no
+  landing page?". A first-time applicant dropped onto the form cold, with no cue
+  that it needs an ID card and ~2 minutes; someone scanning at a site without
+  their card hit it unprepared.
+- **What:** new client `RegisterPrepGate` wraps the FRESH registration form
+  (the `!registration` branch of `StaffRegisterWorkspace`). It shows a เตรียมตัว
+  card — สิ่งที่ต้องเตรียม (บัตรประชาชน, + สมุดบัญชีธนาคาร unless bank-exempt),
+  ~2 นาที, a PDPA step follows — dismissed by เริ่มกรอกข้อมูล into the SAME form.
+  A STATE, not a route: the QR params (?project&site&by&contractor&firm) the form
+  needs never cross a navigation (the #677 bug class). NO schema.
+- **Scope:** wraps only the fresh form; the pending `RegistrationWorkspace` and
+  the office no-invite `OfficeInviteGate` are untouched. Office-invited fresh
+  forms get the prep too (they render the same form) and correctly show the
+  passbook line (not bank-exempt).
+- **Build:** 1 commit, RED-first. Suite 675 files / 4865 green; lint + typecheck
+  clean. 2 mutation-checks (unwrap the gate → wiring reds; force the passbook
+  line → bank-exempt reds). The workspace WIRING seam is pinned
+  (staff-register-workspace-prep.test.tsx) — the U1 lesson that the wrap itself
+  needs coverage, not just the component.
+- **NOT browser-verified, disclosed:** the click-wedge on this box (specs
+  335/337/343 U1) plus another session's dev server in the folder blocked a live
+  drive. RTL covers the component, the workspace wiring, and the tap→form
+  interaction; that is the substitute.
+- **▶ Remaining:** U3 poster + LINE "เตรียมบัตรประชาชนก่อนสแกน" line.
