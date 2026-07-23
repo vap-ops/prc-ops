@@ -24,6 +24,7 @@ import {
   EQUIPMENT_MOVE_ROLES,
   EXTERNAL_ROLES,
   LEGAL_ROLES,
+  MONEY_REVIEW_ROLES,
   MONEY_VIEW_ROLES,
   OFFICE_EXPENSE_FINANCE_ROLES,
   OFFICE_EXPENSE_ROLES,
@@ -311,6 +312,15 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     setName: "ACCOUNTING_ROLES",
     roles: ACCOUNTING_ROLES,
     labelTh: "ใช้งานหน้าบัญชี (งบทดลอง/กระทบยอด)",
+    domain: "money",
+  },
+  // Spec 345: verify/flag money-event documents (ตรวจเอกสารการเงิน) and run
+  // the correction paths — a WRITE authority, deliberately its own set.
+  {
+    key: "money-review",
+    setName: "MONEY_REVIEW_ROLES",
+    roles: MONEY_REVIEW_ROLES,
+    labelTh: "ตรวจ/ติดธงเอกสารการเงิน",
     domain: "money",
   },
   // Spec 329: read/download/share the firm's document library (เอกสารบริษัท).

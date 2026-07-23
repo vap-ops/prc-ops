@@ -9642,6 +9642,10 @@ export type Database = {
         Args: { p_draft_id: string }
         Returns: undefined
       }
+      dismiss_money_flag: {
+        Args: { p_flag_id: string; p_resolution?: string }
+        Returns: undefined
+      }
       dismiss_project_onboarding: {
         Args: { p_project_id: string }
         Returns: boolean
@@ -9697,6 +9701,15 @@ export type Database = {
         }[]
       }
       feedback_unread_ids: { Args: never; Returns: string[] }
+      flag_money_event: {
+        Args: {
+          p_detail?: string
+          p_flag_type: Database["public"]["Enums"]["money_flag_type"]
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: string
+      }
       freeze_wp_labor_cost: { Args: { p_wp: string }; Returns: undefined }
       generate_purchase_requests_from_plan: {
         Args: { p_line_ids: string[]; p_plan_id: string }
@@ -9889,6 +9902,8 @@ export type Database = {
           p_month?: string
           p_offset?: number
           p_project?: string
+          p_source_id?: string
+          p_source_table?: string
           p_tab: string
         }
         Returns: {
@@ -9935,6 +9950,10 @@ export type Database = {
       money_review_docs_expected: {
         Args: { p_source: string }
         Returns: string
+      }
+      money_review_recompute: {
+        Args: { p_review_id: string }
+        Returns: undefined
       }
       move_muster_worker: {
         Args: { p_date: string; p_to_team: string; p_worker: string }
@@ -10408,6 +10427,10 @@ export type Database = {
           p_work_package_id?: string
         }
         Returns: string
+      }
+      resolve_money_flag: {
+        Args: { p_flag_id: string; p_resolution: string }
+        Returns: undefined
       }
       resolve_posting_period: { Args: { p_date: string }; Returns: string }
       resolve_site_issue: { Args: { p_site_issue_id: string }; Returns: string }
@@ -11237,6 +11260,10 @@ export type Database = {
           p_sort_order?: number
         }
         Returns: string
+      }
+      verify_money_event: {
+        Args: { p_note?: string; p_source_id: string; p_source_table: string }
+        Returns: undefined
       }
       void_contract: { Args: { p_id: string }; Returns: undefined }
       void_equipment_rental_batch: {

@@ -81,3 +81,42 @@ export function docsBadgeLabel(row: {
 export function reviewStatusLabel(status: "pending" | "flagged" | "verified"): string {
   return reviewTabLabel(status);
 }
+
+export type MoneyFlagType =
+  | "missing_doc"
+  | "wrong_doc_type"
+  | "amount_mismatch"
+  | "sum_mismatch"
+  | "unreadable"
+  | "duplicate_doc"
+  | "wrong_vendor"
+  | "changed_after_verified"
+  | "other";
+
+const FLAG_TYPE_LABELS: Record<MoneyFlagType, string> = {
+  missing_doc: "ไม่มีเอกสารแนบ",
+  wrong_doc_type: "ประเภทเอกสารไม่ถูกต้อง",
+  amount_mismatch: "ยอดเงินไม่ตรงเอกสาร",
+  sum_mismatch: "รายการรวมไม่เท่ายอด",
+  unreadable: "เอกสารอ่านไม่ออก",
+  duplicate_doc: "เอกสารซ้ำกับรายการอื่น",
+  wrong_vendor: "ชื่อผู้ขายไม่ตรง",
+  changed_after_verified: "ข้อมูลเปลี่ยนหลังตรวจแล้ว",
+  other: "อื่น ๆ",
+};
+
+export function flagTypeLabel(type: MoneyFlagType): string {
+  return FLAG_TYPE_LABELS[type];
+}
+
+/** The types an admin can raise — changed_after_verified is system-reserved. */
+export const ADMIN_FLAG_TYPES: ReadonlyArray<Exclude<MoneyFlagType, "changed_after_verified">> = [
+  "missing_doc",
+  "wrong_doc_type",
+  "amount_mismatch",
+  "sum_mismatch",
+  "unreadable",
+  "duplicate_doc",
+  "wrong_vendor",
+  "other",
+];

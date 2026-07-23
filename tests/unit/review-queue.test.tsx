@@ -31,6 +31,14 @@ describe("ReviewQueueList (spec 345 U2)", () => {
     expect(screen.getByText(/฿?3,200/)).toBeInTheDocument();
   });
 
+  it("links each row to its voucher (spec 345 U3)", () => {
+    render(<ReviewQueueList rows={[row()]} />);
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      "/accounting/review/wage_payments/d2000000-0000-4000-8000-000000000445",
+    );
+  });
+
   it("shows the ไม่มีเอกสาร chip only for expected-class rows without docs", () => {
     render(
       <ReviewQueueList

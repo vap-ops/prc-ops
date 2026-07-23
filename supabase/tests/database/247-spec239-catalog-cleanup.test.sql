@@ -33,9 +33,11 @@ select is(
   'no active catalog item has a NULL category_id (invisibility guard)');
 
 -- D. is_primary membership integrity (exactly one per item, mirroring canonical)
+-- Spec 344 fold-and-retire DELETES a merged loser's memberships by design —
+-- scope to un-merged items (the 27 retired duplicates legitimately hold none).
 select is(
   (select count(*)::int from public.catalog_item_categories where is_primary),
-  (select count(*)::int from public.catalog_items),
+  (select count(*)::int from public.catalog_items where merged_into is null),
   'exactly one is_primary catalog_item_categories row per item');
 select is(
   (select count(*)::int from public.catalog_item_categories cic

@@ -88,9 +88,11 @@ select is(has_table_privilege('anon', 'public.catalog_item_categories', 'SELECT'
 
 -- E. Backfill — one is_primary row per existing item, mirroring canonical -----
 -- (asserted BEFORE any fixture insert, against the migrated population.)
+-- Spec 344 fold-and-retire DELETES a merged loser's memberships by design, so
+-- the invariant holds for every UN-MERGED item (retired duplicates excluded).
 select is(
   (select count(*)::int from public.catalog_item_categories where is_primary),
-  (select count(*)::int from public.catalog_items),
+  (select count(*)::int from public.catalog_items where merged_into is null),
   'exactly one is_primary membership per existing catalog item (backfill)');
 select is(
   (select count(*)::int

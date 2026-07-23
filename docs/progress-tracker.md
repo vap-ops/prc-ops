@@ -9297,3 +9297,37 @@ id="cold-restart">` in the /settings เกี่ยวกับ card, under the
   tool, saw the real RED. Prefer Edit over perl for mutations on template
   literals.
 - **Spec 343 COMPLETE:** U1 #698 (live 0.180.0) · U2 #704 · U3 #705.
+
+## Spec 345 U3 — review action RPCs + voucher (2026-07-23)
+
+- **What:** mig `20260813075840` — `money_review_recompute` (the ONE flags→status
+  rule: any open ⇒ flagged, else verified stays, else pending) + 4 DEFINER RPCs
+  (`verify_money_event` refuses open flags P0001 + dismisses suggested system
+  flags [D-1 loop-closer] · `flag_money_event` open reviewer flag, refuses the
+  system-reserved type + blank-detail other · `resolve_money_flag` resolution
+  required · `dismiss_money_flag`), all gated accounting+super (42501 pinned),
+  all audited (`action='other'` + event). The list RPC regains signature
+  (+p_source_table/p_source_id + tab 'any') so the voucher reads the SAME union
+  body. Voucher `/accounting/review/[source]/[id]`: summary, signed-URL docs
+  (3 doc-bearing sources; PR links to the rich spec-196 voucher), GL trail via
+  journal_entries(source_table, source_id), action panel (client component —
+  refusals render inline), closed-flag history. Queue rows now link.
+  `MONEY_REVIEW_ROLES` additive in role-home + capability registry entry.
+  Loader registered FIRM_WIDE in money-read-policy; MONEY_TABLES += the two
+  sealed review tables.
+- **Build:** pgTAP `345c` 39/39 RED-first; full suite 312/313 (tolerated 221
+  only); vitest 4864/674; lint+typecheck clean. Test-role lesson: sealed-table
+  state asserts must run as OWNER (an authenticated read returns EMPTY silently
+  under RLS-no-policy — a grant would fake it); flag-id lookups for role-switched
+  action bodies go through an owner-captured granted temp table.
+- **Verified:** browser as dev-preview — queue rows link; a REAL rental
+  settlement's voucher renders all sections + 8 admin flag types (reserved type
+  absent); bad source/uuid → 404 content with zero action leak; console clean.
+  **Write actions NOT exercised on prod by design** — a CC-authored verify/flag
+  on a real payment would be a fake attestation; the full verify→stale→re-verify
+  and flag→resolve/dismiss loops are pgTAP-proven end-to-end (39 asserts) + RTL
+  wiring + 1 component mutation-check (verify-block kill → RED).
+- **Open questions / follow-ups:** U5 widens `resolve_money_flag` to the
+  uploader (self-or-owner) + notifications; U4 corrections (creates
+  `supersede_wage_payment`); voucher per-source extras (vat/method/reference
+  columns) deferred to U4/U5 when correction forms need them.

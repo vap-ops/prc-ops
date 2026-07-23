@@ -338,6 +338,15 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
 export const ACCOUNTING_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
 
 /**
+ * Spec 345: who VERIFIES/FLAGS money-event documents and runs the correction
+ * paths (D4). Same membership as ACCOUNTING_ROLES today, but a DIFFERENT
+ * meaning — review is a write authority and may diverge (e.g. a junior
+ * accountant who reads registers but does not certify). New meaning → its own
+ * set; never widen ACCOUNTING_ROLES for it.
+ */
+export const MONEY_REVIEW_ROLES: ReadonlyArray<UserRole> = ["accounting", "super_admin"];
+
+/**
  * Spec 329: who can OPEN /settings/company-docs — read, download, and share-link
  * the firm's own papers (หนังสือรับรอง, ภ.พ.20, company profile). Wider than
  * BACK_OFFICE_ROLES on purpose (accounting + legal join); MANAGE (upload /
