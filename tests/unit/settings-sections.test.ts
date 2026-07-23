@@ -160,12 +160,24 @@ describe("settings sections config (role → entries matrix)", () => {
       "/settings/org-chart",
       // Spec 331: the document-type registry (super_admin mints types).
       "/settings/company-doc-types",
-      // Spec 274: super_admin "view as role" picker.
-      "/settings/view-as",
       "/settings/usage",
       "/settings/friction-map",
     ]);
     expect(hrefs("admin", "project_manager")).toEqual([]);
+  });
+
+  it("the view-as picker (tools section) reaches every view-as assumer, not the Admin tiles", () => {
+    // Spec 348 U5: view-as moved to its own isViewAsAssumer-gated section so
+    // procurement_manager (assumes site_admin only) reaches it WITHOUT the
+    // super-only Admin tiles. super_admin still sees it.
+    expect(hrefs("tools", "super_admin")).toEqual(["/settings/view-as"]);
+    expect(hrefs("tools", "procurement_manager")).toEqual(["/settings/view-as"]);
+    // Non-assumers see no tools section.
+    expect(hrefs("tools", "project_manager")).toEqual([]);
+    expect(hrefs("tools", "procurement")).toEqual([]);
+    expect(hrefs("tools", "site_admin")).toEqual([]);
+    // And procurement_manager still gets NONE of the super-only Admin tiles.
+    expect(hrefs("admin", "procurement_manager")).toEqual([]);
   });
 
   it("labels come from the i18n SSOT constants", () => {

@@ -10,16 +10,19 @@ import "server-only";
 
 import { createClient } from "@/lib/db/server";
 import type { UserRole } from "@/lib/db/enums";
-import { isAssumableRole } from "./effective-role";
+import { canAssume } from "./effective-role";
 import { readAssumedRoleCookie } from "./assumed-role.server";
 
-/** The role a real super_admin is currently viewing-as, or null. */
+/** The role the real assumer is currently viewing-as, or null. Spec 348 U5:
+ * per-assumer — super_admin viewing any served role, or procurement_manager
+ * viewing site_admin. */
 export async function getActiveViewAs(): Promise<UserRole | null> {
   const raw = await readAssumedRoleCookie();
-  if (!raw || !isAssumableRole(raw)) return null;
+  if (!raw) return null;
 
-  // Cookie present → verify the REAL role is super_admin (forge-guard). A forged
-  // cookie on a non-super session yields null (and is inert at the gates anyway).
+  // Cookie present → verify the REAL role may assume THIS value (forge-guard). A
+  // forged cookie on a session whose real role can't assume it yields null (and
+  // is inert at the gates anyway — resolveEffectiveRole shares canAssume).
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data) return null;
@@ -28,7 +31,8 @@ export async function getActiveViewAs(): Promise<UserRole | null> {
     .select("role")
     .eq("id", data.claims.sub)
     .maybeSingle();
-  if (row?.role !== "super_admin") return null;
+  const realRole = row?.role as UserRole | undefined;
+  if (!realRole || !canAssume(realRole, raw)) return null;
 
   return raw;
 }

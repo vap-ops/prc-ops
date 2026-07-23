@@ -15,7 +15,19 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ASSUMABLE_ROLES, isAssumableRole, resolveEffectiveRole } from "@/lib/auth/effective-role";
+import {
+  ASSUMABLE_ROLES,
+  assumableRolesFor,
+  canAssume,
+  isViewAsAssumer,
+  resolveEffectiveRole,
+} from "@/lib/auth/effective-role";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import type { UserRole } from "@/lib/db/enums";
+
+// The complete enum (USER_ROLE_LABEL is Record<UserRole> — an enum add trips its
+// own exhaustiveness guard, so this stays complete without a hand-maintained list).
+const ALL_ROLES = Object.keys(USER_ROLE_LABEL) as UserRole[];
 
 describe("ASSUMABLE_ROLES", () => {
   it("is exactly the served roles that have a real UI to view", () => {
@@ -43,18 +55,6 @@ describe("ASSUMABLE_ROLES", () => {
       "auditor",
     ] as const) {
       expect(ASSUMABLE_ROLES).not.toContain(role);
-    }
-  });
-});
-
-describe("isAssumableRole", () => {
-  it("is true for exactly the ASSUMABLE_ROLES set", () => {
-    for (const role of ASSUMABLE_ROLES) expect(isAssumableRole(role)).toBe(true);
-  });
-
-  it("is false for excluded roles and for arbitrary non-enum strings", () => {
-    for (const raw of ["super_admin", "visitor", "hr", "", "garbage", "site_ADMIN"]) {
-      expect(isAssumableRole(raw)).toBe(false);
     }
   });
 });
@@ -100,6 +100,73 @@ describe("resolveEffectiveRole — forge-guard (non-super caller)", () => {
       // Even a perfectly valid assumable value must have no effect for a non-super caller.
       expect(resolveEffectiveRole(realRole, "project_director")).toBe(realRole);
       expect(resolveEffectiveRole(realRole, "accounting")).toBe(realRole);
+    }
+  });
+});
+
+// ── Spec 348 U5 / ADR 0084 — per-assumer view-as ──────────────────────────────
+// procurement_manager is a full site_admin superset (spec 348 U1–U4), so it may
+// view-as site_admin — and ONLY site_admin (it is NOT ⊇ any other role). The
+// forge-guard now keys on canAssume, so a value outside a role's allowlist is
+// inert even for an assumer.
+
+describe("assumableRolesFor / isViewAsAssumer / canAssume", () => {
+  it("super_admin may assume the full ASSUMABLE_ROLES list", () => {
+    expect([...assumableRolesFor("super_admin")]).toEqual([...ASSUMABLE_ROLES]);
+    expect(isViewAsAssumer("super_admin")).toBe(true);
+  });
+
+  it("procurement_manager may assume site_admin ONLY", () => {
+    expect([...assumableRolesFor("procurement_manager")]).toEqual(["site_admin"]);
+    expect(isViewAsAssumer("procurement_manager")).toBe(true);
+    expect(canAssume("procurement_manager", "site_admin")).toBe(true);
+    // NOT ⊇ these — she has no more authority than they do, so no view-as.
+    for (const t of [
+      "project_manager",
+      "project_director",
+      "accounting",
+      "procurement",
+      "super_admin",
+    ]) {
+      expect(canAssume("procurement_manager", t)).toBe(false);
+    }
+  });
+
+  // EXHAUSTIVE over the whole user_role enum: the assumer set must be EXACTLY
+  // super_admin + procurement_manager. Iterating ALL_ROLES (not a hand-typed
+  // list) means adding a NEW assumer to VIEW_AS_MAP for ANY role — including the
+  // easily-forgotten subcon_manager / legal — reds this test. Escalation guard:
+  // a stray e.g. `legal → accounting` would surface here, not slip through.
+  it("the assumer set is EXACTLY super_admin + procurement_manager (exhaustive)", () => {
+    const assumers = ALL_ROLES.filter(isViewAsAssumer).sort();
+    expect(assumers).toEqual(["procurement_manager", "super_admin"]);
+    for (const role of ALL_ROLES) {
+      if (role === "super_admin" || role === "procurement_manager") continue;
+      expect(assumableRolesFor(role)).toHaveLength(0);
+      expect(canAssume(role, "site_admin")).toBe(false);
+      expect(canAssume(role, "accounting")).toBe(false);
+    }
+  });
+});
+
+describe("resolveEffectiveRole — procurement_manager assumer (spec 348 U5)", () => {
+  it("resolves to site_admin when she assumes site_admin", () => {
+    expect(resolveEffectiveRole("procurement_manager", "site_admin")).toBe("site_admin");
+  });
+
+  it("IGNORES any assumed value other than site_admin (forge-guard, returns her real role)", () => {
+    for (const raw of [
+      "project_manager",
+      "project_director",
+      "accounting",
+      "procurement",
+      "super_admin",
+      "garbage",
+      "",
+      null,
+      undefined,
+    ]) {
+      expect(resolveEffectiveRole("procurement_manager", raw)).toBe("procurement_manager");
     }
   });
 });
