@@ -6722,6 +6722,80 @@ export type Database = {
           },
         ]
       }
+      stock_receipt_price_corrections: {
+        Row: {
+          corrected_amount: number
+          corrected_at: string
+          corrected_by: string | null
+          corrected_vat_rate: number
+          delta_gross: number
+          delta_net: number
+          delta_vat: number
+          flag_id: string | null
+          id: string
+          reason: string
+          receipt_id: string
+          supplier_id: string | null
+        }
+        Insert: {
+          corrected_amount: number
+          corrected_at?: string
+          corrected_by?: string | null
+          corrected_vat_rate: number
+          delta_gross: number
+          delta_net: number
+          delta_vat: number
+          flag_id?: string | null
+          id?: string
+          reason: string
+          receipt_id: string
+          supplier_id?: string | null
+        }
+        Update: {
+          corrected_amount?: number
+          corrected_at?: string
+          corrected_by?: string | null
+          corrected_vat_rate?: number
+          delta_gross?: number
+          delta_net?: number
+          delta_vat?: number
+          flag_id?: string | null
+          id?: string
+          reason?: string
+          receipt_id?: string
+          supplier_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_receipt_price_corrections_corrected_by_fkey"
+            columns: ["corrected_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_price_corrections_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "money_review_flags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_price_corrections_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "stock_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_receipt_price_corrections_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_receipts: {
         Row: {
           catalog_item_id: string
@@ -9735,6 +9809,21 @@ export type Database = {
           started_at: string
         }[]
       }
+      get_my_assigned_work: {
+        Args: never
+        Returns: {
+          code: string
+          group_child_statuses: Database["public"]["Enums"]["work_package_status"][]
+          is_group: boolean
+          name: string
+          parent_code: string
+          parent_id: string
+          parent_name: string
+          status: Database["public"]["Enums"]["work_package_status"]
+          work_date: string
+          wp_id: string
+        }[]
+      }
       get_my_crew_assignments: {
         Args: never
         Returns: {
@@ -10075,6 +10164,10 @@ export type Database = {
       post_stock_count_to_gl: { Args: { p_source_id: string }; Returns: string }
       post_stock_issue_to_gl: { Args: { p_source_id: string }; Returns: string }
       post_stock_receipt_correction_to_gl: {
+        Args: { p_source_id: string }
+        Returns: string
+      }
+      post_stock_receipt_price_correction_to_gl: {
         Args: { p_source_id: string }
         Returns: string
       }

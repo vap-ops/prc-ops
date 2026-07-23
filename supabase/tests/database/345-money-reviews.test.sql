@@ -94,7 +94,7 @@ select is((select prosecdef from pg_proc p join pg_namespace n on n.oid = p.pron
   true, 'money_review_mark_stale_tg is SECURITY DEFINER');
 select is((select count(*) from pg_trigger t join pg_class c on c.oid = t.tgrelid
            where not t.tgisinternal and t.tgname like '%\_money\_review\_stale'),
-  15::bigint, 'exactly 15 stale-verify triggers are wired');
+  16::bigint, 'exactly 16 stale-verify triggers are wired (+ spec 347 price-correction)');
 -- The generic fn silently no-ops on a nonexistent id column (to_jsonb ->> null),
 -- so pin every wired trigger's tg_argv[1] against the table's REAL columns —
 -- a mis-wired future trigger must red here, not ship green and never fire.
@@ -106,7 +106,7 @@ select is(
                    where col.table_schema = 'public'
                      and col.table_name = c.relname
                      and col.column_name = (string_to_array(encode(t.tgargs, 'escape'), '\000'))[2])),
-  15::bigint, 'every stale trigger names an id column that exists on its table (no silent no-op wiring)');
+  16::bigint, 'every stale trigger names an id column that exists on its table (no silent no-op wiring)');
 select has_trigger('public', 'wp_labor_costs', 'wp_labor_costs_money_review_stale',
   'wp_labor_costs stale trigger exists (source_id = work_package_id)');
 
