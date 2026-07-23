@@ -17,6 +17,8 @@ import {
   ADD_TECHNICIAN_HAS_PHONE_LABEL,
   ADD_TECHNICIAN_NO_PHONE_LABEL,
   PASSBOOK_PHOTO_LABEL,
+  SUBCON_LINE_SHARE_LABEL,
+  REGISTER_PREP_POSTER_LINE,
 } from "@/lib/i18n/labels";
 
 const projects = [{ id: "11111111-1111-4111-8111-111111111111", code: "TFM", name: "TFM Site" }];
@@ -112,6 +114,19 @@ describe("AddTechnicianSheet — spec 298 U2 front door", () => {
     expect(
       within(dialog).queryByRole("button", { name: ADD_TECHNICIAN_HAS_PHONE_LABEL }),
     ).toBeNull();
+  });
+
+  // Spec 343 U3 — the LINE share carries the "bring your ID card" line ahead of
+  // the URL, so a firm member reading the forward knows what to prepare before
+  // they even scan (the poster carries the same line via the shared constant).
+  it("spec 343: the LINE share text leads with the เตรียมบัตรประชาชนก่อนสแกน line", () => {
+    const dialog = openSheet(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: /ช่างอวย/ }));
+    const share = within(dialog).getByRole("link", { name: SUBCON_LINE_SHARE_LABEL });
+    const href = share.getAttribute("href") ?? "";
+    expect(href).toContain(encodeURIComponent(REGISTER_PREP_POSTER_LINE));
+    // and still carries the URL it was sharing
+    expect(href).toContain(encodeURIComponent("contractor=def"));
   });
 
   it("spec 328 U2b: the QR expands UNDER the tapped firm row (accordion), not below the list", () => {
