@@ -22,6 +22,7 @@ import type { MusterBoard, MusterTeam, MusterWp } from "@/lib/muster/load-muster
 import { MusterCamera } from "./muster-camera";
 
 type Mode = "in" | "out";
+type Session = "regular" | "ot";
 
 function bangkokTime(iso: string | null): string {
   if (!iso) return "—";
@@ -59,6 +60,9 @@ export function MusterCockpit({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("in");
+  // Spec 351 — งานปกติ (regular) vs OT session. OT scans derive in/out per worker
+  // (no OT row → in, open OT → out), so the เข้า/ออก toggle is only shown for regular.
+  const [session, setSession] = useState<Session>("regular");
   const [leadPick, setLeadPick] = useState("");
   const [scanTeamId, setScanTeamId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -105,8 +109,27 @@ export function MusterCockpit({
     });
   };
 
-  const scan = (teamId: string, workerId: string, method: "qr" | "manual") =>
-    run(() => musterScan({ teamId, workerId, mode, method, revalidate }));
+  // Spec 351 — a regular scan follows the เข้า/ออก mode; an OT scan derives its
+  // in/out from the worker's current OT state (no OT row → in, open OT → out).
+  const scanRegular = (teamId: string, workerId: string, method: "qr" | "manual") =>
+    run(() => musterScan({ teamId, workerId, mode, method, session: "regular", revalidate }));
+  const scanOt = (teamId: string, workerId: string, method: "qr" | "manual") => {
+    const member = board.teams
+      .find((t) => t.id === teamId)
+      ?.members.find((m) => m.workerId === workerId);
+    // OT already closed for this worker → nothing to scan. The per-member buttons
+    // already hide in this state; the camera path must match (else a QR scan would
+    // fire an idempotent no-op scan-in with no feedback to the SA).
+    if (member?.ot && member.ot.outAt) {
+      setMessage("ช่างคนนี้ปิด OT แล้ว");
+      return;
+    }
+    const otMode: Mode = member?.ot && !member.ot.outAt ? "out" : "in";
+    run(() => musterScan({ teamId, workerId, mode: otMode, method, session: "ot", revalidate }));
+  };
+  // The camera dispatches by the active session (it scans whichever session is on).
+  const scanFromCamera = (teamId: string, workerId: string) =>
+    session === "ot" ? scanOt(teamId, workerId, "qr") : scanRegular(teamId, workerId, "qr");
 
   const saveWps = (teamId: string, wpIds: string[]) =>
     run(() => setMusterTeamWps({ teamId, wpIds, revalidate }));
@@ -123,23 +146,45 @@ export function MusterCockpit({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ink font-semibold">{formatThaiDate(date)}</p>
-        <div className="flex overflow-hidden rounded-full">
-          <button
-            type="button"
-            onClick={() => setMode("in")}
-            className={`min-h-11 px-4 text-sm font-bold ${mode === "in" ? TOGGLE_ON : TOGGLE_OFF}`}
-          >
-            เข้า
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("out")}
-            className={`min-h-11 px-4 text-sm font-bold ${mode === "out" ? TOGGLE_ON : TOGGLE_OFF}`}
-          >
-            ออก
-          </button>
+        <div className="flex items-center gap-2">
+          {/* Spec 351 — session toggle: normal hours vs OT. */}
+          <div className="flex overflow-hidden rounded-full">
+            <button
+              type="button"
+              onClick={() => setSession("regular")}
+              className={`min-h-11 px-4 text-sm font-bold ${session === "regular" ? TOGGLE_ON : TOGGLE_OFF}`}
+            >
+              งานปกติ
+            </button>
+            <button
+              type="button"
+              onClick={() => setSession("ot")}
+              className={`min-h-11 px-4 text-sm font-bold ${session === "ot" ? TOGGLE_ON : TOGGLE_OFF}`}
+            >
+              OT
+            </button>
+          </div>
+          {/* เข้า/ออก applies to the regular session only — OT derives in/out per worker. */}
+          {session === "regular" ? (
+            <div className="flex overflow-hidden rounded-full">
+              <button
+                type="button"
+                onClick={() => setMode("in")}
+                className={`min-h-11 px-4 text-sm font-bold ${mode === "in" ? TOGGLE_ON : TOGGLE_OFF}`}
+              >
+                เข้า
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("out")}
+                className={`min-h-11 px-4 text-sm font-bold ${mode === "out" ? TOGGLE_ON : TOGGLE_OFF}`}
+              >
+                ออก
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -199,13 +244,15 @@ export function MusterCockpit({
             team={team}
             wps={board.wps}
             mode={mode}
+            session={session}
             pending={pending}
             availableToAdd={addableTo(team.id)}
             otherTeams={board.teams
               .filter((t) => t.id !== team.id)
               .map((t) => ({ id: t.id, leadName: t.leadName }))}
             hasCamera={hasCamera}
-            onScan={scan}
+            onScan={scanRegular}
+            onScanOt={scanOt}
             onSaveWps={saveWps}
             onMove={move}
             onOpenCamera={() => setScanTeamId(team.id)}
@@ -249,7 +296,7 @@ export function MusterCockpit({
       {scanTeamId ? (
         <MusterCamera
           onDetected={(workerId) => {
-            scan(scanTeamId, workerId, "qr");
+            scanFromCamera(scanTeamId, workerId);
             setScanTeamId(null);
           }}
           onClose={() => setScanTeamId(null)}
@@ -263,11 +310,13 @@ function TeamCard({
   team,
   wps,
   mode,
+  session,
   pending,
   availableToAdd,
   otherTeams,
   hasCamera,
   onScan,
+  onScanOt,
   onSaveWps,
   onMove,
   onOpenCamera,
@@ -275,12 +324,16 @@ function TeamCard({
   team: MusterTeam;
   wps: MusterWp[];
   mode: Mode;
+  session: Session;
   pending: boolean;
   availableToAdd: { id: string; name: string }[];
   /** Spec 306 move UI — the OTHER teams today (move targets, by lead name). */
   otherTeams: { id: string; leadName: string }[];
   hasCamera: boolean;
+  /** Regular-session scan (add / check-out), following the เข้า/ออก mode. */
   onScan: (teamId: string, workerId: string, method: "qr" | "manual") => void;
+  /** Spec 351 — OT-session scan (in/out derived per worker from their OT state). */
+  onScanOt: (teamId: string, workerId: string, method: "qr" | "manual") => void;
   onSaveWps: (teamId: string, wpIds: string[]) => void;
   onMove: (workerId: string, toTeamId: string) => void;
   onOpenCamera: () => void;
@@ -377,35 +430,76 @@ function TeamCard({
                     {bangkokTime(m.inAt)}
                     {m.outAt ? ` – ${bangkokTime(m.outAt)}` : ""}
                     {m.outAt && m.outAuto ? " (อัตโนมัติ)" : ""}
-                    {m.otHours ? ` · OT ${m.otHours} ชม.` : ""}
                   </span>
-                  {/* Spec 306 move UI — day-of correction, เข้า mode, only when
-                      there is another team to move to. */}
-                  {mode === "in" && otherTeams.length > 0 ? (
+                  {session === "regular" ? (
+                    <>
+                      {/* Spec 306 move UI — day-of correction, เข้า mode, only when
+                          there is another team to move to. */}
+                      {mode === "in" && otherTeams.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMovePickFor((v) => (v === m.workerId ? null : m.workerId))
+                          }
+                          disabled={pending}
+                          className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
+                        >
+                          ย้าย
+                        </button>
+                      ) : null}
+                      {mode === "out" && m.inAt && !m.outAt ? (
+                        <button
+                          type="button"
+                          onClick={() => onScan(team.id, m.workerId, "manual")}
+                          disabled={pending}
+                          className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
+                        >
+                          เช็คออก
+                        </button>
+                      ) : null}
+                    </>
+                  ) : !m.ot ? (
+                    // Spec 351 — OT session: no OT row yet → open one (OT เข้า).
                     <button
                       type="button"
-                      onClick={() => setMovePickFor((v) => (v === m.workerId ? null : m.workerId))}
+                      onClick={() => onScanOt(team.id, m.workerId, "manual")}
                       disabled={pending}
-                      className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
+                      className="bg-fill text-on-fill min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
                     >
-                      ย้าย
+                      OT เข้า
                     </button>
-                  ) : null}
-                  {mode === "out" && m.inAt && !m.outAt ? (
+                  ) : !m.ot.outAt ? (
+                    // OT open → close it (OT ออก).
                     <button
                       type="button"
-                      onClick={() => onScan(team.id, m.workerId, "manual")}
+                      onClick={() => onScanOt(team.id, m.workerId, "manual")}
                       disabled={pending}
                       className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
                     >
-                      เช็คออก
+                      OT ออก
                     </button>
                   ) : null}
                 </div>
               </div>
-              {/* Picker gated on เข้า mode too — the toggle hides on a mode
-                  flip but this open panel would otherwise survive it live. */}
-              {mode === "in" && movePickFor === m.workerId ? (
+              {/* Spec 351 — the worker's OT session: its window + an open-OT flag
+                  (surfaced whenever there is an OT row, in either session view). */}
+              {m.ot ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-accent text-meta tabular-nums">
+                    OT {bangkokTime(m.ot.inAt)}
+                    {m.ot.outAt ? ` – ${bangkokTime(m.ot.outAt)}` : ""}
+                    {m.ot.otHours != null ? ` · ${m.ot.otHours} ชม.` : ""}
+                  </span>
+                  {m.ot.inAt && !m.ot.outAt ? (
+                    <span className="bg-attn-soft text-attn-ink text-meta rounded-full px-2 py-0.5 font-semibold">
+                      OT ยังไม่ปิด
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+              {/* Picker gated on เข้า mode + regular session — the toggle hides on
+                  a flip but this open panel would otherwise survive it live. */}
+              {session === "regular" && mode === "in" && movePickFor === m.workerId ? (
                 <div className="border-edge bg-sunk flex flex-wrap items-center gap-2 rounded-lg border p-2">
                   <span className="text-ink-muted text-meta">ย้ายไปทีมของ:</span>
                   {otherTeams.map((t) => (
@@ -428,7 +522,7 @@ function TeamCard({
           ))}
         </ul>
 
-        {mode === "in" ? (
+        {session === "regular" && mode === "in" ? (
           <div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -466,6 +560,25 @@ function TeamCard({
                   <span className="text-ink-muted text-meta">ช่างทุกคนเข้าทีมแล้ว</span>
                 )}
               </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Spec 351 — OT session: OT is opened/closed per member above; the camera
+            is an optional accelerator (it scans into whichever session is active). */}
+        {session === "ot" ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-ink-muted text-meta">
+              แตะ OT เข้า / OT ออก ที่ชื่อช่างเพื่อบันทึกช่วง OT
+            </span>
+            {hasCamera ? (
+              <button
+                type="button"
+                onClick={onOpenCamera}
+                className="bg-fill text-on-fill min-h-11 rounded-lg px-3 text-sm font-bold"
+              >
+                สแกน QR
+              </button>
             ) : null}
           </div>
         ) : null}
