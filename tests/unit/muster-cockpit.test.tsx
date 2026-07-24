@@ -424,6 +424,16 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
     expect(screen.getByText(/ยังมีช่างในงาน 1 คน/)).toBeInTheDocument();
   });
 
+  it("team opened but nobody scanned in yet → neutral label, not 'ยังมีช่างในงาน 0 คน'", () => {
+    const NO_SCAN: MusterBoard = {
+      ...BOARD,
+      teams: [{ id: T1, leadWorkerId: W1, leadName: "ลี", members: [], wpIds: [] }],
+    };
+    renderCockpit(NO_SCAN);
+    expect(screen.getByText(/ยังไม่มีช่างเช็คอิน/)).toBeInTheDocument();
+    expect(screen.queryByText(/ยังมีช่างในงาน 0 คน/)).not.toBeInTheDocument();
+  });
+
   it("all checked out → the 'done' highlight nudges to close for wages", () => {
     renderCockpit(READY_BOARD);
     expect(screen.getByText(/ทุกคนเช็คออกแล้ว/)).toBeInTheDocument();

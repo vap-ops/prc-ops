@@ -49,6 +49,18 @@ describe("deriveCloseDayState", () => {
     expect(s.stillIn).toBe(0);
   });
 
+  it("past day-end AND all checked out → ready, not overdue (the normal end-of-day close)", () => {
+    // The common path: workers finish at ~17:00, all get checked out, and it is
+    // now past day-end. ready must win over overdue — a branch reorder would
+    // silently downgrade the primary close prompt to an amber reminder.
+    const s = deriveCloseDayState({
+      teams: [team([member({ outAt: "2026-07-24T10:02:00Z" })])],
+      closure: null,
+      pastDayEnd: true,
+    });
+    expect(s.kind).toBe("ready");
+  });
+
   it("past day-end with workers still in → overdue (auto-out backstop covers stragglers)", () => {
     const s = deriveCloseDayState({
       teams: [team([member(), member({ outAt: "2026-07-24T10:00:00Z" })])],

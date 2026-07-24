@@ -172,8 +172,10 @@ export function MusterCockpit({
   });
 
   return (
-    // pb clears the fixed ปิดวัน footer so the last team card is never hidden.
-    <div className="flex flex-col gap-4 pb-40">
+    // pb clears the fixed ปิดวัน footer so the last team card is never hidden —
+    // sized for the tallest state (nudge + wrapped OT warning + 2 buttons) plus
+    // the safe-area inset on notched devices.
+    <div className="flex flex-col gap-4 pb-44">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ink font-semibold">{formatThaiDate(date)}</p>
         <div className="flex items-center gap-2">
@@ -289,21 +291,28 @@ export function MusterCockpit({
       {board.teams.length > 0 ? (
         <div className="border-edge bg-card shadow-up fixed inset-x-0 bottom-0 z-40 border-t px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-2`}>
-            {closeState.kind === "ready" ? (
-              <p className="text-ink text-sm font-semibold">
-                ทุกคนเช็คออกแล้ว · ปิดวันเพื่อบันทึกค่าแรง
-              </p>
-            ) : closeState.kind === "overdue" ? (
-              <p className="text-attn-ink text-sm font-semibold">
-                เลยเวลาเลิกงานแล้ว · อย่าลืมปิดวัน
-              </p>
-            ) : closeState.kind === "closed" ? (
-              <p className="text-ink-secondary text-sm font-semibold">
-                {MUSTER_DAY_CLOSED_LABEL} · {bangkokTime(closeState.closedAt)}
-              </p>
-            ) : (
-              <p className="text-ink-secondary text-sm">ยังมีช่างในงาน {closeState.stillIn} คน</p>
-            )}
+            {/* aria-live so a screen-reader SA hears the in_progress→ready/overdue
+                flip — that announcement is the whole point of the bar. */}
+            <div role="status" aria-live="polite">
+              {closeState.kind === "ready" ? (
+                <p className="text-ink text-sm font-semibold">
+                  ทุกคนเช็คออกแล้ว · ปิดวันเพื่อบันทึกค่าแรง
+                </p>
+              ) : closeState.kind === "overdue" ? (
+                <p className="text-attn-ink text-sm font-semibold">
+                  เลยเวลาเลิกงานแล้ว · อย่าลืมปิดวัน
+                </p>
+              ) : closeState.kind === "closed" ? (
+                <p className="text-ink-secondary text-sm font-semibold">
+                  {MUSTER_DAY_CLOSED_LABEL} · {bangkokTime(closeState.closedAt)}
+                </p>
+              ) : closeState.stillIn > 0 ? (
+                <p className="text-ink-secondary text-sm">ยังมีช่างในงาน {closeState.stillIn} คน</p>
+              ) : (
+                // Teams opened but nobody scanned in yet — a "0 คน" count reads wrong.
+                <p className="text-ink-secondary text-sm">ยังไม่มีช่างเช็คอิน</p>
+              )}
+            </div>
 
             {confirmClose ? (
               <>
