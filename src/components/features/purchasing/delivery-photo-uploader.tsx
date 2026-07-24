@@ -91,6 +91,9 @@ export function DeliveryPhotoUploader({
         attempts: 0,
         lastError: null,
         enqueuedAtMs: queueNowMs(),
+        // Spec 352 U1: this input is capture="environment" (spec 303 —
+        // forces the rear camera on mobile), so the affordance is "camera".
+        captureMethod: "camera",
       };
       await safeQueuePut(queueItem);
 

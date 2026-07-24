@@ -56,6 +56,19 @@ describe("useDefectPhotos (spec 248 U2)", () => {
     expect(mockAddPhoto).not.toHaveBeenCalled();
   });
 
+  it("stamps captureMethod 'picker' into storage metadata on upload (spec 352)", async () => {
+    // Defect photos come from a plain <input accept> with no `capture` and no
+    // library affordance split — the input tapped is ambiguous, so "picker".
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    expect(mockUpload).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.anything(),
+      expect.objectContaining({ metadata: { captureMethod: "picker" } }),
+    );
+  });
+
   it("marks a failed byte upload upload-error and exposes retry", async () => {
     mockUpload.mockResolvedValueOnce({ error: { message: "boom" } });
     const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));

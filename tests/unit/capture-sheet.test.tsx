@@ -96,6 +96,31 @@ describe("CaptureSheet gallery option (spec 96)", () => {
   });
 });
 
+// Spec 352 — each capture input declares its affordance so the upload can stamp
+// storage.objects.user_metadata. The camera shutter (capture="environment") is a
+// "camera"; the spec-96 library button (no capture) is a "library".
+describe("CaptureSheet capture method (spec 352)", () => {
+  const IMG = () => new File(["x"], "a.jpg", { type: "image/jpeg" });
+
+  it("passes captureMethod 'camera' from the shutter (capture=environment)", () => {
+    const { container } = renderSheet();
+    const camera = Array.from(container.querySelectorAll('input[type="file"]')).find(
+      (i) => i.getAttribute("capture") === "environment",
+    ) as HTMLInputElement;
+    fireEvent.change(camera, { target: { files: [IMG()] } });
+    expect(mockHandleFiles).toHaveBeenCalledWith(expect.anything(), "camera");
+  });
+
+  it("passes captureMethod 'library' from the spec-96 gallery button (no capture)", () => {
+    const { container } = renderSheet();
+    const gallery = Array.from(container.querySelectorAll('input[type="file"]')).find(
+      (i) => !i.hasAttribute("capture"),
+    ) as HTMLInputElement;
+    fireEvent.change(gallery, { target: { files: [IMG()] } });
+    expect(mockHandleFiles).toHaveBeenCalledWith(expect.anything(), "library");
+  });
+});
+
 // Feedback 7c3347b3 — the delete affordance moves OFF the grid thumbnail
 // (where a mis-tap could wipe an upload) and INTO the photo detail. A
 // loaded tile becomes a tap-to-enlarge trigger; delete lives in the

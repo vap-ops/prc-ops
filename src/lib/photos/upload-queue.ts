@@ -11,6 +11,7 @@
 //     advance; metadata 23505 handled inside addPhoto), so overlapping
 //     processors are harmless by design.
 
+import type { CaptureMethod } from "@/lib/photos/capture-method";
 import type { PhotoExt } from "@/lib/photos/path";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { PHOTOS_BUCKET, PR_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
@@ -35,6 +36,10 @@ interface QueuedUploadBase {
   attempts: number;
   lastError: string | null;
   enqueuedAtMs: number;
+  /** Spec 352 — which input affordance produced this image (camera shutter /
+   *  library button / plain picker). Rides the queue item so the runner can
+   *  stamp it into storage.objects.user_metadata when it drains offline. */
+  captureMethod: CaptureMethod;
 }
 
 // Spec 37: one queue, three photo kinds — the metadata action and the
@@ -56,18 +61,27 @@ export function bucketForKind(kind: QueuedUploadKind): "photos" | "pr-attachment
   return kind === "phase_photo" ? PHOTOS_BUCKET : PR_ATTACHMENTS_BUCKET;
 }
 
-// Items persisted by spec 35 predate `kind` — IDB is schemaless, so no
-// version bump: normalize on read. A kind-less item can only be a
-// phase photo (the only kind that existed).
-export function normalizeQueuedUpload(
-  raw:
-    | QueuedUpload
-    | (Omit<Extract<QueuedUpload, { kind: "phase_photo" }>, "kind"> & { kind?: undefined }),
-): QueuedUpload {
+// Items persisted by spec 35 predate `kind`, and items persisted before spec
+// 352 predate `captureMethod` — IDB is schemaless, so no version bump:
+// normalize on read. A kind-less item can only be a phase photo (the only kind
+// that existed); a captureMethod-less item's affordance is unknown ⇒ "picker".
+type MissingCaptureMethod<T> = T extends unknown
+  ? Omit<T, "captureMethod"> & { captureMethod?: CaptureMethod | undefined }
+  : never;
+
+type RawQueuedUpload =
+  | MissingCaptureMethod<QueuedUpload>
+  | (Omit<Extract<QueuedUpload, { kind: "phase_photo" }>, "kind" | "captureMethod"> & {
+      kind?: undefined;
+      captureMethod?: CaptureMethod | undefined;
+    });
+
+export function normalizeQueuedUpload(raw: RawQueuedUpload): QueuedUpload {
+  const captureMethod: CaptureMethod = raw.captureMethod ?? "picker";
   if (raw.kind === undefined) {
-    return { ...raw, kind: "phase_photo" };
+    return { ...raw, kind: "phase_photo", captureMethod };
   }
-  return raw;
+  return { ...raw, captureMethod };
 }
 
 export interface QueueStore {

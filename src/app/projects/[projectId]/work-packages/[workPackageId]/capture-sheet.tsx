@@ -281,7 +281,7 @@ function SheetCapture({
             capture="environment"
             multiple
             className="sr-only"
-            onChange={(e) => void handleFiles(e.target.files)}
+            onChange={(e) => void handleFiles(e.target.files, "camera")}
           />
           <span className="sr-only">ถ่ายรูป</span>
         </label>
@@ -306,7 +306,7 @@ function SheetCapture({
               const input = e.currentTarget;
               // handleFiles resets only the camera input — clear ours so the
               // same gallery photo can be re-picked.
-              void Promise.resolve(handleFiles(input.files)).finally(() => {
+              void Promise.resolve(handleFiles(input.files, "library")).finally(() => {
                 input.value = "";
               });
             }}

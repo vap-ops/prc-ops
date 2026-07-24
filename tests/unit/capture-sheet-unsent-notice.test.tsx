@@ -34,6 +34,7 @@ function pendingItem(overrides: Partial<PendingUpload> = {}): PendingUpload {
     enqueuedAtMs: 0,
     ext: "jpeg",
     storagePath: "p/wp/x.jpeg",
+    captureMethod: "picker",
     ...overrides,
   };
 }
