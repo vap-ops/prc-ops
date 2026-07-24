@@ -1,3 +1,9 @@
+# [0.202.0](https://github.com/vap-ops/prc-ops/compare/v0.201.0...v0.202.0) (2026-07-24)
+
+### Features
+
+- **purchasing:** stamp captureMethod on camera-forced upload sites (spec 352 U2) ([#734](https://github.com/vap-ops/prc-ops/issues/734)) ([701be95](https://github.com/vap-ops/prc-ops/commit/701be95f3f02fb30202d541168d79f5e6c591ec9))
+
 # [0.201.0](https://github.com/vap-ops/prc-ops/compare/v0.200.0...v0.201.0) (2026-07-24)
 
 ### Features
