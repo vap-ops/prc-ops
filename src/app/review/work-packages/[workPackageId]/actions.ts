@@ -28,8 +28,10 @@ import {
   APPROVAL_DECISIONS,
   isCommentValid,
   NOT_PENDING_REVIEW_ERROR,
+  revisionReasonRequiredFor,
   type ApprovalDecision,
 } from "@/lib/approvals/predicates";
+import type { ApprovalRevisionReason } from "@/lib/db/enums";
 import { canHold, canRelease } from "@/lib/work-packages/hold";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
@@ -44,6 +46,8 @@ export interface RecordDecisionInput {
   workPackageId: string;
   decision: ApprovalDecision;
   comment?: string | null;
+  /** Spec 355 — required for needs_revision (reject-evidence), forbidden otherwise. */
+  revisionReason?: ApprovalRevisionReason | null;
 }
 
 export type RecordDecisionResult =
@@ -57,6 +61,16 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
   const comment = input.comment ?? null;
   if (!isCommentValid(input.decision, comment)) {
     return { ok: false, error: "ผลการตรวจนี้ต้องใส่ความเห็น" };
+  }
+
+  // Spec 355 — mirror the RPC's reason rule so the error surface is clean: a
+  // reason is required for needs_revision and forbidden on approved/rejected.
+  const revisionReason = input.revisionReason ?? null;
+  if (revisionReasonRequiredFor(input.decision) && revisionReason === null) {
+    return { ok: false, error: "กรุณาเลือกเหตุผลที่ต้องแก้ไข" };
+  }
+  if (!revisionReasonRequiredFor(input.decision) && revisionReason !== null) {
+    return { ok: false, error: "ผลการตรวจนี้ไม่ต้องระบุเหตุผล" };
   }
 
   const auth = await getActionUser();
@@ -106,6 +120,7 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     p_wp: wp.id,
     p_decision: input.decision,
     ...(normalisedComment !== null ? { p_comment: normalisedComment } : {}),
+    ...(revisionReason !== null ? { p_revision_reason: revisionReason } : {}),
   });
   if (rpcError) {
     // 22023 = the RPC's status guard (a colleague decided first) or the

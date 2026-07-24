@@ -93,10 +93,11 @@ describe("selectLatestDecisionByWorkPackage", () => {
 });
 
 describe("commentRequiredFor", () => {
-  it("requires a comment for rejected and needs_revision; not for approved", () => {
+  it("spec 355: requires a comment for rejected only; not for approved or needs_revision", () => {
     expect(commentRequiredFor("approved")).toBe(false);
     expect(commentRequiredFor("rejected")).toBe(true);
-    expect(commentRequiredFor("needs_revision")).toBe(true);
+    // needs_revision now carries a structured reason instead — comment is optional.
+    expect(commentRequiredFor("needs_revision")).toBe(false);
   });
 });
 
@@ -115,10 +116,10 @@ describe("isCommentValid", () => {
     expect(isCommentValid("rejected", "\t\n  ")).toBe(false);
   });
 
-  it("rejects null/empty/whitespace comments for needs_revision", () => {
-    expect(isCommentValid("needs_revision", null)).toBe(false);
-    expect(isCommentValid("needs_revision", "")).toBe(false);
-    expect(isCommentValid("needs_revision", "  ")).toBe(false);
+  it("spec 355: accepts any comment (incl. null/empty) for needs_revision — it is optional now", () => {
+    expect(isCommentValid("needs_revision", null)).toBe(true);
+    expect(isCommentValid("needs_revision", "")).toBe(true);
+    expect(isCommentValid("needs_revision", "  ")).toBe(true);
   });
 
   it("accepts real text for rejected and needs_revision", () => {

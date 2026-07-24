@@ -31,8 +31,17 @@ export const APPROVAL_DECISIONS: ReadonlyArray<ApprovalDecision> = [
  */
 export const NOT_PENDING_REVIEW_ERROR = "รายการงานนี้ไม่ได้อยู่ในสถานะรอตรวจ";
 
+// Spec 355 — the comment is required only for reject-work (rejected), which carries
+// the defect description. reject-evidence (needs_revision) carries a structured
+// reason instead (see revisionReasonRequiredFor); its comment is optional detail.
 export function commentRequiredFor(decision: ApprovalDecision): boolean {
-  return decision !== "approved";
+  return decision === "rejected";
+}
+
+// Spec 355 — reject-evidence must say WHY (incomplete / mismatch / premature) so the
+// SA gets the right next-action. Required only for needs_revision.
+export function revisionReasonRequiredFor(decision: ApprovalDecision): boolean {
+  return decision === "needs_revision";
 }
 
 export function isCommentValid(decision: ApprovalDecision, comment: string | null): boolean {

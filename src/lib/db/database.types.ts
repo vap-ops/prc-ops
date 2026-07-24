@@ -81,6 +81,9 @@ export type Database = {
           decided_by: string
           decision: Database["public"]["Enums"]["approval_decision"]
           id: string
+          revision_reason:
+            | Database["public"]["Enums"]["approval_revision_reason"]
+            | null
           work_package_id: string
         }
         Insert: {
@@ -89,6 +92,9 @@ export type Database = {
           decided_by: string
           decision: Database["public"]["Enums"]["approval_decision"]
           id?: string
+          revision_reason?:
+            | Database["public"]["Enums"]["approval_revision_reason"]
+            | null
           work_package_id: string
         }
         Update: {
@@ -97,6 +103,9 @@ export type Database = {
           decided_by?: string
           decision?: Database["public"]["Enums"]["approval_decision"]
           id?: string
+          revision_reason?:
+            | Database["public"]["Enums"]["approval_revision_reason"]
+            | null
           work_package_id?: string
         }
         Relationships: [
@@ -9714,6 +9723,7 @@ export type Database = {
         Args: {
           p_comment?: string
           p_decision: Database["public"]["Enums"]["approval_decision"]
+          p_revision_reason?: Database["public"]["Enums"]["approval_revision_reason"]
           p_wp: string
         }
         Returns: string
@@ -11427,6 +11437,7 @@ export type Database = {
     Enums: {
       accounting_period_status: "open" | "closing" | "closed" | "locked"
       approval_decision: "approved" | "rejected" | "needs_revision"
+      approval_revision_reason: "incomplete" | "mismatch" | "premature"
       audit_action:
         | "insert"
         | "update"
@@ -11870,6 +11881,7 @@ export const Constants = {
     Enums: {
       accounting_period_status: ["open", "closing", "closed", "locked"],
       approval_decision: ["approved", "rejected", "needs_revision"],
+      approval_revision_reason: ["incomplete", "mismatch", "premature"],
       audit_action: [
         "insert",
         "update",

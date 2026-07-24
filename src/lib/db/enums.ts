@@ -13,6 +13,7 @@ export type WorkPackagePriority = Enums["work_package_priority"];
 export type ProjectStatus = Enums["project_status"];
 export type PhotoPhase = Enums["photo_phase"];
 export type ApprovalDecision = Enums["approval_decision"];
+export type ApprovalRevisionReason = Enums["approval_revision_reason"];
 export type ReportStatus = Enums["report_status"];
 export type PurchaseRequestStatus = Enums["purchase_request_status"];
 export type PurchaseRequestPriority = Enums["purchase_request_priority"];

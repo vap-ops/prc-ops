@@ -83,8 +83,8 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 -- ============================================================================
 select ok(to_regprocedure('public.submit_work_package_for_approval(uuid)') is not null,
   'submit_work_package_for_approval(uuid) exists');
-select ok(to_regprocedure('public.decide_work_package(uuid,approval_decision,text)') is not null,
-  'decide_work_package(uuid,approval_decision,text) exists');
+select ok(to_regprocedure('public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)') is not null,
+  'decide_work_package(uuid,approval_decision,text,approval_revision_reason) exists');
 select ok(to_regprocedure('public.resubmit_work_package_evidence(uuid)') is not null,
   'resubmit_work_package_evidence(uuid) exists');
 
@@ -92,7 +92,7 @@ select is((select prosecdef from pg_proc
             where oid = 'public.submit_work_package_for_approval(uuid)'::regprocedure),
   true, 'submit_work_package_for_approval is SECURITY DEFINER');
 select is((select prosecdef from pg_proc
-            where oid = 'public.decide_work_package(uuid,approval_decision,text)'::regprocedure),
+            where oid = 'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)'::regprocedure),
   true, 'decide_work_package is SECURITY DEFINER');
 select is((select prosecdef from pg_proc
             where oid = 'public.resubmit_work_package_evidence(uuid)'::regprocedure),
@@ -102,7 +102,7 @@ select is(has_function_privilege('anon',
   'public.submit_work_package_for_approval(uuid)', 'EXECUTE'),
   false, 'anon cannot execute submit_work_package_for_approval');
 select is(has_function_privilege('anon',
-  'public.decide_work_package(uuid,approval_decision,text)', 'EXECUTE'),
+  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)', 'EXECUTE'),
   false, 'anon cannot execute decide_work_package');
 select is(has_function_privilege('anon',
   'public.resubmit_work_package_evidence(uuid)', 'EXECUTE'),
@@ -112,7 +112,7 @@ select is(has_function_privilege('authenticated',
   'public.submit_work_package_for_approval(uuid)', 'EXECUTE'),
   true, 'authenticated can execute submit_work_package_for_approval');
 select is(has_function_privilege('authenticated',
-  'public.decide_work_package(uuid,approval_decision,text)', 'EXECUTE'),
+  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)', 'EXECUTE'),
   true, 'authenticated can execute decide_work_package');
 select is(has_function_privilege('authenticated',
   'public.resubmit_work_package_evidence(uuid)', 'EXECUTE'),
@@ -254,8 +254,8 @@ select throws_ok(
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330337"}';
 select throws_ok(
   $$ select public.decide_work_package('c5c50337-0337-0337-0337-c5c5c5c50337', 'needs_revision', null) $$,
-  '22023', 'decide_work_package: comment required for this decision',
-  'needs_revision without a comment is refused');
+  '22023', 'decide_work_package: revision reason required',
+  'spec 355: needs_revision without a structured reason is refused (comment no longer required)');
 select throws_ok(
   $$ select public.decide_work_package('c4c40337-0337-0337-0337-c4c4c4c40337', 'rejected', '   ') $$,
   '22023', 'decide_work_package: comment required for this decision',
@@ -270,7 +270,7 @@ select throws_ok(
 -- D.1 needs_revision — evidence cure: records the decision, does NOT flip.
 select is(
   (select public.decide_work_package('c5c50337-0337-0337-0337-c5c5c5c50337',
-     'needs_revision', '  ถ่ายรูปหลังทำงานใหม่  ')),
+     'needs_revision', '  ถ่ายรูปหลังทำงานใหม่  ', 'incomplete')),
   'pending_approval', 'needs_revision returns the unchanged status');
 reset role;
 select is((select status from public.work_packages

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Constants } from "@/lib/db/database.types";
 import {
   APPROVAL_DECISION_LABEL,
+  APPROVAL_REVISION_REASON_LABEL,
   PHOTO_PHASE_LABEL,
   PROJECT_STATUS_LABEL,
   PURCHASE_ORDER_STATUS_LABEL,
@@ -40,6 +41,11 @@ const MAPS = [
   ],
   ["photo_phase", Constants.public.Enums.photo_phase, PHOTO_PHASE_LABEL],
   ["approval_decision", Constants.public.Enums.approval_decision, APPROVAL_DECISION_LABEL],
+  [
+    "approval_revision_reason",
+    Constants.public.Enums.approval_revision_reason,
+    APPROVAL_REVISION_REASON_LABEL,
+  ],
   ["user_role", Constants.public.Enums.user_role, USER_ROLE_LABEL],
 ] as const;
 

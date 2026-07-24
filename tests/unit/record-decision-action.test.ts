@@ -125,11 +125,13 @@ describe("recordDecision — spec 337 U1 attributed decision", () => {
       workPackageId: WP,
       decision: "needs_revision",
       comment: "  ถ่ายรูปใหม่  ",
+      revisionReason: "mismatch",
     });
     expect(rpc).toHaveBeenCalledWith("decide_work_package", {
       p_wp: WP,
       p_decision: "needs_revision",
       p_comment: "ถ่ายรูปใหม่",
+      p_revision_reason: "mismatch",
     });
   });
 
@@ -146,9 +148,28 @@ describe("recordDecision — spec 337 U1 attributed decision", () => {
       workPackageId: WP,
       decision: "needs_revision",
       comment: "ถ่ายรูปใหม่",
+      revisionReason: "mismatch",
     });
     expect(r).toEqual({ ok: true, transitioned: false });
     expect(rpc).not.toHaveBeenCalledWith("freeze_wp_labor_cost", { p_wp: WP });
+  });
+
+  // Spec 355 — the action mirrors the RPC's reason rule so the error is clean.
+  it("refuses needs_revision without a structured reason", async () => {
+    authAs("pending_approval");
+    const r = await recordDecision({ workPackageId: WP, decision: "needs_revision", comment: "x" });
+    expect(r.ok).toBe(false);
+  });
+
+  it("refuses a reason on a reject-work (rejected) decision", async () => {
+    authAs("pending_approval");
+    const r = await recordDecision({
+      workPackageId: WP,
+      decision: "rejected",
+      comment: "defect",
+      revisionReason: "mismatch",
+    });
+    expect(r.ok).toBe(false);
   });
 
   // F3 — a rejection sends the work back to rework; the WP did NOT close, so

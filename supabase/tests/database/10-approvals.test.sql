@@ -109,9 +109,9 @@ select is(
   (select count(*)::int from pg_constraint
      where conrelid = 'public.approvals'::regclass
        and contype = 'c'
-       and conname = 'approvals_comment_required_when_negative'),
+       and conname = 'approvals_comment_required_when_rejected'),
   1,
-  'CHECK constraint approvals_comment_required_when_negative exists'
+  'CHECK constraint approvals_comment_required_when_rejected exists (spec 355 renamed from _when_negative)'
 );
 
 -- Composite index serves both "latest decision for WP X" (index seek then
@@ -187,13 +187,15 @@ select throws_ok(
 );
 
 -- ============================================================================
--- F. Comment CHECK behavioral. The constraint is:
+-- F. Comment CHECK behavioral. Spec 355 narrowed the constraint from "any
+--    non-approved decision needs a comment" to REJECTED only:
 --
---      decision = 'approved' OR (comment IS NOT NULL AND length(trim(comment)) > 0)
+--      decision <> 'rejected' OR (comment IS NOT NULL AND length(trim(comment)) > 0)
 --
---    "Required" means present AND non-blank — a whitespace-only comment on
---    a negative decision must be rejected, not just NULL. 23514 is
---    check_violation.
+--    needs_revision now carries a structured revision_reason (required by the RPC,
+--    not the table), so its comment is optional. "Required" for rejected still
+--    means present AND non-blank — a whitespace-only comment must be rejected, not
+--    just NULL. 23514 is check_violation.
 -- ============================================================================
 
 -- F.1 approved + NULL comment → OK
@@ -248,16 +250,16 @@ select throws_ok(
   'rejected + NULL comment is rejected by CHECK'
 );
 
--- F.6 needs_revision + NULL comment → FAILS
-select throws_ok(
+-- F.6 needs_revision + NULL comment → OK (spec 355: the comment demotes to
+--     optional detail; decide_work_package requires a structured revision_reason
+--     instead, so the table no longer requires a comment for needs_revision).
+select lives_ok(
   $$ insert into public.approvals (work_package_id, decision, comment, decided_by)
      values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid,
              'needs_revision'::public.approval_decision,
              null,
              '11111111-1111-1111-1111-111111111111'::uuid) $$,
-  '23514',
-  null,
-  'needs_revision + NULL comment is rejected by CHECK'
+  'needs_revision + NULL comment is OK (spec 355: comment optional; the RPC requires the reason)'
 );
 
 -- F.7 rejected + whitespace-only comment → FAILS (the load-bearing "non-blank"
