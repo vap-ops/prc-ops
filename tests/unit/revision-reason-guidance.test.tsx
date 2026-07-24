@@ -6,6 +6,9 @@
 // completeness sweep iterates the GENERATED enum array (not a hand list), so a
 // new enum value reds this file before it can ship unguided.
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -65,5 +68,26 @@ describe("<RevisionReasonGuidance> — per-reason attention-card note", () => {
     render(<RevisionReasonGuidance reason="mismatch" showCta={false} />);
     expect(screen.getByText(REVISION_REASON_GUIDANCE.mismatch.guidance)).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+});
+
+// The WP-detail page is an RSC too heavy to render here, so pin its WIRING at the
+// source (repo precedent: record-decision-form's spec-353 CTA pin). ≥2 occurrences
+// = import PLUS a real JSX usage — an import alone must not satisfy this
+// (doctrine: assertions on file text pin usage, not presence).
+describe("WP-detail page wiring (spec 355 U3)", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/app/projects/[projectId]/work-packages/[workPackageId]/page.tsx"),
+    "utf8",
+  );
+
+  it("renders RevisionReasonGuidance gated on a needs_revision reason, read-only aware", () => {
+    expect(src.split("RevisionReasonGuidance").length - 1).toBeGreaterThanOrEqual(2);
+    expect(src).toContain('attention.decision === "needs_revision" && attention.revision_reason');
+    expect(src).toContain("showCta={!readOnly}");
+  });
+
+  it("keeps the spec-353 phase CTA as the null-reason fallback", () => {
+    expect(src).toContain('wp.rework_round > 0 ? "ถ่ายรูปหลังแก้ไขใหม่" : "ถ่ายรูปหลังทำงานใหม่"');
   });
 });
