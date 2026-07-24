@@ -9,7 +9,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
-import type { Database } from "@/lib/db/database.types";
+import { Constants, type Database } from "@/lib/db/database.types";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
 import { WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
@@ -145,7 +145,8 @@ export async function createWorker(
 // DC edit matrix (2026-07-13): the enum axes the roster edit sheet can set.
 const PAY_TYPES: readonly PayType[] = ["monthly", "daily"];
 const EMPLOYMENT_TYPES: readonly EmploymentType[] = ["permanent", "temporary"];
-const GENDERS: readonly WorkerGender[] = ["male", "female"];
+// Generated enum values — an enum-add flows through without a hand-list edit.
+const GENDERS: readonly WorkerGender[] = Constants.public.Enums.worker_gender;
 
 export async function updateWorker(input: {
   id: string;

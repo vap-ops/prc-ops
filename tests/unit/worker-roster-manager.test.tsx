@@ -427,3 +427,18 @@ describe("WorkerRosterManager gender (spec 357 U-F)", () => {
     );
   });
 });
+
+// Fresh-eyes 357 U-F: the edit omit-path — a stored-gender worker whose chips
+// are untouched must NOT resend gender (the update carries only changed fields).
+it("editing another field leaves gender out when the chips are untouched", async () => {
+  render(<WorkerRosterManager workers={[{ ...WORKERS[0]!, gender: "male" }]} contractors={[]} />);
+  fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+  const noteFields = screen.getAllByLabelText("หมายเหตุ");
+  fireEvent.change(noteFields[1]!, { target: { value: "โน้ตใหม่" } });
+  fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+  await waitFor(() =>
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ gender: expect.anything() }),
+    ),
+  );
+});

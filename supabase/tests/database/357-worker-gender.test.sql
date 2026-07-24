@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(17);
 
 -- ============================================================================
 -- Spec 357 U-F — workers.gender: enum + nullable column + a one-column widen
@@ -47,6 +47,22 @@ select ok(
     'EXECUTE'),
   'anon cannot execute update_worker (13-arg)');
 
+-- 9-10. Deliberate deviation from the 12-arg originals (fresh-eyes 357 U-F):
+-- service_role holds EXECUTE on both. INERT — the body's
+-- is_back_office(current_user_role()) gate raises for a service-key caller
+-- (auth.uid() null → role null) — pinned here so the deviation is a tested
+-- fact, not an accident.
+select ok(
+  has_function_privilege('service_role',
+    'public.create_worker(text, public.pay_type, public.employment_type, numeric, uuid, uuid, text, text, text, text, text, text, public.worker_gender)',
+    'EXECUTE'),
+  'service_role may execute create_worker (gated inert by is_back_office)');
+select ok(
+  has_function_privilege('service_role',
+    'public.update_worker(uuid, text, boolean, public.pay_type, public.employment_type, uuid, text, text, text, text, text, text, public.worker_gender)',
+    'EXECUTE'),
+  'service_role may execute update_worker (gated inert by is_back_office)');
+
 -- Fixture PM actor for the write-through asserts.
 insert into auth.users (id, email, raw_user_meta_data) values
   ('11111111-1111-1111-1111-111111357000', 'pm@gender-test.local', '{}'::jsonb);
@@ -60,7 +76,7 @@ update public.users set role = 'project_manager'
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111357000"}';
 
--- 9-10. create_worker accepts p_gender / lives without it.
+-- 11-12. create_worker accepts p_gender / lives without it.
 select lives_ok(
   $$ select public.create_worker('Gender Test A', 'daily', 'permanent', 300,
                                  p_gender => 'female') $$,
@@ -70,7 +86,7 @@ select lives_ok(
   'create_worker lives without p_gender');
 
 reset role;
--- 11-12. Persisted values (postgres read, fresh statements).
+-- 13-14. Persisted values (postgres read, fresh statements).
 select is(
   (select gender::text from public.workers where name = 'Gender Test A'),
   'female', 'create_worker writes gender');
@@ -81,7 +97,7 @@ select ok(
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111357000"}';
 
--- 13-14. update_worker: set, then an update omitting p_gender.
+-- 15-16. update_worker: set, then an update omitting p_gender.
 select lives_ok(
   $$ select public.update_worker(
        (select id from public.workers where name = 'Gender Test B'),
@@ -94,7 +110,7 @@ select lives_ok(
   'update_worker lives with p_gender omitted');
 
 reset role;
--- 15. Omitted p_gender kept the stored value (321-U3a blank=keep family).
+-- 17. Omitted p_gender kept the stored value (321-U3a blank=keep family).
 select is(
   (select gender::text from public.workers where name = 'Gender Test B2'),
   'male', 'update_worker with p_gender omitted keeps the stored value');
