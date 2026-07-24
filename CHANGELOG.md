@@ -1,3 +1,9 @@
+# [0.207.0](https://github.com/vap-ops/prc-ops/compare/v0.206.0...v0.207.0) (2026-07-24)
+
+### Features
+
+- **wp:** resubmit gate keys on current evidence phase (spec 353 U4) ([e635dad](https://github.com/vap-ops/prc-ops/commit/e635dad1be9a771b6ab12c47e12ce6b74fcbc083))
+
 # [0.206.0](https://github.com/vap-ops/prc-ops/compare/v0.205.0...v0.206.0) (2026-07-24)
 
 ### Features
