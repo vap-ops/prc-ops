@@ -75,6 +75,8 @@ const ALLOWED_DOMAINS = [
   "profile",
   // Spec 310: non-WP office expenses (card registry + expense form/list/queue).
   "expenses",
+  // Spec 350 U2: the /technician self-service surfaces (assigned-work progress card).
+  "technician",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

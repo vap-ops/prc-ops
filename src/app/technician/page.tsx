@@ -17,9 +17,9 @@ import { NotificationReadinessBanner } from "@/components/features/notifications
 import { readinessFromUserRow } from "@/lib/notifications/readiness";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { CARD } from "@/lib/ui/classes";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { ComingSoonBadge } from "@/components/features/chrome/coming-soon-badge";
+import { AssignedWorkCard } from "@/components/features/technician/assigned-work-card";
+import { buildAssignedWorkView } from "@/lib/technician/assigned-work-view";
 import { EmployeeCard } from "@/components/features/register/employee-card";
 import { WorkerBadgeQr } from "@/components/features/common/worker-badge-qr";
 import { toWorkerBadgeQrSvg } from "@/lib/muster/badge-qr";
@@ -71,6 +71,7 @@ export default async function TechnicianHomePage() {
     // (self-scoped; null for non-workers). Batched here to avoid an extra hop.
     { data: workerId },
     { data: ownWorkerRow },
+    { data: assignedWork },
   ] = await Promise.all([
     supabase.rpc("get_my_wage_payments"),
     supabase
@@ -91,9 +92,12 @@ export default async function TechnicianHomePage() {
     // bank section is hidden below (the firm pays them, PRC holds no bank).
     // get_my_worker_profile doesn't return contractor_id, hence the extra read.
     supabase.from("workers").select("contractor_id").eq("user_id", uid).maybeSingle(),
+    // Spec 350 U2 — the caller's most-recent muster team's assigned WPs + progress.
+    supabase.rpc("get_my_assigned_work"),
   ]);
 
   const bankExempt = ownWorkerRow?.contractor_id != null;
+  const assignedWorkView = buildAssignedWorkView(assignedWork ?? []);
 
   // Spec 306 U3a — present the QR on their home so they can show it at the morning
   // talk instead of carrying a printed badge. Payload = the caller's workers.id
@@ -141,15 +145,7 @@ export default async function TechnicianHomePage() {
           <WorkerIdCardUpdate uid={uid} currentUrl={urls.id_card ?? null} />
         ) : null}
 
-        <div className={CARD}>
-          <div className="flex items-center gap-2">
-            <p className="text-ink text-sm font-semibold">งานที่ได้รับมอบหมาย</p>
-            <ComingSoonBadge />
-          </div>
-          <p className="text-ink-secondary mt-1 text-sm">
-            รายการงานที่คุณได้รับมอบหมายจะแสดงที่นี่ เร็ว ๆ นี้
-          </p>
-        </div>
+        <AssignedWorkCard view={assignedWorkView} />
 
         {/* Spec 266 U7 (C): the ช่าง's own portal — wage, profile, bank, receipts. */}
         {wp ? (
