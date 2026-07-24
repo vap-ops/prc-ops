@@ -67,6 +67,7 @@ const BOARD: MusterBoard = {
         },
       ],
       wpIds: [],
+      prefillWpIds: [],
     },
   ],
   workers: [
@@ -74,7 +75,7 @@ const BOARD: MusterBoard = {
     { id: W2, name: "สมชาย" },
     { id: W3, name: "ก้อง" },
   ],
-  wps: [{ id: WPA, code: "A", name: "งานเอ" }],
+  wps: [{ id: WPA, code: "A", name: "งานเอ", status: "in_progress" }],
   closure: null,
 };
 
@@ -202,6 +203,7 @@ describe("MusterCockpit — OT session (spec 351)", () => {
           },
         ],
         wpIds: [],
+        prefillWpIds: [],
       },
     ],
     workers: [
@@ -209,7 +211,7 @@ describe("MusterCockpit — OT session (spec 351)", () => {
       { id: W2, name: "สมชาย" },
       { id: W3, name: "ก้อง" },
     ],
-    wps: [{ id: WPA, code: "A", name: "งานเอ" }],
+    wps: [{ id: WPA, code: "A", name: "งานเอ", status: "in_progress" }],
     closure: null,
   };
 
@@ -328,13 +330,22 @@ describe("MusterCockpit — leaf WP picker (spec 306 grain-coverage)", () => {
   const PARENT = "ffffffff-6666-6666-6666-666666666666";
   const GROUPED: MusterBoard = {
     ...BOARD,
-    teams: [{ ...BOARD.teams[0]!, wpIds: [] }],
+    teams: [{ ...BOARD.teams[0]!, wpIds: [], prefillWpIds: [] }],
     wps: [
-      { id: WPA, code: "A", name: "งานเอ", parentId: null, parentCode: null, parentName: null },
+      {
+        id: WPA,
+        code: "A",
+        name: "งานเอ",
+        status: "in_progress",
+        parentId: null,
+        parentCode: null,
+        parentName: null,
+      },
       {
         id: WPB,
         code: "W05-01",
         name: "ปูพื้น",
+        status: "in_progress",
         parentId: PARENT,
         parentCode: "WP-05",
         parentName: "งานพื้น",
@@ -384,6 +395,92 @@ describe("MusterCockpit — leaf WP picker (spec 306 grain-coverage)", () => {
   });
 });
 
+// Spec 357 U-B — the picker shows only incomplete leaves (an assigned-but-
+// completed one stays, tagged) and an unassigned team's picker seeds from the
+// same lead's prior muster day.
+describe("MusterCockpit — picker incomplete filter + prior-day prefill (spec 357 U-B)", () => {
+  const WPB = "99999999-9999-9999-9999-999999999999";
+  const PARENT = "ffffffff-6666-6666-6666-666666666666";
+  const STATUS_BOARD: MusterBoard = {
+    ...BOARD,
+    teams: [{ ...BOARD.teams[0]!, wpIds: [], prefillWpIds: [] }],
+    wps: [
+      {
+        id: WPA,
+        code: "A",
+        name: "งานเอ",
+        status: "complete",
+        parentId: null,
+        parentCode: null,
+        parentName: null,
+      },
+      {
+        id: WPB,
+        code: "W05-01",
+        name: "ปูพื้น",
+        status: "in_progress",
+        parentId: PARENT,
+        parentCode: "WP-05",
+        parentName: "งานพื้น",
+      },
+    ],
+  };
+
+  it("a completed unassigned leaf is not offered", async () => {
+    const user = userEvent.setup();
+    renderCockpit(STATUS_BOARD);
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: /แก้ไขงาน/ }));
+    expect(within(team).queryByLabelText(/งานเอ/)).toBeNull();
+  });
+
+  it("a completed ASSIGNED leaf stays offered, tagged เสร็จแล้ว (#742 invariant)", async () => {
+    const user = userEvent.setup();
+    renderCockpit({
+      ...STATUS_BOARD,
+      teams: [{ ...STATUS_BOARD.teams[0]!, wpIds: [WPA] }],
+    });
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: /แก้ไขงาน/ }));
+    expect(within(team).getByLabelText(/งานเอ/)).toBeChecked();
+    expect(within(team).getByText("เสร็จแล้ว")).toBeInTheDocument();
+    // …and saving keeps it (prune must not drop a filtered-but-assigned leaf).
+    await user.click(within(team).getByRole("button", { name: "บันทึกงาน" }));
+    expect(setMusterTeamWps).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: T1, wpIds: [WPA] }),
+    );
+  });
+
+  it("an unassigned team's picker seeds from the prior day, hint shown, save persists", async () => {
+    const user = userEvent.setup();
+    renderCockpit({
+      ...STATUS_BOARD,
+      teams: [{ ...STATUS_BOARD.teams[0]!, wpIds: [], prefillWpIds: [WPB] }],
+    });
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: /แก้ไขงาน/ }));
+    // The seeded leaf sits in a group — it must be auto-expanded and checked.
+    expect(within(team).getByLabelText(/ปูพื้น/)).toBeChecked();
+    expect(within(team).getByText(/มัสเตอร์วันก่อน/)).toBeInTheDocument();
+    await user.click(within(team).getByRole("button", { name: "บันทึกงาน" }));
+    expect(setMusterTeamWps).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: T1, wpIds: [WPB] }),
+    );
+  });
+
+  it("a team WITH assignments seeds from them — prefill and hint do not apply", async () => {
+    const user = userEvent.setup();
+    renderCockpit({
+      ...STATUS_BOARD,
+      teams: [{ ...STATUS_BOARD.teams[0]!, wpIds: [WPB], prefillWpIds: [WPB] }],
+    });
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: /แก้ไขงาน/ }));
+    expect(within(team).getByLabelText(/ปูพื้น/)).toBeChecked();
+    expect(within(team).queryByText(/มัสเตอร์วันก่อน/)).toBeNull();
+  });
+});
+
 describe("MusterCockpit — no intra-day move (spec 357 U-E)", () => {
   // Operator 2026-07-24: no team change within a day (the "at OT" case is a
   // separate future feature). The strongest former trigger — 2+ teams, เข้า
@@ -409,6 +506,7 @@ describe("MusterCockpit — no intra-day move (spec 357 U-E)", () => {
             },
           ],
           wpIds: [],
+          prefillWpIds: [],
         },
       ],
     });
@@ -600,6 +698,7 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
           },
         ],
         wpIds: [],
+        prefillWpIds: [],
       },
     ],
   };
@@ -612,7 +711,9 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
   it("team opened but nobody scanned in yet → neutral label, not 'ยังมีช่างในงาน 0 คน'", () => {
     const NO_SCAN: MusterBoard = {
       ...BOARD,
-      teams: [{ id: T1, leadWorkerId: W1, leadName: "ลี", members: [], wpIds: [] }],
+      teams: [
+        { id: T1, leadWorkerId: W1, leadName: "ลี", members: [], wpIds: [], prefillWpIds: [] },
+      ],
     };
     renderCockpit(NO_SCAN);
     expect(screen.getByText(/ยังไม่มีช่างเช็คอิน/)).toBeInTheDocument();
@@ -658,6 +759,7 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
             },
           ],
           wpIds: [],
+          prefillWpIds: [],
         },
       ],
     };
