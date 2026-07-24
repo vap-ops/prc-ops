@@ -87,6 +87,7 @@ import { PhotoCaptureZone } from "./phase-uploader";
 import { DEFECT_PARAM, shouldOpenDefectSheet } from "@/lib/work-packages/defect-deep-link";
 import { ReportDefectControl } from "./report-defect-control";
 import { SubmitForApprovalControl } from "./submit-for-approval-control";
+import { RecallSubmissionControl } from "./recall-submission-control";
 import { ResubmitEvidenceControl } from "./resubmit-evidence-control";
 
 interface PageProps {
@@ -347,6 +348,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     reworkSources,
     defectSource,
     answeredDecisionIds,
+    canRecall,
   } = data;
 
   const assignedContractor = wp.contractor_id
@@ -1018,6 +1020,21 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             // Spec 247 + 248 U4: floor AND pairing — null means submittable.
             disabledHint={submitGateReason(wp.status, photosByPhase, wp.rework_round)}
           />
+        </div>
+      ) : null}
+      {/* Spec 352: "ถอนงานกลับมาแก้ไข" — the submitter (or super_admin) pulls a
+          submitted WP back to in_progress to fix misplaced photos, then
+          re-submits. canRecall (load-detail, from the can_recall_work_package DB
+          predicate) is the single authority; it is true only at pending_approval
+          with the ให้แก้ไข window CLOSED. So it never co-renders with the submit
+          control (TRANSITIONABLE = editable statuses, above) nor with the ACTIVE
+          resubmit control (which needs the window OPEN, below). It DOES co-exist
+          with the resubmit DONE confirmation ("ส่งตรวจอีกครั้งแล้ว") — an answered
+          bounce is window-closed and, by spec 352 D4, still recallable: the SA
+          who spots another wrong photo after re-submitting can pull it back. */}
+      {!readOnly && canRecall ? (
+        <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
+          <RecallSubmissionControl projectId={wp.project_id} workPackageId={wp.id} />
         </div>
       ) : null}
       {/* Spec 337 U2a (F2): the cure loop's closing act. A needs_revision leaves

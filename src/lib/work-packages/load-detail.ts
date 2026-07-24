@@ -103,6 +103,10 @@ export interface WorkPackageDetailData {
   /** Spec 337 U2a: `answers_decision_id` of every resubmit already recorded on
    *  this WP — the cure loop is closed for those bounces. */
   answeredDecisionIds: Set<string>;
+  /** Spec 352: may THIS viewer recall the submission (pending_approval + window
+   *  closed + they are the submitter or super_admin)? The can_recall_work_package
+   *  DEFINER predicate is the authority — the RPC enforces from the same one. */
+  canRecall: boolean;
 }
 
 type Db = SupabaseClient<Database>;
@@ -139,6 +143,7 @@ export async function loadWorkPackageDetail(
       reworkSources: new Map(),
       defectSource: null,
       answeredDecisionIds: new Set<string>(),
+      canRecall: false,
     };
   }
 
@@ -160,6 +165,7 @@ export async function loadWorkPackageDetail(
     photoView,
     reworkData,
     { data: resubmitRows },
+    { data: canRecallData },
   ] = await Promise.all([
     contractorsShared,
     supabase
@@ -192,6 +198,11 @@ export async function loadWorkPackageDetail(
       .eq("target_table", "work_packages")
       .eq("target_id", wp.id)
       .eq("payload->>event", "wp_evidence_resubmitted"),
+    // Spec 352 — may THIS viewer recall the submission? The can_recall_work_package
+    // DEFINER predicate does the privileged reads (the submitter from audit_log,
+    // whose SELECT this user session cannot see); load-detail calls it, the recall
+    // RPC enforces from the same one, so the button and the gate never drift.
+    supabase.rpc("can_recall_work_package", { p_wp: wp.id }),
   ]);
 
   const approvals = approvalRows ?? [];
@@ -251,6 +262,7 @@ export async function loadWorkPackageDetail(
     reworkSources: reworkData.reworkSources,
     defectSource: reworkData.defectSource,
     answeredDecisionIds,
+    canRecall: canRecallData ?? false,
   };
 }
 
