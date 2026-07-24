@@ -2,6 +2,7 @@
 -- RPCs are EXECUTE-able by authenticated only, never anon/PUBLIC
 -- (20260625000200). Catches a future DROP+CREATE that silently resets the
 -- grant back to the PUBLIC default.
+-- Spec 357 U-F: both worker RPCs gained a trailing p_gender (13-arg sigs below).
 -- ADR 0073 (spec 266): create_worker/update_worker signatures changed to
 -- pay_type + employment_type; the lockdown is re-applied for the new sigs here.
 
@@ -19,11 +20,11 @@ select is(
   false, 'anon cannot execute correct_labor_log');
 select is(
   has_function_privilege('anon',
-    'public.create_worker(text, public.pay_type, public.employment_type, numeric, uuid, uuid, text, text, text, text, text, text)', 'EXECUTE'),
+    'public.create_worker(text, public.pay_type, public.employment_type, numeric, uuid, uuid, text, text, text, text, text, text, public.worker_gender)', 'EXECUTE'),
   false, 'anon cannot execute create_worker');
 select is(
   has_function_privilege('anon',
-    'public.update_worker(uuid, text, boolean, public.pay_type, public.employment_type, uuid, text, text, text, text, text, text)', 'EXECUTE'),
+    'public.update_worker(uuid, text, boolean, public.pay_type, public.employment_type, uuid, text, text, text, text, text, text, public.worker_gender)', 'EXECUTE'),
   false, 'anon cannot execute update_worker');
 select is(
   has_function_privilege('anon',
@@ -41,11 +42,11 @@ select is(
   true, 'authenticated can execute correct_labor_log');
 select is(
   has_function_privilege('authenticated',
-    'public.create_worker(text, public.pay_type, public.employment_type, numeric, uuid, uuid, text, text, text, text, text, text)', 'EXECUTE'),
+    'public.create_worker(text, public.pay_type, public.employment_type, numeric, uuid, uuid, text, text, text, text, text, text, public.worker_gender)', 'EXECUTE'),
   true, 'authenticated can execute create_worker');
 select is(
   has_function_privilege('authenticated',
-    'public.update_worker(uuid, text, boolean, public.pay_type, public.employment_type, uuid, text, text, text, text, text, text)', 'EXECUTE'),
+    'public.update_worker(uuid, text, boolean, public.pay_type, public.employment_type, uuid, text, text, text, text, text, text, public.worker_gender)', 'EXECUTE'),
   true, 'authenticated can execute update_worker');
 select is(
   has_function_privilege('authenticated',
