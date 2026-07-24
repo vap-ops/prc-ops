@@ -20,6 +20,8 @@ import {
 } from "@/lib/muster/actions";
 import { groupMusterWps } from "@/lib/muster/wp-groups";
 import { hasScannerSupport } from "@/lib/muster/scanner-support";
+import { deriveCloseDayState } from "@/lib/muster/close-day-state";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import type { MusterWp } from "@/lib/muster/wp-groups";
 import type { MusterBoard, MusterTeam } from "@/lib/muster/load-muster";
 import { MusterCamera } from "./muster-camera";
@@ -40,6 +42,13 @@ const TOGGLE_ON = "bg-fill text-on-fill";
 const TOGGLE_OFF = "bg-sunk text-ink-secondary";
 const CHIP = "bg-sunk text-ink-secondary text-meta rounded-full px-2.5 py-1 font-semibold";
 
+// Spec 306 discoverability — the ปิดวัน bar buttons. `PRIMARY` is the positive
+// finalize action (closing the day books wages); it is deliberately NOT bg-danger
+// — the old danger-red confirm read as destructive and made SAs hesitate.
+const BAR_BTN = "min-h-11 rounded-lg px-4 text-sm font-bold disabled:opacity-50";
+const BAR_PRIMARY = `bg-fill text-on-fill ${BAR_BTN}`;
+const BAR_SUNK = `bg-sunk text-ink ${BAR_BTN}`;
+
 // Client-only feature detection. useSyncExternalStore keeps SSR + hydration
 // snapshots false, then reads the real value on the client — hydration-safe and
 // without a setState-in-effect (react-hooks/set-state-in-effect). Spec 306 U3b:
@@ -53,6 +62,7 @@ export function MusterCockpit({
   revalidate,
   board,
   htWorkerIds,
+  pastDayEnd,
 }: {
   projectId: string;
   date: string;
@@ -61,6 +71,9 @@ export function MusterCockpit({
   /** Spec 334 follow-up — the HT axis (crews.lead_worker_id, spec 330/332): only
    * these workers may be picked as a muster team's หัวหน้าทีม. */
   htWorkerIds: readonly string[];
+  /** Spec 306 discoverability — server-computed "is it past 17:00 Asia/Bangkok?"
+   * (a snapshot at page load), the overdue-reminder trigger for the ปิดวัน bar. */
+  pastDayEnd: boolean;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("in");
@@ -148,8 +161,19 @@ export function MusterCockpit({
     run(() => closeMusterDay({ projectId, date, revalidate }));
   };
 
+  // Spec 306 discoverability — the ปิดวัน bar's state (calm / ready / overdue /
+  // closed) drives its highlight and copy; a fixed footer keeps it in view no
+  // matter where the SA has scrolled (the old buried bottom button was missed
+  // on 2026-07-24 → the day never closed → the derive never ran).
+  const closeState = deriveCloseDayState({
+    teams: board.teams,
+    closure: board.closure,
+    pastDayEnd,
+  });
+
   return (
-    <div className="flex flex-col gap-4">
+    // pb clears the fixed ปิดวัน footer so the last team card is never hidden.
+    <div className="flex flex-col gap-4 pb-40">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ink font-semibold">{formatThaiDate(date)}</p>
         <div className="flex items-center gap-2">
@@ -191,12 +215,6 @@ export function MusterCockpit({
           ) : null}
         </div>
       </div>
-
-      {board.closure ? (
-        <p className="border-edge bg-sunk text-ink-secondary rounded-card border px-3 py-2 text-sm font-semibold">
-          {MUSTER_DAY_CLOSED_LABEL} · {bangkokTime(board.closure.closedAt)}
-        </p>
-      ) : null}
 
       {message ? (
         <p role="alert" className="bg-danger-soft text-danger-ink rounded-card px-3 py-2 text-sm">
@@ -264,36 +282,61 @@ export function MusterCockpit({
         ))
       )}
 
+      {/* Spec 306 discoverability — the ปิดวัน action, pinned to the bottom so it
+          follows the SA to wherever the last check-out happened. State-aware:
+          calm while workers are in, PRIMARY the moment everyone is out (the day
+          is "done" and wages can be booked), amber past day-end, closed after. */}
       {board.teams.length > 0 ? (
-        <div className="pt-2">
-          {confirmClose ? (
-            <div className="flex gap-2">
+        <div className="border-edge bg-card shadow-up fixed inset-x-0 bottom-0 z-40 border-t px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-2`}>
+            {closeState.kind === "ready" ? (
+              <p className="text-ink text-sm font-semibold">
+                ทุกคนเช็คออกแล้ว · ปิดวันเพื่อบันทึกค่าแรง
+              </p>
+            ) : closeState.kind === "overdue" ? (
+              <p className="text-attn-ink text-sm font-semibold">
+                เลยเวลาเลิกงานแล้ว · อย่าลืมปิดวัน
+              </p>
+            ) : closeState.kind === "closed" ? (
+              <p className="text-ink-secondary text-sm font-semibold">
+                {MUSTER_DAY_CLOSED_LABEL} · {bangkokTime(closeState.closedAt)}
+              </p>
+            ) : (
+              <p className="text-ink-secondary text-sm">ยังมีช่างในงาน {closeState.stillIn} คน</p>
+            )}
+
+            {confirmClose ? (
+              <>
+                {closeState.openOt > 0 ? (
+                  <p className="text-attn-ink text-meta">
+                    มีช่าง {closeState.openOt} คนยัง OT ไม่ปิด — ปิดวันจะไม่บันทึก OT ของพวกเขา
+                  </p>
+                ) : null}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={closeDay}
+                    disabled={pending}
+                    className={`flex-1 ${BAR_PRIMARY}`}
+                  >
+                    ยืนยันปิดวัน
+                  </button>
+                  <button type="button" onClick={() => setConfirmClose(false)} className={BAR_SUNK}>
+                    ยกเลิก
+                  </button>
+                </div>
+              </>
+            ) : (
               <button
                 type="button"
-                onClick={closeDay}
+                onClick={() => setConfirmClose(true)}
                 disabled={pending}
-                className="bg-danger text-on-fill hover:bg-danger-strong min-h-11 flex-1 rounded-lg px-4 text-sm font-bold disabled:opacity-50"
+                className={`w-full ${closeState.kind === "ready" || closeState.kind === "overdue" ? BAR_PRIMARY : BAR_SUNK}`}
               >
-                ยืนยันปิดวัน
+                {closeState.kind === "closed" ? "ปิดวันอีกครั้ง" : "ปิดวัน"}
               </button>
-              <button
-                type="button"
-                onClick={() => setConfirmClose(false)}
-                className="bg-sunk text-ink min-h-11 rounded-lg px-4 text-sm font-bold"
-              >
-                ยกเลิก
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmClose(true)}
-              disabled={pending}
-              className="bg-sunk text-ink min-h-11 w-full rounded-lg px-4 text-sm font-bold disabled:opacity-50"
-            >
-              {board.closure ? "ปิดวันอีกครั้ง" : "ปิดวัน"}
-            </button>
-          )}
+            )}
+          </div>
         </div>
       ) : null}
 
