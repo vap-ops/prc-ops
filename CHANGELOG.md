@@ -1,3 +1,9 @@
+# [0.198.0](https://github.com/vap-ops/prc-ops/compare/v0.197.0...v0.198.0) (2026-07-24)
+
+### Features
+
+- **spec350:** technician assigned-work progress card (U2) ([d813e2a](https://github.com/vap-ops/prc-ops/commit/d813e2a622dca8b476b941ab455c1e4ec90b44e1))
+
 # [0.197.0](https://github.com/vap-ops/prc-ops/compare/v0.196.0...v0.197.0) (2026-07-24)
 
 ### Features
