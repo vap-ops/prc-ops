@@ -1,3 +1,9 @@
+# [0.203.0](https://github.com/vap-ops/prc-ops/compare/v0.202.0...v0.203.0) (2026-07-24)
+
+### Features
+
+- **wp:** gate หลังแก้ไข capture to rework cycles (spec 353 U1) ([#735](https://github.com/vap-ops/prc-ops/issues/735)) ([d0f4015](https://github.com/vap-ops/prc-ops/commit/d0f4015ad3c427d0be45925372bf0a83cec1ec88)), closes [#N](https://github.com/vap-ops/prc-ops/issues/N)
+
 # [0.202.0](https://github.com/vap-ops/prc-ops/compare/v0.201.0...v0.202.0) (2026-07-24)
 
 ### Features
