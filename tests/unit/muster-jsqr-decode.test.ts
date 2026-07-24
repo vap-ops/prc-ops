@@ -42,6 +42,17 @@ describe("jsQR round-trip on badge payloads", () => {
     expect(hit?.data).toBe(workerId);
   });
 
+  it("still decodes at 2px modules — the size regime the ≤480px camera downscale produces", () => {
+    // The component decodes a frame downscaled to ≤480px wide, which shrinks the
+    // badge's modules well below print size. jsQR must hold at small module
+    // sizes or the fallback would show a live camera that never fires. (True
+    // camera-optics proof is the on-device check — this pins the decoder floor.)
+    const workerId = "0bba2fd0-1111-2222-3333-444444444444";
+    const { rgba, dim } = rasterize(workerId, 2, 4);
+    const hit = jsQR(rgba, dim, dim, { inversionAttempts: "dontInvert" });
+    expect(hit?.data).toBe(workerId);
+  });
+
   it("returns null on a blank frame (no false positives feeding the scan action)", () => {
     const dim = 200;
     const blank = new Uint8ClampedArray(dim * dim * 4).fill(255);
