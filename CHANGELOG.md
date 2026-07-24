@@ -1,3 +1,9 @@
+# [0.199.0](https://github.com/vap-ops/prc-ops/compare/v0.198.0...v0.199.0) (2026-07-24)
+
+### Features
+
+- **spec351:** separate OT muster session (U1 schema + RPCs) ([#729](https://github.com/vap-ops/prc-ops/issues/729)) ([78b4ec7](https://github.com/vap-ops/prc-ops/commit/78b4ec707811d35a8ea1e8a3e3ca0689f4185170))
+
 # [0.198.0](https://github.com/vap-ops/prc-ops/compare/v0.197.0...v0.198.0) (2026-07-24)
 
 ### Features
