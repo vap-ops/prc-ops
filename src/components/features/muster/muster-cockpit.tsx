@@ -19,6 +19,7 @@ import {
   moveMusterWorker,
 } from "@/lib/muster/actions";
 import { groupMusterWps } from "@/lib/muster/wp-groups";
+import { hasScannerSupport } from "@/lib/muster/scanner-support";
 import type { MusterWp } from "@/lib/muster/wp-groups";
 import type { MusterBoard, MusterTeam } from "@/lib/muster/load-muster";
 import { MusterCamera } from "./muster-camera";
@@ -39,11 +40,12 @@ const TOGGLE_ON = "bg-fill text-on-fill";
 const TOGGLE_OFF = "bg-sunk text-ink-secondary";
 const CHIP = "bg-sunk text-ink-secondary text-meta rounded-full px-2.5 py-1 font-semibold";
 
-// Client-only feature detection (BarcodeDetector = Android/PWA). useSyncExternalStore
-// keeps SSR + hydration snapshots false, then reads the real value on the client —
-// hydration-safe and without a setState-in-effect (react-hooks/set-state-in-effect).
+// Client-only feature detection. useSyncExternalStore keeps SSR + hydration
+// snapshots false, then reads the real value on the client — hydration-safe and
+// without a setState-in-effect (react-hooks/set-state-in-effect). Spec 306 U3b:
+// the gate is overall scanner support (native BarcodeDetector OR the jsQR
+// camera fallback), so the button now renders on iOS too.
 const subscribeNoop = () => () => {};
-const hasBarcodeDetector = () => typeof window !== "undefined" && "BarcodeDetector" in window;
 
 export function MusterCockpit({
   projectId,
@@ -70,7 +72,7 @@ export function MusterCockpit({
   const [message, setMessage] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [pending, startTransition] = useTransition();
-  const hasCamera = useSyncExternalStore(subscribeNoop, hasBarcodeDetector, () => false);
+  const hasCamera = useSyncExternalStore(subscribeNoop, hasScannerSupport, () => false);
 
   const musteredIds = new Set(board.teams.flatMap((t) => t.members.map((m) => m.workerId)));
   const leadIds = new Set(board.teams.map((t) => t.leadWorkerId));

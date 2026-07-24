@@ -366,3 +366,28 @@ describe("MusterCockpit — leaf WP picker (spec 306 grain-coverage)", () => {
     );
   });
 });
+
+describe("MusterCockpit — สแกน QR button gate (spec 306 U3b iOS fallback)", () => {
+  // jsdom has neither BarcodeDetector nor mediaDevices — the baseline device
+  // that genuinely cannot scan.
+  it("no camera capability at all → no scan button", () => {
+    renderCockpit();
+    expect(screen.queryByRole("button", { name: "สแกน QR" })).not.toBeInTheDocument();
+  });
+
+  it("getUserMedia without BarcodeDetector (iPhone) → scan button renders", () => {
+    // The day-1 gap: the pilot SA's iPhone has a camera but no BarcodeDetector,
+    // and the button never rendered. The gate must key on overall scanner
+    // support (native OR jsQR fallback), not on BarcodeDetector alone.
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      renderCockpit();
+      expect(screen.getByRole("button", { name: "สแกน QR" })).toBeInTheDocument();
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+    }
+  });
+});
