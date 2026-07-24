@@ -1,6 +1,6 @@
 // Writing failing test first.
 //
-// Spec 352 U2 — uploadReceiptFlagPhoto's direct upload stamps captureMethod
+// Spec 354 U2 — uploadReceiptFlagPhoto's direct upload stamps captureMethod
 // "camera". Its only caller (ReceiptFlagSheet, spec 324 U6) offers a
 // capture="environment" (camera-forced) file input — the SA's flag photo is
 // always live, never a plain picker — so the value is a fixed "camera", not
@@ -26,7 +26,7 @@ beforeEach(() => {
   mockUpload.mockReset().mockResolvedValue({ error: null });
 });
 
-describe("uploadReceiptFlagPhoto capture method (spec 352 U2)", () => {
+describe("uploadReceiptFlagPhoto capture method (spec 354 U2)", () => {
   it("stamps captureMethod camera — the caller's input is capture=environment", async () => {
     const file = new File(["x"], "photo.jpg", { type: "image/jpeg" });
     const result = await uploadReceiptFlagPhoto("p1", "pr1", file);

@@ -96,10 +96,10 @@ describe("CaptureSheet gallery option (spec 96)", () => {
   });
 });
 
-// Spec 352 — each capture input declares its affordance so the upload can stamp
+// Spec 354 — each capture input declares its affordance so the upload can stamp
 // storage.objects.user_metadata. The camera shutter (capture="environment") is a
 // "camera"; the spec-96 library button (no capture) is a "library".
-describe("CaptureSheet capture method (spec 352)", () => {
+describe("CaptureSheet capture method (spec 354)", () => {
   const IMG = () => new File(["x"], "a.jpg", { type: "image/jpeg" });
 
   it("passes captureMethod 'camera' from the shutter (capture=environment)", () => {

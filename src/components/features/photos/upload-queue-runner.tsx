@@ -58,7 +58,7 @@ export async function buildDeps(): Promise<{ deps: ProcessDeps; sessionUserId: s
         .upload(item.storagePath, blobWithType(item.blob, photoExtToMime(item.ext)), {
           contentType: photoExtToMime(item.ext),
           upsert: false,
-          // Spec 352 — stamp the capture affordance (which rode the queue item)
+          // Spec 354 — stamp the capture affordance (which rode the queue item)
           // into storage.objects.user_metadata.
           metadata: captureMethodMetadata(item.captureMethod),
         });

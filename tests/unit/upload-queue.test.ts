@@ -253,16 +253,16 @@ describe("kinds (spec 37)", () => {
     expect(normalizeQueuedUpload(item)).toEqual(item);
   });
 
-  // Spec 352 — capture affordance rides the queue item. Items persisted before
-  // spec 352 carry no captureMethod; IDB is schemaless, so normalize on read.
+  // Spec 354 — capture affordance rides the queue item. Items persisted before
+  // spec 354 carry no captureMethod; IDB is schemaless, so normalize on read.
   // An unknown affordance is "picker".
-  it("normalizes a legacy item with no captureMethod to picker (spec 352)", () => {
+  it("normalizes a legacy item with no captureMethod to picker (spec 354)", () => {
     const item = makeItem();
     const legacy = { ...item, captureMethod: undefined };
     expect(normalizeQueuedUpload(legacy).captureMethod).toBe("picker");
   });
 
-  it("preserves an item's explicit captureMethod through normalization (spec 352)", () => {
+  it("preserves an item's explicit captureMethod through normalization (spec 354)", () => {
     const item = makeItem({ captureMethod: "library" } as Partial<QueuedUpload>);
     expect(normalizeQueuedUpload(item).captureMethod).toBe("library");
   });

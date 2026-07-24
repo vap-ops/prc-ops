@@ -1,4 +1,4 @@
-# Image capture-method telemetry — Implementation Plan (spec 352)
+# Image capture-method telemetry — Implementation Plan (spec 354)
 
 > **For agentic workers:** each Unit is a `ship-unit` cycle (claim lane → gate-check LIVE → RED-first → verify → fresh-eyes → ship via `scripts/ship-pr.sh`). Load the `ship-unit` skill for every Unit. Steps use `- [ ]` for tracking. This plan is a 2026-07-24 snapshot — **gate-check every file/line against your worktree HEAD and the live DB before editing** (line numbers drift).
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 16 App Router, `@supabase/supabase-js` ^2.105.2 (storage `FileOptions.metadata`, confirmed live), Vitest (jsdom), pgTAP (none needed here).
 
-## Global Constraints (verbatim from spec 352)
+## Global Constraints (verbatim from spec 354)
 
 - **Zero schema, zero migration.** The flag lives only in `storage.objects.user_metadata`. No `supabase/migrations/` file. (So no schema lane — this whole plan is code-only.)
 - **Bytes untouched.** `metadata` is object metadata, not the file. The "photos stored unmodified" invariant holds.
@@ -27,7 +27,7 @@ export const CAPTURE_METHODS = ["camera", "library", "picker"] as const;
 export type CaptureMethod = (typeof CAPTURE_METHODS)[number];
 
 /** Storage upload `metadata` option that stamps the capture affordance into
- *  storage.objects.user_metadata (spec 352). Spread into the FileOptions:
+ *  storage.objects.user_metadata (spec 354). Spread into the FileOptions:
  *    .upload(path, blob, { contentType, upsert: false, metadata: captureMethodMetadata("camera") })
  */
 export function captureMethodMetadata(
@@ -58,12 +58,12 @@ RED-first proof: run the new assertion BEFORE the production edit and see it fai
 **This gates the entire plan.** `src/lib/photos/path.ts:71` warns deployed-client `.upload()` behaviour has surprised the team. If the option does not survive the round-trip, Shape B is dead and we STOP and re-plan (Shape A / per-table columns).
 
 **Files:**
-- Create (scratchpad, NOT committed): `<scratchpad>/spec352-probe.mjs`
+- Create (scratchpad, NOT committed): `<scratchpad>/spec354-probe.mjs`
 
 - [ ] **Step 1: Write the probe.** Uses the anon key (approximates the browser client, the path most uploads take):
 
 ```js
-// spec352-probe.mjs — run once, then delete. Reads env from ../prc-ops/.env.local
+// spec354-probe.mjs — run once, then delete. Reads env from ../prc-ops/.env.local
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 const env = Object.fromEntries(
@@ -71,7 +71,7 @@ const env = Object.fromEntries(
     .map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1)]; }),
 );
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-const key = `spec352-probe/${crypto.randomUUID()}.txt`;
+const key = `spec354-probe/${crypto.randomUUID()}.txt`;
 const up = await sb.storage.from("photos").upload(key, new Blob(["probe"]), {
   contentType: "text/plain", upsert: false, metadata: { captureMethod: "camera" },
 });
@@ -83,9 +83,9 @@ console.log("upload:", up.error?.message ?? "ok", key);
 - [ ] **Step 2: Run it.**
 
 ```
-cd /d/claude/projects/prc-ops/prc-ops-352capmethod
+cd /d/claude/projects/prc-ops/prc-ops-354capmethod
 export PATH="/c/Program Files/nodejs:$PATH"
-ENVFILE=../prc-ops/.env.local node <scratchpad>/spec352-probe.mjs
+ENVFILE=../prc-ops/.env.local node <scratchpad>/spec354-probe.mjs
 ```
 
 - [ ] **Step 3: Read back the metadata via SQL** (replace `<key>` with the printed key):
@@ -153,8 +153,8 @@ Run: `pnpm test tests/unit/photos/capture-method.test.ts` → FAIL (module not f
 - [ ] **Step 7: Ship.** Fresh-eyes review (`cavecrew-reviewer` on the diff), then:
 
 ```
-cd /d/claude/projects/prc-ops/prc-ops-352capmethod
-bash scripts/ship-pr.sh "feat: spec 352 U1 — capture-method SSOT + WP photos"
+cd /d/claude/projects/prc-ops/prc-ops-354capmethod
+bash scripts/ship-pr.sh "feat: spec 354 U1 — capture-method SSOT + WP photos"
 ```
 Code-only → danger-guard passes → auto-merges on green.
 
@@ -176,7 +176,7 @@ Sites 4–10 (spec §6). Some already flow through the same queue (`delivery_pho
 
 - [ ] **Step 1: Gate-check attributes.** `grep -n "capture=\\|accept=" ` each component; record the true affordance per site.
 - [ ] **Step 2–N: per site, RED → GREEN → mutation-check** using the shared test pattern, with the gate-checked value.
-- [ ] **Verify + Ship** as U1. Title: `feat: spec 352 U2 — capture-method on purchasing/delivery uploads`.
+- [ ] **Verify + Ship** as U1. Title: `feat: spec 354 U2 — capture-method on purchasing/delivery uploads`.
 
 ---
 
@@ -187,7 +187,7 @@ Sites 4–10 (spec §6). Some already flow through the same queue (`delivery_pho
 - `src/lib/equipment/upload-rental-receipt.ts:50` → verify attr → value
 - Tests: the callers' tests (these are lib fns — assert the passed option; if no caller test exists, add a focused unit test that calls the fn with a stub client and asserts the `.upload` option).
 
-- [ ] Gate-check each input's attribute → RED → GREEN → mutation-check → Verify → Ship. Title: `feat: spec 352 U3 — capture-method on expense/rental receipts`.
+- [ ] Gate-check each input's attribute → RED → GREEN → mutation-check → Verify → Ship. Title: `feat: spec 354 U3 — capture-method on expense/rental receipts`.
 
 ---
 
@@ -201,7 +201,7 @@ All three are plain `accept` → `"picker"` (✓ confirmed).
 - `src/components/features/sa/report-issue-fab.tsx:88` → `"picker"`
 - Tests: each component's test.
 
-- [ ] RED → GREEN → mutation-check per site → Verify → Ship. Title: `feat: spec 352 U4 — capture-method on catalog/feedback uploads`.
+- [ ] RED → GREEN → mutation-check per site → Verify → Ship. Title: `feat: spec 354 U4 — capture-method on catalog/feedback uploads`.
 
 ---
 
@@ -219,7 +219,7 @@ Sites 16–22. Gate-check each attribute; most are `"picker"`.
 - `src/components/features/payroll/payout-nominee-form.tsx:99` → verify
 - Tests: each component's test.
 
-- [ ] RED → GREEN → mutation-check per site → Verify → Ship. Title: `feat: spec 352 U5 — capture-method on contacts/portal/profile/register uploads`.
+- [ ] RED → GREEN → mutation-check per site → Verify → Ship. Title: `feat: spec 354 U5 — capture-method on contacts/portal/profile/register uploads`.
 
 ---
 

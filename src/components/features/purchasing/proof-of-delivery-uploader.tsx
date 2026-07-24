@@ -91,7 +91,7 @@ export function ProofOfDeliveryUploader({
         .upload(path, blob, {
           upsert: false,
           contentType: attachmentExtToMime(ext),
-          // Spec 352 U2: the REAL per-call affordance — this input renders
+          // Spec 354 U2: the REAL per-call affordance — this input renders
           // capture="environment" only when `capture` is true (spec 308).
           metadata: captureMethodMetadata(capture ? "camera" : "picker"),
         });

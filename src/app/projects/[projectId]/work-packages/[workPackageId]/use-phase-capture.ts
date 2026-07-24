@@ -54,7 +54,7 @@ export interface PendingUpload {
   enqueuedAtMs: number;
   ext: PhotoExt;
   storagePath: string;
-  /** Spec 352 — which input affordance produced this shot (camera shutter vs
+  /** Spec 354 — which input affordance produced this shot (camera shutter vs
    *  the spec-96 library button). Rides the queue item and is stamped into
    *  storage.objects.user_metadata on upload. */
   captureMethod: CaptureMethod;
@@ -129,7 +129,7 @@ export function usePhaseCapture({
       .upload(upload.storagePath, upload.blob, {
         contentType: photoExtToMime(upload.ext),
         upsert: false,
-        // Spec 352 — stamp the capture affordance into
+        // Spec 354 — stamp the capture affordance into
         // storage.objects.user_metadata on the live (page-open) upload.
         metadata: captureMethodMetadata(upload.captureMethod),
       });
