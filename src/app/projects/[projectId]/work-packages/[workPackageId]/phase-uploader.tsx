@@ -17,15 +17,17 @@
 // open/active-phase state. The file keeps its name for import stability;
 // the detail page imports { PhotoCaptureZone }.
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Camera, Check, Lock, RotateCcw } from "lucide-react";
-import { BUTTON_CAPTURE } from "@/lib/ui/classes";
+import { BUTTON_CAPTURE, INLINE_ERROR } from "@/lib/ui/classes";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { reworkRoundTag } from "@/lib/photos/rework-round";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { CaptureSheet, type CapturePairing, type SheetPhoto } from "./capture-sheet";
+import { removePhoto } from "./actions";
 
 /** Spec 248 U3 — one paired-capture slot: a current-round defect photo and
  *  its answer state (computed server-side from pairDefectPhotos + signed
@@ -116,6 +118,31 @@ export function PhotoCaptureZone({
   const [activePhase, setActivePhase] = useState<PhotoPhase>(currentPhase);
   const [pairing, setPairing] = useState<CapturePairing | null>(null);
 
+  // Spec 356 — delete a progress photo straight from the WP-page viewer, not
+  // only from inside the CaptureSheet. Reuses the existing removePhoto action
+  // and the photo-lightbox overlay's own ลบรูป + confirm; this is just the glue
+  // that runs the tombstone and refreshes, mirroring usePhaseCapture. The
+  // overlay closes itself on confirm, so a refusal (locked WP, or a non-uploader
+  // inside the ให้แก้ไข window — the action's gate is the authority) surfaces
+  // here, on the page.
+  const router = useRouter();
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [, startRemoveTransition] = useTransition();
+
+  async function handleDeletePhoto(photoLogId: string) {
+    if (removingId !== null) return; // serialize — one tombstone round-trip at a time
+    setRemoveError(null);
+    setRemovingId(photoLogId);
+    const result = await removePhoto({ photoLogId });
+    setRemovingId(null);
+    if (!result.ok) {
+      setRemoveError(result.error);
+      return;
+    }
+    startRemoveTransition(() => router.refresh());
+  }
+
   const pairs = defectPairs ?? [];
   const unanswered = pairs.filter((p) => !p.answered);
 
@@ -173,6 +200,14 @@ export function PhotoCaptureZone({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Spec 356 — a delete refusal (WP now locked, or a non-uploader inside the
+          ให้แก้ไข window) surfaces here: the lightbox overlay has already closed
+          itself on confirm, so the page is where the message must land. */}
+      {removeError ? (
+        <div role="alert" className={INLINE_ERROR}>
+          {removeError}
+        </div>
+      ) : null}
       {/* Spec 248 U3 — paired-capture slots: each current-round defect photo
           and its same-angle answer state. Renders ABOVE the phase tiles so
           the rework to-do list is the first thing the SA sees. */}
@@ -329,7 +364,14 @@ export function PhotoCaptureZone({
             {afterFixHistory.photos.map((p) => (
               <li key={p.id} className={PHOTO_STRIP_TILE}>
                 {p.url ? (
-                  <ZoomablePhoto src={p.url} photoId={p.id} uploaderName={p.uploaderName} />
+                  <ZoomablePhoto
+                    src={p.url}
+                    photoId={p.id}
+                    uploaderName={p.uploaderName}
+                    canDelete={canDelete}
+                    onDeletePhoto={handleDeletePhoto}
+                    deletingPhotoId={removingId}
+                  />
                 ) : (
                   <div className="text-meta text-ink-secondary flex h-full w-full items-center justify-center">
                     ไม่พร้อมแสดง
@@ -383,6 +425,9 @@ export function PhotoCaptureZone({
                   groupIndex={loadedIndexById.get(p.id) ?? 0}
                   photoId={p.id}
                   uploaderName={p.uploaderName}
+                  canDelete={canDelete}
+                  onDeletePhoto={handleDeletePhoto}
+                  deletingPhotoId={removingId}
                 />
               ) : (
                 <div className="text-meta text-ink-secondary flex h-full w-full items-center justify-center">

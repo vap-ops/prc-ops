@@ -25,6 +25,13 @@ vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/use-phase-capt
   }),
 }));
 
+// Spec 356 — the zone now wires an on-page delete (removePhoto + router.refresh)
+// into its ZoomablePhoto strips, so rendering it needs both mocked.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/actions", () => ({
+  removePhoto: vi.fn(),
+}));
+
 import {
   PhotoCaptureZone,
   type DefectPairSlot,

@@ -6,6 +6,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 356 U1 — delete a progress photo from the WP-detail viewer — 🔨 in progress (2026-07-24)
+
+- **Origin:** operator report — SA/operator "cannot delete images" on an editable WP.
+- **Root cause:** wiring gap, not permissions. Deletion is permitted; the `ลบรูป`
+  overlay button is only wired inside the CaptureSheet, so tapping a photo on the
+  WP-detail page opens the same overlay view-only (`ZoomablePhoto` with no
+  `canDelete`/`onDeletePhoto`).
+- **Fix (code-only, NO schema):** thread the existing `canDelete` (already on the
+  page) + an `onDeletePhoto` (→ existing `removePhoto` action + `router.refresh`)
+  into `PhotoCaptureZone`'s current-phase + read-only หลังแก้ไข-history
+  `ZoomablePhoto` strips. Reuses the overlay confirm + the 291/340/341 gate,
+  numbering, and trace (revalidated on delete). No new delete logic, no new strings.
+- **Out of scope (view-only kept):** PM defect photos (`page.tsx:1010`) +
+  defect-pair thumbnails — the SA fixes those, doesn't delete them.
+- **Decision surfaced:** zone-level `canDelete` means a non-uploader inside the
+  ให้แก้ไข window is offered-then-refused (`PHOTO_DELETE_NOT_OWNER_ERROR`) — kept,
+  matching the CaptureSheet today; threading per-photo `uploaded_by` = deferred.
+- Spec: `356-wp-detail-photo-delete.md`.
+
 ## Spec 351 U1 — separate OT muster session (schema + reworked RPCs) — 🔨 in progress (2026-07-24)
 
 - **Scope:** rework the LIVE spec-306 muster schema so a technician's normal
