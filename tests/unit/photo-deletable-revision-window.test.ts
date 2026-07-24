@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  canCaptureAfterFix,
   canDeleteWpPhotos,
   canRemoveInRevisionWindow,
   isPhotoWpDeletable,
@@ -123,8 +124,12 @@ describe("the WP-detail page routes canDelete through that one function", () => 
   });
 
   it("keeps no delete rule of its own", () => {
+    // The DELETE decision routes through canDeleteWpPhotos (pinned above), so the
+    // page never re-implements it via isPhotoWpDeletable. Spec 353: the page DOES
+    // call isRevisionWindowOpen now — but to feed the after_fix CAPTURE gate
+    // (canCaptureAfterFix), a different rule pinned by its own test below; the
+    // positive canDelete pin above is what proves delete still routes correctly.
     expect(pageSrc).not.toContain("isPhotoWpDeletable(");
-    expect(pageSrc).not.toContain("isRevisionWindowOpen(");
   });
 });
 
@@ -176,5 +181,59 @@ describe("canRemoveInRevisionWindow — spec 340 U1", () => {
     const body = rest.slice(0, rest.indexOf("\n}\n") + 3);
     expect(body).toContain("return isUploader");
     expect(body).not.toMatch(/status|pending_approval|complete/);
+  });
+});
+
+// ============================================================================
+// Spec 353 — WHEN the หลังแก้ไข (after_fix) CAPTURE affordance is offered.
+//
+// after_fix is a WP's completion evidence exactly when it is a rework cycle
+// (rework_round > 0), and only while its photos are mutable: actively curing
+// (rework) OR a reworked WP the reviewer bounced for evidence (the revision
+// window). Round-0 WPs (evidence = `after`) and completed WPs never offer it —
+// the read-only history strip carries the past photos instead.
+// ============================================================================
+describe("canCaptureAfterFix — after_fix is capturable only inside a rework cycle", () => {
+  const cases: ReadonlyArray<[WorkPackageStatus, number, boolean, boolean]> = [
+    // status, reworkRound, revisionWindowOpen, expected
+    ["rework", 1, false, true], // actively curing
+    ["rework", 3, false, true], // a later round, still curing
+    ["pending_approval", 1, true, true], // reworked WP bounced for evidence — re-shoot after_fix
+    ["pending_approval", 1, false, false], // reworked WP awaiting first review — wait
+    ["pending_approval", 0, true, false], // round-0 revision window → evidence is `after`, not after_fix
+    ["pending_approval", 0, false, false], // round-0 first submit
+    ["complete", 1, false, false], // reworked then completed — history only
+    ["complete", 0, false, false], // the 20 legacy leaked WPs
+    ["in_progress", 0, false, false], // never reworked
+  ];
+
+  it.each(cases)("%s round=%s window=%s → %s", (status, reworkRound, revisionWindowOpen, want) => {
+    expect(canCaptureAfterFix({ status, reworkRound, revisionWindowOpen })).toBe(want);
+  });
+});
+
+describe("the WP-detail page derives the after_fix capture flag from the predicate", () => {
+  const pageSrc = readFileSync(
+    join(process.cwd(), "src/app/projects/[projectId]/work-packages/[workPackageId]/page.tsx"),
+    "utf8",
+  );
+
+  it("computes showAfterFixCapture via canCaptureAfterFix and history via length", () => {
+    expect(pageSrc.replace(/\s+/g, " ")).toContain(
+      "canCaptureAfterFix({ status: wp.status, reworkRound: wp.rework_round,",
+    );
+    expect(pageSrc).toContain("const showAfterFixHistory = photosByPhase.after_fix.length > 0;");
+  });
+
+  it("retires the conflated showAfterFix boolean on both the detail and review pages", () => {
+    expect(pageSrc).not.toContain("const showAfterFix =");
+    // The review surface (src/app/review/…) is read-only — no capture — so it keeps
+    // only the history gate; it must not carry a second copy of the retired boolean.
+    const reviewSrc = readFileSync(
+      join(process.cwd(), "src/app/review/work-packages/[workPackageId]/page.tsx"),
+      "utf8",
+    );
+    expect(reviewSrc).not.toContain("const showAfterFix =");
+    expect(reviewSrc).toContain("const showAfterFixHistory = photosByPhase.after_fix.length > 0;");
   });
 });
