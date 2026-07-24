@@ -1,3 +1,9 @@
+# [0.201.0](https://github.com/vap-ops/prc-ops/compare/v0.200.0...v0.201.0) (2026-07-24)
+
+### Features
+
+- spec 352 U1 — capture-method SSOT + WP/queued photos ([#733](https://github.com/vap-ops/prc-ops/issues/733)) ([b81a41e](https://github.com/vap-ops/prc-ops/commit/b81a41ef4e3ead6a47634ee55df65b7a4ebefd37))
+
 # [0.200.0](https://github.com/vap-ops/prc-ops/compare/v0.199.0...v0.200.0) (2026-07-24)
 
 ### Features
