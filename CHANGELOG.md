@@ -1,3 +1,9 @@
+# [0.213.0](https://github.com/vap-ops/prc-ops/compare/v0.212.0...v0.213.0) (2026-07-24)
+
+### Features
+
+- **muster:** jsQR camera fallback so iPhone can scan QR (spec 306 U3b) ([#745](https://github.com/vap-ops/prc-ops/issues/745)) ([d070b94](https://github.com/vap-ops/prc-ops/commit/d070b949ebfa078e4876ba2f6869f95a45e22dbf))
+
 # [0.212.0](https://github.com/vap-ops/prc-ops/compare/v0.211.0...v0.212.0) (2026-07-24)
 
 ### Bug Fixes
