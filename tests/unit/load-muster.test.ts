@@ -266,3 +266,64 @@ describe("shapeMusterBoard — prefillWpIds (spec 357 U-B)", () => {
     expect(board.teams[0]!.prefillWpIds).toEqual([]);
   });
 });
+
+// Spec 357 U-C — ยังไม่มา: per team, the lead's live crew roster minus everyone
+// checked in today ACROSS ALL TEAMS (a crew member mustered elsewhere is
+// present, not missing), intersected with the active project roster.
+describe("shapeMusterBoard — missing (spec 357 U-C)", () => {
+  const M_WPS = [{ id: "wpA", code: "A", name: "งานเอ", status: "in_progress" as const }];
+  const att = (team: string, worker: string) => ({
+    team_id: team,
+    worker_id: worker,
+    session: "regular" as const,
+    in_at: "2026-07-24T01:00:00Z",
+    out_at: null,
+    ot_hours: null,
+  });
+
+  it("missing = crew roster − mustered-anywhere ∩ active roster, in roster order", () => {
+    const board = shapeMusterBoard({
+      teams: [
+        { id: "t1", lead_worker_id: "w1" },
+        { id: "t2", lead_worker_id: "w9" },
+      ],
+      // w2 checked into the OTHER team t2 → present, not missing from t1.
+      attendance: [att("t1", "w1"), att("t2", "w2")],
+      teamWps: [],
+      workers: WORKERS,
+      wps: M_WPS,
+      crewRosters: [
+        // w1's crew: w1 (in), w2 (in elsewhere), w3 (absent), wGone (not on roster).
+        { leadWorkerId: "w1", workerIds: ["w1", "w2", "w3", "wGone"] },
+      ],
+    });
+    expect(board.teams[0]!.missing).toEqual([{ id: "w3", name: "ก้อง" }]);
+    expect(board.teams[1]!.missing).toEqual([]);
+  });
+
+  it("a lead with two crews unions them", () => {
+    const board = shapeMusterBoard({
+      teams: [{ id: "t1", lead_worker_id: "w1" }],
+      attendance: [],
+      teamWps: [],
+      workers: WORKERS,
+      wps: M_WPS,
+      crewRosters: [
+        { leadWorkerId: "w1", workerIds: ["w2"] },
+        { leadWorkerId: "w1", workerIds: ["w3"] },
+      ],
+    });
+    expect(board.teams[0]!.missing.map((m) => m.id)).toEqual(["w2", "w3"]);
+  });
+
+  it("omitted crewRosters → empty missing (backward-safe)", () => {
+    const board = shapeMusterBoard({
+      teams: [{ id: "t1", lead_worker_id: "w1" }],
+      attendance: [],
+      teamWps: [],
+      workers: WORKERS,
+      wps: M_WPS,
+    });
+    expect(board.teams[0]!.missing).toEqual([]);
+  });
+});

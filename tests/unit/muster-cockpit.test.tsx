@@ -68,6 +68,7 @@ const BOARD: MusterBoard = {
       ],
       wpIds: [],
       prefillWpIds: [],
+      missing: [],
     },
   ],
   workers: [
@@ -204,6 +205,7 @@ describe("MusterCockpit — OT session (spec 351)", () => {
         ],
         wpIds: [],
         prefillWpIds: [],
+        missing: [],
       },
     ],
     workers: [
@@ -330,7 +332,7 @@ describe("MusterCockpit — leaf WP picker (spec 306 grain-coverage)", () => {
   const PARENT = "ffffffff-6666-6666-6666-666666666666";
   const GROUPED: MusterBoard = {
     ...BOARD,
-    teams: [{ ...BOARD.teams[0]!, wpIds: [], prefillWpIds: [] }],
+    teams: [{ ...BOARD.teams[0]!, wpIds: [], prefillWpIds: [], missing: [] }],
     wps: [
       {
         id: WPA,
@@ -403,7 +405,7 @@ describe("MusterCockpit — picker incomplete filter + prior-day prefill (spec 3
   const PARENT = "ffffffff-6666-6666-6666-666666666666";
   const STATUS_BOARD: MusterBoard = {
     ...BOARD,
-    teams: [{ ...BOARD.teams[0]!, wpIds: [], prefillWpIds: [] }],
+    teams: [{ ...BOARD.teams[0]!, wpIds: [], prefillWpIds: [], missing: [] }],
     wps: [
       {
         id: WPA,
@@ -507,6 +509,7 @@ describe("MusterCockpit — no intra-day move (spec 357 U-E)", () => {
           ],
           wpIds: [],
           prefillWpIds: [],
+          missing: [],
         },
       ],
     });
@@ -699,6 +702,7 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
         ],
         wpIds: [],
         prefillWpIds: [],
+        missing: [],
       },
     ],
   };
@@ -712,7 +716,15 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
     const NO_SCAN: MusterBoard = {
       ...BOARD,
       teams: [
-        { id: T1, leadWorkerId: W1, leadName: "ลี", members: [], wpIds: [], prefillWpIds: [] },
+        {
+          id: T1,
+          leadWorkerId: W1,
+          leadName: "ลี",
+          members: [],
+          wpIds: [],
+          prefillWpIds: [],
+          missing: [],
+        },
       ],
     };
     renderCockpit(NO_SCAN);
@@ -760,11 +772,60 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
           ],
           wpIds: [],
           prefillWpIds: [],
+          missing: [],
         },
       ],
     };
     renderCockpit(OT_OPEN);
     await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
     expect(screen.getByText(/ยัง OT ไม่ปิด/)).toBeInTheDocument();
+  });
+});
+
+// Spec 357 U-C — the ยังไม่มา section: expected crew members not yet on site,
+// with a one-tap เช็คอิน that is ALWAYS a regular check-IN (never the toggle).
+describe("MusterCockpit — ยังไม่มา missing list (spec 357 U-C)", () => {
+  const MISSING_BOARD: MusterBoard = {
+    ...BOARD,
+    teams: [
+      {
+        ...BOARD.teams[0]!,
+        missing: [
+          { id: W2, name: "สมชาย" },
+          { id: W3, name: "ก้อง" },
+        ],
+      },
+    ],
+  };
+
+  it("renders the section with a count and the missing names", () => {
+    renderCockpit(MISSING_BOARD);
+    const team = screen.getByTestId(`team-${T1}`);
+    expect(within(team).getByText("ยังไม่มา (2)")).toBeInTheDocument();
+    expect(within(team).getByText("สมชาย")).toBeInTheDocument();
+    expect(within(team).getByText("ก้อง")).toBeInTheDocument();
+  });
+
+  it("เช็คอิน fires a manual regular check-IN even while the toggle is on ออก", async () => {
+    const user = userEvent.setup();
+    renderCockpit(MISSING_BOARD);
+    await user.click(screen.getByRole("button", { name: "ออก" }));
+    const team = screen.getByTestId(`team-${T1}`);
+    const row = within(team).getByText("สมชาย").closest("li")!;
+    await user.click(within(row as HTMLElement).getByRole("button", { name: "เช็คอิน" }));
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: T1,
+        workerId: W2,
+        mode: "in",
+        method: "manual",
+        session: "regular",
+      }),
+    );
+  });
+
+  it("no missing → no section", () => {
+    renderCockpit();
+    expect(screen.queryByText(/ยังไม่มา/)).toBeNull();
   });
 });

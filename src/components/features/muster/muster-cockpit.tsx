@@ -281,6 +281,7 @@ export function MusterCockpit({
             onScan={scanRegular}
             onScanOt={scanOt}
             onSaveWps={saveWps}
+            onCheckIn={onScanTap}
             onOpenSheet={() => {
               // A leftover error from an earlier, unrelated action (open-team,
               // save-WPs…) must not greet the SA inside a fresh scan/add sheet.
@@ -392,6 +393,7 @@ function TeamCard({
   onScan,
   onScanOt,
   onSaveWps,
+  onCheckIn,
   onOpenSheet,
 }: {
   team: MusterTeam;
@@ -405,6 +407,10 @@ function TeamCard({
   /** Spec 351 — OT-session scan (in/out derived per worker from their OT state). */
   onScanOt: (teamId: string, workerId: string, method: "qr" | "manual") => void;
   onSaveWps: (teamId: string, wpIds: string[]) => void;
+  /** Spec 357 U-C — check a missing (expected) worker in: ALWAYS a manual
+   * regular check-IN, independent of the เข้า/ออก toggle (a late arrival is
+   * checked in even while the SA is doing the evening pass). */
+  onCheckIn: (teamId: string, workerId: string) => void;
   /** Spec 357 U-D — opens this team's scan/add sheet (the header QR door). */
   onOpenSheet: () => void;
 }) {
@@ -646,6 +652,32 @@ function TeamCard({
             </li>
           ))}
         </ul>
+
+        {/* Spec 357 U-C — ยังไม่มา: expected crew members (the lead's live crew
+            roster, spec 330) not yet checked in anywhere today. One tap checks
+            them into THIS team; the QR sheet scans them in just the same. */}
+        {team.missing.length > 0 ? (
+          <div className="border-edge flex flex-col gap-1.5 border-t pt-3">
+            <p className="text-ink-muted text-meta font-semibold">
+              ยังไม่มา ({team.missing.length})
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {team.missing.map((m) => (
+                <li key={m.id} className="flex items-center justify-between gap-2">
+                  <span className="text-ink-muted text-sm">{m.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => onCheckIn(team.id, m.id)}
+                    disabled={pending}
+                    className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
+                  >
+                    เช็คอิน
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {/* Spec 357 U-D: adding members lives in the header QR-door sheet (scan
             OR tap). The OT hint stays — OT is opened/closed per member above. */}

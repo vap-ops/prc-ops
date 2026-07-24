@@ -43,6 +43,9 @@ export interface MusterTeam {
   // still-incomplete leaves. The picker seeds from it when the team has no
   // assignment yet; nothing persists until the SA saves (pre-fill, not truth).
   prefillWpIds: string[];
+  // Spec 357 U-C — ยังไม่มา: the lead's live crew members (spec 330 rosters)
+  // who have not checked in anywhere today, in active-roster order.
+  missing: { id: string; name: string }[];
 }
 export interface MusterWorker {
   id: string;
@@ -88,6 +91,9 @@ export function shapeMusterBoard(raw: {
   closure?: { closed_at: string } | null;
   // Spec 357 U-B — per lead, the WP ids of their latest PRIOR muster team.
   priorTeamWps?: { leadWorkerId: string; wpIds: string[] }[];
+  // Spec 357 U-C — per lead, the LIVE members of the crews they lead (a lead
+  // with several active crews contributes several rows; the fold unions them).
+  crewRosters?: { leadWorkerId: string; workerIds: string[] }[];
 }): MusterBoard {
   const nameById = new Map(raw.workers.map((w) => [w.id, w.name]));
   const nameOf = (id: string) => nameById.get(id) ?? "—";
@@ -98,6 +104,15 @@ export function shapeMusterBoard(raw: {
     raw.wps.filter((w) => w.status !== "complete").map((w) => w.id),
   );
   const priorByLead = new Map((raw.priorTeamWps ?? []).map((p) => [p.leadWorkerId, p.wpIds]));
+  // Spec 357 U-C — union each lead's crews; missing subtracts EVERYONE checked
+  // in today across all teams (a crew member mustered elsewhere is present).
+  const crewByLead = new Map<string, Set<string>>();
+  for (const r of raw.crewRosters ?? []) {
+    const set = crewByLead.get(r.leadWorkerId) ?? new Set<string>();
+    for (const id of r.workerIds) set.add(id);
+    crewByLead.set(r.leadWorkerId, set);
+  }
+  const musteredAnywhere = new Set(raw.attendance.map((a) => a.worker_id));
 
   const teams: MusterTeam[] = raw.teams.map((t) => ({
     id: t.id,
@@ -127,6 +142,15 @@ export function shapeMusterBoard(raw: {
     prefillWpIds: (priorByLead.get(t.lead_worker_id) ?? []).filter((id) =>
       incompleteLeafIds.has(id),
     ),
+    // Roster order (raw.workers is name-ordered); ids off the roster drop out
+    // (deactivated / foreign workers have no name to render anyway).
+    missing: (() => {
+      const crew = crewByLead.get(t.lead_worker_id);
+      if (!crew) return [];
+      return raw.workers
+        .filter((w) => crew.has(w.id) && !musteredAnywhere.has(w.id))
+        .map((w) => ({ id: w.id, name: w.name }));
+    })(),
   }));
 
   return {
@@ -239,6 +263,32 @@ export async function loadMusterBoard(
     wpIds: (priorWpsRes.data ?? []).filter((x) => x.team_id === t.id).map((x) => x.work_package_id),
   }));
 
+  // Spec 357 U-C — the expected roster: live crew members of the crews today's
+  // leads run (spec 330; RLS already admits the SA — sa_visible_crew_ids). Two
+  // reads: active crews for the leads, then their live members.
+  const { data: crews } = leads.length
+    ? await supabase
+        .from("crews")
+        .select("id, lead_worker_id")
+        .eq("project_id", projectId)
+        .eq("active", true)
+        .in("lead_worker_id", leads)
+    : { data: [] as { id: string; lead_worker_id: string | null }[] };
+  const crewIds = (crews ?? []).map((c) => c.id);
+  const { data: crewMembers } = crewIds.length
+    ? await supabase
+        .from("crew_members")
+        .select("crew_id, worker_id")
+        .in("crew_id", crewIds)
+        .is("removed_at", null)
+    : { data: [] as { crew_id: string; worker_id: string }[] };
+  const crewRosters = (crews ?? [])
+    .filter((c): c is { id: string; lead_worker_id: string } => c.lead_worker_id !== null)
+    .map((c) => ({
+      leadWorkerId: c.lead_worker_id,
+      workerIds: (crewMembers ?? []).filter((m) => m.crew_id === c.id).map((m) => m.worker_id),
+    }));
+
   return shapeMusterBoard({
     teams: teams ?? [],
     attendance: attendanceRes.data ?? [],
@@ -247,5 +297,6 @@ export async function loadMusterBoard(
     wps,
     closure: closureRes.data ?? null,
     priorTeamWps,
+    crewRosters,
   });
 }
