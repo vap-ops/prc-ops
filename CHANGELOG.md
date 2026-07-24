@@ -1,3 +1,9 @@
+# [0.205.0](https://github.com/vap-ops/prc-ops/compare/v0.204.0...v0.205.0) (2026-07-24)
+
+### Features
+
+- **spec351:** cockpit OT scan flow + two-session read (U2) ([6ca283f](https://github.com/vap-ops/prc-ops/commit/6ca283f248259c68dee5ca4387889d5e5462a0e7))
+
 # [0.204.0](https://github.com/vap-ops/prc-ops/compare/v0.203.0...v0.204.0) (2026-07-24)
 
 ### Features
