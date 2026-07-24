@@ -50,7 +50,7 @@ type ContractorRow = Pick<
 >;
 type ApprovalRow = Pick<
   Tbl["approvals"]["Row"],
-  "id" | "decision" | "comment" | "decided_by" | "decided_at"
+  "id" | "decision" | "comment" | "decided_by" | "decided_at" | "revision_reason"
 >;
 type SiblingRow = Pick<Tbl["work_packages"]["Row"], "id" | "code" | "name">;
 type RequestRow = Pick<
@@ -170,7 +170,8 @@ export async function loadWorkPackageDetail(
     contractorsShared,
     supabase
       .from("approvals")
-      .select("id, decision, comment, decided_by, decided_at")
+      // Spec 355: revision_reason drives the attention card's tailored guidance.
+      .select("id, decision, comment, decided_by, decided_at, revision_reason")
       .eq("work_package_id", wp.id)
       // The id tiebreak matches selectLatestDecisionByWorkPackage,
       // resubmit_work_package_evidence and photo_removal_allowed, so

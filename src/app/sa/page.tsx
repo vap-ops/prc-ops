@@ -197,6 +197,8 @@ export default async function SaHomePage() {
           wp: w,
           decision: dec.decision,
           comment: dec.comment,
+          // Spec 355 — why the photos came back; drives the row chip + CTA.
+          revisionReason: dec.revision_reason ?? null,
           // Answered → the ball is with the decider; the item leaves this list.
           answered: dec.id !== undefined && answeredDecisionIds.has(dec.id),
         },

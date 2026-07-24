@@ -30,6 +30,7 @@ import { WorkPackageInfoButton } from "@/components/features/work-packages/work-
 import { PurchaseRequestCard } from "@/components/features/purchasing/purchase-request-card";
 import {
   APPROVAL_DECISION_LABEL,
+  APPROVAL_REVISION_REASON_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   PHOTO_PHASE_LABEL,
   SITE_EXPENSE_TAB_LABEL,
@@ -39,6 +40,7 @@ import {
   formatThaiTime,
 } from "@/lib/i18n/labels";
 import { AttentionCard } from "@/components/features/common/attention-card";
+import { RevisionReasonGuidance } from "@/components/features/work-packages/revision-reason-guidance";
 import { CountChip } from "@/components/features/common/count-chip";
 import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
 import {
@@ -376,6 +378,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     (latestDecision.decision === "needs_revision" || latestDecision.decision === "rejected")
       ? latestDecision
       : null;
+  // Spec 355 U3 — the bounce is answered once ส่งตรวจอีกครั้ง was pressed; the
+  // spec-291 delete window is closed then, so the reasoned card drops its CTA.
+  const attentionAnswered = attention ? answeredDecisionIds.has(attention.id) : false;
 
   const predSet = new Set(predecessorIds);
   const predecessorOptions = siblingWps.filter((w) => predSet.has(w.id));
@@ -930,7 +935,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           {attention ? (
             <AttentionCard
               tone={attention.decision === "rejected" ? "red" : "amber"}
-              title={APPROVAL_DECISION_LABEL[attention.decision]}
+              // Spec 355 U3: a reasoned reject-evidence leads with WHY — the generic
+              // "ถ่ายรูปใหม่" umbrella over a premature ("finish the work first")
+              // guidance would contradict itself. Reasonless rows keep the decision
+              // label.
+              title={
+                attention.decision === "needs_revision" && attention.revision_reason
+                  ? APPROVAL_REVISION_REASON_LABEL[attention.revision_reason]
+                  : APPROVAL_DECISION_LABEL[attention.decision]
+              }
             >
               <p className="text-meta text-ink-secondary">
                 {displayNames.get(attention.decided_by) ?? "—"} ·{" "}
@@ -939,11 +952,22 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               {attention.comment ? (
                 <p className="mt-1 whitespace-pre-wrap">{attention.comment}</p>
               ) : null}
-              {/* Spec 353: name the evidence phase the SA must re-shoot instead of a
-                  generic add-more label — after_fix once the WP is a rework cycle
-                  (rework_round>0), else the after photo. Matches the submit-gate's
-                  completion-evidence rule. */}
-              {!readOnly ? (
+              {/* Spec 355 U3: a reasoned reject-evidence renders per-reason
+                  guidance/CTA (mismatch = remove-and-reshoot via the spec-291 delete
+                  window, which closes once the bounce is answered — so the CTA gates
+                  on that too). Historical null-reason rows — and every rejected
+                  decision, which the DB CHECK keeps reasonless — fall back to the
+                  spec-353 phase-named CTA below. */}
+              {attention.decision === "needs_revision" && attention.revision_reason ? (
+                <RevisionReasonGuidance
+                  reason={attention.revision_reason}
+                  showCta={!readOnly && !attentionAnswered}
+                />
+              ) : !readOnly ? (
+                /* Spec 353: name the evidence phase the SA must re-shoot instead of a
+                   generic add-more label — after_fix once the WP is a rework cycle
+                   (rework_round>0), else the after photo. Matches the submit-gate's
+                   completion-evidence rule. */
                 <Link
                   href="#wp-photos"
                   className="bg-attn-press text-on-attn rounded-control focus-visible:ring-action mt-2.5 inline-flex h-9 items-center gap-1.5 px-3 text-sm font-bold focus:outline-none focus-visible:ring-2"

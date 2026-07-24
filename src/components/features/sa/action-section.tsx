@@ -8,7 +8,12 @@ import Link from "next/link";
 import { Camera, RotateCcw, PencilLine, Ban } from "lucide-react";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { APPROVAL_DECISION_LABEL, REWORK_SOURCE_LABEL } from "@/lib/i18n/labels";
+import {
+  APPROVAL_DECISION_LABEL,
+  APPROVAL_REVISION_REASON_LABEL,
+  REVISION_REASON_GUIDANCE,
+  REWORK_SOURCE_LABEL,
+} from "@/lib/i18n/labels";
 import { reworkRoundTag } from "@/lib/photos/rework-round";
 import type { SaActionItem, SaActionKind } from "@/lib/sa/action-list";
 
@@ -43,11 +48,33 @@ const TONE = {
 } as const;
 
 function chipLabel(item: SaActionItem): string {
+  // Spec 355 — a reasoned bounce chips the REASON alone: prefixing the generic
+  // decision label would read "ถ่ายรูปใหม่ · งานยังไม่เสร็จ" (retake · not finished)
+  // — self-contradictory for premature. Reasonless rows keep the decision chip.
+  if (item.kind === "revision" && item.revisionReason) {
+    return APPROVAL_REVISION_REASON_LABEL[item.revisionReason];
+  }
   if (item.kind !== "rework") return KIND_META[item.kind].chip;
   const parts = [KIND_META.rework.chip];
   if (item.round) parts.push(reworkRoundTag(item.round));
   if (item.source) parts.push(REWORK_SOURCE_LABEL[item.source]);
   return parts.join(" · ");
+}
+
+// Spec 355 — the row CTA follows the reason (mismatch = remove-and-reshoot, never
+// "add more"); historical reasonless rows keep the generic per-kind CTA.
+function ctaLabel(item: SaActionItem): string {
+  if (item.kind === "revision" && item.revisionReason) {
+    return REVISION_REASON_GUIDANCE[item.revisionReason].cta;
+  }
+  return KIND_META[item.kind].cta;
+}
+
+// Spec 355 — premature's action is finishing the WORK: its row lands on the WP
+// detail (where the reasoned card explains), not the capture zone, and its CTA
+// pill drops the camera. Every other row keeps the photo jump.
+function isPrematureRow(item: SaActionItem): boolean {
+  return item.kind === "revision" && item.revisionReason === "premature";
 }
 
 export function SaActionSection({
@@ -72,7 +99,9 @@ export function SaActionSection({
           const meta = KIND_META[item.kind];
           const t = TONE[meta.tone];
           const photoHref = withBackFrom(
-            `${workPackageHref(item.projectId, item.id)}#wp-photos`,
+            isPrematureRow(item)
+              ? workPackageHref(item.projectId, item.id)
+              : `${workPackageHref(item.projectId, item.id)}#wp-photos`,
             backHref,
           );
           return (
@@ -105,8 +134,8 @@ export function SaActionSection({
                   </p>
                 ) : null}
                 <span className="bg-attn-press text-on-attn rounded-control mt-3 flex h-10 w-full items-center justify-center gap-1.5 text-sm font-bold">
-                  <Camera aria-hidden className="size-4" />
-                  {meta.cta}
+                  {isPrematureRow(item) ? null : <Camera aria-hidden className="size-4" />}
+                  {ctaLabel(item)}
                 </span>
               </Link>
             </li>

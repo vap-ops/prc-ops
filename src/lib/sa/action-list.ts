@@ -5,7 +5,7 @@
 //   • rejected    — the PM said ไม่อนุมัติ; WP stays pending_approval.
 // Pure (no fetch) so it's unit-testable; the /sa page supplies the rows.
 
-import type { ReworkSource } from "@/lib/db/enums";
+import type { ApprovalRevisionReason, ReworkSource } from "@/lib/db/enums";
 import { buildMyWorkList, type MyWorkWp, type MyWorkItem } from "@/lib/sa/my-work";
 
 export type SaActionKind = "rework" | "revision" | "rejected";
@@ -24,12 +24,16 @@ export interface SaActionItem {
   source: ReworkSource | null;
   /** rework only — the cycle (≥1). */
   round: number | null;
+  /** revision only — WHY the photos came back (spec 355); null on historical rows. */
+  revisionReason: ApprovalRevisionReason | null;
 }
 
 export interface BouncedWp {
   wp: MyWorkWp;
   decision: "needs_revision" | "rejected";
   comment: string | null;
+  /** Spec 355 — the structured reject-evidence reason (needs_revision only). */
+  revisionReason: ApprovalRevisionReason | null;
   /**
    * Spec 337 U2a — the SA has already pressed ส่งตรวจอีกครั้ง for THIS decision,
    * so the ball is back with the decider and the item leaves the SA's list. The
@@ -81,6 +85,7 @@ export function buildSaActionList(input: {
         reason: info?.reason ?? null,
         source: info?.source ?? null,
         round: info && info.round >= 1 ? info.round : null,
+        revisionReason: null,
       };
     });
 
@@ -98,6 +103,9 @@ export function buildSaActionList(input: {
       reason: b.comment,
       source: null,
       round: null,
+      // The DB CHECK forbids a reason outside needs_revision, so rejected rows
+      // arrive null already; thread rather than re-derive.
+      revisionReason: b.revisionReason,
     }));
 
   const actions = [...reworkActions, ...bouncedActions].sort(

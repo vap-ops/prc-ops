@@ -798,6 +798,29 @@ export const APPROVAL_REVISION_REASON_LABEL: Record<Enums["approval_revision_rea
   premature: "งานยังไม่เสร็จ",
 };
 
+// Spec 355 U3 — the SA's correct next action per reason. `cta` is the button/row
+// action text (the WP-detail attention card + the ต้องแก้ไข worklist row read it),
+// `guidance` the one-line explanation on the card. mismatch = REMOVE the wrong
+// photos then re-shoot (the spec-291 delete window is open on a bounced WP) —
+// never the generic "add more".
+export const REVISION_REASON_GUIDANCE: Record<
+  Enums["approval_revision_reason"],
+  { cta: string; guidance: string }
+> = {
+  incomplete: {
+    cta: "เพิ่มรูปให้ครบ",
+    guidance: "เพิ่มรูปช่วงที่ผู้จัดการแจ้ง แล้วส่งตรวจอีกครั้ง",
+  },
+  mismatch: {
+    cta: "ลบรูปที่ไม่ตรง แล้วถ่ายใหม่",
+    guidance: "รูปที่ส่งไม่ตรงกับงานนี้ — ลบรูปที่ผิดออก แล้วถ่ายใหม่ให้ตรงกับงาน",
+  },
+  premature: {
+    cta: "ทำงานให้เสร็จก่อน",
+    guidance: "งานยังไม่เสร็จ — ทำให้เสร็จ แล้วค่อยถ่ายรูปตอนเสร็จและส่งตรวจ",
+  },
+};
+
 // Spec 265 U2 — the super_admin LINE-identity verification block. SSOT strings
 // used by the shared LineIdentityBlock across /registrations/[id] and
 // /settings/roles/[id].

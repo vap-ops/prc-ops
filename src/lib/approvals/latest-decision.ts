@@ -20,7 +20,12 @@ import type { Database, Tables } from "@/lib/db/database.types";
 export type ApprovalRow = Pick<
   Tables<"approvals">,
   "work_package_id" | "decision" | "comment" | "decided_by" | "decided_at"
-> & { id?: string };
+> & {
+  id?: string;
+  /** Spec 355 — optional so narrower approvals reads (e.g. the photo-removal
+   *  window) keep satisfying the reduce without fetching it. */
+  revision_reason?: Tables<"approvals">["revision_reason"];
+};
 
 export function selectLatestDecisionByWorkPackage(
   rows: ReadonlyArray<ApprovalRow>,
@@ -51,7 +56,8 @@ export async function getLatestDecisionsForWorkPackages(
     .from("approvals")
     // Spec 337 U2a: `id` joins a decision to the wp_evidence_resubmitted audit
     // row that answered it, which is how /sa clears a bounce the SA has cured.
-    .select("id, work_package_id, decision, comment, decided_by, decided_at")
+    // Spec 355: `revision_reason` rides to the ต้องแก้ไข worklist chip.
+    .select("id, work_package_id, decision, comment, decided_by, decided_at, revision_reason")
     .in("work_package_id", workPackageIds as string[]);
   if (error) throw error;
   return selectLatestDecisionByWorkPackage(data ?? []);
