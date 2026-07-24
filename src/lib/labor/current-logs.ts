@@ -7,10 +7,15 @@
 import type { Database } from "@/lib/db/database.types";
 
 type Row = Database["public"]["Tables"]["labor_logs"]["Row"];
-// Everything the column-scoped grant exposes — the money snapshots
-// (day_rate_snapshot, wht_pct_snapshot — spec 314 U3) are zero-grant, so the
-// authenticated read never carries them.
-export type LaborLogRow = Omit<Row, "day_rate_snapshot" | "wht_pct_snapshot">;
+// The presence columns the current-state filter + its consumers use. The money
+// snapshots (day_rate_snapshot, wht_pct_snapshot — spec 314 U3) are zero-grant,
+// so the authenticated read never carries them; the spec-306-U5 derive columns
+// (level_snapshot, source_muster_id) are write-only so far and no reader selects
+// them — both excluded so a subset select still satisfies the type.
+export type LaborLogRow = Omit<
+  Row,
+  "day_rate_snapshot" | "wht_pct_snapshot" | "level_snapshot" | "source_muster_id"
+>;
 
 export function currentLaborLogs(rows: LaborLogRow[]): LaborLogRow[] {
   const supersededIds = new Set(

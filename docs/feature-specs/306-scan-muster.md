@@ -1,7 +1,7 @@
 # Spec 306 — Morning-talk scan check-in + team forming (muster v2)
 
 **Status:** 🎨 DESIGN (brainstormed + approved by operator 2026-07-12; spec-doc-only PR — no build started).
-**Type:** field attendance + team formation — the daily record of *which team worked on which WPs, with who in the team*, captured by QR scan at the physical morning talk.
+**Type:** field attendance + team formation — the daily record of _which team worked on which WPs, with who in the team_, captured by QR scan at the physical morning talk.
 **Class:** mixed — U1/U3/U4/U6 code-only; **U2 (new schema + RLS + RPCs) and U5 (labor_logs money derive) are danger-path ⇒ operator-merged**.
 **Parent:** spec 279 self-gov onboarding (roster + badges' subjects) · spec 273 daily plan (`daily_work_plan_crew` pre-fill) · spec 271 plan-vs-actual (variance feed, U0 engine-bug fixes ride along) · supersedes the spec 277 P0 `MusterStrip` shape.
 
@@ -21,19 +21,20 @@ Why this design is strong (and why we build it as stated):
 
 ## Decisions locked during brainstorm (operator answers)
 
-| Question | Decision |
-|---|---|
-| Purpose | Team→WP + membership record; presence flows immediately; money is the destination (both presence-first AND money selected) |
-| What does SA scan? | **Printed QR badge** per worker (laminated card; app prints) |
-| Check-out | **Evening scan too** (symmetric muster; in/out both timestamped; OT computable from hours) |
-| Plan coupling | **Plan = pre-fill, scan = truth.** No plan → scan works standalone. Deviation recorded as variance, never blocks |
-| Architecture | **A: scan layer (raw truth) + derived money** — chosen over writing `labor_logs` directly at scan time |
-| Multi-WP cost | Even-split 1/N at derive (already the documented 279 money model); per-WP precision = later upgrade |
+| Question                    | Decision                                                                                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose                     | Team→WP + membership record; presence flows immediately; money is the destination (both presence-first AND money selected)                                                                                                      |
+| What does SA scan?          | **Printed QR badge** per worker (laminated card; app prints)                                                                                                                                                                    |
+| Check-out                   | **Evening scan too** (symmetric muster; in/out both timestamped; OT computable from hours)                                                                                                                                      |
+| Plan coupling               | **Plan = pre-fill, scan = truth.** No plan → scan works standalone. Deviation recorded as variance, never blocks                                                                                                                |
+| Architecture                | **A: scan layer (raw truth) + derived money** — chosen over writing `labor_logs` directly at scan time                                                                                                                          |
+| Multi-WP cost               | Even-split 1/N at derive (already the documented 279 money model); per-WP precision = later upgrade                                                                                                                             |
 | WP grain (added 2026-07-12) | **Main WPs only** for the first two projects — teams assign per main WP (`parent_id IS NULL`), sub WPs inherit the team; labor cost lands at main-WP grain; main→sub distribution estimated from man-days later (mechanism TBD) |
 
 ## What already exists (verified LIVE 2026-07-12)
 
 **DB:**
+
 - `daily_work_plans` (project, plan_date) + `daily_work_plan_items` (plan → WP) + **`daily_work_plan_crew` (item_id, worker_id, `is_lead`)** — spec 273 already supports assigning a per-WP team with a lead in the plan. Near-unused (1 plan ever) but the schema for idea-point-1 is DONE.
 - `labor_logs` — day-grain money rows: (work_package_id, worker_id, work_date, `day_fraction` enum **`full|half` only**, day_rate_snapshot, worker_name_snapshot, pay_type_snapshot, entered_by, self_logged, superseded_by/correction_reason append-only pattern). **No timestamps, no team reference.** 0 rows all-time. An even 3-way split (⅓) cannot be represented in the current enum.
 - `crews` / `crew_members` (spec 279 U1/U2) — persistent crew entity + lead predicate machinery. **0 rows ever; no UI creates a crew.** NOT used by this flow (see Non-goals).
@@ -43,6 +44,7 @@ Why this design is strong (and why we build it as stated):
 - Known engine debt (271 U0 / ADR 0060): `labor_logs` has **no level snapshot** and **day_rate=0 leaks** into cost. The derive unit here fixes both.
 
 **Code:**
+
 - `src/components/features/sa/muster-strip.tsx` + `src/lib/sa/muster.ts` + `use-mark-present.ts` — spec 277 P0 tap-muster on `/sa` ("X/Y มาทำ", one-tap `ทั้งหมดมาทำ` → `log_labor_day`). Per-WP chip shape, no timestamps, no teams, rides the near-dead `/sa` home. **Superseded by this spec** (retire/repoint decision at U5 build time).
 - `log_labor_day` RPC — flagged HIGH in the 2026-07 misalignment audit; this spec does NOT extend it. New RPCs instead.
 - QR self-onboard scan flow (279 F-series) — QR mechanics precedent; `/sa/crew` = badge-print home.
@@ -65,7 +67,7 @@ Presence is never blocked by money state. A scanned worker without `cost_confirm
 
 - Print view off `/sa/crew`: one card per worker — name, `employee_id` (PRC-YY-NNNN), QR encoding the worker `id` (uuid). Batch-per-project + single reprint.
 - Browser print CSS (no PDF pipeline). Operator ops: print + laminate.
-- QR payload is opaque and grants nothing — a scan only has meaning inside an authenticated SA session on a project the SA can see. A photographed/cloned badge lets a *SA* mark that worker present; it does not authenticate anyone.
+- QR payload is opaque and grants nothing — a scan only has meaning inside an authenticated SA session on a project the SA can see. A photographed/cloned badge lets a _SA_ mark that worker present; it does not authenticate anyone.
 
 ### U2 — Muster schema + RPCs (danger-path, operator-merged)
 
@@ -102,6 +104,43 @@ pgTAP suite: role gates (SA yes / visitor+technician no / anon revoked), project
 
 ### U5 — Money derive (danger-path money, operator-merged)
 
+> **Scoped 2026-07-24 (operator + live evidence). Split into U5a (this) + U5b + OT-follow-up.**
+> Live at build time: `labor_logs`=0, `muster_team_wps`=**0 assignments across all 3 teams**,
+> **0/26 workers cost-confirmed** → the derive produces ZERO rows on real data until SAs adopt
+> the team→WP announcement AND PMs confirm rates (both at 0% adoption — the real gate to labor
+> money, upstream of the derive). Verified by synthetic pgTAP, not prod fill.
+>
+> **U5a (MINIMAL engine — enum-only, low-ripple):** the operator chose the minimal path over the
+> full precision path. Even-split 1/N is representable in the existing `day_fraction` enum for
+> **N≤2** (1 WP→`full`, 2 WP→`half`); N≥3 needs a non-enum fraction. Since `day_fraction_num`
+> would ripple through **7 money RPCs** (`freeze_wp_labor_cost`, `record_wage_payment`,
+> `distribute_project_coins`, `dashboard_portfolio_spend`, `wp_labor_sell`, …) + ~16 TS readers —
+> any of which reading a fractional row as the old enum posts wrong GL/pay — and NO team is on
+> even one WP (let alone 3+), `day_fraction_num` is **deferred**. U5a derives with the enum only
+> (a derived row is indistinguishable from a manual `log_labor_day` row → cost engine untouched);
+> a team on **3+ WPs is SKIPPED** (no rows, close-day never breaks) pending the follow-up.
+>
+> **⚠️ GRAIN CONSTRAINT (build discovery 2026-07-24) — the "labor at main-WP grain"
+> premise below is INCOMPATIBLE with the DB.** `labor_logs` cannot bind to a group
+> (งาน) WP — `wp_reject_group_binding` rejects it; labor is **leaf (งานย่อย) grained**,
+> always. The muster picker offers `parent_id IS NULL` WPs, of which **47 of 65 live
+> top-level WPs are groups (72%)**. So the derive anchors labor only when the team's
+> WP is a **leaf**; a team on a group WP (or group+leaf mix) is **SKIPPED** (same
+> bucket as 3+-WP, so close-day never crashes). **U5a covers only leaf-WP teams — a
+> minority today.** Real coverage needs an operator call: (a) the muster picker offer
+> งานย่อย (leaves) instead of/alongside groups, or (b) the group→child man-day split.
+> Flagged, not resolved here.
+> Adds only `level_snapshot` (`worker_level`) + `source_muster_id` (idempotency). NEW RPC
+> `derive_muster_labor(project, date)`; `close_muster_day` calls it inline (same txn).
+>
+> **U5b (deferred, code-only):** the PM "pending cost" queue surface (which workers are held);
+> backfill-on-confirm is AUTOMATIC — the derive is re-runnable, so re-closing (or a re-derive on
+> cost-confirm) picks up newly-confirmed workers. The **nightly cron backstop is a worker deploy
+> (operator-held)**. MusterStrip retire/repoint also here.
+>
+> **OT costing (deferred follow-up):** operator set the rule **×1.5 of hourly** (day_rate /
+> standard-day-hours × 1.5 × `ot_hours`). Built as its own unit; `session='ot'` rows are the input.
+
 On `close_muster_day` (+ nightly cron backstop for unclosed days, integrity-console pattern):
 
 - Per present worker-day: one `labor_logs` row **per MAIN WP of their team that day**, fraction = 1/N over the team's main WPs (even-split — the documented 279 money model; the operator's stated temporary fix). Labor cost lands at **main-WP grain** for the first two projects; distribution down to sub WPs is a later estimate from man-days (mechanism TBD — operator).
@@ -130,14 +169,14 @@ Operator direction (2026-07-12): first two projects cost at **main-WP grain only
 
 ## Sequencing
 
-| Unit | Content | Class |
-|---|---|---|
-| U1 | Badge print view | code-only, auto-merge |
-| U2 | Muster tables + RPCs + pgTAP | **schema — operator-held** |
-| U3 | Scan UI + manual fallback + team WP chips | code-only |
-| U4 | Out-mode + ปิดวัน + OT hours | code-only |
-| U5 | Derive → labor_logs (+ fraction_num, level_snapshot, source_muster_id, cost gate, backfill, cron backstop) | **schema + money — operator-held** |
-| U6 | Variance chip + 271 feed | code-only |
+| Unit | Content                                                                                                    | Class                              |
+| ---- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| U1   | Badge print view                                                                                           | code-only, auto-merge              |
+| U2   | Muster tables + RPCs + pgTAP                                                                               | **schema — operator-held**         |
+| U3   | Scan UI + manual fallback + team WP chips                                                                  | code-only                          |
+| U4   | Out-mode + ปิดวัน + OT hours                                                                               | code-only                          |
+| U5   | Derive → labor_logs (+ fraction_num, level_snapshot, source_muster_id, cost gate, backfill, cron backstop) | **schema + money — operator-held** |
+| U6   | Variance chip + 271 feed                                                                                   | code-only                          |
 
 Each unit shippable alone; U1 has standalone value (badges usable for identification immediately).
 
