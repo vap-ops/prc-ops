@@ -1,3 +1,9 @@
+# [0.206.0](https://github.com/vap-ops/prc-ops/compare/v0.205.0...v0.206.0) (2026-07-24)
+
+### Features
+
+- **wp:** sharpen rejection framing + single-source WP-decision labels (spec 353 U3) ([9e4293a](https://github.com/vap-ops/prc-ops/commit/9e4293a8d76f23fcb372052e3e813990fad7e82c))
+
 # [0.205.0](https://github.com/vap-ops/prc-ops/compare/v0.204.0...v0.205.0) (2026-07-24)
 
 ### Features
