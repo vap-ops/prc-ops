@@ -9562,3 +9562,10 @@ visitor on a pre-approval screen: no task in flight.
 - **Change:** `muster-cockpit.tsx` drops the ย้าย button, the move picker panel, `movePickFor` state, the `move` handler and the `onMove`/`otherTeams` props. Also folds the queued day-1-audit finding 5: the stale `(site_admin, super_admin)` gate comments in `actions.ts` + the muster page now name procurement_manager (spec 348).
 - **Tests:** RED-first absence pin (2 teams, เข้า mode → no ย้าย button, no ย้ายไปทีมของ panel); `muster-cockpit-move.test.tsx` (4 move-UI tests) deleted deliberately; `muster-move.test.ts` (action wiring) kept.
 - **Open questions:** OT-time team change = future spec (flagged in 357 Non-goals).
+
+## Spec 357 U-D — header QR door + add sheet (2026-07-24)
+
+- **Status:** BUILT (this PR). Code-only, no schema. Points 1+3 of the spec-357 cockpit redesign (coupled: removing + เพิ่มช่าง alone would delete the phoneless/lost-badge path — signal-removal rule).
+- **Change:** each team-card header carries a QR door (lucide QrCode icon, ≥44px, `aria-label="สแกน QR / เพิ่มช่าง"`; always in เข้า+regular, camera-gated elsewhere) → new `MusterAddSheet` overlay = camera viewfinder (when `hasScannerSupport()`) + tap-add list (เข้า+regular) + in-sheet action message + ปิด. `+ เพิ่มช่าง` and both body `สแกน QR` buttons removed. `MusterCamera` loses its standalone shell (sheet owns the chrome; decode loop byte-stable per #745). Sheet persists across taps; scans stay one-shot. Sheet tap-add sends explicit `mode:"in"`.
+- **Tests:** RED-first ×11 (door gating truth table, sheet open/persist, in-sheet alert, empty-list copy, เพิ่มช่าง/body-scan absence, camera mount by capability, shell-less camera); 2 legacy tap-add tests + the U3b gate describe rewritten to the same intents at the new surface.
+- **Open questions:** continuous multi-scan (decode cooldown + per-scan feedback) deferred until #745 has on-device proof — spec 357 Non-goals.

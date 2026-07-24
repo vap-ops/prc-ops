@@ -3,10 +3,10 @@
 // Spec 306 U3 + U3b — the QR camera layer for the muster cockpit. Two decode
 // paths behind one loop: the native BarcodeDetector where it exists (Android
 // Chrome / the PWA fleet), else a jsQR canvas fallback (iOS Safari/PWA has
-// getUserMedia but no BarcodeDetector — the day-1 pilot phone). The cockpit
-// mounts this whenever hasScannerSupport() (either path); an unsupported
-// browser still falls back to manual tap-add (spec: lost/phoneless badge ≠
-// absent). The decoded value is the worker id (the same opaque payload the
+// getUserMedia but no BarcodeDetector — the day-1 pilot phone). The add sheet
+// (muster-add-sheet.tsx) mounts this whenever hasScannerSupport() (either
+// path); an unsupported browser still gets the sheet's tap-add list (spec:
+// lost/phoneless badge ≠ absent). The decoded value is the worker id (the same opaque payload the
 // phone card + printed badge carry — black-on-white, so jsQR runs dontInvert).
 //
 // The camera loop is not unit-tested: getUserMedia/BarcodeDetector/video don't
@@ -27,13 +27,11 @@ interface BarcodeLike {
 const DECODE_MS = 180;
 const DECODE_W = 480;
 
-export function MusterCamera({
-  onDetected,
-  onClose,
-}: {
-  onDetected: (workerId: string) => void;
-  onClose: () => void;
-}) {
+// Spec 357 U-D: the standalone overlay shell (backdrop + ปิดกล้อง button) moved
+// to MusterAddSheet, which hosts this viewfinder alongside the tap-add list —
+// this component renders only the video / error view. The decode loop below is
+// unchanged from #745 (on-device proof still owed; keep it byte-stable).
+export function MusterCamera({ onDetected }: { onDetected: (workerId: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   // Latest-ref for the scan callback: the cockpit passes an inline arrow, and
@@ -129,7 +127,9 @@ export function MusterCamera({
         };
         raf = requestAnimationFrame(tick);
       } catch {
-        setError("เปิดกล้องไม่ได้ — ใช้การแตะเพิ่มช่างแทนได้");
+        // Neutral copy — the sheet renders the tap-add list right below when it
+        // applies, so the error must not name a specific fallback button.
+        setError("เปิดกล้องไม่ได้");
       }
     }
     run();
@@ -141,28 +141,15 @@ export function MusterCamera({
     };
   }, []);
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/90 p-4">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4">
-        {error ? (
-          <p className="text-on-brand text-center text-sm">{error}</p>
-        ) : (
-          <video
-            ref={videoRef}
-            aria-label="กล้องสแกน QR"
-            className="w-full rounded-lg"
-            muted
-            playsInline
-          />
-        )}
-        <button
-          type="button"
-          onClick={onClose}
-          className="bg-card text-ink min-h-11 w-full rounded-lg px-4 text-sm font-bold"
-        >
-          ปิดกล้อง
-        </button>
-      </div>
-    </div>
+  return error ? (
+    <p className="text-on-brand text-center text-sm">{error}</p>
+  ) : (
+    <video
+      ref={videoRef}
+      aria-label="กล้องสแกน QR"
+      className="w-full rounded-lg"
+      muted
+      playsInline
+    />
   );
 }

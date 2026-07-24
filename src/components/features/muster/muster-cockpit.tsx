@@ -3,13 +3,15 @@
 // Spec 306 U3 — the muster cockpit. At the morning talk the SA forms teams behind
 // their หัวหน้า and checks members in (and out in the evening). One screen, a
 // เข้า/ออก mode toggle. Attendance is recorded through the muster RPCs (scan-in =
-// presence + team membership; the WP set = the Site Owner's announcement). The QR
-// camera (BarcodeDetector) is an accelerator; manual tap-add is always present so a
-// lost/phoneless badge is never "absent". Money (labor cost) is derived later at
-// ปิดวัน (U5) — this screen never touches it.
+// presence + team membership; the WP set = the Site Owner's announcement). Each
+// team card's header carries the QR door (spec 357 U-D) opening the add sheet —
+// camera scan where the device supports it, tap-add list always in เข้า mode, so
+// a lost/phoneless badge is never "absent". Money (labor cost) is derived later
+// at ปิดวัน (U5) — this screen never touches it.
 
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { QrCode } from "lucide-react";
 import { formatThaiDate, MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
 import { openMusterTeam, musterScan, setMusterTeamWps, closeMusterDay } from "@/lib/muster/actions";
 import { groupMusterWps } from "@/lib/muster/wp-groups";
@@ -18,7 +20,7 @@ import { deriveCloseDayState } from "@/lib/muster/close-day-state";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import type { MusterWp } from "@/lib/muster/wp-groups";
 import type { MusterBoard, MusterTeam } from "@/lib/muster/load-muster";
-import { MusterCamera } from "./muster-camera";
+import { MusterAddSheet } from "./muster-add-sheet";
 
 type Mode = "in" | "out";
 type Session = "regular" | "ot";
@@ -141,6 +143,20 @@ export function MusterCockpit({
   // The camera dispatches by the active session (it scans whichever session is on).
   const scanFromCamera = (teamId: string, workerId: string) =>
     session === "ot" ? scanOt(teamId, workerId, "qr") : scanRegular(teamId, workerId, "qr");
+  // Sheet tap-add is ALWAYS a regular check-in — explicit mode:"in", never the
+  // toggle state (the list renders only in เข้า mode, but adding someone must
+  // not depend on which toggle happens to be lit).
+  const onScanTap = (teamId: string, workerId: string) =>
+    run(() =>
+      musterScan({
+        teamId,
+        workerId,
+        mode: "in",
+        method: "manual",
+        session: "regular",
+        revalidate,
+      }),
+    );
 
   const saveWps = (teamId: string, wpIds: string[]) =>
     run(() => setMusterTeamWps({ teamId, wpIds, revalidate }));
@@ -207,7 +223,9 @@ export function MusterCockpit({
         </div>
       </div>
 
-      {message ? (
+      {/* Suppressed while the add sheet is open — the sheet renders the same
+          message itself, and two live role="alert" nodes announce twice. */}
+      {message && !scanTeamId ? (
         <p role="alert" className="bg-danger-soft text-danger-ink rounded-card px-3 py-2 text-sm">
           {message}
         </p>
@@ -259,12 +277,16 @@ export function MusterCockpit({
             mode={mode}
             session={session}
             pending={pending}
-            availableToAdd={addableTo(team.id)}
             hasCamera={hasCamera}
             onScan={scanRegular}
             onScanOt={scanOt}
             onSaveWps={saveWps}
-            onOpenCamera={() => setScanTeamId(team.id)}
+            onOpenSheet={() => {
+              // A leftover error from an earlier, unrelated action (open-team,
+              // save-WPs…) must not greet the SA inside a fresh scan/add sheet.
+              setMessage(null);
+              setScanTeamId(team.id);
+            }}
           />
         ))
       )}
@@ -334,15 +356,28 @@ export function MusterCockpit({
         </div>
       ) : null}
 
-      {scanTeamId ? (
-        <MusterCamera
-          onDetected={(workerId) => {
-            scanFromCamera(scanTeamId, workerId);
-            setScanTeamId(null);
-          }}
-          onClose={() => setScanTeamId(null)}
-        />
-      ) : null}
+      {(() => {
+        // Spec 357 U-D — the per-team scan/add sheet. A scan is one-shot (the
+        // sheet closes so the SA sees the board update); tap-adds keep it open
+        // for the next name in the lineup.
+        const sheetTeam = scanTeamId ? board.teams.find((t) => t.id === scanTeamId) : null;
+        return sheetTeam ? (
+          <MusterAddSheet
+            leadName={sheetTeam.leadName}
+            hasCamera={hasCamera}
+            showTapAdd={session === "regular" && mode === "in"}
+            addable={addableTo(sheetTeam.id)}
+            message={message}
+            pending={pending}
+            onScanDetected={(workerId) => {
+              scanFromCamera(sheetTeam.id, workerId);
+              setScanTeamId(null);
+            }}
+            onTapAdd={(workerId) => onScanTap(sheetTeam.id, workerId)}
+            onClose={() => setScanTeamId(null)}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
@@ -353,28 +388,26 @@ function TeamCard({
   mode,
   session,
   pending,
-  availableToAdd,
   hasCamera,
   onScan,
   onScanOt,
   onSaveWps,
-  onOpenCamera,
+  onOpenSheet,
 }: {
   team: MusterTeam;
   wps: MusterWp[];
   mode: Mode;
   session: Session;
   pending: boolean;
-  availableToAdd: { id: string; name: string }[];
   hasCamera: boolean;
-  /** Regular-session scan (add / check-out), following the เข้า/ออก mode. */
+  /** Regular-session scan (check-out), following the เข้า/ออก mode. */
   onScan: (teamId: string, workerId: string, method: "qr" | "manual") => void;
   /** Spec 351 — OT-session scan (in/out derived per worker from their OT state). */
   onScanOt: (teamId: string, workerId: string, method: "qr" | "manual") => void;
   onSaveWps: (teamId: string, wpIds: string[]) => void;
-  onOpenCamera: () => void;
+  /** Spec 357 U-D — opens this team's scan/add sheet (the header QR door). */
+  onOpenSheet: () => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set(team.wpIds));
   // Spec 306 grain-coverage — which parent งาน groups are expanded in the picker.
@@ -421,7 +454,23 @@ function TeamCard({
           </span>
           <span className="text-ink font-semibold">{team.leadName}</span>
         </div>
-        <span className="text-ink-muted text-meta">{team.members.length} คน</span>
+        <div className="flex items-center gap-2">
+          {/* Spec 357 U-D — the QR door. Always present where tap-add applies
+              (เข้า + regular: the sheet has the list even camera-less); in
+              other modes only a camera gives the sheet content, so it gates on
+              scanner support there. */}
+          {(session === "regular" && mode === "in") || hasCamera ? (
+            <button
+              type="button"
+              onClick={onOpenSheet}
+              aria-label="สแกน QR / เพิ่มช่าง"
+              className="bg-sunk text-ink flex min-h-11 min-w-11 items-center justify-center rounded-lg"
+            >
+              <QrCode aria-hidden className="size-5" />
+            </button>
+          ) : null}
+          <span className="text-ink-muted text-meta">{team.members.length} คน</span>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 px-4 py-3">
@@ -575,65 +624,12 @@ function TeamCard({
           ))}
         </ul>
 
-        {session === "regular" && mode === "in" ? (
-          <div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setAddOpen((v) => !v)}
-                className="bg-sunk text-ink min-h-11 rounded-lg px-3 text-sm font-bold"
-              >
-                + เพิ่มช่าง
-              </button>
-              {hasCamera ? (
-                <button
-                  type="button"
-                  onClick={onOpenCamera}
-                  className="bg-fill text-on-fill min-h-11 rounded-lg px-3 text-sm font-bold"
-                >
-                  สแกน QR
-                </button>
-              ) : null}
-            </div>
-            {addOpen ? (
-              <div className="border-edge bg-sunk mt-2 flex flex-wrap gap-2 rounded-lg border p-2">
-                {availableToAdd.length ? (
-                  availableToAdd.map((w) => (
-                    <button
-                      key={w.id}
-                      type="button"
-                      onClick={() => onScan(team.id, w.id, "manual")}
-                      disabled={pending}
-                      className="bg-card text-ink border-edge min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
-                    >
-                      {w.name}
-                    </button>
-                  ))
-                ) : (
-                  <span className="text-ink-muted text-meta">ช่างทุกคนเข้าทีมแล้ว</span>
-                )}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {/* Spec 351 — OT session: OT is opened/closed per member above; the camera
-            is an optional accelerator (it scans into whichever session is active). */}
+        {/* Spec 357 U-D: adding members lives in the header QR-door sheet (scan
+            OR tap). The OT hint stays — OT is opened/closed per member above. */}
         {session === "ot" ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-ink-muted text-meta">
-              แตะ OT เข้า / OT ออก ที่ชื่อช่างเพื่อบันทึกช่วง OT
-            </span>
-            {hasCamera ? (
-              <button
-                type="button"
-                onClick={onOpenCamera}
-                className="bg-fill text-on-fill min-h-11 rounded-lg px-3 text-sm font-bold"
-              >
-                สแกน QR
-              </button>
-            ) : null}
-          </div>
+          <p className="text-ink-muted text-meta">
+            แตะ OT เข้า / OT ออก ที่ชื่อช่างเพื่อบันทึกช่วง OT
+          </p>
         ) : null}
       </div>
     </section>
