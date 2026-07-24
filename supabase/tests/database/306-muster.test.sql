@@ -13,8 +13,9 @@ select plan(68);
 --   * set_muster_team_wps: replace-set; same-project WPs only; sub-WP row
 --     allowed as explicit override.
 --   * move_muster_worker: confirmed move + audit_log (crew_change).
---   * muster_scan_out: stamps out_at; OT = hours past 17:00 Asia/Bangkok on
---     the team's work_date, floored to 0.5h, null when none.
+--   * muster_scan_out: stamps out_at. Spec 351 moved OT to a separate `ot`
+--     session, so a REGULAR scan-out (all the calls here) carries NO ot_hours;
+--     the OT-span behaviour is asserted in 351-ot-session.test.sql.
 --   * close_muster_day: auto-out (day-end, out_auto flag, no phantom OT) +
 --     closure row; idempotent re-close.
 -- ============================================================================
@@ -90,9 +91,9 @@ select has_table('public'::name, 'muster_day_closures'::name, 'muster_day_closur
 -- ============================================================================
 select ok(not has_function_privilege('anon', 'public.open_muster_team(uuid,date,uuid)', 'execute'),
   'anon cannot execute open_muster_team');
-select ok(not has_function_privilege('anon', 'public.muster_scan_in(uuid,uuid,public.muster_method)', 'execute'),
+select ok(not has_function_privilege('anon', 'public.muster_scan_in(uuid,uuid,public.muster_method,public.muster_session)', 'execute'),
   'anon cannot execute muster_scan_in');
-select ok(not has_function_privilege('anon', 'public.muster_scan_out(uuid,uuid,public.muster_method)', 'execute'),
+select ok(not has_function_privilege('anon', 'public.muster_scan_out(uuid,uuid,public.muster_method,public.muster_session)', 'execute'),
   'anon cannot execute muster_scan_out');
 select ok(not has_function_privilege('anon', 'public.set_muster_team_wps(uuid,uuid[])', 'execute'),
   'anon cannot execute set_muster_team_wps');
@@ -410,21 +411,20 @@ select ok(
      'e4000000-0306-0306-0306-e40000000306', 'qr')) is not null,
   'worker 4 scans out of the past-day team');
 reset role;
-select ok(
-  (select ot_hours > 0 and ot_hours = floor(ot_hours * 2) / 2
-     from public.muster_attendance
-    where worker_id = 'e4000000-0306-0306-0306-e40000000306' and work_date = '2026-01-05'),
-  'an out past the 17:00 Bangkok day-end yields OT hours in 0.5h steps');
--- pin the anchor + formula: recompute OT from the STORED out_at against the fixed
--- 17:00 Asia/Bangkok day-end. Fails if the RPC anchored on midnight or flipped sign.
+-- Spec 351: a REGULAR scan-out no longer computes OT even well past 17:00 — the
+-- OT span moved to the `ot` session (asserted in 351-ot-session.test.sql). This
+-- worker's out is a regular session, so ot_hours must stay NULL. Re-pointed from
+-- the retired 17:00-threshold pin, NOT weakened.
 select is(
   (select ot_hours from public.muster_attendance
     where worker_id = 'e4000000-0306-0306-0306-e40000000306' and work_date = '2026-01-05'),
-  (select floor(extract(epoch from
-        (out_at - (('2026-01-05'::date + time '17:00') at time zone 'Asia/Bangkok'))) / 3600.0 * 2) / 2
+  null,
+  'a regular scan-out past 17:00 no longer computes OT — ot_hours stays null (spec 351)');
+select ok(
+  (select out_at is not null and out_method = 'qr' and out_auto = false
      from public.muster_attendance
     where worker_id = 'e4000000-0306-0306-0306-e40000000306' and work_date = '2026-01-05'),
-  'OT equals hours past exactly 17:00 Asia/Bangkok, floored to 0.5h (anchor pinned)');
+  'the regular scan-out still stamps out_at + method (only the OT derivation was removed)');
 
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0306-0306-0306-700000000306"}';

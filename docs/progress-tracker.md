@@ -6,6 +6,47 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 351 U1 — separate OT muster session (schema + reworked RPCs) — 🔨 in progress (2026-07-24)
+
+- **Scope:** rework the LIVE spec-306 muster schema so a technician's normal
+  hours and OT are two separate sessions. `muster_session` enum
+  (`regular`/`ot`) + `session` column on `muster_attendance` (NOT NULL default
+  `regular`) + replace `unique(worker_id, work_date)` with composite
+  `unique(worker_id, work_date, session)`. Rework 4 DEFINER RPCs (bodies
+  sourced LIVE via `pg_get_functiondef`, not the 075750 file):
+  `muster_scan_in`/`muster_scan_out` gain `p_session muster_session default
+'regular'` (OT-in guarded on a `regular` session existing on the same team
+  first; `ot_hours` = the OT session's real span floored to 0.5h, null on
+  regular); `close_muster_day` auto-outs `regular` only; `move_muster_worker`
+  moves ALL of the worker's sessions that day.
+- **Migration:** `20260813075846_spec351u1_ot_session.sql` (schema lane 075846).
+- **Repo blocker fixed in-passing:** two migrations were both numbered
+  `20260813075844` on main (`spec347u1_price_correction_schema` +
+  `spec350u1_get_my_assigned_work` — a concurrent-lane collision). Only 347 was
+  recorded in `schema_migrations`; 350's `get_my_assigned_work` was applied but
+  unrecorded, so every schema lane's `db push` re-tried 350's file and hit
+  `42723 (already exists)`. Renumbered the unrecorded duplicate
+  `spec350u1_get_my_assigned_work` → `075845` (`git mv`, content unchanged) +
+  `supabase migration repair --status applied 20260813075845` (metadata only —
+  the function is already live). Migration history is now
+  075844(347)/075845(350)/075846(351), all matched. The renamed 350 file ships
+  in this PR.
+- **Dependency gate-check (live, 2026-07-24):** `muster_attendance` = **13 rows**
+  (spec's "0" + brief's "11" both stale), all 2026-07-24, `ot_hours` null on all
+  → forward-safe, invariant already holds, zero backfill; constraint name
+  `muster_attendance_worker_id_work_date_key`; all 4 RPCs gate on
+  `(site_admin, super_admin, procurement_manager)` per spec 348 parity (spec's
+  "site_admin/super_admin" stale). `muster_session` enum absent.
+- **Expected-RED handled in `306-muster.test.sql`:** (1) the two OT assertions in
+  section H (regular scan-out) re-pointed — a regular scan-out now leaves
+  `ot_hours` NULL (OT-span math moves to `351-ot-session.test.sql` on the `ot`
+  session); (2) the two anon-grant assertions (section B) re-pointed from the
+  3-arg to the 4-arg signature (the 3-arg function is dropped). Re-pointed, not
+  weakened.
+- **Money out of scope** — 306 U5 owns the derive → `labor_logs`, OT rate, and
+  any 17:30 clamp. This unit only makes the two sessions capturable.
+- **Class:** danger-path (schema, live-table rework) → operator-merged.
+
 ## Spec 349 U2 — accounting landing flip + review hub chrome — 🔨 built (2026-07-24)
 
 Code-only, DANGER-PATH (`role-home.ts`). D1: `roleHome("accounting")` flips
