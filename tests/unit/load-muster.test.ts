@@ -10,15 +10,16 @@
 import { describe, expect, it } from "vitest";
 
 import { shapeMusterBoard } from "@/lib/muster/load-muster";
+import type { MusterWp } from "@/lib/muster/wp-groups";
 
 const WORKERS = [
   { id: "w1", name: "ลี" },
   { id: "w2", name: "สมชาย" },
   { id: "w3", name: "ก้อง" },
 ];
-const WPS = [
-  { id: "wpA", code: "A", name: "งานเอ" },
-  { id: "wpB", code: "B", name: "งานบี" },
+const WPS: MusterWp[] = [
+  { id: "wpA", code: "A", name: "งานเอ", status: "in_progress" },
+  { id: "wpB", code: "B", name: "งานบี", status: "not_started" },
 ];
 
 describe("shapeMusterBoard", () => {
@@ -216,5 +217,52 @@ describe("shapeMusterBoard", () => {
     });
     expect(board.teams[0]!.leadName).toBe("—");
     expect(board.teams[0]!.members[0]!.name).toBe("—");
+  });
+});
+
+// Spec 357 U-B — prior-day carry-over: shapeMusterBoard folds each team's
+// prefillWpIds from the same lead's latest prior muster team, intersected with
+// leaves that are still incomplete (status != complete) and still in the leaf
+// list. Presentation-only — nothing persists until the SA saves.
+describe("shapeMusterBoard — prefillWpIds (spec 357 U-B)", () => {
+  const S_WPS = [
+    { id: "wpA", code: "A", name: "งานเอ", status: "in_progress" as const },
+    { id: "wpB", code: "B", name: "งานบี", status: "complete" as const },
+  ];
+
+  it("prefill = prior-day set ∩ still-incomplete ∩ current leaves", () => {
+    const board = shapeMusterBoard({
+      teams: [{ id: "t1", lead_worker_id: "w1" }],
+      attendance: [],
+      teamWps: [],
+      workers: WORKERS,
+      wps: S_WPS,
+      priorTeamWps: [{ leadWorkerId: "w1", wpIds: ["wpA", "wpB", "wpGone"] }],
+    });
+    // wpB completed since, wpGone no longer a leaf → only wpA carries over.
+    expect(board.teams[0]!.prefillWpIds).toEqual(["wpA"]);
+  });
+
+  it("no prior row for the lead → empty prefill", () => {
+    const board = shapeMusterBoard({
+      teams: [{ id: "t1", lead_worker_id: "w1" }],
+      attendance: [],
+      teamWps: [],
+      workers: WORKERS,
+      wps: S_WPS,
+      priorTeamWps: [{ leadWorkerId: "w9", wpIds: ["wpA"] }],
+    });
+    expect(board.teams[0]!.prefillWpIds).toEqual([]);
+  });
+
+  it("omitted priorTeamWps input → empty prefill (backward-safe)", () => {
+    const board = shapeMusterBoard({
+      teams: [{ id: "t1", lead_worker_id: "w1" }],
+      attendance: [],
+      teamWps: [],
+      workers: WORKERS,
+      wps: S_WPS,
+    });
+    expect(board.teams[0]!.prefillWpIds).toEqual([]);
   });
 });

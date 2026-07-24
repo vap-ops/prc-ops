@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { QrCode } from "lucide-react";
 import { formatThaiDate, MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
 import { openMusterTeam, musterScan, setMusterTeamWps, closeMusterDay } from "@/lib/muster/actions";
-import { groupMusterWps } from "@/lib/muster/wp-groups";
+import { groupMusterWps, pickerWps } from "@/lib/muster/wp-groups";
 import { hasScannerSupport } from "@/lib/muster/scanner-support";
 import { deriveCloseDayState } from "@/lib/muster/close-day-state";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -412,17 +412,28 @@ function TeamCard({
   const [checked, setChecked] = useState<Set<string>>(new Set(team.wpIds));
   // Spec 306 grain-coverage — which parent งาน groups are expanded in the picker.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Spec 357 U-B — true while the current picker session was seeded from the
+  // prior muster day (drives the hint line; recomputed on every open).
+  const [seededFromPrior, setSeededFromPrior] = useState(false);
 
-  // The leaf WPs folded into collapsible groups by parent งาน (spec 306 grain-coverage).
-  const wpGroups = groupMusterWps(wps);
+  // Spec 357 U-B — offer only incomplete leaves, plus whatever is already
+  // assigned (#742: an assigned WP stays visible even after it completes),
+  // folded into collapsible groups by parent งาน (spec 306 grain-coverage).
+  const wpGroups = groupMusterWps(pickerWps(wps, team.wpIds));
 
   const openEditor = () => {
-    setChecked(new Set(team.wpIds));
-    // Open the groups that already hold a checked child so current picks are visible.
+    // Spec 357 U-B — an unassigned team seeds from the same lead's prior
+    // muster day (still-incomplete WPs only). Presentation-only: nothing
+    // persists until บันทึกงาน (plan = pre-fill, save = truth).
+    const usePrior = team.wpIds.length === 0 && team.prefillWpIds.length > 0;
+    const seed = usePrior ? team.prefillWpIds : team.wpIds;
+    setSeededFromPrior(usePrior);
+    setChecked(new Set(seed));
+    // Open the groups that already hold a seeded child so current picks are visible.
     setExpanded(
       new Set(
         wpGroups
-          .filter((g) => g.parentId !== null && g.children.some((c) => team.wpIds.includes(c.id)))
+          .filter((g) => g.parentId !== null && g.children.some((c) => seed.includes(c.id)))
           .map((g) => g.parentId as string),
       ),
     );
@@ -495,6 +506,11 @@ function TeamCard({
 
         {editOpen ? (
           <div className="border-edge bg-sunk rounded-lg border p-3">
+            {seededFromPrior ? (
+              <p className="text-ink-secondary text-meta mb-2">
+                เลือกงานจากมัสเตอร์วันก่อนให้แล้ว — ตรวจแล้วกดบันทึก
+              </p>
+            ) : null}
             <div className="flex flex-col gap-2">
               {wpGroups.map((g) => {
                 const row = (wp: MusterWp) => (
@@ -507,6 +523,13 @@ function TeamCard({
                     <span>
                       {wp.code} {wp.name}
                     </span>
+                    {/* Offered only because it is assigned (#742) — flag that it
+                        is done so the SA releases it. */}
+                    {wp.status === "complete" ? (
+                      <span className="bg-done-soft text-done-ink text-meta rounded-full px-2 py-0.5 font-semibold">
+                        เสร็จแล้ว
+                      </span>
+                    ) : null}
                   </label>
                 );
                 // Standalone leaf main-WPs (no parent งาน) render directly.

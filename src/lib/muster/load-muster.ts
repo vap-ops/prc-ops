@@ -39,6 +39,10 @@ export interface MusterTeam {
   leadName: string;
   members: MusterMember[];
   wpIds: string[];
+  // Spec 357 U-B — the same lead's latest prior muster-day WP set, filtered to
+  // still-incomplete leaves. The picker seeds from it when the team has no
+  // assignment yet; nothing persists until the SA saves (pre-fill, not truth).
+  prefillWpIds: string[];
 }
 export interface MusterWorker {
   id: string;
@@ -82,9 +86,18 @@ export function shapeMusterBoard(raw: {
   workers: MusterWorker[];
   wps: MusterWp[];
   closure?: { closed_at: string } | null;
+  // Spec 357 U-B — per lead, the WP ids of their latest PRIOR muster team.
+  priorTeamWps?: { leadWorkerId: string; wpIds: string[] }[];
 }): MusterBoard {
   const nameById = new Map(raw.workers.map((w) => [w.id, w.name]));
   const nameOf = (id: string) => nameById.get(id) ?? "—";
+  // Prefill = prior set ∩ current leaves that are still incomplete. Both filters
+  // matter: a completed WP must not re-seed, and an id that stopped being a
+  // leaf (regrouped) has no checkbox to uncheck.
+  const incompleteLeafIds = new Set(
+    raw.wps.filter((w) => w.status !== "complete").map((w) => w.id),
+  );
+  const priorByLead = new Map((raw.priorTeamWps ?? []).map((p) => [p.leadWorkerId, p.wpIds]));
 
   const teams: MusterTeam[] = raw.teams.map((t) => ({
     id: t.id,
@@ -111,6 +124,9 @@ export function shapeMusterBoard(raw: {
       }));
     })(),
     wpIds: raw.teamWps.filter((x) => x.team_id === t.id).map((x) => x.work_package_id),
+    prefillWpIds: (priorByLead.get(t.lead_worker_id) ?? []).filter((id) =>
+      incompleteLeafIds.has(id),
+    ),
   }));
 
   return {
@@ -157,7 +173,7 @@ export async function loadMusterBoard(
       // must stay visible/removable even if it later completes).
       supabase
         .from("work_packages")
-        .select("id, code, name, parent_id")
+        .select("id, code, name, parent_id, status")
         .eq("project_id", projectId)
         .eq("is_group", false)
         .order("code"),
@@ -182,11 +198,45 @@ export async function loadMusterBoard(
       id: w.id,
       code: w.code,
       name: w.name,
+      status: w.status,
       parentId: w.parent_id ?? null,
       parentCode: parent?.code ?? null,
       parentName: parent?.name ?? null,
     };
   });
+
+  // Spec 357 U-B — each lead's latest PRIOR muster team → its WP set (the
+  // picker's carry-over seed). One limit-1 query per lead (a board has a
+  // handful of teams; PostgREST has no distinct-on), then one wps fetch.
+  const leads = [...new Set((teams ?? []).map((t) => t.lead_worker_id))];
+  const priorTeams = await Promise.all(
+    leads.map(async (lead) => {
+      const { data } = await supabase
+        .from("muster_teams")
+        .select("id, lead_worker_id")
+        .eq("project_id", projectId)
+        .eq("lead_worker_id", lead)
+        .lt("work_date", date)
+        .order("work_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    }),
+  );
+  const priorList = priorTeams.filter((t): t is NonNullable<typeof t> => t !== null);
+  const priorWpsRes = priorList.length
+    ? await supabase
+        .from("muster_team_wps")
+        .select("team_id, work_package_id")
+        .in(
+          "team_id",
+          priorList.map((t) => t.id),
+        )
+    : { data: [] as RawTeamWp[] };
+  const priorTeamWps = priorList.map((t) => ({
+    leadWorkerId: t.lead_worker_id,
+    wpIds: (priorWpsRes.data ?? []).filter((x) => x.team_id === t.id).map((x) => x.work_package_id),
+  }));
 
   return shapeMusterBoard({
     teams: teams ?? [],
@@ -195,5 +245,6 @@ export async function loadMusterBoard(
     workers: workersRes.data ?? [],
     wps,
     closure: closureRes.data ?? null,
+    priorTeamWps,
   });
 }
