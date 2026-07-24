@@ -136,13 +136,14 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   ];
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
 
-  // Spec 216: the หลังแก้ไข bucket surfaces only inside a rework cycle, grouped by
-  // round, each labelled with the reason that opened it (one
+  // Spec 353: this review surface is READ-ONLY (no capture), so the หลังแก้ไข
+  // section is pure history — show it whenever the WP carries after_fix photos,
+  // grouped by round, each labelled with the reason that opened it (one
   // wp_reopened_for_defect audit row per round — written by the defect reopen
   // and, since spec 337 F3, by a review rejection too). This page's readers are
   // PM_ROLES, who hold the broad audit_log select policy; the site_admin one is
   // an event allowlist, NOT `using(true)` as this comment used to claim.
-  const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
+  const showAfterFixHistory = photosByPhase.after_fix.length > 0;
   const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
   // Spec 248 — the current round's defect→fix pairs (the reviewer verifies
   // "same angle" where they decide) + defect history per round.
@@ -362,7 +363,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                   note={reworkReasons.get(round) ?? null}
                 />
               ))}
-            {showAfterFix
+            {showAfterFixHistory
               ? afterFixRounds.map(({ round, photos }) => (
                   <PhaseGallery
                     key={`after_fix-${round}`}

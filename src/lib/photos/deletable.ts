@@ -60,6 +60,27 @@ export function canDeleteWpPhotos(input: RevisionWindowInput): boolean {
 }
 
 /**
+ * Spec 353 — WHEN the หลังแก้ไข (after_fix) CAPTURE affordance is offered. after_fix
+ * is a WP's completion evidence exactly when it is a rework cycle (`reworkRound > 0`),
+ * and only while its photos are mutable: actively curing (`rework`) OR a reworked WP
+ * the reviewer bounced for evidence (the revision window). Round-0 WPs (evidence =
+ * `after`) and completed WPs never offer it — the read-only history strip carries the
+ * past after_fix photos instead. Reuses the revision window so the capture window and
+ * the delete window cannot drift.
+ */
+export function canCaptureAfterFix({
+  status,
+  reworkRound,
+  revisionWindowOpen,
+}: {
+  status: WorkPackageStatus;
+  reworkRound: number;
+  revisionWindowOpen: boolean;
+}): boolean {
+  return reworkRound > 0 && (status === "rework" || revisionWindowOpen);
+}
+
+/**
  * Spec 340 U1 — WHO may remove inside an open ให้แก้ไข window. Mirrors the
  * ownership conjunct of `photo_removal_allowed()` (migration 075833):
  * the uploader, or super_admin acting on their behalf.

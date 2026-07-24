@@ -79,9 +79,12 @@ interface PhotoCaptureZoneProps {
   phases: ReadonlyArray<PhaseData>;
   /** The phase capture defaults to (server-derived from progress). */
   currentPhase: PhotoPhase;
-  /** Spec 216: surface the หลังแก้ไข rework bucket only when the WP is in a rework
-   *  cycle (in rework OR already has after_fix photos) — never on a normal WP. */
-  showAfterFix: boolean;
+  /** Spec 353: offer the หลังแก้ไข CAPTURE shutter only inside a rework cycle
+   *  (rework, or a reworked WP bounced for evidence) — never on a normal/complete WP. */
+  showAfterFixCapture: boolean;
+  /** Spec 353: show the READ-ONLY หลังแก้ไข history strip whenever the WP carries any
+   *  after_fix photo, at any status — a completed WP keeps its record without a shutter. */
+  showAfterFixHistory: boolean;
   /** Spec 216: the WP's current rework cycle (≥1 once reopened); the หลังแก้ไข tile
    *  captures into this round and is labelled with it. */
   currentReworkRound: number;
@@ -102,7 +105,8 @@ export function PhotoCaptureZone({
   userId,
   phases,
   currentPhase,
-  showAfterFix,
+  showAfterFixCapture,
+  showAfterFixHistory,
   currentReworkRound,
   canDelete,
   removedTrace,
@@ -125,8 +129,11 @@ export function PhotoCaptureZone({
   // chain — it renders on its own divided-off line, never inside the lifecycle
   // switcher grid (feedback: don't put it on the same row as the others).
   const lifecyclePhases = phases.filter((p) => p.phase !== "after_fix");
-  // Spec 216: the rework bucket surfaces only inside a rework cycle (showAfterFix).
-  const afterFix = showAfterFix ? (phases.find((p) => p.phase === "after_fix") ?? null) : null;
+  // Spec 353: capture (shutter) only inside a rework cycle; otherwise a read-only
+  // history strip when the WP still carries after_fix photos. Never both.
+  const afterFixData = phases.find((p) => p.phase === "after_fix") ?? null;
+  const afterFix = showAfterFixCapture ? afterFixData : null;
+  const afterFixHistory = !showAfterFixCapture && showAfterFixHistory ? afterFixData : null;
   const order = lifecyclePhases.map((p) => p.phase);
   const currentIndex = order.indexOf(currentPhase);
   // phases is the photo-phase display list (PHASES); this guard narrows the
@@ -299,6 +306,41 @@ export function PhotoCaptureZone({
               </span>
             </span>
           </button>
+        </div>
+      )}
+
+      {/* Spec 353: read-only หลังแก้ไข history — a WP that left its rework cycle
+          (submitted / complete) keeps its past after_fix photos visible, but with
+          NO shutter (capture is rework-only). Never renders alongside afterFix. */}
+      {afterFixHistory && (
+        <div className="border-edge border-t pt-3">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="border-edge-strong bg-card text-ink-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2">
+              <RotateCcw aria-hidden className="h-4 w-4" />
+            </span>
+            <h3 className="text-body text-ink font-bold">
+              {afterFixHistory.label}
+              <span className="text-meta text-ink-secondary ml-1.5 font-semibold">
+                {afterFixHistory.photos.length} รูป
+              </span>
+            </h3>
+          </div>
+          <PhotoStrip>
+            {afterFixHistory.photos.map((p) => (
+              <li key={p.id} className={PHOTO_STRIP_TILE}>
+                {p.url ? (
+                  <ZoomablePhoto src={p.url} photoId={p.id} uploaderName={p.uploaderName} />
+                ) : (
+                  <div className="text-meta text-ink-secondary flex h-full w-full items-center justify-center">
+                    ไม่พร้อมแสดง
+                  </div>
+                )}
+                <span className="pointer-events-none absolute top-0 left-0 rounded-br-md bg-black/60 px-1.5 py-0.5 text-[11px] font-bold text-white">
+                  #{p.seq}
+                </span>
+              </li>
+            ))}
+          </PhotoStrip>
         </div>
       )}
 
