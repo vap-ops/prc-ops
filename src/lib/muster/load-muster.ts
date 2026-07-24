@@ -168,9 +168,10 @@ export async function loadMusterBoard(
         .order("name"),
       // Spec 306 grain-coverage — teams assign per LEAF (งานย่อย) WP so the close-day
       // derive can bind labor_logs (the DB forbids binding to a group งาน WP —
-      // wp_reject_group_binding). All leaves are offered; the picker groups them by
-      // parent งาน so the count stays navigable (no status filter — an assigned WP
-      // must stay visible/removable even if it later completes).
+      // wp_reject_group_binding). The QUERY fetches ALL leaves with their status;
+      // the incomplete-only offer is applied per team in the picker (pickerWps,
+      // spec 357 U-B) so an assigned WP stays visible/removable after completing,
+      // and chips/prune keep resolving every leaf.
       supabase
         .from("work_packages")
         .select("id, code, name, parent_id, status")
