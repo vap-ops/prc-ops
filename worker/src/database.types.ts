@@ -3657,6 +3657,7 @@ export type Database = {
           out_auto: boolean
           out_method: Database["public"]["Enums"]["muster_method"] | null
           scanned_by: string
+          session: Database["public"]["Enums"]["muster_session"]
           team_id: string
           work_date: string
           worker_id: string
@@ -3671,6 +3672,7 @@ export type Database = {
           out_auto?: boolean
           out_method?: Database["public"]["Enums"]["muster_method"] | null
           scanned_by: string
+          session?: Database["public"]["Enums"]["muster_session"]
           team_id: string
           work_date: string
           worker_id: string
@@ -3685,6 +3687,7 @@ export type Database = {
           out_auto?: boolean
           out_method?: Database["public"]["Enums"]["muster_method"] | null
           scanned_by?: string
+          session?: Database["public"]["Enums"]["muster_session"]
           team_id?: string
           work_date?: string
           worker_id?: string
@@ -10064,6 +10067,7 @@ export type Database = {
       muster_scan_in: {
         Args: {
           p_method: Database["public"]["Enums"]["muster_method"]
+          p_session?: Database["public"]["Enums"]["muster_session"]
           p_team: string
           p_worker: string
         }
@@ -10072,6 +10076,7 @@ export type Database = {
       muster_scan_out: {
         Args: {
           p_method: Database["public"]["Enums"]["muster_method"]
+          p_session?: Database["public"]["Enums"]["muster_session"]
           p_team: string
           p_worker: string
         }
@@ -11595,6 +11600,7 @@ export type Database = {
       money_review_status: "pending" | "verified" | "flagged"
       money_review_verified_via: "reviewer" | "agent"
       muster_method: "qr" | "manual"
+      muster_session: "regular" | "ot"
       notification_event_type:
         | "wp_pending_approval"
         | "wp_decision"
@@ -12050,6 +12056,7 @@ export const Constants = {
       money_review_status: ["pending", "verified", "flagged"],
       money_review_verified_via: ["reviewer", "agent"],
       muster_method: ["qr", "manual"],
+      muster_session: ["regular", "ot"],
       notification_event_type: [
         "wp_pending_approval",
         "wp_decision",
