@@ -1,4 +1,4 @@
-# Spec 352 — image capture-method telemetry
+# Spec 354 — image capture-method telemetry
 
 Status: 📝 SPEC — written 2026-07-24, in operator review. Not yet built.
 Owner units: U0–U6 below

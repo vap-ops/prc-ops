@@ -92,7 +92,7 @@ export function DeliveryPhotoUploader({
         attempts: 0,
         lastError: null,
         enqueuedAtMs: queueNowMs(),
-        // Spec 352 U1: this input is capture="environment" (spec 303 —
+        // Spec 354 U1: this input is capture="environment" (spec 303 —
         // forces the rear camera on mobile), so the affordance is "camera".
         captureMethod: "camera",
       };
@@ -105,7 +105,7 @@ export function DeliveryPhotoUploader({
         .upload(path, prepared.blob, {
           upsert: false,
           contentType: photoExtToMime(ext),
-          // Spec 352 U2: this input is capture="environment" (forces the rear
+          // Spec 354 U2: this input is capture="environment" (forces the rear
           // camera, spec 303) — the direct upload is stamped to match.
           metadata: captureMethodMetadata("camera"),
         });

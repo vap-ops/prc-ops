@@ -78,7 +78,7 @@ export function useDefectPhotos({
       .upload(photo.storagePath, photo.blob, {
         contentType: photoExtToMime(photo.ext),
         upsert: false,
-        // Spec 352 — a plain <input accept> with no `capture` split: the input
+        // Spec 354 — a plain <input accept> with no `capture` split: the input
         // affordance is ambiguous, so record "picker".
         metadata: captureMethodMetadata("picker"),
       });

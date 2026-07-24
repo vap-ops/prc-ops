@@ -36,7 +36,7 @@ interface QueuedUploadBase {
   attempts: number;
   lastError: string | null;
   enqueuedAtMs: number;
-  /** Spec 352 — which input affordance produced this image (camera shutter /
+  /** Spec 354 — which input affordance produced this image (camera shutter /
    *  library button / plain picker). Rides the queue item so the runner can
    *  stamp it into storage.objects.user_metadata when it drains offline. */
   captureMethod: CaptureMethod;
@@ -62,7 +62,7 @@ export function bucketForKind(kind: QueuedUploadKind): "photos" | "pr-attachment
 }
 
 // Items persisted by spec 35 predate `kind`, and items persisted before spec
-// 352 predate `captureMethod` — IDB is schemaless, so no version bump:
+// 354 predate `captureMethod` — IDB is schemaless, so no version bump:
 // normalize on read. A kind-less item can only be a phase photo (the only kind
 // that existed); a captureMethod-less item's affordance is unknown ⇒ "picker".
 type MissingCaptureMethod<T> = T extends unknown

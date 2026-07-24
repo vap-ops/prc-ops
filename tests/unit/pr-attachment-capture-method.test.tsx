@@ -1,6 +1,6 @@
 // Writing failing test first.
 //
-// Spec 352 U1 — the two queued pr-attachment enqueue sites each stamp a
+// Spec 354 U1 — the two queued pr-attachment enqueue sites each stamp a
 // captureMethod onto the queued item. DeliveryPhotoUploader's file input is
 // capture="environment" (camera-forced, spec 303) so its enqueued item must
 // be "camera". PurchaseRequestAttachmentStager's input has no capture attr
@@ -56,7 +56,7 @@ beforeEach(() => {
   safeQueuePut.mockClear();
 });
 
-describe("DeliveryPhotoUploader capture method (spec 352 U1)", () => {
+describe("DeliveryPhotoUploader capture method (spec 354 U1)", () => {
   it("enqueues captureMethod camera — the input is capture=environment", async () => {
     const { container } = render(
       <DeliveryPhotoUploader purchaseRequestId="pr-1" projectId="proj-1" userId="u-1" />,
@@ -64,7 +64,7 @@ describe("DeliveryPhotoUploader capture method (spec 352 U1)", () => {
     fireEvent.change(fileInput(container), { target: { files: [file()] } });
     await waitFor(() => expect(mockAddDelivery).toHaveBeenCalledTimes(1));
     expect(safeQueuePut).toHaveBeenCalledWith(expect.objectContaining({ captureMethod: "camera" }));
-    // Spec 352 U2: the DIRECT upload (distinct from the queue item above) is
+    // Spec 354 U2: the DIRECT upload (distinct from the queue item above) is
     // also stamped — this is the offline-runner-bypassing happy path.
     expect(mockUpload).toHaveBeenCalledWith(
       "p1/r1/a1.jpg",
@@ -74,7 +74,7 @@ describe("DeliveryPhotoUploader capture method (spec 352 U1)", () => {
   });
 });
 
-describe("PurchaseRequestAttachmentStager capture method (spec 352 U1)", () => {
+describe("PurchaseRequestAttachmentStager capture method (spec 354 U1)", () => {
   it("enqueues captureMethod picker — the input has no capture attr", async () => {
     const { container } = render(
       <PurchaseRequestAttachmentStager projectId="proj-1" purchaseRequestId="pr-1" userId="u-1" />,

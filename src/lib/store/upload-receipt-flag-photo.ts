@@ -39,7 +39,7 @@ export async function uploadReceiptFlagPhoto(
   const { error } = await supabase.storage.from(PR_ATTACHMENTS_BUCKET).upload(path, prepared.blob, {
     upsert: false,
     contentType: photoExtToMime(prepared.ext),
-    // Spec 352 U2: the only caller (receipt-flag-sheet) is camera-forced
+    // Spec 354 U2: the only caller (receipt-flag-sheet) is camera-forced
     // (capture="environment", spec 324 U6) — fixed "camera", not per-call.
     metadata: captureMethodMetadata("camera"),
   });

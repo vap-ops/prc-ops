@@ -1,6 +1,6 @@
 // Writing failing test first.
 //
-// Spec 352 — when the OFFLINE queue runner drains a WP progress photo, it must
+// Spec 354 — when the OFFLINE queue runner drains a WP progress photo, it must
 // stamp the item's capture affordance into storage.objects.user_metadata via the
 // `.upload()` metadata option. The value rides the queue item (QueuedUploadBase),
 // so a photo enqueued offline carries its affordance all the way to the deferred
@@ -78,7 +78,7 @@ beforeEach(() => {
   mockAddPhoto.mockReset().mockResolvedValue({ ok: true });
 });
 
-describe("upload-queue-runner buildDeps (spec 352)", () => {
+describe("upload-queue-runner buildDeps (spec 354)", () => {
   it("stamps the item's captureMethod into the storage metadata when draining a phase photo", async () => {
     const store = new MemoryStore();
     await store.put(phasePhotoItem({ captureMethod: "library" }));

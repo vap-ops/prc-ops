@@ -139,7 +139,7 @@ describe("ProofOfDeliveryUploader capture mode (spec 308)", () => {
   });
 });
 
-describe("ProofOfDeliveryUploader stamps captureMethod metadata (spec 352 U2)", () => {
+describe("ProofOfDeliveryUploader stamps captureMethod metadata (spec 354 U2)", () => {
   const file = () => new File(["x"], "truck.jpg", { type: "image/jpeg" });
   function fileInput(container: HTMLElement) {
     return container.querySelector('input[type="file"]') as HTMLInputElement;
