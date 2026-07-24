@@ -25,6 +25,11 @@ vi.mock("@/lib/muster/actions", () => ({
   closeMusterDay: (...a: unknown[]) => closeMusterDay(...a),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+// The camera loop is untestable in jsdom (getUserMedia/BarcodeDetector absent) —
+// mock the component; the sheet's camera MOUNT decision is what these tests pin.
+vi.mock("@/components/features/muster/muster-camera", () => ({
+  MusterCamera: () => <div data-testid="camera-mock" />,
+}));
 
 import { MusterCockpit } from "@/components/features/muster/muster-cockpit";
 import type { MusterBoard } from "@/lib/muster/load-muster";
@@ -106,12 +111,12 @@ describe("MusterCockpit", () => {
     );
   });
 
-  it("tap-adds a worker to a team in เข้า mode (method manual)", async () => {
+  it("tap-adds a worker through the team's scan/add sheet (method manual)", async () => {
     const user = userEvent.setup();
     renderCockpit();
     const team = screen.getByTestId(`team-${T1}`);
-    await user.click(within(team).getByRole("button", { name: /เพิ่มช่าง/ }));
-    await user.click(within(team).getByRole("button", { name: "สมชาย" }));
+    await user.click(within(team).getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "สมชาย" }));
     expect(musterScan).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: T1, workerId: W2, mode: "in", method: "manual" }),
     );
@@ -240,12 +245,12 @@ describe("MusterCockpit — OT session (spec 351)", () => {
     );
   });
 
-  it("the regular in-mode add still threads session:'regular'", async () => {
+  it("the regular in-mode sheet tap-add still threads session:'regular'", async () => {
     const user = userEvent.setup();
     renderCockpit();
     const team = screen.getByTestId(`team-${T1}`);
-    await user.click(within(team).getByRole("button", { name: /เพิ่มช่าง/ }));
-    await user.click(within(team).getByRole("button", { name: "สมชาย" }));
+    await user.click(within(team).getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "สมชาย" }));
     expect(musterScan).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: T1, workerId: W2, mode: "in", session: "regular" }),
     );
@@ -404,28 +409,115 @@ describe("MusterCockpit — no intra-day move (spec 357 U-E)", () => {
   });
 });
 
-describe("MusterCockpit — สแกน QR button gate (spec 306 U3b iOS fallback)", () => {
+describe("MusterCockpit — scanner capability gates the sheet camera (spec 306 U3b / 357 U-D)", () => {
   // jsdom has neither BarcodeDetector nor mediaDevices — the baseline device
-  // that genuinely cannot scan.
-  it("no camera capability at all → no scan button", () => {
+  // that genuinely cannot scan. The add sheet must still open (tap-add is the
+  // lost-badge/phoneless path) but mount no camera.
+  it("no camera capability at all → the sheet opens tap-add only, no camera", async () => {
+    const user = userEvent.setup();
     renderCockpit();
-    expect(screen.queryByRole("button", { name: "สแกน QR" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByTestId("camera-mock")).toBeNull();
   });
 
-  it("getUserMedia without BarcodeDetector (iPhone) → scan button renders", () => {
-    // The day-1 gap: the pilot SA's iPhone has a camera but no BarcodeDetector,
-    // and the button never rendered. The gate must key on overall scanner
-    // support (native OR jsQR fallback), not on BarcodeDetector alone.
+  it("getUserMedia without BarcodeDetector (iPhone) → the sheet mounts the camera", async () => {
+    // The day-1 gap: the pilot SA's iPhone has a camera but no BarcodeDetector.
+    // The gate keys on overall scanner support (native OR jsQR fallback).
     Object.defineProperty(navigator, "mediaDevices", {
       value: { getUserMedia: () => Promise.resolve() },
       configurable: true,
     });
     try {
+      const user = userEvent.setup();
       renderCockpit();
-      expect(screen.getByRole("button", { name: "สแกน QR" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+      expect(screen.getByTestId("camera-mock")).toBeInTheDocument();
     } finally {
       delete (navigator as unknown as Record<string, unknown>).mediaDevices;
     }
+  });
+});
+
+describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
+  it("the header door renders in เข้า+regular even without any camera", () => {
+    renderCockpit();
+    expect(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeInTheDocument();
+  });
+
+  it("ออก mode without camera → no door (row buttons carry the manual path)", async () => {
+    const user = userEvent.setup();
+    renderCockpit();
+    await user.click(screen.getByRole("button", { name: "ออก" }));
+    expect(screen.queryByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeNull();
+  });
+
+  it("ออก mode WITH camera → the door renders (scan-to-check-out)", async () => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      const user = userEvent.setup();
+      renderCockpit();
+      await user.click(screen.getByRole("button", { name: "ออก" }));
+      expect(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeInTheDocument();
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+    }
+  });
+
+  it("the sheet stays open across taps and the remaining addable stay listed", async () => {
+    const user = userEvent.setup();
+    renderCockpit();
+    await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "สมชาย" }));
+    // Still open after a tap (the lineup adds several members in a row)…
+    const sheet = screen.getByRole("dialog");
+    // …and the other addable worker is still there to tap next.
+    expect(within(sheet).getByRole("button", { name: "ก้อง" })).toBeInTheDocument();
+  });
+
+  it("an action error renders inside the open sheet", async () => {
+    musterScan.mockResolvedValueOnce({ ok: false, error: "ช่างคนนี้อยู่ในทีมอื่นแล้ววันนี้" });
+    const user = userEvent.setup();
+    renderCockpit();
+    await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "สมชาย" }));
+    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent(
+      "อยู่ในทีมอื่นแล้ว",
+    );
+  });
+
+  it("all workers mustered → the sheet says ช่างทุกคนเข้าทีมแล้ว", async () => {
+    const ALL_IN: MusterBoard = {
+      ...BOARD,
+      teams: [
+        {
+          ...BOARD.teams[0]!,
+          members: BOARD.workers.map((w) => ({
+            workerId: w.id,
+            name: w.name,
+            inAt: "2026-07-13T01:00:00Z",
+            outAt: null,
+            ot: null,
+            outAuto: false,
+          })),
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    renderCockpit(ALL_IN);
+    await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+    expect(
+      within(screen.getByRole("dialog")).getByText("ช่างทุกคนเข้าทีมแล้ว"),
+    ).toBeInTheDocument();
+  });
+
+  it("+ เพิ่มช่าง and the body สแกน QR buttons are gone", () => {
+    renderCockpit();
+    expect(screen.queryByRole("button", { name: "+ เพิ่มช่าง" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "สแกน QR" })).toBeNull();
   });
 });
 
