@@ -368,6 +368,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     latestDecision,
     currentPhotos: photosByPhase,
     answeredDecisionIds,
+    reworkRound: wp.rework_round,
     viewerId: ctx.id,
   });
   const attention =

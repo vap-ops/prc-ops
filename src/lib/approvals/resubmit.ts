@@ -64,6 +64,11 @@ export type ResubmitDecision = {
 };
 
 type PhotoStamp = { created_at: string };
+// after_fix photos are round-stamped, so the evidence gate can require the CURRENT
+// round's fix (matching canSubmitForApproval) — a stale prior-round photo, e.g. a
+// late offline-queue flush (ADR 0039) that lands after the decision with a server
+// created_at newer than it, must not answer this bounce.
+type ReworkPhotoStamp = PhotoStamp & { rework_round: number };
 
 export type ResubmitState =
   /** Not a cure loop — render nothing. */
@@ -81,17 +86,22 @@ export interface ResubmitStateArgs {
   latestDecision: ResubmitDecision | null;
   currentPhotos: {
     after: ReadonlyArray<PhotoStamp>;
-    after_fix: ReadonlyArray<PhotoStamp>;
+    after_fix: ReadonlyArray<ReworkPhotoStamp>;
   };
   /** `answers_decision_id` of every wp_evidence_resubmitted audit row on this WP. */
   answeredDecisionIds: ReadonlySet<string>;
+  /** Spec 353 — the WP's rework_round decides which phase is completion evidence:
+   *  reworked (>0) → a new after_fix answers the bounce; else the `after` photo. So
+   *  reject-evidence points at exactly one phase to re-shoot. */
+  reworkRound: number;
   /** The signed-in viewer. PM_ROLES ⊂ SITE_STAFF_ROLES, so the decider can reach
    *  this control on their own bounce — see the guard below. */
   viewerId: string;
 }
 
 export function resubmitState(args: ResubmitStateArgs): ResubmitState {
-  const { status, latestDecision, currentPhotos, answeredDecisionIds, viewerId } = args;
+  const { status, latestDecision, currentPhotos, answeredDecisionIds, reworkRound, viewerId } =
+    args;
 
   // The cure loop exists only while the WP is still in the queue AND the last
   // word from the decider was "re-shoot". `rejected` now leaves pending_approval
@@ -119,7 +129,16 @@ export function resubmitState(args: ResubmitStateArgs): ResubmitState {
   // decision instant is what the decider was already looking at.
   const boundary = Date.parse(latestDecision.decided_at);
   const isNew = (p: PhotoStamp) => Date.parse(p.created_at) > boundary;
-  if (!currentPhotos.after.some(isNew) && !currentPhotos.after_fix.some(isNew)) {
+  // Spec 353 — key on the CURRENT evidence phase, not after-OR-after_fix: a reworked
+  // WP re-shoots the CURRENT round's after_fix (matching canSubmitForApproval — a
+  // stale prior-round fix must not answer the bounce), a round-0 WP re-shoots the
+  // `after` photo. So reject-evidence is unambiguous, and a stray photo (wrong phase
+  // or wrong round) can't satisfy it.
+  const evidence =
+    reworkRound > 0
+      ? currentPhotos.after_fix.filter((p) => p.rework_round === reworkRound)
+      : currentPhotos.after;
+  if (!evidence.some(isNew)) {
     return { kind: "blocked", hint: RESUBMIT_EVIDENCE_HINT };
   }
 

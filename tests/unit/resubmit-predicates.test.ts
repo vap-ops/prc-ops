@@ -46,6 +46,9 @@ function state(over: Partial<Parameters<typeof resubmitState>[0]> = {}) {
     currentPhotos: noPhotos,
     answeredDecisionIds: new Set<string>(),
     viewerId: SA,
+    // Spec 353 — the WP's rework_round decides which phase is completion evidence.
+    // Default 0 (never reworked → evidence is the `after` photo).
+    reworkRound: 0,
     ...over,
   });
 }
@@ -116,10 +119,60 @@ describe("resubmitState — the new-photo gate", () => {
     });
   });
 
-  it("unlocks on a new after_fix photo (a rework round that bounced)", () => {
-    expect(state({ currentPhotos: { after: [], after_fix: [{ created_at: AFTER }] } })).toEqual({
-      kind: "ready",
-    });
+  it("unlocks on a new after_fix photo (a reworked WP that bounced)", () => {
+    expect(
+      state({
+        reworkRound: 1,
+        currentPhotos: { after: [], after_fix: [{ created_at: AFTER, rework_round: 1 }] },
+      }),
+    ).toEqual({ kind: "ready" });
+  });
+
+  // Spec 353 — the resubmit gate keys on the CURRENT evidence phase, not after-OR-
+  // after_fix. Round-0 WPs re-shoot the `after` photo; reworked WPs re-shoot after_fix.
+  it("round-0: a new after unlocks, a new after_fix does not (evidence is `after`)", () => {
+    expect(
+      state({ reworkRound: 0, currentPhotos: { after: [{ created_at: AFTER }], after_fix: [] } })
+        .kind,
+    ).toBe("ready");
+    expect(
+      state({
+        reworkRound: 0,
+        currentPhotos: { after: [], after_fix: [{ created_at: AFTER, rework_round: 1 }] },
+      }).kind,
+    ).toBe("blocked");
+  });
+
+  it("reworked: a new after_fix unlocks, a stray new after does not (evidence is after_fix)", () => {
+    expect(
+      state({
+        reworkRound: 1,
+        currentPhotos: { after: [], after_fix: [{ created_at: AFTER, rework_round: 1 }] },
+      }).kind,
+    ).toBe("ready");
+    expect(
+      state({ reworkRound: 1, currentPhotos: { after: [{ created_at: AFTER }], after_fix: [] } })
+        .kind,
+    ).toBe("blocked");
+  });
+
+  // Fresh-eyes catch — a reworked WP's gate must require the CURRENT round's fix, the
+  // same guard canSubmitForApproval applies (transitions.ts). A prior-round after_fix
+  // replayed late (offline flush) has a server created_at newer than the decision but
+  // is the wrong round's evidence — it must NOT unlock.
+  it("reworked round 2: a newer PRIOR-round after_fix does not unlock; the current round does", () => {
+    expect(
+      state({
+        reworkRound: 2,
+        currentPhotos: { after: [], after_fix: [{ created_at: AFTER, rework_round: 1 }] },
+      }).kind,
+    ).toBe("blocked");
+    expect(
+      state({
+        reworkRound: 2,
+        currentPhotos: { after: [], after_fix: [{ created_at: AFTER, rework_round: 2 }] },
+      }).kind,
+    ).toBe("ready");
   });
 
   it("unlocks when a new photo sits among older ones", () => {

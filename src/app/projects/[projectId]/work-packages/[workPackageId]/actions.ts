@@ -424,7 +424,7 @@ export async function resubmitWorkPackageEvidence(
   // RLS-scoped read = the membership/visibility gate (as in submit).
   const { data: wp, error: wpError } = await supabase
     .from("work_packages")
-    .select("id, project_id, status")
+    .select("id, project_id, status, rework_round")
     .eq("id", input.workPackageId)
     .maybeSingle();
   if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
@@ -463,6 +463,7 @@ export async function resubmitWorkPackageEvidence(
     latestDecision,
     currentPhotos,
     answeredDecisionIds,
+    reworkRound: wp.rework_round,
     viewerId: gate.auth.user.id,
   });
   if (state.kind === "blocked") return { ok: false, error: state.hint };
