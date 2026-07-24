@@ -1,3 +1,9 @@
+# [0.197.0](https://github.com/vap-ops/prc-ops/compare/v0.196.0...v0.197.0) (2026-07-24)
+
+### Features
+
+- **spec350:** get_my_assigned_work self-scoped read RPC (U1) ([#725](https://github.com/vap-ops/prc-ops/issues/725)) ([791af5d](https://github.com/vap-ops/prc-ops/commit/791af5d188a9d1c6c787c70088a4cca34385bbd4))
+
 # [0.196.0](https://github.com/vap-ops/prc-ops/compare/v0.195.0...v0.196.0) (2026-07-23)
 
 ### Features
