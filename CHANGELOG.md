@@ -1,3 +1,9 @@
+# [0.218.0](https://github.com/vap-ops/prc-ops/compare/v0.217.0...v0.218.0) (2026-07-24)
+
+### Features
+
+- **muster:** ยังไม่มา missing list from crew rosters (spec 357 U-C) ([32f4ebb](https://github.com/vap-ops/prc-ops/commit/32f4ebbd364db6e9dde0aaaeee06551c8b882140))
+
 # [0.217.0](https://github.com/vap-ops/prc-ops/compare/v0.216.0...v0.217.0) (2026-07-24)
 
 ### Features
