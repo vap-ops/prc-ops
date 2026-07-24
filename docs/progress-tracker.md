@@ -9554,3 +9554,11 @@ visitor on a pre-approval screen: no task in flight.
 - **Tests:** RED-first ×3 — `muster-scanner-support.test.ts` (capability truth table incl. the iPhone shape), cockpit `สแกน QR button gate` describe (button renders with getUserMedia-sans-BarcodeDetector; absent with neither), `muster-jsqr-decode.test.ts` (round-trip: `qrcode.create` bit matrix → RGBA rasterize → jsQR decodes a worker-uuid payload under dontInvert; blank-frame null). 2 mutation-checks killed (cockpit gate reverted to native-only → RED; support collapsed to native-only → RED).
 - **Real-flow:** camera loop not drivable on this box (no webcam; getUserMedia absent in jsdom) — the jsQR decode itself is executed for real by the round-trip test; **on-device proof owed from the operator's iPhone at tomorrow's muster** (button should appear; scanning a badge should check the worker in).
 - **Non-goals:** no torch/zoom controls; no multi-code disambiguation (first hit wins, matching native path); OT/session dispatch untouched (camera already dispatches by active session).
+
+## Spec 357 U-E — remove ย้าย move UI (2026-07-24)
+
+- **Status:** BUILT (this PR). Code-only, no schema. First unit of the spec-357 cockpit redesign.
+- **Origin:** operator point 4 (2026-07-24, after the day-1 muster): no intra-day team change. "Team change only at OT" = a separate future feature (OT on another team), NOT built here — `move_muster_worker` RPC + `moveMusterWorker` action stay as its substrate.
+- **Change:** `muster-cockpit.tsx` drops the ย้าย button, the move picker panel, `movePickFor` state, the `move` handler and the `onMove`/`otherTeams` props. Also folds the queued day-1-audit finding 5: the stale `(site_admin, super_admin)` gate comments in `actions.ts` + the muster page now name procurement_manager (spec 348).
+- **Tests:** RED-first absence pin (2 teams, เข้า mode → no ย้าย button, no ย้ายไปทีมของ panel); `muster-cockpit-move.test.tsx` (4 move-UI tests) deleted deliberately; `muster-move.test.ts` (action wiring) kept.
+- **Open questions:** OT-time team change = future spec (flagged in 357 Non-goals).

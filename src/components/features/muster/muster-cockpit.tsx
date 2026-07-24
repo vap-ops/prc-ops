@@ -11,13 +11,7 @@
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatThaiDate, MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
-import {
-  openMusterTeam,
-  musterScan,
-  setMusterTeamWps,
-  closeMusterDay,
-  moveMusterWorker,
-} from "@/lib/muster/actions";
+import { openMusterTeam, musterScan, setMusterTeamWps, closeMusterDay } from "@/lib/muster/actions";
 import { groupMusterWps } from "@/lib/muster/wp-groups";
 import { hasScannerSupport } from "@/lib/muster/scanner-support";
 import { deriveCloseDayState } from "@/lib/muster/close-day-state";
@@ -151,11 +145,6 @@ export function MusterCockpit({
   const saveWps = (teamId: string, wpIds: string[]) =>
     run(() => setMusterTeamWps({ teamId, wpIds, revalidate }));
 
-  // Spec 306 move UI — day-of correction: reassign a member's attendance to
-  // another team (same date; the RPC guards project + date + existence).
-  const move = (workerId: string, toTeamId: string) =>
-    run(() => moveMusterWorker({ workerId, date, toTeamId, revalidate }));
-
   const closeDay = () => {
     setConfirmClose(false);
     run(() => closeMusterDay({ projectId, date, revalidate }));
@@ -271,14 +260,10 @@ export function MusterCockpit({
             session={session}
             pending={pending}
             availableToAdd={addableTo(team.id)}
-            otherTeams={board.teams
-              .filter((t) => t.id !== team.id)
-              .map((t) => ({ id: t.id, leadName: t.leadName }))}
             hasCamera={hasCamera}
             onScan={scanRegular}
             onScanOt={scanOt}
             onSaveWps={saveWps}
-            onMove={move}
             onOpenCamera={() => setScanTeamId(team.id)}
           />
         ))
@@ -369,12 +354,10 @@ function TeamCard({
   session,
   pending,
   availableToAdd,
-  otherTeams,
   hasCamera,
   onScan,
   onScanOt,
   onSaveWps,
-  onMove,
   onOpenCamera,
 }: {
   team: MusterTeam;
@@ -383,15 +366,12 @@ function TeamCard({
   session: Session;
   pending: boolean;
   availableToAdd: { id: string; name: string }[];
-  /** Spec 306 move UI — the OTHER teams today (move targets, by lead name). */
-  otherTeams: { id: string; leadName: string }[];
   hasCamera: boolean;
   /** Regular-session scan (add / check-out), following the เข้า/ออก mode. */
   onScan: (teamId: string, workerId: string, method: "qr" | "manual") => void;
   /** Spec 351 — OT-session scan (in/out derived per worker from their OT state). */
   onScanOt: (teamId: string, workerId: string, method: "qr" | "manual") => void;
   onSaveWps: (teamId: string, wpIds: string[]) => void;
-  onMove: (workerId: string, toTeamId: string) => void;
   onOpenCamera: () => void;
 }) {
   const [addOpen, setAddOpen] = useState(false);
@@ -399,8 +379,6 @@ function TeamCard({
   const [checked, setChecked] = useState<Set<string>>(new Set(team.wpIds));
   // Spec 306 grain-coverage — which parent งาน groups are expanded in the picker.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  // Spec 306 move UI — which member's move picker is open (one at a time).
-  const [movePickFor, setMovePickFor] = useState<string | null>(null);
 
   // The leaf WPs folded into collapsible groups by parent งาน (spec 306 grain-coverage).
   const wpGroups = groupMusterWps(wps);
@@ -544,32 +522,16 @@ function TeamCard({
                     {m.outAt && m.outAuto ? " (อัตโนมัติ)" : ""}
                   </span>
                   {session === "regular" ? (
-                    <>
-                      {/* Spec 306 move UI — day-of correction, เข้า mode, only when
-                          there is another team to move to. */}
-                      {mode === "in" && otherTeams.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setMovePickFor((v) => (v === m.workerId ? null : m.workerId))
-                          }
-                          disabled={pending}
-                          className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
-                        >
-                          ย้าย
-                        </button>
-                      ) : null}
-                      {mode === "out" && m.inAt && !m.outAt ? (
-                        <button
-                          type="button"
-                          onClick={() => onScan(team.id, m.workerId, "manual")}
-                          disabled={pending}
-                          className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
-                        >
-                          เช็คออก
-                        </button>
-                      ) : null}
-                    </>
+                    mode === "out" && m.inAt && !m.outAt ? (
+                      <button
+                        type="button"
+                        onClick={() => onScan(team.id, m.workerId, "manual")}
+                        disabled={pending}
+                        className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
+                      >
+                        เช็คออก
+                      </button>
+                    ) : null
                   ) : !m.ot ? (
                     // Spec 351 — OT session: no OT row yet → open one (OT เข้า).
                     <button
@@ -607,27 +569,6 @@ function TeamCard({
                       OT ยังไม่ปิด
                     </span>
                   ) : null}
-                </div>
-              ) : null}
-              {/* Picker gated on เข้า mode + regular session — the toggle hides on
-                  a flip but this open panel would otherwise survive it live. */}
-              {session === "regular" && mode === "in" && movePickFor === m.workerId ? (
-                <div className="border-edge bg-sunk flex flex-wrap items-center gap-2 rounded-lg border p-2">
-                  <span className="text-ink-muted text-meta">ย้ายไปทีมของ:</span>
-                  {otherTeams.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        onMove(m.workerId, t.id);
-                        setMovePickFor(null);
-                      }}
-                      disabled={pending}
-                      className="bg-card text-ink border-edge min-h-11 rounded-lg border px-3 text-sm disabled:opacity-50"
-                    >
-                      {t.leadName}
-                    </button>
-                  ))}
                 </div>
               ) : null}
             </li>

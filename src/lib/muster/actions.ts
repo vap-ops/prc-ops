@@ -2,7 +2,8 @@
 
 // Spec 306 U3 — muster cockpit actions. Authorization is the DB's: the muster
 // RPCs (open_muster_team / muster_scan_in / muster_scan_out / set_muster_team_wps)
-// are SECURITY DEFINER, gate on current_user_role() ∈ (site_admin, super_admin) +
+// are SECURITY DEFINER, gate on current_user_role() ∈ (site_admin, super_admin,
+// procurement_manager — spec 348 SA-parity) +
 // can_see_project, and enforce the one-team-per-(worker,date) rule. Actions
 // validate shape, relay to the RPC, and map its errors to Thai for the SA.
 
@@ -133,10 +134,12 @@ export async function setMusterTeamWps(input: {
   return { ok: true };
 }
 
-// Spec 306 (deferred move UI, 2026-07-19) — day-of correction: move a worker's
+// Spec 306 (deferred move UI, 2026-07-19; UI removed by spec 357 U-E — kept as
+// the future OT-team-change substrate) — day-of correction: move a worker's
 // attendance to another team on the SAME date. move_muster_worker owns the
-// guards (SA/super + can_see_project, same-date team, same-project, attendance
-// exists, no-op when already there) and audits crew_change/muster_move.
+// guards (SA/super/procurement_manager per spec 348 + can_see_project,
+// same-date team, same-project, attendance exists, no-op when already there)
+// and audits crew_change/muster_move.
 export async function moveMusterWorker(input: {
   workerId: string;
   date: string;
