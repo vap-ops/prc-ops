@@ -1,3 +1,9 @@
+# [0.210.0](https://github.com/vap-ops/prc-ops/compare/v0.209.0...v0.210.0) (2026-07-24)
+
+### Features
+
+- **review:** structured reject-evidence reasons (spec 355 U1+U2) ([#743](https://github.com/vap-ops/prc-ops/issues/743)) ([d778232](https://github.com/vap-ops/prc-ops/commit/d7782323234b8a6858e83b4cc8808bb38c7a782a))
+
 # [0.209.0](https://github.com/vap-ops/prc-ops/compare/v0.208.0...v0.209.0) (2026-07-24)
 
 ### Features
