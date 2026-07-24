@@ -1,3 +1,9 @@
+# [0.200.0](https://github.com/vap-ops/prc-ops/compare/v0.199.0...v0.200.0) (2026-07-24)
+
+### Features
+
+- **work-packages:** recall a submitted WP to fix its evidence (spec 352) ([#732](https://github.com/vap-ops/prc-ops/issues/732)) ([e467005](https://github.com/vap-ops/prc-ops/commit/e467005b980904691b3d9c4b2a7f5ca1d344482a))
+
 # [0.199.0](https://github.com/vap-ops/prc-ops/compare/v0.198.0...v0.199.0) (2026-07-24)
 
 ### Features
