@@ -1,3 +1,9 @@
+# [0.209.0](https://github.com/vap-ops/prc-ops/compare/v0.208.0...v0.209.0) (2026-07-24)
+
+### Features
+
+- **photos:** delete a progress photo from the WP-detail viewer (spec 356) ([#741](https://github.com/vap-ops/prc-ops/issues/741)) ([681475a](https://github.com/vap-ops/prc-ops/commit/681475ae43ed77fffc0095940b1beaf7d3575f3b))
+
 # [0.208.0](https://github.com/vap-ops/prc-ops/compare/v0.207.0...v0.208.0) (2026-07-24)
 
 ### Features
