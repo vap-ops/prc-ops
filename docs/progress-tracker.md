@@ -9490,3 +9490,13 @@ visitor on a pre-approval screen: no task in flight.
   uploader (self-or-owner) + notifications; U4 corrections (creates
   `supersede_wage_payment`); voucher per-source extras (vat/method/reference
   columns) deferred to U4/U5 when correction forms need them.
+
+## Spec 352 — ถอนงานกลับมาแก้ไข: recall a submitted WP to fix its evidence (2026-07-24)
+
+- **Status:** BUILT — U1 (schema) + U2 (code) in one PR, danger-path held for operator admin-merge. Migration `20260813075847`.
+- **Origin:** operator hit the freeze on WP-04-47 (3 misplaced photos removed as a one-off admin op); asked to self-serve going forward.
+- **U1 (schema):** `can_recall_work_package(p_wp)` shared DEFINER predicate + `recall_work_package_submission(p_wp)` RPC (pending_approval → in_progress, on the caller's session so the transition-audit trigger attributes it — no new audit event). Authority = original submitter (derived from the spec-337 `wp_status_transition`→pending_approval audit actor) or super_admin; recallable whenever pending_approval AND the ให้แก้ไข window is CLOSED. Preserves the 291/340 evidence freeze (changing photos requires taking the WP OUT of review). pgTAP `352-recall-submission` 43/43 RED-first.
+- **U2 (code):** `recallWorkPackageSubmission` action + `RecallSubmissionControl` (ถอนงานกลับมาแก้ไข, confirm sheet) + `load-detail.canRecall` (calls the DEFINER predicate; button + RPC share one authority) + page wiring. Action + control + load-detail vitest.
+- **Fresh-eyes (opus):** 2🟡, both comment-accuracy (no security hole); the reviewer confirmed the window NULL-logic, fail-closed authority, no 291/340 hazard reopen, correct grants, and genuine (non-fake) pgTAP. Bug caught DURING build: a NULL-propagation hole where a fresh undecided WP would have been wrongly un-recallable (`= 'needs_revision'` → `is not distinct from`).
+- **Real-data check:** WP-04-47's derived submitter = อรปรีญา (the SA who uploaded the misplaced photos) → she or super_admin can now recall it.
+- **Out of scope (v1):** recall while the ให้แก้ไข window is OPEN (spec-291 in-place removal applies there); notifying the reviewer that a WP left their queue (status-derived, drops out); restoring the exact pre-submit status (always lands in_progress).
