@@ -102,6 +102,16 @@ refusals.
 | 5   | Tombstone insert fails (transient)                                     | `ลบรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง` (`actions.ts`)                         | On-zone alert; user retries.                                                                               |
 | 6   | Concurrent removal in flight                                           | (second click ignored — `removingId` guard)                                  | Wait for the first to finish.                                                                              |
 
+One more mode, added after review: `removePhoto` is a server action, so a
+transport failure **rejects** the invocation rather than returning `{ ok:false }`.
+The handler wraps the `await` in `try/catch/finally` — the throw surfaces the same
+`ลบรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง` fallback (row 5's message) and `finally`
+resets the `removingId` guard, so a failed delete can never silently wedge every
+subsequent one on this persistently-mounted page (the CaptureSheet gets away
+without this because it unmounts and resets its engine on close). The error banner
+also scrolls into view, because the overlay has closed and the user is looking at
+the strip — a delete that fails must never read as a silent nothing.
+
 On success: the tombstone lands, `revalidatePath` + the client `router.refresh()`
 re-render the zone — the photo disappears, its `#N` is retired (340), and the
 `ลบไปแล้ว N รูป` trace (341) gains a line. No optimistic UI; the server is the

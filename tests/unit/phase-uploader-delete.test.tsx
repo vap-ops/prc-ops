@@ -165,6 +165,24 @@ describe("Spec 356 — delete from the WP-page current-phase strip", () => {
     expect(await screen.findByText("งานนี้ส่งตรวจแล้ว ลบรูปไม่ได้")).toBeInTheDocument();
     expect(mockRefresh).not.toHaveBeenCalled();
   });
+
+  it("surfaces a fallback error (not a silent wedge) when the action invocation rejects", async () => {
+    // A server-action invocation REJECTS on a transport failure — it does NOT
+    // resolve to { ok:false }. An unhandled throw would skip the removingId reset
+    // and wedge every future page delete behind the concurrency guard, silently.
+    mockRemovePhoto.mockRejectedValue(new Error("network down"));
+    renderZone({ canDelete: true, currentPhotos: [CURRENT_PHOTO] });
+    fireEvent.click(screen.getByRole("button", { name: "ดูรูปขยาย" }));
+    fireEvent.click(await screen.findByRole("button", { name: "ลบรูป" }));
+    const prompt = screen.getByText("ลบรูปนี้หรือไม่? การลบไม่สามารถย้อนกลับได้");
+    fireEvent.click(
+      within(prompt.closest('[role="dialog"]') as HTMLElement).getByRole("button", {
+        name: "ลบรูป",
+      }),
+    );
+    expect(await screen.findByText("ลบรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")).toBeInTheDocument();
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
 });
 
 describe("Spec 356 — delete from the read-only หลังแก้ไข history strip", () => {

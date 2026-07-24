@@ -17,7 +17,7 @@
 // open/active-phase state. The file keeps its name for import stability;
 // the detail page imports { PhotoCaptureZone }.
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, Lock, RotateCcw } from "lucide-react";
 import { BUTTON_CAPTURE, INLINE_ERROR } from "@/lib/ui/classes";
@@ -129,19 +129,41 @@ export function PhotoCaptureZone({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [, startRemoveTransition] = useTransition();
+  const removeErrorRef = useRef<HTMLDivElement>(null);
 
   async function handleDeletePhoto(photoLogId: string) {
     if (removingId !== null) return; // serialize — one tombstone round-trip at a time
     setRemoveError(null);
     setRemovingId(photoLogId);
-    const result = await removePhoto({ photoLogId });
-    setRemovingId(null);
-    if (!result.ok) {
-      setRemoveError(result.error);
-      return;
+    try {
+      const result = await removePhoto({ photoLogId });
+      if (!result.ok) {
+        setRemoveError(result.error);
+        return;
+      }
+      startRemoveTransition(() => router.refresh());
+    } catch {
+      // A server-action invocation REJECTS (it never resolves to {ok:false}) on
+      // a transport failure. Without this catch the throw would skip the
+      // removingId reset in `finally` and wedge the concurrency guard — worse on
+      // this surface than in the CaptureSheet, which unmounts and resets its
+      // engine on close, whereas this zone stays mounted on the page. Same Thai
+      // fallback the action itself uses for a transient tombstone failure.
+      setRemoveError("ลบรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setRemovingId(null);
     }
-    startRemoveTransition(() => router.refresh());
   }
+
+  // Spec 356 — the overlay closes itself on confirm, so a refusal lands on the
+  // page while the user is looking at the strip, usually scrolled below this
+  // banner. Bring it into view: the whole point of this feature is that a failed
+  // delete must not read as a silent nothing. Guarded for jsdom (no scrollIntoView).
+  useEffect(() => {
+    if (removeError && typeof removeErrorRef.current?.scrollIntoView === "function") {
+      removeErrorRef.current.scrollIntoView({ block: "center" });
+    }
+  }, [removeError]);
 
   const pairs = defectPairs ?? [];
   const unanswered = pairs.filter((p) => !p.answered);
@@ -204,7 +226,7 @@ export function PhotoCaptureZone({
           ให้แก้ไข window) surfaces here: the lightbox overlay has already closed
           itself on confirm, so the page is where the message must land. */}
       {removeError ? (
-        <div role="alert" className={INLINE_ERROR}>
+        <div ref={removeErrorRef} role="alert" className={INLINE_ERROR}>
           {removeError}
         </div>
       ) : null}
