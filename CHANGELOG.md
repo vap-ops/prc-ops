@@ -1,3 +1,13 @@
+# [0.216.0](https://github.com/vap-ops/prc-ops/compare/v0.215.0...v0.216.0) (2026-07-24)
+
+### Bug Fixes
+
+- **muster:** add-sheet dialog baseline + alert dedupe + stale-message clear (fresh-eyes) ([578e0f0](https://github.com/vap-ops/prc-ops/commit/578e0f0cd075a614f9139e9320e7cdd33c4ef878))
+
+### Features
+
+- **muster:** header QR door + scan/add sheet (spec 357 U-D) ([ee2bae9](https://github.com/vap-ops/prc-ops/commit/ee2bae94f536600d1c970357d39220c27c9f8762))
+
 # [0.215.0](https://github.com/vap-ops/prc-ops/compare/v0.214.0...v0.215.0) (2026-07-24)
 
 ### Features
