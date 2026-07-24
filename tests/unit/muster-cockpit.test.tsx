@@ -26,9 +26,17 @@ vi.mock("@/lib/muster/actions", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 // The camera loop is untestable in jsdom (getUserMedia/BarcodeDetector absent) —
-// mock the component; the sheet's camera MOUNT decision is what these tests pin.
+// mock the component; the sheet's camera MOUNT decision + the onDetected wiring
+// are what these tests pin. The trigger fires a fixed worker id (=W3 below;
+// vi.mock hoists above the consts, so the literal is repeated here).
 vi.mock("@/components/features/muster/muster-camera", () => ({
-  MusterCamera: () => <div data-testid="camera-mock" />,
+  MusterCamera: (p: { onDetected: (id: string) => void }) => (
+    <button
+      type="button"
+      data-testid="camera-mock"
+      onClick={() => p.onDetected("cccccccc-3333-3333-3333-333333333333")}
+    />
+  ),
 }));
 
 import { MusterCockpit } from "@/components/features/muster/muster-cockpit";
@@ -518,6 +526,58 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     renderCockpit();
     expect(screen.queryByRole("button", { name: "+ เพิ่มช่าง" })).toBeNull();
     expect(screen.queryByRole("button", { name: "สแกน QR" })).toBeNull();
+  });
+
+  it("a camera detection fires a qr scan and closes the sheet (one-shot)", async () => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      const user = userEvent.setup();
+      renderCockpit();
+      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+      await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock"));
+      expect(musterScan).toHaveBeenCalledWith(
+        expect.objectContaining({ teamId: T1, workerId: W3, mode: "in", method: "qr" }),
+      );
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+    }
+  });
+
+  it("a scan error after the one-shot close surfaces in the page-top alert", async () => {
+    musterScan.mockResolvedValueOnce({ ok: false, error: "ยังไม่ได้เช็คชื่อเข้าของช่างคนนี้" });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      const user = userEvent.setup();
+      renderCockpit();
+      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+      await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock"));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(await screen.findByRole("alert")).toHaveTextContent("ยังไม่ได้เช็คชื่อเข้า");
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+    }
+  });
+
+  it("opening the sheet clears a stale error from an earlier unrelated action", async () => {
+    // Leave a failed open-team message on the page, then open the sheet — the
+    // sheet must start clean, not greet the SA with the foreign error.
+    openMusterTeam.mockResolvedValueOnce({ ok: false, error: "ไม่มีสิทธิ์ในโครงการนี้" });
+    const user = userEvent.setup();
+    renderCockpit();
+    await user.selectOptions(screen.getByLabelText("เลือกหัวหน้าทีม"), W3);
+    await user.click(screen.getByRole("button", { name: "เปิดทีม" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("ไม่มีสิทธิ์");
+    await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+    expect(within(screen.getByRole("dialog")).queryByRole("alert")).toBeNull();
+    // …and the page-top copy is suppressed while the sheet is open.
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 

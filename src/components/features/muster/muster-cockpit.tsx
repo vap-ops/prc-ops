@@ -223,7 +223,9 @@ export function MusterCockpit({
         </div>
       </div>
 
-      {message ? (
+      {/* Suppressed while the add sheet is open — the sheet renders the same
+          message itself, and two live role="alert" nodes announce twice. */}
+      {message && !scanTeamId ? (
         <p role="alert" className="bg-danger-soft text-danger-ink rounded-card px-3 py-2 text-sm">
           {message}
         </p>
@@ -279,7 +281,12 @@ export function MusterCockpit({
             onScan={scanRegular}
             onScanOt={scanOt}
             onSaveWps={saveWps}
-            onOpenSheet={() => setScanTeamId(team.id)}
+            onOpenSheet={() => {
+              // A leftover error from an earlier, unrelated action (open-team,
+              // save-WPs…) must not greet the SA inside a fresh scan/add sheet.
+              setMessage(null);
+              setScanTeamId(team.id);
+            }}
           />
         ))
       )}

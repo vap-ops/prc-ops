@@ -10,9 +10,14 @@
 // pre-357 camera behavior; continuous multi-scan is deferred until the #745
 // decode loop has on-device proof).
 //
-// The action error message renders IN the sheet — the page-top alert sits
-// behind this z-50 overlay and would be invisible while it is open.
+// The action error message renders IN the sheet — the cockpit suppresses its
+// page-top alert while the sheet is open (one live alert at a time).
+//
+// Dialog baseline per the house pattern (bottom-sheet.tsx): aria-modal,
+// Escape-close, scrim-click close, focus-on-open. The tab-trap stays deferred
+// exactly as bottom-sheet documents.
 
+import { useEffect, useRef } from "react";
 import { MusterCamera } from "./muster-camera";
 
 export function MusterAddSheet({
@@ -37,13 +42,36 @@ export function MusterAddSheet({
   onTapAdd: (workerId: string) => void;
   onClose: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Focus the panel on mount only (the cockpit passes inline handlers with a
+  // new identity each render — an every-render focus would yank it around).
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-label={`สแกน/เพิ่มช่าง — ทีม ${leadName}`}
+      onClick={onClose}
       className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-black/90 p-4"
     >
-      <div className="mx-auto my-auto flex w-full max-w-md flex-col gap-4">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        className="mx-auto my-auto flex w-full max-w-md flex-col gap-4 focus:outline-none"
+      >
         {hasCamera ? <MusterCamera onDetected={onScanDetected} /> : null}
 
         {message ? (
