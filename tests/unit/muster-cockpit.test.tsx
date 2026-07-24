@@ -301,3 +301,68 @@ it("HT exists but is not on the active roster (deactivated lead) → guidance, n
   expect(screen.getByText(/ยังไม่มีหัวหน้าทีม/)).toBeInTheDocument();
   expect(screen.queryByLabelText("เลือกหัวหน้าทีม")).not.toBeInTheDocument();
 });
+
+// Spec 306 grain-coverage — teams assign per LEAF (งานย่อย) WP so the close-day
+// derive can bind labor_logs. A project has hundreds of leaves under a few dozen
+// งาน, so the picker groups them: each parent งาน is a collapsible header, its
+// leaves hidden until expanded; standalone leaf main-WPs render directly.
+describe("MusterCockpit — leaf WP picker (spec 306 grain-coverage)", () => {
+  const WPB = "99999999-9999-9999-9999-999999999999";
+  const PARENT = "ffffffff-6666-6666-6666-666666666666";
+  const GROUPED: MusterBoard = {
+    ...BOARD,
+    teams: [{ ...BOARD.teams[0]!, wpIds: [] }],
+    wps: [
+      { id: WPA, code: "A", name: "งานเอ", parentId: null, parentCode: null, parentName: null },
+      {
+        id: WPB,
+        code: "W05-01",
+        name: "ปูพื้น",
+        parentId: PARENT,
+        parentCode: "WP-05",
+        parentName: "งานพื้น",
+      },
+    ],
+  };
+
+  it("hides a งานย่อย under its parent งาน until the group is expanded, then saves the leaf", async () => {
+    const user = userEvent.setup();
+    renderCockpit(GROUPED);
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: /แก้ไขงาน/ }));
+    // Standalone leaf renders directly; the grouped leaf is collapsed (not rendered).
+    expect(within(team).getByLabelText(/งานเอ/)).toBeInTheDocument();
+    expect(within(team).queryByLabelText(/ปูพื้น/)).not.toBeInTheDocument();
+    // Expand the parent งาน group → the child checkbox appears, then check + save.
+    await user.click(within(team).getByRole("button", { name: /งานพื้น/ }));
+    await user.click(within(team).getByLabelText(/ปูพื้น/));
+    await user.click(within(team).getByRole("button", { name: "บันทึกงาน" }));
+    expect(setMusterTeamWps).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: T1, wpIds: [WPB] }),
+    );
+  });
+
+  it("auto-expands a งาน group that already has a checked child", async () => {
+    const user = userEvent.setup();
+    renderCockpit({ ...GROUPED, teams: [{ ...GROUPED.teams[0]!, wpIds: [WPB] }] });
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: /แก้ไขงาน/ }));
+    // The already-checked child is visible without a manual expand.
+    expect(within(team).getByLabelText(/ปูพื้น/)).toBeInTheDocument();
+  });
+
+  it("drops a stuck assignment that is no longer a selectable leaf when saving", async () => {
+    // A group/legacy WP id can sit in team.wpIds from the pre-change main-WP picker
+    // (e.g. a stale bundle assigns one during a deploy). It has no checkbox in the
+    // leaf picker, so it can never be unchecked; saving must not re-persist it.
+    const user = userEvent.setup();
+    const STALE = "88888888-8888-8888-8888-888888888888";
+    renderCockpit({ ...GROUPED, teams: [{ ...GROUPED.teams[0]!, wpIds: [STALE, WPA] }] });
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: /แก้ไขงาน/ }));
+    await user.click(within(team).getByRole("button", { name: "บันทึกงาน" }));
+    expect(setMusterTeamWps).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: T1, wpIds: [WPA] }),
+    );
+  });
+});
