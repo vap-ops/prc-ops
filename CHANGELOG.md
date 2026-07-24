@@ -1,3 +1,9 @@
+# [0.215.0](https://github.com/vap-ops/prc-ops/compare/v0.214.0...v0.215.0) (2026-07-24)
+
+### Features
+
+- **muster:** remove intra-day move UI from the cockpit (spec 357 U-E) ([46b1c7e](https://github.com/vap-ops/prc-ops/commit/46b1c7e955249deadf5f61c2649610fc972f10c0))
+
 # [0.214.0](https://github.com/vap-ops/prc-ops/compare/v0.213.0...v0.214.0) (2026-07-24)
 
 ### Bug Fixes
