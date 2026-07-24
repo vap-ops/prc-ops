@@ -1,3 +1,9 @@
+# [0.208.0](https://github.com/vap-ops/prc-ops/compare/v0.207.0...v0.208.0) (2026-07-24)
+
+### Features
+
+- **spec306:** muster→labor_logs money derive (U5a, minimal enum engine) ([#740](https://github.com/vap-ops/prc-ops/issues/740)) ([2831077](https://github.com/vap-ops/prc-ops/commit/28310774a8e90d321fc4baee5334c5cb7331709d))
+
 # [0.207.0](https://github.com/vap-ops/prc-ops/compare/v0.206.0...v0.207.0) (2026-07-24)
 
 ### Features
