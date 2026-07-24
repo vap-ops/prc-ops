@@ -1,3 +1,9 @@
+# [0.204.0](https://github.com/vap-ops/prc-ops/compare/v0.203.0...v0.204.0) (2026-07-24)
+
+### Features
+
+- **wp:** server-action gate for after_fix capture (spec 353 U2) ([4bf4a65](https://github.com/vap-ops/prc-ops/commit/4bf4a6508562ccf7aae335853eb3033d8d9a5e2b))
+
 # [0.203.0](https://github.com/vap-ops/prc-ops/compare/v0.202.0...v0.203.0) (2026-07-24)
 
 ### Features
