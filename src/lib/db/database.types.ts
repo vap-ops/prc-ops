@@ -3382,9 +3382,11 @@ export type Database = {
           day_rate_snapshot: number
           entered_by: string
           id: string
+          level_snapshot: Database["public"]["Enums"]["worker_level"] | null
           note: string | null
           pay_type_snapshot: Database["public"]["Enums"]["pay_type"]
           self_logged: boolean
+          source_muster_id: string | null
           superseded_by: string | null
           wht_pct_snapshot: number | null
           work_date: string
@@ -3399,9 +3401,11 @@ export type Database = {
           day_rate_snapshot: number
           entered_by: string
           id?: string
+          level_snapshot?: Database["public"]["Enums"]["worker_level"] | null
           note?: string | null
           pay_type_snapshot: Database["public"]["Enums"]["pay_type"]
           self_logged?: boolean
+          source_muster_id?: string | null
           superseded_by?: string | null
           wht_pct_snapshot?: number | null
           work_date: string
@@ -3416,9 +3420,11 @@ export type Database = {
           day_rate_snapshot?: number
           entered_by?: string
           id?: string
+          level_snapshot?: Database["public"]["Enums"]["worker_level"] | null
           note?: string | null
           pay_type_snapshot?: Database["public"]["Enums"]["pay_type"]
           self_logged?: boolean
+          source_muster_id?: string | null
           superseded_by?: string | null
           wht_pct_snapshot?: number | null
           work_date?: string
@@ -9724,6 +9730,10 @@ export type Database = {
       delete_work_package: {
         Args: { p_work_package_id: string }
         Returns: boolean
+      }
+      derive_muster_labor: {
+        Args: { p_date: string; p_project: string }
+        Returns: undefined
       }
       discard_feedback_draft: {
         Args: { p_draft_id: string }
