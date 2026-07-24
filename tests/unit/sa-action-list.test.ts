@@ -23,12 +23,14 @@ describe("buildSaActionList", () => {
           wp: wp("d", "pending_approval"),
           decision: "needs_revision",
           comment: "ขอรูปเพิ่ม",
+          revisionReason: null,
           answered: false,
         },
         {
           wp: wp("e", "pending_approval"),
           decision: "rejected",
           comment: "ทำใหม่",
+          revisionReason: null,
           answered: false,
         },
       ],
@@ -43,6 +45,35 @@ describe("buildSaActionList", () => {
     expect(rest.map((x) => x.id)).toEqual(["a", "c"]);
   });
 
+  // Spec 355 U3 — the structured reject-evidence reason rides the bounce into the
+  // worklist row, so the ต้องแก้ไข chip can say WHY (mismatch ≠ add-more).
+  it("threads the revision reason from the bounce to the revision row (null elsewhere)", () => {
+    const { actions } = buildSaActionList({
+      inPlay: [wp("b", "rework")],
+      bounced: [
+        {
+          wp: wp("d", "pending_approval"),
+          decision: "needs_revision",
+          comment: null,
+          revisionReason: "mismatch",
+          answered: false,
+        },
+        {
+          wp: wp("e", "pending_approval"),
+          decision: "rejected",
+          comment: "ทำใหม่",
+          revisionReason: null,
+          answered: false,
+        },
+      ],
+      reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2 }]]),
+      projectsById,
+    });
+    expect(actions.find((x) => x.id === "d")!.revisionReason).toBe("mismatch");
+    expect(actions.find((x) => x.id === "e")!.revisionReason).toBeNull();
+    expect(actions.find((x) => x.id === "b")!.revisionReason).toBeNull();
+  });
+
   it("carries rework reason/source/round and the PM comment as the row context", () => {
     const { actions } = buildSaActionList({
       inPlay: [wp("b", "rework")],
@@ -51,6 +82,7 @@ describe("buildSaActionList", () => {
           wp: wp("d", "pending_approval"),
           decision: "needs_revision",
           comment: "ขอรูปเพิ่ม",
+          revisionReason: null,
           answered: false,
         },
       ],
@@ -80,6 +112,7 @@ describe("buildSaActionList", () => {
           wp: wp("d", "pending_approval"),
           decision: "needs_revision",
           comment: "ขอรูปเพิ่ม",
+          revisionReason: null,
           answered: true,
         },
       ],
@@ -100,12 +133,14 @@ describe("buildSaActionList", () => {
           wp: wp("d", "pending_approval"),
           decision: "needs_revision",
           comment: "ขอรูปเพิ่ม",
+          revisionReason: null,
           answered: true,
         },
         {
           wp: wp("f", "pending_approval"),
           decision: "needs_revision",
           comment: "อีกจุด",
+          revisionReason: null,
           answered: false,
         },
       ],

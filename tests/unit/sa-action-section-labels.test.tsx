@@ -7,7 +7,11 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { SaActionSection } from "@/components/features/sa/action-section";
-import { APPROVAL_DECISION_LABEL } from "@/lib/i18n/labels";
+import {
+  APPROVAL_DECISION_LABEL,
+  APPROVAL_REVISION_REASON_LABEL,
+  REVISION_REASON_GUIDANCE,
+} from "@/lib/i18n/labels";
 import type { SaActionItem } from "@/lib/sa/action-list";
 
 function item(over: Partial<SaActionItem> & Pick<SaActionItem, "id" | "kind">): SaActionItem {
@@ -20,6 +24,7 @@ function item(over: Partial<SaActionItem> & Pick<SaActionItem, "id" | "kind">): 
     reason: null,
     source: null,
     round: null,
+    revisionReason: null,
     ...over,
   };
 }
@@ -40,5 +45,36 @@ describe("SaActionSection — spec 353 single-sourced decision chips", () => {
   it("keeps the rework status chip (งานแก้ไข) — a status, not a decision", () => {
     render(<SaActionSection items={[item({ id: "c", kind: "rework", round: 1 })]} />);
     expect(screen.getByText(/งานแก้ไข/)).toBeInTheDocument();
+  });
+});
+
+// Spec 355 U3 — a reasoned bounce tells the SA WHY on the chip and swaps the row
+// CTA to the per-reason action; leaving the generic "ถ่ายรูปเพิ่ม" on a mismatch
+// row would repeat the exact wrong-instruction bug the spec exists to kill.
+describe("SaActionSection — spec 355 revision reason on the worklist row", () => {
+  it("mismatch: chip carries the reason label and the CTA is remove-and-reshoot", () => {
+    render(
+      <SaActionSection items={[item({ id: "a", kind: "revision", revisionReason: "mismatch" })]} />,
+    );
+    expect(
+      screen.getByText(new RegExp(APPROVAL_REVISION_REASON_LABEL.mismatch)),
+    ).toBeInTheDocument();
+    expect(screen.getByText(REVISION_REASON_GUIDANCE.mismatch.cta)).toBeInTheDocument();
+    expect(screen.queryByText("ถ่ายรูปเพิ่ม")).not.toBeInTheDocument();
+  });
+
+  it("a reasonless (historical) revision row keeps the generic CTA", () => {
+    render(<SaActionSection items={[item({ id: "b", kind: "revision" })]} />);
+    expect(screen.getByText("ถ่ายรูปเพิ่ม")).toBeInTheDocument();
+  });
+
+  it("premature: the row CTA names finishing the work, not shooting more photos", () => {
+    render(
+      <SaActionSection
+        items={[item({ id: "c", kind: "revision", revisionReason: "premature" })]}
+      />,
+    );
+    expect(screen.getByText(REVISION_REASON_GUIDANCE.premature.cta)).toBeInTheDocument();
+    expect(screen.queryByText("ถ่ายรูปเพิ่ม")).not.toBeInTheDocument();
   });
 });

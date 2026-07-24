@@ -39,6 +39,7 @@ import {
   formatThaiTime,
 } from "@/lib/i18n/labels";
 import { AttentionCard } from "@/components/features/common/attention-card";
+import { RevisionReasonGuidance } from "@/components/features/work-packages/revision-reason-guidance";
 import { CountChip } from "@/components/features/common/count-chip";
 import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
 import {
@@ -939,11 +940,18 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               {attention.comment ? (
                 <p className="mt-1 whitespace-pre-wrap">{attention.comment}</p>
               ) : null}
-              {/* Spec 353: name the evidence phase the SA must re-shoot instead of a
-                  generic add-more label — after_fix once the WP is a rework cycle
-                  (rework_round>0), else the after photo. Matches the submit-gate's
-                  completion-evidence rule. */}
-              {!readOnly ? (
+              {/* Spec 355 U3: a reasoned reject-evidence renders the reason chip +
+                  per-reason guidance/CTA (mismatch = remove-and-reshoot via the open
+                  spec-291 delete window). Historical null-reason rows — and every
+                  rejected decision, which the DB CHECK keeps reasonless — fall back
+                  to the spec-353 phase-named CTA below. */}
+              {attention.decision === "needs_revision" && attention.revision_reason ? (
+                <RevisionReasonGuidance reason={attention.revision_reason} showCta={!readOnly} />
+              ) : !readOnly ? (
+                /* Spec 353: name the evidence phase the SA must re-shoot instead of a
+                   generic add-more label — after_fix once the WP is a rework cycle
+                   (rework_round>0), else the after photo. Matches the submit-gate's
+                   completion-evidence rule. */
                 <Link
                   href="#wp-photos"
                   className="bg-attn-press text-on-attn rounded-control focus-visible:ring-action mt-2.5 inline-flex h-9 items-center gap-1.5 px-3 text-sm font-bold focus:outline-none focus-visible:ring-2"
