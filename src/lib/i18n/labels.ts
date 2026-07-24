@@ -777,10 +777,17 @@ export const EQUIPMENT_MOVEMENT_KIND_LABEL: Record<Enums["equipment_movement_kin
   lost: "สูญหาย",
 };
 
+// Spec 353 — the WP-decision labels, sharpened on the evidence-vs-work axis and
+// single-sourced here (the SA's attention card, /review, notifications, the PM
+// record-decision form, and the SA ต้องแก้ไข worklist all read this map, so they
+// cannot drift). needs_revision = re-shoot the photos, the WORK is fine and the WP
+// stays in the queue; rejected = the WORK goes back to a new rework round (spec 337
+// F3). `approved` keeps its result-register past tense (the form uses the imperative
+// "อนุมัติ" locally). The old bare "ไม่อนุมัติ" described the pre-F3 inert behaviour.
 export const APPROVAL_DECISION_LABEL: Record<Enums["approval_decision"], string> = {
   approved: "อนุมัติแล้ว",
-  rejected: "ไม่อนุมัติ",
-  needs_revision: "ให้แก้ไข",
+  rejected: "ส่งกลับแก้งาน",
+  needs_revision: "ถ่ายรูปใหม่",
 };
 
 // Spec 265 U2 — the super_admin LINE-identity verification block. SSOT strings

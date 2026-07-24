@@ -18,7 +18,7 @@ describe("composeNotification", () => {
         { decision: "needs_revision", comment: "รูปช่วงหลังไม่ชัด" },
         { wpCode: "WP-001" },
       ),
-    ).toBe("ผลการตรวจ WP-001: ให้แก้ไข\nความเห็น: รูปช่วงหลังไม่ชัด");
+    ).toBe("ผลการตรวจ WP-001: ถ่ายรูปใหม่\nความเห็น: รูปช่วงหลังไม่ชัด");
   });
 
   it("omits the comment line when wp_decision has no comment", () => {

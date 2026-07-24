@@ -938,14 +938,17 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               {attention.comment ? (
                 <p className="mt-1 whitespace-pre-wrap">{attention.comment}</p>
               ) : null}
-              {/* Spec 218: the SA's next action — add the photos the PM asked for. */}
+              {/* Spec 353: name the evidence phase the SA must re-shoot instead of a
+                  generic add-more label — after_fix once the WP is a rework cycle
+                  (rework_round>0), else the after photo. Matches the submit-gate's
+                  completion-evidence rule. */}
               {!readOnly ? (
                 <Link
                   href="#wp-photos"
                   className="bg-attn-press text-on-attn rounded-control focus-visible:ring-action mt-2.5 inline-flex h-9 items-center gap-1.5 px-3 text-sm font-bold focus:outline-none focus-visible:ring-2"
                 >
                   <Camera aria-hidden className="size-4" />
-                  ถ่ายรูปเพิ่ม
+                  {wp.rework_round > 0 ? "ถ่ายรูปหลังแก้ไขใหม่" : "ถ่ายรูปหลังทำงานใหม่"}
                 </Link>
               ) : null}
             </AttentionCard>

@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Camera, RotateCcw, PencilLine, Ban } from "lucide-react";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { REWORK_SOURCE_LABEL } from "@/lib/i18n/labels";
+import { APPROVAL_DECISION_LABEL, REWORK_SOURCE_LABEL } from "@/lib/i18n/labels";
 import { reworkRoundTag } from "@/lib/photos/rework-round";
 import type { SaActionItem, SaActionKind } from "@/lib/sa/action-list";
 
@@ -16,9 +16,17 @@ const KIND_META: Record<
   SaActionKind,
   { chip: string; tone: "amber" | "red"; Icon: typeof RotateCcw; cta: string }
 > = {
-  rejected: { chip: "ไม่อนุมัติ", tone: "red", Icon: Ban, cta: "ถ่ายรูปเพิ่ม" },
+  // Spec 353 — the two DECISION chips are single-sourced from APPROVAL_DECISION_LABEL
+  // (the PM form + attention card read the same map), so this worklist can't drift.
+  // `rework` is a STATUS, not a decision, so it keeps its own label.
+  rejected: { chip: APPROVAL_DECISION_LABEL.rejected, tone: "red", Icon: Ban, cta: "ถ่ายรูปเพิ่ม" },
   rework: { chip: "งานแก้ไข", tone: "amber", Icon: RotateCcw, cta: "ถ่ายรูปหลังแก้ไข" },
-  revision: { chip: "ให้แก้ไข", tone: "amber", Icon: PencilLine, cta: "ถ่ายรูปเพิ่ม" },
+  revision: {
+    chip: APPROVAL_DECISION_LABEL.needs_revision,
+    tone: "amber",
+    Icon: PencilLine,
+    cta: "ถ่ายรูปเพิ่ม",
+  },
 };
 
 const TONE = {

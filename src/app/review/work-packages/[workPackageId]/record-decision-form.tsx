@@ -18,23 +18,26 @@ import {
   isCommentValid,
   type ApprovalDecision,
 } from "@/lib/approvals/predicates";
+import { APPROVAL_DECISION_LABEL } from "@/lib/i18n/labels";
 import { recordDecision } from "./actions";
 
-// Spec 337 F3 — `rejected` used to record a comment and change nothing; it now
-// sends the WORK back: the WP flips to งานแก้ไข, its rework round advances, and
-// it leaves the review queue. The label and hint say so, because a PM choosing
-// between "ให้แก้ไข" (re-shoot the photos, stays in the queue) and this one is
-// choosing between two very different outcomes.
+// Spec 353 — the two rejections are sharpened on the evidence-vs-work axis and the
+// PM's choice must read the SAME as the SA later sees, so the two rejection labels
+// are single-sourced from APPROVAL_DECISION_LABEL. `approved` stays imperative here
+// (the form asks the PM to DO it); the result surfaces show "อนุมัติแล้ว".
+// needs_revision = re-shoot the photos, the WORK is fine, the WP stays in the queue.
+// rejected (spec 337 F3) = the WORK goes back to a new rework round.
 const DECISION_LABEL: Record<ApprovalDecision, string> = {
   approved: "อนุมัติ",
-  needs_revision: "ให้แก้ไข",
-  rejected: "ส่งกลับแก้งาน",
+  needs_revision: APPROVAL_DECISION_LABEL.needs_revision,
+  rejected: APPROVAL_DECISION_LABEL.rejected,
 };
 
 const DECISION_HINT: Record<ApprovalDecision, string> = {
   approved: "รายการงานจะเปลี่ยนเป็นเสร็จสิ้น",
-  needs_revision: "ส่งกลับให้ถ่ายรูปใหม่ — ยังอยู่ในคิวตรวจ — ต้องใส่ความเห็น",
-  rejected: "งานต้องแก้ไข — จะกลับไปเป็นงานแก้ไข ความเห็นของคุณคือสิ่งที่ต้องแก้",
+  needs_revision:
+    "รูปหลักฐานไม่ครบหรือไม่ชัด — ถ่ายใหม่แล้วส่งตรวจอีกครั้ง · ยังอยู่ในคิวตรวจ (งานไม่ต้องแก้)",
+  rejected: "ตัวงานต้องแก้ไข — จะกลับไปเป็นงานแก้ไข (รอบใหม่) แล้วถ่ายรูปหลังแก้ไข",
 };
 
 interface RecordDecisionFormProps {
