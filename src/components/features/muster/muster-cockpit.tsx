@@ -20,7 +20,7 @@ import { deriveCloseDayState } from "@/lib/muster/close-day-state";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import type { MusterWp } from "@/lib/muster/wp-groups";
 import type { MusterBoard, MusterTeam } from "@/lib/muster/load-muster";
-import { MusterAddSheet } from "./muster-add-sheet";
+import { MusterAddSheet, genderChip } from "./muster-add-sheet";
 
 type Mode = "in" | "out";
 type Session = "regular" | "ot";
@@ -592,7 +592,10 @@ function TeamCard({
           {team.members.map((m) => (
             <li key={m.workerId} className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-ink text-sm">{m.name}</span>
+                <span className="text-ink flex items-center gap-1.5 text-sm">
+                  {m.name}
+                  {genderChip(m.gender)}
+                </span>
                 <div className="flex items-center gap-2">
                   <span className="text-ink-muted text-meta tabular-nums">
                     {bangkokTime(m.inAt)}
@@ -664,7 +667,10 @@ function TeamCard({
             <ul className="flex flex-col gap-1.5">
               {team.missing.map((m) => (
                 <li key={m.id} className="flex items-center justify-between gap-2">
-                  <span className="text-ink-muted text-sm">{m.name}</span>
+                  <span className="text-ink-muted flex items-center gap-1.5 text-sm">
+                    {m.name}
+                    {genderChip(m.gender)}
+                  </span>
                   <button
                     type="button"
                     onClick={() => onCheckIn(team.id, m.id)}

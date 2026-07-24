@@ -13,9 +13,9 @@ import { shapeMusterBoard } from "@/lib/muster/load-muster";
 import type { MusterWp } from "@/lib/muster/wp-groups";
 
 const WORKERS = [
-  { id: "w1", name: "ลี" },
-  { id: "w2", name: "สมชาย" },
-  { id: "w3", name: "ก้อง" },
+  { id: "w1", name: "ลี", gender: null },
+  { id: "w2", name: "สมชาย", gender: null },
+  { id: "w3", name: "ก้อง", gender: null },
 ];
 const WPS: MusterWp[] = [
   { id: "wpA", code: "A", name: "งานเอ", status: "in_progress" },
@@ -297,7 +297,7 @@ describe("shapeMusterBoard — missing (spec 357 U-C)", () => {
         { leadWorkerId: "w1", workerIds: ["w1", "w2", "w3", "wGone"] },
       ],
     });
-    expect(board.teams[0]!.missing).toEqual([{ id: "w3", name: "ก้อง" }]);
+    expect(board.teams[0]!.missing).toEqual([{ id: "w3", name: "ก้อง", gender: null }]);
     expect(board.teams[1]!.missing).toEqual([]);
   });
 

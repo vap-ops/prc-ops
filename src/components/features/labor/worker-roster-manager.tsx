@@ -65,6 +65,14 @@ const PAY_TYPE_LABEL: Record<PayType, string> = {
   daily: "รายวัน",
 };
 
+// Spec 357 U-F: เพศ — optional on both forms (null = ยังไม่ระบุ; no clear path,
+// the RPC coalesce-keeps). The muster cockpit renders its ช/ญ chip off this.
+type WorkerGender = Database["public"]["Enums"]["worker_gender"];
+const WORKER_GENDER_LABEL: Record<WorkerGender, string> = {
+  male: "ชาย",
+  female: "หญิง",
+};
+
 export type ManagedWorker = {
   id: string;
   name: string;
@@ -93,6 +101,8 @@ export type ManagedWorker = {
   bank_name: string | null;
   bank_account_number: string | null;
   bank_account_name: string | null;
+  // Spec 357 U-F: เพศ (null = ยังไม่ระบุ).
+  gender: WorkerGender | null;
 };
 
 // Spec 200: a project the assigner can put a worker on. Spec 272 U2: its current
@@ -110,6 +120,8 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
   // Spec 266 U3: two orthogonal selectors replace the old monthly/daily radio.
   const [payType, setPayType] = useState<PayType>("monthly");
   const [employmentType, setEmploymentType] = useState<EmploymentType>("permanent");
+  // Spec 357 U-F: optional เพศ ("" = not picked → not sent, column stays null).
+  const [gender, setGender] = useState<WorkerGender | "">("");
   const [rate, setRate] = useState("");
   const [note, setNote] = useState("");
   // Spec 200 U2: optionally put the new worker on a project at creation.
@@ -150,6 +162,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
       employmentType,
       dayRate,
       note,
+      ...(gender !== "" ? { gender } : {}),
       ...(project ? { projectId: project } : {}),
       ...(isDaily ? { phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
     });
@@ -162,6 +175,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
     setRate("");
     setNote("");
     setProject("");
+    setGender("");
     resetPayee();
     router.refresh();
   }
@@ -209,6 +223,21 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
               label={EMPLOYMENT_TYPE_LABEL[value]}
               checked={employmentType === value}
               onSelect={() => setEmploymentType(value)}
+            />
+          ))}
+        </div>
+      </div>
+      {/* Spec 357 U-F: เพศ — optional (skippable; the muster cockpit shows ช/ญ). */}
+      <div className="mt-2">
+        <p className="text-ink-secondary text-sm">เพศ</p>
+        <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="เพศ">
+          {(["male", "female"] as const).map((value) => (
+            <RadioChip
+              key={value}
+              name="gender"
+              label={WORKER_GENDER_LABEL[value]}
+              checked={gender === value}
+              onSelect={() => setGender(value)}
             />
           ))}
         </div>
@@ -358,6 +387,9 @@ function WorkerRow({
   // unbound worker (the loader withholds a bound worker's bank).
   const [payType, setPayType] = useState<PayType>(worker.pay_type);
   const [employmentType, setEmploymentType] = useState<EmploymentType>(worker.employment_type);
+  // Spec 357 U-F: เพศ ("" = ยังไม่ระบุ; forwarding only a real changed value —
+  // the RPC coalesce-keeps, there is no clear path).
+  const [gender, setGender] = useState<WorkerGender | "">(worker.gender ?? "");
   // Spec 328 firm move — "" = ทีม PRC (untied). A tied worker can only move
   // firm→firm (update_worker's p_contractor coalesce cannot clear; remove = an
   // operator money-judgment, deliberately not offered here).
@@ -396,6 +428,7 @@ function WorkerRow({
       // routes through the portal request/approval flow, so it is never sent here.
       const payTypeChanged = payType !== worker.pay_type;
       const employmentTypeChanged = employmentType !== worker.employment_type;
+      const genderChanged = gender !== "" && gender !== (worker.gender ?? "");
       // Spec 328: only a real firm value ever forwards ("" = untied stays as-is).
       const contractorChanged =
         contractorPick !== "" && contractorPick !== (worker.contractor_id ?? "");
@@ -414,6 +447,7 @@ function WorkerRow({
         noteChanged ||
         payTypeChanged ||
         employmentTypeChanged ||
+        genderChanged ||
         phoneChanged ||
         taxIdChanged ||
         bankNameChanged ||
@@ -427,6 +461,7 @@ function WorkerRow({
             ...(noteChanged ? { note } : {}),
             ...(payTypeChanged ? { payType } : {}),
             ...(employmentTypeChanged ? { employmentType } : {}),
+            ...(genderChanged ? { gender } : {}),
             ...(contractorChanged ? { contractorId: contractorPick } : {}),
             ...(phoneChanged ? { phone } : {}),
             ...(taxIdChanged ? { taxId } : {}),
@@ -636,6 +671,21 @@ function WorkerRow({
                   label={EMPLOYMENT_TYPE_LABEL[value]}
                   checked={employmentType === value}
                   onSelect={() => setEmploymentType(value)}
+                />
+              ))}
+            </div>
+          </div>
+          {/* Spec 357 U-F: เพศ — optional; the stored value pre-selects. */}
+          <div className="mt-2">
+            <p className="text-ink-secondary text-sm">เพศ</p>
+            <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label="เพศ">
+              {(["male", "female"] as const).map((value) => (
+                <RadioChip
+                  key={value}
+                  name={`edit-gender-${worker.id}`}
+                  label={WORKER_GENDER_LABEL[value]}
+                  checked={gender === value}
+                  onSelect={() => setGender(value)}
                 />
               ))}
             </div>

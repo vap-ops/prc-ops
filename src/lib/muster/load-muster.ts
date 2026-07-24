@@ -12,7 +12,10 @@ import "server-only";
 // inactive worker with attendance) falls back to "—" rather than throwing.
 
 import type { createClient } from "@/lib/db/server";
+import type { Database } from "@/lib/db/database.types";
 import type { MusterWp } from "./wp-groups";
+
+type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -26,6 +29,8 @@ export interface MusterOtSession {
 export interface MusterMember {
   workerId: string;
   name: string;
+  // Spec 357 U-F — resolved off the workers roster (null for an id not on it).
+  gender: WorkerGender | null;
   // The REGULAR session (08:00–17:00).
   inAt: string | null;
   outAt: string | null;
@@ -45,11 +50,14 @@ export interface MusterTeam {
   prefillWpIds: string[];
   // Spec 357 U-C — ยังไม่มา: the lead's live crew members (spec 330 rosters)
   // who have not checked in anywhere today, in active-roster order.
-  missing: { id: string; name: string }[];
+  missing: { id: string; name: string; gender: WorkerGender | null }[];
 }
 export interface MusterWorker {
   id: string;
   name: string;
+  // Spec 357 U-F: เพศ for the cockpit's ช/ญ chip (null = ยังไม่ระบุ). Required
+  // on the type so a loader select that forgets the column fails typecheck.
+  gender: WorkerGender | null;
 }
 // The picker types + the pure grouping fold live in a client-safe module (wp-groups)
 // so the "use client" cockpit can import groupMusterWps as a value — this file is
@@ -95,8 +103,9 @@ export function shapeMusterBoard(raw: {
   // with several active crews contributes several rows; the fold unions them).
   crewRosters?: { leadWorkerId: string; workerIds: string[] }[];
 }): MusterBoard {
-  const nameById = new Map(raw.workers.map((w) => [w.id, w.name]));
-  const nameOf = (id: string) => nameById.get(id) ?? "—";
+  const workerById = new Map(raw.workers.map((w) => [w.id, w]));
+  const nameOf = (id: string) => workerById.get(id)?.name ?? "—";
+  const genderOf = (id: string) => workerById.get(id)?.gender ?? null;
   // Prefill = prior set ∩ current leaves that are still incomplete. Both filters
   // matter: a completed WP must not re-seed, and an id that stopped being a
   // leaf (regrouped) has no checkbox to uncheck.
@@ -132,6 +141,7 @@ export function shapeMusterBoard(raw: {
       return [...byWorker.entries()].map(([workerId, { reg, ot }]) => ({
         workerId,
         name: nameOf(workerId),
+        gender: genderOf(workerId),
         inAt: reg?.in_at ?? null,
         outAt: reg?.out_at ?? null,
         outAuto: reg?.out_auto ?? false,
@@ -149,7 +159,7 @@ export function shapeMusterBoard(raw: {
       if (!crew) return [];
       return raw.workers
         .filter((w) => crew.has(w.id) && !musteredAnywhere.has(w.id))
-        .map((w) => ({ id: w.id, name: w.name }));
+        .map((w) => ({ id: w.id, name: w.name, gender: w.gender }));
     })(),
   }));
 
@@ -186,7 +196,7 @@ export async function loadMusterBoard(
         : Promise.resolve({ data: [] as RawTeamWp[] }),
       supabase
         .from("workers")
-        .select("id, name")
+        .select("id, name, gender")
         .eq("project_id", projectId)
         .eq("active", true)
         .order("name"),

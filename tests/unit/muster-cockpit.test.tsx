@@ -60,6 +60,7 @@ const BOARD: MusterBoard = {
         {
           workerId: W1,
           name: "ลี",
+          gender: null,
           inAt: "2026-07-13T01:00:00Z",
           outAt: null,
           ot: null,
@@ -72,9 +73,9 @@ const BOARD: MusterBoard = {
     },
   ],
   workers: [
-    { id: W1, name: "ลี" },
-    { id: W2, name: "สมชาย" },
-    { id: W3, name: "ก้อง" },
+    { id: W1, name: "ลี", gender: null },
+    { id: W2, name: "สมชาย", gender: null },
+    { id: W3, name: "ก้อง", gender: null },
   ],
   wps: [{ id: WPA, code: "A", name: "งานเอ", status: "in_progress" }],
   closure: null,
@@ -188,6 +189,7 @@ describe("MusterCockpit — OT session (spec 351)", () => {
           {
             workerId: W1,
             name: "ลี",
+            gender: null,
             inAt: "2026-07-13T01:00:00Z",
             outAt: "2026-07-13T09:00:00Z",
             ot: null,
@@ -197,6 +199,7 @@ describe("MusterCockpit — OT session (spec 351)", () => {
           {
             workerId: W2,
             name: "สมชาย",
+            gender: null,
             inAt: "2026-07-13T01:00:00Z",
             outAt: "2026-07-13T09:00:00Z",
             ot: { inAt: "2026-07-13T10:30:00Z", outAt: null, otHours: null },
@@ -209,9 +212,9 @@ describe("MusterCockpit — OT session (spec 351)", () => {
       },
     ],
     workers: [
-      { id: W1, name: "ลี" },
-      { id: W2, name: "สมชาย" },
-      { id: W3, name: "ก้อง" },
+      { id: W1, name: "ลี", gender: null },
+      { id: W2, name: "สมชาย", gender: null },
+      { id: W3, name: "ก้อง", gender: null },
     ],
     wps: [{ id: WPA, code: "A", name: "งานเอ", status: "in_progress" }],
     closure: null,
@@ -501,6 +504,7 @@ describe("MusterCockpit — no intra-day move (spec 357 U-E)", () => {
             {
               workerId: W2,
               name: "สมชาย",
+              gender: null,
               inAt: "2026-07-13T01:05:00Z",
               outAt: null,
               ot: null,
@@ -607,6 +611,7 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
           members: BOARD.workers.map((w) => ({
             workerId: w.id,
             name: w.name,
+            gender: w.gender,
             inAt: "2026-07-13T01:00:00Z",
             outAt: null,
             ot: null,
@@ -694,6 +699,7 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
           {
             workerId: W1,
             name: "ลี",
+            gender: null,
             inAt: "2026-07-13T01:00:00Z",
             outAt: "2026-07-13T10:00:00Z",
             ot: null,
@@ -764,6 +770,7 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
             {
               workerId: W1,
               name: "ลี",
+              gender: null,
               inAt: "2026-07-13T01:00:00Z",
               outAt: "2026-07-13T10:00:00Z",
               ot: { inAt: "2026-07-13T10:30:00Z", outAt: null, otHours: null },
@@ -791,8 +798,8 @@ describe("MusterCockpit — ยังไม่มา missing list (spec 357 U-C)
       {
         ...BOARD.teams[0]!,
         missing: [
-          { id: W2, name: "สมชาย" },
-          { id: W3, name: "ก้อง" },
+          { id: W2, name: "สมชาย", gender: null },
+          { id: W3, name: "ก้อง", gender: null },
         ],
       },
     ],
@@ -827,5 +834,44 @@ describe("MusterCockpit — ยังไม่มา missing list (spec 357 U-C)
   it("no missing → no section", () => {
     renderCockpit();
     expect(screen.queryByText(/ยังไม่มา/)).toBeNull();
+  });
+});
+
+// Spec 357 U-F — the ช/ญ gender chip on cockpit people rows (member rows, the
+// ยังไม่มา rows, the add-sheet list), resolved off the workers roster; null
+// gender renders nothing.
+describe("MusterCockpit — gender chips (spec 357 U-F)", () => {
+  const GENDER_BOARD: MusterBoard = {
+    ...BOARD,
+    teams: [
+      {
+        ...BOARD.teams[0]!,
+        // The fold resolves member/missing gender off the roster in prod;
+        // fixtures carry it directly (ลี male member, สมชาย female missing).
+        members: [{ ...BOARD.teams[0]!.members[0]!, gender: "male" }],
+        missing: [{ id: W2, name: "สมชาย", gender: "female" }],
+      },
+    ],
+    workers: [
+      { id: W1, name: "ลี", gender: "male" },
+      { id: W2, name: "สมชาย", gender: "female" },
+      { id: W3, name: "ก้อง", gender: null },
+    ],
+  };
+
+  it("member and missing rows carry the chip; null gender renders none", async () => {
+    const user = userEvent.setup();
+    renderCockpit(GENDER_BOARD);
+    const team = screen.getByTestId(`team-${T1}`);
+    // ลี (member, male) → ช chip; สมชาย (missing, female) → ญ chip.
+    expect(within(team).getAllByText("ช").length).toBeGreaterThanOrEqual(1);
+    expect(within(team).getAllByText("ญ").length).toBeGreaterThanOrEqual(1);
+    // The add sheet list shows ก้อง (null) without a chip and สมชาย… — สมชาย is
+    // missing but addable too? No: missing means NOT mustered → addable. Open
+    // the sheet and check ก้อง's button has no chip text.
+    await user.click(within(team).getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+    const sheet = screen.getByRole("dialog");
+    const kong = within(sheet).getByRole("button", { name: /ก้อง/ });
+    expect(kong.textContent).toBe("ก้อง");
   });
 });

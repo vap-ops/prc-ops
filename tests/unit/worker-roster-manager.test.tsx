@@ -66,6 +66,7 @@ const WORKERS: ManagedWorker[] = [
     bank_name: null,
     bank_account_number: null,
     bank_account_name: null,
+    gender: null,
   },
 ];
 
@@ -320,6 +321,7 @@ describe("WorkerRosterManager DC edit matrix", () => {
     bank_name: null,
     bank_account_number: null,
     bank_account_name: null,
+    gender: null,
   };
 
   it("forwards pay/employment/phone/tax/bank edits via updateWorker (unbound worker)", async () => {
@@ -381,4 +383,62 @@ describe("WorkerRosterManager DC edit matrix", () => {
     expect(arg).not.toHaveProperty("bankAccountNumber");
     expect(arg).not.toHaveProperty("bankAccountName");
   });
+});
+
+// Spec 357 U-F — เพศ (gender) on the roster forms: an optional ชาย/หญิง
+// RadioChip pair on add + edit; omitted = not sent (create defaults null,
+// update keeps). The muster cockpit renders the ช/ญ chip from this data.
+describe("WorkerRosterManager gender (spec 357 U-F)", () => {
+  it("add form offers ชาย/หญิง; picking one threads gender to createWorker", async () => {
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
+    fireEvent.click(screen.getByRole("radio", { name: "หญิง" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ gender: "female" })),
+    );
+  });
+
+  it("add form without a pick sends no gender at all", async () => {
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.not.objectContaining({ gender: expect.anything() }),
+      ),
+    );
+  });
+
+  it("edit sheet prefills the stored gender and saves a change", async () => {
+    render(<WorkerRosterManager workers={[{ ...WORKERS[0]!, gender: "male" }]} contractors={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    // The edit sheet's ชาย chip is pre-selected from the row…
+    const radios = screen.getAllByRole("radio", { name: "ชาย" });
+    expect((radios[radios.length - 1] as HTMLInputElement).checked).toBe(true);
+    // …flip to หญิง and save.
+    const female = screen.getAllByRole("radio", { name: "หญิง" });
+    fireEvent.click(female[female.length - 1]!);
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() =>
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "w1", gender: "female" }),
+      ),
+    );
+  });
+});
+
+// Fresh-eyes 357 U-F: the edit omit-path — a stored-gender worker whose chips
+// are untouched must NOT resend gender (the update carries only changed fields).
+it("editing another field leaves gender out when the chips are untouched", async () => {
+  render(<WorkerRosterManager workers={[{ ...WORKERS[0]!, gender: "male" }]} contractors={[]} />);
+  fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+  const noteFields = screen.getAllByLabelText("หมายเหตุ");
+  fireEvent.change(noteFields[1]!, { target: { value: "โน้ตใหม่" } });
+  fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+  await waitFor(() =>
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.not.objectContaining({ gender: expect.anything() }),
+    ),
+  );
 });
