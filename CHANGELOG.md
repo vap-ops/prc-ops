@@ -1,3 +1,13 @@
+# [0.212.0](https://github.com/vap-ops/prc-ops/compare/v0.211.0...v0.212.0) (2026-07-24)
+
+### Bug Fixes
+
+- **review:** reason-led card title, premature affordance, answered-gated CTA (fresh-eyes) ([b39ce39](https://github.com/vap-ops/prc-ops/commit/b39ce39d580dbbc76d16720aa9034c1320c24eda))
+
+### Features
+
+- **review:** SA tailored revision-reason guidance (spec 355 U3) ([5aa74ae](https://github.com/vap-ops/prc-ops/commit/5aa74aeeaee441c004286481b23f790af31824fe))
+
 # [0.211.0](https://github.com/vap-ops/prc-ops/compare/v0.210.0...v0.211.0) (2026-07-24)
 
 ### Features
