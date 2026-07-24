@@ -1,3 +1,13 @@
+# [0.214.0](https://github.com/vap-ops/prc-ops/compare/v0.213.0...v0.214.0) (2026-07-24)
+
+### Bug Fixes
+
+- **muster:** aria-live nudge, morning-0 label, precedence test (close-day review) ([994575c](https://github.com/vap-ops/prc-ops/commit/994575caaf3eac877c6d1e5fa5d57a29d55080d2))
+
+### Features
+
+- **muster:** state-aware sticky ปิดวัน bar so the day gets closed (spec 306) ([f1e70cf](https://github.com/vap-ops/prc-ops/commit/f1e70cf7b8fb0cf334c2b789d107f49dd258c458))
+
 # [0.213.0](https://github.com/vap-ops/prc-ops/compare/v0.212.0...v0.213.0) (2026-07-24)
 
 ### Features
