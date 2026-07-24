@@ -59,7 +59,7 @@ export default async function WorkersPage({
         // Spec 272 U1: + level (a readable category, ADR 0060 — not money).
         // DC edit matrix: + phone/tax_id/bank_* so the row edit sheet can prefill
         // and edit them (money/PII — authorized by the requireRole gate above).
-        "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level, phone, tax_id, bank_name, bank_account_number, bank_account_name",
+        "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level, phone, tax_id, bank_name, bank_account_number, bank_account_name, gender",
       )
       .order("name", { ascending: true }),
     // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-ช่าง

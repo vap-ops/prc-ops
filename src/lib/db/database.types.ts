@@ -8597,6 +8597,7 @@ export type Database = {
           emergency_contact_relation: string | null
           employee_id: string | null
           employment_type: Database["public"]["Enums"]["employment_type"]
+          gender: Database["public"]["Enums"]["worker_gender"] | null
           id: string
           level: Database["public"]["Enums"]["worker_level"] | null
           name: string
@@ -8625,6 +8626,7 @@ export type Database = {
           emergency_contact_relation?: string | null
           employee_id?: string | null
           employment_type?: Database["public"]["Enums"]["employment_type"]
+          gender?: Database["public"]["Enums"]["worker_gender"] | null
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name: string
@@ -8653,6 +8655,7 @@ export type Database = {
           emergency_contact_relation?: string | null
           employee_id?: string | null
           employment_type?: Database["public"]["Enums"]["employment_type"]
+          gender?: Database["public"]["Enums"]["worker_gender"] | null
           id?: string
           level?: Database["public"]["Enums"]["worker_level"] | null
           name?: string
@@ -9657,6 +9660,7 @@ export type Database = {
           p_contractor?: string
           p_day_rate?: number
           p_employment_type: Database["public"]["Enums"]["employment_type"]
+          p_gender?: Database["public"]["Enums"]["worker_gender"]
           p_name: string
           p_note?: string
           p_pay_type: Database["public"]["Enums"]["pay_type"]
@@ -11347,6 +11351,7 @@ export type Database = {
           p_bank_name?: string
           p_contractor?: string
           p_employment_type?: Database["public"]["Enums"]["employment_type"]
+          p_gender?: Database["public"]["Enums"]["worker_gender"]
           p_id: string
           p_name?: string
           p_note?: string
@@ -11748,6 +11753,7 @@ export type Database = {
         | "pending_approval"
         | "rework"
       worker_bank_capture_status: "pending_pm" | "on_file"
+      worker_gender: "male" | "female"
       worker_level: "senior" | "mid" | "junior" | "apprentice"
     }
     CompositeTypes: {
@@ -12217,6 +12223,7 @@ export const Constants = {
         "rework",
       ],
       worker_bank_capture_status: ["pending_pm", "on_file"],
+      worker_gender: ["male", "female"],
       worker_level: ["senior", "mid", "junior", "apprentice"],
     },
   },

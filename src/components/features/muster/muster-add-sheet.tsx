@@ -18,7 +18,24 @@
 // exactly as bottom-sheet documents.
 
 import { useEffect, useRef } from "react";
+import type { Database } from "@/lib/db/database.types";
 import { MusterCamera } from "./muster-camera";
+
+type WorkerGender = Database["public"]["Enums"]["worker_gender"];
+
+// Spec 357 U-F — the ช/ญ chip rendered beside people rows (members, ยังไม่มา,
+// this sheet's tap list). Null = ยังไม่ระบุ → renders nothing. Lives here (the
+// leaf of the muster component graph) so the cockpit can import it without a
+// cycle.
+const GENDER_CHIP: Record<WorkerGender, string> = { male: "ช", female: "ญ" };
+export function genderChip(gender: WorkerGender | null | undefined) {
+  if (!gender) return null;
+  return (
+    <span className="bg-sunk text-ink-secondary text-meta rounded-full px-1.5 py-0.5 font-semibold">
+      {GENDER_CHIP[gender]}
+    </span>
+  );
+}
 
 export function MusterAddSheet({
   leadName,
@@ -35,7 +52,7 @@ export function MusterAddSheet({
   hasCamera: boolean;
   /** เข้า + regular mode — the only mode where the tap-add list applies. */
   showTapAdd: boolean;
-  addable: { id: string; name: string }[];
+  addable: { id: string; name: string; gender: WorkerGender | null }[];
   message: string | null;
   pending: boolean;
   onScanDetected: (workerId: string) => void;
@@ -91,9 +108,10 @@ export function MusterAddSheet({
                     type="button"
                     onClick={() => onTapAdd(w.id)}
                     disabled={pending}
-                    className="bg-sunk text-ink min-h-11 rounded-lg px-3 text-sm disabled:opacity-50"
+                    className="bg-sunk text-ink flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm disabled:opacity-50"
                   >
                     {w.name}
+                    {genderChip(w.gender)}
                   </button>
                 ))
               ) : (

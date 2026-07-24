@@ -17,6 +17,7 @@ import { TRADE_ERROR_BY_MESSAGE, TRADE_SAVE_GENERIC_ERROR } from "@/lib/i18n/lab
 
 type PayType = Database["public"]["Enums"]["pay_type"];
 type EmploymentType = Database["public"]["Enums"]["employment_type"];
+type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 // The roster UI still speaks in monthly/daily terms (spec 264/265 pay-type
 // selectors are a later unit) — this local union is the caller-facing
 // vocabulary, mapped onto pay_type/employment_type at the RPC-call boundary below.
@@ -94,9 +95,14 @@ export async function createWorker(
     // Spec 200 U2: optionally put the new worker on a project at creation (a
     // create + assign — reuses assign_worker_to_project, no new RPC).
     projectId?: string | null;
+    // Spec 357 U-F: optional เพศ; omitted → the column stays null (ยังไม่ระบุ).
+    gender?: WorkerGender;
   } & WorkerPayeeInput,
 ): Promise<WorkerActionResult> {
   if (!validName(input.name) || !validRate(input.dayRate)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  if (input.gender !== undefined && !GENDERS.includes(input.gender)) {
     return { ok: false, error: GENERIC_ERROR };
   }
   const noteResult = validateNotes(input.note ?? "");
@@ -114,6 +120,7 @@ export async function createWorker(
       ? { p_contractor: input.contractorId }
       : {}),
     ...(noteResult.value !== null ? { p_note: noteResult.value } : {}),
+    ...(input.gender !== undefined ? { p_gender: input.gender } : {}),
     ...payeeRpcParams(input.workerType, input),
   });
   if (error || !workerId) return { ok: false, error: GENERIC_ERROR };
@@ -138,6 +145,7 @@ export async function createWorker(
 // DC edit matrix (2026-07-13): the enum axes the roster edit sheet can set.
 const PAY_TYPES: readonly PayType[] = ["monthly", "daily"];
 const EMPLOYMENT_TYPES: readonly EmploymentType[] = ["permanent", "temporary"];
+const GENDERS: readonly WorkerGender[] = ["male", "female"];
 
 export async function updateWorker(input: {
   id: string;
@@ -152,6 +160,9 @@ export async function updateWorker(input: {
   // whatever it is handed (update_worker's direct-bank write is left unchanged).
   payType?: PayType;
   employmentType?: EmploymentType;
+  // Spec 357 U-F: set/change เพศ; omit to preserve (the RPC coalesce-keeps —
+  // there is deliberately no clear path).
+  gender?: WorkerGender;
   phone?: string;
   taxId?: string;
   bankName?: string;
@@ -179,6 +190,9 @@ export async function updateWorker(input: {
   if (input.employmentType !== undefined && !EMPLOYMENT_TYPES.includes(input.employmentType)) {
     return { ok: false, error: GENERIC_ERROR };
   }
+  if (input.gender !== undefined && !GENDERS.includes(input.gender)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
 
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("update_worker", {
@@ -189,6 +203,7 @@ export async function updateWorker(input: {
     ...(input.note !== undefined ? { p_note: input.note } : {}),
     ...(input.payType !== undefined ? { p_pay_type: input.payType } : {}),
     ...(input.employmentType !== undefined ? { p_employment_type: input.employmentType } : {}),
+    ...(input.gender !== undefined ? { p_gender: input.gender } : {}),
     // Payee text: pass the raw value; the RPC nullif-btrims (blank preserves).
     ...(input.phone !== undefined ? { p_phone: input.phone } : {}),
     ...(input.taxId !== undefined ? { p_tax_id: input.taxId } : {}),
