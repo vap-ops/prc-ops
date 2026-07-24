@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(19);
 
 -- ============================================================================
 -- Spec 355 U1 — structured reject-evidence reasons.

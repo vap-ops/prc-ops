@@ -16,9 +16,11 @@ import {
   APPROVAL_DECISIONS,
   commentRequiredFor,
   isCommentValid,
+  revisionReasonRequiredFor,
   type ApprovalDecision,
 } from "@/lib/approvals/predicates";
-import { APPROVAL_DECISION_LABEL } from "@/lib/i18n/labels";
+import type { ApprovalRevisionReason } from "@/lib/db/enums";
+import { APPROVAL_DECISION_LABEL, APPROVAL_REVISION_REASON_LABEL } from "@/lib/i18n/labels";
 import { recordDecision } from "./actions";
 
 // Spec 353 — the two rejections are sharpened on the evidence-vs-work axis and the
@@ -47,13 +49,25 @@ interface RecordDecisionFormProps {
 export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
   const router = useRouter();
   const [decision, setDecision] = useState<ApprovalDecision | null>(null);
+  const [revisionReason, setRevisionReason] = useState<ApprovalRevisionReason | null>(null);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
   const needsComment = decision ? commentRequiredFor(decision) : false;
+  const needsReason = decision ? revisionReasonRequiredFor(decision) : false;
   const canSubmit =
-    decision !== null && isCommentValid(decision, comment.length ? comment : null) && !submitting;
+    decision !== null &&
+    isCommentValid(decision, comment.length ? comment : null) &&
+    (!needsReason || revisionReason !== null) &&
+    !submitting;
+
+  // Spec 355 — the reason only lives on a needs_revision decision, so switching
+  // away clears it (never send a reason with approved/rejected — the RPC refuses it).
+  function pickDecision(d: ApprovalDecision) {
+    setDecision(d);
+    if (d !== "needs_revision") setRevisionReason(null);
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,6 +78,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
         workPackageId,
         decision,
         comment: comment.length > 0 ? comment : null,
+        revisionReason: decision === "needs_revision" ? revisionReason : null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -100,7 +115,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
               name="decision"
               value={d}
               checked={decision === d}
-              onChange={() => setDecision(d)}
+              onChange={() => pickDecision(d)}
               className="accent-fill mt-1"
             />
             <span className="flex flex-col">
@@ -110,6 +125,33 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
           </label>
         ))}
       </fieldset>
+
+      {/* Spec 355 — WHY the photos are sent back. Required for reject-evidence; each
+          reason drives the SA's tailored next-action (mismatch = remove + re-shoot). */}
+      {decision === "needs_revision" ? (
+        <fieldset className="flex flex-col gap-2" disabled={submitting}>
+          <legend className="text-ink mb-1 text-sm font-medium">
+            เหตุผล <span className="text-danger">*</span>
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {(["incomplete", "mismatch", "premature"] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRevisionReason(r)}
+                aria-pressed={revisionReason === r}
+                className={`rounded-control focus-visible:ring-action border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 ${
+                  revisionReason === r
+                    ? "border-action bg-action-soft text-ink"
+                    : "border-edge-strong bg-card text-ink-secondary hover:bg-page"
+                }`}
+              >
+                {APPROVAL_REVISION_REASON_LABEL[r]}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="approval-comment" className="text-ink text-sm font-medium">

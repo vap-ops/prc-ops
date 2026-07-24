@@ -790,6 +790,14 @@ export const APPROVAL_DECISION_LABEL: Record<Enums["approval_decision"], string>
   needs_revision: "ถ่ายรูปใหม่",
 };
 
+// Spec 355 — WHY a reject-evidence (needs_revision) decision sent the photos back.
+// The PM picks one; the SA sees it with a tailored next-action (spec 355 U3).
+export const APPROVAL_REVISION_REASON_LABEL: Record<Enums["approval_revision_reason"], string> = {
+  incomplete: "รูปไม่ครบ",
+  mismatch: "รูปไม่ตรงกับงาน",
+  premature: "งานยังไม่เสร็จ",
+};
+
 // Spec 265 U2 — the super_admin LINE-identity verification block. SSOT strings
 // used by the shared LineIdentityBlock across /registrations/[id] and
 // /settings/roles/[id].

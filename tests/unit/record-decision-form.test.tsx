@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -81,5 +81,37 @@ describe("WP-detail re-shoot CTA (spec 353 D7)", () => {
       'wp.rework_round > 0 ? "ถ่ายรูปหลังแก้ไขใหม่" : "ถ่ายรูปหลังทำงานใหม่"',
     );
     expect(pageSrc).not.toContain("ถ่ายรูปเพิ่ม");
+  });
+});
+
+// Spec 355 — reject-evidence carries a required structured reason. The chips appear
+// only for needs_revision, and submit is gated until one is picked (comment optional).
+describe("RecordDecisionForm — spec 355 revision-reason chips", () => {
+  it("shows the three reason chips only when needs_revision is picked", () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    // no reason chips before a decision is chosen
+    expect(screen.queryByText("รูปไม่ตรงกับงาน")).not.toBeInTheDocument();
+    // pick needs_revision (radio order = approved, needs_revision, rejected)
+    fireEvent.click(screen.getAllByRole("radio")[1]!);
+    expect(screen.getByText("รูปไม่ครบ")).toBeInTheDocument();
+    expect(screen.getByText("รูปไม่ตรงกับงาน")).toBeInTheDocument();
+    expect(screen.getByText("งานยังไม่เสร็จ")).toBeInTheDocument();
+  });
+
+  it("gates submit until a reason is picked (comment optional)", () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    fireEvent.click(screen.getAllByRole("radio")[1]!);
+    const submit = screen.getByRole("button", { name: /บันทึกผลการตรวจ/ });
+    expect(submit).toBeDisabled();
+    fireEvent.click(screen.getByText("รูปไม่ตรงกับงาน"));
+    expect(submit).toBeEnabled();
+  });
+
+  it("hides the reason chips for approved and reject-work (rejected)", () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    fireEvent.click(screen.getAllByRole("radio")[2]!); // rejected
+    expect(screen.queryByText("รูปไม่ตรงกับงาน")).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("radio")[0]!); // approved
+    expect(screen.queryByText("รูปไม่ตรงกับงาน")).not.toBeInTheDocument();
   });
 });
