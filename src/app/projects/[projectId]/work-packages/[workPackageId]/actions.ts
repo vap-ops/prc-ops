@@ -44,6 +44,7 @@ import {
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
 import {
+  canCaptureAfterFix,
   isPhotoWpDeletable,
   isRevisionWindowOpen,
   PHOTO_DELETE_LOCKED_ERROR,
@@ -138,6 +139,26 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     }
     if (wp.status !== "rework") {
       return { ok: false, error: "แนบรูปข้อบกพร่องได้เฉพาะงานที่เปิดแก้ไขอยู่" };
+    }
+  }
+
+  // Spec 353 U2: หลังแก้ไข (after_fix) is a WP's completion evidence only inside a
+  // rework cycle, so refuse an after_fix insert outside the capture window — the
+  // same rule the WP-detail tile uses (canCaptureAfterFix). The photo_logs INSERT
+  // RLS has no WP-status gate on a fresh row, so this action check is the real
+  // write backstop. The revision-window read runs only when the WP is not already
+  // in rework (rework short-circuits the predicate).
+  if (input.phase === "after_fix") {
+    const revisionWindowOpen =
+      wp.status === "rework" ? false : (await revisionWindowFor(supabase, wp.id, wp.status)).open;
+    if (
+      !canCaptureAfterFix({
+        status: wp.status,
+        reworkRound: wp.rework_round,
+        revisionWindowOpen,
+      })
+    ) {
+      return { ok: false, error: "ถ่ายรูปหลังแก้ไขได้เฉพาะตอนที่งานอยู่ระหว่างแก้ไข" };
     }
   }
 

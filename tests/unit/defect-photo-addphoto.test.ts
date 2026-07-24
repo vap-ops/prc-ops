@@ -10,12 +10,15 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockGetActionUser, insertMock, roleMock, wpMock } = vi.hoisted(() => ({
-  mockGetActionUser: vi.fn(),
-  insertMock: vi.fn(),
-  roleMock: vi.fn(),
-  wpMock: vi.fn(),
-}));
+const { mockGetActionUser, insertMock, roleMock, wpMock, latestDecisionMock, auditMock } =
+  vi.hoisted(() => ({
+    mockGetActionUser: vi.fn(),
+    insertMock: vi.fn(),
+    roleMock: vi.fn(),
+    wpMock: vi.fn(),
+    latestDecisionMock: vi.fn(),
+    auditMock: vi.fn(),
+  }));
 
 const WP = "11111111-1111-4111-8111-111111111111";
 const PHOTO = "22222222-2222-4222-8222-222222222222";
@@ -28,6 +31,15 @@ function rlsClient() {
       }
       if (table === "work_packages") {
         return { select: () => ({ eq: () => ({ maybeSingle: wpMock }) }) };
+      }
+      if (table === "audit_log") {
+        // Spec 353 — revisionWindowFor's resubmit probe: .select("payload").eq×4
+        // → awaited rows. Returned pre-filtered, so any non-empty array = answered.
+        return {
+          select: () => ({
+            eq: () => ({ eq: () => ({ eq: () => ({ eq: () => auditMock() }) }) }),
+          }),
+        };
       }
       // photo_logs
       return {
@@ -63,6 +75,11 @@ vi.mock("@/lib/photos/current-photos", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("server-only", () => ({}));
+// Spec 353 — revisionWindowFor reads the latest decision through this helper; mock
+// it so the after_fix-gate tests can set the WP's revision state directly.
+vi.mock("@/lib/approvals/latest-decision", () => ({
+  getLatestDecisionsForWorkPackages: latestDecisionMock,
+}));
 
 import { addPhoto } from "@/app/projects/[projectId]/work-packages/[workPackageId]/actions";
 
@@ -85,6 +102,10 @@ beforeEach(() => {
   insertMock.mockReset().mockResolvedValue({ error: null });
   roleMock.mockReset();
   wpMock.mockReset();
+  // Default: no prior decision (revisionWindowFor short-circuits to open:false)
+  // and no resubmit row. The reworked-needs_revision cases override these.
+  latestDecisionMock.mockReset().mockResolvedValue(new Map());
+  auditMock.mockReset().mockResolvedValue({ data: [], error: null });
 });
 
 describe("addPhoto defect scope (spec 248 U2)", () => {
@@ -174,6 +195,84 @@ describe("addPhoto answersPhotoId (spec 248 U3)", () => {
       photoId: PHOTO,
       ext: "jpeg",
       answersPhotoId: "not-a-uuid",
+    });
+    expect(r.ok).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+});
+
+// Spec 353 U2 — after_fix is a WP's completion evidence only inside a rework cycle,
+// so the SERVER refuses an after_fix insert outside the capture window (mirrors the
+// canCaptureAfterFix predicate the WP-detail tile uses). The photo_logs INSERT RLS
+// has no WP-status gate on a fresh row, so this action check is the real backstop.
+describe("addPhoto after_fix capture window (spec 353 U2)", () => {
+  it("admits after_fix on a WP in rework (rework short-circuits the decision read)", async () => {
+    setup("site_admin", "rework", 1);
+    const r = await addPhoto({
+      workPackageId: WP,
+      phase: "after_fix",
+      photoId: PHOTO,
+      ext: "jpeg",
+    });
+    expect(r).toMatchObject({ ok: true });
+    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ phase: "after_fix" }));
+    expect(latestDecisionMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses after_fix on a completed WP (the 20-WP leak)", async () => {
+    setup("site_admin", "complete", 1);
+    const r = await addPhoto({
+      workPackageId: WP,
+      phase: "after_fix",
+      photoId: PHOTO,
+      ext: "jpeg",
+    });
+    expect(r.ok).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses after_fix on a round-0 pending_approval WP (evidence is `after`)", async () => {
+    setup("site_admin", "pending_approval", 0);
+    const r = await addPhoto({
+      workPackageId: WP,
+      phase: "after_fix",
+      photoId: PHOTO,
+      ext: "jpeg",
+    });
+    expect(r.ok).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("admits after_fix on a reworked pending_approval WP inside the revision window", async () => {
+    setup("site_admin", "pending_approval", 1);
+    latestDecisionMock.mockResolvedValue(
+      new Map([[WP, { id: "dec1", decision: "needs_revision" }]]),
+    );
+    auditMock.mockResolvedValue({ data: [], error: null }); // unanswered → window open
+    const r = await addPhoto({
+      workPackageId: WP,
+      phase: "after_fix",
+      photoId: PHOTO,
+      ext: "jpeg",
+    });
+    expect(r).toMatchObject({ ok: true });
+    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ phase: "after_fix" }));
+  });
+
+  it("refuses after_fix once that revision was answered (window closed)", async () => {
+    setup("site_admin", "pending_approval", 1);
+    latestDecisionMock.mockResolvedValue(
+      new Map([[WP, { id: "dec1", decision: "needs_revision" }]]),
+    );
+    auditMock.mockResolvedValue({
+      data: [{ payload: { answers_decision_id: "dec1" } }],
+      error: null,
+    });
+    const r = await addPhoto({
+      workPackageId: WP,
+      phase: "after_fix",
+      photoId: PHOTO,
+      ext: "jpeg",
     });
     expect(r.ok).toBe(false);
     expect(insertMock).not.toHaveBeenCalled();
