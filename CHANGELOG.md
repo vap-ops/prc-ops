@@ -1,3 +1,9 @@
+# [0.217.0](https://github.com/vap-ops/prc-ops/compare/v0.216.0...v0.217.0) (2026-07-24)
+
+### Features
+
+- **muster:** WP picker offers incomplete leaves + prior-day prefill (spec 357 U-B) ([cea7a43](https://github.com/vap-ops/prc-ops/commit/cea7a43ea25aa556212904460bd6461c4562c1ba)), closes [#742](https://github.com/vap-ops/prc-ops/issues/742)
+
 # [0.216.0](https://github.com/vap-ops/prc-ops/compare/v0.215.0...v0.216.0) (2026-07-24)
 
 ### Bug Fixes
