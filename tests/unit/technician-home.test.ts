@@ -6,8 +6,7 @@
 // registrations-gate-parity.test.ts): the page must gate to the technician role
 // ONLY, read its data on the RLS session (never the admin client — the applicant
 // reads its own row), reuse the shipped EmployeeCard + own-registration resolver,
-// and carry the "assigned WPs — coming soon" placeholder (the room-to-grow slot,
-// real WP list out of scope now).
+// and carry the assigned-WPs surface (spec 264 placeholder → spec 350 real card).
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -36,10 +35,11 @@ describe("/technician home (spec 264 G3)", () => {
     expect(page).toContain("resolveCardPhoto");
   });
 
-  it("carries the assigned-WPs coming-soon placeholder (room to grow)", () => {
-    // The placeholder section — Thai label + the shared coming-soon affordance.
-    expect(page).toContain("งานที่ได้รับมอบหมาย");
-    expect(page).toContain("ComingSoonBadge");
+  it("wires the assigned-work card, retiring the coming-soon placeholder (spec 350)", () => {
+    // The room-to-grow slot is now the real card (get_my_assigned_work → view → card).
+    expect(page).toContain("AssignedWorkCard");
+    expect(page).toContain("buildAssignedWorkView");
+    expect(page).not.toContain("ComingSoonBadge");
   });
 
   it("is a role-home destination — no DetailHeader back chip (spec 63 nav rule)", () => {
