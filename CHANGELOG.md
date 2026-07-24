@@ -1,3 +1,9 @@
+# [0.211.0](https://github.com/vap-ops/prc-ops/compare/v0.210.0...v0.211.0) (2026-07-24)
+
+### Features
+
+- **spec306:** muster picker offers leaf งานย่อย WPs, grouped by parent งาน ([8192f8a](https://github.com/vap-ops/prc-ops/commit/8192f8adfa2fb0ffc064e0a82739fabe1a9f5140))
+
 # [0.210.0](https://github.com/vap-ops/prc-ops/compare/v0.209.0...v0.210.0) (2026-07-24)
 
 ### Features
