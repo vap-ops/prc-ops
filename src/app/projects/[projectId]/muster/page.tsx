@@ -46,6 +46,18 @@ export default async function MusterPage({ params, searchParams }: PageProps) {
   const date = bangkokTodayIso();
   const board = await loadMusterBoard(supabase, projectId, date);
 
+  // Spec 306 discoverability — is it past the 17:00 Asia/Bangkok day-end? A
+  // snapshot at page load (re-evaluated on each router.refresh); feeds the ปิดวัน
+  // bar's overdue reminder. Computed server-side so it stays deterministic.
+  const bangkokHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date()),
+  );
+  const pastDayEnd = bangkokHour >= 17;
+
   // The HT axis (spec 330/332): only crew leads may open a muster team as its
   // หัวหน้าทีม (operator rule 2026-07-21). RLS-scoped read; null leads drop out.
   const { data: crewLeads } = await supabase
@@ -72,6 +84,7 @@ export default async function MusterPage({ params, searchParams }: PageProps) {
           revalidate={musterHref(projectId)}
           board={board}
           htWorkerIds={htWorkerIds}
+          pastDayEnd={pastDayEnd}
         />
       </section>
     </PageShell>

@@ -99,6 +99,7 @@ function renderCockpit(board: MusterBoard) {
       date={DATE}
       revalidate="/projects/x/muster"
       board={board}
+      pastDayEnd={false}
       htWorkerIds={board.workers.map((w) => w.id)}
     />,
   );

@@ -65,13 +65,14 @@ const BOARD: MusterBoard = {
   closure: null,
 };
 
-function renderCockpit(board: MusterBoard = BOARD) {
+function renderCockpit(board: MusterBoard = BOARD, pastDayEnd = false) {
   return render(
     <MusterCockpit
       projectId={PROJECT}
       date="2026-07-13"
       revalidate="/projects/x/muster"
       board={board}
+      pastDayEnd={pastDayEnd}
       // Pre-334-follow-up semantics for the legacy cases: every fixture worker
       // is an HT, so these tests keep exercising the non-filter behaviour.
       htWorkerIds={board.workers.map((w) => w.id)}
@@ -262,6 +263,7 @@ describe("lead picker — HT only", () => {
         date="2026-07-13"
         revalidate="/projects/x/muster"
         board={BOARD}
+        pastDayEnd={false}
         htWorkerIds={[W1, W2]}
       />,
     );
@@ -280,6 +282,7 @@ describe("lead picker — HT only", () => {
         date="2026-07-13"
         revalidate="/projects/x/muster"
         board={{ ...BOARD, teams: [] }}
+        pastDayEnd={false}
         htWorkerIds={[]}
       />,
     );
@@ -295,6 +298,7 @@ it("HT exists but is not on the active roster (deactivated lead) → guidance, n
       date="2026-07-13"
       revalidate="/projects/x/muster"
       board={{ ...BOARD, teams: [] }}
+      pastDayEnd={false}
       htWorkerIds={["ghost-not-in-workers"]}
     />,
   );
@@ -389,5 +393,91 @@ describe("MusterCockpit — สแกน QR button gate (spec 306 U3b iOS fallba
     } finally {
       delete (navigator as unknown as Record<string, unknown>).mediaDevices;
     }
+  });
+});
+
+describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 discoverability)", () => {
+  const READY_BOARD: MusterBoard = {
+    ...BOARD,
+    teams: [
+      {
+        id: T1,
+        leadWorkerId: W1,
+        leadName: "ลี",
+        members: [
+          {
+            workerId: W1,
+            name: "ลี",
+            inAt: "2026-07-13T01:00:00Z",
+            outAt: "2026-07-13T10:00:00Z",
+            ot: null,
+            outAuto: false,
+          },
+        ],
+        wpIds: [],
+      },
+    ],
+  };
+
+  it("workers still in → in_progress nudge with the still-in count", () => {
+    renderCockpit(); // BOARD: W1 in, not out
+    expect(screen.getByText(/ยังมีช่างในงาน 1 คน/)).toBeInTheDocument();
+  });
+
+  it("team opened but nobody scanned in yet → neutral label, not 'ยังมีช่างในงาน 0 คน'", () => {
+    const NO_SCAN: MusterBoard = {
+      ...BOARD,
+      teams: [{ id: T1, leadWorkerId: W1, leadName: "ลี", members: [], wpIds: [] }],
+    };
+    renderCockpit(NO_SCAN);
+    expect(screen.getByText(/ยังไม่มีช่างเช็คอิน/)).toBeInTheDocument();
+    expect(screen.queryByText(/ยังมีช่างในงาน 0 คน/)).not.toBeInTheDocument();
+  });
+
+  it("all checked out → the 'done' highlight nudges to close for wages", () => {
+    renderCockpit(READY_BOARD);
+    expect(screen.getByText(/ทุกคนเช็คออกแล้ว/)).toBeInTheDocument();
+  });
+
+  it("past day-end with workers still in → overdue reminder", () => {
+    renderCockpit(BOARD, true);
+    expect(screen.getByText(/เลยเวลาเลิกงาน/)).toBeInTheDocument();
+  });
+
+  it("closing is a positive action — the confirm button is primary, never danger", async () => {
+    const user = userEvent.setup();
+    renderCockpit(READY_BOARD);
+    await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+    const confirm = screen.getByRole("button", { name: "ยืนยันปิดวัน" });
+    expect(confirm).toHaveClass("bg-fill");
+    expect(confirm).not.toHaveClass("bg-danger");
+  });
+
+  it("confirming with an OT session still open warns that OT will not be recorded", async () => {
+    const user = userEvent.setup();
+    const OT_OPEN: MusterBoard = {
+      ...BOARD,
+      teams: [
+        {
+          id: T1,
+          leadWorkerId: W1,
+          leadName: "ลี",
+          members: [
+            {
+              workerId: W1,
+              name: "ลี",
+              inAt: "2026-07-13T01:00:00Z",
+              outAt: "2026-07-13T10:00:00Z",
+              ot: { inAt: "2026-07-13T10:30:00Z", outAt: null, otHours: null },
+              outAuto: false,
+            },
+          ],
+          wpIds: [],
+        },
+      ],
+    };
+    renderCockpit(OT_OPEN);
+    await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+    expect(screen.getByText(/ยัง OT ไม่ปิด/)).toBeInTheDocument();
   });
 });
