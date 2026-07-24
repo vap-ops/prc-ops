@@ -1,3 +1,9 @@
+# [0.219.0](https://github.com/vap-ops/prc-ops/compare/v0.218.0...v0.219.0) (2026-07-24)
+
+### Features
+
+- **workers:** gender - enum, PII-wall widen, RPC params, roster form, muster chips (spec 357 U-F) ([#753](https://github.com/vap-ops/prc-ops/issues/753)) ([a4ad9ef](https://github.com/vap-ops/prc-ops/commit/a4ad9ef0e14319ece7795083737b3338d13ae6ca))
+
 # [0.218.0](https://github.com/vap-ops/prc-ops/compare/v0.217.0...v0.218.0) (2026-07-24)
 
 ### Features
