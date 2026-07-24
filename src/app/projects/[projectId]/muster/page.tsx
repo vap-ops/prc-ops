@@ -2,7 +2,8 @@
 // หัวหน้า and checks members in (and out) for the day. Lives on the project (where
 // SAs actually work per telemetry), site-facing only. Reads on the RLS session
 // client: the muster_* tables are select-scoped `can_see_project` (spec 306 U2),
-// and the scan/open RPCs the cockpit calls self-gate on site_admin/super_admin +
+// and the scan/open RPCs the cockpit calls self-gate on site_admin/super_admin/
+// procurement_manager (spec 348) +
 // project membership — so a non-member reaching this URL simply sees an empty
 // board and every action is refused server-side.
 

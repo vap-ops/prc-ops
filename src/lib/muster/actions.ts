@@ -2,7 +2,8 @@
 
 // Spec 306 U3 — muster cockpit actions. Authorization is the DB's: the muster
 // RPCs (open_muster_team / muster_scan_in / muster_scan_out / set_muster_team_wps)
-// are SECURITY DEFINER, gate on current_user_role() ∈ (site_admin, super_admin) +
+// are SECURITY DEFINER, gate on current_user_role() ∈ (site_admin, super_admin,
+// procurement_manager — spec 348 SA-parity) +
 // can_see_project, and enforce the one-team-per-(worker,date) rule. Actions
 // validate shape, relay to the RPC, and map its errors to Thai for the SA.
 

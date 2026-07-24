@@ -371,6 +371,39 @@ describe("MusterCockpit — leaf WP picker (spec 306 grain-coverage)", () => {
   });
 });
 
+describe("MusterCockpit — no intra-day move (spec 357 U-E)", () => {
+  // Operator 2026-07-24: no team change within a day (the "at OT" case is a
+  // separate future feature). The strongest former trigger — 2+ teams, เข้า
+  // mode — must now render no move affordance at all.
+  it("member rows offer no ย้าย even with 2+ teams in เข้า mode", () => {
+    const T2 = "ffffffff-6666-6666-6666-666666666666";
+    renderCockpit({
+      ...BOARD,
+      teams: [
+        BOARD.teams[0]!,
+        {
+          id: T2,
+          leadWorkerId: W2,
+          leadName: "สมชาย",
+          members: [
+            {
+              workerId: W2,
+              name: "สมชาย",
+              inAt: "2026-07-13T01:05:00Z",
+              outAt: null,
+              ot: null,
+              outAuto: false,
+            },
+          ],
+          wpIds: [],
+        },
+      ],
+    });
+    expect(screen.queryByRole("button", { name: "ย้าย" })).toBeNull();
+    expect(screen.queryByText(/ย้ายไปทีมของ/)).toBeNull();
+  });
+});
+
 describe("MusterCockpit — สแกน QR button gate (spec 306 U3b iOS fallback)", () => {
   // jsdom has neither BarcodeDetector nor mediaDevices — the baseline device
   // that genuinely cannot scan.
