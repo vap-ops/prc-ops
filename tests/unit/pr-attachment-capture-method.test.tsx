@@ -64,6 +64,13 @@ describe("DeliveryPhotoUploader capture method (spec 352 U1)", () => {
     fireEvent.change(fileInput(container), { target: { files: [file()] } });
     await waitFor(() => expect(mockAddDelivery).toHaveBeenCalledTimes(1));
     expect(safeQueuePut).toHaveBeenCalledWith(expect.objectContaining({ captureMethod: "camera" }));
+    // Spec 352 U2: the DIRECT upload (distinct from the queue item above) is
+    // also stamped — this is the offline-runner-bypassing happy path.
+    expect(mockUpload).toHaveBeenCalledWith(
+      "p1/r1/a1.jpg",
+      expect.anything(),
+      expect.objectContaining({ metadata: { captureMethod: "camera" } }),
+    );
   });
 });
 

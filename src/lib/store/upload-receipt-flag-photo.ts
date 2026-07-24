@@ -12,6 +12,7 @@ import { photoExtToMime } from "@/lib/photos/path";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
 import { PR_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
+import { captureMethodMetadata } from "@/lib/photos/capture-method";
 
 export type FlagPhotoUploadResult = { ok: true; path: string } | { ok: false; error: string };
 
@@ -35,9 +36,13 @@ export async function uploadReceiptFlagPhoto(
   if (!path) return { ok: false, error: "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
 
   const supabase = createClient();
-  const { error } = await supabase.storage
-    .from(PR_ATTACHMENTS_BUCKET)
-    .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(prepared.ext) });
+  const { error } = await supabase.storage.from(PR_ATTACHMENTS_BUCKET).upload(path, prepared.blob, {
+    upsert: false,
+    contentType: photoExtToMime(prepared.ext),
+    // Spec 352 U2: the only caller (receipt-flag-sheet) is camera-forced
+    // (capture="environment", spec 324 U6) — fixed "camera", not per-call.
+    metadata: captureMethodMetadata("camera"),
+  });
   if (error && !classifyStorageUploadError(error).alreadyExists) {
     return { ok: false, error: "ส่งรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
   }

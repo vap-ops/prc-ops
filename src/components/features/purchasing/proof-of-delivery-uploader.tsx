@@ -24,6 +24,7 @@ import {
   type AttachmentExt,
 } from "@/lib/purchasing/attachment-file";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
+import { captureMethodMetadata } from "@/lib/photos/capture-method";
 import { PO_ATTACHMENTS_BUCKET } from "@/lib/storage/buckets";
 import { PROOF_OF_DELIVERY_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
@@ -87,7 +88,13 @@ export function ProofOfDeliveryUploader({
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from(PO_ATTACHMENTS_BUCKET)
-        .upload(path, blob, { upsert: false, contentType: attachmentExtToMime(ext) });
+        .upload(path, blob, {
+          upsert: false,
+          contentType: attachmentExtToMime(ext),
+          // Spec 352 U2: the REAL per-call affordance — this input renders
+          // capture="environment" only when `capture` is true (spec 308).
+          metadata: captureMethodMetadata(capture ? "camera" : "picker"),
+        });
       if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
         setPhase("error");
         setError("ส่งหลักฐานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
