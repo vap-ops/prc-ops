@@ -15,6 +15,7 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 import { ISO_DATE_REGEX } from "@/lib/dates";
 
 type MusterMethod = Database["public"]["Enums"]["muster_method"];
+type MusterSession = Database["public"]["Enums"]["muster_session"];
 
 const GENERIC = "เช็คชื่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
@@ -34,6 +35,8 @@ function scanErrorToThai(message: string): string {
   if (message.includes("mustered elsewhere") || message.includes("concurrent")) {
     return "ช่างคนนี้อยู่ในทีมอื่นแล้ววันนี้";
   }
+  // Spec 351 — an OT scan-in without the worker's regular session on this team.
+  if (message.includes("no regular session")) return "ต้องเช็คชื่อเข้างานปกติในทีมนี้ก่อนทำ OT";
   if (message.includes("no attendance")) return "ยังไม่ได้เช็คชื่อเข้าของช่างคนนี้";
   // move_muster_worker guards (spec 306 move UI).
   if (message.includes("cannot move across projects")) return "ย้ายข้ามโครงการไม่ได้";
@@ -78,6 +81,8 @@ export async function musterScan(input: {
   workerId: string;
   mode: "in" | "out";
   method: MusterMethod;
+  // Spec 351 — which session this scan belongs to (regular hours vs OT).
+  session: MusterSession;
   revalidate: string;
 }): Promise<MusterResult> {
   if (
@@ -92,7 +97,12 @@ export async function musterScan(input: {
 
   const { data, error } = await auth.supabase.rpc(
     input.mode === "in" ? "muster_scan_in" : "muster_scan_out",
-    { p_team: input.teamId, p_worker: input.workerId, p_method: input.method },
+    {
+      p_team: input.teamId,
+      p_worker: input.workerId,
+      p_method: input.method,
+      p_session: input.session,
+    },
   );
   if (error) return { ok: false, error: scanErrorToThai(error.message) };
   revalidatePath(input.revalidate);

@@ -49,7 +49,7 @@ const BOARD: MusterBoard = {
           name: "ลี",
           inAt: "2026-07-13T01:00:00Z",
           outAt: null,
-          otHours: null,
+          ot: null,
           outAuto: false,
         },
       ],
@@ -152,6 +152,101 @@ describe("MusterCockpit", () => {
     await user.click(within(team).getByRole("button", { name: "บันทึกงาน" }));
     expect(setMusterTeamWps).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: T1, wpIds: [WPA] }),
+    );
+  });
+});
+
+// Spec 351 U2 — the OT session. A worker's normal hours and OT are two separate
+// scan sessions; the cockpit gains a งานปกติ/OT session toggle, per-member OT
+// scan controls (OT เข้า when no OT yet, OT ออก while OT is open), an OT-span
+// line, and an "OT ยังไม่ปิด" flag for an OT session left open.
+describe("MusterCockpit — OT session (spec 351)", () => {
+  const OT_BOARD: MusterBoard = {
+    teams: [
+      {
+        id: T1,
+        leadWorkerId: W1,
+        leadName: "ลี",
+        members: [
+          // W1 — regular done, NO ot yet → eligible for OT เข้า.
+          {
+            workerId: W1,
+            name: "ลี",
+            inAt: "2026-07-13T01:00:00Z",
+            outAt: "2026-07-13T09:00:00Z",
+            ot: null,
+            outAuto: false,
+          },
+          // W2 — regular done, OT OPEN (in, no out) → OT ออก + the ยังไม่ปิด flag.
+          {
+            workerId: W2,
+            name: "สมชาย",
+            inAt: "2026-07-13T01:00:00Z",
+            outAt: "2026-07-13T09:00:00Z",
+            ot: { inAt: "2026-07-13T10:30:00Z", outAt: null, otHours: null },
+            outAuto: false,
+          },
+        ],
+        wpIds: [],
+      },
+    ],
+    workers: [
+      { id: W1, name: "ลี" },
+      { id: W2, name: "สมชาย" },
+      { id: W3, name: "ก้อง" },
+    ],
+    wps: [{ id: WPA, code: "A", name: "งานเอ" }],
+    closure: null,
+  };
+
+  it("shows an OT-span line and the open-OT flag for a member with OT open", () => {
+    renderCockpit(OT_BOARD);
+    // The open OT session surfaces its ยังไม่ปิด flag (independent of the toggle).
+    expect(screen.getByText(/OT ยังไม่ปิด/)).toBeInTheDocument();
+  });
+
+  it("in OT session, offers OT ออก for an open-OT member and calls scan session:'ot' mode:'out'", async () => {
+    const user = userEvent.setup();
+    renderCockpit(OT_BOARD);
+    await user.click(screen.getByRole("button", { name: "OT" }));
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: "OT ออก" }));
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: T1,
+        workerId: W2,
+        mode: "out",
+        session: "ot",
+        method: "manual",
+      }),
+    );
+  });
+
+  it("in OT session, offers OT เข้า for a member with no OT yet and calls scan session:'ot' mode:'in'", async () => {
+    const user = userEvent.setup();
+    renderCockpit(OT_BOARD);
+    await user.click(screen.getByRole("button", { name: "OT" }));
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: "OT เข้า" }));
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: T1,
+        workerId: W1,
+        mode: "in",
+        session: "ot",
+        method: "manual",
+      }),
+    );
+  });
+
+  it("the regular in-mode add still threads session:'regular'", async () => {
+    const user = userEvent.setup();
+    renderCockpit();
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: /เพิ่มช่าง/ }));
+    await user.click(within(team).getByRole("button", { name: "สมชาย" }));
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: T1, workerId: W2, mode: "in", session: "regular" }),
     );
   });
 });

@@ -15,13 +15,22 @@ import type { createClient } from "@/lib/db/server";
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
-export interface MusterMember {
-  workerId: string;
-  name: string;
+// Spec 351 U2 — the OT session folded onto a member. `ot` is null when the worker
+// has no OT that day; otHours is the OT span (regular sessions never carry OT).
+export interface MusterOtSession {
   inAt: string | null;
   outAt: string | null;
   otHours: number | null;
+}
+export interface MusterMember {
+  workerId: string;
+  name: string;
+  // The REGULAR session (08:00–17:00).
+  inAt: string | null;
+  outAt: string | null;
   outAuto: boolean;
+  // The OT session (17:30–whenever), or null.
+  ot: MusterOtSession | null;
 }
 export interface MusterTeam {
   id: string;
@@ -54,6 +63,7 @@ interface RawTeam {
 interface RawAttendance {
   team_id: string;
   worker_id: string;
+  session: "regular" | "ot";
   in_at: string | null;
   out_at: string | null;
   ot_hours: number | null;
@@ -79,16 +89,26 @@ export function shapeMusterBoard(raw: {
     id: t.id,
     leadWorkerId: t.lead_worker_id,
     leadName: nameOf(t.lead_worker_id),
-    members: raw.attendance
-      .filter((a) => a.team_id === t.id)
-      .map((a) => ({
-        workerId: a.worker_id,
-        name: nameOf(a.worker_id),
-        inAt: a.in_at,
-        outAt: a.out_at,
-        otHours: a.ot_hours,
-        outAuto: a.out_auto ?? false,
-      })),
+    // Spec 351 U2 — a worker now has up to TWO attendance rows (regular + ot);
+    // fold them into ONE member (regular fields on the base, ot under `member.ot`).
+    // Map insertion order preserves first-seen worker order.
+    members: (() => {
+      const byWorker = new Map<string, { reg?: RawAttendance; ot?: RawAttendance }>();
+      for (const a of raw.attendance.filter((x) => x.team_id === t.id)) {
+        const entry = byWorker.get(a.worker_id) ?? {};
+        if (a.session === "ot") entry.ot = a;
+        else entry.reg = a;
+        byWorker.set(a.worker_id, entry);
+      }
+      return [...byWorker.entries()].map(([workerId, { reg, ot }]) => ({
+        workerId,
+        name: nameOf(workerId),
+        inAt: reg?.in_at ?? null,
+        outAt: reg?.out_at ?? null,
+        outAuto: reg?.out_auto ?? false,
+        ot: ot ? { inAt: ot.in_at, outAt: ot.out_at, otHours: ot.ot_hours } : null,
+      }));
+    })(),
     wpIds: raw.teamWps.filter((x) => x.team_id === t.id).map((x) => x.work_package_id),
   }));
 
@@ -116,7 +136,7 @@ export async function loadMusterBoard(
     teamIds.length
       ? supabase
           .from("muster_attendance")
-          .select("team_id, worker_id, in_at, out_at, ot_hours, out_auto")
+          .select("team_id, worker_id, session, in_at, out_at, ot_hours, out_auto")
           .in("team_id", teamIds)
       : Promise.resolve({ data: [] as RawAttendance[] }),
     teamIds.length
