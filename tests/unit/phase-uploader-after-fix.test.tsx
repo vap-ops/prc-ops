@@ -1,6 +1,10 @@
-// Feedback 0fa23307 — the capture zone must offer a tappable หลังแก้ไข
-// (after_fix) bucket: a 4th tile, always available (it's a rework addendum, not
-// a future-locked phase in the before→during→after chain).
+// Feedback 0fa23307 — the capture zone offers a tappable หลังแก้ไข (after_fix)
+// bucket: a rework addendum, divided off from the before→during→after chain.
+//
+// Spec 353 — the ONE showAfterFix boolean split in two: showAfterFixCapture drives
+// the shutter tile (rework cycle only), showAfterFixHistory the read-only strip
+// (any WP that carries past after_fix photos). A completed WP keeps its history but
+// offers no shutter.
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -28,22 +32,29 @@ import {
 } from "@/app/projects/[projectId]/work-packages/[workPackageId]/phase-uploader";
 import { PHASES } from "@/lib/photos/phases";
 
-const phases: PhaseData[] = PHASES.map(({ phase, label }) => ({
-  phase,
-  label,
-  photos: [],
-  lastUpdatedLabel: null,
-}));
-
-function renderZone(props: { showAfterFix?: boolean; currentReworkRound?: number } = {}) {
+function renderZone(
+  props: {
+    showAfterFixCapture?: boolean;
+    showAfterFixHistory?: boolean;
+    currentReworkRound?: number;
+    afterFixPhotos?: PhaseData["photos"];
+  } = {},
+) {
+  const zonePhases: PhaseData[] = PHASES.map(({ phase, label }) => ({
+    phase,
+    label,
+    photos: phase === "after_fix" ? (props.afterFixPhotos ?? []) : [],
+    lastUpdatedLabel: null,
+  }));
   return render(
     <PhotoCaptureZone
       projectId="p1"
       workPackageId="w1"
       userId="u1"
-      phases={phases}
+      phases={zonePhases}
       currentPhase="before"
-      showAfterFix={props.showAfterFix ?? true}
+      showAfterFixCapture={props.showAfterFixCapture ?? true}
+      showAfterFixHistory={props.showAfterFixHistory ?? true}
       currentReworkRound={props.currentReworkRound ?? 1}
       canDelete
       removedTrace={[]}
@@ -51,36 +62,48 @@ function renderZone(props: { showAfterFix?: boolean; currentReworkRound?: number
   );
 }
 
-describe("PhotoCaptureZone after_fix tile (feedback 0fa23307, spec 216)", () => {
-  it("renders a tappable หลังแก้ไข capture tile alongside the three lifecycle phases", () => {
-    renderZone();
+describe("PhotoCaptureZone after_fix tile (feedback 0fa23307, spec 216/353)", () => {
+  it("shows a tappable หลังแก้ไข shutter when capture is allowed", () => {
+    renderZone({ showAfterFixCapture: true, showAfterFixHistory: true });
     expect(screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" })).toBeInTheDocument();
     const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
     expect(afterFix).toBeInTheDocument();
-    // available, not locked-out (the tile is always tappable)
     expect(afterFix).toBeEnabled();
   });
 
-  it("separates หลังแก้ไข from the lifecycle row — it is a rework addendum, not a 4th sequential phase", () => {
-    renderZone();
+  it("separates หลังแก้ไข from the lifecycle row — a rework addendum, not a 4th sequential phase", () => {
+    renderZone({ showAfterFixCapture: true });
     const before = screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" });
     const after = screen.getByRole("button", { name: "ถ่ายรูป แล้วเสร็จ" });
     const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
-    // The three lifecycle tiles share one switcher grid…
     const lifecycleGrid = before.parentElement;
     expect(lifecycleGrid).toContainElement(after);
-    // …and หลังแก้ไข lives OUTSIDE it (its own divided-off line).
     expect(lifecycleGrid).not.toContainElement(afterFix);
   });
 
-  it("hides หลังแก้ไข entirely when the WP is not in a rework cycle (showAfterFix=false)", () => {
-    renderZone({ showAfterFix: false });
-    expect(screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" })).toBeInTheDocument();
+  it("history-only: shows the past after_fix photos read-only, with NO shutter", () => {
+    renderZone({
+      showAfterFixCapture: false,
+      showAfterFixHistory: true,
+      afterFixPhotos: [
+        { id: "a1", url: "/x.jpg", seq: 1, timeLabel: "22 ก.ค.", uploaderName: null },
+      ],
+    });
+    // no capture tile…
     expect(screen.queryByRole("button", { name: "ถ่ายรูป หลังแก้ไข" })).not.toBeInTheDocument();
+    // …but the past photo still shows (its stable number).
+    expect(screen.getByText("#1")).toBeInTheDocument();
   });
 
-  it("labels the หลังแก้ไข tile with the current rework round (multi-rework support)", () => {
-    renderZone({ currentReworkRound: 2 });
+  it("hides หลังแก้ไข entirely when there is neither capture nor history", () => {
+    renderZone({ showAfterFixCapture: false, showAfterFixHistory: false });
+    expect(screen.getByRole("button", { name: "ถ่ายรูป เตรียมงาน" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ถ่ายรูป หลังแก้ไข" })).not.toBeInTheDocument();
+    expect(screen.queryByText("#1")).not.toBeInTheDocument();
+  });
+
+  it("labels the หลังแก้ไข shutter with the current rework round (multi-rework support)", () => {
+    renderZone({ showAfterFixCapture: true, currentReworkRound: 2 });
     const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
     expect(afterFix).toHaveTextContent("รอบ 2");
   });
@@ -97,9 +120,15 @@ describe("removal trace (spec 341 U1)", () => {
         projectId="p1"
         workPackageId="w1"
         userId="u1"
-        phases={phases}
+        phases={PHASES.map(({ phase, label }) => ({
+          phase,
+          label,
+          photos: [],
+          lastUpdatedLabel: null,
+        }))}
         currentPhase="before"
-        showAfterFix={false}
+        showAfterFixCapture={false}
+        showAfterFixHistory={false}
         currentReworkRound={0}
         canDelete
         removedTrace={[
@@ -108,23 +137,24 @@ describe("removal trace (spec 341 U1)", () => {
       />,
     );
     expect(screen.getByText("ลบไปแล้ว 1 รูป")).toBeInTheDocument();
-    // The zone is จุดบกพร่อง — a zone with NO capture tile at all. Driving the
-    // trace off the tile list dropped exactly these, and they are the reviewer's
-    // own evidence on a WP in rework: the deletion that most needs a record.
     expect(screen.getByText(/จุดบกพร่อง #4 · ลบโดย อรปรีญา · 22 ก.ค. 15:30/)).toBeInTheDocument();
   });
 
   it("says ไม่ทราบชื่อ rather than dropping the entry when the name cannot be resolved", () => {
-    // A remover who has left the project still owes the record — an unnamed row
-    // must stay visible, never silently vanish.
     render(
       <PhotoCaptureZone
         projectId="p1"
         workPackageId="w1"
         userId="u1"
-        phases={phases}
+        phases={PHASES.map(({ phase, label }) => ({
+          phase,
+          label,
+          photos: [],
+          lastUpdatedLabel: null,
+        }))}
         currentPhase="before"
-        showAfterFix={false}
+        showAfterFixCapture={false}
+        showAfterFixHistory={false}
         currentReworkRound={0}
         canDelete
         removedTrace={[
@@ -141,9 +171,15 @@ describe("removal trace (spec 341 U1)", () => {
         projectId="p1"
         workPackageId="w1"
         userId="u1"
-        phases={phases}
+        phases={PHASES.map(({ phase, label }) => ({
+          phase,
+          label,
+          photos: [],
+          lastUpdatedLabel: null,
+        }))}
         currentPhase="before"
-        showAfterFix={false}
+        showAfterFixCapture={false}
+        showAfterFixHistory={false}
         currentReworkRound={0}
         canDelete
         removedTrace={[]}

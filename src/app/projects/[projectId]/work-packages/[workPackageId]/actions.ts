@@ -316,6 +316,65 @@ export async function submitWorkPackageForApproval(
   return { ok: true };
 }
 
+// Spec 352 — "ถอนงานกลับมาแก้ไข": the honest inverse of ส่งงานเข้าตรวจ. The
+// submitter (or super_admin) pulls an UNDECIDED pending_approval WP back to
+// in_progress, where the existing remove/add-photo flow works, then re-submits.
+// This preserves the 291/340 evidence freeze — changing photos requires taking
+// the WP OUT of review (this audited status change), never a silent in-place
+// edit on a frozen WP. Like submit (spec 337 U1), the transition runs through
+// recall_work_package_submission on the CALLER's session so the transition-audit
+// trigger attributes the recall; the full authority (submitter-or-super,
+// window-closed) is the can_recall_work_package DB predicate.
+export interface RecallSubmissionInput {
+  projectId: string;
+  workPackageId: string;
+}
+
+export type RecallSubmissionResult = { ok: true } | { ok: false; error: string };
+
+export async function recallWorkPackageSubmission(
+  input: RecallSubmissionInput,
+): Promise<RecallSubmissionResult> {
+  if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };
+
+  // WP_SUBMIT_ROLES — the exact set the recall RPC re-states; plain procurement
+  // (a read-only WP viewer) is excluded there too. A since-demoted submitter is
+  // caught at the RPC's role read, not here.
+  const gate = await requireActionRole(WP_SUBMIT_ROLES);
+  if ("error" in gate) return { ok: false, error: gate.error };
+  const { supabase } = gate.auth;
+
+  // RLS-scoped read = the membership/visibility gate; a caller who can't see the
+  // WP gets null and is refused without leaking whether the row exists.
+  const { data: wp, error: wpError } = await supabase
+    .from("work_packages")
+    .select("id, project_id")
+    .eq("id", input.workPackageId)
+    .maybeSingle();
+  if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
+
+  const { error: rpcError } = await supabase.rpc("recall_work_package_submission", {
+    p_wp: wp.id,
+  });
+  if (rpcError) {
+    // 42501 = can_recall_work_package refused: not the submitter, wrong status,
+    // or an open ให้แก้ไข window (all folded into the one authority). 22023 = the
+    // WP vanished / moved. Any other code = transient — offer a retry.
+    return {
+      ok: false,
+      error:
+        rpcError.code === "22023"
+          ? "ไม่พบรายการงาน หรือสถานะเปลี่ยนไปแล้ว"
+          : rpcError.code === "42501"
+            ? "ถอนงานไม่ได้ (คุณไม่ใช่ผู้ส่งงานนี้ หรือสถานะเปลี่ยนไปแล้ว)"
+            : "ถอนงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    };
+  }
+
+  revalidatePath(workPackageHref(wp.project_id, wp.id));
+  return { ok: true };
+}
+
 // Spec 337 U2a (F2) — "ส่งตรวจอีกครั้ง": the SA answers a needs_revision and
 // hands the WP back to the DECIDER. The cure loop had no closing act, so a
 // re-shot WP sat indistinguishable in a 40-deep queue; the explicit press is

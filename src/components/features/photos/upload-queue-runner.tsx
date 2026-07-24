@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
+import { captureMethodMetadata } from "@/lib/photos/capture-method";
 import { blobWithType, photoExtToMime } from "@/lib/photos/path";
 import {
   bucketForKind,
@@ -39,7 +40,7 @@ import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
 
 const LOCK_NAME = "prc-photo-upload-queue";
 
-async function buildDeps(): Promise<{ deps: ProcessDeps; sessionUserId: string | null }> {
+export async function buildDeps(): Promise<{ deps: ProcessDeps; sessionUserId: string | null }> {
   const supabase = createBrowserSupabase();
   // Shared-device guard (ADR 0039): resolve the session user once per
   // pass; foreign/ownerless items are skipped inside processQueue.
@@ -57,6 +58,9 @@ async function buildDeps(): Promise<{ deps: ProcessDeps; sessionUserId: string |
         .upload(item.storagePath, blobWithType(item.blob, photoExtToMime(item.ext)), {
           contentType: photoExtToMime(item.ext),
           upsert: false,
+          // Spec 354 — stamp the capture affordance (which rode the queue item)
+          // into storage.objects.user_metadata.
+          metadata: captureMethodMetadata(item.captureMethod),
         });
       if (!error) return { ok: true };
       const { alreadyExists } = classifyStorageUploadError(error);

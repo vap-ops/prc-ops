@@ -132,7 +132,29 @@ function makeQuery(table: string) {
   return q;
 }
 
-const supabase = { from: (table: string) => makeQuery(table) } as never;
+// Spec 352 — the loader also calls the can_recall_work_package RPC in the fan.
+// The stub mirrors makeQuery's in-flight tracking so the RPC counts toward the
+// concurrency floor, and returns a boolean like the real predicate.
+const CAN_RECALL = true;
+function makeRpc(data: unknown) {
+  return {
+    then(resolve: (v: unknown) => void, reject?: (e: unknown) => void) {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      return new Promise((r) => setTimeout(r, 5))
+        .then(() => {
+          inFlight--;
+          return { data, error: null };
+        })
+        .then(resolve, reject);
+    },
+  };
+}
+
+const supabase = {
+  from: (table: string) => makeQuery(table),
+  rpc: (fn: string) => makeRpc(fn === "can_recall_work_package" ? CAN_RECALL : null),
+} as never;
 
 beforeEach(() => {
   inFlight = 0;
@@ -147,14 +169,15 @@ describe("loadWorkPackageDetail", () => {
       isPlanner: true,
     });
     // contractors + approvals + purchase_requests + siblings + deps + the two
-    // audit_log reads (rework reasons, spec 337 resubmits) = 7 queries that
-    // depend only on the root → must overlap. Serial would peak at 1.
+    // audit_log reads (rework reasons, spec 337 resubmits) + the spec 352
+    // can_recall_work_package RPC = 8 reads that depend only on the root → must
+    // overlap. Serial would peak at 1.
     //
-    // The floor tracks the ACTUAL fan width rather than staying at the original
-    // 5: a loose floor cannot notice a new read being appended as a serial
-    // waterfall step, which is exactly the regression this test exists to catch.
-    // Adding a fan read? Raise this. Removing one? Lower it deliberately.
-    expect(maxInFlight).toBeGreaterThanOrEqual(7);
+    // The floor tracks the ACTUAL fan width rather than staying loose: a loose
+    // floor cannot notice a new read being appended as a serial waterfall step,
+    // which is exactly the regression this test exists to catch. Adding a fan
+    // read? Raise this. Removing one? Lower it deliberately.
+    expect(maxInFlight).toBeGreaterThanOrEqual(8);
   });
 
   it("assembles the correct shape", async () => {
@@ -173,6 +196,8 @@ describe("loadWorkPackageDetail", () => {
     // Spec 337 U2a — the resubmit audit rows reduce to the set of answered
     // decision ids the ส่งตรวจอีกครั้ง rule consumes.
     expect(data.answeredDecisionIds).toEqual(new Set(["a1"]));
+    // Spec 352 — the can_recall_work_package RPC result flows through to the page.
+    expect(data.canRecall).toBe(true);
     expect(data.displayNames.get("u1")).toBe("ชื่อ");
     // spec 289 U2: the zone's projectWorkers passes through untouched
     expect(data.labor.projectWorkers).toEqual([{ id: "w1", name: "สมชาย" }]);

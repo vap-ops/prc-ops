@@ -9270,6 +9270,7 @@ export type Database = {
           uses: number
         }[]
       }
+      can_recall_work_package: { Args: { p_wp: string }; Returns: boolean }
       can_see_photo_log: { Args: { p_photo_log_id: string }; Returns: boolean }
       can_see_project: { Args: { p_project_id: string }; Returns: boolean }
       can_see_staff_registration: {
@@ -10273,6 +10274,10 @@ export type Database = {
       reassign_crew_lead: {
         Args: { p_crew: string; p_new_lead: string }
         Returns: undefined
+      }
+      recall_work_package_submission: {
+        Args: { p_wp: string }
+        Returns: boolean
       }
       receive_po_lines: {
         Args: {

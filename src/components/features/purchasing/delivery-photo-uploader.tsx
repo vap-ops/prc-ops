@@ -24,6 +24,7 @@ import { createClient } from "@/lib/db/browser";
 import { PHOTO_ACCEPT_MIME, photoExtToMime } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import { buildPrAttachmentStoragePath } from "@/lib/purchasing/attachment-path";
+import { captureMethodMetadata } from "@/lib/photos/capture-method";
 import {
   classifyStorageUploadError,
   queueNowMs,
@@ -91,6 +92,9 @@ export function DeliveryPhotoUploader({
         attempts: 0,
         lastError: null,
         enqueuedAtMs: queueNowMs(),
+        // Spec 354 U1: this input is capture="environment" (spec 303 —
+        // forces the rear camera on mobile), so the affordance is "camera".
+        captureMethod: "camera",
       };
       await safeQueuePut(queueItem);
 
@@ -98,7 +102,13 @@ export function DeliveryPhotoUploader({
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from("pr-attachments")
-        .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(ext) });
+        .upload(path, prepared.blob, {
+          upsert: false,
+          contentType: photoExtToMime(ext),
+          // Spec 354 U2: this input is capture="environment" (forces the rear
+          // camera, spec 303) — the direct upload is stamped to match.
+          metadata: captureMethodMetadata("camera"),
+        });
       if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
         // The photo is QUEUED — "try again" copy here would make the
         // user re-pick the file under a new uuid and produce a

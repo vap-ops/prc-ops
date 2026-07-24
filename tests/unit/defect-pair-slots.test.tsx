@@ -48,7 +48,8 @@ function renderZone(defectPairs: ReadonlyArray<DefectPairSlot> | null) {
       userId="u1"
       phases={phases}
       currentPhase="after"
-      showAfterFix
+      showAfterFixCapture
+      showAfterFixHistory
       currentReworkRound={2}
       canDelete
       removedTrace={[]}

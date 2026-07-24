@@ -1,3 +1,27 @@
+# [0.203.0](https://github.com/vap-ops/prc-ops/compare/v0.202.0...v0.203.0) (2026-07-24)
+
+### Features
+
+- **wp:** gate หลังแก้ไข capture to rework cycles (spec 353 U1) ([#735](https://github.com/vap-ops/prc-ops/issues/735)) ([d0f4015](https://github.com/vap-ops/prc-ops/commit/d0f4015ad3c427d0be45925372bf0a83cec1ec88)), closes [#N](https://github.com/vap-ops/prc-ops/issues/N)
+
+# [0.202.0](https://github.com/vap-ops/prc-ops/compare/v0.201.0...v0.202.0) (2026-07-24)
+
+### Features
+
+- **purchasing:** stamp captureMethod on camera-forced upload sites (spec 352 U2) ([#734](https://github.com/vap-ops/prc-ops/issues/734)) ([701be95](https://github.com/vap-ops/prc-ops/commit/701be95f3f02fb30202d541168d79f5e6c591ec9))
+
+# [0.201.0](https://github.com/vap-ops/prc-ops/compare/v0.200.0...v0.201.0) (2026-07-24)
+
+### Features
+
+- spec 352 U1 — capture-method SSOT + WP/queued photos ([#733](https://github.com/vap-ops/prc-ops/issues/733)) ([b81a41e](https://github.com/vap-ops/prc-ops/commit/b81a41ef4e3ead6a47634ee55df65b7a4ebefd37))
+
+# [0.200.0](https://github.com/vap-ops/prc-ops/compare/v0.199.0...v0.200.0) (2026-07-24)
+
+### Features
+
+- **work-packages:** recall a submitted WP to fix its evidence (spec 352) ([#732](https://github.com/vap-ops/prc-ops/issues/732)) ([e467005](https://github.com/vap-ops/prc-ops/commit/e467005b980904691b3d9c4b2a7f5ca1d344482a))
+
 # [0.199.0](https://github.com/vap-ops/prc-ops/compare/v0.198.0...v0.199.0) (2026-07-24)
 
 ### Features

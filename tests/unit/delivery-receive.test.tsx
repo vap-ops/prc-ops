@@ -8,8 +8,13 @@
 // gains a submitBlocked prop; ProofOfDeliveryUploader gains capture/label
 // so the truck photo is taken live (spec 303 doctrine).
 
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+
+const { mockUpload, mockPrepare } = vi.hoisted(() => ({
+  mockUpload: vi.fn(),
+  mockPrepare: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/app/requests/actions", () => ({
@@ -17,7 +22,15 @@ vi.mock("@/app/requests/actions", () => ({
   splitPurchaseRequestOnReceipt: vi.fn(),
   addProofOfDeliveryAttachment: vi.fn(),
 }));
+vi.mock("@/lib/db/browser", () => ({
+  createClient: () => ({ storage: { from: () => ({ upload: mockUpload }) } }),
+}));
+vi.mock("@/lib/photos/downscale", () => ({ preparePhotoForUpload: mockPrepare }));
+vi.mock("@/lib/purchasing/po-attachment-path", () => ({
+  buildPoAttachmentStoragePath: () => "po1/att1.jpg",
+}));
 
+import { addProofOfDeliveryAttachment } from "@/app/requests/actions";
 import { planDeliveryReceive } from "@/lib/purchasing/delivery-receive";
 import { PoReceiveSection } from "@/components/features/purchasing/po-receive-section";
 import { ProofOfDeliveryUploader } from "@/components/features/purchasing/proof-of-delivery-uploader";
@@ -123,6 +136,43 @@ describe("ProofOfDeliveryUploader capture mode (spec 308)", () => {
       "environment",
     );
     expect(screen.getByRole("button", { name: "ถ่ายรูปของที่มาส่ง" })).toBeInTheDocument();
+  });
+});
+
+describe("ProofOfDeliveryUploader stamps captureMethod metadata (spec 354 U2)", () => {
+  const file = () => new File(["x"], "truck.jpg", { type: "image/jpeg" });
+  function fileInput(container: HTMLElement) {
+    return container.querySelector('input[type="file"]') as HTMLInputElement;
+  }
+
+  beforeEach(() => {
+    mockUpload.mockReset().mockResolvedValue({ error: null });
+    mockPrepare.mockReset().mockResolvedValue({ blob: new Blob(["x"]), ext: "jpg" });
+    vi.mocked(addProofOfDeliveryAttachment).mockReset().mockResolvedValue({ ok: true });
+  });
+
+  it("stamps camera when capture is forced (live truck photo)", async () => {
+    const { container } = render(
+      <ProofOfDeliveryUploader purchaseOrderId="po1" deliveryId="d1" capture />,
+    );
+    fireEvent.change(fileInput(container), { target: { files: [file()] } });
+    await waitFor(() => expect(mockUpload).toHaveBeenCalledTimes(1));
+    expect(mockUpload).toHaveBeenCalledWith(
+      "po1/att1.jpg",
+      expect.anything(),
+      expect.objectContaining({ metadata: { captureMethod: "camera" } }),
+    );
+  });
+
+  it("stamps picker when capture is off (BO chooser)", async () => {
+    const { container } = render(<ProofOfDeliveryUploader purchaseOrderId="po1" deliveryId="d1" />);
+    fireEvent.change(fileInput(container), { target: { files: [file()] } });
+    await waitFor(() => expect(mockUpload).toHaveBeenCalledTimes(1));
+    expect(mockUpload).toHaveBeenCalledWith(
+      "po1/att1.jpg",
+      expect.anything(),
+      expect.objectContaining({ metadata: { captureMethod: "picker" } }),
+    );
   });
 });
 

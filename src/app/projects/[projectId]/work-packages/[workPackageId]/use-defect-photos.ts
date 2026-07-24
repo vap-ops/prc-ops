@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
+import { captureMethodMetadata } from "@/lib/photos/capture-method";
 import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
@@ -77,6 +78,9 @@ export function useDefectPhotos({
       .upload(photo.storagePath, photo.blob, {
         contentType: photoExtToMime(photo.ext),
         upsert: false,
+        // Spec 354 — a plain <input accept> with no `capture` split: the input
+        // affordance is ambiguous, so record "picker".
+        metadata: captureMethodMetadata("picker"),
       });
     // already-exists = the bytes landed on a lost-response attempt; the path
     // is uuid-keyed so the object is provably ours (same rule as every other

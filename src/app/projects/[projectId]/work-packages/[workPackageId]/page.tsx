@@ -78,7 +78,11 @@ import {
   type WpStockRow,
 } from "@/components/features/store/wp-issue-stock";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
-import { canDeleteWpPhotos } from "@/lib/photos/deletable";
+import {
+  canCaptureAfterFix,
+  canDeleteWpPhotos,
+  isRevisionWindowOpen,
+} from "@/lib/photos/deletable";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
@@ -87,6 +91,7 @@ import { PhotoCaptureZone } from "./phase-uploader";
 import { DEFECT_PARAM, shouldOpenDefectSheet } from "@/lib/work-packages/defect-deep-link";
 import { ReportDefectControl } from "./report-defect-control";
 import { SubmitForApprovalControl } from "./submit-for-approval-control";
+import { RecallSubmissionControl } from "./recall-submission-control";
 import { ResubmitEvidenceControl } from "./resubmit-evidence-control";
 
 interface PageProps {
@@ -347,6 +352,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     reworkSources,
     defectSource,
     answeredDecisionIds,
+    canRecall,
   } = data;
 
   const assignedContractor = wp.contractor_id
@@ -390,10 +396,22 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     defect: photosByPhase.defect.length,
   };
   const currentPhase = derivePhaseProgress(phaseCounts).currentPhase;
-  // Spec 216: the หลังแก้ไข rework bucket surfaces only inside a rework cycle (in
-  // rework OR already has after_fix photos); a WP can be reworked more than once, so
-  // its photos group by round (each with the defect reason that opened it).
-  const showAfterFix = wp.status === "rework" || photosByPhase.after_fix.length > 0;
+  // Spec 353: split the conflated หลังแก้ไข gate. CAPTURE (the shutter) is offered
+  // only inside a rework cycle — actively curing (rework) or a reworked WP the
+  // reviewer bounced for evidence (the revision window); the read-only HISTORY strip
+  // shows whenever the WP carries any after_fix photo. A completed WP keeps its
+  // history but offers no shutter. revisionWindowOpen mirrors the delete window.
+  const revisionWindowOpen = isRevisionWindowOpen({
+    status: wp.status,
+    latestDecision: latestDecision?.decision ?? null,
+    revisionAnswered: latestDecision ? answeredDecisionIds.has(latestDecision.id) : false,
+  });
+  const showAfterFixCapture = canCaptureAfterFix({
+    status: wp.status,
+    reworkRound: wp.rework_round,
+    revisionWindowOpen,
+  });
+  const showAfterFixHistory = photosByPhase.after_fix.length > 0;
   const afterFixRounds = groupAfterFixByRound(photosByPhase.after_fix);
   // Spec 248 — defect photos: the current round's pairing state (banner strip
   // + capture slots) and the per-round history (read-only galleries). The
@@ -553,7 +571,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               note={reworkReasons.get(round) ?? null}
             />
           ))}
-          {showAfterFix
+          {showAfterFixHistory
             ? afterFixRounds.map(({ round, photos }) => (
                 <PhaseGallery
                   key={`after_fix-${round}`}
@@ -577,7 +595,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           userId={ctx.id}
           phases={phaseData}
           currentPhase={currentPhase}
-          showAfterFix={showAfterFix}
+          showAfterFixCapture={showAfterFixCapture}
+          showAfterFixHistory={showAfterFixHistory}
           currentReworkRound={wp.rework_round}
           defectPairs={defectPairSlots}
           removedTrace={removedTrace}
@@ -1018,6 +1037,21 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             // Spec 247 + 248 U4: floor AND pairing — null means submittable.
             disabledHint={submitGateReason(wp.status, photosByPhase, wp.rework_round)}
           />
+        </div>
+      ) : null}
+      {/* Spec 352: "ถอนงานกลับมาแก้ไข" — the submitter (or super_admin) pulls a
+          submitted WP back to in_progress to fix misplaced photos, then
+          re-submits. canRecall (load-detail, from the can_recall_work_package DB
+          predicate) is the single authority; it is true only at pending_approval
+          with the ให้แก้ไข window CLOSED. So it never co-renders with the submit
+          control (TRANSITIONABLE = editable statuses, above) nor with the ACTIVE
+          resubmit control (which needs the window OPEN, below). It DOES co-exist
+          with the resubmit DONE confirmation ("ส่งตรวจอีกครั้งแล้ว") — an answered
+          bounce is window-closed and, by spec 352 D4, still recallable: the SA
+          who spots another wrong photo after re-submitting can pull it back. */}
+      {!readOnly && canRecall ? (
+        <div className={`mx-auto ${PAGE_MAX_W} flex justify-end px-5 pt-5`}>
+          <RecallSubmissionControl projectId={wp.project_id} workPackageId={wp.id} />
         </div>
       ) : null}
       {/* Spec 337 U2a (F2): the cure loop's closing act. A needs_revision leaves

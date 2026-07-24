@@ -160,6 +160,9 @@ export const PurchaseRequestAttachmentStager = forwardRef<
             attempts: 0,
             lastError: null,
             enqueuedAtMs: queueNowMs(),
+            // Spec 354 U1 stamps the WP `photos` bucket only; the pr-attachments
+            // affordance is a later PR, so ride the neutral "picker" for now.
+            captureMethod: "picker",
           }
         : null;
 
