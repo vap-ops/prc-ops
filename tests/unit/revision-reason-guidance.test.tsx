@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { RevisionReasonGuidance } from "@/components/features/work-packages/revision-reason-guidance";
 import { Constants } from "@/lib/db/database.types";
-import { APPROVAL_REVISION_REASON_LABEL, REVISION_REASON_GUIDANCE } from "@/lib/i18n/labels";
+import { REVISION_REASON_GUIDANCE } from "@/lib/i18n/labels";
 
 const THAI_CHAR = /[฀-๿]/;
 const REASONS = Constants.public.Enums.approval_revision_reason;
@@ -41,9 +41,8 @@ describe("REVISION_REASON_GUIDANCE — SSOT completeness (spec 355 U3)", () => {
 });
 
 describe("<RevisionReasonGuidance> — per-reason attention-card note", () => {
-  it("mismatch: reason chip + guidance + a #wp-photos CTA carrying the mismatch cta", () => {
+  it("mismatch: guidance + a #wp-photos CTA carrying the mismatch cta", () => {
     render(<RevisionReasonGuidance reason="mismatch" showCta />);
-    expect(screen.getByText(APPROVAL_REVISION_REASON_LABEL.mismatch)).toBeInTheDocument();
     expect(screen.getByText(REVISION_REASON_GUIDANCE.mismatch.guidance)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: REVISION_REASON_GUIDANCE.mismatch.cta });
     expect(link).toHaveAttribute("href", "#wp-photos");
@@ -81,10 +80,19 @@ describe("WP-detail page wiring (spec 355 U3)", () => {
     "utf8",
   );
 
-  it("renders RevisionReasonGuidance gated on a needs_revision reason, read-only aware", () => {
+  it("renders RevisionReasonGuidance gated on a needs_revision reason, read-only + answered aware", () => {
     expect(src.split("RevisionReasonGuidance").length - 1).toBeGreaterThanOrEqual(2);
     expect(src).toContain('attention.decision === "needs_revision" && attention.revision_reason');
-    expect(src).toContain("showCta={!readOnly}");
+    // Fresh-eyes: once the SA has answered the bounce (ส่งตรวจอีกครั้ง) the
+    // spec-291 delete window is CLOSED — a "ลบรูป…" CTA would offer-then-refuse,
+    // so the action gates on the answered state too (guidance text stays).
+    expect(src).toContain("showCta={!readOnly && !attentionAnswered}");
+  });
+
+  it("titles the reasoned card with the REASON, not the generic decision umbrella", () => {
+    // "ถ่ายรูปใหม่" as the header over a premature ("finish the work first")
+    // guidance is a self-contradiction — the reasoned card leads with WHY.
+    expect(src).toContain("APPROVAL_REVISION_REASON_LABEL[attention.revision_reason]");
   });
 
   it("keeps the spec-353 phase CTA as the null-reason fallback", () => {

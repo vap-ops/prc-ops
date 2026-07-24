@@ -51,30 +51,39 @@ describe("SaActionSection — spec 353 single-sourced decision chips", () => {
 // Spec 355 U3 — a reasoned bounce tells the SA WHY on the chip and swaps the row
 // CTA to the per-reason action; leaving the generic "ถ่ายรูปเพิ่ม" on a mismatch
 // row would repeat the exact wrong-instruction bug the spec exists to kill.
+// Fresh-eyes: the chip is the REASON ALONE (not "ถ่ายรูปใหม่ · งานยังไม่เสร็จ" —
+// self-contradictory for premature), and premature drops the camera + photo-anchor
+// affordance (its action is finishing the work, not jumping to the capture zone).
 describe("SaActionSection — spec 355 revision reason on the worklist row", () => {
-  it("mismatch: chip carries the reason label and the CTA is remove-and-reshoot", () => {
+  it("mismatch: chip is the reason label; CTA is remove-and-reshoot; row anchors #wp-photos", () => {
     render(
       <SaActionSection items={[item({ id: "a", kind: "revision", revisionReason: "mismatch" })]} />,
     );
-    expect(
-      screen.getByText(new RegExp(APPROVAL_REVISION_REASON_LABEL.mismatch)),
-    ).toBeInTheDocument();
+    expect(screen.getByText(APPROVAL_REVISION_REASON_LABEL.mismatch)).toBeInTheDocument();
+    // The generic decision umbrella must NOT prefix a reasoned chip.
+    expect(screen.queryByText(/ถ่ายรูปใหม่ ·/)).not.toBeInTheDocument();
     expect(screen.getByText(REVISION_REASON_GUIDANCE.mismatch.cta)).toBeInTheDocument();
     expect(screen.queryByText("ถ่ายรูปเพิ่ม")).not.toBeInTheDocument();
+    expect(screen.getByRole("link").getAttribute("href")).toContain("#wp-photos");
   });
 
-  it("a reasonless (historical) revision row keeps the generic CTA", () => {
+  it("a reasonless (historical) revision row keeps the generic chip + CTA", () => {
     render(<SaActionSection items={[item({ id: "b", kind: "revision" })]} />);
+    expect(screen.getByText(APPROVAL_DECISION_LABEL.needs_revision)).toBeInTheDocument();
     expect(screen.getByText("ถ่ายรูปเพิ่ม")).toBeInTheDocument();
+    expect(screen.getByRole("link").getAttribute("href")).toContain("#wp-photos");
   });
 
-  it("premature: the row CTA names finishing the work, not shooting more photos", () => {
-    render(
+  it("premature: finish-the-work CTA, no camera icon, row lands on the WP detail not the capture zone", () => {
+    const { container } = render(
       <SaActionSection
         items={[item({ id: "c", kind: "revision", revisionReason: "premature" })]}
       />,
     );
+    expect(screen.getByText(APPROVAL_REVISION_REASON_LABEL.premature)).toBeInTheDocument();
     expect(screen.getByText(REVISION_REASON_GUIDANCE.premature.cta)).toBeInTheDocument();
     expect(screen.queryByText("ถ่ายรูปเพิ่ม")).not.toBeInTheDocument();
+    expect(screen.getByRole("link").getAttribute("href")).not.toContain("#wp-photos");
+    expect(container.querySelector("svg.lucide-camera")).toBeNull();
   });
 });

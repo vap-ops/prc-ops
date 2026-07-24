@@ -48,9 +48,11 @@ const TONE = {
 } as const;
 
 function chipLabel(item: SaActionItem): string {
-  // Spec 355 — a reasoned bounce says WHY at a glance (same "·" join as rework).
+  // Spec 355 — a reasoned bounce chips the REASON alone: prefixing the generic
+  // decision label would read "ถ่ายรูปใหม่ · งานยังไม่เสร็จ" (retake · not finished)
+  // — self-contradictory for premature. Reasonless rows keep the decision chip.
   if (item.kind === "revision" && item.revisionReason) {
-    return `${KIND_META.revision.chip} · ${APPROVAL_REVISION_REASON_LABEL[item.revisionReason]}`;
+    return APPROVAL_REVISION_REASON_LABEL[item.revisionReason];
   }
   if (item.kind !== "rework") return KIND_META[item.kind].chip;
   const parts = [KIND_META.rework.chip];
@@ -66,6 +68,13 @@ function ctaLabel(item: SaActionItem): string {
     return REVISION_REASON_GUIDANCE[item.revisionReason].cta;
   }
   return KIND_META[item.kind].cta;
+}
+
+// Spec 355 — premature's action is finishing the WORK: its row lands on the WP
+// detail (where the reasoned card explains), not the capture zone, and its CTA
+// pill drops the camera. Every other row keeps the photo jump.
+function isPrematureRow(item: SaActionItem): boolean {
+  return item.kind === "revision" && item.revisionReason === "premature";
 }
 
 export function SaActionSection({
@@ -90,7 +99,9 @@ export function SaActionSection({
           const meta = KIND_META[item.kind];
           const t = TONE[meta.tone];
           const photoHref = withBackFrom(
-            `${workPackageHref(item.projectId, item.id)}#wp-photos`,
+            isPrematureRow(item)
+              ? workPackageHref(item.projectId, item.id)
+              : `${workPackageHref(item.projectId, item.id)}#wp-photos`,
             backHref,
           );
           return (
@@ -123,7 +134,7 @@ export function SaActionSection({
                   </p>
                 ) : null}
                 <span className="bg-attn-press text-on-attn rounded-control mt-3 flex h-10 w-full items-center justify-center gap-1.5 text-sm font-bold">
-                  <Camera aria-hidden className="size-4" />
+                  {isPrematureRow(item) ? null : <Camera aria-hidden className="size-4" />}
                   {ctaLabel(item)}
                 </span>
               </Link>
