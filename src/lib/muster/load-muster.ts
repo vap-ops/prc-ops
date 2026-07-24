@@ -12,6 +12,7 @@ import "server-only";
 // inactive worker with attendance) falls back to "—" rather than throwing.
 
 import type { createClient } from "@/lib/db/server";
+import type { MusterWp } from "./wp-groups";
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -43,11 +44,11 @@ export interface MusterWorker {
   id: string;
   name: string;
 }
-export interface MusterWp {
-  id: string;
-  code: string;
-  name: string;
-}
+// The picker types + the pure grouping fold live in a client-safe module (wp-groups)
+// so the "use client" cockpit can import groupMusterWps as a value — this file is
+// server-only. Re-exported for existing type imports off load-muster.
+export type { MusterWp, MusterWpGroup } from "./wp-groups";
+
 export interface MusterBoard {
   teams: MusterTeam[];
   workers: MusterWorker[];
@@ -132,44 +133,67 @@ export async function loadMusterBoard(
     .eq("work_date", date);
   const teamIds = (teams ?? []).map((t) => t.id);
 
-  const [attendanceRes, teamWpsRes, workersRes, wpsRes, closureRes] = await Promise.all([
-    teamIds.length
-      ? supabase
-          .from("muster_attendance")
-          .select("team_id, worker_id, session, in_at, out_at, ot_hours, out_auto")
-          .in("team_id", teamIds)
-      : Promise.resolve({ data: [] as RawAttendance[] }),
-    teamIds.length
-      ? supabase.from("muster_team_wps").select("team_id, work_package_id").in("team_id", teamIds)
-      : Promise.resolve({ data: [] as RawTeamWp[] }),
-    supabase
-      .from("workers")
-      .select("id, name")
-      .eq("project_id", projectId)
-      .eq("active", true)
-      .order("name"),
-    // Main WPs only — teams assign per main WP (parent_id IS NULL); sub-WPs inherit
-    // the team (spec 306 main-WP grain rule).
-    supabase
-      .from("work_packages")
-      .select("id, code, name")
-      .eq("project_id", projectId)
-      .is("parent_id", null)
-      .order("code"),
-    supabase
-      .from("muster_day_closures")
-      .select("closed_at")
-      .eq("project_id", projectId)
-      .eq("work_date", date)
-      .maybeSingle(),
-  ]);
+  const [attendanceRes, teamWpsRes, workersRes, leafRes, parentRes, closureRes] = await Promise.all(
+    [
+      teamIds.length
+        ? supabase
+            .from("muster_attendance")
+            .select("team_id, worker_id, session, in_at, out_at, ot_hours, out_auto")
+            .in("team_id", teamIds)
+        : Promise.resolve({ data: [] as RawAttendance[] }),
+      teamIds.length
+        ? supabase.from("muster_team_wps").select("team_id, work_package_id").in("team_id", teamIds)
+        : Promise.resolve({ data: [] as RawTeamWp[] }),
+      supabase
+        .from("workers")
+        .select("id, name")
+        .eq("project_id", projectId)
+        .eq("active", true)
+        .order("name"),
+      // Spec 306 grain-coverage — teams assign per LEAF (งานย่อย) WP so the close-day
+      // derive can bind labor_logs (the DB forbids binding to a group งาน WP —
+      // wp_reject_group_binding). All leaves are offered; the picker groups them by
+      // parent งาน so the count stays navigable (no status filter — an assigned WP
+      // must stay visible/removable even if it later completes).
+      supabase
+        .from("work_packages")
+        .select("id, code, name, parent_id")
+        .eq("project_id", projectId)
+        .eq("is_group", false)
+        .order("code"),
+      // All the project's WPs (id → code/name), the lookup for a leaf's parent งาน
+      // header. Not filtered to is_group so a leaf whose parent is not flagged as a
+      // group still resolves to a real header instead of a blank one.
+      supabase.from("work_packages").select("id, code, name").eq("project_id", projectId),
+      supabase
+        .from("muster_day_closures")
+        .select("closed_at")
+        .eq("project_id", projectId)
+        .eq("work_date", date)
+        .maybeSingle(),
+    ],
+  );
+
+  // Enrich each leaf with its parent งาน identity so the picker can group by it.
+  const parentById = new Map((parentRes.data ?? []).map((p) => [p.id, p]));
+  const wps: MusterWp[] = (leafRes.data ?? []).map((w) => {
+    const parent = w.parent_id ? parentById.get(w.parent_id) : null;
+    return {
+      id: w.id,
+      code: w.code,
+      name: w.name,
+      parentId: w.parent_id ?? null,
+      parentCode: parent?.code ?? null,
+      parentName: parent?.name ?? null,
+    };
+  });
 
   return shapeMusterBoard({
     teams: teams ?? [],
     attendance: attendanceRes.data ?? [],
     teamWps: teamWpsRes.data ?? [],
     workers: workersRes.data ?? [],
-    wps: wpsRes.data ?? [],
+    wps,
     closure: closureRes.data ?? null,
   });
 }

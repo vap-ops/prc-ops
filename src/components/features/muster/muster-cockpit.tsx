@@ -18,7 +18,9 @@ import {
   closeMusterDay,
   moveMusterWorker,
 } from "@/lib/muster/actions";
-import type { MusterBoard, MusterTeam, MusterWp } from "@/lib/muster/load-muster";
+import { groupMusterWps } from "@/lib/muster/wp-groups";
+import type { MusterWp } from "@/lib/muster/wp-groups";
+import type { MusterBoard, MusterTeam } from "@/lib/muster/load-muster";
 import { MusterCamera } from "./muster-camera";
 
 type Mode = "in" | "out";
@@ -341,15 +343,35 @@ function TeamCard({
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set(team.wpIds));
+  // Spec 306 grain-coverage — which parent งาน groups are expanded in the picker.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Spec 306 move UI — which member's move picker is open (one at a time).
   const [movePickFor, setMovePickFor] = useState<string | null>(null);
 
+  // The leaf WPs folded into collapsible groups by parent งาน (spec 306 grain-coverage).
+  const wpGroups = groupMusterWps(wps);
+
   const openEditor = () => {
     setChecked(new Set(team.wpIds));
+    // Open the groups that already hold a checked child so current picks are visible.
+    setExpanded(
+      new Set(
+        wpGroups
+          .filter((g) => g.parentId !== null && g.children.some((c) => team.wpIds.includes(c.id)))
+          .map((g) => g.parentId as string),
+      ),
+    );
     setEditOpen((v) => !v);
   };
   const toggleWp = (id: string) =>
     setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleGroup = (id: string) =>
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -393,23 +415,59 @@ function TeamCard({
         {editOpen ? (
           <div className="border-edge bg-sunk rounded-lg border p-3">
             <div className="flex flex-col gap-2">
-              {wps.map((wp) => (
-                <label key={wp.id} className="text-ink flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={checked.has(wp.id)}
-                    onChange={() => toggleWp(wp.id)}
-                  />
-                  <span>
-                    {wp.code} {wp.name}
-                  </span>
-                </label>
-              ))}
+              {wpGroups.map((g) => {
+                const row = (wp: MusterWp) => (
+                  <label key={wp.id} className="text-ink flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked.has(wp.id)}
+                      onChange={() => toggleWp(wp.id)}
+                    />
+                    <span>
+                      {wp.code} {wp.name}
+                    </span>
+                  </label>
+                );
+                // Standalone leaf main-WPs (no parent งาน) render directly.
+                if (g.parentId === null) return g.children.map(row);
+                const pickedInGroup = g.children.filter((c) => checked.has(c.id)).length;
+                const isOpen = expanded.has(g.parentId);
+                return (
+                  <div key={g.parentId} className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(g.parentId!)}
+                      aria-expanded={isOpen}
+                      className="text-ink flex min-h-11 items-center gap-2 text-left text-sm font-semibold"
+                    >
+                      <span aria-hidden className="text-ink-muted">
+                        {isOpen ? "▾" : "▸"}
+                      </span>
+                      <span>
+                        {g.parentCode} {g.parentName}
+                      </span>
+                      {pickedInGroup > 0 ? (
+                        <span className="text-accent text-meta">· เลือก {pickedInGroup}</span>
+                      ) : null}
+                    </button>
+                    {isOpen ? (
+                      <div className="flex flex-col gap-2 pl-5">{g.children.map(row)}</div>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
             <button
               type="button"
               onClick={() => {
-                onSaveWps(team.id, [...checked]);
+                // Persist only ids that are still selectable leaves — an id stuck in
+                // team.wpIds that no longer renders (a legacy/group WP from the old
+                // main-WP picker) has no checkbox to clear, so drop it here rather
+                // than re-persist a binding the SA cannot see or remove.
+                onSaveWps(
+                  team.id,
+                  [...checked].filter((id) => wpById.has(id)),
+                );
                 setEditOpen(false);
               }}
               disabled={pending}
