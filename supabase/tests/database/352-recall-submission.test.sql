@@ -83,8 +83,8 @@ set local "request.jwt.claims" = '{"sub": "f0000000-0000-0000-0000-000000000352"
 select is((select public.submit_work_package_for_approval('c1520000-0000-0000-0000-000000000006')), true, 'setup: f000 submits wp_demote');
 -- pm bounces wp_window + wp_answered (needs_revision) — opens the ให้แก้ไข window.
 set local "request.jwt.claims" = '{"sub": "e0000000-0000-0000-0000-000000000352"}';
-select is((select public.decide_work_package('c1520000-0000-0000-0000-000000000004', 'needs_revision', 'ถ่ายรูปใหม่')), 'pending_approval', 'setup: pm bounces wp_window');
-select is((select public.decide_work_package('c1520000-0000-0000-0000-000000000005', 'needs_revision', 'ถ่ายรูปใหม่')), 'pending_approval', 'setup: pm bounces wp_answered');
+select is((select public.decide_work_package('c1520000-0000-0000-0000-000000000004', 'needs_revision', 'ถ่ายรูปใหม่', 'mismatch')), 'pending_approval', 'setup: pm bounces wp_window');
+select is((select public.decide_work_package('c1520000-0000-0000-0000-000000000005', 'needs_revision', 'ถ่ายรูปใหม่', 'mismatch')), 'pending_approval', 'setup: pm bounces wp_answered');
 reset role;
 
 -- Demote f000 AFTER it submitted — a since-demoted submitter must not recall.
