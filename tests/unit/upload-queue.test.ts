@@ -30,6 +30,7 @@ function makeItem(overrides: Partial<QueuedUpload> = {}): QueuedUpload {
     attempts: 0,
     lastError: null,
     enqueuedAtMs: 0,
+    captureMethod: "picker",
     ...overrides,
   } as QueuedUpload;
 }
@@ -250,6 +251,20 @@ describe("kinds (spec 37)", () => {
       purchaseRequestId: "pr-1",
     } as Partial<QueuedUpload>);
     expect(normalizeQueuedUpload(item)).toEqual(item);
+  });
+
+  // Spec 352 — capture affordance rides the queue item. Items persisted before
+  // spec 352 carry no captureMethod; IDB is schemaless, so normalize on read.
+  // An unknown affordance is "picker".
+  it("normalizes a legacy item with no captureMethod to picker (spec 352)", () => {
+    const item = makeItem();
+    const legacy = { ...item, captureMethod: undefined };
+    expect(normalizeQueuedUpload(legacy).captureMethod).toBe("picker");
+  });
+
+  it("preserves an item's explicit captureMethod through normalization (spec 352)", () => {
+    const item = makeItem({ captureMethod: "library" } as Partial<QueuedUpload>);
+    expect(normalizeQueuedUpload(item).captureMethod).toBe("library");
   });
 
   it("processes a mixed-kind queue, dispatching each item to insertMeta with its kind", async () => {

@@ -44,7 +44,7 @@ describe("usePhaseCapture validation_error friction (spec 244 U2b-2)", () => {
     const bad = new File(["x"], "secret-notes.pdf", { type: "application/pdf" });
 
     await act(async () => {
-      await result.current.handleFiles(fileList([bad]));
+      await result.current.handleFiles(fileList([bad]), "camera");
     });
 
     expect(trackFriction).toHaveBeenCalledTimes(1);
@@ -61,7 +61,7 @@ describe("usePhaseCapture validation_error friction (spec 244 U2b-2)", () => {
     const bad2 = new File(["y"], "b.txt", { type: "text/plain" });
 
     await act(async () => {
-      await result.current.handleFiles(fileList([bad1, bad2]));
+      await result.current.handleFiles(fileList([bad1, bad2]), "camera");
     });
 
     expect(trackFriction).toHaveBeenCalledTimes(2);
@@ -71,8 +71,8 @@ describe("usePhaseCapture validation_error friction (spec 244 U2b-2)", () => {
     const { result } = renderCapture();
 
     await act(async () => {
-      await result.current.handleFiles(fileList([]));
-      await result.current.handleFiles(null);
+      await result.current.handleFiles(fileList([]), "camera");
+      await result.current.handleFiles(null, "camera");
     });
 
     expect(trackFriction).not.toHaveBeenCalled();

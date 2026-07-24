@@ -72,7 +72,7 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     const { result } = renderCapture();
 
     await act(async () => {
-      await result.current.handleFiles(fileList([IMAGE()]));
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
     });
 
     expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
@@ -89,7 +89,7 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     const { result } = renderCapture();
 
     await act(async () => {
-      await result.current.handleFiles(fileList([IMAGE()]));
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
     });
 
     expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
@@ -105,7 +105,7 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     const { result } = renderCapture();
 
     await act(async () => {
-      await result.current.handleFiles(fileList([IMAGE()]));
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
     });
 
     expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
@@ -122,7 +122,7 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     const { result } = renderCapture();
 
     await act(async () => {
-      await result.current.handleFiles(fileList([IMAGE()]));
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
     });
 
     expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
@@ -138,7 +138,7 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     const { result } = renderCapture();
 
     await act(async () => {
-      await result.current.handleFiles(fileList([IMAGE()]));
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
     });
 
     expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
@@ -153,7 +153,7 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     const { result } = renderCapture();
 
     await act(async () => {
-      await result.current.handleFiles(fileList([IMAGE()]));
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
     });
 
     expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
@@ -169,7 +169,7 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     const { result } = renderCapture();
 
     await act(async () => {
-      await result.current.handleFiles(fileList([IMAGE()]));
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
     });
 
     expect(trackFriction).not.toHaveBeenCalledWith("upload_fail", expect.anything());

@@ -24,6 +24,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { createClient as createBrowserSupabase } from "@/lib/db/browser";
+import { captureMethodMetadata, type CaptureMethod } from "@/lib/photos/capture-method";
 import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
@@ -53,6 +54,10 @@ export interface PendingUpload {
   enqueuedAtMs: number;
   ext: PhotoExt;
   storagePath: string;
+  /** Spec 352 — which input affordance produced this shot (camera shutter vs
+   *  the spec-96 library button). Rides the queue item and is stamped into
+   *  storage.objects.user_metadata on upload. */
+  captureMethod: CaptureMethod;
   /** Feedback 10a15ebe: true when the failure will NOT succeed on plain retry
    *  (authz/size/pairing) — so the sheet does not falsely promise "will auto-send"
    *  for a terminal failure, mirroring the queue runner's honest-copy split. */
@@ -113,6 +118,7 @@ export function usePhaseCapture({
       attempts: 0,
       lastError: null,
       enqueuedAtMs: upload.enqueuedAtMs,
+      captureMethod: upload.captureMethod,
     };
   }
 
@@ -123,6 +129,9 @@ export function usePhaseCapture({
       .upload(upload.storagePath, upload.blob, {
         contentType: photoExtToMime(upload.ext),
         upsert: false,
+        // Spec 352 — stamp the capture affordance into
+        // storage.objects.user_metadata on the live (page-open) upload.
+        metadata: captureMethodMetadata(upload.captureMethod),
       });
     if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
       console.error("[phase-capture] storage upload failed", uploadError.message);
@@ -197,7 +206,7 @@ export function usePhaseCapture({
     startTransition(() => router.refresh());
   }
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null, captureMethod: CaptureMethod) {
     if (!files || files.length === 0) return;
     setTopLevelError(null);
     for (const file of Array.from(files)) {
@@ -225,6 +234,7 @@ export function usePhaseCapture({
         enqueuedAtMs: queueNowMs(),
         ext: prepared.ext,
         storagePath: buildPhotoStoragePath(projectId, workPackageId, id, prepared.ext),
+        captureMethod,
       };
       setPending((prev) => [...prev, upload]);
       try {

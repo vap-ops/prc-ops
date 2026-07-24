@@ -91,6 +91,9 @@ export function DeliveryPhotoUploader({
         attempts: 0,
         lastError: null,
         enqueuedAtMs: queueNowMs(),
+        // Spec 352 U1 stamps the WP `photos` bucket only; the pr-attachments
+        // affordance is a later PR, so ride the neutral "picker" for now.
+        captureMethod: "picker",
       };
       await safeQueuePut(queueItem);
 
