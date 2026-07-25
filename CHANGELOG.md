@@ -1,3 +1,9 @@
+# [0.221.0](https://github.com/vap-ops/prc-ops/compare/v0.220.0...v0.221.0) (2026-07-25)
+
+### Features
+
+- **muster:** attendance audit report page for office/payroll (spec 358 U2) ([#756](https://github.com/vap-ops/prc-ops/issues/756)) ([f8cdaa3](https://github.com/vap-ops/prc-ops/commit/f8cdaa3ed7a014f5facff479942fc033ed802523))
+
 # [0.220.0](https://github.com/vap-ops/prc-ops/compare/v0.219.0...v0.220.0) (2026-07-25)
 
 ### Features
