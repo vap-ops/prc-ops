@@ -1,3 +1,10 @@
+## [0.224.1](https://github.com/vap-ops/prc-ops/compare/v0.224.0...v0.224.1) (2026-07-25)
+
+### Bug Fixes
+
+- **ui:** close the review findings on the card colour-override guard ([5608b40](https://github.com/vap-ops/prc-ops/commit/5608b40234d95b5e997d52409616396dd3f3ae61))
+- **ui:** stop CARD's own colours from killing status-card treatments ([1001d7d](https://github.com/vap-ops/prc-ops/commit/1001d7dd61d4a35dd57ed9bca6fdb579442841c2))
+
 # [0.224.0](https://github.com/vap-ops/prc-ops/compare/v0.223.0...v0.224.0) (2026-07-25)
 
 ### Bug Fixes
