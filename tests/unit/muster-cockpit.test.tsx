@@ -79,6 +79,7 @@ const BOARD: MusterBoard = {
   ],
   wps: [{ id: WPA, code: "A", name: "งานเอ", status: "in_progress" }],
   closure: null,
+  priorTeamByWorker: [],
 };
 
 function renderCockpit(board: MusterBoard = BOARD, pastDayEnd = false) {
@@ -218,6 +219,7 @@ describe("MusterCockpit — OT session (spec 351)", () => {
     ],
     wps: [{ id: WPA, code: "A", name: "งานเอ", status: "in_progress" }],
     closure: null,
+    priorTeamByWorker: [],
   };
 
   it("shows an OT-span line and the open-OT flag for a member with OT open", () => {

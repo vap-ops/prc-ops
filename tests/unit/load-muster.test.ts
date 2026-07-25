@@ -327,3 +327,75 @@ describe("shapeMusterBoard — missing (spec 357 U-C)", () => {
     expect(board.teams[0]!.missing).toEqual([]);
   });
 });
+
+// Spec 359 U1 — each worker's most recent muster BEFORE today, so the continuous
+// sweep can warn when someone turns up in a different line from last time. The
+// comparison downstream keys on leadWorkerId (names repeat across the roster);
+// leadName is carried only for the tally copy.
+describe("shapeMusterBoard — priorTeamByWorker (spec 359 U1)", () => {
+  const base = () => ({
+    teams: [],
+    attendance: [],
+    teamWps: [],
+    workers: WORKERS,
+    wps: WPS,
+  });
+
+  it("resolves each worker's most recent prior team to its lead id + name", () => {
+    const board = shapeMusterBoard({
+      ...base(),
+      priorAttendance: [
+        { workerId: "w2", leadWorkerId: "w1", workDate: "2026-07-24" },
+        { workerId: "w2", leadWorkerId: "w3", workDate: "2026-07-22" },
+      ],
+    });
+    expect(board.priorTeamByWorker).toEqual([
+      { workerId: "w2", leadWorkerId: "w1", leadName: "ลี" },
+    ]);
+  });
+
+  it("takes the LATEST date regardless of input order", () => {
+    const board = shapeMusterBoard({
+      ...base(),
+      priorAttendance: [
+        { workerId: "w2", leadWorkerId: "w3", workDate: "2026-07-22" },
+        { workerId: "w2", leadWorkerId: "w1", workDate: "2026-07-24" },
+      ],
+    });
+    expect(board.priorTeamByWorker).toEqual([
+      { workerId: "w2", leadWorkerId: "w1", leadName: "ลี" },
+    ]);
+  });
+
+  it("spans a multi-day gap — a weekend must not reset the memory", () => {
+    const board = shapeMusterBoard({
+      ...base(),
+      priorAttendance: [{ workerId: "w2", leadWorkerId: "w1", workDate: "2026-07-17" }],
+    });
+    expect(board.priorTeamByWorker).toEqual([
+      { workerId: "w2", leadWorkerId: "w1", leadName: "ลี" },
+    ]);
+  });
+
+  it("omits a worker with no prior muster entirely", () => {
+    const board = shapeMusterBoard({
+      ...base(),
+      priorAttendance: [{ workerId: "w2", leadWorkerId: "w1", workDate: "2026-07-24" }],
+    });
+    expect(board.priorTeamByWorker.some((p) => p.workerId === "w3")).toBe(false);
+  });
+
+  it("falls back to — for a lead who is off the active roster", () => {
+    const board = shapeMusterBoard({
+      ...base(),
+      priorAttendance: [{ workerId: "w2", leadWorkerId: "gone", workDate: "2026-07-24" }],
+    });
+    expect(board.priorTeamByWorker).toEqual([
+      { workerId: "w2", leadWorkerId: "gone", leadName: "—" },
+    ]);
+  });
+
+  it("is empty when no prior attendance is supplied (backward-safe)", () => {
+    expect(shapeMusterBoard({ ...base() }).priorTeamByWorker).toEqual([]);
+  });
+});
