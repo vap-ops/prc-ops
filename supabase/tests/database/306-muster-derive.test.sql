@@ -338,9 +338,21 @@ values
    500, 'senior', true, now(), '75000000-0d06-0d06-0d06-750000000d06',
    '75000000-0d06-0d06-0d06-750000000d06', 'cc000000-0d06-0d06-0d06-cc0000000d06',
    'a1000000-0d06-0d06-0d06-a10000000d06');
+-- A SEPARATE, untied lead. The pay-exempt worker is deliberately NOT the team
+-- หัวหน้า: the sibling spec-330 trigger `worker_firm_tie_not_in_crew` already
+-- refuses a firm-tied crew LEAD, and if that rule is ever extended to
+-- muster_teams (plausible hardening) a tied lead would kill this seed rather
+-- than test the derive.
+insert into public.workers
+  (id, name, pay_type, employment_type, day_rate, level, active, cost_confirmed_at,
+   cost_confirmed_by, created_by)
+values
+  ('ee000000-0d06-0d06-0d06-ee0000000d06'::uuid, 'หัวหน้าห้า', 'daily', 'temporary',
+   500, 'senior', true, now(), '75000000-0d06-0d06-0d06-750000000d06',
+   '75000000-0d06-0d06-0d06-750000000d06');
 insert into public.muster_teams (id, project_id, work_date, lead_worker_id, created_by) values
   ('ce000000-0d06-0d06-0d06-ce0000000d06'::uuid, 'a1000000-0d06-0d06-0d06-a10000000d06',
-   '2026-01-07', 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid,
+   '2026-01-07', 'ee000000-0d06-0d06-0d06-ee0000000d06'::uuid,
    '70000000-0d06-0d06-0d06-700000000d06');
 insert into public.muster_team_wps (team_id, work_package_id) values
   ('ce000000-0d06-0d06-0d06-ce0000000d06'::uuid, '91000000-0d06-0d06-0d06-910000000d06');
@@ -358,8 +370,14 @@ set local "request.jwt.claims" = '{"sub": "70000000-0d06-0d06-0d06-700000000d06"
 select public.derive_muster_labor('a1000000-0d06-0d06-0d06-a10000000d06', '2026-01-07'::date);
 reset role;
 
-select is((select count(*)::int from public.labor_logs
-    where worker_id = 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid),
+-- Current REAL rows (same anti-join as the sibling asserts). Counting raw rows
+-- would also assert "no tombstone either", which is not the rule — a future
+-- change that proactively tombstones ineligible workers would break it for the
+-- wrong reason.
+select is((select count(*)::int from public.labor_logs ll
+    where ll.worker_id = 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid
+      and ll.day_fraction is not null
+      and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
   0, 'spec 328 §2.4: a contractor-tied worker derives NO labor_logs (the firm pays them)');
 
 -- And the exclusion is the CONTRACTOR TIE, not some other gate: clear the tie and
@@ -377,8 +395,13 @@ select is((select count(*)::int from public.labor_logs ll
       and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
   1, 'untying the same worker derives normally — the tie was the only thing blocking');
 
--- RETRACT direction: re-tying them to the firm tombstones the row a re-derive
--- already wrote, so a worker reclassified as subcon crew stops costing PRC.
+-- RETRACT direction: re-tying them to the firm tombstones the row an earlier
+-- derive wrote — but ONLY because this test re-invokes the derive by hand. In
+-- production a CLOSED PAST DAY cannot be re-closed from any surface (the cockpit
+-- bar is today-locked, the carry-over banner lists only days without a closure,
+-- and no cron calls it), so tying a worker to a firm after their days were closed
+-- does NOT claw back the wages already booked. This asserts the RETRACT MECHANISM
+-- is correct, not that history self-heals.
 update public.workers set contractor_id = 'cc000000-0d06-0d06-0d06-cc0000000d06'
   where id = 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid;
 set local role authenticated;

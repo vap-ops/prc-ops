@@ -85,9 +85,16 @@ begin
         -- Spec 328 §2.4 money wall: a subcontractor firm's crew are paid BY THE
         -- FIRM out of the work package's contract price — PRC never owes them a
         -- daily wage. Without this, one PM bulk-confirming subcon rates books a
-        -- SECOND payment for people the firm already pays. Every v_ok=false case
-        -- also RETRACTS existing derived rows below, so reclassifying a worker as
-        -- contractor crew removes the PRC cost they should never have carried.
+        -- SECOND payment for people the firm already pays.
+        --
+        -- Scope of the retract, stated precisely: v_ok=false also tombstones this
+        -- worker's existing derived rows below, but ONLY on a derive of that day.
+        -- A day that is already closed cannot be re-closed from any surface today
+        -- (the cockpit bar is locked to bangkokTodayIso(), the carry-over banner
+        -- lists only days WITHOUT a closure, and no cron calls this), so tying a
+        -- worker to a firm AFTER their days were closed does NOT claw back the
+        -- wages already derived. Those need a deliberate re-derive. Do not read
+        -- this guard as self-healing for history.
         and v_worker.contractor_id is null
         and v_worker.cost_confirmed_at is not null and coalesce(v_worker.day_rate, 0) > 0
         and v_n between 1 and 2

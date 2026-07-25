@@ -61,9 +61,20 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
     let latest = "";
     for (const file of files) {
       const text = src(join(MIGRATIONS, file));
-      const start = text.indexOf(`function public.${fn}(`);
+      // Case-INsensitive, and dollar-quote-tag agnostic. A migration re-emitted
+      // from `pg_get_functiondef` writes `CREATE OR REPLACE FUNCTION public.f(`
+      // in upper case and closes with `$function$`, not `$$;`. A scanner that
+      // matched only the hand-written lower-case `$$;` form would skip that file
+      // and silently resolve to an OLDER definition — pinning a body that is no
+      // longer the one in the database, which is the exact regression this whole
+      // block exists to catch.
+      const lower = text.toLowerCase();
+      const start = lower.indexOf(`function public.${fn.toLowerCase()}(`);
       if (start === -1) continue;
-      const end = text.indexOf("$$;", start);
+      const endDollar = text.indexOf("$$;", start);
+      const endTagged = text.indexOf("$function$\n", text.indexOf("$function$", start) + 1);
+      const ends = [endDollar, endTagged].filter((i) => i !== -1);
+      const end = ends.length ? Math.min(...ends) : -1;
       latest = text.slice(start, end === -1 ? undefined : end);
     }
     return latest;
@@ -74,6 +85,17 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
     expect(body, `${fn} has no definition in ${MIGRATIONS}`).not.toBe("");
     expect(body).toMatch(/contractor/);
     expect(body).toMatch(/pay-exempt and cannot (join|lead) a crew/);
+  });
+
+  // Spec 306 U5a's derive is the most DIRECT pay-path writer there is — it writes
+  // labor_logs itself — so it belongs in this inventory. It is not in WALLED_FNS
+  // because those assert the crew-specific phrase ("cannot join/lead a crew"),
+  // which does not describe this surface: the derive never touches crews, it
+  // simply must not turn a firm-paid worker's attendance into a PRC wage.
+  it("the LAST definition of derive_muster_labor carries the money wall", () => {
+    const body = lastDefinitionOf("derive_muster_labor");
+    expect(body, `derive_muster_labor has no definition in ${MIGRATIONS}`).not.toBe("");
+    expect(body).toContain("v_worker.contractor_id is null");
   });
 
   // The trigger layer is what makes the wall true for writers nobody has

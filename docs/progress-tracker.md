@@ -6,6 +6,52 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 328 §2.4 — the wage derive must skip contractor-tied workers — 🔨 in progress (2026-07-26)
+
+- **Origin:** spec 328 §2.4 declared the rule for this exact function ("when spec
+  306 U5 lands, the derive MUST skip contractor-tied workers") and **306 U5a (#740)
+  shipped without it.** A rule recorded in another spec's section is not
+  self-enforcing — nothing in CI connected the two.
+- **The hole:** a subcontractor firm's crew are paid BY THE FIRM out of the WP's
+  contract price. `derive_muster_labor` turning their attendance into `labor_logs`
+  books a SECOND, daily-wage payment for people already paid.
+- **Why now:** `workers.contractor_id` was set on **0 rows** at 328's gap-check
+  (07-18); today it is **3 active workers**, all under a `contractor`-category firm.
+  They are held out today ONLY by the cost gate (0 of 29 cost-confirmed) — the
+  first PM bulk-confirm opens it. No existing `labor_logs` row belongs to a tied
+  worker, so the change is purely forward-looking.
+- **Fix:** one conjunct, `and v_worker.contractor_id is null`, in `v_ok`
+  (migration `20260813075854`, CREATE OR REPLACE, signature unchanged ⇒ no
+  `db:types` diff, no grant or pgTAP signature pin moves). Body transcribed from
+  the LIVE `pg_get_functiondef`, not retyped.
+- **Why a blanket `contractor_id IS NULL` is right:** ⚠️ the pay-model memory's
+  "DC workers are force-tied to `contractor_id`" is **STALE** — `workers.worker_type`
+  and CHECK `workers_dc_has_contractor` are both gone from the live schema
+  (`pay_type` is now `daily|monthly`), and there are **zero `dc`-category
+  contractors**. So the column cleanly means "subcon member, pay-exempt". A
+  category-aware join would be an unreachable branch, and the blanket form fails
+  CLOSED (under-pay: visible, reversible) where category-aware fails OPEN
+  (double-pay: silent) — the correct direction for a money wall.
+- **Registered in the repo's own inventory:** added a `derive_muster_labor` pin to
+  `tests/unit/contractor-money-wall.test.ts`. ⚠️ Doing so required fixing that
+  file's `lastDefinitionOf` scanner: it matched lower-case `function public.f(`
+  and terminated on `$$;`, so a migration re-emitted from `pg_get_functiondef`
+  (upper-case `FUNCTION`, `$function$`) was SKIPPED and the scan silently resolved
+  to an **older** definition — pinning a body no longer in the database, the exact
+  regression that block exists to catch.
+- **Open questions / follow-ups (NOT done here):**
+  - **`log_labor_day` has no contractor guard** and the derive's retract loop keys
+    on `source_muster_id`, which a manual row leaves NULL — so a manually logged
+    contractor-tied worker is never retracted. Spec 328 U3 filtered only the
+    picker. Manual-entry double-pay stays reachable. Own unit.
+  - **Reclassification does not claw back history** — an already-closed past day
+    is unreachable for re-close, so it cannot be re-derived. Wants an
+    integrity-console check (`current labor_logs rows whose worker is
+contractor-tied = 0`). Deliberately NOT a pgTAP assert: a global count over an
+    operator-written table is the documented merge-queue-ejector class.
+  - The `dc`-category assumption is guarded only by a comment; the integrity check
+    above is the right place to make it break loudly.
+
 ## Spec 306 close-day carryover — unclosed-prior-day banner — 🔨 in progress (2026-07-26)
 
 - **Origin:** the day-1 audit prediction came true twice. `muster_day_closures`
