@@ -10,36 +10,48 @@
 // - checking a present member out (ออก mode) calls musterScan mode:"out";
 // - editing the WP set calls setMusterTeamWps.
 
-import { render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const openMusterTeam = vi.fn();
 const musterScan = vi.fn();
 const setMusterTeamWps = vi.fn();
 const closeMusterDay = vi.fn();
+const moveMusterWorker = vi.fn();
 vi.mock("@/lib/muster/actions", () => ({
   openMusterTeam: (...a: unknown[]) => openMusterTeam(...a),
   musterScan: (...a: unknown[]) => musterScan(...a),
   setMusterTeamWps: (...a: unknown[]) => setMusterTeamWps(...a),
   closeMusterDay: (...a: unknown[]) => closeMusterDay(...a),
+  moveMusterWorker: (...a: unknown[]) => moveMusterWorker(...a),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 // The camera loop is untestable in jsdom (getUserMedia/BarcodeDetector absent) —
 // mock the component; the sheet's camera MOUNT decision + the onDetected wiring
 // are what these tests pin. The trigger fires a fixed worker id (=W3 below;
 // vi.mock hoists above the consts, so the literal is repeated here).
+const nextScanId = { current: "cccccccc-3333-3333-3333-333333333333" };
 vi.mock("@/components/features/muster/muster-camera", () => ({
   MusterCamera: (p: { onDetected: (id: string) => void }) => (
-    <button
-      type="button"
-      data-testid="camera-mock"
-      onClick={() => p.onDetected("cccccccc-3333-3333-3333-333333333333")}
-    />
+    <>
+      <button
+        type="button"
+        data-testid="camera-mock"
+        onClick={() => p.onDetected("cccccccc-3333-3333-3333-333333333333")}
+      />
+      <button
+        type="button"
+        data-testid="camera-mock-next"
+        onClick={() => p.onDetected(nextScanId.current)}
+      />
+    </>
   ),
 }));
 
 import { MusterCockpit } from "@/components/features/muster/muster-cockpit";
+import { MusterAddSheet } from "@/components/features/muster/muster-add-sheet";
 import type { MusterBoard } from "@/lib/muster/load-muster";
 import { MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
 
@@ -79,6 +91,7 @@ const BOARD: MusterBoard = {
   ],
   wps: [{ id: WPA, code: "A", name: "งานเอ", status: "in_progress" }],
   closure: null,
+  priorTeamByWorker: [],
 };
 
 function renderCockpit(board: MusterBoard = BOARD, pastDayEnd = false) {
@@ -101,6 +114,11 @@ beforeEach(() => {
   musterScan.mockResolvedValue({ ok: true, id: "att" });
   setMusterTeamWps.mockResolvedValue({ ok: true });
   closeMusterDay.mockResolvedValue({ ok: true });
+  moveMusterWorker.mockResolvedValue({ ok: true, id: "moved" });
+  moveMusterWorker.mockClear();
+  // Spec 359 U1 — the sweep asserts on refresh CALL COUNT, so it must not leak
+  // between tests.
+  refresh.mockClear();
 });
 
 describe("MusterCockpit", () => {
@@ -218,6 +236,7 @@ describe("MusterCockpit — OT session (spec 351)", () => {
     ],
     wps: [{ id: WPA, code: "A", name: "งานเอ", status: "in_progress" }],
     closure: null,
+    priorTeamByWorker: [],
   };
 
   it("shows an OT-span line and the open-OT flag for a member with OT open", () => {
@@ -634,7 +653,11 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     expect(screen.queryByRole("button", { name: "สแกน QR" })).toBeNull();
   });
 
-  it("a camera detection fires a qr scan and closes the sheet (one-shot)", async () => {
+  // Spec 359 U1 moved the เข้า + regular path onto the continuous sweep (the
+  // sheet stays open — see the sweep describe). One-shot survives unchanged in
+  // the modes the sweep deliberately does NOT cover, so these two keep their
+  // original intent and now exercise ออก.
+  it("a camera detection fires a qr scan and closes the sheet (one-shot, ออก)", async () => {
     Object.defineProperty(navigator, "mediaDevices", {
       value: { getUserMedia: () => Promise.resolve() },
       configurable: true,
@@ -642,10 +665,11 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     try {
       const user = userEvent.setup();
       renderCockpit();
+      await user.click(screen.getByRole("button", { name: "ออก" }));
       await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
       await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock"));
       expect(musterScan).toHaveBeenCalledWith(
-        expect.objectContaining({ teamId: T1, workerId: W3, mode: "in", method: "qr" }),
+        expect.objectContaining({ teamId: T1, workerId: W3, mode: "out", method: "qr" }),
       );
       expect(screen.queryByRole("dialog")).toBeNull();
     } finally {
@@ -653,7 +677,7 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     }
   });
 
-  it("a scan error after the one-shot close surfaces in the page-top alert", async () => {
+  it("a scan error after the one-shot close surfaces in the page-top alert (ออก)", async () => {
     musterScan.mockResolvedValueOnce({ ok: false, error: "ยังไม่ได้เช็คชื่อเข้าของช่างคนนี้" });
     Object.defineProperty(navigator, "mediaDevices", {
       value: { getUserMedia: () => Promise.resolve() },
@@ -662,6 +686,7 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     try {
       const user = userEvent.setup();
       renderCockpit();
+      await user.click(screen.getByRole("button", { name: "ออก" }));
       await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
       await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock"));
       expect(screen.queryByRole("dialog")).toBeNull();
@@ -873,5 +898,442 @@ describe("MusterCockpit — gender chips (spec 357 U-F)", () => {
     const sheet = screen.getByRole("dialog");
     const kong = within(sheet).getByRole("button", { name: /ก้อง/ });
     expect(kong.textContent).toBe("ก้อง");
+  });
+});
+
+// Spec 359 U1 — the add sheet's action header + running tally. The header states
+// the VERB (not a toggle state) because scanFromCamera dispatches on the
+// เข้า/ออก + regular/OT toggles, and under a continuous sweep a wrong mode would
+// check a whole team out in seconds. The tally is the SA's per-scan feedback
+// while the sheet stays open.
+describe("MusterAddSheet — action header + tally (spec 359 U1)", () => {
+  const base = {
+    leadName: "อนันต์ แสงทอง",
+    actionLabel: "กำลังเช็คเข้า",
+    sessionLabel: "งานปกติ",
+    hasCamera: true,
+    showTapAdd: true,
+    addable: [],
+    message: null,
+    pending: false,
+    sweep: [],
+    onScanDetected: () => {},
+    onTapAdd: () => {},
+    onClose: () => {},
+    onMoveHere: () => {},
+  };
+
+  it("names the action, the team and the session in one header line", () => {
+    render(<MusterAddSheet {...base} />);
+    const header = screen.getByTestId("sweep-action-header");
+    expect(header.textContent).toContain("กำลังเช็คเข้า");
+    expect(header.textContent).toContain("อนันต์ แสงทอง");
+    expect(header.textContent).toContain("งานปกติ");
+  });
+
+  it("states the check-OUT verb when that is the active mode", () => {
+    render(<MusterAddSheet {...base} actionLabel="กำลังเช็คออก" />);
+    const header = screen.getByTestId("sweep-action-header");
+    expect(header.textContent).toContain("กำลังเช็คออก");
+    expect(header.textContent).not.toContain("กำลังเช็คเข้า");
+  });
+
+  it("counts only the added outcomes, not the refused ones", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 3, workerId: "w3", name: "ค", outcome: "other_team", detail: "จันทร์ เงางาม" },
+          { seq: 2, workerId: "w2", name: "ข", outcome: "added_first_time", detail: null },
+          { seq: 1, workerId: "w1", name: "ก", outcome: "added", detail: null },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("sweep-count").textContent).toContain("2");
+  });
+
+  it("renders entries newest first", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 2, workerId: "w2", name: "ข", outcome: "added", detail: null },
+          { seq: 1, workerId: "w1", name: "ก", outcome: "added", detail: null },
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId("sweep-entry-name").map((n) => n.textContent)).toEqual(["ข", "ก"]);
+  });
+
+  it("shows the prior lead on a team change", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          {
+            seq: 1,
+            workerId: "w1",
+            name: "ก",
+            outcome: "added_team_changed",
+            detail: "จันทร์ เงางาม",
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("เมื่อวานอยู่ทีม จันทร์ เงางาม")).toBeInTheDocument();
+  });
+
+  it("labels a never-before-mustered worker", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[{ seq: 1, workerId: "w1", name: "ก", outcome: "added_first_time", detail: null }]}
+      />,
+    );
+    expect(screen.getByText("ครั้งแรก")).toBeInTheDocument();
+  });
+
+  it("names the other team when the worker is mustered elsewhere", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 1, workerId: "w1", name: "ก", outcome: "other_team", detail: "จันทร์ เงางาม" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("อยู่ทีม จันทร์ เงางาม แล้ววันนี้")).toBeInTheDocument();
+  });
+
+  it("reports an unreadable badge without inventing a name", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[{ seq: 1, workerId: "junk", name: "junk", outcome: "unknown_badge", detail: null }]}
+      />,
+    );
+    expect(screen.getByText("ไม่รู้จักบัตรนี้")).toBeInTheDocument();
+    expect(screen.queryByText("junk")).not.toBeInTheDocument();
+  });
+
+  it("surfaces the server message on a failed write", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 1, workerId: "w1", name: "ก", outcome: "failed", detail: "ไม่มีสิทธิ์เช็คชื่อ" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("ไม่มีสิทธิ์เช็คชื่อ")).toBeInTheDocument();
+  });
+
+  it("renders no tally block at all before the first scan", () => {
+    render(<MusterAddSheet {...base} sweep={[]} />);
+    expect(screen.queryByTestId("sweep-count")).not.toBeInTheDocument();
+  });
+});
+
+// Spec 359 U1 — the continuous sweep. The sheet stops closing on a decode so the
+// SA can walk a team's line badge-to-badge; outcomes are classified from board
+// state, and the board is refreshed ONCE on close rather than per scan.
+describe("MusterCockpit — continuous sweep (spec 359 U1)", () => {
+  const renderSweep = (board: MusterBoard = BOARD) =>
+    render(
+      <MusterCockpit
+        projectId={PROJECT}
+        date="2026-07-26"
+        revalidate="/projects/x/muster"
+        board={board}
+        htWorkerIds={[W1]}
+        pastDayEnd={false}
+      />,
+    );
+
+  // jsdom has no camera; the sheet only mounts one when scanner support is
+  // detectable (getUserMedia is enough — the jsQR fallback path, spec 306 U3b).
+  beforeEach(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    // The file's shared beforeEach re-sets musterScan's RESOLVED VALUE but never
+    // its call log, and these tests assert exact call COUNTS — without this they
+    // inherit every scan the earlier describes made.
+    musterScan.mockClear();
+  });
+  afterEach(() => {
+    delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+  });
+
+  const openSheet = () => userEvent.click(screen.getAllByLabelText("สแกน QR / เพิ่มช่าง")[0]!);
+  const scan = async (id: string) => {
+    nextScanId.current = id;
+    await act(async () => {
+      await userEvent.click(screen.getByTestId("camera-mock-next"));
+    });
+  };
+
+  it("keeps the sheet open after a successful decode", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W2);
+    expect(screen.getByTestId("sweep-action-header")).toBeInTheDocument();
+    expect(screen.getByTestId("sweep-count")).toBeInTheDocument();
+  });
+
+  it("scans as qr, check-in, regular session", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W2);
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "qr", mode: "in", session: "regular", workerId: W2 }),
+    );
+  });
+
+  it("writes once per badge and ignores a repeat inside the cooldown", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W2);
+    await scan(W2);
+    expect(musterScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses a same-tick repeat of one badge (the cooldown, not the board)", async () => {
+    // The real hazard the cooldown exists for: the decode loop fires every
+    // ~180ms while the badge is still in frame, with NO React commit between
+    // firings — so both handlers see the same `sweep` closure and the
+    // addedThisSweep guard cannot help. fireEvent (synchronous, unlike
+    // userEvent) reproduces that; an awaited userEvent click would flush a
+    // commit in between and let the board guard mask this.
+    renderSweep();
+    await openSheet();
+    nextScanId.current = W2;
+    const btn = screen.getByTestId("camera-mock-next");
+    await act(async () => {
+      fireEvent.click(btn);
+      fireEvent.click(btn);
+    });
+    expect(musterScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not refresh when the sweep added nobody", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W1); // already on this team → no write, nothing added
+    await userEvent.click(screen.getByText("ปิด"));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("accumulates several different badges in one sweep", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W2);
+    await scan(W3);
+    expect(musterScan).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("sweep-count").textContent).toContain("2");
+  });
+
+  it("does not call the server for a worker already on this team", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W1); // W1 is already a member of T1 in BOARD
+    expect(musterScan).not.toHaveBeenCalled();
+    expect(screen.getByText("อยู่ในทีมแล้ว")).toBeInTheDocument();
+  });
+
+  it("refreshes the board once, on close — not per scan", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W2);
+    await scan(W3);
+    expect(refresh).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByText("ปิด"));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the entry failed when the server refuses", async () => {
+    musterScan.mockResolvedValue({ ok: false, error: "ไม่มีสิทธิ์เช็คชื่อ" });
+    renderSweep();
+    await openSheet();
+    await scan(W2);
+    expect(await screen.findByText("ไม่มีสิทธิ์เช็คชื่อ")).toBeInTheDocument();
+    expect(screen.getByTestId("sweep-count").textContent).toContain("0");
+  });
+
+  it("starts each sheet opening with an empty tally", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W2);
+    await userEvent.click(screen.getByText("ปิด"));
+    await openSheet();
+    expect(screen.queryByTestId("sweep-count")).not.toBeInTheDocument();
+  });
+
+  it("warns when the worker's last muster was a different lead", async () => {
+    renderSweep({
+      ...BOARD,
+      priorTeamByWorker: [{ workerId: W2, leadWorkerId: W3, leadName: "ก้อง" }],
+    });
+    await openSheet();
+    await scan(W2);
+    expect(screen.getByText("เมื่อวานอยู่ทีม ก้อง")).toBeInTheDocument();
+  });
+
+  it("does not warn when the worker's last muster was this same lead", async () => {
+    renderSweep({
+      ...BOARD,
+      priorTeamByWorker: [{ workerId: W2, leadWorkerId: W1, leadName: "ลี" }],
+    });
+    await openSheet();
+    await scan(W2);
+    expect(screen.queryByText(/เมื่อวานอยู่ทีม/)).not.toBeInTheDocument();
+  });
+
+  it("does not sweep in ออก mode — that keeps the one-shot behaviour", async () => {
+    renderSweep();
+    await userEvent.click(screen.getByText("ออก"));
+    await openSheet();
+    await scan(W2);
+    expect(screen.queryByTestId("sweep-action-header")).not.toBeInTheDocument();
+  });
+});
+
+// Spec 359 U1 — resolving an other-team row. The spec requires the move be
+// offered AFTER the sweep, never as a modal mid-line: it lives in the tally row
+// so the SA keeps scanning and deals with the amber rows when the line is done.
+describe("MusterCockpit — ย้ายมาทีมนี้ (spec 359 U1)", () => {
+  const T2 = "ffffffff-6666-6666-6666-666666666666";
+  const boardWithW2Elsewhere: MusterBoard = {
+    ...BOARD,
+    teams: [
+      ...BOARD.teams,
+      {
+        id: T2,
+        leadWorkerId: W3,
+        leadName: "ก้อง",
+        members: [
+          {
+            workerId: W2,
+            name: "สมชาย",
+            gender: null,
+            inAt: "2026-07-26T01:00:00Z",
+            outAt: null,
+            outAuto: false,
+            ot: null,
+          },
+        ],
+        wpIds: [],
+        prefillWpIds: [],
+        missing: [],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    musterScan.mockClear();
+  });
+  afterEach(() => {
+    delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+  });
+
+  const renderIt = (board: MusterBoard) =>
+    render(
+      <MusterCockpit
+        projectId={PROJECT}
+        date="2026-07-26"
+        revalidate="/projects/x/muster"
+        board={board}
+        htWorkerIds={[W1, W3]}
+        pastDayEnd={false}
+      />,
+    );
+
+  const scanInto = async (teamIdx: number, id: string) => {
+    await userEvent.click(screen.getAllByLabelText("สแกน QR / เพิ่มช่าง")[teamIdx]!);
+    nextScanId.current = id;
+    await act(async () => {
+      await userEvent.click(screen.getByTestId("camera-mock-next"));
+    });
+  };
+
+  it("offers ย้ายมาทีมนี้ on an other-team row and moves on tap", async () => {
+    renderIt(boardWithW2Elsewhere);
+    await scanInto(0, W2);
+    expect(musterScan).not.toHaveBeenCalled();
+    await act(async () => {
+      await userEvent.click(screen.getByText("ย้ายมาทีมนี้"));
+    });
+    expect(moveMusterWorker).toHaveBeenCalledWith(
+      expect.objectContaining({ workerId: W2, toTeamId: T1, date: "2026-07-26" }),
+    );
+    expect(screen.getByTestId("sweep-count").textContent).toContain("1");
+  });
+
+  it("offers no move button on an added row", async () => {
+    renderIt(BOARD);
+    await scanInto(0, W2);
+    expect(screen.queryByText("ย้ายมาทีมนี้")).not.toBeInTheDocument();
+  });
+
+  it("surfaces a refused move on the row instead of silently doing nothing", async () => {
+    moveMusterWorker.mockResolvedValue({ ok: false, error: "ย้ายข้ามโครงการไม่ได้" });
+    renderIt(boardWithW2Elsewhere);
+    await scanInto(0, W2);
+    await act(async () => {
+      await userEvent.click(screen.getByText("ย้ายมาทีมนี้"));
+    });
+    expect(await screen.findByText("ย้ายข้ามโครงการไม่ได้")).toBeInTheDocument();
+  });
+});
+
+// Spec 359 U2 — camera-first. The sheet opens into the viewfinder and the tap
+// list moves behind a disclosure. The tap list is the lost-badge / phoneless
+// safety net (spec 357 U-D's signal-removal rule) so it stays one tap away and
+// keeps its stays-open behaviour; a device with no camera is untouched.
+describe("MusterAddSheet — camera-first (spec 359 U2)", () => {
+  const base = {
+    leadName: "อนันต์ แสงทอง",
+    actionLabel: "กำลังเช็คเข้า",
+    sessionLabel: "งานปกติ",
+    showTapAdd: true,
+    addable: [{ id: "w1", name: "สมชาย", gender: null }],
+    message: null,
+    pending: false,
+    sweep: [],
+    onScanDetected: () => {},
+    onTapAdd: () => {},
+    onMoveHere: () => {},
+    onClose: () => {},
+  };
+
+  it("collapses the tap list behind a disclosure when a camera is available", () => {
+    render(<MusterAddSheet {...base} hasCamera />);
+    expect(screen.getByText("ไม่มีบัตร / หาไม่เจอ")).toBeInTheDocument();
+    // <details> keeps the content in the DOM but hidden — assert it is not
+    // exposed, which is what "the SA sees the camera first" actually means.
+    expect(screen.getByRole("button", { name: "สมชาย" })).not.toBeVisible();
+  });
+
+  it("reveals the tap list when the disclosure is opened", async () => {
+    render(<MusterAddSheet {...base} hasCamera />);
+    await userEvent.click(screen.getByText("ไม่มีบัตร / หาไม่เจอ"));
+    expect(screen.getByRole("button", { name: "สมชาย" })).toBeVisible();
+  });
+
+  it("leaves the tap list open and undisclosed when there is no camera", () => {
+    render(<MusterAddSheet {...base} hasCamera={false} />);
+    expect(screen.getByRole("button", { name: "สมชาย" })).toBeVisible();
+    expect(screen.queryByText("ไม่มีบัตร / หาไม่เจอ")).not.toBeInTheDocument();
+  });
+
+  it("still renders no tap list at all outside เข้า + regular", () => {
+    render(<MusterAddSheet {...base} hasCamera showTapAdd={false} />);
+    expect(screen.queryByText("ไม่มีบัตร / หาไม่เจอ")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "สมชาย" })).not.toBeInTheDocument();
   });
 });

@@ -9,14 +9,30 @@
 // a lost/phoneless badge is never "absent". Money (labor cost) is derived later
 // at ปิดวัน (U5) — this screen never touches it.
 
-import { useState, useSyncExternalStore, useTransition } from "react";
+import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QrCode } from "lucide-react";
 import { formatThaiDate, MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
-import { openMusterTeam, musterScan, setMusterTeamWps, closeMusterDay } from "@/lib/muster/actions";
+import {
+  openMusterTeam,
+  musterScan,
+  setMusterTeamWps,
+  closeMusterDay,
+  moveMusterWorker,
+} from "@/lib/muster/actions";
 import { groupMusterWps, pickerWps } from "@/lib/muster/wp-groups";
 import { hasScannerSupport } from "@/lib/muster/scanner-support";
 import { deriveCloseDayState } from "@/lib/muster/close-day-state";
+import {
+  EMPTY_SWEEP,
+  classifyScan,
+  isCoolingDown,
+  markFailed,
+  markMoved,
+  recordScan,
+  type SweepState,
+} from "@/lib/muster/sweep";
+import { playScanCue } from "@/lib/muster/scan-cue";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import type { MusterWp } from "@/lib/muster/wp-groups";
 import type { MusterBoard, MusterTeam } from "@/lib/muster/load-muster";
@@ -80,6 +96,15 @@ export function MusterCockpit({
   const [scanTeamId, setScanTeamId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
+  // Spec 359 U1 — the open sheet's running tally. Reset on every open so a new
+  // team never inherits the previous team's list.
+  const [sweep, setSweep] = useState<SweepState>(EMPTY_SWEEP);
+  // The cooldown clock lives in a REF, not in `sweep`. The decode loop can fire
+  // twice inside one tick (every ~180ms while the badge is still in frame) and
+  // both handlers would then close over the SAME `sweep`, see an empty lastSeen,
+  // and both write — the exact double-scan the cooldown exists to stop. A ref is
+  // written synchronously, so the second call in the same tick sees the first.
+  const lastSeenRef = useRef<Record<string, number>>({});
   const [pending, startTransition] = useTransition();
   const hasCamera = useSyncExternalStore(subscribeNoop, hasScannerSupport, () => false);
 
@@ -141,8 +166,93 @@ export function MusterCockpit({
     run(() => musterScan({ teamId, workerId, mode: otMode, method, session: "ot", revalidate }));
   };
   // The camera dispatches by the active session (it scans whichever session is on).
+  // Spec 359 U1: this is now the NON-sweep path only (ออก / OT) — one-shot, as
+  // before. The morning line goes through onSweepDetected below.
   const scanFromCamera = (teamId: string, workerId: string) =>
     session === "ot" ? scanOt(teamId, workerId, "qr") : scanRegular(teamId, workerId, "qr");
+
+  // Spec 359 U1 — the sweep classifies from BOARD state rather than by matching
+  // the RPC's Thai error text, so the outcomes survive a copy change.
+  const todayTeamByWorker = new Map(
+    board.teams.flatMap((t) => t.members.map((m) => [m.workerId, t.id] as const)),
+  );
+  const teamLeadById = new Map(board.teams.map((t) => [t.id, t.leadName] as const));
+  const workersById = new Map(board.workers.map((w) => [w.id, w.name] as const));
+  const priorLeadByWorker = new Map(
+    board.priorTeamByWorker.map(
+      (p) => [p.workerId, { id: p.leadWorkerId, name: p.leadName }] as const,
+    ),
+  );
+  // The sweep is the morning line only: regular + เข้า. ออก and OT keep the
+  // one-shot behaviour — a continuous sweep in ออก would check a whole team out
+  // in seconds (spec 359 plan, scope decision).
+  const sweepMode = session === "regular" && mode === "in";
+
+  // Spec 359 U1 — a decode inside the sweep. The board is NOT refreshed per scan
+  // (that would be a server round-trip and a re-render per worker in a line); the
+  // tally is the SA's feedback and the board catches up when the sheet closes.
+  const onSweepDetected = (teamId: string, workerId: string) => {
+    const now = Date.now();
+    // The decode loop fires every ~180ms and the badge stays in frame while the
+    // SA moves on — without this, one badge is ~5 writes a second. Read from the
+    // ref (see its declaration): `sweep` is a render closure and would be stale
+    // for a second decode in the same tick.
+    if (isCoolingDown({ ...EMPTY_SWEEP, lastSeen: lastSeenRef.current }, workerId, now)) return;
+    lastSeenRef.current = { ...lastSeenRef.current, [workerId]: now };
+    const c = classifyScan(
+      {
+        teamId,
+        leadWorkerId: board.teams.find((t) => t.id === teamId)?.leadWorkerId ?? "",
+        workersById,
+        todayTeamByWorker,
+        teamLeadById,
+        priorLeadByWorker,
+        addedThisSweep: new Set(sweep.addedIds),
+      },
+      workerId,
+    );
+    setSweep((s) => recordScan(s, c, now));
+    playScanCue(c.kind);
+    if (!c.shouldWrite) return;
+    startTransition(async () => {
+      const res = await musterScan({
+        teamId,
+        workerId,
+        mode: "in",
+        method: "qr",
+        session: "regular",
+        revalidate,
+      });
+      if (!res.ok) {
+        setSweep((s) => markFailed(s, workerId, res.error));
+        playScanCue("failed");
+      }
+    });
+  };
+
+  // Spec 359 U1 — resolve an other-team row from the tally, after the sweep.
+  // move_muster_worker owns every guard (same date, same project, attendance
+  // exists) and audits crew_change/muster_move.
+  const onMoveHere = (teamId: string, workerId: string) => {
+    startTransition(async () => {
+      const res = await moveMusterWorker({ workerId, date, toTeamId: teamId, revalidate });
+      if (res.ok) {
+        setSweep((s) => markMoved(s, workerId));
+        playScanCue("added");
+      } else {
+        setSweep((s) => markFailed(s, workerId, res.error));
+        playScanCue("failed");
+      }
+    });
+  };
+
+  // One refresh for the whole sweep, on close — not per scan.
+  const closeSheet = () => {
+    setScanTeamId(null);
+    if (sweep.addedIds.length > 0) router.refresh();
+    setSweep(EMPTY_SWEEP);
+    lastSeenRef.current = {};
+  };
   // Sheet tap-add is ALWAYS a regular check-in — explicit mode:"in", never the
   // toggle state (the list renders only in เข้า mode, but adding someone must
   // not depend on which toggle happens to be lit).
@@ -286,6 +396,10 @@ export function MusterCockpit({
               // A leftover error from an earlier, unrelated action (open-team,
               // save-WPs…) must not greet the SA inside a fresh scan/add sheet.
               setMessage(null);
+              // Spec 359 U1 — a fresh sweep per opening; the previous team's
+              // tally must never carry over.
+              setSweep(EMPTY_SWEEP);
+              lastSeenRef.current = {};
               setScanTeamId(team.id);
             }}
           />
@@ -365,17 +479,27 @@ export function MusterCockpit({
         return sheetTeam ? (
           <MusterAddSheet
             leadName={sheetTeam.leadName}
+            actionLabel={
+              session === "ot" ? "กำลังบันทึก OT" : mode === "in" ? "กำลังเช็คเข้า" : "กำลังเช็คออก"
+            }
+            sessionLabel={session === "ot" ? "OT" : "งานปกติ"}
+            sweep={sweep.entries}
             hasCamera={hasCamera}
             showTapAdd={session === "regular" && mode === "in"}
             addable={addableTo(sheetTeam.id)}
             message={message}
             pending={pending}
             onScanDetected={(workerId) => {
+              if (sweepMode) {
+                onSweepDetected(sheetTeam.id, workerId);
+                return;
+              }
               scanFromCamera(sheetTeam.id, workerId);
               setScanTeamId(null);
             }}
             onTapAdd={(workerId) => onScanTap(sheetTeam.id, workerId)}
-            onClose={() => setScanTeamId(null)}
+            onMoveHere={(workerId) => onMoveHere(sheetTeam.id, workerId)}
+            onClose={closeSheet}
           />
         ) : null;
       })()}

@@ -71,6 +71,11 @@ export interface MusterBoard {
   wps: MusterWp[];
   // Spec 306 U4 — the day's closure (ปิดวัน), null while the day is still open.
   closure: { closedAt: string } | null;
+  // Spec 359 U1 — each worker's most recent muster BEFORE this date. Drives the
+  // continuous sweep's team-change warning: the comparison keys on leadWorkerId
+  // (display names repeat across the roster), the copy uses leadName. A worker
+  // who has never mustered is absent (the sweep renders ครั้งแรก for them).
+  priorTeamByWorker: { workerId: string; leadWorkerId: string; leadName: string }[];
 }
 
 interface RawTeam {
@@ -103,6 +108,8 @@ export function shapeMusterBoard(raw: {
   // Spec 357 U-C — per lead, the LIVE members of the crews they lead (a lead
   // with several active crews contributes several rows; the fold unions them).
   crewRosters?: { leadWorkerId: string; workerIds: string[] }[];
+  // Spec 359 U1 — flat prior-day attendance rows, any order.
+  priorAttendance?: { workerId: string; leadWorkerId: string; workDate: string }[];
 }): MusterBoard {
   const workerById = new Map(raw.workers.map((w) => [w.id, w]));
   const nameOf = (id: string) => workerById.get(id)?.name ?? "—";
@@ -164,11 +171,28 @@ export function shapeMusterBoard(raw: {
     })(),
   }));
 
+  // Spec 359 U1 — latest prior muster per worker. Compared by ISO date string,
+  // which sorts lexicographically. The lead resolves to a NAME here so the client
+  // reducer never has to hold an id→name map for leads who are not on today's
+  // board; the ID travels with it because that is what the comparison keys on.
+  const latestPrior = new Map<string, { leadWorkerId: string; workDate: string }>();
+  for (const row of raw.priorAttendance ?? []) {
+    const seen = latestPrior.get(row.workerId);
+    if (!seen || row.workDate > seen.workDate) {
+      latestPrior.set(row.workerId, { leadWorkerId: row.leadWorkerId, workDate: row.workDate });
+    }
+  }
+
   return {
     teams,
     workers: raw.workers,
     wps: raw.wps,
     closure: raw.closure ? { closedAt: raw.closure.closed_at } : null,
+    priorTeamByWorker: [...latestPrior.entries()].map(([workerId, v]) => ({
+      workerId,
+      leadWorkerId: v.leadWorkerId,
+      leadName: nameOf(v.leadWorkerId),
+    })),
   };
 }
 
@@ -300,6 +324,35 @@ export async function loadMusterBoard(
       workerIds: (crewMembers ?? []).filter((m) => m.crew_id === c.id).map((m) => m.worker_id),
     }));
 
+  // Spec 359 U1 — prior muster rows for this project, so the continuous sweep can
+  // warn when a worker turns up in a different line from last time. Two reads
+  // because PostgREST cannot join: the prior teams, then their attendance.
+  //
+  // Unbounded backwards, matching loadUnclosedPriorDays: a date window would make
+  // a worker returning after a long gap indistinguishable from a first-timer and
+  // silently mislabel them ครั้งแรก. Rows are three small columns and only exist
+  // for days a team was actually opened, so the read stays modest; if a project
+  // ever accumulates years of muster this is the query to revisit.
+  const { data: priorTeamRows } = await supabase
+    .from("muster_teams")
+    .select("id, lead_worker_id, work_date")
+    .eq("project_id", projectId)
+    .lt("work_date", date);
+  const priorTeamById = new Map((priorTeamRows ?? []).map((t) => [t.id, t]));
+  const priorAttendanceRes = priorTeamById.size
+    ? await supabase
+        .from("muster_attendance")
+        .select("team_id, worker_id")
+        .in("team_id", [...priorTeamById.keys()])
+        .eq("session", "regular")
+    : { data: [] as { team_id: string; worker_id: string }[] };
+  const priorAttendance = (priorAttendanceRes.data ?? []).flatMap((a) => {
+    const t = priorTeamById.get(a.team_id);
+    return t
+      ? [{ workerId: a.worker_id, leadWorkerId: t.lead_worker_id, workDate: t.work_date }]
+      : [];
+  });
+
   return shapeMusterBoard({
     teams: teams ?? [],
     attendance: attendanceRes.data ?? [],
@@ -309,6 +362,7 @@ export async function loadMusterBoard(
     closure: closureRes.data ?? null,
     priorTeamWps,
     crewRosters,
+    priorAttendance,
   });
 }
 
