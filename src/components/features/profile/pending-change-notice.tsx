@@ -10,11 +10,13 @@
 // both Server Components (the my-info page) and Client Components (the forms).
 
 import type { ReactNode } from "react";
-import { CARD } from "@/lib/ui/classes";
+import { CARD_LAYOUT } from "@/lib/ui/classes";
 
 export function PendingChangeNotice({
   children,
-  className = CARD,
+  // CARD_LAYOUT, not CARD: the wrapper below supplies the amber pair, and
+  // CARD's own bg-card/border-edge would outrank it in the stylesheet.
+  className = CARD_LAYOUT,
 }: {
   children: ReactNode;
   className?: string;

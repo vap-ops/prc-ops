@@ -180,10 +180,13 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
 // `bg-attn-soft`/`bg-action-soft` and lost to `bg-danger-soft`/`bg-done-soft`
 // — the bug was invisible partly because it only bit half the palette.
 //
-// 13 call sites (registration, the client portal, contacts, feedback, view-as,
-// the team map) rendered a NEUTRAL white card where the design says warn /
-// success / danger. `text-attn-ink` DID apply, because CARD sets no text
-// colour, so those cards read as amber TEXT on a WHITE card — which looks
+// 17 compositions across registration, the client portal, contacts, feedback,
+// profile and settings/view-as were affected. 11 of them lost the colour
+// outright and rendered a NEUTRAL white card where the design says warn /
+// success / danger; the rest lost only half (feedback-form's `bg-done-soft` and
+// staff-register's `bg-danger-soft` DO outrank `bg-card`, while their borders
+// did not). `text-attn-ink` kept applying throughout, because CARD sets no text
+// colour — so the broken ones read as amber TEXT on a WHITE card, which looks
 // deliberate, which is why nobody reported it.
 //
 // The fix is structural: CARD_LAYOUT carries the geometry alone, and a status
@@ -191,6 +194,19 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
 // This scan is what keeps it that way — the defect is invisible to typecheck,
 // lint AND RTL, all of which see a className string that faithfully contains
 // every class the author wrote.
+//
+// SCOPE — this scan covers `background-color` and `border-color`. Plain `color`
+// is the IDENTICAL failure mode (`text-ink` outranks `text-danger`, and
+// `text-ink-secondary` outranks `text-ink`) and has two known live instances
+// deliberately left for their own unit, because each needs either a third
+// constant split or a visual-design call:
+//   - payroll/clear-nominee-button.tsx — `${BUTTON_SECONDARY_MUTED} text-danger`
+//     on the destructive "ยืนยันล้าง?" confirm: renders neutral ink, not red.
+//   - work-packages/wp-walk-bar.tsx — `${STEP} text-ink font-semibold` on the
+//     next-step link: the emphasis colour is dead.
+// KNOWN FALSE NEGATIVES, same reason: a colour reached through a variable
+// (`const TONE = "bg-attn-soft"; ` + "`${CARD} ${TONE}`" + `) or through string
+// concatenation rather than a template literal. Both need value tracking.
 // ---------------------------------------------------------------------------
 
 /** Colour tokens are the design SSOT — read them from globals.css, never a list. */
@@ -215,7 +231,9 @@ export function colorUtilitiesByProperty(classString: string): Record<ColorPrope
   // Template-literal delimiters and `${…}` punctuation are not whitespace, so a
   // utility sitting first or last in a literal arrives glued to a backtick.
   for (const raw of classString.replace(/[`'"${}]/g, " ").split(/\s+/)) {
-    if (!raw || raw.includes(":") || raw.startsWith("!") || raw.includes("[")) continue;
+    // `!` marks !important in BOTH Tailwind syntaxes (v3 prefix, v4 suffix); an
+    // important utility wins on cascade rules, not on emission order.
+    if (!raw || raw.includes(":") || raw.includes("!") || raw.includes("[")) continue;
     const bg = /^bg-(.+)$/.exec(raw);
     // `bg-done/10` — the opacity modifier does not change which property it sets.
     if (bg && COLOR_TOKENS.has(bg[1]!.split("/")[0]!)) out["background-color"].push(raw);
@@ -225,23 +243,59 @@ export function colorUtilitiesByProperty(classString: string): Record<ColorPrope
   return out;
 }
 
-/** local name → exported name, for what this file pulls in from the shared class
- *  module. A file is free to define its OWN `const CARD` (team-map-view.tsx
- *  does, deliberately colour-free) — that one shadows the import and is none of
- *  this guard's business, so scoping to the import list is what keeps the scan
- *  honest. Aliases are kept both ways: the literal names the LOCAL binding, the
- *  colour set comes from the EXPORT. */
-export function importedClassConstants(content: string): Map<string, string> {
-  const names = new Map<string, string>();
+/**
+ * Every class constant in scope for this file, local name → class string:
+ * what it imports from the shared module PLUS the string constants it declares
+ * itself. A file-local `const CARD` SHADOWS the import (team-map-view.tsx has
+ * one, deliberately colour-free), so the local declaration wins — but it is
+ * still checked, because a local constant carries colours exactly like a shared
+ * one. Aliased imports resolve through: the literal names the LOCAL binding
+ * while the colour set comes from the EXPORT.
+ */
+export function classConstantsInScope(
+  content: string,
+  shared: Record<string, string>,
+): Map<string, string> {
+  const scope = new Map<string, string>();
   for (const [, clause] of content.matchAll(
-    /import\s*\{([^}]*)\}\s*from\s*["']@\/lib\/ui\/classes["']/g,
+    /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["'][^"']*\/ui\/classes["']/g,
   )) {
     for (const part of (clause ?? "").split(",")) {
       const [exported, local] = part.trim().split(/\s+as\s+/);
-      if (exported) names.set((local ?? exported).trim(), exported.trim());
+      const value = exported ? shared[exported.trim()] : undefined;
+      if (exported && value !== undefined) scope.set((local ?? exported).trim(), value);
     }
   }
-  return names;
+  // Declared last so a local declaration shadows an import of the same name.
+  for (const m of content.matchAll(/(?:^|\n)\s*const\s+(\w+)\s*=\s*("[^"]*"|'[^']*')\s*;/g)) {
+    scope.set(m[1]!, m[2]!.slice(1, -1));
+  }
+  return scope;
+}
+
+/**
+ * Template literals, nesting-aware. A plain /`[^`]*`/ split mistakes the inner
+ * literal of `` `${CARD} ${cond ? `x-${n}` : ""} bg-attn-soft` `` for the end of
+ * the outer one, so everything after the nest — including the competing colour
+ * — falls outside the scanned string. 17 files in src/ nest template literals.
+ */
+export function templateLiterals(content: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < content.length; i += 1) {
+    if (content[i] !== "`") continue;
+    let depth = 0;
+    let j = i + 1;
+    for (; j < content.length; j += 1) {
+      const c = content[j];
+      if (c === "\\") j += 1;
+      else if (c === "$" && content[j + 1] === "{") depth += 1;
+      else if (c === "}" && depth > 0) depth -= 1;
+      else if (c === "`" && depth === 0) break;
+    }
+    out.push(content.slice(i, j + 1));
+    i = j;
+  }
+  return out;
 }
 
 /**
@@ -251,13 +305,11 @@ export function importedClassConstants(content: string): Map<string, string> {
  * same literal collides — including one tucked inside a `${cond ? … : …}` arm.
  * Arms are never compared with each other: only one of them ever renders.
  */
-export function constColorOverrides(content: string, constants: Record<string, string>): string[] {
+export function constColorOverrides(content: string, shared: Record<string, string>): string[] {
   const out: string[] = [];
-  const imported = importedClassConstants(content);
-  for (const [lit] of content.matchAll(/`[^`]*`/g)) {
-    for (const [name, exported] of imported) {
-      const value = constants[exported];
-      if (value === undefined) continue;
+  const scope = classConstantsInScope(content, shared);
+  for (const lit of templateLiterals(content)) {
+    for (const [name, value] of scope) {
       if (!lit.includes("${" + name + "}")) continue;
       const own = colorUtilitiesByProperty(value);
       const added = colorUtilitiesByProperty(lit.replaceAll("${" + name + "}", " "));
@@ -325,15 +377,27 @@ describe("shared-constant colour-override contract (2026-07-26 bug class)", () =
     ).toHaveLength(0);
     // a constant that is merely mentioned, not composed, is not a call site
     expect(check("`bg-attn-soft`")).toHaveLength(0);
-    // a file's OWN `const CARD` shadows the shared one — not this guard's
-    // business, and treating it as the import misreads a correct surface
-    // (team-map-view.tsx, whose local CARD carries no border colour at all).
+    // a file's OWN `const CARD` SHADOWS the shared one, so it is judged on its
+    // own colours — team-map-view.tsx's local CARD sets no border colour, so
+    // adding one is not a conflict (reading it as the shared CARD would call a
+    // correct surface broken)
     expect(
       constColorOverrides(
         'const CARD = "rounded-card bg-card border px-3 py-2";\n`${CARD} border-edge-strong`',
         card,
       ),
     ).toHaveLength(0);
+    // …but a local constant that DOES carry the colour is still caught
+    expect(
+      constColorOverrides(
+        'const PANEL = "rounded-card border border-edge bg-card";\n`${PANEL} bg-attn-soft`',
+        card,
+      ),
+    ).toHaveLength(1);
+    // a competing colour AFTER a nested template literal is still in the string
+    expect(check('`${CARD} ${cond ? `pt-${n}` : ""} bg-attn-soft border-attn`')).toHaveLength(2);
+    // !important wins on cascade rules, not on emission order
+    expect(check("`${CARD} bg-attn-soft!`")).toHaveLength(0);
     // an aliased import is still the shared constant: the literal names the
     // LOCAL binding while the colours come from the EXPORT
     expect(
@@ -342,6 +406,22 @@ describe("shared-constant colour-override contract (2026-07-26 bug class)", () =
         card,
       ),
     ).toHaveLength(1);
+  });
+
+  // The scan reads `import { … } from "…/ui/classes"`. A namespace or default
+  // import would sail straight past it, so pin that src/ never uses one — the
+  // guard's reach is then a fact about the repo, not an assumption.
+  it("src/ imports the class constants only in the named form the scan can read", () => {
+    const srcRoot = path.resolve(__dirname, "../../src");
+    const odd = tsxFiles(srcRoot, (n) => n.endsWith(".tsx") || n.endsWith(".ts")).filter((f) =>
+      /import\s+(?!type\s)(?:\*\s*as\s+\w+|\w+\s*,)\s*.*from\s*["'][^"']*\/ui\/classes["']/.test(
+        fs.readFileSync(f, "utf8"),
+      ),
+    );
+    expect(
+      odd.map((f) => path.relative(srcRoot, f).replaceAll(path.sep, "/")),
+      "namespace/default imports of @/lib/ui/classes are invisible to the colour-override scan — use named imports",
+    ).toEqual([]);
   });
 
   it("no className in src/ overrides a colour a shared constant already sets", () => {
