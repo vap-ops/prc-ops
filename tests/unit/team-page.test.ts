@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { teamTilesForRole } from "@/components/features/sa/team-tiles";
+import { ATTENDANCE_AUDIT_ROLES, type UserRole } from "@/lib/auth/role-home";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
 describe("/team hub (spec 313 U1)", () => {
@@ -53,7 +57,16 @@ describe("/team hub (spec 313 U1)", () => {
 // moved every drill-down into the teamTilesForRole SSOT, so this pins them THERE —
 // all together, so the next tile added cannot quietly omit the referrer.
 describe("/team drill-downs thread the ?from referrer", () => {
-  const DRILL_DOWNS = ["/sa/registrations", "/registrations", "/workers", "/payroll"];
+  const DRILL_DOWNS = [
+    "/sa/registrations",
+    "/registrations",
+    "/workers",
+    "/payroll",
+    // Spec 358 — the attendance audit report. It hangs off BOTH /team and
+    // /accounting, so the referrer is the ONLY thing that makes its back chip
+    // honest; a bare href would strand an accounting user on /team.
+    "/team/attendance",
+  ];
   const TILES = "src/components/features/sa/team-tiles.tsx";
 
   it.each(DRILL_DOWNS)("%s is wrapped in withBackFrom(..., '/team')", (href) => {
@@ -66,5 +79,40 @@ describe("/team drill-downs thread the ?from referrer", () => {
     for (const href of DRILL_DOWNS) {
       expect(src).not.toContain(`href="${href}"`);
     }
+  });
+});
+
+// Spec 358 — the ประวัติการเช็คชื่อ tile's audience, driven through the REAL
+// resolver (not a source scan) over the exhaustive role domain, so the tile can
+// never silently appear for a role the RPC would refuse. The three layers — tile,
+// page gate and RPC allowlist — are all ATTENDANCE_AUDIT_ROLES; if they drift, a
+// user gets an affordance that 42501s on arrival (the affordance-then-refuse bug
+// class). accounting/hr are the point: they see this door and NO other /team tile.
+describe("the attendance-audit tile (spec 358)", () => {
+  const counts = { pendingRegistrations: 0, unassigned: 0, activeWorkers: 0 };
+  const keysFor = (role: UserRole, isCrew = false) =>
+    teamTilesForRole({ role, isCrew, counts }).map((t) => t.key);
+
+  it("appears for every audit role and no other role", () => {
+    const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
+    const withTile = all.filter((role) => keysFor(role).includes("attendance")).sort();
+    expect(withTile).toEqual([...ATTENDANCE_AUDIT_ROLES].sort());
+  });
+
+  it("is the ONLY tile accounting and hr get — they own no roster", () => {
+    expect(keysFor("accounting")).toEqual(["attendance"]);
+    expect(keysFor("hr")).toEqual(["attendance"]);
+  });
+
+  it("carries no count bubble — a history report has nothing to nag with", () => {
+    const tile = teamTilesForRole({ role: "accounting", isCrew: false, counts }).find(
+      (t) => t.key === "attendance",
+    );
+    expect(tile?.bubble).toBeUndefined();
+    expect(tile?.href).toBe("/team/attendance?from=%2Fteam");
+  });
+
+  it("stays out of site_admin's grid — the SA's surface is the cockpit", () => {
+    expect(keysFor("site_admin", true)).not.toContain("attendance");
   });
 });
