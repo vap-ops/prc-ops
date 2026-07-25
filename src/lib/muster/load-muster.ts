@@ -14,6 +14,7 @@ import "server-only";
 import type { createClient } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
 import type { MusterWp } from "./wp-groups";
+import { shapeUnclosedPriorDays, type UnclosedPriorDay } from "./prior-day-close";
 
 type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 
@@ -308,5 +309,70 @@ export async function loadMusterBoard(
     closure: closureRes.data ?? null,
     priorTeamWps,
     crewRosters,
+  });
+}
+
+// Spec 306 close-day carryover — the days BEFORE `date` on which this project
+// mustered but nobody ever pressed ปิดวัน. Same RLS session client as the board:
+// all three muster_* tables are SELECT-scoped `can_see_project` with no date
+// predicate (verified live), so a prior day reads exactly like today's.
+//
+// Unbounded backwards on purpose — see the note in prior-day-close.ts: a cap
+// makes an old day permanently unbookable, because closing is the only way to
+// produce the closure row the wage derive keys off. The banner bounds what it
+// RENDERS instead. Rows are two small columns and only days a team was actually
+// opened on exist, so the read stays modest; if a project ever accumulates years
+// of muster this is the query to revisit.
+//
+// FAILS CLOSED. Unlike the board's reads, a swallowed error here is not
+// harmless: if only the CLOSURES query fails, every prior day looks unclosed and
+// the SA is invited to re-close days that were already closed — and a re-close
+// re-runs derive_muster_labor, re-snapshotting wages. A missing banner is the
+// status quo and returns on the next load; a false banner causes writes.
+export async function loadUnclosedPriorDays(
+  supabase: ServerClient,
+  projectId: string,
+  date: string,
+): Promise<UnclosedPriorDay[]> {
+  const [teamsRes, closuresRes] = await Promise.all([
+    supabase
+      .from("muster_teams")
+      .select("id, work_date")
+      .eq("project_id", projectId)
+      .lt("work_date", date),
+    supabase
+      .from("muster_day_closures")
+      .select("work_date")
+      .eq("project_id", projectId)
+      .lt("work_date", date),
+  ]);
+  if (teamsRes.error || closuresRes.error) return [];
+  const priorTeams = teamsRes.data ?? [];
+  const closedDates = (closuresRes.data ?? []).map((c) => c.work_date);
+  if (priorTeams.length === 0) return [];
+
+  // Only the still-open days need their sessions read (for the OT disclosure on
+  // the close confirmation) — a closed day is off the banner either way. Narrowed
+  // to OPEN OT rows: that is all the fold counts, and on live data it turns a
+  // 14-row fetch into 0. The fold re-checks the same conditions as defence in
+  // depth — it is a public pure function, not an accomplice to this query.
+  const closed = new Set(closedDates);
+  const openTeamIds = priorTeams.filter((t) => !closed.has(t.work_date)).map((t) => t.id);
+  const attendanceRes = openTeamIds.length
+    ? await supabase
+        .from("muster_attendance")
+        .select("team_id, session, in_at, out_at")
+        .in("team_id", openTeamIds)
+        .eq("session", "ot")
+        .is("out_at", null)
+        .not("in_at", "is", null)
+    : { data: [], error: null };
+  if (attendanceRes.error) return [];
+
+  return shapeUnclosedPriorDays({
+    priorTeams,
+    closedDates,
+    attendance: attendanceRes.data ?? [],
+    today: date,
   });
 }

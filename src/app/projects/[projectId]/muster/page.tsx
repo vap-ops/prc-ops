@@ -17,10 +17,11 @@ import { SA_SURFACE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
 import { MUSTER_LABEL } from "@/lib/i18n/labels";
-import { loadMusterBoard } from "@/lib/muster/load-muster";
+import { loadMusterBoard, loadUnclosedPriorDays } from "@/lib/muster/load-muster";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { musterHref, projectHref } from "@/lib/nav/project-paths";
 import { MusterCockpit } from "@/components/features/muster/muster-cockpit";
+import { PriorDayCloseBanner } from "@/components/features/muster/prior-day-close-banner";
 
 export const metadata = { title: MUSTER_LABEL };
 
@@ -45,7 +46,13 @@ export default async function MusterPage({ params, searchParams }: PageProps) {
   if (!project) notFound();
 
   const date = bangkokTodayIso();
-  const board = await loadMusterBoard(supabase, projectId, date);
+  // Spec 306 close-day carryover — the board plus any earlier day this project
+  // mustered on and never closed. Fetched alongside the board so the extra reads
+  // cost no wall-clock; the banner renders nothing when there are none.
+  const [board, unclosedPriorDays] = await Promise.all([
+    loadMusterBoard(supabase, projectId, date),
+    loadUnclosedPriorDays(supabase, projectId, date),
+  ]);
 
   // Spec 306 discoverability — is it past the 17:00 Asia/Bangkok day-end? A
   // snapshot at page load (re-evaluated on each router.refresh); feeds the ปิดวัน
@@ -79,6 +86,14 @@ export default async function MusterPage({ params, searchParams }: PageProps) {
       </DetailHeader>
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-4 px-5 py-6`}>
         <p className="text-ink-secondary text-meta font-mono">{project.code}</p>
+        {/* Above the board, never in front of it: a missed ปิดวัน must be seen on
+            arrival, but the morning muster is time-critical and is never gated on
+            yesterday's admin (operator call 2026-07-25 — warn, don't force). */}
+        <PriorDayCloseBanner
+          projectId={projectId}
+          revalidate={musterHref(projectId)}
+          days={unclosedPriorDays}
+        />
         <MusterCockpit
           projectId={projectId}
           date={date}

@@ -6,6 +6,101 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 306 close-day carryover — unclosed-prior-day banner — 🔨 in progress (2026-07-26)
+
+- **Origin:** the day-1 audit prediction came true twice. `muster_day_closures`
+  was missing for **2026-07-24** (13/13 regular workers checked out, 9 OT sessions
+  left open, no closure) and again for **2026-07-25** (3 teams, no closure). The
+  operator confirmed the cause: the SA's "done" is everyone checked out; the
+  system's "done" is ปิดวัน pressed. 07-24 was closed out-of-band this session.
+- **Why it recurs:** the sticky ปิดวัน bar (the earlier fix) only helps while the
+  SA is still on that day's board. The cockpit date is hard-locked to
+  `bangkokTodayIso()`, so after midnight the missed day has NO surface anywhere —
+  nothing re-raises it and the wage derive can never fire for it.
+- **Fix (code-only, NO schema):** a banner at the top of the cockpit listing prior
+  days that have `muster_teams` rows but no `muster_day_closures` row, each with a
+  confirm-then-close CTA over the EXISTING `close_muster_day` RPC.
+- **Design calls (operator-approved 2026-07-25):**
+  - **Warn, not force.** The morning muster is time-critical (the SA is scanning a
+    lineup); today's board is never gated on yesterday's admin. Rejected: blocking.
+  - **Not dismissible.** No hide/ignore control — the list is derived from the
+    closure rows, so the only way to clear it is to close the day. A silenceable
+    nag recreates the failure it exists to catch (the spec-341 / spec-358 U2
+    "a board that is always amber trains people to ignore it" lesson, inverted:
+    this one is only ever on when something is genuinely wrong).
+  - **OT disclosure, worded differently from the today-bar's on purpose.** Both
+    surfaces render the same fact; only the today-bar's is actionable ("close
+    their OT first"). On a past day NO surface can still close those sessions, so
+    this one states what is already lost (`ไม่มีเวลาออกในระบบ`) instead of
+    implying it is avoidable. (Spec 358 U3's "two surfaces must not derive the
+    wording independently" lesson, applied deliberately in the other direction.)
+  - **Unbounded lookback in the READER; the BANNER caps what it renders** (newest
+    5 + `และอีก N วันเก่ากว่านั้น`, and closing one promotes the next into view).
+    ⚠️ **A 30-day lookback cap shipped first and was wrong — the most instructive
+    mistake in this unit.** It was justified in a comment claiming
+    `/team/attendance` carries an all-time unclosed-day fallback for the office
+    roles who reconcile it. Fresh-eyes checked all three parts of that sentence
+    and every one was false: that report defaults to **month-to-date**, renders a
+    **count with no close action**, and its role set **excludes `site_admin`** —
+    the very actor who misses ปิดวัน. `close_muster_day` has exactly two callers,
+    the today-bar and this banner. So past the cap a day became **permanently
+    unbookable**: the exact failure this feature exists to prevent, re-created at
+    the boundary. **Lesson: when a cap is justified by "X covers the rest", open X
+    and verify it covers the rest — for that audience, by default, with an action.**
+    Bounding the RENDER costs nothing because the reader stays complete.
+  - **`ยังไม่ปิด` never covers today or the future** — enforced in the pure fold
+    (`today` is a required arg), not trusted to the reader's `lt` filter.
+  - **The reader FAILS CLOSED.** A swallowed error on the closures query alone
+    made every prior day look unclosed, inviting re-closes — and a re-close
+    re-runs `derive_muster_labor`, re-snapshotting wages. A missing banner is the
+    status quo ante and returns next load; a false banner causes writes.
+  - **Discloses that wages book at the worker's CURRENT `day_rate`.** There is no
+    effective-dated rate history, so closing an old day prices it at today's rate.
+    Non-actionable, but the SA is authorising a money write and should know its
+    basis. (Before this unit the only reachable close was today's, so the gap was
+    ≤1 day; an unbounded lookback makes it material.)
+- **Gate-checked LIVE before building:** `close_muster_day` accepts ANY date; its
+  gate is `(site_admin, super_admin, procurement_manager)` + `can_see_project` —
+  **identical to `SA_SURFACE_ROLES`**, the page gate, so there is no
+  affordance-then-refuse. No muster\_\* SELECT policy carries a date predicate, so
+  prior days read on the session client exactly like today's.
+- **Out of scope (unchanged, still owed):** the U5 cockpit past-day picker; the
+  9 open OT sessions on 07-24 remain unreachable and unrecoverable; the LINE push
+  reminder (operator: "in app for now").
+- **Open question — `scanErrorToThai` gives a wrong-domain message for a failed
+  day-close.** Every `closeMusterDay` error routes through the shared mapper in
+  `src/lib/muster/actions.ts`, whose `role not permitted` arm returns
+  `ไม่มีสิทธิ์เช็คชื่อ` — "no permission to TAKE ATTENDANCE", not to close a day.
+  Pre-existing (the today-bar hits it too) and shared, so not changed here; the
+  banner's test pins the real string rather than an invented one. Own unit.
+- **Known limits, disclosed:** the OT wording ("no surface can still close those
+  sessions") is true _today_ and becomes false when the deferred U5 past-day
+  picker lands — treat it as a U5 prerequisite. The banner's three constants are
+  byte-identical to `muster-cockpit.tsx`'s `BAR_*`; kept separate deliberately
+  (independent surfaces that may diverge) with a cross-reference comment rather
+  than a shared module, to avoid serialising this lane on a shared SSOT.
+- Files: NEW `src/lib/muster/prior-day-close.ts` (client-safe pure fold),
+  NEW `src/components/features/muster/prior-day-close-banner.tsx`,
+  `src/lib/muster/load-muster.ts` (+`loadUnclosedPriorDays`), muster `page.tsx`.
+- **Open question (out of scope, filed as its own unit) — `CARD` + colour-utility
+  conflicts, repo-wide.** This unit's banner first shipped as
+  `` `${CARD} border-attn bg-attn-soft text-attn-ink` ``, and CARD's own
+  `bg-card` + `border-edge` WON: the amber warning rendered as a plain white card
+  with a grey border while typecheck, lint and every component test stayed green.
+  Two utilities for one property are resolved by the generated stylesheet's
+  order, not the className's. Proven on the live page; fixed here by spelling out
+  CARD's layout half. **~12 other files compose CARD the same way** —
+  view-as-empty-note, both registration notices, staff-register-workspace,
+  contacts detail, portal, settings/view-as, three feedback components. Find them
+  with:
+
+  ```bash
+  grep -rnE 'CARD\}[^`]*(bg|border)-(attn|danger|done|action|sunk|fill)' src --include='*.tsx'
+  ```
+
+  Not touched here (scope). The real fix is a guard test, since nothing in the
+  toolchain can see this class of bug.
+
 ## Spec 356 U1 — delete a progress photo from the WP-detail viewer — 🔨 in progress (2026-07-24)
 
 - **Origin:** operator report — SA/operator "cannot delete images" on an editable WP.
