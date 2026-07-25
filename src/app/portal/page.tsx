@@ -13,7 +13,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
-import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
+import { CARD, CARD_LAYOUT, SECTION_HEADING } from "@/lib/ui/classes";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
@@ -94,7 +94,7 @@ export default async function PortalPage() {
             className={
               packetStatus.complete
                 ? `${CARD} mb-6`
-                : `${CARD} border-attn bg-attn-soft mb-6 border-l-4`
+                : `${CARD_LAYOUT} border-attn bg-attn-soft mb-6 border-l-4`
             }
           >
             <p className="text-ink text-sm font-semibold">สถานะเอกสาร</p>

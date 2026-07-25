@@ -9,7 +9,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { CARD } from "@/lib/ui/classes";
+import { CARD_LAYOUT } from "@/lib/ui/classes";
 import { createClient } from "@/lib/db/server";
 import { assumableRolesFor, isViewAsAssumer } from "@/lib/auth/effective-role";
 import { getActiveViewAs } from "@/lib/auth/view-as-state.server";
@@ -54,7 +54,7 @@ export default async function ViewAsPage() {
 
         {active ? (
           <div
-            className={`${CARD} border-attn bg-attn-soft flex items-center justify-between gap-3`}
+            className={`${CARD_LAYOUT} border-attn bg-attn-soft flex items-center justify-between gap-3`}
           >
             <span className="text-attn-ink min-w-0 text-sm">
               กำลังดูในมุมมอง: <span className="font-bold">{USER_ROLE_LABEL[active]}</span>
@@ -78,10 +78,10 @@ export default async function ViewAsPage() {
                 <button
                   type="submit"
                   aria-current={isActive ? "true" : undefined}
-                  className={`${CARD} w-full text-left text-sm font-semibold ${
+                  className={`${CARD_LAYOUT} bg-card w-full text-left text-sm font-semibold ${
                     isActive
                       ? "border-action text-action ring-action ring-1"
-                      : "text-ink hover:bg-sunk"
+                      : "border-edge text-ink hover:bg-sunk"
                   }`}
                 >
                   {USER_ROLE_LABEL[r]}

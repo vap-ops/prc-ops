@@ -138,6 +138,17 @@ form screens at `max-w-md`.
   Copying these class strings inline is a review reject — import the
   constant. Every value is pinned byte-for-byte in
   `tests/unit/ui-classes-spec65.test.ts`.
+- **A status card composes `CARD_LAYOUT`, never `CARD`** (same for
+  `BUTTON_SECONDARY_LAYOUT` vs `BUTTON_SECONDARY`). `CARD` carries
+  `bg-card` + `border-edge`; adding `bg-attn-soft`/`border-attn` on top
+  puts two utilities for one CSS property on one element, and the winner
+  is the one the GENERATED stylesheet emits LAST — Tailwind v4 orders
+  utilities alphabetically within a family — not the one written last in
+  the className. `border-edge` beat every status border colour in the
+  palette, so those cards silently rendered neutral (2026-07-26). The
+  `_LAYOUT` halves carry geometry only, so the call site owns both
+  colours and no conflict can form. Enforced by the colour-override scan
+  in `tests/unit/ui-class-contracts.test.tsx`.
 - Section heading: `SECTION_HEADING`
   (`mb-3 text-base font-semibold text-zinc-900`).
 

@@ -4,7 +4,7 @@
 // the reporter can tell a reply from their own words at a glance.
 
 import { EmptyNotice } from "@/components/features/common/notices";
-import { CARD } from "@/lib/ui/classes";
+import { CARD, CARD_LAYOUT } from "@/lib/ui/classes";
 import { FEEDBACK_AUTHOR_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 
@@ -32,7 +32,11 @@ export function FeedbackThread({ messages }: { messages: ThreadMessage[] }) {
         return (
           <li
             key={m.id}
-            className={`${CARD} flex flex-col gap-1 ${fromTeam ? "border-action border-l-4" : ""}`}
+            className={
+              fromTeam
+                ? `${CARD_LAYOUT} border-action bg-card flex flex-col gap-1 border-l-4`
+                : `${CARD} flex flex-col gap-1`
+            }
           >
             <div className="flex items-center gap-2">
               <span className="text-ink text-sm font-semibold">

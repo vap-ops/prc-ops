@@ -15,8 +15,10 @@ import {
   BUTTON_PRIMARY_COMPACT,
   BUTTON_SECONDARY,
   BUTTON_SECONDARY_COMPACT,
+  BUTTON_SECONDARY_LAYOUT,
   BUTTON_SECONDARY_MUTED,
   CARD,
+  CARD_LAYOUT,
   CRITICAL_BADGE,
   DETAIL_TITLE,
   FIELD_INPUT,
@@ -38,9 +40,17 @@ describe("ui class constants (spec 65) — Field-First pins", () => {
     );
   });
 
+  it("BUTTON_SECONDARY_LAYOUT", () => {
+    expect(BUTTON_SECONDARY_LAYOUT).toBe(
+      "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted",
+    );
+  });
+
+  // Derived from BUTTON_SECONDARY_LAYOUT for the same reason as CARD — a
+  // selected-state fill or border must not fight the constant's own colour.
   it("BUTTON_SECONDARY", () => {
     expect(BUTTON_SECONDARY).toBe(
-      "inline-flex h-11 items-center justify-center rounded-control border border-edge bg-card px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted",
+      "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted border-edge bg-card",
     );
   });
 
@@ -68,8 +78,16 @@ describe("ui class constants (spec 65) — Field-First pins", () => {
     );
   });
 
+  // CARD is now DERIVED from CARD_LAYOUT (2026-07-26): the colour half moved to
+  // the end so a status card can compose the geometry WITHOUT inheriting
+  // `bg-card`/`border-edge` and losing its own colour to them. The utility set
+  // is unchanged — only the order within the string, which CSS ignores.
+  it("CARD_LAYOUT", () => {
+    expect(CARD_LAYOUT).toBe("rounded-card border px-4 py-3 shadow-card");
+  });
+
   it("CARD", () => {
-    expect(CARD).toBe("rounded-card border border-edge bg-card px-4 py-3 shadow-card");
+    expect(CARD).toBe("rounded-card border px-4 py-3 shadow-card border-edge bg-card");
   });
 
   it("SECTION_HEADING", () => {
