@@ -1,3 +1,19 @@
+# [0.225.0](https://github.com/vap-ops/prc-ops/compare/v0.224.2...v0.225.0) (2026-07-25)
+
+### Bug Fixes
+
+- **muster:** cooldown must read a ref, not the render closure (spec 359 U1) ([bed3176](https://github.com/vap-ops/prc-ops/commit/bed3176dbcf78727de24df80de1ebe11b68dcceb))
+
+### Features
+
+- **muster:** audible + haptic scan cue (spec 359 U1) ([eb6b036](https://github.com/vap-ops/prc-ops/commit/eb6b036cc698ef6810f58bf755bef9d5b7637d86))
+- **muster:** camera-first add sheet, tap list behind a disclosure (spec 359 U2) ([9668acd](https://github.com/vap-ops/prc-ops/commit/9668acdafa807a7c7c120097bee4cf8d49caff01))
+- **muster:** continuous QR sweep in the add sheet (spec 359 U1) ([82d18cc](https://github.com/vap-ops/prc-ops/commit/82d18cc216a6a6f5a22a7ceeb5b162b852937fd4))
+- **muster:** expose each worker's prior muster team (spec 359 U1) ([5d873c6](https://github.com/vap-ops/prc-ops/commit/5d873c671723713aef18def11a692ebfb1b13fcb))
+- **muster:** pure continuous-sweep reducer (spec 359 U1) ([7b97683](https://github.com/vap-ops/prc-ops/commit/7b9768327b2228861ba6574826370b981ddced2e))
+- **muster:** resolve an other-team scan with ย้ายมาทีมนี้ (spec 359 U1) ([9106901](https://github.com/vap-ops/prc-ops/commit/9106901080a28b1d57d51022ceb178c8458952ad))
+- **muster:** sweep action header + running tally in the add sheet (spec 359 U1) ([73d84bb](https://github.com/vap-ops/prc-ops/commit/73d84bb8943092a1a2f27ad12e98a93d7285cdd3))
+
 ## [0.224.2](https://github.com/vap-ops/prc-ops/compare/v0.224.1...v0.224.2) (2026-07-25)
 
 ### Bug Fixes
