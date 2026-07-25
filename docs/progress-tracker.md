@@ -49,6 +49,19 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 - Files: NEW `src/lib/muster/prior-day-close.ts` (client-safe pure fold),
   NEW `src/components/features/muster/prior-day-close-banner.tsx`,
   `src/lib/muster/load-muster.ts` (+`loadUnclosedPriorDays`), muster `page.tsx`.
+- **Open question (out of scope, filed as its own unit) — `CARD` + colour-utility
+  conflicts, repo-wide.** This unit's banner first shipped as
+  `` `${CARD} border-attn bg-attn-soft text-attn-ink` ``, and CARD's own
+  `bg-card` + `border-edge` WON: the amber warning rendered as a plain white card
+  with a grey border while typecheck, lint and every component test stayed green.
+  Two utilities for one property are resolved by the generated stylesheet's
+  order, not the className's. Proven on the live page; fixed here by spelling out
+  CARD's layout half. **~12 other files compose CARD the same way**
+  (`grep -rnE '\$\{CARD\}[^` + "`" + `]_\b(bg|border)-(attn|danger|done|action|sunk|fill)' src --include=_.tsx`)
+  — view-as-empty-note, both registration notices, staff-register-workspace,
+  contacts detail, portal, settings/view-as, three feedback components. Not
+  touched here (scope). The real fix is a guard test, since nothing in the
+  toolchain can see this.
 
 ## Spec 356 U1 — delete a progress photo from the WP-detail viewer — 🔨 in progress (2026-07-24)
 
