@@ -14,7 +14,7 @@
 // prop, derived once server-side by RegistrationWorkspace.
 
 import Link from "next/link";
-import { CARD } from "@/lib/ui/classes";
+import { CARD_LAYOUT } from "@/lib/ui/classes";
 import type { ApprovalFloor, ApprovalRequirement } from "@/lib/register/registration-floor";
 import {
   REGISTRATION_PENDING_NOTICE_HEADING,
@@ -49,7 +49,7 @@ const ANCHOR_FOR: Record<ApprovalRequirement, string | null> = {
 
 export function RegistrationPendingNotice({ employeeId, floor }: RegistrationPendingNoticeProps) {
   return (
-    <div className={`${CARD} border-attn-edge bg-attn-soft`}>
+    <div className={`${CARD_LAYOUT} border-attn-edge bg-attn-soft`}>
       <p className="text-attn-ink text-sm font-semibold">
         {floor.met ? REGISTRATION_PENDING_NOTICE_HEADING : REGISTRATION_INCOMPLETE_NOTICE_HEADING}
       </p>

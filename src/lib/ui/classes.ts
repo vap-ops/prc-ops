@@ -24,9 +24,16 @@
 export const BUTTON_PRIMARY =
   "inline-flex h-11 items-center justify-center rounded-control bg-fill px-4 text-body font-semibold text-on-fill shadow-card transition-colors hover:bg-fill-press focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:bg-edge disabled:text-ink-muted";
 
+/**
+ * BUTTON_SECONDARY minus its surface colours — border WIDTH, size, type and
+ * states, no `bg-*`/`border-<colour>`. Compose this (never BUTTON_SECONDARY)
+ * when a state needs its own fill or border colour; see CARD_LAYOUT for why.
+ */
+export const BUTTON_SECONDARY_LAYOUT =
+  "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted";
+
 /** White outline sibling of BUTTON_PRIMARY. */
-export const BUTTON_SECONDARY =
-  "inline-flex h-11 items-center justify-center rounded-control border border-edge bg-card px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted";
+export const BUTTON_SECONDARY = `${BUTTON_SECONDARY_LAYOUT} border-edge bg-card`;
 
 /**
  * Field-First HERO action — the full-width amber capture bar. 64px so a
@@ -48,8 +55,25 @@ export const ICON_CHIP_MUTED =
 export const INLINE_ERROR =
   "rounded-md border border-danger-edge bg-danger-soft px-3 py-2 text-meta text-danger-ink";
 
+/**
+ * CARD minus its surface colours — corner, border WIDTH, padding, elevation.
+ *
+ * COMPOSE THIS, NOT `CARD`, WHENEVER THE CARD CARRIES A STATUS COLOUR. Two
+ * utilities for one CSS property on one element (`${CARD} bg-attn-soft`) are
+ * resolved by the GENERATED stylesheet's source order — Tailwind v4 emits
+ * utilities alphabetically within a family — and NOT by the order they appear
+ * in the className. `border-edge` sorts after every status border colour and
+ * `bg-card` after `bg-attn-soft`, so CARD silently won and the amber/blue
+ * treatment never rendered (2026-07-26; guarded in
+ * tests/unit/ui-class-contracts.test.tsx).
+ *
+ * A layout-only card sets no border COLOUR, so spell one out at the call site
+ * — Tailwind v4 leaves `border` at `currentColor` otherwise.
+ */
+export const CARD_LAYOUT = "rounded-card border px-4 py-3 shadow-card";
+
 /** Standard white card — defined corner + real elevation, hairline kept. */
-export const CARD = "rounded-card border border-edge bg-card px-4 py-3 shadow-card";
+export const CARD = `${CARD_LAYOUT} border-edge bg-card`;
 
 /** Zone/section heading h2. */
 export const SECTION_HEADING = "mb-3 text-section font-semibold text-ink";

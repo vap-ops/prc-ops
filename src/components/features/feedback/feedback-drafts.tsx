@@ -9,7 +9,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { publishFeedbackDraft, discardFeedbackDraft } from "@/app/feedback/[id]/actions";
 import { useToast } from "@/lib/ui/use-toast";
-import { CARD } from "@/lib/ui/classes";
+import { CARD_LAYOUT } from "@/lib/ui/classes";
 
 export type PendingDraft = { id: string; body: string; createdAt: string };
 
@@ -41,7 +41,10 @@ export function FeedbackDrafts({ drafts }: { drafts: PendingDraft[] }) {
       <h2 className="text-ink text-base font-semibold">ร่างจากผู้ช่วย AI · รออนุมัติ</h2>
       <ul className="flex flex-col gap-3">
         {drafts.map((d) => (
-          <li key={d.id} className={`${CARD} border-attn-edge flex flex-col gap-3 border-l-4`}>
+          <li
+            key={d.id}
+            className={`${CARD_LAYOUT} border-attn-edge bg-card flex flex-col gap-3 border-l-4`}
+          >
             <p className="text-ink-secondary text-sm whitespace-pre-wrap">{d.body}</p>
             <div className="flex gap-2">
               <button

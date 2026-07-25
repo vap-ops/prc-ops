@@ -14,7 +14,7 @@ import { validateFeedback, type FeedbackType } from "@/lib/feedback/validate";
 import { createClient as createBrowserClient } from "@/lib/db/browser";
 import { useFormAbandon } from "@/lib/telemetry/use-form-abandon";
 import { useToast } from "@/lib/ui/use-toast";
-import { BUTTON_PRIMARY, CARD, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, CARD_LAYOUT, FIELD_STACKED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 // Spec 193 U2 — screenshots. Images only (a report is visual); the bucket caps
 // these mimes. Upload is best-effort and post-submit: a failed image never blocks
@@ -71,7 +71,7 @@ export function FeedbackForm() {
 
   if (done) {
     return (
-      <div className={`${CARD} border-done bg-done-soft border-l-4`}>
+      <div className={`${CARD_LAYOUT} border-done bg-done-soft border-l-4`}>
         <p className="text-done-ink text-sm font-semibold">ขอบคุณสำหรับความคิดเห็น 🙏</p>
         <p className="text-ink-secondary mt-1 text-sm">
           ทีมงานได้รับเรื่องของคุณแล้ว และจะนำไปปรับปรุง

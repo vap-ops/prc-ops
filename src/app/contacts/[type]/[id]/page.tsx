@@ -12,7 +12,7 @@ import { createClient as createServerSupabase } from "@/lib/db/server";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { DETAIL_TITLE } from "@/lib/ui/classes";
-import { CARD } from "@/lib/ui/classes";
+import { CARD, CARD_LAYOUT } from "@/lib/ui/classes";
 import { ContactBankBlock } from "@/components/features/contacts/contact-bank-block";
 import { ContactCrewSection } from "@/components/features/contacts/contact-crew-section";
 import { ContactDocumentsBlock } from "@/components/features/contacts/contact-documents-block";
@@ -239,7 +239,9 @@ export default async function ContactDetailPage({
       <div className={`mx-auto ${PAGE_MAX_W} space-y-4 px-5 py-6`}>
         {packetStatus ? (
           <section
-            className={packetStatus.complete ? CARD : `${CARD} border-attn bg-attn-soft border-l-4`}
+            className={
+              packetStatus.complete ? CARD : `${CARD_LAYOUT} border-attn bg-attn-soft border-l-4`
+            }
           >
             <p className="text-ink text-sm font-semibold">สถานะเอกสาร DC</p>
             {packetStatus.complete ? (
@@ -290,7 +292,7 @@ export default async function ContactDetailPage({
         ) : null}
 
         {isPmTier && pendingBankChanges.length > 0 ? (
-          <section className={`${CARD} border-attn bg-attn-soft border-l-4`}>
+          <section className={`${CARD_LAYOUT} border-attn bg-attn-soft border-l-4`}>
             <p className="text-attn-ink text-sm font-semibold">
               คำขอเปลี่ยนบัญชีธนาคาร (รออนุมัติ)
             </p>

@@ -32,7 +32,13 @@ import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
 import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
 import { saBankCapturePath } from "@/lib/sa/sa-bank-capture-path";
 import { addProjectWorkerWithBank } from "@/app/sa/crew/actions";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY, FIELD_STACKED, FIELD_SELECT } from "@/lib/ui/classes";
+import {
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY,
+  BUTTON_SECONDARY_LAYOUT,
+  FIELD_STACKED,
+  FIELD_SELECT,
+} from "@/lib/ui/classes";
 import {
   ADD_TECHNICIAN_LABEL,
   ADD_TECHNICIAN_HAS_PHONE_LABEL,
@@ -261,7 +267,7 @@ export function AddTechnicianSheet({
                     setTeam("prc");
                     setMode("choose");
                   }}
-                  className={`${BUTTON_SECONDARY} h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : ""}`}
+                  className={`${BUTTON_SECONDARY_LAYOUT} bg-card h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : "border-edge"}`}
                 >
                   <Building2 aria-hidden className="size-5 shrink-0" />
                   <span className="min-w-0 text-left">
@@ -383,7 +389,7 @@ export function AddTechnicianSheet({
                   type="button"
                   aria-pressed={team === f.id}
                   onClick={() => setTeam(f.id)}
-                  className={`${BUTTON_SECONDARY} h-auto min-h-11 justify-start py-2 ${team === f.id ? "border-action" : ""}`}
+                  className={`${BUTTON_SECONDARY_LAYOUT} bg-card h-auto min-h-11 justify-start py-2 ${team === f.id ? "border-action" : "border-edge"}`}
                 >
                   <Users aria-hidden className="size-5 shrink-0" />
                   <span className="min-w-0 text-left">

@@ -9,7 +9,7 @@
 // COPY ONLY — a static render of data the page already reads (registration
 // reject_reason); no new state, action, or RLS.
 
-import { CARD } from "@/lib/ui/classes";
+import { CARD_LAYOUT } from "@/lib/ui/classes";
 import {
   REGISTRATION_RETURNED_NOTICE_HEADING,
   REGISTRATION_RETURNED_NOTICE_BODY,
@@ -22,7 +22,7 @@ export interface RegistrationReturnedNoticeProps {
 
 export function RegistrationReturnedNotice({ note }: RegistrationReturnedNoticeProps) {
   return (
-    <div className={`${CARD} border-attn-edge bg-attn-soft`}>
+    <div className={`${CARD_LAYOUT} border-attn-edge bg-attn-soft`}>
       <p className="text-attn-ink text-sm font-semibold">{REGISTRATION_RETURNED_NOTICE_HEADING}</p>
       <p className="text-attn-ink mt-1 text-sm">{REGISTRATION_RETURNED_NOTICE_BODY}</p>
       <p className="text-attn-ink mt-2 text-sm whitespace-pre-line">{note}</p>
