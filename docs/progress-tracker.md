@@ -34,10 +34,31 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
     this one states what is already lost (`ไม่มีเวลาออกในระบบ`) instead of
     implying it is avoidable. (Spec 358 U3's "two surfaces must not derive the
     wording independently" lesson, applied deliberately in the other direction.)
-  - **Unbounded lookback, no cap.** Only days a team was actually opened on can
-    appear, and each close removes one. Capping would hide unbooked wages.
+  - **Unbounded lookback in the READER; the BANNER caps what it renders** (newest
+    5 + `และอีก N วันเก่ากว่านั้น`, and closing one promotes the next into view).
+    ⚠️ **A 30-day lookback cap shipped first and was wrong — the most instructive
+    mistake in this unit.** It was justified in a comment claiming
+    `/team/attendance` carries an all-time unclosed-day fallback for the office
+    roles who reconcile it. Fresh-eyes checked all three parts of that sentence
+    and every one was false: that report defaults to **month-to-date**, renders a
+    **count with no close action**, and its role set **excludes `site_admin`** —
+    the very actor who misses ปิดวัน. `close_muster_day` has exactly two callers,
+    the today-bar and this banner. So past the cap a day became **permanently
+    unbookable**: the exact failure this feature exists to prevent, re-created at
+    the boundary. **Lesson: when a cap is justified by "X covers the rest", open X
+    and verify it covers the rest — for that audience, by default, with an action.**
+    Bounding the RENDER costs nothing because the reader stays complete.
   - **`ยังไม่ปิด` never covers today or the future** — enforced in the pure fold
     (`today` is a required arg), not trusted to the reader's `lt` filter.
+  - **The reader FAILS CLOSED.** A swallowed error on the closures query alone
+    made every prior day look unclosed, inviting re-closes — and a re-close
+    re-runs `derive_muster_labor`, re-snapshotting wages. A missing banner is the
+    status quo ante and returns next load; a false banner causes writes.
+  - **Discloses that wages book at the worker's CURRENT `day_rate`.** There is no
+    effective-dated rate history, so closing an old day prices it at today's rate.
+    Non-actionable, but the SA is authorising a money write and should know its
+    basis. (Before this unit the only reachable close was today's, so the gap was
+    ≤1 day; an unbounded lookback makes it material.)
 - **Gate-checked LIVE before building:** `close_muster_day` accepts ANY date; its
   gate is `(site_admin, super_admin, procurement_manager)` + `can_see_project` —
   **identical to `SA_SURFACE_ROLES`**, the page gate, so there is no
@@ -46,6 +67,18 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 - **Out of scope (unchanged, still owed):** the U5 cockpit past-day picker; the
   9 open OT sessions on 07-24 remain unreachable and unrecoverable; the LINE push
   reminder (operator: "in app for now").
+- **Open question — `scanErrorToThai` gives a wrong-domain message for a failed
+  day-close.** Every `closeMusterDay` error routes through the shared mapper in
+  `src/lib/muster/actions.ts`, whose `role not permitted` arm returns
+  `ไม่มีสิทธิ์เช็คชื่อ` — "no permission to TAKE ATTENDANCE", not to close a day.
+  Pre-existing (the today-bar hits it too) and shared, so not changed here; the
+  banner's test pins the real string rather than an invented one. Own unit.
+- **Known limits, disclosed:** the OT wording ("no surface can still close those
+  sessions") is true _today_ and becomes false when the deferred U5 past-day
+  picker lands — treat it as a U5 prerequisite. The banner's three constants are
+  byte-identical to `muster-cockpit.tsx`'s `BAR_*`; kept separate deliberately
+  (independent surfaces that may diverge) with a cross-reference comment rather
+  than a shared module, to avoid serialising this lane on a shared SSOT.
 - Files: NEW `src/lib/muster/prior-day-close.ts` (client-safe pure fold),
   NEW `src/components/features/muster/prior-day-close-banner.tsx`,
   `src/lib/muster/load-muster.ts` (+`loadUnclosedPriorDays`), muster `page.tsx`.
@@ -56,12 +89,17 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
   with a grey border while typecheck, lint and every component test stayed green.
   Two utilities for one property are resolved by the generated stylesheet's
   order, not the className's. Proven on the live page; fixed here by spelling out
-  CARD's layout half. **~12 other files compose CARD the same way**
-  (`grep -rnE '\$\{CARD\}[^` + "`" + `]_\b(bg|border)-(attn|danger|done|action|sunk|fill)' src --include=_.tsx`)
-  — view-as-empty-note, both registration notices, staff-register-workspace,
-  contacts detail, portal, settings/view-as, three feedback components. Not
-  touched here (scope). The real fix is a guard test, since nothing in the
-  toolchain can see this.
+  CARD's layout half. **~12 other files compose CARD the same way** —
+  view-as-empty-note, both registration notices, staff-register-workspace,
+  contacts detail, portal, settings/view-as, three feedback components. Find them
+  with:
+
+  ```bash
+  grep -rnE 'CARD\}[^`]*(bg|border)-(attn|danger|done|action|sunk|fill)' src --include='*.tsx'
+  ```
+
+  Not touched here (scope). The real fix is a guard test, since nothing in the
+  toolchain can see this class of bug.
 
 ## Spec 356 U1 — delete a progress photo from the WP-detail viewer — 🔨 in progress (2026-07-24)
 
