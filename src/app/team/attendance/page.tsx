@@ -18,6 +18,7 @@
 // baht anywhere on this surface (spec 306 U5 owns the money derive). Period is a
 // zero-client-JS GET form, the /payroll + /requests house pattern.
 
+import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -33,7 +34,10 @@ import { bangkokTodayIso } from "@/lib/dates";
 import { ATTENDANCE_AUDIT_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import {
   attendanceRange,
+  attendanceWorkerId,
   formatSignals,
+  groupDetailByDate,
+  loadAttendanceDetail,
   loadAttendanceSummary,
   unclosedDaySignal,
 } from "@/lib/muster/attendance-audit";
@@ -53,12 +57,14 @@ interface AttendanceAuditPageProps {
     end?: string | string[];
     project?: string | string[];
     from?: string | string[];
+    // U3 — expand ONE worker's per-session rows.
+    worker?: string | string[];
   }>;
 }
 
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
-  const { start, end, project, from } = await searchParams;
+  const { start, end, project, from, worker } = await searchParams;
   const todayIso = bangkokTodayIso();
   const range = attendanceRange({ start, end, project }, todayIso);
   // Mid-shift open check-outs are expected (no auto-out cron), so the chip wording
@@ -91,6 +97,27 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
   const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
   const unclosedDays = unclosedDaySignal(rows);
+
+  // U3 — the drill. `?worker=<id>` expands ONE worker's per-session rows; the
+  // detail RPC is only called for that worker, so the default view stays a single
+  // summary query. The id is validated the same way ?project is: an unvalidated
+  // uuid would reach SQL as 22P02 and dead-end on the error boundary.
+  const openWorkerId = attendanceWorkerId(
+    worker,
+    rows.map((r) => r.workerId),
+  );
+  const detailDays = openWorkerId
+    ? groupDetailByDate(await loadAttendanceDetail(supabase, range, openWorkerId))
+    : [];
+
+  // Preserve the range + project + referrer when toggling a drill open/closed.
+  const drillHref = (workerId: string | null): string => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    if (workerId) q.set("worker", workerId);
+    return `/team/attendance?${q.toString()}`;
+  };
 
   return (
     <PageShell>
@@ -174,14 +201,23 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
             </div>
 
             {/* One row per worker. The signal chips mark the rows an auditor
-                should look at — a clean row carries none. */}
+                should look at — a clean row carries none. Each name opens the
+                per-day drill (U3), which turns those COUNTS into the actual
+                sessions behind them. */}
             <ul className="flex flex-col gap-2">
               {rows.map((r) => {
                 const signals = formatSignals(r, { rangeIncludesToday });
+                const isOpen = r.workerId === openWorkerId;
                 return (
                   <li key={r.workerId} className={CARD}>
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                      <span className="text-ink min-w-0 text-sm font-semibold">{r.workerName}</span>
+                      <Link
+                        href={drillHref(isOpen ? null : r.workerId)}
+                        aria-expanded={isOpen}
+                        className="text-ink focus-visible:ring-action min-h-11 min-w-0 rounded text-sm font-semibold underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+                      >
+                        {r.workerName}
+                      </Link>
                       <span className="text-ink-secondary text-xs">
                         {r.daysPresent} วัน
                         {r.otHoursTotal > 0 ? ` · OT ${formatNumber(r.otHoursTotal)} ชม.` : ""}
@@ -199,6 +235,56 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                           </li>
                         ))}
                       </ul>
+                    )}
+
+                    {/* U3 — the drill. Per DAY (newest first), regular before OT,
+                        with the facts behind the summary's counts: the actual
+                        times, how each scan was recorded, whether the system
+                        auto-closed it, and who recorded it. Closure sits on the
+                        DAY header, not the session (it is a project-day fact). */}
+                    {isOpen && (
+                      <div className="border-edge mt-3 border-t pt-3">
+                        {detailDays.length === 0 ? (
+                          <p className="text-ink-secondary text-xs">ไม่มีรายละเอียดในช่วงนี้</p>
+                        ) : (
+                          <ul className="flex flex-col gap-3">
+                            {detailDays.map((day) => (
+                              <li key={day.workDate}>
+                                <p className="text-ink-secondary text-xs font-semibold">
+                                  {formatThaiDate(day.workDate)}
+                                  {day.dayClosed ? " · ปิดวันแล้ว" : " · ยังไม่ปิดวัน"}
+                                </p>
+                                <ul className="mt-1 flex flex-col gap-1">
+                                  {day.sessions.map((s) => (
+                                    <li
+                                      key={`${s.workDate}-${s.session}`}
+                                      className="text-ink text-xs"
+                                    >
+                                      <span className="font-medium">
+                                        {s.session === "ot" ? "OT" : "งานปกติ"}
+                                      </span>{" "}
+                                      {s.inTime}
+                                      {" – "}
+                                      {s.outTime ?? "ยังไม่เช็คออก"}
+                                      {s.outAuto ? " (อัตโนมัติ)" : ""}
+                                      {s.otHours !== null
+                                        ? ` · ${formatNumber(s.otHours)} ชม.`
+                                        : ""}
+                                      <span className="text-ink-secondary">
+                                        {" · "}
+                                        {s.inMethod === "qr" ? "สแกน QR" : "บันทึกมือ"}
+                                        {s.scannedByName ? ` โดย ${s.scannedByName}` : ""}
+                                        {s.teamLeadName ? ` · ทีม ${s.teamLeadName}` : ""}
+                                        {` · ${s.projectName}`}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     )}
                   </li>
                 );
