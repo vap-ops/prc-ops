@@ -22,6 +22,8 @@ import {
   DASHBOARD_VIEW_ROLES,
   DOC_APPROVAL_ROLES,
   EQUIPMENT_MOVE_ROLES,
+  ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
+  ATTENDANCE_AUDIT_ROLES,
   EXTERNAL_ROLES,
   LEGAL_ROLES,
   MONEY_REVIEW_ROLES,
@@ -304,6 +306,32 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     setName: "STAFF_ONBOARDABLE_ROLES",
     roles: STAFF_ONBOARDABLE_ROLES,
     labelTh: "สมัครผ่านระบบได้ (รายการสิทธิ์ที่เปิดรับสมัคร)",
+    domain: "team",
+    hidden: true,
+  },
+  // Spec 358: the attendance AUDIT report. Filed under "team" (not "money") on
+  // purpose — it reads RAW scan truth (days present, OT hours, who recorded each
+  // check-in) and computes no baht; payroll consumes it, but the surface itself
+  // carries no money. This is the one capability accounting + hr hold in this
+  // domain, which is exactly why it is not `is_back_office`-derived.
+  {
+    key: "attendance-audit",
+    setName: "ATTENDANCE_AUDIT_ROLES",
+    roles: ATTENDANCE_AUDIT_ROLES,
+    // Deliberately does NOT promise "(ทุกโครงการ)" — project_manager is scoped to
+    // its own projects — nor an export, which is a later unit. This label renders
+    // to operators in the capability explorer, so it states only what ships today.
+    labelTh: "ดูประวัติการเช็คชื่อย้อนหลัง",
+    domain: "team",
+  },
+  {
+    // The cross-project TIER of the set above — a scope classification inside the
+    // audit capability (project_manager is the one audit role scoped to its own
+    // projects), not a capability of its own, so it never renders as a row.
+    key: "attendance-audit-all-projects",
+    setName: "ATTENDANCE_AUDIT_ALL_PROJECT_ROLES",
+    roles: ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
+    labelTh: "ดูประวัติการเช็คชื่อได้ทุกโครงการ (ไม่จำกัดโครงการที่สังกัด)",
     domain: "team",
     hidden: true,
   },

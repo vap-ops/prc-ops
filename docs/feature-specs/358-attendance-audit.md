@@ -94,7 +94,8 @@ Two `SECURITY DEFINER STABLE` functions, both `grant execute … to authenticate
 ## Open questions
 
 - **PRC employee code in the CSV export?** Payroll systems key on a stable employee code; `employee_id` is service-role-walled PII. Exposing it to the audit audience via the DEFINER RPC is a deliberate PII decision (like spec 357 U-F's gender grant). **v1 leaves it out** (name + worker_id uuid); 🔔 operator call to add it as a fast follow if payroll needs it.
-- **Which `/accounting` surface hosts the entry card** — the review hub (`/accounting/review`) vs the `/accounting` landing. U2 decides against the live pages.
+- **Which `/accounting` surface hosts the entry card** — ✅ decided in U2: the `/accounting` register-row list (labelled + hinted door rows), NOT `/accounting/review` (that page is a money-event queue; attendance is not money).
+- 🔔 **`hr` and `project_coordinator` are in the gate but have NO navigation door** (found by U2's fresh-eyes pass, confirmed against `TEAM_PAGE_ROLES`). The `/team` tile only renders for `SITE_STAFF_ROLES` + the two procurement tiers, so: `accounting` reaches the report via its `/accounting` row ✅; `hr` (`roleHome` = `/coming-soon`, no bottom tabs) and `project_coordinator` (`roleHome` = `/projects`, no door added there) can reach it only by typing the URL. **Latent, not user-visible today: 0 live `hr` and 0 live `project_coordinator` users.** Giving them a door means either admitting them to `TEAM_PAGE_ROLES` or adding a door on `/projects` — both are nav-SSOT decisions beyond U2's scope, and `hr` is an entirely unbuilt role. **Operator call when an hr user actually exists.**
 - **U5 (cockpit past-day read-only picker)** — build when the 357 on-device proof is in and cockpit churn is safe.
 
 ## Units

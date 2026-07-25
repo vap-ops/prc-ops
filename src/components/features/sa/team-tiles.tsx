@@ -10,6 +10,7 @@
 
 import Link from "next/link";
 import {
+  CalendarCheck,
   HardHat,
   IdCard,
   QrCode,
@@ -21,9 +22,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SheetOpenerButton } from "@/components/features/sa/add-technician-sheet";
-import { STAFF_APPROVAL_ROLES, WORKER_ROSTER_ROLES, type UserRole } from "@/lib/auth/role-home";
+import {
+  ATTENDANCE_AUDIT_ROLES,
+  STAFF_APPROVAL_ROLES,
+  WORKER_ROSTER_ROLES,
+  type UserRole,
+} from "@/lib/auth/role-home";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
+import { ATTENDANCE_AUDIT_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
 
 // Single-surface tile labels — they render only in this grid, so they stay local
 // per the UI-term SSOT rule. The one 2-surface name (the ช่าง roster label, also on
@@ -132,6 +138,18 @@ export function teamTilesForRole(ctx: {
       }),
       makeTile("payroll", PAYROLL_TILE_LABEL, Wallet, {
         href: withBackFrom("/payroll", "/team"),
+      }),
+    );
+  }
+
+  // Spec 358 — ประวัติการเช็คชื่อ, the attendance AUDIT door. Its own role set,
+  // NOT WORKER_ROSTER_ROLES: the audience includes accounting + hr (who own no
+  // roster) and the report is read-only scan truth, never money. No bubble — a
+  // history report has no actionable count to nag with.
+  if (ATTENDANCE_AUDIT_ROLES.includes(role)) {
+    tiles.push(
+      makeTile("attendance", ATTENDANCE_AUDIT_LABEL, CalendarCheck, {
+        href: withBackFrom("/team/attendance", "/team"),
       }),
     );
   }

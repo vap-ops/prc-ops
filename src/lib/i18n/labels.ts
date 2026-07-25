@@ -129,6 +129,12 @@ export const DAILY_WORK_PLAN_LABEL = "แผนพรุ่งนี้";
 // Spec 306 U3 — the morning-talk muster (check-in). SSOT'd because the project
 // cockpit CTA, the /projects/[id]/muster page title + header all name it.
 export const MUSTER_LABEL = "เช็คชื่อ";
+// Spec 358 — the office/payroll attendance AUDIT report (history, not today's
+// scan). SSOT'd because the /team entry card, the /accounting entry card and the
+// /team/attendance page title all name it. Distinct from MUSTER_LABEL on purpose:
+// เช็คชื่อ is the ACT of checking in (the cockpit), ประวัติการเช็คชื่อ is the
+// RECORD of it (this report) — the UI-term rule wants both named once, not fused.
+export const ATTENDANCE_AUDIT_LABEL = "ประวัติการเช็คชื่อ";
 // Spec 334 U1 — the ปิดวันแล้ว banner is now a 2-surface string: the muster cockpit
 // (muster-cockpit.tsx) and the /team วันนี้ hero (MusterTodayCard), so it is SSOT'd
 // here per the UI-term rule. The card's other strings are single-surface → local.

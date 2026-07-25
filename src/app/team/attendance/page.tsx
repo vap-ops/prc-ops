@@ -1,0 +1,212 @@
+// Spec 358 U2 — ประวัติการเช็คชื่อ: the office/payroll attendance AUDIT report.
+//
+// The muster cockpit answers "who is here TODAY" and is hard-locked to today's
+// date; nothing answered "who was present over this month, and does the record
+// look trustworthy". This page does, cross-project, for the office audience.
+//
+// Server Component. The ATTENDANCE read goes through `audit_attendance_summary`,
+// a DEFINER RPC, on the RLS SESSION client — never the admin client: calling it
+// under the user's JWT is what makes its role gate AND its can_see_project scoping
+// (for project_manager) apply. muster_* RLS is can_see_project-scoped, which is
+// FALSE for accounting/hr, which is why the RPC exists at all.
+//
+// The one admin-client read is the project PICKER's options, and only for the
+// cross-project tier — see the comment at that call for why the session client
+// cannot serve it. No attendance row, and no money, ever comes from admin here.
+//
+// RAW scan truth: presence, OT hours, and the audit signals. NO wages, no GL, no
+// baht anywhere on this surface (spec 306 U5 owns the money derive). Period is a
+// zero-client-JS GET form, the /payroll + /requests house pattern.
+
+import { PageShell } from "@/components/features/chrome/page-shell";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
+import { safeBackHref } from "@/lib/nav/back-href";
+import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
+import { EmptyNotice } from "@/components/features/common/notices";
+import { requireRole } from "@/lib/auth/require-role";
+import { ATTENDANCE_AUDIT_ALL_PROJECT_ROLES, ATTENDANCE_AUDIT_ROLES } from "@/lib/auth/role-home";
+import { createClient as createServerClient } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
+import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
+import { bangkokTodayIso } from "@/lib/dates";
+import { ATTENDANCE_AUDIT_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import {
+  attendanceRange,
+  formatSignals,
+  loadAttendanceSummary,
+  unclosedDaySignal,
+} from "@/lib/muster/attendance-audit";
+
+export const metadata = { title: ATTENDANCE_AUDIT_LABEL };
+
+function formatNumber(n: number): string {
+  return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
+}
+
+interface AttendanceAuditPageProps {
+  // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
+  // BOTH /team and /accounting, so the parent is not derivable — the spec-334
+  // multi-parent pattern, and the same param split /payroll settled on).
+  searchParams: Promise<{
+    start?: string | string[];
+    end?: string | string[];
+    project?: string | string[];
+    from?: string | string[];
+  }>;
+}
+
+export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
+  const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
+  const { start, end, project, from } = await searchParams;
+  const todayIso = bangkokTodayIso();
+  const range = attendanceRange({ start, end, project }, todayIso);
+  // Mid-shift open check-outs are expected (no auto-out cron), so the chip wording
+  // softens whenever the range reaches today — see formatSignals.
+  const rangeIncludesToday = range.to >= todayIso;
+  // Multi-parent chip: resolve the href FIRST, then label it for where it actually
+  // goes. A fixed "ทีมงาน" label is the aria-label a screen reader hears, so on an
+  // /accounting referral it would announce the wrong destination.
+  const backHref = safeBackHref(from, "/team");
+  const backLabel = backHref.startsWith("/accounting") ? "บัญชี" : "ทีมงาน";
+
+  const supabase = await createServerClient();
+  const rows = await loadAttendanceSummary(supabase, range);
+
+  // Project options for the picker. The read client is chosen per TIER, mirroring
+  // the RPCs' own two tiers, because `projects` SELECT runs on can_see_project:
+  // that is FALSE for accounting/hr, so a session-client read hands them ZERO rows
+  // (probed live) — an empty dropdown on a report that legitimately spans every
+  // project. The cross-project tier therefore reads options via admin (no new
+  // exposure: the RPC already returns them every project's attendance), while
+  // project_manager keeps the SESSION read so RLS scopes options to exactly its
+  // memberships — matching the rows the RPC will actually return for it.
+  const seesAllProjects = ATTENDANCE_AUDIT_ALL_PROJECT_ROLES.includes(ctx.role);
+  const projectReader = seesAllProjects ? createAdminClient() : supabase;
+  const { data: projectOptions } = await projectReader
+    .from("projects")
+    .select("id, code, name")
+    .order("code");
+
+  const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
+  const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
+  const unclosedDays = unclosedDaySignal(rows);
+
+  return (
+    <PageShell>
+      <BottomTabBar role={ctx.role} />
+      <DetailHeader backHref={backHref} backLabel={backLabel}>
+        <h1 className="text-title text-ink font-bold tracking-tight">{ATTENDANCE_AUDIT_LABEL}</h1>
+      </DetailHeader>
+
+      <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        <h2 className={SECTION_HEADING}>{ATTENDANCE_AUDIT_LABEL}</h2>
+
+        {/* Period + project — zero-client-JS GET form, defaults to this month. */}
+        <form
+          method="get"
+          className={`${CARD} mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end`}
+        >
+          <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
+            ตั้งแต่
+            <input
+              type="date"
+              name="start"
+              defaultValue={range.from}
+              className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
+            />
+          </label>
+          <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
+            ถึง
+            <input
+              type="date"
+              name="end"
+              defaultValue={range.to}
+              className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
+            />
+          </label>
+          <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
+            โครงการ
+            <select
+              name="project"
+              defaultValue={range.projectId ?? ""}
+              className={`${FIELD_INPUT} mt-1 max-w-full`}
+            >
+              <option value="">ทุกโครงการ</option>
+              {projectOptions?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code ? `${p.code} · ${p.name}` : p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {/* Carry the referrer THROUGH the submit. Without this the GET form
+              rebuilds the URL from its own fields only, dropping ?from — so an
+              accounting user who changes the range would find the back chip
+              pointing at /team, a place they never came from. */}
+          {backHref !== "/team" && <input type="hidden" name="from" value={backHref} />}
+          <button type="submit" className={BUTTON_PRIMARY}>
+            ดูข้อมูล
+          </button>
+        </form>
+
+        {rows.length === 0 ? (
+          <EmptyNotice>ไม่มีบันทึกการเช็คชื่อในช่วงนี้</EmptyNotice>
+        ) : (
+          <>
+            <div className={`${CARD} mb-4`}>
+              <p className="text-ink-secondary text-xs">
+                {formatThaiDate(range.from)} – {formatThaiDate(range.to)}
+              </p>
+              <p className="text-ink mt-1 text-sm font-semibold">
+                {rows.length} คน · รวม {formatNumber(totalDays)} วัน
+                {totalOt > 0 ? ` · OT ${formatNumber(totalOt)} ชม.` : ""}
+              </p>
+              {/* The unclosed-day count is a PROJECT-day fact, identical for every
+                  worker of that day — so it belongs here ONCE, not as a chip on
+                  each worker row (which read as N findings against N people). It
+                  is why the spec-306 wage derive cannot fire for those days. */}
+              {unclosedDays > 0 && (
+                <p className="text-ink-secondary mt-1 text-xs">
+                  {unclosedDays} วันที่ยังไม่ได้ปิด — ค่าแรงของวันนั้นยังไม่ถูกบันทึก
+                </p>
+              )}
+            </div>
+
+            {/* One row per worker. The signal chips mark the rows an auditor
+                should look at — a clean row carries none. */}
+            <ul className="flex flex-col gap-2">
+              {rows.map((r) => {
+                const signals = formatSignals(r, { rangeIncludesToday });
+                return (
+                  <li key={r.workerId} className={CARD}>
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <span className="text-ink min-w-0 text-sm font-semibold">{r.workerName}</span>
+                      <span className="text-ink-secondary text-xs">
+                        {r.daysPresent} วัน
+                        {r.otHoursTotal > 0 ? ` · OT ${formatNumber(r.otHoursTotal)} ชม.` : ""}
+                        {r.projectCount > 1 ? ` · ${r.projectCount} โครงการ` : ""}
+                      </span>
+                    </div>
+                    {signals.length > 0 && (
+                      <ul className="mt-2 flex flex-wrap gap-1.5">
+                        {signals.map((s) => (
+                          <li
+                            key={s.key}
+                            className="bg-sunk text-ink-secondary rounded-full px-2 py-0.5 text-[11px]"
+                          >
+                            {s.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </section>
+    </PageShell>
+  );
+}

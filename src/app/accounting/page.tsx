@@ -20,6 +20,7 @@ import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
 import {
   COMPANY_DOCS_HINT,
+  ATTENDANCE_AUDIT_LABEL,
   COMPANY_DOCS_LABEL,
   MONEY_REVIEW_HINT,
   MONEY_REVIEW_LABEL,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { loadAccountingDashboard } from "@/lib/accounting/load-dashboard";
 import {
   groupTrialBalance,
@@ -155,6 +157,15 @@ export default async function AccountingPage({ searchParams }: AccountingPagePro
               href: "/accounting/review",
               label: MONEY_REVIEW_LABEL,
               hint: MONEY_REVIEW_HINT,
+            },
+            // Spec 358: the attendance AUDIT report — the payroll-side door. Scan
+            // truth (days present, OT hours, who recorded each check-in), NOT money:
+            // accounting reconciles wages against it, so it lives beside the money
+            // registers without being one. ?from returns the chip here.
+            {
+              href: withBackFrom("/team/attendance", "/accounting"),
+              label: ATTENDANCE_AUDIT_LABEL,
+              hint: "วันทำงาน ชม. OT และที่มาของการเช็คชื่อ",
             },
             // Spec 196 Tier 4: month-end close (open → closing → closed → locked).
             { href: "/accounting/periods", label: "ปิดงวดบัญชี", hint: "เปิด/ปิดงวดบัญชีรายเดือน" },

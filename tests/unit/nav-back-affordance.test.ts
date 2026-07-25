@@ -187,6 +187,10 @@ const STATIC_DETAIL = [
   // Spec 328 U2: the printable per-firm subcon onboarding poster drills down
   // from /team's เพิ่มช่างใหม่ sheet (back chip → /team, print-first like badges).
   "team/poster",
+  // Spec 358: the attendance AUDIT report (ประวัติการเช็คชื่อ) — a MULTI-PARENT
+  // drill (the /team tile and the /accounting register list both reach it), so
+  // its chip resolves via safeBackHref(?from, "/team"), never a hardcoded href.
+  "team/attendance",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is

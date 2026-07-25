@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACCOUNTING_ROLES,
+  ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
+  ATTENDANCE_AUDIT_ROLES,
   BACK_OFFICE_ROLES,
   DOC_APPROVAL_ROLES,
   LEGAL_ROLES,
@@ -36,6 +38,8 @@ import {
 import { isBackOfficeRole } from "@/lib/purchasing/back-office";
 import { validateLaborEntry } from "@/lib/labor/validate";
 import { BILLING_WRITE_ROLES } from "@/lib/accounting/billing-actions";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import type { UserRole } from "@/lib/db/enums";
 
 describe("role sets", () => {
   // Spec 166: beta finance gating — the GL /accounting surface is operator-only
@@ -350,6 +354,70 @@ describe("PAYROLL_ROLES (spec 187)", () => {
       "contractor",
     ] as const) {
       expect(PAYROLL_ROLES).not.toContain(role);
+    }
+  });
+});
+
+// Spec 358 U2 — the attendance-audit audience. Pinned over the EXHAUSTIVE role
+// domain (USER_ROLE_LABEL is a Record<UserRole>, so a new enum value reds this)
+// and as an EXACT positive set, so both widening the set AND adding a member red
+// the test — a hand-listed denial loop silently misses the next enum value
+// (the spec-348-U5 allowlist lesson). This set gates a DB read RPC, the page and
+// the CSV export identically, so drift here is a privilege change.
+describe("ATTENDANCE_AUDIT_ROLES (spec 358)", () => {
+  it("is exactly the office/payroll audit audience", () => {
+    const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
+    expect(all.filter((r) => ATTENDANCE_AUDIT_ROLES.includes(r)).sort()).toEqual(
+      [
+        "accounting",
+        "hr",
+        "procurement_manager",
+        "project_coordinator",
+        "project_director",
+        "project_manager",
+        "super_admin",
+      ].sort(),
+    );
+  });
+
+  it("admits accounting and hr — the whole point (is_back_office excludes them)", () => {
+    expect(ATTENDANCE_AUDIT_ROLES).toContain("accounting");
+    expect(ATTENDANCE_AUDIT_ROLES).toContain("hr");
+    // is_back_office's membership, mirrored: it is NOT a superset of this set.
+    for (const backOffice of ["accounting", "hr"] as const) {
+      expect(isBackOfficeRole(backOffice)).toBe(false);
+    }
+  });
+
+  // The cross-project tier must stay ATTENDANCE_AUDIT_ROLES minus exactly
+  // project_manager — that is the split the RPCs implement, and the picker's
+  // admin-vs-session read branches on it. If someone adds a role to the audit set
+  // and forgets the tier (or vice-versa), this reds.
+  it("the cross-project tier is the audit set minus project_manager, exactly", () => {
+    expect([...ATTENDANCE_AUDIT_ALL_PROJECT_ROLES].sort()).toEqual(
+      [...ATTENDANCE_AUDIT_ROLES].filter((r) => r !== "project_manager").sort(),
+    );
+    expect(ATTENDANCE_AUDIT_ALL_PROJECT_ROLES).not.toContain("project_manager");
+    // Every tier member is an audit role — the tier can never widen past the gate.
+    for (const role of ATTENDANCE_AUDIT_ALL_PROJECT_ROLES) {
+      expect(ATTENDANCE_AUDIT_ROLES).toContain(role);
+    }
+  });
+
+  it("excludes the field + external roles, incl. site_admin (it keeps the cockpit)", () => {
+    for (const role of [
+      "site_admin",
+      "site_owner",
+      "auditor",
+      "procurement",
+      "technician",
+      "subcon_manager",
+      "legal",
+      "visitor",
+      "contractor",
+      "client",
+    ] as const) {
+      expect(ATTENDANCE_AUDIT_ROLES).not.toContain(role);
     }
   });
 });
