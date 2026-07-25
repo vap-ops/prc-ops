@@ -1,5 +1,5 @@
 begin;
-select plan(34);
+select plan(37);
 
 -- ============================================================================
 -- Spec 306 U5a — muster → labor_logs money derive (enum-only minimal engine).
@@ -314,6 +314,82 @@ select is((select wht_pct_snapshot from public.labor_logs ll
     where ll.worker_id = 'e1000000-0d06-0d06-0d06-e10000000d06' and ll.work_date = current_date
       and ll.day_fraction is not null and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
   5.00::numeric, 'a wht_pct change re-snapshots the row on re-derive (money)');
+
+-- ============================================================================
+-- I. SPEC 328 §2.4 MONEY WALL — a contractor-tied worker is PAY-EXEMPT.
+--
+-- A subcontractor firm's crew are paid BY THE FIRM out of the work package's
+-- contract price; PRC never pays them a daily wage ([[prc-ops-pay-model]]).
+-- Spec 328 §2.4 states the rule for this exact function ("when spec 306 U5 lands,
+-- the derive MUST skip contractor-tied workers") and U5a shipped without it.
+-- Everything else about worker J is derivable — active, cost-confirmed, rate > 0,
+-- one leaf WP — so ONLY the contractor tie can keep them out. Without the guard
+-- a PM bulk-confirming subcon rates books a second, daily-wage payment for people
+-- the firm already pays.
+-- ============================================================================
+insert into public.contractors (id, name, contractor_category, status, created_by) values
+  ('cc000000-0d06-0d06-0d06-cc0000000d06', 'ห้างหุ้นส่วน ทดสอบรับเหมา', 'contractor', 'active',
+   '75000000-0d06-0d06-0d06-750000000d06');
+insert into public.workers
+  (id, name, pay_type, employment_type, day_rate, level, active, cost_confirmed_at,
+   cost_confirmed_by, created_by, contractor_id, project_id)
+values
+  ('ed000000-0d06-0d06-0d06-ed0000000d06'::uuid, 'ช่างเจ (ลูกน้องผู้รับเหมา)', 'daily', 'temporary',
+   500, 'senior', true, now(), '75000000-0d06-0d06-0d06-750000000d06',
+   '75000000-0d06-0d06-0d06-750000000d06', 'cc000000-0d06-0d06-0d06-cc0000000d06',
+   'a1000000-0d06-0d06-0d06-a10000000d06');
+insert into public.muster_teams (id, project_id, work_date, lead_worker_id, created_by) values
+  ('ce000000-0d06-0d06-0d06-ce0000000d06'::uuid, 'a1000000-0d06-0d06-0d06-a10000000d06',
+   '2026-01-07', 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid,
+   '70000000-0d06-0d06-0d06-700000000d06');
+insert into public.muster_team_wps (team_id, work_package_id) values
+  ('ce000000-0d06-0d06-0d06-ce0000000d06'::uuid, '91000000-0d06-0d06-0d06-910000000d06');
+insert into public.muster_attendance
+  (id, team_id, worker_id, work_date, session, in_at, in_method, scanned_by)
+values
+  ('de000000-0d06-0d06-0d06-de0000000d06'::uuid, 'ce000000-0d06-0d06-0d06-ce0000000d06'::uuid,
+   'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid, '2026-01-07', 'regular', now(), 'manual',
+   '70000000-0d06-0d06-0d06-700000000d06');
+insert into public.muster_day_closures (project_id, work_date, closed_by) values
+  ('a1000000-0d06-0d06-0d06-a10000000d06', '2026-01-07', '70000000-0d06-0d06-0d06-700000000d06');
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0d06-0d06-0d06-700000000d06"}';
+select public.derive_muster_labor('a1000000-0d06-0d06-0d06-a10000000d06', '2026-01-07'::date);
+reset role;
+
+select is((select count(*)::int from public.labor_logs
+    where worker_id = 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid),
+  0, 'spec 328 §2.4: a contractor-tied worker derives NO labor_logs (the firm pays them)');
+
+-- And the exclusion is the CONTRACTOR TIE, not some other gate: clear the tie and
+-- the very same worker/day/team derives normally. Without this the assert above
+-- would pass for the wrong reason (e.g. a mis-seeded WP or an unclosed day).
+update public.workers set contractor_id = null
+  where id = 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid;
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0d06-0d06-0d06-700000000d06"}';
+select public.derive_muster_labor('a1000000-0d06-0d06-0d06-a10000000d06', '2026-01-07'::date);
+reset role;
+select is((select count(*)::int from public.labor_logs ll
+    where ll.worker_id = 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid
+      and ll.day_fraction is not null
+      and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
+  1, 'untying the same worker derives normally — the tie was the only thing blocking');
+
+-- RETRACT direction: re-tying them to the firm tombstones the row a re-derive
+-- already wrote, so a worker reclassified as subcon crew stops costing PRC.
+update public.workers set contractor_id = 'cc000000-0d06-0d06-0d06-cc0000000d06'
+  where id = 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid;
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0d06-0d06-0d06-700000000d06"}';
+select public.derive_muster_labor('a1000000-0d06-0d06-0d06-a10000000d06', '2026-01-07'::date);
+reset role;
+select is((select count(*)::int from public.labor_logs ll
+    where ll.worker_id = 'ed000000-0d06-0d06-0d06-ed0000000d06'::uuid
+      and ll.day_fraction is not null
+      and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
+  0, 're-tying a worker to the firm RETRACTS their derived row (no lingering PRC cost)');
 
 -- ============================================================================
 -- F. Role gate — a visitor cannot derive.
