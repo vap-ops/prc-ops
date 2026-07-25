@@ -1,3 +1,9 @@
+# [0.220.0](https://github.com/vap-ops/prc-ops/compare/v0.219.0...v0.220.0) (2026-07-25)
+
+### Features
+
+- **muster:** attendance audit read RPCs for office/payroll (spec 358 U1) ([#755](https://github.com/vap-ops/prc-ops/issues/755)) ([f23a0dd](https://github.com/vap-ops/prc-ops/commit/f23a0dd19a142647e340b58606924a474af55c24))
+
 # [0.219.0](https://github.com/vap-ops/prc-ops/compare/v0.218.0...v0.219.0) (2026-07-24)
 
 ### Features
