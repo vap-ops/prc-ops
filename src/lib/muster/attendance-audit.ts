@@ -13,7 +13,7 @@
 // so the picker/table can import the view-model without dragging server-only code
 // into the bundle (the #742 `server-only` build trap).
 
-import { ISO_DATE_REGEX } from "@/lib/dates";
+import { ISO_DATE_REGEX, bangkokDateOf } from "@/lib/dates";
 import { formatThaiTime } from "@/lib/i18n/labels";
 
 export type AttendanceRange = { from: string; to: string; projectId?: string };
@@ -177,6 +177,13 @@ export type AttendanceDetailRow = {
   dayClosed: boolean;
   /** No check-out recorded. Mid-shift that is normal; on a past day it is a gap. */
   stillIn: boolean;
+  /**
+   * The check-out landed on a LATER Bangkok calendar day than `workDate`. Real for
+   * an evening OT session closed after midnight: `out_at` is `now()` with no
+   * relation to `work_date` (muster_scan_out), so `22:00 – 01:30` would read as an
+   * out-BEFORE-in defect that isn't one, and the ot_hours span would contradict it.
+   */
+  outNextDay: boolean;
 };
 
 export function shapeDetailRow(raw: RawDetailRow): AttendanceDetailRow {
@@ -200,6 +207,7 @@ export function shapeDetailRow(raw: RawDetailRow): AttendanceDetailRow {
     teamLeadName: raw.team_lead_name,
     dayClosed: raw.day_closed,
     stillIn: raw.out_at === null,
+    outNextDay: raw.out_at !== null && bangkokDateOf(raw.out_at) > raw.work_date,
   };
 }
 
@@ -221,10 +229,41 @@ export function attendanceWorkerId(
   return visibleWorkerIds.includes(raw) ? raw : null;
 }
 
+/**
+ * How a session with no check-out should READ. The summary chip softens by RANGE
+ * (it has no per-day detail to work with); the drill knows the actual day, so it
+ * softens per DAY — strictly more honest, and it stops the two surfaces
+ * contradicting each other. Before this, a worker whose chip said ยังอยู่ในงาน
+ * expanded into rows that all said ยังไม่เช็คออก — the exact wording the summary
+ * had deliberately rejected, and with no way to tell today's normal open session
+ * from yesterday's real gap.
+ */
+export function openSessionLabel(row: AttendanceDetailRow, todayIso: string): string {
+  return row.workDate >= todayIso ? "ยังอยู่ในงาน" : "ยังไม่เช็คออก";
+}
+
+/** Same split for the day header: an unclosed day is only a FINDING once the day
+ *  is over. Today's day is legitimately still open. */
+export function dayClosureLabel(
+  day: { workDate: string; dayClosed: boolean },
+  todayIso: string,
+): string {
+  if (day.dayClosed) return "ปิดวันแล้ว";
+  return day.workDate >= todayIso ? "ยังอยู่ระหว่างวัน" : "ยังไม่ปิดวัน";
+}
+
 export type AttendanceDetailDay = {
   workDate: string;
   /** Closure is a project-DAY fact (the U2 correction), so it lives on the day. */
   dayClosed: boolean;
+  /**
+   * Also a per-DAY fact, not per-session: `muster_scan_in` gates an OT session on
+   * a regular session of the SAME team, and `move_muster_worker` moves every
+   * session of a date and refuses cross-project — so a worker-day is provably
+   * single-project (verified live). Printing it on each session repeated the same
+   * name twice on any day with OT.
+   */
+  projectName: string;
   sessions: AttendanceDetailRow[];
 };
 
@@ -239,13 +278,21 @@ export function groupDetailByDate(rows: AttendanceDetailRow[]): AttendanceDetail
   }
   return [...byDate.entries()]
     .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))
-    .map(([workDate, sessions]) => ({
-      workDate,
-      dayClosed: sessions.some((s) => s.dayClosed),
-      sessions: [...sessions].sort((a, b) =>
+    .map(([workDate, sessions]) => {
+      const ordered = [...sessions].sort((a, b) =>
         a.session === b.session ? 0 : a.session === "regular" ? -1 : 1,
-      ),
-    }));
+      );
+      return {
+        workDate,
+        // `every`, not `some`: closure is one project-day fact shared by all of a
+        // day's sessions (single-project invariant above), so the two reducers
+        // agree on real data — but `every` fails CLOSED if that ever breaks,
+        // which is the safe direction for a "this day is settled" claim.
+        dayClosed: ordered.every((s) => s.dayClosed),
+        projectName: ordered[0]?.projectName ?? "",
+        sessions: ordered,
+      };
+    });
 }
 
 /** Minimal shape of the Supabase client this reader needs (session client). */

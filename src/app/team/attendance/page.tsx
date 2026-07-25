@@ -20,6 +20,7 @@
 
 import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
+import { AttendanceDrill } from "@/components/features/muster/attendance-drill";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { safeBackHref } from "@/lib/nav/back-href";
@@ -116,7 +117,9 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     if (range.projectId) q.set("project", range.projectId);
     if (backHref !== "/team") q.set("from", backHref);
     if (workerId) q.set("worker", workerId);
-    return `/team/attendance?${q.toString()}`;
+    // Fragment so toggling a row keeps that row in view (a server navigation
+    // otherwise re-renders scrolled to the top and the user hunts for it again).
+    return `/team/attendance?${q.toString()}#w-${workerId ?? openWorkerId ?? ""}`;
   };
 
   return (
@@ -209,14 +212,21 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                 const signals = formatSignals(r, { rangeIncludesToday });
                 const isOpen = r.workerId === openWorkerId;
                 return (
-                  <li key={r.workerId} className={CARD}>
+                  <li key={r.workerId} id={`w-${r.workerId}`} className={CARD}>
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      {/* text-action + inline-flex items-center is the house link
+                          idiom (globals.css reserves --color-action for links).
+                          Styling it like the surrounding text left the drill
+                          invisible on touch, where hover:underline never fires —
+                          an undiscoverable feature ships to zero usage. */}
                       <Link
                         href={drillHref(isOpen ? null : r.workerId)}
-                        aria-expanded={isOpen}
-                        className="text-ink focus-visible:ring-action min-h-11 min-w-0 rounded text-sm font-semibold underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+                        className="text-action focus-visible:ring-action inline-flex min-h-11 min-w-0 items-center rounded text-sm font-semibold underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
                       >
                         {r.workerName}
+                        <span className="text-ink-secondary ml-1 text-xs font-normal">
+                          {isOpen ? "▾" : "▸"}
+                        </span>
                       </Link>
                       <span className="text-ink-secondary text-xs">
                         {r.daysPresent} วัน
@@ -244,46 +254,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                         DAY header, not the session (it is a project-day fact). */}
                     {isOpen && (
                       <div className="border-edge mt-3 border-t pt-3">
-                        {detailDays.length === 0 ? (
-                          <p className="text-ink-secondary text-xs">ไม่มีรายละเอียดในช่วงนี้</p>
-                        ) : (
-                          <ul className="flex flex-col gap-3">
-                            {detailDays.map((day) => (
-                              <li key={day.workDate}>
-                                <p className="text-ink-secondary text-xs font-semibold">
-                                  {formatThaiDate(day.workDate)}
-                                  {day.dayClosed ? " · ปิดวันแล้ว" : " · ยังไม่ปิดวัน"}
-                                </p>
-                                <ul className="mt-1 flex flex-col gap-1">
-                                  {day.sessions.map((s) => (
-                                    <li
-                                      key={`${s.workDate}-${s.session}`}
-                                      className="text-ink text-xs"
-                                    >
-                                      <span className="font-medium">
-                                        {s.session === "ot" ? "OT" : "งานปกติ"}
-                                      </span>{" "}
-                                      {s.inTime}
-                                      {" – "}
-                                      {s.outTime ?? "ยังไม่เช็คออก"}
-                                      {s.outAuto ? " (อัตโนมัติ)" : ""}
-                                      {s.otHours !== null
-                                        ? ` · ${formatNumber(s.otHours)} ชม.`
-                                        : ""}
-                                      <span className="text-ink-secondary">
-                                        {" · "}
-                                        {s.inMethod === "qr" ? "สแกน QR" : "บันทึกมือ"}
-                                        {s.scannedByName ? ` โดย ${s.scannedByName}` : ""}
-                                        {s.teamLeadName ? ` · ทีม ${s.teamLeadName}` : ""}
-                                        {` · ${s.projectName}`}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                        <AttendanceDrill days={detailDays} todayIso={todayIso} />
                       </div>
                     )}
                   </li>

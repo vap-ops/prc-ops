@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   attendanceWorkerId,
+  dayClosureLabel,
   shapeDetailRow,
   groupDetailByDate,
+  openSessionLabel,
 } from "@/lib/muster/attendance-audit";
 
 // Spec 358 U3 — the per-day drill-down's view-model. This is where a summary
@@ -150,9 +152,78 @@ describe("groupDetailByDate (spec 358 U3)", () => {
     const [day] = groupDetailByDate(rows);
     // Closure is a project-DAY fact (the U2 lesson) — it belongs to the day header.
     expect(day?.dayClosed).toBe(true);
+    expect(day?.projectName).toBe("โครงการเอ");
   });
 
   it("returns nothing for no rows", () => {
     expect(groupDetailByDate([])).toEqual([]);
+  });
+});
+
+// The reducer choice is load-bearing enough to assert, not just comment: a day is
+// only "settled" when EVERY session of it is closed. On live data the two
+// reducers agree (a worker-day is single-project, so all its sessions share the
+// closure flag), but `every` fails CLOSED if that invariant ever breaks — the safe
+// direction for a claim an auditor acts on. A `some` implementation reds here.
+describe("day closure uses every, not some (spec 358 U3)", () => {
+  it("a day with one closed and one open session is NOT closed", () => {
+    const rows = [
+      shapeDetailRow(raw({ session: "regular", day_closed: true })),
+      shapeDetailRow(raw({ session: "ot", ot_hours: 2, day_closed: false })),
+    ];
+    const [day] = groupDetailByDate(rows);
+    expect(day?.sessions).toHaveLength(2);
+    expect(day?.dayClosed).toBe(false);
+  });
+});
+
+// Spec 358 U3 — the wording the auditor actually reads. The summary chip softens
+// by RANGE; the drill knows the DAY, so it must soften by day or the two surfaces
+// contradict each other (the chip said ยังอยู่ในงาน while every drill row said
+// ยังไม่เช็คออก — the exact string the summary had deliberately rejected).
+describe("openSessionLabel + dayClosureLabel (spec 358 U3)", () => {
+  const TODAY = "2026-07-25";
+
+  it("today's open session reads as still-at-work, not as a gap", () => {
+    const row = shapeDetailRow(raw({ work_date: TODAY, out_at: null, out_method: null }));
+    expect(openSessionLabel(row, TODAY)).toBe("ยังอยู่ในงาน");
+  });
+
+  it("a PAST day's open session is a real gap and keeps the finding wording", () => {
+    const row = shapeDetailRow(raw({ work_date: "2026-07-24", out_at: null, out_method: null }));
+    expect(openSessionLabel(row, TODAY)).toBe("ยังไม่เช็คออก");
+  });
+
+  it("an unclosed day is only a finding once the day is over", () => {
+    expect(dayClosureLabel({ workDate: TODAY, dayClosed: false }, TODAY)).toBe("ยังอยู่ระหว่างวัน");
+    expect(dayClosureLabel({ workDate: "2026-07-24", dayClosed: false }, TODAY)).toBe(
+      "ยังไม่ปิดวัน",
+    );
+    expect(dayClosureLabel({ workDate: "2026-07-24", dayClosed: true }, TODAY)).toBe("ปิดวันแล้ว");
+  });
+});
+
+// An evening OT session closed after midnight: out_at is now() with no relation to
+// work_date, so without this flag the row renders "22:00 – 01:30" and reads as an
+// out-before-in defect that isn't one.
+describe("outNextDay (spec 358 U3)", () => {
+  it("flags a check-out that landed on a later Bangkok day", () => {
+    const row = shapeDetailRow(
+      raw({
+        work_date: "2026-07-24",
+        session: "ot",
+        in_at: "2026-07-24T15:00:00Z", // 22:00 BKK on the 24th
+        out_at: "2026-07-24T18:30:00Z", // 01:30 BKK on the 25th
+        ot_hours: 3.5,
+      }),
+    );
+    expect(row.inTime).toBe("22:00");
+    expect(row.outTime).toBe("01:30");
+    expect(row.outNextDay).toBe(true);
+  });
+
+  it("does not flag a same-day check-out, nor an open one", () => {
+    expect(shapeDetailRow(raw()).outNextDay).toBe(false);
+    expect(shapeDetailRow(raw({ out_at: null, out_method: null })).outNextDay).toBe(false);
   });
 });
