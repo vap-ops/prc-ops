@@ -12,31 +12,23 @@
 // mustered (a Sunday, a holiday) have no muster_teams rows at all, so this can
 // never nag about a day that was never worked.
 //
-// Client-safe on purpose: the "use client" banner value-imports this, and a
-// server-only module pulled into the client bundle typechecks green but fails
-// `next build` (the spec-306 #742 lesson). Keep this file free of `server-only`.
-
-/**
- * How far back the cockpit banner looks. A BOUNDARY, not a silent truncation:
- * this is the SA's daily nudge, and without a floor the reader would fetch every
- * muster day the project has ever had on every cockpit load, forever. A day still
- * unclosed after a month has stopped being "the SA forgot last night" and is a
- * payroll-audit matter — `/team/attendance` carries the all-time unclosed-day
- * signal for the office roles that reconcile it.
- */
-export const CLOSE_CARRYOVER_WINDOW_DAYS = 30;
-
-/** The oldest work_date the banner will offer, inclusive. */
-export function carryoverWindowStart(
-  today: string,
-  days: number = CLOSE_CARRYOVER_WINDOW_DAYS,
-): string {
-  // UTC-anchored arithmetic on a plain calendar date — the input is already an
-  // Asia/Bangkok day, so there is no zone to re-apply and no DST to drift on.
-  const d = new Date(`${today}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
+// Kept free of `server-only` so it stays importable from the "use client" banner.
+// Today the banner only imports the TYPE (erased at compile time), so nothing
+// currently forces the issue — this is a constraint held deliberately, not one
+// the build is proving. If a value ever crosses over, note that `server-only` in
+// a client bundle typechecks green and fails `next build` (the spec-306 #742
+// lesson), which is why the constraint is worth keeping ahead of need.
+//
+// LOOKBACK IS DELIBERATELY UNBOUNDED. A 30-day cap shipped here first and was
+// wrong: past the cap a day became permanently unbookable, because closing is the
+// ONLY way to produce the closure row `derive_muster_labor` keys off, and
+// `close_muster_day` has exactly two callers — the cockpit's today-bar and this
+// banner. The cap was justified on `/team/attendance` being an all-time fallback;
+// it is not one. That report defaults to MONTH-TO-DATE, renders a count with no
+// close action, and its role set excludes `site_admin` — the very actor who
+// misses ปิดวัน. So a cap would re-create the exact failure this feature exists
+// to prevent. The list is instead bounded where it costs nothing: the banner
+// RENDERS the newest few and summarises the rest, and each close reveals the next.
 
 export interface UnclosedPriorDay {
   /** The muster work_date (ISO, Asia/Bangkok calendar day). */
@@ -74,16 +66,9 @@ export function shapeUnclosedPriorDays(raw: {
    * be worse than the miss this banner exists to catch.
    */
   today: string;
-  /**
-   * The oldest work_date to consider, inclusive (see CLOSE_CARRYOVER_WINDOW_DAYS).
-   * Enforced here as well as in the reader's query for the same reason as
-   * `today`: the window is part of this function's contract, not something it
-   * infers from whatever rows it happens to be handed.
-   */
-  since: string;
 }): UnclosedPriorDay[] {
   const closed = new Set(raw.closedDates);
-  const isPrior = (date: string) => date < raw.today && date >= raw.since;
+  const isPrior = (date: string) => date < raw.today;
   // team id → work_date, so an attendance row can be attributed to its day.
   const dateOfTeam = new Map(raw.priorTeams.map((t) => [t.id, t.work_date]));
   const counts = (date: string) => isPrior(date) && !closed.has(date);

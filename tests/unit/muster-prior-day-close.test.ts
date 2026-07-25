@@ -15,11 +15,7 @@
 // (Sunday, a holiday) have no muster_teams rows and must never be nagged about.
 
 import { describe, expect, it } from "vitest";
-import {
-  shapeUnclosedPriorDays,
-  carryoverWindowStart,
-  CLOSE_CARRYOVER_WINDOW_DAYS,
-} from "@/lib/muster/prior-day-close";
+import { shapeUnclosedPriorDays } from "@/lib/muster/prior-day-close";
 
 const ot = (team_id: string, over: { in_at?: string | null; out_at?: string | null } = {}) => ({
   team_id,
@@ -49,7 +45,6 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: [],
       attendance: [],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days).toEqual([{ date: "2026-07-25", teamCount: 2, openOt: 0 }]);
   });
@@ -60,7 +55,6 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: ["2026-07-24"],
       attendance: [],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days).toEqual([]);
   });
@@ -75,7 +69,6 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: ["2026-07-24"],
       attendance: [],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     // Newest first: the SA's most recent miss is the one they can still remember.
     expect(days.map((d) => d.date)).toEqual(["2026-07-25", "2026-07-20"]);
@@ -92,7 +85,6 @@ describe("shapeUnclosedPriorDays", () => {
         ot("t1", { out_at: "2026-07-24T13:00:00Z" }),
       ],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days[0]?.openOt).toBe(2);
   });
@@ -105,7 +97,6 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: [],
       attendance: [regular("t1"), regular("t1")],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days[0]?.openOt).toBe(0);
   });
@@ -119,7 +110,6 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: [],
       attendance: [ot("t1"), ot("t2"), ot("t2")],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days.find((d) => d.date === "2026-07-25")?.openOt).toBe(1);
     expect(days.find((d) => d.date === "2026-07-24")?.openOt).toBe(2);
@@ -131,7 +121,6 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: [],
       attendance: [ot("t1", { in_at: null })],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days[0]?.openOt).toBe(0);
   });
@@ -145,7 +134,6 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: [],
       attendance: [],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days).toEqual([{ date: "2026-07-24", teamCount: 1, openOt: 0 }]);
   });
@@ -162,7 +150,6 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: [],
       attendance: [ot("t1")],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days.map((d) => d.date)).toEqual(["2026-07-25"]);
   });
@@ -173,49 +160,8 @@ describe("shapeUnclosedPriorDays", () => {
       closedDates: [],
       attendance: [],
       today: "2026-07-26",
-      since: "2026-06-26",
     });
     expect(days).toEqual([]);
-  });
-
-  it("ignores a day older than the carry-over window", () => {
-    // The banner is the SA's DAILY nudge, so it is bounded: without a floor this
-    // reader would fetch every muster day the project has ever had, on every
-    // cockpit load, forever. Anything older than the window is a payroll-audit
-    // matter and shows up on /team/attendance's unclosed-day signal instead —
-    // a boundary, not a silent truncation.
-    const days = shapeUnclosedPriorDays({
-      priorTeams: [
-        { id: "old", work_date: "2026-05-01" },
-        { id: "recent", work_date: "2026-07-25" },
-      ],
-      closedDates: [],
-      attendance: [],
-      today: "2026-07-26",
-      since: carryoverWindowStart("2026-07-26"),
-    });
-    expect(days.map((d) => d.date)).toEqual(["2026-07-25"]);
-  });
-
-  it("includes the first day of the window (the boundary is inclusive)", () => {
-    const since = carryoverWindowStart("2026-07-26");
-    const days = shapeUnclosedPriorDays({
-      priorTeams: [{ id: "t1", work_date: since }],
-      closedDates: [],
-      attendance: [],
-      today: "2026-07-26",
-      since,
-    });
-    expect(days.map((d) => d.date)).toEqual([since]);
-  });
-
-  it("carryoverWindowStart counts back whole calendar days", () => {
-    expect(CLOSE_CARRYOVER_WINDOW_DAYS).toBe(30);
-    expect(carryoverWindowStart("2026-07-26")).toBe("2026-06-26");
-    // Across a month boundary and a leap day — plain UTC-anchored arithmetic, so
-    // no DST or timezone drift can shift it.
-    expect(carryoverWindowStart("2026-03-02")).toBe("2026-01-31");
-    expect(carryoverWindowStart("2024-03-02")).toBe("2024-02-01");
   });
 
   it("no prior teams → nothing to close", () => {
@@ -225,7 +171,6 @@ describe("shapeUnclosedPriorDays", () => {
         closedDates: [],
         attendance: [],
         today: "2026-07-26",
-        since: "2026-06-26",
       }),
     ).toEqual([]);
   });
