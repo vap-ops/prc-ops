@@ -84,9 +84,26 @@ The decision screen pre-selects the firm (subject to the trust rule). On approve
 - **Payroll** — excluded. Today this holds transitively (payroll reads `labor_logs`;
   none exist for them). U1 pins it with an explicit test so a future payroll change
   cannot silently include them.
-- **Muster U5 derive (future)** — when spec 306 U5 lands, the derive MUST skip
-  contractor-tied workers: their labor cost lives inside the WP contract price
-  (pay-model doctrine). Recorded here so U5's spec inherits the rule.
+- **Muster U5 derive — ✅ CLOSED 2026-07-26** (migration `20260813075854`). The rule
+  was recorded here before 306 U5 existed, and **U5a (#740) shipped without it** —
+  a reminder that a rule written in another spec's §2.4 is not self-enforcing.
+  `derive_muster_labor`'s `v_ok` now carries `and v_worker.contractor_id is null`;
+  pgTAP `306-muster-derive` §I pins it in both directions (untying the same
+  worker/day derives normally, so the tie is provably the only blocker).
+  ⚠️ **Scope of the retract, precisely:** an ineligible worker's existing derived
+  rows are tombstoned only ON A DERIVE OF THAT DAY, and a CLOSED PAST DAY cannot
+  be re-closed from any surface today (the cockpit bar is today-locked, the
+  carry-over banner lists only days without a closure, no cron calls it). So tying
+  a worker to a firm AFTER their days were closed does **not** claw back wages
+  already booked. Follow-up owed: an integrity-console check (`current labor_logs
+rows whose worker is contractor-tied = 0`) — deliberately NOT a pgTAP assert, a
+  global count over an operator-written table is the known merge-queue-ejector class.
+- **`log_labor_day` — STILL OPEN, own unit.** The RPC has no contractor guard (only
+  the picker above is filtered), and the derive's retract loop keys on
+  `source_muster_id`, which a manual row leaves NULL — so a manually logged
+  contractor-tied worker is never retracted either. Compare spec 330 U3a, which
+  walled the crew path with function arms **and** writer-agnostic triggers; this
+  path has neither. Manual-entry double-pay remains reachable until that lands.
 - **Bank** — not collected for contractor members (U1/U2 carve, see §2.2), and
   profile-edit surfaces (spec 321 `ProfileEditSections`) hide bank sections for
   contractor-tied workers.
