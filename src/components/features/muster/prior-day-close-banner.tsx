@@ -23,13 +23,20 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { closeMusterDay } from "@/lib/muster/actions";
 import { formatThaiDate } from "@/lib/i18n/labels";
-import { CARD } from "@/lib/ui/classes";
 import type { UnclosedPriorDay } from "@/lib/muster/prior-day-close";
 
 // Single-use copy, kept local rather than in labels.ts (the MusterTodayCard /
 // close-day-bar precedent): none of these strings is rendered anywhere else, and
 // adding them to the shared SSOT would serialise this lane against every other.
 const BTN = "min-h-11 rounded-lg px-4 text-sm font-bold disabled:opacity-50";
+
+// Deliberately NOT `${CARD} border-attn bg-attn-soft`: CARD bundles `bg-card` +
+// `border-edge`, and two utilities for the same property on one element are
+// resolved by the GENERATED stylesheet's order, not by the order they appear in
+// the className — CARD won, and the amber warning rendered as a plain white card
+// with a grey border (found by probing the live page; every test was green).
+// Spell out CARD's layout half and let the attention tokens own colour outright.
+const BANNER = "rounded-card shadow-card border border-attn bg-attn-soft text-attn-ink px-4 py-3";
 
 export function PriorDayCloseBanner({
   projectId,
@@ -65,7 +72,7 @@ export function PriorDayCloseBanner({
   };
 
   return (
-    <div className={`${CARD} border-attn bg-attn-soft text-attn-ink`}>
+    <div className={BANNER}>
       <p className="text-sm font-bold">ยังไม่ได้ปิดวันทำงานที่ผ่านมา</p>
       <p className="text-meta mt-1">ปิดวันเพื่อบันทึกค่าแรงของวันนั้น</p>
 

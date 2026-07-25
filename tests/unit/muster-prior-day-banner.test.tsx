@@ -43,6 +43,27 @@ describe("PriorDayCloseBanner", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("carries the attention treatment, with no competing surface utility", () => {
+    // Caught live, not by any green test: composing the shared CARD constant
+    // (which bundles `bg-card` + `border-edge`) with `bg-attn-soft` /
+    // `border-attn` puts two utilities for the same property on one element, and
+    // the GENERATED stylesheet order decides the winner — not the order they
+    // appear in the className. CARD won, so the amber warning rendered as a plain
+    // white card with a grey border: the entire "something is wrong here"
+    // affordance, silently gone. Assert the attention tokens are present AND that
+    // the neutral-surface ones are not there to fight them.
+    const { container } = render(
+      <PriorDayCloseBanner {...props} days={[{ date: "2026-07-25", teamCount: 1, openOt: 0 }]} />,
+    );
+    const banner = container.firstElementChild as HTMLElement;
+    const cls = banner.className;
+    expect(cls).toContain("bg-attn-soft");
+    expect(cls).toContain("border-attn");
+    expect(cls).toContain("text-attn-ink");
+    expect(cls).not.toContain("bg-card");
+    expect(cls).not.toContain("border-edge");
+  });
+
   it("names each unclosed day and says why it matters (wages are not booked)", () => {
     render(
       <PriorDayCloseBanner
