@@ -4,11 +4,15 @@
 // date; nothing answered "who was present over this month, and does the record
 // look trustworthy". This page does, cross-project, for the office audience.
 //
-// Server Component. The read goes through `audit_attendance_summary`, a DEFINER
-// RPC, on the RLS SESSION client — never the admin client: calling it under the
-// user's JWT is what makes its role gate AND its can_see_project scoping (for
-// project_manager) apply. muster_* RLS is can_see_project-scoped, which is FALSE
-// for accounting/hr, which is why the RPC exists at all.
+// Server Component. The ATTENDANCE read goes through `audit_attendance_summary`,
+// a DEFINER RPC, on the RLS SESSION client — never the admin client: calling it
+// under the user's JWT is what makes its role gate AND its can_see_project scoping
+// (for project_manager) apply. muster_* RLS is can_see_project-scoped, which is
+// FALSE for accounting/hr, which is why the RPC exists at all.
+//
+// The one admin-client read is the project PICKER's options, and only for the
+// cross-project tier — see the comment at that call for why the session client
+// cannot serve it. No attendance row, and no money, ever comes from admin here.
 //
 // RAW scan truth: presence, OT hours, and the audit signals. NO wages, no GL, no
 // baht anywhere on this surface (spec 306 U5 owns the money derive). Period is a
@@ -21,8 +25,9 @@ import { safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
-import { ATTENDANCE_AUDIT_ROLES } from "@/lib/auth/role-home";
+import { ATTENDANCE_AUDIT_ALL_PROJECT_ROLES, ATTENDANCE_AUDIT_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerClient } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
 import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
 import { bangkokTodayIso } from "@/lib/dates";
 import { ATTENDANCE_AUDIT_LABEL, formatThaiDate } from "@/lib/i18n/labels";
@@ -30,11 +35,12 @@ import {
   attendanceRange,
   formatSignals,
   loadAttendanceSummary,
+  unclosedDaySignal,
 } from "@/lib/muster/attendance-audit";
 
 export const metadata = { title: ATTENDANCE_AUDIT_LABEL };
 
-function formatHours(n: number): string {
+function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 }
 
@@ -53,28 +59,43 @@ interface AttendanceAuditPageProps {
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
   const { start, end, project, from } = await searchParams;
-  const range = attendanceRange({ start, end, project }, bangkokTodayIso());
+  const todayIso = bangkokTodayIso();
+  const range = attendanceRange({ start, end, project }, todayIso);
+  // Mid-shift open check-outs are expected (no auto-out cron), so the chip wording
+  // softens whenever the range reaches today — see formatSignals.
+  const rangeIncludesToday = range.to >= todayIso;
+  // Multi-parent chip: resolve the href FIRST, then label it for where it actually
+  // goes. A fixed "ทีมงาน" label is the aria-label a screen reader hears, so on an
+  // /accounting referral it would announce the wrong destination.
+  const backHref = safeBackHref(from, "/team");
+  const backLabel = backHref.startsWith("/accounting") ? "บัญชี" : "ทีมงาน";
 
   const supabase = await createServerClient();
   const rows = await loadAttendanceSummary(supabase, range);
 
-  // Project options for the lens: whatever this caller may already SELECT. The
-  // senior/office roles see every project (can_see_project's see-all arm or the
-  // RPC's own cross-project tier); a project_manager sees their memberships. A
-  // caller with no project visibility still gets rows from the RPC, so the picker
-  // is a convenience, never the gate.
-  const { data: projectOptions } = await supabase
+  // Project options for the picker. The read client is chosen per TIER, mirroring
+  // the RPCs' own two tiers, because `projects` SELECT runs on can_see_project:
+  // that is FALSE for accounting/hr, so a session-client read hands them ZERO rows
+  // (probed live) — an empty dropdown on a report that legitimately spans every
+  // project. The cross-project tier therefore reads options via admin (no new
+  // exposure: the RPC already returns them every project's attendance), while
+  // project_manager keeps the SESSION read so RLS scopes options to exactly its
+  // memberships — matching the rows the RPC will actually return for it.
+  const seesAllProjects = ATTENDANCE_AUDIT_ALL_PROJECT_ROLES.includes(ctx.role);
+  const projectReader = seesAllProjects ? createAdminClient() : supabase;
+  const { data: projectOptions } = await projectReader
     .from("projects")
     .select("id, code, name")
     .order("code");
 
   const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
   const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
+  const unclosedDays = unclosedDaySignal(rows);
 
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref={safeBackHref(from, "/team")} backLabel="ทีมงาน">
+      <DetailHeader backHref={backHref} backLabel={backLabel}>
         <h1 className="text-title text-ink font-bold tracking-tight">{ATTENDANCE_AUDIT_LABEL}</h1>
       </DetailHeader>
 
@@ -119,6 +140,11 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
               ))}
             </select>
           </label>
+          {/* Carry the referrer THROUGH the submit. Without this the GET form
+              rebuilds the URL from its own fields only, dropping ?from — so an
+              accounting user who changes the range would find the back chip
+              pointing at /team, a place they never came from. */}
+          {backHref !== "/team" && <input type="hidden" name="from" value={backHref} />}
           <button type="submit" className={BUTTON_PRIMARY}>
             ดูข้อมูล
           </button>
@@ -133,23 +159,32 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                 {formatThaiDate(range.from)} – {formatThaiDate(range.to)}
               </p>
               <p className="text-ink mt-1 text-sm font-semibold">
-                {rows.length} คน · รวม {formatDaysTotal(totalDays)} วัน
-                {totalOt > 0 ? ` · OT ${formatHours(totalOt)} ชม.` : ""}
+                {rows.length} คน · รวม {formatNumber(totalDays)} วัน
+                {totalOt > 0 ? ` · OT ${formatNumber(totalOt)} ชม.` : ""}
               </p>
+              {/* The unclosed-day count is a PROJECT-day fact, identical for every
+                  worker of that day — so it belongs here ONCE, not as a chip on
+                  each worker row (which read as N findings against N people). It
+                  is why the spec-306 wage derive cannot fire for those days. */}
+              {unclosedDays > 0 && (
+                <p className="text-ink-secondary mt-1 text-xs">
+                  {unclosedDays} วันที่ยังไม่ได้ปิด — ค่าแรงของวันนั้นยังไม่ถูกบันทึก
+                </p>
+              )}
             </div>
 
             {/* One row per worker. The signal chips mark the rows an auditor
                 should look at — a clean row carries none. */}
             <ul className="flex flex-col gap-2">
               {rows.map((r) => {
-                const signals = formatSignals(r);
+                const signals = formatSignals(r, { rangeIncludesToday });
                 return (
                   <li key={r.workerId} className={CARD}>
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                       <span className="text-ink min-w-0 text-sm font-semibold">{r.workerName}</span>
                       <span className="text-ink-secondary text-xs">
                         {r.daysPresent} วัน
-                        {r.otHoursTotal > 0 ? ` · OT ${formatHours(r.otHoursTotal)} ชม.` : ""}
+                        {r.otHoursTotal > 0 ? ` · OT ${formatNumber(r.otHoursTotal)} ชม.` : ""}
                         {r.projectCount > 1 ? ` · ${r.projectCount} โครงการ` : ""}
                       </span>
                     </div>
@@ -174,8 +209,4 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
       </section>
     </PageShell>
   );
-}
-
-function formatDaysTotal(n: number): string {
-  return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 }

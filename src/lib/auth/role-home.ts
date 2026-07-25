@@ -316,9 +316,14 @@ export const PAYROLL_ROLES: ReadonlyArray<UserRole> = [
  * gating on the unwidened set (PAYROLL_ROLES / PM_ROLES), so membership here
  * can never open a write path.
  */
+export const PAYROLL_VIEW_ROLES: ReadonlyArray<UserRole> = [...PAYROLL_ROLES, "accounting"];
+export const DASHBOARD_VIEW_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "accounting"];
+export const MONEY_VIEW_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "accounting"];
+
 /**
- * Spec 358 — who may AUDIT attendance history (`/team/attendance`, its CSV
- * export, and the two `audit_attendance_*` DEFINER read RPCs). A NEW set, not
+ * Spec 358 — who may AUDIT attendance history — the `/team/attendance`
+ * report and the two `audit_attendance_*` DEFINER read RPCs (a CSV export is a
+ * later unit and will reuse this same set). A NEW set, not
  * `is_back_office`, precisely because `is_back_office` EXCLUDES `accounting` and
  * `hr` — the primary audit audience (payroll reconciles attendance; HR owns
  * presence). Also not `can_see_project`: that returns FALSE for accounting/hr, so
@@ -334,7 +339,7 @@ export const PAYROLL_ROLES: ReadonlyArray<UserRole> = [
  * READ-only: this set never gates a write. Attendance here is RAW scan truth —
  * no wages, no GL (the money derive is spec 306 U5). Pinned by role-sets.test.ts
  * over the exhaustive role domain, and mirrored verbatim by the RPC allowlist in
- * migration 20260813075853 — the three layers (RPC / page / export) must match.
+ * migration 20260813075853 — the RPC and the page gate must never drift apart.
  */
 export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
   "accounting",
@@ -346,9 +351,30 @@ export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
   "project_manager",
 ];
 
-export const PAYROLL_VIEW_ROLES: ReadonlyArray<UserRole> = [...PAYROLL_ROLES, "accounting"];
-export const DASHBOARD_VIEW_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "accounting"];
-export const MONEY_VIEW_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "accounting"];
+/**
+ * Spec 358 — the CROSS-PROJECT tier of ATTENDANCE_AUDIT_ROLES: the roles whose
+ * attendance read spans every project. Mirrors, exactly, the inner
+ * `v_role in (...)` arm of both `audit_attendance_*` RPCs (migration
+ * 20260813075853); `project_manager` is the one audit role NOT here, because the
+ * RPC scopes it by `can_see_project`.
+ *
+ * Needed in TS because the report's project PICKER cannot use the session client
+ * for this tier: `projects` SELECT runs on `can_see_project`, which is FALSE for
+ * accounting/hr — probed live, they see ZERO project rows — so a session-client
+ * picker renders an EMPTY dropdown for the very audience whose report spans every
+ * project. This tier reads the picker options via the admin client (no new
+ * exposure: these roles can already read every project's attendance through the
+ * RPC), while project_manager keeps the session read so RLS hands it exactly its
+ * own memberships. Pinned against ATTENDANCE_AUDIT_ROLES by role-sets.test.ts.
+ */
+export const ATTENDANCE_AUDIT_ALL_PROJECT_ROLES: ReadonlyArray<UserRole> = [
+  "accounting",
+  "hr",
+  "project_director",
+  "project_coordinator",
+  "procurement_manager",
+  "super_admin",
+];
 
 /**
  * Spec 70: who can reach the purchasing surface (/requests + /requests/[id]).

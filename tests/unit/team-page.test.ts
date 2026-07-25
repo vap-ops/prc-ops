@@ -99,9 +99,26 @@ describe("the attendance-audit tile (spec 358)", () => {
     expect(withTile).toEqual([...ATTENDANCE_AUDIT_ROLES].sort());
   });
 
-  it("is the ONLY tile accounting and hr get — they own no roster", () => {
+  // ⚠️ RESOLVER contract only — NOT a reachability claim. /team is gated by
+  // TEAM_PAGE_ROLES (SITE_STAFF_ROLES + procurement + procurement_manager), which
+  // excludes accounting, hr and project_coordinator: for them this tile never
+  // renders, and their real door is elsewhere (accounting → the /accounting
+  // register row; hr + project_coordinator → NO door yet, recorded in the spec's
+  // open questions). Asserting the resolver here would manufacture confidence in
+  // an unreachable surface if it were read as "hr can get there".
+  it("resolves to attendance-only for the roster-less audit roles (resolver, not reach)", () => {
     expect(keysFor("accounting")).toEqual(["attendance"]);
     expect(keysFor("hr")).toEqual(["attendance"]);
+  });
+
+  it("documents that /team's own gate excludes those roles — the tile can't render", () => {
+    const src = read("src/app/team/page.tsx");
+    // TEAM_PAGE_ROLES is SITE_STAFF_ROLES + the two procurement tiers; if someone
+    // later admits accounting/hr to /team, this reds and the comment above (plus
+    // the spec's open question) must be re-justified.
+    expect(src).toContain('...SITE_STAFF_ROLES, "procurement", "procurement_manager"');
+    expect(src).not.toContain('"accounting"');
+    expect(src).not.toContain('"hr"');
   });
 
   it("carries no count bubble — a history report has nothing to nag with", () => {

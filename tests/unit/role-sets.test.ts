@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ACCOUNTING_ROLES,
+  ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
   BACK_OFFICE_ROLES,
   DOC_APPROVAL_ROLES,
@@ -385,6 +386,21 @@ describe("ATTENDANCE_AUDIT_ROLES (spec 358)", () => {
     // is_back_office's membership, mirrored: it is NOT a superset of this set.
     for (const backOffice of ["accounting", "hr"] as const) {
       expect(isBackOfficeRole(backOffice)).toBe(false);
+    }
+  });
+
+  // The cross-project tier must stay ATTENDANCE_AUDIT_ROLES minus exactly
+  // project_manager — that is the split the RPCs implement, and the picker's
+  // admin-vs-session read branches on it. If someone adds a role to the audit set
+  // and forgets the tier (or vice-versa), this reds.
+  it("the cross-project tier is the audit set minus project_manager, exactly", () => {
+    expect([...ATTENDANCE_AUDIT_ALL_PROJECT_ROLES].sort()).toEqual(
+      [...ATTENDANCE_AUDIT_ROLES].filter((r) => r !== "project_manager").sort(),
+    );
+    expect(ATTENDANCE_AUDIT_ALL_PROJECT_ROLES).not.toContain("project_manager");
+    // Every tier member is an audit role — the tier can never widen past the gate.
+    for (const role of ATTENDANCE_AUDIT_ALL_PROJECT_ROLES) {
+      expect(ATTENDANCE_AUDIT_ROLES).toContain(role);
     }
   });
 

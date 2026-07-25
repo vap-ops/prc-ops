@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   attendanceRange,
   formatSignals,
+  unclosedDaySignal,
   type AttendanceSummaryRow,
 } from "@/lib/muster/attendance-audit";
 
@@ -59,13 +60,30 @@ describe("attendanceRange (spec 358 U2)", () => {
   });
 
   it("carries a project filter only when one is given", () => {
-    expect(attendanceRange({ project: "p1" }, TODAY).projectId).toBe("p1");
+    const PROJECT = "3f4b2c1a-0000-4000-8000-000000000abc";
+    expect(attendanceRange({ project: PROJECT }, TODAY).projectId).toBe(PROJECT);
     expect(attendanceRange({ project: "  " }, TODAY).projectId).toBeUndefined();
     expect(attendanceRange({}, TODAY).projectId).toBeUndefined();
   });
 
   it("ignores a repeated-key array (the ?start=a&start=b shape)", () => {
     expect(attendanceRange({ start: ["2026-07-02", "2026-07-03"] }, TODAY).from).toBe("2026-07-01");
+  });
+
+  it("rejects a calendar-invalid date (shape-valid but not a real day)", () => {
+    // 2026-02-30 passes ISO_DATE_REGEX but 22008s in SQL, and the error page's
+    // reset() re-renders the same params — a permanent dead end.
+    expect(attendanceRange({ start: "2026-02-30", end: "2026-07-10" }, TODAY).from).toBe(
+      "2026-07-01",
+    );
+    expect(attendanceRange({ start: "2026-13-01" }, TODAY).from).toBe("2026-07-01");
+  });
+
+  it("ignores a non-uuid project param — it would 22P02 in SQL", () => {
+    expect(attendanceRange({ project: "not-a-uuid" }, TODAY).projectId).toBeUndefined();
+    expect(
+      attendanceRange({ project: "3f4b2c1a-0000-4000-8000-000000000abc" }, TODAY).projectId,
+    ).toBe("3f4b2c1a-0000-4000-8000-000000000abc");
   });
 
   // ?from is reserved repo-wide for the back-referrer written by withBackFrom
@@ -87,17 +105,42 @@ describe("formatSignals (spec 358 U2)", () => {
   });
 
   it("emits a chip per non-zero signal, never for a zero one", () => {
-    const chips = formatSignals(
-      row({ manualInCount: 4, autoOutCount: 1, openOutCount: 2, unclosedDayCount: 3 }),
-    );
-    expect(chips.map((c) => c.key)).toEqual(["manual", "autoOut", "openOut", "unclosed"]);
-    expect(chips.map((c) => c.count)).toEqual([4, 1, 2, 3]);
+    const chips = formatSignals(row({ manualInCount: 4, autoOutCount: 1, openOutCount: 2 }));
+    expect(chips.map((c) => c.key)).toEqual(["manual", "autoOut", "openOut"]);
+    expect(chips.map((c) => c.count)).toEqual([4, 1, 2]);
   });
 
   it("carries the count inside the Thai label so the chip reads on its own", () => {
     const [chip] = formatSignals(row({ openOutCount: 2 }));
     expect(chip?.label).toContain("2");
     expect(chip?.label).toContain("ยังไม่เช็คออก");
+  });
+
+  // The unclosed-day count is a PROJECT-DAY fact — identical for every worker on
+  // that day — so per-worker chips repeated one missed ปิดวัน as N findings
+  // against N people. It belongs in the header, once.
+  it("never chips the unclosed-day count — it is a project fact, not a worker's", () => {
+    const chips = formatSignals(row({ unclosedDayCount: 3 }));
+    expect(chips).toEqual([]);
+    expect(chips.map((c) => c.key)).not.toContain("unclosed");
+  });
+
+  it("takes the MAX unclosed count across rows, never the sum", () => {
+    // 3 workers on the same 2 unclosed project-days must read 2, not 6.
+    const rows = [row({ unclosedDayCount: 2 }), row({ unclosedDayCount: 2 }), row()];
+    expect(unclosedDaySignal(rows)).toBe(2);
+    expect(unclosedDaySignal([])).toBe(0);
+  });
+
+  // Mid-shift every worker on site legitimately has out_at NULL (there is no
+  // auto-out cron), so the finding wording would flag the whole crew daily.
+  it("softens the open-check-out chip to ยังอยู่ในงาน when the range reaches today", () => {
+    const [chip] = formatSignals(row({ openOutCount: 14 }), { rangeIncludesToday: true });
+    expect(chip?.label).toBe("ยังอยู่ในงาน 14");
+    expect(chip?.count).toBe(14);
+    // A past-only range keeps the finding wording — never checked out IS a defect.
+    const [past] = formatSignals(row({ openOutCount: 14 }), { rangeIncludesToday: false });
+    expect(past?.label).toBe("ยังไม่เช็คออก 14");
   });
 
   it("does NOT chip qr check-ins — a QR scan is the good case, not a finding", () => {

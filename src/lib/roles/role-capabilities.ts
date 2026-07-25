@@ -22,6 +22,7 @@ import {
   DASHBOARD_VIEW_ROLES,
   DOC_APPROVAL_ROLES,
   EQUIPMENT_MOVE_ROLES,
+  ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
   EXTERNAL_ROLES,
   LEGAL_ROLES,
@@ -317,8 +318,22 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     key: "attendance-audit",
     setName: "ATTENDANCE_AUDIT_ROLES",
     roles: ATTENDANCE_AUDIT_ROLES,
-    labelTh: "ดูประวัติการเช็คชื่อ (ทุกโครงการ) + ส่งออกให้บัญชี",
+    // Deliberately does NOT promise "(ทุกโครงการ)" — project_manager is scoped to
+    // its own projects — nor an export, which is a later unit. This label renders
+    // to operators in the capability explorer, so it states only what ships today.
+    labelTh: "ดูประวัติการเช็คชื่อย้อนหลัง",
     domain: "team",
+  },
+  {
+    // The cross-project TIER of the set above — a scope classification inside the
+    // audit capability (project_manager is the one audit role scoped to its own
+    // projects), not a capability of its own, so it never renders as a row.
+    key: "attendance-audit-all-projects",
+    setName: "ATTENDANCE_AUDIT_ALL_PROJECT_ROLES",
+    roles: ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
+    labelTh: "ดูประวัติการเช็คชื่อได้ทุกโครงการ (ไม่จำกัดโครงการที่สังกัด)",
+    domain: "team",
+    hidden: true,
   },
   // money
   {
