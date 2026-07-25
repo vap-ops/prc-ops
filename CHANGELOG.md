@@ -1,3 +1,13 @@
+# [0.223.0](https://github.com/vap-ops/prc-ops/compare/v0.222.0...v0.223.0) (2026-07-25)
+
+### Bug Fixes
+
+- **muster:** address fresh-eyes findings on the attendance export (spec 358 U4) ([5c45916](https://github.com/vap-ops/prc-ops/commit/5c45916709b0fd2d9d711c67ef6971dd61c96165))
+
+### Features
+
+- **muster:** payroll CSV export for the attendance audit (spec 358 U4) ([dceba60](https://github.com/vap-ops/prc-ops/commit/dceba60ecb229966ea574366c1de47529de153dd))
+
 # [0.222.0](https://github.com/vap-ops/prc-ops/compare/v0.221.0...v0.222.0) (2026-07-25)
 
 ### Bug Fixes
