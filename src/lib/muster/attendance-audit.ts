@@ -365,13 +365,18 @@ type DetailRpcClient = {
 export async function loadAttendanceDetail(
   client: DetailRpcClient,
   range: AttendanceRange,
-  workerId: string,
+  /** One worker for the page's drill; `null` for EVERY worker in scope (the U4
+   *  CSV export). Null is passed through as an omitted arg so the RPC applies its
+   *  own default rather than us sending an explicit SQL null. */
+  workerId: string | null,
 ): Promise<AttendanceDetailRow[]> {
   const { data, error } = await client.rpc("audit_attendance_detail", {
     p_from: range.from,
     p_to: range.to,
     ...(range.projectId ? { p_project_id: range.projectId } : {}),
-    p_worker_id: workerId,
+    // `!= null`, not truthiness: an empty string is type-legal here and would
+    // silently widen a one-worker drill into EVERY worker.
+    ...(workerId != null && workerId !== "" ? { p_worker_id: workerId } : {}),
   });
   if (error) throw new Error(`audit_attendance_detail failed: ${error.message}`);
   return ((data ?? []) as RawDetailRow[]).map(shapeDetailRow);
