@@ -1,3 +1,13 @@
+# [0.222.0](https://github.com/vap-ops/prc-ops/compare/v0.221.0...v0.222.0) (2026-07-25)
+
+### Bug Fixes
+
+- **muster:** address fresh-eyes findings on the attendance drill (spec 358 U3) ([d96822f](https://github.com/vap-ops/prc-ops/commit/d96822f9a090d9c4e37632f0a3dadd617e5db776))
+
+### Features
+
+- **muster:** per-day attendance drill-down (spec 358 U3) ([ef5c2e4](https://github.com/vap-ops/prc-ops/commit/ef5c2e49d1fba8ec41dfd0fbfd2f4140da9eac48))
+
 # [0.221.0](https://github.com/vap-ops/prc-ops/compare/v0.220.0...v0.221.0) (2026-07-25)
 
 ### Features
