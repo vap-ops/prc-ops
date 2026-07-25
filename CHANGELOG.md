@@ -1,3 +1,14 @@
+# [0.224.0](https://github.com/vap-ops/prc-ops/compare/v0.223.0...v0.224.0) (2026-07-25)
+
+### Bug Fixes
+
+- **muster:** address fresh-eyes findings on the carry-over banner (spec 306) ([122f157](https://github.com/vap-ops/prc-ops/commit/122f1571c4d0cc56e982fe7f9e042af7c32e13f3))
+- **muster:** keep the carry-over banner amber, not white ([515851e](https://github.com/vap-ops/prc-ops/commit/515851e70e123644b6a856545a7038a9114f724a))
+
+### Features
+
+- **muster:** offer to close a prior day the SA never closed (spec 306) ([0b6b31c](https://github.com/vap-ops/prc-ops/commit/0b6b31cdfe8e7c7ab8f79fd1cd8abd2a03898893))
+
 # [0.223.0](https://github.com/vap-ops/prc-ops/compare/v0.222.0...v0.223.0) (2026-07-25)
 
 ### Bug Fixes
