@@ -6,6 +6,50 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 306 close-day carryover — unclosed-prior-day banner — 🔨 in progress (2026-07-26)
+
+- **Origin:** the day-1 audit prediction came true twice. `muster_day_closures`
+  was missing for **2026-07-24** (13/13 regular workers checked out, 9 OT sessions
+  left open, no closure) and again for **2026-07-25** (3 teams, no closure). The
+  operator confirmed the cause: the SA's "done" is everyone checked out; the
+  system's "done" is ปิดวัน pressed. 07-24 was closed out-of-band this session.
+- **Why it recurs:** the sticky ปิดวัน bar (the earlier fix) only helps while the
+  SA is still on that day's board. The cockpit date is hard-locked to
+  `bangkokTodayIso()`, so after midnight the missed day has NO surface anywhere —
+  nothing re-raises it and the wage derive can never fire for it.
+- **Fix (code-only, NO schema):** a banner at the top of the cockpit listing prior
+  days that have `muster_teams` rows but no `muster_day_closures` row, each with a
+  confirm-then-close CTA over the EXISTING `close_muster_day` RPC.
+- **Design calls (operator-approved 2026-07-25):**
+  - **Warn, not force.** The morning muster is time-critical (the SA is scanning a
+    lineup); today's board is never gated on yesterday's admin. Rejected: blocking.
+  - **Not dismissible.** No hide/ignore control — the list is derived from the
+    closure rows, so the only way to clear it is to close the day. A silenceable
+    nag recreates the failure it exists to catch (the spec-341 / spec-358 U2
+    "a board that is always amber trains people to ignore it" lesson, inverted:
+    this one is only ever on when something is genuinely wrong).
+  - **OT disclosure, worded differently from the today-bar's on purpose.** Both
+    surfaces render the same fact; only the today-bar's is actionable ("close
+    their OT first"). On a past day NO surface can still close those sessions, so
+    this one states what is already lost (`ไม่มีเวลาออกในระบบ`) instead of
+    implying it is avoidable. (Spec 358 U3's "two surfaces must not derive the
+    wording independently" lesson, applied deliberately in the other direction.)
+  - **Unbounded lookback, no cap.** Only days a team was actually opened on can
+    appear, and each close removes one. Capping would hide unbooked wages.
+  - **`ยังไม่ปิด` never covers today or the future** — enforced in the pure fold
+    (`today` is a required arg), not trusted to the reader's `lt` filter.
+- **Gate-checked LIVE before building:** `close_muster_day` accepts ANY date; its
+  gate is `(site_admin, super_admin, procurement_manager)` + `can_see_project` —
+  **identical to `SA_SURFACE_ROLES`**, the page gate, so there is no
+  affordance-then-refuse. No muster\_\* SELECT policy carries a date predicate, so
+  prior days read on the session client exactly like today's.
+- **Out of scope (unchanged, still owed):** the U5 cockpit past-day picker; the
+  9 open OT sessions on 07-24 remain unreachable and unrecoverable; the LINE push
+  reminder (operator: "in app for now").
+- Files: NEW `src/lib/muster/prior-day-close.ts` (client-safe pure fold),
+  NEW `src/components/features/muster/prior-day-close-banner.tsx`,
+  `src/lib/muster/load-muster.ts` (+`loadUnclosedPriorDays`), muster `page.tsx`.
+
 ## Spec 356 U1 — delete a progress photo from the WP-detail viewer — 🔨 in progress (2026-07-24)
 
 - **Origin:** operator report — SA/operator "cannot delete images" on an editable WP.

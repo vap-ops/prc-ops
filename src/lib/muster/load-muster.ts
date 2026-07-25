@@ -14,6 +14,11 @@ import "server-only";
 import type { createClient } from "@/lib/db/server";
 import type { Database } from "@/lib/db/database.types";
 import type { MusterWp } from "./wp-groups";
+import {
+  shapeUnclosedPriorDays,
+  carryoverWindowStart,
+  type UnclosedPriorDay,
+} from "./prior-day-close";
 
 type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 
@@ -308,5 +313,56 @@ export async function loadMusterBoard(
     closure: closureRes.data ?? null,
     priorTeamWps,
     crewRosters,
+  });
+}
+
+// Spec 306 close-day carryover — the days BEFORE `date` on which this project
+// mustered but nobody ever pressed ปิดวัน. Same RLS session client as the board:
+// all three muster_* tables are SELECT-scoped `can_see_project` with no date
+// predicate (verified live), so a prior day reads exactly like today's.
+//
+// Bounded to the carry-over window (see CLOSE_CARRYOVER_WINDOW_DAYS) so this stays
+// a fixed-size read no matter how many years of muster the project accumulates.
+export async function loadUnclosedPriorDays(
+  supabase: ServerClient,
+  projectId: string,
+  date: string,
+): Promise<UnclosedPriorDay[]> {
+  const since = carryoverWindowStart(date);
+  const [teamsRes, closuresRes] = await Promise.all([
+    supabase
+      .from("muster_teams")
+      .select("id, work_date")
+      .eq("project_id", projectId)
+      .gte("work_date", since)
+      .lt("work_date", date),
+    supabase
+      .from("muster_day_closures")
+      .select("work_date")
+      .eq("project_id", projectId)
+      .gte("work_date", since)
+      .lt("work_date", date),
+  ]);
+  const priorTeams = teamsRes.data ?? [];
+  const closedDates = (closuresRes.data ?? []).map((c) => c.work_date);
+  if (priorTeams.length === 0) return [];
+
+  // Only the still-open days need their sessions read (for the OT disclosure on
+  // the close confirmation) — a closed day is off the banner either way.
+  const closed = new Set(closedDates);
+  const openTeamIds = priorTeams.filter((t) => !closed.has(t.work_date)).map((t) => t.id);
+  const attendanceRes = openTeamIds.length
+    ? await supabase
+        .from("muster_attendance")
+        .select("team_id, session, in_at, out_at")
+        .in("team_id", openTeamIds)
+    : { data: [] };
+
+  return shapeUnclosedPriorDays({
+    priorTeams,
+    closedDates,
+    attendance: attendanceRes.data ?? [],
+    today: date,
+    since,
   });
 }
