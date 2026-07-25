@@ -12,6 +12,7 @@ import {
   classifyScan,
   isCoolingDown,
   markFailed,
+  markMoved,
   recordScan,
   type SweepContext,
 } from "@/lib/muster/sweep";
@@ -157,5 +158,30 @@ describe("markFailed", () => {
   it("is a no-op for a worker with no entry", () => {
     const s = recordScan(EMPTY_SWEEP, classifyScan(ctx(), "w1"), 1_000);
     expect(markFailed(s, "w9", "x")).toEqual(s);
+  });
+});
+
+describe("markMoved", () => {
+  it("turns an other-team entry into an added one", () => {
+    const s = recordScan(
+      EMPTY_SWEEP,
+      classifyScan(ctx({ todayTeamByWorker: new Map([["w1", OTHER]]) }), "w1"),
+      1_000,
+    );
+    expect(s.addedIds).toEqual([]);
+    const m = markMoved(s, "w1");
+    expect(m.entries[0]?.outcome).toBe("added");
+    expect(m.entries[0]?.detail).toBeNull();
+    expect(m.addedIds).toEqual(["w1"]);
+  });
+
+  it("is a no-op for a worker with no entry", () => {
+    const s = recordScan(EMPTY_SWEEP, classifyScan(ctx(), "w1"), 1_000);
+    expect(markMoved(s, "w9")).toEqual(s);
+  });
+
+  it("does not double-add a worker already counted", () => {
+    const s = recordScan(EMPTY_SWEEP, classifyScan(ctx(), "w1"), 1_000);
+    expect(markMoved(s, "w1").addedIds).toEqual(["w1"]);
   });
 });

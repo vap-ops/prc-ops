@@ -13,7 +13,13 @@ import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QrCode } from "lucide-react";
 import { formatThaiDate, MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
-import { openMusterTeam, musterScan, setMusterTeamWps, closeMusterDay } from "@/lib/muster/actions";
+import {
+  openMusterTeam,
+  musterScan,
+  setMusterTeamWps,
+  closeMusterDay,
+  moveMusterWorker,
+} from "@/lib/muster/actions";
 import { groupMusterWps, pickerWps } from "@/lib/muster/wp-groups";
 import { hasScannerSupport } from "@/lib/muster/scanner-support";
 import { deriveCloseDayState } from "@/lib/muster/close-day-state";
@@ -22,6 +28,7 @@ import {
   classifyScan,
   isCoolingDown,
   markFailed,
+  markMoved,
   recordScan,
   type SweepState,
 } from "@/lib/muster/sweep";
@@ -217,6 +224,22 @@ export function MusterCockpit({
         revalidate,
       });
       if (!res.ok) {
+        setSweep((s) => markFailed(s, workerId, res.error));
+        playScanCue("failed");
+      }
+    });
+  };
+
+  // Spec 359 U1 — resolve an other-team row from the tally, after the sweep.
+  // move_muster_worker owns every guard (same date, same project, attendance
+  // exists) and audits crew_change/muster_move.
+  const onMoveHere = (teamId: string, workerId: string) => {
+    startTransition(async () => {
+      const res = await moveMusterWorker({ workerId, date, toTeamId: teamId, revalidate });
+      if (res.ok) {
+        setSweep((s) => markMoved(s, workerId));
+        playScanCue("added");
+      } else {
         setSweep((s) => markFailed(s, workerId, res.error));
         playScanCue("failed");
       }
@@ -475,6 +498,7 @@ export function MusterCockpit({
               setScanTeamId(null);
             }}
             onTapAdd={(workerId) => onScanTap(sheetTeam.id, workerId)}
+            onMoveHere={(workerId) => onMoveHere(sheetTeam.id, workerId)}
             onClose={closeSheet}
           />
         ) : null;

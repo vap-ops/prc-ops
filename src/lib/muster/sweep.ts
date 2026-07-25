@@ -142,6 +142,21 @@ export function recordScan(state: SweepState, c: ClassifiedScan, nowMs: number):
   };
 }
 
+// Spec 359 U1 — the SA resolved an other-team row by moving that worker onto
+// this team after the sweep. The entry becomes a plain add so the count and the
+// copy agree.
+export function markMoved(state: SweepState, workerId: string): SweepState {
+  const idx = state.entries.findIndex((e) => e.workerId === workerId);
+  if (idx === -1) return state;
+  return {
+    ...state,
+    entries: state.entries.map((e, i) =>
+      i === idx ? { ...e, outcome: "added" as const, detail: null } : e,
+    ),
+    addedIds: state.addedIds.includes(workerId) ? state.addedIds : [...state.addedIds, workerId],
+  };
+}
+
 export function markFailed(state: SweepState, workerId: string, error: string): SweepState {
   const idx = state.entries.findIndex((e) => e.workerId === workerId);
   if (idx === -1) return state;

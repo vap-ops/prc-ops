@@ -18,11 +18,13 @@ const openMusterTeam = vi.fn();
 const musterScan = vi.fn();
 const setMusterTeamWps = vi.fn();
 const closeMusterDay = vi.fn();
+const moveMusterWorker = vi.fn();
 vi.mock("@/lib/muster/actions", () => ({
   openMusterTeam: (...a: unknown[]) => openMusterTeam(...a),
   musterScan: (...a: unknown[]) => musterScan(...a),
   setMusterTeamWps: (...a: unknown[]) => setMusterTeamWps(...a),
   closeMusterDay: (...a: unknown[]) => closeMusterDay(...a),
+  moveMusterWorker: (...a: unknown[]) => moveMusterWorker(...a),
 }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -112,6 +114,8 @@ beforeEach(() => {
   musterScan.mockResolvedValue({ ok: true, id: "att" });
   setMusterTeamWps.mockResolvedValue({ ok: true });
   closeMusterDay.mockResolvedValue({ ok: true });
+  moveMusterWorker.mockResolvedValue({ ok: true, id: "moved" });
+  moveMusterWorker.mockClear();
   // Spec 359 U1 — the sweep asserts on refresh CALL COUNT, so it must not leak
   // between tests.
   refresh.mockClear();
@@ -916,6 +920,7 @@ describe("MusterAddSheet — action header + tally (spec 359 U1)", () => {
     onScanDetected: () => {},
     onTapAdd: () => {},
     onClose: () => {},
+    onMoveHere: () => {},
   };
 
   it("names the action, the team and the session in one header line", () => {
@@ -1191,5 +1196,97 @@ describe("MusterCockpit — continuous sweep (spec 359 U1)", () => {
     await openSheet();
     await scan(W2);
     expect(screen.queryByTestId("sweep-action-header")).not.toBeInTheDocument();
+  });
+});
+
+// Spec 359 U1 — resolving an other-team row. The spec requires the move be
+// offered AFTER the sweep, never as a modal mid-line: it lives in the tally row
+// so the SA keeps scanning and deals with the amber rows when the line is done.
+describe("MusterCockpit — ย้ายมาทีมนี้ (spec 359 U1)", () => {
+  const T2 = "ffffffff-6666-6666-6666-666666666666";
+  const boardWithW2Elsewhere: MusterBoard = {
+    ...BOARD,
+    teams: [
+      ...BOARD.teams,
+      {
+        id: T2,
+        leadWorkerId: W3,
+        leadName: "ก้อง",
+        members: [
+          {
+            workerId: W2,
+            name: "สมชาย",
+            gender: null,
+            inAt: "2026-07-26T01:00:00Z",
+            outAt: null,
+            outAuto: false,
+            ot: null,
+          },
+        ],
+        wpIds: [],
+        prefillWpIds: [],
+        missing: [],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    musterScan.mockClear();
+  });
+  afterEach(() => {
+    delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+  });
+
+  const renderIt = (board: MusterBoard) =>
+    render(
+      <MusterCockpit
+        projectId={PROJECT}
+        date="2026-07-26"
+        revalidate="/projects/x/muster"
+        board={board}
+        htWorkerIds={[W1, W3]}
+        pastDayEnd={false}
+      />,
+    );
+
+  const scanInto = async (teamIdx: number, id: string) => {
+    await userEvent.click(screen.getAllByLabelText("สแกน QR / เพิ่มช่าง")[teamIdx]!);
+    nextScanId.current = id;
+    await act(async () => {
+      await userEvent.click(screen.getByTestId("camera-mock-next"));
+    });
+  };
+
+  it("offers ย้ายมาทีมนี้ on an other-team row and moves on tap", async () => {
+    renderIt(boardWithW2Elsewhere);
+    await scanInto(0, W2);
+    expect(musterScan).not.toHaveBeenCalled();
+    await act(async () => {
+      await userEvent.click(screen.getByText("ย้ายมาทีมนี้"));
+    });
+    expect(moveMusterWorker).toHaveBeenCalledWith(
+      expect.objectContaining({ workerId: W2, toTeamId: T1, date: "2026-07-26" }),
+    );
+    expect(screen.getByTestId("sweep-count").textContent).toContain("1");
+  });
+
+  it("offers no move button on an added row", async () => {
+    renderIt(BOARD);
+    await scanInto(0, W2);
+    expect(screen.queryByText("ย้ายมาทีมนี้")).not.toBeInTheDocument();
+  });
+
+  it("surfaces a refused move on the row instead of silently doing nothing", async () => {
+    moveMusterWorker.mockResolvedValue({ ok: false, error: "ย้ายข้ามโครงการไม่ได้" });
+    renderIt(boardWithW2Elsewhere);
+    await scanInto(0, W2);
+    await act(async () => {
+      await userEvent.click(screen.getByText("ย้ายมาทีมนี้"));
+    });
+    expect(await screen.findByText("ย้ายข้ามโครงการไม่ได้")).toBeInTheDocument();
   });
 });

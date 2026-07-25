@@ -78,6 +78,7 @@ export function MusterAddSheet({
   sweep,
   onScanDetected,
   onTapAdd,
+  onMoveHere,
   onClose,
 }: {
   leadName: string;
@@ -95,6 +96,8 @@ export function MusterAddSheet({
   sweep: SweepEntry[];
   onScanDetected: (workerId: string) => void;
   onTapAdd: (workerId: string) => void;
+  /** Spec 359 U1 — resolve an `other_team` tally row by moving them onto this team. */
+  onMoveHere: (workerId: string) => void;
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -167,6 +170,19 @@ export function MusterAddSheet({
                       >
                         {note}
                       </span>
+                    ) : null}
+                    {/* Spec 359 U1 — offered in the ROW, not as a modal: the SA
+                        keeps sweeping the line and settles the amber rows when
+                        the line is done. */}
+                    {e.outcome === "other_team" ? (
+                      <button
+                        type="button"
+                        onClick={() => onMoveHere(e.workerId)}
+                        disabled={pending}
+                        className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
+                      >
+                        ย้ายมาทีมนี้
+                      </button>
                     ) : null}
                   </li>
                 );
