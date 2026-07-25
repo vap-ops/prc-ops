@@ -1290,3 +1290,50 @@ describe("MusterCockpit — ย้ายมาทีมนี้ (spec 359 U1)",
     expect(await screen.findByText("ย้ายข้ามโครงการไม่ได้")).toBeInTheDocument();
   });
 });
+
+// Spec 359 U2 — camera-first. The sheet opens into the viewfinder and the tap
+// list moves behind a disclosure. The tap list is the lost-badge / phoneless
+// safety net (spec 357 U-D's signal-removal rule) so it stays one tap away and
+// keeps its stays-open behaviour; a device with no camera is untouched.
+describe("MusterAddSheet — camera-first (spec 359 U2)", () => {
+  const base = {
+    leadName: "อนันต์ แสงทอง",
+    actionLabel: "กำลังเช็คเข้า",
+    sessionLabel: "งานปกติ",
+    showTapAdd: true,
+    addable: [{ id: "w1", name: "สมชาย", gender: null }],
+    message: null,
+    pending: false,
+    sweep: [],
+    onScanDetected: () => {},
+    onTapAdd: () => {},
+    onMoveHere: () => {},
+    onClose: () => {},
+  };
+
+  it("collapses the tap list behind a disclosure when a camera is available", () => {
+    render(<MusterAddSheet {...base} hasCamera />);
+    expect(screen.getByText("ไม่มีบัตร / หาไม่เจอ")).toBeInTheDocument();
+    // <details> keeps the content in the DOM but hidden — assert it is not
+    // exposed, which is what "the SA sees the camera first" actually means.
+    expect(screen.getByRole("button", { name: "สมชาย" })).not.toBeVisible();
+  });
+
+  it("reveals the tap list when the disclosure is opened", async () => {
+    render(<MusterAddSheet {...base} hasCamera />);
+    await userEvent.click(screen.getByText("ไม่มีบัตร / หาไม่เจอ"));
+    expect(screen.getByRole("button", { name: "สมชาย" })).toBeVisible();
+  });
+
+  it("leaves the tap list open and undisclosed when there is no camera", () => {
+    render(<MusterAddSheet {...base} hasCamera={false} />);
+    expect(screen.getByRole("button", { name: "สมชาย" })).toBeVisible();
+    expect(screen.queryByText("ไม่มีบัตร / หาไม่เจอ")).not.toBeInTheDocument();
+  });
+
+  it("still renders no tap list at all outside เข้า + regular", () => {
+    render(<MusterAddSheet {...base} hasCamera showTapAdd={false} />);
+    expect(screen.queryByText("ไม่มีบัตร / หาไม่เจอ")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "สมชาย" })).not.toBeInTheDocument();
+  });
+});

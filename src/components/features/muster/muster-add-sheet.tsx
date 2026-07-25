@@ -102,6 +102,33 @@ export function MusterAddSheet({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Spec 359 U2 — one definition, rendered by both arms below (disclosed behind
+  // a summary when a camera exists, plain when it does not) so the two paths can
+  // never drift apart.
+  const tapAddList = (
+    <div className="flex flex-col gap-2">
+      <p className="text-ink-secondary text-meta font-semibold">แตะชื่อเพื่อเพิ่มเข้าทีม</p>
+      <div className="flex flex-wrap gap-2">
+        {addable.length ? (
+          addable.map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              onClick={() => onTapAdd(w.id)}
+              disabled={pending}
+              className="bg-sunk text-ink flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm disabled:opacity-50"
+            >
+              {w.name}
+              {genderChip(w.gender)}
+            </button>
+          ))
+        ) : (
+          <span className="text-ink-muted text-meta">ช่างทุกคนเข้าทีมแล้ว</span>
+        )}
+      </div>
+    </div>
+  );
+
   // Focus the panel on mount only (the cockpit passes inline handlers with a
   // new identity each render — an every-render focus would yank it around).
   useEffect(() => {
@@ -198,27 +225,21 @@ export function MusterAddSheet({
         ) : null}
 
         {showTapAdd ? (
-          <div className="bg-card rounded-card flex flex-col gap-2 p-3">
-            <p className="text-ink-secondary text-meta font-semibold">แตะชื่อเพื่อเพิ่มเข้าทีม</p>
-            <div className="flex flex-wrap gap-2">
-              {addable.length ? (
-                addable.map((w) => (
-                  <button
-                    key={w.id}
-                    type="button"
-                    onClick={() => onTapAdd(w.id)}
-                    disabled={pending}
-                    className="bg-sunk text-ink flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm disabled:opacity-50"
-                  >
-                    {w.name}
-                    {genderChip(w.gender)}
-                  </button>
-                ))
-              ) : (
-                <span className="text-ink-muted text-meta">ช่างทุกคนเข้าทีมแล้ว</span>
-              )}
-            </div>
-          </div>
+          hasCamera ? (
+            // Spec 359 U2 — camera-first. The SA sees the viewfinder, not a wall
+            // of names. The list is NOT removed: it is the lost-badge /
+            // phoneless / unreadable-badge path (spec 357 U-D's signal-removal
+            // rule), so it stays one tap away with its stays-open behaviour
+            // intact. <details> keeps this zero-JS and needs no state.
+            <details className="bg-card rounded-card p-3">
+              <summary className="text-ink-secondary text-meta flex min-h-11 items-center font-semibold">
+                ไม่มีบัตร / หาไม่เจอ
+              </summary>
+              <div className="pt-2">{tapAddList}</div>
+            </details>
+          ) : (
+            <div className="bg-card rounded-card p-3">{tapAddList}</div>
+          )
         ) : null}
 
         <button
