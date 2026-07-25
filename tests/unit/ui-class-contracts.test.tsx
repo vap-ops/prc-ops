@@ -266,6 +266,16 @@ export function classConstantsInScope(
       if (exported && value !== undefined) scope.set((local ?? exported).trim(), value);
     }
   }
+  // Bindings initialised FROM a constant already in scope — `const shell = CARD`
+  // and, the one that actually bit, a DEFAULT PARAMETER (`className = CARD`).
+  // The composition then reads `${className}`, so without this the call site is
+  // invisible: profile/pending-change-notice.tsx shipped exactly that way and no
+  // `${CARD}` search could ever have found it.
+  for (const [name, value] of [...scope]) {
+    for (const m of content.matchAll(new RegExp(`(\\w+)\\s*=\\s*${name}\\b`, "g"))) {
+      if (!scope.has(m[1]!)) scope.set(m[1]!, value);
+    }
+  }
   // Declared last so a local declaration shadows an import of the same name.
   for (const m of content.matchAll(/(?:^|\n)\s*const\s+(\w+)\s*=\s*("[^"]*"|'[^']*')\s*;/g)) {
     scope.set(m[1]!, m[2]!.slice(1, -1));
@@ -396,6 +406,12 @@ describe("shared-constant colour-override contract (2026-07-26 bug class)", () =
     ).toHaveLength(1);
     // a competing colour AFTER a nested template literal is still in the string
     expect(check('`${CARD} ${cond ? `pt-${n}` : ""} bg-attn-soft border-attn`')).toHaveLength(2);
+    // a binding initialised from the constant IS the constant — the default
+    // parameter form is how the profile pending-change banner stayed hidden
+    expect(check("function N({ className = CARD }) {\n`${className} bg-attn-soft`")).toHaveLength(
+      1,
+    );
+    expect(check("const shell = CARD;\n`${shell} border-attn`")).toHaveLength(1);
     // !important wins on cascade rules, not on emission order
     expect(check("`${CARD} bg-attn-soft!`")).toHaveLength(0);
     // an aliased import is still the shared constant: the literal names the
