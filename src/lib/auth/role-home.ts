@@ -316,6 +316,36 @@ export const PAYROLL_ROLES: ReadonlyArray<UserRole> = [
  * gating on the unwidened set (PAYROLL_ROLES / PM_ROLES), so membership here
  * can never open a write path.
  */
+/**
+ * Spec 358 — who may AUDIT attendance history (`/team/attendance`, its CSV
+ * export, and the two `audit_attendance_*` DEFINER read RPCs). A NEW set, not
+ * `is_back_office`, precisely because `is_back_office` EXCLUDES `accounting` and
+ * `hr` — the primary audit audience (payroll reconciles attendance; HR owns
+ * presence). Also not `can_see_project`: that returns FALSE for accounting/hr, so
+ * the RPCs are DEFINER reads gated on THIS set instead (RLS untouched).
+ *
+ * Two visibility tiers live INSIDE the RPCs, and the split is deliberate: the six
+ * senior/office roles read CROSS-PROJECT (payroll spans projects — that is the
+ * feature), while `project_manager` stays scoped by `can_see_project` (a PM
+ * audits the crews on their own projects, not the firm). `site_admin`,
+ * `site_owner` and `auditor` are deliberately OUT — the SA's surface is the
+ * muster cockpit (today's scan), not the office history report.
+ *
+ * READ-only: this set never gates a write. Attendance here is RAW scan truth —
+ * no wages, no GL (the money derive is spec 306 U5). Pinned by role-sets.test.ts
+ * over the exhaustive role domain, and mirrored verbatim by the RPC allowlist in
+ * migration 20260813075853 — the three layers (RPC / page / export) must match.
+ */
+export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
+  "accounting",
+  "hr",
+  "project_director",
+  "project_coordinator",
+  "procurement_manager",
+  "super_admin",
+  "project_manager",
+];
+
 export const PAYROLL_VIEW_ROLES: ReadonlyArray<UserRole> = [...PAYROLL_ROLES, "accounting"];
 export const DASHBOARD_VIEW_ROLES: ReadonlyArray<UserRole> = [...SITE_STAFF_ROLES, "accounting"];
 export const MONEY_VIEW_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "accounting"];
