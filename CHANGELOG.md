@@ -1,3 +1,9 @@
+## [0.224.2](https://github.com/vap-ops/prc-ops/compare/v0.224.1...v0.224.2) (2026-07-25)
+
+### Bug Fixes
+
+- **muster:** the wage derive must skip contractor-tied workers (spec 328 §2.4) ([#762](https://github.com/vap-ops/prc-ops/issues/762)) ([ce80a4c](https://github.com/vap-ops/prc-ops/commit/ce80a4cd2a272282e93e53988964744986de3b95)), closes [#740](https://github.com/vap-ops/prc-ops/issues/740)
+
 ## [0.224.1](https://github.com/vap-ops/prc-ops/compare/v0.224.0...v0.224.1) (2026-07-25)
 
 ### Bug Fixes
