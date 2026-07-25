@@ -9,7 +9,7 @@
 // a lost/phoneless badge is never "absent". Money (labor cost) is derived later
 // at ปิดวัน (U5) — this screen never touches it.
 
-import { useState, useSyncExternalStore, useTransition } from "react";
+import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QrCode } from "lucide-react";
 import { formatThaiDate, MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
@@ -92,6 +92,12 @@ export function MusterCockpit({
   // Spec 359 U1 — the open sheet's running tally. Reset on every open so a new
   // team never inherits the previous team's list.
   const [sweep, setSweep] = useState<SweepState>(EMPTY_SWEEP);
+  // The cooldown clock lives in a REF, not in `sweep`. The decode loop can fire
+  // twice inside one tick (every ~180ms while the badge is still in frame) and
+  // both handlers would then close over the SAME `sweep`, see an empty lastSeen,
+  // and both write — the exact double-scan the cooldown exists to stop. A ref is
+  // written synchronously, so the second call in the same tick sees the first.
+  const lastSeenRef = useRef<Record<string, number>>({});
   const [pending, startTransition] = useTransition();
   const hasCamera = useSyncExternalStore(subscribeNoop, hasScannerSupport, () => false);
 
@@ -181,8 +187,11 @@ export function MusterCockpit({
   const onSweepDetected = (teamId: string, workerId: string) => {
     const now = Date.now();
     // The decode loop fires every ~180ms and the badge stays in frame while the
-    // SA moves on — without this, one badge is ~5 writes a second.
-    if (isCoolingDown(sweep, workerId, now)) return;
+    // SA moves on — without this, one badge is ~5 writes a second. Read from the
+    // ref (see its declaration): `sweep` is a render closure and would be stale
+    // for a second decode in the same tick.
+    if (isCoolingDown({ ...EMPTY_SWEEP, lastSeen: lastSeenRef.current }, workerId, now)) return;
+    lastSeenRef.current = { ...lastSeenRef.current, [workerId]: now };
     const c = classifyScan(
       {
         teamId,
@@ -219,6 +228,7 @@ export function MusterCockpit({
     setScanTeamId(null);
     if (sweep.addedIds.length > 0) router.refresh();
     setSweep(EMPTY_SWEEP);
+    lastSeenRef.current = {};
   };
   // Sheet tap-add is ALWAYS a regular check-in — explicit mode:"in", never the
   // toggle state (the list renders only in เข้า mode, but adding someone must
@@ -366,6 +376,7 @@ export function MusterCockpit({
               // Spec 359 U1 — a fresh sweep per opening; the previous team's
               // tally must never carry over.
               setSweep(EMPTY_SWEEP);
+              lastSeenRef.current = {};
               setScanTeamId(team.id);
             }}
           />

@@ -10,7 +10,7 @@
 // - checking a present member out (ออก mode) calls musterScan mode:"out";
 // - editing the WP set calls setMusterTeamWps.
 
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -1092,6 +1092,32 @@ describe("MusterCockpit — continuous sweep (spec 359 U1)", () => {
     await scan(W2);
     await scan(W2);
     expect(musterScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses a same-tick repeat of one badge (the cooldown, not the board)", async () => {
+    // The real hazard the cooldown exists for: the decode loop fires every
+    // ~180ms while the badge is still in frame, with NO React commit between
+    // firings — so both handlers see the same `sweep` closure and the
+    // addedThisSweep guard cannot help. fireEvent (synchronous, unlike
+    // userEvent) reproduces that; an awaited userEvent click would flush a
+    // commit in between and let the board guard mask this.
+    renderSweep();
+    await openSheet();
+    nextScanId.current = W2;
+    const btn = screen.getByTestId("camera-mock-next");
+    await act(async () => {
+      fireEvent.click(btn);
+      fireEvent.click(btn);
+    });
+    expect(musterScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not refresh when the sweep added nobody", async () => {
+    renderSweep();
+    await openSheet();
+    await scan(W1); // already on this team → no write, nothing added
+    await userEvent.click(screen.getByText("ปิด"));
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("accumulates several different badges in one sweep", async () => {
