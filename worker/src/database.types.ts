@@ -9280,6 +9280,47 @@ export type Database = {
         Args: { p_project?: string; p_reason?: string; p_worker: string }
         Returns: undefined
       }
+      audit_attendance_detail: {
+        Args: {
+          p_from: string
+          p_project_id?: string
+          p_to: string
+          p_worker_id?: string
+        }
+        Returns: {
+          day_closed: boolean
+          in_at: string
+          in_method: Database["public"]["Enums"]["muster_method"]
+          ot_hours: number
+          out_at: string
+          out_auto: boolean
+          out_method: Database["public"]["Enums"]["muster_method"]
+          project_id: string
+          project_name: string
+          scanned_by: string
+          scanned_by_name: string
+          session: Database["public"]["Enums"]["muster_session"]
+          team_lead_name: string
+          work_date: string
+          worker_id: string
+          worker_name: string
+        }[]
+      }
+      audit_attendance_summary: {
+        Args: { p_from: string; p_project_id?: string; p_to: string }
+        Returns: {
+          auto_out_count: number
+          days_present: number
+          manual_in_count: number
+          open_out_count: number
+          ot_hours_total: number
+          project_count: number
+          qr_in_count: number
+          unclosed_day_count: number
+          worker_id: string
+          worker_name: string
+        }[]
+      }
       award_savers_bonus: { Args: { p_worker: string }; Returns: number }
       bank_name_usage: {
         Args: { p_names: string[] }
