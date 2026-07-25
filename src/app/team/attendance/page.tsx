@@ -111,6 +111,15 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     ? groupDetailByDate(await loadAttendanceDetail(supabase, range, openWorkerId))
     : [];
 
+  // U4 — the export link mirrors the CURRENT range + project so the file is
+  // exactly what the viewer sees. No ?worker: the export is always every worker in
+  // scope, and no ?from (the route has no chrome).
+  const exportHref = (() => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    return `/team/attendance/export?${q.toString()}`;
+  })();
+
   // Preserve the range + project + referrer when toggling a drill open/closed.
   const drillHref = (workerId: string | null): string => {
     const q = new URLSearchParams({ start: range.from, end: range.to });
@@ -185,9 +194,20 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         ) : (
           <>
             <div className={`${CARD} mb-4`}>
-              <p className="text-ink-secondary text-xs">
-                {formatThaiDate(range.from)} – {formatThaiDate(range.to)}
-              </p>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="text-ink-secondary text-xs">
+                  {formatThaiDate(range.from)} – {formatThaiDate(range.to)}
+                </p>
+                {/* U4 — the payroll hand-off. Carries the CURRENT range + project so
+                    the file is exactly what is on screen; the route re-gates on the
+                    same role set. A plain link, not a form control: it is a GET. */}
+                <Link
+                  href={exportHref}
+                  className="text-action focus-visible:ring-action inline-flex min-h-11 items-center rounded text-xs font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+                >
+                  ดาวน์โหลด CSV
+                </Link>
+              </div>
               <p className="text-ink mt-1 text-sm font-semibold">
                 {rows.length} คน · รวม {formatNumber(totalDays)} วัน
                 {totalOt > 0 ? ` · OT ${formatNumber(totalOt)} ชม.` : ""}
