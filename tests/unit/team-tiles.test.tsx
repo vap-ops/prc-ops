@@ -38,10 +38,14 @@ describe("teamTilesForRole — per-role tile sets (derived from the role SSOTs)"
   it("super_admin additionally carries the WORKER_ROSTER_ROLES pair", () => {
     expect(STAFF_APPROVAL_ROLES).toContain("super_admin");
     expect(WORKER_ROSTER_ROLES).toContain("super_admin");
+    // Spec 358: super_admin is an ATTENDANCE_AUDIT_ROLE too, so the history
+    // door follows the roster pair. site_admin is NOT (its surface is the cockpit),
+    // which is why this is a superset of site_admin's set plus THREE tiles.
     expect(keysFor("super_admin", true)).toEqual([
       ...keysFor("site_admin", true),
       "workers",
       "payroll",
+      "attendance",
     ]);
   });
 
@@ -58,7 +62,9 @@ describe("teamTilesForRole — per-role tile sets (derived from the role SSOTs)"
   it("project_manager → the WORKER_ROSTER_ROLES-driven pair only", () => {
     expect(STAFF_APPROVAL_ROLES).not.toContain("project_manager");
     expect(WORKER_ROSTER_ROLES).toContain("project_manager");
-    expect(keysFor("project_manager", false)).toEqual(["workers", "payroll"]);
+    // Spec 358: + the attendance-audit door (a PM audits its own projects'
+    // crews — the RPC scopes it by can_see_project).
+    expect(keysFor("project_manager", false)).toEqual(["workers", "payroll", "attendance"]);
   });
 
   // procurement_manager is a pure approver (STAFF_APPROVAL_ROLES) + worker-roster,
@@ -66,7 +72,13 @@ describe("teamTilesForRole — per-role tile sets (derived from the role SSOTs)"
   it("procurement_manager → คำขอสมัคร (approver arm) + the back-office pair, no crew doors", () => {
     expect(STAFF_APPROVAL_ROLES).toContain("procurement_manager");
     expect(WORKER_ROSTER_ROLES).toContain("procurement_manager");
-    expect(keysFor("procurement_manager", false)).toEqual(["registrations", "workers", "payroll"]);
+    // Spec 358: + the attendance-audit door (she is a see-all audit role).
+    expect(keysFor("procurement_manager", false)).toEqual([
+      "registrations",
+      "workers",
+      "payroll",
+      "attendance",
+    ]);
   });
 });
 

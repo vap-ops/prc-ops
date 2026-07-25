@@ -22,6 +22,7 @@ import {
   DASHBOARD_VIEW_ROLES,
   DOC_APPROVAL_ROLES,
   EQUIPMENT_MOVE_ROLES,
+  ATTENDANCE_AUDIT_ROLES,
   EXTERNAL_ROLES,
   LEGAL_ROLES,
   MONEY_REVIEW_ROLES,
@@ -306,6 +307,18 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     labelTh: "สมัครผ่านระบบได้ (รายการสิทธิ์ที่เปิดรับสมัคร)",
     domain: "team",
     hidden: true,
+  },
+  // Spec 358: the attendance AUDIT report. Filed under "team" (not "money") on
+  // purpose — it reads RAW scan truth (days present, OT hours, who recorded each
+  // check-in) and computes no baht; payroll consumes it, but the surface itself
+  // carries no money. This is the one capability accounting + hr hold in this
+  // domain, which is exactly why it is not `is_back_office`-derived.
+  {
+    key: "attendance-audit",
+    setName: "ATTENDANCE_AUDIT_ROLES",
+    roles: ATTENDANCE_AUDIT_ROLES,
+    labelTh: "ดูประวัติการเช็คชื่อ (ทุกโครงการ) + ส่งออกให้บัญชี",
+    domain: "team",
   },
   // money
   {
