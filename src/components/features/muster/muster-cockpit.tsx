@@ -365,6 +365,11 @@ export function MusterCockpit({
         return sheetTeam ? (
           <MusterAddSheet
             leadName={sheetTeam.leadName}
+            actionLabel={
+              session === "ot" ? "กำลังบันทึก OT" : mode === "in" ? "กำลังเช็คเข้า" : "กำลังเช็คออก"
+            }
+            sessionLabel={session === "ot" ? "OT" : "งานปกติ"}
+            sweep={[]}
             hasCamera={hasCamera}
             showTapAdd={session === "regular" && mode === "in"}
             addable={addableTo(sheetTeam.id)}

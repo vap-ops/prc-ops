@@ -40,6 +40,7 @@ vi.mock("@/components/features/muster/muster-camera", () => ({
 }));
 
 import { MusterCockpit } from "@/components/features/muster/muster-cockpit";
+import { MusterAddSheet } from "@/components/features/muster/muster-add-sheet";
 import type { MusterBoard } from "@/lib/muster/load-muster";
 import { MUSTER_DAY_CLOSED_LABEL } from "@/lib/i18n/labels";
 
@@ -875,5 +876,137 @@ describe("MusterCockpit — gender chips (spec 357 U-F)", () => {
     const sheet = screen.getByRole("dialog");
     const kong = within(sheet).getByRole("button", { name: /ก้อง/ });
     expect(kong.textContent).toBe("ก้อง");
+  });
+});
+
+// Spec 359 U1 — the add sheet's action header + running tally. The header states
+// the VERB (not a toggle state) because scanFromCamera dispatches on the
+// เข้า/ออก + regular/OT toggles, and under a continuous sweep a wrong mode would
+// check a whole team out in seconds. The tally is the SA's per-scan feedback
+// while the sheet stays open.
+describe("MusterAddSheet — action header + tally (spec 359 U1)", () => {
+  const base = {
+    leadName: "อนันต์ แสงทอง",
+    actionLabel: "กำลังเช็คเข้า",
+    sessionLabel: "งานปกติ",
+    hasCamera: true,
+    showTapAdd: true,
+    addable: [],
+    message: null,
+    pending: false,
+    sweep: [],
+    onScanDetected: () => {},
+    onTapAdd: () => {},
+    onClose: () => {},
+  };
+
+  it("names the action, the team and the session in one header line", () => {
+    render(<MusterAddSheet {...base} />);
+    const header = screen.getByTestId("sweep-action-header");
+    expect(header.textContent).toContain("กำลังเช็คเข้า");
+    expect(header.textContent).toContain("อนันต์ แสงทอง");
+    expect(header.textContent).toContain("งานปกติ");
+  });
+
+  it("states the check-OUT verb when that is the active mode", () => {
+    render(<MusterAddSheet {...base} actionLabel="กำลังเช็คออก" />);
+    const header = screen.getByTestId("sweep-action-header");
+    expect(header.textContent).toContain("กำลังเช็คออก");
+    expect(header.textContent).not.toContain("กำลังเช็คเข้า");
+  });
+
+  it("counts only the added outcomes, not the refused ones", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 3, workerId: "w3", name: "ค", outcome: "other_team", detail: "จันทร์ เงางาม" },
+          { seq: 2, workerId: "w2", name: "ข", outcome: "added_first_time", detail: null },
+          { seq: 1, workerId: "w1", name: "ก", outcome: "added", detail: null },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("sweep-count").textContent).toContain("2");
+  });
+
+  it("renders entries newest first", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 2, workerId: "w2", name: "ข", outcome: "added", detail: null },
+          { seq: 1, workerId: "w1", name: "ก", outcome: "added", detail: null },
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId("sweep-entry-name").map((n) => n.textContent)).toEqual(["ข", "ก"]);
+  });
+
+  it("shows the prior lead on a team change", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          {
+            seq: 1,
+            workerId: "w1",
+            name: "ก",
+            outcome: "added_team_changed",
+            detail: "จันทร์ เงางาม",
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("เมื่อวานอยู่ทีม จันทร์ เงางาม")).toBeInTheDocument();
+  });
+
+  it("labels a never-before-mustered worker", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[{ seq: 1, workerId: "w1", name: "ก", outcome: "added_first_time", detail: null }]}
+      />,
+    );
+    expect(screen.getByText("ครั้งแรก")).toBeInTheDocument();
+  });
+
+  it("names the other team when the worker is mustered elsewhere", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 1, workerId: "w1", name: "ก", outcome: "other_team", detail: "จันทร์ เงางาม" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("อยู่ทีม จันทร์ เงางาม แล้ววันนี้")).toBeInTheDocument();
+  });
+
+  it("reports an unreadable badge without inventing a name", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[{ seq: 1, workerId: "junk", name: "junk", outcome: "unknown_badge", detail: null }]}
+      />,
+    );
+    expect(screen.getByText("ไม่รู้จักบัตรนี้")).toBeInTheDocument();
+    expect(screen.queryByText("junk")).not.toBeInTheDocument();
+  });
+
+  it("surfaces the server message on a failed write", () => {
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 1, workerId: "w1", name: "ก", outcome: "failed", detail: "ไม่มีสิทธิ์เช็คชื่อ" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("ไม่มีสิทธิ์เช็คชื่อ")).toBeInTheDocument();
+  });
+
+  it("renders no tally block at all before the first scan", () => {
+    render(<MusterAddSheet {...base} sweep={[]} />);
+    expect(screen.queryByTestId("sweep-count")).not.toBeInTheDocument();
   });
 });
