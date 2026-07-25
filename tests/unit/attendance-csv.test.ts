@@ -45,10 +45,12 @@ describe("toAttendanceCsv (spec 358 U4)", () => {
     const [header] = lines(toAttendanceCsv(rows({})));
     expect(header?.split(",")).toEqual([
       "ช่าง",
+      "รหัสช่าง",
       "วันที่",
       "ช่วง",
       "เข้า",
       "ออก",
+      "ออกวันถัดไป",
       "วิธีเข้า",
       "วิธีออก",
       "ออกอัตโนมัติ",
@@ -65,43 +67,44 @@ describe("toAttendanceCsv (spec 358 U4)", () => {
     expect(out).toHaveLength(2); // header + 1 row
     const cells = out[1]?.split(",");
     expect(cells?.[0]).toBe("ช่าง หนึ่ง");
-    expect(cells?.[1]).toBe("2026-07-24");
-    expect(cells?.[2]).toBe("งานปกติ");
-    expect(cells?.[3]).toBe("08:38");
-    expect(cells?.[4]).toBe("17:00");
-    expect(cells?.[5]).toBe("บันทึกมือ");
-    expect(cells?.[6]).toBe("บันทึกมือ");
-    expect(cells?.[7]).toBe("ไม่");
-    expect(cells?.[11]).toBe("โครงการเอ");
-    expect(cells?.[12]).toBe("ยังไม่ปิด");
+    expect(cells?.[1]).toBe("3f4b2c1a-0000-4000-8000-000000000001");
+    expect(cells?.[2]).toBe("2026-07-24");
+    expect(cells?.[3]).toBe("งานปกติ");
+    expect(cells?.[4]).toBe("08:38");
+    expect(cells?.[5]).toBe("17:00");
+    expect(cells?.[7]).toBe("บันทึกมือ");
+    expect(cells?.[8]).toBe("บันทึกมือ");
+    expect(cells?.[9]).toBe("ไม่");
+    expect(cells?.[13]).toBe("โครงการเอ");
+    expect(cells?.[14]).toBe("ยังไม่ปิด");
   });
 
   it("leaves the out cell EMPTY when there is no check-out — never a guess", () => {
     // The report softens this to ยังอยู่ในงาน for a human reader, but a CSV column
     // a spreadsheet sums must stay blank rather than carry prose.
     const cells = lines(toAttendanceCsv(rows({ out_at: null, out_method: null })))[1]?.split(",");
-    expect(cells?.[4]).toBe("");
-    expect(cells?.[6]).toBe("");
+    expect(cells?.[5]).toBe("");
+    expect(cells?.[8]).toBe("");
   });
 
   it("writes the OT span and the ot session label", () => {
     const cells = lines(toAttendanceCsv(rows({ session: "ot", ot_hours: 2.5 })))[1]?.split(",");
-    expect(cells?.[2]).toBe("OT");
-    expect(cells?.[8]).toBe("2.5");
+    expect(cells?.[3]).toBe("OT");
+    expect(cells?.[10]).toBe("2.5");
   });
 
   it("marks an auto check-out and a closed day", () => {
     const cells = lines(toAttendanceCsv(rows({ out_auto: true, day_closed: true })))[1]?.split(",");
-    expect(cells?.[7]).toBe("ใช่");
-    expect(cells?.[12]).toBe("ปิดแล้ว");
+    expect(cells?.[9]).toBe("ใช่");
+    expect(cells?.[14]).toBe("ปิดแล้ว");
   });
 
   it("blanks a null scanner / lead rather than printing null", () => {
     const cells = lines(
       toAttendanceCsv(rows({ scanned_by_name: null, team_lead_name: null })),
     )[1]?.split(",");
-    expect(cells?.[9]).toBe("");
-    expect(cells?.[10]).toBe("");
+    expect(cells?.[11]).toBe("");
+    expect(cells?.[12]).toBe("");
   });
 
   it("quotes a cell containing a comma, quote or newline (RFC 4180)", () => {
@@ -111,6 +114,27 @@ describe("toAttendanceCsv (spec 358 U4)", () => {
 
   it("emits header-only for no rows — a valid file, not an empty one", () => {
     expect(lines(toAttendanceCsv([]))).toHaveLength(1);
+  });
+
+  // Excel/Sheets EXECUTE a cell beginning = + - @, and workers.name is
+  // operator-editable free text landing in a file accounting is told to open.
+  it("neutralises a formula-injection payload in an operator-editable name", () => {
+    const csv = toAttendanceCsv(rows({ worker_name: '=HYPERLINK("http://evil")' }));
+    expect(csv).toContain("'=HYPERLINK");
+    // Never the bare formula straight after the delimiter or the BOM.
+    expect(csv).not.toMatch(/(^|,)=HYPERLINK/m);
+    for (const lead of ["+1", "-1", "@x"]) {
+      expect(toAttendanceCsv(rows({ worker_name: lead }))).toContain(`'${lead}`);
+    }
+  });
+
+  // Language-agnostic shape guard: the banned-word list below only catches Thai
+  // money words, so an added `day_rate` column would slip past it. A fixed cell
+  // count fails on ANY new column, whatever it is named.
+  it("emits exactly 15 cells per row — any added column reds this", () => {
+    const out = lines(toAttendanceCsv(rows({}, { session: "ot", ot_hours: 2 })));
+    expect(out).toHaveLength(3);
+    for (const line of out) expect(line.split(",")).toHaveLength(15);
   });
 
   it("carries NO money column — attendance is scan truth, wages are spec 306 U5", () => {
@@ -137,12 +161,32 @@ describe("attendanceCsvFilename (spec 358 U4)", () => {
 describe("export route gate parity (spec 358 U4)", () => {
   const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 
-  it("the export route gates on the same named set as the page", () => {
+  // ⚠️ ANCHORED, not `toContain`: the first version of this test passed with the
+  // gate replaced by a COMMENT that merely quoted the call (proven by mutation) —
+  // the fake-coverage trap. The regex requires the awaited call at the start of a
+  // line, so a comment or a quoted string no longer satisfies it.
+  it("the export route AWAITS the gate as real code, not in a comment", () => {
     const route = read("src/app/team/attendance/export/route.ts");
-    expect(route).toContain("requireRole(ATTENDANCE_AUDIT_ROLES)");
+    expect(route).toMatch(/^\s*await requireRole\(ATTENDANCE_AUDIT_ROLES\);/m);
     // Never the admin client: an export must not widen what its viewer may read.
     expect(route).not.toContain("db/admin");
     expect(route).toContain("createServerClient");
+  });
+
+  // A one-sided "parity" test proves nothing. Pin the PAGE side too, so the two
+  // can only drift by editing both — the payroll-export-gate precedent.
+  it("the page gates on that SAME set, so file and screen can never diverge", () => {
+    const page = read("src/app/team/attendance/page.tsx");
+    expect(page).toMatch(/^\s*const ctx = await requireRole\(ATTENDANCE_AUDIT_ROLES\);/m);
+  });
+
+  // Prefetching a route handler RUNS it (verified: a prefetch request reaches the
+  // handler and returns 307), so next/link on an export would build the whole CSV
+  // for every viewer with zero clicks. The repo documents <a download> for this.
+  it("the export link is a plain <a download>, never next/link", () => {
+    const page = read("src/app/team/attendance/page.tsx");
+    expect(page).toMatch(/<a href=\{exportHref\} download/);
+    expect(page).not.toMatch(/<Link\s+href=\{exportHref\}/);
   });
 
   it("reuses the page's range parser so the file and the screen cannot disagree", () => {

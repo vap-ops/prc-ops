@@ -14,10 +14,20 @@ import type { AttendanceDetailRow, AttendanceRange } from "@/lib/muster/attendan
 
 const CSV_HEADER = [
   "ช่าง",
+  // The stable key. `workers.name` is operator-editable free text and spec 346 is
+  // actively reshaping names/nicknames, so two equal names would silently merge
+  // into one payroll line with nothing in the file to tell them apart — and the
+  // file could not be joined back to the app. (The PRC `employee_id` stays out:
+  // it is service-role-walled PII, an open question in the spec.)
+  "รหัสช่าง",
   "วันที่",
   "ช่วง",
   "เข้า",
   "ออก",
+  // Set when the check-out landed on a LATER calendar day (an OT session closed
+  // after midnight). Without it "17:21 – 01:30" reads as corrupt in a spreadsheet,
+  // and subtracting the columns yields a negative span.
+  "ออกวันถัดไป",
   "วิธีเข้า",
   "วิธีออก",
   "ออกอัตโนมัติ",
@@ -28,9 +38,21 @@ const CSV_HEADER = [
   "ปิดวัน",
 ];
 
-/** RFC 4180: quote only when needed, and double an embedded quote. */
+/**
+ * RFC 4180 quoting PLUS formula-injection defence. Excel/Sheets evaluate a cell
+ * beginning `= + - @` (or tab/CR) as a formula, and `workers.name` is
+ * operator-editable free text landing in a file accounting is expected to open —
+ * so a name like `=HYPERLINK(...)` would execute on open. Prefixing an apostrophe
+ * makes the cell literal text.
+ *
+ * NOTE: three older exports (`labor/payroll.ts`, `accounting/journal-export.ts`,
+ * `purchase-report-view.ts`) carry the unhardened copy of this helper. Hardening
+ * them is a separate sweep — recorded in the tracker's open questions — because it
+ * changes files this unit does not own.
+ */
 function csvCell(value: string): string {
-  return /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\n\r]/.test(guarded) ? `"${guarded.replaceAll('"', '""')}"` : guarded;
 }
 
 const METHOD_LABEL: Record<"qr" | "manual", string> = {
@@ -44,12 +66,14 @@ export function toAttendanceCsv(rows: AttendanceDetailRow[]): string {
     lines.push(
       [
         csvCell(r.workerName),
+        r.workerId,
         r.workDate,
         r.session === "ot" ? "OT" : "งานปกติ",
         r.inTime,
         // Blank, never prose. The report softens an open session to ยังอยู่ในงาน
         // for a human; a column a spreadsheet filters or sums must stay empty.
         r.outTime ?? "",
+        r.outNextDay ? "ใช่" : "",
         METHOD_LABEL[r.inMethod],
         r.outMethod ? METHOD_LABEL[r.outMethod] : "",
         r.outAuto ? "ใช่" : "ไม่",

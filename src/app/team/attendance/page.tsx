@@ -30,7 +30,13 @@ import { requireRole } from "@/lib/auth/require-role";
 import { ATTENDANCE_AUDIT_ALL_PROJECT_ROLES, ATTENDANCE_AUDIT_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { SECTION_HEADING, CARD, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
+import {
+  SECTION_HEADING,
+  CARD,
+  FIELD_INPUT,
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY,
+} from "@/lib/ui/classes";
 import { bangkokTodayIso } from "@/lib/dates";
 import { ATTENDANCE_AUDIT_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import {
@@ -198,15 +204,16 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                 <p className="text-ink-secondary text-xs">
                   {formatThaiDate(range.from)} – {formatThaiDate(range.to)}
                 </p>
-                {/* U4 — the payroll hand-off. Carries the CURRENT range + project so
-                    the file is exactly what is on screen; the route re-gates on the
-                    same role set. A plain link, not a form control: it is a GET. */}
-                <Link
-                  href={exportHref}
-                  className="text-action focus-visible:ring-action inline-flex min-h-11 items-center rounded text-xs font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
-                >
-                  ดาวน์โหลด CSV
-                </Link>
+                {/* U4 — the payroll hand-off. Carries the CURRENT range + project.
+                    Plain <a download>, NOT next/link — a prefetch must not fire the
+                    export route (spec 69 / ADR 0012; verified: a prefetch request
+                    DOES reach the handler and would build the whole CSV unclicked).
+                    Labelled ทุกคน because it always exports every worker in scope,
+                    even while one worker's drill is open on screen.
+                    BUTTON_SECONDARY matches the /payroll + /requests exports. */}
+                <a href={exportHref} download className={`${BUTTON_SECONDARY} shrink-0`}>
+                  ดาวน์โหลด CSV (ทุกคน)
+                </a>
               </div>
               <p className="text-ink mt-1 text-sm font-semibold">
                 {rows.length} คน · รวม {formatNumber(totalDays)} วัน

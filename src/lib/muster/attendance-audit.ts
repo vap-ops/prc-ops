@@ -374,7 +374,9 @@ export async function loadAttendanceDetail(
     p_from: range.from,
     p_to: range.to,
     ...(range.projectId ? { p_project_id: range.projectId } : {}),
-    ...(workerId ? { p_worker_id: workerId } : {}),
+    // `!= null`, not truthiness: an empty string is type-legal here and would
+    // silently widen a one-worker drill into EVERY worker.
+    ...(workerId != null && workerId !== "" ? { p_worker_id: workerId } : {}),
   });
   if (error) throw new Error(`audit_attendance_detail failed: ${error.message}`);
   return ((data ?? []) as RawDetailRow[]).map(shapeDetailRow);

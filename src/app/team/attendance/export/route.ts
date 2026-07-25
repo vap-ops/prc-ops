@@ -28,12 +28,16 @@ export async function GET(request: NextRequest) {
   // Same parser as the page, so the file and the screen can never disagree about
   // which range was asked for — and an invalid ?start/?project falls back here too
   // rather than reaching SQL as a 22008/22P02.
+  // getAll, not get: `get()` returns the FIRST of a repeated key while the page's
+  // parser treats a repeated key as ABSENT (the spec-337 lesson). With `get()` a
+  // hand-edited ?start=1900-01-01&start=2026-07-01 gave the file a different range
+  // from the screen — so the shared parser is fed the same shape it sees there.
+  const param = (key: string): string | string[] | undefined => {
+    const all = searchParams.getAll(key);
+    return all.length === 1 ? all[0] : all.length === 0 ? undefined : all;
+  };
   const range = attendanceRange(
-    {
-      start: searchParams.get("start") ?? undefined,
-      end: searchParams.get("end") ?? undefined,
-      project: searchParams.get("project") ?? undefined,
-    },
+    { start: param("start"), end: param("end"), project: param("project") },
     bangkokTodayIso(),
   );
 
