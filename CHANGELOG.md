@@ -1,3 +1,15 @@
+# [0.231.0](https://github.com/vap-ops/prc-ops/compare/v0.230.0...v0.231.0) (2026-07-26)
+
+### Bug Fixes
+
+- **catalog:** address fresh-eyes review of the unit curation screen ([03fc43a](https://github.com/vap-ops/prc-ops/commit/03fc43a220e5dfa74c58b2388c903d12876704a3))
+
+### Features
+
+- **catalog:** curate the managed unit list (spec 361 U8) ([084f89b](https://github.com/vap-ops/prc-ops/commit/084f89bd7f524b63b567fead59e93c8e7441db9f))
+- **catalog:** flag units added in the app, for the manager to verify ([720f76e](https://github.com/vap-ops/prc-ops/commit/720f76edd635926ce37b39fc2f8d1e242ea09231))
+- **equipment:** rename an equipment category (spec 361 U6) ([2426a82](https://github.com/vap-ops/prc-ops/commit/2426a8269d76558ea2ed456ceff2bef29483b417))
+
 # [0.230.0](https://github.com/vap-ops/prc-ops/compare/v0.229.1...v0.230.0) (2026-07-26)
 
 ### Bug Fixes
