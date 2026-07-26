@@ -105,10 +105,21 @@ export function MusterCockpit({
   // and both write — the exact double-scan the cooldown exists to stop. A ref is
   // written synchronously, so the second call in the same tick sees the first.
   const lastSeenRef = useRef<Record<string, number>>({});
+  // Spec 359 U3 — the same reasoning one level up: `sweep.addedIds` is a render
+  // closure, and the tap path has NO cooldown to cover for it (a deliberate
+  // re-tap must answer, not be swallowed). Two taps inside one tick would both
+  // read an empty addedThisSweep and both write. Written synchronously here.
+  const addedRef = useRef<Set<string>>(new Set());
+  // Which sweep a write belongs to. A write is in flight for as long as the
+  // network takes, and the SA can close the sheet (or open another team's) in
+  // that window — at which point `sweep` and `addedRef` are BOTH new. Without
+  // this, a late refusal would release an id the CURRENT sweep legitimately
+  // added, brand the wrong row failed, or — if the sheet is gone entirely —
+  // vanish, leaving a worker un-checked-in with no message anywhere.
+  const sweepGenRef = useRef(0);
   const [pending, startTransition] = useTransition();
   const hasCamera = useSyncExternalStore(subscribeNoop, hasScannerSupport, () => false);
 
-  const musteredIds = new Set(board.teams.flatMap((t) => t.members.map((m) => m.workerId)));
   const leadIds = new Set(board.teams.map((t) => t.leadWorkerId));
   // หัวหน้าทีม = HT only (operator rule 2026-07-21): a worker who leads a crew
   // (htWorkerIds, from crews.lead_worker_id) and is not already leading today.
@@ -117,14 +128,56 @@ export function MusterCockpit({
   const htIds = new Set(htWorkerIds);
   const pickableHts = board.workers.filter((w) => htIds.has(w.id));
   const availableLeads = pickableHts.filter((w) => !leadIds.has(w.id));
-  // A worker is addable to team T if not already mustered AND not the lead of
-  // ANOTHER team (their own lead may be scanned into their own team). Excluding
-  // all leadIds globally would wrongly block adding a lead to their own team.
+  // A worker is offered on team T's tap list unless they are already on T, or
+  // they lead ANOTHER team (their own lead may be scanned into their own team;
+  // excluding all leadIds globally would wrongly block that). Leading another
+  // team is a deliberate exclusion, not an oversight: a lead's team is DEFINED
+  // by them, so moving their attendance elsewhere would strand a lead-less team
+  // — that correction belongs on the team, not in this list.
+  //
+  // Spec 359 U3 — someone mustered on a DIFFERENT team today IS offered, tagged
+  // with that team. Filtering them out (the pre-U3 `musteredIds` rule) left a
+  // mis-checked-in worker unmovable for anyone without a badge to scan: the ย้าย
+  // row control was removed in #748, so the sweep tally is the only door to
+  // move_muster_worker. Tapping the row classifies as other_team — no write —
+  // and offers ย้ายมาทีมนี้ in the tally.
   const addableTo = (teamId: string) => {
     const otherLeads = new Set(
       board.teams.filter((t) => t.id !== teamId).map((t) => t.leadWorkerId),
     );
-    return board.workers.filter((w) => !musteredIds.has(w.id) && !otherLeads.has(w.id));
+    const onThisTeam = new Set(
+      board.teams.find((t) => t.id === teamId)?.members.map((m) => m.workerId) ?? [],
+    );
+    const added = new Set(sweep.addedIds);
+    return (
+      board.workers
+        // Someone this sweep added STAYS listed (inert, ticked) even once the
+        // board catches up and calls them a member. Removing a row mid-lineup
+        // reflows every chip after it under a finger already on its way down —
+        // and a mis-tap here writes attendance for the WRONG person, with no
+        // undo on this screen.
+        .filter((w) => (!onThisTeam.has(w.id) || added.has(w.id)) && !otherLeads.has(w.id))
+        .map((w) => {
+          const other = added.has(w.id)
+            ? undefined
+            : board.teams.find(
+                (x) => x.id !== teamId && x.members.some((m) => m.workerId === w.id),
+              );
+          return {
+            ...w,
+            added: added.has(w.id),
+            otherTeamLead: other?.leadName ?? null,
+            // move_muster_worker moves EVERY session of that day, so a worker
+            // who already finished on the other team would have a completed
+            // day (and its ปิดวัน labour cost) re-pointed by one tap. Say so on
+            // the row rather than hiding it — the SA is the one who knows.
+            otherTeamDone: other?.members.find((m) => m.workerId === w.id)?.outAt != null || false,
+          };
+        })
+        // Free workers first: the morning lineup is the common case and must not
+        // be pushed down the list by yesterday's stragglers.
+        .sort((a, b) => Number(a.otherTeamLead !== null) - Number(b.otherTeamLead !== null))
+    );
   };
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>) {
@@ -188,17 +241,16 @@ export function MusterCockpit({
   // in seconds (spec 359 plan, scope decision).
   const sweepMode = session === "regular" && mode === "in";
 
-  // Spec 359 U1 — a decode inside the sweep. The board is NOT refreshed per scan
-  // (that would be a server round-trip and a re-render per worker in a line); the
-  // tally is the SA's feedback and the board catches up when the sheet closes.
-  const onSweepDetected = (teamId: string, workerId: string) => {
-    const now = Date.now();
-    // The decode loop fires every ~180ms and the badge stays in frame while the
-    // SA moves on — without this, one badge is ~5 writes a second. Read from the
-    // ref (see its declaration): `sweep` is a render closure and would be stale
-    // for a second decode in the same tick.
-    if (isCoolingDown({ ...EMPTY_SWEEP, lastSeen: lastSeenRef.current }, workerId, now)) return;
-    lastSeenRef.current = { ...lastSeenRef.current, [workerId]: now };
+  // Spec 359 U1 — one add inside an open sweep, whatever the input method. The
+  // board is NOT refreshed per add (that would be a server round-trip and a
+  // re-render per worker in a line); the tally is the SA's feedback and the
+  // board catches up when the sheet closes.
+  //
+  // Spec 359 U3 — `method` is the ONLY difference between a decode and a tap.
+  // Everything that makes the sweep useful (the team-change warn, the other-team
+  // row, the per-person failure attribution) lives here, so the tap path gets it
+  // by construction rather than by a parallel implementation that can drift.
+  const sweepAdd = (teamId: string, workerId: string, method: "qr" | "manual", nowMs: number) => {
     const c = classifyScan(
       {
         teamId,
@@ -207,27 +259,48 @@ export function MusterCockpit({
         todayTeamByWorker,
         teamLeadById,
         priorLeadByWorker,
-        addedThisSweep: new Set(sweep.addedIds),
+        addedThisSweep: addedRef.current,
       },
       workerId,
     );
-    setSweep((s) => recordScan(s, c, now));
+    setSweep((s) => recordScan(s, c, nowMs));
     playScanCue(c.kind);
     if (!c.shouldWrite) return;
+    addedRef.current.add(workerId);
+    const gen = sweepGenRef.current;
     startTransition(async () => {
       const res = await musterScan({
         teamId,
         workerId,
         mode: "in",
-        method: "qr",
+        method,
         session: "regular",
         revalidate,
       });
-      if (!res.ok) {
-        setSweep((s) => markFailed(s, workerId, res.error));
-        playScanCue("failed");
+      if (res.ok) return;
+      playScanCue("failed");
+      if (gen !== sweepGenRef.current) {
+        // The sweep that issued this write is over. Its tally is gone, so the
+        // refusal goes to the page-level alert — a failed check-in must never
+        // be swallowed just because the SA closed the sheet.
+        setMessage(res.error ?? "เช็คชื่อไม่สำเร็จ");
+        return;
       }
+      addedRef.current.delete(workerId);
+      setSweep((s) => markFailed(s, workerId, res.error));
     });
+  };
+
+  const onSweepDetected = (teamId: string, workerId: string) => {
+    const now = Date.now();
+    // The decode loop fires every ~180ms and the badge stays in frame while the
+    // SA moves on — without this, one badge is ~5 writes a second. Read from the
+    // ref (see its declaration): `sweep` is a render closure and would be stale
+    // for a second decode in the same tick. A TAP needs no cooldown — it is one
+    // deliberate press, and swallowing a repeat would answer the SA with silence.
+    if (isCoolingDown({ ...EMPTY_SWEEP, lastSeen: lastSeenRef.current }, workerId, now)) return;
+    lastSeenRef.current = { ...lastSeenRef.current, [workerId]: now };
+    sweepAdd(teamId, workerId, "qr", now);
   };
 
   // Spec 359 U1 — resolve an other-team row from the tally, after the sweep.
@@ -237,6 +310,10 @@ export function MusterCockpit({
     startTransition(async () => {
       const res = await moveMusterWorker({ workerId, date, toTeamId: teamId, revalidate });
       if (res.ok) {
+        // They are on this team now, but the board still says otherwise until
+        // the sheet closes — mirror it into the ref so a re-tap answers
+        // อยู่ในทีมแล้ว instead of offering the move a second time.
+        addedRef.current.add(workerId);
         setSweep((s) => markMoved(s, workerId));
         playScanCue("added");
       } else {
@@ -252,11 +329,14 @@ export function MusterCockpit({
     if (sweep.addedIds.length > 0) router.refresh();
     setSweep(EMPTY_SWEEP);
     lastSeenRef.current = {};
+    addedRef.current = new Set();
+    sweepGenRef.current += 1;
   };
-  // Sheet tap-add is ALWAYS a regular check-in — explicit mode:"in", never the
-  // toggle state (the list renders only in เข้า mode, but adding someone must
-  // not depend on which toggle happens to be lit).
-  const onScanTap = (teamId: string, workerId: string) =>
+  // Spec 357 U-C — the ยังไม่มา row's เช็คอิน, OUTSIDE the sheet: a one-off
+  // manual check-in with no tally to render, so it keeps the plain path (and its
+  // per-action refresh, which the row's own disappearance depends on). ALWAYS a
+  // regular check-in — explicit mode:"in", never the toggle state.
+  const onCheckInMissing = (teamId: string, workerId: string) =>
     run(() =>
       musterScan({
         teamId,
@@ -267,6 +347,12 @@ export function MusterCockpit({
         revalidate,
       }),
     );
+
+  // Spec 359 U3 — the sheet's tap list. Same pipeline as a decode, method
+  // "manual". The list only renders in เข้า + regular (`showTapAdd`), which is
+  // exactly `sweepMode`, so there is no non-sweep tap to fall back to.
+  const onSheetTapAdd = (teamId: string, workerId: string) =>
+    sweepAdd(teamId, workerId, "manual", Date.now());
 
   const saveWps = (teamId: string, wpIds: string[]) =>
     run(() => setMusterTeamWps({ teamId, wpIds, revalidate }));
@@ -391,7 +477,7 @@ export function MusterCockpit({
             onScan={scanRegular}
             onScanOt={scanOt}
             onSaveWps={saveWps}
-            onCheckIn={onScanTap}
+            onCheckIn={onCheckInMissing}
             onOpenSheet={() => {
               // A leftover error from an earlier, unrelated action (open-team,
               // save-WPs…) must not greet the SA inside a fresh scan/add sheet.
@@ -400,6 +486,8 @@ export function MusterCockpit({
               // tally must never carry over.
               setSweep(EMPTY_SWEEP);
               lastSeenRef.current = {};
+              addedRef.current = new Set();
+              sweepGenRef.current += 1;
               setScanTeamId(team.id);
             }}
           />
@@ -497,7 +585,7 @@ export function MusterCockpit({
               scanFromCamera(sheetTeam.id, workerId);
               setScanTeamId(null);
             }}
-            onTapAdd={(workerId) => onScanTap(sheetTeam.id, workerId)}
+            onTapAdd={(workerId) => onSheetTapAdd(sheetTeam.id, workerId)}
             onMoveHere={(workerId) => onMoveHere(sheetTeam.id, workerId)}
             onClose={closeSheet}
           />

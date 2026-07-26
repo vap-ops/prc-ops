@@ -89,7 +89,22 @@ export function MusterAddSheet({
   hasCamera: boolean;
   /** เข้า + regular mode — the only mode where the tap-add list applies. */
   showTapAdd: boolean;
-  addable: { id: string; name: string; gender: WorkerGender | null }[];
+  /** Spec 359 U3 — `otherTeamLead` names the team this worker is ALREADY on
+   *  today (null = free to add). Those rows are offered on purpose: tapping one
+   *  produces an `other_team` tally row with `ย้ายมาทีมนี้`, which before this
+   *  unit could only be reached by a QR decode. */
+  addable: {
+    id: string;
+    name: string;
+    gender: WorkerGender | null;
+    otherTeamLead: string | null;
+    /** Their session on that other team is already CLOSED — a move would
+     *  re-point a finished day, so the row says so. */
+    otherTeamDone: boolean;
+    /** Added by this sweep. Stays listed, inert, so the rows below it do not
+     *  shift under a finger mid-lineup. */
+    added: boolean;
+  }[];
   message: string | null;
   pending: boolean;
   /** Spec 359 U1 — this sweep's outcomes, newest first. Empty outside a sweep. */
@@ -102,24 +117,54 @@ export function MusterAddSheet({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Spec 359 U3 — workers this sweep has settled onto THIS team (an add, or an
+  // other_team row resolved by a move — markMoved rewrites it to `added`). Their
+  // remaining other_team rows must not keep offering the move.
+  const resolvedIds = new Set(
+    sweep.filter((e) => ADDED_KINDS.has(e.outcome)).map((e) => e.workerId),
+  );
+
   // Spec 359 U2 — one definition, rendered by both arms below (disclosed behind
   // a summary when a camera exists, plain when it does not) so the two paths can
   // never drift apart.
   const tapAddList = (
-    <div className="flex flex-col gap-2">
+    <div data-testid="tap-add-list" className="flex flex-col gap-2">
       <p className="text-ink-secondary text-meta font-semibold">แตะชื่อเพื่อเพิ่มเข้าทีม</p>
+      {/* Spec 359 U3 — the tagged rows do NOT add, so say what they do. Only
+          rendered when at least one is present. */}
+      {addable.some((w) => w.otherTeamLead) ? (
+        <p className="text-ink-secondary text-meta">
+          คนที่อยู่ทีมอื่นวันนี้ — แตะเพื่อขอย้ายมาทีมนี้
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {addable.length ? (
           addable.map((w) => (
+            // Spec 359 U3 — NOT disabled while a write is in flight. The whole
+            // point of the tap path is a lineup tapped in a row; a per-write
+            // freeze is the cost this spec exists to remove. A double-tap is
+            // harmless — the cockpit's addedThisSweep ref classifies the repeat
+            // as อยู่ในทีมแล้ว and writes nothing. An ADDED row stays mounted
+            // and inert instead of disappearing, so nothing reflows under a
+            // finger already moving toward the next name.
             <button
               key={w.id}
               type="button"
               onClick={() => onTapAdd(w.id)}
-              disabled={pending}
-              className="bg-sunk text-ink flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm disabled:opacity-50"
+              disabled={w.added}
+              className={`flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm ${
+                w.added ? "bg-sunk text-ink-muted opacity-60" : "bg-sunk text-ink"
+              }`}
             >
+              {w.added ? "✓ " : null}
               {w.name}
               {genderChip(w.gender)}
+              {w.otherTeamLead ? (
+                <span className="bg-attn-soft text-attn-ink text-meta rounded-full px-1.5 py-0.5 font-semibold">
+                  อยู่ทีม {w.otherTeamLead}
+                  {w.otherTeamDone ? " · ออกแล้ว" : null}
+                </span>
+              ) : null}
             </button>
           ))
         ) : (
@@ -174,7 +219,7 @@ export function MusterAddSheet({
         {hasCamera ? <MusterCamera onDetected={onScanDetected} /> : null}
 
         {sweep.length > 0 ? (
-          <div className="bg-card rounded-card flex flex-col gap-2 p-3">
+          <div className="bg-card rounded-card flex flex-col gap-2 p-3" data-testid="sweep-tally">
             <p data-testid="sweep-count" className="text-ink text-sm font-bold">
               เพิ่มแล้ว {sweep.filter((e) => ADDED_KINDS.has(e.outcome)).length} คน
             </p>
@@ -189,10 +234,16 @@ export function MusterAddSheet({
                     </span>
                     {note ? (
                       <span
+                        // Spec 359 U3 — a refused WRITE is not the same class of
+                        // event as a team-change note. Before this unit a failed
+                        // tap rendered as a danger alert; sharing the amber chip
+                        // with an advisory would have quietly demoted it.
                         className={`text-meta rounded-full px-2 py-0.5 font-semibold ${
-                          NEEDS_ATTENTION.has(e.outcome)
-                            ? "bg-attn-soft text-attn-ink"
-                            : "bg-sunk text-ink-secondary"
+                          e.outcome === "failed"
+                            ? "bg-danger-soft text-danger-ink"
+                            : NEEDS_ATTENTION.has(e.outcome)
+                              ? "bg-attn-soft text-attn-ink"
+                              : "bg-sunk text-ink-secondary"
                         }`}
                       >
                         {note}
@@ -200,8 +251,12 @@ export function MusterAddSheet({
                     ) : null}
                     {/* Spec 359 U1 — offered in the ROW, not as a modal: the SA
                         keeps sweeping the line and settles the amber rows when
-                        the line is done. */}
-                    {e.outcome === "other_team" ? (
+                        the line is done. Spec 359 U3: only while the worker is
+                        still UNRESOLVED — tapping a tagged name twice makes two
+                        other_team rows, and markMoved converts only the newest,
+                        so the older row would keep a live button that re-fires
+                        the move. */}
+                    {e.outcome === "other_team" && !resolvedIds.has(e.workerId) ? (
                       <button
                         type="button"
                         onClick={() => onMoveHere(e.workerId)}
