@@ -1,3 +1,9 @@
+## [0.229.1](https://github.com/vap-ops/prc-ops/compare/v0.229.0...v0.229.1) (2026-07-26)
+
+### Bug Fixes
+
+- **muster:** move the evening scanner into the day bar ([7e78eae](https://github.com/vap-ops/prc-ops/commit/7e78eae12993c4ef0522c2b7b65c627a423a8835))
+
 # [0.229.0](https://github.com/vap-ops/prc-ops/compare/v0.228.1...v0.229.0) (2026-07-26)
 
 ### Bug Fixes
