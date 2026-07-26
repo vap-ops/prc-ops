@@ -1,3 +1,9 @@
+# [0.232.0](https://github.com/vap-ops/prc-ops/compare/v0.231.0...v0.232.0) (2026-07-26)
+
+### Features
+
+- **team:** procurement_manager may manage project members and the SA หลัก ([#776](https://github.com/vap-ops/prc-ops/issues/776)) ([6063129](https://github.com/vap-ops/prc-ops/commit/6063129ab87f63f627e512316dd6b7e6442469a9))
+
 # [0.231.0](https://github.com/vap-ops/prc-ops/compare/v0.230.0...v0.231.0) (2026-07-26)
 
 ### Bug Fixes
