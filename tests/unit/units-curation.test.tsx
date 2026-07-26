@@ -32,6 +32,7 @@ const MANAGED: ManagedUnit[] = [
     unitClass: "count",
     sortOrder: 20,
     isActive: true,
+    addedBy: { name: "จัดซื้อ ทดสอบ", at: "2026-07-26T09:03:23.000Z" },
   },
   {
     code: "ลัง",
@@ -83,6 +84,34 @@ describe("splitUnitUsage (spec 361 U8)", () => {
     const { managed, offList } = splitUnitUsage(MANAGED, ["ลัง", "ลัง"]);
     expect(managed.find((m) => m.code === "ลัง")?.usage).toBe(2);
     expect(offList).toEqual([]);
+  });
+});
+
+// Spec 361 U8 follow-up (operator 2026-07-26: "highlight it for manager to
+// verify"). A unit added THROUGH THE APP is a curation decision someone made —
+// including the one CC made while proving the write path. The seeded spec-223
+// vocabulary carries no created_by, so provenance separates them exactly, and
+// the manager can see what was added, by whom, and retire it in one tap.
+describe("UnitsBoard — provenance highlight", () => {
+  it("flags an app-added unit with who added it, and leaves seeded units unmarked", () => {
+    const { managed } = splitUnitUsage(MANAGED, USAGE);
+    render(<UnitsBoard managed={managed} offList={[]} />);
+    const added = screen.getByTestId("unit-row-ถุง");
+    expect(within(added).getByText(/เพิ่มในแอป/)).toBeInTheDocument();
+    expect(within(added).getByText(/จัดซื้อ ทดสอบ/)).toBeInTheDocument();
+    expect(within(screen.getByTestId("unit-row-เส้น")).queryByText(/เพิ่มในแอป/)).toBeNull();
+  });
+
+  it("counts the app-added units in the section header so they are findable", () => {
+    const { managed } = splitUnitUsage(MANAGED, USAGE);
+    render(<UnitsBoard managed={managed} offList={[]} />);
+    expect(screen.getByText(/เพิ่มในแอป 1 รายการ/)).toBeInTheDocument();
+  });
+
+  it("says nothing about provenance when every unit came from the seed", () => {
+    const seededOnly = MANAGED.map((m) => ({ ...m, addedBy: null }));
+    render(<UnitsBoard managed={splitUnitUsage(seededOnly, USAGE).managed} offList={[]} />);
+    expect(screen.queryByText(/เพิ่มในแอป/)).toBeNull();
   });
 });
 

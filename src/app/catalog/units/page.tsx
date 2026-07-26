@@ -63,11 +63,31 @@ export default async function CatalogUnitsPage({
   const [{ data: unitRows }, itemUnits] = await Promise.all([
     supabase
       .from("catalog_units")
-      .select("code, display_name, abbr_short, unit_class, sort_order, is_active")
+      // No embed for the adder: catalog_units.created_by FKs auth.users, not
+      // public.users, so PostgREST has no relation to traverse — the names are
+      // resolved in a second read below.
+      .select(
+        "code, display_name, abbr_short, unit_class, sort_order, is_active, created_at, created_by",
+      )
       .order("sort_order", { ascending: true })
       .order("code", { ascending: true }),
     readAllItemUnits(supabase),
   ]);
+
+  // created_by is NULL on every spec-223 seeded row, so it separates "seeded"
+  // from "someone added this in the app" exactly. The adder's name is a
+  // nice-to-have: if this read is refused the chip still renders, unnamed.
+  const adderIds = [
+    ...new Set((unitRows ?? []).map((r) => r.created_by).filter((id) => id !== null)),
+  ];
+  const adderNames = new Map<string, string>();
+  if (adderIds.length > 0) {
+    const { data: adders } = await supabase
+      .from("users")
+      .select("id, full_name")
+      .in("id", adderIds);
+    for (const a of adders ?? []) if (a.full_name) adderNames.set(a.id, a.full_name);
+  }
 
   const managedRows: ManagedUnit[] = (unitRows ?? []).map((r) => ({
     code: r.code,
@@ -76,6 +96,7 @@ export default async function CatalogUnitsPage({
     unitClass: r.unit_class,
     sortOrder: r.sort_order,
     isActive: r.is_active,
+    addedBy: r.created_by ? { name: adderNames.get(r.created_by) ?? null, at: r.created_at } : null,
   }));
   const { managed, offList } = splitUnitUsage(managedRows, itemUnits);
 

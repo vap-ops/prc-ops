@@ -18,7 +18,7 @@
 import { useState } from "react";
 
 import type { ManagedUnitUsage, OffListUnit } from "@/lib/catalog/units-curation";
-import { UNIT_INACTIVE_LABEL } from "@/lib/i18n/labels";
+import { formatThaiDate, UNIT_ADDED_IN_APP_LABEL, UNIT_INACTIVE_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_SECONDARY_COMPACT, CARD } from "@/lib/ui/classes";
 import { UnitSheet } from "./unit-sheet";
 
@@ -39,12 +39,21 @@ export function UnitsBoard({
   const [editing, setEditing] = useState<ManagedUnitUsage | null>(null);
   const [promoting, setPromoting] = useState<string | null>(null);
 
+  // Units added through the app (the seed carries no created_by) — surfaced so
+  // the manager can check what was added and by whom, and retire it if wrong.
+  const addedInApp = managed.filter((u) => u.addedBy != null);
+
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-meta text-ink-secondary font-semibold">
             หน่วยนับที่ใช้ได้ <span className="text-ink-muted">({managed.length})</span>
+            {addedInApp.length > 0 && (
+              <span className="text-attn-press ml-2 font-normal">
+                {UNIT_ADDED_IN_APP_LABEL} {addedInApp.length} รายการ
+              </span>
+            )}
           </h2>
           <button
             type="button"
@@ -61,8 +70,14 @@ export function UnitsBoard({
               data-testid={`unit-row-${unit.code}`}
               className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
             >
-              <span className="text-ink text-body min-w-0 flex-1 font-medium">
-                {unit.displayName}
+              <span className="min-w-0 flex-1">
+                <span className="text-ink text-body block font-medium">{unit.displayName}</span>
+                {unit.addedBy && (
+                  <span className="text-attn-press text-meta block">
+                    {UNIT_ADDED_IN_APP_LABEL} · {unit.addedBy.name ?? "ไม่ทราบผู้เพิ่ม"} ·{" "}
+                    {formatThaiDate(unit.addedBy.at)}
+                  </span>
+                )}
               </span>
               <span className="text-ink-secondary text-meta">
                 ในทะเบียนวัสดุ {unit.usage} รายการ

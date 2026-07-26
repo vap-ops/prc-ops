@@ -11,6 +11,15 @@ import type { Database } from "@/lib/db/database.types";
 
 export type UnitClass = Database["public"]["Enums"]["unit_class"];
 
+/** Who added a unit through the app, or null when it came from the spec-223
+ * seed (those rows carry no created_by). Operator 2026-07-26: an in-app
+ * addition is a curation decision the manager should be able to verify. */
+export interface UnitProvenance {
+  name: string | null;
+  /** ISO timestamp of the insert. */
+  at: string;
+}
+
 export interface ManagedUnit {
   code: string;
   displayName: string;
@@ -18,6 +27,7 @@ export interface ManagedUnit {
   unitClass: UnitClass;
   sortOrder: number;
   isActive: boolean;
+  addedBy?: UnitProvenance | null;
 }
 
 export interface ManagedUnitUsage extends ManagedUnit {

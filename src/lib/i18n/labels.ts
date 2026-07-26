@@ -383,6 +383,9 @@ export const CATALOG_LABEL = "ทะเบียนวัสดุ";
 export const CATALOG_UNITS_LABEL = "หน่วยนับ";
 export const CATALOG_UNITS_HINT = "หน่วยที่เลือกได้ตอนเพิ่มวัสดุ";
 export const UNIT_INACTIVE_LABEL = "ปิดใช้งาน";
+// Spec 361 U8 follow-up: a unit added through the app rather than seeded —
+// shown so the procurement manager can verify (and retire) what was added.
+export const UNIT_ADDED_IN_APP_LABEL = "เพิ่มในแอป";
 export const UNIT_CLASS_LABEL: Record<
   "count" | "length" | "area" | "volume" | "weight" | "trips",
   string
