@@ -16,6 +16,7 @@ import {
   WpAssignmentPanel,
   type ContractorOption,
 } from "@/components/features/work-packages/wp-assignment-panel";
+import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
 
 interface WorkPackageInfoButtonProps {
@@ -29,6 +30,10 @@ interface WorkPackageInfoButtonProps {
   /** Picker list for WpAssignmentPanel (blacklist already filtered upstream). */
   contractors: ContractorOption[];
   contractorId: string | null;
+  /** Spec 363 U1 — หมายเหตุ moved out of the ข้อมูล tab into this sheet. */
+  notes: string | null;
+  /** Site staff edit notes in place; the read-only viewer (procurement) sees text. */
+  canEditNotes: boolean;
 }
 
 export function WorkPackageInfoButton({
@@ -39,6 +44,8 @@ export function WorkPackageInfoButton({
   isAssigner,
   contractors,
   contractorId,
+  notes,
+  canEditNotes,
 }: WorkPackageInfoButtonProps) {
   const [open, setOpen] = useState(false);
 
@@ -85,6 +92,21 @@ export function WorkPackageInfoButton({
               <p className="text-body text-ink-secondary whitespace-pre-wrap">{description}</p>
             </div>
           ) : null}
+
+          {/* Spec 363 U1 — notes render unconditionally: for an editor this is the
+              only entry point to add them, and the read-only viewer keeps the
+              em-dash the ข้อมูล tab used to show. NotesField supplies its own
+              หมายเหตุ label, so the editable branch adds no heading of its own. */}
+          {canEditNotes ? (
+            <WorkPackageNotes projectId={projectId} workPackageId={workPackageId} notes={notes} />
+          ) : (
+            <div className="flex flex-col gap-1">
+              <p className="text-meta text-ink-secondary">หมายเหตุ</p>
+              <p className="text-body text-ink-secondary whitespace-pre-wrap">
+                {notes?.trim() ? notes : "—"}
+              </p>
+            </div>
+          )}
         </div>
       </BottomSheet>
     </>
