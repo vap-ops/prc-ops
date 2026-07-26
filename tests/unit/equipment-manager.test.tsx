@@ -424,7 +424,17 @@ describe("EquipmentManager", () => {
 
     openSheet("ย้าย");
     expect(screen.getByLabelText("ประเภทการเคลื่อนย้าย")).toBeInTheDocument();
-    // The edit body must not ride along inside the move sheet.
+    expect(screen.queryByLabelText("ชื่ออุปกรณ์")).not.toBeInTheDocument();
+  });
+
+  it("tapping ย้าย while the edit sheet is open closes the edit sheet", () => {
+    // Both sheets are siblings inside the row, so without the mutual reset they
+    // stack — two dialogs, the move form buried under the edit form.
+    renderManager({ items: ITEMS });
+    openSheet("แก้ไข");
+    openSheet("ย้าย");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByLabelText("ประเภทการเคลื่อนย้าย")).toBeInTheDocument();
     expect(screen.queryByLabelText("ชื่ออุปกรณ์")).not.toBeInTheDocument();
   });
 
