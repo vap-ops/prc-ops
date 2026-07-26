@@ -14,8 +14,10 @@
 // not just "some class is present": the armed control must carry the danger
 // primitive and must NOT reintroduce a competing neutral ink.
 
+import fs from "node:fs";
+import path from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { clearPayoutNominee, mockRefresh } = vi.hoisted(() => ({
   clearPayoutNominee: vi.fn(),
@@ -34,16 +36,41 @@ vi.mock("@/lib/ui/use-toast", () => ({
 }));
 
 import { ClearNomineeButton } from "@/components/features/payroll/clear-nominee-button";
-import { BUTTON_DANGER_OUTLINE_COMPACT } from "@/lib/ui/classes";
+import { BUTTON_SECONDARY_MUTED, BUTTON_SECONDARY_MUTED_LAYOUT } from "@/lib/ui/classes";
 
 const WORKER = "a1111111-1111-4111-8111-111111111111";
 
-/** The colour utilities a class string sets for `color`, per the design tokens. */
+const ARMED = `${BUTTON_SECONDARY_MUTED_LAYOUT} border-edge bg-card text-danger`;
+
+/** Every `--color-*` token, so "is this an ink?" is decided by the design SSOT
+ *  and not a hand-written prefix list that quietly misses `text-wait`, the
+ *  category hues, or the Tailwind keywords. */
+const COLOR_TOKENS = new Set([
+  ...[
+    ...fs
+      .readFileSync(path.resolve(__dirname, "../../src/app/globals.css"), "utf8")
+      .matchAll(/--color-([a-z0-9-]+)\s*:/g),
+  ].map((m) => m[1]!),
+  "white",
+  "black",
+  "transparent",
+  "current",
+  "inherit",
+]);
+
+/** The colour utilities a class string sets for `color` (the type ramp —
+ *  `text-body`, `text-meta` — is not a colour and drops out via the token set). */
 function inkClasses(className: string): string[] {
-  return className.split(/\s+/).filter((c) => /^text-(ink|danger|action|done|attn|on-)/.test(c));
+  return className
+    .split(/\s+/)
+    .filter((c) => c.startsWith("text-") && COLOR_TOKENS.has(c.slice("text-".length)));
 }
 
 describe("ClearNomineeButton (spec 320 U2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("arms a confirm before clearing — the action never fires on the first tap", () => {
     render(<ClearNomineeButton workerId={WORKER} />);
     fireEvent.click(screen.getByRole("button"));
@@ -51,23 +78,29 @@ describe("ClearNomineeButton (spec 320 U2)", () => {
     expect(screen.getByRole("button")).toHaveTextContent("ยืนยันล้าง?");
   });
 
-  it("the ARMED confirm reads destructive — exactly one ink, and it is the danger primitive's", () => {
+  it("the ARMED confirm reads destructive — exactly one ink, and it is the danger one", () => {
     render(<ClearNomineeButton workerId={WORKER} />);
     fireEvent.click(screen.getByRole("button"));
     const armed = screen.getByRole("button");
 
-    expect(armed.className).toBe(BUTTON_DANGER_OUTLINE_COMPACT);
+    expect(armed.className).toBe(ARMED);
     // The bug was TWO inks on one element, the neutral one winning. One ink only.
-    expect(inkClasses(armed.className)).toEqual(["text-danger-ink"]);
-    expect(armed.className).not.toContain("text-ink ");
-    expect(armed.className.endsWith("text-ink")).toBe(false);
+    expect(inkClasses(armed.className)).toEqual(["text-danger"]);
   });
 
-  it("the idle trigger is NOT destructive — only the armed state is", () => {
+  it("arming changes the ink and NOTHING else — same control, no geometry shift", () => {
     render(<ClearNomineeButton workerId={WORKER} />);
-    const idle = screen.getByRole("button");
-    expect(idle.className).not.toBe(BUTTON_DANGER_OUTLINE_COMPACT);
-    expect(inkClasses(idle.className)).not.toContain("text-danger-ink");
+    const idle = screen.getByRole("button").className;
+    fireEvent.click(screen.getByRole("button"));
+    const armed = screen.getByRole("button").className;
+
+    expect(idle).toBe(BUTTON_SECONDARY_MUTED);
+    const geometry = (c: string) =>
+      c
+        .split(/\s+/)
+        .filter((x) => !inkClasses(x).length)
+        .sort();
+    expect(geometry(armed)).toEqual(geometry(idle));
   });
 
   it("confirming relays to clearPayoutNominee for that worker", () => {

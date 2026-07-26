@@ -207,19 +207,32 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
 // the three properties. `BUTTON_SECONDARY_LAYOUT` still held `text-ink`, which
 // made "compose the layout half and own your colours" only two-thirds true.
 //
-// KNOWN FALSE NEGATIVES: a colour reached through a plain variable
-// (`const TONE = "bg-attn-soft"; ` + "`${CARD} ${TONE}`" + `) or through string
-// concatenation rather than a template literal. Both need value tracking.
+// KNOWN FALSE NEGATIVES, i.e. what this scan does NOT reach: a colour reached
+// through a plain variable (a `TONE` const holding "bg-attn-soft", interpolated
+// alongside the constant) or through string concatenation rather than a
+// template literal; and a constant whose value is assembled at RUNTIME (a
+// lookup keyed on a prop, `clsx`-style merging). All need value tracking. What
+// IS reached: imports (incl. aliases), bindings initialised from a constant,
+// file-local consts, and file-local consts DERIVED from another via a template
+// literal — that last one because splitting a colour off a local constant
+// creates exactly that shape, and it would otherwise remove the constant from
+// this scan at the very moment someone fixes it.
 // ---------------------------------------------------------------------------
 
-/** Colour tokens are the design SSOT — read them from globals.css, never a list. */
-const COLOR_TOKENS = new Set(
-  [
+/** Colour tokens are the design SSOT — read them from globals.css, never a list.
+ *  Tailwind's colour KEYWORDS carry no `--color-*` token but still set the
+ *  property, and they sort into the same alphabetical stream: `text-black`
+ *  lands before `text-ink`, so `${BUTTON_SECONDARY} text-black` would be just
+ *  as dead. Same keyword set design-doctrine.test.ts allows through. */
+const COLOR_KEYWORDS = ["white", "black", "transparent", "current", "inherit"];
+const COLOR_TOKENS = new Set([
+  ...[
     ...fs
       .readFileSync(path.resolve(__dirname, "../../src/app/globals.css"), "utf8")
       .matchAll(/--color-([a-z0-9-]+)\s*:/g),
   ].map((m) => m[1]!),
-);
+  ...COLOR_KEYWORDS,
+]);
 
 type ColorProperty = "background-color" | "border-color" | "color";
 
@@ -297,6 +310,17 @@ export function classConstantsInScope(
   for (const m of content.matchAll(/(?:^|\n)\s*const\s+(\w+)\s*=\s*("[^"]*"|'[^']*')\s*;/g)) {
     scope.set(m[1]!, m[2]!.slice(1, -1));
   }
+  // A local constant DERIVED from one already in scope — `` const X = `${BASE} …` ``.
+  // Splitting a colour off a local constant creates exactly this shape, so
+  // without it a `_BASE` refactor silently removes the derived constant from
+  // this scan (team-map-view's TIER_ACTION did, and it was one of the original
+  // offenders). Two passes so a chain BASE → X → Y resolves.
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const m of content.matchAll(/(?:^|\n)\s*const\s+(\w+)\s*=\s*`([^`]*)`\s*;/g)) {
+      const resolved = m[2]!.replace(/\$\{(\w+)\}/g, (whole, ref) => scope.get(ref) ?? whole);
+      if (!resolved.includes("${")) scope.set(m[1]!, resolved);
+    }
+  }
   return scope;
 }
 
@@ -332,8 +356,24 @@ export function templateLiterals(content: string): string[] {
  * same literal collides — including one tucked inside a `${cond ? … : …}` arm.
  * Arms are never compared with each other: only one of them ever renders.
  */
-export function constColorOverrides(content: string, shared: Record<string, string>): string[] {
+/** Drop comment LINES before scanning. A doc comment explaining this very bug
+ *  quotes the broken composition verbatim, and the scan reads raw text — so
+ *  without this, documenting the hazard trips the guard that forbids it. Only
+ *  whole comment lines are removed, never a trailing `//` inside a line, so a
+ *  URL sitting in a string literal cannot be mangled into a broken literal. */
+export function stripCommentLines(content: string): string {
+  return content
+    .split("\n")
+    .map((line) => {
+      const t = line.trimStart();
+      return t.startsWith("//") || t.startsWith("*") || t.startsWith("/*") ? "" : line;
+    })
+    .join("\n");
+}
+
+export function constColorOverrides(rawContent: string, shared: Record<string, string>): string[] {
   const out: string[] = [];
+  const content = stripCommentLines(rawContent);
   const scope = classConstantsInScope(content, shared);
   for (const lit of templateLiterals(content)) {
     for (const [name, value] of scope) {
@@ -432,6 +472,18 @@ describe("shared-constant colour-override contract (2026-07-26 bug class)", () =
       1,
     );
     expect(check("const shell = CARD;\n`${shell} border-attn`")).toHaveLength(1);
+    // a local const DERIVED from another — splitting a colour off a local
+    // constant makes exactly this shape, and it must not fall out of reach
+    expect(
+      constColorOverrides(
+        'const BASE = "rounded-full border border-edge bg-card";\n' +
+          "const TIER = `${BASE} text-action`;\n`${TIER} text-ink-secondary`",
+        card,
+      ),
+    ).toHaveLength(1);
+    // documenting the hazard must not BE the hazard: a comment quoting the
+    // broken composition is not a call site
+    expect(check("// never write `${CARD} bg-attn-soft` — it renders neutral\n")).toHaveLength(0);
     // !important wins on cascade rules, not on emission order
     expect(check("`${CARD} bg-attn-soft!`")).toHaveLength(0);
     // plain `color` is the third property, and it bit in BOTH directions: a

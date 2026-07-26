@@ -132,7 +132,7 @@ describe("ui class constants (spec 65) — Field-First pins", () => {
 
   it("BUTTON_SECONDARY_MUTED", () => {
     expect(BUTTON_SECONDARY_MUTED).toBe(
-      "inline-flex h-11 items-center justify-center rounded-control border border-edge bg-card px-3 text-body font-medium text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:opacity-60",
+      "inline-flex h-11 items-center justify-center rounded-control border px-3 text-body font-medium shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:opacity-60 border-edge bg-card text-ink",
     );
   });
 

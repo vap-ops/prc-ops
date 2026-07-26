@@ -267,7 +267,7 @@ export function AddTechnicianSheet({
                     setTeam("prc");
                     setMode("choose");
                   }}
-                  className={`${BUTTON_SECONDARY_LAYOUT} bg-card h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : "border-edge"}`}
+                  className={`${BUTTON_SECONDARY_LAYOUT} bg-card text-ink h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : "border-edge"}`}
                 >
                   <Building2 aria-hidden className="size-5 shrink-0" />
                   <span className="min-w-0 text-left">
@@ -389,7 +389,7 @@ export function AddTechnicianSheet({
                   type="button"
                   aria-pressed={team === f.id}
                   onClick={() => setTeam(f.id)}
-                  className={`${BUTTON_SECONDARY_LAYOUT} bg-card h-auto min-h-11 justify-start py-2 ${team === f.id ? "border-action" : "border-edge"}`}
+                  className={`${BUTTON_SECONDARY_LAYOUT} bg-card text-ink h-auto min-h-11 justify-start py-2 ${team === f.id ? "border-action" : "border-edge"}`}
                 >
                   <Users aria-hidden className="size-5 shrink-0" />
                   <span className="min-w-0 text-left">
