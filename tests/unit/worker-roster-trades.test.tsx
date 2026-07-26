@@ -66,7 +66,7 @@ const BASE: ManagedWorker = {
 };
 
 function openEdit() {
-  fireEvent.click(screen.getAllByRole("button", { name: "แก้ไข" })[0]!);
+  fireEvent.click(screen.getAllByRole("button", { name: /^แก้ไข/ })[0]!);
 }
 
 beforeEach(() => {

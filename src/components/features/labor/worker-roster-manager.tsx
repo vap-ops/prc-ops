@@ -42,17 +42,24 @@ import {
   TRADE_PRIMARY_LABEL,
   TRADES_EMPTY_LABEL,
 } from "@/lib/i18n/labels";
+import { Search } from "lucide-react";
 import { BankSelect } from "@/components/features/common/bank-select";
+import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { WorkerInviteBlock } from "@/components/features/portal/worker-invite-block";
 import {
+  BUTTON_PRIMARY,
   BUTTON_PRIMARY_COMPACT,
   BUTTON_SECONDARY_COMPACT,
-  CARD,
+  FIELD_INPUT,
   FIELD_STACKED,
 } from "@/lib/ui/classes";
+
 import { NOTES_MAX } from "@/lib/notes/validate";
 import { EMPLOYMENT_TYPE_LABEL, type EmploymentType } from "@/lib/workers/employment";
+
+/** Spec 362 U3 — the "no การจ่าย filter" chip value (the /catalog sentinel). */
+const ALL = "all";
 
 type PayType = Database["public"]["Enums"]["pay_type"];
 
@@ -114,7 +121,13 @@ export type AssignableProject = {
   ht_worker_id: string | null;
 };
 
-function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
+function AddWorkerForm({
+  projects,
+  onDone,
+}: {
+  projects: AssignableProject[];
+  onDone: () => void;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   // Spec 266 U3: two orthogonal selectors replace the old monthly/daily radio.
@@ -177,17 +190,18 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
     setProject("");
     setGender("");
     resetPayee();
+    onDone();
     router.refresh();
   }
 
+  // Spec 313 U2b (D4): this form lives on /workers, whose heading U2 renamed to
+  // รายชื่อช่างและค่าแรง — and it adds ONE person, a ช่าง, so the add strings use
+  // that term. The people-hub term (TEAM_HUB_LABEL) now names only /team.
+  // Spec 362 U3: it lives inside a sheet now, so its own heading is gone — the
+  // sheet's title carries it.
   return (
-    <div className={CARD}>
-      {/* Spec 313 U2b (D4): this card lives on /workers, whose heading U2 renamed
-          to รายชื่อช่างและค่าแรง — and it adds ONE person, a ช่าง, so the add
-          strings use that term. The people-hub term (TEAM_HUB_LABEL) now names
-          only /team. */}
-      <p className="text-ink text-sm font-semibold">เพิ่มช่าง</p>
-      <label className="text-ink-secondary mt-2 block text-sm">
+    <div>
+      <label className="text-ink-secondary block text-sm">
         ชื่อ
         <input
           value={name}
@@ -332,7 +346,7 @@ function AddWorkerForm({ projects }: { projects: AssignableProject[] }) {
         onClick={() => void submit()}
         className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
       >
-        เพิ่มช่าง
+        เพิ่มรายชื่อ
       </button>
     </div>
   );
@@ -409,6 +423,33 @@ function WorkerRow({
   // shows the tapped value instantly while the action is in flight and auto-reverts
   // to `committedActive` if it fails — no router.refresh on the toggle path.
   const [committedActive, setCommittedActive] = useState(worker.active);
+
+  // Spec 362 U3 — re-seed EVERY field from the row when the editor opens. The
+  // state above survives the sheet's unmount, and the sheet added three ways to
+  // abandon an edit the old inline block never had (scrim tap, Escape, ✕). Without
+  // this, abandoned typing — including bank and tax id — waits for the next opener
+  // and บันทึก writes it. `committedActive` is deliberately NOT re-seeded: it is
+  // the optimistic toggle's post-mount truth, not editor state.
+  function openEditor() {
+    setName(worker.name);
+    setRate(String(worker.day_rate));
+    setNote(worker.note ?? "");
+    setProject(worker.project_id ?? "");
+    setLevel(worker.level ?? "");
+    setTradeIds(worker.trades.map((t) => t.categoryId));
+    setPrimaryTradeId(worker.trades.find((t) => t.isPrimary)?.categoryId ?? null);
+    setPayType(worker.pay_type);
+    setEmploymentType(worker.employment_type);
+    setGender(worker.gender ?? "");
+    setContractorPick(worker.contractor_id ?? "");
+    setPhone(worker.phone ?? "");
+    setTaxId(worker.tax_id ?? "");
+    setBankName(worker.bank_name ?? "");
+    setBankAccountNumber(worker.bank_account_number ?? "");
+    setBankAccountName(worker.bank_account_name ?? "");
+    setError(null);
+    setEditing(true);
+  }
   const [optimisticActive, setOptimisticActive] = useOptimistic(
     committedActive,
     (_current, next: boolean) => next,
@@ -538,10 +579,15 @@ function WorkerRow({
   }
 
   return (
-    <li className="border-edge border-t py-2 first:border-t-0">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className={`truncate text-sm ${optimisticActive ? "text-ink" : "text-ink-muted"}`}>
+    // Spec 362 U3 — the /catalog card row. min-w-40 (never min-w-0) with a
+    // wrapping row, so the two fixed controls push below the name instead of
+    // squeezing it to one character per line on a phone (feedback 65de06ca).
+    <li className="border-edge bg-card rounded-control flex flex-wrap items-center gap-3 border px-4 py-3">
+      <div className="min-w-40 flex-1">
+        <div>
+          <p
+            className={`text-body ${optimisticActive ? "text-ink" : "text-ink-muted"} font-semibold`}
+          >
             {worker.name}
             {/* Spec 266 U3: สถานะ badge (ประจำ/ชั่วคราว) for daily-paid ช่าง (a
                 monthly ช่าง's tenure isn't roster-relevant here). */}
@@ -597,26 +643,32 @@ function WorkerRow({
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => setEditing((v) => !v)}
-            className="text-action text-xs font-medium hover:underline"
-          >
-            แก้ไข
-          </button>
-          <button
-            type="button"
-            disabled={isToggling}
-            onClick={toggleActive}
-            className="text-ink-secondary text-xs font-medium hover:underline"
-          >
-            {optimisticActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
-          </button>
-        </div>
       </div>
-      {editing ? (
-        <div className="border-edge-strong bg-page mt-2 rounded-lg border p-3">
+      {/* Both controls carry the worker's NAME in their accessible name: a roster
+          of 29 rows otherwise offers 29 buttons all called แก้ไข, which is
+          ambiguous for a screen reader and for anyone driving by voice. */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          aria-label={`แก้ไข ${worker.name}`}
+          onClick={openEditor}
+          className={BUTTON_SECONDARY_COMPACT}
+        >
+          แก้ไข
+        </button>
+        <button
+          type="button"
+          disabled={isToggling}
+          aria-label={`${optimisticActive ? "ปิดใช้งาน" : "เปิดใช้งาน"} ${worker.name}`}
+          onClick={toggleActive}
+          className={BUTTON_SECONDARY_COMPACT}
+        >
+          {optimisticActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
+        </button>
+      </div>
+
+      <BottomSheet open={editing} title={`แก้ไข ${worker.name}`} onClose={() => setEditing(false)}>
+        <div>
           <label className="text-ink-secondary block text-sm">
             ชื่อ
             <input
@@ -935,7 +987,7 @@ function WorkerRow({
             </div>
           ) : null}
         </div>
-      ) : null}
+      </BottomSheet>
     </li>
   );
 }
@@ -965,15 +1017,19 @@ export function WorkerRosterManager({
   canSetTrades?: boolean;
   tradeOptions?: TradeOption[];
 }) {
+  const [query, setQuery] = useState("");
+  const [selectedPay, setSelectedPay] = useState<PayType | typeof ALL>(ALL);
+  const [adding, setAdding] = useState(false);
+
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
   // Spec 328 firm move — the edit sheet's assign/move targets: ACTIVE firms only
   // (spec-89 discipline: blacklisted/probation crews never join pickers).
   const activeFirms = contractors
     .filter((c) => c.status === "active")
     .map((c) => ({ id: c.id, name: c.name }));
-  // Spec 266 U3: group the roster by การจ่าย / pay_type (no legacy own/contractor vocabulary).
-  const monthlyWorkers = workers.filter((w) => w.pay_type === "monthly");
-  const dailyWorkers = workers.filter((w) => w.pay_type === "daily");
+  // Spec 266 U3 grouped the roster by การจ่าย / pay_type (no legacy own/contractor
+  // vocabulary); spec 362 U3 keeps that grouping but derives it from the SEARCHED
+  // set below, so the section counts follow what is on screen.
   // Spec 272 U2: หัวหน้าช่าง lookups off the already-loaded rows (no extra query).
   const workerNames = new Map(workers.map((w) => [w.id, w.name]));
   const htCodesByWorker = new Map<string, string[]>();
@@ -986,40 +1042,134 @@ export function WorkerRosterManager({
     return ht ? { id: ht, name: workerNames.get(ht) ?? "คนปัจจุบัน" } : null;
   }
 
+  // Spec 362 U3 — search across the three things the office actually looks a
+  // ช่าง up by: their name, the phone number that just called, and the trade
+  // they do (by code AND by Thai name — nobody remembers "W03").
+  const q = query.trim().toLowerCase();
+  const searching = q !== "";
+  const queried = !searching
+    ? workers
+    : workers.filter((w) =>
+        `${w.name} ${w.phone ?? ""} ${w.trades.map((t) => `${t.code} ${t.nameTh}`).join(" ")}`
+          .toLowerCase()
+          .includes(q),
+      );
+
+  const GROUPS = [
+    { key: "monthly", label: "ช่างรายเดือน" },
+    { key: "daily", label: "ช่างรายวัน" },
+  ] as const;
+  const countIn = (key: PayType) => queried.filter((w) => w.pay_type === key).length;
+  const present = GROUPS.filter((g) => countIn(g.key) > 0);
+  // A live search overrides the chip and searches the whole roster (the
+  // /catalog rule): a stuck filter would make a search look like an absence.
+  const sections =
+    !searching && selectedPay !== ALL ? present.filter((g) => g.key === selectedPay) : present;
+
+  const addDoor = (
+    <div className="flex items-center justify-end">
+      <button type="button" onClick={() => setAdding(true)} className={BUTTON_PRIMARY}>
+        เพิ่มช่าง
+      </button>
+    </div>
+  );
+
+  const addSheet = (
+    <BottomSheet open={adding} title="เพิ่มช่างใหม่" onClose={() => setAdding(false)}>
+      <AddWorkerForm projects={projects} onDone={() => setAdding(false)} />
+    </BottomSheet>
+  );
+
+  // The roster used to render NOTHING below the form when it was empty.
+  if (workers.length === 0) {
+    return (
+      <div className="flex flex-col gap-5">
+        {addDoor}
+        <p className="text-ink-secondary text-body">ยังไม่มีช่างในทะเบียน</p>
+        {addSheet}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <AddWorkerForm projects={projects} />
-      {(
-        [
-          { label: "ช่างรายเดือน", list: monthlyWorkers },
-          { label: "ช่างรายวัน", list: dailyWorkers },
-        ] as const
-      ).map(({ label, list }) =>
-        list.length > 0 ? (
-          <div key={label} className={CARD}>
-            <p className="text-ink text-sm font-semibold">{label}</p>
-            <ul className="mt-2 flex flex-col">
-              {list.map((w) => (
-                <WorkerRow
-                  key={w.id}
-                  worker={w}
-                  contractorName={
-                    w.contractor_id ? (contractorNames.get(w.contractor_id) ?? null) : null
-                  }
-                  firms={activeFirms}
-                  projects={projects}
-                  canGrade={canGrade}
-                  canAssignHt={canAssignHt}
-                  canSetTrades={canSetTrades}
-                  tradeOptions={tradeOptions}
-                  htCodes={htCodesByWorker.get(w.id) ?? []}
-                  currentProjectHt={currentProjectHtOf(w)}
-                />
-              ))}
-            </ul>
-          </div>
-        ) : null,
-      )}
+    <div className="flex flex-col gap-5">
+      {addDoor}
+
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="text-ink-muted pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2"
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className={`${FIELD_INPUT} pl-10`}
+          placeholder="ค้นหาด้วยชื่อ เบอร์โทร หรือสายงาน"
+          aria-label="ค้นหาช่าง"
+          autoComplete="off"
+        />
+      </div>
+
+      <div
+        className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1"
+        role="radiogroup"
+        aria-label="กรองตามการจ่าย"
+      >
+        <RadioChip
+          name="worker-pay-type"
+          label={`ทั้งหมด (${queried.length})`}
+          checked={selectedPay === ALL}
+          onSelect={() => setSelectedPay(ALL)}
+        />
+        {present.map((g) => (
+          <RadioChip
+            key={g.key}
+            name="worker-pay-type"
+            label={`${g.label} (${countIn(g.key)})`}
+            checked={selectedPay === g.key}
+            onSelect={() => setSelectedPay(g.key)}
+          />
+        ))}
+      </div>
+
+      {searching && queried.length === 0 ? (
+        <p className="text-ink-secondary text-body">ไม่พบช่างที่ค้นหา</p>
+      ) : null}
+
+      <div className="flex flex-col gap-6">
+        {sections.map((g) => {
+          const list = queried.filter((w) => w.pay_type === g.key);
+          return (
+            <section key={g.key} className="flex flex-col gap-2">
+              <h2 className="text-meta text-ink-secondary font-semibold">
+                {g.label} <span className="text-ink-muted">({list.length})</span>
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {list.map((w) => (
+                  <WorkerRow
+                    key={w.id}
+                    worker={w}
+                    contractorName={
+                      w.contractor_id ? (contractorNames.get(w.contractor_id) ?? null) : null
+                    }
+                    firms={activeFirms}
+                    projects={projects}
+                    canGrade={canGrade}
+                    canAssignHt={canAssignHt}
+                    canSetTrades={canSetTrades}
+                    tradeOptions={tradeOptions}
+                    htCodes={htCodesByWorker.get(w.id) ?? []}
+                    currentProjectHt={currentProjectHtOf(w)}
+                  />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+
+      {addSheet}
     </div>
   );
 }

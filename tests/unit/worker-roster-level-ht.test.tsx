@@ -74,7 +74,9 @@ const P1: AssignableProject = {
   ht_worker_id: null,
 };
 
-function openEdit(name = "แก้ไข") {
+// Spec 362 U3 — the row's แก้ไข carries the worker's name in its accessible
+// name (29 identically-named buttons were ambiguous), and it opens a sheet.
+function openEdit(name: string | RegExp = /^แก้ไข/) {
   fireEvent.click(screen.getAllByRole("button", { name })[0]!);
 }
 

@@ -77,7 +77,7 @@ const CONTRACTORS = [
 
 async function openEdit(user: ReturnType<typeof userEvent.setup>, name: string) {
   const row = screen.getByText(name).closest("li")!;
-  await user.click(within(row as HTMLElement).getByRole("button", { name: "แก้ไข" }));
+  await user.click(within(row as HTMLElement).getByRole("button", { name: /^แก้ไข/ }));
   return row as HTMLElement;
 }
 
