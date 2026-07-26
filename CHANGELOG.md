@@ -1,3 +1,9 @@
+# [0.227.0](https://github.com/vap-ops/prc-ops/compare/v0.226.1...v0.227.0) (2026-07-26)
+
+### Features
+
+- **team:** procurement_manager owns the on-site teams (team map) ([#766](https://github.com/vap-ops/prc-ops/issues/766)) ([0a9cfd3](https://github.com/vap-ops/prc-ops/commit/0a9cfd3baf865963f638b3d2f51fdf8ab9c15954))
+
 ## [0.226.1](https://github.com/vap-ops/prc-ops/compare/v0.226.0...v0.226.1) (2026-07-26)
 
 ### Bug Fixes
