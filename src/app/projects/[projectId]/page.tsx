@@ -23,6 +23,7 @@ import {
   SUPPLY_PLAN_ROLES,
   WP_DETAIL_ROLES,
   isManagerRole,
+  isTeamMapRole,
 } from "@/lib/auth/role-home";
 import {
   projectSettingsHref,
@@ -286,18 +287,22 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
                 <Banknote aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
+            {/* Spec 330 U1: the per-project team map — the people cockpit
+                (staff tiers + crew teams). Its OWN gate, not the manager one:
+                the operator made procurement_manager responsible for the
+                on-site teams (2026-07-26), and a door she cannot see is the
+                same defect as a page she cannot open. */}
+            {isTeamMapRole(ctx.role) ? (
+              <Link
+                href={projectTeamHref(project.id)}
+                aria-label={PROJECT_TEAM_LABEL}
+                className={ICON_CHIP_MUTED}
+              >
+                <Users aria-hidden className="h-5 w-5" />
+              </Link>
+            ) : null}
             {isManagerRole(ctx.role) ? (
               <>
-                {/* Spec 330 U1: the per-project team map — the PM-tier people
-                    cockpit (staff tiers + crew teams). Same manager gate as the
-                    page's own PM_ROLES. */}
-                <Link
-                  href={projectTeamHref(project.id)}
-                  aria-label={PROJECT_TEAM_LABEL}
-                  className={ICON_CHIP_MUTED}
-                >
-                  <Users aria-hidden className="h-5 w-5" />
-                </Link>
                 <Link
                   href={reportsHref(project.id)}
                   aria-label="รายงานโครงการ"

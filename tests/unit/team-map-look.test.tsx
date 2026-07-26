@@ -84,7 +84,13 @@ const MAP: ProjectTeamMap = {
 
 function renderView() {
   return render(
-    <TeamMapView projectId={PROJECT} map={MAP} addableStaff={[]} currentUserId="u-x" />,
+    <TeamMapView
+      projectId={PROJECT}
+      map={MAP}
+      addableStaff={[]}
+      currentUserId="u-x"
+      canManageStaff
+    />,
   );
 }
 

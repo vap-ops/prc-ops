@@ -123,6 +123,7 @@ function renderView() {
       map={MAP}
       addableStaff={[]}
       currentUserId="u-x"
+      canManageStaff
       dayPlans={DAY_PLANS}
       planWps={PLAN_WPS}
     />,
@@ -268,6 +269,7 @@ describe("team map — WP assignment (spec 330 U6)", () => {
         map={MAP}
         addableStaff={[]}
         currentUserId="u-x"
+        canManageStaff
         dayPlans={DAY_PLANS}
         planWps={[...PLAN_WPS, { id: "wp-t1", code: "WP-t1", name: "งานt1" }]}
       />,

@@ -34,6 +34,34 @@ export function isManagerRole(role: UserRole): boolean {
 }
 
 /**
+ * Operator directive 2026-07-26 — "Anything regarding the teams on site,
+ * Procurement manager is responsible": who may open the per-project team map
+ * (`/projects/:id/team`), the ONLY surface that creates a crew, sets a
+ * หัวหน้าทีม, or moves a worker between crews. = PM_ROLES PLUS
+ * procurement_manager.
+ *
+ * This closes an AFFORDANCE gap, not a privilege one. All seven crew RPCs
+ * behind that screen gate on `is_back_office()` — which has admitted
+ * procurement_manager since spec 261 — and the `crews` / `crew_members` SELECT
+ * policies use the same predicate, so the database already said yes while the
+ * page said no (verified live 2026-07-26). Spec 348 gave her SA parity but the
+ * team map is a PM-tier surface, so it fell in the gap between the two sets.
+ *
+ * Why it mattered: a crew that does not exist cannot be picked as a team in
+ * เช็คชื่อ. On 2026-07-26 the site ran five DC teams against four crews, so
+ * ทีมป้าสังวาลย์ had nowhere to go and her five members were scanned into
+ * whichever team was already open — and labour cost derives at team × WP.
+ *
+ * Deliberately NOT folded into PM_ROLES: that set is the manager tier and gates
+ * money and approval surfaces far beyond this page.
+ */
+export const TEAM_MAP_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "procurement_manager"];
+
+export function isTeamMapRole(role: UserRole): boolean {
+  return TEAM_MAP_ROLES.includes(role);
+}
+
+/**
  * Spec 261 / ADR 0070: manager-tier authority over procurement DESTRUCTIVE
  * actions — void a PO, void a PO charge, cancel an approved PR. = PM_ROLES
  * (project seniority, incl. project_director per ADR 0058) PLUS the new

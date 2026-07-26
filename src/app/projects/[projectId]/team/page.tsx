@@ -6,7 +6,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { TeamMapView } from "@/components/features/team-map/team-map-view";
 import { requireRole } from "@/lib/auth/require-role";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { TEAM_MAP_ROLES, isManagerRole } from "@/lib/auth/role-home";
 import type { Database } from "@/lib/db/database.types";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
@@ -88,7 +88,7 @@ export const metadata = { title: PROJECT_TEAM_LABEL };
 
 export default async function ProjectTeamPage({ params }: PageProps) {
   const { projectId } = await params;
-  const ctx = await requireRole(PM_ROLES);
+  const ctx = await requireRole(TEAM_MAP_ROLES);
   const supabase = await createClient();
 
   // RLS scopes the read: a PM outside the membership gets no row → 404.
@@ -146,6 +146,7 @@ export default async function ProjectTeamPage({ params }: PageProps) {
           map={map}
           addableStaff={addableStaff}
           currentUserId={ctx.id}
+          canManageStaff={isManagerRole(ctx.role)}
           tradesByWorker={tradesByWorker}
           dayPlans={{ today: todayPlan, tomorrow: tomorrowPlan }}
           planWps={leafWps ?? []}
