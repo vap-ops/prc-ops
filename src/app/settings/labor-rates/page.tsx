@@ -73,7 +73,9 @@ export default async function LaborRatesPage({
     <PageShell>
       <BottomTabBar role={ctx.role} />
       <DetailHeader backHref={safeBackHref(from, "/settings")} backLabel="กลับไปตั้งค่า">
-        <h1 className="text-ink text-lg font-semibold">{LABOR_RATES_LABEL}</h1>
+        {/* Spec 362 U2 — the registry h1 token, shared with /catalog, /equipment
+            and /workers. This page had drifted to text-lg font-semibold. */}
+        <h1 className="text-title text-ink font-bold tracking-tight">{LABOR_RATES_LABEL}</h1>
       </DetailHeader>
 
       <section className={`mx-auto flex w-full ${PAGE_MAX_W} flex-col gap-5 px-5 py-6`}>
