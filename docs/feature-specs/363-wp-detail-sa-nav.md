@@ -135,6 +135,7 @@ A plan marker (`planned_start` / `planned_end`) is another `kind`; a variance la
 - Any change to `readOnly` (procurement) rendering.
 - Plan dates, lateness, or variance display on the SA screen (D7).
 - New photo capture behaviour. `PhotoCaptureZone` moves as-is.
+- **Coin-denominated execution budget** (operator idea, 2026-07-27). Out of scope and deliberately not foreclosed. ADR 0060 locks the Nova coin as abstract points with **no baht peg**; pricing a WP's budget in coins would create that peg, so it is an ADR revision, not a feature. It is also blocked on cost capture: `labor_logs` 0, `equipment_usage_logs` 0, `stock_returns` 0, `stock_issues` 32 — a coin budget today would display a burn figure that is mostly fiction. **U4, U6 and U7 are the units that close those gaps, so this spec moves toward the option rather than away from it**, and U2's `{at, kind, actor, body}` row model takes a `budget` kind without a rebuild. **The one guard that keeps the door cheap: U4 must render every price through `src/lib/format.ts`** (the money-format SSOT) and never inline a baht string — a later coin display is then one file, not every call site.
 
 ## 8. Open questions
 
