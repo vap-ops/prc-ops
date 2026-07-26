@@ -16,10 +16,11 @@
 // render for someone the DB will refuse.
 
 import { useState } from "react";
+import { Pencil, Plus } from "lucide-react";
 
 import type { ManagedUnitUsage, OffListUnit } from "@/lib/catalog/units-curation";
 import { formatThaiDate, UNIT_ADDED_IN_APP_LABEL, UNIT_INACTIVE_LABEL } from "@/lib/i18n/labels";
-import { BUTTON_SECONDARY_COMPACT, CARD } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, MANAGE_ROW, ROW_ACTION_LINK } from "@/lib/ui/classes";
 import { UnitSheet } from "./unit-sheet";
 
 // The usage number counts ACTIVE catalog_items only. Other tables (boq_line,
@@ -55,21 +56,13 @@ export function UnitsBoard({
               </span>
             )}
           </h2>
-          <button
-            type="button"
-            onClick={() => setPromoting("")}
-            className={BUTTON_SECONDARY_COMPACT}
-          >
+          <button type="button" onClick={() => setPromoting("")} className={BUTTON_PRIMARY}>
             เพิ่มหน่วยนับ
           </button>
         </div>
         <ul className="flex flex-col gap-2">
           {managed.map((unit) => (
-            <li
-              key={unit.code}
-              data-testid={`unit-row-${unit.code}`}
-              className="border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3"
-            >
+            <li key={unit.code} data-testid={`unit-row-${unit.code}`} className={MANAGE_ROW}>
               <span className="min-w-0 flex-1">
                 <span className="text-ink text-body block font-medium">{unit.displayName}</span>
                 {unit.addedBy && (
@@ -88,9 +81,10 @@ export function UnitsBoard({
               <button
                 type="button"
                 onClick={() => setEditing(unit)}
-                className={BUTTON_SECONDARY_COMPACT}
+                className={ROW_ACTION_LINK}
                 aria-label={`แก้ไข ${unit.displayName}`}
               >
+                <Pencil aria-hidden className="size-4" />
                 แก้ไข
               </button>
             </li>
@@ -112,19 +106,16 @@ export function UnitsBoard({
             </p>
             <ul className="flex flex-col gap-2">
               {offList.map((row) => (
-                <li
-                  key={row.unit}
-                  data-testid={`offlist-row-${row.unit}`}
-                  className={`${CARD} flex items-center gap-3`}
-                >
+                <li key={row.unit} data-testid={`offlist-row-${row.unit}`} className={MANAGE_ROW}>
                   <span className="text-ink text-body min-w-0 flex-1 font-medium">{row.unit}</span>
                   <span className="text-ink-secondary text-meta">{row.usage} รายการ</span>
                   <button
                     type="button"
                     onClick={() => setPromoting(row.unit)}
-                    className={BUTTON_SECONDARY_COMPACT}
+                    className={ROW_ACTION_LINK}
                     aria-label={`${UNIT_PROMOTE_LABEL} ${row.unit}`}
                   >
+                    <Plus aria-hidden className="size-4" />
                     {UNIT_PROMOTE_LABEL}
                   </button>
                 </li>

@@ -78,6 +78,17 @@ export const CARD_LAYOUT = "rounded-card border px-4 py-3 shadow-card";
 export const CARD = `${CARD_LAYOUT} border-edge bg-card`;
 
 /** Zone/section heading h2. */
+// The row-level action inside a list item (แก้ไข on the catalog taxonomy rows).
+// Was a hardcoded string in edit-category.tsx; spec 361 U8 gave the units screen
+// the same idiom, so it moves here rather than being copy-pasted a third time.
+export const ROW_ACTION_LINK =
+  "text-action focus-visible:ring-action inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-sm font-medium focus:outline-none focus-visible:ring-2";
+
+// A list row on a management screen (catalog taxonomy, units). One treatment per
+// screen — mixing CARD and this reads as two different kinds of thing.
+export const MANAGE_ROW =
+  "border-edge bg-card rounded-control flex items-center gap-3 border px-4 py-3";
+
 export const SECTION_HEADING = "mb-3 text-section font-semibold text-ink";
 
 /**
