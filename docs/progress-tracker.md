@@ -6,6 +6,61 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Field bug — the OT scan had no direction and silently checked workers OUT of OT (2026-07-26)
+
+- **Origin:** the SA reported, mid-OT-round, that she could not check a technician
+  into OT. Her 17:27 screenshot showed team จันทร์ เงางาม with four members flagged
+  `OT ยังไม่ปิด` and one — ภานุพงษ์ ไชยพิเดช — carrying `OT 17:25 – 17:25` and no
+  control of any kind.
+- **Root cause, from the live row (`muster_attendance 70cc66a3`, team `3908d9d6`):**
+  `in_method = manual` at 17:25:47, `out_method = qr` at 17:25:57, `ot_hours` NULL.
+  `muster-cockpit.tsx` derived the OT scan direction from the worker's own OT state
+  (`open OT → out`), so the SA's manual `OT เข้า` followed ten seconds later by his
+  badge in the camera meant the OPPOSITE of the first input: his OT was closed with
+  a ten-second span. The regular session never had this hazard — its direction comes
+  from the visible เข้า/ออก toggle, which makes a duplicate scan an idempotent no-op.
+- **Why it was unrecoverable:** `unique(worker_id, work_date, session)` allows one OT
+  session per worker per day; `muster_scan_in` returns the existing row id without
+  touching it; the per-member button hides once OT is closed; no RPC anywhere clears
+  `out_at`. So a mis-closed OT could only be repaired by an operator data op.
+- **The fix (code-only):** OT takes its direction from the same explicit เข้า/ออก
+  toggle as the regular session; the camera writes only the direction on screen, and
+  a scan contradicting the worker's OT state refuses (`ช่างคนนี้เปิด OT อยู่แล้ว` /
+  `ยังไม่ได้เปิด OT ของช่างคนนี้` / `ช่างคนนี้ปิด OT แล้ว`) instead of writing the
+  opposite way. Switching session resets the direction to เข้า — each round starts
+  with check-ins and เข้า is the direction that cannot destroy a record. The
+  per-member `OT เข้า`/`OT ออก` buttons pass their own direction: the label IS the
+  intent, so they keep working whichever way the toggle sits. The add-sheet header
+  now names the OT direction (`กำลังบันทึก OT เข้า` / `… OT ออก`).
+- **Second half of the same defect:** the ปิดวัน footer read
+  `ทุกคนเช็คออกแล้ว · ปิดวันเพื่อบันทึกค่าแรง` in that screenshot while four OT
+  sessions were open (`stillIn` counts the regular session only), and the open-OT
+  warning was hidden behind the confirm — one tap from the loss it warns about.
+  `close_muster_day` auto-outs regular only, so closing there loses the OT for good
+  (2026-07-24: 9 OT rows left open, all `ot_hours` NULL). The ready line now says
+  `ทุกคนเช็คออกงานปกติแล้ว` while OT is open and the warning shows before the press.
+- **Evidence:** 9 RED-first tests in `tests/unit/muster-cockpit.test.tsx`
+  (direction toggle present in OT · reset on session switch both ways · เข้า on an
+  open-OT worker writes nothing · ออก on a worker with no OT row writes nothing ·
+  both correct directions still write · header names the direction · the per-member
+  `OT ออก` still closes OT while the toggle sits on เข้า · the two footer copy pins).
+- **Operator-approved prod correction (one row):** `muster_attendance 70cc66a3`
+  `out_at`/`out_method`/`ot_hours` → NULL, so his OT counts from 17:25:47 and the SA
+  closes it at the real end time. Prior values: `out_at 2026-07-26 10:25:57.27607+00`,
+  `out_method qr`, `ot_hours NULL`, `out_auto false`.
+- **Open questions / follow-ups (NOT done here):**
+  - A repair path for a mis-closed OT — `muster_reopen_ot(p_team, p_worker)` clearing
+    `out_at`/`ot_hours` under the muster role gate, with an audit row. Needs the
+    schema lane (three claims deep on 2026-07-26). Until it exists, the only fix is
+    an operator data op.
+  - OT check-out is still one-shot per badge (no sweep). If the 21:00 round proves
+    slow, the spec-359 sweep would have to be widened to `ออก`, which its own scope
+    decision deliberately excluded.
+  - Nothing warns when a day is closed with OT still open — the footer now says it,
+    but `close_muster_day` itself accepts it silently.
+
+---
+
 ## Spec 273 — pin both refusal arms on all five daily-plan writers — ✅ PR #767 (2026-07-26)
 
 - **Origin:** an out-of-scope security finding from the spec-330 `TEAM_MAP_ROLES`

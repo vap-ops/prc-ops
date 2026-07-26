@@ -291,6 +291,177 @@ describe("MusterCockpit — OT session (spec 351)", () => {
   });
 });
 
+// Writing failing test first.
+//
+// FIELD BUG 2026-07-26 — "SA cannot check techs into OT". The OT camera path had
+// no DIRECTION: `scanOt` derived in/out from the worker's own OT state (open OT
+// → out), so a SECOND input for the same worker flipped it. Prod row 70cc66a3
+// (ภานุพงษ์): manual `OT เข้า` at 17:25:47, his badge scanned at 17:25:57 → OT
+// CLOSED with a ten-second span, `ot_hours` NULL — and nothing in the app
+// reopens a closed OT (`unique(worker_id, work_date, session)`; `muster_scan_in`
+// returns the existing row id silently; the per-member button hides), so his OT
+// was unrecoverable. The regular session never had this hazard because its
+// direction comes from the visible เข้า/ออก toggle, which makes a duplicate scan
+// an idempotent no-op. So: OT follows the same explicit toggle, and a scan that
+// contradicts the worker's OT state REFUSES instead of writing the opposite way.
+describe("MusterCockpit — OT scan direction (field bug 2026-07-26)", () => {
+  // W1 regular done, NO ot row → an OT เข้า candidate.
+  // W2 regular done, OT OPEN → an OT ออก candidate (and the mis-scan victim).
+  const DIR_BOARD: MusterBoard = {
+    ...BOARD,
+    teams: [
+      {
+        id: T1,
+        leadWorkerId: W1,
+        leadName: "ลี",
+        members: [
+          {
+            workerId: W1,
+            name: "ลี",
+            gender: null,
+            inAt: "2026-07-13T01:00:00Z",
+            outAt: "2026-07-13T09:00:00Z",
+            ot: null,
+            outAuto: false,
+          },
+          {
+            workerId: W2,
+            name: "สมชาย",
+            gender: null,
+            inAt: "2026-07-13T01:00:00Z",
+            outAt: "2026-07-13T09:00:00Z",
+            ot: { inAt: "2026-07-13T10:30:00Z", outAt: null, otHours: null },
+            outAuto: false,
+          },
+          {
+            workerId: W3,
+            name: "ก้อง",
+            gender: null,
+            inAt: "2026-07-13T01:00:00Z",
+            outAt: "2026-07-13T09:00:00Z",
+            ot: null,
+            outAuto: false,
+          },
+        ],
+        wpIds: [],
+        prefillWpIds: [],
+        missing: [],
+      },
+    ],
+  };
+
+  /** Drive one camera decode of `workerId` in the OT session, direction `dir`. */
+  async function scanInOt(workerId: string, dir: "เข้า" | "ออก") {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      const user = userEvent.setup();
+      nextScanId.current = workerId;
+      renderCockpit(DIR_BOARD);
+      await user.click(screen.getByRole("button", { name: "OT" }));
+      await user.click(screen.getByRole("button", { name: dir }));
+      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+      // The file's beforeEach re-arms the resolved value but never clears the call
+      // log, and the refusal cases assert on NO write — so clear it here, right
+      // before the decode, and let each case own its calls.
+      musterScan.mockClear();
+      await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock-next"));
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+      nextScanId.current = W3;
+    }
+  }
+
+  it("the OT session offers the เข้า/ออก direction toggle, like the regular session", async () => {
+    const user = userEvent.setup();
+    renderCockpit(DIR_BOARD);
+    await user.click(screen.getByRole("button", { name: "OT" }));
+    expect(screen.getByRole("button", { name: "เข้า" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ออก" })).toBeInTheDocument();
+  });
+
+  it("switching session lands on เข้า — each round starts with check-ins, and it is the non-destructive direction", async () => {
+    const user = userEvent.setup();
+    renderCockpit(DIR_BOARD);
+    // Regular check-out round in progress…
+    await user.click(screen.getByRole("button", { name: "ออก" }));
+    // …then the SA moves to the 17:30 OT round: the direction must not carry over.
+    await user.click(screen.getByRole("button", { name: "OT" }));
+    expect(screen.getByRole("button", { name: "เข้า" })).toHaveClass("bg-fill");
+    // And back again — the same reset protects the regular session.
+    await user.click(screen.getByRole("button", { name: "งานปกติ" }));
+    expect(screen.getByRole("button", { name: "เข้า" })).toHaveClass("bg-fill");
+  });
+
+  it("a badge scanned in OT + เข้า for a worker whose OT is ALREADY OPEN writes nothing (the 70cc66a3 bug)", async () => {
+    await scanInOt(W2, "เข้า");
+    expect(musterScan).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent("เปิด OT อยู่แล้ว");
+  });
+
+  it("a badge scanned in OT + ออก for a worker with NO OT row writes nothing", async () => {
+    await scanInOt(W1, "ออก");
+    expect(musterScan).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent("ยังไม่ได้เปิด OT");
+  });
+
+  it("a badge scanned in OT + ออก for an open-OT worker closes OT (the 21:00 round keeps working)", async () => {
+    await scanInOt(W2, "ออก");
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: T1,
+        workerId: W2,
+        mode: "out",
+        session: "ot",
+        method: "qr",
+      }),
+    );
+  });
+
+  it("a badge scanned in OT + เข้า for a worker with no OT row opens OT", async () => {
+    await scanInOt(W1, "เข้า");
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: T1,
+        workerId: W1,
+        mode: "in",
+        session: "ot",
+        method: "qr",
+      }),
+    );
+  });
+
+  it("the sheet header names the OT direction, so the SA sees which way the camera writes", async () => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      const user = userEvent.setup();
+      renderCockpit(DIR_BOARD);
+      await user.click(screen.getByRole("button", { name: "OT" }));
+      await user.click(screen.getByRole("button", { name: "ออก" }));
+      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+      expect(screen.getByTestId("sweep-action-header").textContent).toContain("กำลังบันทึก OT ออก");
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+    }
+  });
+
+  it("the per-member OT ออก button still closes OT while the toggle sits on เข้า (its label IS its direction)", async () => {
+    const user = userEvent.setup();
+    renderCockpit(DIR_BOARD);
+    await user.click(screen.getByRole("button", { name: "OT" }));
+    const team = screen.getByTestId(`team-${T1}`);
+    await user.click(within(team).getByRole("button", { name: "OT ออก" }));
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({ workerId: W2, mode: "out", session: "ot", method: "manual" }),
+    );
+  });
+});
+
 // Spec 334 follow-up (operator 2026-07-21): หัวหน้าทีม can only be an HT — a worker
 // who leads a crew (crews.lead_worker_id, the spec 330/332 headship axis). The
 // picker must not offer the whole roster.
@@ -823,6 +994,47 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
     };
     renderCockpit(OT_OPEN);
     await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+    expect(screen.getByText(/ยัง OT ไม่ปิด/)).toBeInTheDocument();
+  });
+
+  // Field bug 2026-07-26, second half: the SA's screenshot showed
+  // "ทุกคนเช็คออกแล้ว · ปิดวันเพื่อบันทึกค่าแรง" while FOUR OT sessions were open —
+  // `stillIn` counts regular only, and the open-OT warning was hidden behind the
+  // confirm. close_muster_day auto-outs regular only, so a day closed in that
+  // state loses the OT for good (07-24: 9 open OT rows, all ot_hours NULL).
+  const OT_STILL_OPEN: MusterBoard = {
+    ...BOARD,
+    teams: [
+      {
+        id: T1,
+        leadWorkerId: W1,
+        leadName: "ลี",
+        members: [
+          {
+            workerId: W1,
+            name: "ลี",
+            gender: null,
+            inAt: "2026-07-13T01:00:00Z",
+            outAt: "2026-07-13T10:00:00Z",
+            ot: { inAt: "2026-07-13T10:30:00Z", outAt: null, otHours: null },
+            outAuto: false,
+          },
+        ],
+        wpIds: [],
+        prefillWpIds: [],
+        missing: [],
+      },
+    ],
+  };
+
+  it("does not claim everyone is checked out while an OT session is still open", () => {
+    renderCockpit(OT_STILL_OPEN);
+    expect(screen.queryByText(/ทุกคนเช็คออกแล้ว/)).not.toBeInTheDocument();
+    expect(screen.getByText(/ทุกคนเช็คออกงานปกติแล้ว/)).toBeInTheDocument();
+  });
+
+  it("warns about the open OT before the SA presses ปิดวัน, not only inside the confirm", () => {
+    renderCockpit(OT_STILL_OPEN);
     expect(screen.getByText(/ยัง OT ไม่ปิด/)).toBeInTheDocument();
   });
 });
