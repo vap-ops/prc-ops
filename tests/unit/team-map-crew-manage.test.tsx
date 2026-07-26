@@ -113,7 +113,7 @@ function renderView() {
       map={MAP}
       addableStaff={[]}
       currentUserId="u-pm"
-      canManageStaff
+      canSetPrimarySa
     />,
   );
 }

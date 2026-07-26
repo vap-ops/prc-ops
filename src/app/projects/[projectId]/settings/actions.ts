@@ -8,7 +8,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
-import { PM_ROLES } from "@/lib/auth/role-home";
+import { PM_ROLES, TEAM_MAP_ROLES } from "@/lib/auth/role-home";
 import { applyAssumedRole } from "@/lib/auth/apply-assumed-role";
 import { projectHref, projectSettingsHref } from "@/lib/nav/project-paths";
 import {
@@ -28,6 +28,9 @@ import { isValidUuid } from "@/lib/validate/uuid";
 import type { Database } from "@/lib/db/database.types";
 
 const PM_ONLY_ERROR = "เฉพาะผู้จัดการโครงการเท่านั้นที่แก้ไขโครงการได้";
+// Membership is wider than the rest of project settings (operator 2026-07-26):
+// the PM tier plus the procurement manager, who owns the on-site teams.
+const MEMBER_GATE_ERROR = "เฉพาะผู้จัดการโครงการหรือผู้จัดการฝ่ายจัดซื้อเท่านั้นที่จัดการสมาชิกได้";
 const CLIENT_NAME_MAX = 200;
 
 export interface UpdateProjectSettingsInput {
@@ -242,8 +245,14 @@ async function gateProjectMember(projectId: string, userId: string) {
     .maybeSingle();
   // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
   const effectiveRole = await applyAssumedRole(userRow?.role);
-  if (!effectiveRole || !PM_ROLES.includes(effectiveRole)) {
-    return { ok: false as const, error: PM_ONLY_ERROR };
+  // Operator directive 2026-07-26 ("yes, she can manage project members"),
+  // following #766: membership follows the team map, so this gate is
+  // TEAM_MAP_ROLES — PM tier PLUS procurement_manager. The `project_members`
+  // INSERT/DELETE policies were widened to match in migration
+  // 20260813075856; this action writes the table directly under the caller's
+  // session client, so BOTH layers had to move or the button would refuse.
+  if (!effectiveRole || !TEAM_MAP_ROLES.includes(effectiveRole)) {
+    return { ok: false as const, error: MEMBER_GATE_ERROR };
   }
   return { ok: true as const, auth };
 }

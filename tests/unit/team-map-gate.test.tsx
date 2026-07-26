@@ -168,7 +168,9 @@ const STAFF_MAP: ProjectTeamMap = {
       name: "อรปรีญา",
       role: "site_admin",
       isMember: true,
-      isPrimary: true,
+      // NOT the primary SA — otherwise ตั้งเป็น SA หลัก never renders for anyone
+      // and the gate assertions below would pass for the wrong reason.
+      isPrimary: false,
       isLead: false,
     },
   ],
@@ -186,49 +188,83 @@ const STAFF_MAP: ProjectTeamMap = {
   memberCount: 1,
 };
 
-const renderMap = (canManageStaff: boolean) =>
+const renderMap = (canSetPrimarySa: boolean) =>
   render(
     <TeamMapView
       projectId={PROJECT_ID}
       map={STAFF_MAP}
       addableStaff={[]}
       currentUserId="u-pm"
-      canManageStaff={canManageStaff}
+      canSetPrimarySa={canSetPrimarySa}
     />,
   );
 
 afterEach(cleanup);
 
-describe("staff-tier affordances follow the manager gate, not page reach", () => {
-  it("a manager keeps เพิ่มสมาชิก on the staff tiers", () => {
-    renderMap(true);
-    expect(screen.getAllByRole("button", { name: /เพิ่มสมาชิก/ }).length).toBeGreaterThan(0);
-  });
-
-  it("procurement_manager sees no เพิ่มสมาชิก — its action refuses her", () => {
-    renderMap(false);
-    expect(screen.queryAllByRole("button", { name: /เพิ่มสมาชิก/ })).toHaveLength(0);
-  });
-
-  it("the crew half stays fully hers — ตั้งทีมใหม่ renders either way", () => {
+describe("the crew half is hers regardless", () => {
+  it("ตั้งทีมใหม่ renders for a non-manager who reached the page", () => {
     renderMap(false);
     expect(screen.getByRole("button", { name: /ตั้งทีมใหม่/ })).toBeInTheDocument();
   });
+});
 
-  it("the staff sheet offers no membership actions to her, and says why", async () => {
+// ── Project membership follows the same directive ────────────────────────────
+//
+// Operator, 2026-07-26, after #766: *"yes, she can manage project members."*
+// addProjectMember / removeProjectMember write `project_members` DIRECTLY under
+// the caller's session client — no DEFINER RPC — so the server-action gate and
+// the RLS write policies must widen TOGETHER with the affordance. The migration
+// (20260813075856) carries the policy half; pgTAP 361 asserts it.
+//
+// `ตั้งเป็น SA หลัก` deliberately does NOT widen: set_primary_project_for's RPC
+// allowlist is PM/PD/super, and "primary site" is not membership.
+
+describe("project membership widens with the team map (operator 2026-07-26)", () => {
+  it("the member gate uses TEAM_MAP_ROLES — and the rest of project settings does not", () => {
+    const actions = read("src/app/projects/[projectId]/settings/actions.ts");
+    // Scoped to gateProjectMember's own body: the file's OTHER gates
+    // (updateProjectSettings, the client writes) stay PM-only on purpose, so a
+    // file-wide absence assertion would be wrong, not strict.
+    const gate = actions.slice(
+      actions.indexOf("async function gateProjectMember"),
+      actions.indexOf("export async function addProjectMember"),
+    );
+    expect(gate).toMatch(/!TEAM_MAP_ROLES\.includes\(effectiveRole\)/);
+    expect(gate).not.toMatch(/PM_ROLES/);
+    // …and the settings gate is untouched, so the widening did not leak.
+    expect(actions).toMatch(/!PM_ROLES\.includes\(effectiveRole\)/);
+  });
+
+  it("the RLS write policies admit her too — the action gate is not the only layer", () => {
+    const mig = read("supabase/migrations/20260813075856_project_members_procurement_manager.sql");
+    // both write policies, and the two properties a widening must not lose
+    expect(mig).toMatch(/for insert[\s\S]*procurement_manager/i);
+    expect(mig).toMatch(/for delete[\s\S]*procurement_manager/i);
+    expect(mig).toMatch(/added_by = \(select auth\.uid\(\)\)/);
+    expect((mig.match(/\(select public\.current_user_role\(\)\)/g) ?? []).length).toBe(2);
+    // plain procurement is NOT in the directive
+    expect(mig).not.toMatch(/'procurement'::public\.user_role/);
+  });
+
+  it("she now sees เพิ่มสมาชิก and ถอดออกจากทีมโครงการ", async () => {
+    const user = userEvent.setup();
+    renderMap(false);
+    expect(screen.getAllByRole("button", { name: /เพิ่มสมาชิก/ }).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: /อรปรีญา/ }));
+    expect(screen.getByRole("button", { name: /ถอดออกจากทีมโครงการ/ })).toBeInTheDocument();
+  });
+
+  it("ตั้งเป็น SA หลัก stays the manager's — its RPC still refuses her", async () => {
     const user = userEvent.setup();
     renderMap(false);
     await user.click(screen.getByRole("button", { name: /อรปรีญา/ }));
-    expect(screen.queryByRole("button", { name: /ถอดออกจากทีมโครงการ/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /ตั้งเป็น SA หลัก/ })).toBeNull();
-    expect(screen.getByText(/ทำได้โดยผู้จัดการโครงการเท่านั้น/)).toBeInTheDocument();
   });
 
-  it("a manager still gets both membership actions in that sheet", async () => {
+  it("a manager keeps ตั้งเป็น SA หลัก", async () => {
     const user = userEvent.setup();
     renderMap(true);
     await user.click(screen.getByRole("button", { name: /อรปรีญา/ }));
-    expect(screen.getByRole("button", { name: /ถอดออกจากทีมโครงการ/ })).toBeInTheDocument();
-    expect(screen.queryByText(/ทำได้โดยผู้จัดการโครงการเท่านั้น/)).toBeNull();
+    expect(screen.getByRole("button", { name: /ตั้งเป็น SA หลัก/ })).toBeInTheDocument();
   });
 });

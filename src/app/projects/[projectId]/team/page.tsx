@@ -146,7 +146,7 @@ export default async function ProjectTeamPage({ params }: PageProps) {
           map={map}
           addableStaff={addableStaff}
           currentUserId={ctx.id}
-          canManageStaff={isManagerRole(ctx.role)}
+          canSetPrimarySa={isManagerRole(ctx.role)}
           tradesByWorker={tradesByWorker}
           dayPlans={{ today: todayPlan, tomorrow: tomorrowPlan }}
           planWps={leafWps ?? []}
