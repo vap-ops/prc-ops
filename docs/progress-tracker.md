@@ -38,8 +38,22 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
   calls in a burst is how the pooler transients happen). **A partial close is reported as
   a failure and the day stays open** — closing anyway would destroy the OT the button
   exists to save.
-- **Evidence:** 4 RED-first action tests + 5 RED-first cockpit tests; `pnpm lint` ✅
-  `pnpm typecheck` ✅.
+- **Evidence:** 4 RED-first action tests + 6 RED-first cockpit tests · **8 mutation
+  checks, all RED** (cure closing the day despite failing · cure button not primary ·
+  count dropped from the close-anyway label · auto-out line absent · names dropped ·
+  the action swallowing a refusal · writing before validating · the missing refresh) ·
+  `pnpm lint` ✅ `pnpm typecheck` ✅ · `pnpm build` ✅.
+- ⭐ **Fresh-eyes returned 0🔴, and one of its 🟡s was actually a data-loss path.** It
+  flagged the missing `router.refresh()` on a failed cure as staleness. One step further:
+  `run()` refreshes only on success, so after a PARTIAL cure the confirm still listed the
+  sessions that DID close — and a second tap re-runs `muster_scan_out` over rows already
+  out, which has no already-out guard and would overwrite their real out time with
+  `now()`. The retry path would have caused exactly the damage this unit prevents. Fixed
+  (refresh, then report) and pinned. **Lesson: a "staleness" finding on a screen whose
+  buttons drive non-idempotent writes is a correctness finding — follow it to the retry.**
+  Its other 🟡 (the `closed` count is lost on the failure path) is accepted: no caller
+  reads it, and the refreshed board is what the SA acts on. Mock-reset hygiene fixed as
+  advised.
 - **Open questions / follow-ups (NOT done here):**
   - The durable fix is not a dialog — the failure is _forgetting_, not misunderstanding.
     That is the parked 306 U5b cron backstop (close OT at a policy hour) plus an explicit
