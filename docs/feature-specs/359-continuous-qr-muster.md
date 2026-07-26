@@ -149,9 +149,22 @@ Devices without a camera are **unchanged**: tap list open, exactly as today.
 ### U3 — the manual tap runs the same pipeline (code-only, added 2026-07-26)
 
 **Why this is not polish.** U1 wired the six outcomes, the tally and the team-change warn to the
-**camera path only** (`onSweepDetected`). A tap called `musterScan` directly. **No badge has been
-printed yet**, so every real check-in is a tap — which means the warn this spec argued for is dead
-on the traffic that actually exists, and stays dead until badges are distributed.
+**camera path only** (`onSweepDetected`). A tap called `musterScan` directly — no tally, no warn, no
+other-team resolution.
+
+⚠️ **Live correction, measured on the morning this unit was built (2026-07-26).** The unit was
+scoped on "no printed badge exists, so every check-in is a tap", which held for 07-24 (0/13 QR) and
+07-25 (1/17). It is **no longer true**: the morning after U1+U2 deployed, the pilot recorded **17 of
+18 regular check-ins by QR** — the sweep moved the metric on its first real day, and the scan path
+is now the majority. That does not weaken the unit, it re-aims it:
+
+1. **The tap is now the exception path, and the exception is exactly the operator's question** —
+   the one manual check-in that morning was a worker whose card could not be scanned. Phoneless,
+   flat-battery, card-not-found and roster-only workers are precisely who lands on the tap list, and
+   they were the users getting none of the sweep's signals.
+2. **The other-team resolution stays QR-only without this unit**, so the person most likely to be
+   mis-checked-in — someone the SA had to add by hand in the first place — was the one person who
+   could not be moved.
 
 Two concrete losses, both raised by the operator (2026-07-26: _"how are we handling technicians who
 forgot their phones or had no phone and change team?"_):
@@ -162,6 +175,10 @@ forgot their phones or had no phone and change team?"_):
    mustered today, and spec 357 U-E removed the ย้าย row control, so the tally's `ย้ายมาทีมนี้` is
    the only remaining door to `move_muster_worker` — and it could only be opened by a QR decode.
    For a phoneless worker there was no path.
+
+⭐ **Also settled by that same measurement: the on-device proof this spec's Sequencing section says
+is owed.** 17 decodes in one morning on the pilot SA's iPhone is the jsQR fallback (#745) working at
+lineup speed, not the single unattributed scan the U2 gate was waiting on.
 
 **The change.** `sweepAdd(teamId, workerId, method, now)` is the single pipeline; a decode and a tap
 differ only in `method`. The tap list additionally offers workers already mustered **elsewhere**,
