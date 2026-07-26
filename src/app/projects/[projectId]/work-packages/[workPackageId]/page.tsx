@@ -68,7 +68,6 @@ import { WpNameControl } from "@/components/features/work-packages/wp-name-contr
 import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
 import { WpDetailTabs, type WpDetailTab } from "@/components/features/work-packages/wp-detail-tabs";
-import { WorkPackageNotes } from "@/components/features/work-packages/work-package-notes";
 import {
   PurchaseRequestForm,
   type PurchaseRequestCatalogItem,
@@ -730,20 +729,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       label: "ข้อมูล",
       panel: (
         <>
-          <div className={CARD}>
-            {readOnly ? (
-              // Spec 171: notes are read-only for procurement (no editor).
-              <>
-                <p className="text-ink text-sm font-medium">หมายเหตุ</p>
-                <p className="text-ink-secondary mt-1 text-sm whitespace-pre-wrap">
-                  {wp.notes?.trim() ? wp.notes : "—"}
-                </p>
-              </>
-            ) : (
-              <WorkPackageNotes projectId={wp.project_id} workPackageId={wp.id} notes={wp.notes} />
-            )}
-          </div>
-          {/* Spec 94: รายละเอียดงาน (description) lives in the header ⓘ sheet. */}
+          {/* Spec 94: รายละเอียดงาน (description) lives in the header ⓘ sheet.
+              Spec 363 U1: หมายเหตุ joined it there — for BOTH audiences, so the
+              spec-171 read-only variant moved too. This tab is now
+              ประวัติการตรวจ alone, and U2 retires it once the timeline lands. */}
           {approvals.length > 0 ? (
             <details className={CARD}>
               <summary className="text-body text-ink cursor-pointer font-semibold">
@@ -772,7 +761,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 ))}
               </ul>
             </details>
-          ) : null}
+          ) : (
+            <p className={`${CARD} text-body text-ink-secondary`}>ยังไม่มีประวัติการตรวจ</p>
+          )}
         </>
       ),
     },
@@ -872,21 +863,24 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         actions={
           // Spec 94: contractor (display + reassign) + the read-only description
           // fold into this ⓘ sheet so the header stays the WP nameplate.
-          assignedContractor || wp.description ? (
-            <WorkPackageInfoButton
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              contractor={
-                assignedContractor
-                  ? { name: assignedContractor.name, phone: assignedContractor.phone }
-                  : null
-              }
-              description={wp.description}
-              isAssigner={isAssigner}
-              contractors={pickerContractors}
-              contractorId={wp.contractor_id}
-            />
-          ) : null
+          // Spec 363 U1 (D2): UNCONDITIONAL. The sheet now also holds หมายเหตุ, so
+          // gating on contractor-or-description would leave a bare WP with no route
+          // to its notes at all.
+          <WorkPackageInfoButton
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            contractor={
+              assignedContractor
+                ? { name: assignedContractor.name, phone: assignedContractor.phone }
+                : null
+            }
+            description={wp.description}
+            isAssigner={isAssigner}
+            contractors={pickerContractors}
+            contractorId={wp.contractor_id}
+            notes={wp.notes}
+            canEditNotes={!readOnly}
+          />
         }
       >
         <div className="flex items-start justify-between gap-3">
