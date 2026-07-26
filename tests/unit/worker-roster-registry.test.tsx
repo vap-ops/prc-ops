@@ -167,6 +167,20 @@ describe("WorkerRosterManager — registry shape (spec 362 U3)", () => {
     expect(screen.getByLabelText("ชื่อ")).toBeInTheDocument();
   });
 
+  it("re-opening a worker's editor discards a cancelled edit", () => {
+    // The sheet unmounts but the row's state does not. Worse than the old inline
+    // block: the sheet adds THREE new ways to abandon an edit (scrim, Escape, ✕)
+    // that the inline block never had, and this form holds 12 fields including
+    // bank + tax id. Without a re-seed the next opener inherits that typing and
+    // บันทึก writes it.
+    renderRoster([ROSTER[0]!]);
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข สมชาย ใจดี" }));
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "พิมพ์ผิด" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไข สมชาย ใจดี" }));
+    expect(screen.getByLabelText("ชื่อ")).toHaveValue("สมชาย ใจดี");
+  });
+
   it("keeps the row's activate/deactivate control beside แก้ไข", () => {
     renderRoster([ROSTER[0]!]);
     expect(screen.getByRole("button", { name: "ปิดใช้งาน สมชาย ใจดี" })).toBeInTheDocument();

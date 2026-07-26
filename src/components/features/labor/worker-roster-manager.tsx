@@ -423,6 +423,33 @@ function WorkerRow({
   // shows the tapped value instantly while the action is in flight and auto-reverts
   // to `committedActive` if it fails — no router.refresh on the toggle path.
   const [committedActive, setCommittedActive] = useState(worker.active);
+
+  // Spec 362 U3 — re-seed EVERY field from the row when the editor opens. The
+  // state above survives the sheet's unmount, and the sheet added three ways to
+  // abandon an edit the old inline block never had (scrim tap, Escape, ✕). Without
+  // this, abandoned typing — including bank and tax id — waits for the next opener
+  // and บันทึก writes it. `committedActive` is deliberately NOT re-seeded: it is
+  // the optimistic toggle's post-mount truth, not editor state.
+  function openEditor() {
+    setName(worker.name);
+    setRate(String(worker.day_rate));
+    setNote(worker.note ?? "");
+    setProject(worker.project_id ?? "");
+    setLevel(worker.level ?? "");
+    setTradeIds(worker.trades.map((t) => t.categoryId));
+    setPrimaryTradeId(worker.trades.find((t) => t.isPrimary)?.categoryId ?? null);
+    setPayType(worker.pay_type);
+    setEmploymentType(worker.employment_type);
+    setGender(worker.gender ?? "");
+    setContractorPick(worker.contractor_id ?? "");
+    setPhone(worker.phone ?? "");
+    setTaxId(worker.tax_id ?? "");
+    setBankName(worker.bank_name ?? "");
+    setBankAccountNumber(worker.bank_account_number ?? "");
+    setBankAccountName(worker.bank_account_name ?? "");
+    setError(null);
+    setEditing(true);
+  }
   const [optimisticActive, setOptimisticActive] = useOptimistic(
     committedActive,
     (_current, next: boolean) => next,
@@ -624,7 +651,7 @@ function WorkerRow({
         <button
           type="button"
           aria-label={`แก้ไข ${worker.name}`}
-          onClick={() => setEditing(true)}
+          onClick={openEditor}
           className={BUTTON_SECONDARY_COMPACT}
         >
           แก้ไข
