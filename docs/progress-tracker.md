@@ -6,6 +6,38 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 362 — Registry UI parity: ทะเบียนวัสดุ becomes the house pattern (2026-07-26)
+
+- **Operator, verbatim:** _"UI of ทะเบียนวัสดุ is better than ทะเบียนอุปกรณ์ and ทะเบียนค่าแรง"_.
+  He scoped it himself when asked: ค่าแรง = **both** `/settings/labor-rates` (ค่าแรงมาตรฐาน) and
+  `/workers` (ทะเบียนช่างและค่าแรง); **full port, อุปกรณ์ first.**
+- **Diagnosis:** `/catalog` is READ-first — search, counted filter chips, `label (n)` sections, card
+  rows, and every write inside a `BottomSheet`. The other three are FORM-first: `/equipment` opens on
+  **four** curator blocks (2 quick-adds, the spec-361 taxonomy card, a fully expanded add form) above 64
+  items in 9 categories, with no search, no filter, no grouping and `text-xs` inline-expanding row
+  actions; `/settings/labor-rates` leaves the entered rate + WHT basis of all 4 levels as permanently
+  open form controls under an `h1` that drifted to `text-lg font-semibold`; `/workers` puts the app's
+  largest form above 29 ช่าง grouped only by `pay_type`, and has no empty state at all.
+- **Status:** spec + index written and **corrected by a refute-first fact-check** before shipping.
+  **NO schema, NO gate change** — role sets, actions, RPCs, RLS and the money audiences carry across
+  unchanged and get pinned by test.
+- **The fact-check killed 5 of my own claims** (doctrine §4): ① "no count anywhere" on `/equipment` is
+  FALSE — per-category counts already render in the spec-361 U6 taxonomy card; ② categories are not
+  "only meta-line text" — that card lists all 9 with rename; ③ `/catalog` is NOT token-clean throughout
+  (its sheet bodies and row actions use raw `text-sm`) — only the LIST is, so ingredient 7 is scoped to
+  the list; ④ the `touch-action` pair is a **Vitest static scan**, not a build-failing guard; ⑤ the 44px
+  row-action floor is a NEW rule, not one inherited from `/catalog`, whose own row actions miss it.
+  It also caught the gate inventory being incomplete (`WORKER_ROSTER_ROLES`; labor-rates gates on an
+  inline literal, not a constant) and the `/workers` money+PII shaping (`portalBound` bank-withhold).
+- **★ Landmine recorded before U1:** `dailyRate`'s `undefined` (no money audience) vs `null` (audience,
+  unset) survives only via a conditional prop spread under `exactOptionalPropertyTypes`. Moving the row
+  editor into a sheet ADDS a hop; a plain pass-through silently renders the rate control to the field
+  view, and `money-read-guard` does not cover `equipment_items`. Needs its own pin.
+- **Units:** U1 `/equipment` · U2 `/settings/labor-rates` · U3 `/workers`.
+- **Open questions:** none yet.
+
+---
+
 ## Spec 306 — ปิดวัน states what it will do, and offers the cure (2026-07-26)
 
 - **Operator question:** _"should we prevent ปิดวัน? or at least provide warnings and
