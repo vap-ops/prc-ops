@@ -782,6 +782,11 @@ export function EquipmentManager({
   // a category with no matching row this render is not offered as a chip.
   const present = categories.map((c) => c.id).filter((id) => countIn(id) > 0);
 
+  // A live search OVERRIDES the category chip and searches the whole registry
+  // (the /catalog rule, catalog-list.tsx:110). Typing a name you can see is a
+  // stronger statement of intent than a chip you tapped a minute ago, and a
+  // search that silently returned nothing because of a stuck filter is the
+  // worse failure. The chip stays checked, so clearing the box restores it.
   const sections =
     !searching && selectedCat !== ALL
       ? present

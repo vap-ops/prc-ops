@@ -438,6 +438,32 @@ describe("EquipmentManager", () => {
     expect(screen.queryByLabelText("ชื่ออุปกรณ์")).not.toBeInTheDocument();
   });
 
+  it("a search overrides the selected category chip and searches the whole registry", () => {
+    // The /catalog rule. Without it a stuck chip makes a search silently return
+    // nothing, which reads as "the item isn't in the registry".
+    renderMixed();
+    fireEvent.click(screen.getByRole("radio", { name: "นั่งร้าน (2)" }));
+    expect(screen.queryByText("เครื่องปั่นไฟ 5kVA")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("ค้นหาอุปกรณ์"), { target: { value: "GEN-001" } });
+    // Found, despite living in the category the chip filtered out…
+    expect(screen.getByText("เครื่องปั่นไฟ 5kVA")).toBeInTheDocument();
+    // …a category with no match is not offered as a chip at all while searching
+    // (the /catalog `present` rule), so the checked chip is gone from the row…
+    expect(screen.queryByRole("radio", { name: /^นั่งร้าน/ })).not.toBeInTheDocument();
+    // …and clearing the box restores it, still checked, filter and all.
+    fireEvent.change(screen.getByLabelText("ค้นหาอุปกรณ์"), { target: { value: "" } });
+    expect(screen.getByRole("radio", { name: "นั่งร้าน (2)" })).toBeChecked();
+    expect(screen.queryByText("เครื่องปั่นไฟ 5kVA")).not.toBeInTheDocument();
+  });
+
+  it("renders no rate control for a curator whose page read no rate map", () => {
+    // MONEY: canManageRegistry alone must not open the money control — the page
+    // omits `dailyRates` entirely when it did not make the admin-client read, and
+    // `undefined` has to keep meaning "render nothing" rather than "unset".
+    renderManager({ items: ITEMS, canManageRegistry: true });
+    expect(screen.queryByText("ตั้งค่าเช่า/วัน")).not.toBeInTheDocument();
+  });
+
   it("every control in the row's action cluster clears the 44px touch floor", () => {
     // The three that share the cluster: ย้าย, แก้ไข and the money control. All
     // were text links below the floor before spec 362 U1.
