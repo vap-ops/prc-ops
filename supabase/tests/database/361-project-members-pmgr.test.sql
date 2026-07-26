@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(19);
 
 -- ============================================================================
 -- Operator directive 2026-07-26 (follows #766 "procurement_manager owns the
@@ -42,6 +42,14 @@ update public.users set role = 'site_admin'          where id = '70000000-0361-0
 
 insert into public.projects (id, code, name) values
   ('c1000000-0361-0361-0361-000000000001', 'PRC-361-A', 'โครงการทดสอบ 361');
+
+-- The runner rewrites each assertion into an insert on the temp `_tap_buf`
+-- collector, and every assertion below runs WHILE `role = authenticated`, which
+-- has no INSERT on a fresh temp table. Without these grants the first
+-- post-switch assertion aborts with 42501 and the WHOLE file reports not ok.
+grant insert on _tap_buf to authenticated, anon;
+grant select on _tap_buf to authenticated, anon;
+grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 
 -- ============================================================================
 -- A. procurement_manager: the new arm, both directions.
