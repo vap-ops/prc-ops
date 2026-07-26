@@ -44,6 +44,7 @@ import {
   SA_SURFACE_ROLES,
   SA_REGISTRATION_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
+  TEAM_MAP_ROLES,
   SITE_STAFF_ROLES,
   WP_SUBMIT_ROLES,
   STAFF_APPROVAL_ROLES,
@@ -293,6 +294,13 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     labelTh: "เพิ่มเข้าทีมโครงการได้ (รายการสิทธิ์ที่เลือกได้)",
     domain: "team",
     hidden: true,
+  },
+  {
+    key: "team-map",
+    setName: "TEAM_MAP_ROLES",
+    roles: TEAM_MAP_ROLES,
+    labelTh: "จัดทีมช่างในโครงการ (ตั้งทีม/ตั้งหัวหน้าทีม/ย้ายคนข้ามทีม)",
+    domain: "team",
   },
   {
     key: "staff-approve",
