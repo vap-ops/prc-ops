@@ -48,27 +48,56 @@ const OUTCOME_NOTE: Record<SweepOutcomeKind, (detail: string | null) => string |
   other_team: (d) => (d ? `อยู่ทีม ${d} แล้ววันนี้` : "อยู่ทีมอื่นแล้ววันนี้"),
   unknown_badge: () => "ไม่รู้จักบัตรนี้",
   failed: (d) => d ?? "เช็คชื่อไม่สำเร็จ",
+  // Spec 359 U4 — the resolved rounds. `detail` is the lead of the team the scan
+  // landed on: the SA never picked one, so the tally has to say which team each
+  // write went to. The refusals state what the board already holds, because the
+  // reason a scan wrote nothing is the only thing the SA needs to act on.
+  checked_out: (d) => (d ? `เช็คออก · ทีม ${d}` : "เช็คออกแล้ว"),
+  already_out: (d) => (d ? `เช็คออกแล้ว · ทีม ${d}` : "เช็คออกแล้ว"),
+  not_checked_in: () => "ยังไม่ได้เช็คเข้าวันนี้",
+  ot_opened: (d) => (d ? `เริ่ม OT · ทีม ${d}` : "เริ่ม OT"),
+  ot_already_open: () => "OT เปิดอยู่แล้ว",
+  ot_closed: (d) => (d ? `ปิด OT · ทีม ${d}` : "ปิด OT"),
+  ot_already_closed: () => "ปิด OT แล้ว",
+  no_ot: () => "ยังไม่ได้เปิด OT",
 };
 
-// Outcomes that actually put someone on the team — the only ones the count
-// includes. A refused scan must never inflate "เพิ่มแล้ว N คน".
+// Outcomes that actually put someone on the team — these drive the ย้ายมาทีมนี้
+// resolution, which only exists in the morning round (the only round where a
+// worker can be on the "wrong" team, because it is the round that assigns one).
 const ADDED_KINDS: ReadonlySet<SweepOutcomeKind> = new Set<SweepOutcomeKind>([
   "added",
   "added_first_time",
   "added_team_changed",
 ]);
 
-// Outcomes the SA should look at once the line is done.
+// Spec 359 U4 — every outcome that WROTE. The count includes exactly these, in
+// every round: a refused scan must never inflate the SA's tally.
+const WRITE_KINDS: ReadonlySet<SweepOutcomeKind> = new Set<SweepOutcomeKind>([
+  ...ADDED_KINDS,
+  "checked_out",
+  "ot_opened",
+  "ot_closed",
+]);
+
+// Outcomes the SA should look at once the line is done. `already_out` /
+// `ot_already_*` are deliberately NOT here: a repeat scan of someone already
+// handled is the normal noise of a walk-round, not a finding. A badge with no
+// session (or no OT to close) IS a finding — someone is standing there
+// un-mustered.
 const NEEDS_ATTENTION: ReadonlySet<SweepOutcomeKind> = new Set<SweepOutcomeKind>([
   "added_team_changed",
   "other_team",
   "unknown_badge",
   "failed",
+  "not_checked_in",
+  "no_ot",
 ]);
 
 export function MusterAddSheet({
   leadName,
   actionLabel,
+  countNoun,
   sessionLabel,
   hasCamera,
   showTapAdd,
@@ -81,9 +110,14 @@ export function MusterAddSheet({
   onMoveHere,
   onClose,
 }: {
-  leadName: string;
+  /** Spec 359 U4 — null for the resolved rounds: they scan the whole site, so
+   *  there is no team to name and none was chosen. */
+  leadName: string | null;
   /** Spec 359 U1 — the ACTION in words (กำลังเช็คเข้า / กำลังเช็คออก / กำลังบันทึก OT). */
   actionLabel: string;
+  /** Spec 359 U4 — what the tally counts, in words: เพิ่มแล้ว / เช็คออกแล้ว /
+   *  บันทึก OT แล้ว. The count itself is always "outcomes that wrote". */
+  countNoun: string;
   /** งานปกติ | OT. */
   sessionLabel: string;
   hasCamera: boolean;
@@ -192,7 +226,9 @@ export function MusterAddSheet({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`สแกน/เพิ่มช่าง — ทีม ${leadName}`}
+      // Spec 359 U4 — a screen-reader SA in an evening round would otherwise be
+      // told "ทีม null": these rounds have no team by design.
+      aria-label={leadName === null ? "สแกน — ทุกทีม" : `สแกน/เพิ่มช่าง — ทีม ${leadName}`}
       onClick={onClose}
       className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-black/90 p-4"
     >
@@ -212,7 +248,9 @@ export function MusterAddSheet({
           className="bg-card rounded-card sticky top-0 z-10 px-3 py-2"
         >
           <p className="text-ink text-sm font-bold">
-            {actionLabel} · ทีม {leadName} · {sessionLabel}
+            {/* Spec 359 U4 — a resolved round scans the whole site, so it says so
+                rather than naming a team the SA never picked. */}
+            {actionLabel} · {leadName === null ? "ทุกทีม" : `ทีม ${leadName}`} · {sessionLabel}
           </p>
         </div>
 
@@ -221,7 +259,7 @@ export function MusterAddSheet({
         {sweep.length > 0 ? (
           <div className="bg-card rounded-card flex flex-col gap-2 p-3" data-testid="sweep-tally">
             <p data-testid="sweep-count" className="text-ink text-sm font-bold">
-              เพิ่มแล้ว {sweep.filter((e) => ADDED_KINDS.has(e.outcome)).length} คน
+              {countNoun} {sweep.filter((e) => WRITE_KINDS.has(e.outcome)).length} คน
             </p>
             {/* aria-live so a screen-reader SA hears each outcome without looking. */}
             <ul role="status" aria-live="polite" className="flex flex-col gap-1.5">

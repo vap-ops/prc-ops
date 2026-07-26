@@ -248,6 +248,83 @@ pure reducer over `(scan event, roster, prior-day map) → tally state + cue`:
 Real-flow verification per unit gate 4: drive the sheet in a browser, then confirm on the live row
 that `in_method='qr'` was written.
 
+### U4 — the sweep covers all four events (code-only, added 2026-07-26)
+
+**Operator directive, 2026-07-26 19:2x:** _"OT out is not QR based? it should, all checking should"_.
+That answers **both** of this spec's open decisions below — yes to check-out, yes to OT — so they are
+closed here rather than left open.
+
+⚠️ **Premise correction first, because the reported one is wrong.** Every combination is ALREADY
+QR-capable: `scanFromCamera` dispatches on the session and (since the 2026-07-26 direction fix) on
+the เข้า/ออก toggle, and the pilot ran **regular check-OUT 18-of-18 by QR** that same day. What is
+missing is the **continuous sweep** — U1 scoped it to `regular` + `เข้า`, so ออก and OT close the
+sheet after every decode. Closing five men's OT is five door-opens, which is precisely the cost that
+held QR at 1-in-36 before U1, and it shows in the data: 07-25's OT round was **14-of-14 by tap**.
+
+**Why U1's objection no longer holds, and where it still does.** U1 refused the sweep in ออก because
+_"a continuous sweep in ออก would check an entire team out in fifteen seconds, silently"_. The
+direction is now stated in the pinned sheet header and cannot be derived behind the SA's back, so
+"silently" is gone. What remains is that writes in these directions are **lossy**, and that is a
+board-state problem, not a mode problem:
+
+1. **`muster_scan_out` has no already-out guard** (read live): it selects the session row and sets
+   `out_at = now()` unconditionally. A stray re-scan of a man who left at 17:13 rewrites his
+   check-out to 21:00. A check-IN cannot do this — `muster_scan_in` returns the existing row id.
+2. **An OT check-out is irreversible and it is MONEY.** `ot_hours = floor(span × 2) / 2` is computed
+   at scan-out, `unique(worker_id, work_date, session)` allows one OT session per day, and no RPC
+   clears `out_at`. This spec's own "check-out may be work with no payoff" line predates spec 351 —
+   an OT out-time is the one out-timestamp that already prices labour, and `close_muster_day` auto-outs
+   **regular sessions only**, so nothing else will ever close it.
+
+So U4 widens the sweep and adds the refusals that make the widening safe. `classifyScan` becomes
+direction-aware over the active team's member state; the sheet's tally names the round.
+
+**Second operator directive, same minute: _"checking out require no team picking"_.** This is the
+sharper half of the ask, and it exposes an asymmetry the per-team sheet had been hiding:
+
+> **A team must be chosen only when the scan CREATES membership.** `muster_scan_in` on a `regular`
+> session is what puts a worker on a team — that scan genuinely needs the SA to say which line they
+> are standing in. Every other scan READS a membership that already exists: `muster_scan_out` refuses
+> a team mismatch outright (`worker is in another team today — move first`), and an OT scan requires a
+> `regular` session **on the same team** first. For those, the team is not a choice — it is a lookup
+> the board can already do, from `todayTeamByWorker`.
+
+So the evening gets **one page-level scanner with no team at all**: the SA opens it once and walks the
+site. Each decode resolves that worker's own team and writes against it. The per-team sheets stay
+exactly as they are for the morning line — which is what the "team-agnostic scanner" non-goal below
+actually rejected (teams line up separately at the morning talk; that reasoning does not reach an
+evening walk-round, and the operator has now said so).
+
+| scan           | team                            | write         | no-write outcomes                                          |
+| -------------- | ------------------------------- | ------------- | ---------------------------------------------------------- |
+| งานปกติ + เข้า | **chosen** (creates membership) | as U1         | unchanged (`already_here`, `other_team`, `unknown_badge`)  |
+| งานปกติ + ออก  | resolved per badge              | `checked_out` | `already_out` (keeps the true time) · `not_checked_in`     |
+| OT + เข้า      | resolved per badge              | `ot_opened`   | `ot_already_open` · `ot_already_closed` · `not_checked_in` |
+| OT + ออก       | resolved per badge              | `ot_closed`   | `no_ot` · `ot_already_closed` · `not_checked_in`           |
+
+`other_team` disappears from the resolved rows by construction — there is no active team to be "other"
+than. A worker on a different team is simply checked out of the team they are actually on, which is the
+correct outcome and one fewer refusal for the SA to interpret. The tally names the team it wrote
+against (`เช็คออก · ทีม จันทร์`) so a team-agnostic sweep is still auditable at a glance.
+
+- **`already_out` is the headline guard**, not a nicety: it is the only thing standing between a
+  re-scan and a rewritten check-out time. Same for `ot_already_closed` — that is today's live defect
+  class, made repeatable at sweep speed if left unguarded.
+- **`not_checked_in`** covers a badge scanned in an evening round for someone with no session on this
+  team — the write would be a `P0001` from the RPC, so the sweep answers from the board instead.
+- The 3s per-badge cooldown, the audible/haptic cues, the newest-first tally, the team-change warn
+  and the other-team ย้าย resolution are **untouched** — they key on the outcome, not the direction.
+- **Tap-add stays `regular` + `เข้า`** (`showTapAdd`). The evening tap paths already exist as
+  per-member board buttons (`เช็คออก`, `OT เข้า`, `OT ออก`), which state their own direction; adding a
+  second tap surface for them is scope this unit refuses.
+- **The door.** The evening scanner is a page-level button beside the session/direction toggles,
+  shown for every combination except `regular` + `เข้า` (whose door stays on the team card, where the
+  team is chosen). `MusterAddSheet` accepts a null team and heads with the round instead of a lead
+  name — `กำลังเช็คออก · ทุกทีม`.
+- **Cross-project is out of scope by construction**: the board is one project/day, so a badge for a
+  worker mustered on another project resolves to no team and lands on `not_checked_in`. That refusal
+  is honest at this grain; a cross-project scanner would be its own spec.
+
 ## Non-goals / deferred
 
 - **Nova coins / attendance streak.** Separate concern with a separate actor. `coin_postings` is
@@ -267,9 +344,11 @@ that `in_method='qr'` was written.
 
 ## Open decisions (operator, non-blocking for U1)
 
-1. **Does check-out need the sweep too?** Real check-outs are 0-of-14 on QR, but the 17:00
-   auto-out may already be good enough. Real out-times would only matter if pay or OT keyed off
-   them — today nothing does (`labor_logs` is empty project-wide; 0 of 28 workers are
-   cost-confirmed).
-2. **Does the OT evening session get the sweep**, or regular-only? OT lines up differently (spec
-   351 made it a separate session).
+1. ✅ **CLOSED 2026-07-26 — yes.** _"OT out is not QR based? it should, all checking should."_ The
+   premise that out-times price nothing also expired: spec 351 computes `ot_hours` from the OT
+   check-out span, and `close_muster_day` never auto-outs OT. Built as U4.
+   _(Original: real check-outs are 0-of-14 on QR, but the 17:00 auto-out may already be good enough;
+   real out-times would only matter if pay or OT keyed off them.)_
+2. ✅ **CLOSED 2026-07-26 — yes, and with no team picking.** Both evening sessions sweep, through one
+   page-level scanner that resolves each badge's own team (U4). OT does line up differently, which is
+   exactly why choosing a team for it was the wrong ceremony.

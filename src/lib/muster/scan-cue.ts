@@ -17,6 +17,18 @@ const PATTERN: Record<SweepOutcomeKind, number[]> = {
   other_team: [180],
   unknown_badge: [180],
   failed: [180],
+  // Spec 359 U4 — the evening rounds. A write is one pulse like a check-in (the
+  // SA is watching the man, not the screen); a benign repeat is the short tick;
+  // "this badge has nothing to act on" joins the long attention buzz, because it
+  // means someone is standing there un-mustered.
+  checked_out: [40],
+  ot_opened: [40],
+  ot_closed: [40],
+  already_out: [15],
+  ot_already_open: [15],
+  ot_already_closed: [15],
+  not_checked_in: [180],
+  no_ot: [180],
 };
 
 /** Tone frequency in Hz, paired with the pattern above. */
@@ -28,6 +40,16 @@ const TONE: Record<SweepOutcomeKind, number> = {
   other_team: 300,
   unknown_badge: 300,
   failed: 300,
+  // A check-out is a success, but a LOWER one than a check-in: the two rounds run
+  // hours apart and must not be mistaken for each other by ear alone.
+  checked_out: 760,
+  ot_opened: 990,
+  ot_closed: 700,
+  already_out: 520,
+  ot_already_open: 520,
+  ot_already_closed: 520,
+  not_checked_in: 300,
+  no_ot: 300,
 };
 
 type AudioCtor = new () => AudioContext;
