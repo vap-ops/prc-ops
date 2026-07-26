@@ -89,8 +89,10 @@ export function MusterCockpit({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("in");
-  // Spec 351 — งานปกติ (regular) vs OT session. OT scans derive in/out per worker
-  // (no OT row → in, open OT → out), so the เข้า/ออก toggle is only shown for regular.
+  // Spec 351 — งานปกติ (regular) vs OT session. Field bug 2026-07-26: OT scans
+  // used to DERIVE in/out per worker, which turned a second input for the same
+  // worker into a check-OUT; both sessions now take their direction from the
+  // เข้า/ออก toggle below.
   const [session, setSession] = useState<Session>("regular");
   const [leadPick, setLeadPick] = useState("");
   const [scanTeamId, setScanTeamId] = useState<string | null>(null);
@@ -200,29 +202,50 @@ export function MusterCockpit({
     });
   };
 
-  // Spec 351 — a regular scan follows the เข้า/ออก mode; an OT scan derives its
-  // in/out from the worker's current OT state (no OT row → in, open OT → out).
+  // Spec 351 — a regular scan follows the เข้า/ออก mode.
   const scanRegular = (teamId: string, workerId: string, method: "qr" | "manual") =>
     run(() => musterScan({ teamId, workerId, mode, method, session: "regular", revalidate }));
-  const scanOt = (teamId: string, workerId: string, method: "qr" | "manual") => {
+  // Field bug 2026-07-26 — an OT scan takes its direction from the CALLER, never
+  // from the worker's OT state. Deriving it made a second input for the same
+  // worker mean the opposite of the first: prod row 70cc66a3 was manually opened
+  // (OT เข้า 17:25:47) and then, when his badge was scanned ten seconds later,
+  // silently CLOSED — ot_hours NULL and nothing in the app reopens a closed OT.
+  // A direction that contradicts the worker's state now refuses, so a duplicate
+  // scan costs the SA a message instead of the man's OT.
+  const scanOt = (teamId: string, workerId: string, method: "qr" | "manual", direction: Mode) => {
     const member = board.teams
       .find((t) => t.id === teamId)
       ?.members.find((m) => m.workerId === workerId);
-    // OT already closed for this worker → nothing to scan. The per-member buttons
-    // already hide in this state; the camera path must match (else a QR scan would
-    // fire an idempotent no-op scan-in with no feedback to the SA).
-    if (member?.ot && member.ot.outAt) {
+    const ot = member?.ot ?? null;
+    // Closed OT: unique(worker_id, work_date, session) means there is no second
+    // OT session to open and nothing left to close, in either direction.
+    if (ot?.outAt) {
       setMessage("ช่างคนนี้ปิด OT แล้ว");
       return;
     }
-    const otMode: Mode = member?.ot && !member.ot.outAt ? "out" : "in";
-    run(() => musterScan({ teamId, workerId, mode: otMode, method, session: "ot", revalidate }));
+    if (direction === "in" && ot) {
+      setMessage("ช่างคนนี้เปิด OT อยู่แล้ว");
+      return;
+    }
+    if (direction === "out" && !ot) {
+      setMessage("ยังไม่ได้เปิด OT ของช่างคนนี้");
+      return;
+    }
+    run(() => musterScan({ teamId, workerId, mode: direction, method, session: "ot", revalidate }));
   };
-  // The camera dispatches by the active session (it scans whichever session is on).
+  // The camera dispatches by the active session (it scans whichever session is on)
+  // and, in BOTH sessions, by the visible เข้า/ออก toggle.
   // Spec 359 U1: this is now the NON-sweep path only (ออก / OT) — one-shot, as
   // before. The morning line goes through onSweepDetected below.
   const scanFromCamera = (teamId: string, workerId: string) =>
-    session === "ot" ? scanOt(teamId, workerId, "qr") : scanRegular(teamId, workerId, "qr");
+    session === "ot" ? scanOt(teamId, workerId, "qr", mode) : scanRegular(teamId, workerId, "qr");
+  // Each session's round starts with check-ins, and เข้า is the direction that
+  // cannot destroy a record — so switching session never inherits ออก from the
+  // round the SA just finished.
+  const switchSession = (next: Session) => {
+    setSession(next);
+    setMode("in");
+  };
 
   // Spec 359 U1 — the sweep classifies from BOARD state rather than by matching
   // the RPC's Thai error text, so the outcomes survive a copy change.
@@ -384,38 +407,38 @@ export function MusterCockpit({
           <div className="flex overflow-hidden rounded-full">
             <button
               type="button"
-              onClick={() => setSession("regular")}
+              onClick={() => switchSession("regular")}
               className={`min-h-11 px-4 text-sm font-bold ${session === "regular" ? TOGGLE_ON : TOGGLE_OFF}`}
             >
               งานปกติ
             </button>
             <button
               type="button"
-              onClick={() => setSession("ot")}
+              onClick={() => switchSession("ot")}
               className={`min-h-11 px-4 text-sm font-bold ${session === "ot" ? TOGGLE_ON : TOGGLE_OFF}`}
             >
               OT
             </button>
           </div>
-          {/* เข้า/ออก applies to the regular session only — OT derives in/out per worker. */}
-          {session === "regular" ? (
-            <div className="flex overflow-hidden rounded-full">
-              <button
-                type="button"
-                onClick={() => setMode("in")}
-                className={`min-h-11 px-4 text-sm font-bold ${mode === "in" ? TOGGLE_ON : TOGGLE_OFF}`}
-              >
-                เข้า
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode("out")}
-                className={`min-h-11 px-4 text-sm font-bold ${mode === "out" ? TOGGLE_ON : TOGGLE_OFF}`}
-              >
-                ออก
-              </button>
-            </div>
-          ) : null}
+          {/* Field bug 2026-07-26 — เข้า/ออก now governs BOTH sessions. The camera
+              writes the direction shown here and nothing else, so a badge scanned
+              twice repeats the same intent instead of reversing it. */}
+          <div className="flex overflow-hidden rounded-full">
+            <button
+              type="button"
+              onClick={() => setMode("in")}
+              className={`min-h-11 px-4 text-sm font-bold ${mode === "in" ? TOGGLE_ON : TOGGLE_OFF}`}
+            >
+              เข้า
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("out")}
+              className={`min-h-11 px-4 text-sm font-bold ${mode === "out" ? TOGGLE_ON : TOGGLE_OFF}`}
+            >
+              ออก
+            </button>
+          </div>
         </div>
       </div>
 
@@ -505,8 +528,16 @@ export function MusterCockpit({
                 flip — that announcement is the whole point of the bar. */}
             <div role="status" aria-live="polite">
               {closeState.kind === "ready" ? (
+                // Field bug 2026-07-26 — `stillIn` counts the REGULAR session, so
+                // "ทุกคนเช็คออกแล้ว" read as done while OT was still running (the
+                // SA's 17:27 screenshot: 4 open OT sessions under that line).
+                // close_muster_day auto-outs regular only, so closing here loses
+                // their OT for good; name the regular session and let the warning
+                // below carry the rest.
                 <p className="text-ink text-sm font-semibold">
-                  ทุกคนเช็คออกแล้ว · ปิดวันเพื่อบันทึกค่าแรง
+                  {closeState.openOt > 0
+                    ? "ทุกคนเช็คออกงานปกติแล้ว · ปิดวันเพื่อบันทึกค่าแรง"
+                    : "ทุกคนเช็คออกแล้ว · ปิดวันเพื่อบันทึกค่าแรง"}
                 </p>
               ) : closeState.kind === "overdue" ? (
                 <p className="text-attn-ink text-sm font-semibold">
@@ -524,13 +555,18 @@ export function MusterCockpit({
               )}
             </div>
 
+            {/* Field bug 2026-07-26 — this warning used to appear only AFTER the SA
+                pressed ปิดวัน, i.e. one tap from the loss it warns about. An open
+                OT is a fact about the day, so it is stated while there is still
+                time to close it (07-24: 9 OT rows left open, all ot_hours NULL). */}
+            {closeState.openOt > 0 && closeState.kind !== "closed" ? (
+              <p className="text-attn-ink text-meta">
+                มีช่าง {closeState.openOt} คนยัง OT ไม่ปิด — ปิดวันจะไม่บันทึก OT ของพวกเขา
+              </p>
+            ) : null}
+
             {confirmClose ? (
               <>
-                {closeState.openOt > 0 ? (
-                  <p className="text-attn-ink text-meta">
-                    มีช่าง {closeState.openOt} คนยัง OT ไม่ปิด — ปิดวันจะไม่บันทึก OT ของพวกเขา
-                  </p>
-                ) : null}
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -568,7 +604,13 @@ export function MusterCockpit({
           <MusterAddSheet
             leadName={sheetTeam.leadName}
             actionLabel={
-              session === "ot" ? "กำลังบันทึก OT" : mode === "in" ? "กำลังเช็คเข้า" : "กำลังเช็คออก"
+              session === "ot"
+                ? mode === "in"
+                  ? "กำลังบันทึก OT เข้า"
+                  : "กำลังบันทึก OT ออก"
+                : mode === "in"
+                  ? "กำลังเช็คเข้า"
+                  : "กำลังเช็คออก"
             }
             sessionLabel={session === "ot" ? "OT" : "งานปกติ"}
             sweep={sweep.entries}
@@ -616,8 +658,9 @@ function TeamCard({
   hasCamera: boolean;
   /** Regular-session scan (check-out), following the เข้า/ออก mode. */
   onScan: (teamId: string, workerId: string, method: "qr" | "manual") => void;
-  /** Spec 351 — OT-session scan (in/out derived per worker from their OT state). */
-  onScanOt: (teamId: string, workerId: string, method: "qr" | "manual") => void;
+  /** Spec 351 — OT-session scan. The DIRECTION is the caller's (field bug
+   * 2026-07-26): each per-member button states which way it writes. */
+  onScanOt: (teamId: string, workerId: string, method: "qr" | "manual", direction: Mode) => void;
   onSaveWps: (teamId: string, wpIds: string[]) => void;
   /** Spec 357 U-C — check a missing (expected) worker in: ALWAYS a manual
    * regular check-IN, independent of the เข้า/ออก toggle (a late arrival is
@@ -827,9 +870,11 @@ function TeamCard({
                     ) : null
                   ) : !m.ot ? (
                     // Spec 351 — OT session: no OT row yet → open one (OT เข้า).
+                    // The label IS the direction, so it passes "in" explicitly and
+                    // stays right whichever way the เข้า/ออก toggle is set.
                     <button
                       type="button"
-                      onClick={() => onScanOt(team.id, m.workerId, "manual")}
+                      onClick={() => onScanOt(team.id, m.workerId, "manual", "in")}
                       disabled={pending}
                       className="bg-fill text-on-fill min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
                     >
@@ -839,7 +884,7 @@ function TeamCard({
                     // OT open → close it (OT ออก).
                     <button
                       type="button"
-                      onClick={() => onScanOt(team.id, m.workerId, "manual")}
+                      onClick={() => onScanOt(team.id, m.workerId, "manual", "out")}
                       disabled={pending}
                       className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
                     >
