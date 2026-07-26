@@ -110,6 +110,56 @@ export async function musterScan(input: {
   return { ok: true, id: data as string };
 }
 
+/**
+ * Spec 306 close-day cure (operator 2026-07-26) — close every OT session the SA
+ * still has open, right now, so ปิดวัน never has to lose one.
+ *
+ * Why this exists: `close_muster_day` auto-outs REGULAR sessions only, so an OT
+ * left open at close keeps `ot_hours` NULL forever, and `muster_scan_out` prices
+ * the span from `now()` — closing it tomorrow would bill garbage. 07-24 lost nine
+ * of them that way. The confirm therefore offers this instead of a bare warning.
+ *
+ * The list comes from the CLIENT because the board it is looking at is the same
+ * board the SA is: forging it buys nothing, since `muster_scan_out` re-checks the
+ * role, project membership and the worker's team on every single call. Every id
+ * is validated BEFORE the first write, so a malformed list writes nothing rather
+ * than half-closing the day's OT.
+ */
+export async function closeOpenOt(input: {
+  sessions: { teamId: string; workerId: string }[];
+  revalidate: string;
+}): Promise<{ ok: true; closed: number } | { ok: false; error: string }> {
+  if (!input.revalidate.startsWith("/")) return { ok: false, error: GENERIC };
+  if (input.sessions.some((s) => !UUID_REGEX.test(s.teamId) || !UUID_REGEX.test(s.workerId))) {
+    return { ok: false, error: GENERIC };
+  }
+  if (input.sessions.length === 0) return { ok: true, closed: 0 };
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  // Sequential, not parallel: these are money writes and a shared-pooler burst of
+  // ~20 DEFINER calls is how the pgTAP "failed to connect as temp role" transients
+  // happen. A partial close must be REPORTED, never rounded up to success — the
+  // caller only closes the day when every OT actually closed.
+  let closed = 0;
+  for (const s of input.sessions) {
+    const { error } = await auth.supabase.rpc("muster_scan_out", {
+      p_team: s.teamId,
+      p_worker: s.workerId,
+      p_method: "manual" satisfies MusterMethod,
+      p_session: "ot" satisfies MusterSession,
+    });
+    if (error) {
+      revalidatePath(input.revalidate);
+      return { ok: false, error: scanErrorToThai(error.message) };
+    }
+    closed += 1;
+  }
+  revalidatePath(input.revalidate);
+  return { ok: true, closed };
+}
+
 export async function setMusterTeamWps(input: {
   teamId: string;
   wpIds: string[];

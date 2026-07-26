@@ -19,6 +19,7 @@ import {
   setMusterTeamWps,
   closeMusterDay,
   moveMusterWorker,
+  closeOpenOt,
 } from "@/lib/muster/actions";
 import { groupMusterWps, pickerWps } from "@/lib/muster/wp-groups";
 import { hasScannerSupport } from "@/lib/muster/scanner-support";
@@ -445,6 +446,47 @@ export function MusterCockpit({
   // ready/overdue highlight on ปิดวัน — its only nudge.
   const sweepFirst = eveningScan && (closeState.openOt > 0 || closeState.stillIn > 0);
 
+  // Spec 306 close-day cure — what ปิดวัน is about to DO, per case, from the board.
+  // The two cases are NOT the same and the confirm must not pretend they are: an
+  // open OT is lost for good, a missing regular check-out is auto-outed at 17:00
+  // and flagged (`out_auto`), so nothing is lost there — it just has to be said.
+  const openOtSessions = board.teams.flatMap((t) =>
+    t.members
+      .filter((m) => m.ot && m.ot.inAt && !m.ot.outAt)
+      .map((m) => ({ teamId: t.id, workerId: m.workerId, name: m.name })),
+  );
+  const stillInNames = board.teams.flatMap((t) =>
+    t.members.filter((m) => m.inAt && !m.outAt).map((m) => m.name),
+  );
+  // Names, not just a count: "3 คน" is a number to tap past, a name is a person to
+  // go and find. Capped so a 20-strong team cannot push the buttons off screen.
+  const nameList = (names: string[]) =>
+    names.length <= 5 ? names.join(" · ") : `${names.slice(0, 5).join(" · ")} +${names.length - 5}`;
+
+  // Close every open OT at the current time, THEN close the day — and only then.
+  // A failed cure must leave the day open: closing anyway would destroy exactly
+  // the OT this button exists to save, which is worse than not closing.
+  const cureThenClose = () => {
+    run(async () => {
+      const cure = await closeOpenOt({
+        sessions: openOtSessions.map((s) => ({ teamId: s.teamId, workerId: s.workerId })),
+        revalidate,
+      });
+      if (!cure.ok) {
+        // A PARTIAL cure is the dangerous state: some OT sessions did close, and
+        // the board does not know yet. `run` only refreshes on success, so without
+        // this the confirm would still list them — and a second tap would re-run
+        // `muster_scan_out` over rows that are already out, overwriting their real
+        // out time with now() (the RPC has no already-out guard). Refresh first,
+        // then report: the retry must see a truthful list.
+        router.refresh();
+        return cure;
+      }
+      setConfirmClose(false);
+      return closeMusterDay({ projectId, date, revalidate });
+    });
+  };
+
   return (
     // pb clears the fixed ปิดวัน footer so the last team card is never hidden —
     // sized for the tallest state (nudge + wrapped OT warning + 2 buttons) plus
@@ -648,19 +690,67 @@ export function MusterCockpit({
 
             {confirmClose ? (
               <>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={closeDay}
-                    disabled={pending}
-                    className={`flex-1 ${BAR_PRIMARY}`}
-                  >
-                    ยืนยันปิดวัน
-                  </button>
-                  <button type="button" onClick={() => setConfirmClose(false)} className={BAR_SUNK}>
-                    ยกเลิก
-                  </button>
-                </div>
+                {/* Spec 306 close-day cure — the auto-out is honest, but silent
+                    until now: closing writes a 17:00 out time for anyone still in
+                    and flags it `out_auto`. Say it, and name them, so the SA can
+                    go and fix a real one instead of accepting a guess. */}
+                {stillInNames.length > 0 ? (
+                  <p data-testid="close-day-autoout" className="text-ink-secondary text-meta">
+                    ช่าง {stillInNames.length} คนยังไม่เช็คออก — ระบบจะบันทึกเวลาออก 17:00 ให้ ·{" "}
+                    {nameList(stillInNames)}
+                  </p>
+                ) : null}
+                {openOtSessions.length > 0 ? (
+                  // The cure comes FIRST and carries the primary weight. Closing
+                  // without it stays reachable — the SA may have a worker who left
+                  // un-scanned — but it is a deliberate second choice, never the
+                  // default, and it names the cost in people.
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={cureThenClose}
+                      disabled={pending}
+                      className={`w-full ${BAR_PRIMARY}`}
+                    >
+                      ปิด OT ให้ทุกคนตอนนี้ ({openOtSessions.length}) แล้วปิดวัน
+                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={closeDay}
+                        disabled={pending}
+                        className={`bg-danger-soft text-danger-ink flex-1 ${BAR_BTN}`}
+                      >
+                        ปิดวันโดยไม่บันทึก OT ของ {openOtSessions.length} คน
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmClose(false)}
+                        className={BAR_SUNK}
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={closeDay}
+                      disabled={pending}
+                      className={`flex-1 ${BAR_PRIMARY}`}
+                    >
+                      ยืนยันปิดวัน
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmClose(false)}
+                      className={BAR_SUNK}
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <button
