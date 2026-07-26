@@ -17,6 +17,25 @@
 /** How long the same badge payload is ignored after a scan. */
 export const SCAN_COOLDOWN_MS = 3000;
 
+/** Spec 359 U4 — which muster event a sweep is recording. The session/direction
+ *  pair is the SA's VISIBLE choice (the cockpit toggles), never derived from the
+ *  worker's state — deriving it is what let one worker's OT be closed by his own
+ *  second scan on 2026-07-26. */
+export interface SweepAction {
+  session: "regular" | "ot";
+  direction: "in" | "out";
+}
+
+/** Spec 359 U4 — a worker's muster state today, wherever they are. Only
+ *  `regular` + `in` CREATES membership; every other direction reads it, so the
+ *  team comes from here rather than from an SA picking one. */
+export interface WorkerSession {
+  teamId: string;
+  /** The regular session's check-out, if it has happened. */
+  outAt: string | null;
+  ot: { inAt: string | null; outAt: string | null } | null;
+}
+
 export type SweepOutcomeKind =
   /** Added; their last muster was this same lead. */
   | "added"
@@ -31,7 +50,26 @@ export type SweepOutcomeKind =
   /** Payload is not a worker on the active roster. */
   | "unknown_badge"
   /** The write was attempted and the server refused. */
-  | "failed";
+  | "failed"
+  // ---- Spec 359 U4, the resolved directions ----------------------------------
+  /** Regular session closed by this scan. */
+  | "checked_out"
+  /** Their check-out already happened. NO write — `muster_scan_out` would
+   *  overwrite `out_at` with now(), replacing a real time with this scan's. */
+  | "already_out"
+  /** No session on today's board, so there is nothing to close or extend. */
+  | "not_checked_in"
+  /** OT session opened by this scan. */
+  | "ot_opened"
+  /** OT is already running. No write (an OT-in here would be a no-op anyway). */
+  | "ot_already_open"
+  /** That OT is closed, and there is only one OT session per worker per day —
+   *  neither direction can do anything, and nothing in the app reopens it. */
+  | "ot_already_closed"
+  /** OT session closed by this scan — this is the timestamp `ot_hours` prices. */
+  | "ot_closed"
+  /** OT check-out for a worker who never opened OT. */
+  | "no_ot";
 
 export interface SweepEntry {
   /** Monotonic within a sweep; React key. */
@@ -57,8 +95,9 @@ export interface SweepState {
 export const EMPTY_SWEEP: SweepState = { entries: [], addedIds: [], lastSeen: {}, seq: 0 };
 
 export interface SweepContext {
-  /** The team whose sheet is open. */
-  teamId: string;
+  /** The team whose sheet is open — null for the resolved directions, which have
+   *  no team to open (spec 359 U4: "checking out require no team picking"). */
+  teamId: string | null;
   /** This team's LEAD WORKER id — the team-change comparison keys on this, not
    *  on the display name: surnames repeat across this roster (three แสงทอง on
    *  PRC-2026-004 alone) and a name collision would silently suppress a warning. */
@@ -74,6 +113,10 @@ export interface SweepContext {
   priorLeadByWorker: ReadonlyMap<string, { id: string; name: string }>;
   /** Added earlier in this same sweep (the board is stale until the sheet closes). */
   addedThisSweep: ReadonlySet<string>;
+  /** Spec 359 U4 — worker id → their session today, across EVERY team on the
+   *  board. The resolved directions write against `teamId` from here, so the SA
+   *  walks the site with one open scanner instead of picking a team per man. */
+  sessionByWorker: ReadonlyMap<string, WorkerSession>;
 }
 
 export interface ClassifiedScan {
@@ -81,8 +124,12 @@ export interface ClassifiedScan {
   name: string;
   kind: SweepOutcomeKind;
   detail: string | null;
-  /** True only when a muster_scan_in call should follow. */
+  /** True only when a muster scan call should follow. */
   shouldWrite: boolean;
+  /** Spec 359 U4 — the team the write must name: the chosen team for the morning
+   *  line, the worker's OWN team for every resolved direction. Null when there is
+   *  nothing to write. */
+  teamId: string | null;
 }
 
 export function isCoolingDown(state: SweepState, workerId: string, nowMs: number): boolean {
@@ -90,20 +137,52 @@ export function isCoolingDown(state: SweepState, workerId: string, nowMs: number
   return last !== undefined && nowMs - last < SCAN_COOLDOWN_MS;
 }
 
-export function classifyScan(ctx: SweepContext, workerId: string): ClassifiedScan {
+export function classifyScan(
+  ctx: SweepContext,
+  workerId: string,
+  action: SweepAction,
+): ClassifiedScan {
   const name = ctx.workersById.get(workerId);
   if (name === undefined) {
-    return { workerId, name: workerId, kind: "unknown_badge", detail: null, shouldWrite: false };
+    return {
+      workerId,
+      name: workerId,
+      kind: "unknown_badge",
+      detail: null,
+      shouldWrite: false,
+      teamId: null,
+    };
+  }
+  // Spec 359 U4 — every direction except the morning line READS a membership that
+  // already exists, so it resolves the team instead of being handed one. The
+  // action is required (never defaulted) because a direction-sensitive decision
+  // taken silently is the 2026-07-26 OT defect.
+  if (action.session === "ot" || action.direction === "out") {
+    return classifyResolved(ctx, workerId, name, action);
   }
   // The board is only refreshed when the sheet closes, so a worker added earlier
   // in THIS sweep is not yet in todayTeamByWorker — check both.
   if (ctx.addedThisSweep.has(workerId)) {
-    return { workerId, name, kind: "already_here", detail: null, shouldWrite: false };
+    return {
+      workerId,
+      name,
+      kind: "already_here",
+      detail: null,
+      shouldWrite: false,
+      teamId: null,
+    };
   }
   const todayTeam = ctx.todayTeamByWorker.get(workerId);
   if (todayTeam !== undefined) {
     if (todayTeam === ctx.teamId) {
-      return { workerId, name, kind: "already_here", detail: null, shouldWrite: false };
+      return {
+        workerId,
+        name,
+        kind: "already_here",
+        detail: null,
+        shouldWrite: false,
+        teamId: null,
+      };
     }
     return {
       workerId,
@@ -111,11 +190,19 @@ export function classifyScan(ctx: SweepContext, workerId: string): ClassifiedSca
       kind: "other_team",
       detail: ctx.teamLeadById.get(todayTeam) ?? null,
       shouldWrite: false,
+      teamId: null,
     };
   }
   const priorLead = ctx.priorLeadByWorker.get(workerId);
   if (priorLead === undefined) {
-    return { workerId, name, kind: "added_first_time", detail: null, shouldWrite: true };
+    return {
+      workerId,
+      name,
+      kind: "added_first_time",
+      detail: null,
+      shouldWrite: true,
+      teamId: ctx.teamId,
+    };
   }
   if (priorLead.id !== ctx.leadWorkerId) {
     return {
@@ -124,9 +211,62 @@ export function classifyScan(ctx: SweepContext, workerId: string): ClassifiedSca
       kind: "added_team_changed",
       detail: priorLead.name,
       shouldWrite: true,
+      teamId: ctx.teamId,
     };
   }
-  return { workerId, name, kind: "added", detail: null, shouldWrite: true };
+  return { workerId, name, kind: "added", detail: null, shouldWrite: true, teamId: ctx.teamId };
+}
+
+// Spec 359 U4 — check-out, OT-in and OT-out. Each writes against the worker's own
+// team, and each refuses rather than repeat a write that would DESTROY a value:
+// `muster_scan_out` overwrites `out_at` with now() (no already-out guard), and a
+// closed OT carries the `ot_hours` its span priced and can never be reopened.
+function classifyResolved(
+  ctx: SweepContext,
+  workerId: string,
+  name: string,
+  action: SweepAction,
+): ClassifiedScan {
+  const session = ctx.sessionByWorker.get(workerId);
+  const refuse = (kind: SweepOutcomeKind, detail: string | null = null): ClassifiedScan => ({
+    workerId,
+    name,
+    kind,
+    detail,
+    shouldWrite: false,
+    teamId: null,
+  });
+  if (session === undefined) {
+    return refuse("not_checked_in");
+  }
+  const lead = ctx.teamLeadById.get(session.teamId) ?? null;
+  const write = (kind: SweepOutcomeKind): ClassifiedScan => ({
+    workerId,
+    name,
+    kind,
+    // Name the team the write landed on — a team-agnostic sweep must still be
+    // auditable at a glance, since the SA never chose one.
+    detail: lead,
+    shouldWrite: true,
+    teamId: session.teamId,
+  });
+  // Written earlier in THIS sweep: the board does not know yet (it refreshes on
+  // close), so answer from the sweep or a re-scan would repeat the write.
+  const writtenHere = ctx.addedThisSweep.has(workerId);
+
+  if (action.session === "regular") {
+    if (session.outAt !== null || writtenHere) return refuse("already_out", lead);
+    return write("checked_out");
+  }
+  if (session.ot?.outAt != null || (writtenHere && action.direction === "out")) {
+    return refuse("ot_already_closed", lead);
+  }
+  if (action.direction === "in") {
+    if (session.ot !== null || writtenHere) return refuse("ot_already_open", lead);
+    return write("ot_opened");
+  }
+  if (session.ot === null) return refuse("no_ot", lead);
+  return write("ot_closed");
 }
 
 export function recordScan(state: SweepState, c: ClassifiedScan, nowMs: number): SweepState {

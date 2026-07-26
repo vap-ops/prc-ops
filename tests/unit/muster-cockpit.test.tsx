@@ -350,7 +350,9 @@ describe("MusterCockpit — OT scan direction (field bug 2026-07-26)", () => {
     ],
   };
 
-  /** Drive one camera decode of `workerId` in the OT session, direction `dir`. */
+  /** Drive one camera decode of `workerId` in the OT session, direction `dir`.
+   *  Spec 359 U4 — the OT door is the page-level scanner; OT reads a membership
+   *  that already exists, so there is no team to pick. */
   async function scanInOt(workerId: string, dir: "เข้า" | "ออก") {
     Object.defineProperty(navigator, "mediaDevices", {
       value: { getUserMedia: () => Promise.resolve() },
@@ -362,7 +364,9 @@ describe("MusterCockpit — OT scan direction (field bug 2026-07-26)", () => {
       renderCockpit(DIR_BOARD);
       await user.click(screen.getByRole("button", { name: "OT" }));
       await user.click(screen.getByRole("button", { name: dir }));
-      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+      await user.click(
+        screen.getByRole("button", { name: dir === "เข้า" ? /สแกน OT เข้า/ : /สแกน OT ออก/ }),
+      );
       // The file's beforeEach re-arms the resolved value but never clears the call
       // log, and the refusal cases assert on NO write — so clear it here, right
       // before the decode, and let each case own its calls.
@@ -395,16 +399,19 @@ describe("MusterCockpit — OT scan direction (field bug 2026-07-26)", () => {
     expect(screen.getByRole("button", { name: "เข้า" })).toHaveClass("bg-fill");
   });
 
+  // Spec 359 U4 — the refusal is now a tally row attributed to that worker (the
+  // sheet stays open for the next badge), not a page-level alert that would be
+  // hidden behind the open sheet anyway.
   it("a badge scanned in OT + เข้า for a worker whose OT is ALREADY OPEN writes nothing (the 70cc66a3 bug)", async () => {
     await scanInOt(W2, "เข้า");
     expect(musterScan).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent("เปิด OT อยู่แล้ว");
+    expect(await screen.findByText("OT เปิดอยู่แล้ว")).toBeInTheDocument();
   });
 
   it("a badge scanned in OT + ออก for a worker with NO OT row writes nothing", async () => {
     await scanInOt(W1, "ออก");
     expect(musterScan).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent("ยังไม่ได้เปิด OT");
+    expect(await screen.findByText("ยังไม่ได้เปิด OT")).toBeInTheDocument();
   });
 
   it("a badge scanned in OT + ออก for an open-OT worker closes OT (the 21:00 round keeps working)", async () => {
@@ -443,7 +450,7 @@ describe("MusterCockpit — OT scan direction (field bug 2026-07-26)", () => {
       renderCockpit(DIR_BOARD);
       await user.click(screen.getByRole("button", { name: "OT" }));
       await user.click(screen.getByRole("button", { name: "ออก" }));
-      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+      await user.click(screen.getByRole("button", { name: /สแกน OT ออก/ }));
       expect(screen.getByTestId("sweep-action-header").textContent).toContain("กำลังบันทึก OT ออก");
     } finally {
       delete (navigator as unknown as Record<string, unknown>).mediaDevices;
@@ -755,7 +762,12 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     expect(screen.queryByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeNull();
   });
 
-  it("ออก mode WITH camera → the door renders (scan-to-check-out)", async () => {
+  // Spec 359 U4 — the evening door moved OFF the team card. Check-out reads a
+  // membership that already exists, so the SA scans the whole site from one
+  // page-level door instead of choosing a team per man (operator: "checking out
+  // require no team picking"). The per-team door would now open a sheet whose
+  // team choice means nothing, so it is hidden, not left as a second path.
+  it("ออก mode WITH camera → the door is the PAGE-LEVEL scanner, not the team card's", async () => {
     Object.defineProperty(navigator, "mediaDevices", {
       value: { getUserMedia: () => Promise.resolve() },
       configurable: true,
@@ -764,10 +776,34 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
       const user = userEvent.setup();
       renderCockpit();
       await user.click(screen.getByRole("button", { name: "ออก" }));
-      expect(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /สแกนเช็คออก/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeNull();
     } finally {
       delete (navigator as unknown as Record<string, unknown>).mediaDevices;
     }
+  });
+
+  it("names the OT rounds on that same door, so the SA reads the write before opening it", async () => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      const user = userEvent.setup();
+      renderCockpit();
+      await user.click(screen.getByRole("button", { name: "OT" }));
+      expect(screen.getByRole("button", { name: /สแกน OT เข้า/ })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "ออก" }));
+      expect(screen.getByRole("button", { name: /สแกน OT ออก/ })).toBeInTheDocument();
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+    }
+  });
+
+  it("keeps the morning door on the team card — that round is where a team is chosen", () => {
+    renderCockpit();
+    expect(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /สแกนเช็คออก/ })).toBeNull();
   });
 
   it("the sheet stays open across taps and the remaining addable stay listed", async () => {
@@ -789,6 +825,7 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
       <MusterAddSheet
         leadName="ลี"
         actionLabel="กำลังเช็คเข้า"
+        countNoun="เพิ่มแล้ว"
         sessionLabel="งานปกติ"
         hasCamera={false}
         showTapAdd
@@ -837,46 +874,58 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     expect(screen.queryByRole("button", { name: "สแกน QR" })).toBeNull();
   });
 
-  // Spec 359 U1 moved the เข้า + regular path onto the continuous sweep (the
-  // sheet stays open — see the sweep describe). One-shot survives unchanged in
-  // the modes the sweep deliberately does NOT cover, so these two keep their
-  // original intent and now exercise ออก.
-  it("a camera detection fires a qr scan and closes the sheet (one-shot, ออก)", async () => {
+  // Spec 359 U4 — ออก is a sweep too now, through the page-level scanner, so the
+  // sheet STAYS OPEN and the write goes to the worker's own team. These two tests
+  // kept the one-shot intent U1 left them; they now pin the sweep instead.
+  it("a camera detection in ออก checks that worker out of THEIR team and keeps the sheet open", async () => {
     Object.defineProperty(navigator, "mediaDevices", {
       value: { getUserMedia: () => Promise.resolve() },
       configurable: true,
     });
     try {
       const user = userEvent.setup();
+      nextScanId.current = W1; // a mustered member with an open session
       renderCockpit();
       await user.click(screen.getByRole("button", { name: "ออก" }));
-      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
-      await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock"));
+      await user.click(screen.getByRole("button", { name: /สแกนเช็คออก/ }));
+      await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock-next"));
       expect(musterScan).toHaveBeenCalledWith(
-        expect.objectContaining({ teamId: T1, workerId: W3, mode: "out", method: "qr" }),
+        expect.objectContaining({
+          teamId: T1,
+          workerId: W1,
+          mode: "out",
+          session: "regular",
+          method: "qr",
+        }),
       );
-      expect(screen.queryByRole("dialog")).toBeNull();
+      // The walk-round continues — closing per badge is the cost U4 removes.
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByTestId("sweep-count").textContent).toContain("เช็คออกแล้ว 1");
     } finally {
       delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+      nextScanId.current = W3;
     }
   });
 
-  it("a scan error after the one-shot close surfaces in the page-top alert (ออก)", async () => {
-    musterScan.mockResolvedValueOnce({ ok: false, error: "ยังไม่ได้เช็คชื่อเข้าของช่างคนนี้" });
+  it("a refused check-out is attributed to that worker in the tally, not swallowed", async () => {
+    musterScan.mockResolvedValueOnce({ ok: false, error: "ไม่มีสิทธิ์เช็คชื่อ" });
     Object.defineProperty(navigator, "mediaDevices", {
       value: { getUserMedia: () => Promise.resolve() },
       configurable: true,
     });
     try {
       const user = userEvent.setup();
+      nextScanId.current = W1;
       renderCockpit();
       await user.click(screen.getByRole("button", { name: "ออก" }));
-      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
-      await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock"));
-      expect(screen.queryByRole("dialog")).toBeNull();
-      expect(await screen.findByRole("alert")).toHaveTextContent("ยังไม่ได้เช็คชื่อเข้า");
+      await user.click(screen.getByRole("button", { name: /สแกนเช็คออก/ }));
+      await user.click(within(screen.getByRole("dialog")).getByTestId("camera-mock-next"));
+      expect(await screen.findByText("ไม่มีสิทธิ์เช็คชื่อ")).toBeInTheDocument();
+      // …and it must not be counted as done.
+      expect(screen.getByTestId("sweep-count").textContent).toContain("เช็คออกแล้ว 0");
     } finally {
       delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+      nextScanId.current = W3;
     }
   });
 
@@ -1133,8 +1182,9 @@ describe("MusterCockpit — gender chips (spec 357 U-F)", () => {
 // while the sheet stays open.
 describe("MusterAddSheet — action header + tally (spec 359 U1)", () => {
   const base = {
-    leadName: "อนันต์ แสงทอง",
+    leadName: "อนันต์ แสงทอง" as string | null,
     actionLabel: "กำลังเช็คเข้า",
+    countNoun: "เพิ่มแล้ว",
     sessionLabel: "งานปกติ",
     hasCamera: true,
     showTapAdd: true,
@@ -1433,12 +1483,97 @@ describe("MusterCockpit — continuous sweep (spec 359 U1)", () => {
     expect(screen.queryByText(/เมื่อวานอยู่ทีม/)).not.toBeInTheDocument();
   });
 
-  it("does not sweep in ออก mode — that keeps the one-shot behaviour", async () => {
+  // Spec 359 U4 — U1's "ออก keeps the one-shot behaviour" is REVERSED by operator
+  // directive ("all checking should [be QR]"). ออก sweeps through the page-level
+  // door, which needs no team, so the sheet heads with ทุกทีม rather than a lead.
+  it("sweeps in ออก mode too, from a door that names no team", async () => {
     renderSweep();
     await userEvent.click(screen.getByText("ออก"));
-    await openSheet();
+    await userEvent.click(screen.getByRole("button", { name: /สแกนเช็คออก/ }));
+    await scan(W1);
+    const header = screen.getByTestId("sweep-action-header");
+    expect(header.textContent).toContain("กำลังเช็คออก");
+    expect(header.textContent).toContain("ทุกทีม");
+    expect(header.textContent).not.toContain("ทีม ลี");
+  });
+
+  it("checks a worker out of the team the BOARD says they are on, from a scanner that knows no team", async () => {
+    // The whole point of the page-level door: the SA walks the site, and each
+    // badge lands on its own team. Two teams, and the scanned man is on the second.
+    const T2 = "ffffffff-6666-6666-6666-666666666666";
+    renderSweep({
+      ...BOARD,
+      teams: [
+        ...BOARD.teams,
+        {
+          id: T2,
+          leadWorkerId: W3,
+          leadName: "ก้อง",
+          members: [
+            {
+              workerId: W2,
+              name: "สมชาย",
+              gender: null,
+              inAt: "2026-07-26T01:00:00Z",
+              outAt: null,
+              ot: null,
+              outAuto: false,
+            },
+          ],
+          wpIds: [],
+          prefillWpIds: [],
+          missing: [],
+        },
+      ],
+    });
+    await userEvent.click(screen.getByText("ออก"));
+    await userEvent.click(screen.getByRole("button", { name: /สแกนเช็คออก/ }));
     await scan(W2);
-    expect(screen.queryByTestId("sweep-action-header")).not.toBeInTheDocument();
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: T2, workerId: W2, mode: "out", session: "regular" }),
+    );
+    // The tally names the team it wrote to — the SA never chose one.
+    expect(screen.getByText("เช็คออก · ทีม ก้อง")).toBeInTheDocument();
+  });
+
+  it("refuses a badge for someone with no session on today's board", async () => {
+    renderSweep();
+    await userEvent.click(screen.getByText("ออก"));
+    await userEvent.click(screen.getByRole("button", { name: /สแกนเช็คออก/ }));
+    await scan(W2); // on the roster, but never checked in
+    expect(musterScan).not.toHaveBeenCalled();
+    expect(screen.getByText("ยังไม่ได้เช็คเข้าวันนี้")).toBeInTheDocument();
+  });
+
+  it("refuses to re-check-out someone already out rather than rewriting their out time", async () => {
+    // `muster_scan_out` sets out_at = now() with NO already-out guard, so this
+    // refusal is the only thing protecting the real 17:13 on a walk-round where
+    // badges get scanned twice.
+    renderSweep({
+      ...BOARD,
+      teams: [
+        {
+          ...BOARD.teams[0]!,
+          members: [
+            {
+              workerId: W2,
+              name: "สมชาย",
+              gender: null,
+              inAt: "2026-07-26T01:00:00Z",
+              outAt: "2026-07-26T10:13:00Z",
+              ot: null,
+              outAuto: false,
+            },
+          ],
+        },
+      ],
+    });
+    await userEvent.click(screen.getByText("ออก"));
+    await userEvent.click(screen.getByRole("button", { name: /สแกนเช็คออก/ }));
+    await scan(W2);
+    expect(musterScan).not.toHaveBeenCalled();
+    expect(screen.getByText("เช็คออกแล้ว · ทีม ลี")).toBeInTheDocument();
+    expect(screen.getByTestId("sweep-count").textContent).toContain("เช็คออกแล้ว 0");
   });
 });
 
@@ -1540,8 +1675,9 @@ describe("MusterCockpit — ย้ายมาทีมนี้ (spec 359 U1)",
 // keeps its stays-open behaviour; a device with no camera is untouched.
 describe("MusterAddSheet — camera-first (spec 359 U2)", () => {
   const base = {
-    leadName: "อนันต์ แสงทอง",
+    leadName: "อนันต์ แสงทอง" as string | null,
     actionLabel: "กำลังเช็คเข้า",
+    countNoun: "เพิ่มแล้ว",
     sessionLabel: "งานปกติ",
     showTapAdd: true,
     addable: [

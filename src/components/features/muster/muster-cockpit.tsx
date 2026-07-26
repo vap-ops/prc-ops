@@ -30,6 +30,7 @@ import {
   markFailed,
   markMoved,
   recordScan,
+  type SweepAction,
   type SweepState,
 } from "@/lib/muster/sweep";
 import { playScanCue } from "@/lib/muster/scan-cue";
@@ -96,6 +97,8 @@ export function MusterCockpit({
   const [session, setSession] = useState<Session>("regular");
   const [leadPick, setLeadPick] = useState("");
   const [scanTeamId, setScanTeamId] = useState<string | null>(null);
+  /** Spec 359 U4 — the page-level, team-agnostic scanner is open (evening rounds). */
+  const [siteScan, setSiteScan] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   // Spec 359 U1 — the open sheet's running tally. Reset on every open so a new
@@ -233,12 +236,11 @@ export function MusterCockpit({
     }
     run(() => musterScan({ teamId, workerId, mode: direction, method, session: "ot", revalidate }));
   };
-  // The camera dispatches by the active session (it scans whichever session is on)
-  // and, in BOTH sessions, by the visible เข้า/ออก toggle.
-  // Spec 359 U1: this is now the NON-sweep path only (ออก / OT) — one-shot, as
-  // before. The morning line goes through onSweepDetected below.
-  const scanFromCamera = (teamId: string, workerId: string) =>
-    session === "ot" ? scanOt(teamId, workerId, "qr", mode) : scanRegular(teamId, workerId, "qr");
+  // Spec 359 U4 — there is no one-shot camera path left: every round sweeps, so
+  // a decode always goes through `onSweepDetected` → `classifyScan`. `scanRegular`
+  // and `scanOt` above are now the MANUAL board buttons only (เช็คออก, OT เข้า,
+  // OT ออก), where the label states the direction.
+  //
   // Each session's round starts with check-ins, and เข้า is the direction that
   // cannot destroy a record — so switching session never inherits ออก from the
   // round the SA just finished.
@@ -259,10 +261,35 @@ export function MusterCockpit({
       (p) => [p.workerId, { id: p.leadWorkerId, name: p.leadName }] as const,
     ),
   );
-  // The sweep is the morning line only: regular + เข้า. ออก and OT keep the
-  // one-shot behaviour — a continuous sweep in ออก would check a whole team out
-  // in seconds (spec 359 plan, scope decision).
-  const sweepMode = session === "regular" && mode === "in";
+  // Spec 359 U4 — a worker's session today, across EVERY team. Only the morning
+  // line creates membership; the other three rounds READ it, so they resolve the
+  // team from here rather than from a team the SA had to pick.
+  const sessionByWorker = new Map(
+    board.teams.flatMap((t) =>
+      t.members.map((m) => [m.workerId, { teamId: t.id, outAt: m.outAt, ot: m.ot }] as const),
+    ),
+  );
+  // Spec 359 U4 — every round sweeps now (operator: "all checking should [be QR]").
+  // U1 held ออก back because a continuous sweep could check a team out silently;
+  // the direction is stated on screen since the 2026-07-26 fix, and `classifyScan`
+  // refuses the writes that would DESTROY a value (already_out / ot_already_*)
+  // rather than repeat them.
+  const action: SweepAction = { session, direction: mode };
+  // The morning line is the only round that CHOOSES a team, so it is the only one
+  // whose door lives on a team card. The rest open one page-level scanner.
+  const teamScoped = session === "regular" && mode === "in";
+  // What the tally counts, in this round's words.
+  const countNoun = teamScoped
+    ? "เพิ่มแล้ว"
+    : session === "ot"
+      ? mode === "in"
+        ? "เริ่ม OT แล้ว"
+        : "ปิด OT แล้ว"
+      : "เช็คออกแล้ว";
+  // The page-level door's label states the round, so the SA reads what the camera
+  // will write before opening it (the 2026-07-26 direction lesson).
+  const siteScanLabel =
+    session === "ot" ? (mode === "in" ? "สแกน OT เข้า" : "สแกน OT ออก") : "สแกนเช็คออก";
 
   // Spec 359 U1 — one add inside an open sweep, whatever the input method. The
   // board is NOT refreshed per add (that would be a server round-trip and a
@@ -273,31 +300,44 @@ export function MusterCockpit({
   // Everything that makes the sweep useful (the team-change warn, the other-team
   // row, the per-person failure attribution) lives here, so the tap path gets it
   // by construction rather than by a parallel implementation that can drift.
-  const sweepAdd = (teamId: string, workerId: string, method: "qr" | "manual", nowMs: number) => {
+  //
+  // Spec 359 U4 — `teamId` is the team whose sheet is open, or NULL for a
+  // resolved round. The write always goes to `c.teamId`, which the classifier
+  // filled in: the chosen team in the morning, the worker's own team otherwise.
+  const sweepAdd = (
+    teamId: string | null,
+    workerId: string,
+    method: "qr" | "manual",
+    nowMs: number,
+  ) => {
     const c = classifyScan(
       {
         teamId,
-        leadWorkerId: board.teams.find((t) => t.id === teamId)?.leadWorkerId ?? "",
+        leadWorkerId:
+          (teamId === null ? null : board.teams.find((t) => t.id === teamId)?.leadWorkerId) ?? "",
         workersById,
         todayTeamByWorker,
         teamLeadById,
         priorLeadByWorker,
         addedThisSweep: addedRef.current,
+        sessionByWorker,
       },
       workerId,
+      action,
     );
     setSweep((s) => recordScan(s, c, nowMs));
     playScanCue(c.kind);
-    if (!c.shouldWrite) return;
+    if (!c.shouldWrite || c.teamId === null) return;
     addedRef.current.add(workerId);
     const gen = sweepGenRef.current;
+    const writeTeamId = c.teamId;
     startTransition(async () => {
       const res = await musterScan({
-        teamId,
+        teamId: writeTeamId,
         workerId,
-        mode: "in",
+        mode: action.direction,
         method,
-        session: "regular",
+        session: action.session,
         revalidate,
       });
       if (res.ok) return;
@@ -314,7 +354,7 @@ export function MusterCockpit({
     });
   };
 
-  const onSweepDetected = (teamId: string, workerId: string) => {
+  const onSweepDetected = (teamId: string | null, workerId: string) => {
     const now = Date.now();
     // The decode loop fires every ~180ms and the badge stays in frame while the
     // SA moves on — without this, one badge is ~5 writes a second. Read from the
@@ -349,6 +389,7 @@ export function MusterCockpit({
   // One refresh for the whole sweep, on close — not per scan.
   const closeSheet = () => {
     setScanTeamId(null);
+    setSiteScan(false);
     if (sweep.addedIds.length > 0) router.refresh();
     setSweep(EMPTY_SWEEP);
     lastSeenRef.current = {};
@@ -439,6 +480,28 @@ export function MusterCockpit({
               ออก
             </button>
           </div>
+          {/* Spec 359 U4 — the evening scanner. One door for the whole site: these
+              rounds read a membership that already exists, so asking the SA which
+              team each man belongs to was ceremony (operator: "checking out
+              require no team picking"). The morning door stays on the team card,
+              where the team is genuinely being chosen. */}
+          {!teamScoped && hasCamera && board.teams.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMessage(null);
+                setSweep(EMPTY_SWEEP);
+                lastSeenRef.current = {};
+                addedRef.current = new Set();
+                sweepGenRef.current += 1;
+                setSiteScan(true);
+              }}
+              className="bg-fill text-on-fill flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-bold"
+            >
+              <QrCode aria-hidden className="size-4" />
+              {siteScanLabel}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -496,7 +559,6 @@ export function MusterCockpit({
             mode={mode}
             session={session}
             pending={pending}
-            hasCamera={hasCamera}
             onScan={scanRegular}
             onScanOt={scanOt}
             onSaveWps={saveWps}
@@ -596,13 +658,15 @@ export function MusterCockpit({
       ) : null}
 
       {(() => {
-        // Spec 357 U-D — the per-team scan/add sheet. A scan is one-shot (the
-        // sheet closes so the SA sees the board update); tap-adds keep it open
-        // for the next name in the lineup.
+        // Spec 357 U-D — the per-team scan/add sheet, now the MORNING sheet only.
+        // Spec 359 U4 — the evening rounds open the same sheet with no team
+        // (`siteScan`): they resolve each badge's own team, so there is nothing to
+        // pick and nothing to name.
         const sheetTeam = scanTeamId ? board.teams.find((t) => t.id === scanTeamId) : null;
-        return sheetTeam ? (
+        if (!sheetTeam && !siteScan) return null;
+        return (
           <MusterAddSheet
-            leadName={sheetTeam.leadName}
+            leadName={sheetTeam?.leadName ?? null}
             actionLabel={
               session === "ot"
                 ? mode === "in"
@@ -612,26 +676,20 @@ export function MusterCockpit({
                   ? "กำลังเช็คเข้า"
                   : "กำลังเช็คออก"
             }
+            countNoun={countNoun}
             sessionLabel={session === "ot" ? "OT" : "งานปกติ"}
             sweep={sweep.entries}
             hasCamera={hasCamera}
-            showTapAdd={session === "regular" && mode === "in"}
-            addable={addableTo(sheetTeam.id)}
+            showTapAdd={teamScoped && sheetTeam !== null}
+            addable={sheetTeam ? addableTo(sheetTeam.id) : []}
             message={message}
             pending={pending}
-            onScanDetected={(workerId) => {
-              if (sweepMode) {
-                onSweepDetected(sheetTeam.id, workerId);
-                return;
-              }
-              scanFromCamera(sheetTeam.id, workerId);
-              setScanTeamId(null);
-            }}
-            onTapAdd={(workerId) => onSheetTapAdd(sheetTeam.id, workerId)}
-            onMoveHere={(workerId) => onMoveHere(sheetTeam.id, workerId)}
+            onScanDetected={(workerId) => onSweepDetected(sheetTeam?.id ?? null, workerId)}
+            onTapAdd={(workerId) => (sheetTeam ? onSheetTapAdd(sheetTeam.id, workerId) : undefined)}
+            onMoveHere={(workerId) => (sheetTeam ? onMoveHere(sheetTeam.id, workerId) : undefined)}
             onClose={closeSheet}
           />
-        ) : null;
+        );
       })()}
     </div>
   );
@@ -643,7 +701,6 @@ function TeamCard({
   mode,
   session,
   pending,
-  hasCamera,
   onScan,
   onScanOt,
   onSaveWps,
@@ -655,7 +712,6 @@ function TeamCard({
   mode: Mode;
   session: Session;
   pending: boolean;
-  hasCamera: boolean;
   /** Regular-session scan (check-out), following the เข้า/ออก mode. */
   onScan: (teamId: string, workerId: string, method: "qr" | "manual") => void;
   /** Spec 351 — OT-session scan. The DIRECTION is the caller's (field bug
@@ -727,11 +783,13 @@ function TeamCard({
           <span className="text-ink font-semibold">{team.leadName}</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Spec 357 U-D — the QR door. Always present where tap-add applies
-              (เข้า + regular: the sheet has the list even camera-less); in
-              other modes only a camera gives the sheet content, so it gates on
-              scanner support there. */}
-          {(session === "regular" && mode === "in") || hasCamera ? (
+          {/* Spec 357 U-D — the QR door, for the MORNING round: the sheet carries
+              the tap-add list here even camera-less, and this is the round where
+              picking a team is the point.
+              Spec 359 U4 — the evening rounds no longer open per team; their door
+              is the page-level scanner beside the toggles, so this one is hidden
+              rather than opening a sheet whose team choice is now meaningless. */}
+          {session === "regular" && mode === "in" ? (
             <button
               type="button"
               onClick={onOpenSheet}
