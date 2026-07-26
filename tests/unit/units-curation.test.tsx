@@ -56,12 +56,21 @@ describe("splitUnitUsage (spec 361 U8)", () => {
     ]);
   });
 
-  it("surfaces off-list strings with their counts, most-used first", () => {
+  it("surfaces off-list strings with their counts", () => {
     const { offList } = splitUnitUsage(MANAGED, USAGE);
     expect(offList).toEqual([
       { unit: "หลอด", usage: 2 },
       { unit: "ปิีป", usage: 1 },
     ]);
+  });
+
+  // Ordering needs a fixture whose FIRST-SEEN order is the WRONG order —
+  // otherwise the assertion passes on insertion order alone and says nothing
+  // about the sort (caught by mutation-checking: deleting the sort stayed green).
+  it("puts the most-used off-list string first, whatever order it was seen in", () => {
+    const seenLowUsageFirst = ["ปิีป", "หลอด", "หลอด", "หลอด"];
+    const { offList } = splitUnitUsage(MANAGED, seenLowUsageFirst);
+    expect(offList.map((o) => o.unit)).toEqual(["หลอด", "ปิีป"]);
   });
 
   it("ignores empty and null unit values — they are not a unit anyone typed", () => {
