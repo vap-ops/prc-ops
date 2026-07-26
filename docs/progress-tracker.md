@@ -6,6 +6,51 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 306 — ปิดวัน states what it will do, and offers the cure (2026-07-26)
+
+- **Operator question:** _"should we prevent ปิดวัน? or at least provide warnings and
+  request confirmations when there are technicians not checked out yet?"_
+- **The two cases are not the same shape, and the answer follows from that:**
+  | at close | what `close_muster_day` does | reversible |
+  | --- | --- | --- |
+  | regular still in | **auto-outs** at `greatest(17:00 BKK, in_at)`, sets `out_auto` | nothing lost — a guess, and flagged as one (07-25: 3 rows). Wages derive from day-presence, not hours |
+  | OT still open | **leaves it open, `ot_hours` NULL forever** | effectively no: `muster_scan_out` prices the span from `now()`, so closing it tomorrow bills garbage (07-24: 9 rows, still open) |
+- **Why NOT block:** verified live that neither `muster_scan_in` nor `muster_scan_out`
+  references `muster_day_closures` — closing is not a lock, and a re-close re-derives
+  idempotently. So closing early is recoverable while **not** closing is not, and a day
+  nobody closed is precisely the 07-24 failure the footer was built for. Friction that
+  nudges toward "leave it for later" costs more than an imperfect close. Operator chose
+  this option over a hard block.
+- **What shipped:** the confirm names the consequence per case and **offers the cure**,
+  because a warning that can only be tapped through teaches tapping through.
+  - OT open → **primary** `ปิด OT ให้ทุกคนตอนนี้ (N) แล้วปิดวัน`, wired to a new
+    `closeOpenOt` action; `ปิดวันโดยไม่บันทึก OT ของ N คน` stays reachable as a
+    danger-toned secondary, never the default.
+  - Regular still in → `ช่าง N คนยังไม่เช็คออก — ระบบจะบันทึกเวลาออก 17:00 ให้` **plus the
+    names** (cap 5, then `+N`): a count is a number to tap past, a name is a person to go
+    and find.
+  - Nothing to warn about → the plain one-button confirm, unchanged.
+- **`closeOpenOt` design:** the list of `{teamId, workerId}` comes from the client,
+  because the board it reads is the same board the SA is looking at and
+  `muster_scan_out` re-checks role, project membership and team on every call — forging
+  it buys nothing. Every id is validated **before** the first write, so a malformed list
+  writes nothing rather than half-closing the day. Sequential, not parallel (≈20 DEFINER
+  calls in a burst is how the pooler transients happen). **A partial close is reported as
+  a failure and the day stays open** — closing anyway would destroy the OT the button
+  exists to save.
+- **Evidence:** 4 RED-first action tests + 5 RED-first cockpit tests; `pnpm lint` ✅
+  `pnpm typecheck` ✅.
+- **Open questions / follow-ups (NOT done here):**
+  - The durable fix is not a dialog — the failure is _forgetting_, not misunderstanding.
+    That is the parked 306 U5b cron backstop (close OT at a policy hour) plus an explicit
+    OT end-time entry, so a forgotten span can be corrected with a real time instead of
+    `now()`. Needs the operator's policy hour and touches the worker (danger path).
+  - 07-24's 9 open OT rows are still open. Closing them now would price a two-day span;
+    they need the explicit end-time entry above, or a deliberate write-off.
+  - `close_muster_day` itself still accepts an open OT silently — only the UI objects.
+
+---
+
 ## Spec 359 U4 — every muster event sweeps, and the evening picks no team (2026-07-26)
 
 - **Origin — two operator directives, minutes apart:** _"OT out is not QR based? it

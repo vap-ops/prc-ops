@@ -19,12 +19,14 @@ const musterScan = vi.fn();
 const setMusterTeamWps = vi.fn();
 const closeMusterDay = vi.fn();
 const moveMusterWorker = vi.fn();
+const closeOpenOt = vi.fn();
 vi.mock("@/lib/muster/actions", () => ({
   openMusterTeam: (...a: unknown[]) => openMusterTeam(...a),
   musterScan: (...a: unknown[]) => musterScan(...a),
   setMusterTeamWps: (...a: unknown[]) => setMusterTeamWps(...a),
   closeMusterDay: (...a: unknown[]) => closeMusterDay(...a),
   moveMusterWorker: (...a: unknown[]) => moveMusterWorker(...a),
+  closeOpenOt: (...a: unknown[]) => closeOpenOt(...a),
 }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -116,6 +118,8 @@ beforeEach(() => {
   closeMusterDay.mockResolvedValue({ ok: true });
   moveMusterWorker.mockResolvedValue({ ok: true, id: "moved" });
   moveMusterWorker.mockClear();
+  closeOpenOt.mockReset().mockResolvedValue({ ok: true, closed: 1 });
+  closeMusterDay.mockClear();
   // Spec 359 U1 — the sweep asserts on refresh CALL COUNT, so it must not leak
   // between tests.
   refresh.mockClear();
@@ -1183,6 +1187,112 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
       },
     ],
   };
+
+  // Writing failing test first.
+  //
+  // Spec 306 close-day cure (operator 2026-07-26, "should we prevent ปิดวัน? or at
+  // least provide warnings and request confirmations"). The answer, from the live
+  // facts: never BLOCK. Closing is recoverable — the scan RPCs carry no closure
+  // guard and a re-close re-derives — while NOT closing is not, and a day nobody
+  // closed is exactly the 07-24 failure the bar exists to prevent. So the confirm
+  // names the consequence per case and OFFERS THE CURE, because a warning you can
+  // only tap through teaches tapping through:
+  //   · OT open      → losing it is irreversible (ot_hours NULL forever, and a
+  //                    later scan_out prices the span from now()) ⇒ the primary
+  //                    action closes their OT now; "close anyway" is secondary.
+  //   · regular in   → close_muster_day AUTO-OUTS them at 17:00 and flags it, so
+  //                    nothing is lost — but say so, which it never did.
+  describe("what ปิดวัน will DO is stated, and the cure offered (2026-07-26)", () => {
+    const withMembers = (members: MusterBoard["teams"][number]["members"]): MusterBoard => ({
+      ...BOARD,
+      teams: [{ ...BOARD.teams[0]!, members }],
+    });
+    const OT_ONE_OPEN = withMembers([
+      {
+        workerId: W1,
+        name: "ลี",
+        gender: null,
+        inAt: "2026-07-13T01:00:00Z",
+        outAt: "2026-07-13T10:00:00Z",
+        ot: { inAt: "2026-07-13T10:30:00Z", outAt: null, otHours: null },
+        outAuto: false,
+      },
+    ]);
+    const STILL_IN = withMembers([
+      {
+        workerId: W1,
+        name: "ลี",
+        gender: null,
+        inAt: "2026-07-13T01:00:00Z",
+        outAt: null,
+        ot: null,
+        outAuto: false,
+      },
+      {
+        workerId: W2,
+        name: "สมชาย",
+        gender: null,
+        inAt: "2026-07-13T01:00:00Z",
+        outAt: null,
+        ot: null,
+        outAuto: false,
+      },
+    ]);
+
+    it("offers closing the open OT as the PRIMARY action, not as an afterthought", async () => {
+      const user = userEvent.setup();
+      renderCockpit(OT_ONE_OPEN);
+      await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+      const cure = screen.getByRole("button", { name: /ปิด OT ให้ทุกคนตอนนี้/ });
+      expect(cure).toHaveClass("bg-fill");
+      await user.click(cure);
+      expect(closeOpenOt).toHaveBeenCalledWith(
+        expect.objectContaining({ sessions: [{ teamId: T1, workerId: W1 }] }),
+      );
+      expect(closeMusterDay).toHaveBeenCalled();
+    });
+
+    it("does NOT close the day when the cure fails — that would lose the very OT it promised to save", async () => {
+      closeOpenOt.mockResolvedValueOnce({ ok: false, error: "ไม่มีสิทธิ์เช็คชื่อ" });
+      const user = userEvent.setup();
+      renderCockpit(OT_ONE_OPEN);
+      await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+      await user.click(screen.getByRole("button", { name: /ปิด OT ให้ทุกคนตอนนี้/ }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("ไม่มีสิทธิ์เช็คชื่อ");
+      expect(closeMusterDay).not.toHaveBeenCalled();
+    });
+
+    it("still allows closing without the OT — named, counted, and never the default", async () => {
+      const user = userEvent.setup();
+      renderCockpit(OT_ONE_OPEN);
+      await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+      const anyway = screen.getByRole("button", { name: /ปิดวันโดยไม่บันทึก OT ของ 1 คน/ });
+      expect(anyway).not.toHaveClass("bg-fill");
+      await user.click(anyway);
+      expect(closeOpenOt).not.toHaveBeenCalled();
+      expect(closeMusterDay).toHaveBeenCalled();
+    });
+
+    it("says what closing does to a worker who never checked out, and names them", async () => {
+      const user = userEvent.setup();
+      renderCockpit(STILL_IN);
+      await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+      // Scoped to the line itself: "ลี" is also the team lead and a member row.
+      const line = screen.getByTestId("close-day-autoout");
+      expect(line).toHaveTextContent("17:00");
+      expect(line).toHaveTextContent("ลี");
+      expect(line).toHaveTextContent("สมชาย");
+    });
+
+    it("keeps the plain one-button confirm when there is nothing to warn about", async () => {
+      const user = userEvent.setup();
+      renderCockpit(READY_BOARD);
+      await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+      expect(screen.getByRole("button", { name: "ยืนยันปิดวัน" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /ปิด OT ให้ทุกคน/ })).toBeNull();
+      expect(screen.queryByTestId("close-day-autoout")).toBeNull();
+    });
+  });
 
   it("does not claim everyone is checked out while an OT session is still open", () => {
     renderCockpit(OT_STILL_OPEN);
