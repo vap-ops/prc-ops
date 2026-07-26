@@ -1,3 +1,9 @@
+# [0.236.0](https://github.com/vap-ops/prc-ops/compare/v0.235.0...v0.236.0) (2026-07-26)
+
+### Features
+
+- **wp:** move หมายเหตุ into the ⓘ sheet and render it unconditionally ([3210192](https://github.com/vap-ops/prc-ops/commit/32101927ceebf669fc9ed736fc5572851c3ea9bb))
+
 # [0.235.0](https://github.com/vap-ops/prc-ops/compare/v0.234.0...v0.235.0) (2026-07-26)
 
 ### Bug Fixes
