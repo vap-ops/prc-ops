@@ -1,3 +1,9 @@
+# [0.237.0](https://github.com/vap-ops/prc-ops/compare/v0.236.0...v0.237.0) (2026-07-26)
+
+### Features
+
+- **wp:** drop the แรงงาน tab from the site admin's WP detail ([470a86d](https://github.com/vap-ops/prc-ops/commit/470a86d5117b1a7214c830b2b360229f69269c53))
+
 # [0.236.0](https://github.com/vap-ops/prc-ops/compare/v0.235.0...v0.236.0) (2026-07-26)
 
 ### Features
