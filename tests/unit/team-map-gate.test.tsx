@@ -114,6 +114,7 @@ describe("both team-map surfaces use the set", () => {
 // press, and be refused by.
 
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, vi } from "vitest";
 
 vi.mock("@/lib/team-map/crew-actions", () => ({
@@ -212,5 +213,22 @@ describe("staff-tier affordances follow the manager gate, not page reach", () =>
   it("the crew half stays fully hers — ตั้งทีมใหม่ renders either way", () => {
     renderMap(false);
     expect(screen.getByRole("button", { name: /ตั้งทีมใหม่/ })).toBeInTheDocument();
+  });
+
+  it("the staff sheet offers no membership actions to her, and says why", async () => {
+    const user = userEvent.setup();
+    renderMap(false);
+    await user.click(screen.getByRole("button", { name: /อรปรีญา/ }));
+    expect(screen.queryByRole("button", { name: /ถอดออกจากทีมโครงการ/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /ตั้งเป็น SA หลัก/ })).toBeNull();
+    expect(screen.getByText(/ทำได้โดยผู้จัดการโครงการเท่านั้น/)).toBeInTheDocument();
+  });
+
+  it("a manager still gets both membership actions in that sheet", async () => {
+    const user = userEvent.setup();
+    renderMap(true);
+    await user.click(screen.getByRole("button", { name: /อรปรีญา/ }));
+    expect(screen.getByRole("button", { name: /ถอดออกจากทีมโครงการ/ })).toBeInTheDocument();
+    expect(screen.queryByText(/ทำได้โดยผู้จัดการโครงการเท่านั้น/)).toBeNull();
   });
 });
