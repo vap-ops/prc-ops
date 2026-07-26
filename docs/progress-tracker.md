@@ -6,6 +6,54 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 273 — pin both refusal arms on all five daily-plan writers — ✅ PR #767 (2026-07-26)
+
+- **Origin:** an out-of-scope security finding from the spec-330 `TEAM_MAP_ROLES`
+  widening reported that `add_daily_plan_item` is `SECURITY DEFINER` with no role
+  check, no `can_see_project` check and no 42501 raise, making the absent RPC gate
+  the only gate (the three `daily_work_plan*` tables carry SELECT policies only).
+- **The finding was FALSE.** All five writers are gated by
+  `perform public.daily_work_plan_assert_writer(<project>)` — role allowlist
+  (`coalesce(…, false)`-hardened) → `42501 'role not permitted'`, then
+  `can_see_project()` → `42501 'not a member of this project'`. `can_see_project`
+  is a `CASE … ELSE false` so it cannot return NULL and open the second arm;
+  `authenticated` holds SELECT-only table grants; function ACLs carry no `anon`
+  and no PUBLIC. Live rollback-wrapped probes: 18/18 refusals across three
+  unprivileged roles × five RPCs, 5/5 across a permitted-role non-member.
+  **The finding's probe text-scanned one function body and could not see a gate
+  reached through a `perform`ed helper** — the doctrine's "one layer down" rule.
+- **The REAL gap, and what this unit fixes:** only `add_daily_plan_item` had its
+  refusals pinned, and no other pgTAP file asserts on the other four (`331`/`332`
+  mention `set_daily_plan_item_crew` in comments only) — so deleting the gate call
+  from remove/note/reorder/crew left the suite green. Mutation-proved live: with
+  the call stripped, a **visitor** noted, reordered, set crew, and deleted a board
+  row. `plan(44)` → `plan(55)`: 8 refusal asserts on those four, the message pinned
+  on all 10 42501 asserts (one errcode, two guards — the spec-330 U3a lesson),
+  positive arms for `project_director` + `procurement_manager` (the two allowlist
+  members that had none), and a pin that the unprivileged fixture is really a
+  `visitor` (a null role raises an identical 42501 with an identical message).
+- **Build note worth keeping:** only `add_daily_plan_item` calls the gate first;
+  the other four derive the project from the row, so their id lookup raises
+  `P0001 'unknown item'` _ahead_ of the gate. The refusing principals cannot read
+  the board, so an inline id subselect resolves to NULL and the assert measures
+  the lookup instead of the gate. Ids are carried in a granted temp table
+  resolved while the member `site_admin` is still active — proven necessary (the
+  same assert with a NULL id returns `not ok`).
+- **Evidence:** `db:test` 324 files / 6589 asserts exit 0, `273` = `1..55` 55 ok;
+  11 mutation checks, all rollback-wrapped against the live DB; prod re-verified
+  intact after every DDL mutation (allowlist present, 33 items / 3 plans, zero
+  residue). No schema change, no migration, schema lane untouched.
+- **Open question (out of scope, pre-existing, needs a migration) — the four
+  lookup-before-gate writers are an existence oracle.** Because the id lookup runs
+  ahead of the gate, any signed-in user (a `visitor` included) can distinguish a
+  real board/item uuid (`42501`) from a bogus one (`P0001`). Impact is low — uuids
+  are unguessable and no row content leaks — and closing it means resolving the
+  project inside the gated path and raising the same 42501 for an unknown id.
+  Nothing in the suite pins the current ordering, so that fix will not red these
+  asserts. Not done here: it is a schema change and the lane was held.
+
+---
+
 ## Spec 328 §2.4 — the wage derive must skip contractor-tied workers — 🔨 in progress (2026-07-26)
 
 - **Origin:** spec 328 §2.4 declared the rule for this exact function ("when spec
