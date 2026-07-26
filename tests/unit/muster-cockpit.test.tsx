@@ -1540,6 +1540,18 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
     musterScan.mockResolvedValue({ ok: true, id: "att" });
   });
 
+  it("a refused worker can be retried — they return to the list and write again", async () => {
+    musterScan.mockResolvedValueOnce({ ok: false, error: "เช็คชื่อไม่สำเร็จ" });
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    expect(await screen.findByText("เช็คชื่อไม่สำเร็จ")).toBeInTheDocument();
+    // The failure released them from addedThisSweep, so the row is back…
+    await tap(user, /มานะ/);
+    expect(musterScan).toHaveBeenCalledTimes(2);
+  });
+
   it("refreshes the board once on close, not per tap", async () => {
     const user = userEvent.setup();
     renderCockpit(TWO_TEAM);
