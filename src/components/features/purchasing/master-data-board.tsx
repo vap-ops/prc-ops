@@ -1,9 +1,13 @@
 // Spec 361 U4 — the ข้อมูลหลัก board: every reference list the firm keeps, one
-// row each, grouped the way the operator named them. A curated list is a link
-// (carrying ?from so the destination's back chip returns here); a list with no
-// in-app editor yet renders as a plain row with its count and an explicit
-// ยังแก้ไขในแอปไม่ได้ note, so the gap is visible instead of being a tile that
-// opens nothing. Server component — no state, no I/O (the page passes counts).
+// row each, grouped the way the operator named them. A curated list is a link;
+// a list with no in-app editor yet renders as a plain row with its count and an
+// explicit ยังแก้ไขในแอปไม่ได้ note, so the gap is visible instead of being a
+// tile that opens nothing. Server component — no state, no I/O (page passes counts).
+//
+// Links carry ?from so a destination that reads it (safeBackHref) returns here.
+// Not every destination does: /catalog/subcategories hardcodes back → /catalog
+// today, so its chip lands one level short. Threading it there is a follow-up,
+// not this unit's scope — the param is harmless where it is ignored.
 
 import Link from "next/link";
 

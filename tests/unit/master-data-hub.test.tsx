@@ -16,6 +16,7 @@ import {
 } from "@/lib/purchasing/master-data";
 import { MasterDataBoard } from "@/components/features/purchasing/master-data-board";
 import { PROCUREMENT_STR_SECTIONS } from "@/lib/purchasing/procurement-home";
+import { PROCUREMENT_TABS } from "@/components/features/chrome/bottom-tab-bar";
 import { MASTER_DATA_LABEL } from "@/lib/i18n/labels";
 
 const ALL_COUNTS: MasterDataCounts = {
@@ -43,10 +44,8 @@ describe("master-data group SSOT (spec 361 U4)", () => {
     ]);
   });
 
-  it("every entry names a count key and is either editable somewhere or explicitly not yet", () => {
+  it("every entry is either editable somewhere or explicitly not yet", () => {
     for (const entry of masterDataEntries()) {
-      expect(entry.label.length, entry.key).toBeGreaterThan(0);
-      expect(entry.countKey, entry.key).toBeTruthy();
       // An entry with no href MUST say so deliberately — a silently dead tile
       // is the affordance-then-refuse shape (doctrine §3).
       if (entry.href === null) expect(entry.editorPending, entry.key).toBe(true);
@@ -54,11 +53,33 @@ describe("master-data group SSOT (spec 361 U4)", () => {
     }
   });
 
-  it("hrefs are unique — one door per destination", () => {
-    const hrefs = masterDataEntries()
-      .map((e) => e.href)
-      .filter((h): h is string => h !== null);
-    expect(new Set(hrefs).size).toBe(hrefs.length);
+  // Exact hrefs, not `stringContaining` — a substring assertion survives
+  // repointing วัสดุ at /catalog/boq-templates, which is precisely the kind of
+  // silent mis-link this table exists to prevent. Two rows may share a
+  // destination (/equipment hosts both the registry and the category quick-add).
+  it("every entry points exactly where its list is curated", () => {
+    const actual = Object.fromEntries(masterDataEntries().map((e) => [e.key, e.href]));
+    expect(actual).toEqual({
+      "catalog-items": "/catalog",
+      "catalog-categories": "/catalog/subcategories",
+      "catalog-units": null,
+      "ordering-templates": "/settings/ordering-templates",
+      "equipment-items": "/equipment",
+      "equipment-categories": "/equipment",
+      "worker-level-rates": "/settings/labor-rates",
+      "work-categories": null,
+      "expense-categories": null,
+      suppliers: "/contacts/vendors",
+      contractors: "/contacts/subcontractors",
+    });
+  });
+
+  // Every row must read its OWN count — one shared key would show the same
+  // number on every list and no other assertion here would notice.
+  it("count keys are one-to-one with the counts contract", () => {
+    const used = masterDataEntries().map((e) => e.countKey);
+    expect(new Set(used).size).toBe(used.length);
+    expect([...used].sort()).toEqual(Object.keys(ALL_COUNTS).sort());
   });
 
   it("keys are unique across groups", () => {
@@ -84,12 +105,11 @@ describe("master-data group SSOT (spec 361 U4)", () => {
       .filter((e) => e.editorPending)
       .map((e) => e.key)
       .sort();
-    expect(pending).toEqual([
-      "catalog-units",
-      "equipment-categories",
-      "expense-categories",
-      "work-categories",
-    ]);
+    // หมวดอุปกรณ์ is NOT here: /equipment's QuickAddCategory can add one
+    // (createEquipmentCategory, BACK_OFFICE_ROLES), so claiming otherwise would
+    // be a false statement to the reader — only rename/deactivate are missing,
+    // which the hint says instead.
+    expect(pending).toEqual(["catalog-units", "expense-categories", "work-categories"]);
   });
 });
 
@@ -99,8 +119,19 @@ describe("the Resources door (spec 361 U4)", () => {
     const door = resources.doors.find((d) => d.key === "master-data");
     expect(door).toBeDefined();
     expect(door?.href).toBe("/procurement/master-data");
-    expect(door?.label).toBe(MASTER_DATA_LABEL);
+    // The literal, not the imported constant — comparing the constant to itself
+    // is green for any string, including an accidental rename.
+    expect(door?.label).toBe("ข้อมูลหลัก");
+    expect(MASTER_DATA_LABEL).toBe("ข้อมูลหลัก");
     expect(door?.scope).toBe("shared");
+  });
+
+  // The route lives under /procurement, so the query-blind longest-prefix rule
+  // would light หน้าหลัก while the page's back chip returns to ทรัพยากร. The
+  // tab must claim the path or the two disagree.
+  it("the ทรัพยากร tab claims the hub path so tab and back chip agree", () => {
+    const resourcesTab = PROCUREMENT_TABS.find((t) => t.href === "/procurement/resources");
+    expect(resourcesTab?.match).toContain("/procurement/master-data");
   });
 });
 
@@ -115,11 +146,12 @@ describe("MasterDataBoard", () => {
     }
   });
 
-  it("an editable list is a link carrying the back referrer; a pending one is not a link", () => {
-    render(<MasterDataBoard counts={ALL_COUNTS} from="/procurement/resources" isManager />);
+  it("an editable list is a link carrying the exact back referrer; a pending one is not a link", () => {
+    render(<MasterDataBoard counts={ALL_COUNTS} from="/procurement/master-data" isManager />);
     const catalog = screen.getByRole("link", { name: /ทะเบียนวัสดุ/ });
-    expect(catalog).toHaveAttribute("href", expect.stringContaining("/catalog"));
-    expect(catalog).toHaveAttribute("href", expect.stringContaining("from=%2Fprocurement%2F"));
+    // Full href — a `stringContaining("/catalog")` survives repointing this row
+    // at /catalog/boq-templates, and a loose ?from survives passing the wrong page.
+    expect(catalog).toHaveAttribute("href", "/catalog?from=%2Fprocurement%2Fmaster-data");
     expect(screen.queryByRole("link", { name: /หน่วยนับ/ })).toBeNull();
   });
 

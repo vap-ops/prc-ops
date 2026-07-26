@@ -112,13 +112,17 @@ export const MASTER_DATA_GROUPS: readonly MasterDataGroup[] = [
         countKey: "equipmentItems",
         editorPending: false,
       },
+      // Editable, but only just: /equipment's QuickAddCategory can ADD one
+      // (createEquipmentCategory, BACK_OFFICE_ROLES — every role that reaches
+      // this hub). Rename and deactivate have no surface at all, so the hint
+      // says which half works rather than the row claiming it is uneditable.
       {
         key: "equipment-categories",
         label: "หมวดอุปกรณ์",
-        hint: "หมวดของอุปกรณ์และของที่เช่า (รถขุด · รถหกล้อ)",
-        href: null,
+        hint: "หมวดของอุปกรณ์และของที่เช่า · เพิ่มได้จากหน้าอุปกรณ์ (ยังเปลี่ยนชื่อ/ปิดใช้งานไม่ได้)",
+        href: "/equipment",
         countKey: "equipmentCategories",
-        editorPending: true,
+        editorPending: false,
       },
     ],
   },
