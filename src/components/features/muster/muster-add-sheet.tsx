@@ -89,7 +89,16 @@ export function MusterAddSheet({
   hasCamera: boolean;
   /** เข้า + regular mode — the only mode where the tap-add list applies. */
   showTapAdd: boolean;
-  addable: { id: string; name: string; gender: WorkerGender | null }[];
+  /** Spec 359 U3 — `otherTeamLead` names the team this worker is ALREADY on
+   *  today (null = free to add). Those rows are offered on purpose: tapping one
+   *  produces an `other_team` tally row with `ย้ายมาทีมนี้`, which before this
+   *  unit could only be reached by a QR decode. */
+  addable: {
+    id: string;
+    name: string;
+    gender: WorkerGender | null;
+    otherTeamLead: string | null;
+  }[];
   message: string | null;
   pending: boolean;
   /** Spec 359 U1 — this sweep's outcomes, newest first. Empty outside a sweep. */
@@ -106,20 +115,29 @@ export function MusterAddSheet({
   // a summary when a camera exists, plain when it does not) so the two paths can
   // never drift apart.
   const tapAddList = (
-    <div className="flex flex-col gap-2">
+    <div data-testid="tap-add-list" className="flex flex-col gap-2">
       <p className="text-ink-secondary text-meta font-semibold">แตะชื่อเพื่อเพิ่มเข้าทีม</p>
       <div className="flex flex-wrap gap-2">
         {addable.length ? (
           addable.map((w) => (
+            // Spec 359 U3 — NOT disabled while a write is in flight. The whole
+            // point of the tap path is a lineup tapped in a row; freezing the
+            // list for each round-trip is the cost model this spec exists to
+            // fix. A double-tap is harmless — the cockpit's addedThisSweep ref
+            // classifies the repeat as อยู่ในทีมแล้ว and writes nothing.
             <button
               key={w.id}
               type="button"
               onClick={() => onTapAdd(w.id)}
-              disabled={pending}
-              className="bg-sunk text-ink flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm disabled:opacity-50"
+              className="bg-sunk text-ink flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm"
             >
               {w.name}
               {genderChip(w.gender)}
+              {w.otherTeamLead ? (
+                <span className="bg-attn-soft text-attn-ink text-meta rounded-full px-1.5 py-0.5 font-semibold">
+                  อยู่ทีม {w.otherTeamLead}
+                </span>
+              ) : null}
             </button>
           ))
         ) : (

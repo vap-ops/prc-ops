@@ -610,15 +610,28 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     expect(within(sheet).getByRole("button", { name: "ก้อง" })).toBeInTheDocument();
   });
 
-  it("an action error renders inside the open sheet", async () => {
-    musterScan.mockResolvedValueOnce({ ok: false, error: "ช่างคนนี้อยู่ในทีมอื่นแล้ววันนี้" });
-    const user = userEvent.setup();
-    renderCockpit();
-    await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "สมชาย" }));
-    expect(await within(screen.getByRole("dialog")).findByRole("alert")).toHaveTextContent(
-      "อยู่ในทีมอื่นแล้ว",
+  // Spec 359 U3 moved the TAP failure into the tally (attributed to the person —
+  // see that describe). The sheet-level alert stays for the remaining producer:
+  // a board action that resolves while the sheet is already open.
+  it("a page-level action error still renders inside the open sheet", () => {
+    render(
+      <MusterAddSheet
+        leadName="ลี"
+        actionLabel="กำลังเช็คเข้า"
+        sessionLabel="งานปกติ"
+        hasCamera={false}
+        showTapAdd
+        addable={[]}
+        message="ไม่มีสิทธิ์เช็คชื่อ"
+        pending={false}
+        sweep={[]}
+        onScanDetected={() => {}}
+        onTapAdd={() => {}}
+        onMoveHere={() => {}}
+        onClose={() => {}}
+      />,
     );
+    expect(screen.getByRole("alert")).toHaveTextContent("ไม่มีสิทธิ์เช็คชื่อ");
   });
 
   it("all workers mustered → the sheet says ช่างทุกคนเข้าทีมแล้ว", async () => {
@@ -1301,7 +1314,7 @@ describe("MusterAddSheet — camera-first (spec 359 U2)", () => {
     actionLabel: "กำลังเช็คเข้า",
     sessionLabel: "งานปกติ",
     showTapAdd: true,
-    addable: [{ id: "w1", name: "สมชาย", gender: null }],
+    addable: [{ id: "w1", name: "สมชาย", gender: null, otherTeamLead: null }],
     message: null,
     pending: false,
     sweep: [],
@@ -1335,5 +1348,167 @@ describe("MusterAddSheet — camera-first (spec 359 U2)", () => {
     render(<MusterAddSheet {...base} hasCamera showTapAdd={false} />);
     expect(screen.queryByText("ไม่มีบัตร / หาไม่เจอ")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "สมชาย" })).not.toBeInTheDocument();
+  });
+});
+
+// Spec 359 U3 — the sweep's outcomes were wired to the CAMERA path only, but no
+// badge has been printed yet, so every real check-in is a manual tap: the
+// team-change warn, the tally and the other-team resolution were dead on real
+// traffic. A tap now runs through the same `classifyScan` pipeline as a decode
+// (method "manual"), and a worker already mustered on ANOTHER team is offered in
+// the list — with the ย้าย UI removed in #748, a QR decode was otherwise the only
+// door to `move_muster_worker`, unreachable for a phoneless worker.
+describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)", () => {
+  const T2 = "ffffffff-6666-6666-6666-666666666666";
+  const W4 = "99999999-7777-7777-7777-777777777777";
+  const TWO_TEAM: MusterBoard = {
+    ...BOARD,
+    teams: [
+      BOARD.teams[0]!,
+      {
+        id: T2,
+        leadWorkerId: W3,
+        leadName: "ก้อง",
+        members: [
+          {
+            workerId: W2,
+            name: "สมชาย",
+            gender: null,
+            inAt: "2026-07-13T01:05:00Z",
+            outAt: null,
+            ot: null,
+            outAuto: false,
+          },
+        ],
+        wpIds: [],
+        prefillWpIds: [],
+        missing: [],
+      },
+    ],
+    workers: [...BOARD.workers, { id: W4, name: "มานะ", gender: null }],
+  };
+
+  beforeEach(() => {
+    musterScan.mockClear();
+  });
+
+  const openSheet = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(
+      within(screen.getByTestId(`team-${T1}`)).getByRole("button", {
+        name: "สแกน QR / เพิ่มช่าง",
+      }),
+    );
+  const tapList = () => within(screen.getByTestId("tap-add-list"));
+  const tap = (user: ReturnType<typeof userEvent.setup>, name: RegExp) =>
+    user.click(tapList().getByRole("button", { name }));
+
+  it("a tap lands in the tally, not just in a silent write", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    expect(musterScan).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: T1, workerId: W4, mode: "in", method: "manual" }),
+    );
+    expect(screen.getByTestId("sweep-count").textContent).toContain("1");
+    expect(screen.getByText("ครั้งแรก")).toBeInTheDocument();
+  });
+
+  it("warns on a tap when the worker's last muster was a different lead", async () => {
+    const user = userEvent.setup();
+    renderCockpit({
+      ...TWO_TEAM,
+      priorTeamByWorker: [{ workerId: W4, leadWorkerId: W3, leadName: "ก้อง" }],
+    });
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    expect(screen.getByText("เมื่อวานอยู่ทีม ก้อง")).toBeInTheDocument();
+  });
+
+  it("stays silent on a tap when the prior lead is this same team's lead", async () => {
+    const user = userEvent.setup();
+    renderCockpit({
+      ...TWO_TEAM,
+      priorTeamByWorker: [{ workerId: W4, leadWorkerId: W1, leadName: "ลี" }],
+    });
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    expect(screen.queryByText(/เมื่อวานอยู่ทีม/)).not.toBeInTheDocument();
+  });
+
+  it("lists a worker already mustered elsewhere, naming the team they are on", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    expect(tapList().getByRole("button", { name: /สมชาย/ }).textContent).toContain("อยู่ทีม ก้อง");
+  });
+
+  it("tapping that worker refuses the write and offers ย้ายมาทีมนี้", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /สมชาย/);
+    expect(musterScan).not.toHaveBeenCalled();
+    expect(screen.getByText("อยู่ทีม ก้อง แล้ววันนี้")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "ย้ายมาทีมนี้" }));
+    expect(moveMusterWorker).toHaveBeenCalledWith(
+      expect.objectContaining({ workerId: W2, toTeamId: T1, date: "2026-07-13" }),
+    );
+  });
+
+  it("never offers another team's lead, nor a member of this team", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    // Exact names: the สมชาย row's accessible name now CONTAINS "ก้อง" (its
+    // อยู่ทีม chip), so a substring match would pass for the wrong reason.
+    expect(tapList().queryByRole("button", { name: "ก้อง" })).toBeNull();
+    expect(tapList().queryByRole("button", { name: "ลี" })).toBeNull();
+  });
+
+  it("an added worker drops out of the list while the sheet stays open", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    expect(tapList().queryByRole("button", { name: /มานะ/ })).toBeNull();
+    expect(tapList().getByRole("button", { name: /สมชาย/ })).toBeInTheDocument();
+  });
+
+  it("two taps of one name inside a single tick write once", async () => {
+    // The tap list has no cooldown (a deliberate re-tap must give feedback, not
+    // silence), so the write guard is the synchronous addedThisSweep ref. Two
+    // fireEvents inside one act() share a render closure — the shape that let
+    // #763's cooldown bug through.
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    const btn = tapList().getByRole("button", { name: /มานะ/ });
+    await act(async () => {
+      fireEvent.click(btn);
+      fireEvent.click(btn);
+    });
+    expect(musterScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("attributes a refused write to the person in the tally", async () => {
+    musterScan.mockResolvedValue({ ok: false, error: "ไม่มีสิทธิ์เช็คชื่อ" });
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    expect(await screen.findByText("ไม่มีสิทธิ์เช็คชื่อ")).toBeInTheDocument();
+    expect(screen.getByTestId("sweep-count").textContent).toContain("0");
+    musterScan.mockResolvedValue({ ok: true, id: "att" });
+  });
+
+  it("refreshes the board once on close, not per tap", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    expect(refresh).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "ปิด" }));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });

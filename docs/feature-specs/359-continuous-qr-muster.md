@@ -146,9 +146,48 @@ rule).
 
 Devices without a camera are **unchanged**: tap list open, exactly as today.
 
+### U3 — the manual tap runs the same pipeline (code-only, added 2026-07-26)
+
+**Why this is not polish.** U1 wired the six outcomes, the tally and the team-change warn to the
+**camera path only** (`onSweepDetected`). A tap called `musterScan` directly. **No badge has been
+printed yet**, so every real check-in is a tap — which means the warn this spec argued for is dead
+on the traffic that actually exists, and stays dead until badges are distributed.
+
+Two concrete losses, both raised by the operator (2026-07-26: _"how are we handling technicians who
+forgot their phones or had no phone and change team?"_):
+
+1. **The team-change warn never fires.** A tapped worker whose last muster was a different lead is
+   added silently.
+2. **A mis-checked-in worker cannot be moved at all.** `addableTo` filtered out anyone already
+   mustered today, and spec 357 U-E removed the ย้าย row control, so the tally's `ย้ายมาทีมนี้` is
+   the only remaining door to `move_muster_worker` — and it could only be opened by a QR decode.
+   For a phoneless worker there was no path.
+
+**The change.** `sweepAdd(teamId, workerId, method, now)` is the single pipeline; a decode and a tap
+differ only in `method`. The tap list additionally offers workers already mustered **elsewhere**,
+tagged `อยู่ทีม <lead>`; tapping one classifies as `other_team`, writes nothing, and offers
+`ย้ายมาทีมนี้` in the tally exactly as a decode does.
+
+- **No cooldown on the tap path.** The cooldown exists for a decode loop firing every ~180ms; a tap
+  is one deliberate press, and swallowing a repeat would answer the SA with silence. The write guard
+  is instead a synchronous `addedThisSweep` **ref** — `sweep.addedIds` is a render closure and two
+  taps inside one tick would both read it empty (the bug U1 shipped and mutation-testing caught).
+- **The list is no longer disabled while a write is in flight.** Freezing a 14-name list for each
+  round-trip is the cost model this spec exists to remove; a double-tap is already inert.
+- **A refused tap is attributed to the person** in the tally instead of a bare sheet alert.
+- ✅ Gate-checked live: `move_muster_worker`'s role gate is
+  `(site_admin, super_admin, procurement_manager)` — identical to the page and scan gates, so the
+  new manual door cannot offer-then-refuse.
+- **Out of scope:** the ยังไม่มา row's `เช็คอิน` (spec 357 U-C) keeps the plain path — it sits
+  outside the sheet with no tally to render, and its members are by construction not mustered
+  anywhere, so `other_team` is unreachable there. Its team-change warn is a follow-up if wanted.
+
 ## Sequencing
 
 U1 → measure `in_method` for several mornings → U2 only if the QR share actually moves.
+
+U3 is **independent of that measurement** — it is the correctness half for the input method the site
+is actually using today, and it makes the U1 signals real rather than theoretical.
 
 Shipping U2 first would hide the SA's only working path behind a disclosure in favour of one that
 might stall. U2 is a legitimate nudge once scanning genuinely wins and a dark pattern before that.
