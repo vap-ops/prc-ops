@@ -438,6 +438,16 @@ describe("EquipmentManager", () => {
     expect(screen.queryByLabelText("ชื่ออุปกรณ์")).not.toBeInTheDocument();
   });
 
+  it("every control in the row's action cluster clears the 44px touch floor", () => {
+    // The three that share the cluster: ย้าย, แก้ไข and the money control. All
+    // were text links below the floor before spec 362 U1.
+    renderManager({ items: ITEMS, dailyRates: { e1: 1500 } });
+    for (const name of ["ย้าย", "แก้ไข", /฿1,?500/]) {
+      const control = screen.getByRole("button", { name });
+      expect(control.className).toContain("min-h-11");
+    }
+  });
+
   it("the category sheet lists existing categories with their item counts", () => {
     renderMixed();
     openSheet("หมวดหมู่");

@@ -62,7 +62,9 @@ export function SetDailyRate({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-action focus-visible:ring-action inline-flex shrink-0 items-center gap-1 rounded-md text-xs font-medium focus:outline-none focus-visible:ring-2"
+        // Spec 362 U1 — the third control in the row's action cluster, so it takes
+        // the same 44px floor as ย้าย / แก้ไข rather than staying a 12px text link.
+        className="text-action focus-visible:ring-action text-meta inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md font-medium focus:outline-none focus-visible:ring-2"
       >
         <Banknote aria-hidden className="size-4" />
         {currentRate === null
