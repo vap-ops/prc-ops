@@ -131,6 +131,21 @@ describe("WorkerRosterManager — registry shape (spec 362 U3)", () => {
     expect(screen.getByText("ประสิทธิ์ ช่างไฟ")).toBeInTheDocument();
   });
 
+  it("a search overrides the selected การจ่าย chip and searches the whole roster", () => {
+    // Found by a mutation that stayed GREEN: deleting the `!searching &&` guard
+    // changed nothing, because every search test started from ทั้งหมด. A stuck
+    // chip would make a present worker look absent.
+    renderRoster();
+    fireEvent.click(screen.getByRole("radio", { name: "ช่างรายเดือน (1)" }));
+    expect(screen.queryByText("สมหญิง ขยัน")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("ค้นหาช่าง"), { target: { value: "สมหญิง" } });
+    expect(screen.getByText("สมหญิง ขยัน")).toBeInTheDocument();
+    // Clearing the box restores the chip's filter.
+    fireEvent.change(screen.getByLabelText("ค้นหาช่าง"), { target: { value: "" } });
+    expect(screen.queryByText("สมหญิง ขยัน")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ช่างรายเดือน (1)" })).toBeChecked();
+  });
+
   it("says so when a search matches nobody", () => {
     renderRoster();
     fireEvent.change(screen.getByLabelText("ค้นหาช่าง"), { target: { value: "zzzz" } });
