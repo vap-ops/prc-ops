@@ -1,3 +1,13 @@
+# [0.233.0](https://github.com/vap-ops/prc-ops/compare/v0.232.0...v0.233.0) (2026-07-26)
+
+### Bug Fixes
+
+- **equipment:** the daily-rate control takes the row's 44px floor (spec 362 U1) ([e41a1f4](https://github.com/vap-ops/prc-ops/commit/e41a1f4559b5db5e29f68f39f5e95e56bd55f0e2))
+
+### Features
+
+- **equipment:** /equipment becomes a read-first registry (spec 362 U1) ([119d261](https://github.com/vap-ops/prc-ops/commit/119d26100500e1d7deeeae910f588651081a64b6))
+
 # [0.232.0](https://github.com/vap-ops/prc-ops/compare/v0.231.0...v0.232.0) (2026-07-26)
 
 ### Features
