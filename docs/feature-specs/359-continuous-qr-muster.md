@@ -172,9 +172,23 @@ tagged `อยู่ทีม <lead>`; tapping one classifies as `other_team`, w
   is one deliberate press, and swallowing a repeat would answer the SA with silence. The write guard
   is instead a synchronous `addedThisSweep` **ref** — `sweep.addedIds` is a render closure and two
   taps inside one tick would both read it empty (the bug U1 shipped and mutation-testing caught).
-- **The list is no longer disabled while a write is in flight.** Freezing a 14-name list for each
-  round-trip is the cost model this spec exists to remove; a double-tap is already inert.
-- **A refused tap is attributed to the person** in the tally instead of a bare sheet alert.
+- **The list is no longer frozen while a write is in flight**, and an added row **stays mounted,
+  ticked and inert** rather than disappearing. Removing it reflowed every chip after it under a
+  finger already travelling toward the next name, and a mis-tap writes attendance for the wrong
+  person with no undo on this screen. ⚠️ Note the write itself is unchanged: `musterScan` still
+  `revalidatePath`s per call, so the server does re-render per add — what the sweep avoids is the
+  extra client `router.refresh()`, which now runs once on close.
+- **A refused tap is attributed to the person** in the tally, in **danger** tokens (a failure must
+  not share the amber advisory chip with a team-change note), and a refusal that lands **after the
+  sheet closed** falls back to the page-level alert — its tally no longer exists, so without that
+  fallback the worker would be un-checked-in with nothing on screen saying so.
+- **The move offer is withdrawn once the worker is resolved**, so two taps on one tagged name cannot
+  leave a second live `ย้ายมาทีมนี้` that re-fires the move.
+- **A tagged row says `ออกแล้ว` when that worker's other-team session is already closed** —
+  `move_muster_worker` moves EVERY session of the day, so a completed day (and its ปิดวัน labour
+  cost) would otherwise be re-pointed by one tap with nothing on screen saying so.
+- **Another team's LEAD is still not offered** (the #509 guard). Their team is defined by them, so
+  moving their attendance would strand a lead-less team — that correction belongs on the team.
 - ✅ Gate-checked live: `move_muster_worker`'s role gate is
   `(site_admin, super_admin, procurement_manager)` — identical to the page and scan gates, so the
   new manual door cannot offer-then-refuse.

@@ -1029,6 +1029,24 @@ describe("MusterAddSheet — action header + tally (spec 359 U1)", () => {
     expect(screen.queryByText("junk")).not.toBeInTheDocument();
   });
 
+  it("renders a refused write in danger tokens, not the advisory amber", () => {
+    // Spec 359 U3 — a failed tap used to be a danger alert; sharing the amber
+    // chip with a team-change note would demote a real failure to an advisory.
+    render(
+      <MusterAddSheet
+        {...base}
+        sweep={[
+          { seq: 2, workerId: "w2", name: "ข", outcome: "failed", detail: "เช็คชื่อไม่สำเร็จ" },
+          { seq: 1, workerId: "w1", name: "ก", outcome: "added_team_changed", detail: "ลี" },
+        ]}
+      />,
+    );
+    const failed = screen.getByText("เช็คชื่อไม่สำเร็จ");
+    expect(failed.className).toContain("bg-danger-soft");
+    expect(failed.className).not.toContain("bg-attn-soft");
+    expect(screen.getByText("เมื่อวานอยู่ทีม ลี").className).toContain("bg-attn-soft");
+  });
+
   it("surfaces the server message on a failed write", () => {
     render(
       <MusterAddSheet
@@ -1314,7 +1332,16 @@ describe("MusterAddSheet — camera-first (spec 359 U2)", () => {
     actionLabel: "กำลังเช็คเข้า",
     sessionLabel: "งานปกติ",
     showTapAdd: true,
-    addable: [{ id: "w1", name: "สมชาย", gender: null, otherTeamLead: null }],
+    addable: [
+      {
+        id: "w1",
+        name: "สมชาย",
+        gender: null,
+        otherTeamLead: null,
+        otherTeamDone: false,
+        added: false,
+      },
+    ],
     message: null,
     pending: false,
     sweep: [],
@@ -1433,7 +1460,12 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
     });
     await openSheet(user);
     await tap(user, /มานะ/);
+    // Positive first: the tally DID record them (a pure negative would also
+    // pass on no entry at all, or on a detail-less team-change note).
+    const tally = within(screen.getByTestId("sweep-tally"));
+    expect(tally.getByTestId("sweep-entry-name").textContent).toContain("มานะ");
     expect(screen.queryByText(/เมื่อวานอยู่ทีม/)).not.toBeInTheDocument();
+    expect(screen.queryByText("เปลี่ยนทีมจากครั้งก่อน")).not.toBeInTheDocument();
   });
 
   it("lists a worker already mustered elsewhere, naming the team they are on", async () => {
@@ -1467,6 +1499,55 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
     expect(moveMusterWorker).toHaveBeenCalledWith(
       expect.objectContaining({ workerId: W2, toTeamId: T1, date: "2026-07-13" }),
     );
+    // Resolved → the offer is withdrawn, so a second row for the same worker
+    // can never re-fire the move.
+    expect(screen.queryByRole("button", { name: "ย้ายมาทีมนี้" })).toBeNull();
+  });
+
+  it("two taps on one other-team row leave a single live move offer", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /สมชาย/);
+    await tap(user, /สมชาย/);
+    expect(screen.getAllByRole("button", { name: "ย้ายมาทีมนี้" })).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: "ย้ายมาทีมนี้" })[0]!);
+    expect(moveMusterWorker).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "ย้ายมาทีมนี้" })).toBeNull();
+  });
+
+  it("says a tagged worker already finished on the other team", async () => {
+    const user = userEvent.setup();
+    renderCockpit({
+      ...TWO_TEAM,
+      teams: [
+        TWO_TEAM.teams[0]!,
+        {
+          ...TWO_TEAM.teams[1]!,
+          members: [{ ...TWO_TEAM.teams[1]!.members[0]!, outAt: "2026-07-13T10:00:00Z" }],
+        },
+      ],
+    });
+    await openSheet(user);
+    // move_muster_worker moves EVERY session of the day, so a completed one
+    // would be re-pointed silently without this.
+    expect(tapList().getByRole("button", { name: /สมชาย/ }).textContent).toContain("ออกแล้ว");
+  });
+
+  it("tells the SA what a tagged row's tap actually does", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    expect(
+      within(screen.getByTestId("tap-add-list")).getByText(/แตะเพื่อขอย้ายมาทีมนี้/),
+    ).toBeInTheDocument();
+  });
+
+  it("no tagged rows → no move hint", async () => {
+    const user = userEvent.setup();
+    renderCockpit({ ...TWO_TEAM, teams: [TWO_TEAM.teams[0]!] });
+    await openSheet(user);
+    expect(screen.queryByText(/แตะเพื่อขอย้ายมาทีมนี้/)).toBeNull();
   });
 
   it("a badge re-read after a move answers อยู่ในทีมแล้ว, not a second move offer", async () => {
@@ -1504,13 +1585,26 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
     expect(tapList().queryByRole("button", { name: "ลี" })).toBeNull();
   });
 
-  it("an added worker drops out of the list while the sheet stays open", async () => {
+  it("an added worker stays listed but inert — the rows below must not shift", async () => {
+    // Removing the row reflows every chip after it under a finger already on
+    // its way down, and a mis-tap here writes attendance for the wrong person.
     const user = userEvent.setup();
     renderCockpit(TWO_TEAM);
     await openSheet(user);
     await tap(user, /มานะ/);
-    expect(tapList().queryByRole("button", { name: /มานะ/ })).toBeNull();
+    const row = tapList().getByRole("button", { name: /มานะ/ });
+    expect(row).toBeDisabled();
+    expect(row.textContent).toContain("✓");
     expect(tapList().getByRole("button", { name: /สมชาย/ })).toBeInTheDocument();
+  });
+
+  it("a second tap on an added row writes nothing", async () => {
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    await user.click(tapList().getByRole("button", { name: /มานะ/ }));
+    expect(musterScan).toHaveBeenCalledTimes(1);
   });
 
   it("two taps of one name inside a single tick write once", async () => {
@@ -1527,6 +1621,34 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
       fireEvent.click(btn);
     });
     expect(musterScan).toHaveBeenCalledTimes(1);
+    // Both clicks LANDED — two tally rows, the second refused as already-here.
+    // Without this the test would also pass if the second click never fired.
+    expect(
+      within(screen.getByTestId("sweep-tally")).getAllByTestId("sweep-entry-name"),
+    ).toHaveLength(2);
+    expect(screen.getByText("อยู่ในทีมแล้ว")).toBeInTheDocument();
+  });
+
+  it("a refusal that lands after the sheet closed surfaces on the page, not nowhere", async () => {
+    // The sweep that issued the write is gone: its tally is unmounted and
+    // addedRef has been replaced, so markFailed would no-op and the SA would
+    // never learn the worker is not checked in.
+    let settle: (r: { ok: boolean; error: string }) => void = () => {};
+    musterScan.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          settle = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    await user.click(screen.getByRole("button", { name: "ปิด" }));
+    await act(async () => {
+      settle({ ok: false, error: "ไม่มีสิทธิ์เช็คชื่อ" });
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent("ไม่มีสิทธิ์เช็คชื่อ");
   });
 
   it("attributes a refused write to the person in the tally", async () => {

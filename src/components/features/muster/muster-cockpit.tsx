@@ -110,6 +110,13 @@ export function MusterCockpit({
   // re-tap must answer, not be swallowed). Two taps inside one tick would both
   // read an empty addedThisSweep and both write. Written synchronously here.
   const addedRef = useRef<Set<string>>(new Set());
+  // Which sweep a write belongs to. A write is in flight for as long as the
+  // network takes, and the SA can close the sheet (or open another team's) in
+  // that window — at which point `sweep` and `addedRef` are BOTH new. Without
+  // this, a late refusal would release an id the CURRENT sweep legitimately
+  // added, brand the wrong row failed, or — if the sheet is gone entirely —
+  // vanish, leaving a worker un-checked-in with no message anywhere.
+  const sweepGenRef = useRef(0);
   const [pending, startTransition] = useTransition();
   const hasCamera = useSyncExternalStore(subscribeNoop, hasScannerSupport, () => false);
 
@@ -121,10 +128,12 @@ export function MusterCockpit({
   const htIds = new Set(htWorkerIds);
   const pickableHts = board.workers.filter((w) => htIds.has(w.id));
   const availableLeads = pickableHts.filter((w) => !leadIds.has(w.id));
-  // A worker is addable to team T unless they are already on T, are the lead of
-  // ANOTHER team (their own lead may be scanned into their own team; excluding
-  // all leadIds globally would wrongly block that), or this sweep already added
-  // them (the board is stale until the sheet closes).
+  // A worker is offered on team T's tap list unless they are already on T, or
+  // they lead ANOTHER team (their own lead may be scanned into their own team;
+  // excluding all leadIds globally would wrongly block that). Leading another
+  // team is a deliberate exclusion, not an oversight: a lead's team is DEFINED
+  // by them, so moving their attendance elsewhere would strand a lead-less team
+  // — that correction belongs on the team, not in this list.
   //
   // Spec 359 U3 — someone mustered on a DIFFERENT team today IS offered, tagged
   // with that team. Filtering them out (the pre-U3 `musteredIds` rule) left a
@@ -142,14 +151,29 @@ export function MusterCockpit({
     const added = new Set(sweep.addedIds);
     return (
       board.workers
-        .filter((w) => !onThisTeam.has(w.id) && !otherLeads.has(w.id) && !added.has(w.id))
-        .map((w) => ({
-          ...w,
-          otherTeamLead: (() => {
-            const t = board.teams.find((x) => x.members.some((m) => m.workerId === w.id));
-            return t && t.id !== teamId ? t.leadName : null;
-          })(),
-        }))
+        // Someone this sweep added STAYS listed (inert, ticked) even once the
+        // board catches up and calls them a member. Removing a row mid-lineup
+        // reflows every chip after it under a finger already on its way down —
+        // and a mis-tap here writes attendance for the WRONG person, with no
+        // undo on this screen.
+        .filter((w) => (!onThisTeam.has(w.id) || added.has(w.id)) && !otherLeads.has(w.id))
+        .map((w) => {
+          const other = added.has(w.id)
+            ? undefined
+            : board.teams.find(
+                (x) => x.id !== teamId && x.members.some((m) => m.workerId === w.id),
+              );
+          return {
+            ...w,
+            added: added.has(w.id),
+            otherTeamLead: other?.leadName ?? null,
+            // move_muster_worker moves EVERY session of that day, so a worker
+            // who already finished on the other team would have a completed
+            // day (and its ปิดวัน labour cost) re-pointed by one tap. Say so on
+            // the row rather than hiding it — the SA is the one who knows.
+            otherTeamDone: other?.members.find((m) => m.workerId === w.id)?.outAt != null || false,
+          };
+        })
         // Free workers first: the morning lineup is the common case and must not
         // be pushed down the list by yesterday's stragglers.
         .sort((a, b) => Number(a.otherTeamLead !== null) - Number(b.otherTeamLead !== null))
@@ -243,6 +267,7 @@ export function MusterCockpit({
     playScanCue(c.kind);
     if (!c.shouldWrite) return;
     addedRef.current.add(workerId);
+    const gen = sweepGenRef.current;
     startTransition(async () => {
       const res = await musterScan({
         teamId,
@@ -252,11 +277,17 @@ export function MusterCockpit({
         session: "regular",
         revalidate,
       });
-      if (!res.ok) {
-        addedRef.current.delete(workerId);
-        setSweep((s) => markFailed(s, workerId, res.error));
-        playScanCue("failed");
+      if (res.ok) return;
+      playScanCue("failed");
+      if (gen !== sweepGenRef.current) {
+        // The sweep that issued this write is over. Its tally is gone, so the
+        // refusal goes to the page-level alert — a failed check-in must never
+        // be swallowed just because the SA closed the sheet.
+        setMessage(res.error ?? "เช็คชื่อไม่สำเร็จ");
+        return;
       }
+      addedRef.current.delete(workerId);
+      setSweep((s) => markFailed(s, workerId, res.error));
     });
   };
 
@@ -299,6 +330,7 @@ export function MusterCockpit({
     setSweep(EMPTY_SWEEP);
     lastSeenRef.current = {};
     addedRef.current = new Set();
+    sweepGenRef.current += 1;
   };
   // Spec 357 U-C — the ยังไม่มา row's เช็คอิน, OUTSIDE the sheet: a one-off
   // manual check-in with no tally to render, so it keeps the plain path (and its
@@ -455,6 +487,7 @@ export function MusterCockpit({
               setSweep(EMPTY_SWEEP);
               lastSeenRef.current = {};
               addedRef.current = new Set();
+              sweepGenRef.current += 1;
               setScanTeamId(team.id);
             }}
           />
