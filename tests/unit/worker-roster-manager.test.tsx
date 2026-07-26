@@ -70,6 +70,11 @@ const WORKERS: ManagedWorker[] = [
   },
 ];
 
+/** Spec 362 U3 — the add form is behind a door now; open it before filling. */
+function openAddSheet() {
+  fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+}
+
 beforeEach(() => {
   mockCreate.mockReset().mockResolvedValue({ ok: true });
   mockUpdate.mockReset().mockResolvedValue({ ok: true });
@@ -87,10 +92,11 @@ describe("WorkerRosterManager notes", () => {
 
   it("passes the note when adding a worker", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    openAddSheet();
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
     // monthly (default) needs no day rate; the note still forwards.
     fireEvent.change(screen.getByLabelText("หมายเหตุ"), { target: { value: "ทดลองงาน" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายชื่อ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ note: "ทดลองงาน" })),
     );
@@ -102,6 +108,7 @@ describe("WorkerRosterManager notes", () => {
   // การจ่าย=รายวัน. No own/DC vocabulary remains.
   it("add form shows การจ่าย + สถานะ selectors; สถานะ is always visible", () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    openAddSheet();
     // สถานะ (employment_type) is independent of pay_type → visible from the start.
     expect(screen.getByRole("radio", { name: "ประจำ" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "ชั่วคราว" })).toBeInTheDocument();
@@ -115,6 +122,7 @@ describe("WorkerRosterManager notes", () => {
 
   it("gates day_rate + payee fields on การจ่าย=รายวัน (daily)", () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    openAddSheet();
     // monthly default → no day rate, no bank/payee.
     expect(screen.queryByLabelText("ค่าแรงต่อวัน (บาท)")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("เลขบัญชีธนาคาร")).not.toBeInTheDocument();
@@ -127,12 +135,13 @@ describe("WorkerRosterManager notes", () => {
 
   it("adds a daily, temporary ช่าง with bank via the two selectors", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    openAddSheet();
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างรายวัน" } });
     fireEvent.click(screen.getByRole("radio", { name: "รายวัน" })); // การจ่าย
     fireEvent.click(screen.getByRole("radio", { name: "ชั่วคราว" })); // สถานะ
     fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "420" } });
     fireEvent.change(screen.getByLabelText("เลขบัญชีธนาคาร"), { target: { value: "1234567890" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายชื่อ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -150,9 +159,10 @@ describe("WorkerRosterManager notes", () => {
 
   it("adds a monthly ช่าง with no day rate or payee, permanent by default", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    openAddSheet();
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างรายเดือน" } });
     // การจ่าย stays รายเดือน; the button enables without a day rate.
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายชื่อ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -183,10 +193,12 @@ describe("WorkerRosterManager notes", () => {
 
   it("passes the note when editing a worker", async () => {
     render(<WorkerRosterManager workers={WORKERS} contractors={[]} />);
-    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
-    // [0] is the add-form note, [1] is the editing row's note.
-    const noteFields = screen.getAllByLabelText("หมายเหตุ");
-    fireEvent.change(noteFields[1]!, { target: { value: "เลื่อนเป็นโฟร์แมน" } });
+    fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
+    // Spec 362 U3: the add form is behind its own door, so the edit sheet holds
+    // the ONLY หมายเหตุ field — no index games.
+    fireEvent.change(screen.getByLabelText("หมายเหตุ"), {
+      target: { value: "เลื่อนเป็นโฟร์แมน" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
     await waitFor(() =>
       expect(mockUpdate).toHaveBeenCalledWith(
@@ -209,11 +221,11 @@ describe("WorkerRosterManager optimistic active-toggle", () => {
     );
     render(<WorkerRosterManager workers={WORKERS} contractors={[]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "ปิดใช้งาน" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ปิดใช้งาน/ }));
 
     // Optimistic: the label flips + the inactive status suffix appears immediately,
     // while the action is still pending; the toggle does NOT router.refresh.
-    expect(await screen.findByRole("button", { name: "เปิดใช้งาน" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^เปิดใช้งาน/ })).toBeInTheDocument();
     expect(screen.getByText(/\(ปิดใช้งาน\)/)).toBeInTheDocument();
     expect(mockUpdate).toHaveBeenCalledWith({ id: "w1", active: false });
     expect(mockRefresh).not.toHaveBeenCalled();
@@ -221,7 +233,7 @@ describe("WorkerRosterManager optimistic active-toggle", () => {
     resolveUpdate({ ok: true });
     // Commit: still flipped after the transition settles.
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "เปิดใช้งาน" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: /^เปิดใช้งาน/ })).toBeInTheDocument(),
     );
     expect(mockRefresh).not.toHaveBeenCalled();
   });
@@ -230,11 +242,11 @@ describe("WorkerRosterManager optimistic active-toggle", () => {
     mockUpdate.mockReset().mockResolvedValue({ ok: false, error: "ปรับสถานะไม่สำเร็จ" });
     render(<WorkerRosterManager workers={WORKERS} contractors={[]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "ปิดใช้งาน" }));
+    fireEvent.click(screen.getByRole("button", { name: /^ปิดใช้งาน/ }));
 
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith("ปรับสถานะไม่สำเร็จ"));
     // Reverted: button back to ปิดใช้งาน, the inactive suffix gone, no refresh.
-    expect(screen.getByRole("button", { name: "ปิดใช้งาน" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^ปิดใช้งาน/ })).toBeInTheDocument();
     expect(screen.queryByText(/\(ปิดใช้งาน\)/)).not.toBeInTheDocument();
     expect(mockRefresh).not.toHaveBeenCalled();
   });
@@ -263,7 +275,7 @@ describe("WorkerRosterManager project assignment", () => {
 
   it("assigns the worker to the chosen project on save", async () => {
     render(<WorkerRosterManager workers={WORKERS} contractors={[]} projects={PROJECTS} />);
-    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
     // the edit sheet's project select (the add form has one too — take the last)
     const sels = screen.getAllByLabelText("โครงการ");
     fireEvent.change(sels[sels.length - 1]!, { target: { value: "p2" } });
@@ -275,10 +287,11 @@ describe("WorkerRosterManager project assignment", () => {
 
   it("creates a new worker already on the chosen project", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} projects={PROJECTS} />);
+    openAddSheet();
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "ช่างใหม่" } });
     // monthly (default) → no day-rate field; the project still forwards.
     fireEvent.change(screen.getByLabelText("โครงการ"), { target: { value: "p2" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายชื่อ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({ name: "ช่างใหม่", projectId: "p2" }),
@@ -294,7 +307,7 @@ describe("WorkerRosterManager project assignment", () => {
         projects={PROJECTS}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
     // change only the name (the edit sheet's, not the add form's), project stays p1
     const names = screen.getAllByLabelText("ชื่อ");
     fireEvent.change(names[names.length - 1]!, { target: { value: "ช่างใหม่" } });
@@ -326,7 +339,7 @@ describe("WorkerRosterManager DC edit matrix", () => {
 
   it("forwards pay/employment/phone/tax/bank edits via updateWorker (unbound worker)", async () => {
     render(<WorkerRosterManager workers={[UNBOUND_DAILY]} contractors={[]} />);
-    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
     // สถานะ radios render in BOTH the add form and the edit sheet — the edit sheet's
     // is last in the DOM (mirrors the project-select getAll pattern above).
     const temp = screen.getAllByRole("radio", { name: "ชั่วคราว" });
@@ -358,7 +371,7 @@ describe("WorkerRosterManager DC edit matrix", () => {
         contractors={[]}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
     // Bank fields are walled for a bound worker…
     expect(screen.queryByLabelText("เลขบัญชีธนาคาร")).not.toBeInTheDocument();
     expect(screen.getByText("รออนุมัติจากคำขอของช่าง")).toBeInTheDocument();
@@ -373,7 +386,7 @@ describe("WorkerRosterManager DC edit matrix", () => {
         contractors={[]}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
     fireEvent.change(screen.getByLabelText("เบอร์โทร"), { target: { value: "0800000000" } });
     fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
@@ -391,9 +404,10 @@ describe("WorkerRosterManager DC edit matrix", () => {
 describe("WorkerRosterManager gender (spec 357 U-F)", () => {
   it("add form offers ชาย/หญิง; picking one threads gender to createWorker", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    openAddSheet();
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
     fireEvent.click(screen.getByRole("radio", { name: "หญิง" }));
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายชื่อ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ gender: "female" })),
     );
@@ -401,8 +415,9 @@ describe("WorkerRosterManager gender (spec 357 U-F)", () => {
 
   it("add form without a pick sends no gender at all", async () => {
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    openAddSheet();
     fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "คนใหม่" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มช่าง" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายชื่อ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.not.objectContaining({ gender: expect.anything() }),
@@ -412,7 +427,7 @@ describe("WorkerRosterManager gender (spec 357 U-F)", () => {
 
   it("edit sheet prefills the stored gender and saves a change", async () => {
     render(<WorkerRosterManager workers={[{ ...WORKERS[0]!, gender: "male" }]} contractors={[]} />);
-    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
+    fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
     // The edit sheet's ชาย chip is pre-selected from the row…
     const radios = screen.getAllByRole("radio", { name: "ชาย" });
     expect((radios[radios.length - 1] as HTMLInputElement).checked).toBe(true);
@@ -432,9 +447,8 @@ describe("WorkerRosterManager gender (spec 357 U-F)", () => {
 // are untouched must NOT resend gender (the update carries only changed fields).
 it("editing another field leaves gender out when the chips are untouched", async () => {
   render(<WorkerRosterManager workers={[{ ...WORKERS[0]!, gender: "male" }]} contractors={[]} />);
-  fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
-  const noteFields = screen.getAllByLabelText("หมายเหตุ");
-  fireEvent.change(noteFields[1]!, { target: { value: "โน้ตใหม่" } });
+  fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
+  fireEvent.change(screen.getByLabelText("หมายเหตุ"), { target: { value: "โน้ตใหม่" } });
   fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
   await waitFor(() =>
     expect(mockUpdate).toHaveBeenCalledWith(
