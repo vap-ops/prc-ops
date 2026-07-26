@@ -4,6 +4,13 @@
 // equipment items and bootstrap categories + owners. Mirrors the worker-roster
 // manager (mocked server actions; interaction → action-shape assertions). No
 // money here (acquisition_cost is admin-only, not in this UI).
+//
+// Spec 362 U1 — the page becomes READ-first (the /catalog pattern): search +
+// counted category chips + grouped card rows, with EVERY write behind a
+// BottomSheet. The write tests below therefore open their sheet first — the
+// sheet unmounts its children when closed (bottom-sheet.tsx:69), so a field is
+// not in the DOM until its trigger is tapped. That is the behaviour being
+// pinned, not an incidental test detail.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -92,6 +99,11 @@ function renderManager(over?: {
   );
 }
 
+/** Spec 362 U1 — every write lives behind a trigger; open its sheet first. */
+function openSheet(triggerName: string) {
+  fireEvent.click(screen.getByRole("button", { name: triggerName }));
+}
+
 describe("EquipmentManager", () => {
   it("shows an equipment item on the row", () => {
     renderManager({ items: ITEMS });
@@ -100,11 +112,12 @@ describe("EquipmentManager", () => {
 
   it("adds a serialized (unit) item with its asset tag", async () => {
     renderManager();
+    openSheet("เพิ่มอุปกรณ์");
     fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "สว่านไฟฟ้า" } });
     fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
     fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
     fireEvent.change(screen.getByLabelText("รหัสครุภัณฑ์"), { target: { value: "DR-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มอุปกรณ์" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -122,13 +135,14 @@ describe("EquipmentManager", () => {
 
   it("switches to bulk, hides the asset tag, and passes a quantity", async () => {
     renderManager();
+    openSheet("เพิ่มอุปกรณ์");
     fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "นั่งร้านโครง" } });
     fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
     fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
     fireEvent.click(screen.getByRole("radio", { name: "จำนวนมาก (นับจำนวน)" }));
     expect(screen.queryByLabelText("รหัสครุภัณฑ์")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "200" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มอุปกรณ์" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({ tracking: "bulk", quantity: 200, assetTag: "" }),
@@ -138,23 +152,26 @@ describe("EquipmentManager", () => {
 
   it("rejects an invalid item client-side before calling the action", async () => {
     renderManager();
+    openSheet("เพิ่มอุปกรณ์");
     // Bulk with no quantity → validateEquipmentItem fails; action never called.
     fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "x" } });
     fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
     fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
     fireEvent.click(screen.getByRole("radio", { name: "จำนวนมาก (นับจำนวน)" }));
     // quantity left blank
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มอุปกรณ์" }));
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
     await waitFor(() => expect(screen.getByText(/จำนวนต้องเป็นจำนวนเต็ม/)).toBeInTheDocument());
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it("edits an item's name", async () => {
     renderManager({ items: ITEMS });
-    fireEvent.click(screen.getByRole("button", { name: "แก้ไข" }));
-    // [0] = add form name, [1] = the editing row's name.
-    const nameFields = screen.getAllByLabelText("ชื่ออุปกรณ์");
-    fireEvent.change(nameFields[1]!, { target: { value: "เครื่องปั่นไฟ 5kVA (ปรับปรุง)" } });
+    // Spec 362 U1 — the add form is behind its own sheet now, so the edit sheet
+    // holds the ONLY ชื่ออุปกรณ์ field in the document.
+    openSheet("แก้ไข");
+    fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), {
+      target: { value: "เครื่องปั่นไฟ 5kVA (ปรับปรุง)" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
     await waitFor(() =>
       expect(mockUpdate).toHaveBeenCalledWith(
@@ -165,6 +182,7 @@ describe("EquipmentManager", () => {
 
   it("quick-adds a category", async () => {
     renderManager();
+    openSheet("หมวดหมู่");
     fireEvent.change(screen.getByLabelText("ชื่อหมวดหมู่ใหม่"), { target: { value: "รถขุด" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มหมวดหมู่" }));
     await waitFor(() =>
@@ -174,6 +192,7 @@ describe("EquipmentManager", () => {
 
   it("quick-adds an owner", async () => {
     renderManager();
+    openSheet("เจ้าของ");
     fireEvent.change(screen.getByLabelText("ชื่อเจ้าของใหม่"), { target: { value: "พี่น้อง 2" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มเจ้าของ" }));
     await waitFor(() =>
@@ -261,8 +280,8 @@ describe("EquipmentManager", () => {
   it("hides registry management when canManageRegistry is false", () => {
     renderManager({ items: ITEMS, canManageRegistry: false });
     expect(screen.queryByRole("button", { name: "เพิ่มอุปกรณ์" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "เพิ่มหมวดหมู่" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "เพิ่มเจ้าของ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "หมวดหมู่" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "เจ้าของ" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "แก้ไข" })).not.toBeInTheDocument();
   });
 
@@ -285,5 +304,180 @@ describe("EquipmentManager", () => {
         expect.objectContaining({ itemId: "e1", kind: "returned", projectId: null }),
       ),
     );
+  });
+
+  // ---------------------------------------------------------------- spec 362 U1
+  // The /catalog read-first pattern: the page opens on the DATA, every write is
+  // one tap away in a sheet, and the list is searchable + filterable + grouped.
+
+  const TWO_CATEGORIES = [
+    { id: "c1", name: "เครื่องปั่นไฟ" },
+    { id: "c2", name: "นั่งร้าน" },
+  ];
+  const MIXED: ManagedEquipmentItem[] = [
+    ...ITEMS,
+    { ...BULK_ITEMS[0]!, category_id: "c2" },
+    {
+      id: "e3",
+      name: "นั่งร้านฐาน",
+      category_id: "c2",
+      owner_id: "o1",
+      tracking: "unit",
+      asset_tag: "SC-77",
+      quantity: null,
+      status: "available",
+    },
+  ];
+
+  function renderMixed(over?: { canManageRegistry?: boolean }) {
+    render(
+      <EquipmentManager
+        items={MIXED}
+        categories={TWO_CATEGORIES}
+        owners={OWNERS}
+        projects={PROJECTS}
+        movements={[]}
+        canManageRegistry={over?.canManageRegistry ?? true}
+      />,
+    );
+  }
+
+  it("opens on the data — no write form is mounted until its trigger is tapped", () => {
+    renderManager({ items: ITEMS });
+    // The three curator forms that used to sit above the list.
+    expect(screen.queryByLabelText("ชื่ออุปกรณ์")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("ชื่อหมวดหมู่ใหม่")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("ชื่อเจ้าของใหม่")).not.toBeInTheDocument();
+    // …and the item is visible without scrolling past any of them.
+    expect(screen.getByText("เครื่องปั่นไฟ 5kVA")).toBeInTheDocument();
+  });
+
+  it("groups rows under a counted category heading", () => {
+    renderMixed();
+    expect(screen.getByRole("heading", { name: "เครื่องปั่นไฟ (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "นั่งร้าน (2)" })).toBeInTheDocument();
+  });
+
+  it("offers counted category chips and narrows the list to the chosen one", () => {
+    renderMixed();
+    expect(screen.getByRole("radio", { name: "ทั้งหมด (3)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "นั่งร้าน (2)" }));
+    expect(screen.getByText("นั่งร้านฐาน")).toBeInTheDocument();
+    expect(screen.queryByText("เครื่องปั่นไฟ 5kVA")).not.toBeInTheDocument();
+  });
+
+  it("searches by name", () => {
+    renderMixed();
+    fireEvent.change(screen.getByLabelText("ค้นหาอุปกรณ์"), { target: { value: "นั่งร้านฐาน" } });
+    expect(screen.getByText("นั่งร้านฐาน")).toBeInTheDocument();
+    expect(screen.queryByText("เครื่องปั่นไฟ 5kVA")).not.toBeInTheDocument();
+  });
+
+  it("searches by asset tag", () => {
+    renderMixed();
+    fireEvent.change(screen.getByLabelText("ค้นหาอุปกรณ์"), { target: { value: "SC-77" } });
+    expect(screen.getByText("นั่งร้านฐาน")).toBeInTheDocument();
+    expect(screen.queryByText("เครื่องปั่นไฟ 5kVA")).not.toBeInTheDocument();
+  });
+
+  it("says so when a search matches nothing", () => {
+    renderMixed();
+    fireEvent.change(screen.getByLabelText("ค้นหาอุปกรณ์"), { target: { value: "zzzz" } });
+    expect(screen.getByText("ไม่พบอุปกรณ์ที่ค้นหา")).toBeInTheDocument();
+  });
+
+  it("keeps both role-branched empty states", () => {
+    const { unmount } = render(
+      <EquipmentManager
+        items={[]}
+        categories={CATEGORIES}
+        owners={OWNERS}
+        projects={PROJECTS}
+        movements={[]}
+        canManageRegistry
+      />,
+    );
+    expect(screen.getByText(/เพิ่มหมวดหมู่และเจ้าของก่อน/)).toBeInTheDocument();
+    // The curator can still reach the add door with an empty registry.
+    expect(screen.getByRole("button", { name: "เพิ่มอุปกรณ์" })).toBeInTheDocument();
+    unmount();
+
+    renderManager({ items: [], canManageRegistry: false });
+    expect(screen.getByText("ยังไม่มีอุปกรณ์ในระบบ")).toBeInTheDocument();
+  });
+
+  it("the field view keeps search and chips but gets no write doors", () => {
+    renderMixed({ canManageRegistry: false });
+    expect(screen.getByLabelText("ค้นหาอุปกรณ์")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "ทั้งหมด (3)" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "ย้าย" })).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: "แก้ไข" })).not.toBeInTheDocument();
+  });
+
+  it("edit and move each open a sheet, and only one at a time", () => {
+    renderManager({ items: ITEMS });
+    openSheet("แก้ไข");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByLabelText("ชื่ออุปกรณ์")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    openSheet("ย้าย");
+    expect(screen.getByLabelText("ประเภทการเคลื่อนย้าย")).toBeInTheDocument();
+    expect(screen.queryByLabelText("ชื่ออุปกรณ์")).not.toBeInTheDocument();
+  });
+
+  it("tapping ย้าย while the edit sheet is open closes the edit sheet", () => {
+    // Both sheets are siblings inside the row, so without the mutual reset they
+    // stack — two dialogs, the move form buried under the edit form.
+    renderManager({ items: ITEMS });
+    openSheet("แก้ไข");
+    openSheet("ย้าย");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByLabelText("ประเภทการเคลื่อนย้าย")).toBeInTheDocument();
+    expect(screen.queryByLabelText("ชื่ออุปกรณ์")).not.toBeInTheDocument();
+  });
+
+  it("a search overrides the selected category chip and searches the whole registry", () => {
+    // The /catalog rule. Without it a stuck chip makes a search silently return
+    // nothing, which reads as "the item isn't in the registry".
+    renderMixed();
+    fireEvent.click(screen.getByRole("radio", { name: "นั่งร้าน (2)" }));
+    expect(screen.queryByText("เครื่องปั่นไฟ 5kVA")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("ค้นหาอุปกรณ์"), { target: { value: "GEN-001" } });
+    // Found, despite living in the category the chip filtered out…
+    expect(screen.getByText("เครื่องปั่นไฟ 5kVA")).toBeInTheDocument();
+    // …a category with no match is not offered as a chip at all while searching
+    // (the /catalog `present` rule), so the checked chip is gone from the row…
+    expect(screen.queryByRole("radio", { name: /^นั่งร้าน/ })).not.toBeInTheDocument();
+    // …and clearing the box restores it, still checked, filter and all.
+    fireEvent.change(screen.getByLabelText("ค้นหาอุปกรณ์"), { target: { value: "" } });
+    expect(screen.getByRole("radio", { name: "นั่งร้าน (2)" })).toBeChecked();
+    expect(screen.queryByText("เครื่องปั่นไฟ 5kVA")).not.toBeInTheDocument();
+  });
+
+  it("renders no rate control for a curator whose page read no rate map", () => {
+    // MONEY: canManageRegistry alone must not open the money control — the page
+    // omits `dailyRates` entirely when it did not make the admin-client read, and
+    // `undefined` has to keep meaning "render nothing" rather than "unset".
+    renderManager({ items: ITEMS, canManageRegistry: true });
+    expect(screen.queryByText("ตั้งค่าเช่า/วัน")).not.toBeInTheDocument();
+  });
+
+  it("every control in the row's action cluster clears the 44px touch floor", () => {
+    // The three that share the cluster: ย้าย, แก้ไข and the money control. All
+    // were text links below the floor before spec 362 U1.
+    renderManager({ items: ITEMS, dailyRates: { e1: 1500 } });
+    for (const name of ["ย้าย", "แก้ไข", /฿1,?500/]) {
+      const control = screen.getByRole("button", { name });
+      expect(control.className).toContain("min-h-11");
+    }
+  });
+
+  it("the category sheet lists existing categories with their item counts", () => {
+    renderMixed();
+    openSheet("หมวดหมู่");
+    expect(screen.getByRole("button", { name: "เปลี่ยนชื่อ นั่งร้าน" })).toBeInTheDocument();
+    expect(screen.getByText("2 รายการ")).toBeInTheDocument();
   });
 });
