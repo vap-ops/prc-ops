@@ -100,18 +100,18 @@ describe("both team-map surfaces use the set", () => {
   });
 });
 
-// ── The staff tier stays the PM's ────────────────────────────────────────────
+// ── The staff tier moved with it ─────────────────────────────────────────────
 //
-// Reaching the page is not the same as owning everything on it. The operator's
-// directive is about the TEAMS on site; project MEMBERSHIP (who is on the
-// project, who is the SA หลัก) stays a manager decision — and its actions prove
-// it: addProjectMember / removeProjectMember / setPrimaryProjectFor all gate on
-// PM_ROLES in the server action, and set_primary_project_for's RPC allows only
-// project_manager / project_director / super_admin (verified live 2026-07-26).
+// First cut kept project MEMBERSHIP with the PM and hid those affordances,
+// because addProjectMember / removeProjectMember / setPrimaryProjectFor all
+// refused anyone outside PM_ROLES. The operator then answered the surfaced
+// question — *"yes, she can manage project members"*, then *"yes, allow her"*
+// for the SA หลัก — so the refusing layers moved instead of the buttons:
+// migration 20260813075856 widens the two `project_members` write policies and
+// `set_primary_project_for`'s allowlist, and the action gate follows.
 //
-// So the widening must HIDE those affordances for a non-manager, or it ships the
-// exact affordance-then-refuse this repo keeps paying for: a button she can see,
-// press, and be refused by.
+// The rule that survives either answer: an affordance and every layer that can
+// refuse it move TOGETHER, or the user meets a button that bounces.
 
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
