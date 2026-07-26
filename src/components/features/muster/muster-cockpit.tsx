@@ -430,20 +430,35 @@ export function MusterCockpit({
   // closed) drives its highlight and copy; a fixed footer keeps it in view no
   // matter where the SA has scrolled (the old buried bottom button was missed
   // on 2026-07-24 → the day never closed → the derive never ran).
+  // Spec 359 U4b — the evening scanner's home is the ปิดวัน bar; it steps aside for
+  // the close confirmation (a focused decision must not carry a second primary).
+  const eveningScan = !teamScoped && hasCamera && board.teams.length > 0 && !confirmClose;
   const closeState = deriveCloseDayState({
     teams: board.teams,
     closure: board.closure,
     pastDayEnd,
   });
+  // Spec 359 U4b — which of the bar's two actions is the next one. While anyone is
+  // still shown in, or any OT is still open, the sweep comes first and ปิดวัน waits;
+  // once neither is true the day is genuinely done and ปิดวัน takes primary back.
+  // Gated on the scanner actually rendering, so a camera-less device never loses the
+  // ready/overdue highlight on ปิดวัน — its only nudge.
+  const sweepFirst = eveningScan && (closeState.openOt > 0 || closeState.stillIn > 0);
 
   return (
     // pb clears the fixed ปิดวัน footer so the last team card is never hidden —
     // sized for the tallest state (nudge + wrapped OT warning + 2 buttons) plus
     // the safe-area inset on notched devices.
-    <div className="flex flex-col gap-4 pb-44">
+    // Spec 359 U4b — the bottom padding clears the fixed ปิดวัน bar, now sized for
+    // its tallest state: status line + OT warning + the evening scanner + ปิดวัน,
+    // plus the safe-area inset.
+    <div className="flex flex-col gap-4 pb-56">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ink font-semibold">{formatThaiDate(date)}</p>
-        <div className="flex items-center gap-2">
+        {/* Spec 359 U4b — the round toggles keep this row to THEMSELVES. The
+            evening scanner sat here inline and wrapped the row on a phone,
+            pushing the toggles left; it lives in the ปิดวัน bar now. */}
+        <div data-testid="muster-round-toggles" className="flex items-center gap-2">
           {/* Spec 351 — session toggle: normal hours vs OT. */}
           <div className="flex overflow-hidden rounded-full">
             <button
@@ -480,28 +495,6 @@ export function MusterCockpit({
               ออก
             </button>
           </div>
-          {/* Spec 359 U4 — the evening scanner. One door for the whole site: these
-              rounds read a membership that already exists, so asking the SA which
-              team each man belongs to was ceremony (operator: "checking out
-              require no team picking"). The morning door stays on the team card,
-              where the team is genuinely being chosen. */}
-          {!teamScoped && hasCamera && board.teams.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMessage(null);
-                setSweep(EMPTY_SWEEP);
-                lastSeenRef.current = {};
-                addedRef.current = new Set();
-                sweepGenRef.current += 1;
-                setSiteScan(true);
-              }}
-              className="bg-fill text-on-fill flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-bold"
-            >
-              <QrCode aria-hidden className="size-4" />
-              {siteScanLabel}
-            </button>
-          ) : null}
         </div>
       </div>
 
@@ -584,7 +577,10 @@ export function MusterCockpit({
           calm while workers are in, PRIMARY the moment everyone is out (the day
           is "done" and wages can be booked), amber past day-end, closed after. */}
       {board.teams.length > 0 ? (
-        <div className="border-edge bg-card shadow-up fixed inset-x-0 bottom-0 z-40 border-t px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div
+          data-testid="muster-day-bar"
+          className="border-edge bg-card shadow-up fixed inset-x-0 bottom-0 z-40 border-t px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+        >
           <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-2`}>
             {/* aria-live so a screen-reader SA hears the in_progress→ready/overdue
                 flip — that announcement is the whole point of the bar. */}
@@ -627,6 +623,29 @@ export function MusterCockpit({
               </p>
             ) : null}
 
+            {/* Spec 359 U4b — the evening scanner, in the bar rather than inline in
+                the header row (which it wrapped on a phone). This bar is already the
+                "what next" surface, it is the best one-handed thumb reach, and it
+                stays put while the SA scrolls team cards on a walk-round. It also
+                makes the sequencing visible: sweep them out, THEN close the day. */}
+            {eveningScan ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMessage(null);
+                  setSweep(EMPTY_SWEEP);
+                  lastSeenRef.current = {};
+                  addedRef.current = new Set();
+                  sweepGenRef.current += 1;
+                  setSiteScan(true);
+                }}
+                className={`flex w-full items-center justify-center gap-1.5 ${sweepFirst ? BAR_PRIMARY : BAR_SUNK}`}
+              >
+                <QrCode aria-hidden className="size-4" />
+                {siteScanLabel}
+              </button>
+            ) : null}
+
             {confirmClose ? (
               <>
                 <div className="flex gap-2">
@@ -648,7 +667,7 @@ export function MusterCockpit({
                 type="button"
                 onClick={() => setConfirmClose(true)}
                 disabled={pending}
-                className={`w-full ${closeState.kind === "ready" || closeState.kind === "overdue" ? BAR_PRIMARY : BAR_SUNK}`}
+                className={`w-full ${(closeState.kind === "ready" || closeState.kind === "overdue") && !sweepFirst ? BAR_PRIMARY : BAR_SUNK}`}
               >
                 {closeState.kind === "closed" ? "ปิดวันอีกครั้ง" : "ปิดวัน"}
               </button>

@@ -800,6 +800,114 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
     }
   });
 
+  // Writing failing test first.
+  //
+  // Spec 359 U4b — the evening scanner shipped INLINE in the header row, beside the
+  // date and both toggle groups. On a 375px phone that wraps and shoves the toggles
+  // left (operator, 2026-07-26). It belongs in the fixed ปิดวัน bar: that bar is
+  // already the state-aware "what next" surface, it is the best one-handed thumb
+  // reach, and it stays put while the SA scrolls team cards on a walk-round. The
+  // sequencing it makes visible is the real point — sweep them out, THEN close the
+  // day — so the scanner is primary while there is still sweeping to do and ปิดวัน
+  // steps back, then they swap once the day is genuinely done.
+  describe("the evening scanner lives in the ปิดวัน bar (spec 359 U4b)", () => {
+    /** One member, in and out, no OT — the day is genuinely done. */
+    const member = (over: Partial<MusterBoard["teams"][number]["members"][number]> = {}) => ({
+      workerId: W1,
+      name: "ลี",
+      gender: null,
+      inAt: "2026-07-13T01:00:00Z",
+      outAt: "2026-07-13T10:00:00Z",
+      ot: null,
+      outAuto: false,
+      ...over,
+    });
+    const boardWith = (m: MusterBoard["teams"][number]["members"][number]): MusterBoard => ({
+      ...BOARD,
+      teams: [{ ...BOARD.teams[0]!, members: [m] }],
+    });
+    const ALL_OUT = boardWith(member());
+    const OT_OPEN = boardWith(
+      member({ ot: { inAt: "2026-07-13T10:30:00Z", outAt: null, otHours: null } }),
+    );
+
+    const withCamera = async (fn: () => Promise<void>) => {
+      Object.defineProperty(navigator, "mediaDevices", {
+        value: { getUserMedia: () => Promise.resolve() },
+        configurable: true,
+      });
+      try {
+        await fn();
+      } finally {
+        delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+      }
+    };
+
+    it("renders the scanner inside the footer, not in the header toggle row", async () => {
+      await withCamera(async () => {
+        const user = userEvent.setup();
+        renderCockpit();
+        await user.click(screen.getByRole("button", { name: "ออก" }));
+        const footer = screen.getByTestId("muster-day-bar");
+        expect(within(footer).getByRole("button", { name: /สแกนเช็คออก/ })).toBeInTheDocument();
+        // The toggles must be alone on their row again.
+        const toggles = screen.getByTestId("muster-round-toggles");
+        expect(within(toggles).queryByRole("button", { name: /สแกน/ })).toBeNull();
+      });
+    });
+
+    it("makes the scanner primary and ปิดวัน secondary while there is still sweeping to do", async () => {
+      await withCamera(async () => {
+        const user = userEvent.setup();
+        renderCockpit(); // one worker in, nobody out yet
+        await user.click(screen.getByRole("button", { name: "ออก" }));
+        expect(screen.getByRole("button", { name: /สแกนเช็คออก/ })).toHaveClass("bg-fill");
+        expect(screen.getByRole("button", { name: "ปิดวัน" })).toHaveClass("bg-sunk");
+      });
+    });
+
+    it("hands primary back to ปิดวัน once everyone is out and no OT is open", async () => {
+      await withCamera(async () => {
+        const user = userEvent.setup();
+        renderCockpit(ALL_OUT);
+        await user.click(screen.getByRole("button", { name: "ออก" }));
+        expect(screen.getByRole("button", { name: "ปิดวัน" })).toHaveClass("bg-fill");
+        expect(screen.getByRole("button", { name: /สแกนเช็คออก/ })).toHaveClass("bg-sunk");
+      });
+    });
+
+    it("keeps the scanner primary while an OT session is still open, even with everyone out", async () => {
+      await withCamera(async () => {
+        const user = userEvent.setup();
+        renderCockpit(OT_OPEN);
+        await user.click(screen.getByRole("button", { name: "OT" }));
+        await user.click(screen.getByRole("button", { name: "ออก" }));
+        expect(screen.getByRole("button", { name: /สแกน OT ออก/ })).toHaveClass("bg-fill");
+        expect(screen.getByRole("button", { name: "ปิดวัน" })).toHaveClass("bg-sunk");
+      });
+    });
+
+    it("gets out of the way while the SA is confirming the close", async () => {
+      await withCamera(async () => {
+        const user = userEvent.setup();
+        renderCockpit();
+        await user.click(screen.getByRole("button", { name: "ออก" }));
+        await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+        expect(screen.getByRole("button", { name: "ยืนยันปิดวัน" })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /สแกนเช็คออก/ })).toBeNull();
+      });
+    });
+
+    it("shows no scanner in the morning round — that door is on the team card", async () => {
+      await withCamera(async () => {
+        renderCockpit();
+        const footer = screen.getByTestId("muster-day-bar");
+        expect(within(footer).queryByRole("button", { name: /สแกน/ })).toBeNull();
+        expect(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeInTheDocument();
+      });
+    });
+  });
+
   it("keeps the morning door on the team card — that round is where a team is chosen", () => {
     renderCockpit();
     expect(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" })).toBeInTheDocument();
