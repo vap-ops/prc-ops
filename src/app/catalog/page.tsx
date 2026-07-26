@@ -23,7 +23,7 @@ import {
   membershipsByItem,
 } from "@/lib/catalog/categories";
 import { AddCatalogItem } from "@/components/features/catalog/add-catalog-item";
-import { CATALOG_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
+import { CATALOG_LABEL, CATALOG_UNITS_LABEL, MANAGE_TAXONOMY_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: CATALOG_LABEL };
 
@@ -126,6 +126,13 @@ export default async function CatalogPage({
               className="text-action text-sm font-medium hover:underline"
             >
               {MANAGE_TAXONOMY_LABEL}
+            </Link>
+            {/* Spec 361 U8 — the หน่วยนับ vocabulary this page's item form picks
+                from. Its other door is the ข้อมูลหลัก hub, which only the
+                procurement tiers see; without this link the PM tier (admitted by
+                the page AND by all three catalog_unit RPCs) had no way in. */}
+            <Link href="/catalog/units" className="text-action text-sm font-medium hover:underline">
+              {CATALOG_UNITS_LABEL}
             </Link>
             {/* Spec 239 U2 — the dormant BOQ-template link is retired (the screen +
                 tables stay; operator chose hide-not-drop). */}

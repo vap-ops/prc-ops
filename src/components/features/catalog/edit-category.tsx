@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Pencil } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR, ROW_ACTION_LINK } from "@/lib/ui/classes";
 import { updateCatalogCategory } from "@/app/catalog/actions";
 import { CATALOG_CATEGORY_LABEL } from "@/lib/i18n/labels";
 
@@ -72,11 +72,7 @@ export function EditCategory({ category }: { category: Category }) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-action focus-visible:ring-action inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-sm font-medium focus:outline-none focus-visible:ring-2"
-      >
+      <button type="button" onClick={() => setOpen(true)} className={ROW_ACTION_LINK}>
         <Pencil aria-hidden className="size-4" />
         แก้ไข
       </button>

@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RadioChip } from "@/components/features/common/radio-chip";
+import { EditCategoryRow } from "./edit-category-row";
 import {
   BUTTON_PRIMARY_COMPACT,
   BUTTON_SECONDARY_COMPACT,
@@ -746,6 +747,23 @@ export function EquipmentManager({
             <QuickAddCategory />
             <QuickAddOwner />
           </div>
+          {/* Spec 361 U6 — the category list was invisible here: you could add
+              one but never see or fix the ones that existed. Item counts come
+              from the same rows the list below renders. */}
+          {categories.length > 0 ? (
+            <div className={CARD}>
+              <p className="text-ink text-sm font-semibold">หมวดหมู่ทั้งหมด</p>
+              <ul className="mt-2 flex flex-col">
+                {categories.map((c) => (
+                  <EditCategoryRow
+                    key={c.id}
+                    category={c}
+                    itemCount={items.filter((it) => it.category_id === c.id).length}
+                  />
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <AddEquipmentForm categories={categories} owners={owners} />
         </>
       ) : null}

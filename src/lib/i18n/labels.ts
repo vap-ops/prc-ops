@@ -379,6 +379,25 @@ export const SITE_EXPENSE_BADGE = "ค่าใช้จ่าย";
 // yields the canonical section order.
 export const CATALOG_LABEL = "ทะเบียนวัสดุ";
 
+// Spec 361 U8 — the managed unit vocabulary (catalog_units, spec 223).
+export const CATALOG_UNITS_LABEL = "หน่วยนับ";
+export const CATALOG_UNITS_HINT = "หน่วยที่เลือกได้ตอนเพิ่มวัสดุ";
+export const UNIT_INACTIVE_LABEL = "ปิดใช้งาน";
+// Spec 361 U8 follow-up: a unit added through the app rather than seeded —
+// shown so the procurement manager can verify (and retire) what was added.
+export const UNIT_ADDED_IN_APP_LABEL = "เพิ่มในแอป";
+export const UNIT_CLASS_LABEL: Record<
+  "count" | "length" | "area" | "volume" | "weight" | "trips",
+  string
+> = {
+  count: "จำนวนชิ้น",
+  length: "ความยาว",
+  area: "พื้นที่",
+  volume: "ปริมาตร",
+  weight: "น้ำหนัก",
+  trips: "เที่ยว/รอบ",
+};
+
 // Spec 361 U4 — the master-data hub. The term already existed as the ตั้งค่า
 // section title (settings/sections.ts); the hub gives it a door and a page, so
 // it becomes a 2+-surface term and moves here (ui-term-consistency SSOT).

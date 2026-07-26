@@ -62,7 +62,7 @@ describe("master-data group SSOT (spec 361 U4)", () => {
     expect(actual).toEqual({
       "catalog-items": "/catalog",
       "catalog-categories": "/catalog/subcategories",
-      "catalog-units": null,
+      "catalog-units": "/catalog/units",
       "ordering-templates": "/settings/ordering-templates",
       "equipment-items": "/equipment",
       "equipment-categories": "/equipment",
@@ -109,7 +109,7 @@ describe("master-data group SSOT (spec 361 U4)", () => {
     // (createEquipmentCategory, BACK_OFFICE_ROLES), so claiming otherwise would
     // be a false statement to the reader — only rename/deactivate are missing,
     // which the hint says instead.
-    expect(pending).toEqual(["catalog-units", "expense-categories", "work-categories"]);
+    expect(pending).toEqual(["expense-categories", "work-categories"]);
   });
 });
 
@@ -152,14 +152,14 @@ describe("MasterDataBoard", () => {
     // Full href — a `stringContaining("/catalog")` survives repointing this row
     // at /catalog/boq-templates, and a loose ?from survives passing the wrong page.
     expect(catalog).toHaveAttribute("href", "/catalog?from=%2Fprocurement%2Fmaster-data");
-    expect(screen.queryByRole("link", { name: /หน่วยนับ/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /สายงาน/ })).toBeNull();
   });
 
   it("a pending list still shows its count and says it cannot be edited in the app yet", () => {
     render(<MasterDataBoard counts={ALL_COUNTS} from="/procurement/resources" isManager />);
-    const units = screen.getByTestId("master-data-catalog-units");
-    expect(within(units).getByText("25")).toBeInTheDocument();
-    expect(within(units).getByText(/ยังแก้ไขในแอปไม่ได้/)).toBeInTheDocument();
+    const trades = screen.getByTestId("master-data-work-categories");
+    expect(within(trades).getByText("52")).toBeInTheDocument();
+    expect(within(trades).getByText(/ยังแก้ไขในแอปไม่ได้/)).toBeInTheDocument();
   });
 
   it("an unknown count renders no number at all — never a misleading 0", () => {
