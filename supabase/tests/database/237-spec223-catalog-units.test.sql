@@ -49,8 +49,18 @@ select ok(
 select has_type('public', 'unit_class', 'unit_class enum type exists');
 
 -- C. Seed (25 COMMON_UNITS, classed; code = the stored Thai string) ----------
+-- Assert the seeded CODES are present — never a global count. catalog_units is a
+-- live firm-wide vocabulary the app writes to through create_catalog_unit, so a
+-- count assertion reds the moment anyone curates a unit, and because pgTAP runs
+-- on the MERGE ref that shows up as a silent merge-queue EJECTION for every
+-- otherwise-green PR, in every lane, rather than a red check on the PR that
+-- caused it. (2026-07-26: a curation session promoted หลอด → 26 rows → ejected.)
 select is(
-  (select count(*)::int from public.catalog_units), 25, 'seeded the 25 COMMON_UNITS');
+  (select count(*)::int from public.catalog_units where code = any (array[
+    'ถุง', 'กระสอบ', 'ก้อน', 'แผ่น', 'เส้น', 'ท่อน', 'ม้วน', 'มัด', 'กล่อง', 'ชุด',
+    'ตัว', 'อัน', 'ชิ้น', 'ใบ', 'ถัง', 'แกลลอน', 'กระป๋อง', 'เมตร', 'ตารางเมตร',
+    'ลูกบาศก์เมตร', 'คิว', 'กิโลกรัม', 'ตัน', 'ลิตร', 'เที่ยว'])),
+  25, 'all 25 seeded COMMON_UNITS are present');
 select is(
   (select unit_class::text from public.catalog_units where code='เมตร'),
   'length', 'เมตร classed as length');
