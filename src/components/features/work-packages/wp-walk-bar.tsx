@@ -11,8 +11,12 @@ import { workPackageHref } from "@/lib/nav/project-paths";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import type { WpWalk } from "@/lib/work-packages/wp-walk";
 
+// Colour-free: the next-step link steps the emphasis UP to `text-ink`, and a
+// `text-ink-secondary` baked in here would outrank it in the generated
+// stylesheet (see tests/unit/ui-class-contracts.test.tsx). Each call site owns
+// its ink.
 const STEP =
-  "text-meta text-ink-secondary hover:bg-sunk focus-visible:ring-action inline-flex h-9 items-center gap-1 rounded-control px-3 font-medium transition-colors focus:outline-none focus-visible:ring-2";
+  "text-meta hover:bg-sunk focus-visible:ring-action inline-flex h-9 items-center gap-1 rounded-control px-3 font-medium transition-colors focus:outline-none focus-visible:ring-2";
 const STEP_OFF = "text-meta text-ink-muted inline-flex h-9 items-center gap-1 px-3 font-medium";
 
 export function WpWalkBar({
@@ -38,7 +42,7 @@ export function WpWalkBar({
         className={`mx-auto ${PAGE_MAX_W} flex items-center justify-between gap-2`}
       >
         {walk.prev ? (
-          <Link href={href(walk.prev.id)} className={STEP}>
+          <Link href={href(walk.prev.id)} className={`${STEP} text-ink-secondary`}>
             <ChevronLeft aria-hidden className="size-4 shrink-0" />
             ก่อนหน้า
           </Link>

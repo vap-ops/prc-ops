@@ -26,14 +26,16 @@ export const BUTTON_PRIMARY =
 
 /**
  * BUTTON_SECONDARY minus its surface colours — border WIDTH, size, type and
- * states, no `bg-*`/`border-<colour>`. Compose this (never BUTTON_SECONDARY)
- * when a state needs its own fill or border colour; see CARD_LAYOUT for why.
+ * states, and NO colour of any kind: no `bg-*`, no `border-<colour>`, no
+ * `text-<colour>`. Compose this (never BUTTON_SECONDARY) when a state needs its
+ * own fill, border or ink; see CARD_LAYOUT for why. A `_LAYOUT` constant that
+ * kept even one colour would leave the call site fighting it for that property.
  */
 export const BUTTON_SECONDARY_LAYOUT =
-  "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted";
+  "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted";
 
 /** White outline sibling of BUTTON_PRIMARY. */
-export const BUTTON_SECONDARY = `${BUTTON_SECONDARY_LAYOUT} border-edge bg-card`;
+export const BUTTON_SECONDARY = `${BUTTON_SECONDARY_LAYOUT} border-edge bg-card text-ink`;
 
 /**
  * Field-First HERO action — the full-width amber capture bar. 64px so a
@@ -115,9 +117,17 @@ export const BUTTON_SECONDARY_COMPACT =
 export const BUTTON_DANGER_OUTLINE_COMPACT =
   "inline-flex min-h-11 items-center justify-center rounded-control border border-danger-edge bg-card px-4 py-2 text-body font-medium text-danger-ink transition-colors hover:bg-danger-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-danger disabled:opacity-50";
 
+/**
+ * BUTTON_SECONDARY_MUTED minus its colours — same geometry, elevation and
+ * states, no `bg-*`/`border-<colour>`/`text-<colour>`. Compose this when a
+ * STATE of the control needs its own ink (an armed destructive confirm) and the
+ * geometry must not shift underneath the user; see CARD_LAYOUT for why.
+ */
+export const BUTTON_SECONDARY_MUTED_LAYOUT =
+  "inline-flex h-11 items-center justify-center rounded-control border px-3 text-body font-medium shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:opacity-60";
+
 /** Muted secondary used by the photo uploaders. */
-export const BUTTON_SECONDARY_MUTED =
-  "inline-flex h-11 items-center justify-center rounded-control border border-edge bg-card px-3 text-body font-medium text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:opacity-60";
+export const BUTTON_SECONDARY_MUTED = `${BUTTON_SECONDARY_MUTED_LAYOUT} border-edge bg-card text-ink`;
 
 /** Borderless inline alert text — pair with role="alert". */
 export const INLINE_ALERT_TEXT = "text-meta font-medium text-danger";

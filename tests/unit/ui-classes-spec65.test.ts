@@ -42,7 +42,7 @@ describe("ui class constants (spec 65) — Field-First pins", () => {
 
   it("BUTTON_SECONDARY_LAYOUT", () => {
     expect(BUTTON_SECONDARY_LAYOUT).toBe(
-      "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted",
+      "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted",
     );
   });
 
@@ -50,7 +50,7 @@ describe("ui class constants (spec 65) — Field-First pins", () => {
   // selected-state fill or border must not fight the constant's own colour.
   it("BUTTON_SECONDARY", () => {
     expect(BUTTON_SECONDARY).toBe(
-      "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted border-edge bg-card",
+      "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted border-edge bg-card text-ink",
     );
   });
 
@@ -132,7 +132,7 @@ describe("ui class constants (spec 65) — Field-First pins", () => {
 
   it("BUTTON_SECONDARY_MUTED", () => {
     expect(BUTTON_SECONDARY_MUTED).toBe(
-      "inline-flex h-11 items-center justify-center rounded-control border border-edge bg-card px-3 text-body font-medium text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:opacity-60",
+      "inline-flex h-11 items-center justify-center rounded-control border px-3 text-body font-medium shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:opacity-60 border-edge bg-card text-ink",
     );
   });
 

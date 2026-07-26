@@ -101,8 +101,12 @@ const TIER_HEADING = "text-ink-secondary text-xs font-medium";
 // carries the tier icon, counts, ⓘ, and the tier's OWN action button. Token
 // classes only — the design-doctrine guard bans raw Tailwind palette.
 const TIER_BOX = "border-edge bg-sunk rounded-card border p-3";
-const TIER_ACTION =
-  "text-action border-edge bg-card inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
+// Colour-free base — the day toggle below swaps the ink per selected state, and
+// a `text-action` baked into TIER_ACTION would fight it in the generated
+// stylesheet (see tests/unit/ui-class-contracts.test.tsx).
+const TIER_ACTION_BASE =
+  "border-edge bg-card inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
+const TIER_ACTION = `${TIER_ACTION_BASE} text-action`;
 // Spec 338 U1 — the 3-tier button hierarchy. Exactly ONE primary per surface
 // (the constructive action); danger = the wp-delete-control pattern so every
 // destructive control reads the same app-wide. Everything else stays secondary.
@@ -692,7 +696,7 @@ export function TeamMapView({
                 <button
                   type="button"
                   aria-pressed={day === "today"}
-                  className={`${TIER_ACTION} ${day === "today" ? "" : "text-ink-secondary"}`}
+                  className={`${TIER_ACTION_BASE} ${day === "today" ? "text-action" : "text-ink-secondary"}`}
                   onClick={() => switchDay("today")}
                 >
                   วันนี้
@@ -700,7 +704,7 @@ export function TeamMapView({
                 <button
                   type="button"
                   aria-pressed={day === "tomorrow"}
-                  className={`${TIER_ACTION} ${day === "tomorrow" ? "" : "text-ink-secondary"}`}
+                  className={`${TIER_ACTION_BASE} ${day === "tomorrow" ? "text-action" : "text-ink-secondary"}`}
                   onClick={() => switchDay("tomorrow")}
                 >
                   พรุ่งนี้
