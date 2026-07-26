@@ -222,12 +222,15 @@ function WhtRow({ whtPct }: { whtPct: number | null }) {
   // to, and the field opens behind แก้ไข like every other write on this screen.
   return (
     <div className="border-edge bg-card flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3">
-      <span className="min-w-40 flex-1">
+      {/* A div, not a span: an <h2> is flow content and cannot live inside
+          phrasing content. The level rows carry no heading, so they keep their
+          span wrapper. */}
+      <div className="min-w-40 flex-1">
         <h2 className="text-ink text-body font-semibold">{WHT_PCT_LABEL}</h2>
         <span className="text-ink-secondary text-meta block">
           {whtPct === null ? LABOR_RATE_UNSET : `${whtPct}%`}
         </span>
-      </span>
+      </div>
       <button
         type="button"
         aria-label={`${EDIT_LABEL} ${WHT_PCT_LABEL}`}
