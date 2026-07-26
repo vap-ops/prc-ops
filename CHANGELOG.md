@@ -1,3 +1,9 @@
+## [0.228.1](https://github.com/vap-ops/prc-ops/compare/v0.228.0...v0.228.1) (2026-07-26)
+
+### Bug Fixes
+
+- **muster:** OT scan follows the explicit เข้า/ออก direction ([#771](https://github.com/vap-ops/prc-ops/issues/771)) ([bed5bd0](https://github.com/vap-ops/prc-ops/commit/bed5bd0637f02800b41ed9906b2d03df656f7901))
+
 # [0.228.0](https://github.com/vap-ops/prc-ops/compare/v0.227.0...v0.228.0) (2026-07-26)
 
 ### Bug Fixes
