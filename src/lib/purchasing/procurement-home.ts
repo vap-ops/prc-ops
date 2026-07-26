@@ -15,6 +15,7 @@ import {
   Forklift,
   Hammer,
   HardHat,
+  Library,
   Package,
   PieChart,
   Receipt,
@@ -29,6 +30,7 @@ import type { Database } from "@/lib/db/database.types";
 import {
   CATALOG_LABEL,
   LABOR_RATES_LABEL,
+  MASTER_DATA_LABEL,
   ORDERING_TEMPLATES_LABEL,
   PROJECT_COSTS_LABEL,
   SUBCONTRACTOR_LABEL,
@@ -223,6 +225,18 @@ export const PROCUREMENT_STR_SECTIONS: readonly ProcurementStrSection[] = [
     key: "resources",
     label: "ทรัพยากร",
     doors: [
+      // Spec 361 U4: the grouped reference-data index (ข้อมูลหลัก). It ADDS a
+      // labeled path — the existing per-list chips below stay, because they are
+      // one tap and she uses them daily. What the hub adds is reach to the
+      // lists that have NO chip and no editor (หน่วยนับ · หมวดอุปกรณ์ ·
+      // สายงาน · ประเภทค่าใช้จ่าย) plus a count beside every list.
+      {
+        key: "master-data",
+        icon: Library,
+        label: MASTER_DATA_LABEL,
+        href: "/procurement/master-data",
+        scope: "shared",
+      },
       { key: "vendors", icon: Store, label: "ผู้ขาย", href: "/contacts/vendors", scope: "shared" },
       {
         key: "subcontractors",
