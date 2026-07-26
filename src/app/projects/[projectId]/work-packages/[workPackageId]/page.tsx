@@ -85,6 +85,7 @@ import {
   isRevisionWindowOpen,
 } from "@/lib/photos/deletable";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
+import { showsLaborTab } from "@/lib/work-packages/wp-detail-labor-tab";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { LaborBudgetCard } from "@/components/features/labor/labor-budget-card";
 import { fetchWpLaborBudgetSummary } from "@/lib/labor/wp-budget-summary";
@@ -701,29 +702,37 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           },
         ]
       : []),
-    {
-      key: "labor",
-      label: LABOR_TAB_LABEL,
-      panel: (
-        <LaborLogZone
-          workPackageId={wp.id}
-          revalidate={workPackageHref(projectId, workPackageId)}
-          roster={labor.roster}
-          rows={labor.rows}
-          projectWorkerIds={labor.projectWorkerIds}
-          // Spec 171: procurement reads labour history only — no flags, no capture
-          // (locked drops the capture form and the per-row edit button).
-          // The flags (self-log badge + per-row correction, incl. on a complete WP)
-          // are a MANAGER-tier oversight affordance: PM/PD/super get them, site_admin
-          // does NOT. Gate on isManagerRole directly — the old `!readOnly &&
-          // !site_admin` proxy quietly granted them to procurement_manager once
-          // spec 348 U4 cleared her readOnly, exceeding the SA-parity ceiling (she
-          // captures like an SA, who has no flags). isManagerRole keeps her out.
-          showFlags={isManagerRole(ctx.role)}
-          locked={readOnly || wp.status === "complete"}
-        />
-      ),
-    },
+    // Spec 363 U3 (D4): แรงงาน leaves the SA's tab set — labor_logs has 0 rows
+    // all-time, so it is an empty surface for the role that lives on this page.
+    // The manager tier and the read-only viewer keep it; showsLaborTab owns the
+    // rule and is pinned over the complete role domain.
+    ...(showsLaborTab(ctx.role)
+      ? [
+          {
+            key: "labor",
+            label: LABOR_TAB_LABEL,
+            panel: (
+              <LaborLogZone
+                workPackageId={wp.id}
+                revalidate={workPackageHref(projectId, workPackageId)}
+                roster={labor.roster}
+                rows={labor.rows}
+                projectWorkerIds={labor.projectWorkerIds}
+                // Spec 171: procurement reads labour history only — no flags, no capture
+                // (locked drops the capture form and the per-row edit button).
+                // The flags (self-log badge + per-row correction, incl. on a complete WP)
+                // are a MANAGER-tier oversight affordance: PM/PD/super get them, site_admin
+                // does NOT. Gate on isManagerRole directly — the old `!readOnly &&
+                // !site_admin` proxy quietly granted them to procurement_manager once
+                // spec 348 U4 cleared her readOnly, exceeding the SA-parity ceiling (she
+                // captures like an SA, who has no flags). isManagerRole keeps her out.
+                showFlags={isManagerRole(ctx.role)}
+                locked={readOnly || wp.status === "complete"}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       key: "info",
       label: "ข้อมูล",
