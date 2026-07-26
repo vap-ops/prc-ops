@@ -484,6 +484,15 @@ describe("shared-constant colour-override contract (2026-07-26 bug class)", () =
     // documenting the hazard must not BE the hazard: a comment quoting the
     // broken composition is not a call site
     expect(check("// never write `${CARD} bg-attn-soft` — it renders neutral\n")).toHaveLength(0);
+    // Tailwind's colour KEYWORDS carry no design token but set the property and
+    // sort into the same stream — `black` lands before `card`/`ink`, so these
+    // are dead overrides too
+    expect(check("`${CARD} bg-white`")).toHaveLength(1);
+    expect(
+      constColorOverrides('import { BTN } from "@/lib/ui/classes";\n`${BTN} text-black`', {
+        BTN: "px-4 text-body text-ink",
+      }),
+    ).toHaveLength(1);
     // !important wins on cascade rules, not on emission order
     expect(check("`${CARD} bg-attn-soft!`")).toHaveLength(0);
     // plain `color` is the third property, and it bit in BOTH directions: a
