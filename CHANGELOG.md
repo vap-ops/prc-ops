@@ -1,3 +1,14 @@
+# [0.228.0](https://github.com/vap-ops/prc-ops/compare/v0.227.0...v0.228.0) (2026-07-26)
+
+### Bug Fixes
+
+- **procurement:** address fresh-eyes review of the master-data hub ([d4176aa](https://github.com/vap-ops/prc-ops/commit/d4176aa8e154c5d77ee2a60a217b16fd2c800fc4))
+- **procurement:** count every master-data list, not nine of eleven ([de09be6](https://github.com/vap-ops/prc-ops/commit/de09be6b2a8ab2bda5b39d4f751d96dd85a732ae))
+
+### Features
+
+- **procurement:** master-data hub (ข้อมูลหลัก) — spec 361 U4 ([0880a2e](https://github.com/vap-ops/prc-ops/commit/0880a2ecae6ebb1383622c1196aaa9c89f77dda1))
+
 # [0.227.0](https://github.com/vap-ops/prc-ops/compare/v0.226.1...v0.227.0) (2026-07-26)
 
 ### Features
