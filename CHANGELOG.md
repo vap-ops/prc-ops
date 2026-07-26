@@ -1,3 +1,13 @@
+# [0.235.0](https://github.com/vap-ops/prc-ops/compare/v0.234.0...v0.235.0) (2026-07-26)
+
+### Bug Fixes
+
+- **workers:** re-seed the edit sheet from the row on open (spec 362 U3) ([bfdaf94](https://github.com/vap-ops/prc-ops/commit/bfdaf948d3f3ed32d1c8d58c17e7b9add0f23a90))
+
+### Features
+
+- **workers:** ทะเบียนช่างและค่าแรง becomes a read-first registry (spec 362 U3) ([8bc7ed6](https://github.com/vap-ops/prc-ops/commit/8bc7ed614968629c609e4d63fa968f20fcd61167))
+
 # [0.234.0](https://github.com/vap-ops/prc-ops/compare/v0.233.0...v0.234.0) (2026-07-26)
 
 ### Bug Fixes
