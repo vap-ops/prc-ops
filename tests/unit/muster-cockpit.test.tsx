@@ -1443,6 +1443,19 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
     expect(tapList().getByRole("button", { name: /สมชาย/ }).textContent).toContain("อยู่ทีม ก้อง");
   });
 
+  it("orders the free workers ahead of the ones already on another team", async () => {
+    const user = userEvent.setup();
+    // W2 (สมชาย, on team 2) comes BEFORE W4 (มานะ, free) in board.workers, so a
+    // pass-through order would put the straggler first.
+    renderCockpit(TWO_TEAM);
+    await openSheet(user);
+    const names = tapList()
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    expect(names[0]).toContain("มานะ");
+    expect(names[1]).toContain("สมชาย");
+  });
+
   it("tapping that worker refuses the write and offers ย้ายมาทีมนี้", async () => {
     const user = userEvent.setup();
     renderCockpit(TWO_TEAM);
