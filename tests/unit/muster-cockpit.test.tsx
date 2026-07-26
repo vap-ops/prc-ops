@@ -1598,6 +1598,60 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
     expect(tapList().getByRole("button", { name: /สมชาย/ })).toBeInTheDocument();
   });
 
+  it("the added row survives the board catching up mid-sweep", async () => {
+    // The real sequence the previous test cannot reach: musterScan's
+    // revalidatePath re-renders the page WHILE the sheet is open, so the worker
+    // arrives as a member of THIS team. Without the added-id exemption the row
+    // would vanish at that moment and reflow the rest of the lineup.
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <MusterCockpit
+        projectId={PROJECT}
+        date="2026-07-13"
+        revalidate="/projects/x/muster"
+        board={TWO_TEAM}
+        pastDayEnd={false}
+        htWorkerIds={TWO_TEAM.workers.map((w) => w.id)}
+      />,
+    );
+    await openSheet(user);
+    await tap(user, /มานะ/);
+    const CAUGHT_UP: MusterBoard = {
+      ...TWO_TEAM,
+      teams: [
+        {
+          ...TWO_TEAM.teams[0]!,
+          members: [
+            ...TWO_TEAM.teams[0]!.members,
+            {
+              workerId: W4,
+              name: "มานะ",
+              gender: null,
+              inAt: "2026-07-13T01:10:00Z",
+              outAt: null,
+              ot: null,
+              outAuto: false,
+            },
+          ],
+        },
+        TWO_TEAM.teams[1]!,
+      ],
+    };
+    rerender(
+      <MusterCockpit
+        projectId={PROJECT}
+        date="2026-07-13"
+        revalidate="/projects/x/muster"
+        board={CAUGHT_UP}
+        pastDayEnd={false}
+        htWorkerIds={TWO_TEAM.workers.map((w) => w.id)}
+      />,
+    );
+    const row = tapList().getByRole("button", { name: /มานะ/ });
+    expect(row).toBeDisabled();
+    expect(row.textContent).toContain("✓");
+  });
+
   it("a second tap on an added row writes nothing", async () => {
     const user = userEvent.setup();
     renderCockpit(TWO_TEAM);
