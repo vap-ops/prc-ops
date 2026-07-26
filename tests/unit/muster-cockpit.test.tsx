@@ -1536,6 +1536,14 @@ describe("MusterCockpit — continuous sweep (spec 359 U1)", () => {
     expect(screen.getByText("เช็คออก · ทีม ก้อง")).toBeInTheDocument();
   });
 
+  it("does not tell a screen-reader SA the round is for 'ทีม null'", async () => {
+    renderSweep();
+    await userEvent.click(screen.getByText("ออก"));
+    await userEvent.click(screen.getByRole("button", { name: /สแกนเช็คออก/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.getAttribute("aria-label")).toBe("สแกน — ทุกทีม");
+  });
+
   it("refuses a badge for someone with no session on today's board", async () => {
     renderSweep();
     await userEvent.click(screen.getByText("ออก"));

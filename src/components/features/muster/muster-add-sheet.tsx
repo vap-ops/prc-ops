@@ -226,7 +226,9 @@ export function MusterAddSheet({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`สแกน/เพิ่มช่าง — ทีม ${leadName}`}
+      // Spec 359 U4 — a screen-reader SA in an evening round would otherwise be
+      // told "ทีม null": these rounds have no team by design.
+      aria-label={leadName === null ? "สแกน — ทุกทีม" : `สแกน/เพิ่มช่าง — ทีม ${leadName}`}
       onClick={onClose}
       className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-black/90 p-4"
     >

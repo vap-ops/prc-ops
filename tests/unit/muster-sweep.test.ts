@@ -222,6 +222,26 @@ describe("classifyScan — resolved directions (spec 359 U4)", () => {
     expect(classifyScan(written, "w1", OUT).shouldWrite).toBe(false);
   });
 
+  // A sweep carries ONE action (the toggles are behind the modal sheet; changing
+  // round closes it, which resets the sweep), so the mid-sweep refusal is the
+  // "already" outcome of the round being swept — never another round's.
+  it("answers a re-scan with THIS round's already-outcome, in both OT directions", () => {
+    const written = (over = {}) =>
+      ctx({
+        teamId: null,
+        todayTeamByWorker: new Map([["w1", OTHER]]),
+        sessionByWorker: new Map([["w1", { teamId: OTHER, outAt: null, ot: null, ...over }]]),
+        addedThisSweep: new Set(["w1"]),
+      });
+    expect(classifyScan(written(), "w1", OT_IN).kind).toBe("ot_already_open");
+    expect(classifyScan(written(), "w1", OT_IN).shouldWrite).toBe(false);
+    // Board says no OT (stale — this sweep opened it), and an OT-out re-scan must
+    // still refuse: a ten-second OT is the 2026-07-26 defect, and ot_hours is
+    // computed from that span at scan-out.
+    expect(classifyScan(written(), "w1", OT_OUT).kind).toBe("ot_already_closed");
+    expect(classifyScan(written(), "w1", OT_OUT).shouldWrite).toBe(false);
+  });
+
   it("leaves the morning path writing against the CHOSEN team", () => {
     const c = classifyScan(ctx(), "w1", { session: "regular", direction: "in" });
     expect(c.kind).toBe("added_first_time");

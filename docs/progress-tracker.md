@@ -6,6 +6,55 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 359 U4 — every muster event sweeps, and the evening picks no team (2026-07-26)
+
+- **Origin — two operator directives, minutes apart:** _"OT out is not QR based? it
+  should, all checking should"_ and _"checking out require no team picking"_.
+- **The first premise was wrong and the correction matters:** every combination was
+  already QR-capable, and the pilot ran **regular check-out 18-of-18 by QR** that same
+  day. What was missing is the **continuous sweep** — U1 scoped it to `regular` + `เข้า`,
+  so the evening rounds closed the sheet per decode. Five men's OT = five door-opens,
+  the exact cost that held QR at 1-in-36 before U1, and 07-25's OT round ran **14-of-14
+  by tap** as a result.
+- **Why U1's objection is answered, not ignored.** U1 refused ออก because _"a continuous
+  sweep in ออก would check an entire team out in fifteen seconds, silently"_. The
+  direction is on screen since this morning's fix, so "silently" is gone; what remains
+  is that these writes are **lossy**, which is a board-state problem: `muster_scan_out`
+  has **no already-out guard** (it sets `out_at = now()` unconditionally, so a re-scan
+  rewrites a real 17:13), and an OT check-out prices labour via `ot_hours` and can never
+  be reopened. So `classifyScan` became direction-aware and REFUSES instead of repeating
+  a destructive write: `already_out`, `not_checked_in`, `ot_already_open`,
+  `ot_already_closed`, `no_ot` (all no-write), against `checked_out`, `ot_opened`,
+  `ot_closed`.
+- **The second directive exposed a real asymmetry:** a team must be chosen only when the
+  scan **creates** membership. `muster_scan_in` on a regular session is what puts a
+  worker on a team; check-out refuses a team mismatch outright, and an OT scan requires a
+  regular session on the same team first. For those the team is a **lookup**, not a
+  choice. So the evening has one page-level scanner: the sheet heads `ทุกทีม`, each badge
+  resolves its own team from the board, and the tally names the team each write landed on
+  so a team-agnostic sweep is still auditable. The team card keeps its door for the
+  morning line — which also retired the last one-shot camera path (`scanFromCamera`) and
+  `TeamCard`'s now-unused `hasCamera`.
+- **Held out of scope on purpose:** tap-add stays `regular` + `เข้า`; the evening tap
+  paths already exist as per-member board buttons that state their own direction.
+- **Evidence:** 10 RED-first classifier tests + 6 RED-first cockpit tests, and 4
+  pre-existing tests deliberately rewritten because they pinned the scope decision this
+  unit reverses (`does not sweep in ออก mode`, the two one-shot ออก camera tests, and the
+  ออก door test). **12 mutation checks, all RED**, each restored — including reinstating
+  the derived-team write, dropping each refusal, and re-heading the sheet with a team
+  name. Cross-team resolution is pinned at both levels (classifier + a two-team cockpit
+  board).
+- **Open questions / follow-ups (NOT done here):**
+  - `muster_scan_out` still has no server-side already-out guard. The sweep refuses from
+    board state, and the per-member button is now the only other path, but a guard in the
+    RPC (or an `out_at is null` predicate) is the durable fix. Schema lane.
+  - A cross-PROJECT badge resolves to `not_checked_in`, since the board is one
+    project/day. Honest at this grain; a cross-project scanner is its own spec.
+  - Nothing yet warns that closing the day leaves OT open — the footer says it (earlier
+    today), `close_muster_day` still accepts it silently.
+
+---
+
 ## Field bug — the OT scan had no direction and silently checked workers OUT of OT (2026-07-26)
 
 - **Origin:** the SA reported, mid-OT-round, that she could not check a technician

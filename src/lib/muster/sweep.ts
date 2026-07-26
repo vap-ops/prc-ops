@@ -250,19 +250,36 @@ function classifyResolved(
     shouldWrite: true,
     teamId: session.teamId,
   });
-  // Written earlier in THIS sweep: the board does not know yet (it refreshes on
-  // close), so answer from the sweep or a re-scan would repeat the write.
-  const writtenHere = ctx.addedThisSweep.has(workerId);
+  // Written earlier in THIS sweep. The board does not know yet — it refreshes when
+  // the sheet closes — so without this a re-scan on a walk-round would repeat a
+  // write the SA already made, and for `out` that means overwriting a real time.
+  //
+  // A sweep carries exactly ONE action: the session/direction toggles sit on the
+  // page BEHIND the sheet (`fixed inset-0`, aria-modal), so changing round means
+  // closing the sheet, and closing RESETS the sweep. `writtenHere` therefore means
+  // "this same event was already written for this worker", and each round answers
+  // with its own "already" outcome. (A reviewer read the earlier form as blocking
+  // OT-in → OT-out inside one sweep; that sequence cannot be reached, and if it
+  // ever became reachable, refusing a ten-second OT is the correct answer — that
+  // is the 2026-07-26 field defect, whose `ot_hours` came out NULL.)
+  if (ctx.addedThisSweep.has(workerId)) {
+    return refuse(
+      action.session === "regular"
+        ? "already_out"
+        : action.direction === "in"
+          ? "ot_already_open"
+          : "ot_already_closed",
+      lead,
+    );
+  }
 
   if (action.session === "regular") {
-    if (session.outAt !== null || writtenHere) return refuse("already_out", lead);
+    if (session.outAt !== null) return refuse("already_out", lead);
     return write("checked_out");
   }
-  if (session.ot?.outAt != null || (writtenHere && action.direction === "out")) {
-    return refuse("ot_already_closed", lead);
-  }
+  if (session.ot?.outAt != null) return refuse("ot_already_closed", lead);
   if (action.direction === "in") {
-    if (session.ot !== null || writtenHere) return refuse("ot_already_open", lead);
+    if (session.ot !== null) return refuse("ot_already_open", lead);
     return write("ot_opened");
   }
   if (session.ot === null) return refuse("no_ot", lead);
