@@ -2,10 +2,16 @@
 // STR hub (spec 323 decision A: a door is an unlit leaf; the DetailHeader back
 // chip + the hub tab are the way back), gated to the same set as the hub itself.
 //
-// Every count is read with the CALLER's RLS client — all eleven tables carry a
-// SELECT policy that admits both procurement tiers (verified live 2026-07-26),
-// so no admin client is needed and a count that comes back null renders as no
-// number rather than a misleading 0.
+// Every count is read with the CALLER's RLS client — ten of the eleven tables
+// carry a SELECT policy that admits both procurement tiers (verified live
+// 2026-07-26), so no admin client is needed anywhere on this page.
+//
+// The eleventh, `worker_level_rates`, is a ZERO-GRANT table: RLS is on and its
+// `worker_level_rates_read` policy quals `true`, but `authenticated` holds no
+// SELECT grant at all, so PostgREST refuses it and the count comes back null.
+// That row therefore renders with its label, hint and link but no number —
+// which is the honest outcome, and why an unreadable count must never fall back
+// to 0. Surfacing it would need a DEFINER read RPC; out of scope for U4.
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -41,19 +47,26 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 // A failed count reads as "unknown", never as 0 — the board renders no number
 // rather than telling her a populated list is empty.
+//
+// `select("*")` and not `select("id")`: not every list is keyed on `id`
+// (`catalog_units` is keyed on `code`, `worker_level_rates` on `level`), and a
+// projection naming a column the table lacks errors out — which the null-safe
+// path above then renders as a SILENTLY missing count. Caught in the browser
+// during U4 verification, with two of eleven counts blank. `head: true` returns
+// no rows, so the projection costs nothing.
 async function countActive(
   supabase: SupabaseServerClient,
   table: ActiveFlaggedTable,
 ): Promise<number | null> {
   const { count, error } = await supabase
     .from(table)
-    .select("id", { count: "exact", head: true })
+    .select("*", { count: "exact", head: true })
     .eq("is_active", true);
   return error ? null : (count ?? null);
 }
 
 async function countAll(supabase: SupabaseServerClient, table: PlainTable): Promise<number | null> {
-  const { count, error } = await supabase.from(table).select("id", { count: "exact", head: true });
+  const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true });
   return error ? null : (count ?? null);
 }
 
