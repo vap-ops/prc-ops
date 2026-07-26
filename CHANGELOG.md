@@ -1,3 +1,13 @@
+# [0.229.0](https://github.com/vap-ops/prc-ops/compare/v0.228.1...v0.229.0) (2026-07-26)
+
+### Bug Fixes
+
+- **muster:** pin the one-action-per-sweep invariant and the team-less sheet label ([d94ae9b](https://github.com/vap-ops/prc-ops/commit/d94ae9bfc4c8edeb3722075f0034f5959b139d71))
+
+### Features
+
+- **muster:** sweep every muster event, with no team to pick in the evening ([a8eed3f](https://github.com/vap-ops/prc-ops/commit/a8eed3f6331a1497fa2213a4ec6faad554d16c0f))
+
 ## [0.228.1](https://github.com/vap-ops/prc-ops/compare/v0.228.0...v0.228.1) (2026-07-26)
 
 ### Bug Fixes
