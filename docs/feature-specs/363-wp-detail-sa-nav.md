@@ -128,7 +128,7 @@ A plan marker (`planned_start` / `planned_end`) is another `kind`; a variance la
 
 - Material cost **stays visible** to the SA: `ต้นทุน ฿/หน่วย` already renders in the เบิก picker ([`wp-issue-stock.tsx`](../../src/components/features/store/wp-issue-stock.tsx)).
 - Equipment `daily_rate` / `daily_rate_snapshot` **never renders** on any of these surfaces — ADR 0055 decision 6 and spec 202 bind it to the money audience, admin-client-read only. U7's surface is rate-free by construction.
-- Whether a purchase request's **amount** may render to a `site_admin` in the list or the timeline is **unresolved** — see §8.
+- Whether a purchase request's **amount** may render to a `site_admin`: **RESOLVED 2026-07-27 — it does not**, and this is the existing posture rather than a new rule. `PurchaseRequestCard` renders no amount at all, and `/requests/[requestId]` gates every money field on `isBackOfficeRole`, whose source comment states plainly that `site_admin` is excluded. U4 inherits the rule; **U4 is not blocked on this.**
 
 ## 7. Non-goals
 
@@ -142,10 +142,10 @@ A plan marker (`planned_start` / `planned_end`) is another `kind`; a variance la
 ## 8. Open questions
 
 1. **PR amount visibility to `site_admin`.** Left off every mockup deliberately rather than assumed. Must be settled against the live read path before U4.
-2. **`ประวัติ` vs `บันทึก`** as the tab term. `src/lib/i18n/labels.ts` is the SSOT and a serialization point across live lanes.
+2. ~~**`ประวัติ` vs `บันทึก`** as the tab term.~~ **RESOLVED 2026-07-27 → `ประวัติ`.** `บันทึก` is the app's SAVE verb in 11+ existing labels (`LABOR_RATE_SAVE_LABEL`, `SITE_EXPENSE_SUBMIT`, `RECEIPT_CORRECTION_SAVE_LABEL`, …), so a tab named with it collides with the button users press to save. Precedent for the chosen form: `ATTENDANCE_AUDIT_LABEL = "ประวัติการเช็คชื่อ"`, whose comment exists to separate the act from its history.
 3. **Does the `ของ` default bet pay?** Re-query `stock_issues` and SA-authored `purchase_requests` two weeks after U4 ships. If withdrawals stay near 32/30 d, the shelf does not hold what the WPs need and the doctrine — not the nav — is what needs revisiting.
 4. **Bulk vs unit equipment.** 9 of 64 items are `tracking='bulk'`; U7 must decide whether a bulk item checks out by quantity or is excluded from the field surface.
-5. **`แรงงาน` removal scope — an assumption, not a directive.** The operator said "remove แรงงาน" without qualifying the audience; **D4 narrows that to the SA tab set only** because `derive_muster_labor` (spec 306 U5a) will write `labor_logs` once close-day adoption starts, and the planner's `จัดการ` tab is the only place those rows surface. If the intent was to delete the surface outright, D4 and U3 both change.
+5. **`แรงงาน` removal scope — an assumption, not a directive.** The operator said "remove แรงงาน" without qualifying the audience; **D4 narrows that to the SA tab set only** because `derive_muster_labor` (spec 306 U5a) will write `labor_logs` once close-day adoption starts, and the planner's `จัดการ` tab is the only place those rows surface. **RESOLVED 2026-07-27 — SA-only, D4 stands as written.**
 
 ## 9. Guard-trip checklist
 
