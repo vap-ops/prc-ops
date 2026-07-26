@@ -1,3 +1,13 @@
+# [0.234.0](https://github.com/vap-ops/prc-ops/compare/v0.233.0...v0.234.0) (2026-07-26)
+
+### Bug Fixes
+
+- **labor-rates:** the WHT card's h2 lives in a div, not a span (spec 362 U2 review) ([16a46d4](https://github.com/vap-ops/prc-ops/commit/16a46d4f1a60927f790c0c7ed3743594da2fc697))
+
+### Features
+
+- **labor-rates:** ค่าแรงมาตรฐาน becomes a read-first registry (spec 362 U2) ([5517120](https://github.com/vap-ops/prc-ops/commit/55171206d92e49583934b10a98447d5674f104b1))
+
 # [0.233.0](https://github.com/vap-ops/prc-ops/compare/v0.232.0...v0.233.0) (2026-07-26)
 
 ### Bug Fixes
