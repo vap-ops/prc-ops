@@ -1,3 +1,13 @@
+# [0.230.0](https://github.com/vap-ops/prc-ops/compare/v0.229.1...v0.230.0) (2026-07-26)
+
+### Bug Fixes
+
+- **muster:** refresh the board when the OT cure only partly succeeds ([661b2a3](https://github.com/vap-ops/prc-ops/commit/661b2a3fc50e68cb6ef7b5ad9edd55cd604f259f))
+
+### Features
+
+- **muster:** the close-day confirm states what it will do, and offers the cure ([92e7b9e](https://github.com/vap-ops/prc-ops/commit/92e7b9e56c09534fde1a48c8d8f7ea562e4baddd))
+
 ## [0.229.1](https://github.com/vap-ops/prc-ops/compare/v0.229.0...v0.229.1) (2026-07-26)
 
 ### Bug Fixes
