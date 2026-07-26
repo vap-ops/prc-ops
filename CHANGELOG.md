@@ -1,3 +1,13 @@
+# [0.226.0](https://github.com/vap-ops/prc-ops/compare/v0.225.0...v0.226.0) (2026-07-26)
+
+### Bug Fixes
+
+- **muster:** a late refusal, reflow mis-taps and stale move offers (spec 359 U3 review) ([362ff37](https://github.com/vap-ops/prc-ops/commit/362ff37441d174762154b4d04c6a757497560f5b))
+
+### Features
+
+- **muster:** the manual tap-add runs the sweep pipeline (spec 359 U3) ([f155b3b](https://github.com/vap-ops/prc-ops/commit/f155b3b60a2abfd32148506040e6aead9aa8348d)), closes [#748](https://github.com/vap-ops/prc-ops/issues/748)
+
 # [0.225.0](https://github.com/vap-ops/prc-ops/compare/v0.224.2...v0.225.0) (2026-07-25)
 
 ### Bug Fixes
