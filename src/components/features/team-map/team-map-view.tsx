@@ -407,7 +407,6 @@ export function TeamMapView({
   map,
   addableStaff,
   currentUserId,
-  canSetPrimarySa,
   tradesByWorker,
   dayPlans,
   planWps,
@@ -416,22 +415,6 @@ export function TeamMapView({
   map: ProjectTeamMap;
   addableStaff: AddableStaff[];
   currentUserId: string;
-  /**
-   * May the viewer set a site_admin as this project's SA หลัก?
-   *
-   * Everything else on this page follows page reach: the operator put the
-   * on-site teams AND project membership under procurement_manager (2026-07-26),
-   * and both the actions and the RLS write policies were widened to match
-   * (migration 20260813075856), so ตั้งทีมใหม่ / เพิ่มสมาชิก /
-   * ถอดออกจากทีมโครงการ need no flag — reaching the page is the gate.
-   *
-   * `ตั้งเป็น SA หลัก` is the exception: `set_primary_project_for`'s RPC
-   * allowlist is project_manager / project_director / super_admin, and a
-   * worker's primary SITE is not project membership. False HIDES it rather than
-   * offering a button the database refuses. Required, not defaulted — a silent
-   * default is how a gate rots.
-   */
-  canSetPrimarySa: boolean;
   /** Spec 338 U2: per-worker trades (primary-first). Omitted → no tiles. */
   tradesByWorker?: Record<string, WorkerTrade[]>;
   /** U6: the two writable boards. Omitted → the plan layer does not render. */
@@ -816,7 +799,7 @@ export function TeamMapView({
       >
         {staffSheet ? (
           <div className="flex flex-col gap-2">
-            {canSetPrimarySa && staffSheet.role === "site_admin" && !staffSheet.isPrimary ? (
+            {staffSheet.role === "site_admin" && !staffSheet.isPrimary ? (
               <button
                 type="button"
                 disabled={busy}

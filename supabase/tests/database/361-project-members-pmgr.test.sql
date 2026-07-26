@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(18);
 
 -- ============================================================================
 -- Operator directive 2026-07-26 (follows #766 "procurement_manager owns the
@@ -165,6 +165,57 @@ select is(
   (select count(*)::int from pg_policies
     where tablename = 'project_members' and cmd = 'SELECT'),
   2, 'the two SELECT policies are unchanged');
+
+-- ============================================================================
+-- E. ตั้งเป็น SA หลัก — `set_primary_project_for` (operator: "yes, allow her").
+--    A DEFINER RPC, so its own allowlist is the gate. The widening must keep
+--    every OTHER guard: can_see_project, and target-must-be-a-site_admin-member
+--    (otherwise this becomes "promote any user on any project").
+-- ============================================================================
+-- The project needs her as a member for can_see_project, and a site_admin target.
+insert into public.project_members (project_id, user_id, added_by) values
+  ('c1000000-0361-0361-0361-000000000001',
+   '70000000-0361-0361-0361-000000000002',
+   '70000000-0361-0361-0361-000000000001'),
+  ('c1000000-0361-0361-0361-000000000001',
+   '70000000-0361-0361-0361-00000000000a',
+   '70000000-0361-0361-0361-000000000001');
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0361-0361-0361-000000000002"}';
+
+select lives_ok(
+  $$select public.set_primary_project_for(
+      '70000000-0361-0361-0361-00000000000a',
+      'c1000000-0361-0361-0361-000000000001')$$,
+  'procurement_manager may set the SA หลัก');
+
+-- A target who is NOT a site_admin member of this project is still refused —
+-- the widening touched the role allowlist ONLY.
+select throws_ok(
+  $$select public.set_primary_project_for(
+      '70000000-0361-0361-0361-000000000005',
+      'c1000000-0361-0361-0361-000000000001')$$,
+  '42501', null,
+  'a non-site_admin target is still refused for her');
+reset role;
+
+select is(
+  (select is_primary from public.project_members
+    where project_id = 'c1000000-0361-0361-0361-000000000001'
+      and user_id = '70000000-0361-0361-0361-00000000000a'),
+  true, 'the primary flag actually flipped (not a silent no-op)');
+
+-- plain procurement stays out of this one too.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0361-0361-0361-000000000003"}';
+select throws_ok(
+  $$select public.set_primary_project_for(
+      '70000000-0361-0361-0361-00000000000a',
+      'c1000000-0361-0361-0361-000000000001')$$,
+  '42501', null,
+  'plain procurement still may not set the SA หลัก');
+reset role;
 
 select * from finish();
 rollback;

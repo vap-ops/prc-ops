@@ -94,7 +94,6 @@ function renderView(tradesByWorker?: Record<string, WorkerTrade[]>) {
       map={MAP}
       addableStaff={[]}
       currentUserId="u-x"
-      canSetPrimarySa
       {...(tradesByWorker ? { tradesByWorker } : {})}
     />,
   );
@@ -269,7 +268,6 @@ describe("team map legibility — U3 placing hint (spec 338)", () => {
         map={MAP}
         addableStaff={[]}
         currentUserId="u-x"
-        canSetPrimarySa
         tradesByWorker={TRADES}
         dayPlans={dayPlans(items)}
         planWps={[]}

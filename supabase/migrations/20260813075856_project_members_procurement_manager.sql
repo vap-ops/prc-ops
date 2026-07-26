@@ -55,3 +55,46 @@ create policy "project members delete by pm or super_admin"
       ]
     )
   );
+
+-- ── ตั้งเป็น SA หลัก ─────────────────────────────────────────────────────────
+-- Operator, same exchange, asked directly about this one: *"yes, allow her."*
+--
+-- Body grafted from the LIVE definition (`pg_get_functiondef`), not from an
+-- earlier migration file — the only change is `procurement_manager` joining the
+-- role allowlist. Every other guard is preserved verbatim: the NULL-role check,
+-- `can_see_project(p_project)`, and the requirement that the target actually be
+-- a site_admin member of THAT project (so this can never promote an arbitrary
+-- user), plus the two-step demote-then-promote so a user holds at most one
+-- primary site.
+create or replace function public.set_primary_project_for(p_user uuid, p_project uuid)
+  returns void
+  language plpgsql
+  security definer
+  set search_path to 'public'
+as $function$
+declare
+  v_role public.user_role := public.current_user_role();
+begin
+  if v_role is null
+     or v_role not in ('project_manager', 'project_director', 'super_admin', 'procurement_manager')
+     or not public.can_see_project(p_project)
+     or not exists (
+          select 1
+            from public.project_members m
+            join public.users u on u.id = m.user_id
+           where m.project_id = p_project
+             and m.user_id = p_user
+             and u.role = 'site_admin'
+        )
+  then
+    raise exception 'set_primary_project_for: not permitted' using errcode = '42501';
+  end if;
+
+  update public.project_members
+     set is_primary = false
+   where user_id = p_user and is_primary;
+  update public.project_members
+     set is_primary = true
+   where user_id = p_user and project_id = p_project;
+end;
+$function$;

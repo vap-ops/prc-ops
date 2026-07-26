@@ -188,22 +188,20 @@ const STAFF_MAP: ProjectTeamMap = {
   memberCount: 1,
 };
 
-const renderMap = (canSetPrimarySa: boolean) =>
+// No role prop any more: the operator put teams, membership AND the SA หลัก
+// under whoever reaches this page, so every affordance follows the page gate.
+// A flag every caller passes `true` is not a gate — it is rot waiting to be
+// misread.
+const renderMap = () =>
   render(
-    <TeamMapView
-      projectId={PROJECT_ID}
-      map={STAFF_MAP}
-      addableStaff={[]}
-      currentUserId="u-pm"
-      canSetPrimarySa={canSetPrimarySa}
-    />,
+    <TeamMapView projectId={PROJECT_ID} map={STAFF_MAP} addableStaff={[]} currentUserId="u-pm" />,
   );
 
 afterEach(cleanup);
 
-describe("the crew half is hers regardless", () => {
-  it("ตั้งทีมใหม่ renders for a non-manager who reached the page", () => {
-    renderMap(false);
+describe("everything on the page follows page reach", () => {
+  it("ตั้งทีมใหม่ renders", () => {
+    renderMap();
     expect(screen.getByRole("button", { name: /ตั้งทีมใหม่/ })).toBeInTheDocument();
   });
 });
@@ -216,8 +214,11 @@ describe("the crew half is hers regardless", () => {
 // the RLS write policies must widen TOGETHER with the affordance. The migration
 // (20260813075856) carries the policy half; pgTAP 361 asserts it.
 //
-// `ตั้งเป็น SA หลัก` deliberately does NOT widen: set_primary_project_for's RPC
-// allowlist is PM/PD/super, and "primary site" is not membership.
+// `ตั้งเป็น SA หลัก` widens too (operator, same exchange: *"yes, allow her"*) —
+// that one is a DEFINER RPC, so the same migration adds procurement_manager to
+// `set_primary_project_for`'s allowlist and NOTHING else: can_see_project and
+// the target-must-be-a-site_admin-member guard stay, or the call would become
+// "promote any user on any project".
 
 describe("project membership widens with the team map (operator 2026-07-26)", () => {
   it("the member gate uses TEAM_MAP_ROLES — and the rest of project settings does not", () => {
@@ -246,25 +247,33 @@ describe("project membership widens with the team map (operator 2026-07-26)", ()
     expect(mig).not.toMatch(/'procurement'::public\.user_role/);
   });
 
-  it("she now sees เพิ่มสมาชิก and ถอดออกจากทีมโครงการ", async () => {
+  it("the SA-หลัก RPC widens by ALLOWLIST ONLY — its other guards survive", () => {
+    const mig = read("supabase/migrations/20260813075856_project_members_procurement_manager.sql");
+    const fn = mig.slice(mig.indexOf("create or replace function public.set_primary_project_for"));
+    expect(fn).toMatch(
+      /'project_manager', 'project_director', 'super_admin', 'procurement_manager'/,
+    );
+    // The three guards a careless rewrite would drop, each still present.
+    expect(fn).toMatch(/v_role is null/);
+    expect(fn).toMatch(/can_see_project\(p_project\)/);
+    expect(fn).toMatch(/u\.role = 'site_admin'/);
+    // …and the demote-then-promote pair that keeps ONE primary per user.
+    expect((fn.match(/set is_primary = (false|true)/g) ?? []).length).toBe(2);
+  });
+
+  it("she sees เพิ่มสมาชิก, ถอดออกจากทีมโครงการ and ตั้งเป็น SA หลัก", async () => {
     const user = userEvent.setup();
-    renderMap(false);
+    renderMap();
     expect(screen.getAllByRole("button", { name: /เพิ่มสมาชิก/ }).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: /อรปรีญา/ }));
     expect(screen.getByRole("button", { name: /ถอดออกจากทีมโครงการ/ })).toBeInTheDocument();
-  });
-
-  it("ตั้งเป็น SA หลัก stays the manager's — its RPC still refuses her", async () => {
-    const user = userEvent.setup();
-    renderMap(false);
-    await user.click(screen.getByRole("button", { name: /อรปรีญา/ }));
-    expect(screen.queryByRole("button", { name: /ตั้งเป็น SA หลัก/ })).toBeNull();
-  });
-
-  it("a manager keeps ตั้งเป็น SA หลัก", async () => {
-    const user = userEvent.setup();
-    renderMap(true);
-    await user.click(screen.getByRole("button", { name: /อรปรีญา/ }));
     expect(screen.getByRole("button", { name: /ตั้งเป็น SA หลัก/ })).toBeInTheDocument();
+  });
+
+  it("no role flag survives on the view — page reach is the whole gate", () => {
+    const view = read("src/components/features/team-map/team-map-view.tsx");
+    expect(view).not.toMatch(/canManageStaff|canSetPrimarySa/);
+    const page = read("src/app/projects/[projectId]/team/page.tsx");
+    expect(page).not.toMatch(/canManageStaff|canSetPrimarySa/);
   });
 });

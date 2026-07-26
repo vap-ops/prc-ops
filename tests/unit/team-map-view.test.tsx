@@ -88,7 +88,6 @@ function renderView(map: ProjectTeamMap = MAP) {
       map={map}
       addableStaff={[{ id: "u-new", name: "คนใหม่", role: "site_admin" }]}
       currentUserId="u-pm"
-      canSetPrimarySa
     />,
   );
 }

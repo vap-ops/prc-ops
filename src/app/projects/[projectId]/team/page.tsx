@@ -6,7 +6,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { TeamMapView } from "@/components/features/team-map/team-map-view";
 import { requireRole } from "@/lib/auth/require-role";
-import { TEAM_MAP_ROLES, isManagerRole } from "@/lib/auth/role-home";
+import { TEAM_MAP_ROLES } from "@/lib/auth/role-home";
 import type { Database } from "@/lib/db/database.types";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
@@ -146,7 +146,6 @@ export default async function ProjectTeamPage({ params }: PageProps) {
           map={map}
           addableStaff={addableStaff}
           currentUserId={ctx.id}
-          canSetPrimarySa={isManagerRole(ctx.role)}
           tradesByWorker={tradesByWorker}
           dayPlans={{ today: todayPlan, tomorrow: tomorrowPlan }}
           planWps={leafWps ?? []}
