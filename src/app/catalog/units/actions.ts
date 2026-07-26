@@ -28,6 +28,10 @@ export type UnitActionResult = { ok: true } | { ok: false; error: string };
 interface UnitInput {
   code: string;
   displayName: string;
+  /** MUST be sent on every write: update_catalog_unit assigns `abbr_short = v_abbr`
+   * unconditionally, so omitting it makes the DEFAULT NULL win and every edit
+   * silently wipes the abbreviation. */
+  abbrShort: string | null;
   unitClass: UnitClass;
   sortOrder: number;
 }
@@ -37,10 +41,15 @@ function validate(input: UnitInput): string | null {
   if (input.displayName.trim() === "" || input.displayName.length > 120) {
     return "กรอกชื่อที่แสดง (ไม่เกิน 120 ตัวอักษร)";
   }
-  if (!Number.isInteger(input.sortOrder)) return GENERIC_ERROR;
+  if ((input.abbrShort ?? "").length > 40) return "ตัวย่อยาวเกินไป (ไม่เกิน 40 ตัวอักษร)";
+  if (!Number.isInteger(input.sortOrder)) return "ลำดับการแสดงต้องเป็นจำนวนเต็ม";
   return null;
 }
 
+// The RPCs raise 22023 for several distinct causes (blank/over-long code, name
+// or abbr). validate() above is stricter than every one of them, so a 22023
+// reaching here means the unknown-code arm — which is why update/set-active map
+// it to NOT_FOUND rather than a field message.
 function mapError(code: string | undefined): string {
   if (code === "42501") return "ไม่มีสิทธิ์แก้ไขหน่วยนับ";
   if (code === "23505") return DUPLICATE_ERROR;
@@ -63,6 +72,7 @@ export async function createCatalogUnit(input: UnitInput): Promise<UnitActionRes
   const { error } = await supabase.rpc("create_catalog_unit", {
     p_code: input.code.trim(),
     p_display_name: input.displayName.trim(),
+    ...(input.abbrShort === null ? {} : { p_abbr_short: input.abbrShort }),
     p_unit_class: input.unitClass,
     p_sort_order: input.sortOrder,
   });
@@ -81,6 +91,7 @@ export async function updateCatalogUnit(input: UnitInput): Promise<UnitActionRes
   const { error } = await supabase.rpc("update_catalog_unit", {
     p_code: input.code.trim(),
     p_display_name: input.displayName.trim(),
+    ...(input.abbrShort === null ? {} : { p_abbr_short: input.abbrShort }),
     p_unit_class: input.unitClass,
     p_sort_order: input.sortOrder,
   });

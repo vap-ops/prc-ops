@@ -382,6 +382,7 @@ export const CATALOG_LABEL = "ทะเบียนวัสดุ";
 // Spec 361 U8 — the managed unit vocabulary (catalog_units, spec 223).
 export const CATALOG_UNITS_LABEL = "หน่วยนับ";
 export const CATALOG_UNITS_HINT = "หน่วยที่เลือกได้ตอนเพิ่มวัสดุ";
+export const UNIT_INACTIVE_LABEL = "ปิดใช้งาน";
 export const UNIT_CLASS_LABEL: Record<
   "count" | "length" | "area" | "volume" | "weight" | "trips",
   string

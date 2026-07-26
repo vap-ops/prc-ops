@@ -1,15 +1,18 @@
 // Spec 361 U8 — /catalog/units: curate the managed หน่วยนับ vocabulary.
 //
-// A /catalog drill (DetailHeader back → /catalog unless ?from says otherwise —
-// the ข้อมูลหลัก hub links here too), gated to BACK_OFFICE_ROLES, which is the
-// same allowlist the three catalog_unit RPCs carry. Until this unit the table
+// Two parents, hence safeBackHref: the /catalog taxonomy row (added in this
+// unit — without it project_manager / project_director, whom this page and all
+// three RPCs admit, would have no door at all) and the ข้อมูลหลัก hub. Gated to
+// BACK_OFFICE_ROLES, the same allowlist the three catalog_unit RPCs carry. Until this unit the table
 // (spec 223 / ADR 0066) could only be curated by SQL.
 //
 // Reads: the FULL unit list (inactive included — retiring one must stay
 // visible and reversible) plus one `unit` value per active catalog item, folded
-// into usage counts by splitUnitUsage. The item read is a single text column
-// over ~600 rows; PostgREST cannot GROUP BY, and the count is what makes
-// retiring a unit an informed decision.
+// into usage counts by splitUnitUsage. PostgREST cannot GROUP BY, so the units
+// come back one row per item — and this project's `db-max-rows` is **1000**
+// (probed live), which the catalog will cross. A truncated read would silently
+// under-count usage and make off-list strings vanish, with no error, so the
+// read is PAGED to exhaustion rather than taking one page and hoping.
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -25,6 +28,29 @@ import { CATALOG_LABEL, CATALOG_UNITS_HINT, CATALOG_UNITS_LABEL } from "@/lib/i1
 
 export const metadata = { title: CATALOG_UNITS_LABEL };
 
+// One page below the server's 1000-row ceiling, so a short page always means
+// "that was the last one" and the loop terminates on real exhaustion.
+const UNIT_SCAN_PAGE = 500;
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createServerSupabase>>;
+
+async function readAllItemUnits(supabase: SupabaseServerClient): Promise<Array<string | null>> {
+  const units: Array<string | null> = [];
+  for (let page = 0; ; page += 1) {
+    const from = page * UNIT_SCAN_PAGE;
+    const { data, error } = await supabase
+      .from("catalog_items")
+      .select("unit")
+      .eq("is_active", true)
+      .order("id", { ascending: true })
+      .range(from, from + UNIT_SCAN_PAGE - 1);
+    if (error || !data) break;
+    units.push(...data.map((r) => r.unit));
+    if (data.length < UNIT_SCAN_PAGE) break;
+  }
+  return units;
+}
+
 export default async function CatalogUnitsPage({
   searchParams,
 }: {
@@ -34,13 +60,13 @@ export default async function CatalogUnitsPage({
   const ctx = await requireRole(BACK_OFFICE_ROLES);
 
   const supabase = await createServerSupabase();
-  const [{ data: unitRows }, { data: itemRows }] = await Promise.all([
+  const [{ data: unitRows }, itemUnits] = await Promise.all([
     supabase
       .from("catalog_units")
       .select("code, display_name, abbr_short, unit_class, sort_order, is_active")
       .order("sort_order", { ascending: true })
       .order("code", { ascending: true }),
-    supabase.from("catalog_items").select("unit").eq("is_active", true),
+    readAllItemUnits(supabase),
   ]);
 
   const managedRows: ManagedUnit[] = (unitRows ?? []).map((r) => ({
@@ -51,10 +77,7 @@ export default async function CatalogUnitsPage({
     sortOrder: r.sort_order,
     isActive: r.is_active,
   }));
-  const { managed, offList } = splitUnitUsage(
-    managedRows,
-    (itemRows ?? []).map((r) => r.unit),
-  );
+  const { managed, offList } = splitUnitUsage(managedRows, itemUnits);
 
   return (
     <PageShell>

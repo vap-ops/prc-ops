@@ -18,12 +18,15 @@
 import { useState } from "react";
 
 import type { ManagedUnitUsage, OffListUnit } from "@/lib/catalog/units-curation";
+import { UNIT_INACTIVE_LABEL } from "@/lib/i18n/labels";
 import { BUTTON_SECONDARY_COMPACT, CARD } from "@/lib/ui/classes";
 import { UnitSheet } from "./unit-sheet";
 
-export const UNITS_ALL_MANAGED_NOTE = "ทุกหน่วยที่ใช้อยู่อยู่ในรายการแล้ว";
+// The usage number counts ACTIVE catalog_items only. Other tables (boq_line,
+// purchase_requests, the stock ledger) also store a free-text unit, so the copy
+// says ทะเบียนวัสดุ rather than claiming a firm-wide "in use" count.
+export const UNITS_ALL_MANAGED_NOTE = "ทุกหน่วยในทะเบียนวัสดุอยู่ในรายการแล้ว";
 export const UNIT_PROMOTE_LABEL = "เพิ่มเป็นหน่วยนับ";
-export const UNIT_INACTIVE_LABEL = "ปิดใช้งาน";
 
 export function UnitsBoard({
   managed,
@@ -61,7 +64,9 @@ export function UnitsBoard({
               <span className="text-ink text-body min-w-0 flex-1 font-medium">
                 {unit.displayName}
               </span>
-              <span className="text-ink-secondary text-meta">ใช้อยู่ {unit.usage} รายการ</span>
+              <span className="text-ink-secondary text-meta">
+                ในทะเบียนวัสดุ {unit.usage} รายการ
+              </span>
               {unit.isActive ? null : (
                 <span className="text-ink-muted text-meta">{UNIT_INACTIVE_LABEL}</span>
               )}

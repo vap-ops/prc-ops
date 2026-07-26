@@ -90,7 +90,7 @@ describe("UnitsBoard", () => {
   it("lists managed units with usage, and marks the retired ones", () => {
     render(<UnitsBoard managed={splitUnitUsage(MANAGED, USAGE).managed} offList={[]} />);
     const row = screen.getByTestId("unit-row-เส้น");
-    expect(within(row).getByText(/ใช้อยู่ 3 รายการ/)).toBeInTheDocument();
+    expect(within(row).getByText(/ในทะเบียนวัสดุ 3 รายการ/)).toBeInTheDocument();
     expect(within(screen.getByTestId("unit-row-ลัง")).getByText(/ปิดใช้งาน/)).toBeInTheDocument();
     expect(within(row).queryByText(/ปิดใช้งาน/)).toBeNull();
   });
@@ -103,9 +103,12 @@ describe("UnitsBoard", () => {
     expect(within(row).getByRole("button", { name: /เพิ่มเป็นหน่วยนับ/ })).toBeInTheDocument();
   });
 
-  it("says so plainly when every unit in use is already managed", () => {
-    render(<UnitsBoard managed={splitUnitUsage(MANAGED, ["เส้น"]).managed} offList={[]} />);
-    expect(screen.getByText(/ทุกหน่วยที่ใช้อยู่อยู่ในรายการแล้ว/)).toBeInTheDocument();
+  it("says so plainly when every unit in the catalog is already managed", () => {
+    // Both halves come from the SAME split — hardcoding offList={[]} would prove
+    // nothing about the function that produces it.
+    const { managed, offList } = splitUnitUsage(MANAGED, ["เส้น"]);
+    render(<UnitsBoard managed={managed} offList={offList} />);
+    expect(screen.getByText(/ทุกหน่วยในทะเบียนวัสดุอยู่ในรายการแล้ว/)).toBeInTheDocument();
     expect(screen.queryByTestId(/^offlist-row-/)).toBeNull();
   });
 });
