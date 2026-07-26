@@ -156,6 +156,37 @@ export async function createEquipmentCategory(input: {
   return { ok: true };
 }
 
+// Spec 361 U6 — rename a category. The list has been add-only since spec 141,
+// so a typo was permanent. No migration needed: the live
+// `equipment_categories update by back office` policy admits the same five
+// roles as the insert, and `authenticated` holds a column-scoped UPDATE grant
+// on exactly (name, parent_id) — so this UPDATE is the widest write the grant
+// permits, and requireRole here mirrors the policy.
+export async function renameEquipmentCategory(input: {
+  id: string;
+  name: string;
+}): Promise<EquipmentActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 80) {
+    return { ok: false, error: "ชื่อหมวดหมู่ต้องไม่เกิน 80 ตัวอักษร" };
+  }
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from("equipment_categories").update({ name }).eq("id", input.id);
+  // The policy refuses with 42501; RLS hiding the row surfaces as zero rows
+  // updated, which PostgREST reports without an error — both read as "no".
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์แก้ไขหมวดหมู่" };
+    if (error.code === "23505") return { ok: false, error: "มีหมวดหมู่ชื่อนี้อยู่แล้ว" };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
 export async function createEquipmentOwner(input: {
   name: string;
   phone?: string;

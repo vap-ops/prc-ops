@@ -115,14 +115,13 @@ export const MASTER_DATA_GROUPS: readonly MasterDataGroup[] = [
         countKey: "equipmentItems",
         editorPending: false,
       },
-      // Editable, but only just: /equipment's QuickAddCategory can ADD one
-      // (createEquipmentCategory, BACK_OFFICE_ROLES — every role that reaches
-      // this hub). Rename and deactivate have no surface at all, so the hint
-      // says which half works rather than the row claiming it is uneditable.
+      // Spec 361 U6 added rename beside the existing add (both on /equipment).
+      // Deactivate still has no surface — the table has no is_active column, so
+      // that half needs a migration and is queued behind the schema lane.
       {
         key: "equipment-categories",
         label: "หมวดอุปกรณ์",
-        hint: "หมวดของอุปกรณ์และของที่เช่า · เพิ่มได้จากหน้าอุปกรณ์ (ยังเปลี่ยนชื่อ/ปิดใช้งานไม่ได้)",
+        hint: "หมวดของอุปกรณ์และของที่เช่า · เพิ่ม/เปลี่ยนชื่อได้จากหน้าอุปกรณ์ (ยังปิดใช้งานไม่ได้)",
         href: "/equipment",
         countKey: "equipmentCategories",
         editorPending: false,
