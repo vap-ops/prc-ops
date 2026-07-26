@@ -158,6 +158,20 @@ describe("LevelRatesForm", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("re-opening the editor discards a cancelled edit", () => {
+    // The sheet unmounts but the row's state does not, so without an explicit
+    // re-seed the abandoned typing is still sitting there next time — and the
+    // save button would write it.
+    render(<LevelRatesForm rows={rows} whtPct={3} />);
+    const seniorLabel = WORKER_LEVEL_LABEL.senior;
+    const field = () => screen.getByLabelText(`${seniorLabel} ${LABOR_RATE_INPUT_LABEL}`);
+    openLevelEditor("senior");
+    fireEvent.change(field(), { target: { value: "9999" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    openLevelEditor("senior");
+    expect(field()).toHaveValue("1000");
+  });
+
   it("the WHT card names itself and states the current rate", () => {
     render(<LevelRatesForm rows={rows} whtPct={3} />);
     expect(screen.getByRole("heading", { name: WHT_PCT_LABEL })).toBeInTheDocument();
