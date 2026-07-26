@@ -156,6 +156,10 @@ const STATIC_DETAIL = [
   "requests/reports/register",
   // Spec 262 U3: the PO list drills down from /requests (back chip → /requests).
   "requests/orders",
+  // Spec 361 U4: the ข้อมูลหลัก index is a LEAF of the STR hub (a door is an
+  // unlit leaf, spec 323 decision A) — back chip → /procurement/resources,
+  // resolved through safeBackHref so a future second parent lands correctly.
+  "procurement/master-data",
   // Spec 263 U3: the back-office technician-registration approval queue drills
   // down from /dashboard (back chip → /dashboard, the PM_ROLES home). Its
   // [id] review detail is a dynamic DetailHeader route, auto-classified below.

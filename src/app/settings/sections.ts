@@ -44,6 +44,7 @@ import {
   EQUIPMENT_RENTAL_LABEL,
   LABOR_RATES_HINT,
   LABOR_RATES_LABEL,
+  MASTER_DATA_LABEL,
   MY_INFO_LABEL,
   OFFICE_EXPENSE_HINT,
   OFFICE_EXPENSE_NAV_LABEL,
@@ -147,7 +148,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   // per-project sub-route.)
   {
     key: "master-data",
-    title: "ข้อมูลหลัก",
+    // Spec 361 U4: the term now names a section here AND a /procurement hub page
+    // — single-sourced in labels.ts per the term-consistency rule.
+    title: MASTER_DATA_LABEL,
     // Spec 323 U4: hidden from the procurement tiers — every door this section
     // showed them is a Scope/Resources door on their /procurement hub now.
     visible: (role) => isBackOffice(role) && !isProcurementTier(role),

@@ -379,6 +379,13 @@ export const SITE_EXPENSE_BADGE = "ค่าใช้จ่าย";
 // yields the canonical section order.
 export const CATALOG_LABEL = "ทะเบียนวัสดุ";
 
+// Spec 361 U4 — the master-data hub. The term already existed as the ตั้งค่า
+// section title (settings/sections.ts); the hub gives it a door and a page, so
+// it becomes a 2+-surface term and moves here (ui-term-consistency SSOT).
+export const MASTER_DATA_LABEL = "ข้อมูลหลัก";
+export const MASTER_DATA_HINT =
+  "ทะเบียนกลางของบริษัท — วัสดุ · อุปกรณ์ · สายงาน · ค่าใช้จ่าย · คู่ค้า";
+
 // Spec 219 — the modelled subcategory level under each item_category. Term SSOT
 // for the manage screen, the cascading picker on the item form, and (U3) the
 // drill filter. SUBCATEGORY = the named sub level; MANAGE = the /catalog drill.

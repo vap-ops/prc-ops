@@ -178,7 +178,17 @@ const PROCUREMENT_STR_SPINE: ReadonlyArray<TabItem> = [
   // icon chip; the tab and the door must not share a glyph.
   { label: "ขอบเขต", href: "/procurement/scope", icon: ListChecks },
   { label: "เวลา", href: "/procurement/time", icon: Clock },
-  { label: "ทรัพยากร", href: "/procurement/resources", icon: Boxes },
+  // Spec 361 U4: ข้อมูลหลัก (/procurement/master-data) is a LEAF reached from
+  // this section's chip row, but it lives UNDER /procurement — so the
+  // longest-pathname-prefix rule would light หน้าหลัก while its back chip
+  // returns to ทรัพยากร. Claiming the path here makes tab and chip agree
+  // (the SETTINGS_TAB `/expenses` precedent).
+  {
+    label: "ทรัพยากร",
+    href: "/procurement/resources",
+    icon: Boxes,
+    match: ["/procurement/master-data"],
+  },
   PROCUREMENT_SETTINGS_TAB,
 ];
 export const PROCUREMENT_TABS: ReadonlyArray<TabItem> = PROCUREMENT_STR_SPINE;
