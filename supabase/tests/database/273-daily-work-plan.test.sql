@@ -1,14 +1,24 @@
 begin;
-select plan(44);
+select plan(55);
 
 -- ============================================================================
 -- Spec 273 U1 / ADR 0076 — แผนพรุ่งนี้: the SA next-day work board.
 --   A separate per-(project,date) daily-plan layer: daily_work_plans (one board
 --   per project per day) → daily_work_plan_items (leaf-only งานย่อย, same project)
 --   → daily_work_plan_crew (flexible worker set, ≤1 หัวหน้า/lead per item).
---   Writes via 5 SECURITY DEFINER RPCs gated on
---   {site_admin, project_manager, project_director, super_admin, site_owner}
---   AND can_see_project membership; reads via can_see_project RLS. Mutable,
+--   Writes via 5 SECURITY DEFINER RPCs, every one of them gated by a single
+--   `perform public.daily_work_plan_assert_writer(<project>)` — that helper is
+--   the whole gate: role ∈ {site_admin, project_manager, project_director,
+--   super_admin, site_owner, procurement_manager} (2026-07-23, spec 348) else
+--   42501 'role not permitted', then can_see_project() else 42501 'not a member
+--   of this project'. ⚠️ Only add_daily_plan_item calls it FIRST; the other four
+--   derive the project from the row and so run their id lookup (P0001 'unknown
+--   item'/'unknown board') BEFORE the gate — hence the ids in Section B' must be
+--   real, or the assert measures the lookup instead of the gate. Section B'
+--   pins both arms on those four; Section B covers add_daily_plan_item. The
+--   42501 asserts pin the MESSAGE, not just the code, because one errcode is
+--   raised by two different guards and a code-only assert is satisfied by the
+--   wrong one. Reads via can_see_project RLS. Mutable,
 --   non-money — NOT append-only. The master schedule/baselines are never touched.
 -- ============================================================================
 
@@ -18,12 +28,19 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('22222222-2222-2222-2222-222222220273', 'sa@dwp.local',    '{}'::jsonb),
   ('44444444-4444-4444-4444-444444440273', 'sa2@dwp.local',   '{}'::jsonb),
   ('66666666-6666-6666-6666-666666660273', 'owner@dwp.local', '{}'::jsonb),
+  ('55555555-5555-5555-5555-555555550273', 'pd@dwp.local',    '{}'::jsonb),
+  ('77777777-7777-7777-7777-777777770273', 'pmgr@dwp.local',  '{}'::jsonb),
   ('88888888-8888-8888-8888-888888880273', 'vis@dwp.local',   '{}'::jsonb);
 update public.users set role='super_admin'      where id='11111111-1111-1111-1111-111111110273';
 update public.users set role='project_manager'  where id='33333333-3333-3333-3333-333333330273';
 update public.users set role='site_admin'       where id='22222222-2222-2222-2222-222222220273';
 update public.users set role='site_admin'       where id='44444444-4444-4444-4444-444444440273';
 update public.users set role='site_owner'       where id='66666666-6666-6666-6666-666666660273';
+-- project_director + procurement_manager are see-all in can_see_project, so they
+-- get no membership row — they are here to pin the two allowlist members that
+-- had no positive arm (delete either from the gate and nothing else goes red).
+update public.users set role='project_director'     where id='55555555-5555-5555-5555-555555550273';
+update public.users set role='procurement_manager'  where id='77777777-7777-7777-7777-777777770273';
 -- '8888…' stays visitor.
 
 insert into public.projects (id, code, name) values
@@ -58,6 +75,13 @@ insert into public.work_packages (id, project_id, code, name, is_group, parent_i
    'WP-273-99-01', 'งานอีกโครงการ', false, null, 'not_started');
 
 -- ------------------------------------------------------------------ A. Catalog
+-- The role gate is coalesce-hardened, so a NULL role raises the same 42501 with
+-- the same message as a visitor: without this the four ROLE-arm asserts in B'
+-- would stay green off a fixture whose role never landed, proving nothing about
+-- a visitor. '8888…' takes the auth-trigger default rather than an update above.
+select is((select role::text from public.users where id='88888888-8888-8888-8888-888888880273'),
+  'visitor', 'the unprivileged fixture really is a visitor, not a null role');
+
 select has_table('public', 'daily_work_plans',      'daily_work_plans exists');
 select has_table('public', 'daily_work_plan_items', 'daily_work_plan_items exists');
 select has_table('public', 'daily_work_plan_crew',  'daily_work_plan_crew exists');
@@ -91,6 +115,15 @@ select is((select prosecdef from pg_proc where oid='public.set_daily_plan_item_c
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
 grant usage  on sequence _tap_buf_ord_seq to authenticated;
+
+-- Section B' needs the board's ids while impersonating principals who CANNOT
+-- read the board (a visitor sees nothing through the SELECT policies, so an
+-- inline id subselect would resolve to NULL and the RPC would raise P0001
+-- 'unknown item' instead of the 42501 under test — an assert that passes for
+-- the wrong reason). Resolve them once as the member site_admin into a carrier
+-- the later principals can still read.
+create temp table dwp_ids (plan_id uuid, item_l1 uuid, item_l2 uuid);
+grant insert, select on dwp_ids to authenticated;
 
 set local role authenticated;
 
@@ -127,6 +160,19 @@ select is(
     where p.project_id='a1a10273-0273-0273-0273-a1a1a1a10273' and p.plan_date='2026-07-07'),
   2, 'two items on the board');
 
+-- Carry the board's ids for Section B' (see the note at the grants above).
+insert into dwp_ids
+  select p.id,
+         (select i.id from public.daily_work_plan_items i
+           where i.plan_id = p.id
+             and i.work_package_id = 'b1b10273-0273-0273-0273-b1b1b1b10273'),
+         (select i.id from public.daily_work_plan_items i
+           where i.plan_id = p.id
+             and i.work_package_id = 'b2b20273-0273-0273-0273-b2b2b2b20273')
+    from public.daily_work_plans p
+   where p.project_id = 'a1a10273-0273-0273-0273-a1a1a1a10273'
+     and p.plan_date = '2026-07-07';
+
 -- A งาน group cannot be added (leaf-only).
 select throws_ok(
   $$ select public.add_daily_plan_item('a1a10273-0273-0273-0273-a1a1a1a10273', '2026-07-07',
@@ -144,14 +190,63 @@ set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440273"
 select throws_ok(
   $$ select public.add_daily_plan_item('a1a10273-0273-0273-0273-a1a1a1a10273', '2026-07-07',
        'b1b10273-0273-0273-0273-b1b1b1b10273') $$,
-  '42501', null, 'a non-member site_admin is blocked by membership');
+  '42501', 'daily work plan: not a member of this project',
+  'a non-member site_admin is blocked by membership');
 
 -- Visitor: role gate.
 set local "request.jwt.claims" = '{"sub": "88888888-8888-8888-8888-888888880273"}';
 select throws_ok(
   $$ select public.add_daily_plan_item('a1a10273-0273-0273-0273-a1a1a1a10273', '2026-07-07',
        'b1b10273-0273-0273-0273-b1b1b1b10273') $$,
-  '42501', null, 'a visitor cannot write the board');
+  '42501', 'daily work plan: role not permitted', 'a visitor cannot write the board');
+
+-- ------------------------------------ B'. the gate on the OTHER FOUR writers
+-- add_daily_plan_item was the only writer whose refusals were pinned, so
+-- deleting `perform public.daily_work_plan_assert_writer(...)` from any of the
+-- other four left this suite green (2026-07-26). Both arms, all four.
+-- Still the visitor from above — the ROLE arm.
+select throws_ok(
+  $$ select public.remove_daily_plan_item((select item_l1 from dwp_ids)) $$,
+  '42501', 'daily work plan: role not permitted',
+  'a visitor cannot remove a board item');
+select throws_ok(
+  $$ select public.set_daily_plan_item_note((select item_l1 from dwp_ids), 'แอบแก้') $$,
+  '42501', 'daily work plan: role not permitted',
+  'a visitor cannot note a board item');
+select throws_ok(
+  $$ select public.reorder_daily_plan_items((select plan_id from dwp_ids),
+       (select array[item_l2, item_l1] from dwp_ids)) $$,
+  '42501', 'daily work plan: role not permitted',
+  'a visitor cannot reorder the board');
+select throws_ok(
+  $$ select public.set_daily_plan_item_crew((select item_l1 from dwp_ids),
+       ARRAY['d1d10273-0273-0273-0273-d1d1d1d10273']::uuid[],
+       'd1d10273-0273-0273-0273-d1d1d1d10273') $$,
+  '42501', 'daily work plan: role not permitted',
+  'a visitor cannot set a board item''s crew');
+
+-- Non-member site_admin — the PROJECT-SCOPE arm. Permitted role, wrong project:
+-- these four must be refused by can_see_project, not by the role check.
+set local "request.jwt.claims" = '{"sub": "44444444-4444-4444-4444-444444440273"}';
+select throws_ok(
+  $$ select public.remove_daily_plan_item((select item_l1 from dwp_ids)) $$,
+  '42501', 'daily work plan: not a member of this project',
+  'a non-member site_admin cannot remove a board item');
+select throws_ok(
+  $$ select public.set_daily_plan_item_note((select item_l1 from dwp_ids), 'แอบแก้') $$,
+  '42501', 'daily work plan: not a member of this project',
+  'a non-member site_admin cannot note a board item');
+select throws_ok(
+  $$ select public.reorder_daily_plan_items((select plan_id from dwp_ids),
+       (select array[item_l2, item_l1] from dwp_ids)) $$,
+  '42501', 'daily work plan: not a member of this project',
+  'a non-member site_admin cannot reorder the board');
+select throws_ok(
+  $$ select public.set_daily_plan_item_crew((select item_l1 from dwp_ids),
+       ARRAY['d1d10273-0273-0273-0273-d1d1d1d10273']::uuid[],
+       'd1d10273-0273-0273-0273-d1d1d1d10273') $$,
+  '42501', 'daily work plan: not a member of this project',
+  'a non-member site_admin cannot set a board item''s crew');
 
 -- PM (member), site_owner (member), super_admin (non-member, sees all) may write.
 set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330273"}';
@@ -169,6 +264,19 @@ select lives_ok(
   $$ select public.add_daily_plan_item('a1a10273-0273-0273-0273-a1a1a1a10273', '2026-07-07',
        'b1b10273-0273-0273-0273-b1b1b1b10273') $$,
   'super_admin (non-member, all-projects) may write the board');
+-- The two allowlist members that had no positive arm — project_director, and
+-- procurement_manager (added 2026-07-23 by spec 348). Both see-all, so neither
+-- has a membership row: dropping either from the gate must go red HERE.
+set local "request.jwt.claims" = '{"sub": "55555555-5555-5555-5555-555555550273"}';
+select lives_ok(
+  $$ select public.add_daily_plan_item('a1a10273-0273-0273-0273-a1a1a1a10273', '2026-07-07',
+       'b1b10273-0273-0273-0273-b1b1b1b10273') $$,
+  'project_director (non-member, all-projects) may write the board');
+set local "request.jwt.claims" = '{"sub": "77777777-7777-7777-7777-777777770273"}';
+select lives_ok(
+  $$ select public.add_daily_plan_item('a1a10273-0273-0273-0273-a1a1a1a10273', '2026-07-07',
+       'b1b10273-0273-0273-0273-b1b1b1b10273') $$,
+  'procurement_manager (non-member, all-projects) may write the board');
 
 -- --------------------------------------------------------------------- C. crew
 set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220273"}';
