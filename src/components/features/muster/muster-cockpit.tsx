@@ -472,7 +472,16 @@ export function MusterCockpit({
         sessions: openOtSessions.map((s) => ({ teamId: s.teamId, workerId: s.workerId })),
         revalidate,
       });
-      if (!cure.ok) return cure;
+      if (!cure.ok) {
+        // A PARTIAL cure is the dangerous state: some OT sessions did close, and
+        // the board does not know yet. `run` only refreshes on success, so without
+        // this the confirm would still list them — and a second tap would re-run
+        // `muster_scan_out` over rows that are already out, overwriting their real
+        // out time with now() (the RPC has no already-out guard). Refresh first,
+        // then report: the retry must see a truthful list.
+        router.refresh();
+        return cure;
+      }
       setConfirmClose(false);
       return closeMusterDay({ projectId, date, revalidate });
     });

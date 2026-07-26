@@ -115,11 +115,10 @@ beforeEach(() => {
   openMusterTeam.mockResolvedValue({ ok: true, id: "new" });
   musterScan.mockResolvedValue({ ok: true, id: "att" });
   setMusterTeamWps.mockResolvedValue({ ok: true });
-  closeMusterDay.mockResolvedValue({ ok: true });
+  closeMusterDay.mockReset().mockResolvedValue({ ok: true });
   moveMusterWorker.mockResolvedValue({ ok: true, id: "moved" });
   moveMusterWorker.mockClear();
   closeOpenOt.mockReset().mockResolvedValue({ ok: true, closed: 1 });
-  closeMusterDay.mockClear();
   // Spec 359 U1 — the sweep asserts on refresh CALL COUNT, so it must not leak
   // between tests.
   refresh.mockClear();
@@ -1260,6 +1259,20 @@ describe("MusterCockpit — ปิดวัน sticky bar states (spec 306 disco
       await user.click(screen.getByRole("button", { name: /ปิด OT ให้ทุกคนตอนนี้/ }));
       expect(await screen.findByRole("alert")).toHaveTextContent("ไม่มีสิทธิ์เช็คชื่อ");
       expect(closeMusterDay).not.toHaveBeenCalled();
+    });
+
+    it("refreshes the board after a PARTIAL cure, so a retry cannot re-close what already closed", async () => {
+      // The cure loops muster_scan_out, which has no already-out guard: it sets
+      // out_at = now() unconditionally. If the board still lists the sessions that
+      // DID close, a second tap rewrites their real out time — the exact damage
+      // this unit exists to prevent, caused by its own retry path.
+      closeOpenOt.mockResolvedValueOnce({ ok: false, error: "ไม่มีสิทธิ์เช็คชื่อ" });
+      const user = userEvent.setup();
+      renderCockpit(OT_ONE_OPEN);
+      await user.click(screen.getByRole("button", { name: "ปิดวัน" }));
+      await user.click(screen.getByRole("button", { name: /ปิด OT ให้ทุกคนตอนนี้/ }));
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(refresh).toHaveBeenCalled();
     });
 
     it("still allows closing without the OT — named, counted, and never the default", async () => {
