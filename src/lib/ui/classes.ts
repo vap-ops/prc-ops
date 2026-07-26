@@ -26,14 +26,16 @@ export const BUTTON_PRIMARY =
 
 /**
  * BUTTON_SECONDARY minus its surface colours — border WIDTH, size, type and
- * states, no `bg-*`/`border-<colour>`. Compose this (never BUTTON_SECONDARY)
- * when a state needs its own fill or border colour; see CARD_LAYOUT for why.
+ * states, and NO colour of any kind: no `bg-*`, no `border-<colour>`, no
+ * `text-<colour>`. Compose this (never BUTTON_SECONDARY) when a state needs its
+ * own fill, border or ink; see CARD_LAYOUT for why. A `_LAYOUT` constant that
+ * kept even one colour would leave the call site fighting it for that property.
  */
 export const BUTTON_SECONDARY_LAYOUT =
-  "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold text-ink shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted";
+  "inline-flex h-11 items-center justify-center rounded-control border px-4 text-body font-semibold shadow-input transition-colors hover:bg-sunk focus:outline-none focus-visible:ring-2 focus-visible:ring-action focus-visible:ring-offset-2 active:translate-y-px disabled:cursor-not-allowed disabled:text-ink-muted";
 
 /** White outline sibling of BUTTON_PRIMARY. */
-export const BUTTON_SECONDARY = `${BUTTON_SECONDARY_LAYOUT} border-edge bg-card`;
+export const BUTTON_SECONDARY = `${BUTTON_SECONDARY_LAYOUT} border-edge bg-card text-ink`;
 
 /**
  * Field-First HERO action — the full-width amber capture bar. 64px so a

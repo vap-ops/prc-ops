@@ -182,21 +182,21 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
           <Link
             href={reportHref(state, { preset: "today", ...todayRange })}
             aria-pressed={preset === "today"}
-            className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${preset === "today" ? "bg-fill text-on-fill" : "bg-card"}`}
+            className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${preset === "today" ? "bg-fill text-on-fill" : "bg-card text-ink"}`}
           >
             {PERIOD_PRESET_LABEL.today}
           </Link>
           <Link
             href={reportHref(state, { preset: "month", ...monthRange })}
             aria-pressed={preset === "month"}
-            className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${preset === "month" ? "bg-fill text-on-fill" : "bg-card"}`}
+            className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${preset === "month" ? "bg-fill text-on-fill" : "bg-card text-ink"}`}
           >
             {PERIOD_PRESET_LABEL.month}
           </Link>
           <Link
             href={reportHref(state, { preset: "year", ...yearRange })}
             aria-pressed={preset === "year"}
-            className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${preset === "year" ? "bg-fill text-on-fill" : "bg-card"}`}
+            className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${preset === "year" ? "bg-fill text-on-fill" : "bg-card text-ink"}`}
           >
             {PERIOD_PRESET_LABEL.year}
           </Link>
@@ -256,7 +256,7 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
               key={b}
               href={reportHref(state, { bucket: b })}
               aria-pressed={bucket === b}
-              className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${bucket === b ? "bg-fill text-on-fill" : "bg-card"}`}
+              className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${bucket === b ? "bg-fill text-on-fill" : "bg-card text-ink"}`}
             >
               {BUCKET_LABEL[b]}
             </Link>
@@ -270,7 +270,7 @@ export default async function PurchaseReportsPage({ searchParams }: ReportsPageP
               key={g}
               href={reportHref(state, { group: g })}
               aria-pressed={group === g}
-              className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${group === g ? "bg-fill text-on-fill" : "bg-card"}`}
+              className={`${BUTTON_SECONDARY_LAYOUT} border-edge ${group === g ? "bg-fill text-on-fill" : "bg-card text-ink"}`}
             >
               {GROUP_BY_LABEL[g]}
             </Link>

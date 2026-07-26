@@ -195,16 +195,19 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
 // lint AND RTL, all of which see a className string that faithfully contains
 // every class the author wrote.
 //
-// SCOPE — this scan covers `background-color` and `border-color`. Plain `color`
-// is the IDENTICAL failure mode (`text-ink` outranks `text-danger`, and
-// `text-ink-secondary` outranks `text-ink`) and has two known live instances
-// deliberately left for their own unit, because each needs either a third
-// constant split or a visual-design call:
-//   - payroll/clear-nominee-button.tsx — `${BUTTON_SECONDARY_MUTED} text-danger`
-//     on the destructive "ยืนยันล้าง?" confirm: renders neutral ink, not red.
-//   - work-packages/wp-walk-bar.tsx — `${STEP} text-ink font-semibold` on the
-//     next-step link: the emphasis colour is dead.
-// KNOWN FALSE NEGATIVES, same reason: a colour reached through a variable
+// SCOPE — background-color, border-color AND plain color. `color` was deferred
+// when this scan first shipped and is folded in here: it is the same mechanism
+// with the same invisibility, and it had two live instances. `text-danger`
+// (68572) sorts before `text-ink` (69166), so a destructive confirm composing
+// `${BUTTON_SECONDARY_MUTED} text-danger` rendered NEUTRAL; `text-ink` in turn
+// sorts before `text-ink-secondary` (69272), so a "step up the emphasis"
+// override on a muted constant is dead on arrival. Both are fixed here.
+//
+// Consequence worth stating: a `_LAYOUT` constant carries NO colour of ANY of
+// the three properties. `BUTTON_SECONDARY_LAYOUT` still held `text-ink`, which
+// made "compose the layout half and own your colours" only two-thirds true.
+//
+// KNOWN FALSE NEGATIVES: a colour reached through a plain variable
 // (`const TONE = "bg-attn-soft"; ` + "`${CARD} ${TONE}`" + `) or through string
 // concatenation rather than a template literal. Both need value tracking.
 // ---------------------------------------------------------------------------
@@ -218,7 +221,16 @@ const COLOR_TOKENS = new Set(
   ].map((m) => m[1]!),
 );
 
-type ColorProperty = "background-color" | "border-color";
+type ColorProperty = "background-color" | "border-color" | "color";
+
+/** utility prefix → the CSS property it sets. `text-` also spells the type ramp
+ *  (`text-body`, `text-meta`), which the token lookup filters out — those are
+ *  not `--color-*` tokens. */
+const COLOR_PREFIXES: ReadonlyArray<readonly [string, ColorProperty]> = [
+  ["bg-", "background-color"],
+  ["border-", "border-color"],
+  ["text-", "color"],
+];
 
 /**
  * The colour utilities a class string applies UNCONDITIONALLY, keyed by the CSS
@@ -227,18 +239,23 @@ type ColorProperty = "background-color" | "border-color";
  * specificity and overriding with one is the sanctioned idiom, not a bug.
  */
 export function colorUtilitiesByProperty(classString: string): Record<ColorProperty, string[]> {
-  const out: Record<ColorProperty, string[]> = { "background-color": [], "border-color": [] };
+  const out: Record<ColorProperty, string[]> = {
+    "background-color": [],
+    "border-color": [],
+    color: [],
+  };
   // Template-literal delimiters and `${…}` punctuation are not whitespace, so a
   // utility sitting first or last in a literal arrives glued to a backtick.
   for (const raw of classString.replace(/[`'"${}]/g, " ").split(/\s+/)) {
     // `!` marks !important in BOTH Tailwind syntaxes (v3 prefix, v4 suffix); an
     // important utility wins on cascade rules, not on emission order.
     if (!raw || raw.includes(":") || raw.includes("!") || raw.includes("[")) continue;
-    const bg = /^bg-(.+)$/.exec(raw);
-    // `bg-done/10` — the opacity modifier does not change which property it sets.
-    if (bg && COLOR_TOKENS.has(bg[1]!.split("/")[0]!)) out["background-color"].push(raw);
-    const border = /^border-(.+)$/.exec(raw);
-    if (border && COLOR_TOKENS.has(border[1]!.split("/")[0]!)) out["border-color"].push(raw);
+    for (const [prefix, property] of COLOR_PREFIXES) {
+      if (!raw.startsWith(prefix)) continue;
+      // `bg-done/10` — the opacity modifier does not change which property it sets.
+      const token = raw.slice(prefix.length).split("/")[0]!;
+      if (COLOR_TOKENS.has(token)) out[property].push(raw);
+    }
   }
   return out;
 }
@@ -323,7 +340,7 @@ export function constColorOverrides(content: string, shared: Record<string, stri
       if (!lit.includes("${" + name + "}")) continue;
       const own = colorUtilitiesByProperty(value);
       const added = colorUtilitiesByProperty(lit.replaceAll("${" + name + "}", " "));
-      for (const property of ["background-color", "border-color"] as ColorProperty[]) {
+      for (const [, property] of COLOR_PREFIXES) {
         for (const a of added[property]) {
           for (const o of own[property]) {
             if (a === o) continue; // same utility twice is a no-op, not a conflict
@@ -349,9 +366,12 @@ describe("shared-constant colour-override contract (2026-07-26 bug class)", () =
   ])("%s carries geometry ONLY — the conflict-free half of %s", (layoutName, fullName) => {
     const layout = CONSTANTS[layoutName];
     expect(layout, `src/lib/ui/classes.ts must export ${layoutName}`).toBeDefined();
+    // ZERO colour of any of the three properties — a `_LAYOUT` that kept even
+    // `text-ink` would leave the call site fighting it for `color`.
     expect(colorUtilitiesByProperty(layout!)).toEqual({
       "background-color": [],
       "border-color": [],
+      color: [],
     });
     // The full constant stays DERIVED from the layout half, so the two cannot
     // drift apart and a call site can never be handed a stale geometry.
@@ -414,6 +434,29 @@ describe("shared-constant colour-override contract (2026-07-26 bug class)", () =
     expect(check("const shell = CARD;\n`${shell} border-attn`")).toHaveLength(1);
     // !important wins on cascade rules, not on emission order
     expect(check("`${CARD} bg-attn-soft!`")).toHaveLength(0);
+    // plain `color` is the third property, and it bit in BOTH directions: a
+    // muted constant swallowing a danger ink, and a muted constant outranking
+    // an emphasis step-up
+    const inked = { MUTED: "border border-edge bg-card px-3 text-ink" };
+    expect(
+      constColorOverrides(
+        'import { MUTED } from "@/lib/ui/classes";\n`${MUTED} text-danger`',
+        inked,
+      ),
+    ).toHaveLength(1);
+    expect(
+      constColorOverrides(
+        'const STEP = "text-meta text-ink-secondary px-3";\n`${STEP} text-ink font-semibold`',
+        {},
+      ),
+    ).toHaveLength(1);
+    // the type ramp is not a colour — `text-body`/`text-meta` are not tokens
+    expect(
+      constColorOverrides(
+        'import { MUTED } from "@/lib/ui/classes";\n`${MUTED} text-meta text-sm`',
+        inked,
+      ),
+    ).toHaveLength(0);
     // an aliased import is still the shared constant: the literal names the
     // LOCAL binding while the colours come from the EXPORT
     expect(
