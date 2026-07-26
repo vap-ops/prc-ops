@@ -1469,6 +1469,31 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
     );
   });
 
+  it("a badge re-read after a move answers อยู่ในทีมแล้ว, not a second move offer", async () => {
+    // The board still says "other team" until the sheet closes, so without the
+    // moved id in the addedThisSweep ref the tally would offer ย้ายมาทีมนี้ again.
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      const user = userEvent.setup();
+      renderCockpit(TWO_TEAM);
+      await openSheet(user);
+      await user.click(within(screen.getByRole("dialog")).getByText("ไม่มีบัตร / หาไม่เจอ"));
+      await tap(user, /สมชาย/);
+      await user.click(screen.getByRole("button", { name: "ย้ายมาทีมนี้" }));
+      nextScanId.current = W2;
+      await act(async () => {
+        await user.click(screen.getByTestId("camera-mock-next"));
+      });
+      expect(screen.getByText("อยู่ในทีมแล้ว")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "ย้ายมาทีมนี้" })).toBeNull();
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+    }
+  });
+
   it("never offers another team's lead, nor a member of this team", async () => {
     const user = userEvent.setup();
     renderCockpit(TWO_TEAM);
