@@ -407,7 +407,6 @@ export function TeamMapView({
   map,
   addableStaff,
   currentUserId,
-  canManageStaff,
   tradesByWorker,
   dayPlans,
   planWps,
@@ -416,16 +415,6 @@ export function TeamMapView({
   map: ProjectTeamMap;
   addableStaff: AddableStaff[];
   currentUserId: string;
-  /**
-   * Operator directive 2026-07-26 — procurement_manager owns the on-site TEAMS,
-   * so she reaches this page (TEAM_MAP_ROLES). Project MEMBERSHIP is still a
-   * manager decision, and its actions enforce that: addProjectMember /
-   * removeProjectMember / setPrimaryProjectFor gate on PM_ROLES, and
-   * set_primary_project_for's RPC on PM/PD/super only. False therefore HIDES the
-   * staff-tier mutations rather than offering a button that refuses on press.
-   * Required, not defaulted: a silent default is how a gate rots.
-   */
-  canManageStaff: boolean;
   /** Spec 338 U2: per-worker trades (primary-first). Omitted → no tiles. */
   tradesByWorker?: Record<string, WorkerTrade[]>;
   /** U6: the two writable boards. Omitted → the plan layer does not render. */
@@ -599,15 +588,9 @@ export function TeamMapView({
           >
             <Info aria-hidden className="size-4" />
           </button>
-          {canManageStaff ? (
-            <button
-              type="button"
-              className={TIER_ACTION}
-              onClick={() => openSheet({ type: "add" })}
-            >
-              <UserPlus aria-hidden className="size-3.5" /> เพิ่มสมาชิก
-            </button>
-          ) : null}
+          <button type="button" className={TIER_ACTION} onClick={() => openSheet({ type: "add" })}>
+            <UserPlus aria-hidden className="size-3.5" /> เพิ่มสมาชิก
+          </button>
         </div>
         <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-center sm:[&>button]:min-w-56 sm:[&>button]:flex-none">
           {map.management.map((n) => (
@@ -639,15 +622,9 @@ export function TeamMapView({
           >
             <Info aria-hidden className="size-4" />
           </button>
-          {canManageStaff ? (
-            <button
-              type="button"
-              className={TIER_ACTION}
-              onClick={() => openSheet({ type: "add" })}
-            >
-              <UserPlus aria-hidden className="size-3.5" /> เพิ่มสมาชิก
-            </button>
-          ) : null}
+          <button type="button" className={TIER_ACTION} onClick={() => openSheet({ type: "add" })}>
+            <UserPlus aria-hidden className="size-3.5" /> เพิ่มสมาชิก
+          </button>
         </div>
         <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-center sm:[&>button]:min-w-56 sm:[&>button]:flex-none">
           {map.site.map((n) => (
@@ -822,15 +799,7 @@ export function TeamMapView({
       >
         {staffSheet ? (
           <div className="flex flex-col gap-2">
-            {/* Membership + SA-หลัก are manager decisions (their actions gate on
-                PM_ROLES). For anyone else this sheet stays a read-only who's-who
-                rather than a set of buttons that refuse. */}
-            {!canManageStaff ? (
-              <p className="text-ink-muted text-xs">
-                การเพิ่ม/ถอดคนออกจากทีมโครงการ ทำได้โดยผู้จัดการโครงการเท่านั้น
-              </p>
-            ) : null}
-            {canManageStaff && staffSheet.role === "site_admin" && !staffSheet.isPrimary ? (
+            {staffSheet.role === "site_admin" && !staffSheet.isPrimary ? (
               <button
                 type="button"
                 disabled={busy}
@@ -842,7 +811,7 @@ export function TeamMapView({
                 <Star aria-hidden className="text-ink-secondary size-4" /> ตั้งเป็น SA หลัก
               </button>
             ) : null}
-            {canManageStaff && staffSheet.isMember ? (
+            {staffSheet.isMember ? (
               <button
                 type="button"
                 disabled={busy}
@@ -851,7 +820,7 @@ export function TeamMapView({
               >
                 ถอดออกจากทีมโครงการ
               </button>
-            ) : !canManageStaff ? null : (
+            ) : (
               <p className="text-ink-muted text-xs">
                 หัวหน้าโครงการกำหนดในหน้าตั้งค่าโครงการ (ไม่ได้อยู่ในรายชื่อทีม)
               </p>
