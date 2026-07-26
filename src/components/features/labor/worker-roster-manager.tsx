@@ -55,10 +55,11 @@ import {
   FIELD_STACKED,
 } from "@/lib/ui/classes";
 
-/** Spec 362 U3 — the "no การจ่าย filter" chip value (the /catalog sentinel). */
-const ALL = "all";
 import { NOTES_MAX } from "@/lib/notes/validate";
 import { EMPLOYMENT_TYPE_LABEL, type EmploymentType } from "@/lib/workers/employment";
+
+/** Spec 362 U3 — the "no การจ่าย filter" chip value (the /catalog sentinel). */
+const ALL = "all";
 
 type PayType = Database["public"]["Enums"]["pay_type"];
 
