@@ -11,8 +11,9 @@
 // caught it: the className string contained `text-danger` all along.
 //
 // The assertions below are therefore about the ARMED state's ink specifically,
-// not just "some class is present": the armed control must carry the danger
-// primitive and must NOT reintroduce a competing neutral ink.
+// not just "some class is present": the armed control carries exactly ONE ink
+// and it is the danger one, and — because the idle and armed states are the
+// SAME control — the two differ in their colour utilities and nothing else.
 
 import fs from "node:fs";
 import path from "node:path";
