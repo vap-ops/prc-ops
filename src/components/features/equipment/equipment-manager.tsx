@@ -1,23 +1,38 @@
 "use client";
 
-// Spec 141 U2 — equipment management UI (/equipment, back-office). Mirrors the
-// worker roster: a quick-add card pair (category + owner) to bootstrap the
-// masters, an add-item form, and per-item inline edit. Writes go through the
-// equipment server actions (RLS client; no money here — acquisition_cost is
-// admin-only and not surfaced). The U1 validateEquipmentItem gives friendly,
-// Thai, client-side errors before the action re-checks.
+// Spec 141 U2 — equipment management UI (/equipment, back-office). Writes go
+// through the equipment server actions (RLS client; no money here —
+// acquisition_cost is admin-only and not surfaced). The U1 validateEquipmentItem
+// gives friendly, Thai, client-side errors before the action re-checks.
 //
-// 'use client' justification: add/edit forms with busy/error states + the
-// unit|bulk tracking toggle that swaps the asset-tag/quantity field.
+// Spec 362 U1 — READ-first, ported from /catalog (catalog-list.tsx). The page
+// used to open on FOUR curator blocks (2 quick-adds, the taxonomy card, the add
+// form) stacked above 64 items that had no search, no filter and no grouping.
+// Now it opens on the data — search, counted category chips, `label (n)`
+// sections, card rows — and every write lives one tap away inside a BottomSheet.
+//
+// The money audience is deliberately UNCHANGED: SetDailyRate stays in the ROW's
+// control cluster and is NOT moved into the edit sheet. `dailyRate` distinguishes
+// `undefined` (not the money audience → render nothing) from `null` (audience,
+// rate unset) through a conditional prop spread under exactOptionalPropertyTypes;
+// every extra hop is a chance to flatten that into "unset" and render the control
+// to the field view, so this port adds no hop at all.
+//
+// 'use client' justification: the search + category filter state, the sheet open
+// states, and the add/edit forms' busy/error state + the unit|bulk tracking
+// toggle that swaps the asset-tag/quantity field.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
 import { RadioChip } from "@/components/features/common/radio-chip";
+import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { EditCategoryRow } from "./edit-category-row";
 import {
+  BUTTON_PRIMARY,
   BUTTON_PRIMARY_COMPACT,
   BUTTON_SECONDARY_COMPACT,
-  CARD,
+  FIELD_INPUT,
   FIELD_STACKED,
 } from "@/lib/ui/classes";
 import {
@@ -85,6 +100,9 @@ const STATUS_ORDER: ReadonlyArray<EquipmentStatus> = [
   "returned",
   "lost",
 ];
+
+/** Spec 362 U1 — the "no category filter" chip value (the /catalog sentinel). */
+const ALL = "all";
 
 const TRACKING_OPTIONS = [
   { value: "unit", label: "รายชิ้น (มีรหัส)" },
@@ -241,7 +259,15 @@ function buildItemArgs(
   };
 }
 
-function AddEquipmentForm({ categories, owners }: { categories: Ref[]; owners: Ref[] }) {
+function AddEquipmentForm({
+  categories,
+  owners,
+  onDone,
+}: {
+  categories: Ref[];
+  owners: Ref[];
+  onDone: () => void;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -283,12 +309,12 @@ function AddEquipmentForm({ categories, owners }: { categories: Ref[]; owners: R
     setStatus("available");
     setCategoryId("");
     setOwnerId("");
+    onDone();
     router.refresh();
   }
 
   return (
-    <div className={CARD}>
-      <p className="text-ink text-sm font-semibold">เพิ่มอุปกรณ์</p>
+    <div>
       <EquipmentFields
         idPrefix="equip-add"
         categories={categories}
@@ -315,7 +341,7 @@ function AddEquipmentForm({ categories, owners }: { categories: Ref[]; owners: R
         onClick={() => void submit()}
         className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
       >
-        เพิ่มอุปกรณ์
+        เพิ่มรายการ
       </button>
     </div>
   );
@@ -447,7 +473,6 @@ function EquipmentRow({
   owners,
   projects,
   ownerName,
-  categoryName,
   locationLabel,
   canManageRegistry,
   dailyRate,
@@ -457,7 +482,6 @@ function EquipmentRow({
   owners: Ref[];
   projects: Ref[];
   ownerName: string | null;
-  categoryName: string | null;
   locationLabel: string;
   canManageRegistry: boolean;
   // Spec 202 U1 — present ONLY for the money audience (page omits it otherwise).
@@ -510,58 +534,59 @@ function EquipmentRow({
       ? `${(item.quantity ?? 0).toLocaleString("th-TH")} หน่วย`
       : (item.asset_tag ?? "ไม่มีรหัส");
 
+  // Spec 362 U1 — the /catalog card row. The name block is floored at min-w-40
+  // (NOT min-w-0) with a wrapping row: the fixed control cluster would otherwise
+  // squeeze the name to one character per line on a phone (feedback 65de06ca).
+  // The category is NOT repeated here — the section heading above the row is its
+  // category, and every item has exactly one (equipment_items.category_id is NOT
+  // NULL), so a per-row badge would be pure duplication.
   return (
-    <li className="border-edge border-t py-2 first:border-t-0">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-ink truncate text-sm">
-            {item.name}
-            {ownerName ? (
-              <span className="text-ink-muted ml-1.5 text-xs">· {ownerName}</span>
-            ) : null}
-          </p>
-          <p className="text-ink-secondary text-xs">
-            {STATUS_LABELS[item.status]} · {placement}
-            {categoryName ? ` · ${categoryName}` : ""}
-          </p>
-          <p className="text-ink-muted text-xs">
-            <span aria-hidden="true">📍 </span>
-            <span>{locationLabel}</span>
-          </p>
-        </div>
-        <div className="flex shrink-0 gap-2">
+    <li className="border-edge bg-card rounded-control flex flex-wrap items-center gap-3 border px-4 py-3">
+      <span className="min-w-40 flex-1">
+        <span className="text-ink text-body block font-semibold">{item.name}</span>
+        <span className="text-ink-secondary text-meta block">
+          {STATUS_LABELS[item.status]} · {placement}
+          {ownerName ? ` · ${ownerName}` : ""}
+        </span>
+        <span className="text-ink-muted text-meta block">
+          <span aria-hidden="true">📍 </span>
+          <span>{locationLabel}</span>
+        </span>
+      </span>
+      <span className="ml-auto flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setMoving(true);
+            setEditing(false);
+          }}
+          className={BUTTON_SECONDARY_COMPACT}
+        >
+          ย้าย
+        </button>
+        {canManageRegistry ? (
           <button
             type="button"
             onClick={() => {
-              setMoving((v) => !v);
-              setEditing(false);
+              setEditing(true);
+              setMoving(false);
             }}
-            className="text-action text-xs font-medium hover:underline"
+            className={BUTTON_SECONDARY_COMPACT}
           >
-            ย้าย
+            แก้ไข
           </button>
-          {canManageRegistry ? (
-            <button
-              type="button"
-              onClick={() => {
-                setEditing((v) => !v);
-                setMoving(false);
-              }}
-              className="text-action text-xs font-medium hover:underline"
-            >
-              แก้ไข
-            </button>
-          ) : null}
-          {dailyRate !== undefined ? (
-            <SetDailyRate itemId={item.id} currentRate={dailyRate} />
-          ) : null}
-        </div>
-      </div>
-      {moving ? (
+        ) : null}
+        {/* MONEY: `undefined` means "not the money audience" and renders nothing.
+            Stays in the row — see the file header on why it must not travel. */}
+        {dailyRate !== undefined ? <SetDailyRate itemId={item.id} currentRate={dailyRate} /> : null}
+      </span>
+
+      <BottomSheet open={moving} title="ย้ายอุปกรณ์" onClose={() => setMoving(false)}>
         <MoveEquipmentForm item={item} projects={projects} onDone={() => setMoving(false)} />
-      ) : null}
-      {editing ? (
-        <div className="border-edge-strong bg-page mt-2 rounded-lg border p-3">
+      </BottomSheet>
+
+      <BottomSheet open={editing} title="แก้ไขอุปกรณ์" onClose={() => setEditing(false)}>
+        <div>
           <EquipmentFields
             idPrefix={`equip-edit-${item.id}`}
             categories={categories}
@@ -600,7 +625,7 @@ function EquipmentRow({
             </button>
           </div>
         </div>
-      ) : null}
+      </BottomSheet>
     </li>
   );
 }
@@ -625,9 +650,8 @@ function QuickAddCategory() {
   }
 
   return (
-    <div className={CARD}>
-      <p className="text-ink text-sm font-semibold">เพิ่มหมวดหมู่</p>
-      <label className="text-ink-secondary mt-2 block text-sm">
+    <div>
+      <label className="text-ink-secondary block text-sm">
         ชื่อหมวดหมู่ใหม่
         <input
           value={name}
@@ -672,9 +696,8 @@ function QuickAddOwner() {
   }
 
   return (
-    <div className={CARD}>
-      <p className="text-ink text-sm font-semibold">เพิ่มเจ้าของอุปกรณ์</p>
-      <label className="text-ink-secondary mt-2 block text-sm">
+    <div>
+      <label className="text-ink-secondary block text-sm">
         ชื่อเจ้าของใหม่
         <input
           value={name}
@@ -739,65 +762,193 @@ export function EquipmentManager({
   // are present (a rate map must never render on the field view).
   const canPriceEquipment = canManageRegistry && dailyRates !== undefined;
 
-  return (
-    <div className="flex flex-col gap-4">
-      {canManageRegistry ? (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <QuickAddCategory />
-            <QuickAddOwner />
-          </div>
-          {/* Spec 361 U6 — the category list was invisible here: you could add
-              one but never see or fix the ones that existed. Item counts come
-              from the same rows the list below renders. */}
-          {categories.length > 0 ? (
-            <div className={CARD}>
-              <p className="text-ink text-sm font-semibold">หมวดหมู่ทั้งหมด</p>
-              <ul className="mt-2 flex flex-col">
-                {categories.map((c) => (
-                  <EditCategoryRow
-                    key={c.id}
-                    category={c}
-                    itemCount={items.filter((it) => it.category_id === c.id).length}
-                  />
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          <AddEquipmentForm categories={categories} owners={owners} />
-        </>
-      ) : null}
-      {items.length > 0 ? (
-        <div className={CARD}>
-          <p className="text-ink text-sm font-semibold">อุปกรณ์ทั้งหมด</p>
-          <ul className="mt-2 flex flex-col">
-            {items.map((it) => {
-              const loc = locations.get(it.id);
-              const projectName = loc?.projectId ? (projectNames.get(loc.projectId) ?? null) : null;
-              return (
-                <EquipmentRow
-                  key={it.id}
-                  item={it}
-                  categories={categories}
-                  owners={owners}
-                  projects={projects}
-                  ownerName={ownerNames.get(it.owner_id) ?? null}
-                  categoryName={categoryNames.get(it.category_id) ?? null}
-                  locationLabel={equipmentLocationLabel(loc, projectName)}
-                  canManageRegistry={canManageRegistry}
-                  {...(canPriceEquipment ? { dailyRate: dailyRates![it.id] ?? null } : {})}
-                />
-              );
-            })}
+  const [query, setQuery] = useState("");
+  const [selectedCat, setSelectedCat] = useState<string>(ALL);
+  const [addingItem, setAddingItem] = useState(false);
+  const [managingCategories, setManagingCategories] = useState(false);
+  const [addingOwner, setAddingOwner] = useState(false);
+
+  // Spec 362 U1 — search over the two things a curator actually knows about a
+  // machine: what it's called, and the tag stencilled on it.
+  const q = query.trim().toLowerCase();
+  const searching = q !== "";
+  const queried = !searching
+    ? items
+    : items.filter((it) => `${it.name} ${it.asset_tag ?? ""}`.toLowerCase().includes(q));
+
+  const catName = (id: string) => categoryNames.get(id) ?? id;
+  const countIn = (id: string) => queried.filter((it) => it.category_id === id).length;
+  // Category order follows the `categories` prop (the page orders it by name);
+  // a category with no matching row this render is not offered as a chip.
+  const present = categories.map((c) => c.id).filter((id) => countIn(id) > 0);
+
+  const sections =
+    !searching && selectedCat !== ALL
+      ? present
+          .filter((id) => id === selectedCat)
+          .map((id) => ({ id, rows: queried.filter((it) => it.category_id === id) }))
+      : present.map((id) => ({ id, rows: queried.filter((it) => it.category_id === id) }));
+
+  const curatorDoors = canManageRegistry ? (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => setManagingCategories(true)}
+          className="text-action inline-flex min-h-11 items-center text-sm font-medium hover:underline"
+        >
+          หมวดหมู่
+        </button>
+        <button
+          type="button"
+          onClick={() => setAddingOwner(true)}
+          className="text-action inline-flex min-h-11 items-center text-sm font-medium hover:underline"
+        >
+          เจ้าของ
+        </button>
+      </div>
+      <button type="button" onClick={() => setAddingItem(true)} className={BUTTON_PRIMARY}>
+        เพิ่มอุปกรณ์
+      </button>
+    </div>
+  ) : null;
+
+  const curatorSheets = canManageRegistry ? (
+    <>
+      <BottomSheet
+        open={addingItem}
+        title="เพิ่มรายการอุปกรณ์"
+        onClose={() => setAddingItem(false)}
+      >
+        <AddEquipmentForm
+          categories={categories}
+          owners={owners}
+          onDone={() => setAddingItem(false)}
+        />
+      </BottomSheet>
+
+      {/* Spec 361 U6 — add a category and fix an existing one live together:
+          renaming a category with equipment in it is a different decision from
+          renaming an empty one, so the counts stay beside the rename. */}
+      <BottomSheet
+        open={managingCategories}
+        title="หมวดหมู่อุปกรณ์"
+        onClose={() => setManagingCategories(false)}
+      >
+        <QuickAddCategory />
+        {categories.length > 0 ? (
+          <ul className="border-edge mt-4 flex flex-col border-t pt-2">
+            {categories.map((c) => (
+              <EditCategoryRow
+                key={c.id}
+                category={c}
+                itemCount={items.filter((it) => it.category_id === c.id).length}
+              />
+            ))}
           </ul>
-        </div>
-      ) : (
-        <p className="text-ink-secondary text-sm">
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet open={addingOwner} title="เจ้าของอุปกรณ์" onClose={() => setAddingOwner(false)}>
+        <QuickAddOwner />
+      </BottomSheet>
+    </>
+  ) : null;
+
+  // An empty registry shows its door and its reason — never a search box over
+  // nothing (the /catalog early-return shape).
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col gap-5">
+        {curatorDoors}
+        <p className="text-ink-secondary text-body">
           {canManageRegistry
             ? "ยังไม่มีอุปกรณ์ — เพิ่มหมวดหมู่และเจ้าของก่อน แล้วจึงเพิ่มอุปกรณ์"
             : "ยังไม่มีอุปกรณ์ในระบบ"}
         </p>
-      )}
+        {curatorSheets}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {curatorDoors}
+
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="text-ink-muted pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2"
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className={`${FIELD_INPUT} pl-10`}
+          placeholder="ค้นหาด้วยชื่อ หรือรหัสครุภัณฑ์ (เช่น GEN-001)"
+          aria-label="ค้นหาอุปกรณ์"
+          autoComplete="off"
+        />
+      </div>
+
+      <div
+        className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1"
+        role="radiogroup"
+        aria-label="กรองตามหมวดหมู่"
+      >
+        <RadioChip
+          name="equipment-category"
+          label={`ทั้งหมด (${queried.length})`}
+          checked={selectedCat === ALL}
+          onSelect={() => setSelectedCat(ALL)}
+        />
+        {present.map((id) => (
+          <RadioChip
+            key={id}
+            name="equipment-category"
+            label={`${catName(id)} (${countIn(id)})`}
+            checked={selectedCat === id}
+            onSelect={() => setSelectedCat(id)}
+          />
+        ))}
+      </div>
+
+      {searching && queried.length === 0 ? (
+        <p className="text-ink-secondary text-body">ไม่พบอุปกรณ์ที่ค้นหา</p>
+      ) : null}
+
+      <div className="flex flex-col gap-6">
+        {sections.map((sec) => (
+          <section key={sec.id} className="flex flex-col gap-2">
+            <h2 className="text-meta text-ink-secondary font-semibold">
+              {catName(sec.id)} <span className="text-ink-muted">({sec.rows.length})</span>
+            </h2>
+            <ul className="flex flex-col gap-2">
+              {sec.rows.map((it) => {
+                const loc = locations.get(it.id);
+                const projectName = loc?.projectId
+                  ? (projectNames.get(loc.projectId) ?? null)
+                  : null;
+                return (
+                  <EquipmentRow
+                    key={it.id}
+                    item={it}
+                    categories={categories}
+                    owners={owners}
+                    projects={projects}
+                    ownerName={ownerNames.get(it.owner_id) ?? null}
+                    locationLabel={equipmentLocationLabel(loc, projectName)}
+                    canManageRegistry={canManageRegistry}
+                    {...(canPriceEquipment ? { dailyRate: dailyRates![it.id] ?? null } : {})}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      {curatorSheets}
     </div>
   );
 }
