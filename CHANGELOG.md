@@ -1,3 +1,10 @@
+## [0.226.1](https://github.com/vap-ops/prc-ops/compare/v0.226.0...v0.226.1) (2026-07-26)
+
+### Bug Fixes
+
+- **ui:** a shared constant's INK is overridable too — close the third property ([8a09a17](https://github.com/vap-ops/prc-ops/commit/8a09a1754cd3a2a4e424b41c54a82561dc00108a))
+- **ui:** close the fresh-eyes findings on the colour-property guard ([63d32c0](https://github.com/vap-ops/prc-ops/commit/63d32c0696b6b3315ccd1ad5c5c447bad3827657))
+
 # [0.226.0](https://github.com/vap-ops/prc-ops/compare/v0.225.0...v0.226.0) (2026-07-26)
 
 ### Bug Fixes
