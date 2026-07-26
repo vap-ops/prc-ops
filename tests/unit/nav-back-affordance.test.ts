@@ -160,6 +160,9 @@ const STATIC_DETAIL = [
   // unlit leaf, spec 323 decision A) — back chip → /procurement/resources,
   // resolved through safeBackHref so a future second parent lands correctly.
   "procurement/master-data",
+  // Spec 361 U8: the หน่วยนับ curation screen drills from /catalog (back chip),
+  // and is also linked from the ข้อมูลหลัก hub — hence safeBackHref, below.
+  "catalog/units",
   // Spec 263 U3: the back-office technician-registration approval queue drills
   // down from /dashboard (back chip → /dashboard, the PM_ROLES home). Its
   // [id] review detail is a dynamic DetailHeader route, auto-classified below.
@@ -367,6 +370,7 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
   const STATIC_MULTI_PARENT = [
     "workers/page.tsx",
     "catalog/page.tsx",
+    "catalog/units/page.tsx",
     "equipment/page.tsx",
     "equipment/rentals/page.tsx",
     "contacts/vendors/page.tsx",

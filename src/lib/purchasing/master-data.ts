@@ -16,6 +16,7 @@
 
 import {
   CATALOG_LABEL,
+  CATALOG_UNITS_LABEL,
   EXPENSE_CATEGORY_LABEL,
   LABOR_RATES_LABEL,
   MANAGE_TAXONOMY_LABEL,
@@ -82,13 +83,15 @@ export const MASTER_DATA_GROUPS: readonly MasterDataGroup[] = [
         countKey: "catalogCategories",
         editorPending: false,
       },
+      // Spec 361 U8 gave the spec-223 vocabulary its curation screen — the three
+      // DEFINER RPCs had existed with zero callers since the table was created.
       {
         key: "catalog-units",
-        label: "หน่วยนับ",
+        label: CATALOG_UNITS_LABEL,
         hint: "หน่วยที่เลือกได้ตอนเพิ่มวัสดุ (เส้น · ถุง · ปี๊บ)",
-        href: null,
+        href: "/catalog/units",
         countKey: "catalogUnits",
-        editorPending: true,
+        editorPending: false,
       },
       {
         key: "ordering-templates",
