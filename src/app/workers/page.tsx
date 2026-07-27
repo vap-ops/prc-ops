@@ -55,8 +55,8 @@ export default async function WorkersPage({
     { data: projectRows },
     { data: tradeRows },
     { data: tradeCategoryRows },
-    { data: levelRateRows },
-    { data: whtCfgRow },
+    levelRatesRes,
+    whtCfgRes,
   ] = await Promise.all([
     admin
       .from("workers")
@@ -99,10 +99,28 @@ export default async function WorkersPage({
       .order("code", { ascending: true }),
     // Spec 368 U1: the level standards + firm WHT % feed the cost-confirm preview
     // (what confirm_worker_cost will stamp). Money columns, zero authenticated
-    // grant → admin client, authorized by the requireRole gate like day_rate above.
-    admin.from("worker_level_rates").select("level, entered_rate, wht_basis"),
-    admin.from("labor_wht_config").select("wht_pct").eq("id", true).maybeSingle(),
+    // grant — and the firm standard's app audience is /settings/labor-rates
+    // (procurement_manager + super_admin), NARROWER than this page's gate, so the
+    // read runs only for super_admin (the one role the confirm renders for) and
+    // the numbers never enter a PM/procurement payload.
+    ctx.role === "super_admin"
+      ? admin.from("worker_level_rates").select("level, entered_rate, wht_basis")
+      : Promise.resolve({ data: null, error: null }),
+    ctx.role === "super_admin"
+      ? admin.from("labor_wht_config").select("wht_pct").eq("id", true).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
+
+  // Fail loud on a standards read error (mirrors /settings/labor-rates): a masked
+  // empty read would render the FALSE refusal "ยังไม่ได้ตั้งค่าแรงมาตรฐาน" on every
+  // level, and a missing WHT % would under-preview an after_wht stamp.
+  if (levelRatesRes.error || whtCfgRes.error) {
+    throw new Error(
+      `workers standards read failed: ${levelRatesRes.error?.message ?? whtCfgRes.error?.message}`,
+    );
+  }
+  const levelRateRows = levelRatesRes.data;
+  const whtCfgRow = whtCfgRes.data;
 
   // ADR 0062 U4a: derive portalBound from user_id (the LINE binding); user_id
   // itself stays server-side — only the boolean reaches the client roster.
@@ -193,7 +211,10 @@ export default async function WorkersPage({
           canAssignHt={PM_ROLES.includes(ctx.role)}
           canSetTrades={PM_ROLES.includes(ctx.role)}
           tradeOptions={tradeOptions}
-          levelRates={levelRates}
+          // Money-audience guard: only the role that can confirm receives the firm
+          // standard (conditional SPREAD — `levelRates={undefined}` would violate
+          // exactOptionalPropertyTypes and still serialize a key).
+          {...(ctx.role === "super_admin" ? { levelRates } : {})}
         />
       </div>
     </PageShell>

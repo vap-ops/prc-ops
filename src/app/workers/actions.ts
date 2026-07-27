@@ -294,7 +294,7 @@ export async function confirmWorkerCost(input: {
   level: WorkerLevel;
 }): Promise<WorkerActionResult> {
   if (!UUID_REGEX.test(input.id) || !WORKER_LEVEL_ORDER.includes(input.level)) {
-    return { ok: false, error: GENERIC_ERROR };
+    return { ok: false, error: CONFIRM_COST_ERROR };
   }
 
   const supabase = await createServerSupabase();

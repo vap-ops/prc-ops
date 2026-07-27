@@ -69,8 +69,9 @@ const ALL = "all";
  */
 export type LevelRates = Record<WorkerLevel, number | null>;
 
-// Built off WORKER_LEVEL_ORDER so a new worker_level enum value cannot leave a
-// missing key behind (the roster's other level maps are exhaustive Records).
+// Seeded off WORKER_LEVEL_ORDER — a plain array, NOT exhaustiveness-pinned, so a
+// new worker_level enum value CAN leave a missing key behind the `as` cast. The
+// read site therefore coalesces `?? null` instead of trusting the key exists.
 const NO_LEVEL_RATES: LevelRates = Object.fromEntries(
   WORKER_LEVEL_ORDER.map((l) => [l, null]),
 ) as LevelRates;
@@ -584,8 +585,16 @@ function WorkerRow({
   // standard, and the RPC then COALESCES to the worker's existing day_rate — which
   // on an unrated ช่าง silently confirms ฿0, a row derive_muster_labor skips anyway
   // for `day_rate > 0`. So a missing standard blocks the confirm rather than
-  // stamping a confirmation that buys nothing.
-  const previewRate = pickedLevel === null ? null : levelRates[pickedLevel];
+  // stamping a confirmation that buys nothing. A standard of 0 blocks the same way
+  // (the RPC's stamp condition is `day_rate is not null`, not `> 0` — confirming 0
+  // would mint the exact ยืนยันแล้ว-but-skipped state this door exists to end), and
+  // `?? null` covers an enum value missing from the cast-built map.
+  const rawStandard = pickedLevel === null ? null : (levelRates[pickedLevel] ?? null);
+  const previewRate = rawStandard !== null && rawStandard > 0 ? rawStandard : null;
+  // derive_muster_labor derives only UNTIED workers, and monthly staff are paid
+  // off-app (their roster rate is forced 0 by design) — a confirm on either class
+  // would stamp a meaningless daily standard. The door is daily + ทีม PRC only.
+  const confirmable = worker.pay_type === "daily" && worker.contractor_id === null;
 
   // Instant action, not save-coupled (the promoteToHt pattern): this writes MONEY
   // and stamps cost_confirmed_at, so it is a deliberate press of its own rather
@@ -600,6 +609,11 @@ function WorkerRow({
       setError(result.error);
       return;
     }
+    // Re-assert the surface (fresh-eyes 🔴): the sheet stays open and its `rate`
+    // state predates the confirm — left stale, the next บันทึก would diff against
+    // the refreshed worker.day_rate and setWorkerDayRate the OLD value back,
+    // silently wiping the standard just stamped while ยืนยันแล้ว keeps rendering.
+    setRate(String(previewRate));
     router.refresh();
   }
 
@@ -932,9 +946,12 @@ function WorkerRow({
               own gate (offering it wider would be affordance-then-refuse). Until a
               worker is confirmed, derive_muster_labor produces no labor_logs for him
               at all — this button is the whole feed for the ADR-0060 engines. */}
-          {canGrade ? (
+          {canGrade && confirmable ? (
             <div className="mt-2">
-              {worker.cost_confirmed_at !== null ? (
+              {/* The stamp certifies the CONFIRMED level+rate pairing — once a
+                  different level is picked, the badge would vouch for a pairing
+                  the operator is replacing, so the preview takes over instead. */}
+              {worker.cost_confirmed_at !== null && pickedLevel === worker.level ? (
                 <p className="text-ink-secondary text-xs font-medium">ยืนยันแล้ว</p>
               ) : null}
               {pickedLevel !== null && previewRate === null ? (

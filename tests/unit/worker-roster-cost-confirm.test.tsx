@@ -14,17 +14,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const { mockConfirmCost, mockSetLevel, mockRefresh } = vi.hoisted(() => ({
+const { mockConfirmCost, mockSetLevel, mockSetRate, mockRefresh } = vi.hoisted(() => ({
   mockConfirmCost: vi.fn(),
   mockSetLevel: vi.fn(),
+  mockSetRate: vi.fn(),
   mockRefresh: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/workers/actions", () => ({
   createWorker: vi.fn(),
-  updateWorker: vi.fn(),
-  setWorkerDayRate: vi.fn(),
+  updateWorker: vi.fn().mockResolvedValue({ ok: true }),
+  setWorkerDayRate: mockSetRate,
   assignWorkerToProject: vi.fn(),
   setWorkerLevel: mockSetLevel,
   setWorkerTrades: vi.fn(),
@@ -92,6 +93,7 @@ function pickLevel(value: string) {
 beforeEach(() => {
   mockConfirmCost.mockReset().mockResolvedValue({ ok: true });
   mockSetLevel.mockReset().mockResolvedValue({ ok: true });
+  mockSetRate.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
 });
 
@@ -135,9 +137,82 @@ describe("spec 368 U1 — the cost-confirm door on /workers", () => {
 
     await waitFor(() => expect(mockConfirmCost).toHaveBeenCalledWith({ id: "w1", level: "mid" }));
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
-    // The confirm carries the level itself — it must NOT also fire setWorkerLevel,
-    // which would be a second write of the same value under a different audit kind.
-    expect(mockSetLevel).not.toHaveBeenCalled();
+  });
+
+  // Fresh-eyes 🔴: the sheet stays open after a confirm, so a stale `rate` state
+  // ("0" from before the confirm) fed the next บันทึก and setWorkerDayRate(0)
+  // silently WIPED the just-stamped standard while ยืนยันแล้ว kept rendering —
+  // the exact zero-rate-but-confirmed state the unit exists to prevent. The
+  // success continuation must re-assert the surface (doctrine, spec 363 lesson).
+  it("resyncs the rate input after a confirm so a following บันทึก cannot wipe it", async () => {
+    render(
+      <WorkerRosterManager
+        workers={[DAILY]}
+        contractors={[]}
+        projects={[P1]}
+        canGrade
+        levelRates={RATES}
+      />,
+    );
+    openEdit();
+    pickLevel("mid");
+    fireEvent.click(screen.getByRole("button", { name: CONFIRM }));
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+
+    expect(screen.getByLabelText(/ค่าแรงต่อวัน/)).toHaveValue("600");
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() => expect(mockSetRate).not.toHaveBeenCalledWith({ id: "w1", dayRate: 0 }));
+  });
+
+  // derive_muster_labor derives only untied daily workers, and monthly staff are
+  // paid off-app — a confirm on either would stamp a meaningless daily standard.
+  it("hides the confirm for monthly and firm-tied workers", () => {
+    const { unmount } = render(
+      <WorkerRosterManager
+        workers={[{ ...DAILY, pay_type: "monthly", employment_type: "permanent" }]}
+        contractors={[]}
+        projects={[P1]}
+        canGrade
+        levelRates={RATES}
+      />,
+    );
+    openEdit();
+    expect(screen.queryByRole("button", { name: CONFIRM })).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <WorkerRosterManager
+        workers={[{ ...DAILY, contractor_id: "c1" }]}
+        contractors={[{ id: "c1", name: "ทีมภายนอก", status: "active" }]}
+        projects={[P1]}
+        canGrade
+        levelRates={RATES}
+      />,
+    );
+    openEdit();
+    expect(screen.queryByRole("button", { name: CONFIRM })).not.toBeInTheDocument();
+  });
+
+  // A standard entered as 0 passes every null guard but confirm_worker_cost stamps
+  // it (its condition is `day_rate is not null`, not `> 0`) — producing ยืนยันแล้ว
+  // + a worker derive_muster_labor still skips. 0 must block like a missing rate.
+  it("blocks the confirm when the picked level's standard rate is 0", () => {
+    render(
+      <WorkerRosterManager
+        workers={[DAILY]}
+        contractors={[]}
+        projects={[P1]}
+        canGrade
+        levelRates={{ ...RATES, mid: 0 }}
+      />,
+    );
+    openEdit();
+    pickLevel("mid");
+    expect(screen.getByText(/ยังไม่ได้ตั้งค่าแรงมาตรฐาน/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: CONFIRM })).toBeDisabled();
+    // The PREVIEW copy specifically — the row's own "0 บาท/วัน" current-rate
+    // display legitimately renders for this ฿0 worker.
+    expect(screen.queryByText(/จะบันทึกค่าแรง/)).not.toBeInTheDocument();
   });
 
   it("stays disabled while the worker is ungraded and no level is picked", () => {
@@ -209,6 +284,25 @@ describe("spec 368 U1 — the cost-confirm door on /workers", () => {
     expect(screen.getByText("ยืนยันแล้ว")).toBeInTheDocument();
   });
 
+  // The stamp certifies the level+rate pairing that was confirmed. Once a
+  // DIFFERENT level is picked, the badge would assert a confirmation of a pairing
+  // the operator is about to replace — hide it and show the new preview instead.
+  it("drops the ยืนยันแล้ว badge while a different level is picked", () => {
+    render(
+      <WorkerRosterManager
+        workers={[{ ...DAILY, level: "mid", day_rate: 600, cost_confirmed_at: "2026-07-28" }]}
+        contractors={[]}
+        projects={[P1]}
+        canGrade
+        levelRates={RATES}
+      />,
+    );
+    openEdit();
+    pickLevel("senior");
+    expect(screen.queryByText("ยืนยันแล้ว")).not.toBeInTheDocument();
+    expect(screen.getByText(/650 บาท\/วัน/)).toBeInTheDocument();
+  });
+
   // /workers/page.tsx is a Server Component vitest cannot render, so the wiring is
   // pinned by source scan (comments stripped first — prose about a symbol must not
   // satisfy the pin). Without these, the page could silently stop passing
@@ -221,7 +315,11 @@ describe("spec 368 U1 — the cost-confirm door on /workers", () => {
     // ≥2 = the derivation (`const levelRates =`) PLUS the prop pass — a bare
     // toContain would stay green after the prop is dropped.
     expect(page.split("levelRates").length - 1).toBeGreaterThanOrEqual(2);
-    expect(page).toContain("levelRates={levelRates}");
+    // Fresh-eyes: the firm standard table is /settings/labor-rates money
+    // (procurement_manager+super) — this page's WIDER audience (PM/PD/procurement)
+    // must not receive it in the client payload, so the prop passes only for the
+    // one role that can use it. Pin the CONDITION, not just the pass.
+    expect(page).toContain('ctx.role === "super_admin" ? { levelRates } : {}');
     // The confirm-state column must ride the workers select, not a comment.
     expect(page).toContain("cost_confirmed_at,");
     // The preview derives via the shared helper — a second local formula would be
