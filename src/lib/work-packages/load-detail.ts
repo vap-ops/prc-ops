@@ -407,7 +407,6 @@ export async function loadWpStatusHistory(
     from_status: string | null;
     to_status: string | null;
     actor_id: string | null;
-    rework_round: number | null;
   }[]
 > {
   const { data, error } = await supabase.rpc("wp_status_history", {

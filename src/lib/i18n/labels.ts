@@ -571,6 +571,40 @@ export const STOCK_COUNT_NOT_UNDO_HINT = `การตรวจนับใช�
 export const ITEM_SELL_RATE_LABEL = "ราคาขาย";
 export const SET_ITEM_SELL_RATE_LABEL = "ตั้งราคาขาย";
 export const STORE_PNL_LABEL = "กำไร-ขาดทุนคลัง";
+// Spec 367 U1 — the equipment registry's own enum labels.
+//
+// These were LOCAL consts inside equipment-manager.tsx while their siblings
+// (EQUIPMENT_MOVEMENT_KIND_LABEL, EQUIPMENT_RATE_PERIOD_LABEL) already lived
+// here. The spec 367 §6 CSV importer maps a Thai column value BACK to an enum
+// value and cannot import from a component, so they move to the SSOT — the
+// ui-term-consistency rule: a term used in 2+ places is single-sourced.
+//
+// All three are Records over the GENERATED enums, so adding a Postgres enum
+// value and regenerating types reds the build rather than shipping a blank.
+export const EQUIPMENT_STATUS_LABEL: Record<Enums["equipment_status"], string> = {
+  available: "พร้อมใช้งาน",
+  on_site: "อยู่หน้างาน",
+  in_use: "กำลังใช้งาน",
+  maintenance: "ซ่อมบำรุง",
+  returned: "คืนแล้ว",
+  lost: "สูญหาย",
+  // Spec 367 §3: an asset sold to sister company PRI. Neither `available` (a lie
+  // the store would act on) nor `lost` (a lie the accounts would act on).
+  disposed: "จำหน่ายออก",
+};
+
+export const EQUIPMENT_CONDITION_LABEL: Record<Enums["equipment_condition"], string> = {
+  new: "ใหม่",
+  good: "ดี",
+  fair: "พอใช้",
+  needs_repair: "ต้องซ่อม",
+};
+
+export const EQUIPMENT_TRACKING_LABEL: Record<Enums["equipment_tracking"], string> = {
+  unit: "รายชิ้น (มีรหัส)",
+  bulk: "จำนวนมาก (นับจำนวน)",
+};
+
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";
 export const EQUIPMENT_SET_DAILY_RATE_LABEL = "ตั้งค่าเช่า/วัน";

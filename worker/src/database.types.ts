@@ -2359,15 +2359,21 @@ export type Database = {
           acquired_at: string | null
           acquisition_cost: number | null
           asset_tag: string | null
+          brand: string | null
           category_id: string
+          condition: Database["public"]["Enums"]["equipment_condition"] | null
           created_at: string
           created_by: string
           daily_rate: number | null
+          description: string | null
           id: string
+          image_path: string | null
+          model: string | null
           name: string
           owner_id: string
           quantity: number | null
           rental_agreement_id: string | null
+          serial_no: string | null
           status: Database["public"]["Enums"]["equipment_status"]
           supplier_id: string | null
           tracking: Database["public"]["Enums"]["equipment_tracking"]
@@ -2376,15 +2382,21 @@ export type Database = {
           acquired_at?: string | null
           acquisition_cost?: number | null
           asset_tag?: string | null
+          brand?: string | null
           category_id: string
+          condition?: Database["public"]["Enums"]["equipment_condition"] | null
           created_at?: string
           created_by: string
           daily_rate?: number | null
+          description?: string | null
           id?: string
+          image_path?: string | null
+          model?: string | null
           name: string
           owner_id: string
           quantity?: number | null
           rental_agreement_id?: string | null
+          serial_no?: string | null
           status?: Database["public"]["Enums"]["equipment_status"]
           supplier_id?: string | null
           tracking?: Database["public"]["Enums"]["equipment_tracking"]
@@ -2393,15 +2405,21 @@ export type Database = {
           acquired_at?: string | null
           acquisition_cost?: number | null
           asset_tag?: string | null
+          brand?: string | null
           category_id?: string
+          condition?: Database["public"]["Enums"]["equipment_condition"] | null
           created_at?: string
           created_by?: string
           daily_rate?: number | null
+          description?: string | null
           id?: string
+          image_path?: string | null
+          model?: string | null
           name?: string
           owner_id?: string
           quantity?: number | null
           rental_agreement_id?: string | null
+          serial_no?: string | null
           status?: Database["public"]["Enums"]["equipment_status"]
           supplier_id?: string | null
           tracking?: Database["public"]["Enums"]["equipment_tracking"]
@@ -11457,7 +11475,6 @@ export type Database = {
           actor_id: string
           at: string
           from_status: string
-          rework_round: number
           to_status: string
         }[]
       }
@@ -11592,6 +11609,7 @@ export type Database = {
       document_decision: "approve" | "reject" | "needs_revision"
       document_target_type: "contract"
       employment_type: "permanent" | "temporary"
+      equipment_condition: "new" | "good" | "fair" | "needs_repair"
       equipment_movement_kind:
         | "received"
         | "deployed"
@@ -11606,6 +11624,7 @@ export type Database = {
         | "maintenance"
         | "returned"
         | "lost"
+        | "disposed"
       equipment_tracking: "unit" | "bulk"
       feedback_author_kind: "reporter" | "operator" | "agent"
       feedback_status: "open" | "in_progress" | "done" | "declined"
@@ -12045,6 +12064,7 @@ export const Constants = {
       document_decision: ["approve", "reject", "needs_revision"],
       document_target_type: ["contract"],
       employment_type: ["permanent", "temporary"],
+      equipment_condition: ["new", "good", "fair", "needs_repair"],
       equipment_movement_kind: [
         "received",
         "deployed",
@@ -12060,6 +12080,7 @@ export const Constants = {
         "maintenance",
         "returned",
         "lost",
+        "disposed",
       ],
       equipment_tracking: ["unit", "bulk"],
       feedback_author_kind: ["reporter", "operator", "agent"],
