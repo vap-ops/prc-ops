@@ -1,9 +1,10 @@
 "use client";
 
-// Spec 330 U1+U5 — the per-project team map (ทีมงานโครงการ). Three tiers:
-// ผู้บริหารโครงการ → หน้างาน → ทีมช่าง, each a bordered container whose header
-// carries the tier's own action (เพิ่มสมาชิก / ตั้งทีมใหม่ — U5 un-buried it
-// from the add sheet, operator ask 2026-07-19) plus an ⓘ role explainer.
+// Spec 330 U1+U5 — the per-project team map (ทีมงานโครงการ). Two tiers:
+// สนับสนุน (merged ผู้บริหารโครงการ + หน้างาน) → ทีมช่าง, each a bordered
+// container whose header carries the tier's own action (เพิ่มสมาชิก /
+// ตั้งทีมใหม่ — U5 un-buried it from the add sheet, operator ask 2026-07-19)
+// plus an ⓘ role explainer.
 // Member lists collapse per card + a master toggle; counts stay visible
 // collapsed (operator requirement).
 // 'use client': collapse state, sheet state, and action relays live here.

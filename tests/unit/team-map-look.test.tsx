@@ -129,8 +129,13 @@ describe("team map — map-look (spec 330 U5)", () => {
     const supportTier = screen.getByRole("region", { name: "สนับสนุน" });
     await user.click(within(supportTier).getByRole("button", { name: /คำอธิบายบทบาท/ }));
     const sheet = screen.getByRole("dialog");
+    const firstManagementEntry = TEAM_MAP_ROLE_HELP.management[0];
     const firstSiteEntry = TEAM_MAP_ROLE_HELP.site[0];
+    expect(firstManagementEntry).toBeDefined();
     expect(firstSiteEntry).toBeDefined();
+    if (firstManagementEntry) {
+      expect(within(sheet).getByText(firstManagementEntry.description)).toBeInTheDocument();
+    }
     if (firstSiteEntry) {
       expect(within(sheet).getByText(firstSiteEntry.description)).toBeInTheDocument();
     }
