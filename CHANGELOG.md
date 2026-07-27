@@ -1,3 +1,10 @@
+# [0.245.0](https://github.com/vap-ops/prc-ops/compare/v0.244.0...v0.245.0) (2026-07-27)
+
+### Features
+
+- **equipment:** CSV export for the registry and the rental list (spec 367 U2) ([65a94ae](https://github.com/vap-ops/prc-ops/commit/65a94aea397a0cd30ef1efb4ba7ce2e056e80df7))
+- **equipment:** CSV import parser for the registry (spec 367 U3) ([934fdf9](https://github.com/vap-ops/prc-ops/commit/934fdf905e06b399ed84c932df82b881da6e110a))
+
 # [0.244.0](https://github.com/vap-ops/prc-ops/compare/v0.243.0...v0.244.0) (2026-07-27)
 
 ### Bug Fixes
