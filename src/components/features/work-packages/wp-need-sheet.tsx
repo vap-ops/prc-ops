@@ -166,6 +166,8 @@ export function WpNeedSheet({
                       categories={categories}
                       initialCatalogItemId={itemId}
                       embedded
+                      onDone={close}
+                      onCancel={() => setPath(null)}
                       {...(scopedRelation ? { scopedRelation } : {})}
                       {...(membershipsByItem ? { membershipsByItem } : {})}
                     />

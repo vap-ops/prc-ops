@@ -536,3 +536,62 @@ describe("WpIssueStock — embedded in the ต้องการของ sheet 
     expect(screen.getByText("ท่อ PVC")).toBeInTheDocument();
   });
 });
+
+// Spec 363 U4 — embedded, this component has no sheet of its own, so the two
+// controls that assumed one are dead: the success path called setOpen(false)
+// (blanking the form with NO confirmation — the SA cannot tell the เบิก happened
+// and can submit it again, and stock_issues is append-only so the undo is a
+// REVERSAL) and ยกเลิก called setOpen(false) too (tapping it did nothing).
+describe("WpIssueStock — embedded terminal states (spec 363 U4)", () => {
+  function renderEmbedded(onDone = vi.fn(), onCancel = vi.fn()) {
+    render(
+      <WpIssueStock
+        projectId="p1"
+        workPackageId="wp1"
+        onHand={onHand}
+        workers={workers}
+        categories={[]}
+        issues={[]}
+        embedded
+        initialCatalogItemId="ci1"
+        onDone={onDone}
+        onCancel={onCancel}
+      />,
+    );
+    return { onDone, onCancel };
+  }
+
+  it("states the outcome in place instead of silently blanking the form", async () => {
+    renderEmbedded();
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+    // A receipt naming what was withdrawn — not an empty form the SA re-submits.
+    await waitFor(() => expect(screen.getByText(/เบิกแล้ว/)).toBeInTheDocument());
+    expect(screen.getByText(/สายไฟ NYY/)).toBeInTheDocument();
+    expect(screen.getByText(/5 ม้วน/)).toBeInTheDocument();
+  });
+
+  it("does not leave the submit button live after a successful เบิก", async () => {
+    renderEmbedded();
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+    await waitFor(() => expect(screen.getByText(/เบิกแล้ว/)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "ยืนยันการเบิก" })).toBeNull();
+  });
+
+  it("tells the parent it is finished only when the SA dismisses the receipt", async () => {
+    const { onDone } = renderEmbedded();
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+    await waitFor(() => expect(screen.getByText(/เบิกแล้ว/)).toBeInTheDocument());
+    expect(onDone).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "เสร็จสิ้น" }));
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it("ยกเลิก calls back instead of doing nothing", () => {
+    const { onCancel } = renderEmbedded();
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    expect(onCancel).toHaveBeenCalled();
+  });
+});

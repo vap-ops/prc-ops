@@ -12,7 +12,7 @@ import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { ReturnToStoreControl } from "@/components/features/store/return-to-store-control";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, INLINE_ERROR } from "@/lib/ui/classes";
 import { STORE_ISSUE_LABEL, STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { scopeStockRows } from "@/lib/catalog/scoped-picker";
@@ -65,6 +65,8 @@ const EMPTY_MEMBERSHIPS: ReadonlyMap<string, Set<string>> = new Map();
 export function WpIssueStock({
   initialCatalogItemId,
   embedded = false,
+  onDone,
+  onCancel,
   projectId,
   workPackageId,
   onHand,
@@ -95,6 +97,12 @@ export function WpIssueStock({
    *  IS one — nesting would stack a third), and no recent-เบิก list (the ของ tab
    *  already lists them). */
   embedded?: boolean;
+  /** Spec 363 U4 — embedded, this component has NO sheet of its own, so the
+   *  parent owns dismissal. Called when the SA dismisses the success RECEIPT,
+   *  never on submit: closing on success would blank the surface with no
+   *  outcome stated, which is indistinguishable from a crash. */
+  onDone?: (() => void) | undefined;
+  onCancel?: (() => void) | undefined;
 }) {
   const router = useRouter();
 
@@ -106,6 +114,12 @@ export function WpIssueStock({
   ]);
   const [error, setError] = useState<string | null>(null);
   const [issuing, startIssue] = useTransition();
+  // Spec 363 U4 — what was just withdrawn, so the write states its own
+  // outcome. stock_issues is APPEND-ONLY: an unnoticed double-submit needs a
+  // REVERSAL, not a delete, so a silent success is expensive here.
+  const [receipt, setReceipt] = useState<{ item: string; qty: number; unit: string }[] | null>(
+    null,
+  );
 
   function updateRow(i: number, patch: Partial<DraftIssueRow>) {
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -156,6 +170,18 @@ export function WpIssueStock({
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+      if (embedded) {
+        setReceipt(
+          completeRows.map((r) => {
+            const oh = onHandOf(r.item);
+            return {
+              item: oh ? oh.baseItem + (oh.specAttrs ? " " + oh.specAttrs : "") : "",
+              qty: Number(r.qty),
+              unit: oh?.unit ?? "",
+            };
+          }),
+        );
       }
       reset();
       setOpen(false);
@@ -329,7 +355,11 @@ export function WpIssueStock({
       ) : null}
 
       <div className="flex items-center justify-end gap-2">
-        <button type="button" onClick={() => setOpen(false)} className={BUTTON_SECONDARY}>
+        <button
+          type="button"
+          onClick={() => (embedded ? onCancel?.() : setOpen(false))}
+          className={BUTTON_SECONDARY}
+        >
           ยกเลิก
         </button>
         <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
@@ -339,7 +369,29 @@ export function WpIssueStock({
     </form>
   );
 
-  if (embedded) return issueForm;
+  if (embedded) {
+    // The receipt REPLACES the form: leaving the submit live invites the
+    // double-เบิก that append-only storage makes expensive to undo.
+    return receipt ? (
+      <div className="flex flex-col gap-3">
+        <div className={CARD}>
+          <p className="text-ink text-body font-semibold">เบิกแล้ว</p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {receipt.map((r, i) => (
+              <li key={i} className="text-ink-secondary text-body">
+                {r.item} · {r.qty} {r.unit}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button type="button" onClick={() => onDone?.()} className={BUTTON_PRIMARY}>
+          เสร็จสิ้น
+        </button>
+      </div>
+    ) : (
+      issueForm
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
