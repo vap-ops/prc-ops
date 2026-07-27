@@ -7,6 +7,9 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
+import { withBackFrom } from "@/lib/nav/back-href";
+import { groupWpThings } from "@/lib/work-packages/things";
+import { WpThingsView } from "@/components/features/work-packages/wp-things-view";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
@@ -794,6 +797,46 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // 2026-06-26: withdrawals are made on the WP page, not buried in คำขอซื้อ). Placed
   // right after คำขอซื้อ (purchase → withdraw flow). issue_stock's gate excludes
   // procurement, so the tab only appears for site staff (!readOnly).
+  // Spec 363 U4 slice 2 — the `ของ` tab: ONE state-grouped list answering "where
+  // is my stuff?" across requests and withdrawals. ADDITIVE for now — คำขอซื้อ /
+  // เบิกของ / ค่าใช้จ่ายหน้างาน stay until the merge PR re-homes their per-issue
+  // affordances (ยืนยันรับแทน · แก้รายการที่บันทึกผิด · คืนเข้าคลัง).
+  {
+    const thingGroups = groupWpThings({
+      requests: (wpRequests ?? []).map((r) => ({
+        id: r.id,
+        prNumber: r.pr_number,
+        itemDescription: r.item_description,
+        quantity: Number(r.quantity),
+        unit: r.unit,
+        status: r.status as PurchaseRequestStatus,
+        requestedAt: r.requested_at,
+      })),
+      issues: (issueRows ?? []).map((r) => ({
+        id: r.id,
+        baseItem: r.catalog_items?.base_item ?? "",
+        specAttrs: r.catalog_items?.spec_attrs ?? null,
+        unit: r.unit,
+        qty: Number(r.qty),
+        returnedQty: returnedByIssue.get(r.id) ?? 0,
+        issuedAt: r.issued_at,
+      })),
+    });
+    const purchasesIdx0 = tabs.findIndex((t) => t.key === "purchases");
+    tabs.splice(purchasesIdx0 >= 0 ? purchasesIdx0 : tabs.length, 0, {
+      key: "things",
+      label: "ของ",
+      panel: (
+        <WpThingsView
+          groups={thingGroups}
+          requestHref={(id) =>
+            withBackFrom(`/requests/${id}`, workPackageHref(projectId, workPackageId))
+          }
+        />
+      ),
+    });
+  }
+
   if (!readOnly) {
     const purchasesIdx = tabs.findIndex((t) => t.key === "purchases");
     tabs.splice(purchasesIdx + 1, 0, {
