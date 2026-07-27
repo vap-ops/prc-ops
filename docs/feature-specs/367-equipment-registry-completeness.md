@@ -1,6 +1,6 @@
 # Spec 367 — Equipment registry completeness + bulk import/export
 
-**Status:** spec written 2026-07-27, awaiting unit execution.
+**Status:** spec written 2026-07-27. **U0 ✅ shipped.** ▶ U1 (schema).
 **Origin:** operator directive 2026-07-27, three asks in one message:
 
 > 1. Figure out the difference in data fields, check what are missing (images are missing for sure, what else)
@@ -36,22 +36,22 @@ lands in U0.
 
 ### 1.2 Fill rate — what is actually populated
 
-| Column                | Fill (of 64) | Note                                                                                                                               |
-| --------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                | 64           | brand + model + serial are **crammed into this free text** — e.g. `เครื่องทดสอบรอยรั่ว  ยี่ห้อ ASADA TEST PUMP TP50E`              |
-| `category_id`         | 64           | 9 categories; **4 items sit under `งานวัสดุพื้นฐานโครงสร้าง`**, a _material_ work-category that leaked into the equipment taxonomy |
-| `owner_id`            | 64           | `equipment_owners` = **1 row**, `Prestion Construction Co., Ltd.`                                                                  |
-| `supplier_id`         | 64           | **all 64 point at PRC itself** — a second owner axis, misused                                                                      |
-| `status`              | 64           | enum `available, on_site, in_use, maintenance, returned, lost`                                                                     |
-| `tracking`            | 64           | enum `unit, bulk`                                                                                                                  |
-| `asset_tag`           | **5**        |                                                                                                                                    |
-| `quantity`            | **9**        |                                                                                                                                    |
-| `acquisition_cost`    | **0**        |                                                                                                                                    |
-| `acquired_at`         | **0**        |                                                                                                                                    |
-| `daily_rate`          | **0**        |                                                                                                                                    |
-| `rental_agreement_id` | **0**        | DEAD column — 0 rows, 0 callers, pinned by `268-equipment-rental-rate-period.test.sql` (do not drop)                               |
+| Column                | Fill (of 64) | Note                                                                                                                  |
+| --------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `name`                | 64           | brand + model + serial are **crammed into this free text** — e.g. `เครื่องทดสอบรอยรั่ว  ยี่ห้อ ASADA TEST PUMP TP50E` |
+| `category_id`         | 64           | 9 categories; **4 items sat under `งานวัสดุพื้นฐานโครงสร้าง`** — see §1.4, fixed in U0                                |
+| `owner_id`            | 64           | `equipment_owners` = **1 row**, `Prestion Construction Co., Ltd.`                                                     |
+| `supplier_id`         | 64           | **all 64 point at PRC itself** — a second owner axis, misused                                                         |
+| `status`              | 64           | enum `available, on_site, in_use, maintenance, returned, lost`                                                        |
+| `tracking`            | 64           | enum `unit, bulk`                                                                                                     |
+| `asset_tag`           | **5**        |                                                                                                                       |
+| `quantity`            | **9**        |                                                                                                                       |
+| `acquisition_cost`    | **0**        |                                                                                                                       |
+| `acquired_at`         | **0**        |                                                                                                                       |
+| `daily_rate`          | **0**        |                                                                                                                       |
+| `rental_agreement_id` | **0**        | DEAD column — 0 rows, 0 callers, pinned by `268-equipment-rental-rate-period.test.sql` (do not drop)                  |
 
-Category spread: เครื่องมือช่างทั่วไป 44 · เครื่องวัด 8 · งานวัสดุพื้นฐานโครงสร้าง 4 ·
+Category spread (post-U0): เครื่องมือช่างทั่วไป 44 · เครื่องวัด 8 · เครื่องจักรก่อสร้าง 4 ·
 เครื่องมือเจาะ 4 · เครื่องสูบน้ำและอุปกรณ์ระบายน้ำ 2 · เครื่องเทส 1 · Safety 1.
 
 ### 1.3 Fields that do not exist at all
@@ -67,7 +67,37 @@ Category spread: เครื่องมือช่างทั่วไป 44
 | **home location**              | location is derived from movements only; there is no default/home field, and no store entity for equipment (the store `/projects/[id]/store` is _material_ stock — `catalog_items`, a different taxonomy) |
 | **PM / warranty**              | no next-service date. **Out of scope** — recorded, not built                                                                                                                                              |
 
-### 1.4 Rental list gaps
+### 1.4 The `งานวัสดุพื้นฐานโครงสร้าง` category — CORRECTED, then fixed (U0, 2026-07-27)
+
+The spec first claimed this was "a _material_ work-category that leaked into the
+equipment taxonomy". **That was wrong** and was corrected before U0 acted on it:
+`ilike '%วัสดุพื้นฐาน%'` returns **zero rows** in both `work_categories` and
+`catalog_categories`. Nothing leaked — the name was typed straight into
+`equipment_categories`.
+
+Its 4 members are all engine-powered construction plant:
+เครื่องขัดมันพื้นปูน MARTON 6.5 แรงม้า · เครื่องดัดเหล็กเส้น Rebar Bender XYLON ·
+เครื่องตบดิน MARTON · โม่ผสมปูนฉาก.
+
+**Operator ruling 2026-07-27: they are equipment** (option "First" of §10 Q2). So
+the fix is not to move 4 items into a foreign category — it is to rename the
+container that already groups them correctly but describes them wrongly:
+
+```
+งานวัสดุพื้นฐานโครงสร้าง → เครื่องจักรก่อสร้าง
+```
+
+Applied as a data op, `equipment_categories.id = ac49d5cf-06f7-4e43-963d-58d36763f429`.
+**Rollback value: `งานวัสดุพื้นฐานโครงสร้าง`.** Verified after: all 4 items still
+attached, all other category counts unchanged (44 · 8 · 4 · 4 · 2 · 1 · 1 · 0 · 0).
+
+ⓘ No migration — `equipment_categories.name` is operator-owned data with a
+column-scoped UPDATE grant and a rename UI already shipped (spec 361 U6). Nothing
+in the codebase keys on this name, so no test pins it (and per
+[[prc-ops-db-migration-lessons]], asserting equality on a value a human may edit
+is exactly the pgTAP anti-pattern that ejects other lanes from the merge queue).
+
+### 1.5 Rental list gaps
 
 `equipment_rental_batches`: `owner_id · supplier_id · monthly_rate · rate_period
 (monthly|daily) · starts_on · ends_on · min_rental_days · deposit_amount ·
@@ -194,6 +224,57 @@ PRI-transfer spec, not this one.
 
 ---
 
+### 4.2 ⚠️ `equipment_items` is COLUMN-GRANTED — the new columns need explicit grants
+
+Found at U1 gate-check, **not** in the original draft of this spec. Live
+`information_schema.column_privileges` for `authenticated`:
+
+| Privilege | Columns granted                                                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| SELECT    | `asset_tag, category_id, created_at, created_by, id, name, owner_id, quantity, rental_agreement_id, status, supplier_id, tracking` |
+| INSERT    | same, minus `created_at`                                                                                                           |
+| UPDATE    | `asset_tag, category_id, name, owner_id, quantity, rental_agreement_id, status, supplier_id, tracking`                             |
+
+**`acquisition_cost`, `acquired_at` and `daily_rate` are deliberately absent** —
+ADR 0055 decision 6 (money is zero-authenticated-grant, read only through the admin
+client after the `canManageRegistry` gate). That wall is real and must not be
+widened.
+
+But it means a new column is **invisible to the RLS client until granted**. Adding
+one to the page's `select(...)` without a grant does not yield null — PostgREST
+refuses the read outright (the `worker_level_rates` precedent,
+[[spec361-master-data-hub]]). So U1 must grant `select, insert, update` on the six
+new columns to `authenticated`: they are **not** money and take non-money parity.
+
+RLS itself needs **no change** — the table's three policies already carry the right
+audiences and are already `(select current_user_role())`-wrapped: SELECT admits
+`site_admin` + the five back-office roles, INSERT/UPDATE admit the five back-office
+roles only (matching `canManageRegistry`). pgTAP pins the grants in both
+directions: the six readable by `authenticated`, the three money columns still
+refused.
+
+### 4.3 The `equipment-images` bucket mirrors STRUCTURE, not `catalog-images`' role list
+
+`catalog-images` has exactly **one** policy — bucket-scoped `INSERT` for
+`authenticated` — and **no SELECT policy at all**; reads go through server-minted
+signed URLs (`src/lib/storage/signed-urls.ts`). U1 mirrors that shape.
+
+⚠️ It does **not** mirror the role list. `catalog-images`' INSERT names four roles
+(`project_manager, super_admin, procurement, project_director`) and **omits
+`procurement_manager`**, who _can_ create equipment items (the `equipment_items`
+INSERT policy admits five). Copying the four verbatim would ship
+affordance-then-refuse: she creates the item, then the upload 42501s — the exact
+middle-layer mismatch the doctrine's three-layer rule names. The equipment bucket
+therefore takes the **`equipment_items` INSERT role set**, and a pgTAP case pins
+that the two agree. (Also: `catalog-images`' predicate calls `current_user_role()`
+unwrapped, so it re-evaluates per row — the new policy wraps it.)
+
+ⓘ Recorded, not fixed here: `catalog-images` itself is missing
+`procurement_manager` — the same latent bug on the _materials_ side. Out of scope;
+logged in §10 rather than silently widened.
+
+---
+
 ## 5. Export (U2)
 
 Two exports, both reusing the house idiom from
@@ -285,14 +366,14 @@ single-item control only. Recorded so the gap is visible rather than assumed don
 
 ## 8. Units
 
-| Unit   | Scope                                                                                                                                                                                                                                                    | Schema?                 |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| **U0** | Fix the stale `ทะเบียนอุปกรณ์เช่า` hint in `settings/sections.ts`; re-file the 4 items sitting under the material category                                                                                                                               | code + 1 data op        |
-| **U1** | Schema: 6 columns, `equipment_condition` enum, `equipment_status += disposed`, `equipment-images` bucket + storage policy; **plus the §4.1 label-SSOT promotion** and the two named guard updates (`65-equipment-registry.test.sql:33`, `STATUS_LABELS`) | ✅ mig `20260813075860` |
-| **U2** | Both exports (pure row→CSV modules + `<a download>` route handlers, money re-gate)                                                                                                                                                                       | —                       |
-| **U3** | Equipment importer (parse module + preview sheet + commit action)                                                                                                                                                                                        | —                       |
-| **U4** | Rental importer                                                                                                                                                                                                                                          | —                       |
-| **U5** | Per-item image control                                                                                                                                                                                                                                   | —                       |
+| Unit      | Scope                                                                                                                                                                                                                                                    | Schema?                 |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **U0** ✅ | Fix the stale `ทะเบียนอุปกรณ์เช่า` hint in `settings/sections.ts` (pinned both directions); rename `งานวัสดุพื้นฐานโครงสร้าง` → `เครื่องจักรก่อสร้าง` per §1.4                                                                                           | code + 1 data op        |
+| **U1**    | Schema: 6 columns, `equipment_condition` enum, `equipment_status += disposed`, `equipment-images` bucket + storage policy; **plus the §4.1 label-SSOT promotion** and the two named guard updates (`65-equipment-registry.test.sql:33`, `STATUS_LABELS`) | ✅ mig `20260813075860` |
+| **U2**    | Both exports (pure row→CSV modules + `<a download>` route handlers, money re-gate)                                                                                                                                                                       | —                       |
+| **U3**    | Equipment importer (parse module + preview sheet + commit action)                                                                                                                                                                                        | —                       |
+| **U4**    | Rental importer                                                                                                                                                                                                                                          | —                       |
+| **U5**    | Per-item image control                                                                                                                                                                                                                                   | —                       |
 
 U0 and U2 are independently shippable and unblock the operator immediately
 (export the list → start filling it offline). U1 must land before U2 can export the
@@ -322,14 +403,19 @@ new columns, so the real order is **U0 → U1 → U2 → U3 → U4 → U5**.
    `รับเข้าคลัง` movement (honest, needs a bulk action) or whether the label simply
    defaults (free, but asserts a location nobody verified). **Blocks nothing in
    U0–U5**, but it is the operator's actual first question and is still open.
-2. **Do the 4 items under `งานวัสดุพื้นฐานโครงสร้าง` belong in equipment at all**, or
+2. ~~**Do the 4 items under `งานวัสดุพื้นฐานโครงสร้าง` belong in equipment at all?**~~ **ANSWERED 2026-07-27: they are equipment.** Fixed in U0 by renaming the category (§1.4). Superseded text:
    are they materials that should live in `catalog_items`? U0 assumes re-file
    within equipment; if they are materials, they need deleting instead.
-3. **Does PRI already exist as a row** — as an `equipment_owners` entry, a
+3. ~~**Does PRI already exist as a row?**~~ **ANSWERED 2026-07-27: not yet — PRI has no record of any kind.** The transfer spec must create it, and must decide which axis it lands on, because `owner_id` and `supplier_id` both point at PRC today. Superseded text: **Does PRI already exist as a row** — as an `equipment_owners` entry, a
    `supplier`, or neither? The transfer spec needs one clear counterparty record,
    and today `owner_id` and `supplier_id` **both** point at PRC (§1.2), which is the
    modelling smell the transfer will force a decision on.
-4. **Spec 361 U1 scope** — confirm the §2.1 narrowing (external rentals only)
+4. **`catalog-images` is missing `procurement_manager`** (§4.3) — she can curate the
+   materials catalog but the bucket's INSERT policy names only four roles, so an
+   image upload from her would 42501. Found while mirroring the policy for
+   equipment; **not** fixed here (materials side, out of this spec's scope). Worth
+   its own one-line unit — confirm before someone hits it.
+5. **Spec 361 U1 scope** — confirm the §2.1 narrowing (external rentals only)
    before that unit is built, so the two item sources are designed together.
 
 ---
