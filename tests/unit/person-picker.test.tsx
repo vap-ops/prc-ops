@@ -6,7 +6,8 @@
 // ScopedCatalogItemPicker — search + names, no thumbnails and no filter chips,
 // because a person has neither a picture nor a category on this surface.
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { PersonPicker } from "@/components/features/common/person-picker";
@@ -17,39 +18,71 @@ const people = [
   { id: "w3", name: "จรูญ โสภา" },
 ];
 
-function renderPicker(opts: { selectedId?: string; onChange?: (id: string) => void } = {}) {
+function renderPicker(
+  opts: {
+    selectedId?: string;
+    onChange?: (id: string) => void;
+    people?: { id: string; name: string }[];
+    disabled?: boolean;
+  } = {},
+) {
   const onChange = opts.onChange ?? vi.fn();
   render(
     <PersonPicker
       label="ผู้รับ (ถ้ามี)"
-      people={people}
+      people={opts.people ?? people}
       selectedId={opts.selectedId ?? ""}
       onChange={onChange}
-      triggerLabel="เลือกผู้รับ"
+      disabled={opts.disabled ?? false}
+      restingLabel="ไม่ระบุ"
       clearLabel="ไม่ระบุ"
       searchPlaceholder="ค้นหาชื่อ"
       sheetTitle="เลือกผู้รับ"
+      emptyRosterLabel="ยังไม่มีช่างในโครงการนี้"
     />,
   );
   return { onChange };
 }
 
+// The trigger's accessible name is "<field label> <trigger text>" via
+// aria-labelledby, so N receiver rows are distinguishable to a screen reader.
+const TRIGGER = /ผู้รับ \(ถ้ามี\).*ไม่ระบุ/;
+const CHANGE = /ผู้รับ \(ถ้ามี\).*เปลี่ยน/;
+
 function openSheet() {
-  fireEvent.click(screen.getByRole("button", { name: "เลือกผู้รับ" }));
+  fireEvent.click(screen.getByRole("button", { name: TRIGGER }));
   return screen.getByRole("dialog");
 }
 
 describe("PersonPicker (spec 363 U4 slice 1b)", () => {
-  it("renders a trigger, not a native select", () => {
+  it("renders a trigger, not a native select — with the sheet open too", () => {
     renderPicker();
-    expect(screen.getByRole("button", { name: "เลือกผู้รับ" })).toBeInTheDocument();
-    // The whole point of the unit: no OS wheel on this field.
+    expect(screen.getByRole("button", { name: TRIGGER })).toBeInTheDocument();
+    expect(document.querySelector("select")).toBeNull();
+    // The list lives in the SHEET, so a closed-sheet assertion could only ever
+    // catch a select in the trigger row. Re-assert where a select would be.
+    const sheet = openSheet();
+    expect(within(sheet).getByPlaceholderText("ค้นหาชื่อ")).toBeInTheDocument();
+    expect(sheet.querySelector("select")).toBeNull();
     expect(document.querySelector("select")).toBeNull();
   });
 
-  it("shows the field label so the row still reads as a form field", () => {
+  it("associates the field label with the control for screen readers", () => {
     renderPicker();
-    expect(screen.getByText("ผู้รับ (ถ้ามี)")).toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: TRIGGER });
+    const ids = (trigger.getAttribute("aria-labelledby") ?? "").split(" ").filter(Boolean);
+    expect(ids).toHaveLength(2);
+    const labelEl = document.getElementById(ids[0]!);
+    expect(labelEl).not.toBeNull();
+    expect(labelEl).toHaveTextContent("ผู้รับ (ถ้ามี)");
+    expect(document.getElementById(ids[1]!)).toBe(trigger);
+  });
+
+  it("rests on the current answer, not a command", () => {
+    renderPicker();
+    // The old <select> displayed "ไม่ระบุ" at rest. An optional field that rests
+    // on an imperative reads as an unfilled required one.
+    expect(screen.getByRole("button", { name: TRIGGER })).toHaveTextContent("ไม่ระบุ");
   });
 
   it("opens a sheet with a search box and every person listed", () => {
@@ -83,13 +116,13 @@ describe("PersonPicker (spec 363 U4 slice 1b)", () => {
   it("shows the selected person with a เปลี่ยน control instead of the trigger", () => {
     renderPicker({ selectedId: "w2" });
     expect(screen.getByText("นางสาว สายฝน เข็มวงศ์")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "เปลี่ยน" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "เลือกผู้รับ" })).toBeNull();
+    expect(screen.getByRole("button", { name: CHANGE })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: TRIGGER })).toBeNull();
   });
 
   it("offers a clear row that reports the empty selection", () => {
     const { onChange } = renderPicker({ selectedId: "w1" });
-    fireEvent.click(screen.getByRole("button", { name: "เปลี่ยน" }));
+    fireEvent.click(screen.getByRole("button", { name: CHANGE }));
     // เปลี่ยน must NOT clear on the way in — backing out of the sheet has to
     // leave a correct answer standing. Without this line the assertion below is
     // vacuous: a เปลี่ยน that cleared would satisfy it without the row existing.
@@ -101,7 +134,7 @@ describe("PersonPicker (spec 363 U4 slice 1b)", () => {
 
   it("keeps the clear row reachable even when the query matches nobody", () => {
     const { onChange } = renderPicker({ selectedId: "w1" });
-    fireEvent.click(screen.getByRole("button", { name: "เปลี่ยน" }));
+    fireEvent.click(screen.getByRole("button", { name: CHANGE }));
     const sheet = screen.getByRole("dialog");
     fireEvent.change(within(sheet).getByPlaceholderText("ค้นหาชื่อ"), {
       target: { value: "zzz" },
@@ -131,6 +164,53 @@ describe("PersonPicker (spec 363 U4 slice 1b)", () => {
     expect(within(sheet).getByText(/ไม่พบ/)).toBeInTheDocument();
   });
 
+  it("blames the roster, not the query, when there is nobody to pick", () => {
+    renderPicker({ people: [] });
+    const sheet = openSheet();
+    expect(within(sheet).getByText("ยังไม่มีช่างในโครงการนี้")).toBeInTheDocument();
+    expect(within(sheet).queryByText(/ไม่พบชื่อที่ค้นหา/)).toBeNull();
+  });
+
+  it("focuses the search on open so picking a person costs one tap, like วัสดุ", async () => {
+    renderPicker();
+    const sheet = openSheet();
+    const search = within(sheet).getByPlaceholderText("ค้นหาชื่อ");
+    // rAF, mirroring the material picker — flush it.
+    await act(async () => {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    });
+    expect(search).toHaveFocus();
+  });
+
+  it("returns focus to the field on close so Tab resumes mid-form", () => {
+    // Stateful wrapper: the real parent feeds selectedId back, so picking swaps
+    // the trigger for เปลี่ยน. A mock-onChange fixture would never swap branches
+    // and would quietly test the wrong element.
+    function Harness() {
+      const [id, setId] = useState("");
+      return (
+        <PersonPicker
+          label="ผู้รับ (ถ้ามี)"
+          people={people}
+          selectedId={id}
+          onChange={setId}
+          restingLabel="ไม่ระบุ"
+          clearLabel="ไม่ระบุ"
+          searchPlaceholder="ค้นหาชื่อ"
+          sheetTitle="เลือกผู้รับ"
+          emptyRosterLabel="ยังไม่มีช่างในโครงการนี้"
+        />
+      );
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: TRIGGER }));
+    const sheet = screen.getByRole("dialog");
+    fireEvent.click(within(sheet).getByRole("button", { name: /จรูญ/ }));
+    // Picking closes the sheet AND swaps the branch; focus must land on the new
+    // control, not on <body>.
+    expect(screen.getByRole("button", { name: CHANGE })).toHaveFocus();
+  });
+
   it("reopens on a clean query so a stale filter never hides the list", () => {
     renderPicker();
     const sheet = openSheet();
@@ -143,20 +223,62 @@ describe("PersonPicker (spec 363 U4 slice 1b)", () => {
     expect(within(reopened).getAllByRole("button", { name: /มาลา|เข็มวงศ์|โสภา/ })).toHaveLength(3);
   });
 
-  it("is inert while the parent form is submitting", () => {
-    render(
+  it("keeps a selection the roster no longer contains visible instead of reading as empty", () => {
+    // The parent still holds the id and still submits it, so falling through to
+    // the unselected branch would show "ไม่ระบุ" while the payload named someone.
+    renderPicker({ selectedId: "ghost" });
+    expect(screen.getByText(/ไม่อยู่ในรายชื่อแล้ว/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: TRIGGER })).toBeNull();
+    expect(screen.getByRole("button", { name: CHANGE })).toBeInTheDocument();
+  });
+
+  it("is inert while the parent form is submitting — in both branches", () => {
+    const { unmount } = render(<div />);
+    unmount();
+    renderPicker({ disabled: true });
+    const trigger = screen.getByRole("button", { name: TRIGGER });
+    expect(trigger).toBeDisabled();
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("disables the เปลี่ยน control too, not just the empty-state trigger", () => {
+    renderPicker({ selectedId: "w1", disabled: true });
+    expect(screen.getByRole("button", { name: CHANGE })).toBeDisabled();
+  });
+
+  it("keeps an already-open sheet inert if the form starts submitting", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
       <PersonPicker
         label="ผู้รับ (ถ้ามี)"
         people={people}
         selectedId=""
-        onChange={vi.fn()}
-        disabled
-        triggerLabel="เลือกผู้รับ"
+        onChange={onChange}
+        restingLabel="ไม่ระบุ"
         clearLabel="ไม่ระบุ"
         searchPlaceholder="ค้นหาชื่อ"
         sheetTitle="เลือกผู้รับ"
+        emptyRosterLabel="ยังไม่มีช่างในโครงการนี้"
       />,
     );
-    expect(screen.getByRole("button", { name: "เลือกผู้รับ" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: TRIGGER }));
+    rerender(
+      <PersonPicker
+        label="ผู้รับ (ถ้ามี)"
+        people={people}
+        selectedId=""
+        onChange={onChange}
+        disabled
+        restingLabel="ไม่ระบุ"
+        clearLabel="ไม่ระบุ"
+        searchPlaceholder="ค้นหาชื่อ"
+        sheetTitle="เลือกผู้รับ"
+        emptyRosterLabel="ยังไม่มีช่างในโครงการนี้"
+      />,
+    );
+    const sheet = screen.getByRole("dialog");
+    fireEvent.click(within(sheet).getByRole("button", { name: /จรูญ/ }));
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

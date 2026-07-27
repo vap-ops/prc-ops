@@ -352,10 +352,11 @@ export function WpIssueStock({
                     selectedId={r.receiver}
                     onChange={(id) => updateRow(i, { receiver: id })}
                     disabled={issuing}
-                    triggerLabel="เลือกผู้รับ"
+                    restingLabel="ไม่ระบุ"
                     clearLabel="ไม่ระบุ"
                     searchPlaceholder="ค้นหาชื่อ"
                     sheetTitle="เลือกผู้รับ"
+                    emptyRosterLabel="ยังไม่มีช่างในโครงการนี้"
                   />
 
                   <div className="flex flex-col gap-1.5">

@@ -85,9 +85,15 @@ function pickItem(_rowIndex: number, itemText: string | RegExp) {
 
 // Spec 363 U4 slice 1b — the ผู้รับ <select> became a PersonPicker, so choosing a
 // receiver now means opening its sheet and clicking the name. Mirrors pickItem.
-function pickReceiver(nameText: string | RegExp) {
-  const [trigger] = screen.getAllByRole("button", { name: "เลือกผู้รับ" });
-  fireEvent.click(trigger!);
+// The เบิก grid is multi-row (spec 208 U3), so this takes the row index rather
+// than always driving row 0. The picker's accessible name is
+// "<field label> <trigger text>" (aria-labelledby), hence the regex.
+const RECEIVER_TRIGGER = /ผู้รับ \(ถ้ามี\).*ไม่ระบุ/;
+function pickReceiver(rowIndex: number, nameText: string | RegExp) {
+  const triggers = screen.getAllByRole("button", { name: RECEIVER_TRIGGER });
+  const trigger = triggers[rowIndex];
+  if (!trigger) throw new Error(`no receiver trigger for row ${rowIndex}`);
+  fireEvent.click(trigger);
   const match = typeof nameText === "string" ? new RegExp(nameText) : nameText;
   const sheets = screen.getAllByRole("dialog");
   const sheet = sheets[sheets.length - 1]!;
@@ -232,7 +238,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
-    pickReceiver("สมชาย");
+    pickReceiver(0, "สมชาย");
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
 
     await waitFor(() =>
@@ -255,7 +261,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
     // Guard: the sheet really is open, so an empty select query means GONE.
     expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "เลือกวัสดุจากคลัง" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "เลือกผู้รับ" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: RECEIVER_TRIGGER })).toBeInTheDocument();
     expect(document.querySelectorAll("select")).toHaveLength(0);
   });
 
@@ -264,12 +270,11 @@ describe("WpIssueStock (spec 177 U5)", () => {
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
-    pickReceiver("สมชาย");
+    pickReceiver(0, "สมชาย");
     // Both fields are pickers now, so a filled row shows TWO เปลี่ยน controls.
     // วัสดุ renders above ผู้รับ, so the receiver's is the last one.
-    const changes = screen.getAllByRole("button", { name: "เปลี่ยน" });
-    expect(changes).toHaveLength(2);
-    fireEvent.click(changes[changes.length - 1]!);
+    const change = screen.getByRole("button", { name: /ผู้รับ \(ถ้ามี\).*เปลี่ยน/ });
+    fireEvent.click(change);
     const sheets = screen.getAllByRole("dialog");
     fireEvent.click(within(sheets[sheets.length - 1]!).getByRole("button", { name: "ไม่ระบุ" }));
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
