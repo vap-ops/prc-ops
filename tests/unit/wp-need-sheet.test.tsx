@@ -227,3 +227,29 @@ describe("WpNeedSheet — the เบิก path is embedded, not nested", () => 
     expect(screen.getByTestId("form-issue")).toHaveAttribute("data-embedded", "yes");
   });
 });
+
+describe("WpNeedSheet — dismissal is deliberate once a path is entered", () => {
+  it("ignores a scrim/X dismissal after a path has been chosen", () => {
+    // SelfPurchaseForm's post-record state is the ONLY surface rendering its
+    // evidence uploaders. A stray scrim tap there records an expense and leaves
+    // it permanently ยังไม่สมบูรณ์ unless the SA hunts it down in /requests.
+    renderSheet();
+    open();
+    const sheet = pick(/ปูนซีเมนต์/);
+    fireEvent.click(within(sheet).getByRole("button", { name: /ซื้อมาเองแล้ว/ }));
+    expect(screen.getByTestId("form-self")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    // Still open, still on the chosen path — nothing silently discarded.
+    expect(screen.getByTestId("form-self")).toBeInTheDocument();
+  });
+
+  it("still closes freely BEFORE a path is chosen", () => {
+    // Backing out of the item choice must stay cheap.
+    renderSheet();
+    open();
+    pick(/ปูนซีเมนต์/);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});

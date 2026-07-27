@@ -9,7 +9,7 @@
 // the required receipt evidence). The ask-procurement PR (สร้างคำขอซื้อ) stays a
 // separate affordance — see the split in spec 285 U3.
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordSitePurchase } from "@/app/requests/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
@@ -48,6 +48,13 @@ export function SelfPurchaseForm({
   categories: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  // Spec 363 U4 — field ids are MINTED per instance. The ต้องการของ sheet renders
+  // this form as a second copy while the tab still holds the first, and
+  // wp-detail-tabs keeps every panel MOUNTED (hidden, not unmounted). Hardcoded
+  // ids would collide, and htmlFor resolves to the FIRST match in document
+  // order — so tapping a label in the sheet would focus an invisible control in
+  // another tab.
+  const fieldId = useId();
   // Spec 363 U4 — the ต้องการของ sheet chooses the item ONCE and hands it down,
   // so each path opens with the item already selected rather than asking again.
   const [catalogItemId, setCatalogItemId] = useState(initialCatalogItemId ?? "");
@@ -226,10 +233,10 @@ export function SelfPurchaseForm({
         </label>
       ) : null}
 
-      <label htmlFor="sp-reason" className={LABEL}>
+      <label htmlFor={`${fieldId}-sp-reason`} className={LABEL}>
         เหตุผลที่ต้องซื้อ
         <select
-          id="sp-reason"
+          id={`${fieldId}-sp-reason`}
           value={reasonCode}
           onChange={(e) => setReasonCode(e.target.value)}
           disabled={pending}

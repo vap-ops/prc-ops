@@ -14,11 +14,15 @@
 // forms' prop sets differ: PurchaseRequestForm took `scopedCategoryIds` +
 // `membershipsByItem`, WpIssueStock took `scopedRelation` + `membershipsByItem`,
 // and SelfPurchaseSection took NEITHER. Choosing the item once means the picker
-// gets the SUPERSET, so the ซื้อมาเองแล้ว path now inherits the spec 229/297
-// work-category soft-scope and off-category warning it never had. That is an
-// improvement rather than a regression — the scope is SOFT (it orders and warns,
-// it never hides) — but it IS a behaviour change and is recorded here rather
-// than inherited silently.
+// gets the SUPERSET, so ซื้อมาเองแล้ว now inherits the spec 229/297 work-category
+// ORDERING it never had — the WP's materials surface first.
+//
+// ⚠️ It does NOT inherit the persistent off-category WARNING. That branch keys
+// on the picker's own `selectedId`, and this picker runs with selectedId=""
+// (the sheet owns the selection), so the warning renders nowhere on the self
+// path — including for the later approver. Threading the scope into
+// SelfPurchaseForm is a follow-up; the claim is corrected here rather than left
+// overstating what the unit delivered.
 
 import { useState } from "react";
 import { Package } from "lucide-react";
@@ -70,6 +74,11 @@ export function WpNeedSheet({
   const [open, setOpen] = useState(false);
   const [itemId, setItemId] = useState("");
   const [path, setPath] = useState<NeedPath | null>(null);
+  // Spec 363 U4 — once a path has been entered, dismissal must be deliberate.
+  // SelfPurchaseForm's post-record state is the ONLY surface rendering its
+  // evidence uploaders, so a stray scrim tap there records an expense and
+  // leaves it permanently ยังไม่สมบูรณ์ unless the SA finds /requests/[id].
+  const [entered, setEntered] = useState(false);
 
   const item = itemId ? (catalogItems.find((i) => i.id === itemId) ?? null) : null;
   // `null` (never stocked) is NOT the same as 0 — decideNeedPath distinguishes
@@ -81,6 +90,7 @@ export function WpNeedSheet({
     setOpen(false);
     setItemId("");
     setPath(null);
+    setEntered(false);
   }
 
   // Changing the item invalidates the path — the shelf answer differs per item,
@@ -97,7 +107,7 @@ export function WpNeedSheet({
         ต้องการของ
       </button>
 
-      <BottomSheet open={open} title="ต้องการของ" onClose={close}>
+      <BottomSheet open={open} title="ต้องการของ" onClose={entered ? () => undefined : close}>
         <div className="flex flex-col gap-4">
           {item === null ? (
             <ScopedCatalogItemPicker
@@ -117,7 +127,12 @@ export function WpNeedSheet({
                 <div className="flex items-center gap-3">
                   <Package aria-hidden className="text-ink-muted size-5 shrink-0" />
                   <span className="min-w-0 flex-1">
-                    <span className="text-ink text-body block font-semibold">{item.baseItem}</span>
+                    <span className="text-ink text-body block font-semibold">
+                      {/* specAttrs is the difference between เหล็กเส้น 6mm and 9mm —
+                          dropping it makes this card unable to do its one job. */}
+                      {item.baseItem}
+                      {item.specAttrs ? ` ${item.specAttrs}` : ""}
+                    </span>
                     {/* The shelf figure IS the reason the actions are ordered the
                         way they are, so it is stated rather than left implicit. */}
                     <span className="text-ink-secondary text-meta block">
@@ -126,7 +141,10 @@ export function WpNeedSheet({
                   </span>
                   <button
                     type="button"
-                    onClick={() => chooseItem("")}
+                    onClick={() => {
+                      chooseItem("");
+                      setEntered(false);
+                    }}
                     className="text-action shrink-0 rounded text-sm font-medium underline-offset-2 hover:underline"
                   >
                     เปลี่ยนวัสดุ
@@ -138,7 +156,10 @@ export function WpNeedSheet({
                 <div className="flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={() => setPath(decision.primary)}
+                    onClick={() => {
+                      setPath(decision.primary);
+                      setEntered(true);
+                    }}
                     className={BUTTON_PRIMARY}
                   >
                     {PATH_LABEL[decision.primary]}
@@ -147,7 +168,10 @@ export function WpNeedSheet({
                     <button
                       key={p}
                       type="button"
-                      onClick={() => setPath(p)}
+                      onClick={() => {
+                        setPath(p);
+                        setEntered(true);
+                      }}
                       className={BUTTON_SECONDARY}
                     >
                       {PATH_LABEL[p]}

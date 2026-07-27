@@ -16,7 +16,7 @@ import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 // src/lib/purchasing/validate-purchase-request.ts is the single source of
 // truth for shape — the action layer runs the same one.
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPurchaseRequest, decidePurchaseRequest } from "@/app/requests/actions";
 import {
@@ -119,6 +119,13 @@ export function PurchaseRequestForm({
   initialCatalogItemId,
 }: PurchaseRequestFormProps) {
   const router = useRouter();
+  // Spec 363 U4 — field ids are MINTED per instance. The ต้องการของ sheet renders
+  // this form as a second copy while the tab still holds the first, and
+  // wp-detail-tabs keeps every panel MOUNTED (hidden, not unmounted). Hardcoded
+  // ids would collide, and htmlFor resolves to the FIRST match in document
+  // order — so tapping a label in the sheet would focus an invisible control in
+  // another tab.
+  const fieldId = useId();
   // Spec 208 U4a / ADR 0065: store-only procurement — every purchase is
   // store-bound. The WP-vs-project scope toggle is gone; a PR always lands in the
   // project store (the server forces work_package_id null) and is เบิก'd to a WP
@@ -262,7 +269,9 @@ export function PurchaseRequestForm({
   // DisplayNameForm — keeps an untouched form quiet. The pinned WP id never
   // counts as "typed".
   const userTyped =
-    catalogItemId.length > 0 ||
+    // A preselect from the ต้องการของ sheet is the SA choosing an ITEM, not
+    // filling this form — treating it as typed made the path open shouting.
+    (catalogItemId.length > 0 && catalogItemId !== (initialCatalogItemId ?? "")) ||
     quantityText.length > 0 ||
     neededBy.length > 0 ||
     reasonCode.length > 0 ||
@@ -314,11 +323,11 @@ export function PurchaseRequestForm({
       {/* Spec 180: หน่วย is derived from the chosen catalog item (shown in the
           chip above), so the requester enters only the quantity here. */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="pr-qty" className="text-ink text-sm font-medium">
+        <label htmlFor={`${fieldId}-pr-qty`} className="text-ink text-sm font-medium">
           จำนวน
         </label>
         <input
-          id="pr-qty"
+          id={`${fieldId}-pr-qty`}
           type="text"
           inputMode="decimal"
           value={quantityText}
@@ -340,11 +349,11 @@ export function PurchaseRequestForm({
           2026-06-11). */}
       <div className="flex flex-col gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <label htmlFor="pr-needed-by" className="text-ink text-sm font-medium">
+          <label htmlFor={`${fieldId}-pr-needed-by`} className="text-ink text-sm font-medium">
             ต้องการรับของภายใน (ไม่บังคับ)
           </label>
           <input
-            id="pr-needed-by"
+            id={`${fieldId}-pr-needed-by`}
             type="date"
             value={neededBy}
             min={bangkokTodayIso()}
@@ -390,11 +399,11 @@ export function PurchaseRequestForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="pr-reason" className="text-ink text-sm font-medium">
+        <label htmlFor={`${fieldId}-pr-reason`} className="text-ink text-sm font-medium">
           เหตุผลที่ต้องสั่งซื้อ
         </label>
         <select
-          id="pr-reason"
+          id={`${fieldId}-pr-reason`}
           value={reasonCode}
           onChange={(e) => {
             setReasonCode(e.target.value);
@@ -416,11 +425,11 @@ export function PurchaseRequestForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="pr-notes" className="text-ink text-sm font-medium">
+        <label htmlFor={`${fieldId}-pr-notes`} className="text-ink text-sm font-medium">
           หมายเหตุ (ไม่บังคับ)
         </label>
         <textarea
-          id="pr-notes"
+          id={`${fieldId}-pr-notes`}
           value={notes}
           maxLength={1000}
           rows={3}
