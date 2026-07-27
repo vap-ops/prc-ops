@@ -1,3 +1,9 @@
+# [0.243.0](https://github.com/vap-ops/prc-ops/compare/v0.242.1...v0.243.0) (2026-07-27)
+
+### Features
+
+- **equipment:** the fields the registry never had (spec 367 U1) ([#804](https://github.com/vap-ops/prc-ops/issues/804)) ([daabce0](https://github.com/vap-ops/prc-ops/commit/daabce0d87861837d3920cc6cd39859367d6d0fb)), closes [#801](https://github.com/vap-ops/prc-ops/issues/801)
+
 ## [0.242.1](https://github.com/vap-ops/prc-ops/compare/v0.242.0...v0.242.1) (2026-07-27)
 
 ### Bug Fixes
