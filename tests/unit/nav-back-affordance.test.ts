@@ -405,8 +405,16 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     "payroll/page.tsx",
   ];
 
+  // ≥2 occurrences = the IMPORT plus a real call. A bare `toContain` here was
+  // satisfied by the import line alone, so reverting a chip to a hardcoded
+  // backHref left this guard green — proven by mutation on
+  // registrations/awaiting-bank 2026-07-27. That is the same fake-coverage trap
+  // this repo keeps re-learning, living inside the guard meant to prevent it.
   it.each(STATIC_MULTI_PARENT)("%s resolves its back chip via safeBackHref", (route) => {
-    expect(reads(join(APP, route))).toContain("safeBackHref");
+    // No shape assertion beyond this: routes legitimately differ (some inline it
+    // in the JSX, contacts/vendors assigns a `const backHref` first), and pinning
+    // one shape flagged a correct page.
+    expect(reads(join(APP, route)).split("safeBackHref").length - 1).toBeGreaterThanOrEqual(2);
   });
 });
 
