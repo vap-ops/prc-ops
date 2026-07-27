@@ -23,32 +23,45 @@ export async function loadTeamMapPageData(
   projectLeadId: string | null,
 ): Promise<TeamMapPageData> {
   const admin = createAdminClient();
-  const [{ data: members }, { data: workers }, { data: crews }, { data: staff }] =
-    await Promise.all([
-      supabase
-        .from("project_members")
-        .select("user_id, is_primary")
-        .eq("project_id", projectId)
-        .order("added_at"),
-      supabase
-        .from("workers")
-        .select("id, name, contractor_id")
-        .eq("project_id", projectId)
-        .eq("active", true)
-        .order("name"),
-      // Nested read rides the crew_members FK; RLS filters both layers.
-      supabase
-        .from("crews")
-        .select("id, name, lead_worker_id, active, crew_members(crew_id, worker_id, removed_at)")
-        .eq("project_id", projectId),
-      // Admin seam: names + roles for the picker AND for member rows (users
-      // RLS is read-self — ADR 0011). Only open identity columns leave here.
-      admin
-        .from("users")
-        .select("id, full_name, role")
-        .in("role", [...PROJECT_TEAM_STAFF_ROLES])
-        .order("full_name", { nullsFirst: false }),
-    ]);
+  const [
+    { data: members },
+    { data: workers },
+    { data: crews },
+    { data: staff },
+    { data: allProjectContractorWorkers },
+  ] = await Promise.all([
+    supabase
+      .from("project_members")
+      .select("user_id, is_primary")
+      .eq("project_id", projectId)
+      .order("added_at"),
+    supabase
+      .from("workers")
+      .select("id, name, contractor_id")
+      .eq("project_id", projectId)
+      .eq("active", true)
+      .order("name"),
+    // Nested read rides the crew_members FK; RLS filters both layers.
+    supabase
+      .from("crews")
+      .select("id, name, lead_worker_id, active, crew_members(crew_id, worker_id, removed_at)")
+      .eq("project_id", projectId),
+    // Admin seam: names + roles for the picker AND for member rows (users
+    // RLS is read-self — ADR 0011). Only open identity columns leave here.
+    admin
+      .from("users")
+      .select("id, full_name, role")
+      .in("role", [...PROJECT_TEAM_STAFF_ROLES])
+      .order("full_name", { nullsFirst: false }),
+    // Spec 365 — ACTIVE OR NOT: a firm this project has ever had a worker
+    // under, even if none are active today. `contractors` has no project_id,
+    // so this is the only correct scoping source.
+    supabase
+      .from("workers")
+      .select("contractor_id")
+      .eq("project_id", projectId)
+      .not("contractor_id", "is", null),
+  ]);
 
   const memberRows = members ?? [];
   const staffRows = staff ?? [];
@@ -73,8 +86,16 @@ export async function loadTeamMapPageData(
   }
 
   // Firm names for the contractor cards (privileged-role SELECT policy).
+  // Union of: active workers' contractor_id (today's named members) and the
+  // broader project-scoped set (Task 1's known-but-empty firms).
+  const projectContractorIds = [
+    ...new Set((allProjectContractorWorkers ?? []).map((w) => w.contractor_id as string)),
+  ];
   const contractorIds = [
-    ...new Set((workers ?? []).map((w) => w.contractor_id).filter((id): id is string => !!id)),
+    ...new Set([
+      ...projectContractorIds,
+      ...(workers ?? []).map((w) => w.contractor_id).filter((id): id is string => !!id),
+    ]),
   ];
   const contractors = new Map<string, string>();
   if (contractorIds.length > 0) {
@@ -99,6 +120,7 @@ export async function loadTeamMapPageData(
     })),
     crewMembers: crewRows.flatMap((c) => c.crew_members),
     contractors,
+    projectContractorIds,
   });
 
   const memberIds = new Set(memberRows.map((m) => m.user_id));
