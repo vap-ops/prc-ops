@@ -53,3 +53,21 @@ export async function listWorkersAwaitingBank(): Promise<AwaitingBankRow[]> {
     }),
   );
 }
+
+/**
+ * Count only — for the /team hub's awaiting-bank bubble (2026-07-27).
+ *
+ * Deliberately NOT `listWorkersAwaitingBank().length`: that reader mints a signed
+ * Storage URL PER ROW, so counting through it would issue one signing round-trip per
+ * waiting worker on every hub render, for a number. This is a `head: true` count with
+ * no rows and no signing. Same service-role justification as the reader — the table is
+ * zero-grant — but it returns a bare integer, never identity or a passbook.
+ */
+export async function countWorkersAwaitingBank(): Promise<number> {
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("worker_bank_capture")
+    .select("worker_id", { count: "exact", head: true })
+    .eq("status", "pending_pm");
+  return count ?? 0;
+}

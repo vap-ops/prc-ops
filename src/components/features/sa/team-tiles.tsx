@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   HardHat,
   IdCard,
+  Landmark,
   QrCode,
   UserCheck,
   UserPlus,
@@ -31,6 +32,7 @@ import {
 import { withBackFrom } from "@/lib/nav/back-href";
 import {
   ATTENDANCE_AUDIT_LABEL,
+  AWAITING_BANK_TITLE,
   ROSTER_TILE_LABEL,
   WORKER_ROSTER_LABEL,
 } from "@/lib/i18n/labels";
@@ -97,7 +99,13 @@ function makeTile(
 export function teamTilesForRole(ctx: {
   role: UserRole;
   isCrew: boolean;
-  counts: { pendingRegistrations: number; unassigned: number; activeWorkers: number };
+  counts: {
+    pendingRegistrations: number;
+    unassigned: number;
+    activeWorkers: number;
+    /** worker_bank_capture rows still `pending_pm` — phoneless ช่าง who cannot be paid. */
+    awaitingBank: number;
+  };
 }): TeamTile[] {
   const { role, isCrew, counts } = ctx;
   const tiles: TeamTile[] = [];
@@ -115,6 +123,25 @@ export function teamTilesForRole(ctx: {
       makeTile("registrations", REGISTRATIONS_LABEL, UserCheck, {
         href,
         bubble: tileBubble(counts.pendingRegistrations, "danger"),
+      }),
+    );
+  }
+
+  // 2026-07-27 — the awaiting-bank door. Same audience as the approve queue
+  // (STAFF_APPROVAL_ROLES, which the page gate and the complete_worker_bank RPC
+  // allowlist both already use, so this adds NO authority — only reach).
+  //
+  // It needs its own hub tile rather than just a badge on the inner /registrations
+  // link: that link is two taps in, behind a คำขอสมัคร tile that is itself
+  // zero-suppressed, so with no pending registrations the bank queue was reachable
+  // only by someone who already knew the URL. 14 men sat unpayable for two weeks
+  // that way. DANGER tone — people who cannot be paid is the most actionable state
+  // this hub reports.
+  if (STAFF_APPROVAL_ROLES.includes(role)) {
+    tiles.push(
+      makeTile("awaiting-bank", AWAITING_BANK_TITLE, Landmark, {
+        href: withBackFrom("/registrations/awaiting-bank", "/team"),
+        bubble: tileBubble(counts.awaitingBank, "danger"),
       }),
     );
   }

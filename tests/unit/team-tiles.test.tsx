@@ -10,9 +10,10 @@
 import { describe, it, expect } from "vitest";
 import { teamTilesForRole } from "@/components/features/sa/team-tiles";
 import { STAFF_APPROVAL_ROLES, WORKER_ROSTER_ROLES, type UserRole } from "@/lib/auth/role-home";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { withBackFrom } from "@/lib/nav/back-href";
 
-const ZERO = { pendingRegistrations: 0, unassigned: 0, activeWorkers: 0 };
+const ZERO = { pendingRegistrations: 0, unassigned: 0, activeWorkers: 0, awaitingBank: 0 };
 const keysFor = (role: UserRole, isCrew: boolean, counts = ZERO) =>
   teamTilesForRole({ role, isCrew, counts }).map((t) => t.key);
 
@@ -41,8 +42,20 @@ describe("teamTilesForRole — per-role tile sets (derived from the role SSOTs)"
     // Spec 358: super_admin is an ATTENDANCE_AUDIT_ROLE too, so the history
     // door follows the roster pair. site_admin is NOT (its surface is the cockpit),
     // which is why this is a superset of site_admin's set plus THREE tiles.
+    // 2026-07-27: + the awaiting-bank door, placed immediately after คำขอสมัคร —
+    // beside the sibling queue it belongs with, for BOTH approver roles. It is
+    // deliberately NOT appended after the crew doors: that put it 7th for
+    // super_admin, third row of the grid, which is burying the very thing this
+    // unit exists to surface. So super_admin is no longer a clean prefix-extension
+    // of site_admin and the full order is spelled out.
     expect(keysFor("super_admin", true)).toEqual([
-      ...keysFor("site_admin", true),
+      "registrations",
+      "awaiting-bank",
+      "unassigned",
+      "roster",
+      "add",
+      "badges",
+      "register-qr",
       "workers",
       "payroll",
       "attendance",
@@ -75,6 +88,7 @@ describe("teamTilesForRole — per-role tile sets (derived from the role SSOTs)"
     // Spec 358: + the attendance-audit door (she is a see-all audit role).
     expect(keysFor("procurement_manager", false)).toEqual([
       "registrations",
+      "awaiting-bank",
       "workers",
       "payroll",
       "attendance",
@@ -94,7 +108,7 @@ describe("teamTilesForRole — bubble suppression + ownership tone", () => {
     const tiles = teamTilesForRole({
       role: "site_admin",
       isCrew: true,
-      counts: { pendingRegistrations: 3, unassigned: 5, activeWorkers: 10 },
+      counts: { ...ZERO, pendingRegistrations: 3, unassigned: 5, activeWorkers: 10 },
     });
     expect(tiles.find((t) => t.key === "registrations")?.bubble).toEqual({ n: 3, tone: "danger" });
   });
@@ -103,7 +117,7 @@ describe("teamTilesForRole — bubble suppression + ownership tone", () => {
     const tiles = teamTilesForRole({
       role: "site_admin",
       isCrew: true,
-      counts: { pendingRegistrations: 0, unassigned: 5, activeWorkers: 10 },
+      counts: { ...ZERO, unassigned: 5, activeWorkers: 10 },
     });
     expect(tiles.find((t) => t.key === "unassigned")?.bubble).toEqual({ n: 5, tone: "neutral" });
     expect(tiles.find((t) => t.key === "roster")?.bubble).toEqual({ n: 10, tone: "neutral" });
@@ -115,7 +129,7 @@ describe("teamTilesForRole — คำขอสมัคร href is referrer-thre
     const tiles = teamTilesForRole({
       role: "site_admin",
       isCrew: true,
-      counts: { pendingRegistrations: 1, unassigned: 0, activeWorkers: 0 },
+      counts: { ...ZERO, pendingRegistrations: 1 },
     });
     expect(tiles.find((t) => t.key === "registrations")?.href).toBe(
       withBackFrom("/sa/registrations", "/team"),
@@ -126,10 +140,68 @@ describe("teamTilesForRole — คำขอสมัคร href is referrer-thre
     const tiles = teamTilesForRole({
       role: "procurement_manager",
       isCrew: false,
-      counts: { pendingRegistrations: 1, unassigned: 0, activeWorkers: 0 },
+      counts: { ...ZERO, pendingRegistrations: 1 },
     });
     expect(tiles.find((t) => t.key === "registrations")?.href).toBe(
       withBackFrom("/registrations", "/team"),
     );
+  });
+});
+
+// 2026-07-27 — the awaiting-bank door. Live evidence that opened this unit: 14
+// worker_bank_capture rows sat `pending_pm` with ZERO of those workers carrying a
+// bank_account_number, oldest onboarded 07-13, so the spec-298 U3 transcription step
+// had never run in production and none of those men could be paid. It was never a
+// permission problem — procurement_manager has been in STAFF_APPROVAL_ROLES and in
+// the complete_worker_bank RPC allowlist the whole time. It was DISCOVERABILITY: the
+// queue hung off a bare, unbadged text link on /registrations, itself two taps in,
+// rendering identically at 14 waiting and at 0. A signal that does not signal.
+describe("teamTilesForRole — the awaiting-bank door (2026-07-27)", () => {
+  const APPROVER = "procurement_manager" as UserRole;
+
+  it("an approver gets a bank door pointing at the completion queue", () => {
+    expect(STAFF_APPROVAL_ROLES).toContain(APPROVER);
+    const tile = teamTilesForRole({
+      role: APPROVER,
+      isCrew: false,
+      counts: { ...ZERO, awaitingBank: 14 },
+    }).find((t) => t.key === "awaiting-bank");
+    expect(tile?.href).toBe(withBackFrom("/registrations/awaiting-bank", "/team"));
+  });
+
+  // Unpaid people is the most actionable state on this hub — same tone as คำขอสมัคร.
+  it("a positive awaiting-bank count is a DANGER bubble (men who cannot be paid)", () => {
+    const tiles = teamTilesForRole({
+      role: APPROVER,
+      isCrew: false,
+      counts: { ...ZERO, awaitingBank: 14 },
+    });
+    expect(tiles.find((t) => t.key === "awaiting-bank")?.bubble).toEqual({
+      n: 14,
+      tone: "danger",
+    });
+  });
+
+  it("zero waiting → no bubble, same suppression rule as every other tile", () => {
+    const tiles = teamTilesForRole({ role: APPROVER, isCrew: false, counts: ZERO });
+    expect(tiles.find((t) => t.key === "awaiting-bank")?.bubble).toBeUndefined();
+  });
+
+  // The door must not appear for anyone the PAGE and the RPC would refuse — the
+  // operator's 2026-07-27 call was explicitly to keep transcription narrow, so the
+  // positive set is asserted EXACTLY over the complete role domain rather than
+  // hand-listing the roles that shouldn't have it (spec 348 U5 lesson).
+  it("exactly the STAFF_APPROVAL_ROLES see it — no one else, over the whole enum", () => {
+    const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
+    const withDoor = all
+      .filter((role) =>
+        teamTilesForRole({
+          role,
+          isCrew: role === "site_admin" || role === "super_admin",
+          counts: { ...ZERO, awaitingBank: 14 },
+        }).some((t) => t.key === "awaiting-bank"),
+      )
+      .sort();
+    expect(withDoor).toEqual([...STAFF_APPROVAL_ROLES].sort());
   });
 });

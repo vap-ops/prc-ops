@@ -168,7 +168,9 @@ const STATIC_DETAIL = [
   // [id] review detail is a dynamic DetailHeader route, auto-classified below.
   "registrations",
   // Spec 298 U3: the PM bank-completion queue (phoneless-worker passbook
-  // transcription) drills down from /registrations (back chip → /registrations).
+  // transcription). 2026-07-27 it became MULTI-PARENT — the /team hub gained its
+  // own badged door — so it is listed in STATIC_MULTI_PARENT below too and its chip
+  // resolves ?from, falling back to /registrations (still the other parent).
   "registrations/awaiting-bank",
   // Spec 263 U3: the SA read-only registration queue drills down from /sa
   // (back chip → /sa). Its [id] detail is a dynamic DetailHeader route,
@@ -375,6 +377,11 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     "equipment/rentals/page.tsx",
     "contacts/vendors/page.tsx",
     "sa/registrations/page.tsx",
+    // 2026-07-27: MULTI-PARENT since the /team hub gained its own badged door here.
+    // Was in STATIC_DETAIL on the (then-true) assumption that /registrations is its
+    // only parent; the new tile made the hardcoded chip eject approvers to the wrong
+    // queue — the spec 313 U3 ejection, repeated.
+    "registrations/awaiting-bank/page.tsx",
     // Money-route (danger-path). Reached from the /procurement Resources tile AND
     // the /settings hub; the STR door already threads ?from (PR #610).
     "expenses/page.tsx",
@@ -398,8 +405,16 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     "payroll/page.tsx",
   ];
 
+  // ≥2 occurrences = the IMPORT plus a real call. A bare `toContain` here was
+  // satisfied by the import line alone, so reverting a chip to a hardcoded
+  // backHref left this guard green — proven by mutation on
+  // registrations/awaiting-bank 2026-07-27. That is the same fake-coverage trap
+  // this repo keeps re-learning, living inside the guard meant to prevent it.
   it.each(STATIC_MULTI_PARENT)("%s resolves its back chip via safeBackHref", (route) => {
-    expect(reads(join(APP, route))).toContain("safeBackHref");
+    // No shape assertion beyond this: routes legitimately differ (some inline it
+    // in the JSX, contacts/vendors assigns a `const backHref` first), and pinning
+    // one shape flagged a correct page.
+    expect(reads(join(APP, route)).split("safeBackHref").length - 1).toBeGreaterThanOrEqual(2);
   });
 });
 
