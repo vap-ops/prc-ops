@@ -6,6 +6,51 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 367 — Equipment registry completeness + bulk import/export (2026-07-27)
+
+- **Operator, verbatim:** _"1. Figure out the difference in data fields, check what are missing (images
+  are missing for sure, what else) 2. Add an import/export features on both list (consider templates to
+  fill in data) 3. Keep in mind we will export all equipments to PRI, a sister company, then we rent
+  back the whole store."_
+- **Origin question** was different — _"how do I see all the equipments in the store?"_ — and its answer
+  is the whole spec: `equipment_items` = **64 rows**, `equipment_movements` = **1 row total**, location
+  derived only from the latest movement ⇒ **63 of 64 render `—`**. Nobody ever recorded `รับเข้าคลัง`.
+- **Operator hypothesis REFUTED:** equipment is _not_ mis-registered under ทะเบียนเช่าอุปกรณ์.
+  `equipment_rental_batches` (29) is the inbound-agreement list and carries **no item dimension**. What
+  made it look otherwise is a **stale settings hint** — the `/equipment` card in ข้อมูลหลัก reads
+  `hint: "ทะเบียนอุปกรณ์เช่า"` while the registry holds 64 company-owned hand tools. U0 fixes it.
+- **Fill rates (prod, 2026-07-27):** `acquisition_cost` **0/64** · `acquired_at` **0/64** ·
+  `daily_rate` **0/64** · `asset_tag` 5/64 · `quantity` 9/64 · `rental_agreement_id` 0/64 (dead column,
+  pinned by `268-equipment-rental-rate-period.test.sql:69` — do not drop). `supplier_id` is 64/64 and
+  **all 64 point at PRC itself**, a second owner axis duplicating `equipment_owners` (also 1 row = PRC).
+- **Absent as columns entirely:** image, brand, model, serial, condition, description, disposal state,
+  book value. `catalog_items` has `image_path` + bucket `catalog-images` + `catalog-image-control.tsx`;
+  equipment has none of the three.
+- **D1 (operator ruling, "Rec"):** **ONE registry.** Keep `equipment_items` as the single asset list;
+  on the PRI transfer flip ownership and revive `rental_agreement_id` rather than building a parallel
+  list. ⚠️ **This narrows spec 361 U1** (`rental_catalog_items`) to _external_ rentals only — plant PRC
+  will never own. That unit must re-read §2.1 before it is built.
+- **The PRI sale/rent-back is NOT built here** (§3, own spec). It is why the fields land first: the
+  export **is** the transfer schedule, and every value needed to price the sale is `0/64` today.
+- **Two of my own spec claims were WRONG and corrected before shipping** (self fact-check against live
+  source): ① there is **no `EQUIPMENT_STATUS_LABEL` in `labels.ts`** — the status map and the
+  `unit`/`bulk` tracking options are **local consts in `equipment-manager.tsx` (lines 86, 108–109)**,
+  so U1 must promote both into the SSOT because §6's importer cannot import from a component;
+  ② the enum guard that will red on `disposed` is named — `65-equipment-registry.test.sql:33`
+  `enum_has_labels(...ARRAY[6 values])`, plus `STATUS_LABELS`'s `Record<EquipmentStatus,string>`.
+- **Units:** U0 stale hint + 4 items mis-filed under a _material_ category · U1 schema (6 columns,
+  `equipment_condition` enum, `equipment_status += disposed`, `equipment-images` bucket + storage
+  policy, label promotion) · U2 both exports · U3 equipment importer · U4 rental importer · U5 image
+  control. Order is **U0 → U1 → U2 → U3 → U4 → U5**; U0 and U2 unblock the operator soonest.
+- **Acceptance is a fill-rate query, not a green suite** (§11). Baseline = all zeros.
+- **Open questions (operator):** ① does a movement-less item read as "at คลัง" or "ยังไม่ระบุ"? — still
+  unanswered, and it is the operator's _original_ question; ② are the 4 items under
+  `งานวัสดุพื้นฐานโครงสร้าง` equipment at all, or materials? ③ does PRI exist yet as an
+  `equipment_owners` row, a `supplier`, or neither? ④ confirm the §2.1 narrowing of spec 361 U1.
+- **Status:** spec + index written, lane claimed (schema `20260813075860`). No unit started.
+
+---
+
 ## Spec 142 U5 — RETIRE `wp_templates` + `apply_wp_template` (2026-07-27)
 
 - **Status:** migration composed + PR shipped; ⛔ **NOT APPLIED — operator-held.** `DROP TABLE` +
