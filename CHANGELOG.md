@@ -1,3 +1,14 @@
+# [0.241.0](https://github.com/vap-ops/prc-ops/compare/v0.240.1...v0.241.0) (2026-07-27)
+
+### Bug Fixes
+
+- **work-packages:** address fresh-eyes review on the ของ list ([3bc9527](https://github.com/vap-ops/prc-ops/commit/3bc95273144cd218b8dfc6f7d178bf7ef51201b1))
+
+### Features
+
+- **work-packages:** add the ของ tab rendering the state-grouped list ([797b28d](https://github.com/vap-ops/prc-ops/commit/797b28d733ca67258957e7c521d8f9c2e067cb10))
+- **work-packages:** the ของ tab's state-grouped list, as a pure grouper ([b0777ec](https://github.com/vap-ops/prc-ops/commit/b0777ec4975dd325ae57e0bc2b4c149e3e3133c6))
+
 ## [0.240.1](https://github.com/vap-ops/prc-ops/compare/v0.240.0...v0.240.1) (2026-07-27)
 
 ### Bug Fixes
