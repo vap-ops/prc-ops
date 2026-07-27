@@ -1,3 +1,14 @@
+# [0.249.0](https://github.com/vap-ops/prc-ops/compare/v0.248.0...v0.249.0) (2026-07-27)
+
+### Bug Fixes
+
+- **work-packages:** the issue-row detail keeps the deleted tab's gate, cost included ([d124dc4](https://github.com/vap-ops/prc-ops/commit/d124dc44bfa9d537ef05c759d5d0e5d57d75a6c4))
+- **work-packages:** the per-path gate is a predicate, not a source pin ([50c35b4](https://github.com/vap-ops/prc-ops/commit/50c35b40ba784fee09ee73cfec33e621aa357c02))
+
+### Features
+
+- **work-packages:** ของ is the WP item surface — the three tabs are deleted ([1866ae2](https://github.com/vap-ops/prc-ops/commit/1866ae2677c8b97ff76414aace28d81144dffd8b)), closes [#wp-requests](https://github.com/vap-ops/prc-ops/issues/wp-requests) [#wp-issue](https://github.com/vap-ops/prc-ops/issues/wp-issue)
+
 # [0.248.0](https://github.com/vap-ops/prc-ops/compare/v0.247.0...v0.248.0) (2026-07-27)
 
 ### Features
