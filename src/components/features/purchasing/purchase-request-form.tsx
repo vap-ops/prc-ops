@@ -74,6 +74,9 @@ export interface PurchaseRequestFormWorkPackage {
 }
 
 interface PurchaseRequestFormProps {
+  /** Spec 363 U4 — the ต้องการของ sheet picks the item once and hands it down. */
+  initialCatalogItemId?: string | undefined;
+
   workPackage: PurchaseRequestFormWorkPackage;
   // Spec 16 P2: the stager builds the canonical storage path client-side
   // for the direct-to-bucket upload; the parent Server Component already
@@ -113,6 +116,7 @@ export function PurchaseRequestForm({
   categories,
   scopedCategoryIds,
   membershipsByItem,
+  initialCatalogItemId,
 }: PurchaseRequestFormProps) {
   const router = useRouter();
   // Spec 208 U4a / ADR 0065: store-only procurement — every purchase is
@@ -125,7 +129,9 @@ export function PurchaseRequestForm({
   // Spec 180: the PR item is catalog-only — catalogItemId is the chosen item
   // ("" = none yet). The search/category/sheet state lives in CatalogItemPicker;
   // the description + unit are DERIVED here from the chosen item (no free text).
-  const [catalogItemId, setCatalogItemId] = useState<string>("");
+  // Spec 363 U4 — the ต้องการของ sheet chooses the item ONCE and hands it down,
+  // so each path opens with the item already selected rather than asking again.
+  const [catalogItemId, setCatalogItemId] = useState<string>(initialCatalogItemId ?? "");
   const [quantityText, setQuantityText] = useState<string>("");
   const [neededBy, setNeededBy] = useState<string>("");
   const [priority, setPriority] = useState<PurchasePriority>("normal");

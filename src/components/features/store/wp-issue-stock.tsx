@@ -63,6 +63,7 @@ const FIELD =
 const EMPTY_MEMBERSHIPS: ReadonlyMap<string, Set<string>> = new Map();
 
 export function WpIssueStock({
+  initialCatalogItemId,
   projectId,
   workPackageId,
   onHand,
@@ -86,11 +87,17 @@ export function WpIssueStock({
   membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
   // Spec 363 U4: the managed catalog categories, for the picker's filter chips.
   categories: { id: string; name: string }[];
+  /** Spec 363 U4 — the ต้องการของ sheet picks the item once and hands it down. */
+  initialCatalogItemId?: string | undefined;
 }) {
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<DraftIssueRow[]>([emptyIssueRow()]);
+  // Spec 363 U4 — the ต้องการของ sheet chooses the item ONCE and hands it down,
+  // so each path opens with the item already selected rather than asking again.
+  const [rows, setRows] = useState<DraftIssueRow[]>([
+    { ...emptyIssueRow(), item: initialCatalogItemId ?? "" },
+  ]);
   const [error, setError] = useState<string | null>(null);
   const [issuing, startIssue] = useTransition();
 

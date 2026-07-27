@@ -32,11 +32,14 @@ const LABEL = "text-ink flex flex-col gap-1 text-sm font-medium";
 const TOGGLE_ROW = "text-ink flex items-center gap-2 text-sm font-medium";
 
 export function SelfPurchaseForm({
+  initialCatalogItemId,
   projectId,
   workPackageId,
   catalogItems,
   categories,
 }: {
+  /** Spec 363 U4 — the ต้องการของ sheet picks the item once and hands it down. */
+  initialCatalogItemId?: string | undefined;
   projectId: string;
   workPackageId: string;
   catalogItems: PurchaseRequestCatalogItem[];
@@ -45,7 +48,9 @@ export function SelfPurchaseForm({
   categories: { id: string; name: string }[];
 }) {
   const router = useRouter();
-  const [catalogItemId, setCatalogItemId] = useState("");
+  // Spec 363 U4 — the ต้องการของ sheet chooses the item ONCE and hands it down,
+  // so each path opens with the item already selected rather than asking again.
+  const [catalogItemId, setCatalogItemId] = useState(initialCatalogItemId ?? "");
   const [qty, setQty] = useState("");
   const [amount, setAmount] = useState("");
   const [hasVat, setHasVat] = useState(false);
