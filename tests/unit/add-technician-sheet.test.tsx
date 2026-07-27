@@ -28,6 +28,12 @@ vi.mock("@/lib/db/browser", () => ({
 }));
 vi.mock("@/lib/photos/downscale", () => ({ preparePhotoForUpload: submitMocks.prepare }));
 
+// The catch added for the stuck-button fix swallows an unhandled rejection that the
+// telemetry provider used to file as a js_error. This whole incident was diagnosed
+// FROM interaction_events, so the re-report is load-bearing (fresh-eyes F2).
+const { trackFrictionSpy } = vi.hoisted(() => ({ trackFrictionSpy: vi.fn() }));
+vi.mock("@/lib/telemetry/friction", () => ({ trackFriction: trackFrictionSpy }));
+
 import { AddTechnicianSheet } from "@/components/features/sa/add-technician-sheet";
 import {
   ADD_TECHNICIAN_LABEL,
@@ -209,6 +215,7 @@ describe("AddTechnicianSheet — spec 298 U2 front door", () => {
 describe("AddTechnicianSheet — the no-phone add reports its own outcome", () => {
   beforeEach(() => {
     refreshSpy.mockReset();
+    trackFrictionSpy.mockReset();
     submitMocks.add.mockReset();
     submitMocks.upload.mockReset().mockResolvedValue({ error: null });
     submitMocks.prepare
@@ -415,6 +422,12 @@ describe("AddTechnicianSheet — the no-phone add reports its own outcome", () =
     expect(within(dialog).getByRole("alert")).toBeVisible();
     expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeEnabled();
     expect(within(dialog).queryByRole("button", { name: /กำลังบันทึก/ })).toBeNull();
+    // …and the failure is still VISIBLE to telemetry — catching it silently would
+    // trade the one signal that diagnosed this incident for nothing.
+    expect(trackFrictionSpy).toHaveBeenCalledWith(
+      "js_error",
+      expect.objectContaining({ where: "add_technician_no_phone_submit" }),
+    );
   });
 
   it("a network throw from the passbook upload is caught too — the leg that left a prod orphan", async () => {
