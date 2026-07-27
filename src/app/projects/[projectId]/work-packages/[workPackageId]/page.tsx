@@ -44,13 +44,14 @@ import { RevisionReasonGuidance } from "@/components/features/work-packages/revi
 import { CountChip } from "@/components/features/common/count-chip";
 import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
 import {
-  approvalDecisionPillClasses,
   workPackageStatusPillClasses,
   type PurchaseRequestPriority,
   type PurchaseRequestStatus,
 } from "@/lib/status-colors";
-import { approvalDecisionIcon, workPackageStatusIcon } from "@/lib/status-icons";
-import { loadWorkPackageDetail } from "@/lib/work-packages/load-detail";
+import { workPackageStatusIcon } from "@/lib/status-icons";
+import { loadWorkPackageDetail, loadWpTimelineAudit } from "@/lib/work-packages/load-detail";
+import { buildWpTimeline } from "@/lib/work-packages/wp-timeline";
+import { WpTimelineView } from "@/components/features/work-packages/wp-timeline-view";
 import { pickableContractors } from "@/lib/work-packages/contractor-picker";
 import { wpWalkFrom } from "@/lib/work-packages/wp-walk";
 import { WpWalkBar } from "@/components/features/work-packages/wp-walk-bar";
@@ -271,7 +272,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     supabase
       .from("stock_issues")
       .select(
-        "id, qty, unit, unit_cost, receiver_worker_id, received_at, catalog_items ( base_item, spec_attrs )",
+        "id, qty, unit, unit_cost, issued_at, receiver_worker_id, received_at, catalog_items ( base_item, spec_attrs )",
       )
       .eq("work_package_id", workPackageId)
       .order("issued_at", { ascending: false })
@@ -542,6 +543,52 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // (capture first, then purchases, labor, reference info); the planner-only
   // จัดการ tab is appended last. Panels are server-rendered here and handed to
   // the client switcher as slots — one fetch, one render, focused view.
+  // Spec 363 U2b — the ประวัติ rail. Everything except the audit events is
+  // already in scope from the page's single detail fetch, so this adds ONE read.
+  // Status transitions are absent by RLS, not by omission (spec 363 §4.1).
+  const timelineAudit = await loadWpTimelineAudit(supabase, wp.id);
+  const timelineDays = buildWpTimeline({
+    photos: Object.values(photosByPhase)
+      .flat()
+      .map((ph) => ({
+        id: ph.id,
+        phase: ph.phase,
+        created_at: ph.created_at,
+        uploaded_by: ph.uploaded_by,
+      })),
+    approvals: approvals.map((a) => ({
+      id: a.id,
+      decision: a.decision,
+      revision_reason: a.revision_reason ?? null,
+      comment: a.comment,
+      decided_at: a.decided_at,
+      decided_by: a.decided_by,
+    })),
+    requests: (wpRequests ?? []).map((r) => ({
+      id: r.id,
+      pr_number: String(r.pr_number),
+      item_description: r.item_description,
+      quantity: r.quantity,
+      unit: r.unit,
+      status: r.status,
+      requested_at: r.requested_at,
+      requested_by: r.requested_by,
+    })),
+    // From the RAW rows: WpIssueRow is a display shape and carries no stamp.
+    // Inherits that query's limit(10) — not binding at 32 issues across 5 WPs.
+    issues: (issueRows ?? []).map((r) => ({
+      id: r.id,
+      item: r.catalog_items?.base_item ?? "",
+      qty: Number(r.qty),
+      unit: r.unit,
+      issued_at: r.issued_at,
+      issued_by: null,
+    })),
+    returns: [],
+    reworkEvents: timelineAudit,
+    names: Object.fromEntries(displayNames),
+  });
+
   const tabs: WpDetailTab[] = [
     {
       key: "photos",
@@ -733,48 +780,13 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           },
         ]
       : []),
+    // Spec 363 U2b: ข้อมูล retires HERE, which is U2's job by design (#781) —
+    // its only remaining content was ประวัติการตรวจ and the timeline carries it,
+    // so no signal is lost. หมายเหตุ moved to the ⓘ sheet back in U1.
     {
-      key: "info",
-      label: "ข้อมูล",
-      panel: (
-        <>
-          {/* Spec 94: รายละเอียดงาน (description) lives in the header ⓘ sheet.
-              Spec 363 U1: หมายเหตุ joined it there — for BOTH audiences, so the
-              spec-171 read-only variant moved too. This tab is now
-              ประวัติการตรวจ alone, and U2 retires it once the timeline lands. */}
-          {approvals.length > 0 ? (
-            <details className={CARD}>
-              <summary className="text-body text-ink cursor-pointer font-semibold">
-                ประวัติการตรวจ ({approvals.length})
-              </summary>
-              <ul className="mt-2 flex flex-col gap-2">
-                {approvals.map((a) => (
-                  <li key={a.id} className="border-edge border-t pt-2 first:border-t-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <StatusPill
-                        pillClasses={approvalDecisionPillClasses(a.decision)}
-                        icon={approvalDecisionIcon(a.decision)}
-                      >
-                        {APPROVAL_DECISION_LABEL[a.decision]}
-                      </StatusPill>
-                      <span className="text-meta text-ink-secondary">
-                        {displayNames.get(a.decided_by) ?? "—"} · {formatThaiDateTime(a.decided_at)}
-                      </span>
-                    </div>
-                    {a.comment ? (
-                      <p className="text-body text-ink-secondary mt-1 whitespace-pre-wrap">
-                        {a.comment}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : (
-            <p className={`${CARD} text-body text-ink-secondary`}>ยังไม่มีประวัติการตรวจ</p>
-          )}
-        </>
-      ),
+      key: "history",
+      label: "ประวัติ",
+      panel: <WpTimelineView days={timelineDays} />,
     },
   ];
 

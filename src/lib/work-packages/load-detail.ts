@@ -330,3 +330,33 @@ async function loadReworkData(
     defectSource: status === "rework" ? latestSource : null,
   };
 }
+
+/**
+ * Spec 363 U2b — the audit events the ประวัติ timeline may show.
+ *
+ * `audit_log`'s site-staff SELECT policy is an EVENT ALLOWLIST admitting exactly
+ * these two; `wp_status_transition` is NOT on it, so a site_admin cannot read
+ * status flips at all (spec 363 §4.1). The filter is written explicitly rather
+ * than left to RLS so that every role sees the SAME timeline — otherwise a PM,
+ * whose policy returns everything, would get raw `wp_status_transition` rows the
+ * renderer has no label for. U2a adds status rows properly, via a DEFINER RPC.
+ */
+export const TIMELINE_AUDIT_EVENTS = ["wp_reopened_for_defect", "wp_evidence_resubmitted"] as const;
+
+export async function loadWpTimelineAudit(
+  supabase: Db,
+  wpId: string,
+): Promise<{ id: string; event: string; created_at: string; actor_id: string | null }[]> {
+  const { data } = await supabase
+    .from("audit_log")
+    .select("id, created_at, actor_id, payload")
+    .eq("target_id", wpId)
+    .or(TIMELINE_AUDIT_EVENTS.map((e) => `payload->>event.eq.${e}`).join(","))
+    .order("created_at", { ascending: false });
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    event: String((r.payload as { event?: string } | null)?.event ?? ""),
+    created_at: r.created_at,
+    actor_id: r.actor_id,
+  }));
+}
