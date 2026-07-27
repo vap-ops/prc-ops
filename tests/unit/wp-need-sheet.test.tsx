@@ -179,3 +179,26 @@ describe("WpNeedSheet (spec 363 D5)", () => {
     expect(screen.queryByTestId("form-self")).toBeNull();
   });
 });
+
+describe("WpNeedSheet — changing the item invalidates the path", () => {
+  it("does not keep เบิก selected after switching to an item the store lacks", () => {
+    // The mutation that drops `setPath(null)` from chooseItem survived every
+    // other test, because they all change the item BEFORE choosing a path. This
+    // is the sequence that actually breaks: ปูน is stocked → เบิก → change to
+    // สายไฟ, which the store has never carried. A stale path would render the
+    // withdrawal form for an item that cannot be withdrawn.
+    renderSheet();
+    open();
+    const sheet = pick(/ปูนซีเมนต์/);
+    fireEvent.click(within(sheet).getByRole("button", { name: /เบิกจากคลัง/ }));
+    expect(screen.getByTestId("form-issue")).toBeInTheDocument();
+
+    fireEvent.click(within(sheet).getByRole("button", { name: /เปลี่ยนวัสดุ/ }));
+    pick(/สายไฟ/);
+
+    // Back to the path choice for the NEW item, with เบิก not on offer at all.
+    expect(screen.queryByTestId("form-issue")).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: /เบิกจากคลัง/ })).toBeNull();
+    expect(within(sheet).getByRole("button", { name: /ขอซื้อ/ })).toBeInTheDocument();
+  });
+});
