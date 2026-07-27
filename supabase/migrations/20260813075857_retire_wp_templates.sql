@@ -53,6 +53,21 @@
 -- creating table + function + seed is a copy-paste of that file. No user-entered
 -- data is destroyed by this migration.
 
+-- AFTER APPLY (both steps, or the repo disagrees with the DB):
+--   1. `pnpm db:types` — regenerates BOTH `src/lib/db/database.types.ts` and the
+--      vendored `worker/src/database.types.ts`; until it runs they still declare
+--      `wp_templates` / `apply_wp_template`, which no longer exist.
+--      (`tests/unit/db-types-sync.test.ts` only compares the two copies to each
+--      other, so it stays green either way — it will NOT catch a skipped regen.)
+--   2. `pnpm db:test` — 72-wp-templates.test.sql is deleted in this PR and
+--      76-lock-completed-project.test.sql drops to plan(9); both land at merge,
+--      i.e. BEFORE this file is pushed, so the suite never sees a DB and a test
+--      set that disagree.
+--
+-- No CASCADE, deliberately: nothing is known to depend on either object, so a
+-- bare DROP fails loudly if that turns out to be wrong instead of quietly taking
+-- a dependent with it.
+
 -- The function reads the table, so it goes first.
 drop function if exists public.apply_wp_template(uuid);
 
