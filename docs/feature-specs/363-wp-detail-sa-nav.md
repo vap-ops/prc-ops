@@ -2,7 +2,7 @@
 
 **Status:** DRAFT — design agreed with the operator 2026-07-26/27, not yet planned or built.
 **Origin:** operator directive, seven points, 2026-07-26.
-**Sibling:** zones + per-zone photo relevance (points 6 and 7) split out as **spec 364** — greenfield, designed separately. This spec leaves the seam and ships nothing zone-shaped.
+**Sibling:** zones + per-zone photo relevance (points 6 and 7) split out as **spec 366** — greenfield, designed separately. This spec leaves the seam and ships nothing zone-shaped.
 
 ---
 
@@ -43,7 +43,7 @@ Two further facts shape the design:
 | **D5** | `ของ` is **item-first, not path-first**: one primary action `ต้องการของ` over one state-grouped list. The store's stock decides which action is primary | The SA's state is "I need ปูน". Withdraw-vs-request-vs-self-buy is the firm's ledger taxonomy, and the app already knows the shelf.                                           |
 | **D6** | Equipment keeps **its own entry** at the foot of the `ของ` tab — not a chip, not a merged search                                                        | Avoids a picker spanning `catalog_items` ∪ `equipment_items`, and avoids presenting an empty surface as a co-equal destination.                                               |
 | **D7** | **No `กำหนดส่ง`, no lateness** on the SA screen in this spec                                                                                            | 220 of 350 leaf WPs (63%) are already past `planned_end` with one baseline captured; the operator declined to display it until the plan is known to be trustworthy.           |
-| **D8** | Zones are **spec 364**                                                                                                                                  | Independent subsystem: zone model, per-WP simplified drawing, polygon authoring, zone binding on capture.                                                                     |
+| **D8** | Zones are **spec 366**                                                                                                                                  | Independent subsystem: zone model, per-WP simplified drawing, polygon authoring, zone binding on capture.                                                                     |
 
 ### D5 in detail — how the shelf picks the path
 
@@ -132,7 +132,7 @@ A plan marker (`planned_start` / `planned_end`) is another `kind`; a variance la
 
 ## 7. Non-goals
 
-- Zones, drawings, polygon pickers, per-zone photo relevance — spec 364.
+- Zones, drawings, polygon pickers, per-zone photo relevance — spec 366.
 - Any change to the planner (`isManagerRole`) tab set beyond keeping `แรงงาน`.
 - Any change to `readOnly` (procurement) rendering.
 - Plan dates, lateness, or variance display on the SA screen (D7).
