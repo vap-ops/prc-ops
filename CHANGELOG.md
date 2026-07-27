@@ -1,3 +1,10 @@
+## [0.238.1](https://github.com/vap-ops/prc-ops/compare/v0.238.0...v0.238.1) (2026-07-27)
+
+### Bug Fixes
+
+- **team:** address the fresh-eyes findings on the awaiting-bank door ([0ab5714](https://github.com/vap-ops/prc-ops/commit/0ab5714176816e5ed181aeddbb1c7ab19655238b))
+- **team:** surface the awaiting-bank queue so it stops being invisible ([af6fbd3](https://github.com/vap-ops/prc-ops/commit/af6fbd39a5897ab57639a9cf8a6869bb43f6a606))
+
 # [0.238.0](https://github.com/vap-ops/prc-ops/compare/v0.237.1...v0.238.0) (2026-07-27)
 
 ### Bug Fixes
