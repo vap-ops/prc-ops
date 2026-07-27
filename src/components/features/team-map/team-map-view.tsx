@@ -67,6 +67,8 @@ import { TRADE_MISMATCH_HINT, USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { INLINE_ERROR } from "@/lib/ui/classes";
 import { evaluateMemberRemoval } from "@/lib/projects/member-removal";
 import { useToast } from "@/lib/ui/use-toast";
+import { leadTradesOf } from "@/lib/team-map/trade-hint";
+import { TIER_ACTION_BASE, TIER_ACTION, SHEET_ACTION } from "./action-classes";
 
 export interface AddableStaff {
   id: string;
@@ -101,12 +103,6 @@ const TIER_HEADING = "text-ink-secondary text-xs font-medium";
 // carries the tier icon, counts, ⓘ, and the tier's OWN action button. Token
 // classes only — the design-doctrine guard bans raw Tailwind palette.
 const TIER_BOX = "border-edge bg-sunk rounded-card border p-3";
-// Colour-free base — the day toggle below swaps the ink per selected state, and
-// a `text-action` baked into TIER_ACTION would fight it in the generated
-// stylesheet (see tests/unit/ui-class-contracts.test.tsx).
-const TIER_ACTION_BASE =
-  "border-edge bg-card inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
-const TIER_ACTION = `${TIER_ACTION_BASE} text-action`;
 // Spec 338 U1 — the 3-tier button hierarchy. Exactly ONE primary per surface
 // (the constructive action); danger = the wp-delete-control pattern so every
 // destructive control reads the same app-wide. Everything else stays secondary.
@@ -133,8 +129,6 @@ const CHIP = "bg-sunk text-ink rounded-full px-2.5 py-1 text-xs";
 const CHIP_EXEMPT =
   "border-edge-strong text-ink-secondary bg-card rounded-full border border-dashed px-2.5 py-1 text-xs";
 const TOGGLE = "text-action min-h-11 shrink-0 px-2 text-xs font-medium";
-const SHEET_ACTION =
-  "border-edge text-ink flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left text-sm";
 
 function roleLabel(role: string): string {
   return (USER_ROLE_LABEL as Record<string, string>)[role] ?? role;
@@ -203,16 +197,6 @@ function TradeTiles({ trades, firstOnly }: { trades: WorkerTrade[]; firstOnly?: 
       ))}
     </>
   );
-}
-
-// Spec 338 U3 — team capability = the LEAD's trades (operator model). Empty
-// for a leadless crew, so the mismatch predicate stays silent there.
-function leadTradesOf(
-  team: TeamMapTeamCard,
-  trades?: Record<string, WorkerTrade[]>,
-): WorkerTrade[] {
-  const lead = team.members.find((m) => m.isTeamLead);
-  return lead ? (trades?.[lead.workerId] ?? []) : [];
 }
 
 function TeamCard({
