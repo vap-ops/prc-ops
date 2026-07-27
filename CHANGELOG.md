@@ -1,3 +1,14 @@
+# [0.238.0](https://github.com/vap-ops/prc-ops/compare/v0.237.1...v0.238.0) (2026-07-27)
+
+### Bug Fixes
+
+- **wp:** do not render a same-minute burst as a range ([9315bbe](https://github.com/vap-ops/prc-ops/commit/9315bbe27d26b87c32eb8fe9cc2ec722b14e25ab))
+
+### Features
+
+- **wp:** pure builder for the ประวัติ timeline ([2b8bee8](https://github.com/vap-ops/prc-ops/commit/2b8bee8794efac8002555007c791e33fede5ec7f))
+- **wp:** the ประวัติ timeline replaces the ข้อมูล tab ([f5e7092](https://github.com/vap-ops/prc-ops/commit/f5e70922848aff8e21211c6b0484d0aa79ab4e91)), closes [#781](https://github.com/vap-ops/prc-ops/issues/781)
+
 ## [0.237.1](https://github.com/vap-ops/prc-ops/compare/v0.237.0...v0.237.1) (2026-07-27)
 
 ### Bug Fixes
