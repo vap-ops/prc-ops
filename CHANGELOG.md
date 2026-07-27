@@ -1,3 +1,10 @@
+# [0.239.0](https://github.com/vap-ops/prc-ops/compare/v0.238.1...v0.239.0) (2026-07-27)
+
+### Features
+
+- **catalog:** picker gains an item badge and a caller-supplied scope ([f93cc68](https://github.com/vap-ops/prc-ops/commit/f93cc68c5833feab29ba06cbcef34af3a847e7a5))
+- **store:** the เบิก picker moves off a native select ([d497dce](https://github.com/vap-ops/prc-ops/commit/d497dce4d825de86ac8ec21054b177219601e752))
+
 ## [0.238.1](https://github.com/vap-ops/prc-ops/compare/v0.238.0...v0.238.1) (2026-07-27)
 
 ### Bug Fixes
