@@ -9,6 +9,7 @@ import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/r
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { groupWpThings } from "@/lib/work-packages/things";
 import { WpThingsView } from "@/components/features/work-packages/wp-things-view";
+import { WpNeedSheet } from "@/components/features/work-packages/wp-need-sheet";
 import { safeBackHref, withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
@@ -877,12 +878,36 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         key: "things",
         label: "ของ",
         panel: (
-          <WpThingsView
-            groups={thingGroups}
-            requestHref={(id) =>
-              withBackFrom(`/requests/${id}`, workPackageHref(projectId, workPackageId))
-            }
-          />
+          <div className="flex flex-col gap-4">
+            {/* Spec 363 U4 (D5) — ONE entry point above the list. Hidden for the
+                read-only viewer, whose three paths are all write actions. */}
+            {!readOnly ? (
+              <WpNeedSheet
+                workPackage={{
+                  id: wp.id,
+                  code: wp.code,
+                  name: wp.name,
+                  categoryCode: workCategoryCode,
+                }}
+                projectId={wp.project_id}
+                userId={ctx.id}
+                catalogItems={catalogItems}
+                categories={catalogCategoryList}
+                onHand={wpOnHand}
+                workers={wpWorkers}
+                issues={wpIssues.slice(0, 10)}
+                scopedCategoryIds={scopedCategoryIds}
+                membershipsByItem={itemMembershipMap}
+                {...(scopedRelation ? { scopedRelation } : {})}
+              />
+            ) : null}
+            <WpThingsView
+              groups={thingGroups}
+              requestHref={(id) =>
+                withBackFrom(`/requests/${id}`, workPackageHref(projectId, workPackageId))
+              }
+            />
+          </div>
         ),
       },
     );
