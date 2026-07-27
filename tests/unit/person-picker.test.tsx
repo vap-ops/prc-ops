@@ -90,9 +90,36 @@ describe("PersonPicker (spec 363 U4 slice 1b)", () => {
   it("offers a clear row that reports the empty selection", () => {
     const { onChange } = renderPicker({ selectedId: "w1" });
     fireEvent.click(screen.getByRole("button", { name: "เปลี่ยน" }));
+    // เปลี่ยน must NOT clear on the way in — backing out of the sheet has to
+    // leave a correct answer standing. Without this line the assertion below is
+    // vacuous: a เปลี่ยน that cleared would satisfy it without the row existing.
+    expect(onChange).not.toHaveBeenCalled();
     const sheet = screen.getByRole("dialog");
     fireEvent.click(within(sheet).getByRole("button", { name: "ไม่ระบุ" }));
     expect(onChange).toHaveBeenCalledWith("");
+  });
+
+  it("keeps the clear row reachable even when the query matches nobody", () => {
+    const { onChange } = renderPicker({ selectedId: "w1" });
+    fireEvent.click(screen.getByRole("button", { name: "เปลี่ยน" }));
+    const sheet = screen.getByRole("dialog");
+    fireEvent.change(within(sheet).getByPlaceholderText("ค้นหาชื่อ"), {
+      target: { value: "zzz" },
+    });
+    fireEvent.click(within(sheet).getByRole("button", { name: "ไม่ระบุ" }));
+    expect(onChange).toHaveBeenCalledWith("");
+  });
+
+  it("highlights the matched part of the name", () => {
+    renderPicker();
+    const sheet = openSheet();
+    fireEvent.change(within(sheet).getByPlaceholderText("ค้นหาชื่อ"), {
+      target: { value: "สายฝน" },
+    });
+    const row = within(sheet).getByRole("button", { name: /สายฝน/ });
+    const marked = row.querySelector(".text-action");
+    expect(marked).not.toBeNull();
+    expect(marked).toHaveTextContent("สายฝน");
   });
 
   it("says so when nothing matches instead of showing an empty sheet", () => {
