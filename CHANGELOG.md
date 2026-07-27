@@ -1,3 +1,9 @@
+# [0.248.0](https://github.com/vap-ops/prc-ops/compare/v0.247.0...v0.248.0) (2026-07-27)
+
+### Features
+
+- **store:** show equipment at this project, separate from materials (spec 368 U1) ([#812](https://github.com/vap-ops/prc-ops/issues/812)) ([328a486](https://github.com/vap-ops/prc-ops/commit/328a4860351fcb16c0e01619ab65133a8aba6c6c))
+
 # [0.247.0](https://github.com/vap-ops/prc-ops/compare/v0.246.0...v0.247.0) (2026-07-27)
 
 ### Features
