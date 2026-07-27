@@ -264,8 +264,16 @@ describe("AddTechnicianSheet — the no-phone add reports its own outcome", () =
     expect(within(dialog).getByLabelText(/เลขบัตร/)).toHaveValue("");
     expect(within(dialog).queryByText(ADD_TECHNICIAN_DONE_TITLE)).toBeNull();
     // The previous man's passbook must NOT carry over — attaching his bank book to
-    // the next worker is the one mistake this continue-button could invent.
+    // the next worker is the one mistake this continue-button could invent. Refill
+    // EVERY other field first, so the only thing that can still hold the submit
+    // disabled is the missing passbook (a bare assertion here passes on the empty
+    // name instead, and measures nothing — caught by mutation testing).
     expect(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL)).toHaveValue("");
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), { target: { value: "นายอำนวย ก" } });
+    fireEvent.change(within(dialog).getByLabelText(/เลขบัตร/), {
+      target: { value: "3301800499533" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/วันเกิด/), { target: { value: "1972-07-10" } });
     expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeDisabled();
   });
 
