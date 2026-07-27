@@ -26,6 +26,7 @@ import {
 } from "@/lib/register/admin-registrations";
 import { buildRegistrationQueueRow } from "@/lib/register/registration-queue-view";
 import { listRegistrationsWithBank } from "@/lib/register/admin-registration-bank";
+import { countWorkersAwaitingBank } from "@/lib/register/worker-bank-queue";
 import { AWAITING_BANK_TITLE } from "@/lib/i18n/labels";
 import { safeBackHref } from "@/lib/nav/back-href";
 
@@ -48,10 +49,13 @@ export default async function StaffRegistrationQueuePage({
       registrations.map((r) => r.invited_contractor_id).filter((v): v is string => v !== null),
     ),
   ];
-  const [purposesByRegistration, bankByRegistration, firmNames] = await Promise.all([
+  const [purposesByRegistration, bankByRegistration, firmNames, awaitingBank] = await Promise.all([
     listLiveAttachmentPurposes(supabase, ids),
     listRegistrationsWithBank(ids),
     listContractorNames(supabase, invitedFirmIds),
+    // Count only — the list reader signs a Storage URL per row, which is far too much
+    // work for a badge. Joins the existing parallel fetch, so it costs no extra wait.
+    countWorkersAwaitingBank(),
   ]);
 
   const rows = registrations.map((r) =>
@@ -79,12 +83,21 @@ export default async function StaffRegistrationQueuePage({
       </DetailHeader>
 
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-4 px-5 py-6`}>
-        {/* Spec 298 U3 — jump to the phoneless-worker bank-completion queue. */}
+        {/* Spec 298 U3 — jump to the phoneless-worker bank-completion queue.
+            2026-07-27: it now carries its COUNT. Unbadged, this link read identically
+            with 14 men waiting and with none, which is how the transcription step went
+            two weeks without ever running. Zero stays bare, matching the hub's
+            zero-suppression rule (never a "0" chip). */}
         <Link
           href="/registrations/awaiting-bank"
           className="text-action focus-visible:ring-action inline-flex items-center gap-1 self-start rounded-md text-sm font-medium focus:outline-none focus-visible:ring-2"
         >
           {AWAITING_BANK_TITLE}
+          {awaitingBank > 0 ? (
+            <span className="bg-danger text-on-fill text-meta rounded-full px-2 py-0.5 font-bold tabular-nums">
+              {awaitingBank}
+            </span>
+          ) : null}
           <ArrowRight aria-hidden className="size-4" />
         </Link>
         <RegistrationQueueList

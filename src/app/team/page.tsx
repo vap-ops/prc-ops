@@ -23,6 +23,7 @@ import { clientEnv } from "@/lib/env";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { technicianOnboardUrl } from "@/lib/register/onboard-link";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
+import { countWorkersAwaitingBank } from "@/lib/register/worker-bank-queue";
 import {
   AddTechnicianSheet,
   type AddTechnicianQrCard,
@@ -178,6 +179,12 @@ export default async function TeamPage() {
     : 0;
   const pendingRegistrations = ctx.role === "site_admin" ? saPendingCount : approverPending;
 
+  // 2026-07-27 — the awaiting-bank bubble. Fetched ONLY for the approver tier that can
+  // act on it (the tile is STAFF_APPROVAL_ROLES-gated), so a site_admin's hub pays
+  // nothing for a queue it cannot open. Count-only: the list reader signs a Storage URL
+  // per row, which would be one signing round-trip per waiting worker just for a number.
+  const awaitingBank = isApprover ? await countWorkersAwaitingBank() : 0;
+
   const tiles = teamTilesForRole({
     role: ctx.role,
     isCrew,
@@ -185,6 +192,7 @@ export default async function TeamPage() {
       pendingRegistrations,
       unassigned: unassignedCount,
       activeWorkers: activeWorkerCount,
+      awaitingBank,
     },
   });
 
