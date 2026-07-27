@@ -268,6 +268,11 @@ export function AddTechnicianSheet({
    * not hand the next man his predecessor's receipt — or, worse, his passbook still
    * attached under a new name. Gated on `added`: a bounce made mid-typing (nothing
    * committed) keeps the SA's half-entered work, which is the pre-existing behaviour.
+   *
+   * The firm rows need NO equivalent clear: selecting a firm hides the whole PRC
+   * panel, and the only way back into it is the ทีม PRC row, which routes through
+   * here. A clear on the firm row was written first and mutation-testing proved it
+   * unreachable — an unreachable guard asserts a hazard that is not there.
    */
   function switchBranch(next: Mode) {
     if (added) clearAfterAdd();
@@ -474,10 +479,7 @@ export function AddTechnicianSheet({
                 <button
                   type="button"
                   aria-pressed={team === f.id}
-                  onClick={() => {
-                    if (added) clearAfterAdd();
-                    setTeam(f.id);
-                  }}
+                  onClick={() => setTeam(f.id)}
                   className={`${BUTTON_SECONDARY_LAYOUT} bg-card text-ink h-auto min-h-11 justify-start py-2 ${team === f.id ? "border-action" : "border-edge"}`}
                 >
                   <Users aria-hidden className="size-5 shrink-0" />
