@@ -754,7 +754,7 @@ Add, right after the existing member-chips block inside the `expanded` branch (o
 }
 ```
 
-Place this block immediately after the header `<div className="flex items-center gap-3">...</div>` and before the `{placing && onPlaceHere ? ...}` block, so it renders for every zero-count firm card regardless of expand state.
+Place this block immediately after the header `<div className="flex items-center gap-3">...</div>` — there is no `{placing && onPlaceHere ? ... : null}` block left to anchor against at this point in the file, since this same task deletes it (see the note above Step 3's `TeamCard` props). The new door renders for every zero-count firm card regardless of expand state.
 
 - [ ] **Step 4: Run test to verify it passes**
 
