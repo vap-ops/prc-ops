@@ -7,6 +7,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { EQUIPMENT_EXPORT_LABEL, EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
+import { ImportEquipmentSheet } from "@/components/features/equipment/import-equipment-sheet";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
@@ -104,6 +105,9 @@ export default async function EquipmentPage({
           >
             {EQUIPMENT_EXPORT_LABEL}
           </a>
+          {/* Spec 367 U3b — import writes, so it is back-office only, matching
+              the equipment_items INSERT/UPDATE policies and the action gate. */}
+          {canManageRegistry && <ImportEquipmentSheet />}
         </div>
         <EquipmentManager
           items={items}

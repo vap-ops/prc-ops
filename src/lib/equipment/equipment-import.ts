@@ -73,7 +73,6 @@ const COL = {
 export interface EquipmentImportContext {
   categoriesByName: ReadonlyMap<string, string>;
   ownersByName: ReadonlyMap<string, string>;
-  suppliersByName: ReadonlyMap<string, string>;
   /** Every equipment_items.id currently visible to the importer. */
   existingIds: ReadonlySet<string>;
   /** BACK_OFFICE_ROLES. Mirrors the export's `includeMoney`. */
@@ -87,7 +86,8 @@ export interface ParsedEquipmentRow {
   name: string;
   categoryId: string;
   ownerId: string;
-  supplierId: string | null;
+  // NOTE: no supplierId — spec 275 mirrors it from ownerId at write time, so
+  // the caller must set supplier_id = ownerId rather than trust a column.
   brand: string | null;
   model: string | null;
   serialNo: string | null;
@@ -207,11 +207,18 @@ export function parseEquipmentImport(
     const ownerId = ctx.ownersByName.get(ownerName);
     if (!ownerId) bad(`ไม่รู้จักเจ้าของ "${ownerName}" — ต้องสร้างเจ้าของในระบบก่อน`);
 
+    // ผู้ขาย is NOT independently settable. Spec 275 id-mirrors an equipment
+    // owner into `suppliers` and the write path sets `supplier_id = owner_id` to
+    // keep the GL-party edge in step — so a supplier that differs from the owner
+    // would be silently overwritten on save. Refuse the drift instead of
+    // accepting an edit that cannot land. (Equal values round-trip fine: the
+    // exporter emits both from the same mirrored row, which is why all 64 live
+    // rows show the same name in both columns.)
     const supplierName = cell(COL.supplier);
-    let supplierId: string | null = null;
-    if (supplierName !== "") {
-      supplierId = ctx.suppliersByName.get(supplierName) ?? null;
-      if (!supplierId) bad(`ไม่รู้จักผู้ขาย "${supplierName}"`);
+    if (supplierName !== "" && supplierName !== ownerName) {
+      bad(
+        `"${COL.supplier}" ต้องตรงกับ "${COL.owner}" (ระบบผูกผู้ขายกับเจ้าของอุปกรณ์อัตโนมัติ) — กรุณาเว้นว่างหรือใส่ให้ตรงกัน`,
+      );
     }
 
     const trackingLabel = cell(COL.tracking);
@@ -281,7 +288,6 @@ export function parseEquipmentImport(
       name: cell(COL.name),
       categoryId: categoryId!,
       ownerId: ownerId!,
-      supplierId,
       brand: cell(COL.brand) || null,
       model: cell(COL.model) || null,
       serialNo: cell(COL.serialNo) || null,
