@@ -550,7 +550,7 @@ git commit -m "feat(team-map): merge ผู้บริหารโครงก�
 **Files:**
 
 - Modify: `src/components/features/team-map/team-map-view.tsx`
-- Modify: `tests/unit/team-map-legibility.test.tsx`, `tests/unit/team-map-crew-manage.test.tsx`, `tests/unit/team-map-gate.test.tsx`
+- Modify: `tests/unit/team-map-legibility.test.tsx`, `tests/unit/team-map-crew-manage.test.tsx`, `tests/unit/team-map-gate.test.tsx`, `tests/unit/team-map-look.test.tsx` (two `ทีมช่าง` region queries this task's rename also makes stale, found during Task 5 gate-checking — not in the plan's original file list)
 
 **Interfaces:**
 
@@ -764,7 +764,7 @@ Expected: PASS.
 - [ ] **Step 5: Full suite + typecheck**
 
 Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: green except the pre-existing `tests/unit/team-map-plan.test.tsx` (its placing/day-plan-tray assertions now fail because this task deletes that code from `team-map-view.tsx`; Task 8 rebuilds the equivalent behavior in `plan-tab.tsx` and updates or relocates this test then — leave it red in the interim, do not patch it here) — confirm every OTHER failure is fixed (grep remaining files for `ทีมช่าง` region queries and update them the same way: `team-map-gate.test.tsx` if it references the region name anywhere).
+Expected: green except the pre-existing `tests/unit/team-map-plan.test.tsx`, AND except 3 of the 4 tests in `tests/unit/team-map-legibility.test.tsx`'s `describe("team map legibility — U3 placing hint (spec 338)", ...)` block (lines ~244–320 as of Task 4's commit) — specifically the 3 tests that click the tray chip (`renderWithPlan` + `getByRole("button", { name: /W03-a|W03-b|W03-c/ })`) and/or the `วางที่ทีมนี้` drop-target button, both of which this task deletes from `team-map-view.tsx`/`TeamCard` for the same reason `team-map-plan.test.tsx` goes red (the code moves to `plan-tab.tsx` in Task 8, which fixes both files together). The 4th test in that same `describe` block ("the assigned plan-chip sheet carries the same hint on mismatch") renders via the `assignments.byTeam`/`planChips`/`onPlanChip` wiring, which this task does NOT touch or delete (only the `placing` prop/JSX and the tray block are named for deletion) — that 4th test must stay green; if implementing this task breaks it, that is a genuine regression, not an expected one. Leave the 3 expected-red tests red in the interim, do not patch or stub them here. Confirm every OTHER failure is fixed (grep remaining files for `ทีมช่าง` region queries and update them the same way — also check `tests/unit/team-map-look.test.tsx`, which has two `ทีมช่าง` region queries the file list above didn't separately call out, in addition to `team-map-gate.test.tsx` if it references the region name anywhere).
 
 - [ ] **Step 6: Commit**
 
