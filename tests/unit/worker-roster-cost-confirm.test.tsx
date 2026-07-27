@@ -11,6 +11,8 @@
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const { mockConfirmCost, mockSetLevel, mockRefresh } = vi.hoisted(() => ({
   mockConfirmCost: vi.fn(),
@@ -205,6 +207,26 @@ describe("spec 368 U1 — the cost-confirm door on /workers", () => {
     );
     openEdit();
     expect(screen.getByText("ยืนยันแล้ว")).toBeInTheDocument();
+  });
+
+  // /workers/page.tsx is a Server Component vitest cannot render, so the wiring is
+  // pinned by source scan (comments stripped first — prose about a symbol must not
+  // satisfy the pin). Without these, the page could silently stop passing
+  // levelRates and the component's NO_LEVEL_RATES default would block every
+  // confirm while all component tests stayed green.
+  it("the page wires levelRates and selects cost_confirmed_at", () => {
+    const page = readFileSync(resolve(process.cwd(), "src/app/workers/page.tsx"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    // ≥2 = the derivation (`const levelRates =`) PLUS the prop pass — a bare
+    // toContain would stay green after the prop is dropped.
+    expect(page.split("levelRates").length - 1).toBeGreaterThanOrEqual(2);
+    expect(page).toContain("levelRates={levelRates}");
+    // The confirm-state column must ride the workers select, not a comment.
+    expect(page).toContain("cost_confirmed_at,");
+    // The preview derives via the shared helper — a second local formula would be
+    // a second SSOT for a money number.
+    expect(page.split("grossRate").length - 1).toBeGreaterThanOrEqual(2);
   });
 
   it("surfaces a refusal inline and does not refresh", async () => {
