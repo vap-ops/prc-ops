@@ -228,10 +228,14 @@ describe("equipment doors describe the registry they open (spec 367 U0)", () => 
     return found.hint;
   };
 
+  // Pins the retired literal BARE (not quote-wrapped) plus a positive term the
+  // replacement must carry. Deliberately NOT a blanket ban on the substring
+  // เช่า: spec 367 §3 has PRC selling this equipment to PRI and renting it back,
+  // after which a hint that mentions เช่า could be the CORRECT copy. Banning the
+  // word would red on a future right answer; banning the wrong SENTENCE does not.
   it("the OWNED registry door does not describe itself as a rental registry", () => {
     const hint = hintFor("master-data", "/equipment");
     expect(hint).not.toContain("ทะเบียนอุปกรณ์เช่า");
-    expect(hint).not.toContain("เช่า");
     expect(hint).toContain("เครื่องมือ");
   });
 

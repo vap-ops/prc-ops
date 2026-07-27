@@ -47,7 +47,25 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
   unanswered, and it is the operator's _original_ question; ② are the 4 items under
   `งานวัสดุพื้นฐานโครงสร้าง` equipment at all, or materials? ③ does PRI exist yet as an
   `equipment_owners` row, a `supplier`, or neither? ④ confirm the §2.1 narrowing of spec 361 U1.
-- **Status:** spec + index written, lane claimed (schema `20260813075860`). No unit started.
+- **U0 ✅ (2026-07-27).** Two halves. ① The ข้อมูลหลัก `/equipment` hint `ทะเบียนอุปกรณ์เช่า` →
+  `ทะเบียนอุปกรณ์และเครื่องมือ`, RED-first and pinned in BOTH directions (the owned door must not claim
+  rentals; the rentals door must keep saying it records them) + a third case freezing the untouched
+  site_admin field hint. Mutation-checked: reverting the string reds exactly 1 of 21 tests that ran.
+  ② Data op — **a spec claim of mine was WRONG and was caught before acting on it.** I wrote that
+  `งานวัสดุพื้นฐานโครงสร้าง` was "a material work-category that leaked into the equipment taxonomy";
+  `ilike %วัสดุพื้นฐาน%` returns **zero rows** in both `work_categories` and `catalog_categories`.
+  Nothing leaked — the name was typed straight into `equipment_categories`. Its 4 members are all
+  engine-powered plant (power trowel · rebar bender · plate compactor · concrete mixer), so per the
+  operator ruling ("First" — they are equipment) the fix was to **rename the container**, not to move
+  4 items into a foreign category: `งานวัสดุพื้นฐานโครงสร้าง` → `เครื่องจักรก่อสร้าง`
+  (`equipment_categories.id = ac49d5cf-06f7-4e43-963d-58d36763f429`, **rollback value recorded**).
+  Verified after: 4 items still attached, every other category count unchanged. No migration, no test
+  pin — the name is operator-owned data with a rename UI (spec 361 U6), and pinning an editable value
+  in pgTAP is the anti-pattern that ejects other lanes from the merge queue.
+- **Operator answers 2026-07-27:** §10 Q2 = the 4 items ARE equipment. §10 Q3 = **PRI does not exist as
+  a record of any kind** — the transfer spec must create it, and must pick which axis it lands on,
+  since `owner_id` and `supplier_id` both point at PRC today.
+- **Status:** spec + index shipped (#800). U0 ✅. ▶ U1 schema, lane claimed (`20260813075860`).
 
 ---
 
