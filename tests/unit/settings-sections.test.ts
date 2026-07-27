@@ -211,3 +211,35 @@ describe("my-info section (spec 317 U2)", () => {
     expect(SETTINGS_SECTIONS[0]?.key).toBe("my-info");
   });
 });
+
+// Spec 367 U0 — the ข้อมูลหลัก door to /equipment described itself as
+// `ทะเบียนอุปกรณ์เช่า` (a RENTAL registry) while the table behind it holds 64
+// company-OWNED hand tools and machines. That copy is what sent the operator
+// hunting for his equipment inside ทะเบียนเช่าอุปกรณ์ (`/equipment/rentals`,
+// `equipment_rental_batches` — 29 inbound agreements that carry no item
+// dimension at all). Two doors, two registries: this pins that each one's hint
+// describes the registry it actually opens, in BOTH directions — the owned
+// registry must not claim to be rentals, and the rentals door must keep saying
+// so.
+describe("equipment doors describe the registry they open (spec 367 U0)", () => {
+  const hintFor = (sectionKey: string, href: string): string => {
+    const found = section(sectionKey).entries.find((e) => e.kind === "link" && e.href === href);
+    if (!found) throw new Error(`missing ${href} in ${sectionKey}`);
+    return found.hint;
+  };
+
+  it("the OWNED registry door does not describe itself as a rental registry", () => {
+    const hint = hintFor("master-data", "/equipment");
+    expect(hint).not.toContain("ทะเบียนอุปกรณ์เช่า");
+    expect(hint).not.toContain("เช่า");
+    expect(hint).toContain("เครื่องมือ");
+  });
+
+  it("the RENTAL door still says it records rentals", () => {
+    expect(hintFor("master-data", "/equipment/rentals")).toContain("เช่า");
+  });
+
+  it("the site_admin field door is unchanged (it never claimed rentals)", () => {
+    expect(hintFor("field", "/equipment")).toBe("ดูและย้ายอุปกรณ์หน้างาน");
+  });
+});

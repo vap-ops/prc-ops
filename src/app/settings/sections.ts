@@ -184,7 +184,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         href: "/equipment",
         icon: Wrench,
         label: "อุปกรณ์",
-        hint: "ทะเบียนอุปกรณ์เช่า",
+        // Spec 367 U0: was `ทะเบียนอุปกรณ์เช่า`, which described the door BELOW
+        // this one. This registry is `equipment_items` — 64 company-OWNED tools
+        // and machines, zero rentals. Pinned by settings-sections.test.ts.
+        hint: "ทะเบียนอุปกรณ์และเครื่องมือ",
       },
       // Spec 268: record inbound rental deals (money — the /equipment/rentals
       // page re-gates to BACK_OFFICE_ROLES; this card is visibility only).
