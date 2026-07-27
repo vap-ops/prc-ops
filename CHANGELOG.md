@@ -1,3 +1,17 @@
+# [0.244.0](https://github.com/vap-ops/prc-ops/compare/v0.243.0...v0.244.0) (2026-07-27)
+
+### Bug Fixes
+
+- **store:** render WpIssueStock embedded inside the ต้องการของ sheet ([1227e96](https://github.com/vap-ops/prc-ops/commit/1227e96a9b0e4e470c0a90f8edf792e8815b3942))
+- **store:** the embedded เบิก states its own outcome, and ยกเลิก works ([e36308b](https://github.com/vap-ops/prc-ops/commit/e36308b9b5c03a49ed2e9716c470a52d12b9cef0))
+- **work-packages:** four fresh-eyes fixes on the ต้องการของ sheet ([d9c0a7a](https://github.com/vap-ops/prc-ops/commit/d9c0a7ad0cab5ea9353654cac826d20cae86f898))
+
+### Features
+
+- **work-packages:** the shelf decides which need-path leads (spec 363 D5) ([bc12438](https://github.com/vap-ops/prc-ops/commit/bc1243846ac5a450e4169e493bdf45dafa335a32))
+- **work-packages:** the ต้องการของ sheet — one entry point, item-first ([09cd6c9](https://github.com/vap-ops/prc-ops/commit/09cd6c9f37614dfc0b4f218134ee683467910c48))
+- **work-packages:** wire the ต้องการของ sheet above the ของ list ([b4a4fca](https://github.com/vap-ops/prc-ops/commit/b4a4fca74c2d4e1431a2fb6c2ef535d982a4c747))
+
 # [0.243.0](https://github.com/vap-ops/prc-ops/compare/v0.242.1...v0.243.0) (2026-07-27)
 
 ### Features
