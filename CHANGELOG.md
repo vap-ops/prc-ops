@@ -1,3 +1,13 @@
+# [0.240.0](https://github.com/vap-ops/prc-ops/compare/v0.239.0...v0.240.0) (2026-07-27)
+
+### Bug Fixes
+
+- **store:** address fresh-eyes review on the ผู้รับ picker ([35cbbea](https://github.com/vap-ops/prc-ops/commit/35cbbea05713a8d55919e64dd9b235b62a6b4dd1))
+
+### Features
+
+- **store:** the เบิก receiver moves off a native select ([57a7e23](https://github.com/vap-ops/prc-ops/commit/57a7e23cae5ef5b45b6fa8abe182b036f4605323))
+
 # [0.239.0](https://github.com/vap-ops/prc-ops/compare/v0.238.1...v0.239.0) (2026-07-27)
 
 ### Features
