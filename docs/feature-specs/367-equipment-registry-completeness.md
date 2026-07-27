@@ -410,12 +410,23 @@ new columns, so the real order is **U0 → U1 → U2 → U3 → U4 → U5**.
    `supplier`, or neither? The transfer spec needs one clear counterparty record,
    and today `owner_id` and `supplier_id` **both** point at PRC (§1.2), which is the
    modelling smell the transfer will force a decision on.
-4. **`catalog-images` is missing `procurement_manager`** (§4.3) — she can curate the
+4. ⚠️ **Loading `acquisition_cost` / `daily_rate` / `acquired_at` BY CSV needs its
+   own unit — and it is the one the PRI transfer actually depends on.** Found at
+   U3 gate-check against the real write path, not assumed from this spec: none of
+   the three carries an authenticated grant, `daily_rate` is writable only through
+   the SECURITY DEFINER `set_equipment_daily_rate` RPC (where the gate and the
+   audit row live), and **`acquisition_cost` has no write path in the app at
+   all**. So U3's importer refuses a filled money cell rather than silently
+   dropping it. All 64 rows are blank today, so the ordinary round trip works —
+   but §3's whole premise is that these get filled, so the follow-up unit (a
+   DEFINER RPC accepting cost + acquired-on, mirroring `set_equipment_daily_rate`)
+   is **required before the PRI schedule can be produced**, not optional.
+5. **`catalog-images` is missing `procurement_manager`** (§4.3) — she can curate the
    materials catalog but the bucket's INSERT policy names only four roles, so an
    image upload from her would 42501. Found while mirroring the policy for
    equipment; **not** fixed here (materials side, out of this spec's scope). Worth
    its own one-line unit — confirm before someone hits it.
-5. **Spec 361 U1 scope** — confirm the §2.1 narrowing (external rentals only)
+6. **Spec 361 U1 scope** — confirm the §2.1 narrowing (external rentals only)
    before that unit is built, so the two item sources are designed together.
 
 ---
