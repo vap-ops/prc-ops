@@ -42,6 +42,11 @@ import {
 import { toDivertLines } from "@/lib/store/divert-lines";
 import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { STORE_LABEL } from "@/lib/i18n/labels";
+import {
+  StoreEquipmentSection,
+  type StoreEquipmentRow,
+} from "@/components/features/store/store-equipment-section";
+import { equipmentAtProject } from "@/lib/equipment/at-project";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -244,6 +249,35 @@ export default async function ProjectStorePage({ params }: PageProps) {
       .sort((a, b) => a.baseItem.localeCompare(b.baseItem, "th"));
   }
 
+  // Spec 368 U1 — tools recorded as deployed to THIS project. Read through the
+  // RLS client, so a viewer without equipment access simply gets an empty set and
+  // the section does not render (rather than an error or a widened read).
+  const [{ data: equipRows }, { data: equipMoves }, { data: equipCats }] = await Promise.all([
+    supabase.from("equipment_items").select("id, name, category_id, asset_tag, status, condition"),
+    supabase.from("equipment_movements").select("item_id, kind, project_id, occurred_at"),
+    supabase.from("equipment_categories").select("id, name"),
+  ]);
+  const atHere = equipmentAtProject(
+    (equipMoves ?? []).map((m) => ({
+      itemId: m.item_id,
+      kind: m.kind,
+      projectId: m.project_id,
+      occurredAt: m.occurred_at,
+    })),
+    project.id,
+  );
+  const equipCatName = new Map((equipCats ?? []).map((c) => [c.id, c.name]));
+  const storeEquipment: StoreEquipmentRow[] = (equipRows ?? [])
+    .filter((e) => atHere.has(e.id))
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      categoryName: equipCatName.get(e.category_id) ?? "",
+      assetTag: e.asset_tag,
+      status: e.status,
+      condition: e.condition,
+    }));
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -273,6 +307,10 @@ export default async function ProjectStorePage({ params }: PageProps) {
           counts={counts}
           emptyStateSupplyPlanHref={canPlanSupply ? supplyPlanHref(project.id) : null}
         />
+        {/* Spec 368 U1 — the DURABLE half of the store, beside the stock list.
+            Read-only: moving a tool is a movement, which already has its write
+            path on /equipment. Renders nothing when no tool is recorded here. */}
+        <StoreEquipmentSection items={storeEquipment} />
         {/* Spec 198 U2: move delivered WP-bound lines into the store (cost
             transfer). Renders nothing when there are none. */}
         <DivertToStoreList lines={divertLines} />
