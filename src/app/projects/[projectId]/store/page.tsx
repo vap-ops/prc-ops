@@ -7,7 +7,7 @@
 // the headline access change. Within the page each action keeps its own gate
 // (รับเข้า = the record_stock_in RPC, ตรวจนับ = site staff, P&L = super/director;
 // เบิก is no longer a store-console action — spec 208 moved it to the WP-detail
-// เบิกของ tab).
+// ของ tab's ต้องการของ sheet).
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";

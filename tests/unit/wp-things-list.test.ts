@@ -49,6 +49,10 @@ function issue(over: Partial<{ id: string; qty: number; returnedQty: number }> =
     qty: over.qty ?? 5,
     returnedQty: over.returnedQty ?? 0,
     issuedAt: "2026-07-02T00:00:00Z",
+    // Spec 363 U4 merge — carried over from the deleted เบิกของ list.
+    receiverName: null,
+    receivedAt: null,
+    unitCost: 100,
   };
 }
 

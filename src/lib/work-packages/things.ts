@@ -49,6 +49,14 @@ export interface WpThingIssue {
   qty: number;
   returnedQty: number;
   issuedAt: string;
+  // Spec 363 U4 merge — carried over from the deleted เบิกของ list, which showed
+  // all three per issued line. The receipt state is the only place the SA learns
+  // that a named receiver has not acknowledged the material yet. Both render
+  // only behind the view's `canAct`, which reproduces that tab's `!readOnly`
+  // gate — they are re-homed, not newly exposed.
+  receiverName: string | null;
+  receivedAt: string | null;
+  unitCost: number;
 }
 
 export type WpThingRow =
@@ -99,6 +107,27 @@ function groupForRequest(status: PurchaseRequestStatus): WpThingGroupKey {
     case "cancelled":
       return "closed";
   }
+}
+
+/**
+ * Spec 363 U4 merge — which RENDERED row of an issue owns its write controls.
+ *
+ * `groupWpThings` deliberately puts a partly-returned issue in TWO groups (some
+ * of it is here, some came back). Those are two readings of ONE `stock_issues`
+ * row, so rendering แก้รายการที่บันทึกผิด on both would put two live controls over
+ * the same record — a double-submit invitation that also reads as two separate
+ * withdrawals.
+ *
+ * อยู่ที่งานนี้ owns them whenever any of the issue is still here. A FULLY returned
+ * issue never reaches that group, and it must still be correctable, so คืนแล้ว
+ * owns them in exactly that case — otherwise deleting the เบิกของ tab leaves
+ * แก้รายการที่บันทึกผิด with no home at all for those rows.
+ */
+export function showsIssueActions(row: WpThingIssue, group: WpThingGroupKey): boolean {
+  if (group === "here") return true;
+  if (group === "returned") return row.qty - row.returnedQty <= 0;
+  // Every other group holds requests only.
+  return false;
 }
 
 export function groupWpThings(input: {

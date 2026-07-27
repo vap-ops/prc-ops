@@ -1,16 +1,27 @@
-// Spec 363 U4 slice 2 — the `ของ` tab's rendered list.
+// Spec 363 U4 — the `ของ` tab's rendered list.
 //
-// Additive by design: this PR adds the tab, it does NOT delete คำขอซื้อ /
-// เบิกของ / ค่าใช้จ่ายหน้างาน. The three per-issue affordances those tabs carry
-// (ยืนยันรับแทน · แก้รายการที่บันทึกผิด · คืนเข้าคลัง) stay where they are until
-// the merge PR moves them into the row detail — deleting a tab before its
-// affordances have a new home is the half-that-removes-a-signal shape.
+// The merge PR DELETED คำขอซื้อ / เบิกของ / ค่าใช้จ่ายหน้างาน, so this is now the
+// WP's only item surface. The three per-issue affordances those tabs carried
+// (ยืนยันรับแทน · แก้รายการที่บันทึกผิด · คืนเข้าคลัง) had to land in the row
+// detail FIRST — deleting a tab before its affordances have a new home is the
+// half-that-removes-a-signal shape. The second describe block below is that
+// re-homing.
 
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Spec 363 U4 merge — the row detail now carries the three write controls the
+// เบิกของ tab used to own, so the view reaches the store server actions.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/app/store/actions", () => ({
+  reverseStockIssue: vi.fn(),
+  returnStockToStore: vi.fn(),
+  confirmStockIssueOnBehalf: vi.fn(),
+}));
 
 import { WpThingsView } from "@/components/features/work-packages/wp-things-view";
 import { groupWpThings } from "@/lib/work-packages/things";
+import { STORE_FIX_WRONG_ENTRY_LABEL, STORE_RETURN_TO_STORE_LABEL } from "@/lib/i18n/labels";
 
 const requests = [
   {
@@ -51,15 +62,21 @@ const issues = [
     qty: 5,
     returnedQty: 0,
     issuedAt: "2026-07-23T03:00:00Z",
+    receiverName: null,
+    receivedAt: null,
+    unitCost: 120,
   },
 ];
 
-function renderView(over: Partial<Parameters<typeof groupWpThings>[0]> = {}) {
+function renderView(
+  over: Partial<Parameters<typeof groupWpThings>[0]> = {},
+  { canAct = true }: { canAct?: boolean } = {},
+) {
   const groups = groupWpThings({
     requests: over.requests ?? requests,
     issues: over.issues ?? issues,
   });
-  render(<WpThingsView groups={groups} requestHref={(id) => `/requests/${id}`} />);
+  render(<WpThingsView groups={groups} requestHref={(id) => `/requests/${id}`} canAct={canAct} />);
 }
 
 describe("WpThingsView (spec 363 U4 slice 2)", () => {
@@ -132,6 +149,9 @@ describe("WpThingsView (spec 363 U4 slice 2)", () => {
           qty: 5,
           returnedQty: 3,
           issuedAt: "2026-07-23T03:00:00Z",
+          receiverName: null,
+          receivedAt: null,
+          unitCost: 40,
         },
       ],
     });
@@ -139,5 +159,114 @@ describe("WpThingsView (spec 363 U4 slice 2)", () => {
     expect(within(here).getByText("2 เส้น")).toBeInTheDocument();
     const returned = screen.getByRole("group", { name: /คืนแล้ว/ });
     expect(within(returned).getByText("3 เส้น")).toBeInTheDocument();
+  });
+});
+
+// Spec 363 U4 merge — เบิกของ is deleted, so everything it carried per issued
+// line has to arrive here: the receipt state, the issue cost, and the three write
+// controls.
+describe("WpThingsView — the issue row detail (the re-homed เบิกของ affordances)", () => {
+  const withReceiver = [
+    {
+      id: "i-recv",
+      baseItem: "ท่อ PVC",
+      specAttrs: null,
+      unit: "เส้น",
+      qty: 6,
+      returnedQty: 0,
+      issuedAt: "2026-07-23T03:00:00Z",
+      receiverName: "สมชาย",
+      receivedAt: null,
+      unitCost: 55,
+    },
+  ];
+
+  it("offers แก้รายการที่บันทึกผิด on the issue that is still here", () => {
+    renderView();
+    const here = screen.getByRole("group", { name: /อยู่ที่งานนี้/ });
+    expect(
+      within(here).getByRole("button", { name: STORE_FIX_WRONG_ENTRY_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers คืนเข้าคลัง while something remains to return", () => {
+    renderView();
+    const here = screen.getByRole("group", { name: /อยู่ที่งานนี้/ });
+    expect(
+      within(here).getByRole("button", { name: STORE_RETURN_TO_STORE_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers ยืนยันรับแทน only while a named receiver is still รอรับ", () => {
+    renderView({ requests: [], issues: withReceiver });
+    expect(screen.getByRole("button", { name: "ยืนยันรับแทน" })).toBeInTheDocument();
+    expect(screen.getByText(/รอรับ/)).toBeInTheDocument();
+    expect(screen.getByText(/สมชาย/)).toBeInTheDocument();
+  });
+
+  it("drops ยืนยันรับแทน once the receiver has confirmed", () => {
+    renderView({
+      requests: [],
+      issues: [{ ...withReceiver[0]!, receivedAt: "2026-07-24T03:00:00Z" }],
+    });
+    expect(screen.queryByRole("button", { name: "ยืนยันรับแทน" })).toBeNull();
+    expect(screen.getByText(/รับแล้ว/)).toBeInTheDocument();
+  });
+
+  it("keeps the issue cost the เบิกของ list showed", () => {
+    renderView({ requests: [], issues: withReceiver });
+    expect(screen.getByText(/ต้นทุน/)).toBeInTheDocument();
+    expect(screen.getByText(/55/)).toBeInTheDocument();
+  });
+
+  it("still lets a FULLY returned issue be corrected", () => {
+    // It renders only under คืนแล้ว, so without the returned-group arm its
+    // แก้รายการที่บันทึกผิด would have no home at all after the deletion.
+    renderView({
+      requests: [],
+      issues: [{ ...withReceiver[0]!, qty: 6, returnedQty: 6 }],
+    });
+    const returned = screen.getByRole("group", { name: /คืนแล้ว/ });
+    expect(
+      within(returned).getByRole("button", { name: STORE_FIX_WRONG_ENTRY_LABEL }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not repeat the controls on both readings of a partly-returned issue", () => {
+    renderView({
+      requests: [],
+      issues: [{ ...withReceiver[0]!, qty: 6, returnedQty: 2 }],
+    });
+    expect(screen.getAllByRole("button", { name: STORE_FIX_WRONG_ENTRY_LABEL })).toHaveLength(1);
+  });
+
+  it("names each request's own status, which its group cannot", () => {
+    // คำขอซื้อ is deleted with its PurchaseRequestCard, so the row is now the only
+    // place the status shows. รออนุมัติ covers requested/approved/purchased/
+    // on_route — four different answers to "where is my cement" collapsed into
+    // one heading. The card is gone; the distinction must not go with it.
+    renderView();
+    const awaiting = screen.getByRole("group", { name: /รออนุมัติ/ });
+    expect(within(awaiting).getByText("ส่งคำขอแล้ว")).toBeInTheDocument();
+  });
+
+  it("renders NO write control for the read-only viewer", () => {
+    // plain `procurement` reads this page; its only write is the purchase
+    // request, which the ต้องการของ sheet owns.
+    renderView({}, { canAct: false });
+    expect(screen.queryByRole("button", { name: STORE_FIX_WRONG_ENTRY_LABEL })).toBeNull();
+    expect(screen.queryByRole("button", { name: STORE_RETURN_TO_STORE_LABEL })).toBeNull();
+  });
+
+  it("withholds the issue COST from the read-only viewer too", () => {
+    // The whole detail is the เบิกของ tab's content, and that tab rendered only
+    // under !readOnly — so procurement never saw the unit cost or the receipt
+    // state. Showing them here would be a quiet addition for that role rather
+    // than the re-homing this unit is. Caught by an SSR probe, not by a test.
+    renderView({ requests: [], issues: withReceiver }, { canAct: false });
+    expect(screen.queryByText(/ต้นทุน/)).toBeNull();
+    expect(screen.queryByText(/รอรับ/)).toBeNull();
+    // The row itself still renders — it is the read-only "where is my stuff".
+    expect(screen.getByText(/ท่อ PVC/)).toBeInTheDocument();
   });
 });
