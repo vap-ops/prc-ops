@@ -21,6 +21,7 @@ import { useToast } from "@/lib/ui/use-toast";
 import {
   assignProjectHt,
   assignWorkerToProject,
+  confirmWorkerCost,
   createWorker,
   setWorkerDayRate,
   setWorkerLevel,
@@ -61,6 +62,21 @@ import { EMPLOYMENT_TYPE_LABEL, type EmploymentType } from "@/lib/workers/employ
 /** Spec 362 U3 — the "no การจ่าย filter" chip value (the /catalog sentinel). */
 const ALL = "all";
 
+/**
+ * Spec 368 U1 — the GROSS standard day-rate per level (null = no standard set for
+ * that level). Display-only: the page derives it from worker_level_rates so the
+ * operator can see what confirm_worker_cost is about to stamp before pressing.
+ */
+export type LevelRates = Record<WorkerLevel, number | null>;
+
+// Built off WORKER_LEVEL_ORDER so a new worker_level enum value cannot leave a
+// missing key behind (the roster's other level maps are exhaustive Records).
+const NO_LEVEL_RATES: LevelRates = Object.fromEntries(
+  WORKER_LEVEL_ORDER.map((l) => [l, null]),
+) as LevelRates;
+
+const CONFIRM_COST_LABEL = "ยืนยันค่าแรงและระดับ";
+
 type PayType = Database["public"]["Enums"]["pay_type"];
 
 // Spec 266 U3 (ADR 0073): การจ่าย (pay_type) and สถานะ (employment_type) are two
@@ -97,6 +113,10 @@ export type ManagedWorker = {
   project_id: string | null;
   // Spec 272 U1 / ADR 0060: skill grade (null = ยังไม่ประเมิน; super_admin sets).
   level: WorkerLevel | null;
+  // Spec 368 U1 / ADR 0082: when the cost (level + day_rate) was confirmed. null =
+  // never — and derive_muster_labor SKIPS a worker with a null here, so an
+  // unconfirmed ช่าง generates no labor_logs however many days he is mustered.
+  cost_confirmed_at: string | null;
   // Spec 332: the worker's trade tags (สายงาน) — assignment axis, W01–W09.
   trades: WorkerTrade[];
   // DC edit matrix: payee fields, editable from the row's edit sheet. Money/PII —
@@ -361,6 +381,7 @@ function WorkerRow({
   canAssignHt = false,
   canSetTrades = false,
   tradeOptions = [],
+  levelRates = NO_LEVEL_RATES,
   htCodes,
   currentProjectHt,
 }: {
@@ -376,6 +397,8 @@ function WorkerRow({
   // Spec 332: PM_ROLES edit trades (mirrors set_worker_trades); the W0x options.
   canSetTrades?: boolean;
   tradeOptions?: TradeOption[];
+  // Spec 368 U1: standard gross rate per level, for the cost-confirm preview.
+  levelRates?: LevelRates;
   // Spec 272 U2: codes of the projects this worker heads (the row badge)…
   htCodes: string[];
   // …and the current หัวหน้าช่าง of the worker's own project (replace-warning).
@@ -416,6 +439,9 @@ function WorkerRow({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [htBusy, setHtBusy] = useState(false);
+  // Spec 368 U1: the cost-confirm has its own in-flight flag — it is an instant
+  // action beside บันทึก, so sharing `busy` would disable the save mid-confirm.
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const currentProject = projects.find((p) => p.id === worker.project_id) ?? null;
   const isHtOfCurrentProject = currentProjectHt?.id === worker.id;
   // Spec 139: optimistic active-toggle. `committedActive` is the post-mount truth
@@ -548,6 +574,33 @@ function WorkerRow({
     } finally {
       setBusy(false);
     }
+  }
+
+  // Spec 368 U1: the level this confirm would write — the sheet's pick when the
+  // operator has changed it, otherwise the persisted grade. Reading the PICK (not
+  // worker.level) is what lets grade-and-confirm happen in one press.
+  const pickedLevel: WorkerLevel | null = level !== "" ? (level as WorkerLevel) : worker.level;
+  // The rate confirm_worker_cost will stamp for that level. null = the level has no
+  // standard, and the RPC then COALESCES to the worker's existing day_rate — which
+  // on an unrated ช่าง silently confirms ฿0, a row derive_muster_labor skips anyway
+  // for `day_rate > 0`. So a missing standard blocks the confirm rather than
+  // stamping a confirmation that buys nothing.
+  const previewRate = pickedLevel === null ? null : levelRates[pickedLevel];
+
+  // Instant action, not save-coupled (the promoteToHt pattern): this writes MONEY
+  // and stamps cost_confirmed_at, so it is a deliberate press of its own rather
+  // than a side effect of บันทึก. The sheet stays open; refresh re-renders the row.
+  async function confirmCost() {
+    if (pickedLevel === null || previewRate === null) return;
+    setConfirmBusy(true);
+    setError(null);
+    const result = await confirmWorkerCost({ id: worker.id, level: pickedLevel });
+    setConfirmBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
   }
 
   // Spec 272 U2: instant action (not save-coupled) — the RPC is last-wins; a
@@ -874,6 +927,35 @@ function WorkerRow({
               </select>
             </label>
           ) : null}
+          {/* Spec 368 U1 — the cost-confirm door. Sits with the grade picker because
+              it confirms THAT pick; super_admin only, mirroring confirm_worker_cost's
+              own gate (offering it wider would be affordance-then-refuse). Until a
+              worker is confirmed, derive_muster_labor produces no labor_logs for him
+              at all — this button is the whole feed for the ADR-0060 engines. */}
+          {canGrade ? (
+            <div className="mt-2">
+              {worker.cost_confirmed_at !== null ? (
+                <p className="text-ink-secondary text-xs font-medium">ยืนยันแล้ว</p>
+              ) : null}
+              {pickedLevel !== null && previewRate === null ? (
+                <p className="text-attn-ink text-xs">
+                  ยังไม่ได้ตั้งค่าแรงมาตรฐานของระดับนี้ — ตั้งที่ ค่าแรงมาตรฐาน ก่อน
+                </p>
+              ) : previewRate !== null ? (
+                <p className="text-ink-muted text-xs">
+                  จะบันทึกค่าแรง {previewRate.toLocaleString("th-TH")} บาท/วัน
+                </p>
+              ) : null}
+              <button
+                type="button"
+                disabled={confirmBusy || pickedLevel === null || previewRate === null}
+                onClick={() => void confirmCost()}
+                className={`mt-1 ${BUTTON_SECONDARY_COMPACT}`}
+              >
+                {CONFIRM_COST_LABEL}
+              </button>
+            </div>
+          ) : null}
           {/* Spec 332: trade tags (สายงาน) — beside the level picker. Checkbox set
               + one primary radio. Deselecting the primary clears it. */}
           {canSetTrades ? (
@@ -1003,6 +1085,7 @@ export function WorkerRosterManager({
   canAssignHt = false,
   canSetTrades = false,
   tradeOptions = [],
+  levelRates = NO_LEVEL_RATES,
 }: {
   workers: ManagedWorker[];
   // Legacy contractor parents (pre-ADR-0062) still resolve a name for display; new
@@ -1016,6 +1099,8 @@ export function WorkerRosterManager({
   // Spec 332: PM_ROLES edit trades; the W01–W09 options the sheet offers.
   canSetTrades?: boolean;
   tradeOptions?: TradeOption[];
+  // Spec 368 U1: gross standard rate per level (the cost-confirm preview).
+  levelRates?: LevelRates;
 }) {
   const [query, setQuery] = useState("");
   const [selectedPay, setSelectedPay] = useState<PayType | typeof ALL>(ALL);
@@ -1159,6 +1244,7 @@ export function WorkerRosterManager({
                     canAssignHt={canAssignHt}
                     canSetTrades={canSetTrades}
                     tradeOptions={tradeOptions}
+                    levelRates={levelRates}
                     htCodes={htCodesByWorker.get(w.id) ?? []}
                     currentProjectHt={currentProjectHtOf(w)}
                   />

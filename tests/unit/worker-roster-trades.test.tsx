@@ -56,6 +56,7 @@ const BASE: ManagedWorker = {
   portalBound: false,
   project_id: null,
   level: null,
+  cost_confirmed_at: null,
   trades: [],
   phone: null,
   tax_id: null,

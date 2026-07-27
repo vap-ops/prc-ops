@@ -54,6 +54,7 @@ function worker(over: Partial<ManagedWorker> & { id: string; name: string }): Ma
     portalBound: false,
     project_id: null,
     level: null,
+    cost_confirmed_at: null,
     trades: [],
     phone: null,
     tax_id: null,

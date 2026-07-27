@@ -13,25 +13,12 @@ import { PayModelExplainer } from "@/components/features/labor/pay-model-explain
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import type { WhtBasis } from "@/lib/db/enums";
-import { round2 } from "@/lib/format";
+import { grossRate } from "@/lib/labor/gross-rate";
 import { LABOR_RATES_HINT, LABOR_RATES_LABEL } from "@/lib/i18n/labels";
 import { WORKER_LEVEL_ORDER } from "@/lib/nova/dials";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 export const metadata = { title: LABOR_RATES_LABEL };
-
-// Gross day-rate from the entered rate per basis + firm % — re-derives the DB's
-// level_gross_rate() here in the server component because that function is
-// owner/DEFINER-only and can't be called from the admin client. Formula kept
-// identical: before_wht → entered as-is; after_wht → entered / (1 − pct/100), 2dp.
-// Display-only preview of what U3's confirm_worker_cost will stamp; the DB value is
-// canonical (a half-cent float boundary could differ by 0.01 from this preview).
-function grossRate(entered: number | null, basis: WhtBasis, pct: number | null): number | null {
-  if (entered === null) return null;
-  if (basis === "before_wht") return entered;
-  const p = pct ?? 0;
-  return round2(entered / (1 - p / 100));
-}
 
 export default async function LaborRatesPage({
   searchParams,
