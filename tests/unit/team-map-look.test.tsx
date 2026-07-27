@@ -106,28 +106,28 @@ describe("team map — map-look (spec 330 U5)", () => {
   it("the add sheet no longer contains ตั้งทีมใหม่ (staff picker only)", async () => {
     const user = userEvent.setup();
     renderView();
-    const mgmtTier = screen.getByRole("region", { name: /ผู้บริหารโครงการ/ });
-    await user.click(within(mgmtTier).getByRole("button", { name: /เพิ่มสมาชิก/ }));
+    const supportTier = screen.getByRole("region", { name: "สนับสนุน" });
+    await user.click(within(supportTier).getByRole("button", { name: /เพิ่มสมาชิก/ }));
     const sheet = screen.getByRole("dialog");
     expect(within(sheet).queryByRole("button", { name: /ตั้งทีมใหม่/ })).not.toBeInTheDocument();
   });
 
-  it("each staff tier header carries its own เพิ่มสมาชิก; the page-bottom CTA is gone", () => {
+  it("the merged สนับสนุน tier header carries its own เพิ่มสมาชิก; the page-bottom CTA is gone", () => {
     renderView();
     const addButtons = screen.getAllByRole("button", { name: /เพิ่มสมาชิก/ });
-    expect(addButtons).toHaveLength(2);
+    expect(addButtons).toHaveLength(1);
     expect(
-      within(screen.getByRole("region", { name: /หน้างาน/ })).getByRole("button", {
+      within(screen.getByRole("region", { name: "สนับสนุน" })).getByRole("button", {
         name: /เพิ่มสมาชิก/,
       }),
     ).toBeInTheDocument();
   });
 
-  it("each tier ⓘ opens the role-explainer sheet with that tier's help copy", async () => {
+  it("the สนับสนุน tier ⓘ opens the role-explainer sheet with management+site help copy", async () => {
     const user = userEvent.setup();
     renderView();
-    const siteTier = screen.getByRole("region", { name: /หน้างาน/ });
-    await user.click(within(siteTier).getByRole("button", { name: /คำอธิบายบทบาท/ }));
+    const supportTier = screen.getByRole("region", { name: "สนับสนุน" });
+    await user.click(within(supportTier).getByRole("button", { name: /คำอธิบายบทบาท/ }));
     const sheet = screen.getByRole("dialog");
     const firstSiteEntry = TEAM_MAP_ROLE_HELP.site[0];
     expect(firstSiteEntry).toBeDefined();

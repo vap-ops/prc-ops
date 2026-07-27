@@ -78,7 +78,7 @@ export interface AddableStaff {
 
 // ONE sheet at a time — every surface rides the same union so two dialogs can
 // never stack.
-type InfoTier = "management" | "site" | "crew";
+type InfoTier = "management" | "site" | "crew" | "firm";
 
 type SheetState =
   | { type: "staff"; node: TeamMapStaffNode }
@@ -558,16 +558,16 @@ export function TeamMapView({
 
   return (
     <div className="flex flex-col">
-      <section aria-label="ผู้บริหารโครงการ" className={TIER_BOX}>
+      <section aria-label="สนับสนุน" className={TIER_BOX}>
         <div className="mb-2 flex items-center gap-2">
           <Briefcase aria-hidden className="text-ink-secondary size-4 shrink-0" />
           <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
-            ผู้บริหารโครงการ · {map.management.length} คน
+            สนับสนุน · {map.management.length + map.site.length} คน
           </p>
           <button
             type="button"
             className={INFO_BTN}
-            aria-label="คำอธิบายบทบาทผู้บริหารโครงการ"
+            aria-label="คำอธิบายบทบาทสนับสนุน"
             onClick={() => openSheet({ type: "info", tier: "management" })}
           >
             <Info aria-hidden className="size-4" />
@@ -577,54 +577,20 @@ export function TeamMapView({
           </button>
         </div>
         <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-center sm:[&>button]:min-w-56 sm:[&>button]:flex-none">
-          {map.management.map((n) => (
+          {[...map.management, ...map.site].map((n) => (
             <StaffRow
               key={n.userId}
               node={n}
               onOpen={() => openSheet({ type: "staff", node: n })}
             />
           ))}
-          {map.management.length === 0 ? (
-            <p className="text-ink-muted text-xs">ยังไม่มีผู้บริหารในทีม</p>
+          {map.management.length === 0 && map.site.length === 0 ? (
+            <p className="text-ink-muted text-xs">ยังไม่มีทีมสนับสนุน</p>
           ) : null}
         </div>
       </section>
 
-      <div className="border-edge-strong ml-6 h-4 border-l sm:mx-auto" aria-hidden />
-
-      <section aria-label="หน้างาน" className={TIER_BOX}>
-        <div className="mb-2 flex items-center gap-2">
-          <ClipboardList aria-hidden className="text-ink-secondary size-4 shrink-0" />
-          <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
-            หน้างาน · {map.site.length} คน
-          </p>
-          <button
-            type="button"
-            className={INFO_BTN}
-            aria-label="คำอธิบายบทบาทหน้างาน"
-            onClick={() => openSheet({ type: "info", tier: "site" })}
-          >
-            <Info aria-hidden className="size-4" />
-          </button>
-          <button type="button" className={TIER_ACTION} onClick={() => openSheet({ type: "add" })}>
-            <UserPlus aria-hidden className="size-3.5" /> เพิ่มสมาชิก
-          </button>
-        </div>
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:justify-center sm:[&>button]:min-w-56 sm:[&>button]:flex-none">
-          {map.site.map((n) => (
-            <StaffRow
-              key={n.userId}
-              node={n}
-              onOpen={() => openSheet({ type: "staff", node: n })}
-            />
-          ))}
-          {map.site.length === 0 ? (
-            <p className="text-ink-muted text-xs">ยังไม่มีทีมหน้างาน</p>
-          ) : null}
-        </div>
-      </section>
-
-      {/* Trunk + rail: the หน้างาน tier "branches" into the team grid on sm. */}
+      {/* Trunk + rail: the สนับสนุน tier "branches" into the team grid on sm. */}
       <div className="border-edge-strong ml-6 h-4 border-l sm:mx-auto" aria-hidden />
       <div className="border-edge-strong mx-10 hidden border-t sm:block" aria-hidden />
       <div className="mx-10 hidden justify-between sm:flex" aria-hidden>
@@ -1139,18 +1105,21 @@ export function TeamMapView({
         open={sheet?.type === "info"}
         title={
           sheet?.type === "info"
-            ? sheet.tier === "management"
-              ? "บทบาท — ผู้บริหารโครงการ"
-              : sheet.tier === "site"
-                ? "บทบาท — หน้างาน"
-                : "บทบาท — ทีมช่าง"
+            ? sheet.tier === "crew"
+              ? "บทบาท — ทีมภายใน"
+              : sheet.tier === "firm"
+                ? "บทบาท — ทีมภายนอก"
+                : "บทบาท — สนับสนุน"
             : ""
         }
         onClose={closeSheet}
       >
         {sheet?.type === "info" ? (
           <div className="flex flex-col gap-3">
-            {TEAM_MAP_ROLE_HELP[sheet.tier].map((entry) => (
+            {(sheet.tier === "management"
+              ? [...TEAM_MAP_ROLE_HELP.management, ...TEAM_MAP_ROLE_HELP.site]
+              : TEAM_MAP_ROLE_HELP[sheet.tier === "firm" ? "crew" : sheet.tier]
+            ).map((entry) => (
               <div key={entry.label}>
                 <p className="text-ink text-sm font-medium">{entry.label}</p>
                 <p className="text-ink-secondary text-xs">{entry.description}</p>

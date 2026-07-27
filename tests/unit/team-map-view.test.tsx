@@ -102,8 +102,9 @@ afterEach(() => {
 describe("TeamMapView (spec 330 U1)", () => {
   it("renders tiers with the crew summary and collapsed member lists", () => {
     renderView();
-    expect(screen.getByText(/ผู้บริหารโครงการ/)).toBeInTheDocument();
-    expect(screen.getByText(/หน้างาน · /)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "สนับสนุน" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "ผู้บริหารโครงการ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "หน้างาน" })).not.toBeInTheDocument();
     // Tier sum: total workers + team count, visible while collapsed.
     expect(screen.getByText(/รวม 3 คน/)).toBeInTheDocument();
     expect(screen.getByText("ทีมปูน")).toBeInTheDocument();
@@ -114,6 +115,16 @@ describe("TeamMapView (spec 330 U1)", () => {
     const crewCard = screen.getByTestId("team-card-cr-1");
     expect(within(crewCard).getByTestId("collapsed-lead-line")).toHaveTextContent("แก้ว บุญวัง");
     expect(within(crewCard).getByText(/2 คน/)).toBeInTheDocument();
+  });
+
+  it("สนับสนุน renders both management and site staff in ONE list, no PM/SA sub-headers", () => {
+    renderView();
+    const support = screen.getByRole("region", { name: "สนับสนุน" });
+    // MAP fixture: u-pm (management) + u-sa1/u-sa2 (site) = 3 staff total.
+    expect(within(support).getByText("สมชาย ใจดี")).toBeInTheDocument();
+    expect(within(support).getByText("อรปรีญา เงางาม")).toBeInTheDocument();
+    expect(within(support).getByText("ประวิทย์ คงมั่น")).toBeInTheDocument();
+    expect(within(support).getByText("สนับสนุน · 3 คน")).toBeInTheDocument();
   });
 
   it("แสดง toggle reveals member chips and keeps the count visible", async () => {
@@ -173,10 +184,10 @@ describe("TeamMapView (spec 330 U1)", () => {
   it("เพิ่มสมาชิก opens the add sheet listing only addable staff", async () => {
     const user = userEvent.setup();
     renderView();
-    // U5: the CTA lives in each staff tier's header (2 of them), not at the
-    // page bottom — open via the management tier's own button.
+    // U5: the CTA lives in the merged สนับสนุน tier's header, not at the
+    // page bottom.
     await user.click(
-      within(screen.getByRole("region", { name: /ผู้บริหารโครงการ/ })).getByRole("button", {
+      within(screen.getByRole("region", { name: "สนับสนุน" })).getByRole("button", {
         name: /เพิ่มสมาชิก/,
       }),
     );
