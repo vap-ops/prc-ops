@@ -1,3 +1,10 @@
+## [0.240.1](https://github.com/vap-ops/prc-ops/compare/v0.240.0...v0.240.1) (2026-07-27)
+
+### Bug Fixes
+
+- **work-packages:** find a WP's purchase requests by provenance ([a2ee4e8](https://github.com/vap-ops/prc-ops/commit/a2ee4e8be7f7b55c201f179d84625900b33576b4))
+- **work-packages:** scope the WP request list by project, harden its test stub ([21256b0](https://github.com/vap-ops/prc-ops/commit/21256b0655b3adef4329fd95131e1ff2689da8f0))
+
 # [0.240.0](https://github.com/vap-ops/prc-ops/compare/v0.239.0...v0.240.0) (2026-07-27)
 
 ### Bug Fixes
