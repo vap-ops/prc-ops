@@ -80,6 +80,8 @@ export function ScopedCatalogItemPicker({
   disabled = false,
   label = "รายการวัสดุ",
   scopedCategoryIds,
+  badgeByItem,
+  inScopeIds,
   membershipsByItem,
 }: {
   items: PurchaseRequestCatalogItem[];
@@ -100,6 +102,17 @@ export function ScopedCatalogItemPicker({
   /** Spec 228: itemId → its secondary category ids (the S4 canonical∪secondary
    *  union source), so an item linked secondarily to a scoped category surfaces. */
   membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
+  /** Spec 363 U4 — optional right-aligned badge per item id. เบิก passes the
+   *  on-hand quantity ("6 ม้วน") so it stops being trailing text inside the
+   *  item's sentence; the PR / self-purchase / BOQ callers pass nothing. */
+  badgeByItem?: ReadonlyMap<string, string> | undefined;
+  /** Spec 363 U4 — a CALLER-SUPPLIED scope decision, overriding this component's
+   *  own category matching. เบิก scopes with `scopeStockRows`, which also narrows
+   *  by KIND (tools vs materials, spec 229); `scopeCatalogItems` matches on
+   *  category alone, so without this the เบิก swap would silently downgrade that
+   *  narrowing. When present it is authoritative; ordering and the ตรงกับงาน /
+   *  off-category flags all follow it. */
+  inScopeIds?: readonly string[] | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -123,10 +136,19 @@ export function ScopedCatalogItemPicker({
   // Spec 228 — order + flag the catalog against the WP work-category's scope:
   // in-scope items first, the rest still present. Empty/absent scope → the full
   // catalog in order (D8 show-all fallback).
-  const scoped = useMemo(
-    () => scopeCatalogItems(items, membershipsByItem ?? EMPTY_MEMBERSHIPS, scopedCategoryIds),
-    [items, membershipsByItem, scopedCategoryIds],
-  );
+  const scoped = useMemo(() => {
+    // Spec 363 U4: a caller that already decided scope (เบิก, via the kind-aware
+    // scopeStockRows) hands the ids in and this component obeys rather than
+    // re-deriving a weaker answer from categories alone.
+    if (inScopeIds) {
+      const ids = new Set(inScopeIds);
+      const entries = items
+        .map((item) => ({ item, inScope: ids.has(item.id) }))
+        .sort((a, b) => Number(b.inScope) - Number(a.inScope));
+      return { scoped: true, entries, inScopeCount: entries.filter((e) => e.inScope).length };
+    }
+    return scopeCatalogItems(items, membershipsByItem ?? EMPTY_MEMBERSHIPS, scopedCategoryIds);
+  }, [items, membershipsByItem, scopedCategoryIds, inScopeIds]);
   // Pre-filter to in-scope only when the scope actually has matches — otherwise
   // show everything (never an empty picker). The แสดงทั้งหมด escape clears it.
   const scopeActive = scoped.scoped && scoped.inScopeCount > 0;
@@ -329,6 +351,14 @@ export function ScopedCatalogItemPicker({
                         ) : null}
                       </span>
                     </span>
+                    {/* Spec 363 U4: the badge sits at the trailing edge, so a
+                        quantity is read as a quantity instead of disappearing
+                        into the end of a 118-character item sentence. */}
+                    {badgeByItem?.get(i.id) ? (
+                      <span className="text-done-ink bg-done-soft rounded-control text-meta shrink-0 px-2 py-0.5 font-semibold">
+                        {badgeByItem.get(i.id)}
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               ))}
