@@ -70,11 +70,13 @@ describe("WpIssueStock — the item picker", () => {
     render(<WpIssueStock {...PROPS} />);
     openIssueForm();
     // BottomSheet renders through a portal, so query the document, not the
-    // component's container. Guard the guard: the receiver select proves the
-    // sheet really opened, so an empty item-select result means the select is
-    // GONE rather than never rendered.
+    // component's container. Guard the guard: an empty select result must mean
+    // GONE, not never-rendered. Slice 1 used the receiver <select> as that proof;
+    // slice 1b removed it too (there is now no select on this form at all), so
+    // the proof moved to the form's own submit button, which only exists once the
+    // sheet is open. Deliberate update — the old guard failing here is correct.
+    expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeInTheDocument();
     const selects = [...document.body.querySelectorAll("select")];
-    expect(selects.length).toBeGreaterThan(0);
     expect(selects.filter((s) => (s.id ?? "").startsWith("wp-issue-item"))).toHaveLength(0);
   });
 
