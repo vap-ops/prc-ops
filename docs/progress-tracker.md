@@ -6,6 +6,40 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 368 U1 — the cost-confirm door on /workers (2026-07-28)
+
+- **Status: COMPLETE, shipped via PR.** The missing caller for `confirm_worker_cost` — the RPC that
+  sets level + derives `day_rate` from `worker_level_rates` + stamps `cost_confirmed_at`, which
+  `derive_muster_labor` requires before any closed muster day becomes `labor_logs`. It had ZERO
+  callers in `src/` since spec 314 U3, which is why 0 of 31 workers were confirmed and every
+  ADR-0060 engine downstream read zero.
+- **Built:** `confirmWorkerCost` server action (shape-validate → RLS relay, distinct
+  `ยืนยันค่าแรงไม่สำเร็จ` error) · a super_admin-only `ยืนยันค่าแรงและระดับ` instant action on the
+  row edit sheet (promoteToHt pattern, own busy flag) with a live preview of the rate the confirm
+  will stamp · shared `grossRate` helper extracted from `/settings/labor-rates` (one derivation,
+  not two) · page wiring reading standards via the admin client **for super_admin only**.
+- **Review fixes (fresh-eyes: 1🔴 8🟡 1🔵, all addressed):** 🔴 the sheet's stale `rate` state let
+  the next บันทึก wipe a freshly confirmed standard back to ฿0 — the success continuation now
+  resyncs the input (the doctrine's async-continuation lesson, caught again) · confirm blocks on a
+  0-baht standard (the RPC stamps `is not null`, derive skips `> 0` — 0 would mint
+  ยืนยันแล้ว-but-skipped) · door hidden for monthly + firm-tied workers (wrong pay classes for the
+  daily standard) · ยืนยันแล้ว hides while a different level is picked (stamp certifies a pairing)
+  · the firm standard table no longer rides PM/procurement payloads (its app audience is
+  `/settings/labor-rates` = pmgr+super; conditional fetch + conditional spread) · standards read
+  fails loud (a masked empty read rendered a FALSE "no standard" refusal).
+- **Evidence:** 12 RTL cases + 5 pure grossRate cases, all RED-first · **13 mutation checks, all
+  RED** · typecheck/lint clean · full suite 5560/5560 pre-fix, re-run post-fix · SSR probes on the
+  live dev server: levelRates serialized `{senior:650, mid:600, junior:515.46, apprentice:412.37}`
+  (real after_wht gross-up at 3%) for super_admin, ABSENT for view-as procurement · live RPC
+  contract probe: bogus UUID → `P0001 confirm_worker_cost: worker not found` (gate + signature
+  proven, zero writes). Interactive click leg not browser-driven (documented pane-hidden wedge);
+  RTL pins the interaction.
+- **Open questions / follow-ups:** U2 = the operator grades the 16 PRC-paid daily workers (the
+  acceptance query: `count(*) filter (where cost_confirmed_at is not null)` over untied daily
+  workers must move off 0) · `WORKER_LEVEL_ORDER` is not exhaustiveness-pinned (an enum-add leaves
+  a silent missing key — read-site coalesces for now; a Record-derived pin is a small follow-up) ·
+  the ยืนยันแล้ว badge could name the confirmed level for clarity (deferred, cosmetic).
+
 ## Spec 367 — Equipment registry completeness + bulk import/export (2026-07-27)
 
 - **Operator, verbatim:** _"1. Figure out the difference in data fields, check what are missing (images
