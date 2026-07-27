@@ -21,9 +21,14 @@ labor_rate, is_standard, variation_type, line_status, exclusivity_group)` exist;
    here, extending spec 224's `catalog_item_kind`) + an **optional**
    `catalog_assembly_components(assembly_id, component_item_id, qty_per, waste_factor)` BOM.
    No BOM → opaque priced black box; with a BOM → explodable into component items.
-4. `wp_templates` is **promoted** to carry `work_category_id`; template application
-   **reuses `clone_work_packages`** (the dormant proto-template machinery) rather than a new
-   clone path.
+4. ⚠️ **AMENDED 2026-07-27 — `wp_templates` no longer exists.** This point originally
+   promoted it to carry `work_category_id`. The table and `apply_wp_template` were
+   **retired** (`20260813075857_retire_wp_templates.sql`): never used, and keyed on the
+   `project_type` enum rather than the `work_categories` axis the app settled on. The
+   promotion had already conceded the table was unusable as-is, so nothing is lost —
+   S10-U6 builds the WP-seeding template on **`boq_template` / `boq_line`** (live since
+   spec 236) and still **reuses `clone_work_packages`** rather than a new clone path.
+   See spec 142 "U5 was retired, not built".
 5. All new tables/RPCs follow the spec 221 U2 posture (DEFINER, null-safe gate, anon-revoke,
    never service_role); all status fields are enums; estimate rates never leak into the
    catalog.
@@ -38,8 +43,9 @@ Bids reuse the frozen estimate grain for apples-to-apples comparison.
 
 ## Anchors / reuse (real)
 
-- `wp_templates` + `clone_work_packages` — the **dormant** template machinery
-  ([[wp-templates-pulled]]); promote + reuse, do not reinvent.
+- `clone_work_packages` — the surviving reuse anchor; reuse, do not reinvent.
+  (`wp_templates` was the other half of this pair and is **GONE** as of
+  2026-07-27 — retired unused; do not plan against it.)
 - `catalog_item_kind` enum (from spec 224 / S2) — extend with `assembly`.
 - `boq_line.catalog_item_id` → `catalog_items`; `boq_line.work_category_id` →
   `work_categories` (the global library from spec 226 / S5).
@@ -50,8 +56,8 @@ Bids reuse the frozen estimate grain for apples-to-apples comparison.
 
 At build time, split S10 into sub-specs (suggested): (a) `boq_template`/`boq_line` schema +
 RPCs; (b) the estimate authoring UI; (c) assemblies (`kind=assembly` + BOM + explode); (d)
-bid submission + compare; (e) `wp_templates` work_category_id promotion + `clone_work_packages`
-reuse. Each sub-spec claims the schema lane + a fresh reserved timestamp per the protocol,
+bid submission + compare; (e) WP seeding from a `boq_template` + `clone_work_packages`
+reuse (was "`wp_templates` work_category_id promotion" — that table is retired, see point 4). Each sub-spec claims the schema lane + a fresh reserved timestamp per the protocol,
 re-reads LANES.md, and re-verifies no later migration landed before writing SQL.
 
 ## Out of scope (for the program; revisit per sub-spec)

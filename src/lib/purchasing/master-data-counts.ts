@@ -1,7 +1,8 @@
 // Spec 361 U4 — the count loader for the ข้อมูลหลัก hub, extracted from the page
 // so the table/filter mapping is testable without a database. Fresh-eyes review
 // found two mappings wrong while they lived inline in the page (เทมเพลตแผนจัดหา
-// counted `wp_templates`, the spec-237 BOQ table, while its door lists
+// counted `wp_templates` — the dormant spec-142 U5 WP-template table, since
+// RETIRED unused (2026-07-27, mig `075857`) — while its door lists
 // `supply_plans where is_template`; ผู้รับเหมาช่วง counted every `contractors`
 // row while its door lists `contractor_category = 'contractor'` only). A count
 // that disagrees with the list it links to is worse than no count, so each query
@@ -51,7 +52,8 @@ export async function loadMasterDataCounts(
     readCount(supabase.from("catalog_items").select("id", HEAD_COUNT).eq("is_active", true)),
     readCount(supabase.from("catalog_categories").select("id", HEAD_COUNT).eq("is_active", true)),
     readCount(supabase.from("catalog_units").select("code", HEAD_COUNT).eq("is_active", true)),
-    // The door (/settings/ordering-templates) lists supply_plans, not wp_templates.
+    // The door (/settings/ordering-templates) lists supply_plans. (It never listed
+    // the retired `wp_templates`; that mis-mapping is the one described up top.)
     readCount(supabase.from("supply_plans").select("id", HEAD_COUNT).eq("is_template", true)),
     readCount(supabase.from("equipment_items").select("id", HEAD_COUNT)),
     readCount(supabase.from("equipment_categories").select("id", HEAD_COUNT)),

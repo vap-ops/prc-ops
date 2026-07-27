@@ -6,6 +6,58 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 142 U5 — RETIRE `wp_templates` + `apply_wp_template` (2026-07-27)
+
+- **Status:** migration composed + PR shipped; ⛔ **NOT APPLIED — operator-held.** `DROP TABLE` +
+  `DROP FUNCTION` is break-glass **Procedure B**, whose Floor 1 (`pg_dump`) and Floor 2
+  (preview-branch rehearsal) are explicitly _"operator-run — cannot be delegated to CC."_ So this
+  PR is composed and left for the operator; **no `db:push`, no merge by CC.**
+- **Origin:** noticed while designing a new spec — `grep wp_templates src/` returns only the
+  generated `database.types.ts`. The brief framed it as "zero readers, zero writers."
+- ⚠️ **Premise corrected before deciding:** the table is **not** reader-less. `apply_wp_template`
+  is a live SECURITY DEFINER RPC that reads it, granted to `authenticated`, re-gated through **two**
+  later role sweeps (`075100` director gates, `0813013000` rank-5 batch), with its own pgTAP file
+  (`72-wp-templates.test.sql`) and a second assertion in `76-lock-completed-project.test.sql`. A
+  `src/`-only grep cannot see the DB layer. What it actually is: **a complete, tested, gated DB
+  feature with no UI door.**
+- **Live verification (2026-07-27):** 28 rows / 5 `project_type`s · **zero FK dependents, zero
+  views, zero DB callers** · zero `src/` readers at `origin/main` · **never applied to any live
+  project** — the one project whose codes look template-shaped (รีโนเวทบูท (BTNC), `WP-01…06`)
+  holds hand-entered work ("ขนบูทไปวางที่ร้าน", "ยึดเสาให้แข็งแรง"), not the seeded renovation
+  phase names.
+- **Decision: RETIRE, not wire in.** Three reasons: ① **the taxonomy is dead** — the seed keys 28
+  generic phases off the `project_type` enum, while the axis the app uses is `work_categories`
+  (52 live rows, BOQ-derived, 2 levels, on `work_packages.category_id`); exactly **4 of 28** names
+  match a live category. ② **Wiring it in would regress data** — `apply_wp_template` INSERTs
+  straight into `work_packages`, bypassing `create_work_package`, so it cannot set `category_id`
+  (spec 336 made it required; WP-single-category is locked doctrine) and mints `WP-01` codes that
+  **spec 336 retired**. ③ **The need is already met** by `clone_work_packages` (U6) + the CSV paste
+  (U7), which copy a _real_ prior project. "Wiring it in" would mean re-seeding all 28 rows against
+  the real taxonomy and rewriting the RPC — i.e. building spec 231 S10-U6 from scratch, inheriting
+  nothing but a name.
+- **It has already misled someone once:** the spec-361 master-data hub's เทมเพลตแผนจัดหา tile
+  counted `wp_templates` while its door lists `supply_plans where is_template`; fresh-eyes caught
+  it and the warning comment still sits at `master-data-counts.ts:4`. ⭐ **The stale fact was not
+  alone** — the same wrong mapping was still recorded as "ok" in
+  `docs/feature-specs/361-procurement-master-data-hub.md:75`; swept and fixed.
+- **Spec statuses updated** (the brief's requirement — a spec that promised this needs updating
+  either way): 142 U5 → **RETIRED** + a rationale section · 231 points 4 / anchors / decomposition
+  (e) → S10-U6 rebased onto `boq_template` · 236 line 73 · 207's "mirror this pattern"
+  recommendation → recast as a cautionary precedent · 175's two posture references annotated ·
+  `README.md` rows 231 + 236 · this tracker's S10 decomposition line. **231/S10-U6 is amended, not
+  cancelled** — `boq_template`/`boq_line` are live (spec 236, both 0 rows) and are the correctly
+  shaped primitive.
+- **Backout:** all 28 rows are literals in `20260730000000_wp_templates.sql`, which stays in the
+  repo — re-creating table + function + seed is a copy-paste. **No user-entered data is destroyed.**
+- **Ordering note (queue-ejector class):** the pgTAP deletions ship in the SAME PR as the migration
+  and that is _correct here_ precisely because the apply is deferred — merge removes the
+  assertions, the operator's later `db:push` drops the objects. Neither step ever sees a DB and a
+  test suite that disagree.
+- **Open:** mig number `075857` is claimed but unapplied; if spec 361 U1 (rental catalog) wants it
+  first, renumbering is a free `git mv`. `database.types.ts` regen is a **post-apply** step.
+
+---
+
 ## Spec 362 — Registry UI parity: ทะเบียนวัสดุ becomes the house pattern (2026-07-26)
 
 - **Operator, verbatim:** _"UI of ทะเบียนวัสดุ is better than ทะเบียนอุปกรณ์ and ทะเบียนค่าแรง"_.
@@ -3394,7 +3446,8 @@ a labor log belongs to one WP); if that ever changes, the per-WP labor sum could
 ### S10-U1 — BOQ estimate core: `boq_template` + `boq_line` + 6 RPCs (spec 236) — 🔔 HELD PR (2026-06-30)
 
 First build sub-unit of the S10 estimate/template/bid epic (the 231 decomposition: U1 schema core → U2 UI →
-U3/U4 assemblies → U5 bid/freeze → U6 wp_templates). Operator greenlit D1/D2/D3. Migration
+U3/U4 assemblies → U5 bid/freeze → U6 WP-seeding-from-a-`boq_template`; U6 was originally
+"wp_templates promotion" — that table was RETIRED unused 2026-07-27, mig `075857`). Operator greenlit D1/D2/D3. Migration
 `20260813040000_spec236_boq_template_line.sql` (applied to the shared DB; main↔DB sync moves to `040000`
 once the held PR merges). Two new enums `boq_line_status` (draft/frozen/superseded) + `boq_variation_type`
 (standard/added/omitted/provisional_sum) — created inline (new `CREATE TYPE`, not an `ALTER TYPE ADD VALUE`).
