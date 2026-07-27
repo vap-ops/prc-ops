@@ -279,6 +279,9 @@ describe("PersonPicker (spec 363 U4 slice 1b)", () => {
     );
     const sheet = screen.getByRole("dialog");
     fireEvent.click(within(sheet).getByRole("button", { name: /จรูญ/ }));
+    // The clear row is a separate control and needs its own proof — a mutation
+    // dropping only ITS disabled prop left this test green until this line.
+    fireEvent.click(within(sheet).getByRole("button", { name: "ไม่ระบุ" }));
     expect(onChange).not.toHaveBeenCalled();
   });
 });
