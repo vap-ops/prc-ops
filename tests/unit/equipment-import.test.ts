@@ -20,13 +20,11 @@ import {
 
 const CATEGORY_ID = "c0000000-0000-4000-8000-000000000001";
 const OWNER_ID = "b0000000-0000-4000-8000-000000000001";
-const SUPPLIER_ID = "50000000-0000-4000-8000-000000000001";
 const EXISTING_ID = "e0000000-0000-4000-8000-000000000001";
 
 const ctx = (over: Partial<EquipmentImportContext> = {}): EquipmentImportContext => ({
   categoriesByName: new Map([["เครื่องจักรก่อสร้าง", CATEGORY_ID]]),
   ownersByName: new Map([["Prestion Construction Co., Ltd.", OWNER_ID]]),
-  suppliersByName: new Map([["Prestion Construction Co., Ltd.", SUPPLIER_ID]]),
   existingIds: new Set([EXISTING_ID]),
   allowMoney: true,
   ...over,
@@ -176,14 +174,28 @@ describe("equipment import — insert vs update", () => {
 });
 
 describe("equipment import — taxonomy is resolved, never invented", () => {
-  it("resolves category / owner / supplier by NAME", () => {
+  it("resolves category and owner by NAME", () => {
+    const r = parseEquipmentImport(csv(line()), ctx());
+    expect(r.errors).toEqual([]);
+    expect(r.rows[0]?.categoryId).toBe(CATEGORY_ID);
+    expect(r.rows[0]?.ownerId).toBe(OWNER_ID);
+  });
+
+  // Spec 275 id-mirrors an owner into suppliers and the write path sets
+  // supplier_id = owner_id, so a differing ผู้ขาย could never land. Refusing beats
+  // accepting an edit that would be silently overwritten on save.
+  it("REFUSES a ผู้ขาย that differs from เจ้าของ", () => {
+    const r = parseEquipmentImport(csv(line({ supplier: "คนละบริษัท" })), ctx());
+    expect(r.rows).toHaveLength(0);
+    expect(r.errors.join(" ")).toContain("ผู้ขาย");
+  });
+
+  it("accepts a ผู้ขาย equal to เจ้าของ (what the exporter emits)", () => {
     const r = parseEquipmentImport(
       csv(line({ supplier: "Prestion Construction Co., Ltd." })),
       ctx(),
     );
     expect(r.errors).toEqual([]);
-    expect(r.rows[0]?.categoryId).toBe(CATEGORY_ID);
-    expect(r.rows[0]?.supplierId).toBe(SUPPLIER_ID);
   });
 
   // Auto-creating is how `งานวัสดุพื้นฐานโครงสร้าง` happens again — a typo

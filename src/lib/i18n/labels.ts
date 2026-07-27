@@ -610,6 +610,7 @@ export const EQUIPMENT_TRACKING_LABEL: Record<Enums["equipment_tracking"], strin
 // artifact ("the ดาวน์โหลด file is the template"), so a second constant holding
 // the same string would be the exact drift this SSOT exists to prevent.
 export const EQUIPMENT_EXPORT_LABEL = "ดาวน์โหลด CSV";
+export const EQUIPMENT_IMPORT_LABEL = "นำเข้า CSV";
 
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";

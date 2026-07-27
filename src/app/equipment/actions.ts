@@ -17,6 +17,7 @@ import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
 import { validateEquipmentDailyRate } from "@/lib/equipment/validate-equipment-daily-rate";
+import { parseEquipmentImport } from "@/lib/equipment/equipment-import";
 import type { Database } from "@/lib/db/database.types";
 
 type EquipmentStatus = Database["public"]["Enums"]["equipment_status"];
@@ -294,4 +295,102 @@ export async function recordEquipmentMovement(input: {
 
   revalidatePath("/equipment");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Spec 367 U3b — bulk import from the U2 export's own CSV.
+//
+// Gate is BACK_OFFICE_ROLES: the same audience that may INSERT/UPDATE
+// equipment_items through the row forms, so the file can do nothing a hand edit
+// could not. requireRole also gives the caller id for the created_by pin the
+// INSERT policy enforces.
+//
+// The parse layer refuses money, an unknown id, unknown taxonomy and a ผู้ขาย
+// that drifts from เจ้าของ, and returns rows ONLY when the whole file is clean —
+// so this function either writes everything or writes nothing. That matters at
+// 64 rows: a partial import leaves nobody able to tell which half landed.
+//
+// `supplier_id` is set from ownerId, never from the file: spec 275 id-mirrors an
+// owner into `suppliers` to keep the GL-party edge in step, and createEquipment
+// does the same.
+// ---------------------------------------------------------------------------
+export interface ImportEquipmentResult {
+  ok: boolean;
+  inserts: number;
+  updates: number;
+  errors: string[];
+}
+
+export async function importEquipmentCsv(
+  csvText: string,
+  options: { dryRun?: boolean } = {},
+): Promise<ImportEquipmentResult> {
+  const ctx = await requireRole(BACK_OFFICE_ROLES);
+  const supabase = await createServerSupabase();
+
+  const [{ data: cats }, { data: owners }, { data: items }] = await Promise.all([
+    supabase.from("equipment_categories").select("id, name"),
+    supabase.from("equipment_owners").select("id, name"),
+    supabase.from("equipment_items").select("id"),
+  ]);
+
+  const parsed = parseEquipmentImport(csvText, {
+    categoriesByName: new Map((cats ?? []).map((c) => [c.name, c.id])),
+    ownersByName: new Map((owners ?? []).map((o) => [o.name, o.id])),
+    existingIds: new Set((items ?? []).map((i) => i.id)),
+    // This route is BACK_OFFICE_ROLES-only, so the reader is always the money
+    // audience; money is still refused per-cell because it is unwritable.
+    allowMoney: true,
+  });
+
+  if (parsed.errors.length > 0) {
+    return { ok: false, inserts: 0, updates: 0, errors: parsed.errors };
+  }
+  if (parsed.rows.length === 0) {
+    return { ok: false, inserts: 0, updates: 0, errors: ["ไม่พบข้อมูลในไฟล์"] };
+  }
+
+  // Preview: the file is clean, so report what WOULD happen and write nothing.
+  // At 64 rows the operator should see "add 3, update 61" before committing —
+  // an import that only tells you what it did after the fact is not reviewable.
+  if (options.dryRun) {
+    return { ok: true, inserts: parsed.inserts, updates: parsed.updates, errors: [] };
+  }
+
+  const errors: string[] = [];
+  let inserts = 0;
+  let updates = 0;
+
+  for (const row of parsed.rows) {
+    const shared = {
+      name: row.name,
+      category_id: row.categoryId,
+      owner_id: row.ownerId,
+      supplier_id: row.ownerId,
+      tracking: row.tracking,
+      asset_tag: row.assetTag,
+      quantity: row.quantity,
+      status: row.status,
+      brand: row.brand,
+      model: row.model,
+      serial_no: row.serialNo,
+      condition: row.condition,
+      description: row.description,
+    };
+
+    if (row.kind === "insert") {
+      const { error } = await supabase
+        .from("equipment_items")
+        .insert({ ...shared, created_by: ctx.id });
+      if (error) errors.push(`เพิ่ม "${row.name}" ไม่สำเร็จ`);
+      else inserts += 1;
+    } else {
+      const { error } = await supabase.from("equipment_items").update(shared).eq("id", row.id!);
+      if (error) errors.push(`แก้ไข "${row.name}" ไม่สำเร็จ`);
+      else updates += 1;
+    }
+  }
+
+  revalidatePath("/equipment");
+  return { ok: errors.length === 0, inserts, updates, errors };
 }
