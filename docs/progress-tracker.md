@@ -95,8 +95,35 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
   (`/equipment` 200, SSOT labels at exactly the DB 63/1 split, `จำหน่ายออก` 0× confirming the omission).
 - ⓘ **Branch split mid-lane:** U1 commit briefly sat on the U0 branch, which would have turned a green
   code-only PR into a danger-path migration PR and blocked its auto-merge. Split before pushing.
-- **Status:** spec #800 ✅ merged · U0 #802 green (auto-merge armed) · U1 #803 open, danger-path HOLD
-  expected (additive migration). ▶ U2 exports.
+- **U2 ✅ (2026-07-27)** — CSV export for both lists. Pure row→CSV modules + `<a download>` route
+  handlers, Thai headers, UTF-8 BOM. The equipment file is the PRI transfer schedule AND, round-tripped,
+  the U3 import template — so there is deliberately **no separate empty template**: two artifacts would
+  drift and a filled column would silently fail to import.
+- **The money split is column ABSENCE, not blank cells.** A non-money audience gets a file without
+  `ราคาทุน` / `ค่าเช่า/วัน` at all: a blank price column in a transfer schedule reads as "free", an absent
+  one reads as "not your view". Proven live via the spec-274 view-as cookie — as `site_admin` the route
+  returns 200 with 64 rows and neither money column; as `super_admin` both are present.
+- **Created the shared `src/lib/csv.ts`** the tracker already prescribed (see the deferred item below).
+  Four copies of the cell writer existed and only one carried the formula-injection guard; these two new
+  exports carry operator-editable names/brands/descriptions, so a fifth copy would have made it worse.
+  ⚠️ The three older exports are **still not retrofitted** — that remains its own unit.
+- **Both affordances are `<a download>`, never `next/link`** — Link prefetches, and prefetching a route
+  handler EXECUTES it, so every hover would build and discard a CSV.
+- ⚠️ **A probe of mine was wrong and nearly caused a false "fix".** `response.text()` STRIPS a leading
+  BOM by spec, so my first live check reported `bomCodePoint: e23` (Thai ร) and looked like the BOM was
+  missing. Confirmed the source really did contain U+FEFF, then re-probed with `arrayBuffer()`: first
+  three bytes are `ef bb bf` on **both** files. **Read raw bytes when asserting a byte-level property —
+  a decoded string cannot see one.**
+- **Evidence:** 13 export cases RED-first · vitest **5561/5561** (728 files) · lint+typecheck clean ·
+  live: equipment 64 rows / rentals 29 rows, correct `Content-Type` + `Content-Disposition`, the
+  comma-bearing owner name correctly RFC-4180 quoted on real data, blank `รายการ` shown plainly (the
+  20-of-29 gap made visible rather than papered over).
+- ⓘ **Branch churn, recorded:** #802's squash-merge made #803 DIRTY (the shared U0 commits could not
+  replay). `ship-pr.sh` pushes non-force, so #803 was closed and replaced by **#804** with the same
+  content rebased; U2 was then restacked with `git rebase --onto`. Forcing over a branch with an armed
+  auto-merge would have been the riskier path.
+- **Status:** spec #800 ✅ · U0 #802 ✅ MERGED · U1 **#804** open (danger-path HOLD, additive migration;
+  #803 closed/superseded) · U2 ready to ship once #804 lands. ▶ U3 equipment importer.
 
 ---
 
