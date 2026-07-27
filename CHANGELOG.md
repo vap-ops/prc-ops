@@ -1,3 +1,9 @@
+# [0.246.0](https://github.com/vap-ops/prc-ops/compare/v0.245.0...v0.246.0) (2026-07-27)
+
+### Features
+
+- **equipment:** bulk import UI over the U3a parser (spec 367 U3b) ([50357a2](https://github.com/vap-ops/prc-ops/commit/50357a2c4550883b162488250c068d03054e02e4))
+
 # [0.245.0](https://github.com/vap-ops/prc-ops/compare/v0.244.0...v0.245.0) (2026-07-27)
 
 ### Features
