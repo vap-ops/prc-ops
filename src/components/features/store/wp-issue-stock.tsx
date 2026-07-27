@@ -12,7 +12,7 @@ import { useState, useTransition } from "react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { ReturnToStoreControl } from "@/components/features/store/return-to-store-control";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, INLINE_ERROR } from "@/lib/ui/classes";
 import { STORE_ISSUE_LABEL, STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { scopeStockRows } from "@/lib/catalog/scoped-picker";
@@ -63,6 +63,10 @@ const FIELD =
 const EMPTY_MEMBERSHIPS: ReadonlyMap<string, Set<string>> = new Map();
 
 export function WpIssueStock({
+  initialCatalogItemId,
+  embedded = false,
+  onDone,
+  onCancel,
   projectId,
   workPackageId,
   onHand,
@@ -86,13 +90,36 @@ export function WpIssueStock({
   membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
   // Spec 363 U4: the managed catalog categories, for the picker's filter chips.
   categories: { id: string; name: string }[];
+  /** Spec 363 U4 — the ต้องการของ sheet picks the item once and hands it down. */
+  initialCatalogItemId?: string | undefined;
+  /** Spec 363 U4 — rendered INSIDE the ต้องการของ sheet: the form alone, with no
+   *  trigger of its own (the SA already pressed one), no BottomSheet (the parent
+   *  IS one — nesting would stack a third), and no recent-เบิก list (the ของ tab
+   *  already lists them). */
+  embedded?: boolean;
+  /** Spec 363 U4 — embedded, this component has NO sheet of its own, so the
+   *  parent owns dismissal. Called when the SA dismisses the success RECEIPT,
+   *  never on submit: closing on success would blank the surface with no
+   *  outcome stated, which is indistinguishable from a crash. */
+  onDone?: (() => void) | undefined;
+  onCancel?: (() => void) | undefined;
 }) {
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<DraftIssueRow[]>([emptyIssueRow()]);
+  // Spec 363 U4 — the ต้องการของ sheet chooses the item ONCE and hands it down,
+  // so each path opens with the item already selected rather than asking again.
+  const [rows, setRows] = useState<DraftIssueRow[]>([
+    { ...emptyIssueRow(), item: initialCatalogItemId ?? "" },
+  ]);
   const [error, setError] = useState<string | null>(null);
   const [issuing, startIssue] = useTransition();
+  // Spec 363 U4 — what was just withdrawn, so the write states its own
+  // outcome. stock_issues is APPEND-ONLY: an unnoticed double-submit needs a
+  // REVERSAL, not a delete, so a silent success is expensive here.
+  const [receipt, setReceipt] = useState<{ item: string; qty: number; unit: string }[] | null>(
+    null,
+  );
 
   function updateRow(i: number, patch: Partial<DraftIssueRow>) {
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -144,6 +171,18 @@ export function WpIssueStock({
         setError(result.error);
         return;
       }
+      if (embedded) {
+        setReceipt(
+          completeRows.map((r) => {
+            const oh = onHandOf(r.item);
+            return {
+              item: oh ? oh.baseItem + (oh.specAttrs ? " " + oh.specAttrs : "") : "",
+              qty: Number(r.qty),
+              unit: oh?.unit ?? "",
+            };
+          }),
+        );
+      }
       reset();
       setOpen(false);
       router.refresh();
@@ -184,6 +223,175 @@ export function WpIssueStock({
   // category-only, so hand it the decision rather than let it re-derive one.
   const inScopeIds = inScopeRows.map((r) => r.catalogItemId);
   const scopedCategoryIds = (scopedRelation ?? []).map((r) => r.categoryId);
+
+  // Spec 363 U4 — the form is hoisted so it can render EITHER wrapped in this
+  // component's own BottomSheet (the เบิกของ tab) or bare inside the ต้องการของ
+  // sheet, which is already a BottomSheet. Nesting them would stack a third
+  // sheet behind a second trigger the SA has no reason to press.
+  const issueForm = (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Spec 208 U3: a multi-row grid — เบิก a whole list to this WP at once. */}
+      <ul className="flex flex-col gap-4">
+        {rows.map((r, i) => {
+          const selected = onHandOf(r.item);
+          const over = rowOverStock(r);
+          return (
+            <li key={i} className="border-edge rounded-control flex flex-col gap-3 border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-meta text-ink-secondary font-semibold">รายการ {i + 1}</span>
+                {rows.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(i)}
+                    disabled={issuing}
+                    className="text-danger text-meta font-medium"
+                  >
+                    ลบ
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <ScopedCatalogItemPicker
+                  items={pickerItems}
+                  categories={categories}
+                  selectedId={r.item}
+                  onSelect={(id) => updateRow(i, { item: id })}
+                  onClear={() => updateRow(i, { item: "" })}
+                  disabled={issuing}
+                  label="วัสดุในคลัง"
+                  badgeByItem={badgeByItem}
+                  triggerLabel="เลือกวัสดุจากคลัง"
+                  emptyState={
+                    // The catalog default ("register it in ตั้งค่า → แคตตาล็อก")
+                    // is wrong guidance here: on เบิก the item is usually IN the
+                    // catalog and simply out of stock, and a site admin cannot add
+                    // catalog entries. The real next action is a purchase request.
+                    <div className="border-edge-strong rounded-control border border-dashed px-3 py-4">
+                      <p className="text-ink-secondary text-sm">
+                        ไม่มีวัสดุนี้ในคลัง — ถ้าต้องใช้ ให้สร้างคำขอซื้อ
+                      </p>
+                    </div>
+                  }
+                  {...(scopeActive ? { scopedCategoryIds, inScopeIds, membershipsByItem } : {})}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor={`wp-issue-qty-${i}`} className={LABEL}>
+                  จำนวน
+                </label>
+                <input
+                  id={`wp-issue-qty-${i}`}
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  value={r.qty}
+                  onChange={(e) => updateRow(i, { qty: e.target.value })}
+                  disabled={issuing}
+                  className={FIELD}
+                />
+                {selected ? (
+                  <p className={`text-meta ${over ? "text-danger" : "text-ink-secondary"}`}>
+                    {over
+                      ? `เกินจำนวนในคลัง (มี ${selected.qtyOnHand} ${selected.unit})`
+                      : `มีในมือ ${selected.qtyOnHand} ${selected.unit}`}
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Custody (spec 177 U7): name the receiver who takes the material;
+                      they confirm receipt later from the worker portal. Optional.
+
+                      Spec 363 U4 slice 1b — off the native <select> and onto the
+                      same searchable-sheet idiom as the วัสดุ field above it.
+                      Slice 1 swapped only the material field, which left two
+                      adjacent controls asking the same kind of question in two
+                      different idioms (operator 2026-07-27). The roster is 30
+                      names on the pilot project — long enough that scrolling an
+                      OS wheel to find one man is the same hunt the material
+                      field just stopped being. */}
+              <PersonPicker
+                label="ผู้รับ (ถ้ามี)"
+                people={workers}
+                selectedId={r.receiver}
+                onChange={(id) => updateRow(i, { receiver: id })}
+                disabled={issuing}
+                restingLabel="ไม่ระบุ"
+                clearLabel="ไม่ระบุ"
+                searchPlaceholder="ค้นหาชื่อ"
+                sheetTitle="เลือกผู้รับ"
+                emptyRosterLabel="ยังไม่มีช่างในโครงการนี้"
+              />
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor={`wp-issue-note-${i}`} className={LABEL}>
+                  หมายเหตุ (ถ้ามี)
+                </label>
+                <input
+                  id={`wp-issue-note-${i}`}
+                  type="text"
+                  value={r.note}
+                  maxLength={1000}
+                  onChange={(e) => updateRow(i, { note: e.target.value })}
+                  disabled={issuing}
+                  className={FIELD}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <button type="button" onClick={addRow} disabled={issuing} className={BUTTON_SECONDARY}>
+        + เพิ่มรายการ
+      </button>
+
+      {error ? (
+        <div role="alert" className={INLINE_ERROR}>
+          {error}
+        </div>
+      ) : null}
+
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => (embedded ? onCancel?.() : setOpen(false))}
+          className={BUTTON_SECONDARY}
+        >
+          ยกเลิก
+        </button>
+        <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
+          {issuing ? "กำลังเบิก…" : "ยืนยันการเบิก"}
+        </button>
+      </div>
+    </form>
+  );
+
+  if (embedded) {
+    // The receipt REPLACES the form: leaving the submit live invites the
+    // double-เบิก that append-only storage makes expensive to undo.
+    return receipt ? (
+      <div className="flex flex-col gap-3">
+        <div className={CARD}>
+          <p className="text-ink text-body font-semibold">เบิกแล้ว</p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {receipt.map((r, i) => (
+              <li key={i} className="text-ink-secondary text-body">
+                {r.item} · {r.qty} {r.unit}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <button type="button" onClick={() => onDone?.()} className={BUTTON_PRIMARY}>
+          เสร็จสิ้น
+        </button>
+      </div>
+    ) : (
+      issueForm
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -261,142 +469,7 @@ export function WpIssueStock({
       ) : null}
 
       <BottomSheet open={open} title={STORE_ISSUE_LABEL} onClose={() => setOpen(false)}>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Spec 208 U3: a multi-row grid — เบิก a whole list to this WP at once. */}
-          <ul className="flex flex-col gap-4">
-            {rows.map((r, i) => {
-              const selected = onHandOf(r.item);
-              const over = rowOverStock(r);
-              return (
-                <li key={i} className="border-edge rounded-control flex flex-col gap-3 border p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-meta text-ink-secondary font-semibold">
-                      รายการ {i + 1}
-                    </span>
-                    {rows.length > 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => removeRow(i)}
-                        disabled={issuing}
-                        className="text-danger text-meta font-medium"
-                      >
-                        ลบ
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <ScopedCatalogItemPicker
-                      items={pickerItems}
-                      categories={categories}
-                      selectedId={r.item}
-                      onSelect={(id) => updateRow(i, { item: id })}
-                      onClear={() => updateRow(i, { item: "" })}
-                      disabled={issuing}
-                      label="วัสดุในคลัง"
-                      badgeByItem={badgeByItem}
-                      triggerLabel="เลือกวัสดุจากคลัง"
-                      emptyState={
-                        // The catalog default ("register it in ตั้งค่า → แคตตาล็อก")
-                        // is wrong guidance here: on เบิก the item is usually IN the
-                        // catalog and simply out of stock, and a site admin cannot add
-                        // catalog entries. The real next action is a purchase request.
-                        <div className="border-edge-strong rounded-control border border-dashed px-3 py-4">
-                          <p className="text-ink-secondary text-sm">
-                            ไม่มีวัสดุนี้ในคลัง — ถ้าต้องใช้ ให้สร้างคำขอซื้อ
-                          </p>
-                        </div>
-                      }
-                      {...(scopeActive ? { scopedCategoryIds, inScopeIds, membershipsByItem } : {})}
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor={`wp-issue-qty-${i}`} className={LABEL}>
-                      จำนวน
-                    </label>
-                    <input
-                      id={`wp-issue-qty-${i}`}
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="any"
-                      value={r.qty}
-                      onChange={(e) => updateRow(i, { qty: e.target.value })}
-                      disabled={issuing}
-                      className={FIELD}
-                    />
-                    {selected ? (
-                      <p className={`text-meta ${over ? "text-danger" : "text-ink-secondary"}`}>
-                        {over
-                          ? `เกินจำนวนในคลัง (มี ${selected.qtyOnHand} ${selected.unit})`
-                          : `มีในมือ ${selected.qtyOnHand} ${selected.unit}`}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {/* Custody (spec 177 U7): name the receiver who takes the material;
-                      they confirm receipt later from the worker portal. Optional.
-
-                      Spec 363 U4 slice 1b — off the native <select> and onto the
-                      same searchable-sheet idiom as the วัสดุ field above it.
-                      Slice 1 swapped only the material field, which left two
-                      adjacent controls asking the same kind of question in two
-                      different idioms (operator 2026-07-27). The roster is 30
-                      names on the pilot project — long enough that scrolling an
-                      OS wheel to find one man is the same hunt the material
-                      field just stopped being. */}
-                  <PersonPicker
-                    label="ผู้รับ (ถ้ามี)"
-                    people={workers}
-                    selectedId={r.receiver}
-                    onChange={(id) => updateRow(i, { receiver: id })}
-                    disabled={issuing}
-                    restingLabel="ไม่ระบุ"
-                    clearLabel="ไม่ระบุ"
-                    searchPlaceholder="ค้นหาชื่อ"
-                    sheetTitle="เลือกผู้รับ"
-                    emptyRosterLabel="ยังไม่มีช่างในโครงการนี้"
-                  />
-
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor={`wp-issue-note-${i}`} className={LABEL}>
-                      หมายเหตุ (ถ้ามี)
-                    </label>
-                    <input
-                      id={`wp-issue-note-${i}`}
-                      type="text"
-                      value={r.note}
-                      maxLength={1000}
-                      onChange={(e) => updateRow(i, { note: e.target.value })}
-                      disabled={issuing}
-                      className={FIELD}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-
-          <button type="button" onClick={addRow} disabled={issuing} className={BUTTON_SECONDARY}>
-            + เพิ่มรายการ
-          </button>
-
-          {error ? (
-            <div role="alert" className={INLINE_ERROR}>
-              {error}
-            </div>
-          ) : null}
-
-          <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setOpen(false)} className={BUTTON_SECONDARY}>
-              ยกเลิก
-            </button>
-            <button type="submit" disabled={!canSubmit} className={BUTTON_PRIMARY}>
-              {issuing ? "กำลังเบิก…" : "ยืนยันการเบิก"}
-            </button>
-          </div>
-        </form>
+        {issueForm}
       </BottomSheet>
     </div>
   );

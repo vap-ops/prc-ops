@@ -9,7 +9,7 @@
 // the required receipt evidence). The ask-procurement PR (สร้างคำขอซื้อ) stays a
 // separate affordance — see the split in spec 285 U3.
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { recordSitePurchase } from "@/app/requests/actions";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
@@ -32,11 +32,14 @@ const LABEL = "text-ink flex flex-col gap-1 text-sm font-medium";
 const TOGGLE_ROW = "text-ink flex items-center gap-2 text-sm font-medium";
 
 export function SelfPurchaseForm({
+  initialCatalogItemId,
   projectId,
   workPackageId,
   catalogItems,
   categories,
 }: {
+  /** Spec 363 U4 — the ต้องการของ sheet picks the item once and hands it down. */
+  initialCatalogItemId?: string | undefined;
   projectId: string;
   workPackageId: string;
   catalogItems: PurchaseRequestCatalogItem[];
@@ -45,7 +48,16 @@ export function SelfPurchaseForm({
   categories: { id: string; name: string }[];
 }) {
   const router = useRouter();
-  const [catalogItemId, setCatalogItemId] = useState("");
+  // Spec 363 U4 — field ids are MINTED per instance. The ต้องการของ sheet renders
+  // this form as a second copy while the tab still holds the first, and
+  // wp-detail-tabs keeps every panel MOUNTED (hidden, not unmounted). Hardcoded
+  // ids would collide, and htmlFor resolves to the FIRST match in document
+  // order — so tapping a label in the sheet would focus an invisible control in
+  // another tab.
+  const fieldId = useId();
+  // Spec 363 U4 — the ต้องการของ sheet chooses the item ONCE and hands it down,
+  // so each path opens with the item already selected rather than asking again.
+  const [catalogItemId, setCatalogItemId] = useState(initialCatalogItemId ?? "");
   const [qty, setQty] = useState("");
   const [amount, setAmount] = useState("");
   const [hasVat, setHasVat] = useState(false);
@@ -221,10 +233,10 @@ export function SelfPurchaseForm({
         </label>
       ) : null}
 
-      <label htmlFor="sp-reason" className={LABEL}>
+      <label htmlFor={`${fieldId}-sp-reason`} className={LABEL}>
         เหตุผลที่ต้องซื้อ
         <select
-          id="sp-reason"
+          id={`${fieldId}-sp-reason`}
           value={reasonCode}
           onChange={(e) => setReasonCode(e.target.value)}
           disabled={pending}

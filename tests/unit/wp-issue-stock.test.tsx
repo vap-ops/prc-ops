@@ -485,3 +485,113 @@ describe("WpIssueStock work-category scope (spec 229 / S8)", () => {
     expect(sheetRows().some((r) => r.includes("10 ม้วน"))).toBe(true);
   });
 });
+
+// Spec 363 U4 — the ต้องการของ sheet renders this component for the เบิก path,
+// INSIDE its own BottomSheet. Un-embedded that means the SA taps เบิกจากคลัง and
+// lands on a second เบิกวัสดุจากคลัง button opening a THIRD nested sheet, with the
+// recent-issues list stacked in between. `embedded` renders the form alone.
+describe("WpIssueStock — embedded in the ต้องการของ sheet (spec 363 U4)", () => {
+  function renderEmbedded() {
+    render(
+      <WpIssueStock
+        projectId="p1"
+        workPackageId="wp1"
+        onHand={onHand}
+        workers={workers}
+        categories={[]}
+        issues={issues}
+        embedded
+        initialCatalogItemId="ci1"
+      />,
+    );
+  }
+
+  it("renders the form directly — no second trigger to press", () => {
+    renderEmbedded();
+    expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /เบิกวัสดุจากคลัง/ })).toBeNull();
+  });
+
+  it("opens no sheet of its own — the parent already is one", () => {
+    renderEmbedded();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("does not repeat the recent-เบิก list inside the sheet", () => {
+    // The ของ tab's own list already shows these; repeating them under the form
+    // makes the sheet a scroll.
+    renderEmbedded();
+    expect(screen.queryByText("ท่อ PVC")).toBeNull();
+  });
+
+  it("arrives with the chosen item already selected", () => {
+    renderEmbedded();
+    expect(screen.getByText(/สายไฟ NYY/)).toBeInTheDocument();
+  });
+
+  it("still renders the trigger + list when NOT embedded", () => {
+    // The เบิกของ tab keeps its existing shape until the tabs are retired.
+    renderZone({ issues });
+    expect(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ })).toBeInTheDocument();
+    expect(screen.getByText("ท่อ PVC")).toBeInTheDocument();
+  });
+});
+
+// Spec 363 U4 — embedded, this component has no sheet of its own, so the two
+// controls that assumed one are dead: the success path called setOpen(false)
+// (blanking the form with NO confirmation — the SA cannot tell the เบิก happened
+// and can submit it again, and stock_issues is append-only so the undo is a
+// REVERSAL) and ยกเลิก called setOpen(false) too (tapping it did nothing).
+describe("WpIssueStock — embedded terminal states (spec 363 U4)", () => {
+  function renderEmbedded(onDone = vi.fn(), onCancel = vi.fn()) {
+    render(
+      <WpIssueStock
+        projectId="p1"
+        workPackageId="wp1"
+        onHand={onHand}
+        workers={workers}
+        categories={[]}
+        issues={[]}
+        embedded
+        initialCatalogItemId="ci1"
+        onDone={onDone}
+        onCancel={onCancel}
+      />,
+    );
+    return { onDone, onCancel };
+  }
+
+  it("states the outcome in place instead of silently blanking the form", async () => {
+    renderEmbedded();
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+    // A receipt naming what was withdrawn — not an empty form the SA re-submits.
+    await waitFor(() => expect(screen.getByText(/เบิกแล้ว/)).toBeInTheDocument());
+    expect(screen.getByText(/สายไฟ NYY/)).toBeInTheDocument();
+    expect(screen.getByText(/5 ม้วน/)).toBeInTheDocument();
+  });
+
+  it("does not leave the submit button live after a successful เบิก", async () => {
+    renderEmbedded();
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+    await waitFor(() => expect(screen.getByText(/เบิกแล้ว/)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "ยืนยันการเบิก" })).toBeNull();
+  });
+
+  it("tells the parent it is finished only when the SA dismisses the receipt", async () => {
+    const { onDone } = renderEmbedded();
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+    await waitFor(() => expect(screen.getByText(/เบิกแล้ว/)).toBeInTheDocument());
+    expect(onDone).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "เสร็จสิ้น" }));
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it("ยกเลิก calls back instead of doing nothing", () => {
+    const { onCancel } = renderEmbedded();
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    expect(onCancel).toHaveBeenCalled();
+  });
+});
