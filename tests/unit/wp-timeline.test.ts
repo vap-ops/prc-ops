@@ -250,6 +250,10 @@ describe("buildWpTimeline — status transitions (spec 363 U2a)", () => {
 
   it("keys status rows uniquely so two transitions on one day both render", () => {
     const days = withStatuses([
+      // SAME timestamp on purpose: audit_log rows carry no natural key, and a
+      // bulk status change writes several within the same second. Distinct
+      // timestamps here would make the key collision untestable — the mutation
+      // that drops the index stayed green until this fixture shared a stamp.
       {
         at: "2026-07-20T03:00:00Z",
         from_status: "not_started",
@@ -258,7 +262,7 @@ describe("buildWpTimeline — status transitions (spec 363 U2a)", () => {
         rework_round: 0,
       },
       {
-        at: "2026-07-20T09:00:00Z",
+        at: "2026-07-20T03:00:00Z",
         from_status: "in_progress",
         to_status: "pending_approval",
         actor_id: "u1",
