@@ -65,7 +65,38 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 - **Operator answers 2026-07-27:** §10 Q2 = the 4 items ARE equipment. §10 Q3 = **PRI does not exist as
   a record of any kind** — the transfer spec must create it, and must pick which axis it lands on,
   since `owner_id` and `supplier_id` both point at PRC today.
-- **Status:** spec + index shipped (#800). U0 ✅. ▶ U1 schema, lane claimed (`20260813075860`).
+- **U1 ✅ (2026-07-27), mig `20260813075860` APPLIED — DB head `075860`, next claimant `075861`.**
+  Six nullable columns (`brand`, `model`, `serial_no`, `condition`, `description`, `image_path`), a new
+  `equipment_condition` enum, `equipment_status += disposed`, and the private `equipment-images` bucket.
+- **★ The gate-check finding that made U1 correct: `equipment_items` is COLUMN-GRANTED.** `authenticated`
+  held SELECT on twelve named columns, deliberately excluding `acquisition_cost`/`acquired_at`/`daily_rate`
+  (ADR 0055 decision 6). **A new column without a grant is not null to the RLS client — PostgREST refuses
+  the read outright.** Six explicit grants added; verified live afterwards (SELECT now 18 columns, the
+  three money columns still absent). The wall is pinned in the NEGATIVE direction, so a future blanket
+  `grant select on equipment_items` reds instead of publishing what every tool cost.
+- **The `equipment-images` policy deliberately does NOT copy `catalog-images`** — that one names four roles
+  and omits `procurement_manager`, who CAN create equipment items, so copying it would ship
+  affordance-then-refuse. Took the `equipment_items` INSERT audience; pgTAP pins that the two agree. The
+  materials-side gap is logged in spec §10, not widened in passing.
+- **Label SSOT promoted** (`EQUIPMENT_STATUS_LABEL` / `_CONDITION_` / `_TRACKING_`), since the §6 importer
+  maps Thai → enum and cannot import from a component. **`disposed` is deliberately absent from the
+  picker STATUS_ORDER**: an asset becomes disposed by being SOLD, which the PRI flow records with a
+  counterparty and a book value — a free-hand dropdown would let someone retire an asset with no transfer
+  behind it. Label coverage without an affordance.
+- **Two predicted guards fired, both updated deliberately:** my own `plan(21)` vs 22 assertions, and
+  `65-equipment-registry.test.sql` six-label enum pin → seven (all six originals still pinned, so a
+  REMOVAL still reds).
+- **Forced cleanup, disclosed:** `db:types` surfaced that #801 dropped `rework_round` from the
+  `wp_status_history` RPC but left it declared in `load-detail.ts` + `wp-timeline.ts`. Main typechecked only
+  because its committed types were stale. Checked before touching: **nothing consumes `.round`**, so no
+  user-visible break, and `work_packages.rework_round` is a different column, untouched.
+- **Evidence:** pgTAP exit 0 (325/326, only the allowlisted 221) · vitest **5548/5548** · lint+typecheck
+  clean · **2 mutation checks** with run counts read · real-flow on a dev server serving the branch
+  (`/equipment` 200, SSOT labels at exactly the DB 63/1 split, `จำหน่ายออก` 0× confirming the omission).
+- ⓘ **Branch split mid-lane:** U1 commit briefly sat on the U0 branch, which would have turned a green
+  code-only PR into a danger-path migration PR and blocked its auto-merge. Split before pushing.
+- **Status:** spec #800 ✅ merged · U0 #802 green (auto-merge armed) · U1 #803 open, danger-path HOLD
+  expected (additive migration). ▶ U2 exports.
 
 ---
 
