@@ -26,6 +26,12 @@ import {
   type WpThingGroupKey,
   type WpThingIssue,
 } from "@/lib/work-packages/things";
+import { allowedNeedPaths } from "@/lib/work-packages/need-path";
+import { WP_DETAIL_ROLES, isReadOnlyWpViewer } from "@/lib/auth/role-home";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import type { UserRole } from "@/lib/db/enums";
+
+const ALL_ROLES = Object.keys(USER_ROLE_LABEL) as UserRole[];
 
 function issue(over: Partial<WpThingIssue> = {}): WpThingIssue {
   return {
@@ -124,11 +130,48 @@ describe("WP detail page — the three tabs are gone", () => {
     expect(src).toContain('"wp-issue": "things"');
   });
 
-  it("still offers plain procurement its one write — the purchase request", () => {
-    // The sheet is gated !readOnly, and procurement's ONLY write on this page was
-    // the คำขอซื้อ form. Gate PER PATH, never the whole sheet: deleting the tab
-    // without this takes PR-raise away from the role entirely.
-    expect(src.split("allowedPaths").length - 1).toBeGreaterThanOrEqual(1);
-    expect(src).toContain('["request"]');
+  it("routes the per-path gate through allowedNeedPaths rather than inlining it", () => {
+    // Import PLUS a real call site. The DECISION is asserted over the complete
+    // role domain in the block below — a source pin can only ever prove the call
+    // exists, never that it is right.
+    expect(src.split("allowedNeedPaths").length - 1).toBeGreaterThanOrEqual(2);
+    expect(src).toContain("allowedNeedPaths(ctx.role)");
+  });
+});
+
+// The gate lives in Server Component JSX vitest cannot render, so the branch is a
+// pure function and THIS is its real coverage. Iterating the complete domain (a
+// Record<UserRole>, so an enum-add trips its own guard first) rather than a
+// hand-typed list: a role added later must not quietly acquire, or quietly lose,
+// a write path on this page.
+describe("allowedNeedPaths", () => {
+  it("restricts exactly ONE role — plain procurement", () => {
+    expect(ALL_ROLES.filter((r) => allowedNeedPaths(r) !== null).sort()).toEqual(["procurement"]);
+  });
+
+  it("gives that role the purchase request and nothing else", () => {
+    // Its one write on this page. `issue_stock` excludes it and the self-purchase
+    // RPC is a site-staff surface, so offering either would be offer-then-refuse.
+    expect(allowedNeedPaths("procurement")).toEqual(["request"]);
+  });
+
+  it("leaves every other WP-detail role unrestricted", () => {
+    // null = "no restriction", NOT "no paths" — an empty array would silently
+    // close the sheet for everyone.
+    for (const role of WP_DETAIL_ROLES) {
+      if (role === "procurement") continue;
+      expect(allowedNeedPaths(role)).toBeNull();
+    }
+  });
+
+  it("does not restrict procurement_manager, who has SA capture parity", () => {
+    // Spec 348 U4 cleared her readOnly flag; she withdraws and records like an SA.
+    expect(allowedNeedPaths("procurement_manager")).toBeNull();
+  });
+
+  it("agrees with isReadOnlyWpViewer, which is what the page branches on", () => {
+    for (const role of ALL_ROLES) {
+      expect(allowedNeedPaths(role) !== null).toBe(isReadOnlyWpViewer(role));
+    }
   });
 });

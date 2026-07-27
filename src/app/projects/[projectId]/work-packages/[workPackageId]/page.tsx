@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { groupWpThings } from "@/lib/work-packages/things";
+import { allowedNeedPaths } from "@/lib/work-packages/need-path";
 import { WpThingsView } from "@/components/features/work-packages/wp-things-view";
 import { WpNeedSheet } from "@/components/features/work-packages/wp-need-sheet";
 import { safeBackHref, withBackFrom } from "@/lib/nav/back-href";
@@ -115,6 +116,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // it like a site admin but READ-ONLY everywhere except the request. One flag
   // drives the suppression of every write affordance below.
   const readOnly = isReadOnlyWpViewer(ctx.role);
+  // Spec 363 U4 merge — which ต้องการของ paths this role may take; null = all of
+  // them. The sheet is the only door to all three write paths now that คำขอซื้อ
+  // is deleted, and procurement's one write here is the purchase request.
+  const needPaths = allowedNeedPaths(ctx.role);
   const isAssigner = !readOnly;
   const isPlanner = isManagerRole(ctx.role);
 
@@ -821,7 +826,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               issues={wpIssues.slice(0, 10)}
               scopedCategoryIds={scopedCategoryIds}
               membershipsByItem={itemMembershipMap}
-              {...(readOnly ? { allowedPaths: ["request"] as const } : {})}
+              {...(needPaths ? { allowedPaths: needPaths } : {})}
               {...(scopedRelation ? { scopedRelation } : {})}
             />
             <WpThingsView
