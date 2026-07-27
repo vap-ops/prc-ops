@@ -3,7 +3,7 @@
 // (crew cards w/ lead chip first, firm cards, ยังไม่จัดทีม pool last).
 import { describe, expect, it } from "vitest";
 
-import { buildProjectTeamMap } from "@/lib/team-map/build-team-map";
+import { buildProjectTeamMap, UNASSIGNED_TEAM_ID } from "@/lib/team-map/build-team-map";
 
 const users = new Map([
   ["u-pm", { name: "สมชาย ใจดี", role: "project_manager" }],
@@ -51,6 +51,7 @@ function build(overrides: Partial<Parameters<typeof buildProjectTeamMap>[0]> = {
     crews,
     crewMembers,
     contractors,
+    projectContractorIds: [],
     ...overrides,
   });
 }
@@ -109,6 +110,48 @@ describe("buildProjectTeamMap (spec 330)", () => {
     const firm = map.teams.find((t) => t.kind === "firm");
     expect(firm).toMatchObject({ id: "c-uay", name: "ทีมช่างอวย", count: 2 });
     expect(firm?.members.map((m) => m.workerId)).toEqual(["w-firm1", "w-firm2"]);
+  });
+
+  it("a firm known to this project via a PAST (inactive) worker still gets a card, even with zero active names", () => {
+    const map = build({
+      // w-firm2 (มานะ) is inactive today, but was on this project under c-uay.
+      workers: workers.filter((w) => w.id !== "w-firm2"),
+      projectContractorIds: ["c-uay", "c-empty"],
+      contractors: new Map([
+        ["c-uay", "ทีมช่างอวย"],
+        ["c-empty", "ห้างหุ้นส่วนว่างเปล่า"],
+      ]),
+    });
+    const empty = map.teams.find((t) => t.id === "c-empty");
+    expect(empty).toMatchObject({ kind: "firm", name: "ห้างหุ้นส่วนว่างเปล่า", count: 0 });
+    expect(empty?.members).toEqual([]);
+    // c-uay still has w-firm1 active — both firms present, not deduped away.
+    expect(
+      map.teams
+        .filter((t) => t.kind === "firm")
+        .map((t) => t.id)
+        .sort(),
+    ).toEqual(["c-empty", "c-uay"]);
+  });
+
+  it("a contractor NOT in projectContractorIds never gets a card, even if it happens to be in the `contractors` map", () => {
+    // The whole point of the scoping fix: contractors has no project_id, so a
+    // firm must be excluded unless its id came from a real workers row on
+    // THIS project.
+    const map = build({
+      projectContractorIds: ["c-uay"],
+      contractors: new Map([
+        ["c-uay", "ทีมช่างอวย"],
+        ["c-other-site", "บริษัทอื่นไซต์"],
+      ]),
+    });
+    expect(map.teams.some((t) => t.id === "c-other-site")).toBe(false);
+  });
+
+  it("UNASSIGNED_TEAM_ID matches the pool card's real id", () => {
+    const map = build();
+    const pool = map.teams.find((t) => t.kind === "unassigned");
+    expect(pool?.id).toBe(UNASSIGNED_TEAM_ID);
   });
 
   // Every chip carries the worker's own contractor_id. The card's `kind` cannot

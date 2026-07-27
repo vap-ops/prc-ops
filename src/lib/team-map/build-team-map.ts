@@ -3,6 +3,8 @@
 // Position badges come from live facts only (project_lead_id, is_primary,
 // crews.lead_worker_id) — the ADR 0080 P2 Position axis re-sources them later.
 
+export const UNASSIGNED_TEAM_ID = "unassigned";
+
 const MANAGEMENT_ROLES = new Set(["project_manager", "project_director", "super_admin"]);
 const SITE_TIER_ROLES = new Set(["site_admin", "site_owner", "auditor"]);
 
@@ -56,6 +58,11 @@ export interface BuildProjectTeamMapInput {
   crews: { id: string; name: string; lead_worker_id: string | null; active: boolean }[];
   crewMembers: { crew_id: string; worker_id: string; removed_at: string | null }[];
   contractors: Map<string, string>;
+  // Spec 365 U1 — contractor ids with AT LEAST ONE workers row (active or
+  // inactive) scoped to THIS project. `contractors` carries no project_id, so
+  // this is the only correct scoping source — never derive a firm list from
+  // the whole company table.
+  projectContractorIds: string[];
 }
 
 export function buildProjectTeamMap(input: BuildProjectTeamMapInput): ProjectTeamMap {
@@ -125,11 +132,15 @@ export function buildProjectTeamMap(input: BuildProjectTeamMapInput): ProjectTea
     })
     .sort((a, b) => a.name.localeCompare(b.name, "th"));
 
-  // Firm teams: contractor-tied workers not already in an active crew.
+  // Firm teams: contractor-tied workers not already in an active crew, PLUS
+  // any contractor known to this project (projectContractorIds) even with
+  // zero currently-active names — the "had someone here, none active now"
+  // state the fix-list surfaces.
   const firmWorkers = input.workers.filter(
     (w) => w.contractor_id !== null && !inActiveCrew.has(w.id),
   );
   const byFirm = new Map<string, typeof firmWorkers>();
+  for (const id of input.projectContractorIds) byFirm.set(id, []);
   for (const w of firmWorkers) {
     const key = w.contractor_id as string;
     byFirm.set(key, [...(byFirm.get(key) ?? []), w]);
@@ -154,7 +165,7 @@ export function buildProjectTeamMap(input: BuildProjectTeamMapInput): ProjectTea
   if (pooled.length > 0) {
     teams.push({
       kind: "unassigned",
-      id: "unassigned",
+      id: UNASSIGNED_TEAM_ID,
       name: "ยังไม่จัดทีม",
       members: pooled.map((w) => ({
         workerId: w.id,
