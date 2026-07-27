@@ -63,39 +63,41 @@ function renderView(over: Partial<Parameters<typeof groupWpThings>[0]> = {}) {
 }
 
 describe("WpThingsView (spec 363 U4 slice 2)", () => {
-  it("renders a heading for each non-empty group", () => {
+  it("renders a labelled group for each non-empty group", () => {
     renderView();
-    expect(screen.getByRole("heading", { name: /รออนุมัติ/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /มาถึงคลังแล้ว/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /อยู่ที่งานนี้/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /รออนุมัติ/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /ขอซื้อที่ได้รับแล้ว/ })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /อยู่ที่งานนี้/ })).toBeInTheDocument();
   });
 
-  it("puts the delivered request under มาถึงคลังแล้ว, not under รออนุมัติ", () => {
+  it("puts the delivered request under the fulfilment history, not under รออนุมัติ", () => {
     renderView();
-    const atStore = screen.getByRole("heading", { name: /มาถึงคลังแล้ว/ }).closest("details")!;
+    const atStore = screen.getByRole("group", { name: /ขอซื้อที่ได้รับแล้ว/ });
     expect(within(atStore).getByText(/เหล็กเส้น/)).toBeInTheDocument();
-    const awaiting = screen.getByRole("heading", { name: /รออนุมัติ/ }).closest("details")!;
+    const awaiting = screen.getByRole("group", { name: /รออนุมัติ/ });
     expect(within(awaiting).queryByText(/เหล็กเส้น/)).toBeNull();
   });
 
   it("shows the group's row count so a collapsed group still reports its size", () => {
     renderView();
-    const closed = screen.getByRole("heading", { name: /ปิดแล้ว/ }).closest("details")!;
+    const closed = screen.getByRole("group", { name: /ปิดแล้ว/ });
     expect(within(closed).getByText("1")).toBeInTheDocument();
   });
 
   it("renders the retrospective groups collapsed and the active ones open", () => {
     renderView();
     const open = (name: RegExp) =>
-      screen.getByRole("heading", { name }).closest("details")?.hasAttribute("open") ?? null;
+      screen.getByRole("group", { name })?.hasAttribute("open") ?? null;
     expect(open(/อยู่ที่งานนี้/)).toBe(true);
     expect(open(/ปิดแล้ว/)).toBe(false);
   });
 
   it("hides a group that has no rows rather than showing an empty heading", () => {
-    renderView({ requests: [], issues: [] });
-    expect(screen.queryByRole("heading", { name: /รออนุมัติ/ })).toBeNull();
-    expect(screen.queryByRole("heading", { name: /ปิดแล้ว/ })).toBeNull();
+    // Default fixture has NO returned rows — so this exercises the present-filter
+    // rather than the empty-state early return (which the next test covers).
+    renderView();
+    expect(screen.getByRole("group", { name: /รออนุมัติ/ })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /คืนแล้ว/ })).toBeNull();
   });
 
   it("says so when the WP has nothing at all", () => {
@@ -115,8 +117,27 @@ describe("WpThingsView (spec 363 U4 slice 2)", () => {
     expect(screen.getByText(/5 ม้วน/)).toBeInTheDocument();
   });
 
-  it("renders no money — PR amounts stay hidden from the site admin", () => {
-    renderView();
-    expect(document.body.textContent).not.toMatch(/฿/);
+  it("reports the REMAINDER here and the RETURNED amount under คืนแล้ว", () => {
+    // 5 issued, 3 returned: 2 are on site and 3 came back. Printing the issued
+    // qty in both groups makes both numbers wrong in the one tab whose job is
+    // "how much is where".
+    renderView({
+      requests: [],
+      issues: [
+        {
+          id: "i-part",
+          baseItem: "ท่อ",
+          specAttrs: null,
+          unit: "เส้น",
+          qty: 5,
+          returnedQty: 3,
+          issuedAt: "2026-07-23T03:00:00Z",
+        },
+      ],
+    });
+    const here = screen.getByRole("group", { name: /อยู่ที่งานนี้/ });
+    expect(within(here).getByText("2 เส้น")).toBeInTheDocument();
+    const returned = screen.getByRole("group", { name: /คืนแล้ว/ });
+    expect(within(returned).getByText("3 เส้น")).toBeInTheDocument();
   });
 });

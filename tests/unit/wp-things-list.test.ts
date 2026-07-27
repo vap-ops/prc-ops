@@ -15,21 +15,18 @@
 import { describe, it, expect } from "vitest";
 
 import { groupWpThings, WP_THING_GROUPS, type WpThingGroupKey } from "@/lib/work-packages/things";
+import { Constants } from "@/lib/db/database.types";
 import type { PurchaseRequestStatus } from "@/lib/db/enums";
 
-// The live enum, 2026-07-27. Spec §D5 said `requested · approved · shipped` —
-// `shipped` DOES NOT EXIST; the not-yet-arrived set is requested/approved/
-// purchased/on_route. Iterating the full domain is what caught that.
-const ALL_STATUSES: PurchaseRequestStatus[] = [
-  "requested",
-  "approved",
-  "rejected",
-  "cancelled",
-  "purchased",
-  "on_route",
-  "delivered",
-  "site_purchased",
-];
+// Read from the RUNTIME SSOT, not hand-typed: a hand-copied list iterates its own
+// stale snapshot and cannot catch a status added later — which is the entire point
+// of this guard. (The switch in groupForRequest is exhaustive, so a new value is
+// also a TS2366 compile error; this covers the runtime side.)
+//
+// Iterating the full domain is what caught spec §D5 naming `shipped`, which does
+// not exist — the not-yet-arrived set is requested/approved/purchased/on_route.
+const ALL_STATUSES = Constants.public.Enums
+  .purchase_request_status as readonly PurchaseRequestStatus[];
 
 function req(status: PurchaseRequestStatus, over: Partial<{ id: string }> = {}) {
   return {
@@ -81,7 +78,7 @@ describe("groupWpThings (spec 363 U4 slice 2)", () => {
     ]);
   });
 
-  it("gives delivered its own group — it is at the store, not at this WP", () => {
+  it("files delivered as fulfilment history, not as at-this-WP", () => {
     const groups = groupWpThings({ requests: [req("delivered")], issues: [] });
     expect(groups.find((g) => g.key === "at_store")?.rows.map((r) => r.id)).toEqual([
       "r-delivered",
@@ -117,12 +114,15 @@ describe("groupWpThings (spec 363 U4 slice 2)", () => {
     expect(groups.find((g) => g.key === "returned")?.rows.map((r) => r.id)).toEqual(["i-all"]);
   });
 
-  it("treats a self-purchase as already here, not as awaiting", () => {
+  it("files a self-purchase as fulfilment history, never as awaiting", () => {
+    // Nothing flips site_purchased when the material is consumed, so claiming it
+    // is still อยู่ที่งานนี้ would be an assertion the data cannot support.
     const groups = groupWpThings({ requests: [req("site_purchased")], issues: [] });
-    expect(groups.find((g) => g.key === "here")?.rows.map((r) => r.id)).toEqual([
+    expect(groups.find((g) => g.key === "at_store")?.rows.map((r) => r.id)).toEqual([
       "r-site_purchased",
     ]);
     expect(groups.find((g) => g.key === "awaiting")?.rows).toEqual([]);
+    expect(groups.find((g) => g.key === "here")?.rows).toEqual([]);
   });
 
   it("collapses closed requests into ปิดแล้ว", () => {
@@ -138,8 +138,8 @@ describe("groupWpThings (spec 363 U4 slice 2)", () => {
   it("orders the groups by what the SA acts on first", () => {
     expect(WP_THING_GROUPS.map((g) => g.key)).toEqual([
       "awaiting",
-      "at_store",
       "here",
+      "at_store",
       "returned",
       "closed",
     ]);
@@ -148,12 +148,32 @@ describe("groupWpThings (spec 363 U4 slice 2)", () => {
   it("collapses only the two retrospective groups", () => {
     const groups = groupWpThings({ requests: [], issues: [] });
     const collapsed = groups.filter((g) => g.collapsed).map((g) => g.key);
-    expect(collapsed).toEqual<WpThingGroupKey[]>(["returned", "closed"]);
+    expect(collapsed).toEqual<WpThingGroupKey[]>(["at_store", "returned", "closed"]);
   });
 
   it("returns every group even when empty, so the shape is stable", () => {
     const groups = groupWpThings({ requests: [], issues: [] });
     expect(groups).toHaveLength(5);
     expect(groups.every((g) => g.rows.length === 0)).toBe(true);
+  });
+});
+
+describe("groupWpThings row order (spec 363 U4 slice 2)", () => {
+  it("puts the newest row first within a group, across both kinds", () => {
+    const groups = groupWpThings({
+      requests: [{ ...req("site_purchased"), id: "old-req", requestedAt: "2026-07-01T00:00:00Z" }],
+      issues: [],
+    });
+    const older = groups.find((g) => g.key === "at_store")!.rows.map((r) => r.id);
+    expect(older).toEqual(["old-req"]);
+
+    const mixed = groupWpThings({
+      requests: [],
+      issues: [
+        { ...issue({ id: "i-old" }), issuedAt: "2026-07-01T00:00:00Z" },
+        { ...issue({ id: "i-new" }), issuedAt: "2026-07-20T00:00:00Z" },
+      ],
+    });
+    expect(mixed.find((g) => g.key === "here")!.rows.map((r) => r.id)).toEqual(["i-new", "i-old"]);
   });
 });

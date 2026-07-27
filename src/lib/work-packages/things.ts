@@ -8,9 +8,17 @@
 // spec's original three groups (รออนุมัติ / อยู่ที่งานนี้ / คืนแล้ว) left two
 // real populations homeless:
 //   • `delivered` — 131 of the pilot's 170 provenance-linked requests. Store-first
-//     doctrine sends a delivered request to the STORE, so it is not "at this WP"
-//     until someone เบิก's it. It gets มาถึงคลังแล้ว: you asked for it, it has
-//     landed, go draw it. That IS the SA's next action, so it earns a group.
+//     doctrine sends a delivered request to the STORE, not to the WP.
+//
+//     ⚠️ CORRECTED after fresh-eyes: this was first shipped as a prominent
+//     มาถึงคลังแล้ว group meaning "go draw it". That claim is NOT derivable.
+//     `delivered` is TERMINAL on purchase_requests — nothing flips it once the
+//     material is drawn, and `stock_issues` carries no purchase_request_id (only
+//     `stock_receipts` does), so we cannot tell a request whose goods are still
+//     on the shelf from one already เบิก'd to this very WP. A prominent group
+//     would therefore grow forever AND double-count the same physical goods
+//     against the issue row in อยู่ที่งานนี้. It is a HISTORY of fulfilment, so it
+//     is labelled and collapsed as one.
 //   • `rejected` / `cancelled` — 33 rows. Collapsed ปิดแล้ว, so "what happened to
 //     my ขอซื้อ" is answerable without leaving the WP.
 //
@@ -62,8 +70,8 @@ export const WP_THING_GROUPS: readonly {
   collapsed: boolean;
 }[] = [
   { key: "awaiting", label: "รออนุมัติ", collapsed: false },
-  { key: "at_store", label: "มาถึงคลังแล้ว", collapsed: false },
   { key: "here", label: "อยู่ที่งานนี้", collapsed: false },
+  { key: "at_store", label: "ขอซื้อที่ได้รับแล้ว", collapsed: true },
   { key: "returned", label: "คืนแล้ว", collapsed: true },
   { key: "closed", label: "ปิดแล้ว", collapsed: true },
 ] as const;
@@ -82,10 +90,11 @@ function groupForRequest(status: PurchaseRequestStatus): WpThingGroupKey {
       return "awaiting";
     case "delivered":
       return "at_store";
-    // The money is already spent and the item was bought AT the site, so it is
-    // here — never "awaiting".
+    // Same shape as `delivered`: a cash buy is a fulfilment EVENT, and nothing
+    // flips it when the material is consumed, so it belongs with the history
+    // rather than asserting the goods are still on site.
     case "site_purchased":
-      return "here";
+      return "at_store";
     case "rejected":
     case "cancelled":
       return "closed";
@@ -109,12 +118,18 @@ export function groupWpThings(input: {
     if (i.returnedQty > 0) byKey.get("returned")!.push({ kind: "issue", ...i });
   }
 
+  // Newest first WITHIN each group. Without this the rows sit requests-then-issues
+  // purely by insertion order, so อยู่ที่งานนี้ would stack unrelated-age rows in an
+  // order that means nothing — and the timestamps the row types carry would be
+  // dead weight.
+  const at = (r: WpThingRow) => (r.kind === "request" ? r.requestedAt : r.issuedAt);
+
   // Every group is returned even when empty so the rendered shape is stable and
   // a group's absence never has to be distinguished from its emptiness.
   return WP_THING_GROUPS.map((g) => ({
     key: g.key,
     label: g.label,
     collapsed: g.collapsed,
-    rows: byKey.get(g.key)!,
+    rows: [...byKey.get(g.key)!].sort((a, b) => at(b).localeCompare(at(a))),
   }));
 }

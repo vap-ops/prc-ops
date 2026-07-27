@@ -17,7 +17,7 @@ import Link from "next/link";
 import { Package, ShoppingCart } from "lucide-react";
 
 import { CARD } from "@/lib/ui/classes";
-import type { WpThingGroup, WpThingRow } from "@/lib/work-packages/things";
+import type { WpThingGroup, WpThingGroupKey, WpThingRow } from "@/lib/work-packages/things";
 
 function rowTitle(row: WpThingRow): string {
   return row.kind === "request"
@@ -25,11 +25,25 @@ function rowTitle(row: WpThingRow): string {
     : row.baseItem + (row.specAttrs ? ` ${row.specAttrs}` : "");
 }
 
-function rowQty(row: WpThingRow): string {
-  return row.kind === "request" ? `${row.quantity} ${row.unit}` : `${row.qty} ${row.unit}`;
+// The number a row shows depends on WHICH group it is in: an issue appears in
+// both อยู่ที่งานนี้ and คืนแล้ว when it is partly returned, and printing the
+// issued qty in both makes both wrong in the one tab whose job is "how much is
+// where". 5 issued / 3 returned = 2 here and 3 returned.
+function rowQty(row: WpThingRow, group: WpThingGroupKey): string {
+  if (row.kind === "request") return `${row.quantity} ${row.unit}`;
+  const n = group === "returned" ? row.returnedQty : row.qty - row.returnedQty;
+  return `${n} ${row.unit}`;
 }
 
-function Row({ row, requestHref }: { row: WpThingRow; requestHref: (id: string) => string }) {
+function Row({
+  row,
+  group,
+  requestHref,
+}: {
+  row: WpThingRow;
+  group: WpThingGroupKey;
+  requestHref: (id: string) => string;
+}) {
   const Icon = row.kind === "request" ? ShoppingCart : Package;
   const body = (
     <>
@@ -40,7 +54,7 @@ function Row({ row, requestHref }: { row: WpThingRow; requestHref: (id: string) 
           <span className="text-ink-secondary text-meta block">#{row.prNumber}</span>
         ) : null}
       </span>
-      <span className="text-ink text-body shrink-0 font-semibold">{rowQty(row)}</span>
+      <span className="text-ink text-body shrink-0 font-semibold">{rowQty(row, group)}</span>
     </>
   );
 
@@ -81,9 +95,12 @@ export function WpThingsView({
   return (
     <div className="flex flex-col gap-3">
       {present.map((g) => (
-        <details key={g.key} open={!g.collapsed} className={CARD}>
-          <summary className="flex cursor-pointer items-center gap-2">
-            <h3 className="text-ink text-body flex-1 font-semibold">{g.label}</h3>
+        // role + aria-label are EXPLICIT: <details> maps to role "group" only in
+        // real browsers, so relying on the implicit mapping would have the tests
+        // assert against a tree the runtime does not build.
+        <details key={g.key} open={!g.collapsed} role="group" aria-label={g.label} className={CARD}>
+          <summary className="focus-visible:ring-action flex min-h-11 cursor-pointer items-center gap-2 rounded focus:outline-none focus-visible:ring-2">
+            <span className="text-ink text-body flex-1 font-semibold">{g.label}</span>
             {/* The count is what makes a COLLAPSED group still report its size —
                 otherwise closing it hides the fact that anything is in there. */}
             <span className="text-ink-secondary bg-sunk rounded-control text-meta px-2 py-0.5 font-semibold">
@@ -92,7 +109,12 @@ export function WpThingsView({
           </summary>
           <div className="mt-2 flex flex-col">
             {g.rows.map((row) => (
-              <Row key={`${row.kind}-${row.id}`} row={row} requestHref={requestHref} />
+              <Row
+                key={`${row.kind}-${row.id}`}
+                row={row}
+                group={g.key}
+                requestHref={requestHref}
+              />
             ))}
           </div>
         </details>
