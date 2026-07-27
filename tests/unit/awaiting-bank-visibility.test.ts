@@ -34,9 +34,13 @@ const occurrences = (src: string, needle: string) => src.split(needle).length - 
 describe("the awaiting-bank count reaches both surfaces", () => {
   // ≥2 = the import PLUS a real call. A bare `toContain` is satisfied by the
   // import line alone, which is the fake-coverage trap this repo keeps re-learning.
-  it("/team fetches the count (import AND call, not just an import)", () => {
+  it("/team fetches the count AND passes it to the tiles", () => {
     expect(occurrences(TEAM_PAGE, "countWorkersAwaitingBank")).toBeGreaterThanOrEqual(2);
-    expect(TEAM_PAGE).toContain("awaitingBank");
+    // NOT a bare toContain("awaitingBank") — that is satisfied by the `const
+    // awaitingBank = …` declaration alone, so dropping it from the counts object
+    // would kill the bubble with the assertion still green (fresh-eyes catch).
+    expect(TEAM_PAGE).toContain("awaitingBank,");
+    expect(occurrences(TEAM_PAGE, "awaitingBank")).toBeGreaterThanOrEqual(2);
   });
 
   it("/registrations fetches the count too, so the inner link can badge itself", () => {
@@ -53,8 +57,14 @@ describe("the awaiting-bank count reaches both surfaces", () => {
     expect(counter).not.toContain("createSignedUrl");
   });
 
-  // /team pays for the count ONLY for the tier whose tile can open it.
-  it("/team gates the fetch on the approver tier", () => {
-    expect(TEAM_PAGE).toContain("isApprover ? await countWorkersAwaitingBank() : 0");
+  // /team pays for the count ONLY for the tier whose tile can open it — and pays for
+  // it in the SAME round-trip as the other approver-only count, not a second serial
+  // await. Pinned on the gate + the batching, not on one exact expression, so the
+  // assertion cannot itself block a future refactor.
+  it("/team gates the fetch on the approver tier and batches it", () => {
+    const gate = /isApprover\s*\?\s*await Promise\.all\(\[/;
+    expect(TEAM_PAGE).toMatch(gate);
+    const batched = TEAM_PAGE.slice(TEAM_PAGE.search(gate));
+    expect(batched.slice(0, batched.indexOf("]"))).toContain("countWorkersAwaitingBank()");
   });
 });

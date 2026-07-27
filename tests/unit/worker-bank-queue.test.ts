@@ -13,7 +13,10 @@ const { mockCreateClient } = vi.hoisted(() => ({ mockCreateClient: vi.fn() }));
 
 vi.mock("@/lib/db/admin", () => ({ createClient: mockCreateClient }));
 
-import { listWorkersAwaitingBank } from "@/lib/register/worker-bank-queue";
+import {
+  countWorkersAwaitingBank,
+  listWorkersAwaitingBank,
+} from "@/lib/register/worker-bank-queue";
 
 function adminReturning(rows: unknown[], signedUrl: string | null = "https://signed/x.jpg") {
   const orderFn = vi.fn().mockResolvedValue({ data: rows, error: null });
@@ -67,5 +70,42 @@ describe("listWorkersAwaitingBank — spec 298 U3", () => {
     const { client } = adminReturning([]);
     mockCreateClient.mockReturnValue(client);
     expect(await listWorkersAwaitingBank()).toEqual([]);
+  });
+});
+
+// 2026-07-27 — the /team + /registrations badge reader. Fresh-eyes found this
+// function had ZERO behavioural coverage: deleting its `.eq("status","pending_pm")`
+// left the whole suite green, because the only assertions on it were source scans.
+// That mutant is the worst one available here — the badge would count EVERY capture
+// row ever created, so the danger bubble could never fall back to zero however many
+// passbooks were transcribed. A permanent red "14" nobody can clear inverts the
+// entire premise of the unit it was built for ("a signal that does not signal").
+function adminCounting(count: number | null) {
+  const eqFn = vi.fn().mockResolvedValue({ count, error: null });
+  const selectFn = vi.fn().mockReturnValue({ eq: eqFn });
+  const fromFn = vi.fn().mockReturnValue({ select: selectFn });
+  return { client: { from: fromFn }, fromFn, selectFn, eqFn };
+}
+
+describe("countWorkersAwaitingBank — the hub badge reader", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("counts ONLY pending_pm captures, as a head-count with no rows", async () => {
+    const { client, fromFn, selectFn, eqFn } = adminCounting(14);
+    mockCreateClient.mockReturnValue(client);
+
+    await expect(countWorkersAwaitingBank()).resolves.toBe(14);
+    expect(fromFn).toHaveBeenCalledWith("worker_bank_capture");
+    // head:true is what keeps this cheap — the sibling list reader signs a Storage
+    // URL per row, so counting through it would sign once per waiting worker.
+    expect(selectFn).toHaveBeenCalledWith("worker_id", { count: "exact", head: true });
+    // …and this is the assertion whose absence let the killer mutant survive.
+    expect(eqFn).toHaveBeenCalledWith("status", "pending_pm");
+  });
+
+  it("treats a null count as zero rather than rendering a bubble of NaN", async () => {
+    const { client } = adminCounting(null);
+    mockCreateClient.mockReturnValue(client);
+    await expect(countWorkersAwaitingBank()).resolves.toBe(0);
   });
 });

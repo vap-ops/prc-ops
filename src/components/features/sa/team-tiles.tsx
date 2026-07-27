@@ -127,24 +127,6 @@ export function teamTilesForRole(ctx: {
     );
   }
 
-  if (isCrew) {
-    tiles.push(
-      makeTile("unassigned", UNASSIGNED_TILE_LABEL, UserRoundPlus, {
-        href: "/team/roster",
-        bubble: tileBubble(counts.unassigned, "neutral"),
-      }),
-      makeTile("roster", ROSTER_TILE_LABEL, Users, {
-        href: "/team/roster",
-        bubble: tileBubble(counts.activeWorkers, "neutral"),
-      }),
-      // No href → opens the AddTechnicianSheet in its "choose" branch.
-      makeTile("add", ADD_TILE_LABEL, UserPlus),
-      makeTile("badges", BADGES_TILE_LABEL, IdCard, { href: "/team/badges" }),
-      // No href → opens the same sheet pre-branched to its QR ("has_phone") mode.
-      makeTile("register-qr", REGISTER_QR_TILE_LABEL, QrCode),
-    );
-  }
-
   // 2026-07-27 — the awaiting-bank door. Same audience as the approve queue
   // (STAFF_APPROVAL_ROLES, which the page gate and the complete_worker_bank RPC
   // allowlist both already use, so this adds NO authority — only reach).
@@ -161,6 +143,24 @@ export function teamTilesForRole(ctx: {
         href: withBackFrom("/registrations/awaiting-bank", "/team"),
         bubble: tileBubble(counts.awaitingBank, "danger"),
       }),
+    );
+  }
+
+  if (isCrew) {
+    tiles.push(
+      makeTile("unassigned", UNASSIGNED_TILE_LABEL, UserRoundPlus, {
+        href: "/team/roster",
+        bubble: tileBubble(counts.unassigned, "neutral"),
+      }),
+      makeTile("roster", ROSTER_TILE_LABEL, Users, {
+        href: "/team/roster",
+        bubble: tileBubble(counts.activeWorkers, "neutral"),
+      }),
+      // No href → opens the AddTechnicianSheet in its "choose" branch.
+      makeTile("add", ADD_TILE_LABEL, UserPlus),
+      makeTile("badges", BADGES_TILE_LABEL, IdCard, { href: "/team/badges" }),
+      // No href → opens the same sheet pre-branched to its QR ("has_phone") mode.
+      makeTile("register-qr", REGISTER_QR_TILE_LABEL, QrCode),
     );
   }
 

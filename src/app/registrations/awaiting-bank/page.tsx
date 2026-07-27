@@ -15,16 +15,26 @@ import { EmptyNotice } from "@/components/features/common/notices";
 import { listWorkersAwaitingBank } from "@/lib/register/worker-bank-queue";
 import { WorkerBankCompleteForm } from "@/components/features/register/worker-bank-complete-form";
 import { AWAITING_BANK_TITLE } from "@/lib/i18n/labels";
+import { safeBackHref } from "@/lib/nav/back-href";
 
 export const metadata = { title: AWAITING_BANK_TITLE };
 
-export default async function AwaitingBankPage() {
+// 2026-07-27: MULTI-PARENT now. The /team hub gained its own badged door here, so a
+// hardcoded back chip would eject an approver who arrived from the hub into the
+// คำขอสมัคร queue instead — the exact ejection spec 313 U3 fixed on /registrations
+// itself. /registrations stays the fallback: it is still the other parent.
+export default async function AwaitingBankPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const { from } = await searchParams;
   await requireRole(STAFF_APPROVAL_ROLES);
   const rows = await listWorkersAwaitingBank();
 
   return (
     <PageShell>
-      <DetailHeader backHref="/registrations" backLabel="กลับ">
+      <DetailHeader backHref={safeBackHref(from, "/registrations")} backLabel="กลับ">
         <h1 className="text-ink text-xl font-semibold tracking-tight">{AWAITING_BANK_TITLE}</h1>
       </DetailHeader>
 

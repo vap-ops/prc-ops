@@ -171,19 +171,23 @@ export default async function TeamPage() {
     }
   }
 
-  // The คำขอสมัคร bubble count: site_admin reads its /sa queue (pending-only above);
-  // the approver tiers filter their all-status queue to the pending ones.
-  const approverPending = isApprover
-    ? (await listVisibleTechnicianRegistrations(supabase)).filter((r) => r.status === "pending")
-        .length
-    : 0;
+  // The two approver-tier bubble counts. Both are approver-only and independent, so
+  // they go in ONE round-trip rather than two serial awaits.
+  //   • คำขอสมัคร — site_admin reads its /sa queue (pending-only above); the approver
+  //     tiers filter their all-status queue to the pending ones.
+  //   • awaiting-bank (2026-07-27) — count-only by design: the list reader signs a
+  //     Storage URL PER ROW, so `…().length` would sign once per waiting worker on
+  //     every hub render. Fetched only for the tier whose tile can open it, so a
+  //     site_admin / PM / procurement hub pays nothing for a queue it cannot reach.
+  const [approverPending, awaitingBank] = isApprover
+    ? await Promise.all([
+        listVisibleTechnicianRegistrations(supabase).then(
+          (rows) => rows.filter((r) => r.status === "pending").length,
+        ),
+        countWorkersAwaitingBank(),
+      ])
+    : [0, 0];
   const pendingRegistrations = ctx.role === "site_admin" ? saPendingCount : approverPending;
-
-  // 2026-07-27 — the awaiting-bank bubble. Fetched ONLY for the approver tier that can
-  // act on it (the tile is STAFF_APPROVAL_ROLES-gated), so a site_admin's hub pays
-  // nothing for a queue it cannot open. Count-only: the list reader signs a Storage URL
-  // per row, which would be one signing round-trip per waiting worker just for a number.
-  const awaitingBank = isApprover ? await countWorkersAwaitingBank() : 0;
 
   const tiles = teamTilesForRole({
     role: ctx.role,

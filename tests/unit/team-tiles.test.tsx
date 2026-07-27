@@ -42,11 +42,20 @@ describe("teamTilesForRole — per-role tile sets (derived from the role SSOTs)"
     // Spec 358: super_admin is an ATTENDANCE_AUDIT_ROLE too, so the history
     // door follows the roster pair. site_admin is NOT (its surface is the cockpit),
     // which is why this is a superset of site_admin's set plus THREE tiles.
-    // 2026-07-27: + the awaiting-bank door, which sits between the crew doors and
-    // the roster pair because it is gated on STAFF_APPROVAL_ROLES, not on the roster set.
+    // 2026-07-27: + the awaiting-bank door, placed immediately after คำขอสมัคร —
+    // beside the sibling queue it belongs with, for BOTH approver roles. It is
+    // deliberately NOT appended after the crew doors: that put it 7th for
+    // super_admin, third row of the grid, which is burying the very thing this
+    // unit exists to surface. So super_admin is no longer a clean prefix-extension
+    // of site_admin and the full order is spelled out.
     expect(keysFor("super_admin", true)).toEqual([
-      ...keysFor("site_admin", true),
+      "registrations",
       "awaiting-bank",
+      "unassigned",
+      "roster",
+      "add",
+      "badges",
+      "register-qr",
       "workers",
       "payroll",
       "attendance",

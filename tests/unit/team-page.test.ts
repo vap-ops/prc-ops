@@ -58,6 +58,9 @@ describe("/team hub (spec 313 U1)", () => {
 // all together, so the next tile added cannot quietly omit the referrer.
 describe("/team drill-downs thread the ?from referrer", () => {
   const DRILL_DOWNS = [
+  // 2026-07-27 — the awaiting-bank tile. Added WITH its destination made
+  // referrer-aware; a threaded ?from at a page that ignores it is worse than none.
+  "/registrations/awaiting-bank",
     "/sa/registrations",
     "/registrations",
     "/workers",
