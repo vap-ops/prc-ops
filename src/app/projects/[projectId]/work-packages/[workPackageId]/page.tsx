@@ -810,6 +810,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               issues={wpIssues}
               scopedRelation={scopedRelation}
               membershipsByItem={itemMembershipMap}
+              categories={catalogCategoryList}
             />
           </div>
           {/* Spec 211 U11a: the on-site cash buy (ซื้อเงินสด ใช้ที่งานนี้เลย) moved

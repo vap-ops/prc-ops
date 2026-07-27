@@ -1,7 +1,7 @@
 // Spec 177 U5 — เบิก at the WP detail (site_admin field-draw). A site staffer
 // draws stock from the project store TO this work package. Mocked action + router.
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockIssueBulk, mockRev, mockReturn, mockConfirmOB, mockRefresh } = vi.hoisted(() => ({
@@ -61,6 +61,28 @@ beforeEach(() => {
   mockRefresh.mockReset();
 });
 
+// Spec 363 U4 slice 1 — the item <select> became ScopedCatalogItemPicker (a
+// trigger + a searchable BottomSheet), so tests pick by OPENING the picker for a
+// row and clicking the item, instead of firing change on a select. What is
+// asserted is unchanged; only the act of choosing moved.
+function pickItem(_rowIndex: number, itemText: string | RegExp) {
+  // A row that already has an item shows "เปลี่ยน" instead of the trigger, so
+  // indexing the triggers breaks after the first pick. Tests fill rows in order,
+  // so the FIRST remaining trigger is always the row being filled.
+  const [trigger] = screen.getAllByRole("button", { name: "เลือกวัสดุจากคลัง" });
+  fireEvent.click(trigger!);
+  const match = typeof itemText === "string" ? new RegExp(itemText) : itemText;
+  // Scope the click to the open sheet — the page behind it also lists items.
+  // The เบิก form is itself a BottomSheet, so the picker opens a SECOND dialog
+  // on top; the last one is the picker.
+  const sheets = screen.getAllByRole("dialog");
+  const sheet = sheets[sheets.length - 1]!;
+  const [row] = within(sheet)
+    .getAllByRole("button")
+    .filter((b) => match.test(b.textContent ?? ""));
+  fireEvent.click(row!);
+}
+
 function renderZone(opts: { onHand?: WpStockRow[]; issues?: WpIssueRow[] }) {
   render(
     <WpIssueStock
@@ -68,6 +90,7 @@ function renderZone(opts: { onHand?: WpStockRow[]; issues?: WpIssueRow[] }) {
       workPackageId="wp1"
       onHand={opts.onHand ?? onHand}
       workers={workers}
+      categories={[]}
       issues={opts.issues ?? []}
     />,
   );
@@ -88,7 +111,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
   it("issues the chosen item to this work package", async () => {
     renderZone({});
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
     fireEvent.change(screen.getByLabelText(/หมายเหตุ/), { target: { value: "หน้างาน" } });
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
@@ -129,11 +152,11 @@ describe("WpIssueStock (spec 177 U5)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     // row 1
-    fireEvent.change(screen.getAllByLabelText("วัสดุ")[0]!, { target: { value: "ci1" } });
+    pickItem(0, "สายไฟ");
     fireEvent.change(screen.getAllByLabelText("จำนวน")[0]!, { target: { value: "5" } });
     // add row 2
     fireEvent.click(screen.getByRole("button", { name: /เพิ่มรายการ/ }));
-    fireEvent.change(screen.getAllByLabelText("วัสดุ")[1]!, { target: { value: "ci2" } });
+    pickItem(1, "ท่อ");
     fireEvent.change(screen.getAllByLabelText("จำนวน")[1]!, { target: { value: "8" } });
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
 
@@ -154,7 +177,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     const submit = screen.getByRole("button", { name: "ยืนยันการเบิก" });
     expect(submit).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
     expect(submit).toBeEnabled();
   });
@@ -164,7 +187,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
   it("blocks the submit when the qty exceeds what is on hand", () => {
     renderZone({});
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "25" } });
     expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeDisabled();
   });
@@ -172,7 +195,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
   it("warns when the qty exceeds what is on hand", () => {
     renderZone({});
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "25" } });
     expect(screen.getByText(/เกินจำนวนในคลัง/)).toBeInTheDocument();
   });
@@ -180,7 +203,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
   it("allows the submit at exactly the on-hand qty", () => {
     renderZone({});
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "20" } });
     expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeEnabled();
   });
@@ -193,7 +216,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
   it("names a receiver worker on the issue (custody handshake)", async () => {
     renderZone({});
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
-    fireEvent.change(screen.getByLabelText("วัสดุ"), { target: { value: "ci1" } });
+    pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
     fireEvent.change(screen.getByLabelText(/ผู้รับ/), { target: { value: "w1" } });
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
@@ -336,6 +359,7 @@ describe("WpIssueStock work-category scope (spec 229 / S8)", () => {
         workPackageId="wp1"
         onHand={scopedOnHand}
         workers={workers}
+        categories={[]}
         issues={[]}
         scopedRelation={relation}
         membershipsByItem={new Map()}
@@ -343,43 +367,62 @@ describe("WpIssueStock work-category scope (spec 229 / S8)", () => {
     );
   }
 
-  const realOptions = (select: HTMLSelectElement) =>
-    [...select.querySelectorAll("option")].filter((o) => o.value !== "");
-
-  it("groups the WP's materials under a ตรงกับงาน optgroup but keeps every item selectable", () => {
-    renderScoped([{ categoryId: ELEC, kindFilter: null }]);
+  // Spec 363 U4 slice 1 — the <select>'s two <optgroup>s became the picker's
+  // scoped-first ordering plus a per-row ตรงกับงาน / นอกหมวดงาน flag. What is
+  // asserted is unchanged: the WP's materials surface first, kind_filter still
+  // separates tools from materials, and NOTHING is hidden — the picker opens with
+  // showAll defaulting to true, and its toggle NARROWS to matching rather than
+  // revealing. (An earlier draft of this comment claimed the opposite; a probe of
+  // the real sheet corrected it.)
+  function openPicker() {
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
-    const select = screen.getAllByLabelText("วัสดุ")[0]! as HTMLSelectElement;
-    const groups = [...select.querySelectorAll("optgroup")];
-    expect(groups.some((g) => g.label.includes("ตรงกับงาน"))).toBe(true);
-    // never hides: all three on-hand items remain as options.
-    expect(
-      realOptions(select)
-        .map((o) => o.value)
-        .sort(),
-    ).toEqual(["drill", "paint", "wire"]);
+    fireEvent.click(screen.getAllByRole("button", { name: "เลือกวัสดุจากคลัง" })[0]!);
+  }
+  function sheetRows() {
+    const sheets = screen.getAllByRole("dialog");
+    return within(sheets[sheets.length - 1]!)
+      .getAllByRole("button")
+      .map((b) => (b.textContent ?? "").trim());
+  }
+
+  it("surfaces the WP's materials under ตรงกับงาน and hides nothing", () => {
+    renderScoped([{ categoryId: ELEC, kindFilter: null }]);
+    openPicker();
+    const rows = sheetRows();
+    expect(rows.some((r) => r.includes("สายไฟ") && r.includes("ตรงกับงาน"))).toBe(true);
+    // never hides: every on-hand item is present, the off-scope one flagged.
+    expect(rows.some((r) => r.includes("สีรองพื้น") && r.includes("นอกหมวดงาน"))).toBe(true);
+    expect(rows.filter((r) => /ม้วน|ตัว|ถัง/.test(r))).toHaveLength(3);
   });
 
   it("separates tools from materials via kind_filter, still hiding nothing", () => {
     // Relation R: within ELEC, only TOOLS are relevant for this work-category.
+    // This is the kind narrowing scopeStockRows does and the picker's own
+    // category matcher does NOT — the reason the component is handed inScopeIds
+    // instead of deriving scope itself.
     renderScoped([{ categoryId: ELEC, kindFilter: "tool" }]);
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
-    const select = screen.getAllByLabelText("วัสดุ")[0]! as HTMLSelectElement;
-    const matchGroup = [...select.querySelectorAll("optgroup")].find((g) =>
-      g.label.includes("ตรงกับงาน"),
-    )!;
-    const matchValues = [...matchGroup.querySelectorAll("option")].map((o) => o.value);
-    expect(matchValues).toContain("drill"); // the tool surfaced
-    expect(matchValues).not.toContain("wire"); // the material is NOT in the match group
-    // but the material is still selectable elsewhere in the select.
-    expect(select.querySelector('option[value="wire"]')).not.toBeNull();
+    openPicker();
+    const rows = sheetRows();
+    expect(rows.some((r) => r.includes("สว่าน") && r.includes("ตรงกับงาน"))).toBe(true);
+    expect(rows.some((r) => r.includes("สายไฟ") && r.includes("ตรงกับงาน"))).toBe(false);
+    // the material stays present and selectable, just flagged off-scope.
+    expect(rows.some((r) => r.includes("สายไฟ"))).toBe(true);
   });
 
-  it("shows a flat list (no scope grouping) when the WP has no Relation R", () => {
+  it("shows a flat list (no scope flags) when the WP has no Relation R", () => {
     renderScoped([]);
-    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
-    const select = screen.getAllByLabelText("วัสดุ")[0]! as HTMLSelectElement;
-    expect(select.querySelectorAll("optgroup")).toHaveLength(0);
-    expect(realOptions(select)).toHaveLength(3);
+    openPicker();
+    const rows = sheetRows();
+    expect(rows.some((r) => r.includes("ตรงกับงาน"))).toBe(false);
+    expect(rows.some((r) => r.includes("นอกหมวดงาน"))).toBe(false);
+    expect(rows.filter((r) => /ม้วน|ตัว|ถัง/.test(r))).toHaveLength(3);
+  });
+
+  it("shows the on-hand quantity as a badge on each row", () => {
+    // The field complaint that opened this unit: the quantity used to be the tail
+    // of a 118-character sentence inside a native <option>.
+    renderScoped([]);
+    openPicker();
+    expect(sheetRows().some((r) => r.includes("10 ม้วน"))).toBe(true);
   });
 });

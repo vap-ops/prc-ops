@@ -16,7 +16,7 @@
 // the scope, and an empty/absent scope falls back to the full catalog. The
 // ordering/flagging lives in the pure `scopeCatalogItems` helper.
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AlertTriangle, Check, ImageIcon, Search } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
@@ -82,6 +82,8 @@ export function ScopedCatalogItemPicker({
   scopedCategoryIds,
   badgeByItem,
   inScopeIds,
+  triggerLabel,
+  emptyState,
   membershipsByItem,
 }: {
   items: PurchaseRequestCatalogItem[];
@@ -113,6 +115,15 @@ export function ScopedCatalogItemPicker({
    *  narrowing. When present it is authoritative; ordering and the ตรงกับงาน /
    *  off-category flags all follow it. */
   inScopeIds?: readonly string[] | undefined;
+  /** Spec 363 U4 — the trigger's copy. Default names the CATALOG, which is right
+   *  for ขอซื้อ / ซื้อเอง and wrong for เบิก, where the source is the store. */
+  triggerLabel?: string | undefined;
+  /** Spec 363 U4 — the no-match guidance. The default sends the user to
+   *  ตั้งค่า → แคตตาล็อก to register an item, which is the correct next action
+   *  when raising a request. On เบิก it is NOT: the item is usually in the
+   *  catalog already and simply out of stock, and a site admin cannot add
+   *  catalog entries — so that caller supplies its own next action (ขอซื้อ). */
+  emptyState?: ReactNode | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -238,7 +249,7 @@ export function ScopedCatalogItemPicker({
           className="rounded-control border-edge-strong bg-card text-ink-secondary hover:bg-page focus-visible:ring-action flex h-11 w-full items-center gap-2 border px-3 text-left text-sm shadow-xs focus:outline-none focus-visible:ring-2"
         >
           <Search aria-hidden className="text-ink-muted size-5 shrink-0" />
-          เลือกวัสดุจากแคตตาล็อก
+          {triggerLabel ?? "เลือกวัสดุจากแคตตาล็อก"}
         </button>
       )}
 
@@ -364,18 +375,20 @@ export function ScopedCatalogItemPicker({
               ))}
             </ul>
           ) : (
-            <div className="border-edge-strong rounded-control flex items-start gap-3 border border-dashed px-3 py-4">
-              <ImageIcon aria-hidden className="text-ink-muted mt-0.5 size-5 shrink-0" />
-              <p className="text-ink-secondary text-sm">
-                ไม่พบวัสดุที่ค้นหา — เพิ่มวัสดุที่{" "}
-                <Link
-                  href="/catalog"
-                  className="text-action font-medium underline underline-offset-2"
-                >
-                  ตั้งค่า → แคตตาล็อก
-                </Link>
-              </p>
-            </div>
+            (emptyState ?? (
+              <div className="border-edge-strong rounded-control flex items-start gap-3 border border-dashed px-3 py-4">
+                <ImageIcon aria-hidden className="text-ink-muted mt-0.5 size-5 shrink-0" />
+                <p className="text-ink-secondary text-sm">
+                  ไม่พบวัสดุที่ค้นหา — เพิ่มวัสดุที่{" "}
+                  <Link
+                    href="/catalog"
+                    className="text-action font-medium underline underline-offset-2"
+                  >
+                    ตั้งค่า → แคตตาล็อก
+                  </Link>
+                </p>
+              </div>
+            ))
           )}
         </div>
       </BottomSheet>
