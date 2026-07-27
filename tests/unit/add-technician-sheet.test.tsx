@@ -240,6 +240,9 @@ describe("AddTechnicianSheet — the no-phone add reports its own outcome", () =
     await fillAndSubmit(dialog);
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // The submit button unmounts on success, so focus falls to <body> — the receipt
+    // is the only thing left to announce it, and it must be a live region.
+    expect(within(dialog).getByRole("status")).toHaveTextContent(ADD_TECHNICIAN_DONE_TITLE);
     expect(within(dialog).getByText(ADD_TECHNICIAN_DONE_TITLE)).toBeVisible();
     expect(within(dialog).getByText("นายอำนาจ แดงสูงเนิน")).toBeVisible();
     expect(within(dialog).getByText(/PRC-26-0034/)).toBeVisible();
