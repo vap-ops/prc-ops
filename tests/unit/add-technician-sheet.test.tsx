@@ -212,6 +212,11 @@ describe("AddTechnicianSheet — the no-phone add reports its own outcome", () =
       .mockResolvedValue({ blob: new Blob(["x"]), ext: "jpeg", downscaled: true });
   });
 
+  /** The passbook input as a File input — `.files` is the only honest read in jsdom. */
+  function passbookInput(dialog: HTMLElement): HTMLInputElement {
+    return within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL) as HTMLInputElement;
+  }
+
   async function fillAndSubmit(dialog: HTMLElement) {
     fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
     fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), {
@@ -268,7 +273,10 @@ describe("AddTechnicianSheet — the no-phone add reports its own outcome", () =
     // EVERY other field first, so the only thing that can still hold the submit
     // disabled is the missing passbook (a bare assertion here passes on the empty
     // name instead, and measures nothing — caught by mutation testing).
-    expect(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL)).toHaveValue("");
+    // NB assert on `.files`, never `toHaveValue("")`: jsdom leaves a file input's
+    // `value` empty even when a File is attached, so the value form passes
+    // unconditionally and measures nothing (fresh-eyes catch, probe-confirmed).
+    expect(passbookInput(dialog).files).toHaveLength(0);
     fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), { target: { value: "นายอำนวย ก" } });
     fireEvent.change(within(dialog).getByLabelText(/เลขบัตร/), {
       target: { value: "3301800499533" },
@@ -291,9 +299,16 @@ describe("AddTechnicianSheet — the no-phone add reports its own outcome", () =
     expect(within(dialog).queryByText(ADD_TECHNICIAN_DONE_TITLE)).toBeNull();
     expect(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL)).toBeInTheDocument();
     // Identity AND passbook go: re-entering with นายอำนาจ's bank book still attached
-    // under the next man's name is how the wrong account gets paid.
+    // under the next man's name is how the wrong account gets paid. Refill the other
+    // fields before asserting disabled, or the empty name carries the assertion and
+    // the passbook is never measured (the same vacuity fixed in the test above).
     expect(within(dialog).getByLabelText(/ชื่อ/)).toHaveValue("");
-    expect(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL)).toHaveValue("");
+    expect(passbookInput(dialog).files).toHaveLength(0);
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), { target: { value: "นายอำนวย ก" } });
+    fireEvent.change(within(dialog).getByLabelText(/เลขบัตร/), {
+      target: { value: "3301800499533" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/วันเกิด/), { target: { value: "1972-07-10" } });
     expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeDisabled();
   });
 

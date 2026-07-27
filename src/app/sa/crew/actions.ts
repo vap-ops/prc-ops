@@ -11,6 +11,7 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { fetchWorkerBadgeCodes } from "@/lib/sa/badge-codes";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
 const GENERIC = "เพิ่มช่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
@@ -68,18 +69,22 @@ export async function addProjectWorkerWithBank(input: {
   });
   if (error) return { ok: false, error: rpcErrorToThai(error.message) };
 
-  // The RPC returns the new worker's id; its employee_id is minted inside, so read
-  // it back for the confirmation. Best-effort by design — the worker exists either
-  // way, and reporting a failed add over a committed one is the worse lie.
+  // The RPC returns the new worker's id; its employee_id is minted inside. Read it
+  // back for the confirmation THROUGH THE SERVICE-ROLE SEAM: `workers.employee_id` is
+  // column-walled away from `authenticated` (has_column_privilege(…) = false, verified
+  // live), so `supabase` — the caller's RLS client — cannot select the code of the
+  // worker it just created, and a plain read here would hand back null every time.
+  // The seam's own authorization rule is satisfied: the DEFINER RPC above already
+  // gated this caller on site_admin|super_admin|procurement_manager + can_see_project
+  // and it is that call which minted this very id.
+  //
+  // Best-effort by design — the worker exists either way, and reporting a failed add
+  // over a committed one is the worse lie. fetchWorkerBadgeCodes throws on error, so
+  // the catch covers both a missing row and a dead transport.
   let employeeId: string | null = null;
   if (typeof workerId === "string") {
     try {
-      const { data: row } = await supabase
-        .from("workers")
-        .select("employee_id")
-        .eq("id", workerId)
-        .maybeSingle();
-      employeeId = row?.employee_id ?? null;
+      employeeId = (await fetchWorkerBadgeCodes([workerId])).get(workerId) ?? null;
     } catch {
       employeeId = null;
     }

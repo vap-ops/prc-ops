@@ -387,7 +387,13 @@ export function AddTechnicianSheet({
 
                 {mode === "no_phone" && added ? (
                   <div className="flex flex-col gap-3">
-                    <div className={`${CARD_LAYOUT} ${TOAST_SUCCESS} flex flex-col gap-1`}>
+                    {/* role=status: the submit button unmounts on success, so focus falls
+                        to <body> and a screen reader would otherwise announce nothing —
+                        the mirror of the role="alert" on the failure line below. */}
+                    <div
+                      role="status"
+                      className={`${CARD_LAYOUT} ${TOAST_SUCCESS} flex flex-col gap-1`}
+                    >
                       <p className="flex items-center gap-2 font-semibold">
                         <CheckCircle2 aria-hidden className="size-5 shrink-0" />
                         {ADD_TECHNICIAN_DONE_TITLE}
