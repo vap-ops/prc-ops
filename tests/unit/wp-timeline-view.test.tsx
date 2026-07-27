@@ -123,3 +123,56 @@ describe("WpTimelineView", () => {
     expect(screen.getByText("ยังไม่มีประวัติ")).toBeInTheDocument();
   });
 });
+
+// Spec 363 U2a — status rows. The view's switch ends in `default: return null`,
+// so a new kind renders NOTHING while typecheck stays green — green because
+// invisible. These pin that the row actually reaches the screen.
+describe("WpTimelineView — status transitions (spec 363 U2a)", () => {
+  function renderWithStatus(over: Partial<Record<string, unknown>> = {}) {
+    render(
+      <WpTimelineView
+        days={[
+          {
+            date: "2026-07-20",
+            rows: [
+              {
+                kind: "status",
+                key: "status:1",
+                at: "2026-07-20T03:00:00Z",
+                actor: "สมชาย",
+                from: "in_progress",
+                to: "pending_approval",
+                round: 0,
+                ...over,
+              } as never,
+            ],
+          },
+        ]}
+      />,
+    );
+  }
+
+  it("renders the transition using the Thai status labels, not the raw enum", () => {
+    renderWithStatus();
+    expect(screen.getByText(/รออนุมัติ/)).toBeInTheDocument();
+    expect(screen.queryByText(/pending_approval/)).toBeNull();
+    expect(screen.queryByText(/in_progress/)).toBeNull();
+  });
+
+  it("names who moved it", () => {
+    renderWithStatus();
+    expect(screen.getByText(/สมชาย/)).toBeInTheDocument();
+  });
+
+  it("survives an unknown status string rather than rendering blank", () => {
+    // The enum can grow; an unmapped value must degrade to itself, not vanish.
+    renderWithStatus({ to: "some_new_status" });
+    expect(screen.getByText(/some_new_status/)).toBeInTheDocument();
+  });
+
+  it("shows the row under the สถานะ filter", () => {
+    renderWithStatus();
+    fireEvent.click(screen.getByRole("button", { name: "สถานะ" }));
+    expect(screen.getByText(/รออนุมัติ/)).toBeInTheDocument();
+  });
+});

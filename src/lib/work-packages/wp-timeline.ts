@@ -7,11 +7,17 @@ import { bangkokDateOf } from "@/lib/dates";
 // the loader hands it raw rows, it returns day-grouped display rows. Nothing here
 // touches the DB, so every rule that could be wrong is unit-testable.
 //
-// ⚠️ Status transitions are NOT a source here. `audit_log`'s site-staff policy
-// admits only `wp_reopened_for_defect` and `wp_evidence_resubmitted` (spec 363
-// §4.1) — a site admin cannot read `wp_status_transition` at all. U2a adds them
-// through a DEFINER read RPC; until then the `rework` kind carries what the SA
-// can genuinely see.
+// Spec 363 U2a — status transitions ARE a source now, supplied by the
+// `wp_status_history` DEFINER RPC. They are NOT read from audit_log directly:
+// its site-staff policy is an EVENT ALLOWLIST admitting only
+// `wp_reopened_for_defect` and `wp_evidence_resubmitted` (§4.1), so a site admin
+// cannot see `wp_status_transition` (552 rows/30d) at all. The RPC scopes per
+// call; the policy was deliberately NOT widened, because that arm has no project
+// scoping and would leak every project's history to every SA.
+//
+// `statuses` is OPTIONAL: the RPC refuses plain `procurement` (can_see_project
+// is structurally false for it), so the loader supplies nothing for that role and
+// the rail must still build.
 
 /** Every event kind the rail can render. `plan` is reserved for spec 363 D3 and renders nothing yet. */
 export type WpTimelineKind =
@@ -21,6 +27,7 @@ export type WpTimelineKind =
   | "issue"
   | "return"
   | "rework"
+  | "status"
   | "plan";
 
 /** The four filter chips: ทั้งหมด is the absence of a filter, so it is not a value here. */
@@ -53,12 +60,21 @@ export type WpTimelineRow =
   | (RowBase & { kind: "issue"; item: string; qty: number; unit: string })
   | (RowBase & { kind: "return"; item: string; qty: number; unit: string })
   | (RowBase & { kind: "rework"; event: string })
+  | (RowBase & { kind: "status"; from: string | null; to: string | null; round: number | null })
   | (RowBase & { kind: "plan"; label: string });
 
 export interface WpTimelineDay {
   /** Bangkok calendar date, `YYYY-MM-DD`. */
   date: string;
   rows: WpTimelineRow[];
+}
+
+export interface WpTimelineStatusRow {
+  at: string;
+  from_status: string | null;
+  to_status: string | null;
+  actor_id: string | null;
+  rework_round: number | null;
 }
 
 export interface WpTimelineInput {
@@ -98,6 +114,9 @@ export interface WpTimelineInput {
     returned_by: string | null;
   }[];
   reworkEvents: { id: string; event: string; created_at: string; actor_id: string | null }[];
+  /** Spec 363 U2a — from wp_status_history. Optional: the RPC refuses roles that
+   *  can_see_project rejects, so a permitted VIEWER may still have no rows. */
+  statuses?: WpTimelineStatusRow[] | undefined;
   /** user id → display name. Missing ids render as an unattributed row, never a raw uuid. */
   names: Record<string, string>;
 }
@@ -118,6 +137,7 @@ export function timelineFilterOf(kind: WpTimelineKind): WpTimelineFilter | null 
     case "return":
       return "materials";
     case "rework":
+    case "status":
       return "status";
     case "plan":
       // Spec 363 D3: the plan lane exists in the model and renders nothing.
@@ -215,6 +235,21 @@ export function buildWpTimeline(input: WpTimelineInput): WpTimelineDay[] {
         at: e.created_at,
         actor: nameOf(input.names, e.actor_id),
         event: e.event,
+      }),
+    ),
+    // Optional: the RPC refuses roles can_see_project rejects, so the loader may
+    // pass nothing and the rail must still build.
+    ...(input.statuses ?? []).map(
+      (t, i): WpTimelineRow => ({
+        kind: "status",
+        // audit_log rows carry no natural key here, and two transitions can share
+        // a timestamp to the second, so the index keeps the React key unique.
+        key: `status:${t.at}:${i}`,
+        at: t.at,
+        actor: nameOf(input.names, t.actor_id),
+        from: t.from_status,
+        to: t.to_status,
+        round: t.rework_round,
       }),
     ),
   ];

@@ -192,3 +192,90 @@ describe("buildWpTimeline", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 });
+
+// Spec 363 U2a — status transitions, the rail's backbone. U2b shipped without
+// them because audit_log's site-staff SELECT policy is an EVENT ALLOWLIST that
+// excludes wp_status_transition (552 rows in 30 days); the new DEFINER RPC
+// wp_status_history supplies them, so the builder now takes a `statuses` source.
+describe("buildWpTimeline — status transitions (spec 363 U2a)", () => {
+  const base = {
+    photos: [],
+    approvals: [],
+    requests: [],
+    issues: [],
+    returns: [],
+    reworkEvents: [],
+    names: { u1: "สมชาย" },
+  };
+
+  function withStatuses(statuses: unknown[]) {
+    return buildWpTimeline({
+      ...base,
+      statuses,
+    } as unknown as Parameters<typeof buildWpTimeline>[0]);
+  }
+
+  it("renders a status transition as its own row", () => {
+    const days = withStatuses([
+      {
+        at: "2026-07-20T03:00:00Z",
+        from_status: "in_progress",
+        to_status: "pending_approval",
+        actor_id: "u1",
+        rework_round: 0,
+      },
+    ]);
+    const rows = days.flatMap((d) => d.rows);
+    const row = rows.find((r) => r.kind === "status");
+    expect(row).toBeDefined();
+    expect(row).toMatchObject({ from: "in_progress", to: "pending_approval", actor: "สมชาย" });
+  });
+
+  it("files a status row under the สถานะ filter, beside rework", () => {
+    const days = withStatuses([
+      {
+        at: "2026-07-20T03:00:00Z",
+        from_status: "in_progress",
+        to_status: "complete",
+        actor_id: "u1",
+        rework_round: 0,
+      },
+    ]);
+    const row = days.flatMap((d) => d.rows).find((r) => r.kind === "status")!;
+    // The filter is DERIVED from the kind, not stored on the row.
+    expect(timelineFilterOf(row.kind)).toBe("status");
+    // …and it shares the chip with rework, which is the point of the สถานะ chip.
+    expect(timelineFilterOf("rework")).toBe("status");
+  });
+
+  it("keys status rows uniquely so two transitions on one day both render", () => {
+    const days = withStatuses([
+      {
+        at: "2026-07-20T03:00:00Z",
+        from_status: "not_started",
+        to_status: "in_progress",
+        actor_id: "u1",
+        rework_round: 0,
+      },
+      {
+        at: "2026-07-20T09:00:00Z",
+        from_status: "in_progress",
+        to_status: "pending_approval",
+        actor_id: "u1",
+        rework_round: 0,
+      },
+    ]);
+    const rows = days.flatMap((d) => d.rows).filter((r) => r.kind === "status");
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((r) => r.key)).size).toBe(2);
+  });
+
+  it("survives an absent statuses source — the RPC may refuse for some roles", () => {
+    // plain `procurement` is refused by wp_status_history (can_see_project is
+    // structurally false for it), so the loader passes nothing and the rail must
+    // still build rather than throw.
+    expect(() =>
+      buildWpTimeline(base as unknown as Parameters<typeof buildWpTimeline>[0]),
+    ).not.toThrow();
+  });
+});

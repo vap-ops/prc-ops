@@ -382,3 +382,37 @@ export async function loadWpTimelineAudit(
     actor_id: r.actor_id,
   }));
 }
+
+/**
+ * Spec 363 U2a — a WP's status transitions for the ประวัติ rail.
+ *
+ * Goes through the `wp_status_history` DEFINER RPC, NOT a direct audit_log read:
+ * that table's site-staff SELECT policy is an event allowlist admitting only
+ * wp_reopened_for_defect + wp_evidence_resubmitted, so a site_admin cannot see
+ * wp_status_transition at all (552 rows in the last 30 days). The policy was
+ * deliberately not widened — its arm has no project scoping.
+ *
+ * The RPC raises 42501 for a caller it does not admit (notably plain
+ * `procurement`, for which can_see_project is structurally false). That is a
+ * REFUSAL, not a failure: the rail simply renders without status rows, so the
+ * error is swallowed to an empty list rather than breaking the whole page for a
+ * role that is legitimately allowed to view it.
+ */
+export async function loadWpStatusHistory(
+  supabase: Db,
+  wpId: string,
+): Promise<
+  {
+    at: string;
+    from_status: string | null;
+    to_status: string | null;
+    actor_id: string | null;
+    rework_round: number | null;
+  }[]
+> {
+  const { data, error } = await supabase.rpc("wp_status_history", {
+    p_work_package_id: wpId,
+  });
+  if (error) return [];
+  return data ?? [];
+}

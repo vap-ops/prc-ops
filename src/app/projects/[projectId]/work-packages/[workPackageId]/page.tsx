@@ -51,7 +51,11 @@ import {
   type PurchaseRequestStatus,
 } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
-import { loadWorkPackageDetail, loadWpTimelineAudit } from "@/lib/work-packages/load-detail";
+import {
+  loadWorkPackageDetail,
+  loadWpTimelineAudit,
+  loadWpStatusHistory,
+} from "@/lib/work-packages/load-detail";
 import { buildWpTimeline } from "@/lib/work-packages/wp-timeline";
 import { WpTimelineView } from "@/components/features/work-packages/wp-timeline-view";
 import { pickableContractors } from "@/lib/work-packages/contractor-picker";
@@ -560,11 +564,21 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // (capture first, then purchases, labor, reference info); the planner-only
   // จัดการ tab is appended last. Panels are server-rendered here and handed to
   // the client switcher as slots — one fetch, one render, focused view.
-  // Spec 363 U2b — the ประวัติ rail. Everything except the audit events is
-  // already in scope from the page's single detail fetch, so this adds ONE read.
-  // Status transitions are absent by RLS, not by omission (spec 363 §4.1).
-  const timelineAudit = await loadWpTimelineAudit(supabase, wp.id);
+  // Spec 363 U2b — the ประวัติ rail. Everything except the audit events and the
+  // status transitions is already in scope from the page's single detail fetch.
+  // U2a: status transitions are NO LONGER absent — they arrive via the
+  // wp_status_history DEFINER RPC, because audit_log's site-staff policy is an
+  // event allowlist that excludes them (§4.1) and widening it would leak every
+  // project's history to every SA.
+  // The rail's status rows. Fetched ALONGSIDE the audit read, not
+  // after it: they are independent, and serialising them would add a round-trip
+  // to the page's critical path for no reason.
+  const [timelineAudit, timelineStatuses] = await Promise.all([
+    loadWpTimelineAudit(supabase, wp.id),
+    loadWpStatusHistory(supabase, wp.id),
+  ]);
   const timelineDays = buildWpTimeline({
+    statuses: timelineStatuses,
     photos: Object.values(photosByPhase)
       .flat()
       .map((ph) => ({
