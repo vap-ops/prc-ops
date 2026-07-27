@@ -1,3 +1,9 @@
+## [0.242.1](https://github.com/vap-ops/prc-ops/compare/v0.242.0...v0.242.1) (2026-07-27)
+
+### Bug Fixes
+
+- **settings:** the /equipment door said it was a rental registry (spec 367 U0) ([#802](https://github.com/vap-ops/prc-ops/issues/802)) ([74a7840](https://github.com/vap-ops/prc-ops/commit/74a7840521bd83d3dc1c1d423ab4f6b7a691c33e))
+
 # [0.242.0](https://github.com/vap-ops/prc-ops/compare/v0.241.0...v0.242.0) (2026-07-27)
 
 ### Features
