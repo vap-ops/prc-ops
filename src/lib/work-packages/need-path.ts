@@ -24,20 +24,40 @@ export interface NeedDecision {
 /**
  * @param qtyOnHand the project store's on-hand for the chosen item. `null` means
  *   the store has no row for it at all — an item it has never carried.
+ * @param allowed the paths this CALLER may take. Defaults to all three. Spec 363
+ *   U4 merge: deleting the คำขอซื้อ tab makes this sheet the only PR door on the
+ *   page, and plain `procurement` — a read-only WP viewer everywhere else — may
+ *   raise a purchase request and nothing else (`isReadOnlyWpViewer`; the
+ *   `purchase_requests` INSERT policy admits the role unconditionally). Gating
+ *   the whole sheet would delete that capability; gating per PATH keeps it.
  */
-export function decideNeedPath(qtyOnHand: number | null): NeedDecision {
+export function decideNeedPath(
+  qtyOnHand: number | null,
+  allowed: readonly NeedPath[] = NEED_PATHS,
+): NeedDecision {
   // `null` (never stocked) and a non-positive figure both mean "there is nothing
   // to withdraw". Leading with เบิก in either case would send the SA to a form
   // that cannot succeed — and a ledger CAN go negative, so `> 0` rather than
   // `!== 0`.
   const hasStock = qtyOnHand !== null && qtyOnHand > 0;
 
-  return hasStock
+  // ORDER FIRST, filter second. Building the full preference order and then
+  // dropping what the caller may not take means a restriction can only ever
+  // REMOVE an option — it can never reorder the remaining ones, so store-first
+  // survives whoever is looking.
+  const ordered: NeedPath[] = hasStock
     ? // เบิก leads, but ขอซื้อ stays offered: on-hand is a ledger figure and the
       // physical shelf can disagree with it. The SA must be able to request
       // anyway without backing out of the sheet.
-      { primary: "issue", secondary: ["request", "self"] }
+      ["issue", "request", "self"]
     : // Nothing to withdraw, so เบิก is not offered at all rather than offered
       // and refused on submit.
-      { primary: "request", secondary: ["self"] };
+      ["request", "self"];
+
+  const offered = ordered.filter((p) => allowed.includes(p));
+
+  // `request` is in every ordering and is the one path no caller reaching this
+  // sheet lacks, so `offered` cannot be empty for any real caller. The fallback
+  // states that rather than leaving a non-null assertion to imply it.
+  return { primary: offered[0] ?? "request", secondary: offered.slice(1) };
 }

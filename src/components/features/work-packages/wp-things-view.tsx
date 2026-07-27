@@ -3,21 +3,32 @@
 // Server component: it renders already-grouped rows and owns no state. The
 // grouping rules and their justification live in `@/lib/work-packages/things`.
 //
-// ⚠️ ADDITIVE. This does NOT delete คำขอซื้อ / เบิกของ / ค่าใช้จ่ายหน้างาน. Those
-// tabs still carry three per-issue affordances — ยืนยันรับแทน, แก้รายการที่บันทึกผิด
-// and คืนเข้าคลัง — and a tab may not be deleted before its affordances have a
-// new home. The merge PR moves them into the row detail; until then this list is
-// read-only and every row points at where its action already lives.
+// Spec 363 U4 merge — คำขอซื้อ / เบิกของ / ค่าใช้จ่ายหน้างาน are now DELETED, so
+// this is the WP's only item surface. Everything those tabs carried per line had
+// to arrive here first: the three per-issue affordances (ยืนยันรับแทน ·
+// แก้รายการที่บันทึกผิด · คืนเข้าคลัง) plus the receipt state and issue cost from
+// the เบิกของ list, and the request's own status — รออนุมัติ covers four PR
+// statuses, and PurchaseRequestCard, which used to draw the distinction, went
+// with the tab.
 //
-// No money renders here: PR amounts stay hidden from `site_admin` (the existing
-// posture — PurchaseRequestCard shows none and /requests gates every money field
-// on isBackOfficeRole).
+// No PR AMOUNT renders here: purchase-request money stays hidden from
+// `site_admin` (the existing posture — PurchaseRequestCard showed none and
+// /requests gates every money field on isBackOfficeRole). The issue's unit cost
+// is a different figure and was never hidden from this role on this page.
 
 import Link from "next/link";
 import { Package, ShoppingCart } from "lucide-react";
 
+import { WpThingIssueActions } from "@/components/features/work-packages/wp-thing-issue-actions";
+import { baht } from "@/lib/format";
+import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
 import { CARD } from "@/lib/ui/classes";
-import type { WpThingGroup, WpThingGroupKey, WpThingRow } from "@/lib/work-packages/things";
+import {
+  showsIssueActions,
+  type WpThingGroup,
+  type WpThingGroupKey,
+  type WpThingRow,
+} from "@/lib/work-packages/things";
 
 function rowTitle(row: WpThingRow): string {
   return row.kind === "request"
@@ -39,10 +50,12 @@ function Row({
   row,
   group,
   requestHref,
+  canAct,
 }: {
   row: WpThingRow;
   group: WpThingGroupKey;
   requestHref: (id: string) => string;
+  canAct: boolean;
 }) {
   const Icon = row.kind === "request" ? ShoppingCart : Package;
   const body = (
@@ -51,26 +64,59 @@ function Row({
       <span className="min-w-0 flex-1">
         <span className="text-ink text-body block font-medium">{rowTitle(row)}</span>
         {row.kind === "request" ? (
-          <span className="text-ink-secondary text-meta block">#{row.prNumber}</span>
+          <span className="text-ink-secondary text-meta block">
+            {/* The GROUP cannot answer "where is my cement": รออนุมัติ covers
+                requested / approved / purchased / on_route. The card that used to
+                draw that distinction went with the คำขอซื้อ tab. */}
+            {`#${row.prNumber} · `}
+            {/* Its own element, not a bare text node beside the number: the
+                status is the part a reader scans for, and a split text node is
+                also unassertable without a loose regex. */}
+            <span className="font-medium">{PURCHASE_REQUEST_STATUS_LABEL[row.status]}</span>
+          </span>
         ) : null}
       </span>
       <span className="text-ink text-body shrink-0 font-semibold">{rowQty(row, group)}</span>
     </>
   );
 
-  // A request row still has somewhere to go (its detail page); an issue row's
-  // actions live in the เบิกของ tab until the merge PR relocates them, so it
-  // stays inert rather than pretending to be a link.
-  return row.kind === "request" ? (
-    <Link
-      href={requestHref(row.id)}
-      className="border-edge hover:bg-page focus-visible:ring-action flex min-h-11 w-full items-center gap-3 border-b px-1 py-2.5 text-left last:border-b-0 focus:outline-none focus-visible:ring-2"
-    >
-      {body}
-    </Link>
-  ) : (
-    <div className="border-edge flex min-h-11 w-full items-center gap-3 border-b px-1 py-2.5 last:border-b-0">
-      {body}
+  // A request row still has somewhere to go — its detail page carries the
+  // priority, the ETA and the decision history this list deliberately does not.
+  if (row.kind === "request") {
+    return (
+      <Link
+        href={requestHref(row.id)}
+        className="border-edge hover:bg-page focus-visible:ring-action flex min-h-11 w-full items-center gap-3 border-b px-1 py-2.5 text-left last:border-b-0 focus:outline-none focus-visible:ring-2"
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  // An issue's write controls belong to exactly ONE of its rendered rows — a
+  // partly-returned issue appears twice and both are readings of one record.
+  const owns = showsIssueActions(row, group);
+
+  return (
+    <div className="border-edge border-b px-1 py-2.5 last:border-b-0">
+      <div className="flex min-h-11 w-full items-center gap-3">{body}</div>
+      {owns ? (
+        <div className="mt-1.5 flex flex-col gap-2 pl-8">
+          <span className="text-ink-secondary text-meta">
+            ต้นทุน {baht(row.unitCost)} ฿/{row.unit}
+            {row.receiverName ? (
+              <>
+                {" · "}
+                <span className={row.receivedAt ? "text-action" : "text-ink-muted"}>
+                  {row.receivedAt ? "รับแล้ว" : "รอรับ"}
+                </span>
+                {` ${row.receiverName}`}
+              </>
+            ) : null}
+          </span>
+          {canAct ? <WpThingIssueActions issue={row} /> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -78,9 +124,16 @@ function Row({
 export function WpThingsView({
   groups,
   requestHref,
+  canAct,
 }: {
   groups: WpThingGroup[];
   requestHref: (id: string) => string;
+  /**
+   * Whether the viewer may run the per-issue write controls. Same decision the
+   * เบิกของ tab made by existing only under `!readOnly` — plain `procurement`
+   * reads this page and its one write is the purchase request.
+   */
+  canAct: boolean;
 }) {
   const present = groups.filter((g) => g.rows.length > 0);
 
@@ -114,6 +167,7 @@ export function WpThingsView({
                 row={row}
                 group={g.key}
                 requestHref={requestHref}
+                canAct={canAct}
               />
             ))}
           </div>

@@ -69,3 +69,47 @@ describe("decideNeedPath (spec 363 D5)", () => {
     expect(decideNeedPath(-2).primary).toBe("request");
   });
 });
+
+// Spec 363 U4 merge — the three tabs are deleted, so the sheet becomes the ONLY
+// door to all three write paths. Plain `procurement` is a read-only WP viewer
+// whose single write on that page was the purchase request (isReadOnlyWpViewer /
+// role-home.ts; the purchase_requests INSERT policy admits the role
+// unconditionally, so this is a real capability, not an accident). The sheet is
+// therefore offered to that role too — but per PATH, never whole.
+describe("decideNeedPath — restricted callers", () => {
+  it("promotes the only permitted path to primary even when the shelf says เบิก", () => {
+    // Unrestricted this returns primary=issue. A caller that may only request
+    // must not be led to a withdrawal form its role cannot submit.
+    const d = decideNeedPath(12, ["request"]);
+    expect(d.primary).toBe("request");
+    expect(d.secondary).toEqual<NeedPath[]>([]);
+  });
+
+  it("offers the same single path when the shelf is empty", () => {
+    const d = decideNeedPath(null, ["request"]);
+    expect(d.primary).toBe("request");
+    expect(d.secondary).toEqual<NeedPath[]>([]);
+  });
+
+  it("never widens — a restricted caller is offered NOTHING outside its set", () => {
+    for (const qty of [0, 9, null]) {
+      for (const allowed of [["request"], ["issue", "request"], ["self"]] as NeedPath[][]) {
+        const d = decideNeedPath(qty, allowed);
+        for (const p of [d.primary, ...d.secondary]) expect(allowed).toContain(p);
+      }
+    }
+  });
+
+  it("keeps the unrestricted ordering when every path is allowed", () => {
+    // The default must not drift away from the two-argument form, or the SA's
+    // store-first ordering would depend on which call site ran.
+    for (const qty of [0, 9, null]) {
+      expect(decideNeedPath(qty, [...NEED_PATHS])).toEqual(decideNeedPath(qty));
+    }
+  });
+
+  it("still refuses to lead with เบิก when the shelf is empty, however permissive", () => {
+    expect(decideNeedPath(0, ["issue", "request"]).primary).toBe("request");
+    expect(decideNeedPath(0, ["issue", "request"]).secondary).not.toContain<NeedPath>("issue");
+  });
+});

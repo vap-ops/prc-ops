@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Camera } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { CARD, DETAIL_TITLE } from "@/lib/ui/classes";
+import { DETAIL_TITLE } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
@@ -30,13 +30,11 @@ import { resubmitState } from "@/lib/approvals/resubmit";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { WorkPackageInfoButton } from "@/components/features/work-packages/work-package-info-button";
-import { PurchaseRequestCard } from "@/components/features/purchasing/purchase-request-card";
 import {
   APPROVAL_DECISION_LABEL,
   APPROVAL_REVISION_REASON_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   PHOTO_PHASE_LABEL,
-  SITE_EXPENSE_TAB_LABEL,
   LABOR_TAB_LABEL,
   reworkSourceLabel,
   formatThaiDateTime,
@@ -46,11 +44,7 @@ import { AttentionCard } from "@/components/features/common/attention-card";
 import { RevisionReasonGuidance } from "@/components/features/work-packages/revision-reason-guidance";
 import { CountChip } from "@/components/features/common/count-chip";
 import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
-import {
-  workPackageStatusPillClasses,
-  type PurchaseRequestPriority,
-  type PurchaseRequestStatus,
-} from "@/lib/status-colors";
+import { workPackageStatusPillClasses, type PurchaseRequestStatus } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
 import {
   loadWorkPackageDetail,
@@ -77,16 +71,8 @@ import { WpNameControl } from "@/components/features/work-packages/wp-name-contr
 import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
 import { WpDetailTabs, type WpDetailTab } from "@/components/features/work-packages/wp-detail-tabs";
-import {
-  PurchaseRequestForm,
-  type PurchaseRequestCatalogItem,
-} from "@/components/features/purchasing/purchase-request-form";
-import { SelfPurchaseSection } from "@/components/features/purchasing/self-purchase-section";
-import {
-  WpIssueStock,
-  type WpIssueRow,
-  type WpStockRow,
-} from "@/components/features/store/wp-issue-stock";
+import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
+import type { WpIssueRow, WpStockRow } from "@/components/features/store/wp-issue-stock";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
 import {
   canCaptureAfterFix,
@@ -710,93 +696,20 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         />
       ),
     },
-    {
-      key: "purchases",
-      label: "คำขอซื้อ",
-      panel: (
-        <>
-          <details className={CARD}>
-            <summary className="text-body text-ink cursor-pointer font-semibold">
-              สร้างคำขอซื้อ
-            </summary>
-            <div className="mt-3">
-              <PurchaseRequestForm
-                workPackage={{
-                  id: wp.id,
-                  code: wp.code,
-                  name: wp.name,
-                  // Spec 301 U1: letter-code chip (reconciled in the page batch).
-                  categoryCode: workCategoryCode,
-                }}
-                projectId={wp.project_id}
-                userId={ctx.id}
-                catalogItems={catalogItems}
-                categories={catalogCategoryList}
-                scopedCategoryIds={scopedCategoryIds}
-                membershipsByItem={itemMembershipMap}
-              />
-            </div>
-          </details>
-          {/* Spec 285 U3 — the self-purchase EXPENSE surface moved OUT of this
-              "คำขอซื้อ" request tab into its own "ค่าใช้จ่ายหน้างาน" tab (below), so an
-              expense (money already spent) is never confused with a ขอซื้อ request.
-              This tab now holds only สร้างคำขอซื้อ + the request list. */}
-          {(wpRequests ?? []).length > 0 ? (
-            <ul className="flex flex-col gap-2">
-              {(wpRequests ?? []).map((r) => (
-                <li key={r.id}>
-                  <PurchaseRequestCard
-                    backFrom={workPackageHref(projectId, workPackageId)}
-                    request={{
-                      id: r.id,
-                      pr_number: r.pr_number,
-                      item_description: r.item_description,
-                      quantity: r.quantity,
-                      unit: r.unit,
-                      status: r.status as PurchaseRequestStatus,
-                      priority: r.priority as PurchaseRequestPriority,
-                      requested_at: r.requested_at,
-                      needed_by: r.needed_by,
-                      decided_at: r.decided_at,
-                      purchased_at: r.purchased_at,
-                      shipped_at: r.shipped_at,
-                      delivered_at: r.delivered_at,
-                      eta: r.eta,
-                    }}
-                    workPackage={null}
-                    requesterName={
-                      (r.requested_by ? displayNames.get(r.requested_by) : null) ??
-                      r.requested_by_email ??
-                      null
-                    }
-                    isMine={r.requested_by === ctx.id}
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </>
-      ),
-    },
-    // Spec 285 U3 — the on-site EXPENSE (ซื้อเอง → บันทึกค่าใช้จ่าย) gets its own
-    // clearly-labeled tab, separate from the คำขอซื้อ request tab above. Hidden for
-    // the read-only viewer (the RPC gate excludes them anyway).
-    ...(!readOnly
-      ? [
-          {
-            key: "expenses",
-            label: SITE_EXPENSE_TAB_LABEL,
-            panel: (
-              <SelfPurchaseSection
-                projectId={wp.project_id}
-                workPackageId={wp.id}
-                catalogItems={catalogItems}
-                categories={catalogCategoryList}
-              />
-            ),
-          },
-        ]
-      : []),
+    // Spec 363 U4 merge — คำขอซื้อ, เบิกของ and ค่าใช้จ่ายหน้างาน are DELETED here.
+    // All three were PATH-first tabs, and the path (withdraw / request / cash buy)
+    // is the firm's ledger taxonomy, not the SA's question. `ของ` below answers
+    // "where is my stuff" in one list, and `ต้องการของ` is the one door into all
+    // three write paths. What each deleted tab carried per line moved first:
+    //   • the request list + its status → the `ของ` rows (D5, and the row now
+    //     names its own PR status, which its group cannot);
+    //   • the three per-issue affordances + the receipt state and issue cost →
+    //     the `ของ` issue row detail (WpThingIssueActions);
+    //   • สร้างคำขอซื้อ / เบิกวัสดุจากคลัง / ซื้อมาเองแล้ว → the ต้องการของ sheet.
+    // The spec's precondition block is the checklist; it is answered in full in
+    // that file, including the one precondition that turned out to be WRONG (the
+    // retired-item union — issue_stock refuses an inactive catalog item, so the
+    // เบิกของ picker was offering rows the RPC could never accept).
     // Spec 363 U3 (D4): แรงงาน leaves the SA's tab set — labor_logs has 0 rows
     // all-time, so it is an empty surface for the role that lives on this page.
     // The manager tier and the read-only viewer keep it; showsLaborTab owns the
@@ -838,14 +751,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     },
   ];
 
-  // Spec 208 U2: เบิก gets its own first-class tab on the WP detail page (operator
-  // 2026-06-26: withdrawals are made on the WP page, not buried in คำขอซื้อ). Placed
-  // right after คำขอซื้อ (purchase → withdraw flow). issue_stock's gate excludes
-  // procurement, so the tab only appears for site staff (!readOnly).
-  // Spec 363 U4 slice 2 — the `ของ` tab: ONE state-grouped list answering "where
-  // is my stuff?" across requests and withdrawals. ADDITIVE for now — คำขอซื้อ /
-  // เบิกของ / ค่าใช้จ่ายหน้างาน stay until the merge PR re-homes their per-issue
-  // affordances (ยืนยันรับแทน · แก้รายการที่บันทึกผิด · คืนเข้าคลัง).
+  // Spec 363 U4 — the `ของ` tab: ONE state-grouped list answering "where is my
+  // stuff?" across requests and withdrawals, with `ต้องการของ` above it as the one
+  // door into all three write paths. The merge PR deleted คำขอซื้อ / เบิกของ /
+  // ค่าใช้จ่ายหน้างาน once every affordance they carried had landed here.
   {
     const thingGroups = groupWpThings({
       requests: (wpRequests ?? []).map((r) => ({
@@ -867,79 +776,67 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           qty: Number(r.qty),
           returnedQty: returnedByIssue.get(r.id) ?? 0,
           issuedAt: r.issued_at,
+          // Re-homed from the deleted เบิกของ list, which showed all three per
+          // issued line. Same rows, same shapes — `wpIssues` is the display
+          // mapping of these very records.
+          receiverName: r.receiver_worker_id
+            ? (workerNames.get(r.receiver_worker_id) ?? "—")
+            : null,
+          receivedAt: r.received_at,
+          unitCost: Number(r.unit_cost),
         })),
     });
-    // `purchases` is unconditional in the array literal above, so findIndex
-    // cannot miss.
+    // `history` is unconditional in the array literal above, so findIndex cannot
+    // miss. `ของ` sits immediately before it — capture, then things, then the
+    // record of what happened.
     tabs.splice(
-      tabs.findIndex((t) => t.key === "purchases"),
+      tabs.findIndex((t) => t.key === "history"),
       0,
       {
         key: "things",
         label: "ของ",
         panel: (
           <div className="flex flex-col gap-4">
-            {/* Spec 363 U4 (D5) — ONE entry point above the list. Hidden for the
-                read-only viewer, whose three paths are all write actions. */}
-            {!readOnly ? (
-              <WpNeedSheet
-                workPackage={{
-                  id: wp.id,
-                  code: wp.code,
-                  name: wp.name,
-                  categoryCode: workCategoryCode,
-                }}
-                projectId={wp.project_id}
-                userId={ctx.id}
-                catalogItems={catalogItems}
-                categories={catalogCategoryList}
-                onHand={wpOnHand}
-                workers={wpWorkers}
-                issues={wpIssues.slice(0, 10)}
-                scopedCategoryIds={scopedCategoryIds}
-                membershipsByItem={itemMembershipMap}
-                {...(scopedRelation ? { scopedRelation } : {})}
-              />
-            ) : null}
+            {/* Spec 363 U4 (D5) — ONE entry point above the list.
+                ⚠️ NOT gated on `!readOnly`. Plain `procurement` is the read-only
+                WP viewer, but the purchase request is its ONE write here
+                (isReadOnlyWpViewer; the purchase_requests INSERT policy admits
+                the role unconditionally) and the คำขอซื้อ tab that carried it is
+                gone. So the role is offered the sheet with that single path —
+                gating the sheet whole would delete the capability. */}
+            <WpNeedSheet
+              workPackage={{
+                id: wp.id,
+                code: wp.code,
+                name: wp.name,
+                categoryCode: workCategoryCode,
+              }}
+              projectId={wp.project_id}
+              userId={ctx.id}
+              catalogItems={catalogItems}
+              categories={catalogCategoryList}
+              onHand={wpOnHand}
+              workers={wpWorkers}
+              issues={wpIssues.slice(0, 10)}
+              scopedCategoryIds={scopedCategoryIds}
+              membershipsByItem={itemMembershipMap}
+              {...(readOnly ? { allowedPaths: ["request"] as const } : {})}
+              {...(scopedRelation ? { scopedRelation } : {})}
+            />
             <WpThingsView
               groups={thingGroups}
               requestHref={(id) =>
                 withBackFrom(`/requests/${id}`, workPackageHref(projectId, workPackageId))
               }
+              // Same decision the เบิกของ tab made by existing only under
+              // `!readOnly` — that IS the reverse_stock_issue / confirm-on-behalf
+              // gate.
+              canAct={!readOnly}
             />
           </div>
         ),
       },
     );
-  }
-
-  if (!readOnly) {
-    const purchasesIdx = tabs.findIndex((t) => t.key === "purchases");
-    tabs.splice(purchasesIdx + 1, 0, {
-      key: "issue",
-      label: "เบิกของ",
-      panel: (
-        <div className="flex flex-col gap-4">
-          <div className={CARD}>
-            <WpIssueStock
-              projectId={wp.project_id}
-              workPackageId={wp.id}
-              onHand={wpOnHand}
-              workers={wpWorkers}
-              // The cap moved off the QUERY and onto this presentation: the
-              // เบิกของ tab shows the recent 10, the ของ tab groups them all.
-              issues={wpIssues.slice(0, 10)}
-              scopedRelation={scopedRelation}
-              membershipsByItem={itemMembershipMap}
-              categories={catalogCategoryList}
-            />
-          </div>
-          {/* Spec 211 U11a: the on-site cash buy (ซื้อเงินสด ใช้ที่งานนี้เลย) moved
-              to the consolidated ซื้อเอง self-purchase section in the คำขอซื้อ tab —
-              this tab is now the pure เบิก (withdraw) surface. */}
-        </div>
-      ),
-    });
   }
 
   // PM/super/director management: rename · priority · งวดงาน bind · schedule +
@@ -1250,16 +1147,19 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         </div>
       ) : null}
 
-      {/* Spec 167: photos / purchases / labor / info (+ จัดการ for planners)
-          fold into segmented tabs — each visit shows only the relevant
-          section. The pending-requests chip (#wp-requests) opens คำขอซื้อ. */}
+      {/* Spec 167: the body folds into segmented tabs — each visit shows only the
+          relevant section.
+          Spec 363 U4 merge: #wp-requests and #wp-issue both now open `ของ`. Those
+          anchors are linked from /sa and from this page's own pending-requests
+          chip; left pointing at the deleted `purchases` / `issue` keys they would
+          resolve to nothing and the tap would silently do nothing at all. */}
       <WpDetailTabs
         tabs={tabs}
         hashTabMap={{
-          "wp-requests": "purchases",
+          "wp-requests": "things",
           "wp-photos": "photos",
           "wp-labor": "labor",
-          "wp-issue": "issue",
+          "wp-issue": "things",
         }}
       />
     </PageShell>

@@ -33,7 +33,7 @@ import { PurchaseRequestForm } from "@/components/features/purchasing/purchase-r
 import { SelfPurchaseForm } from "@/components/features/purchasing/self-purchase-form";
 import { WpIssueStock } from "@/components/features/store/wp-issue-stock";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD } from "@/lib/ui/classes";
-import { decideNeedPath, type NeedPath } from "@/lib/work-packages/need-path";
+import { decideNeedPath, NEED_PATHS, type NeedPath } from "@/lib/work-packages/need-path";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import type { WpIssueRow, WpStockRow } from "@/components/features/store/wp-issue-stock";
 import type { ScopedMaterialCategory } from "@/lib/catalog/scoped-categories";
@@ -57,6 +57,7 @@ export function WpNeedSheet({
   membershipsByItem,
   scopedRelation,
   canSelfApprove = false,
+  allowedPaths,
 }: {
   workPackage: { id: string; code: string; name: string; categoryCode: string | null };
   projectId: string;
@@ -70,6 +71,14 @@ export function WpNeedSheet({
   membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
   scopedRelation?: ScopedMaterialCategory[] | undefined;
   canSelfApprove?: boolean;
+  /**
+   * Spec 363 U4 merge — the paths THIS viewer may take. Omitted = all three.
+   * Deleting the คำขอซื้อ tab makes this sheet the only PR door on the page, and
+   * plain `procurement` (a read-only WP viewer) may raise a purchase request and
+   * nothing else. Gating the whole sheet on `!readOnly` would delete that
+   * capability outright, so the page hands the role its one path instead.
+   */
+  allowedPaths?: readonly NeedPath[] | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const [itemId, setItemId] = useState("");
@@ -84,7 +93,7 @@ export function WpNeedSheet({
   // `null` (never stocked) is NOT the same as 0 — decideNeedPath distinguishes
   // them, and both correctly mean "nothing to withdraw".
   const stock = itemId ? (onHand.find((o) => o.catalogItemId === itemId) ?? null) : null;
-  const decision = decideNeedPath(stock ? stock.qtyOnHand : null);
+  const decision = decideNeedPath(stock ? stock.qtyOnHand : null, allowedPaths ?? NEED_PATHS);
 
   function close() {
     setOpen(false);
