@@ -14,7 +14,7 @@
 -- site admin. The RPC scopes per call instead, and RLS is untouched.
 
 begin;
-select plan(20);
+select plan(22);
 
 -- ---------------------------------------------------------------- fixtures
 create temp table t_ids (k text primary key, v uuid not null);
@@ -29,7 +29,8 @@ values
   ('sa_outsider', gen_random_uuid()),
   ('visitor', gen_random_uuid()),
   ('super', gen_random_uuid()),
-  ('proc', gen_random_uuid());
+  ('proc', gen_random_uuid()),
+  ('pmgr', gen_random_uuid());
 
 -- Helper so the asserts never inline a subselect the acting role cannot read
 -- (the spec-330 existence-oracle trap: an unreadable id resolves NULL and the
@@ -49,13 +50,14 @@ values (pg_temp.id('wp_a'), pg_temp.id('proj_a'), 'U2A-01', 'งาน A', 'in_p
 insert into auth.users (id, email, encrypted_password, email_confirmed_at,
                         raw_app_meta_data, raw_user_meta_data, aud, role)
 select v, k || '.u2a@test.local', '', now(), '{}'::jsonb, '{}'::jsonb, 'authenticated', 'authenticated'
-  from t_ids where k in ('sa_member', 'sa_outsider', 'visitor', 'super', 'proc');
+  from t_ids where k in ('sa_member', 'sa_outsider', 'visitor', 'super', 'proc', 'pmgr');
 
 update public.users set role = 'site_admin' where id = pg_temp.id('sa_member');
 update public.users set role = 'site_admin' where id = pg_temp.id('sa_outsider');
 update public.users set role = 'visitor'    where id = pg_temp.id('visitor');
 update public.users set role = 'super_admin' where id = pg_temp.id('super');
 update public.users set role = 'procurement' where id = pg_temp.id('proc');
+update public.users set role = 'procurement_manager' where id = pg_temp.id('pmgr');
 
 -- Only sa_member is on project A.
 insert into public.project_members (project_id, user_id, added_by)
@@ -72,7 +74,10 @@ values
    '{"event":"wp_status_transition","from_status":"not_started","to_status":"in_progress","is_group":false,"rework_round":0}'::jsonb),
   -- A non-transition event on the same WP: the RPC must not return it.
   (pg_temp.id('sa_member'), 'update', 'work_packages', pg_temp.id('wp_a'),
-   '{"event":"wp_deleted"}'::jsonb);
+   '{"event":"wp_deleted"}'::jsonb),
+  -- An ALLOWLISTED event: the positive control for the direct-read assert below.
+  (pg_temp.id('sa_member'), 'update', 'work_packages', pg_temp.id('wp_a'),
+   '{"event":"wp_evidence_resubmitted"}'::jsonb);
 
 -- ---------------------------------------------------------------- existence
 select has_function('public', 'wp_status_history', array['uuid'],
@@ -92,10 +97,13 @@ select is(
   'search_path=public', 'search_path is pinned — a DEFINER without it is hijackable');
 
 -- ------------------------------------------------------- grants: no anon/public
-select is(
-  (select count(*)::int from information_schema.role_routine_grants
-    where routine_name = 'wp_status_history' and grantee in ('anon', 'PUBLIC')),
-  0, 'not executable by anon or PUBLIC');
+-- information_schema.role_routine_grants has NO PUBLIC arm (that lives in
+-- routine_privileges) and filters to enabled_roles, so counting it reads 0
+-- whether or not PUBLIC holds EXECUTE — it could not fail on the exact
+-- default-grant hazard the migration's revoke exists to kill.
+-- has_function_privilege resolves PUBLIC through role inheritance.
+select is(has_function_privilege('anon', 'public.wp_status_history(uuid)', 'EXECUTE'),
+  false, 'anon cannot execute it');
 select is(
   (select count(*)::int from information_schema.role_routine_grants
     where routine_name = 'wp_status_history' and grantee = 'authenticated'),
@@ -124,10 +132,12 @@ select is(
   (select count(*)::int from public.wp_status_history(pg_temp.id('wp_a'))
     where to_status = 'pending_approval'),
   1, 'the to_status comes through');
+-- No ORDER BY in the assert: re-imposing one would make the RPC's own ordering
+-- untestable (dropping it from the body would stay green).
 select is(
-  (select from_status from public.wp_status_history(pg_temp.id('wp_a'))
-    order by at asc limit 1),
-  'not_started', 'the from_status comes through, oldest first by `at`');
+  (select array_agg(from_status) from public.wp_status_history(pg_temp.id('wp_a'))),
+  array['not_started', 'in_progress'],
+  'from_status comes through, and the RPC returns them oldest-first');
 select is(
   (select count(*)::int from public.wp_status_history(pg_temp.id('wp_a'))
     where actor_id = pg_temp.id('sa_member')),
@@ -144,6 +154,17 @@ select is(
     where target_id = pg_temp.id('wp_a')
       and payload->>'event' = 'wp_status_transition'),
   0, 'the site-staff allowlist still HIDES wp_status_transition from a direct read');
+
+-- POSITIVE CONTROL. The 0 above is on its own equally consistent with "the
+-- allowlist is intact", "the site-staff SELECT policy was dropped" and "the
+-- policy denies everything" — it cannot prove the allowlist is what hides it.
+-- An ALLOWED event read by the SAME caller must come back, or the pair proves
+-- nothing.
+select is(
+  (select count(*)::int from public.audit_log
+    where target_id = pg_temp.id('wp_a')
+      and payload->>'event' = 'wp_evidence_resubmitted'),
+  1, '…and the SAME caller DOES read an allowlisted event — so the allowlist is live');
 
 -- --------------------------------------------------------- the non-member path
 select set_config('request.jwt.claims',
@@ -200,6 +221,16 @@ select throws_ok(
 select is(
   (select public.can_see_project(pg_temp.id('proj_a'))),
   false, '…and that is WHY: can_see_project says false for procurement');
+
+-- procurement_manager is the WIDEST arm admitted here: can_see_project returns
+-- true for her unconditionally (spec 348), so this RPC hands her every project's
+-- status history. Untested, that breadth is invisible.
+select set_config('request.jwt.claims',
+  json_build_object('sub', pg_temp.id('pmgr'), 'role', 'authenticated')::text, true);
+
+select is(
+  (select count(*)::int from public.wp_status_history(pg_temp.id('wp_b'))),
+  1, 'procurement_manager reads a project she is not a member of (see-all, by design)');
 
 -- --------------------------------------------------------- the privileged path
 select set_config('request.jwt.claims',

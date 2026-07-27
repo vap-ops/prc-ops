@@ -413,6 +413,20 @@ export async function loadWpStatusHistory(
   const { data, error } = await supabase.rpc("wp_status_history", {
     p_work_package_id: wpId,
   });
-  if (error) return [];
+  if (error) {
+    // 42501 is the RPC REFUSING a caller it does not admit — expected, and the
+    // rail simply renders without status rows. Anything else (a renamed RPC, a
+    // dropped grant, a PostgREST schema-cache miss after db:push, a transport
+    // failure) is a REAL fault, and swallowing it silently would make a broken
+    // read indistinguishable from a work package that never moved.
+    if (error.code !== "42501") {
+      console.error("[wp-status-history] unexpected read failure", {
+        wpId,
+        code: error.code,
+        message: error.message,
+      });
+    }
+    return [];
+  }
   return data ?? [];
 }

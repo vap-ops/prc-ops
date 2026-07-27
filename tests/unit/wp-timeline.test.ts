@@ -28,6 +28,7 @@ const EMPTY: WpTimelineInput = {
   requests: [],
   issues: [],
   returns: [],
+  statuses: [],
   reworkEvents: [],
   names: {},
 };
@@ -205,6 +206,7 @@ describe("buildWpTimeline — status transitions (spec 363 U2a)", () => {
     issues: [],
     returns: [],
     reworkEvents: [],
+    statuses: [],
     names: { u1: "สมชาย" },
   };
 
@@ -274,12 +276,56 @@ describe("buildWpTimeline — status transitions (spec 363 U2a)", () => {
     expect(new Set(rows.map((r) => r.key)).size).toBe(2);
   });
 
-  it("survives an absent statuses source — the RPC may refuse for some roles", () => {
-    // plain `procurement` is refused by wp_status_history (can_see_project is
-    // structurally false for it), so the loader passes nothing and the rail must
-    // still build rather than throw.
-    expect(() =>
-      buildWpTimeline(base as unknown as Parameters<typeof buildWpTimeline>[0]),
-    ).not.toThrow();
+  it("renders no status rows for a refused role — [] is the refusal signal", () => {
+    // The loader maps the RPC's 42501 to an EMPTY LIST, not undefined, so this is
+    // the shape a refused role (plain procurement) actually produces.
+    const days = withStatuses([]);
+    expect(days.flatMap((d) => d.rows).filter((r) => r.kind === "status")).toEqual([]);
+  });
+});
+
+describe("buildWpTimeline — reopen is not rendered twice (spec 363 U2a)", () => {
+  const at = "2026-07-20T03:00:00Z";
+  const base = {
+    photos: [],
+    approvals: [],
+    requests: [],
+    issues: [],
+    returns: [],
+    statuses: [],
+    names: { u1: "สมชาย" },
+  };
+
+  it("drops the rework row when a status row covers the same moment", () => {
+    // reopen_work_package_for_defect writes BOTH rows in one transaction, on the
+    // identical created_at, so without this the SA sees the same event twice.
+    const days = buildWpTimeline({
+      ...base,
+      reworkEvents: [{ id: "a1", event: "wp_reopened_for_defect", created_at: at, actor_id: "u1" }],
+      statuses: [{ at, from_status: "complete", to_status: "rework", actor_id: "u1" }],
+    } as unknown as Parameters<typeof buildWpTimeline>[0]);
+    const rows = days.flatMap((d) => d.rows);
+    expect(rows.filter((r) => r.kind === "rework")).toHaveLength(0);
+    expect(rows.filter((r) => r.kind === "status")).toHaveLength(1);
+  });
+
+  it("KEEPS the rework row when no status row covers it", () => {
+    // Without the status source (a refused role) the stand-in is all there is.
+    const days = buildWpTimeline({
+      ...base,
+      reworkEvents: [{ id: "a1", event: "wp_reopened_for_defect", created_at: at, actor_id: "u1" }],
+    } as unknown as Parameters<typeof buildWpTimeline>[0]);
+    expect(days.flatMap((d) => d.rows).filter((r) => r.kind === "rework")).toHaveLength(1);
+  });
+
+  it("never drops wp_evidence_resubmitted — it changes no status", () => {
+    const days = buildWpTimeline({
+      ...base,
+      reworkEvents: [
+        { id: "a2", event: "wp_evidence_resubmitted", created_at: at, actor_id: "u1" },
+      ],
+      statuses: [{ at, from_status: "rework", to_status: "pending_approval", actor_id: "u1" }],
+    } as unknown as Parameters<typeof buildWpTimeline>[0]);
+    expect(days.flatMap((d) => d.rows).filter((r) => r.kind === "rework")).toHaveLength(1);
   });
 });

@@ -15,9 +15,10 @@ import { bangkokDateOf } from "@/lib/dates";
 // call; the policy was deliberately NOT widened, because that arm has no project
 // scoping and would leak every project's history to every SA.
 //
-// `statuses` is OPTIONAL: the RPC refuses plain `procurement` (can_see_project
-// is structurally false for it), so the loader supplies nothing for that role and
-// the rail must still build.
+// The RPC refuses callers it does not admit (notably plain `procurement`, for
+// which can_see_project is structurally false). The loader turns that refusal
+// into an EMPTY LIST, not `undefined` — so a refused role yields a rail with no
+// status rows, and `statuses` is always supplied.
 
 /** Every event kind the rail can render. `plan` is reserved for spec 363 D3 and renders nothing yet. */
 export type WpTimelineKind =
@@ -114,9 +115,9 @@ export interface WpTimelineInput {
     returned_by: string | null;
   }[];
   reworkEvents: { id: string; event: string; created_at: string; actor_id: string | null }[];
-  /** Spec 363 U2a — from wp_status_history. Optional: the RPC refuses roles that
-   *  can_see_project rejects, so a permitted VIEWER may still have no rows. */
-  statuses?: WpTimelineStatusRow[] | undefined;
+  /** Spec 363 U2a — from wp_status_history. A refused role yields an EMPTY list
+   *  (the loader maps 42501 to []), never undefined. */
+  statuses: WpTimelineStatusRow[];
   /** user id → display name. Missing ids render as an unattributed row, never a raw uuid. */
   names: Record<string, string>;
 }
@@ -228,18 +229,33 @@ export function buildWpTimeline(input: WpTimelineInput): WpTimelineDay[] {
         unit: r.unit,
       }),
     ),
-    ...input.reworkEvents.map(
-      (e): WpTimelineRow => ({
-        kind: "rework",
-        key: `rework:${e.id}`,
-        at: e.created_at,
-        actor: nameOf(input.names, e.actor_id),
-        event: e.event,
-      }),
-    ),
-    // Optional: the RPC refuses roles can_see_project rejects, so the loader may
-    // pass nothing and the rail must still build.
-    ...(input.statuses ?? []).map(
+    // ⚠️ U2a retires the rework row for a REOPEN when the real status row covers
+    // it. `reopen_work_package_for_defect` writes its own wp_reopened_for_defect
+    // row AND trips the work_packages_transition_audit trigger (complete→rework)
+    // in the SAME transaction, and audit_log.created_at defaults to the
+    // transaction timestamp — so both land on the identical stamp and the rail
+    // would show "เปิดงานแก้ไข" immediately followed by "เสร็จสิ้น → งานแก้ไข".
+    // The `rework` kind existed only as a stand-in for the transitions nobody
+    // could read; U2a supplies the real source, so the stand-in stands down.
+    // Verified live 2026-07-27: ZERO wp_reopened_for_defect rows exist, so this
+    // has never yet rendered — it is a forward defect, fixed before it can fire.
+    // wp_evidence_resubmitted is unaffected: it changes no status.
+    ...input.reworkEvents
+      .filter(
+        (e) =>
+          e.event !== "wp_reopened_for_defect" ||
+          !input.statuses.some((t) => t.at === e.created_at),
+      )
+      .map(
+        (e): WpTimelineRow => ({
+          kind: "rework",
+          key: `rework:${e.id}`,
+          at: e.created_at,
+          actor: nameOf(input.names, e.actor_id),
+          event: e.event,
+        }),
+      ),
+    ...input.statuses.map(
       (t, i): WpTimelineRow => ({
         kind: "status",
         // audit_log rows carry no natural key here, and two transitions can share

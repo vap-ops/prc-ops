@@ -20,6 +20,7 @@ import {
   PackagePlus,
   ShoppingCart,
   RotateCcw,
+  ArrowRightLeft,
 } from "lucide-react";
 import type {
   WpTimelineDay,
@@ -53,6 +54,10 @@ const REWORK_EVENT_LABEL: Record<string, string> = {
 function RowIcon({ kind }: { kind: WpTimelineRow["kind"] }) {
   const cls = "size-4 shrink-0 text-ink-secondary";
   switch (kind) {
+    // Spec 363 U2a — its own glyph: falling through to default gave a status
+    // change the rework icon, making it visually identical to a defect reopen.
+    case "status":
+      return <ArrowRightLeft aria-hidden className="text-ink-muted size-4 shrink-0" />;
     case "photos":
       return <Camera aria-hidden className={cls} />;
     case "decision":
