@@ -211,27 +211,70 @@ Results as of that date: photos 2031 · PRs 153 (149 `app` of which 143 from the
 
 ## U4 merge — what must be true before the three tabs are deleted
 
-The `ต้องการของ` sheet ships **additively** (2026-07-27): `คำขอซื้อ`, `เบิกของ` and
-`ค่าใช้จ่ายหน้างาน` all remain. Deleting them is a separate, deliberate step, and
-these are its preconditions — each found by gate-check or fresh-eyes, not guessed.
+The `ต้องการของ` sheet shipped **additively** (2026-07-27, #807): `คำขอซื้อ`,
+`เบิกของ` and `ค่าใช้จ่ายหน้างาน` all remained. Deleting them was a separate,
+deliberate step, and these were its preconditions — each found by gate-check or
+fresh-eyes, not guessed.
+
+**✅ DELETED 2026-07-28.** Blockers 1 and 2 were implemented; blocker 3 turned out
+to be **wrong** and was deliberately NOT implemented. Verdicts below.
 
 **Blockers — deleting without these REMOVES working behaviour:**
 
-1. **`procurement` loses PR-raise.** The sheet is gated `!readOnly`, but plain
+1. ✅ **`procurement` loses PR-raise.** The sheet is gated `!readOnly`, but plain
    `procurement`'s one write on this page IS the purchase request
    (`role-home.ts` — "every write affordance suppressed except the
    purchase-request form"). Harmless while `คำขอซื้อ` survives; delete it and the
    role can no longer raise a PR at a WP at all. **Gate per-path** (offer only
    `ขอซื้อ` to that role), never the whole sheet.
-2. **The three per-issue affordances have no new home.** `เบิกของ` carries
+
+   **Verified live before building:** the `purchase_requests` INSERT policy
+   (`purchase_requests insert by wp-readers`) admits `procurement` and
+   `procurement_manager` **unconditionally** — no `can_see_wp`, no project scope.
+   So the capability is real, not incidental. **Built as** `decideNeedPath(qty,
+allowed)`: it builds the full preference order FIRST and filters second, so a
+   restriction can only ever remove an option, never reorder the survivors —
+   store-first therefore holds for every caller. The page passes
+   `allowedPaths={["request"]}` when `readOnly`.
+
+2. ✅ **The three per-issue affordances have no new home.** `เบิกของ` carries
    `ยืนยันรับแทน` (confirm receipt on behalf), `แก้รายการที่บันทึกผิด` (reverse a
    mis-keyed เบิก) and `คืนเข้าคลัง` (return to store). The spec never mentions
    re-homing them. They belong in the `ของ` row detail first.
-3. **Retired-but-on-hand items become unreachable.** The sheet's picker is built
-   from `catalogItems` (`is_active = true` only), while `เบิกของ`'s picker is built
-   from `onHand` — so an item deactivated in the catalog but still physically in
-   the store can be withdrawn today and could not be after the merge. Union the
-   on-hand rows into the sheet's item list.
+
+   **Built as** `WpThingIssueActions` in the `ของ` issue-row detail, with the
+   receipt state (`รับแล้ว` / `รอรับ` + receiver) and the issue unit cost the
+   `เบิกของ` list also showed. **The non-obvious part:** `groupWpThings`
+   deliberately renders a partly-returned issue TWICE (some here, some returned)
+   — two readings of ONE `stock_issues` row. Rendering the controls on both would
+   put two live buttons over one record. `showsIssueActions` gives them to
+   `อยู่ที่งานนี้` whenever anything is still here, and to `คืนแล้ว` only when the
+   issue is **fully** returned — a fully-returned issue never reaches
+   `อยู่ที่งานนี้`, so without that second arm `แก้รายการที่บันทึกผิด` would have had
+   no home at all for exactly those rows.
+
+3. ❌ **WRONG — not implemented.** The claim was: "the sheet's picker is built
+   from `catalogItems` (`is_active = true` only) while `เบิกของ`'s is built from
+   `onHand`, so a retired-but-still-stocked item can be withdrawn today and could
+   not be after the merge — union the on-hand rows in."
+
+   The premise is false. `issue_stock` reads
+   `select c.unit from catalog_items c where c.id = p_catalog_item_id and
+c.is_active` and raises `22023 'issue_stock: unknown or inactive catalog item'`
+   when that returns nothing. A retired item is **not** withdrawable today: the
+   `เบิกของ` picker was OFFERING rows the RPC could never accept — an
+   affordance/RPC mismatch, not a capability. Live at the time of the merge: 38
+   inactive catalog items, **2 of them holding stock** (`คอนกรีต
+Cylinder(ยกเลิกใช้)` 25.50, `ลวดดำ` 30.00) on one project, both confirmed to
+   fail the RPC's own predicate.
+
+   Unioning them into the sheet would have imported the offer-then-refuse. The
+   deletion instead removes it: the sheet's picker is active-only, so the two rows
+   are simply not selectable. **Residual, unchanged by this unit and pre-existing
+   everywhere (`/store` calls the same RPC):** those 2 stocked items cannot be
+   withdrawn by any path. The cure is catalog-side — reactivate the item, or fold
+   it under spec 344's `merged_into` — not a picker change. Logged as an open
+   question rather than silently absorbed.
 
 **Should-fix, not blocking:**
 
@@ -251,3 +294,24 @@ these are its preconditions — each found by gate-check or fresh-eyes, not gues
 correct in all three forms — each derives unit/description from the catalog row,
 not from an `onSelect` side effect — and `addRow()` plus the submit gate treat a
 seeded row like any other.
+
+### Opened BY the deletion (2026-07-28) — follow-ups, not regressions
+
+- **`WpIssueStock`'s non-embedded branch is now unreachable.** `WpNeedSheet` is its
+  only remaining caller and always passes `embedded`, so the `เบิกวัสดุจากคลัง`
+  trigger, its own `BottomSheet`, and the issued-line list carrying the second copy
+  of the three affordances are dead. The live copy is `WpThingIssueActions`.
+  Removing the dead branch is its own unit — `tests/unit/wp-issue-stock.test.tsx`
+  drives the wrapped shape throughout, so it is a test rewrite, not a code trim.
+- **The self-purchase explainer went with `ค่าใช้จ่ายหน้างาน`.** That tab's wrapper
+  (`SelfPurchaseSection`, deleted here as an orphan) carried "จ่ายเงินไปแล้ว — …
+  แล้วแนบรูปสินค้าและใบเสร็จ", the only place the evidence requirement was stated
+  UP FRONT. The sheet's `ซื้อมาเองแล้ว` path renders `SelfPurchaseForm` bare, as
+  #807 shipped it. Whether the sheet should state that requirement before the SA
+  commits is a copy decision, not a mechanical restore — the tab's wording opened
+  with "เลือกจากแคตตาล็อก", a step the sheet has already performed.
+- **A `ของ` request row now names its PR status**, because `รออนุมัติ` covers
+  `requested` / `approved` / `purchased` / `on_route` and `PurchaseRequestCard` —
+  which drew that distinction — went with the tab. Priority, ETA and the decision
+  history stay one tap away on `/requests/[id]`; whether the ETA belongs on the row
+  itself is open (it is the "when does my cement arrive" field).

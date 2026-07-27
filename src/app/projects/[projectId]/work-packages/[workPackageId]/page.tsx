@@ -272,8 +272,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       .eq("work_package_id", workPackageId)
       // Spec 363 U4 slice 2 — NO row cap. The ของ tab groups these and prints a
       // count per group, so a .limit() here would make the badge assert a
-      // truncated number as the total. The เบิกของ tab keeps its "recent 10" by
-      // slicing below, which is presentation, not a silently short dataset.
+      // truncated number as the total. The ต้องการของ sheet keeps a "recent 10"
+      // by slicing below, which is presentation, not a silently short dataset.
       .order("issued_at", { ascending: false }),
     // Spec 209 U2: returns booked against this WP's issues — to show the
     // remaining-returnable per issued line (issued − Σ returns).
@@ -609,7 +609,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       requested_by: r.requested_by,
     })),
     // From the RAW rows: WpIssueRow is a display shape and carries no stamp.
-    // Inherits that query's limit(10) — not binding at 32 issues across 5 WPs.
+    // The stock_issues read is uncapped (spec 363 U4 removed the .limit), so the
+    // timeline sees every withdrawal.
     issues: (issueRows ?? []).map((r) => ({
       id: r.id,
       item: r.catalog_items?.base_item ?? "",

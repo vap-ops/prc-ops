@@ -346,7 +346,7 @@ export function StoreManager({
                         </span>
                       </span>
                     </Link>
-                    {/* Spec 208: เบิก is initiated on the WP detail page (เบิกของ tab),
+                    {/* Spec 208: เบิก is initiated on the WP detail page (the ของ tab),
                         not the store console — only ตรวจนับ stays here. */}
                     {canIssue ? (
                       <button

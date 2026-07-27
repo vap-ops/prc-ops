@@ -225,9 +225,18 @@ export function WpIssueStock({
   const scopedCategoryIds = (scopedRelation ?? []).map((r) => r.categoryId);
 
   // Spec 363 U4 — the form is hoisted so it can render EITHER wrapped in this
-  // component's own BottomSheet (the เบิกของ tab) or bare inside the ต้องการของ
-  // sheet, which is already a BottomSheet. Nesting them would stack a third
-  // sheet behind a second trigger the SA has no reason to press.
+  // component's own BottomSheet or bare inside the ต้องการของ sheet, which is
+  // already a BottomSheet. Nesting them would stack a third sheet behind a
+  // second trigger the SA has no reason to press.
+  //
+  // ⚠️ As of the U4 merge, WpNeedSheet is the ONLY caller and it always passes
+  // `embedded`, so the wrapped branch below — the เบิกวัสดุจากคลัง trigger, its
+  // sheet, and the issued-line list with the three per-issue affordances — is
+  // UNREACHABLE. The affordances themselves were re-homed into the ของ row
+  // detail (WpThingIssueActions) before the เบิกของ tab was deleted; what is left
+  // here is the now-dead second copy. Removing it is its own unit: this file's
+  // test suite drives the wrapped shape throughout, so the deletion is a test
+  // rewrite, not a code trim. Logged in the progress tracker's open questions.
   const issueForm = (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* Spec 208 U3: a multi-row grid — เบิก a whole list to this WP at once. */}

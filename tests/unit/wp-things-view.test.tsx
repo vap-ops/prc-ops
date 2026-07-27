@@ -1,10 +1,11 @@
-// Spec 363 U4 slice 2 — the `ของ` tab's rendered list.
+// Spec 363 U4 — the `ของ` tab's rendered list.
 //
-// Additive by design: this PR adds the tab, it does NOT delete คำขอซื้อ /
-// เบิกของ / ค่าใช้จ่ายหน้างาน. The three per-issue affordances those tabs carry
-// (ยืนยันรับแทน · แก้รายการที่บันทึกผิด · คืนเข้าคลัง) stay where they are until
-// the merge PR moves them into the row detail — deleting a tab before its
-// affordances have a new home is the half-that-removes-a-signal shape.
+// The merge PR DELETED คำขอซื้อ / เบิกของ / ค่าใช้จ่ายหน้างาน, so this is now the
+// WP's only item surface. The three per-issue affordances those tabs carried
+// (ยืนยันรับแทน · แก้รายการที่บันทึกผิด · คืนเข้าคลัง) had to land in the row
+// detail FIRST — deleting a tab before its affordances have a new home is the
+// half-that-removes-a-signal shape. The second describe block below is that
+// re-homing.
 
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -163,8 +164,7 @@ describe("WpThingsView (spec 363 U4 slice 2)", () => {
 
 // Spec 363 U4 merge — เบิกของ is deleted, so everything it carried per issued
 // line has to arrive here: the receipt state, the issue cost, and the three write
-// controls. The precondition block calls a deletion without this the
-// "half that removes a signal" shape.
+// controls.
 describe("WpThingsView — the issue row detail (the re-homed เบิกของ affordances)", () => {
   const withReceiver = [
     {
