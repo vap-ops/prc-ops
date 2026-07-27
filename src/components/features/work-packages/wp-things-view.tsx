@@ -14,7 +14,8 @@
 // No PR AMOUNT renders here: purchase-request money stays hidden from
 // `site_admin` (the existing posture — PurchaseRequestCard showed none and
 // /requests gates every money field on isBackOfficeRole). The issue's unit cost
-// is a different figure and was never hidden from this role on this page.
+// is a different figure, shown to whoever the เบิกของ tab showed it to and to
+// nobody else — see `canAct`.
 
 import Link from "next/link";
 import { Package, ShoppingCart } from "lucide-react";
@@ -93,14 +94,15 @@ function Row({
     );
   }
 
-  // An issue's write controls belong to exactly ONE of its rendered rows — a
-  // partly-returned issue appears twice and both are readings of one record.
-  // The detail is the เบิกของ tab's issued-line content, moved wholesale — so it
-  // keeps that tab's gate wholesale too. The tab existed only under `!readOnly`,
-  // which means the read-only viewer never saw the issue's unit cost or its
-  // receipt state either; rendering them here would be a quiet ADDITION for that
-  // role, not the re-homing this unit is. `owns` then decides WHICH of an issue's
-  // rendered rows carries it, so a partly-returned issue shows it once.
+  // The detail IS the เบิกของ tab's issued-line content, moved wholesale — so it
+  // keeps that tab's gate wholesale too. That tab rendered only under
+  // `!readOnly`, which means the read-only viewer never saw the issue's unit
+  // cost or its receipt state either; showing them here would be a quiet
+  // ADDITION for that role rather than the re-homing this unit is.
+  //
+  // `showsIssueActions` then decides WHICH of an issue's rendered rows carries
+  // it: a partly-returned issue appears twice and both are readings of one
+  // `stock_issues` record, so it must show up exactly once.
   const showsDetail = canAct && showsIssueActions(row, group);
 
   return (
@@ -135,9 +137,12 @@ export function WpThingsView({
   groups: WpThingGroup[];
   requestHref: (id: string) => string;
   /**
-   * Whether the viewer may run the per-issue write controls. Same decision the
-   * เบิกของ tab made by existing only under `!readOnly` — plain `procurement`
-   * reads this page and its one write is the purchase request.
+   * Whether the viewer gets the issue-row DETAIL at all — the three write
+   * controls plus the unit cost and receipt state that travel with them. Same
+   * decision the เบิกของ tab made by existing only under `!readOnly`: plain
+   * `procurement` reads this page, and its one write is the purchase request,
+   * which the ต้องการของ sheet owns. The rows themselves always render — "where
+   * is my stuff" is the read-only half of this tab.
    */
   canAct: boolean;
 }) {

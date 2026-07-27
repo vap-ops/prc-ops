@@ -51,9 +51,9 @@ export interface WpThingIssue {
   issuedAt: string;
   // Spec 363 U4 merge — carried over from the deleted เบิกของ list, which showed
   // all three per issued line. The receipt state is the only place the SA learns
-  // that a named receiver has not acknowledged the material yet, and the cost is
-  // the existing posture for this role on this page (PR *amounts* stay hidden;
-  // the issue's own unit cost was never hidden).
+  // that a named receiver has not acknowledged the material yet. Both render
+  // only behind the view's `canAct`, which reproduces that tab's `!readOnly`
+  // gate — they are re-homed, not newly exposed.
   receiverName: string | null;
   receivedAt: string | null;
   unitCost: number;
