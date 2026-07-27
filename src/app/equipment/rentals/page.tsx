@@ -33,7 +33,7 @@ import {
   type SettlementListItem,
 } from "@/lib/equipment/rental-settlement-view";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
-import { EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
+import { EQUIPMENT_EXPORT_LABEL, EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
 
 export const metadata = { title: EQUIPMENT_RENTAL_LABEL };
 
@@ -180,6 +180,16 @@ export default async function EquipmentRentalsPage({
         <h1 className="text-title text-ink font-bold tracking-tight">{EQUIPMENT_RENTAL_LABEL}</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
+        {/* Spec 367 U2 — plain <a download>, NOT next/link: Link prefetches, and
+            prefetching a route handler EXECUTES it. This whole page is already
+            BACK_OFFICE_ROLES-gated, so no per-column money split applies. */}
+        <a
+          href="/equipment/rentals/export"
+          download
+          className="text-action mb-4 inline-flex min-h-11 items-center text-sm font-medium"
+        >
+          {EQUIPMENT_EXPORT_LABEL}
+        </a>
         <RentalManager projects={projects} rentals={rentals} defaultDate={today} />
         <div className="mt-8">
           <RentalSettlementManager

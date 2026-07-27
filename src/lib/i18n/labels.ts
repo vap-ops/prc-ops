@@ -605,13 +605,22 @@ export const EQUIPMENT_TRACKING_LABEL: Record<Enums["equipment_tracking"], strin
   bulk: "จำนวนมาก (นับจำนวน)",
 };
 
+// Spec 367 U2 — the CSV export door. ONE constant for both the equipment and
+// rental pages: the label is identical and U3's import sheet refers to the same
+// artifact ("the ดาวน์โหลด file is the template"), so a second constant holding
+// the same string would be the exact drift this SSOT exists to prevent.
+export const EQUIPMENT_EXPORT_LABEL = "ดาวน์โหลด CSV";
+
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";
 export const EQUIPMENT_SET_DAILY_RATE_LABEL = "ตั้งค่าเช่า/วัน";
 // Spec 268 — the inbound rental-deal recorder (/equipment/rentals; money, back office).
 export const EQUIPMENT_RENTAL_LABEL = "เช่าอุปกรณ์";
 export const EQUIPMENT_RENTAL_RECORD_LABEL = "บันทึกการเช่า";
-export const EQUIPMENT_RATE_PERIOD_LABEL: Record<"monthly" | "daily", string> = {
+// Spec 367 U2 re-typed this from a hand-written `"monthly" | "daily"` union to
+// the GENERATED enum: the rental CSV export maps through it, and a hand union
+// would not trip if equipment_rate_period ever gained a value.
+export const EQUIPMENT_RATE_PERIOD_LABEL: Record<Enums["equipment_rate_period"], string> = {
   monthly: "ต่อเดือน",
   daily: "ต่อวัน",
 };

@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
+import { EQUIPMENT_EXPORT_LABEL, EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
@@ -81,16 +81,30 @@ export default async function EquipmentPage({
         <h1 className="text-title text-ink font-bold tracking-tight">อุปกรณ์</h1>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
-        {/* Spec 268: the rental recorder is a money surface — linked for the
-            back-office audience only (the site_admin view stays rate-free). */}
-        {canManageRegistry && (
-          <Link
-            href="/equipment/rentals"
-            className="text-action mb-4 inline-flex min-h-11 items-center text-sm font-medium"
+        <div className="mb-4 flex flex-wrap items-center gap-4">
+          {/* Spec 268: the rental recorder is a money surface — linked for the
+              back-office audience only (the site_admin view stays rate-free). */}
+          {canManageRegistry && (
+            <Link
+              href="/equipment/rentals"
+              className="text-action inline-flex min-h-11 items-center text-sm font-medium"
+            >
+              {EQUIPMENT_RENTAL_LABEL} →
+            </Link>
+          )}
+          {/* Spec 367 U2 — a plain <a download>, NOT next/link: Link PREFETCHES,
+              and prefetching a route handler EXECUTES it (proven live, spec 358
+              U4), so every hover would build and discard a CSV. The route
+              re-gates itself and drops the money columns for a non-money
+              audience, so this is safe to show to the whole page audience. */}
+          <a
+            href="/equipment/export"
+            download
+            className="text-action inline-flex min-h-11 items-center text-sm font-medium"
           >
-            {EQUIPMENT_RENTAL_LABEL} →
-          </Link>
-        )}
+            {EQUIPMENT_EXPORT_LABEL}
+          </a>
+        </div>
         <EquipmentManager
           items={items}
           categories={categoryRows ?? []}
