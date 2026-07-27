@@ -9,7 +9,14 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getActionUser, rpc } = vi.hoisted(() => ({ getActionUser: vi.fn(), rpc: vi.fn() }));
+const { getActionUser, rpc, maybeSingle } = vi.hoisted(() => ({
+  getActionUser: vi.fn(),
+  rpc: vi.fn(),
+  maybeSingle: vi.fn(),
+}));
+
+/** `from("workers").select(…).eq(…).maybeSingle()` — the employee_id read-back. */
+const from = () => ({ select: () => ({ eq: () => ({ maybeSingle }) }) });
 
 vi.mock("@/lib/auth/action-gate", () => ({
   getActionUser,
@@ -30,14 +37,15 @@ const GOOD = {
 };
 
 beforeEach(() => {
-  getActionUser.mockReset().mockResolvedValue({ supabase: { rpc }, user: { id: "sa-1" } });
+  getActionUser.mockReset().mockResolvedValue({ supabase: { rpc, from }, user: { id: "sa-1" } });
   rpc.mockReset().mockResolvedValue({ data: "worker-uuid", error: null });
+  maybeSingle.mockReset().mockResolvedValue({ data: { employee_id: "PRC-26-0034" }, error: null });
 });
 
 describe("addProjectWorkerWithBank — spec 298 U2", () => {
   it("forwards identity + photo path to sa_add_project_worker_with_bank on success", async () => {
     const r = await addProjectWorkerWithBank(GOOD);
-    expect(r).toEqual({ ok: true });
+    expect(r).toEqual({ ok: true, employeeId: "PRC-26-0034" });
     expect(rpc).toHaveBeenCalledWith("sa_add_project_worker_with_bank", {
       p_project: PROJECT,
       p_name: "สมชาย ช่างดี",
@@ -79,5 +87,18 @@ describe("addProjectWorkerWithBank — spec 298 U2", () => {
     });
     const r = await addProjectWorkerWithBank(GOOD);
     expect(r).toEqual({ ok: false, error: "เลขบัตรนี้มีอยู่แล้วในระบบ" });
+  });
+
+  // Field bug 2026-07-27 — the employee_id read-back exists only to feed the SA's
+  // confirmation. The add has ALREADY committed by the time it runs, so no outcome
+  // of the read may turn a successful add into a reported failure.
+  it("still reports success when the employee_id read finds nothing", async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    await expect(addProjectWorkerWithBank(GOOD)).resolves.toEqual({ ok: true, employeeId: null });
+  });
+
+  it("still reports success when the employee_id read THROWS (the add is already committed)", async () => {
+    maybeSingle.mockRejectedValue(new TypeError("Load failed"));
+    await expect(addProjectWorkerWithBank(GOOD)).resolves.toEqual({ ok: true, employeeId: null });
   });
 });

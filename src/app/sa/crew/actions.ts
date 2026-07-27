@@ -15,7 +15,13 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 
 const GENERIC = "เพิ่มช่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
-export type AddProjectWorkerResult = { ok: true } | { ok: false; error: string };
+// Field bug 2026-07-27: the caller now CONFIRMS the add in place, so it needs the
+// receipt the SA can quote later — the generated employee_id. `null` when the
+// follow-up read comes back empty; the confirmation degrades to the name alone
+// rather than failing an add that already committed.
+export type AddProjectWorkerResult =
+  | { ok: true; employeeId: string | null }
+  | { ok: false; error: string };
 
 function rpcErrorToThai(message: string): string {
   if (message.includes("invalid Thai national-ID")) return "เลขบัตรประชาชนไม่ถูกต้อง (13 หลัก)";
@@ -53,7 +59,7 @@ export async function addProjectWorkerWithBank(input: {
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
   const { supabase } = auth;
 
-  const { error } = await supabase.rpc("sa_add_project_worker_with_bank", {
+  const { data: workerId, error } = await supabase.rpc("sa_add_project_worker_with_bank", {
     p_project: input.projectId,
     p_name: input.name,
     p_national_id: input.nationalId,
@@ -62,6 +68,23 @@ export async function addProjectWorkerWithBank(input: {
   });
   if (error) return { ok: false, error: rpcErrorToThai(error.message) };
 
+  // The RPC returns the new worker's id; its employee_id is minted inside, so read
+  // it back for the confirmation. Best-effort by design — the worker exists either
+  // way, and reporting a failed add over a committed one is the worse lie.
+  let employeeId: string | null = null;
+  if (typeof workerId === "string") {
+    try {
+      const { data: row } = await supabase
+        .from("workers")
+        .select("employee_id")
+        .eq("id", workerId)
+        .maybeSingle();
+      employeeId = row?.employee_id ?? null;
+    } catch {
+      employeeId = null;
+    }
+  }
+
   revalidatePath("/sa/crew");
-  return { ok: true };
+  return { ok: true, employeeId };
 }

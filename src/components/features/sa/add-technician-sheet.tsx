@@ -23,7 +23,16 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, ScanLine, Camera, Building2, Users, Printer, Share2 } from "lucide-react";
+import {
+  UserPlus,
+  ScanLine,
+  Camera,
+  Building2,
+  Users,
+  Printer,
+  Share2,
+  CheckCircle2,
+} from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { createClient } from "@/lib/db/browser";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
@@ -36,11 +45,19 @@ import {
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
   BUTTON_SECONDARY_LAYOUT,
+  CARD_LAYOUT,
   FIELD_STACKED,
   FIELD_SELECT,
+  TOAST_SUCCESS,
 } from "@/lib/ui/classes";
 import {
   ADD_TECHNICIAN_LABEL,
+  ROSTER_TILE_LABEL,
+  ADD_TECHNICIAN_DONE_TITLE,
+  ADD_TECHNICIAN_EMPLOYEE_ID_PREFIX,
+  ADD_TECHNICIAN_ADD_ANOTHER_LABEL,
+  ADD_TECHNICIAN_DONE_LABEL,
+  ADD_TECHNICIAN_NETWORK_ERROR,
   ADD_TECHNICIAN_HAS_PHONE_LABEL,
   ADD_TECHNICIAN_NO_PHONE_LABEL,
   ADD_TECHNICIAN_HAS_PHONE_HINT,
@@ -135,6 +152,8 @@ export function AddTechnicianSheet({
   const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Non-null once an add has committed — the sheet shows its receipt instead of the form. */
+  const [added, setAdded] = useState<{ name: string; employeeId: string | null } | null>(null);
   const [, startRefresh] = useTransition();
 
   const nidOk = /^\d{13}$/.test(nationalId);
@@ -150,48 +169,70 @@ export function AddTechnicianSheet({
     setPhoto(null);
     setError(null);
     setBusy(false);
+    setAdded(null);
   }
   function close() {
     setOpen(false);
     reset();
   }
 
+  // Field bug 2026-07-27 — every exit from here must leave the SA with an answer.
+  // Two failures were live at once: (a) success closed the sheet and said nothing,
+  // so a working add read as a failure; (b) there was no try/catch and this is
+  // invoked as `void submitNoPhone()`, so a transport throw on either leg skipped
+  // setBusy(false) and left the button disabled on กำลังบันทึก… with no error at all.
+  // The finally is what guarantees (b) can never come back.
   async function submitNoPhone() {
     if (!photo) return;
     setError(null);
     setBusy(true);
 
-    const prepared = await preparePhotoForUpload(photo);
-    if (!prepared) {
-      setBusy(false);
-      setError("ไฟล์รูปไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
-      return;
-    }
-    const path = saBankCapturePath(prepared.ext);
-    const supabase = createClient();
-    const { error: uploadError } = await supabase.storage
-      .from(CONTACT_DOCS_BUCKET)
-      .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(prepared.ext) });
-    if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
-      setBusy(false);
-      setError("อัปโหลดรูปสมุดบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-      return;
-    }
+    try {
+      const prepared = await preparePhotoForUpload(photo);
+      if (!prepared) {
+        setError("ไฟล์รูปไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
+        return;
+      }
+      const path = saBankCapturePath(prepared.ext);
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from(CONTACT_DOCS_BUCKET)
+        .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(prepared.ext) });
+      if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
+        setError("อัปโหลดรูปสมุดบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        return;
+      }
 
-    const res = await addProjectWorkerWithBank({
-      projectId,
-      name: name.trim(),
-      nationalId,
-      dob,
-      photoPath: path,
-    });
-    setBusy(false);
-    if (res.ok) {
-      close();
-      startRefresh(() => router.refresh());
-    } else {
-      setError(res.error);
+      const res = await addProjectWorkerWithBank({
+        projectId,
+        name: name.trim(),
+        nationalId,
+        dob,
+        photoPath: path,
+      });
+      if (res.ok) {
+        // Stay open and SAY SO. The hub behind this sheet shows the new worker
+        // nowhere but a tile-bubble count, so dismissing on success is silence.
+        setAdded({ name: name.trim(), employeeId: res.employeeId });
+        startRefresh(() => router.refresh());
+      } else {
+        setError(res.error);
+      }
+    } catch {
+      setError(ADD_TECHNICIAN_NETWORK_ERROR);
+    } finally {
+      setBusy(false);
     }
+  }
+
+  /** Continue to the next man: clear the form, keep the sheet + team + project. */
+  function addAnother() {
+    setAdded(null);
+    setName("");
+    setNationalId("");
+    setDob("");
+    setPhoto(null);
+    setError(null);
   }
 
   const activeQr = qrCards.find((c) => c.project.id === projectId) ?? qrCards[0] ?? null;
@@ -326,7 +367,35 @@ export function AddTechnicianSheet({
                   </div>
                 ) : null}
 
-                {mode === "no_phone" ? (
+                {mode === "no_phone" && added ? (
+                  <div className="flex flex-col gap-3">
+                    <div className={`${CARD_LAYOUT} ${TOAST_SUCCESS} flex flex-col gap-1`}>
+                      <p className="flex items-center gap-2 font-semibold">
+                        <CheckCircle2 aria-hidden className="size-5 shrink-0" />
+                        {ADD_TECHNICIAN_DONE_TITLE}
+                      </p>
+                      <p className="text-ink font-semibold">{added.name}</p>
+                      {added.employeeId ? (
+                        <p className="text-ink-secondary text-meta">
+                          {ADD_TECHNICIAN_EMPLOYEE_ID_PREFIX} {added.employeeId}
+                        </p>
+                      ) : null}
+                    </div>
+                    {/* /team shows him nowhere but a tile count, so name where he landed. */}
+                    <p className="text-ink-secondary text-sm">
+                      ดูรายชื่อได้ที่ {ROSTER_TILE_LABEL} · ผู้จัดการจะกรอกเลขบัญชีให้ภายหลัง
+                    </p>
+                    <button type="button" onClick={addAnother} className={BUTTON_SECONDARY}>
+                      <UserPlus aria-hidden className="size-5 shrink-0" />
+                      {ADD_TECHNICIAN_ADD_ANOTHER_LABEL}
+                    </button>
+                    <button type="button" onClick={close} className={BUTTON_PRIMARY}>
+                      {ADD_TECHNICIAN_DONE_LABEL}
+                    </button>
+                  </div>
+                ) : null}
+
+                {mode === "no_phone" && !added ? (
                   <div className="flex flex-col gap-3">
                     <p className="text-ink-secondary text-sm">{ADD_TECHNICIAN_NO_PHONE_HINT}</p>
                     <label className="text-ink-secondary block text-sm">
@@ -369,7 +438,11 @@ export function AddTechnicianSheet({
                       />
                     </label>
                     {photo ? <p className="text-ink-muted text-meta">แนบรูปสมุดบัญชีแล้ว</p> : null}
-                    {error ? <p className="text-danger text-sm">{error}</p> : null}
+                    {error ? (
+                      <p role="alert" className="text-danger text-sm">
+                        {error}
+                      </p>
+                    ) : null}
                     <button
                       type="button"
                       disabled={busy || !canSubmit}
