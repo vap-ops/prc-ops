@@ -86,6 +86,32 @@ describe("WpTimelineView", () => {
     );
   });
 
+  it("shows one time, not a range, when a burst starts and ends in the same displayed minute", () => {
+    // Live case that prompted this: two captures 40s apart rendered "19:12–19:12",
+    // which reads as a bug to the person holding the phone.
+    render(
+      <WpTimelineView
+        days={[
+          {
+            date: "2026-07-24",
+            rows: [
+              {
+                kind: "photos",
+                key: "photos:2026-07-24|during",
+                at: "2026-07-24T12:12:05Z",
+                until: "2026-07-24T12:12:45Z",
+                actor: "อรปรีญา",
+                phase: "during",
+                count: 2,
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    expect(screen.queryByText(/(\d{2}:\d{2})–\1/)).not.toBeInTheDocument();
+  });
+
   it("shows an empty state when a filter matches nothing", () => {
     render(<WpTimelineView days={DAYS} />);
     fireEvent.click(screen.getByRole("button", { name: "สถานะ" }));

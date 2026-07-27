@@ -78,8 +78,13 @@ function RowBody({ row }: { row: WpTimelineRow }) {
           </p>
           <p className="text-meta text-ink-secondary">
             {row.actor ? `${row.actor} · ` : ""}
+            {/* Compare the FORMATTED values: two captures 40s apart are different
+                stamps but the same displayed minute, and "19:12–19:12" reads as a
+                bug to the person holding the phone. */}
             {formatThaiTime(row.at)}
-            {row.until !== row.at ? `–${formatThaiTime(row.until)}` : ""}
+            {formatThaiTime(row.until) !== formatThaiTime(row.at)
+              ? `–${formatThaiTime(row.until)}`
+              : ""}
           </p>
         </>
       );
