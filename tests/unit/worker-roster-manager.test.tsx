@@ -58,6 +58,7 @@ const WORKERS: ManagedWorker[] = [
     project_id: null,
     // Spec 272 U1: skill grade joins the roster row model.
     level: null,
+    cost_confirmed_at: null,
     // Spec 332: trade tags joined the row model.
     trades: [],
     // DC edit matrix: payee fields joined the row model (bank null for bound workers).

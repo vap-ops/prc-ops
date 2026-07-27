@@ -19,9 +19,12 @@ import { safeBackHref } from "@/lib/nav/back-href";
 import { WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
 import {
   WorkerRosterManager,
+  type LevelRates,
   type ManagedWorker,
   type TradeOption,
 } from "@/components/features/labor/worker-roster-manager";
+import { grossRate } from "@/lib/labor/gross-rate";
+import { WORKER_LEVEL_ORDER } from "@/lib/nova/dials";
 import type { WorkerTrade } from "@/lib/workers/trades";
 import { isWorkCategoryTopCode } from "@/lib/work-categories/identity";
 
@@ -52,14 +55,17 @@ export default async function WorkersPage({
     { data: projectRows },
     { data: tradeRows },
     { data: tradeCategoryRows },
+    levelRatesRes,
+    whtCfgRes,
   ] = await Promise.all([
     admin
       .from("workers")
       .select(
         // Spec 272 U1: + level (a readable category, ADR 0060 — not money).
+        // Spec 368 U1: + cost_confirmed_at — the confirm door's ยืนยันแล้ว state.
         // DC edit matrix: + phone/tax_id/bank_* so the row edit sheet can prefill
         // and edit them (money/PII — authorized by the requireRole gate above).
-        "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level, phone, tax_id, bank_name, bank_account_number, bank_account_name, gender",
+        "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level, cost_confirmed_at, phone, tax_id, bank_name, bank_account_number, bank_account_name, gender",
       )
       .order("name", { ascending: true }),
     // Spec 89: status + category let WorkerRosterManager hide blacklisted/non-ช่าง
@@ -91,7 +97,30 @@ export default async function WorkersPage({
       .select("id, code, name_th")
       .eq("is_active", true)
       .order("code", { ascending: true }),
+    // Spec 368 U1: the level standards + firm WHT % feed the cost-confirm preview
+    // (what confirm_worker_cost will stamp). Money columns, zero authenticated
+    // grant — and the firm standard's app audience is /settings/labor-rates
+    // (procurement_manager + super_admin), NARROWER than this page's gate, so the
+    // read runs only for super_admin (the one role the confirm renders for) and
+    // the numbers never enter a PM/procurement payload.
+    ctx.role === "super_admin"
+      ? admin.from("worker_level_rates").select("level, entered_rate, wht_basis")
+      : Promise.resolve({ data: null, error: null }),
+    ctx.role === "super_admin"
+      ? admin.from("labor_wht_config").select("wht_pct").eq("id", true).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
+
+  // Fail loud on a standards read error (mirrors /settings/labor-rates): a masked
+  // empty read would render the FALSE refusal "ยังไม่ได้ตั้งค่าแรงมาตรฐาน" on every
+  // level, and a missing WHT % would under-preview an after_wht stamp.
+  if (levelRatesRes.error || whtCfgRes.error) {
+    throw new Error(
+      `workers standards read failed: ${levelRatesRes.error?.message ?? whtCfgRes.error?.message}`,
+    );
+  }
+  const levelRateRows = levelRatesRes.data;
+  const whtCfgRow = whtCfgRes.data;
 
   // ADR 0062 U4a: derive portalBound from user_id (the LINE binding); user_id
   // itself stays server-side — only the boolean reaches the client roster.
@@ -117,6 +146,29 @@ export default async function WorkersPage({
   const tradeOptions: TradeOption[] = (tradeCategoryRows ?? [])
     .filter((c) => isWorkCategoryTopCode(c.code))
     .map((c) => ({ id: c.id, code: c.code, nameTh: c.name_th }));
+
+  // Spec 368 U1: the GROSS standard rate per level — the number the confirm will
+  // stamp. Same derivation as /settings/labor-rates (shared grossRate); a level
+  // missing from the seed previews as null, which BLOCKS its confirm in the sheet
+  // (confirm_worker_cost would coalesce to the existing day_rate — ฿0 on the
+  // unfed roster, a confirmation derive_muster_labor still skips).
+  const whtPctRaw = whtCfgRow?.wht_pct;
+  const whtPct = whtPctRaw === undefined || whtPctRaw === null ? null : Number(whtPctRaw);
+  const levelRates = Object.fromEntries(
+    WORKER_LEVEL_ORDER.map((l) => {
+      const row = (levelRateRows ?? []).find((r) => r.level === l);
+      return [
+        l,
+        row
+          ? grossRate(
+              row.entered_rate === null ? null : Number(row.entered_rate),
+              row.wht_basis,
+              whtPct,
+            )
+          : null,
+      ];
+    }),
+  ) as LevelRates;
 
   const workers: ManagedWorker[] = (workerRows ?? []).map(
     ({ user_id, bank_name, bank_account_number, bank_account_name, ...w }) => {
@@ -159,6 +211,10 @@ export default async function WorkersPage({
           canAssignHt={PM_ROLES.includes(ctx.role)}
           canSetTrades={PM_ROLES.includes(ctx.role)}
           tradeOptions={tradeOptions}
+          // Money-audience guard: only the role that can confirm receives the firm
+          // standard (conditional SPREAD — `levelRates={undefined}` would violate
+          // exactOptionalPropertyTypes and still serialize a key).
+          {...(ctx.role === "super_admin" ? { levelRates } : {})}
         />
       </div>
     </PageShell>

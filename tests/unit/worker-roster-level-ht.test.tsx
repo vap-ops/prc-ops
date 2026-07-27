@@ -58,6 +58,7 @@ const DAILY: ManagedWorker = {
   portalBound: false,
   project_id: "p1",
   level: null,
+  cost_confirmed_at: null,
   trades: [],
   phone: null,
   tax_id: null,
