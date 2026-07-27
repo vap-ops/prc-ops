@@ -8839,33 +8839,6 @@ export type Database = {
           },
         ]
       }
-      wp_templates: {
-        Row: {
-          code: string
-          description: string | null
-          id: string
-          name: string
-          project_type: Database["public"]["Enums"]["project_type"]
-          sort_order: number
-        }
-        Insert: {
-          code: string
-          description?: string | null
-          id?: string
-          name: string
-          project_type: Database["public"]["Enums"]["project_type"]
-          sort_order?: number
-        }
-        Update: {
-          code?: string
-          description?: string | null
-          id?: string
-          name?: string
-          project_type?: Database["public"]["Enums"]["project_type"]
-          sort_order?: number
-        }
-        Relationships: []
-      }
     }
     Views: {
       photo_markups_current: {
@@ -9245,7 +9218,6 @@ export type Database = {
         Args: { p_crew: string; p_worker: string }
         Returns: string
       }
-      apply_wp_template: { Args: { p_project_id: string }; Returns: number }
       approve_crew_registration: {
         Args: {
           p_day_rate?: number
