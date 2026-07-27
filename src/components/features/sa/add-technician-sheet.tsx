@@ -225,8 +225,8 @@ export function AddTechnicianSheet({
     }
   }
 
-  /** Continue to the next man: clear the form, keep the sheet + team + project. */
-  function addAnother() {
+  /** Retire a finished add: identity AND passbook go, the sheet/team/project stay. */
+  function clearAfterAdd() {
     setAdded(null);
     setName("");
     setNationalId("");
@@ -261,6 +261,19 @@ export function AddTechnicianSheet({
     if (open && nested)
       activePanelRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   }, [team, open, nested]);
+
+  /**
+   * The team selector and the มีมือถือ/ไม่มีมือถือ buttons sit OUTSIDE the panel and
+   * stay live while a confirmation shows, so leaving and re-entering the branch must
+   * not hand the next man his predecessor's receipt — or, worse, his passbook still
+   * attached under a new name. Gated on `added`: a bounce made mid-typing (nothing
+   * committed) keeps the SA's half-entered work, which is the pre-existing behaviour.
+   */
+  function switchBranch(next: Mode) {
+    if (added) clearAfterAdd();
+    else setError(null);
+    setMode(next);
+  }
 
   function openWith(m: "choose" | "has_phone") {
     setMode(m);
@@ -306,7 +319,7 @@ export function AddTechnicianSheet({
                   aria-pressed={team === "prc"}
                   onClick={() => {
                     setTeam("prc");
-                    setMode("choose");
+                    switchBranch("choose");
                   }}
                   className={`${BUTTON_SECONDARY_LAYOUT} bg-card text-ink h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : "border-edge"}`}
                 >
@@ -328,7 +341,7 @@ export function AddTechnicianSheet({
                     <p className="text-ink-secondary text-sm">ช่างคนนี้มีมือถือไหม?</p>
                     <button
                       type="button"
-                      onClick={() => setMode("has_phone")}
+                      onClick={() => switchBranch("has_phone")}
                       className={`${BUTTON_SECONDARY} justify-start`}
                     >
                       <ScanLine aria-hidden className="size-5 shrink-0" />
@@ -336,7 +349,7 @@ export function AddTechnicianSheet({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setMode("no_phone")}
+                      onClick={() => switchBranch("no_phone")}
                       className={`${BUTTON_SECONDARY} justify-start`}
                     >
                       <Camera aria-hidden className="size-5 shrink-0" />
@@ -385,7 +398,7 @@ export function AddTechnicianSheet({
                     <p className="text-ink-secondary text-sm">
                       ดูรายชื่อได้ที่ {ROSTER_TILE_LABEL} · ผู้จัดการจะกรอกเลขบัญชีให้ภายหลัง
                     </p>
-                    <button type="button" onClick={addAnother} className={BUTTON_SECONDARY}>
+                    <button type="button" onClick={clearAfterAdd} className={BUTTON_SECONDARY}>
                       <UserPlus aria-hidden className="size-5 shrink-0" />
                       {ADD_TECHNICIAN_ADD_ANOTHER_LABEL}
                     </button>
@@ -461,7 +474,10 @@ export function AddTechnicianSheet({
                 <button
                   type="button"
                   aria-pressed={team === f.id}
-                  onClick={() => setTeam(f.id)}
+                  onClick={() => {
+                    if (added) clearAfterAdd();
+                    setTeam(f.id);
+                  }}
                   className={`${BUTTON_SECONDARY_LAYOUT} bg-card text-ink h-auto min-h-11 justify-start py-2 ${team === f.id ? "border-action" : "border-edge"}`}
                 >
                   <Users aria-hidden className="size-5 shrink-0" />

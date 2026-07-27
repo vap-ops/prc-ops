@@ -277,6 +277,35 @@ describe("AddTechnicianSheet — the no-phone add reports its own outcome", () =
     expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeDisabled();
   });
 
+  // `added` belongs to one no-phone form session. The team selector sits ABOVE the
+  // panel and is live while the receipt shows, so tapping ทีม PRC → ไม่มีมือถือ must
+  // not hand the next man his predecessor's confirmation instead of a blank form.
+  it("re-entering the ไม่มีมือถือ branch does NOT resurrect the previous man's receipt", async () => {
+    submitMocks.add.mockResolvedValue({ ok: true, employeeId: "PRC-26-0034" });
+    const dialog = openSheet(true);
+    await fillAndSubmit(dialog);
+    expect(within(dialog).getByText(ADD_TECHNICIAN_DONE_TITLE)).toBeVisible();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /ทีม PRC/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    expect(within(dialog).queryByText(ADD_TECHNICIAN_DONE_TITLE)).toBeNull();
+    expect(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL)).toBeInTheDocument();
+    // Identity AND passbook go: re-entering with นายอำนาจ's bank book still attached
+    // under the next man's name is how the wrong account gets paid.
+    expect(within(dialog).getByLabelText(/ชื่อ/)).toHaveValue("");
+    expect(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL)).toHaveValue("");
+    expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeDisabled();
+  });
+
+  it("a mid-typing branch bounce (nothing committed) KEEPS the half-entered form", async () => {
+    const dialog = openSheet(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), { target: { value: "สมชาย ช่างดี" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /ทีม PRC/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    expect(within(dialog).getByLabelText(/ชื่อ/)).toHaveValue("สมชาย ช่างดี");
+  });
+
   it("เสร็จแล้ว closes the sheet", async () => {
     submitMocks.add.mockResolvedValue({ ok: true, employeeId: "PRC-26-0034" });
     const dialog = openSheet();
