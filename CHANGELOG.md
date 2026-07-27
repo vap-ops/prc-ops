@@ -1,3 +1,9 @@
+# [0.247.0](https://github.com/vap-ops/prc-ops/compare/v0.246.0...v0.247.0) (2026-07-27)
+
+### Features
+
+- **workers:** cost-confirm door on the roster (spec 368 U1) ([#810](https://github.com/vap-ops/prc-ops/issues/810)) ([ac8ea1a](https://github.com/vap-ops/prc-ops/commit/ac8ea1a4333d808d880c9f59fc2f9f5804943ac2))
+
 # [0.246.0](https://github.com/vap-ops/prc-ops/compare/v0.245.0...v0.246.0) (2026-07-27)
 
 ### Features
