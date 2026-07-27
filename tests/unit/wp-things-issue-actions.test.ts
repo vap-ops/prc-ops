@@ -136,6 +136,10 @@ describe("WP detail page — the three tabs are gone", () => {
     // exists, never that it is right.
     expect(src.split("allowedNeedPaths").length - 1).toBeGreaterThanOrEqual(2);
     expect(src).toContain("allowedNeedPaths(ctx.role)");
+    // …and that its RESULT reaches the sheet. Pinning only the call site passes
+    // on a page that computes the restriction and then drops it on the floor —
+    // found by mutation, which is the whole reason this line exists.
+    expect(src).toContain("allowedPaths: needPaths");
   });
 });
 
