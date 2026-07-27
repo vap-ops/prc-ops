@@ -1,3 +1,9 @@
+# [0.242.0](https://github.com/vap-ops/prc-ops/compare/v0.241.0...v0.242.0) (2026-07-27)
+
+### Features
+
+- **work-packages:** status transitions in the ประวัติ rail ([#801](https://github.com/vap-ops/prc-ops/issues/801)) ([dbdbdf6](https://github.com/vap-ops/prc-ops/commit/dbdbdf6f91077683c45298fa9b90a6c82d2c2c6e))
+
 # [0.241.0](https://github.com/vap-ops/prc-ops/compare/v0.240.1...v0.241.0) (2026-07-27)
 
 ### Bug Fixes
