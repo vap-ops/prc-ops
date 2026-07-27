@@ -7,7 +7,9 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
-import { safeBackHref } from "@/lib/nav/back-href";
+import { groupWpThings } from "@/lib/work-packages/things";
+import { WpThingsView } from "@/components/features/work-packages/wp-things-view";
+import { safeBackHref, withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
@@ -232,6 +234,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     { data: ohRows },
     { data: issueRows },
     { data: returnRows },
+    { data: reversalRows },
     catalogData,
     catalogCategories,
     laborBudget,
@@ -275,11 +278,21 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         "id, qty, unit, unit_cost, issued_at, receiver_worker_id, received_at, catalog_items ( base_item, spec_attrs )",
       )
       .eq("work_package_id", workPackageId)
-      .order("issued_at", { ascending: false })
-      .limit(10),
+      // Spec 363 U4 slice 2 — NO row cap. The ของ tab groups these and prints a
+      // count per group, so a .limit() here would make the badge assert a
+      // truncated number as the total. The เบิกของ tab keeps its "recent 10" by
+      // slicing below, which is presentation, not a silently short dataset.
+      .order("issued_at", { ascending: false }),
     // Spec 209 U2: returns booked against this WP's issues — to show the
     // remaining-returnable per issued line (issued − Σ returns).
     supabase.from("stock_returns").select("issue_id, qty").eq("work_package_id", workPackageId),
+    // Spec 363 U4 slice 2 — stock_issues is APPEND-ONLY: a mis-recorded เบิก is
+    // undone by a stock_reversals row (the แก้รายการที่บันทึกผิด control), NOT by
+    // deleting the issue. Netting only stock_returns would count a reversed
+    // withdrawal as still present — 3 of the 32 live issues are reversed. Every
+    // other "what does this WP hold" reader drops these first
+    // (load-project-costs.ts, load-group-detail.ts).
+    supabase.from("stock_reversals").select("issue_id").not("issue_id", "is", null),
     // Spec 179: the active catalog master feeds the คำขอซื้อ item picker
     // (project-agnostic reference data; readable by any authenticated user).
     // Spec 180: image_path rides along for the picker's thumbnails.
@@ -526,6 +539,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   for (const r of returnRows ?? []) {
     returnedByIssue.set(r.issue_id, (returnedByIssue.get(r.issue_id) ?? 0) + Number(r.qty));
   }
+
+  // Reversed withdrawals never happened — exclude them from the ของ tab's
+  // "what is here" grouping.
+  const reversedIssueIds = new Set((reversalRows ?? []).map((r) => r.issue_id));
 
   const wpIssues: WpIssueRow[] = (issueRows ?? []).map((r) => ({
     id: r.id,
@@ -794,6 +811,53 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // 2026-06-26: withdrawals are made on the WP page, not buried in คำขอซื้อ). Placed
   // right after คำขอซื้อ (purchase → withdraw flow). issue_stock's gate excludes
   // procurement, so the tab only appears for site staff (!readOnly).
+  // Spec 363 U4 slice 2 — the `ของ` tab: ONE state-grouped list answering "where
+  // is my stuff?" across requests and withdrawals. ADDITIVE for now — คำขอซื้อ /
+  // เบิกของ / ค่าใช้จ่ายหน้างาน stay until the merge PR re-homes their per-issue
+  // affordances (ยืนยันรับแทน · แก้รายการที่บันทึกผิด · คืนเข้าคลัง).
+  {
+    const thingGroups = groupWpThings({
+      requests: (wpRequests ?? []).map((r) => ({
+        id: r.id,
+        prNumber: r.pr_number,
+        itemDescription: r.item_description,
+        quantity: Number(r.quantity),
+        unit: r.unit,
+        status: r.status as PurchaseRequestStatus,
+        requestedAt: r.requested_at,
+      })),
+      issues: (issueRows ?? [])
+        .filter((r) => !reversedIssueIds.has(r.id))
+        .map((r) => ({
+          id: r.id,
+          baseItem: r.catalog_items?.base_item ?? "",
+          specAttrs: r.catalog_items?.spec_attrs ?? null,
+          unit: r.unit,
+          qty: Number(r.qty),
+          returnedQty: returnedByIssue.get(r.id) ?? 0,
+          issuedAt: r.issued_at,
+        })),
+    });
+    // `purchases` is unconditional in the array literal above, so findIndex
+    // cannot miss.
+    tabs.splice(
+      tabs.findIndex((t) => t.key === "purchases"),
+      0,
+      {
+        key: "things",
+        label: "ของ",
+        panel: (
+          <WpThingsView
+            groups={thingGroups}
+            requestHref={(id) =>
+              withBackFrom(`/requests/${id}`, workPackageHref(projectId, workPackageId))
+            }
+          />
+        ),
+      },
+    );
+  }
+
   if (!readOnly) {
     const purchasesIdx = tabs.findIndex((t) => t.key === "purchases");
     tabs.splice(purchasesIdx + 1, 0, {
@@ -807,7 +871,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               workPackageId={wp.id}
               onHand={wpOnHand}
               workers={wpWorkers}
-              issues={wpIssues}
+              // The cap moved off the QUERY and onto this presentation: the
+              // เบิกของ tab shows the recent 10, the ของ tab groups them all.
+              issues={wpIssues.slice(0, 10)}
               scopedRelation={scopedRelation}
               membershipsByItem={itemMembershipMap}
               categories={catalogCategoryList}
