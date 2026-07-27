@@ -40,6 +40,7 @@ import { photoExtToMime } from "@/lib/photos/path";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
 import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
 import { saBankCapturePath } from "@/lib/sa/sa-bank-capture-path";
+import { trackFriction } from "@/lib/telemetry/friction";
 import { addProjectWorkerWithBank } from "@/app/sa/crew/actions";
 import {
   BUTTON_PRIMARY,
@@ -55,6 +56,7 @@ import {
   ROSTER_TILE_LABEL,
   ADD_TECHNICIAN_DONE_TITLE,
   ADD_TECHNICIAN_EMPLOYEE_ID_PREFIX,
+  ADD_TECHNICIAN_FIND_AT_PREFIX,
   ADD_TECHNICIAN_ADD_ANOTHER_LABEL,
   ADD_TECHNICIAN_DONE_LABEL,
   ADD_TECHNICIAN_NETWORK_ERROR,
@@ -213,12 +215,33 @@ export function AddTechnicianSheet({
       if (res.ok) {
         // Stay open and SAY SO. The hub behind this sheet shows the new worker
         // nowhere but a tile-bubble count, so dismissing on success is silence.
+        //
+        // Re-assert the panel that can DISPLAY the receipt rather than only setting
+        // it. Nothing outside the submit button is disabled while busy, so during a
+        // slow 4G flight she can tap the scrim, the ✕, or another team row — all of
+        // which reset `added` to null and/or move `mode` away from "no_phone". The
+        // resolution would then land a receipt in a state that can never render,
+        // and the next ไม่มีมือถือ tap would clear it: the exact production
+        // incident, one layer over. Forcing the three bits of state here means a
+        // committed add is ALWAYS reported, however she fidgets mid-request.
+        setTeam("prc");
+        setMode("no_phone");
+        setOpen(true);
         setAdded({ name: name.trim(), employeeId: res.employeeId });
         startRefresh(() => router.refresh());
       } else {
         setError(res.error);
       }
-    } catch {
+    } catch (err) {
+      // Re-report what the missing try/catch used to surface for free. `void
+      // submitNoPhone()` produced an unhandled rejection, which the telemetry
+      // provider listens for and files as a js_error; catching it silently would
+      // trade an observable failure for an invisible one — and this whole incident
+      // was diagnosed FROM interaction_events.
+      trackFriction("js_error", {
+        where: "add_technician_no_phone_submit",
+        message: err instanceof Error ? err.message : String(err),
+      });
       setError(ADD_TECHNICIAN_NETWORK_ERROR);
     } finally {
       setBusy(false);
@@ -232,7 +255,9 @@ export function AddTechnicianSheet({
     setNationalId("");
     setDob("");
     setPhoto(null);
-    setError(null);
+    // No setError here: `error` is always null when a receipt exists (submitNoPhone
+    // clears it on entry and the success arm never sets it) — an unreachable reset
+    // asserts a hazard that is not there.
   }
 
   const activeQr = qrCards.find((c) => c.project.id === projectId) ?? qrCards[0] ?? null;
@@ -405,9 +430,13 @@ export function AddTechnicianSheet({
                         </p>
                       ) : null}
                     </div>
-                    {/* /team shows him nowhere but a tile count, so name where he landed. */}
+                    {/* /team shows him nowhere but a tile count, so name where he landed.
+                        The bank line is deliberately NOT repeated here: she read it in
+                        ADD_TECHNICIAN_NO_PHONE_HINT two taps ago, and it names ผู้จัดการ
+                        while the chip she meets next on the roster says PM — repeating a
+                        promise in the second wording would make the mismatch worse. */}
                     <p className="text-ink-secondary text-sm">
-                      ดูรายชื่อได้ที่ {ROSTER_TILE_LABEL} · ผู้จัดการจะกรอกเลขบัญชีให้ภายหลัง
+                      {ADD_TECHNICIAN_FIND_AT_PREFIX} {ROSTER_TILE_LABEL}
                     </p>
                     <button type="button" onClick={clearAfterAdd} className={BUTTON_SECONDARY}>
                       <UserPlus aria-hidden className="size-5 shrink-0" />

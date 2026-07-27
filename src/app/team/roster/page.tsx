@@ -22,8 +22,9 @@ import { bangkokTodayIso } from "@/lib/dates";
 import { buildCrewTeams } from "@/lib/sa/crew-teams";
 import { buildSiteTeamBoard, type SiteAccessMember } from "@/lib/sa/site-team-board";
 import { SiteTeamBoard } from "@/components/features/sa/site-team-board";
+import { ROSTER_TILE_LABEL } from "@/lib/i18n/labels";
 
-export const metadata = { title: "รายชื่อทีม" };
+export const metadata = { title: ROSTER_TILE_LABEL };
 
 export default async function TeamRosterPage() {
   await requireRole(SA_SURFACE_ROLES);
@@ -182,7 +183,7 @@ export default async function TeamRosterPage() {
   return (
     <PageShell>
       <DetailHeader backHref="/team" backLabel="ทีมงาน">
-        <h1 className={DETAIL_TITLE}>รายชื่อทีม</h1>
+        <h1 className={DETAIL_TITLE}>{ROSTER_TILE_LABEL}</h1>
       </DetailHeader>
       <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
         <SiteTeamBoard board={board} emptyLabel="ยังไม่มีช่างในระบบ — เพิ่มช่างจากหน้าทีมงาน" />

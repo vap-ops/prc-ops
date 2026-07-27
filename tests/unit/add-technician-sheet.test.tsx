@@ -9,7 +9,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+// Hoisted, NOT a fresh vi.fn() per call — a per-call spy is unassertable, which is
+// how router.refresh() went unmeasured despite being load-bearing (fresh-eyes F4).
+const { refreshSpy } = vi.hoisted(() => ({ refreshSpy: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshSpy }) }));
 
 // Field bug 2026-07-27 — the submit leg. Stubbed so the no-phone add can be driven
 // end-to-end in jsdom: the real path decodes a photo on a canvas, uploads to Storage
@@ -205,6 +208,7 @@ describe("AddTechnicianSheet — spec 298 U2 front door", () => {
 // setBusy(false) and left the button disabled reading กำลังบันทึก… forever with no error.
 describe("AddTechnicianSheet — the no-phone add reports its own outcome", () => {
   beforeEach(() => {
+    refreshSpy.mockReset();
     submitMocks.add.mockReset();
     submitMocks.upload.mockReset().mockResolvedValue({ error: null });
     submitMocks.prepare
@@ -322,6 +326,76 @@ describe("AddTechnicianSheet — the no-phone add reports its own outcome", () =
     fireEvent.click(within(dialog).getByRole("button", { name: /ทีม PRC/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
     expect(within(dialog).getByLabelText(/ชื่อ/)).toHaveValue("สมชาย ช่างดี");
+  });
+
+  // Fresh-eyes F1 — the production incident, reproduced AFTER the first fix. Nothing
+  // outside the submit button is disabled while busy, and the scrim/✕ both call
+  // close() → reset() (added = null). On a site 4G link the flight is seconds, and
+  // "nothing is happening" is exactly this SA's mental model, so she dismisses. The
+  // awaited continuation then set `added` on a sheet that was closed and reset to
+  // mode "choose" — a receipt in a state that can never render, which the next
+  // ไม่มีมือถือ tap then DESTROYS via clearAfterAdd. Worker created, zero
+  // confirmation, re-entry, dedup refusal: the original bug, one layer over.
+  it("shows the receipt even when the sheet was dismissed mid-submit", async () => {
+    let resolveAdd!: (v: { ok: true; employeeId: string | null }) => void;
+    submitMocks.add.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAdd = resolve;
+        }),
+    );
+    const dialog = openSheet(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), {
+      target: { value: "นายอำนาจ แดงสูงเนิน" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/เลขบัตร/), {
+      target: { value: "1161000055091" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/วันเกิด/), { target: { value: "2004-12-22" } });
+    fireEvent.change(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL), {
+      target: { files: [new File(["x"], "IMG_8987.jpeg", { type: "image/jpeg" })] },
+    });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ }));
+    });
+
+    // …she gives up on it and dismisses while the request is still in flight.
+    fireEvent.click(screen.getByRole("button", { name: "ปิด" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await act(async () => {
+      resolveAdd({ ok: true, employeeId: "PRC-26-0034" });
+    });
+
+    const reopened = screen.getByRole("dialog");
+    expect(within(reopened).getByText(ADD_TECHNICIAN_DONE_TITLE)).toBeVisible();
+    expect(within(reopened).getByText("นายอำนาจ แดงสูงเนิน")).toBeVisible();
+    expect(within(reopened).getByText(/PRC-26-0034/)).toBeVisible();
+  });
+
+  // Fresh-eyes F3 — the branch she ACTUALLY hit at 08:19:37 in production (the dedup
+  // refusal on her re-submission) had no test at all: `else setError(res.error)`
+  // could be deleted whole and the suite stayed green.
+  it("renders a refusal from the server and leaves the form usable", async () => {
+    submitMocks.add.mockResolvedValue({ ok: false, error: "เลขบัตรนี้มีอยู่แล้วในระบบ" });
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("เลขบัตรนี้มีอยู่แล้วในระบบ");
+    // no receipt, and the form she must correct is still there and pressable
+    expect(within(dialog).queryByText(ADD_TECHNICIAN_DONE_TITLE)).toBeNull();
+    expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeEnabled();
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  // Fresh-eyes F4 — router.refresh() is load-bearing (the /team tile bubbles and
+  // /team/roster only reflect the add through it) and was entirely unmeasured.
+  it("refreshes the hub behind the sheet on success, and only on success", async () => {
+    submitMocks.add.mockResolvedValue({ ok: true, employeeId: "PRC-26-0034" });
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+    expect(refreshSpy).toHaveBeenCalledTimes(1);
   });
 
   it("เสร็จแล้ว closes the sheet", async () => {

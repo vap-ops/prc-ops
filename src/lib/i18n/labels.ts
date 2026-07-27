@@ -239,6 +239,8 @@ export const ADD_TECHNICIAN_DONE_TITLE = "เพิ่มช่างเข้�
 /** The /team tile the new worker actually shows up under (rendered by team-tiles). */
 export const ROSTER_TILE_LABEL = "รายชื่อทีม";
 export const ADD_TECHNICIAN_EMPLOYEE_ID_PREFIX = "รหัสช่าง";
+/** Renders as `ดูรายชื่อได้ที่ <ROSTER_TILE_LABEL>` — where the new ช่าง now lives. */
+export const ADD_TECHNICIAN_FIND_AT_PREFIX = "ดูรายชื่อได้ที่";
 export const ADD_TECHNICIAN_ADD_ANOTHER_LABEL = "เพิ่มอีกคน";
 export const ADD_TECHNICIAN_DONE_LABEL = "เสร็จแล้ว";
 /** The offline/transport failure the missing try-catch used to swallow. */

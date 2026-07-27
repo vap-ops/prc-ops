@@ -37,6 +37,7 @@ const SINGLE_SOURCED_TERMS = [
   "รับเข้าสต๊อก", // STORE_RECEIVE_LABEL
   "ข้อมูลของฉัน", // MY_INFO_LABEL (spec 321 U1 — the canonical profile-edit door)
   "โปรไฟล์", // PROFILE_LABEL (spec 321 U1 — the /profile card name)
+  "รายชื่อทีม", // ROSTER_TILE_LABEL — the /team tile the add-sheet receipt points at
 ];
 
 describe("labels.ts single-sourced terms (SSOT)", () => {
