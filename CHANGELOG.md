@@ -1,3 +1,12 @@
+## [0.237.1](https://github.com/vap-ops/prc-ops/compare/v0.237.0...v0.237.1) (2026-07-27)
+
+### Bug Fixes
+
+- **sa:** always show the receipt, keep the telemetry, single-source the roster term ([704ddd5](https://github.com/vap-ops/prc-ops/commit/704ddd5ff1113e3af24e59a0f79f80337c865d2c))
+- **sa:** leaving a finished add clears the receipt AND the form ([ee83f18](https://github.com/vap-ops/prc-ops/commit/ee83f18b7770e96165ddddbe2b5b06153cba9c56))
+- **sa:** read the รหัสช่าง through the service-role seam, not the RLS client ([2d34543](https://github.com/vap-ops/prc-ops/commit/2d345435a30da511af4f441d81a22792fef9e1e6))
+- **sa:** the เพิ่มช่างเข้าทีม add now reports its own outcome ([ddf5e77](https://github.com/vap-ops/prc-ops/commit/ddf5e77052729f7b8887dd9a5a11dc98ba52d26b))
+
 # [0.237.0](https://github.com/vap-ops/prc-ops/compare/v0.236.0...v0.237.0) (2026-07-26)
 
 ### Features
