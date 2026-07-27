@@ -231,6 +231,21 @@ export const ADD_TECHNICIAN_NO_PHONE_HINT =
   "กรอกชื่อ–เลขบัตรประชาชน–วันเกิด แล้วถ่ายรูปหรือแนบรูปสมุดบัญชี (ผู้จัดการจะกรอกเลขบัญชีให้ภายหลัง)";
 export const PASSBOOK_PHOTO_LABEL = "รูปสมุดบัญชีธนาคาร";
 export const BANK_PENDING_CHIP_LABEL = "รอ PM กรอกบัญชี";
+// Field bug 2026-07-27 — the add SUCCEEDED silently: the sheet closed and the SA was
+// left on the ทีมงาน hub, which shows the new worker nowhere but a tile-bubble count,
+// so she read a working add as a failure and re-submitted the same man. The outcome is
+// now stated in place, with the รหัสช่าง as the receipt and a เพิ่มอีกคน continue.
+export const ADD_TECHNICIAN_DONE_TITLE = "เพิ่มช่างเข้าทีมแล้ว";
+/** The /team tile the new worker actually shows up under (rendered by team-tiles). */
+export const ROSTER_TILE_LABEL = "รายชื่อทีม";
+export const ADD_TECHNICIAN_EMPLOYEE_ID_PREFIX = "รหัสช่าง";
+/** Renders as `ดูรายชื่อได้ที่ <ROSTER_TILE_LABEL>` — where the new ช่าง now lives. */
+export const ADD_TECHNICIAN_FIND_AT_PREFIX = "ดูรายชื่อได้ที่";
+export const ADD_TECHNICIAN_ADD_ANOTHER_LABEL = "เพิ่มอีกคน";
+export const ADD_TECHNICIAN_DONE_LABEL = "เสร็จแล้ว";
+/** The offline/transport failure the missing try-catch used to swallow. */
+export const ADD_TECHNICIAN_NETWORK_ERROR =
+  "เพิ่มช่างไม่สำเร็จ กรุณาตรวจสอบสัญญาณอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง";
 
 // Spec 328 — subcon-member onboarding: the เพิ่มช่างใหม่ sheet's team selector
 // (ทีม PRC = today's pipeline; one row per contractor firm = the bank-free arm)

@@ -6,10 +6,33 @@
 // passbook photo). This pins the branch UI, the required-photo gate, and the invariant
 // that NO bank-account field is ever rendered to the SA.
 
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+// Hoisted, NOT a fresh vi.fn() per call — a per-call spy is unassertable, which is
+// how router.refresh() went unmeasured despite being load-bearing (fresh-eyes F4).
+const { refreshSpy } = vi.hoisted(() => ({ refreshSpy: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshSpy }) }));
+
+// Field bug 2026-07-27 — the submit leg. Stubbed so the no-phone add can be driven
+// end-to-end in jsdom: the real path decodes a photo on a canvas, uploads to Storage
+// and calls a server action, none of which exist here.
+const submitMocks = vi.hoisted(() => ({
+  add: vi.fn(),
+  upload: vi.fn(),
+  prepare: vi.fn(),
+}));
+vi.mock("@/app/sa/crew/actions", () => ({ addProjectWorkerWithBank: submitMocks.add }));
+vi.mock("@/lib/db/browser", () => ({
+  createClient: () => ({ storage: { from: () => ({ upload: submitMocks.upload }) } }),
+}));
+vi.mock("@/lib/photos/downscale", () => ({ preparePhotoForUpload: submitMocks.prepare }));
+
+// The catch added for the stuck-button fix swallows an unhandled rejection that the
+// telemetry provider used to file as a js_error. This whole incident was diagnosed
+// FROM interaction_events, so the re-report is load-bearing (fresh-eyes F2).
+const { trackFrictionSpy } = vi.hoisted(() => ({ trackFrictionSpy: vi.fn() }));
+vi.mock("@/lib/telemetry/friction", () => ({ trackFriction: trackFrictionSpy }));
 
 import { AddTechnicianSheet } from "@/components/features/sa/add-technician-sheet";
 import {
@@ -19,6 +42,10 @@ import {
   PASSBOOK_PHOTO_LABEL,
   SUBCON_LINE_SHARE_LABEL,
   REGISTER_PREP_POSTER_LINE,
+  ADD_TECHNICIAN_DONE_TITLE,
+  ADD_TECHNICIAN_ADD_ANOTHER_LABEL,
+  ADD_TECHNICIAN_DONE_LABEL,
+  ROSTER_TILE_LABEL,
 } from "@/lib/i18n/labels";
 
 const projects = [{ id: "11111111-1111-4111-8111-111111111111", code: "TFM", name: "TFM Site" }];
@@ -171,5 +198,245 @@ describe("AddTechnicianSheet — spec 298 U2 front door", () => {
     // bank-adjacent field, and it's a capture, not a value the SA reads or keys.
     // (Checks fields, not prose — the hint copy may mention that the PM fills the number.)
     expect(within(dialog).queryByLabelText(/เลขบัญชี|เลขที่บัญชี|ชื่อบัญชี/)).toBeNull();
+  });
+});
+
+// Field bug 2026-07-27 — "SA cannot press เพิ่มช่างเข้าทีม, it jumps her to home screen".
+// Prod telemetry refuted both halves literally: session 8cc17162 sat on /team unbroken
+// across three presses with ZERO route changes and no js_error, and two of the three
+// CREATED workers (PRC-26-0033, PRC-26-0034). What actually happened is that the success
+// path did close() + router.refresh() and NOTHING else — the full-screen sheet vanished,
+// revealing the ทีมงาน hub (header: "สวัสดี คุณ…" — reads as home), and the new worker is
+// invisible on that page bar a tile-bubble +1. She re-submitted the same man 128s later
+// and hit the dedup refusal, which is the one orphan sa-bank-capture/ object in prod.
+// So: confirm the add IN PLACE. Second, latent half — submitNoPhone had no try/finally
+// and is invoked as `void submitNoPhone()`, so a network throw on either leg skipped
+// setBusy(false) and left the button disabled reading กำลังบันทึก… forever with no error.
+describe("AddTechnicianSheet — the no-phone add reports its own outcome", () => {
+  beforeEach(() => {
+    refreshSpy.mockReset();
+    trackFrictionSpy.mockReset();
+    submitMocks.add.mockReset();
+    submitMocks.upload.mockReset().mockResolvedValue({ error: null });
+    submitMocks.prepare
+      .mockReset()
+      .mockResolvedValue({ blob: new Blob(["x"]), ext: "jpeg", downscaled: true });
+  });
+
+  /** The passbook input as a File input — `.files` is the only honest read in jsdom. */
+  function passbookInput(dialog: HTMLElement): HTMLInputElement {
+    return within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL) as HTMLInputElement;
+  }
+
+  async function fillAndSubmit(dialog: HTMLElement) {
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), {
+      target: { value: "นายอำนาจ แดงสูงเนิน" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/เลขบัตร/), {
+      target: { value: "1161000055091" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/วันเกิด/), { target: { value: "2004-12-22" } });
+    fireEvent.change(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL), {
+      target: { files: [new File(["x"], "IMG_8987.jpeg", { type: "image/jpeg" })] },
+    });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ }));
+    });
+  }
+
+  it("confirms the add IN PLACE — the sheet stays open, naming the worker and their รหัสช่าง", async () => {
+    submitMocks.add.mockResolvedValue({ ok: true, employeeId: "PRC-26-0034" });
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // The submit button unmounts on success, so focus falls to <body> — the receipt
+    // is the only thing left to announce it, and it must be a live region.
+    expect(within(dialog).getByRole("status")).toHaveTextContent(ADD_TECHNICIAN_DONE_TITLE);
+    expect(within(dialog).getByText(ADD_TECHNICIAN_DONE_TITLE)).toBeVisible();
+    expect(within(dialog).getByText("นายอำนาจ แดงสูงเนิน")).toBeVisible();
+    expect(within(dialog).getByText(/PRC-26-0034/)).toBeVisible();
+    // …and it says where he now lives, because /team itself shows him nowhere.
+    expect(within(dialog).getByText(new RegExp(ROSTER_TILE_LABEL))).toBeVisible();
+    // The spent form is gone, so nothing invites the duplicate submit she made in prod.
+    expect(within(dialog).queryByLabelText(PASSBOOK_PHOTO_LABEL)).toBeNull();
+  });
+
+  it("confirms by name even when the รหัสช่าง read comes back empty", async () => {
+    submitMocks.add.mockResolvedValue({ ok: true, employeeId: null });
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+
+    expect(within(dialog).getByText(ADD_TECHNICIAN_DONE_TITLE)).toBeVisible();
+    expect(within(dialog).getByText("นายอำนาจ แดงสูงเนิน")).toBeVisible();
+    expect(within(dialog).queryByText(/รหัสช่าง/)).toBeNull();
+  });
+
+  it("เพิ่มอีกคน returns to a BLANK form without reopening the sheet", async () => {
+    submitMocks.add.mockResolvedValue({ ok: true, employeeId: "PRC-26-0034" });
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_ADD_ANOTHER_LABEL }));
+    expect(within(dialog).getByLabelText(/ชื่อ/)).toHaveValue("");
+    expect(within(dialog).getByLabelText(/เลขบัตร/)).toHaveValue("");
+    expect(within(dialog).queryByText(ADD_TECHNICIAN_DONE_TITLE)).toBeNull();
+    // The previous man's passbook must NOT carry over — attaching his bank book to
+    // the next worker is the one mistake this continue-button could invent. Refill
+    // EVERY other field first, so the only thing that can still hold the submit
+    // disabled is the missing passbook (a bare assertion here passes on the empty
+    // name instead, and measures nothing — caught by mutation testing).
+    // NB assert on `.files`, never `toHaveValue("")`: jsdom leaves a file input's
+    // `value` empty even when a File is attached, so the value form passes
+    // unconditionally and measures nothing (fresh-eyes catch, probe-confirmed).
+    expect(passbookInput(dialog).files).toHaveLength(0);
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), { target: { value: "นายอำนวย ก" } });
+    fireEvent.change(within(dialog).getByLabelText(/เลขบัตร/), {
+      target: { value: "3301800499533" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/วันเกิด/), { target: { value: "1972-07-10" } });
+    expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeDisabled();
+  });
+
+  // `added` belongs to one no-phone form session. The team selector sits ABOVE the
+  // panel and is live while the receipt shows, so tapping ทีม PRC → ไม่มีมือถือ must
+  // not hand the next man his predecessor's confirmation instead of a blank form.
+  it("re-entering the ไม่มีมือถือ branch does NOT resurrect the previous man's receipt", async () => {
+    submitMocks.add.mockResolvedValue({ ok: true, employeeId: "PRC-26-0034" });
+    const dialog = openSheet(true);
+    await fillAndSubmit(dialog);
+    expect(within(dialog).getByText(ADD_TECHNICIAN_DONE_TITLE)).toBeVisible();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /ทีม PRC/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    expect(within(dialog).queryByText(ADD_TECHNICIAN_DONE_TITLE)).toBeNull();
+    expect(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL)).toBeInTheDocument();
+    // Identity AND passbook go: re-entering with นายอำนาจ's bank book still attached
+    // under the next man's name is how the wrong account gets paid. Refill the other
+    // fields before asserting disabled, or the empty name carries the assertion and
+    // the passbook is never measured (the same vacuity fixed in the test above).
+    expect(within(dialog).getByLabelText(/ชื่อ/)).toHaveValue("");
+    expect(passbookInput(dialog).files).toHaveLength(0);
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), { target: { value: "นายอำนวย ก" } });
+    fireEvent.change(within(dialog).getByLabelText(/เลขบัตร/), {
+      target: { value: "3301800499533" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/วันเกิด/), { target: { value: "1972-07-10" } });
+    expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeDisabled();
+  });
+
+  it("a mid-typing branch bounce (nothing committed) KEEPS the half-entered form", async () => {
+    const dialog = openSheet(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), { target: { value: "สมชาย ช่างดี" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: /ทีม PRC/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    expect(within(dialog).getByLabelText(/ชื่อ/)).toHaveValue("สมชาย ช่างดี");
+  });
+
+  // Fresh-eyes F1 — the production incident, reproduced AFTER the first fix. Nothing
+  // outside the submit button is disabled while busy, and the scrim/✕ both call
+  // close() → reset() (added = null). On a site 4G link the flight is seconds, and
+  // "nothing is happening" is exactly this SA's mental model, so she dismisses. The
+  // awaited continuation then set `added` on a sheet that was closed and reset to
+  // mode "choose" — a receipt in a state that can never render, which the next
+  // ไม่มีมือถือ tap then DESTROYS via clearAfterAdd. Worker created, zero
+  // confirmation, re-entry, dedup refusal: the original bug, one layer over.
+  it("shows the receipt even when the sheet was dismissed mid-submit", async () => {
+    let resolveAdd!: (v: { ok: true; employeeId: string | null }) => void;
+    submitMocks.add.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAdd = resolve;
+        }),
+    );
+    const dialog = openSheet(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_NO_PHONE_LABEL }));
+    fireEvent.change(within(dialog).getByLabelText(/ชื่อ/), {
+      target: { value: "นายอำนาจ แดงสูงเนิน" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/เลขบัตร/), {
+      target: { value: "1161000055091" },
+    });
+    fireEvent.change(within(dialog).getByLabelText(/วันเกิด/), { target: { value: "2004-12-22" } });
+    fireEvent.change(within(dialog).getByLabelText(PASSBOOK_PHOTO_LABEL), {
+      target: { files: [new File(["x"], "IMG_8987.jpeg", { type: "image/jpeg" })] },
+    });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ }));
+    });
+
+    // …she gives up on it and dismisses while the request is still in flight.
+    fireEvent.click(screen.getByRole("button", { name: "ปิด" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await act(async () => {
+      resolveAdd({ ok: true, employeeId: "PRC-26-0034" });
+    });
+
+    const reopened = screen.getByRole("dialog");
+    expect(within(reopened).getByText(ADD_TECHNICIAN_DONE_TITLE)).toBeVisible();
+    expect(within(reopened).getByText("นายอำนาจ แดงสูงเนิน")).toBeVisible();
+    expect(within(reopened).getByText(/PRC-26-0034/)).toBeVisible();
+  });
+
+  // Fresh-eyes F3 — the branch she ACTUALLY hit at 08:19:37 in production (the dedup
+  // refusal on her re-submission) had no test at all: `else setError(res.error)`
+  // could be deleted whole and the suite stayed green.
+  it("renders a refusal from the server and leaves the form usable", async () => {
+    submitMocks.add.mockResolvedValue({ ok: false, error: "เลขบัตรนี้มีอยู่แล้วในระบบ" });
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("เลขบัตรนี้มีอยู่แล้วในระบบ");
+    // no receipt, and the form she must correct is still there and pressable
+    expect(within(dialog).queryByText(ADD_TECHNICIAN_DONE_TITLE)).toBeNull();
+    expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeEnabled();
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  // Fresh-eyes F4 — router.refresh() is load-bearing (the /team tile bubbles and
+  // /team/roster only reflect the add through it) and was entirely unmeasured.
+  it("refreshes the hub behind the sheet on success, and only on success", async () => {
+    submitMocks.add.mockResolvedValue({ ok: true, employeeId: "PRC-26-0034" });
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+    expect(refreshSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("เสร็จแล้ว closes the sheet", async () => {
+    submitMocks.add.mockResolvedValue({ ok: true, employeeId: "PRC-26-0034" });
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: ADD_TECHNICIAN_DONE_LABEL }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("a network throw from the server action surfaces an error and RE-ENABLES the button", async () => {
+    submitMocks.add.mockRejectedValue(new TypeError("Load failed"));
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+
+    expect(within(dialog).getByRole("alert")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeEnabled();
+    expect(within(dialog).queryByRole("button", { name: /กำลังบันทึก/ })).toBeNull();
+    // …and the failure is still VISIBLE to telemetry — catching it silently would
+    // trade the one signal that diagnosed this incident for nothing.
+    expect(trackFrictionSpy).toHaveBeenCalledWith(
+      "js_error",
+      expect.objectContaining({ where: "add_technician_no_phone_submit" }),
+    );
+  });
+
+  it("a network throw from the passbook upload is caught too — the leg that left a prod orphan", async () => {
+    submitMocks.upload.mockRejectedValue(new TypeError("Load failed"));
+    const dialog = openSheet();
+    await fillAndSubmit(dialog);
+
+    expect(within(dialog).getByRole("alert")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: /^เพิ่มช่างเข้าทีม$/ })).toBeEnabled();
+    expect(submitMocks.add).not.toHaveBeenCalled();
   });
 });

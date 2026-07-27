@@ -29,14 +29,20 @@ import {
   type UserRole,
 } from "@/lib/auth/role-home";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { ATTENDANCE_AUDIT_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
+import {
+  ATTENDANCE_AUDIT_LABEL,
+  ROSTER_TILE_LABEL,
+  WORKER_ROSTER_LABEL,
+} from "@/lib/i18n/labels";
 
 // Single-surface tile labels — they render only in this grid, so they stay local
 // per the UI-term SSOT rule. The one 2-surface name (the ช่าง roster label, also on
 // /workers + the procurement home) is imported as WORKER_ROSTER_LABEL instead.
 const REGISTRATIONS_LABEL = "คำขอสมัคร";
 const UNASSIGNED_TILE_LABEL = "ยังไม่จัดทีม";
-const ROSTER_TILE_LABEL = "รายชื่อทีม";
+// ROSTER_TILE_LABEL lives in labels.ts: the add sheet's success panel points at this
+// tile by name, and a pointer that names a tile must name the SAME string the tile
+// renders. It cannot be imported FROM here — team-tiles already imports the sheet.
 const ADD_TILE_LABEL = "เพิ่มช่าง";
 const BADGES_TILE_LABEL = "บัตร QR";
 const REGISTER_QR_TILE_LABEL = "QR สมัคร";

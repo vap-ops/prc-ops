@@ -9,7 +9,22 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getActionUser, rpc } = vi.hoisted(() => ({ getActionUser: vi.fn(), rpc: vi.fn() }));
+const { getActionUser, rpc, fetchWorkerBadgeCodes } = vi.hoisted(() => ({
+  getActionUser: vi.fn(),
+  rpc: vi.fn(),
+  fetchWorkerBadgeCodes: vi.fn(),
+}));
+
+// The employee_id read-back MUST go through the service-role seam: workers.employee_id
+// is column-walled away from `authenticated` (verified live —
+// has_column_privilege('authenticated','public.workers','employee_id','SELECT') = false),
+// so the RLS session that just created the worker cannot read its own generated code.
+vi.mock("@/lib/sa/badge-codes", () => ({ fetchWorkerBadgeCodes }));
+
+/** Present so a regression to the RLS client fails loudly instead of silently nulling. */
+const from = () => {
+  throw new Error("employee_id is column-walled from the RLS client — use the badge seam");
+};
 
 vi.mock("@/lib/auth/action-gate", () => ({
   getActionUser,
@@ -30,14 +45,15 @@ const GOOD = {
 };
 
 beforeEach(() => {
-  getActionUser.mockReset().mockResolvedValue({ supabase: { rpc }, user: { id: "sa-1" } });
+  getActionUser.mockReset().mockResolvedValue({ supabase: { rpc, from }, user: { id: "sa-1" } });
   rpc.mockReset().mockResolvedValue({ data: "worker-uuid", error: null });
+  fetchWorkerBadgeCodes.mockReset().mockResolvedValue(new Map([["worker-uuid", "PRC-26-0034"]]));
 });
 
 describe("addProjectWorkerWithBank — spec 298 U2", () => {
   it("forwards identity + photo path to sa_add_project_worker_with_bank on success", async () => {
     const r = await addProjectWorkerWithBank(GOOD);
-    expect(r).toEqual({ ok: true });
+    expect(r).toEqual({ ok: true, employeeId: "PRC-26-0034" });
     expect(rpc).toHaveBeenCalledWith("sa_add_project_worker_with_bank", {
       p_project: PROJECT,
       p_name: "สมชาย ช่างดี",
@@ -79,5 +95,23 @@ describe("addProjectWorkerWithBank — spec 298 U2", () => {
     });
     const r = await addProjectWorkerWithBank(GOOD);
     expect(r).toEqual({ ok: false, error: "เลขบัตรนี้มีอยู่แล้วในระบบ" });
+  });
+
+  // Field bug 2026-07-27 — the employee_id read-back exists only to feed the SA's
+  // confirmation. The add has ALREADY committed by the time it runs, so no outcome
+  // of the read may turn a successful add into a reported failure.
+  it("reads the employee_id through the service-role badge seam, keyed by the new worker id", async () => {
+    await addProjectWorkerWithBank(GOOD);
+    expect(fetchWorkerBadgeCodes).toHaveBeenCalledWith(["worker-uuid"]);
+  });
+
+  it("still reports success when the employee_id read finds nothing", async () => {
+    fetchWorkerBadgeCodes.mockResolvedValue(new Map());
+    await expect(addProjectWorkerWithBank(GOOD)).resolves.toEqual({ ok: true, employeeId: null });
+  });
+
+  it("still reports success when the employee_id read THROWS (the add is already committed)", async () => {
+    fetchWorkerBadgeCodes.mockRejectedValue(new Error("badge-codes: boom"));
+    await expect(addProjectWorkerWithBank(GOOD)).resolves.toEqual({ ok: true, employeeId: null });
   });
 });

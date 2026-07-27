@@ -4,6 +4,8 @@
 // app terms (ui-term-consistency). The "add-crew" card is spec 299 U2 — it documents
 // spec 298's onboarding front door and lands after that shipped.
 
+import { ROSTER_TILE_LABEL } from "@/lib/i18n/labels";
+
 export interface HelpCard {
   /** Stable anchor id for a future per-screen "?" deep-link (/sa/help#<id>). */
   id: string;
@@ -85,7 +87,7 @@ export const HELP_CARDS: HelpCard[] = [
       // bucket + รอ PM ยืนยัน chip (site-team-board.tsx). No step names a hub block
       // that no longer exists.
       "เปิดแท็บ “ทีมงาน” ที่แถบล่าง",
-      "แตะ “รายชื่อทีม” เพื่อเปิดหน้ารายชื่อทั้งหมด",
+      `แตะ “${ROSTER_TILE_LABEL}” เพื่อเปิดหน้ารายชื่อทั้งหมด`,
       "หน้านี้จัดคนเป็นทีมให้เห็นว่าใครอยู่ทีมไหน — คนที่ยังไม่เข้าทีมจะอยู่กลุ่ม “ยังไม่ได้จัดทีม”",
       "ช่างที่ผู้จัดการ (PM) ยังไม่ยืนยันค่าจ้าง/ระดับ จะมีป้าย “รอ PM ยืนยัน” ติดที่ชื่อ",
     ],

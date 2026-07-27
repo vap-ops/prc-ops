@@ -23,7 +23,16 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, ScanLine, Camera, Building2, Users, Printer, Share2 } from "lucide-react";
+import {
+  UserPlus,
+  ScanLine,
+  Camera,
+  Building2,
+  Users,
+  Printer,
+  Share2,
+  CheckCircle2,
+} from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { createClient } from "@/lib/db/browser";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
@@ -31,16 +40,26 @@ import { photoExtToMime } from "@/lib/photos/path";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
 import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
 import { saBankCapturePath } from "@/lib/sa/sa-bank-capture-path";
+import { trackFriction } from "@/lib/telemetry/friction";
 import { addProjectWorkerWithBank } from "@/app/sa/crew/actions";
 import {
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
   BUTTON_SECONDARY_LAYOUT,
+  CARD_LAYOUT,
   FIELD_STACKED,
   FIELD_SELECT,
+  TOAST_SUCCESS,
 } from "@/lib/ui/classes";
 import {
   ADD_TECHNICIAN_LABEL,
+  ROSTER_TILE_LABEL,
+  ADD_TECHNICIAN_DONE_TITLE,
+  ADD_TECHNICIAN_EMPLOYEE_ID_PREFIX,
+  ADD_TECHNICIAN_FIND_AT_PREFIX,
+  ADD_TECHNICIAN_ADD_ANOTHER_LABEL,
+  ADD_TECHNICIAN_DONE_LABEL,
+  ADD_TECHNICIAN_NETWORK_ERROR,
   ADD_TECHNICIAN_HAS_PHONE_LABEL,
   ADD_TECHNICIAN_NO_PHONE_LABEL,
   ADD_TECHNICIAN_HAS_PHONE_HINT,
@@ -135,6 +154,8 @@ export function AddTechnicianSheet({
   const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Non-null once an add has committed — the sheet shows its receipt instead of the form. */
+  const [added, setAdded] = useState<{ name: string; employeeId: string | null } | null>(null);
   const [, startRefresh] = useTransition();
 
   const nidOk = /^\d{13}$/.test(nationalId);
@@ -150,48 +171,93 @@ export function AddTechnicianSheet({
     setPhoto(null);
     setError(null);
     setBusy(false);
+    setAdded(null);
   }
   function close() {
     setOpen(false);
     reset();
   }
 
+  // Field bug 2026-07-27 — every exit from here must leave the SA with an answer.
+  // Two failures were live at once: (a) success closed the sheet and said nothing,
+  // so a working add read as a failure; (b) there was no try/catch and this is
+  // invoked as `void submitNoPhone()`, so a transport throw on either leg skipped
+  // setBusy(false) and left the button disabled on กำลังบันทึก… with no error at all.
+  // The finally is what guarantees (b) can never come back.
   async function submitNoPhone() {
     if (!photo) return;
     setError(null);
     setBusy(true);
 
-    const prepared = await preparePhotoForUpload(photo);
-    if (!prepared) {
-      setBusy(false);
-      setError("ไฟล์รูปไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
-      return;
-    }
-    const path = saBankCapturePath(prepared.ext);
-    const supabase = createClient();
-    const { error: uploadError } = await supabase.storage
-      .from(CONTACT_DOCS_BUCKET)
-      .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(prepared.ext) });
-    if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
-      setBusy(false);
-      setError("อัปโหลดรูปสมุดบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-      return;
-    }
+    try {
+      const prepared = await preparePhotoForUpload(photo);
+      if (!prepared) {
+        setError("ไฟล์รูปไม่รองรับ กรุณาเลือกรูปภาพ (JPEG, PNG, WebP, HEIC)");
+        return;
+      }
+      const path = saBankCapturePath(prepared.ext);
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from(CONTACT_DOCS_BUCKET)
+        .upload(path, prepared.blob, { upsert: false, contentType: photoExtToMime(prepared.ext) });
+      if (uploadError && !classifyStorageUploadError(uploadError).alreadyExists) {
+        setError("อัปโหลดรูปสมุดบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        return;
+      }
 
-    const res = await addProjectWorkerWithBank({
-      projectId,
-      name: name.trim(),
-      nationalId,
-      dob,
-      photoPath: path,
-    });
-    setBusy(false);
-    if (res.ok) {
-      close();
-      startRefresh(() => router.refresh());
-    } else {
-      setError(res.error);
+      const res = await addProjectWorkerWithBank({
+        projectId,
+        name: name.trim(),
+        nationalId,
+        dob,
+        photoPath: path,
+      });
+      if (res.ok) {
+        // Stay open and SAY SO. The hub behind this sheet shows the new worker
+        // nowhere but a tile-bubble count, so dismissing on success is silence.
+        //
+        // Re-assert the panel that can DISPLAY the receipt rather than only setting
+        // it. Nothing outside the submit button is disabled while busy, so during a
+        // slow 4G flight she can tap the scrim, the ✕, or another team row — all of
+        // which reset `added` to null and/or move `mode` away from "no_phone". The
+        // resolution would then land a receipt in a state that can never render,
+        // and the next ไม่มีมือถือ tap would clear it: the exact production
+        // incident, one layer over. Forcing the three bits of state here means a
+        // committed add is ALWAYS reported, however she fidgets mid-request.
+        setTeam("prc");
+        setMode("no_phone");
+        setOpen(true);
+        setAdded({ name: name.trim(), employeeId: res.employeeId });
+        startRefresh(() => router.refresh());
+      } else {
+        setError(res.error);
+      }
+    } catch (err) {
+      // Re-report what the missing try/catch used to surface for free. `void
+      // submitNoPhone()` produced an unhandled rejection, which the telemetry
+      // provider listens for and files as a js_error; catching it silently would
+      // trade an observable failure for an invisible one — and this whole incident
+      // was diagnosed FROM interaction_events.
+      trackFriction("js_error", {
+        where: "add_technician_no_phone_submit",
+        message: err instanceof Error ? err.message : String(err),
+      });
+      setError(ADD_TECHNICIAN_NETWORK_ERROR);
+    } finally {
+      setBusy(false);
     }
+  }
+
+  /** Retire a finished add: identity AND passbook go, the sheet/team/project stay. */
+  function clearAfterAdd() {
+    setAdded(null);
+    setName("");
+    setNationalId("");
+    setDob("");
+    setPhoto(null);
+    // No setError here: `error` is always null when a receipt exists (submitNoPhone
+    // clears it on entry and the success arm never sets it) — an unreachable reset
+    // asserts a hazard that is not there.
   }
 
   const activeQr = qrCards.find((c) => c.project.id === projectId) ?? qrCards[0] ?? null;
@@ -220,6 +286,24 @@ export function AddTechnicianSheet({
     if (open && nested)
       activePanelRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   }, [team, open, nested]);
+
+  /**
+   * The team selector and the มีมือถือ/ไม่มีมือถือ buttons sit OUTSIDE the panel and
+   * stay live while a confirmation shows, so leaving and re-entering the branch must
+   * not hand the next man his predecessor's receipt — or, worse, his passbook still
+   * attached under a new name. Gated on `added`: a bounce made mid-typing (nothing
+   * committed) keeps the SA's half-entered work, which is the pre-existing behaviour.
+   *
+   * The firm rows need NO equivalent clear: selecting a firm hides the whole PRC
+   * panel, and the only way back into it is the ทีม PRC row, which routes through
+   * here. A clear on the firm row was written first and mutation-testing proved it
+   * unreachable — an unreachable guard asserts a hazard that is not there.
+   */
+  function switchBranch(next: Mode) {
+    if (added) clearAfterAdd();
+    else setError(null);
+    setMode(next);
+  }
 
   function openWith(m: "choose" | "has_phone") {
     setMode(m);
@@ -265,7 +349,7 @@ export function AddTechnicianSheet({
                   aria-pressed={team === "prc"}
                   onClick={() => {
                     setTeam("prc");
-                    setMode("choose");
+                    switchBranch("choose");
                   }}
                   className={`${BUTTON_SECONDARY_LAYOUT} bg-card text-ink h-auto min-h-11 justify-start py-2 ${team === "prc" ? "border-action" : "border-edge"}`}
                 >
@@ -287,7 +371,7 @@ export function AddTechnicianSheet({
                     <p className="text-ink-secondary text-sm">ช่างคนนี้มีมือถือไหม?</p>
                     <button
                       type="button"
-                      onClick={() => setMode("has_phone")}
+                      onClick={() => switchBranch("has_phone")}
                       className={`${BUTTON_SECONDARY} justify-start`}
                     >
                       <ScanLine aria-hidden className="size-5 shrink-0" />
@@ -295,7 +379,7 @@ export function AddTechnicianSheet({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setMode("no_phone")}
+                      onClick={() => switchBranch("no_phone")}
                       className={`${BUTTON_SECONDARY} justify-start`}
                     >
                       <Camera aria-hidden className="size-5 shrink-0" />
@@ -326,7 +410,45 @@ export function AddTechnicianSheet({
                   </div>
                 ) : null}
 
-                {mode === "no_phone" ? (
+                {mode === "no_phone" && added ? (
+                  <div className="flex flex-col gap-3">
+                    {/* role=status: the submit button unmounts on success, so focus falls
+                        to <body> and a screen reader would otherwise announce nothing —
+                        the mirror of the role="alert" on the failure line below. */}
+                    <div
+                      role="status"
+                      className={`${CARD_LAYOUT} ${TOAST_SUCCESS} flex flex-col gap-1`}
+                    >
+                      <p className="flex items-center gap-2 font-semibold">
+                        <CheckCircle2 aria-hidden className="size-5 shrink-0" />
+                        {ADD_TECHNICIAN_DONE_TITLE}
+                      </p>
+                      <p className="text-ink font-semibold">{added.name}</p>
+                      {added.employeeId ? (
+                        <p className="text-ink-secondary text-meta">
+                          {ADD_TECHNICIAN_EMPLOYEE_ID_PREFIX} {added.employeeId}
+                        </p>
+                      ) : null}
+                    </div>
+                    {/* /team shows him nowhere but a tile count, so name where he landed.
+                        The bank line is deliberately NOT repeated here: she read it in
+                        ADD_TECHNICIAN_NO_PHONE_HINT two taps ago, and it names ผู้จัดการ
+                        while the chip she meets next on the roster says PM — repeating a
+                        promise in the second wording would make the mismatch worse. */}
+                    <p className="text-ink-secondary text-sm">
+                      {ADD_TECHNICIAN_FIND_AT_PREFIX} {ROSTER_TILE_LABEL}
+                    </p>
+                    <button type="button" onClick={clearAfterAdd} className={BUTTON_SECONDARY}>
+                      <UserPlus aria-hidden className="size-5 shrink-0" />
+                      {ADD_TECHNICIAN_ADD_ANOTHER_LABEL}
+                    </button>
+                    <button type="button" onClick={close} className={BUTTON_PRIMARY}>
+                      {ADD_TECHNICIAN_DONE_LABEL}
+                    </button>
+                  </div>
+                ) : null}
+
+                {mode === "no_phone" && !added ? (
                   <div className="flex flex-col gap-3">
                     <p className="text-ink-secondary text-sm">{ADD_TECHNICIAN_NO_PHONE_HINT}</p>
                     <label className="text-ink-secondary block text-sm">
@@ -369,7 +491,11 @@ export function AddTechnicianSheet({
                       />
                     </label>
                     {photo ? <p className="text-ink-muted text-meta">แนบรูปสมุดบัญชีแล้ว</p> : null}
-                    {error ? <p className="text-danger text-sm">{error}</p> : null}
+                    {error ? (
+                      <p role="alert" className="text-danger text-sm">
+                        {error}
+                      </p>
+                    ) : null}
                     <button
                       type="button"
                       disabled={busy || !canSubmit}
