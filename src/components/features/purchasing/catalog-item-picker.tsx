@@ -16,7 +16,7 @@
 // the scope, and an empty/absent scope falls back to the full catalog. The
 // ordering/flagging lives in the pure `scopeCatalogItems` helper.
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { AlertTriangle, Check, ImageIcon, Search } from "lucide-react";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
@@ -80,6 +80,10 @@ export function ScopedCatalogItemPicker({
   disabled = false,
   label = "รายการวัสดุ",
   scopedCategoryIds,
+  badgeByItem,
+  inScopeIds,
+  triggerLabel,
+  emptyState,
   membershipsByItem,
 }: {
   items: PurchaseRequestCatalogItem[];
@@ -100,6 +104,26 @@ export function ScopedCatalogItemPicker({
   /** Spec 228: itemId → its secondary category ids (the S4 canonical∪secondary
    *  union source), so an item linked secondarily to a scoped category surfaces. */
   membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
+  /** Spec 363 U4 — optional right-aligned badge per item id. เบิก passes the
+   *  on-hand quantity ("6 ม้วน") so it stops being trailing text inside the
+   *  item's sentence; the PR / self-purchase / BOQ callers pass nothing. */
+  badgeByItem?: ReadonlyMap<string, string> | undefined;
+  /** Spec 363 U4 — a CALLER-SUPPLIED scope decision, overriding this component's
+   *  own category matching. เบิก scopes with `scopeStockRows`, which also narrows
+   *  by KIND (tools vs materials, spec 229); `scopeCatalogItems` matches on
+   *  category alone, so without this the เบิก swap would silently downgrade that
+   *  narrowing. When present it is authoritative; ordering and the ตรงกับงาน /
+   *  off-category flags all follow it. */
+  inScopeIds?: readonly string[] | undefined;
+  /** Spec 363 U4 — the trigger's copy. Default names the CATALOG, which is right
+   *  for ขอซื้อ / ซื้อเอง and wrong for เบิก, where the source is the store. */
+  triggerLabel?: string | undefined;
+  /** Spec 363 U4 — the no-match guidance. The default sends the user to
+   *  ตั้งค่า → แคตตาล็อก to register an item, which is the correct next action
+   *  when raising a request. On เบิก it is NOT: the item is usually in the
+   *  catalog already and simply out of stock, and a site admin cannot add
+   *  catalog entries — so that caller supplies its own next action (ขอซื้อ). */
+  emptyState?: ReactNode | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -123,10 +147,19 @@ export function ScopedCatalogItemPicker({
   // Spec 228 — order + flag the catalog against the WP work-category's scope:
   // in-scope items first, the rest still present. Empty/absent scope → the full
   // catalog in order (D8 show-all fallback).
-  const scoped = useMemo(
-    () => scopeCatalogItems(items, membershipsByItem ?? EMPTY_MEMBERSHIPS, scopedCategoryIds),
-    [items, membershipsByItem, scopedCategoryIds],
-  );
+  const scoped = useMemo(() => {
+    // Spec 363 U4: a caller that already decided scope (เบิก, via the kind-aware
+    // scopeStockRows) hands the ids in and this component obeys rather than
+    // re-deriving a weaker answer from categories alone.
+    if (inScopeIds) {
+      const ids = new Set(inScopeIds);
+      const entries = items
+        .map((item) => ({ item, inScope: ids.has(item.id) }))
+        .sort((a, b) => Number(b.inScope) - Number(a.inScope));
+      return { scoped: true, entries, inScopeCount: entries.filter((e) => e.inScope).length };
+    }
+    return scopeCatalogItems(items, membershipsByItem ?? EMPTY_MEMBERSHIPS, scopedCategoryIds);
+  }, [items, membershipsByItem, scopedCategoryIds, inScopeIds]);
   // Pre-filter to in-scope only when the scope actually has matches — otherwise
   // show everything (never an empty picker). The แสดงทั้งหมด escape clears it.
   const scopeActive = scoped.scoped && scoped.inScopeCount > 0;
@@ -216,7 +249,7 @@ export function ScopedCatalogItemPicker({
           className="rounded-control border-edge-strong bg-card text-ink-secondary hover:bg-page focus-visible:ring-action flex h-11 w-full items-center gap-2 border px-3 text-left text-sm shadow-xs focus:outline-none focus-visible:ring-2"
         >
           <Search aria-hidden className="text-ink-muted size-5 shrink-0" />
-          เลือกวัสดุจากแคตตาล็อก
+          {triggerLabel ?? "เลือกวัสดุจากแคตตาล็อก"}
         </button>
       )}
 
@@ -329,23 +362,33 @@ export function ScopedCatalogItemPicker({
                         ) : null}
                       </span>
                     </span>
+                    {/* Spec 363 U4: the badge sits at the trailing edge, so a
+                        quantity is read as a quantity instead of disappearing
+                        into the end of a 118-character item sentence. */}
+                    {badgeByItem?.get(i.id) ? (
+                      <span className="text-done-ink bg-done-soft rounded-control text-meta shrink-0 px-2 py-0.5 font-semibold">
+                        {badgeByItem.get(i.id)}
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <div className="border-edge-strong rounded-control flex items-start gap-3 border border-dashed px-3 py-4">
-              <ImageIcon aria-hidden className="text-ink-muted mt-0.5 size-5 shrink-0" />
-              <p className="text-ink-secondary text-sm">
-                ไม่พบวัสดุที่ค้นหา — เพิ่มวัสดุที่{" "}
-                <Link
-                  href="/catalog"
-                  className="text-action font-medium underline underline-offset-2"
-                >
-                  ตั้งค่า → แคตตาล็อก
-                </Link>
-              </p>
-            </div>
+            (emptyState ?? (
+              <div className="border-edge-strong rounded-control flex items-start gap-3 border border-dashed px-3 py-4">
+                <ImageIcon aria-hidden className="text-ink-muted mt-0.5 size-5 shrink-0" />
+                <p className="text-ink-secondary text-sm">
+                  ไม่พบวัสดุที่ค้นหา — เพิ่มวัสดุที่{" "}
+                  <Link
+                    href="/catalog"
+                    className="text-action font-medium underline underline-offset-2"
+                  >
+                    ตั้งค่า → แคตตาล็อก
+                  </Link>
+                </p>
+              </div>
+            ))
           )}
         </div>
       </BottomSheet>

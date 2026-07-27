@@ -13,13 +13,11 @@ import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { ReturnToStoreControl } from "@/components/features/store/return-to-store-control";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INLINE_ERROR } from "@/lib/ui/classes";
-import {
-  STORE_ISSUE_LABEL,
-  STORE_FIX_WRONG_ENTRY_LABEL,
-  WORK_CATEGORY_MATCH_LABEL,
-} from "@/lib/i18n/labels";
+import { STORE_ISSUE_LABEL, STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { scopeStockRows } from "@/lib/catalog/scoped-picker";
+import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import type { CatalogItemKind, ScopedMaterialCategory } from "@/lib/catalog/scoped-categories";
 import { confirmStockIssueOnBehalf, issueStockBulk, reverseStockIssue } from "@/app/store/actions";
 
@@ -71,6 +69,7 @@ export function WpIssueStock({
   issues,
   scopedRelation,
   membershipsByItem,
+  categories,
 }: {
   projectId: string;
   workPackageId: string;
@@ -84,6 +83,8 @@ export function WpIssueStock({
   scopedRelation?: ScopedMaterialCategory[] | undefined;
   // Spec 229: catalogItemId → its secondary category ids (the S4 union source).
   membershipsByItem?: ReadonlyMap<string, Set<string>> | undefined;
+  // Spec 363 U4: the managed catalog categories, for the picker's filter chips.
+  categories: { id: string; name: string }[];
 }) {
   const router = useRouter();
 
@@ -158,13 +159,30 @@ export function WpIssueStock({
   );
   const scopeActive = scopedOnHand.scoped && scopedOnHand.inScopeCount > 0;
   const inScopeRows = scopedOnHand.entries.filter((e) => e.inScope).map((e) => e.row);
-  const restRows = scopedOnHand.entries.filter((e) => !e.inScope).map((e) => e.row);
-  const stockOption = (o: WpStockRow) => (
-    <option key={o.catalogItemId} value={o.catalogItemId}>
-      {o.baseItem}
-      {o.specAttrs ? ` · ${o.specAttrs}` : ""} (มี {o.qtyOnHand} {o.unit})
-    </option>
-  );
+  // Spec 363 U4 slice 1 — the native <select> is replaced by the searchable
+  // picker ขอซื้อ and ซื้อเอง already use. Field report 2026-07-27: 369 on-hand
+  // options, labels to 118 chars, no search, and the OS owns the sheet.
+  //
+  // The on-hand row is mapped into the picker's item shape. categoryName comes
+  // from the managed list; thumbnailUrl is null because on-hand rows carry no
+  // signed image URL (the /catalog picker mints those page-side) — the picker
+  // falls back to its placeholder icon.
+  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
+  const pickerItems: PurchaseRequestCatalogItem[] = onHand.map((o) => ({
+    id: o.catalogItemId,
+    categoryId: o.categoryId,
+    categoryName: o.categoryId ? (categoryNameById.get(o.categoryId) ?? "") : "",
+    baseItem: o.baseItem,
+    specAttrs: o.specAttrs,
+    unit: o.unit,
+    thumbnailUrl: null,
+  }));
+  // The quantity becomes a trailing BADGE instead of the tail of a sentence.
+  const badgeByItem = new Map(onHand.map((o) => [o.catalogItemId, `${o.qtyOnHand} ${o.unit}`]));
+  // scopeStockRows is kind-aware (spec 229); the picker's own matcher is
+  // category-only, so hand it the decision rather than let it re-derive one.
+  const inScopeIds = inScopeRows.map((r) => r.catalogItemId);
+  const scopedCategoryIds = (scopedRelation ?? []).map((r) => r.categoryId);
 
   return (
     <div className="flex flex-col gap-3">
@@ -267,31 +285,29 @@ export function WpIssueStock({
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor={`wp-issue-item-${i}`} className={LABEL}>
-                      วัสดุ
-                    </label>
-                    <select
-                      id={`wp-issue-item-${i}`}
-                      value={r.item}
-                      onChange={(e) => updateRow(i, { item: e.target.value })}
+                    <ScopedCatalogItemPicker
+                      items={pickerItems}
+                      categories={categories}
+                      selectedId={r.item}
+                      onSelect={(id) => updateRow(i, { item: id })}
+                      onClear={() => updateRow(i, { item: "" })}
                       disabled={issuing}
-                      className={FIELD}
-                    >
-                      <option value="">เลือกวัสดุ</option>
-                      {/* Spec 229 (ADR 0066 D8): the WP's materials surface first
-                          under a ตรงกับงาน group, the rest stay below — nothing is
-                          hidden. No scope (or no matches) → one flat list. */}
-                      {scopeActive ? (
-                        <>
-                          <optgroup label={WORK_CATEGORY_MATCH_LABEL}>
-                            {inScopeRows.map(stockOption)}
-                          </optgroup>
-                          <optgroup label="วัสดุอื่นในคลัง">{restRows.map(stockOption)}</optgroup>
-                        </>
-                      ) : (
-                        onHand.map(stockOption)
-                      )}
-                    </select>
+                      label="วัสดุในคลัง"
+                      badgeByItem={badgeByItem}
+                      triggerLabel="เลือกวัสดุจากคลัง"
+                      emptyState={
+                        // The catalog default ("register it in ตั้งค่า → แคตตาล็อก")
+                        // is wrong guidance here: on เบิก the item is usually IN the
+                        // catalog and simply out of stock, and a site admin cannot add
+                        // catalog entries. The real next action is a purchase request.
+                        <div className="border-edge-strong rounded-control border border-dashed px-3 py-4">
+                          <p className="text-ink-secondary text-sm">
+                            ไม่มีวัสดุนี้ในคลัง — ถ้าต้องใช้ ให้สร้างคำขอซื้อ
+                          </p>
+                        </div>
+                      }
+                      {...(scopeActive ? { scopedCategoryIds, inScopeIds, membershipsByItem } : {})}
+                    />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
