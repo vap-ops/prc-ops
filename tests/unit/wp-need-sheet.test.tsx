@@ -78,7 +78,7 @@ const onHand = [
   },
 ];
 
-function renderSheet() {
+function renderSheet(extra: { allowedPaths?: readonly ("issue" | "request" | "self")[] } = {}) {
   render(
     <WpNeedSheet
       workPackage={{ id: "wp1", code: "WP-01", name: "งาน", categoryCode: null }}
@@ -89,6 +89,7 @@ function renderSheet() {
       onHand={onHand as never}
       workers={[]}
       issues={[]}
+      {...extra}
     />,
   );
 }
@@ -139,6 +140,37 @@ describe("WpNeedSheet (spec 363 D5)", () => {
     const sheet = pick(/สายไฟ/);
     expect(within(sheet).getByRole("button", { name: /ขอซื้อ/ })).toBeInTheDocument();
     expect(within(sheet).queryByRole("button", { name: /เบิกจากคลัง/ })).toBeNull();
+  });
+
+  // Spec 363 U4 merge — the คำขอซื้อ tab is deleted, so this sheet is the only PR
+  // door on the page and plain `procurement` has to reach it. The PREDICATE is
+  // covered exhaustively in wp-need-path.test.ts; these pin the WIRING, which no
+  // source scan can prove — the sheet could take the prop and ignore it.
+  describe("a caller restricted to one path", () => {
+    it("offers ONLY ขอซื้อ, even for an item the store holds", () => {
+      renderSheet({ allowedPaths: ["request"] });
+      open();
+      const sheet = pick(/ปูนซีเมนต์/);
+      expect(within(sheet).getByRole("button", { name: /ขอซื้อ/ })).toBeInTheDocument();
+      // เบิก would LEAD here unrestricted (12 ถุง on the shelf), so this is the
+      // assertion that would fail if the prop were dropped on the floor.
+      expect(within(sheet).queryByRole("button", { name: /เบิกจากคลัง/ })).toBeNull();
+      expect(within(sheet).queryByRole("button", { name: /ซื้อมาเองแล้ว/ })).toBeNull();
+    });
+
+    it("still shows the shelf figure — a requester wants to know", () => {
+      renderSheet({ allowedPaths: ["request"] });
+      open();
+      expect(within(pick(/ปูนซีเมนต์/)).getByText(/12 ถุง/)).toBeInTheDocument();
+    });
+
+    it("leaves an unrestricted caller with all three", () => {
+      renderSheet();
+      open();
+      const sheet = pick(/ปูนซีเมนต์/);
+      expect(within(sheet).getByRole("button", { name: /เบิกจากคลัง/ })).toBeInTheDocument();
+      expect(within(sheet).getByRole("button", { name: /ซื้อมาเองแล้ว/ })).toBeInTheDocument();
+    });
   });
 
   it("always offers ซื้อมาเองแล้ว, on both shelf states", () => {
