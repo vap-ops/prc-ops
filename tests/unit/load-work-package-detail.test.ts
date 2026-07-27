@@ -76,6 +76,48 @@ const REQUESTS = [
     eta: null,
   },
 ];
+// Spec 363 U4 — the WP's requests, in the two shapes production actually holds.
+// ADR 0065 / spec 208 U4a: every purchase is store-bound, so the server FORCES
+// `work_package_id: null` and records the WP in `requested_from_work_package_id`.
+// Live 2026-07-27: work_package_id = 4 rows (all cancelled, last written 07-08);
+// requested_from_work_package_id = 170 rows across 67 WPs, last written today.
+// A reader keyed on work_package_id alone therefore renders EMPTY for every WP.
+const REQ_PROVENANCE = {
+  ...REQUESTS[0]!,
+  id: "r-prov",
+  project_id: "proj1",
+  work_package_id: null,
+  requested_from_work_package_id: "wp1",
+};
+const REQ_LEGACY = {
+  ...REQUESTS[0]!,
+  id: "r-legacy",
+  project_id: "proj1",
+  work_package_id: "wp1",
+  requested_from_work_package_id: null,
+};
+const REQ_OTHER_WP = {
+  ...REQUESTS[0]!,
+  id: "r-other",
+  project_id: "proj1",
+  work_package_id: null,
+  requested_from_work_package_id: "wpOTHER",
+};
+// The provenance column is CALLER-SUPPLIED and ungated: the INSERT WITH CHECK
+// (`purchase_requests insert by wp-readers`, read live 2026-07-27) constrains
+// `project_id` and `work_package_id` but never mentions
+// `requested_from_work_package_id`, and the validator only shape-checks it as a
+// uuid. So a request belonging to another PROJECT can point its provenance at
+// this WP. 0 such rows exist today — but that is data, not a constraint, so the
+// reader must scope by project rather than trust the FK.
+const REQ_FOREIGN_PROJECT = {
+  ...REQUESTS[0]!,
+  id: "r-foreign",
+  project_id: "projOTHER",
+  work_package_id: null,
+  requested_from_work_package_id: "wp1",
+};
+
 const SIBLINGS = [{ id: "wp2", code: "WP-02", name: "งานคาน" }];
 const DEPS = [{ predecessor_id: "wp2" }];
 
@@ -84,7 +126,6 @@ const LIST: Record<string, unknown[]> = {
   work_packages: SIBLINGS, // the siblings query (list form)
   contractors: CONTRACTORS,
   approvals: APPROVALS,
-  purchase_requests: REQUESTS,
   work_package_dependencies: DEPS,
 };
 
@@ -99,14 +140,56 @@ const AUDIT_BY_EVENT: Record<string, unknown[]> = {
   wp_reopened_for_defect: [],
 };
 
+// Spec 363 U4 — the purchase_requests stub HONOURS the filter, so a reader keyed
+// on the wrong column returns nothing instead of silently passing. Emulates
+// PostgREST: `.eq(col,val)` are ANDed; `.or("a.eq.x,b.eq.y")` is one ORed group.
+const ALL_REQUESTS = [REQ_PROVENANCE, REQ_LEGACY, REQ_OTHER_WP, REQ_FOREIGN_PROJECT];
+// Production selects NEITHER linkage column (see load-detail.ts RequestRow), so
+// the stub strips them from what it RETURNS while still filtering on them — a
+// consumer reading r.work_package_id must not pass green here and be undefined live.
+const LINKAGE = ["project_id", "work_package_id", "requested_from_work_package_id"] as const;
+function stripLinkage(row: Record<string, unknown>) {
+  const out = { ...row };
+  for (const k of LINKAGE) delete out[k];
+  return out;
+}
+// 🟡 PostgREST would 400 on a malformed or-group; the semantic matcher alone would
+// stay green. Pin the emitted SYNTAX too.
+const OR_SHAPE = /^[a-z_]+.eq.[A-Za-z0-9-]+,[a-z_]+.eq.[A-Za-z0-9-]+$/;
+let lastOrExpr: string | null = null;
+
+function matchesRequestFilter(
+  row: Record<string, unknown>,
+  eqs: [string, unknown][],
+  orExpr: string | null,
+): boolean {
+  for (const [col, val] of eqs) if (row[col] !== val) return false;
+  if (orExpr === null) return true;
+  return orExpr.split(",").some((term) => {
+    const [col, op, val] = term.split(".");
+    return op === "eq" && row[String(col)] === val;
+  });
+}
+
 function makeQuery(table: string) {
-  const q: Record<string, unknown> = { __single: false, __event: null as string | null };
+  const q: Record<string, unknown> = {
+    __single: false,
+    __event: null as string | null,
+    __or: null as string | null,
+    __eqs: [] as [string, unknown][],
+  };
   for (const m of ["select", "neq", "in", "order", "limit"]) {
     q[m] = () => q;
   }
+  q.or = (expr: string) => {
+    q.__or = expr;
+    if (table === "purchase_requests") lastOrExpr = expr;
+    return q;
+  };
   // Capture the event filter so audit_log reads are told apart (see AUDIT_BY_EVENT).
   q.eq = (col: string, val: unknown) => {
     if (col === "payload->>event") q.__event = String(val);
+    else (q.__eqs as [string, unknown][]).push([col, val]);
     return q;
   };
   q.maybeSingle = () => {
@@ -124,7 +207,15 @@ function makeQuery(table: string) {
           ? SINGLE[table]
           : table === "audit_log"
             ? (AUDIT_BY_EVENT[String(q.__event)] ?? [])
-            : (LIST[table] ?? []);
+            : table === "purchase_requests"
+              ? ALL_REQUESTS.filter((r) =>
+                  matchesRequestFilter(
+                    r as unknown as Record<string, unknown>,
+                    q.__eqs as [string, unknown][],
+                    q.__or as string | null,
+                  ),
+                ).map((r) => stripLinkage(r as unknown as Record<string, unknown>))
+              : (LIST[table] ?? []);
         return { data, error: null };
       })
       .then(resolve, reject);
@@ -189,7 +280,11 @@ describe("loadWorkPackageDetail", () => {
     expect(data.wp).toEqual(WP_ROW);
     expect(data.contractors).toEqual(CONTRACTORS);
     expect(data.approvals).toEqual(APPROVALS);
-    expect(data.wpRequests).toEqual(REQUESTS);
+    // Spec 363 U4 — deliberately updated, not "made green": the stub now honours
+    // the request filter, so this WP sees BOTH linkage shapes (the live provenance
+    // row and the legacy work_package_id row) and neither wpOTHER's nor another
+    // project's. Asserted on ids because production selects no linkage column.
+    expect(data.wpRequests.map((r) => r.id)).toEqual(["r-prov", "r-legacy"]);
     expect(data.siblingWps).toEqual(SIBLINGS);
     expect(data.predecessorIds).toEqual(["wp2"]);
     expect(data.defectReason).toBeNull();
@@ -254,5 +349,57 @@ describe("loadWorkPackageDetail", () => {
     });
     expect(data.siblingWps).toEqual([]);
     expect(data.predecessorIds).toEqual([]);
+  });
+});
+
+// Spec 363 U4 — the WP's purchase requests must be found by PROVENANCE, not by
+// work_package_id. ADR 0065 / spec 208 U4a forces work_package_id to null on
+// every purchase (all stock is store-bound), so the original reader matched
+// nothing: live 2026-07-27, work_package_id held 4 rows (all cancelled, last
+// written 07-08) while requested_from_work_package_id held 170 across 67 WPs,
+// last written that day. An SA raised a request from the WP page and it never
+// appeared on the WP page.
+describe("loadWorkPackageDetail — the WP's purchase requests (spec 363 U4)", () => {
+  async function load() {
+    return loadWorkPackageDetail(supabase, {
+      workPackageId: "wp1",
+      projectId: "proj1",
+      isPlanner: false,
+    });
+  }
+
+  it("finds requests linked by requested_from_work_package_id", async () => {
+    const out = await load();
+    expect(out.wpRequests.map((r) => r.id)).toContain("r-prov");
+  });
+
+  it("still finds the legacy rows written directly to work_package_id", async () => {
+    const out = await load();
+    expect(out.wpRequests.map((r) => r.id)).toContain("r-legacy");
+  });
+
+  it("does not leak another work package's requests", async () => {
+    const out = await load();
+    expect(out.wpRequests.map((r) => r.id)).not.toContain("r-other");
+  });
+
+  it("does not show a request that belongs to another project", async () => {
+    // Provenance is caller-supplied and the INSERT WITH CHECK never constrains
+    // it, so the FK alone is not proof the row belongs here. Scope by project.
+    const out = await load();
+    expect(out.wpRequests.map((r) => r.id)).not.toContain("r-foreign");
+  });
+});
+
+describe("loadWorkPackageDetail — the request filter is well-formed (spec 363 U4)", () => {
+  it("emits an or-group PostgREST can parse", async () => {
+    await loadWorkPackageDetail(supabase, {
+      workPackageId: "wp1",
+      projectId: "proj1",
+      isPlanner: false,
+    });
+    // A semantic-only stub would stay green on a filter that 400s in production.
+    expect(lastOrExpr).not.toBeNull();
+    expect(lastOrExpr).toMatch(OR_SHAPE);
   });
 });
