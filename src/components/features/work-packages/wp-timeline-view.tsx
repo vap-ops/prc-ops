@@ -12,6 +12,7 @@
 // ประวัติ earns a tab rather than folding into the ⓘ sheet.
 
 import { useState } from "react";
+import { WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import {
   Camera,
   ClipboardCheck,
@@ -19,6 +20,7 @@ import {
   PackagePlus,
   ShoppingCart,
   RotateCcw,
+  ArrowRightLeft,
 } from "lucide-react";
 import type {
   WpTimelineDay,
@@ -52,6 +54,10 @@ const REWORK_EVENT_LABEL: Record<string, string> = {
 function RowIcon({ kind }: { kind: WpTimelineRow["kind"] }) {
   const cls = "size-4 shrink-0 text-ink-secondary";
   switch (kind) {
+    // Spec 363 U2a — its own glyph: falling through to default gave a status
+    // change the rework icon, making it visually identical to a defect reopen.
+    case "status":
+      return <ArrowRightLeft aria-hidden className="text-ink-muted size-4 shrink-0" />;
     case "photos":
       return <Camera aria-hidden className={cls} />;
     case "decision":
@@ -143,9 +149,35 @@ function RowBody({ row }: { row: WpTimelineRow }) {
           </p>
         </>
       );
+    // Spec 363 U2a — the rail's backbone, via the wp_status_history DEFINER RPC.
+    // An unmapped enum value degrades to ITSELF rather than vanishing: the switch
+    // above ends in `default: return null`, so a status the labels do not know
+    // would otherwise render as blank space with no clue anything happened.
+    case "status":
+      return (
+        <>
+          <p className="text-body text-ink">
+            {statusLabel(row.from)} → {statusLabel(row.to)}
+          </p>
+          <p className="text-meta text-ink-secondary">
+            {row.actor ? `${row.actor} · ` : ""}
+            {formatThaiTime(row.at)}
+          </p>
+        </>
+      );
     default:
       return null;
   }
+}
+
+function statusLabel(v: string | null): string {
+  if (!v) return "—";
+  return (
+    WORK_PACKAGE_STATUS_LABEL[v as keyof typeof WORK_PACKAGE_STATUS_LABEL] ??
+    // Degrade to the raw value: an enum can grow, and a silent blank would hide
+    // that the WP moved at all.
+    v
+  );
 }
 
 export function WpTimelineView({ days }: { days: WpTimelineDay[] }) {

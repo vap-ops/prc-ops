@@ -28,6 +28,7 @@ const EMPTY: WpTimelineInput = {
   requests: [],
   issues: [],
   returns: [],
+  statuses: [],
   reworkEvents: [],
   names: {},
 };
@@ -190,5 +191,141 @@ describe("buildWpTimeline", () => {
     const keys = days.flatMap((d) => d.rows.map((r) => r.key));
     expect(keys).toHaveLength(4);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+// Spec 363 U2a — status transitions, the rail's backbone. U2b shipped without
+// them because audit_log's site-staff SELECT policy is an EVENT ALLOWLIST that
+// excludes wp_status_transition (552 rows in 30 days); the new DEFINER RPC
+// wp_status_history supplies them, so the builder now takes a `statuses` source.
+describe("buildWpTimeline — status transitions (spec 363 U2a)", () => {
+  const base = {
+    photos: [],
+    approvals: [],
+    requests: [],
+    issues: [],
+    returns: [],
+    reworkEvents: [],
+    statuses: [],
+    names: { u1: "สมชาย" },
+  };
+
+  function withStatuses(statuses: unknown[]) {
+    return buildWpTimeline({
+      ...base,
+      statuses,
+    } as unknown as Parameters<typeof buildWpTimeline>[0]);
+  }
+
+  it("renders a status transition as its own row", () => {
+    const days = withStatuses([
+      {
+        at: "2026-07-20T03:00:00Z",
+        from_status: "in_progress",
+        to_status: "pending_approval",
+        actor_id: "u1",
+        rework_round: 0,
+      },
+    ]);
+    const rows = days.flatMap((d) => d.rows);
+    const row = rows.find((r) => r.kind === "status");
+    expect(row).toBeDefined();
+    expect(row).toMatchObject({ from: "in_progress", to: "pending_approval", actor: "สมชาย" });
+  });
+
+  it("files a status row under the สถานะ filter, beside rework", () => {
+    const days = withStatuses([
+      {
+        at: "2026-07-20T03:00:00Z",
+        from_status: "in_progress",
+        to_status: "complete",
+        actor_id: "u1",
+        rework_round: 0,
+      },
+    ]);
+    const row = days.flatMap((d) => d.rows).find((r) => r.kind === "status")!;
+    // The filter is DERIVED from the kind, not stored on the row.
+    expect(timelineFilterOf(row.kind)).toBe("status");
+    // …and it shares the chip with rework, which is the point of the สถานะ chip.
+    expect(timelineFilterOf("rework")).toBe("status");
+  });
+
+  it("keys status rows uniquely so two transitions on one day both render", () => {
+    const days = withStatuses([
+      // SAME timestamp on purpose: audit_log rows carry no natural key, and a
+      // bulk status change writes several within the same second. Distinct
+      // timestamps here would make the key collision untestable — the mutation
+      // that drops the index stayed green until this fixture shared a stamp.
+      {
+        at: "2026-07-20T03:00:00Z",
+        from_status: "not_started",
+        to_status: "in_progress",
+        actor_id: "u1",
+        rework_round: 0,
+      },
+      {
+        at: "2026-07-20T03:00:00Z",
+        from_status: "in_progress",
+        to_status: "pending_approval",
+        actor_id: "u1",
+        rework_round: 0,
+      },
+    ]);
+    const rows = days.flatMap((d) => d.rows).filter((r) => r.kind === "status");
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((r) => r.key)).size).toBe(2);
+  });
+
+  it("renders no status rows for a refused role — [] is the refusal signal", () => {
+    // The loader maps the RPC's 42501 to an EMPTY LIST, not undefined, so this is
+    // the shape a refused role (plain procurement) actually produces.
+    const days = withStatuses([]);
+    expect(days.flatMap((d) => d.rows).filter((r) => r.kind === "status")).toEqual([]);
+  });
+});
+
+describe("buildWpTimeline — reopen is not rendered twice (spec 363 U2a)", () => {
+  const at = "2026-07-20T03:00:00Z";
+  const base = {
+    photos: [],
+    approvals: [],
+    requests: [],
+    issues: [],
+    returns: [],
+    statuses: [],
+    names: { u1: "สมชาย" },
+  };
+
+  it("drops the rework row when a status row covers the same moment", () => {
+    // reopen_work_package_for_defect writes BOTH rows in one transaction, on the
+    // identical created_at, so without this the SA sees the same event twice.
+    const days = buildWpTimeline({
+      ...base,
+      reworkEvents: [{ id: "a1", event: "wp_reopened_for_defect", created_at: at, actor_id: "u1" }],
+      statuses: [{ at, from_status: "complete", to_status: "rework", actor_id: "u1" }],
+    } as unknown as Parameters<typeof buildWpTimeline>[0]);
+    const rows = days.flatMap((d) => d.rows);
+    expect(rows.filter((r) => r.kind === "rework")).toHaveLength(0);
+    expect(rows.filter((r) => r.kind === "status")).toHaveLength(1);
+  });
+
+  it("KEEPS the rework row when no status row covers it", () => {
+    // Without the status source (a refused role) the stand-in is all there is.
+    const days = buildWpTimeline({
+      ...base,
+      reworkEvents: [{ id: "a1", event: "wp_reopened_for_defect", created_at: at, actor_id: "u1" }],
+    } as unknown as Parameters<typeof buildWpTimeline>[0]);
+    expect(days.flatMap((d) => d.rows).filter((r) => r.kind === "rework")).toHaveLength(1);
+  });
+
+  it("never drops wp_evidence_resubmitted — it changes no status", () => {
+    const days = buildWpTimeline({
+      ...base,
+      reworkEvents: [
+        { id: "a2", event: "wp_evidence_resubmitted", created_at: at, actor_id: "u1" },
+      ],
+      statuses: [{ at, from_status: "rework", to_status: "pending_approval", actor_id: "u1" }],
+    } as unknown as Parameters<typeof buildWpTimeline>[0]);
+    expect(days.flatMap((d) => d.rows).filter((r) => r.kind === "rework")).toHaveLength(1);
   });
 });

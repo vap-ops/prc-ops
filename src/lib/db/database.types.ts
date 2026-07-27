@@ -11451,6 +11451,16 @@ export type Database = {
           profit: number
         }[]
       }
+      wp_status_history: {
+        Args: { p_work_package_id: string }
+        Returns: {
+          actor_id: string
+          at: string
+          from_status: string
+          rework_round: number
+          to_status: string
+        }[]
+      }
     }
     Enums: {
       accounting_period_status: "open" | "closing" | "closed" | "locked"

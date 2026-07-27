@@ -51,7 +51,12 @@ import {
   type PurchaseRequestStatus,
 } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
-import { loadWorkPackageDetail, loadWpTimelineAudit } from "@/lib/work-packages/load-detail";
+import {
+  loadWorkPackageDetail,
+  loadWpTimelineAudit,
+  loadWpStatusHistory,
+} from "@/lib/work-packages/load-detail";
+import { fetchDisplayNames } from "@/lib/users/display-names";
 import { buildWpTimeline } from "@/lib/work-packages/wp-timeline";
 import { WpTimelineView } from "@/components/features/work-packages/wp-timeline-view";
 import { pickableContractors } from "@/lib/work-packages/contractor-picker";
@@ -560,11 +565,36 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // (capture first, then purchases, labor, reference info); the planner-only
   // จัดการ tab is appended last. Panels are server-rendered here and handed to
   // the client switcher as slots — one fetch, one render, focused view.
-  // Spec 363 U2b — the ประวัติ rail. Everything except the audit events is
-  // already in scope from the page's single detail fetch, so this adds ONE read.
-  // Status transitions are absent by RLS, not by omission (spec 363 §4.1).
-  const timelineAudit = await loadWpTimelineAudit(supabase, wp.id);
+  // Spec 363 U2b — the ประวัติ rail. Everything except the audit events and the
+  // status transitions is already in scope from the page's single detail fetch.
+  // U2a: status transitions are NO LONGER absent — they arrive via the
+  // wp_status_history DEFINER RPC, because audit_log's site-staff policy is an
+  // event allowlist that excludes them (§4.1) and widening it would leak every
+  // project's history to every SA.
+  // Fetched ALONGSIDE the audit read, not
+  // after it: they are independent, and serialising them would add a round-trip
+  // to the page's critical path for no reason.
+  const [timelineAudit, timelineStatuses] = await Promise.all([
+    loadWpTimelineAudit(supabase, wp.id),
+    loadWpStatusHistory(supabase, wp.id),
+  ]);
+  // `displayNames` is built from approval deciders ∪ requesters ∪ photo uploaders
+  // ∪ photo removers — status ACTORS are in none of those sets, so a transition
+  // made by a PM putting the WP on hold, or by a super_admin, rendered as a bare
+  // time. The RPC returns actor_id for exactly this; nothing was joining the two.
+  const missingActorIds = [
+    ...new Set(
+      timelineStatuses
+        .map((s) => s.actor_id)
+        .filter((id): id is string => id !== null && !displayNames.has(id)),
+    ),
+  ];
+  const statusAwareNames = missingActorIds.length
+    ? new Map([...displayNames, ...(await fetchDisplayNames(missingActorIds, "wp-status-actors"))])
+    : displayNames;
+
   const timelineDays = buildWpTimeline({
+    statuses: timelineStatuses,
     photos: Object.values(photosByPhase)
       .flat()
       .map((ph) => ({
@@ -603,7 +633,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     })),
     returns: [],
     reworkEvents: timelineAudit,
-    names: Object.fromEntries(displayNames),
+    names: Object.fromEntries(statusAwareNames),
   });
 
   const tabs: WpDetailTab[] = [
