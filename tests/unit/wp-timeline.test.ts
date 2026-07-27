@@ -136,9 +136,14 @@ describe("buildWpTimeline", () => {
   });
 
   it("gives every row a key that is stable and unique across kinds", () => {
+    // Every non-photo kind keys off its source id, and these tables have separate
+    // id spaces — an issue and its return legitimately share one. So the SAME id is
+    // used across four kinds here: drop any kind prefix and React sees duplicate
+    // keys. (Photo rows key off date|phase, not a photo id, so including one here
+    // would prove nothing — an earlier version of this test did exactly that and a
+    // mutation check caught it staying green.)
     const days = buildWpTimeline({
       ...EMPTY,
-      photos: [{ id: "x", phase: "during", created_at: "2026-07-22T03:00:00Z", uploaded_by: null }],
       issues: [
         {
           id: "x",
@@ -149,9 +154,41 @@ describe("buildWpTimeline", () => {
           issued_by: null,
         },
       ],
+      returns: [
+        {
+          id: "x",
+          item: "ทราย",
+          qty: 1,
+          unit: "คิว",
+          returned_at: "2026-07-22T04:00:00Z",
+          returned_by: null,
+        },
+      ],
+      requests: [
+        {
+          id: "x",
+          pr_number: "PR-1",
+          item_description: "ทราย",
+          quantity: 1,
+          unit: "คิว",
+          status: "requested",
+          requested_at: "2026-07-22T05:00:00Z",
+          requested_by: null,
+        },
+      ],
+      approvals: [
+        {
+          id: "x",
+          decision: "approved",
+          revision_reason: null,
+          comment: null,
+          decided_at: "2026-07-22T06:00:00Z",
+          decided_by: "u2",
+        },
+      ],
     });
     const keys = days.flatMap((d) => d.rows.map((r) => r.key));
-    // same source id on two different kinds must not collide
+    expect(keys).toHaveLength(4);
     expect(new Set(keys).size).toBe(keys.length);
   });
 });
