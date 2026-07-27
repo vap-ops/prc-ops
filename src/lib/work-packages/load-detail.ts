@@ -183,7 +183,16 @@ export async function loadWorkPackageDetail(
       .select(
         "id, pr_number, item_description, quantity, unit, status, priority, requested_at, requested_by, requested_by_email, needed_by, decided_at, purchased_at, shipped_at, delivered_at, eta",
       )
-      .eq("work_package_id", wp.id)
+      // Spec 363 U4 — find this WP's requests by PROVENANCE, not by ownership.
+      // ADR 0065 / spec 208 U4a: every purchase is store-bound, so the create
+      // action FORCES `work_package_id: null` and records the originating WP in
+      // `requested_from_work_package_id`. Keying on work_package_id alone made
+      // this list empty for every WP — live 2026-07-27, that column held 4 rows
+      // (all cancelled, last written 07-08) while the provenance column held 170
+      // across 67 WPs, last written that day. An SA raised a request from the WP
+      // page and it never appeared there. Both shapes are unioned so the legacy
+      // rows are not dropped by the fix.
+      .or(`work_package_id.eq.${wp.id},requested_from_work_package_id.eq.${wp.id}`)
       .order("requested_at", { ascending: false }),
     loadPlanner(supabase, wp.id, wp.project_id, isPlanner),
     fetchLaborZoneData(supabase, wp.id, wp.project_id, contractorsShared),
