@@ -83,6 +83,12 @@ Dependency-ordered. Each ships on its own.
 
 **Order: U1 → U3 → U2b → U4 → U5 → U6 → U7, with U2a whenever the schema lane is free.**
 
+**U4 is being shipped in slices**, each standing on its own (2026-07-27, both from operator field reports):
+
+- **slice 1** — the เบิก material field off its native `<select>` and onto `ScopedCatalogItemPicker` (369 on-hand options, 118-char labels, OS-drawn sheet). Merged `d497dce4`.
+- **slice 1b** — the เบิก **ผู้รับ** field onto the same idiom, via a new plain `PersonPicker`. Slice 1 left it as the only native select on that form, so two adjacent fields asked the same kind of question two different ways; the operator read the screen as unchanged. Explicitly **plain** — search + names, no thumbnails, no filter chips: a person here has neither a picture nor a category, and the live roster is 30. **Scope held to ผู้รับ** (operator, same day); the three sibling people-selects (`เลือกหัวหน้าทีม` in the muster cockpit, `เลือกทีมงาน` in the Nova award form, the BOQ WP list) and the 52-row `work_categories` select in `boq-line-form.tsx` are a follow-up unit, not this one. `catalog_categories` (15) and `equipment_categories` (9) stay native — a search sheet over a short list is slower than the wheel.
+- **slice 2** — the `ต้องการของ` sheet proper and the tab merge, as the table row describes.
+
 ⚠️ **U2 must precede U4/U5, and U1 must not delete `ข้อมูล`** — corrected 2026-07-27, before any build. `ประวัติการตรวจ` renders ONLY inside the `ข้อมูล` panel (`page.tsx:747`); the attention card carries just the LATEST decision (`:945`). So the original order had U1 deleting the SA's only route to review history four units before U2 re-homed it — a half that removes a signal without adding one. U1 is now additive (the ⓘ gains notes, the tab thins), and **U2 owns the `ข้อมูล` deletion** because U2's timeline is what re-homes the history. Cheap structure first; the 93%-traffic camera path (U5) touched only once the merge is field-proven; the only genuine new build (U7) last. **U4 is additionally gated on open question 1 (PR amount visibility).**
 
 ## 4. U2 — the timeline

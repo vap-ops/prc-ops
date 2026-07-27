@@ -17,6 +17,7 @@ import { STORE_ISSUE_LABEL, STORE_FIX_WRONG_ENTRY_LABEL } from "@/lib/i18n/label
 import { baht } from "@/lib/format";
 import { scopeStockRows } from "@/lib/catalog/scoped-picker";
 import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
+import { PersonPicker } from "@/components/features/common/person-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import type { CatalogItemKind, ScopedMaterialCategory } from "@/lib/catalog/scoped-categories";
 import { confirmStockIssueOnBehalf, issueStockBulk, reverseStockIssue } from "@/app/store/actions";
@@ -335,26 +336,27 @@ export function WpIssueStock({
                   </div>
 
                   {/* Custody (spec 177 U7): name the receiver who takes the material;
-                      they confirm receipt later from the worker portal. Optional. */}
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor={`wp-issue-receiver-${i}`} className={LABEL}>
-                      ผู้รับ (ถ้ามี)
-                    </label>
-                    <select
-                      id={`wp-issue-receiver-${i}`}
-                      value={r.receiver}
-                      onChange={(e) => updateRow(i, { receiver: e.target.value })}
-                      disabled={issuing}
-                      className={FIELD}
-                    >
-                      <option value="">ไม่ระบุ</option>
-                      {workers.map((w) => (
-                        <option key={w.id} value={w.id}>
-                          {w.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                      they confirm receipt later from the worker portal. Optional.
+
+                      Spec 363 U4 slice 1b — off the native <select> and onto the
+                      same searchable-sheet idiom as the วัสดุ field above it.
+                      Slice 1 swapped only the material field, which left two
+                      adjacent controls asking the same kind of question in two
+                      different idioms (operator 2026-07-27). The roster is 30
+                      names on the pilot project — long enough that scrolling an
+                      OS wheel to find one man is the same hunt the material
+                      field just stopped being. */}
+                  <PersonPicker
+                    label="ผู้รับ (ถ้ามี)"
+                    people={workers}
+                    selectedId={r.receiver}
+                    onChange={(id) => updateRow(i, { receiver: id })}
+                    disabled={issuing}
+                    triggerLabel="เลือกผู้รับ"
+                    clearLabel="ไม่ระบุ"
+                    searchPlaceholder="ค้นหาชื่อ"
+                    sheetTitle="เลือกผู้รับ"
+                  />
 
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor={`wp-issue-note-${i}`} className={LABEL}>

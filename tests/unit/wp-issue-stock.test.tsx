@@ -83,6 +83,20 @@ function pickItem(_rowIndex: number, itemText: string | RegExp) {
   fireEvent.click(row!);
 }
 
+// Spec 363 U4 slice 1b — the ผู้รับ <select> became a PersonPicker, so choosing a
+// receiver now means opening its sheet and clicking the name. Mirrors pickItem.
+function pickReceiver(nameText: string | RegExp) {
+  const [trigger] = screen.getAllByRole("button", { name: "เลือกผู้รับ" });
+  fireEvent.click(trigger!);
+  const match = typeof nameText === "string" ? new RegExp(nameText) : nameText;
+  const sheets = screen.getAllByRole("dialog");
+  const sheet = sheets[sheets.length - 1]!;
+  const [row] = within(sheet)
+    .getAllByRole("button")
+    .filter((b) => match.test(b.textContent ?? ""));
+  fireEvent.click(row!);
+}
+
 function renderZone(opts: { onHand?: WpStockRow[]; issues?: WpIssueRow[] }) {
   render(
     <WpIssueStock
@@ -218,7 +232,7 @@ describe("WpIssueStock (spec 177 U5)", () => {
     fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
     pickItem(0, "สายไฟ NYY");
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
-    fireEvent.change(screen.getByLabelText(/ผู้รับ/), { target: { value: "w1" } });
+    pickReceiver("สมชาย");
     fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
 
     await waitFor(() =>
@@ -226,6 +240,46 @@ describe("WpIssueStock (spec 177 U5)", () => {
         projectId: "p1",
         workPackageId: "wp1",
         lines: [{ catalogItemId: "ci1", qty: 5, note: "", receiverWorkerId: "w1" }],
+      }),
+    );
+  });
+
+  // Spec 363 U4 slice 1b — the consistency pin. Slice 1 left ผู้รับ as the last
+  // native <select> beside the new material picker; this asserts the เบิก form now
+  // has NO native select at all. Paired with a presence assertion on purpose: the
+  // form lives inside a closed BottomSheet, so "no select found" passes trivially
+  // on a fresh render whether or not the swap happened (the slice-1 self-correction).
+  it("has no native select left in the เบิก form — both fields are pickers", () => {
+    renderZone({});
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
+    // Guard: the sheet really is open, so an empty select query means GONE.
+    expect(screen.getByRole("button", { name: "ยืนยันการเบิก" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "เลือกวัสดุจากคลัง" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "เลือกผู้รับ" })).toBeInTheDocument();
+    expect(document.querySelectorAll("select")).toHaveLength(0);
+  });
+
+  it("lets the receiver be cleared back to ไม่ระบุ after a wrong pick", async () => {
+    renderZone({});
+    fireEvent.click(screen.getByRole("button", { name: /เบิกวัสดุจากคลัง/ }));
+    pickItem(0, "สายไฟ NYY");
+    fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "5" } });
+    pickReceiver("สมชาย");
+    // Both fields are pickers now, so a filled row shows TWO เปลี่ยน controls.
+    // วัสดุ renders above ผู้รับ, so the receiver's is the last one.
+    const changes = screen.getAllByRole("button", { name: "เปลี่ยน" });
+    expect(changes).toHaveLength(2);
+    fireEvent.click(changes[changes.length - 1]!);
+    const sheets = screen.getAllByRole("dialog");
+    fireEvent.click(within(sheets[sheets.length - 1]!).getByRole("button", { name: "ไม่ระบุ" }));
+    fireEvent.click(screen.getByRole("button", { name: "ยืนยันการเบิก" }));
+
+    await waitFor(() =>
+      expect(mockIssueBulk).toHaveBeenCalledWith({
+        projectId: "p1",
+        workPackageId: "wp1",
+        // An empty receiver OMITS the key (existing payload shape, unchanged here).
+        lines: [{ catalogItemId: "ci1", qty: 5, note: "" }],
       }),
     );
   });
