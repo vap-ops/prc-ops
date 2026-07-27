@@ -30,9 +30,13 @@ select has_table('public', 'equipment_owners',     'equipment_owners exists');
 select has_table('public', 'equipment_categories', 'equipment_categories exists');
 select has_table('public', 'equipment_items',       'equipment_items exists');
 select has_type('public', 'equipment_status',   'equipment_status enum exists');
+-- Spec 367 U1 added `disposed` — an asset sold to sister company PRI needs a
+-- state that is neither `available` (a lie the store would act on) nor `lost`
+-- (a lie the accounts would act on). Updated to the full seven deliberately;
+-- the original six are all still pinned, so a REMOVAL still reds here.
 select enum_has_labels('public', 'equipment_status',
-  ARRAY['available', 'on_site', 'in_use', 'maintenance', 'returned', 'lost'],
-  'equipment_status has the six lifecycle labels');
+  ARRAY['available', 'on_site', 'in_use', 'maintenance', 'returned', 'lost', 'disposed'],
+  'equipment_status has the six lifecycle labels plus disposed');
 select has_type('public', 'equipment_tracking', 'equipment_tracking enum exists');
 select col_is_pk('public', 'equipment_items', 'id', 'equipment_items.id is the PK');
 select ok((select relrowsecurity from pg_class where oid = 'public.equipment_items'::regclass),

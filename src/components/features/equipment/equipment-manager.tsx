@@ -45,7 +45,11 @@ import {
   type EquipmentMovementKind,
 } from "@/lib/equipment/current-location";
 import { equipmentLocationLabel } from "@/lib/equipment/equipment-location-label";
-import { EQUIPMENT_MOVEMENT_KIND_LABEL } from "@/lib/i18n/labels";
+import {
+  EQUIPMENT_MOVEMENT_KIND_LABEL,
+  EQUIPMENT_STATUS_LABEL,
+  EQUIPMENT_TRACKING_LABEL,
+} from "@/lib/i18n/labels";
 import { SetDailyRate } from "@/components/features/equipment/set-daily-rate";
 import {
   createEquipment,
@@ -83,15 +87,19 @@ export type ManagedEquipmentItem = {
 
 type Ref = { id: string; name: string };
 
-const STATUS_LABELS: Record<EquipmentStatus, string> = {
-  available: "พร้อมใช้งาน",
-  on_site: "อยู่หน้างาน",
-  in_use: "กำลังใช้งาน",
-  maintenance: "ซ่อมบำรุง",
-  returned: "คืนแล้ว",
-  lost: "สูญหาย",
-};
+// Spec 367 U1: these labels moved to the labels.ts SSOT (the CSV importer maps
+// Thai → enum and cannot import from a component). Aliased rather than renamed
+// at ~4 call sites so the diff stays about the move.
+const STATUS_LABELS = EQUIPMENT_STATUS_LABEL;
 
+// The PICKER's options — deliberately NOT every value of the enum.
+//
+// `disposed` (spec 367 U1) is missing on purpose: an asset becomes disposed by
+// being SOLD, which the spec 367 §3 PRI-transfer flow records along with the
+// counterparty and the book value. Offering it as a free-hand dropdown choice
+// would let someone retire an asset with no transfer behind it. The LABEL map
+// above still covers it, so a row already in that state renders correctly
+// wherever it is read — coverage without an affordance.
 const STATUS_ORDER: ReadonlyArray<EquipmentStatus> = [
   "available",
   "on_site",
@@ -104,9 +112,10 @@ const STATUS_ORDER: ReadonlyArray<EquipmentStatus> = [
 /** Spec 362 U1 — the "no category filter" chip value (the /catalog sentinel). */
 const ALL = "all";
 
+// Spec 367 U1 — derived from the labels.ts SSOT instead of re-typing the pair.
 const TRACKING_OPTIONS = [
-  { value: "unit", label: "รายชิ้น (มีรหัส)" },
-  { value: "bulk", label: "จำนวนมาก (นับจำนวน)" },
+  { value: "unit", label: EQUIPMENT_TRACKING_LABEL.unit },
+  { value: "bulk", label: EQUIPMENT_TRACKING_LABEL.bulk },
 ] as const;
 
 // Shared field block for the add + edit forms (name/category/owner/tracking/
