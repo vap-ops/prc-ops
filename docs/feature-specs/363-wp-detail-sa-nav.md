@@ -208,3 +208,46 @@ select count(*) filter (where planned_end is not null),
 ```
 
 Results as of that date: photos 2031 · PRs 153 (149 `app` of which 143 from the WP page, 4 `site_purchase`) · issues 32 · labor 0 · self-purchase evidence 0/4 · leaf WPs 350, with `planned_start` and `planned_end` 331, past due and open 220 · `plan_baselines` 1 / `plan_baseline_items` 331 · `equipment_usage_logs` 0.
+
+## U4 merge — what must be true before the three tabs are deleted
+
+The `ต้องการของ` sheet ships **additively** (2026-07-27): `คำขอซื้อ`, `เบิกของ` and
+`ค่าใช้จ่ายหน้างาน` all remain. Deleting them is a separate, deliberate step, and
+these are its preconditions — each found by gate-check or fresh-eyes, not guessed.
+
+**Blockers — deleting without these REMOVES working behaviour:**
+
+1. **`procurement` loses PR-raise.** The sheet is gated `!readOnly`, but plain
+   `procurement`'s one write on this page IS the purchase request
+   (`role-home.ts` — "every write affordance suppressed except the
+   purchase-request form"). Harmless while `คำขอซื้อ` survives; delete it and the
+   role can no longer raise a PR at a WP at all. **Gate per-path** (offer only
+   `ขอซื้อ` to that role), never the whole sheet.
+2. **The three per-issue affordances have no new home.** `เบิกของ` carries
+   `ยืนยันรับแทน` (confirm receipt on behalf), `แก้รายการที่บันทึกผิด` (reverse a
+   mis-keyed เบิก) and `คืนเข้าคลัง` (return to store). The spec never mentions
+   re-homing them. They belong in the `ของ` row detail first.
+3. **Retired-but-on-hand items become unreachable.** The sheet's picker is built
+   from `catalogItems` (`is_active = true` only), while `เบิกของ`'s picker is built
+   from `onHand` — so an item deactivated in the catalog but still physically in
+   the store can be withdrawn today and could not be after the merge. Union the
+   on-hand rows into the sheet's item list.
+
+**Should-fix, not blocking:**
+
+4. The self-purchase path inherits the work-category ORDERING but not the
+   persistent off-category WARNING — that branch keys on the picker's own
+   `selectedId`, which is empty because the sheet owns the selection. Thread the
+   scope into `SelfPurchaseForm`.
+5. Escape closes BOTH sheets: every `BottomSheet` binds Escape on `document` with
+   no topmost check, so one press inside the item picker also runs the need
+   sheet's `onClose`. Pre-existing in the shared component (it predates this
+   spec); its own unit.
+6. `PurchaseRequestForm` clears its item on success but the sheet does not close,
+   so the outer card still names the item while the inner picker shows none. An
+   `onCreated` callback would let the sheet close itself.
+
+**Verified sound, recorded so it is not re-litigated:** the preselect seeding is
+correct in all three forms — each derives unit/description from the catalog row,
+not from an `onSelect` side effect — and `addRow()` plus the submit gate treat a
+seeded row like any other.
