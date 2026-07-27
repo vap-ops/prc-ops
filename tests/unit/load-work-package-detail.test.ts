@@ -85,20 +85,37 @@ const REQUESTS = [
 const REQ_PROVENANCE = {
   ...REQUESTS[0]!,
   id: "r-prov",
+  project_id: "proj1",
   work_package_id: null,
   requested_from_work_package_id: "wp1",
 };
 const REQ_LEGACY = {
   ...REQUESTS[0]!,
   id: "r-legacy",
+  project_id: "proj1",
   work_package_id: "wp1",
   requested_from_work_package_id: null,
 };
 const REQ_OTHER_WP = {
   ...REQUESTS[0]!,
   id: "r-other",
+  project_id: "proj1",
   work_package_id: null,
   requested_from_work_package_id: "wpOTHER",
+};
+// The provenance column is CALLER-SUPPLIED and ungated: the INSERT WITH CHECK
+// (`purchase_requests insert by wp-readers`, read live 2026-07-27) constrains
+// `project_id` and `work_package_id` but never mentions
+// `requested_from_work_package_id`, and the validator only shape-checks it as a
+// uuid. So a request belonging to another PROJECT can point its provenance at
+// this WP. 0 such rows exist today — but that is data, not a constraint, so the
+// reader must scope by project rather than trust the FK.
+const REQ_FOREIGN_PROJECT = {
+  ...REQUESTS[0]!,
+  id: "r-foreign",
+  project_id: "projOTHER",
+  work_package_id: null,
+  requested_from_work_package_id: "wp1",
 };
 
 const SIBLINGS = [{ id: "wp2", code: "WP-02", name: "งานคาน" }];
@@ -109,7 +126,6 @@ const LIST: Record<string, unknown[]> = {
   work_packages: SIBLINGS, // the siblings query (list form)
   contractors: CONTRACTORS,
   approvals: APPROVALS,
-  purchase_requests: REQUESTS,
   work_package_dependencies: DEPS,
 };
 
@@ -127,7 +143,21 @@ const AUDIT_BY_EVENT: Record<string, unknown[]> = {
 // Spec 363 U4 — the purchase_requests stub HONOURS the filter, so a reader keyed
 // on the wrong column returns nothing instead of silently passing. Emulates
 // PostgREST: `.eq(col,val)` are ANDed; `.or("a.eq.x,b.eq.y")` is one ORed group.
-const ALL_REQUESTS = [REQ_PROVENANCE, REQ_LEGACY, REQ_OTHER_WP];
+const ALL_REQUESTS = [REQ_PROVENANCE, REQ_LEGACY, REQ_OTHER_WP, REQ_FOREIGN_PROJECT];
+// Production selects NEITHER linkage column (see load-detail.ts RequestRow), so
+// the stub strips them from what it RETURNS while still filtering on them — a
+// consumer reading r.work_package_id must not pass green here and be undefined live.
+const LINKAGE = ["project_id", "work_package_id", "requested_from_work_package_id"] as const;
+function stripLinkage(row: Record<string, unknown>) {
+  const out = { ...row };
+  for (const k of LINKAGE) delete out[k];
+  return out;
+}
+// 🟡 PostgREST would 400 on a malformed or-group; the semantic matcher alone would
+// stay green. Pin the emitted SYNTAX too.
+const OR_SHAPE = /^[a-z_]+.eq.[A-Za-z0-9-]+,[a-z_]+.eq.[A-Za-z0-9-]+$/;
+let lastOrExpr: string | null = null;
+
 function matchesRequestFilter(
   row: Record<string, unknown>,
   eqs: [string, unknown][],
@@ -153,6 +183,7 @@ function makeQuery(table: string) {
   }
   q.or = (expr: string) => {
     q.__or = expr;
+    if (table === "purchase_requests") lastOrExpr = expr;
     return q;
   };
   // Capture the event filter so audit_log reads are told apart (see AUDIT_BY_EVENT).
@@ -183,7 +214,7 @@ function makeQuery(table: string) {
                     q.__eqs as [string, unknown][],
                     q.__or as string | null,
                   ),
-                )
+                ).map((r) => stripLinkage(r as unknown as Record<string, unknown>))
               : (LIST[table] ?? []);
         return { data, error: null };
       })
@@ -250,9 +281,10 @@ describe("loadWorkPackageDetail", () => {
     expect(data.contractors).toEqual(CONTRACTORS);
     expect(data.approvals).toEqual(APPROVALS);
     // Spec 363 U4 — deliberately updated, not "made green": the stub now honours
-    // the request filter, and this WP's requests are BOTH linkage shapes (the
-    // live provenance one and the legacy work_package_id one), never wpOTHER's.
-    expect(data.wpRequests).toEqual([REQ_PROVENANCE, REQ_LEGACY]);
+    // the request filter, so this WP sees BOTH linkage shapes (the live provenance
+    // row and the legacy work_package_id row) and neither wpOTHER's nor another
+    // project's. Asserted on ids because production selects no linkage column.
+    expect(data.wpRequests.map((r) => r.id)).toEqual(["r-prov", "r-legacy"]);
     expect(data.siblingWps).toEqual(SIBLINGS);
     expect(data.predecessorIds).toEqual(["wp2"]);
     expect(data.defectReason).toBeNull();
@@ -333,9 +365,7 @@ describe("loadWorkPackageDetail — the WP's purchase requests (spec 363 U4)", (
       workPackageId: "wp1",
       projectId: "proj1",
       isPlanner: false,
-      role: "site_admin",
-      userId: "u1",
-    } as never);
+    });
   }
 
   it("finds requests linked by requested_from_work_package_id", async () => {
@@ -351,5 +381,25 @@ describe("loadWorkPackageDetail — the WP's purchase requests (spec 363 U4)", (
   it("does not leak another work package's requests", async () => {
     const out = await load();
     expect(out.wpRequests.map((r) => r.id)).not.toContain("r-other");
+  });
+
+  it("does not show a request that belongs to another project", async () => {
+    // Provenance is caller-supplied and the INSERT WITH CHECK never constrains
+    // it, so the FK alone is not proof the row belongs here. Scope by project.
+    const out = await load();
+    expect(out.wpRequests.map((r) => r.id)).not.toContain("r-foreign");
+  });
+});
+
+describe("loadWorkPackageDetail — the request filter is well-formed (spec 363 U4)", () => {
+  it("emits an or-group PostgREST can parse", async () => {
+    await loadWorkPackageDetail(supabase, {
+      workPackageId: "wp1",
+      projectId: "proj1",
+      isPlanner: false,
+    });
+    // A semantic-only stub would stay green on a filter that 400s in production.
+    expect(lastOrExpr).not.toBeNull();
+    expect(lastOrExpr).toMatch(OR_SHAPE);
   });
 });
