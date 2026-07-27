@@ -25,6 +25,7 @@
 | `src/lib/team-map/build-team-map.ts`                                                                                                                                               | Modify — `BuildProjectTeamMapInput` gains `projectContractorIds: string[]`; firm-card construction seeds from the union of that list and active firm-workers' contractor ids, so a known-but-currently-empty firm still gets a card. |
 | `src/lib/team-map/load-team-map.ts`                                                                                                                                                | Modify — one additional query for `projectContractorIds`; the `contractors` name-map fetch widens to cover them.                                                                                                                     |
 | `src/lib/team-map/trade-hint.ts`                                                                                                                                                   | **New** — `leadTradesOf` moved out of `team-map-view.tsx` so both it and the new `plan-tab.tsx` can import it without a circular dependency.                                                                                         |
+| `src/components/features/team-map/action-classes.ts`                                                                                                                               | **New** — `TIER_ACTION_BASE`/`TIER_ACTION`/`SHEET_ACTION` moved out of `team-map-view.tsx` so both it and `plan-tab.tsx` share one copy instead of two.                                                                              |
 | `src/lib/team-map/fix-list.ts`                                                                                                                                                     | **New** — pure function `deriveTeamMapFixList(map: ProjectTeamMap): FixListItem[]`.                                                                                                                                                  |
 | `src/components/features/team-map/fix-list-card.tsx`                                                                                                                               | **New** — presentational card rendering the fix-list, one tap handler per item.                                                                                                                                                      |
 | `src/components/features/team-map/plan-tab.tsx`                                                                                                                                    | **New** — the day-plan tray, day-toggle, `เพิ่มงานเข้าแผน`/`planChip` sheets, and the compact ทีมภายใน crew list used as placing-mode drop targets. Extracted verbatim from `team-map-view.tsx`.                                     |
@@ -336,20 +337,22 @@ git commit -m "feat(team-map): loader supplies project-scoped contractor ids to 
 
 ---
 
-### Task 3: Extract `leadTradesOf` into `trade-hint.ts`
+### Task 3: Extract `leadTradesOf` and the shared action-button classes out of `team-map-view.tsx`
 
 **Files:**
 
 - Create: `src/lib/team-map/trade-hint.ts`
+- Create: `src/components/features/team-map/action-classes.ts`
 - Modify: `src/components/features/team-map/team-map-view.tsx`
 
 **Interfaces:**
 
-- Produces: `leadTradesOf(team: TeamMapTeamCard, trades?: Record<string, WorkerTrade[]>): WorkerTrade[]` — consumed by Task 4 (unchanged call sites in `team-map-view.tsx`) and by Task 10 (the new `plan-tab.tsx`).
+- Produces: `leadTradesOf(team: TeamMapTeamCard, trades?: Record<string, WorkerTrade[]>): WorkerTrade[]` — consumed by Tasks 4/5 (unchanged call sites in `team-map-view.tsx`) and by Task 8 (the new `plan-tab.tsx`).
+- Produces: `TIER_ACTION_BASE`, `TIER_ACTION`, `SHEET_ACTION` (string constants, byte-identical to the values currently local to `team-map-view.tsx` at lines 107–109 and 136–137) — consumed by Task 5 (unchanged call sites in `team-map-view.tsx`) and by Task 8 (the new `plan-tab.tsx`). Task 8's implementer must import these, not redefine them — `plan-tab.tsx` and `team-map-view.tsx` both use these exact three classes and a second local copy would silently drift from the first on a future edit.
 
-This is a pure relocation — no behavior change, so no new test; the existing `team-map-plan.test.tsx` / `team-map-legibility.test.tsx` cases that exercise the trade-mismatch hint keep passing unmodified since the function's behavior is byte-identical.
+This is a pure relocation — no behavior change, so no new test; the existing `team-map-plan.test.tsx` / `team-map-legibility.test.tsx` / `ui-class-contracts.test.tsx` cases keep passing unmodified since every value is byte-identical to today's.
 
-- [ ] **Step 1: Create the new file**
+- [ ] **Step 1: Create `trade-hint.ts`**
 
 ```ts
 // Spec 365 — leadTradesOf moved out of team-map-view.tsx so both it and the
@@ -367,24 +370,43 @@ export function leadTradesOf(
 }
 ```
 
-- [ ] **Step 2: Remove the local definition and import it instead**
+- [ ] **Step 2: Create `action-classes.ts`**
 
-In `team-map-view.tsx`, delete the `function leadTradesOf(...)` block (lines 210–216) and add to the existing import block:
+```ts
+// Spec 365 — the three action-button token classes team-map-view.tsx and
+// plan-tab.tsx both render (a full-width sheet row, a pill-shaped tier
+// action). Shared here so the two component files never hold two copies of
+// the same class string.
+//
+// Colour-free base — some callers swap the ink per selected state, and a
+// `text-action` baked into TIER_ACTION would fight it in the generated
+// stylesheet (see tests/unit/ui-class-contracts.test.tsx).
+export const TIER_ACTION_BASE =
+  "border-edge bg-card inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
+export const TIER_ACTION = `${TIER_ACTION_BASE} text-action`;
+export const SHEET_ACTION =
+  "border-edge text-ink flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left text-sm";
+```
+
+- [ ] **Step 3: Remove the local definitions in `team-map-view.tsx` and import instead**
+
+Delete the `function leadTradesOf(...)` block (lines 210–216) and the `const TIER_ACTION_BASE` / `const TIER_ACTION` / `const SHEET_ACTION` declarations (lines 107–109 and 136–137) — leave every OTHER local constant (`TIER_HEADING`, `TIER_BOX`, `TIER_ACTION_PRIMARY`, `SHEET_PRIMARY`, `SHEET_DANGER`, `INFO_BTN`, `AVATAR`, `CARD`, `STAFF_ROW`, `BADGE`, `CHIP`, `CHIP_EXEMPT`, `TOGGLE`) exactly where they are — only these three move. Add to the existing import block:
 
 ```ts
 import { leadTradesOf } from "@/lib/team-map/trade-hint";
+import { TIER_ACTION_BASE, TIER_ACTION, SHEET_ACTION } from "./action-classes";
 ```
 
-- [ ] **Step 3: Run the full suite**
+- [ ] **Step 4: Run the full suite**
 
-Run: `pnpm exec vitest run tests/unit/team-map-view.test.tsx tests/unit/team-map-plan.test.tsx tests/unit/team-map-legibility.test.tsx tests/unit/team-map-crew-manage.test.tsx tests/unit/team-map-look.test.tsx tests/unit/team-map-gate.test.tsx`
+Run: `pnpm exec vitest run tests/unit/team-map-view.test.tsx tests/unit/team-map-plan.test.tsx tests/unit/team-map-legibility.test.tsx tests/unit/team-map-crew-manage.test.tsx tests/unit/team-map-look.test.tsx tests/unit/team-map-gate.test.tsx tests/unit/ui-class-contracts.test.tsx`
 Expected: PASS, unchanged (pure relocation).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/team-map/trade-hint.ts src/components/features/team-map/team-map-view.tsx
-git commit -m "refactor(team-map): extract leadTradesOf to its own module"
+git add src/lib/team-map/trade-hint.ts src/components/features/team-map/action-classes.ts src/components/features/team-map/team-map-view.tsx
+git commit -m "refactor(team-map): extract leadTradesOf and shared action-button classes to their own modules"
 ```
 
 ---
@@ -686,7 +708,7 @@ Replace the single `<section aria-label="ทีมช่าง">` block (lines 6
       </section>
 ```
 
-(The plan-tab tray, day-toggle and placing-mode props that were on this section move to `plan-tab.tsx` in Task 10 — for THIS task, delete the `{dayPlans && assignments ? (...) : null}` tray block and the `{...(placing && t.kind === "crew" ? {...} : {})}` spread from the crew-card render entirely; Task 10 re-adds the tab and its own drop-target list. Running the suite after this task alone will show `team-map-plan.test.tsx` failing — that is expected and resolved by Task 10, not before. If ship-unit discipline requires each task to leave `pnpm test` fully green, fold Task 10 into this task's commit instead of shipping U1 before U3; the spec allows either sequencing since it labels all three units "each shippable alone" but does not forbid building them in one sitting before the first ship.)
+(The plan-tab tray, day-toggle and placing-mode props that were on this section move to `plan-tab.tsx` in Tasks 8–9 — for THIS task, delete the `{dayPlans && assignments ? (...) : null}` tray block and the `{...(placing && t.kind === "crew" ? {...} : {})}` spread from the crew-card render entirely; Tasks 8–9 re-add the tab and its own drop-target list. Running the suite after this task alone will show `team-map-plan.test.tsx` failing — that is expected and resolved by Task 8, not before. This is a controller-level sequencing call, not a contradiction: build Tasks 1–5 then 8–9 in one sitting before the first ship (no PR opens with `team-map-plan.test.tsx` red); a task reviewer for Task 5 is told in its global-constraints block that this specific failure is expected and out of scope for that review.)
 
 Update `TeamCard`'s firm branch (around line 274) to add the zero-count door, and accept an optional `projectId` prop it needs to build the poster link:
 
@@ -715,7 +737,7 @@ function TeamCard({
 }) {
 ```
 
-(Drop the `placing`/`placingCategoryCode`/`onPlaceHere` props and the placing-mode JSX block entirely — placing now happens only from `plan-tab.tsx`'s own compact list, built in Task 10. If Task 10 has not landed yet in the same sitting, leave these props in place unchanged and only ADD the new branch below, to avoid a half-migrated intermediate state.)
+(Drop the `placing`/`placingCategoryCode`/`onPlaceHere` props and the placing-mode JSX block entirely, in THIS task — placing moves to `plan-tab.tsx`'s own compact list, built in Task 8, which runs after this one. Removing the props now is deliberate, per the sequencing note at Step 2 above: it leaves `tests/unit/team-map-plan.test.tsx` red between this task and Task 8, which is expected and accepted — do not re-add a stub or shim to keep it green in the interim.)
 
 Add, right after the existing member-chips block inside the `expanded` branch (or, more simply, as a sibling condition alongside the existing `subtitle`/`Icon` logic near the top of the card, since a zero-member firm should show its door WITHOUT requiring the card to be expanded first):
 
@@ -742,7 +764,7 @@ Expected: PASS.
 - [ ] **Step 5: Full suite + typecheck**
 
 Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: green except `team-map-plan.test.tsx` (deferred to Task 10 per Step 3's note) — confirm every OTHER failure is fixed (grep remaining files for `ทีมช่าง` region queries and update them the same way: `team-map-gate.test.tsx` if it references the region name anywhere).
+Expected: green except the pre-existing `tests/unit/team-map-plan.test.tsx` (its placing/day-plan-tray assertions now fail because this task deletes that code from `team-map-view.tsx`; Task 8 rebuilds the equivalent behavior in `plan-tab.tsx` and updates or relocates this test then — leave it red in the interim, do not patch it here) — confirm every OTHER failure is fixed (grep remaining files for `ทีมช่าง` region queries and update them the same way: `team-map-gate.test.tsx` if it references the region name anywhere).
 
 - [ ] **Step 6: Commit**
 
@@ -1186,7 +1208,7 @@ git commit -m "feat(team-map): wire the fix-list card into the page, tap-to-expa
 
 **Interfaces:**
 
-- Consumes: `TeamMapDayPlan`, `DayPlanWpItem`, `TeamDayAssignment`, `PlanWpOption` (existing types, unchanged), `TeamMapTeamCard[]` (crews only — the compact drop-target list), `leadTradesOf` (Task 3).
+- Consumes: `TeamMapDayPlan`, `DayPlanWpItem`, `TeamDayAssignment`, `PlanWpOption` (existing types, unchanged), `TeamMapTeamCard[]` (crews only — the compact drop-target list), `leadTradesOf` and `TIER_ACTION_BASE`/`TIER_ACTION`/`SHEET_ACTION` (Task 3 — import from `@/lib/team-map/trade-hint` and `./action-classes`, do not redefine).
 - Produces:
 
 ```tsx
@@ -1371,18 +1393,13 @@ import type { TeamMapTeamCard } from "@/lib/team-map/build-team-map";
 import { TRADE_MISMATCH_HINT } from "@/lib/i18n/labels";
 import { INLINE_ERROR } from "@/lib/ui/classes";
 import { useToast } from "@/lib/ui/use-toast";
+import { TIER_ACTION_BASE, TIER_ACTION, SHEET_ACTION } from "./action-classes";
 
 export interface PlanWpOption {
   id: string;
   code: string;
   name: string;
 }
-
-const TIER_ACTION_BASE =
-  "border-edge bg-card inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium";
-const TIER_ACTION = `${TIER_ACTION_BASE} text-action`;
-const SHEET_ACTION =
-  "border-edge text-ink flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left text-sm";
 
 export function PlanTab({
   projectId,
