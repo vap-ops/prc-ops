@@ -8,6 +8,12 @@
       "port": 3000
     },
     {
+      "name": "363tabs-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev", "--port", "3011"],
+      "port": 3011
+    },
+    {
       "name": "prc-ops worker (PDF reports — one-shot job, exits when queue empty)",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],

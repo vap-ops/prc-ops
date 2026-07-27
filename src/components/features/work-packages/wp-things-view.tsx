@@ -95,12 +95,18 @@ function Row({
 
   // An issue's write controls belong to exactly ONE of its rendered rows — a
   // partly-returned issue appears twice and both are readings of one record.
-  const owns = showsIssueActions(row, group);
+  // The detail is the เบิกของ tab's issued-line content, moved wholesale — so it
+  // keeps that tab's gate wholesale too. The tab existed only under `!readOnly`,
+  // which means the read-only viewer never saw the issue's unit cost or its
+  // receipt state either; rendering them here would be a quiet ADDITION for that
+  // role, not the re-homing this unit is. `owns` then decides WHICH of an issue's
+  // rendered rows carries it, so a partly-returned issue shows it once.
+  const showsDetail = canAct && showsIssueActions(row, group);
 
   return (
     <div className="border-edge border-b px-1 py-2.5 last:border-b-0">
       <div className="flex min-h-11 w-full items-center gap-3">{body}</div>
-      {owns ? (
+      {showsDetail ? (
         <div className="mt-1.5 flex flex-col gap-2 pl-8">
           <span className="text-ink-secondary text-meta">
             ต้นทุน {baht(row.unitCost)} ฿/{row.unit}
@@ -114,7 +120,7 @@ function Row({
               </>
             ) : null}
           </span>
-          {canAct ? <WpThingIssueActions issue={row} /> : null}
+          <WpThingIssueActions issue={row} />
         </div>
       ) : null}
     </div>

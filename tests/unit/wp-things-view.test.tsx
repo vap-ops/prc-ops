@@ -257,4 +257,16 @@ describe("WpThingsView — the issue row detail (the re-homed เบิกขอ
     expect(screen.queryByRole("button", { name: STORE_FIX_WRONG_ENTRY_LABEL })).toBeNull();
     expect(screen.queryByRole("button", { name: STORE_RETURN_TO_STORE_LABEL })).toBeNull();
   });
+
+  it("withholds the issue COST from the read-only viewer too", () => {
+    // The whole detail is the เบิกของ tab's content, and that tab rendered only
+    // under !readOnly — so procurement never saw the unit cost or the receipt
+    // state. Showing them here would be a quiet addition for that role rather
+    // than the re-homing this unit is. Caught by an SSR probe, not by a test.
+    renderView({ requests: [], issues: withReceiver }, { canAct: false });
+    expect(screen.queryByText(/ต้นทุน/)).toBeNull();
+    expect(screen.queryByText(/รอรับ/)).toBeNull();
+    // The row itself still renders — it is the read-only "where is my stuff".
+    expect(screen.getByText(/ท่อ PVC/)).toBeInTheDocument();
+  });
 });
