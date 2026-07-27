@@ -21,8 +21,21 @@ vi.mock("@/components/features/purchasing/self-purchase-form", () => ({
   ),
 }));
 vi.mock("@/components/features/store/wp-issue-stock", () => ({
-  WpIssueStock: ({ initialCatalogItemId }: { initialCatalogItemId?: string }) => (
-    <div data-testid="form-issue">issue:{initialCatalogItemId ?? "none"}</div>
+  // The mock exposes `embedded` on purpose: un-embedded, this component renders
+  // its OWN trigger + BottomSheet + issues list, so inside the need-sheet the SA
+  // would face a second button opening a third nested sheet. A mock that hid the
+  // prop would keep that integration bug invisible — which is exactly how it got
+  // written in the first place.
+  WpIssueStock: ({
+    initialCatalogItemId,
+    embedded,
+  }: {
+    initialCatalogItemId?: string;
+    embedded?: boolean;
+  }) => (
+    <div data-testid="form-issue" data-embedded={embedded ? "yes" : "no"}>
+      issue:{initialCatalogItemId ?? "none"}
+    </div>
   ),
 }));
 
@@ -200,5 +213,17 @@ describe("WpNeedSheet — changing the item invalidates the path", () => {
     expect(screen.queryByTestId("form-issue")).toBeNull();
     expect(within(sheet).queryByRole("button", { name: /เบิกจากคลัง/ })).toBeNull();
     expect(within(sheet).getByRole("button", { name: /ขอซื้อ/ })).toBeInTheDocument();
+  });
+});
+
+describe("WpNeedSheet — the เบิก path is embedded, not nested", () => {
+  it("renders WpIssueStock in embedded mode", () => {
+    // Without this the SA taps เบิกจากคลัง and meets a SECOND เบิกวัสดุจากคลัง
+    // button opening a third sheet, with the recent-เบิก list stacked between.
+    renderSheet();
+    open();
+    const sheet = pick(/ปูนซีเมนต์/);
+    fireEvent.click(within(sheet).getByRole("button", { name: /เบิกจากคลัง/ }));
+    expect(screen.getByTestId("form-issue")).toHaveAttribute("data-embedded", "yes");
   });
 });

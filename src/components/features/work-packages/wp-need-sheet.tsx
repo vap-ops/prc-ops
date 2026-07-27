@@ -165,6 +165,7 @@ export function WpNeedSheet({
                       issues={issues}
                       categories={categories}
                       initialCatalogItemId={itemId}
+                      embedded
                       {...(scopedRelation ? { scopedRelation } : {})}
                       {...(membershipsByItem ? { membershipsByItem } : {})}
                     />
