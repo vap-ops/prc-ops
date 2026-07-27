@@ -61,7 +61,7 @@ export type WpTimelineRow =
   | (RowBase & { kind: "issue"; item: string; qty: number; unit: string })
   | (RowBase & { kind: "return"; item: string; qty: number; unit: string })
   | (RowBase & { kind: "rework"; event: string })
-  | (RowBase & { kind: "status"; from: string | null; to: string | null; round: number | null })
+  | (RowBase & { kind: "status"; from: string | null; to: string | null })
   | (RowBase & { kind: "plan"; label: string });
 
 export interface WpTimelineDay {
@@ -75,7 +75,6 @@ export interface WpTimelineStatusRow {
   from_status: string | null;
   to_status: string | null;
   actor_id: string | null;
-  rework_round: number | null;
 }
 
 export interface WpTimelineInput {
@@ -265,7 +264,6 @@ export function buildWpTimeline(input: WpTimelineInput): WpTimelineDay[] {
         actor: nameOf(input.names, t.actor_id),
         from: t.from_status,
         to: t.to_status,
-        round: t.rework_round,
       }),
     ),
   ];
