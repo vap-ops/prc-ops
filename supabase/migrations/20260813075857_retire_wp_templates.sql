@@ -1,0 +1,76 @@
+-- Retire spec 142 U5 — `wp_templates` + `apply_wp_template`.
+--
+-- ⚠️ DESTRUCTIVE (DROP TABLE + DROP FUNCTION) — break-glass Procedure B.
+-- Composed by CC; Floor 1 (pg_dump) and Floor 2 (preview-branch rehearsal) are
+-- operator-run and non-delegable. Do not `db:push` this file outside that
+-- procedure.
+--
+-- WHY (all verified against the live DB 2026-07-27, not from the migration file):
+--
+--   * NEVER USED. `apply_wp_template` has zero callers — zero in `src/` (only the
+--     generated `database.types.ts` mentions it), zero in the DB (no other
+--     function's body references it), zero views. The table has ZERO FK
+--     dependents. It has never been applied to a live project either: the only
+--     project whose codes look template-shaped (รีโนเวทบูท (BTNC), WP-01…WP-06)
+--     carries hand-entered work — "ขนบูทไปวางที่ร้าน", "ยึดเสาให้แข็งแรง" — not
+--     the seeded renovation phase names.
+--
+--   * THE TAXONOMY IS DEAD. The seed encodes 28 generic phases keyed on the
+--     `project_type` enum. The breakdown axis the app actually uses is
+--     `work_categories` — 52 live rows, BOQ-derived, two levels (W01…W09 +
+--     W0101…), hung off `work_packages.category_id`. Exactly 4 of the 28
+--     template names match a live category by name. It is a second, abandoned
+--     taxonomy at the wrong grain on the wrong axis.
+--
+--   * WIRING IT IN WOULD REGRESS THE DATA. `apply_wp_template` INSERTs straight
+--     into `work_packages`, bypassing `create_work_package`. So it cannot set
+--     `category_id` (spec 336 made that a required argument; the
+--     WP-single-category rule is locked doctrine), cannot set `is_group` /
+--     `parent_id`, and mints `WP-01`-style codes that spec 336 RETIRED in favour
+--     of category-derived ones (`W05-01`, via `suggest_work_package_code`).
+--
+--   * IT HAS ALREADY MISLED SOMEONE ONCE. The spec-361 master-data hub's
+--     เทมเพลตแผนจัดหา tile counted `wp_templates` while its door listed
+--     `supply_plans where is_template`. A fresh-eyes pass caught it; the warning
+--     comment is still at `src/lib/purchasing/master-data-counts.ts:4`. A table
+--     that greps as a working feature keeps buying that mistake.
+--
+-- The job it was meant to do is already done better by the mechanism the
+-- operator actually uses: `clone_work_packages` (spec 142 U6 — copy a REAL prior
+-- project, which beats generic phases now that the category tree is real) and the
+-- CSV/Sheets paste path.
+--
+-- This does NOT cancel the spec 231 / S10-U6 estimate-template work. That unit
+-- planned to "promote `wp_templates` with `work_category_id`" — i.e. it already
+-- judged the table unusable as-is. Its own first sub-spec (236) landed
+-- `boq_template` / `boq_line`, which are the live, correctly-shaped reusable
+-- template primitives (both currently 0 rows). S10-U6 should build there; it
+-- inherits nothing from this carcass but a name. The spec rows are updated in
+-- this PR to say so.
+--
+-- BACKOUT: the table is pure migration-seeded reference data — all 28 rows are
+-- literals in `20260730000000_wp_templates.sql`, which stays in the repo. Re-
+-- creating table + function + seed is a copy-paste of that file. No user-entered
+-- data is destroyed by this migration.
+
+-- AFTER APPLY (both steps, or the repo disagrees with the DB):
+--   1. `pnpm db:types` — regenerates BOTH `src/lib/db/database.types.ts` and the
+--      vendored `worker/src/database.types.ts`; until it runs they still declare
+--      `wp_templates` / `apply_wp_template`, which no longer exist.
+--      (`tests/unit/db-types-sync.test.ts` only compares the two copies to each
+--      other, so it stays green either way — it will NOT catch a skipped regen.)
+--   2. `pnpm db:test` — 72-wp-templates.test.sql is deleted in this PR and
+--      76-lock-completed-project.test.sql drops to plan(9); both land at merge,
+--      i.e. BEFORE this file is pushed, so the suite never sees a DB and a test
+--      set that disagree.
+--
+-- No CASCADE, deliberately: nothing is known to depend on either object, so a
+-- bare DROP fails loudly if that turns out to be wrong instead of quietly taking
+-- a dependent with it.
+
+-- The function reads the table, so it goes first.
+drop function if exists public.apply_wp_template(uuid);
+
+-- Drops the "wp_templates readable by authenticated" SELECT policy and the
+-- `authenticated` SELECT grant with it.
+drop table if exists public.wp_templates;

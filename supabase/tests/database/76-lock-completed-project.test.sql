@@ -1,12 +1,12 @@
 begin;
-select plan(10);
+select plan(9);
 
 -- ============================================================================
 -- Spec 145 U1 — lock new work on a completed/archived project.
 --   project_is_open(uuid) → status in (active, on_hold).
 --   A BEFORE INSERT trigger on work_packages blocks inserts into a closed
 --   project (P0002) — one chokepoint over every WP-creation path (manual /
---   template / copy / CSV). Reopen-for-defect is an UPDATE, so warranty rework
+--   copy / CSV). Reopen-for-defect is an UPDATE, so warranty rework
 --   still works on a completed project (the key carve-out).
 --
 -- Setup seeds WPs while the project is still active, THEN flips it to completed
@@ -71,10 +71,10 @@ select throws_ok(
   $$ select public.clone_work_packages('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc') $$,
   'P0002', null, 'clone into a completed project is blocked');
 
--- B.4 apply_wp_template on a completed project → blocked.
-select throws_ok(
-  $$ select public.apply_wp_template('cccccccc-cccc-cccc-cccc-cccccccccccc') $$,
-  'P0002', null, 'apply_wp_template is blocked on a completed project');
+-- (The former B.4 covered apply_wp_template on a completed project. That RPC and
+--  wp_templates were retired in 20260813075857_retire_wp_templates.sql — never
+--  used, and superseded by work_categories + clone_work_packages. The trigger is
+--  on work_packages, so it still covers every surviving creation path.)
 
 -- C. WARRANTY CARVE-OUT: reopen-for-defect on a completed project's complete WP
 --    STILL works (it's an UPDATE → trigger is INSERT-only).

@@ -70,7 +70,10 @@ null)` → void. Unknown id → `22023`; same arg validation.
   ships the `line_status` column + enum; nothing in U1 drives it past the `draft` default.
 - The estimate **authoring UI** — S10-U2. U1 is schema + RPCs only.
 - **Assemblies** (`kind = assembly` + BOM + explode) — S10-U3/U4.
-- **`wp_templates.work_category_id`** promotion + `clone_work_packages` reuse — S10-U6.
+- **WP seeding from a `boq_template`** + `clone_work_packages` reuse — S10-U6. (Was
+  "`wp_templates.work_category_id` promotion"; that table was **retired unused**
+  2026-07-27 — `20260813075857_retire_wp_templates.sql`. U6 builds on the
+  `boq_template` / `boq_line` pair this spec landed.)
 - Wiring estimate rates into `wp_profit`/GL; importing the BuildAll BOQ as live data (ADR §Out of
   scope).
 

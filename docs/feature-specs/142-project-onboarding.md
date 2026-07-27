@@ -17,15 +17,39 @@ edits existing rows, nothing more. This spec gives projects a front door.
 
 ## Unit map
 
-| Unit   | Scope                                                                                                             | Status    |
-| ------ | ----------------------------------------------------------------------------------------------------------------- | --------- |
-| **U1** | DB foundation: `create_project` RPC (PM+super) · auto-add creator as `project_members` · `suggest_project_code()` | THIS UNIT |
-| U2     | "New project" stub modal on `/projects` → `create_project` → redirect to detail                                   | later     |
-| U3     | Onboarding checklist on the project detail page (derived state, deep-links, dismiss)                              | later     |
-| U4     | In-app "add work package" form + `create_work_package` RPC (baseline WP seeding)                                  | later     |
-| U5     | WP template by `project_type` (`wp_templates` + `apply_wp_template`)                                              | later     |
-| U6     | Copy work packages from an existing project (`clone_work_packages`)                                               | later     |
-| U7     | CSV import surfaced in the UI (reuse `src/lib/wp-import/parse.ts`)                                                | later     |
+| Unit   | Scope                                                                                                             | Status                 |
+| ------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **U1** | DB foundation: `create_project` RPC (PM+super) · auto-add creator as `project_members` · `suggest_project_code()` | THIS UNIT              |
+| U2     | "New project" stub modal on `/projects` → `create_project` → redirect to detail                                   | later                  |
+| U3     | Onboarding checklist on the project detail page (derived state, deep-links, dismiss)                              | later                  |
+| U4     | In-app "add work package" form + `create_work_package` RPC (baseline WP seeding)                                  | later                  |
+| U5     | ~~WP template by `project_type` (`wp_templates` + `apply_wp_template`)~~                                          | **RETIRED 2026-07-27** |
+| U6     | Copy work packages from an existing project (`clone_work_packages`)                                               | later                  |
+| U7     | CSV import surfaced in the UI (reuse `src/lib/wp-import/parse.ts`)                                                | later                  |
+
+### U5 was retired, not built (2026-07-27)
+
+`wp_templates` (28 seeded rows) and `apply_wp_template` shipped as the DB half of
+U5 and then sat for the rest of the project with **no UI door ever built** — zero
+`src/` readers, zero DB callers, and never applied to a single live project.
+Retired in `20260813075857_retire_wp_templates.sql`. Three reasons, all checked
+against the live DB rather than this document:
+
+- **The taxonomy is dead.** U5 keyed generic phases off the `project_type` enum.
+  The axis the app actually uses is `work_categories` — 52 live rows, BOQ-derived,
+  two levels — hung off `work_packages.category_id`. Only 4 of the 28 template
+  names match a live category.
+- **Applying it would now corrupt data.** `apply_wp_template` INSERTs straight
+  into `work_packages`, bypassing `create_work_package`, so it cannot set
+  `category_id` (spec 336 made it required; WP-single-category is locked doctrine)
+  and it mints `WP-01` codes that **spec 336 retired** for category-derived ones.
+- **The need is already met.** U6 (`clone_work_packages`) copies a real prior
+  project, which beats generic phases now that the category tree is real, and U7's
+  CSV/Sheets paste covers the rest. Those are the paths in actual use.
+
+The reusable-template idea itself is **not** cancelled — it lives on in spec 231
+/ S10-U6, which should build on the already-live `boq_template` / `boq_line`
+(spec 236) rather than on this table.
 
 A separate spec (**143**) covers the operator's access change — project managers
 see only projects they're involved with; `project_coordinator` sees all. That is

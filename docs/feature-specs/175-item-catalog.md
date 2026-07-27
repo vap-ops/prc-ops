@@ -46,7 +46,8 @@ viewable source of item identity.
   - unique on `(base_item, coalesce(spec_attrs, ''))` — one identity per item (no drift dups)
 - **RLS**: enabled; `revoke all from anon, authenticated`; `grant select to authenticated`;
   one SELECT policy `using(true)`. **No write policy** — seeded by migration / service-role,
-  exactly like `wp_templates` (reference data). Create/edit RPC is a later unit.
+  exactly like `wp_templates` (reference data) did — that table has since been retired
+  unused (2026-07-27); the posture it set here is unaffected. Create/edit RPC is a later unit.
 - **Seed**: the 72 deduped items in `docs/inventory-store/seed-catalog.csv`, derived from the
   operator's previous-site purchase sheet. Units normalised to `COMMON_UNITS` canonical where
   they match (กก.→กิโลกรัม, ม.→เมตร); non-stock lines (freight/service/tax) are NOT items.
@@ -99,7 +100,7 @@ existing items is U3.
 - **Migration `20260802000000`:** `create_catalog_item(category, base_item, spec_attrs,
 unit, stockable, note) returns uuid` — SECURITY DEFINER, role-gated to
   pm/super/procurement/director (the `BACK_OFFICE_ROLES` set), inline like
-  `apply_wp_template`. Trims inputs (empty spec/note → NULL); length caps
+  `apply_wp_template` (since retired, 2026-07-27). Trims inputs (empty spec/note → NULL); length caps
   (base ≤200, unit ≤40, spec ≤200, note ≤1000) → `22023`; the unique-identity index
   raises `23505`. `catalog_items` stays write-locked (no INSERT grant / no write
   policy) — the RPC is the only write path. `revoke … from anon` (the Supabase

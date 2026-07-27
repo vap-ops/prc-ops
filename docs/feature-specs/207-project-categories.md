@@ -662,7 +662,10 @@ IS NULL` arm grants EVERY bound firm the project MASTER for any project it has e
    **Recommendation:** ship v1 free-form (operator types code/name per project) — the
    minimum, matches `equipment_categories`, avoids a global seed table now. Add an optional
    "apply suggested categories for this project_type" seeding action LATER as its own unit
-   (mirroring the dormant `wp_templates` apply pattern keyed by `project_type`), so the
+   (⚠️ this originally said "mirroring the dormant `wp_templates` apply pattern keyed by
+   `project_type`" — that table was **retired unused** 2026-07-27 precisely because the
+   `project_type` axis lost to `work_categories`; treat it as a cautionary precedent, not
+   a model to copy), so the
    starter list is a convenience, never a constraint. **Options:** free-form-only (rec) ·
    per-project_type seed catalog now.
 
