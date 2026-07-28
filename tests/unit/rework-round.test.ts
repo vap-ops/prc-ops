@@ -9,8 +9,11 @@ import {
   reworkSourcesFromAuditRows,
   reworkRoundTag,
   afterFixRoundHeading,
+  afterFixSectionLabel,
+  photoSectionLabel,
   type AfterFixRoundGroup,
 } from "@/lib/photos/rework-round";
+import { AFTER_FIX_LEGACY_LABEL, PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 import type { PhotoLogRow } from "@/lib/photos/current-photos";
 
 function photo(id: string, round: number): PhotoLogRow {
@@ -115,5 +118,63 @@ describe("reworkSourcesFromAuditRows", () => {
       { payload: null },
     ]);
     expect(map.size).toBe(0);
+  });
+});
+
+// Operator directive 2026-07-28 — "hide rework and only show it if there is a rework
+// rejection". The inventory found rework is already conditional everywhere EXCEPT the
+// after_fix history section, which is gated only on "this WP has after_fix photos".
+// That put the หลังแก้ไข name on 21 WPs that were never sent back (151 photos, all
+// round 0 — the pre-spec-353 free-capture legacy). Operator's call: keep the photos,
+// drop the rework name. Round is the discriminator because it is per-GROUP: a WP that
+// really did rework can still carry a round-0 legacy group, and that group is still
+// not rework evidence.
+describe("afterFixSectionLabel — round 0 is legacy, not rework (2026-07-28)", () => {
+  it("names a round-0 group plainly, with no rework vocabulary", () => {
+    expect(afterFixSectionLabel(0)).toBe(AFTER_FIX_LEGACY_LABEL);
+    expect(afterFixSectionLabel(0)).not.toBe(PHOTO_PHASE_LABEL.after_fix);
+    expect(afterFixSectionLabel(0)).not.toContain("แก้ไข");
+  });
+
+  it("names every real rework round หลังแก้ไข", () => {
+    for (const round of [1, 2, 3, 7]) {
+      expect(afterFixSectionLabel(round)).toBe(PHOTO_PHASE_LABEL.after_fix);
+    }
+  });
+
+  it("composes with afterFixRoundHeading — legacy stays bare, real rounds keep รอบ N", () => {
+    expect(afterFixRoundHeading(afterFixSectionLabel(0), 0)).toBe(AFTER_FIX_LEGACY_LABEL);
+    expect(afterFixRoundHeading(afterFixSectionLabel(2), 2)).toBe(
+      `${PHOTO_PHASE_LABEL.after_fix} — ${reworkRoundTag(2)}`,
+    );
+  });
+});
+
+// Sibling sweep, same session: after the capture zone, the review detail and the
+// ประวัติ timeline, a FOURTH surface named a photo by its phase — the removal trace
+// ("หลังแก้ไข #4 · ลบโดย …"). Latent today (prod holds zero removed after_fix rows),
+// but it would re-introduce the exact vocabulary on the next deletion. Rather than a
+// fourth copy of the same branch, the phase→name rule lives here once.
+describe("photoSectionLabel — one home for the phase→name rule", () => {
+  it("routes ONLY after_fix through the round; every other phase keeps its own label", () => {
+    for (const round of [0, 1, 3]) {
+      expect(photoSectionLabel("before", round)).toBe(PHOTO_PHASE_LABEL.before);
+      expect(photoSectionLabel("during", round)).toBe(PHOTO_PHASE_LABEL.during);
+      expect(photoSectionLabel("after", round)).toBe(PHOTO_PHASE_LABEL.after);
+      expect(photoSectionLabel("defect", round)).toBe(PHOTO_PHASE_LABEL.defect);
+    }
+  });
+
+  it("names after_fix by the round, agreeing with afterFixSectionLabel", () => {
+    expect(photoSectionLabel("after_fix", 0)).toBe(AFTER_FIX_LEGACY_LABEL);
+    expect(photoSectionLabel("after_fix", 1)).toBe(PHOTO_PHASE_LABEL.after_fix);
+    for (const round of [0, 2, 5]) {
+      expect(photoSectionLabel("after_fix", round)).toBe(afterFixSectionLabel(round));
+    }
+  });
+
+  it("degrades an unknown phase to itself rather than blank", () => {
+    // The enum can grow; a silent empty heading would hide that photos exist.
+    expect(photoSectionLabel("brand_new_phase", 0)).toBe("brand_new_phase");
   });
 });

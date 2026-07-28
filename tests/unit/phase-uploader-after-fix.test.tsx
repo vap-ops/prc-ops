@@ -39,6 +39,7 @@ import {
   type PhaseData,
 } from "@/app/projects/[projectId]/work-packages/[workPackageId]/phase-uploader";
 import { PHASES } from "@/lib/photos/phases";
+import { AFTER_FIX_LEGACY_LABEL, PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 
 function renderZone(
   props: {
@@ -114,6 +115,41 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307, spec 216/353)", ()
     renderZone({ showAfterFixCapture: true, currentReworkRound: 2 });
     const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
     expect(afterFix).toHaveTextContent("รอบ 2");
+  });
+});
+
+// Operator directive 2026-07-28 — "hide rework and only show it if there is a rework
+// rejection". The history strip was the one surface still leaking the rework name onto
+// WPs that were never sent back: 21 of them, 151 pre-spec-353 free-capture photos, all
+// at rework_round 0. The photos stay (they are real evidence of real work); the rework
+// vocabulary — the label AND the redo icon — goes.
+describe("after_fix history is named by round, not by phase (2026-07-28)", () => {
+  const legacyPhotos = [
+    { id: "a1", url: "/x.jpg", seq: 1, timeLabel: "22 ก.ค.", uploaderName: null },
+  ];
+
+  it("a never-reworked WP shows the photos under a plain name, with no รอบ and no หลังแก้ไข", () => {
+    renderZone({
+      showAfterFixCapture: false,
+      showAfterFixHistory: true,
+      currentReworkRound: 0,
+      afterFixPhotos: legacyPhotos,
+    });
+    expect(screen.getByText(AFTER_FIX_LEGACY_LABEL)).toBeInTheDocument();
+    expect(screen.queryByText(PHOTO_PHASE_LABEL.after_fix)).not.toBeInTheDocument();
+    // the evidence itself is NOT hidden — that was the whole point of keeping it
+    expect(screen.getByText("#1")).toBeInTheDocument();
+  });
+
+  it("a genuinely reworked WP keeps the หลังแก้ไข name", () => {
+    renderZone({
+      showAfterFixCapture: false,
+      showAfterFixHistory: true,
+      currentReworkRound: 2,
+      afterFixPhotos: legacyPhotos,
+    });
+    expect(screen.getByText(PHOTO_PHASE_LABEL.after_fix)).toBeInTheDocument();
+    expect(screen.queryByText(AFTER_FIX_LEGACY_LABEL)).not.toBeInTheDocument();
   });
 });
 

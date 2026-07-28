@@ -19,12 +19,12 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Check, Lock, RotateCcw } from "lucide-react";
+import { Camera, Check, Images, Lock, RotateCcw } from "lucide-react";
 import { BUTTON_CAPTURE, INLINE_ERROR } from "@/lib/ui/classes";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
-import { reworkRoundTag } from "@/lib/photos/rework-round";
+import { afterFixSectionLabel, reworkRoundTag } from "@/lib/photos/rework-round";
 import type { PhotoPhase } from "@/lib/photos/transitions";
 import { CaptureSheet, type CapturePairing, type SheetPhoto } from "./capture-sheet";
 import { removePhoto } from "./actions";
@@ -378,15 +378,23 @@ export function PhotoCaptureZone({
 
       {/* Spec 353: read-only หลังแก้ไข history — a WP that left its rework cycle
           (submitted / complete) keeps its past after_fix photos visible, but with
-          NO shutter (capture is rework-only). Never renders alongside afterFix. */}
+          NO shutter (capture is rework-only). Never renders alongside afterFix.
+          2026-07-28: the NAME comes from the round, not the phase — a round-0 group
+          is the pre-353 free-capture legacy, never opened by a rework rejection, so
+          it drops the rework vocabulary. The redo icon is part of that vocabulary
+          and goes with it; the photos themselves stay either way. */}
       {afterFixHistory && (
         <div className="border-edge border-t pt-3">
           <div className="mb-2 flex items-center gap-2">
             <span className="border-edge-strong bg-card text-ink-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2">
-              <RotateCcw aria-hidden className="h-4 w-4" />
+              {currentReworkRound >= 1 ? (
+                <RotateCcw aria-hidden className="h-4 w-4" />
+              ) : (
+                <Images aria-hidden className="h-4 w-4" />
+              )}
             </span>
             <h3 className="text-body text-ink font-bold">
-              {afterFixHistory.label}
+              {afterFixSectionLabel(currentReworkRound)}
               <span className="text-meta text-ink-secondary ml-1.5 font-semibold">
                 {afterFixHistory.photos.length} รูป
               </span>

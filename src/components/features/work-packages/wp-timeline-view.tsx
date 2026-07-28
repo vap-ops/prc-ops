@@ -31,10 +31,10 @@ import { timelineFilterOf } from "@/lib/work-packages/wp-timeline";
 import {
   APPROVAL_DECISION_LABEL,
   APPROVAL_REVISION_REASON_LABEL,
-  PHOTO_PHASE_LABEL,
   formatThaiDate,
   formatThaiTime,
 } from "@/lib/i18n/labels";
+import { photoSectionLabel } from "@/lib/photos/rework-round";
 import { CARD } from "@/lib/ui/classes";
 
 const CHIPS: { key: WpTimelineFilter | "all"; label: string }[] = [
@@ -73,14 +73,13 @@ function RowIcon({ kind }: { kind: WpTimelineRow["kind"] }) {
   }
 }
 
-function RowBody({ row }: { row: WpTimelineRow }) {
+function RowBody({ row, wpReworkRound }: { row: WpTimelineRow; wpReworkRound: number }) {
   switch (row.kind) {
     case "photos":
       return (
         <>
           <p className="text-body text-ink">
-            ถ่ายรูป {PHOTO_PHASE_LABEL[row.phase as keyof typeof PHOTO_PHASE_LABEL] ?? row.phase} ·{" "}
-            {row.count} รูป
+            ถ่ายรูป {photoSectionLabel(row.phase, wpReworkRound)} · {row.count} รูป
           </p>
           <p className="text-meta text-ink-secondary">
             {row.actor ? `${row.actor} · ` : ""}
@@ -180,7 +179,14 @@ function statusLabel(v: string | null): string {
   );
 }
 
-export function WpTimelineView({ days }: { days: WpTimelineDay[] }) {
+export function WpTimelineView({
+  days,
+  wpReworkRound,
+}: {
+  days: WpTimelineDay[];
+  /** The WP's current rework cycle — names an after_fix burst (0 = never reworked). */
+  wpReworkRound: number;
+}) {
   const [filter, setFilter] = useState<WpTimelineFilter | "all">("all");
 
   const shown = days
@@ -233,7 +239,7 @@ export function WpTimelineView({ days }: { days: WpTimelineDay[] }) {
                     <RowIcon kind={row.kind} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <RowBody row={row} />
+                    <RowBody row={row} wpReworkRound={wpReworkRound} />
                   </div>
                 </li>
               ))}

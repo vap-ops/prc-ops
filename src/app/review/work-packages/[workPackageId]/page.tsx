@@ -17,6 +17,7 @@ import {
   reworkSourcesFromAuditRows,
   afterFixRoundHeading,
   reworkRoundTag,
+  afterFixSectionLabel,
 } from "@/lib/photos/rework-round";
 import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
 import { DefectFixPairs } from "@/components/features/photos/defect-fix-pairs";
@@ -368,7 +369,11 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                   <PhaseGallery
                     key={`after_fix-${round}`}
                     label={afterFixRoundHeading(
-                      PHOTO_PHASE_LABEL.after_fix,
+                      // 2026-07-28 — the NAME follows the round: a round-0 group was
+                      // never opened by a rework rejection, so it does not carry the
+                      // หลังแก้ไข name on the PM's review either. Same helper as the
+                      // SA's WP detail, so the two surfaces cannot drift.
+                      afterFixSectionLabel(round),
                       round,
                       reworkSourceLabel(reworkSources.get(round)),
                     )}

@@ -26,7 +26,12 @@ import {
 } from "@/lib/catalog/categories";
 import { loadWpCategoryScope } from "@/lib/catalog/wp-category-scope";
 import { latestCreatedAt, PHASES } from "@/lib/photos/phases";
-import { groupAfterFixByRound, afterFixRoundHeading } from "@/lib/photos/rework-round";
+import {
+  groupAfterFixByRound,
+  afterFixRoundHeading,
+  afterFixSectionLabel,
+  photoSectionLabel,
+} from "@/lib/photos/rework-round";
 import { pairDefectPhotos } from "@/lib/photos/defect-pairing";
 import { derivePhaseProgress } from "@/lib/photos/phase-progress";
 import { submitGateReason, TRANSITIONABLE_FROM_STATUSES } from "@/lib/photos/transitions";
@@ -480,7 +485,9 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   const removedTrace = Object.entries(removedByPhase).flatMap(([phase, entries]) =>
     entries.map((r) => ({
       id: r.id,
-      zone: PHOTO_PHASE_LABEL[phase as keyof typeof PHOTO_PHASE_LABEL] ?? phase,
+      // 2026-07-28 — same phase→name rule as every other photo surface: a removed
+      // round-0 after_fix photo is legacy, not rework evidence.
+      zone: photoSectionLabel(phase, wp.rework_round),
       seq: r.seq,
       byName: r.removedBy ? (displayNames.get(r.removedBy) ?? null) : null,
       atLabel: r.removedAt ? formatThaiDateTime(r.removedAt) : null,
@@ -672,7 +679,10 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 <PhaseGallery
                   key={`after_fix-${round}`}
                   label={afterFixRoundHeading(
-                    PHOTO_PHASE_LABEL.after_fix,
+                    // 2026-07-28 — the round names the group, here too. This is the
+                    // READ-ONLY viewer's branch; it was missed on the first pass
+                    // because the capture branch is what a super_admin probe renders.
+                    afterFixSectionLabel(round),
                     round,
                     reworkSourceLabel(reworkSources.get(round)),
                   )}
@@ -756,7 +766,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     {
       key: "history",
       label: "ประวัติ",
-      panel: <WpTimelineView days={timelineDays} />,
+      panel: <WpTimelineView days={timelineDays} wpReworkRound={wp.rework_round} />,
     },
   ];
 

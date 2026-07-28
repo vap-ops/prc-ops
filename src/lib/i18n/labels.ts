@@ -822,6 +822,15 @@ export const PHOTO_PHASE_LABEL: Record<Enums["photo_phase"], string> = {
   defect: "จุดบกพร่อง",
 };
 
+/** Operator directive 2026-07-28 — "hide rework and only show it if there is a rework
+ *  rejection". `after_fix` rows stamped round 0 are the pre-spec-353 free-capture
+ *  legacy: 21 work packages, 151 photos, none of them ever sent back for rework.
+ *  They are real evidence and stay visible, but calling them หลังแก้ไข puts the
+ *  rework vocabulary on a WP where nothing was ever fixed. Round ≥ 1 keeps
+ *  PHOTO_PHASE_LABEL.after_fix; round 0 reads as what it actually is. Used by the
+ *  SA's WP detail and the PM's review detail, so it is single-sourced here. */
+export const AFTER_FIX_LEGACY_LABEL = "รูปเพิ่มเติม";
+
 // Spec 144 / 337 U5 — filing a defect on a finished งานย่อย, which reopens it to
 // งานแก้ไข. Single-sourced once the list's เสร็จแล้ว door joined the WP detail's
 // own control as a second surface.
