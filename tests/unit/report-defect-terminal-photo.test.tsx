@@ -10,7 +10,7 @@
 // A terminal photo must name its reason and offer ลบ — the way out that exists
 // on THIS screen.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -104,5 +104,33 @@ describe("ReportDefectControl — a terminal photo failure must not trap the for
 
     fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
     expect(mockRetry).toHaveBeenCalledWith("ph1");
+  });
+});
+
+// Writing failing test first (mutation showed the banner-clear had NO coverage —
+// removing it kept every test green).
+describe("ReportDefectControl — a stale attach-failure banner must not contradict a terminal tile", () => {
+  it("clears the 'แตะที่รูปเพื่อลองใหม่' banner when a new file is selected", async () => {
+    mockDefectPhotos.photos = [{ ...terminalPhoto, status: "ready", terminal: false }];
+    mockDefectPhotos.attachAll = vi.fn(async () => 1);
+    render(<ReportDefectControl projectId="p1" workPackageId="wp1" canAttachPhotos />);
+    fireEvent.click(screen.getByRole("button", { name: /รายงานข้อบกพร่อง/ }));
+    fireEvent.change(screen.getByLabelText("รายละเอียดข้อบกพร่อง"), {
+      target: { value: "รอยร้าวที่ผนัง" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "เปิดงานใหม่" }));
+
+    const banner = await screen.findByText(/แตะที่รูปเพื่อลองใหม่/);
+    expect(banner).toBeInTheDocument();
+
+    // The next selection can land a REFUSED photo, whose tile offers no retry at
+    // all — leaving "tap the photo to retry" on screen above it would be a lie.
+    fireEvent.change(screen.getByLabelText(/แนบรูป/), {
+      target: { files: [new File(["x"], "b.jpg", { type: "image/jpeg" })] },
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByText(/แตะที่รูปเพื่อลองใหม่/)).not.toBeInTheDocument(),
+    );
   });
 });
