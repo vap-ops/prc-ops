@@ -148,6 +148,13 @@ renders `เข้าคิวเมื่อ` in that same timezone, and the ap
     **term** of that badge moves — it is a sum of three queues (WP + contractor-bank +
     worker-bank).
 
+  **Plan, measured:** the `distinct on` seq-scans `approvals` (189 rows live) and the
+  zone's existence check is a bitmap index scan on `audit_log`; `work_packages` uses
+  `work_packages_status_updated_idx`. Fine at pilot scale, and the same shape `/review`
+  already ran in JS. If `approvals` grows an order of magnitude, correlate the CTE to the
+  pending set with a `LATERAL` instead — in a NEW migration, never by editing `075864`
+  (an applied migration re-pushed silently no-ops).
+
   ⚠️ **The counts are RLS-scoped per viewer, by design and worth knowing.** Probed live
   2026-07-28: `project_manager` "Moo" sees **0** of the 70 — `can_see_project` consults
   `project_members` for `project_manager` / `site_admin` / `site_owner` / `auditor`, and
