@@ -1,0 +1,11 @@
+-- Spec 370 U1 (part 2) — column grants for the new attribution columns.
+--
+-- equipment_usage_logs is a COLUMN-GRANTED table (ADR 0055 posture): authenticated
+-- holds SELECT on named non-money columns only, daily_rate_snapshot is deliberately
+-- excluded, and there is NO table-level INSERT (RPC-only writes). A new column on
+-- such a table is INVISIBLE to the app until granted — PostgREST refuses the read
+-- outright (the worker_level_rates / spec 367 U1 precedent). 075861 added `via` and
+-- `borrower_worker_id` without grants; the 368 U4 store view and 363 U7 WP section
+-- read both, so grant them here. The money wall stays: no daily_rate_snapshot
+-- grant, pinned in the negative direction by 370-equipment-scan-schema.test.sql.
+grant select (via, borrower_worker_id) on public.equipment_usage_logs to authenticated;

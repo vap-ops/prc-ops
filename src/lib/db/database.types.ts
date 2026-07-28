@@ -2682,42 +2682,55 @@ export type Database = {
       }
       equipment_usage_logs: {
         Row: {
+          borrower_worker_id: string | null
           checked_in_on: string | null
           checked_out_on: string
           correction_reason: string | null
           created_at: string
-          daily_rate_snapshot: number
+          daily_rate_snapshot: number | null
           entered_by: string
           id: string
           item_id: string
           superseded_by: string | null
+          via: Database["public"]["Enums"]["equipment_usage_via"] | null
           work_package_id: string
         }
         Insert: {
+          borrower_worker_id?: string | null
           checked_in_on?: string | null
           checked_out_on: string
           correction_reason?: string | null
           created_at?: string
-          daily_rate_snapshot: number
+          daily_rate_snapshot?: number | null
           entered_by: string
           id?: string
           item_id: string
           superseded_by?: string | null
+          via?: Database["public"]["Enums"]["equipment_usage_via"] | null
           work_package_id: string
         }
         Update: {
+          borrower_worker_id?: string | null
           checked_in_on?: string | null
           checked_out_on?: string
           correction_reason?: string | null
           created_at?: string
-          daily_rate_snapshot?: number
+          daily_rate_snapshot?: number | null
           entered_by?: string
           id?: string
           item_id?: string
           superseded_by?: string | null
+          via?: Database["public"]["Enums"]["equipment_usage_via"] | null
           work_package_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "equipment_usage_logs_borrower_worker_id_fkey"
+            columns: ["borrower_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "equipment_usage_logs_entered_by_fkey"
             columns: ["entered_by"]
@@ -2744,6 +2757,48 @@ export type Database = {
             columns: ["work_package_id"]
             isOneToOne: false
             referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_usage_photos: {
+        Row: {
+          created_at: string
+          id: string
+          log_id: string
+          phase: Database["public"]["Enums"]["equipment_photo_phase"]
+          storage_path: string
+          taken_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          log_id: string
+          phase: Database["public"]["Enums"]["equipment_photo_phase"]
+          storage_path: string
+          taken_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          log_id?: string
+          phase?: Database["public"]["Enums"]["equipment_photo_phase"]
+          storage_path?: string
+          taken_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_usage_photos_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_usage_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_usage_photos_taken_by_fkey"
+            columns: ["taken_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -9333,11 +9388,21 @@ export type Database = {
       can_see_wp: { Args: { p_work_package_id: string }; Returns: boolean }
       certify_client_billing: { Args: { p_id: string }; Returns: string }
       check_in_equipment: {
-        Args: { p_date: string; p_log: string }
+        Args: {
+          p_date: string
+          p_log: string
+          p_via?: Database["public"]["Enums"]["equipment_usage_via"]
+        }
         Returns: string
       }
       check_out_equipment: {
-        Args: { p_date: string; p_item: string; p_wp: string }
+        Args: {
+          p_borrower_worker_id?: string
+          p_date: string
+          p_item: string
+          p_via?: Database["public"]["Enums"]["equipment_usage_via"]
+          p_wp: string
+        }
         Returns: string
       }
       claim_client_invite: { Args: { p_token: string }; Returns: undefined }
@@ -11616,6 +11681,7 @@ export type Database = {
         | "returned"
         | "maintenance"
         | "lost"
+      equipment_photo_phase: "out" | "in"
       equipment_rate_period: "monthly" | "daily"
       equipment_status:
         | "available"
@@ -11626,6 +11692,7 @@ export type Database = {
         | "lost"
         | "disposed"
       equipment_tracking: "unit" | "bulk"
+      equipment_usage_via: "scan" | "search" | "wp_tab" | "store"
       feedback_author_kind: "reporter" | "operator" | "agent"
       feedback_status: "open" | "in_progress" | "done" | "declined"
       feedback_type: "bug" | "feature"
@@ -12072,6 +12139,7 @@ export const Constants = {
         "maintenance",
         "lost",
       ],
+      equipment_photo_phase: ["out", "in"],
       equipment_rate_period: ["monthly", "daily"],
       equipment_status: [
         "available",
@@ -12083,6 +12151,7 @@ export const Constants = {
         "disposed",
       ],
       equipment_tracking: ["unit", "bulk"],
+      equipment_usage_via: ["scan", "search", "wp_tab", "store"],
       feedback_author_kind: ["reporter", "operator", "agent"],
       feedback_status: ["open", "in_progress", "done", "declined"],
       feedback_type: ["bug", "feature"],

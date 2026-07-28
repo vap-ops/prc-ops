@@ -3,7 +3,8 @@
 // Spec 202 U2 — equipment check-out / check-in on the WP page. Authorization is
 // the DB's: check_out_equipment / check_in_equipment are SECURITY DEFINER RPCs
 // that gate on current_user_role() (site_admin/pm/procurement/super/director),
-// serialize per item, and snapshot the (admin-only) daily_rate server-side. This
+// serialize per item, and snapshot daily_rate server-side WHEN PRICED — spec 370
+// U1 made the rate optional (a null rate snapshots null and charges 0). This
 // surface is RATE-FREE: the field records spans, never sees money — the
 // log_labor_day posture. Actions validate shape, relay to the RPC, map errors.
 
@@ -20,9 +21,6 @@ export type EquipmentUsageResult = { ok: true } | { ok: false; error: string };
 
 function checkOutErrorToThai(message: string): string {
   if (message.includes("already checked out")) return "อุปกรณ์นี้ถูกเช็คเอาท์อยู่แล้ว";
-  if (message.includes("daily rate") || message.includes("price it first")) {
-    return "อุปกรณ์นี้ยังไม่ได้ตั้งค่าเช่า — ให้ผู้จัดการตั้งราคาก่อน";
-  }
   // Spec 202 U3 (F2): the item isn't physically on hand (maintenance/returned/lost).
   if (message.includes("not on site")) return "อุปกรณ์นี้ไม่พร้อมใช้งาน (ซ่อม/คืน/สูญหาย)";
   if (message.includes("complete")) return "งานปิดแล้ว เช็คเอาท์อุปกรณ์ไม่ได้";

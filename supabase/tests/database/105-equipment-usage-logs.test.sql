@@ -1,5 +1,5 @@
 begin;
-select plan(41);
+select plan(42);
 
 -- ============================================================================
 -- Spec 146 U3 / ADR 0055 + ADR 0060 §2 — equipment_usage_logs: attribute
@@ -88,10 +88,10 @@ select has_column('public', 'equipment_usage_logs', 'checked_out_on', 'has check
 select has_column('public', 'equipment_usage_logs', 'checked_in_on', 'has checked_in_on (null = open)');
 select has_column('public', 'equipment_usage_logs', 'daily_rate_snapshot', 'has daily_rate_snapshot (money)');
 select has_column('public', 'equipment_usage_logs', 'superseded_by', 'has superseded_by (supersede chain)');
-select has_function('public', 'check_out_equipment', ARRAY['uuid','uuid','date'], 'check_out_equipment(uuid,uuid,date) exists');
-select has_function('public', 'check_in_equipment', ARRAY['uuid','date'], 'check_in_equipment(uuid,date) exists');
+select has_function('public', 'check_out_equipment', ARRAY['uuid','uuid','date','equipment_usage_via','uuid'], 'check_out_equipment(uuid,uuid,date,public.equipment_usage_via,uuid) exists');
+select has_function('public', 'check_in_equipment', ARRAY['uuid','date','equipment_usage_via'], 'check_in_equipment(uuid,date,public.equipment_usage_via) exists');
 select has_function('public', 'wp_equipment_sell', ARRAY['uuid'], 'wp_equipment_sell(uuid) exists');
-select is((select prosecdef from pg_proc where oid='public.check_out_equipment(uuid,uuid,date)'::regprocedure),
+select is((select prosecdef from pg_proc where oid='public.check_out_equipment(uuid,uuid,date,public.equipment_usage_via,uuid)'::regprocedure),
   true, 'check_out_equipment is SECURITY DEFINER');
 select is((select prosecdef from pg_proc where oid='public.wp_equipment_sell(uuid)'::regprocedure),
   true, 'wp_equipment_sell is SECURITY DEFINER');
@@ -140,10 +140,21 @@ select throws_ok(
   '42501', null, 'visitor cannot check out equipment');
 
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110104"}';
-select throws_ok(
+-- Spec 370 U1 (operator call b, 2026-07-28): the unpriced refusal is GONE — an
+-- unpriced item borrows with a NULL snapshot and charges 0 in wp_equipment_sell
+-- (SUM skips null products; WP-A's charge assertions below are unaffected).
+select lives_ok(
   $$ select public.check_out_equipment('17e10104-0104-0104-0104-17e117e10104',
        'ea0a0104-0104-0104-0104-ea0aea0a0104', date '2026-06-01') $$,
-  'P0001', null, 'an unpriced item (daily_rate null) cannot be checked out');
+  'an unpriced item (daily_rate null) NOW checks out — rate-optional borrows');
+-- daily_rate_snapshot is column-walled from authenticated — read it privileged.
+reset role;
+select is(
+  (select daily_rate_snapshot is null from public.equipment_usage_logs
+    where item_id='17e10104-0104-0104-0104-17e117e10104' and superseded_by is null),
+  true, 'the unpriced span snapshots NULL, so it charges nothing');
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110104"}';
 select throws_ok(
   $$ select public.check_out_equipment('17e30104-0104-0104-0104-17e317e30104',
        'ec0c0104-0104-0104-0104-ec0cec0c0104', date '2026-06-01') $$,
