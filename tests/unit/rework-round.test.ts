@@ -9,8 +9,10 @@ import {
   reworkSourcesFromAuditRows,
   reworkRoundTag,
   afterFixRoundHeading,
+  afterFixSectionLabel,
   type AfterFixRoundGroup,
 } from "@/lib/photos/rework-round";
+import { AFTER_FIX_LEGACY_LABEL, PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 import type { PhotoLogRow } from "@/lib/photos/current-photos";
 
 function photo(id: string, round: number): PhotoLogRow {
@@ -115,5 +117,34 @@ describe("reworkSourcesFromAuditRows", () => {
       { payload: null },
     ]);
     expect(map.size).toBe(0);
+  });
+});
+
+// Operator directive 2026-07-28 — "hide rework and only show it if there is a rework
+// rejection". The inventory found rework is already conditional everywhere EXCEPT the
+// after_fix history section, which is gated only on "this WP has after_fix photos".
+// That put the หลังแก้ไข name on 21 WPs that were never sent back (151 photos, all
+// round 0 — the pre-spec-353 free-capture legacy). Operator's call: keep the photos,
+// drop the rework name. Round is the discriminator because it is per-GROUP: a WP that
+// really did rework can still carry a round-0 legacy group, and that group is still
+// not rework evidence.
+describe("afterFixSectionLabel — round 0 is legacy, not rework (2026-07-28)", () => {
+  it("names a round-0 group plainly, with no rework vocabulary", () => {
+    expect(afterFixSectionLabel(0)).toBe(AFTER_FIX_LEGACY_LABEL);
+    expect(afterFixSectionLabel(0)).not.toBe(PHOTO_PHASE_LABEL.after_fix);
+    expect(afterFixSectionLabel(0)).not.toContain("แก้ไข");
+  });
+
+  it("names every real rework round หลังแก้ไข", () => {
+    for (const round of [1, 2, 3, 7]) {
+      expect(afterFixSectionLabel(round)).toBe(PHOTO_PHASE_LABEL.after_fix);
+    }
+  });
+
+  it("composes with afterFixRoundHeading — legacy stays bare, real rounds keep รอบ N", () => {
+    expect(afterFixRoundHeading(afterFixSectionLabel(0), 0)).toBe(AFTER_FIX_LEGACY_LABEL);
+    expect(afterFixRoundHeading(afterFixSectionLabel(2), 2)).toBe(
+      `${PHOTO_PHASE_LABEL.after_fix} — ${reworkRoundTag(2)}`,
+    );
   });
 });

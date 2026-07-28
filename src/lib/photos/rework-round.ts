@@ -8,6 +8,7 @@
 // — unit-testable without a Supabase mock.
 
 import type { PhotoPhase, ReworkSource } from "@/lib/db/enums";
+import { AFTER_FIX_LEGACY_LABEL, PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 import type { PhotoLogRow } from "@/lib/photos/current-photos";
 
 const ROUND_STAMPED_PHASES: ReadonlyArray<PhotoPhase> = ["after_fix", "defect"];
@@ -33,6 +34,21 @@ export function afterFixRoundHeading(
 ): string {
   const base = round >= 1 ? `${baseLabel} — ${reworkRoundTag(round)}` : baseLabel;
   return sourceLabel ? `${base} · ${sourceLabel}` : base;
+}
+
+// Which NAME an after_fix group carries — the round decides, not the phase.
+//
+// Operator directive 2026-07-28: "hide rework and only show it if there is a rework
+// rejection". An after_fix group at round 0 was never opened by a rework rejection;
+// it is the pre-spec-353 free-capture legacy (21 WPs / 151 photos, measured on prod).
+// The photos stay — they are evidence of real work — but they stop being called
+// หลังแก้ไข on a WP where nothing was ever fixed.
+//
+// Keyed on the GROUP's round, not the WP's: a WP that genuinely reworked can still
+// carry a round-0 legacy group, and that group is still not rework evidence.
+// Composes with afterFixRoundHeading, which supplies "รอบ N" and the source suffix.
+export function afterFixSectionLabel(round: number): string {
+  return round >= 1 ? PHOTO_PHASE_LABEL.after_fix : AFTER_FIX_LEGACY_LABEL;
 }
 
 export interface AfterFixRoundGroup {
