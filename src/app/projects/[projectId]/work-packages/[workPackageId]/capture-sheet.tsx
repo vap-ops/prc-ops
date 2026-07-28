@@ -331,7 +331,26 @@ function PendingThumb({ upload, onRetry }: { upload: PendingUpload; onRetry: () 
             className="border-card/50 border-t-card inline-block h-6 w-6 animate-spin rounded-full border-[3px]"
           />
         )}
-        {isError && (
+        {/* A TERMINAL failure (403 / 413 / pairing / closed after-fix window) meets
+            the same refusal on every replay, so the tile names the reason instead of
+            offering a button that cannot work — the sheet must not contradict the
+            queue runner, which already says สิทธิ์ไม่พอ + names the way out. Until
+            this fix the tile showed a bare "ลองใหม่" for BOTH classes and never
+            rendered errorMessage at all (#823's sibling, 2026-07-28). */}
+        {isError && upload.terminal && (
+          // The engine keeps terminal copy SHORT for this 80px box (there is no
+          // hover or long-press tooltip on a gloved hand, so a clipped message
+          // would simply be lost). role=alert so a screen reader gets the one
+          // failure class that has no button left to find; a backplate so red text
+          // stays legible over the photo in daylight.
+          <span
+            role="alert"
+            className="bg-card/90 text-danger rounded px-1 py-0.5 text-center leading-tight font-semibold break-words"
+          >
+            {upload.errorMessage ?? "ส่งรูปนี้ไม่ได้"}
+          </span>
+        )}
+        {isError && !upload.terminal && (
           <button
             type="button"
             onClick={onRetry}
