@@ -8,7 +8,14 @@ import {
   selectLatestDecisionByWorkPackage,
   type ApprovalRow,
 } from "@/lib/approvals/latest-decision";
-import { commentRequiredFor, isCommentValid, APPROVAL_DECISIONS } from "@/lib/approvals/predicates";
+import {
+  commentRequiredFor,
+  isCommentValid,
+  APPROVAL_DECISIONS,
+  DECISION_CAUSES,
+  decisionPayloadForCause,
+  revisionReasonRequiredFor,
+} from "@/lib/approvals/predicates";
 
 function row(partial: Partial<ApprovalRow> & Pick<ApprovalRow, "id" | "decided_at">): ApprovalRow {
   return {
@@ -137,5 +144,45 @@ describe("isCommentValid", () => {
 describe("APPROVAL_DECISIONS", () => {
   it("contains exactly the three enum values in a known order", () => {
     expect([...APPROVAL_DECISIONS]).toEqual(["approved", "needs_revision", "rejected"]);
+  });
+});
+
+// Spec 372 U2 — the PM stops picking a MECHANISM and picks what is WRONG. Four causes
+// on one axis; the system maps each to the decision + reason the RPC expects. Pure, so
+// the mapping is testable over its whole domain instead of only through the form.
+describe("decisionPayloadForCause (spec 372 U2)", () => {
+  it("maps the three photo causes to needs_revision, carrying the cause as the reason", () => {
+    for (const cause of ["incomplete", "mismatch", "premature"] as const) {
+      expect(decisionPayloadForCause(cause)).toEqual({
+        decision: "needs_revision",
+        revisionReason: cause,
+      });
+    }
+  });
+
+  it("maps the work cause to rejected, with NO reason — the RPC refuses one (22023)", () => {
+    expect(decisionPayloadForCause("rework")).toEqual({
+      decision: "rejected",
+      revisionReason: null,
+    });
+  });
+
+  it("covers every cause, and every payload satisfies the RPC's own rules", () => {
+    // Exhaustive over the domain, so adding a cause without deciding its route reds.
+    expect([...DECISION_CAUSES].sort()).toEqual(
+      ["incomplete", "mismatch", "premature", "rework"].sort(),
+    );
+    for (const cause of DECISION_CAUSES) {
+      const { decision, revisionReason } = decisionPayloadForCause(cause);
+      // A reason is required for needs_revision and forbidden on anything else.
+      expect(revisionReasonRequiredFor(decision)).toBe(revisionReason !== null);
+    }
+  });
+
+  it("only the work cause demands a comment", () => {
+    for (const cause of DECISION_CAUSES) {
+      const { decision } = decisionPayloadForCause(cause);
+      expect(commentRequiredFor(decision)).toBe(cause === "rework");
+    }
   });
 });
