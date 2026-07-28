@@ -128,13 +128,46 @@ renders `เข้าคิวเมื่อ` in that same timezone, and the ap
   helper (`src/lib/approvals/review-queue.ts`), the zone rendering, the CTA, the day
   chips, additive labels. No data-shape change: the page already loads decisions and
   resubmit audit rows.
-- **U2 (later, schema lane)** — make the counts agree with the page. The ภาพรวม badge
-  and the `PendingApprovalsCard` hero both count bare `status='pending_approval'`; the
-  actionable subset needs "latest decision is not an unanswered `needs_revision`", which
-  a client `head:true` count cannot express. Needs a view or a DEFINER read RPC.
-  **Until U2 lands the badge still says 70 while the page says 52** — U1 is shipped
-  knowing this, because the page is where the PM decides and the split there is the
-  whole ask.
+- **U2 (schema, additive)** — make the counts agree with the page. Operator, on seeing
+  U1: _"Amount 70 items is misleading, how about separating them?"_ — so the fix is not
+  merely to shrink the number to 52 but to show **both**, attributed.
+
+  New view **`public.work_package_review_queue`** (`security_invoker = true`, the house
+  pattern — all four pre-existing public views use it) classifies every pending WP into
+  `first_review` / `ready_again` / `awaiting_site` and carries `bounced_at` +
+  `revision_reason`. It is the ONE place the predicate lives, so the hero, the badge and
+  the page derive their numbers from the same definition.
+  - **Hero** (`PendingApprovalsCard`): headline **52 `ตรวจได้ตอนนี้`** with
+    **`รอหน้างาน 18`** beside it. Its label had to change with its meaning — the old
+    `งานรออนุมัติ` is equally true of the rows the count now excludes. When nothing is
+    actionable but work IS waiting, the card says so rather than rendering its calm
+    `ไม่มีงานรอตรวจ` empty state, which read as "nothing is happening" while N work
+    packages sat with the site.
+  - **Nav badge**: one `head:true` count against the view, `zone <> 'awaiting_site'`.
+    The classification happens in SQL, so it stays a single round trip. ⚠️ Only the WP
+    **term** of that badge moves — it is a sum of three queues (WP + contractor-bank +
+    worker-bank).
+
+  ⚠️ **The counts are RLS-scoped per viewer, by design and worth knowing.** Probed live
+  2026-07-28: `project_manager` "Moo" sees **0** of the 70 — `can_see_project` consults
+  `project_members` for `project_manager` / `site_admin` / `site_owner` / `auditor`, and
+  she is not a member. It returns true unconditionally for `super_admin`,
+  `project_coordinator`, `project_director` and `procurement_manager`, which is why the
+  project_directors who actually work this queue see the full 70 = 52 + 18. A pgTAP
+  negative control therefore CANNOT use a project_director — it would see everything and
+  look like a view bug.
+
+## 3b. Open question surfaced by U2 (not implemented)
+
+The project card on the same dashboard shows **`70 งานต้องดูแล`**, one row below the
+hero's new 52. It is a _different_ metric — `rollupProgress`'s `needsAttention` counts
+`on_hold + pending_approval + rework`, i.e. work needing **any** human, not the PM's
+queue — and today it reads 70 only because the live composition is 70 `pending_approval`
+
+- 0 `on_hold` + 0 `rework`. It is not wrong, but two numbers 70 and 52 an inch apart,
+  both about "work needing attention", is the same class of confusion this spec exists to
+  remove. Deciding what `งานต้องดูแล` should mean (the PM's work? anyone's?) is an
+  operator call, so U2 leaves it alone.
 
 ## 4. Non-goals
 
