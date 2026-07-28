@@ -1,3 +1,9 @@
+# [0.254.0](https://github.com/vap-ops/prc-ops/compare/v0.253.0...v0.254.0) (2026-07-28)
+
+### Features
+
+- separate the review counts into actionable vs waiting-on-site (spec 371 U2) ([#817](https://github.com/vap-ops/prc-ops/issues/817)) ([0b54257](https://github.com/vap-ops/prc-ops/commit/0b542573bbb6b6b5cbba89741f9ada3016fec81b))
+
 # [0.253.0](https://github.com/vap-ops/prc-ops/compare/v0.252.0...v0.253.0) (2026-07-28)
 
 ### Bug Fixes
