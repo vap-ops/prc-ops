@@ -56,6 +56,7 @@ beforeEach(() => {
   mockDefectPhotos.anyInFlight = false;
   mockDefectPhotos.retry = mockRetry;
   mockDefectPhotos.remove = mockRemove;
+  mockDefectPhotos.attachAll = vi.fn(async () => 0);
   Object.defineProperty(window.navigator, "onLine", { value: true, configurable: true });
 });
 
@@ -110,7 +111,7 @@ describe("ReportDefectControl — a terminal photo failure must not trap the for
 // Writing failing test first (mutation showed the banner-clear had NO coverage —
 // removing it kept every test green).
 describe("ReportDefectControl — a stale attach-failure banner must not contradict a terminal tile", () => {
-  it("clears the 'ดูที่รูปแต่ละใบ' banner when a new file is selected", async () => {
+  it("clears the 'ดูข้อความใต้รูปแต่ละใบ' banner when a new file is selected", async () => {
     mockDefectPhotos.photos = [{ ...terminalPhoto, status: "ready", terminal: false }];
     mockDefectPhotos.attachAll = vi.fn(async () => 1);
     render(<ReportDefectControl projectId="p1" workPackageId="wp1" canAttachPhotos />);
@@ -120,7 +121,7 @@ describe("ReportDefectControl — a stale attach-failure banner must not contrad
     });
     fireEvent.click(screen.getByRole("button", { name: "เปิดงานใหม่" }));
 
-    const banner = await screen.findByText(/ดูที่รูปแต่ละใบ/);
+    const banner = await screen.findByText(/ดูข้อความใต้รูปแต่ละใบ/);
     expect(banner).toBeInTheDocument();
 
     // The next selection can land a REFUSED photo, whose tile offers no retry at
@@ -129,7 +130,9 @@ describe("ReportDefectControl — a stale attach-failure banner must not contrad
       target: { files: [new File(["x"], "b.jpg", { type: "image/jpeg" })] },
     });
 
-    await waitFor(() => expect(screen.queryByText(/ดูที่รูปแต่ละใบ/)).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText(/ดูข้อความใต้รูปแต่ละใบ/)).not.toBeInTheDocument(),
+    );
   });
 });
 
@@ -164,5 +167,53 @@ describe("ReportDefectControl — a REFUSED attach (insert stage) is terminal to
 
     fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
     expect(mockRetry).toHaveBeenCalledWith("ph1");
+  });
+});
+
+// Writing failing test first (review: the announcement level was unpinned, and the
+// loop the SA actually walks — submit → banner → ลบ → submit → close — was tested
+// nowhere).
+describe("ReportDefectControl — announcement level and the real recovery loop", () => {
+  it("announces a terminal tile politely; the banner stays the assertive one", () => {
+    openWithPhoto(terminalPhoto);
+    // One alert per submit, not one per refused photo.
+    expect(screen.getByRole("status")).toHaveTextContent(TERMINAL_UPLOAD_COPY.authz);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ลบ clears the blocked submit: banner → remove → submit closes the sheet", async () => {
+    // Attach fails permanently, so the sheet stays open on a counted failure. The
+    // photo's ลบ is the exit; with it gone the next submit attaches nothing, and
+    // the sheet closes instead of looping.
+    const refused: DefectPendingPhoto = {
+      ...terminalPhoto,
+      status: "insert-error",
+      errorMessage: TERMINAL_UPLOAD_COPY.attachRole,
+    };
+    mockDefectPhotos.photos = [refused];
+    mockDefectPhotos.attachAll = vi.fn(async () => 1);
+    const { rerender } = render(
+      <ReportDefectControl projectId="p1" workPackageId="wp1" canAttachPhotos />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /รายงานข้อบกพร่อง/ }));
+    fireEvent.change(screen.getByLabelText("รายละเอียดข้อบกพร่อง"), {
+      target: { value: "รอยร้าวที่ผนัง" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "เปิดงานใหม่" }));
+    expect(await screen.findByText(/แนบรูปไม่สำเร็จ 1 รูป/)).toBeInTheDocument();
+
+    // The SA removes it — the hook drops the photo, so attachAll now reports none.
+    fireEvent.click(screen.getByRole("button", { name: "ลบ" }));
+    expect(mockRemove).toHaveBeenCalledWith("ph1");
+    mockDefectPhotos.photos = [];
+    mockDefectPhotos.attachAll = vi.fn(async () => 0);
+    rerender(<ReportDefectControl projectId="p1" workPackageId="wp1" canAttachPhotos />);
+
+    // Post-reopen the button becomes แนบรูปอีกครั้ง — the RPC is never re-fired.
+    fireEvent.click(screen.getByRole("button", { name: "แนบรูปอีกครั้ง" }));
+    await waitFor(() =>
+      expect(screen.queryByLabelText("รายละเอียดข้อบกพร่อง")).not.toBeInTheDocument(),
+    );
+    expect(mockReport).toHaveBeenCalledTimes(1);
   });
 });
