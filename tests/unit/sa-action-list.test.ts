@@ -284,3 +284,35 @@ describe("isBounceableStatus — which statuses can hold a bounce (spec 372 U3)"
     expect(isBounceableStatus("rework")).toBe(false);
   });
 });
+
+// Sibling sweep: the WP-detail attention card is the SECOND surface that decides
+// whose move it is, and it keys on the latest decision with no status filter. It read
+// `answeredDecisionIds` directly — a row a premature bounce never writes — so it would
+// have shown a live re-shoot CTA forever, including after the SA finished the work and
+// the WP was already back in the review queue.
+describe("WP detail decides answered by the same rule (spec 372 U3)", () => {
+  const wpSrc = readFileSync(
+    resolve(process.cwd(), "src/app/projects/[projectId]/work-packages/[workPackageId]/page.tsx"),
+    "utf8",
+  )
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+
+  it("routes attentionAnswered through the shared rule", () => {
+    expect(wpSrc.split("bounceAnswered").length - 1).toBe(2);
+    // The bare lookup must not be the answer again.
+    expect(wpSrc).not.toContain("attentionAnswered = attention ? answeredDecisionIds.has");
+  });
+
+  it("feeds the rule the WP's own status — the discriminator for a premature bounce", () => {
+    // Mutation-checked: a bare toContain("status: wp.status") is VACUOUS here — that
+    // string appears four other times in this page, so it could never fail. Assert it
+    // inside the bounceAnswered call itself.
+    const call = wpSrc.slice(wpSrc.indexOf("bounceAnswered({"));
+    const args = call.slice(0, call.indexOf("})") + 2);
+    expect(args).toContain("status: wp.status");
+    expect(args).toContain("decision: attention.decision");
+    expect(args).toContain("hasResubmitAudit:");
+  });
+});

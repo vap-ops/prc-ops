@@ -50,6 +50,7 @@ import {
   formatThaiTime,
 } from "@/lib/i18n/labels";
 import { AttentionCard } from "@/components/features/common/attention-card";
+import { bounceAnswered } from "@/lib/sa/action-list";
 import { RevisionReasonGuidance } from "@/components/features/work-packages/revision-reason-guidance";
 import { CountChip } from "@/components/features/common/count-chip";
 import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
@@ -399,7 +400,23 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       : null;
   // Spec 355 U3 — the bounce is answered once ส่งตรวจอีกครั้ง was pressed; the
   // spec-291 delete window is closed then, so the reasoned card drops its CTA.
-  const attentionAnswered = attention ? answeredDecisionIds.has(attention.id) : false;
+  // Spec 372 U3 — same rule as the SA home, so the two surfaces cannot disagree about
+  // whose move it is. A premature bounce never writes a resubmit audit row (the SA
+  // submits normally), so keying on that row alone would leave this card showing a
+  // live CTA forever, including after the WP is already back in the review queue.
+  //
+  // The `attention` ternary above already guarantees the decision is one of the two
+  // bounce kinds, but that narrowing does not survive onto the row type — hence the
+  // repeat, which is for the TYPE, not a runtime guard.
+  const attentionAnswered =
+    attention && (attention.decision === "needs_revision" || attention.decision === "rejected")
+      ? bounceAnswered({
+          decision: attention.decision,
+          revisionReason: attention.revision_reason ?? null,
+          status: wp.status,
+          hasResubmitAudit: answeredDecisionIds.has(attention.id),
+        })
+      : false;
 
   const predSet = new Set(predecessorIds);
   const predecessorOptions = siblingWps.filter((w) => predSet.has(w.id));
