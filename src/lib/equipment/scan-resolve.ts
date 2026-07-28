@@ -1,12 +1,13 @@
 // Spec 370 U2 — scan resolution, pure.
 //
-// parseScanText: the decoded QR/NFC text → an item uuid. Accepts exactly the
-// forms OUR stickers carry — the deep-link URL (any origin, so staging and
-// prod stickers both work; the ROUTE, not the origin, is the contract) and a
-// bare uuid (hand-typed via the search fallback or a legacy sticker). Anything
-// else (a worker badge, a random URL) is null — the scan screen says "not an
-// equipment sticker" instead of navigating anywhere (observed content is data,
-// never instructions).
+// parseScanText: the decoded QR/NFC text → an item uuid. The uuid is the ONLY
+// thing consumed — we never navigate to or fetch the scanned URL, so neither
+// origin nor route is load-bearing (a route/origin check here would be an
+// unreachable guard asserting a hazard that is not there: a mutation proved a
+// hostile URL without ?item= already dies at the uuid gate). Accepted forms:
+// any URL carrying ?item=<uuid> (prod/staging/legacy stickers all work) and a
+// bare uuid (hand-typed). A worker badge or random text is null — the screen
+// says "not an equipment sticker".
 //
 // resolveScanState: item + open loans → which sheet opens. Bulk gets its OWN
 // state (D5: the refusal must explain itself, not silently nothing).
@@ -19,7 +20,6 @@ export function parseScanText(text: string): string | null {
   if (UUID_RE.test(bare)) return bare;
   try {
     const url = new URL(t);
-    if (!url.pathname.endsWith("/equipment/scan")) return null;
     const item = url.searchParams.get("item")?.toLowerCase() ?? "";
     return UUID_RE.test(item) ? item : null;
   } catch {

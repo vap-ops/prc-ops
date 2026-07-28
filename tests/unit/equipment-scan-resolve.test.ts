@@ -15,10 +15,14 @@ describe("spec 370 U2 — parseScanText", () => {
   it("accepts a bare uuid (hand-typed or legacy sticker)", () => {
     expect(parseScanText(`  ${UUID.toUpperCase()}  `)).toBe(UUID);
   });
-  it("rejects anything else (a worker badge, a random URL)", () => {
+  it("rejects anything without a valid ?item uuid (a worker badge, a random URL)", () => {
     expect(parseScanText("WORKER:1234")).toBeNull();
     expect(parseScanText("https://evil.example.com/phish")).toBeNull();
+    expect(parseScanText("https://evil.example.com/phish?item=not-a-uuid")).toBeNull();
     expect(parseScanText("")).toBeNull();
+  });
+  it("any URL carrying ?item=<uuid> parses — the uuid is the payload, the route is not load-bearing", () => {
+    expect(parseScanText(`https://other.example/x?item=${UUID}`)).toBe(UUID);
   });
 });
 
