@@ -50,3 +50,30 @@ describe("review detail names an after_fix group by its round", () => {
     expect(occurrences(PAGE, "afterFixRoundHeading")).toBeGreaterThanOrEqual(2);
   });
 });
+
+// The SA's WP detail is a Server Component too, and it renders the same rule in TWO
+// places the first pass missed: the READ-ONLY viewer's after_fix galleries, and the
+// removal trace's zone name. The read-only branch was missed because a super_admin
+// probe renders the CAPTURE branch instead — the surface a real read-only viewer
+// sees was never exercised.
+const WP_PAGE = read("src/app/projects/[projectId]/work-packages/[workPackageId]/page.tsx");
+
+describe("SA WP detail names photo groups by round", () => {
+  it("heads the read-only after_fix galleries from the round", () => {
+    expect(occurrences(WP_PAGE, "afterFixSectionLabel")).toBe(2);
+  });
+
+  it("names the removal trace's zone through the shared rule", () => {
+    expect(occurrences(WP_PAGE, "photoSectionLabel")).toBe(2);
+    // The retired hardcoded form must not come back beside it.
+    expect(WP_PAGE).not.toContain("PHOTO_PHASE_LABEL[phase as keyof typeof PHOTO_PHASE_LABEL]");
+  });
+
+  it("no longer heads an after_fix gallery with the bare phase label", () => {
+    expect(WP_PAGE).not.toContain("PHOTO_PHASE_LABEL.after_fix");
+  });
+
+  it("still labels the DEFECT galleries with their own phase label", () => {
+    expect(WP_PAGE).toContain("PHOTO_PHASE_LABEL.defect");
+  });
+});

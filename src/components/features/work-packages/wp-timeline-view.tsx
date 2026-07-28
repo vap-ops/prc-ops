@@ -31,11 +31,10 @@ import { timelineFilterOf } from "@/lib/work-packages/wp-timeline";
 import {
   APPROVAL_DECISION_LABEL,
   APPROVAL_REVISION_REASON_LABEL,
-  PHOTO_PHASE_LABEL,
   formatThaiDate,
   formatThaiTime,
 } from "@/lib/i18n/labels";
-import { afterFixSectionLabel } from "@/lib/photos/rework-round";
+import { photoSectionLabel } from "@/lib/photos/rework-round";
 import { CARD } from "@/lib/ui/classes";
 
 const CHIPS: { key: WpTimelineFilter | "all"; label: string }[] = [
@@ -74,27 +73,13 @@ function RowIcon({ kind }: { kind: WpTimelineRow["kind"] }) {
   }
 }
 
-// The name a photo burst carries. Every phase but after_fix is its own label; an
-// after_fix burst is named by the WP's round, so a never-reworked WP's legacy rows
-// do not read as rework (2026-07-28 operator directive; same helper as the capture
-// zone and the PM's review, so the three surfaces cannot drift).
-//
-// WP granularity, not group: the builder buckets by (day, phase), so a burst carries
-// no round of its own. Every WP is single-round today (no WP has ever reworked), so
-// this is exact; a future WP holding BOTH a legacy round-0 group and real rework
-// rounds would need the round in the bucket key.
-function photoBurstLabel(phase: string, wpReworkRound: number): string {
-  if (phase === "after_fix") return afterFixSectionLabel(wpReworkRound);
-  return PHOTO_PHASE_LABEL[phase as keyof typeof PHOTO_PHASE_LABEL] ?? phase;
-}
-
 function RowBody({ row, wpReworkRound }: { row: WpTimelineRow; wpReworkRound: number }) {
   switch (row.kind) {
     case "photos":
       return (
         <>
           <p className="text-body text-ink">
-            ถ่ายรูป {photoBurstLabel(row.phase, wpReworkRound)} · {row.count} รูป
+            ถ่ายรูป {photoSectionLabel(row.phase, wpReworkRound)} · {row.count} รูป
           </p>
           <p className="text-meta text-ink-secondary">
             {row.actor ? `${row.actor} · ` : ""}

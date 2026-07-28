@@ -10,6 +10,7 @@ import {
   reworkRoundTag,
   afterFixRoundHeading,
   afterFixSectionLabel,
+  photoSectionLabel,
   type AfterFixRoundGroup,
 } from "@/lib/photos/rework-round";
 import { AFTER_FIX_LEGACY_LABEL, PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
@@ -146,5 +147,34 @@ describe("afterFixSectionLabel — round 0 is legacy, not rework (2026-07-28)", 
     expect(afterFixRoundHeading(afterFixSectionLabel(2), 2)).toBe(
       `${PHOTO_PHASE_LABEL.after_fix} — ${reworkRoundTag(2)}`,
     );
+  });
+});
+
+// Sibling sweep, same session: after the capture zone, the review detail and the
+// ประวัติ timeline, a FOURTH surface named a photo by its phase — the removal trace
+// ("หลังแก้ไข #4 · ลบโดย …"). Latent today (prod holds zero removed after_fix rows),
+// but it would re-introduce the exact vocabulary on the next deletion. Rather than a
+// fourth copy of the same branch, the phase→name rule lives here once.
+describe("photoSectionLabel — one home for the phase→name rule", () => {
+  it("routes ONLY after_fix through the round; every other phase keeps its own label", () => {
+    for (const round of [0, 1, 3]) {
+      expect(photoSectionLabel("before", round)).toBe(PHOTO_PHASE_LABEL.before);
+      expect(photoSectionLabel("during", round)).toBe(PHOTO_PHASE_LABEL.during);
+      expect(photoSectionLabel("after", round)).toBe(PHOTO_PHASE_LABEL.after);
+      expect(photoSectionLabel("defect", round)).toBe(PHOTO_PHASE_LABEL.defect);
+    }
+  });
+
+  it("names after_fix by the round, agreeing with afterFixSectionLabel", () => {
+    expect(photoSectionLabel("after_fix", 0)).toBe(AFTER_FIX_LEGACY_LABEL);
+    expect(photoSectionLabel("after_fix", 1)).toBe(PHOTO_PHASE_LABEL.after_fix);
+    for (const round of [0, 2, 5]) {
+      expect(photoSectionLabel("after_fix", round)).toBe(afterFixSectionLabel(round));
+    }
+  });
+
+  it("degrades an unknown phase to itself rather than blank", () => {
+    // The enum can grow; a silent empty heading would hide that photos exist.
+    expect(photoSectionLabel("brand_new_phase", 0)).toBe("brand_new_phase");
   });
 });

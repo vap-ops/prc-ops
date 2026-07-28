@@ -51,6 +51,17 @@ export function afterFixSectionLabel(round: number): string {
   return round >= 1 ? PHOTO_PHASE_LABEL.after_fix : AFTER_FIX_LEGACY_LABEL;
 }
 
+// The user-facing NAME of a group of photos in one phase — the single home of the
+// phase→name rule, so the four surfaces that render it (the SA's capture zone, the
+// PM's review detail, the ประวัติ timeline and the removal trace) cannot drift.
+// Only after_fix is round-sensitive; every other phase is its own label. An unknown
+// phase degrades to ITSELF rather than blank — the enum can grow, and an empty
+// heading would hide that photos exist at all.
+export function photoSectionLabel(phase: string, wpReworkRound: number): string {
+  if (phase === "after_fix") return afterFixSectionLabel(wpReworkRound);
+  return PHOTO_PHASE_LABEL[phase as keyof typeof PHOTO_PHASE_LABEL] ?? phase;
+}
+
 export interface AfterFixRoundGroup {
   round: number;
   photos: PhotoLogRow[];
