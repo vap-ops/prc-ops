@@ -1,3 +1,13 @@
+# [0.259.0](https://github.com/vap-ops/prc-ops/compare/v0.258.0...v0.259.0) (2026-07-28)
+
+### Bug Fixes
+
+- **telemetry:** report the RPC layer too; a broken sink can't break an upload ([4581e68](https://github.com/vap-ops/prc-ops/commit/4581e685b306e65aeb68c4b726e9ed33669e0e15))
+
+### Features
+
+- **telemetry:** report upload_fail from the two blind image uploaders ([5fbb1c8](https://github.com/vap-ops/prc-ops/commit/5fbb1c8ed0e74e8367e9661c69f8af6e77aeed60)), closes [#823](https://github.com/vap-ops/prc-ops/issues/823)
+
 # [0.258.0](https://github.com/vap-ops/prc-ops/compare/v0.257.1...v0.258.0) (2026-07-28)
 
 ### Features
