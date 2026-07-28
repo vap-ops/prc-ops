@@ -145,3 +145,49 @@ describe("CaptureSheet — a terminal upload failure (sibling of #823)", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+// Writing failing test first.
+//
+// Last remnant of the honest-copy class. The shutter footer promises
+// "บันทึกอัตโนมัติ — ถ่ายต่อได้แม้ไม่มีเน็ต" unconditionally, and since #826 a tile
+// 200px above it can read "ส่งรูปนี้ไม่ได้". Both are on screen at once and they
+// contradict — but the promise is not simply false: NEW shots really do still save
+// and queue. Deleting it would cost the reassurance that stops an SA re-tapping a
+// working shutter; the honest move is to SCOPE it while a refused photo is present.
+describe("CaptureSheet — the shutter promise must not contradict a refused tile", () => {
+  it("scopes the promise to new shots while a refused photo is on screen", () => {
+    mockCapture([
+      pendingItem({
+        status: "upload-error",
+        terminal: true,
+        errorMessage: TERMINAL_UPLOAD_COPY.authz,
+      }),
+    ]);
+    renderSheet();
+
+    // The unqualified offline promise is gone…
+    expect(screen.queryByText(/ถ่ายต่อได้แม้ไม่มีเน็ต/)).not.toBeInTheDocument();
+    // …replaced by one that is true of the shots the shutter is about to take.
+    expect(screen.getByText(/รูปใหม่บันทึกอัตโนมัติ/)).toBeInTheDocument();
+  });
+
+  it("keeps the full promise when nothing has been refused", () => {
+    mockCapture([pendingItem({ status: "uploading" })]);
+    renderSheet();
+
+    expect(screen.getByText(/ถ่ายต่อได้แม้ไม่มีเน็ต/)).toBeInTheDocument();
+  });
+
+  it("keeps the full promise for a merely RETRYABLE failure — that one will send", () => {
+    mockCapture([
+      pendingItem({
+        status: "upload-error",
+        terminal: false,
+        errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+      }),
+    ]);
+    renderSheet();
+
+    expect(screen.getByText(/ถ่ายต่อได้แม้ไม่มีเน็ต/)).toBeInTheDocument();
+  });
+});
