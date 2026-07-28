@@ -154,3 +154,21 @@ until 337 U1; recorded here on discovery.)
 **AUT-SI1 addendum (spec 318 U3):** `site_issue_reported` is **locked** against
 per-user mute — `set_notification_preference` refuses it (22023) and the drain
 filter bypasses locked events; the safety alert always delivers.
+
+## Equipment scan stickers (spec 370 U3 — a PROCEDURE, not an automation)
+
+Every `equipment_items` row is reachable by one deep link:
+`<APP_URL>/equipment/scan?item=<uuid>`. Two physical tag kinds carry it:
+
+- **QR**: print from `/equipment/labels` (back office; A4 sticker paper,
+  3-column grid — QR + name + asset tag/serial + the link text).
+- **NFC**: buy blank NDEF stickers (NTAG213 class is plenty; pick a size that
+  survives tool handling), write the SAME link with any NDEF writer app
+  (e.g. "NFC Tools" — the link text is printed under each QR precisely so it
+  can be copied when writing tags). iPhone (XS+) and Android both open NDEF
+  URL tags natively with the screen on — the app contains NO NFC code at all.
+
+Scanning either tag (or tapping the NFC sticker) opens the scan screen with
+the item resolved; the ยืม/คืน flow requires ≥1 condition photo in both
+directions (spec 370 D4). Re-printing after registry changes: just reload
+`/equipment/labels` and print again — labels are derived, never stored.
