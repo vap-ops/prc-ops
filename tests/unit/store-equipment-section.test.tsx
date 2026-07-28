@@ -101,6 +101,25 @@ describe("spec 368 U4 — store equipment split", () => {
     expect(screen.queryByRole("button", { name: "คืน" })).not.toBeInTheDocument();
   });
 
+  // Spec 370 U4b — the store PAGE now carries a hero scan door above the stock
+  // console, and this section deliberately KEEPS its own contextual link: the
+  // hero is above ~400 rows of stock, so deleting this one would leave the place
+  // where the tools are actually listed with no way to borrow. That decision was
+  // defended only in prose until this pin — the link was deletable with the
+  // whole suite green.
+  it("keeps its own scan link beside the tools", () => {
+    render(<StoreEquipmentSection {...BASE} />);
+    expect(screen.getByRole("link", { name: /สแกนยืม\/คืนอุปกรณ์/ })).toHaveAttribute(
+      "href",
+      "/equipment/scan?from=%2Fprojects%2Fp-1%2Fstore",
+    );
+  });
+
+  it("hides its scan link from non-movers", () => {
+    render(<StoreEquipmentSection {...BASE} canReturn={false} />);
+    expect(screen.queryByRole("link", { name: /สแกนยืม\/คืนอุปกรณ์/ })).not.toBeInTheDocument();
+  });
+
   it("zero out-loans → no ยืมไปที่งาน group at all (no empty box)", () => {
     render(<StoreEquipmentSection {...BASE} out={[]} counts={{ inStore: 2, out: 0 }} />);
     expect(screen.queryByText(/ยืมไปที่งาน/)).not.toBeInTheDocument();

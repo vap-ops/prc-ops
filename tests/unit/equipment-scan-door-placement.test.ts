@@ -44,11 +44,15 @@ describe("scan door placement — /sa home", () => {
     expect(tools).toBeGreaterThan(door);
   });
 
-  it("renders ungated — every SA-home role is an equipment mover (pinned in role-sets)", () => {
-    // A role gate here would be an arm that can never fail (the spec-340
-    // unreachable-clause defect). The subset invariant carries it instead.
+  it("renders unconditionally — no gate of any kind wraps it", () => {
+    // A ROLE gate here would be an arm that can never fail (the spec-340
+    // unreachable-clause defect); the subset invariant in role-sets.test.ts
+    // carries that instead. But this pin must catch ANY wrapper, not just a
+    // role one: asserting the absence of `EQUIPMENT_MOVE_ROLES` leaves
+    // `{pendingRegCount > 0 ? <EquipmentScanDoor/> : null}` green. So pin the
+    // render as a bare JSX sibling — nothing on its line but the element.
     const src = withoutComments(SA_HOME);
-    expect(src).not.toContain("EQUIPMENT_MOVE_ROLES");
+    expect(src).toMatch(/\n\s*<EquipmentScanDoor from="\/sa" \/>\n/);
   });
 });
 
@@ -63,7 +67,23 @@ describe("scan door placement — project store", () => {
 
   it("keeps the movers-only gate — a store page is readable by non-movers", () => {
     const src = withoutComments(STORE);
-    expect(src).toMatch(/canReturnEquipment\s*\?\s*\(?\s*<EquipmentScanDoor/);
+    // Both halves of the ternary are pinned, and the leading char class rules
+    // out `!canReturnEquipment ? …` — an INVERTED gate (door shown ONLY to
+    // non-movers) satisfies a bare `canReturnEquipment ? <Door` substring.
+    expect(src).toMatch(
+      /[^!]canReturnEquipment\s*\?\s*\(?\s*<EquipmentScanDoor[^]*?\)?\s*:\s*null/,
+    );
+    expect(src).not.toContain("!canReturnEquipment");
+  });
+
+  it("threads its own route as the back href, not the other host's", () => {
+    // An empty or copy-pasted `from` degrades silently: /equipment/scan runs it
+    // through safeBackHref, so a wrong value lands the user on a default rather
+    // than erroring. Pin both hosts' values.
+    expect(withoutComments(STORE)).toContain(
+      "<EquipmentScanDoor from={`/projects/${project.id}/store`} />",
+    );
+    expect(withoutComments(SA_HOME)).toContain('<EquipmentScanDoor from="/sa" />');
   });
 
   it("puts the door above the stock console", () => {

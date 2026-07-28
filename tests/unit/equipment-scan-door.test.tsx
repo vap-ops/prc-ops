@@ -46,12 +46,30 @@ describe("EquipmentScanDoor", () => {
     expect(icon?.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("clears the field tap-target floor and reads as a filled card, not a hairline row", () => {
+  it("clears the field tap-target floor and reads as a FILLED primary", () => {
     render(<EquipmentScanDoor from="/sa" />);
-    const cls = screen.getByRole("link", { name: /สแกนยืม/ }).className;
+    const cls = screen.getByRole("link", { name: /สแกนยืม/ }).className.split(/\s+/);
+    // Whole-class matching, not substring: `sm:min-h-16` / `hover:bg-action`
+    // satisfy a toContain while leaving the phone rendering — the only one that
+    // matters here — unstyled.
     // min-h-16 is the deliberate step up from #821's min-h-12 text link.
     expect(cls).toContain("min-h-16");
-    expect(cls).toContain("bg-action-soft");
-    expect(cls).toContain("border-action");
+    // bg-action, NOT bg-action-soft: in light mode action-soft (L .97) is dimmer
+    // than an ordinary card (L 1.0) on a page ground of L .962, so the fill that
+    // was supposed to carry the prominence was invisible. Pinned in both
+    // directions so a revert to the soft token reds.
+    expect(cls).toContain("bg-action");
+    expect(cls).not.toContain("bg-action-soft");
+    expect(cls).toContain("text-on-fill");
+  });
+
+  it("keeps a visible focus indicator despite suppressing the default outline", () => {
+    // focus:outline-none without a replacement ring removes the keyboard focus
+    // indicator entirely, and nothing else in the suite would notice.
+    render(<EquipmentScanDoor from="/sa" />);
+    const cls = screen.getByRole("link", { name: /สแกนยืม/ }).className.split(/\s+/);
+    expect(cls).toContain("focus:outline-none");
+    expect(cls).toContain("focus-visible:ring-2");
+    expect(cls).toContain("focus-visible:ring-action");
   });
 });

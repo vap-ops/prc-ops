@@ -143,6 +143,37 @@ rather than swallow it.
   `/equipment`. Both just link the route — the deep link itself is the NFC/QR
   entry and works from anywhere.
 
+**U4b — prominence redesign (2026-07-28, after two field reports).** U4 as
+written put every door on a surface the SA has to navigate to. #821 then hoisted
+a text link to the top of the store page; the operator judged it "not prominent
+enough". Telemetry settled where the door belongs: over 7 days a `site_admin`
+generated **1,367** route events on `/sa`, **20** on the project store and **2**
+on `/equipment*`. #821 fixed the position on a page the SA does not open — so
+the door becomes a shared `EquipmentScanDoor` hero (accent ground, QR mark, a
+subtitle naming the physical act) with two homes: the **SA home**, between
+แผนวันนี้ and the เครื่องมือ tiles, and the **top of the store page**, replacing
+#821's link. The store section keeps its own contextual link — removing it would
+delete an affordance from the one place the tools are listed.
+
+- **No count line.** With `equipment_usage_logs` at 0 the door would read
+  "0 ยืมออก", and deriving it on `/sa` means an items + movements + open-log read
+  on the app's heaviest page. Counts stay on the store section, where §6.1 of
+  spec 368 already loads that data.
+- **The `/sa` copy is ungated.** `SA_SURFACE_ROLES` ⊆ `EQUIPMENT_MOVE_ROLES`, so
+  a role gate would be an arm that can never fail (the spec-340 unreachable-clause
+  defect). The subset invariant is pinned in `role-sets.test.ts` instead, so
+  adding a non-mover to the SA home reds and asks for the gate. The store page
+  keeps its `canReturnEquipment` gate — that page admits non-movers.
+- ⚑ **Logged, not built (fresh-eyes):** `src/lib/sa/help-content.ts` — the SA's
+  in-app คู่มือ has topics for photos, muster, crew and the cold restart, and
+  none for equipment scan. The unit's own diagnosis is "the SA cannot find it",
+  so the help SSOT never naming the door is a real gap; it is a content unit,
+  not this one. Also unpinned by any test: the `/equipment` page's own door.
+- ⭐ **The lesson #821 half-learned:** a door's EXISTENCE is not its
+  DISCOVERABILITY, and neither is its POSITION — position only counts on a page
+  the user already opens. Rank candidate hosts by that user's real route
+  telemetry before choosing where to put a primary action.
+
 ## 4. Non-goals
 
 - Web NFC API / in-app tag reading or writing.
