@@ -6,6 +6,8 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   formatBadgeCount,
   sumApprovalCounts,
@@ -73,5 +75,45 @@ describe("ApprovalsBadge", () => {
     const inline = screen.getByLabelText("รอตรวจ 2 รายการ");
     expect(inline.className).not.toContain("absolute");
     expect(inline.className).toContain("ml-1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Spec 371 U2 — the nav badge summed bare pending_approval with the two bank
+// queues, so it reported the blended 70. It now counts the ACTIONABLE zones of
+// work_package_review_queue, which is the same predicate /review and the ภาพรวม
+// hero read — the three cannot disagree.
+describe("the WP term of the badge counts actionable zones only (spec 371 U2)", () => {
+  const read = (p: string) =>
+    readFileSync(resolve(process.cwd(), p), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+  const SRC = read("src/components/features/dashboard/pending-approvals-badge.tsx");
+  const occurrences = (s: string, n: string) => s.split(n).length - 1;
+
+  it("reads the review-queue view, not the raw work_packages table", () => {
+    expect(SRC).toContain("work_package_review_queue");
+    // The bare status count is exactly what made the badge misleading.
+    expect(SRC).not.toContain('.eq("status", "pending_approval")');
+  });
+
+  // Mutation-proved gap: the old pin (`toContain("awaiting_site")` + a loose
+  // occurrence count) passed on `.neq("code", "awaiting_site")` — a real column,
+  // so TypeScript accepts it, no row matches, and the badge counts 70 again.
+  // Pin the FILTERED COLUMN, and pin that the literal comes from the shared
+  // const rather than being retyped on this side of the SQL/TS boundary.
+  it("filters on the ZONE column, not some other column that happens to compile", () => {
+    expect(SRC).toContain('.neq("zone", AWAITING_SITE_ZONE)');
+    expect(occurrences(SRC, "AWAITING_SITE_ZONE")).toBeGreaterThanOrEqual(2);
+    expect(SRC).not.toContain('.neq("code"');
+  });
+
+  // Mutation-proved gap: asserting the two table-name strings exist passed on
+  // `sumApprovalCounts([wp, bank, bank])` — worker bank changes dropped, the
+  // contractor ones double-counted, every binding still "used" so no lint error.
+  it("sums all THREE queues — this unit changes one term, not the shape", () => {
+    expect(SRC).toContain("contractor_bank_change_requests");
+    expect(SRC).toContain("worker_bank_change_requests");
+    expect(SRC).toContain("sumApprovalCounts([wp, bank, workerBank])");
   });
 });

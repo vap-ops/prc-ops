@@ -1354,10 +1354,15 @@ export const REVIEW_ACTIONABLE_EMPTY = "ไม่มีงานที่ตร�
  *  APPROVAL_DECISION_LABEL.needs_revision so the zone and the decision agree.
  *  Deliberately not "ช่าง" — that is the technician role, the wrong person. */
 export const REVIEW_AWAITING_SITE_ZONE_LABEL = "รอหน้างานถ่ายรูปใหม่";
+/** Spec 371 U2 — the same population, named short enough to sit BESIDE the
+ *  actionable count on the ภาพรวม card (operator: "Amount 70 items is
+ *  misleading, how about separating them?"). The full zone label above is the
+ *  heading on /review; this is the one-line companion figure. */
+export const REVIEW_AWAITING_SITE_SHORT = "รอหน้างาน";
 /** States the exclusion instead of leaving the PM to infer it from the count.
- *  Scoped to THIS page's number on purpose: until spec 371 U2 the ภาพรวม hero and
- *  the nav badge still count these rows, so a claim about "ยอดรอตรวจ" app-wide
- *  would be false. */
+ *  Scoped to THIS page's number on purpose. It was written while the hero and the
+ *  nav badge still counted these rows; U2 fixed those, and the scoped wording is
+ *  correct either way — the page's own total is what the note excludes from. */
 export const REVIEW_AWAITING_SITE_NOTE = "ไม่นับในยอดด้านบน";
 /** A 50-deep queue needs a start button, not a scroll. */
 export const REVIEW_START_HERE_CTA = "เริ่มตรวจงานเก่าสุด";

@@ -84,7 +84,9 @@ export default async function DashboardPage() {
   // is NOT here; it owns the คำขอซื้อ tab + badge.
   // (+ spec 318 U2 readiness — an independent self-read, rides the wave.)
   const [pendingSummary, pendingBankChanges, projectsRes, readiness] = await Promise.all([
-    isManager ? getPendingApprovalsSummary(supabase) : Promise.resolve({ count: 0, oldest: null }),
+    isManager
+      ? getPendingApprovalsSummary(supabase)
+      : Promise.resolve({ count: 0, awaitingSite: 0, oldest: null }),
     isManager
       ? Promise.all([
           getPendingBankChangeCount(supabase),

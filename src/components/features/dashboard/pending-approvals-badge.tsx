@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/db/browser";
+import { AWAITING_SITE_ZONE } from "@/lib/approvals/review-zone";
 
 // Pure: the count → label. Hidden (null) at zero, capped at 99+ so the pill
 // never blows out the tab. Exported for unit tests.
@@ -90,11 +91,20 @@ function SelfCountBadge({
 }
 
 // RLS-scoped head-counts (same visibility as the surface each links to).
+//
+// Spec 371 U2: this counts the ACTIONABLE zones of work_package_review_queue,
+// not bare status='pending_approval'. The old count included un-cured bounces —
+// work the site admin owes, which the PM cannot act on — so the badge reported
+// a blended 70 where /review shows 52 (operator: "Amount 70 items is misleading,
+// how about separating them?"). The view is the one place that predicate lives,
+// so this badge and the ภาพรวม hero cannot drift apart. ⚠️ /review does NOT read
+// the view yet (it re-derives the rule in TS — spec 371 U3 closes that). Still a
+// single head-count: the classification happens in SQL.
 async function loadPendingWpApprovals(): Promise<number | null> {
   const { count } = await createClient()
-    .from("work_packages")
+    .from("work_package_review_queue")
     .select("id", { count: "exact", head: true })
-    .eq("status", "pending_approval");
+    .neq("zone", AWAITING_SITE_ZONE);
   return count;
 }
 
