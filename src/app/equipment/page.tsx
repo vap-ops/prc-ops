@@ -83,6 +83,14 @@ export default async function EquipmentPage({
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <div className="mb-4 flex flex-wrap items-center gap-4">
+          {/* Spec 370 U2/U4 — the scan door (whole page audience ==
+              EQUIPMENT_MOVE_ROLES == the scan page's own gate). */}
+          <Link
+            href="/equipment/scan?from=%2Fequipment"
+            className="text-action inline-flex min-h-11 items-center text-sm font-medium"
+          >
+            สแกนยืม/คืน →
+          </Link>
           {/* Spec 268: the rental recorder is a money surface — linked for the
               back-office audience only (the site_admin view stays rate-free). */}
           {canManageRegistry && (
