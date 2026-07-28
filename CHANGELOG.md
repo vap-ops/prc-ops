@@ -1,3 +1,13 @@
+# [0.253.0](https://github.com/vap-ops/prc-ops/compare/v0.252.0...v0.253.0) (2026-07-28)
+
+### Bug Fixes
+
+- **store:** pass projectId, not an href-builder — a function prop cannot cross the RSC boundary ([92aa447](https://github.com/vap-ops/prc-ops/commit/92aa447dd19fe726e0a3d7b5f0836fcb0c562973))
+
+### Features
+
+- **store:** split เครื่องมือและอุปกรณ์ into ยืมไปที่งาน / อยู่ในคลัง with คืน at the store (spec 368 U4) ([d73a5ca](https://github.com/vap-ops/prc-ops/commit/d73a5caac57330dbd33a1effe83e96a3c6783af3))
+
 # [0.252.0](https://github.com/vap-ops/prc-ops/compare/v0.251.0...v0.252.0) (2026-07-28)
 
 ### Bug Fixes
