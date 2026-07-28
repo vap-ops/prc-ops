@@ -1,9 +1,9 @@
 // Spec 363 U7 — pure shapers for the WP ของ-tab เครื่องมือ section.
 //
 // An open loan is an OBLIGATION WITH A CLOCK (spec 363 D5): the section lists
-// this WP's open spans oldest-obligation-visible (newest first like the sibling
-// groups, the clock text carrying the age), and offers ยืมเครื่องมือ over the
-// units actually borrowable here.
+// this WP's open spans OLDEST FIRST — the longest-overdue obligation sits at
+// the top (the retired usage-rows sibling made the same call) — and offers
+// ยืมเครื่องมือ over the units actually borrowable here.
 //
 // "Who has it" = borrower_worker_id when the recording door captured one, else
 // the RECORDER — entered_by is always the scanning custodian under spec 370 D1,
@@ -32,7 +32,7 @@ export interface WpLoanRow {
 
 const MS_PER_DAY = 86_400_000;
 
-/** Whole days between two ISO dates (0 = same day → "ยืมวันนี้"). */
+/** Whole days ELAPSED between two ISO dates (0 = same day → "ยืมวันนี้"). */
 export function loanDays(checkedOutOn: string, today: string): number {
   const out = Date.parse(`${checkedOutOn}T00:00:00Z`);
   const now = Date.parse(`${today}T00:00:00Z`);
@@ -65,7 +65,7 @@ export function shapeWpLoans(
       checkedOutOn: l.checkedOutOn,
       days: loanDays(l.checkedOutOn, ctx.today),
     }))
-    .sort((a, b) => b.checkedOutOn.localeCompare(a.checkedOutOn));
+    .sort((a, b) => a.checkedOutOn.localeCompare(b.checkedOutOn));
 }
 
 export interface BorrowableItem {

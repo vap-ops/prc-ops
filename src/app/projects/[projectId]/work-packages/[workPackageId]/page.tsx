@@ -776,16 +776,24 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       { data: equipItems },
       { data: equipMoves },
     ] = await Promise.all([
+      // Generous explicit limits, far above the 64-item fleet: silent PostgREST
+      // truncation of the closing-row set would RESURRECT closed loans as open
+      // (the anti-join loses its counter-evidence), so the caps are stated.
       supabase
         .from("equipment_usage_logs")
         .select("id, item_id, work_package_id, checked_out_on, borrower_worker_id, entered_by")
-        .is("checked_in_on", null),
+        .is("checked_in_on", null)
+        .limit(500),
       supabase
         .from("equipment_usage_logs")
         .select("superseded_by")
-        .not("superseded_by", "is", null),
-      supabase.from("equipment_items").select("id, name, tracking"),
-      supabase.from("equipment_movements").select("item_id, kind, project_id, occurred_at"),
+        .not("superseded_by", "is", null)
+        .limit(5000),
+      supabase.from("equipment_items").select("id, name, tracking").order("name").limit(1000),
+      supabase
+        .from("equipment_movements")
+        .select("item_id, kind, project_id, occurred_at")
+        .limit(5000),
     ]);
     const supersededIds = new Set((closingRows ?? []).map((r) => r.superseded_by));
     const openLogs = (loanCandidates ?? []).filter((l) => !supersededIds.has(l.id));
@@ -794,6 +802,21 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       name: i.name,
       tracking: i.tracking as "unit" | "bulk",
     }));
+    // "Who has it" falls back to the RECORDER when no borrower was picked —
+    // and equipment recorders are in NONE of displayNames' source sets
+    // (deciders ∪ requesters ∪ uploaders ∪ removers), so widen the map for
+    // exactly the ids this WP's open loans carry (the statusAwareNames
+    // pattern; fresh-eyes 🔴1).
+    const wpOpenLogRows = openLogs.filter((l) => l.work_package_id === wp.id);
+    const missingRecorderIds = [...new Set(wpOpenLogRows.map((l) => l.entered_by))].filter(
+      (id) => !statusAwareNames.has(id),
+    );
+    const recorderAwareNames = missingRecorderIds.length
+      ? new Map([
+          ...statusAwareNames,
+          ...(await fetchDisplayNames(missingRecorderIds, "equipment-recorders")),
+        ])
+      : statusAwareNames;
     const wpLoanRows = shapeWpLoans(
       openLogs.map((l) => ({
         id: l.id,
@@ -806,33 +829,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
       {
         items: new Map(equipItemList.map((i) => [i.id, i.name])),
         workers: workerNames,
-        users: displayNames,
+        users: recorderAwareNames,
         wpId: wp.id,
         today: bangkokTodayISO(),
       },
     );
-    // Borrow-time photos for the คืน compare strip, keyed per open loan.
-    const wpOpenIds = wpLoanRows.map((r) => r.logId);
-    const outPhotoUrlsByLog = new Map<string, string[]>();
-    if (wpOpenIds.length > 0) {
-      const { data: outPhotoRows } = await supabase
-        .from("equipment_usage_photos")
-        .select("id, storage_path, log_id")
-        .in("log_id", wpOpenIds)
-        .eq("phase", "out");
-      const urls = await mintSignedUrls("equipment-images", outPhotoRows ?? []);
-      for (const r of outPhotoRows ?? []) {
-        const u = urls.get(r.id);
-        if (!u) continue;
-        const list = outPhotoUrlsByLog.get(r.log_id) ?? [];
-        list.push(u);
-        outPhotoUrlsByLog.set(r.log_id, list);
-      }
-    }
-    const equipmentLoans = wpLoanRows.map((r) => ({
-      ...r,
-      outPhotoUrls: outPhotoUrlsByLog.get(r.logId) ?? [],
-    }));
+    // Borrow-time photos are NOT minted here — 120s signed URLs would be dead
+    // before a คืน sheet opens; the component fetches them on open via
+    // fetchLoanPhotoUrls (fresh-eyes 🟡6).
+    const equipmentLoans = wpLoanRows;
     const borrowable = availableToBorrow({
       items: equipItemList,
       movements: (equipMoves ?? []).map((m) => ({
@@ -922,16 +927,22 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               // gate.
               canAct={!readOnly}
             />
-            {/* Spec 363 U7 — เครื่องมือ at the tab foot (D6). Doors gate on the
-                EQUIPMENT_MOVE_ROLES-shaped !readOnly the RPCs enforce anyway;
-                read-only viewers keep the list (an open obligation is a fact of
-                the WP, not a control). */}
+            {/* Spec 363 U7 — เครื่องมือ at the tab foot (D6). Doors gate on
+                !readOnly (NARROWER than the RPCs' own allowlist — plain
+                procurement is admitted by the DB but read-only here by the
+                same decision the sibling controls made); read-only viewers
+                keep the list (an open obligation is a fact of the WP, not a
+                control). wpComplete mirrors the RPC's complete-WP refusal so
+                the borrow door never offers what check_out will refuse —
+                คืน stays live (check_in has no such guard; a tool must be
+                returnable to a closed job). */}
             <WpEquipmentSection
               wpId={wp.id}
               loans={equipmentLoans}
               available={borrowable}
               roster={wpWorkers}
               canAct={!readOnly}
+              wpComplete={wp.status === "complete"}
               revalidate={workPackageHref(projectId, workPackageId)}
             />
           </div>

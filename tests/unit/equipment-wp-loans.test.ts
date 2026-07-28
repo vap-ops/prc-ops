@@ -40,7 +40,7 @@ describe("spec 363 U7 — shapeWpLoans", () => {
   const workers = new Map([["w-1", "สมชาย ใจดี"]]);
   const users = new Map([["user-sa", "อรปรีญา"]]);
 
-  it("only THIS WP's open loans shape into rows, newest first", () => {
+  it("only THIS WP's open loans shape into rows, OLDEST first", () => {
     const rows = shapeWpLoans(
       [
         LOG({ id: "a", checkedOutOn: "2026-07-25" }),
@@ -49,9 +49,9 @@ describe("spec 363 U7 — shapeWpLoans", () => {
       ],
       { items, workers, users, wpId: "wp-1", today: "2026-07-28" },
     );
-    expect(rows.map((r) => r.logId)).toEqual(["b", "a"]);
-    expect(rows[0]!.itemName).toBe("เครื่องตัดไฟเบอร์");
-    expect(rows[0]!.days).toBe(2);
+    expect(rows.map((r) => r.logId)).toEqual(["a", "b"]); // oldest obligation first
+    expect(rows[1]!.itemName).toBe("เครื่องตัดไฟเบอร์");
+    expect(rows[1]!.days).toBe(2);
   });
 
   it("who = borrower when recorded, else the RECORDER (entered_by is always the scanning SA)", () => {

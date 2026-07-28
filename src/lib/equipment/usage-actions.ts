@@ -21,6 +21,8 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import type { Database } from "@/lib/db/database.types";
 
@@ -50,11 +52,37 @@ function checkInErrorToThai(message: string): string {
   return GENERIC_ERROR;
 }
 
+// Runtime allowlist for the door tag — `via` is client input like everything
+// else here; a bad value must fail HERE, not surface as a 22P02 GENERIC_ERROR.
+const VIA_VALUES: readonly EquipmentUsageVia[] = ["scan", "search", "wp_tab", "store"];
+
+const MAX_PHOTOS = 6;
+
 // The storage policy admits movers only under usage/ at depth 2 — anything else
 // was either not uploaded by our flow or is trying to point evidence somewhere
-// it could not have been written.
+// it could not have been written. Capped: one call must not insert an unbounded
+// row batch.
 function validPhotoPaths(paths: readonly string[]): boolean {
-  return paths.length >= 1 && paths.every((p) => /^usage\/[^/]+\/[^/]+$/.test(p));
+  return (
+    paths.length >= 1 &&
+    paths.length <= MAX_PHOTOS &&
+    paths.every((p) => /^usage\/[^/]+\/[^/]+$/.test(p))
+  );
+}
+
+// D4's evidence gate is only as strong as the paths being REAL uploads — a
+// well-shaped string with no object behind it would satisfy the regex with zero
+// photos taken (fresh-eyes 🟡9a). Verify existence against storage before the
+// RPC. (What this deliberately does NOT try to stop: a caller re-submitting a
+// genuinely-uploaded file as different-phase evidence — D4 protects against
+// omission, not an SA actively forging their own record; noted in spec 370.)
+async function photosExistInStorage(paths: readonly string[]): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage
+    .from("equipment-images")
+    .createSignedUrls([...paths], 60);
+  if (error || !data || data.length !== paths.length) return false;
+  return data.every((d) => !d.error && d.signedUrl);
 }
 
 async function insertPhotoRows(
@@ -91,6 +119,7 @@ export async function checkOutEquipment(input: {
     !UUID_REGEX.test(input.itemId) ||
     !ISO_DATE.test(input.checkoutDate) ||
     !input.revalidate.startsWith("/") ||
+    !VIA_VALUES.includes(input.via) ||
     (input.borrowerWorkerId !== undefined && !UUID_REGEX.test(input.borrowerWorkerId))
   ) {
     return { ok: false, error: GENERIC_ERROR };
@@ -98,8 +127,24 @@ export async function checkOutEquipment(input: {
   if (!validPhotoPaths(input.photoPaths)) {
     return { ok: false, error: PHOTO_REQUIRED };
   }
+  if (!(await photosExistInStorage(input.photoPaths))) {
+    return { ok: false, error: PHOTO_REQUIRED };
+  }
 
   const supabase = await createServerSupabase();
+  // Spec 370 §3 U2 (F7): bulk items are refused AT THIS LAYER — the RPC has no
+  // tracking guard, and a server action is a public endpoint, so a raw call
+  // with a bulk uuid must not sail through. (Middle-layer-refuses-what-the-
+  // RPC-allows is the recorded v1 scope-hold.)
+  const { data: itemRow } = await supabase
+    .from("equipment_items")
+    .select("tracking")
+    .eq("id", input.itemId)
+    .maybeSingle();
+  if (!itemRow) return { ok: false, error: "ไม่พบอุปกรณ์หรืองานนี้" };
+  if (itemRow.tracking === "bulk") {
+    return { ok: false, error: "ของแบบนับจำนวน (เช่น นั่งร้าน) ยังยืมรายชิ้นไม่ได้" };
+  }
   const { data: logId, error } = await supabase.rpc("check_out_equipment", {
     p_item: input.itemId,
     p_wp: input.workPackageId,
@@ -113,9 +158,12 @@ export async function checkOutEquipment(input: {
   }
 
   if (!(await insertPhotoRows(supabase, logId, "out", input.photoPaths))) {
-    // The span opened; the evidence didn't land. Say so — the row detail offers
-    // the photos again rather than pretending the record is complete.
-    return { ok: false, error: "ยืมสำเร็จ แต่บันทึกรูปไม่สำเร็จ — เปิดรายการแล้วเพิ่มรูปอีกครั้ง" };
+    // The span opened; the evidence rows didn't land. Honest about BOTH facts
+    // — no add-photo-later door exists yet (spec 370 open question), so the
+    // message must not point at one. The caller refreshes on this path so the
+    // list shows the opened span.
+    revalidatePath(input.revalidate);
+    return { ok: false, error: "บันทึกยืมแล้ว แต่แนบรูปไม่สำเร็จ — รายการนี้จะไม่มีรูปสภาพ" };
   }
 
   revalidatePath(input.revalidate);
@@ -132,11 +180,15 @@ export async function checkInEquipment(input: {
   if (
     !UUID_REGEX.test(input.logId) ||
     !ISO_DATE.test(input.checkinDate) ||
-    !input.revalidate.startsWith("/")
+    !input.revalidate.startsWith("/") ||
+    !VIA_VALUES.includes(input.via)
   ) {
     return { ok: false, error: GENERIC_ERROR };
   }
   if (!validPhotoPaths(input.photoPaths)) {
+    return { ok: false, error: PHOTO_REQUIRED };
+  }
+  if (!(await photosExistInStorage(input.photoPaths))) {
     return { ok: false, error: PHOTO_REQUIRED };
   }
 
@@ -153,9 +205,36 @@ export async function checkInEquipment(input: {
 
   // Photos key to the ORIGINAL log id — the reader follows the supersede chain.
   if (!(await insertPhotoRows(supabase, input.logId, "in", input.photoPaths))) {
-    return { ok: false, error: "คืนสำเร็จ แต่บันทึกรูปไม่สำเร็จ — เพิ่มรูปได้จากรายการอุปกรณ์" };
+    revalidatePath(input.revalidate);
+    return { ok: false, error: "บันทึกคืนแล้ว แต่แนบรูปไม่สำเร็จ — รายการนี้จะไม่มีรูปสภาพตอนคืน" };
   }
 
   revalidatePath(input.revalidate);
   return { ok: true };
+}
+
+export type LoanPhotoUrlsResult = { ok: true; urls: string[] } | { ok: false };
+
+/**
+ * Borrow-time (`out`) photo URLs for one loan, minted ON DEMAND — page-render
+ * signed URLs are dead (120s TTL) before a คืน sheet opens. Authorization is
+ * the photo table's staff-only SELECT policy: the RLS read below returns rows
+ * only for roles the policy admits, and the admin client then merely signs the
+ * paths that read already authorized.
+ */
+export async function fetchLoanPhotoUrls(logId: string): Promise<LoanPhotoUrlsResult> {
+  if (!UUID_REGEX.test(logId)) return { ok: false };
+  const supabase = await createServerSupabase();
+  const { data: rows, error } = await supabase
+    .from("equipment_usage_photos")
+    .select("id, storage_path")
+    .eq("log_id", logId)
+    .eq("phase", "out")
+    .limit(MAX_PHOTOS);
+  if (error) return { ok: false };
+  const urls = await mintSignedUrls("equipment-images", rows ?? []);
+  return {
+    ok: true,
+    urls: (rows ?? []).map((r) => urls.get(r.id)).filter((u): u is string => !!u),
+  };
 }
