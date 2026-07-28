@@ -54,7 +54,7 @@ export default async function SaHomePage() {
   // so this is already "my" work. Spec 218: keep pending_approval (drop only
   // complete) — a WP the PM sent back for new photos (ให้แก้ไข) stays
   // pending_approval but is back on the SA's plate; we surface it from its
-  // latest decision. Spec 337 F3: a ส่งกลับแก้งาน (rejected) no longer stays
+  // latest decision. Spec 337 F3: a งานต้องแก้ไข (rejected) no longer stays
   // pending_approval — it flips to rework and arrives through the rework lane
   // below, carrying the PM's comment as the round's reason.
   const { data: wpRows } = await supabase

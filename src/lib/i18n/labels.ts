@@ -1392,8 +1392,9 @@ export function waitingDaysChip(days: number): string {
 }
 /** Zone B row chip: how long the SITE has sat on the ask — counted from the
  *  decision, not from queue entry, because that is the number worth chasing.
- *  Deliberately NOT "ส่งกลับ…": that verb is already
- *  APPROVAL_DECISION_LABEL.rejected ("ส่งกลับแก้งาน"), and this zone holds only
+ *  Deliberately NOT "ส่งกลับ…": that verb belongs to the other decision, whose
+ *  label is APPROVAL_DECISION_LABEL.rejected ("งานต้องแก้ไข" since spec 372 U2 put
+ *  it on the problem axis), and this zone holds only
  *  needs_revision. Spec 353 separated those two on purpose, and the operator
  *  report that prompted spec 371 was itself a rejected-vs-bounce conflation —
  *  shipping the rejected verb here would hand it straight back. */
