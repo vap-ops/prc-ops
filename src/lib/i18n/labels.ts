@@ -1354,17 +1354,27 @@ export const REVIEW_ACTIONABLE_EMPTY = "ไม่มีงานที่ตร�
  *  APPROVAL_DECISION_LABEL.needs_revision so the zone and the decision agree.
  *  Deliberately not "ช่าง" — that is the technician role, the wrong person. */
 export const REVIEW_AWAITING_SITE_ZONE_LABEL = "รอหน้างานถ่ายรูปใหม่";
-/** States the exclusion instead of leaving the PM to infer it from the count. */
-export const REVIEW_AWAITING_SITE_NOTE = "ไม่นับในยอดรอตรวจ";
+/** States the exclusion instead of leaving the PM to infer it from the count.
+ *  Scoped to THIS page's number on purpose: until spec 371 U2 the ภาพรวม hero and
+ *  the nav badge still count these rows, so a claim about "ยอดรอตรวจ" app-wide
+ *  would be false. */
+export const REVIEW_AWAITING_SITE_NOTE = "ไม่นับในยอดด้านบน";
 /** A 50-deep queue needs a start button, not a scroll. */
 export const REVIEW_START_HERE_CTA = "เริ่มตรวจงานเก่าสุด";
 
-/** Zone A row chip: how long this WP has waited in the queue. */
-export function reviewWaitingChip(days: number): string {
-  return `รอมา ${days} วัน`;
+/** "Waited N days" — the SSOT for every queue-aging chip. Spec 371 adopted the
+ *  wording already shipped on the PO worklist rather than minting a second
+ *  phrasing for the same idea (memory `ui-term-consistency-ssot`). */
+export function waitingDaysChip(days: number): string {
+  return `รอมาแล้ว ${days} วัน`;
 }
 /** Zone B row chip: how long the SITE has sat on the ask — counted from the
- *  bounce, not from queue entry, because that is the number worth chasing. */
-export function reviewBouncedChip(days: number): string {
-  return `ส่งกลับไป ${days} วัน`;
+ *  decision, not from queue entry, because that is the number worth chasing.
+ *  Deliberately NOT "ส่งกลับ…": that verb is already
+ *  APPROVAL_DECISION_LABEL.rejected ("ส่งกลับแก้งาน"), and this zone holds only
+ *  needs_revision. Spec 353 separated those two on purpose, and the operator
+ *  report that prompted spec 371 was itself a rejected-vs-bounce conflation —
+ *  shipping the rejected verb here would hand it straight back. */
+export function reviewStuckChip(days: number): string {
+  return `ค้างมา ${days} วัน`;
 }

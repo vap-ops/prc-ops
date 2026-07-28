@@ -17,6 +17,7 @@
 // count `actionableCount` from the same predicate, so the number the PM is shown
 // and the list they scroll cannot drift.
 
+import { bangkokDateOf } from "@/lib/dates";
 import type { ApprovalRevisionReason } from "@/lib/db/enums";
 
 /** The subset of a latest-decision row this partition needs. */
@@ -94,9 +95,20 @@ export function partitionReviewQueue<T extends { id: string; updated_at: string 
 
   // Longest-stuck first — the awaiting zone is a chase list, so it ranks by how
   // long the site has been sitting on the ask, not by when the WP entered the queue.
-  awaitingSite.sort((a, b) => a.bouncedAt.localeCompare(b.bouncedAt));
+  // Plain `<` like selectLatestDecisionByWorkPackage: localeCompare is ICU-collation
+  // dependent and actually inverts across PostgREST's two fraction formats
+  // ("…:22+00:00" vs "…:22.776778+00:00").
+  awaitingSite.sort((a, b) => (a.bouncedAt < b.bouncedAt ? -1 : a.bouncedAt > b.bouncedAt ? 1 : 0));
 
-  const startHere = readyAgain[0] ?? firstReview[0] ?? null;
+  // The genuinely oldest actionable row, across BOTH groups — the CTA says
+  // เริ่มตรวจงานเก่าสุด, so it must not mean "oldest ready-again, else oldest first
+  // review". A cured bounce keeps its original queue-entry updated_at, so it can
+  // easily be NEWER than the oldest never-reviewed WP (fresh-eyes catch: live, the
+  // two were 11 minutes apart, which is the only reason it read correctly).
+  const startHere = [...readyAgain, ...firstReview].reduce<T | null>(
+    (oldest, row) => (oldest === null || row.updated_at < oldest.updated_at ? row : oldest),
+    null,
+  );
 
   return {
     readyAgain,
@@ -109,22 +121,20 @@ export function partitionReviewQueue<T extends { id: string; updated_at: string 
 }
 
 /**
- * Whole days elapsed between an ISO stamp and `nowMs`. Clamped at 0 (a stamp in
- * the future reads "today", never a negative age) and null on an unparseable
- * stamp, so a bad value renders as no chip instead of "NaN วัน".
+ * Whole **Asia/Bangkok calendar days** between an ISO stamp and `todayIso`.
+ *
+ * Calendar days, not elapsed 24-hour periods: `src/lib/dates.ts` fixes app dates to
+ * Bangkok civil dates (spec 46 C7), the row renders `เข้าคิวเมื่อ` through the same
+ * timezone, and the app's other aging chip (`poAgingDays`) already counts this way —
+ * an elapsed-ms floor would render `รอมาแล้ว 0 วัน` beside a stamp dated yesterday.
+ *
+ * Clamped at 0 so clock skew reads "today" rather than a negative age, and null on an
+ * unparseable stamp so a bad value renders as no chip instead of "NaN วัน".
  */
-/**
- * The clock read, in a plain module rather than inline in the page — React's
- * purity rule (`react-hooks/purity`) forbids `Date.now()` during render, and the
- * server renders this once per request, which is exactly what a queue age wants.
- * Same shape as `bangkokTodayISO` (spec 92 D).
- */
-export function currentTimeMs(): number {
-  return Date.now();
-}
-
-export function daysSince(iso: string, nowMs: number): number | null {
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) return null;
-  return Math.max(0, Math.floor((nowMs - then) / 86_400_000));
+export function daysWaiting(iso: string, todayIso: string): number | null {
+  if (Number.isNaN(Date.parse(iso))) return null;
+  const from = Date.parse(`${bangkokDateOf(iso)}T00:00:00Z`);
+  const to = Date.parse(`${todayIso}T00:00:00Z`);
+  if (Number.isNaN(from) || Number.isNaN(to)) return null;
+  return Math.max(0, Math.round((to - from) / 86_400_000));
 }

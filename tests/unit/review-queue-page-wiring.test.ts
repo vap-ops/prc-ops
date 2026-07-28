@@ -38,9 +38,18 @@ describe("/review renders the focus split", () => {
     expect(PAGE).not.toContain("reviewQueueLabel");
   });
 
-  // Every label pin below is >=2 occurrences, NOT toContain. Mutation-proved:
-  // deleting the only USE of REVIEW_AWAITING_SITE_NOTE (and of reviewBouncedChip)
-  // left a bare toContain green, because the import line alone satisfies it.
+  // Every pin below counts occurrences, NOT toContain, and counts against the ACTUAL
+  // number of uses rather than a blanket 2. Both refinements are mutation-proved:
+  // a bare toContain is satisfied by the import line alone, and a blanket >=2 is
+  // satisfied by the import plus ONE surviving use when the symbol is used twice.
+  it("renders BOTH zone-A subgroups — neither section can be deleted silently", () => {
+    // The ready-again section was the hole: no assertion named it, so the whole
+    // block could go while its rows stayed inside actionableCount (fresh-eyes catch).
+    expect(occurrences(PAGE, "queue.readyAgain")).toBeGreaterThanOrEqual(3);
+    expect(occurrences(PAGE, "REVIEW_READY_AGAIN_LABEL")).toBeGreaterThanOrEqual(3);
+    expect(occurrences(PAGE, "queue.firstReview")).toBeGreaterThanOrEqual(3);
+  });
+
   it("renders both zones from the label SSOT, never inline strings", () => {
     expect(occurrences(PAGE, "REVIEW_ACTIONABLE_ZONE_LABEL")).toBeGreaterThanOrEqual(2);
     expect(occurrences(PAGE, "REVIEW_AWAITING_SITE_ZONE_LABEL")).toBeGreaterThanOrEqual(2);
@@ -53,8 +62,14 @@ describe("/review renders the focus split", () => {
 
   it("keeps the awaiting-site zone reachable but collapsed, and says it is excluded", () => {
     expect(PAGE).toContain("<details");
-    expect(occurrences(PAGE, "queue.awaitingSite")).toBeGreaterThanOrEqual(2);
+    // 3 uses: the length guard, the summary count, the <ul> map. At >=2 the whole
+    // <ul> could go, leaving a disclosure announcing 18 rows and containing none.
+    expect(occurrences(PAGE, "queue.awaitingSite")).toBeGreaterThanOrEqual(3);
     expect(occurrences(PAGE, "REVIEW_AWAITING_SITE_NOTE")).toBeGreaterThanOrEqual(2);
+    // Opens itself when zone A is empty, so an all-bounced queue is not one thin bar.
+    expect(PAGE).toContain("open={queue.actionableCount === 0}");
+    // The repo's disclosure idiom (cold-restart-help): the chevron must turn.
+    expect(PAGE).toContain("group-open:rotate-180");
   });
 
   it("offers the start-here CTA at the oldest actionable WP", () => {
@@ -63,10 +78,23 @@ describe("/review renders the focus split", () => {
   });
 
   it("ages both zones from their OWN clock — queue entry vs the bounce", () => {
-    expect(occurrences(PAGE, "reviewWaitingChip")).toBeGreaterThanOrEqual(2);
+    // 3 uses: import, the hero subtitle, the per-row chip. At >=2 the row chip
+    // could be deleted and the pin would still pass.
+    expect(occurrences(PAGE, "waitingDaysChip")).toBeGreaterThanOrEqual(3);
     // The chase chip counts from approvals.decided_at (bouncedAt), which is the
     // number worth chasing; counting from updated_at would understate it.
-    expect(occurrences(PAGE, "reviewBouncedChip")).toBeGreaterThanOrEqual(2);
+    expect(occurrences(PAGE, "reviewStuckChip")).toBeGreaterThanOrEqual(2);
     expect(occurrences(PAGE, "bouncedAt")).toBeGreaterThanOrEqual(2);
+    // Bangkok calendar days (src/lib/dates.ts doctrine), not an elapsed-ms floor.
+    expect(occurrences(PAGE, "daysWaiting")).toBeGreaterThanOrEqual(4);
+    expect(PAGE).toContain("bangkokTodayIso");
+    expect(PAGE).not.toContain("Date.now");
+  });
+
+  it("does not caption a DECIDED work package as never reviewed", () => {
+    // approved/rejected should never be in this queue, but if one is it keeps its
+    // real decision pill instead of silently inheriting the รอตรวจครั้งแรก heading.
+    expect(PAGE).toContain("APPROVAL_DECISION_LABEL");
+    expect(occurrences(PAGE, "approvalDecisionPillClasses")).toBeGreaterThanOrEqual(3);
   });
 });

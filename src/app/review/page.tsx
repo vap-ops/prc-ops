@@ -10,11 +10,13 @@ import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
+import { bangkokTodayIso } from "@/lib/dates";
 import { SECTION_HEADING } from "@/lib/ui/classes";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
 import { REVIEW_AWAITING_PHOTOS_LABEL, REVIEW_READY_AGAIN_LABEL } from "@/lib/approvals/resubmit";
-import { currentTimeMs, daysSince, partitionReviewQueue } from "@/lib/approvals/review-queue";
+import { daysWaiting, partitionReviewQueue } from "@/lib/approvals/review-queue";
 import {
+  APPROVAL_DECISION_LABEL,
   APPROVAL_REVISION_REASON_LABEL,
   formatThaiDateTime,
   REVIEW_ACTIONABLE_EMPTY,
@@ -23,14 +25,19 @@ import {
   REVIEW_AWAITING_SITE_ZONE_LABEL,
   REVIEW_FIRST_PASS_LABEL,
   REVIEW_START_HERE_CTA,
-  reviewBouncedChip,
-  reviewWaitingChip,
+  reviewStuckChip,
+  waitingDaysChip,
 } from "@/lib/i18n/labels";
-import { approvalDecisionPillClasses } from "@/lib/status-colors";
+import { approvalDecisionPillClasses, type ApprovalDecision } from "@/lib/status-colors";
 import { approvalDecisionIcon } from "@/lib/status-icons";
 import { ArrowRight, ChevronDown, Clock } from "lucide-react";
 
 export const metadata = { title: "รายการรอตรวจ" };
+
+// Subgroup headings sit UNDER the page's SECTION_HEADING h2, so they must not
+// outweigh it: same size, same 600 weight, muted ink. (font-extrabold here made
+// the h3s the heaviest text on the page — fresh-eyes catch.)
+const ZONE_HEADING = "text-section text-ink-secondary font-semibold";
 
 // Spec 371 U1 — the queue used to be one flat list of every pending_approval WP,
 // which is also what the ภาพรวม badge counts. Live on 2026-07-28 that was 70 rows
@@ -106,10 +113,10 @@ export default async function ProjectManagerLandingPage() {
     isAnswered: (decisionId) => answeredDecisionIds.has(decisionId),
   });
 
-  const nowMs = currentTimeMs();
+  const todayIso = bangkokTodayIso();
   const total = (pendingWps ?? []).length;
   const oldestActionableDays = queue.oldestActionableAt
-    ? daysSince(queue.oldestActionableAt, nowMs)
+    ? daysWaiting(queue.oldestActionableAt, todayIso)
     : null;
 
   type QueueRow = NonNullable<typeof pendingWps>[number];
@@ -132,8 +139,10 @@ export default async function ProjectManagerLandingPage() {
     <li key={wp.id}>
       <Link
         href={`/review/work-packages/${wp.id}`}
-        className={`rounded-card border-edge shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex min-h-16 items-start justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2 ${
-          muted ? "bg-sunk" : "bg-card"
+        className={`rounded-card border-edge shadow-card focus-visible:ring-action flex min-h-16 items-start justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2 ${
+          // A muted row is ALREADY bg-sunk, so the shared hover/active:bg-sunk would
+          // be a no-op and the chase rows would give no press feedback at all.
+          muted ? "bg-sunk hover:bg-card active:bg-card" : "bg-card hover:bg-sunk active:bg-sunk"
         }`}
       >
         <div className="min-w-0 space-y-0.5">
@@ -193,7 +202,7 @@ export default async function ProjectManagerLandingPage() {
                   {oldestActionableDays !== null ? (
                     <p className="text-attn-ink text-meta flex items-center gap-1">
                       <Clock aria-hidden className="size-3.5 shrink-0" />
-                      เก่าสุด {reviewWaitingChip(oldestActionableDays)}
+                      เก่าสุด {waitingDaysChip(oldestActionableDays)}
                     </p>
                   ) : null}
                   {queue.startHere ? (
@@ -209,7 +218,7 @@ export default async function ProjectManagerLandingPage() {
 
                 {queue.readyAgain.length > 0 ? (
                   <section className="flex flex-col gap-2">
-                    <h3 className="text-section text-ink font-extrabold">
+                    <h3 className={ZONE_HEADING}>
                       {REVIEW_READY_AGAIN_LABEL} ({queue.readyAgain.length})
                     </h3>
                     <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
@@ -230,7 +239,7 @@ export default async function ProjectManagerLandingPage() {
 
                 {queue.firstReview.length > 0 ? (
                   <section className="flex flex-col gap-2">
-                    <h3 className="text-section text-ink font-extrabold">
+                    <h3 className={ZONE_HEADING}>
                       {REVIEW_FIRST_PASS_LABEL} ({queue.firstReview.length})
                     </h3>
                     <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
@@ -238,12 +247,26 @@ export default async function ProjectManagerLandingPage() {
                         // The age is the only thing that differs between these rows, so it
                         // is what the chip carries — a pill repeating the heading told the
                         // PM nothing 51 times over.
-                        const days = daysSince(wp.updated_at, nowMs);
+                        const days = daysWaiting(wp.updated_at, todayIso);
+                        // …EXCEPT for the anomaly: `approved` closes a WP and `rejected`
+                        // sends it to rework, so neither should be sitting here — but if one
+                        // ever is, it must not be captioned "never reviewed". It keeps its
+                        // real decision pill. Zero live rows today; this is the path where
+                        // being wrong would be least noticed (retired reviewQueueLabel's
+                        // fallback arm was the only thing covering it — fresh-eyes catch).
+                        const decided = latestDecisions.get(wp.id)?.decision ?? null;
                         return queueRow(
                           wp,
-                          days === null ? null : (
+                          decided !== null ? (
+                            <StatusPill
+                              pillClasses={approvalDecisionPillClasses(decided as ApprovalDecision)}
+                              icon={approvalDecisionIcon(decided as ApprovalDecision)}
+                            >
+                              {APPROVAL_DECISION_LABEL[decided as ApprovalDecision] ?? decided}
+                            </StatusPill>
+                          ) : days === null ? null : (
                             <span className="text-ink-secondary text-meta whitespace-nowrap">
-                              {reviewWaitingChip(days)}
+                              {waitingDaysChip(days)}
                             </span>
                           ),
                         );
@@ -257,21 +280,33 @@ export default async function ProjectManagerLandingPage() {
             {/* ZONE B — not the PM's move. Collapsed, never removed: this is where
                 they come to chase the site. */}
             {queue.awaitingSite.length > 0 ? (
-              <details className="border-edge rounded-card border">
-                <summary className="hover:bg-sunk focus-visible:ring-action rounded-t-card flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 focus:outline-none focus-visible:ring-2">
+              // Open by default when zone A is empty: otherwise the whole page is one
+              // thin collapsed bar and the PM has to guess there is anything behind it.
+              <details
+                className="border-edge rounded-card group overflow-hidden border"
+                open={queue.actionableCount === 0}
+              >
+                <summary className="hover:bg-sunk focus-visible:ring-action flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 focus:outline-none focus-visible:ring-2">
                   <span className="flex min-w-0 items-center gap-2">
-                    <ChevronDown aria-hidden className="text-ink-muted size-4 shrink-0" />
+                    <ChevronDown
+                      aria-hidden
+                      className="text-ink-muted size-4 shrink-0 transition-transform group-open:rotate-180"
+                    />
                     <span className="text-ink-secondary truncate">
                       {REVIEW_AWAITING_SITE_ZONE_LABEL} ({queue.awaitingSite.length})
                     </span>
                   </span>
-                  <span className="bg-sunk text-ink-secondary text-meta shrink-0 rounded-full px-2 py-0.5">
-                    {REVIEW_AWAITING_SITE_NOTE}
-                  </span>
+                  {/* The note claims an exclusion from a number above it — so it only
+                      renders when that number is on screen. */}
+                  {queue.actionableCount > 0 ? (
+                    <span className="bg-sunk text-ink-secondary text-meta shrink-0 rounded-full px-2 py-0.5">
+                      {REVIEW_AWAITING_SITE_NOTE}
+                    </span>
+                  ) : null}
                 </summary>
                 <ul className="flex flex-col gap-2 px-4 pt-1 pb-4 lg:grid lg:grid-cols-2 lg:gap-3">
                   {queue.awaitingSite.map(({ row, bouncedAt, reason }) => {
-                    const days = daysSince(bouncedAt, nowMs);
+                    const days = daysWaiting(bouncedAt, todayIso);
                     return queueRow(
                       row,
                       <>
@@ -282,7 +317,7 @@ export default async function ProjectManagerLandingPage() {
                         </span>
                         {days === null ? null : (
                           <span className="text-danger text-meta whitespace-nowrap">
-                            {reviewBouncedChip(days)}
+                            {reviewStuckChip(days)}
                           </span>
                         )}
                       </>,
