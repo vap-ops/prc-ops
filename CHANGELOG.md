@@ -1,3 +1,13 @@
+# [0.252.0](https://github.com/vap-ops/prc-ops/compare/v0.251.0...v0.252.0) (2026-07-28)
+
+### Bug Fixes
+
+- **wp:** U7 fresh-eyes batch — evidence-gate state leaks, who-has-it names, guard parity ([b1c08c7](https://github.com/vap-ops/prc-ops/commit/b1c08c7f4497208108acdbf484bf9007f35de68f))
+
+### Features
+
+- **wp:** เครื่องมือ section on the ของ tab — borrow/return with condition photos (spec 363 U7) ([3d9af81](https://github.com/vap-ops/prc-ops/commit/3d9af8112efa9807d9722f0907c8d50064f71c36))
+
 # [0.251.0](https://github.com/vap-ops/prc-ops/compare/v0.250.0...v0.251.0) (2026-07-28)
 
 ### Bug Fixes
