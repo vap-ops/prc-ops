@@ -82,8 +82,8 @@ insert into public.equipment_usage_logs
    '11111111-1111-1111-1111-111111110290');
 
 -- Structural — the signatures survived (re-source insurance).
-select has_function('public', 'check_out_equipment', ARRAY['uuid','uuid','date'], 'check_out_equipment(uuid,uuid,date) exists');
-select has_function('public', 'check_in_equipment', ARRAY['uuid','date'], 'check_in_equipment(uuid,date) exists');
+select has_function('public', 'check_out_equipment', ARRAY['uuid','uuid','date','equipment_usage_via','uuid'], 'check_out_equipment(uuid,uuid,date,public.equipment_usage_via,uuid) exists');
+select has_function('public', 'check_in_equipment', ARRAY['uuid','date','equipment_usage_via'], 'check_in_equipment(uuid,date,public.equipment_usage_via) exists');
 
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;

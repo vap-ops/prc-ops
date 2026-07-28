@@ -87,11 +87,11 @@ insert into public.equipment_movements (id, item_id, kind, project_id, created_b
 -- ============================================================================
 -- Structural — the replace kept the signatures + grants (re-source insurance).
 -- ============================================================================
-select has_function('public', 'check_out_equipment', ARRAY['uuid','uuid','date'], 'check_out_equipment(uuid,uuid,date) exists');
-select has_function('public', 'check_in_equipment', ARRAY['uuid','date'], 'check_in_equipment(uuid,date) exists');
-select is(has_function_privilege('authenticated', 'public.check_out_equipment(uuid,uuid,date)', 'EXECUTE'),
+select has_function('public', 'check_out_equipment', ARRAY['uuid','uuid','date','equipment_usage_via','uuid'], 'check_out_equipment(uuid,uuid,date,public.equipment_usage_via,uuid) exists');
+select has_function('public', 'check_in_equipment', ARRAY['uuid','date','equipment_usage_via'], 'check_in_equipment(uuid,date,public.equipment_usage_via) exists');
+select is(has_function_privilege('authenticated', 'public.check_out_equipment(uuid,uuid,date,public.equipment_usage_via,uuid)', 'EXECUTE'),
   true, 'check_out_equipment EXECUTE grant preserved across replace');
-select is(has_function_privilege('authenticated', 'public.check_in_equipment(uuid,date)', 'EXECUTE'),
+select is(has_function_privilege('authenticated', 'public.check_in_equipment(uuid,date,public.equipment_usage_via)', 'EXECUTE'),
   true, 'check_in_equipment EXECUTE grant preserved across replace');
 
 grant insert on _tap_buf to authenticated;
@@ -188,10 +188,12 @@ select is(
 -- ============================================================================
 -- Regression — the existing guards still fire (proves the re-source kept them).
 -- ============================================================================
-select throws_ok(
+-- Spec 370 U1 (operator call b, 2026-07-28): the unpriced refusal is GONE —
+-- rate-optional borrows; the span snapshots NULL and charges 0.
+select lives_ok(
   $$ select public.check_out_equipment('17e90202-0202-0202-0202-17e9e9020202',
        'ba020202-0202-0202-0202-bbbbbb020202', date '2026-06-01') $$,
-  'P0001', null, 'regression: an unpriced item is still rejected (priced check intact)');
+  'an unpriced item NOW checks out (rate-optional, spec 370 U1)');
 select throws_ok(
   $$ select public.check_out_equipment('17ea0202-0202-0202-0202-17eaea020202',
        'bc020202-0202-0202-0202-cccccc020202', date '2026-06-01') $$,

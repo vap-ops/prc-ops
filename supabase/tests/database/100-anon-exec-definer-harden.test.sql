@@ -19,8 +19,8 @@ select is(has_function_privilege('anon', 'public.set_equipment_daily_rate(uuid, 
 -- deposit/deposit_paid_date/min_rental_days (9-arg).
 select is(has_function_privilege('anon', 'public.create_equipment_rental_batch(uuid, numeric, date, date, text, public.equipment_rate_period, numeric, date, integer)', 'EXECUTE'), false, 'anon cannot execute create_equipment_rental_batch');
 select is(has_function_privilege('anon', 'public.create_equipment_project_allocation(uuid, uuid, date, date, text)', 'EXECUTE'), false, 'anon cannot execute create_equipment_project_allocation');
-select is(has_function_privilege('anon', 'public.check_out_equipment(uuid, uuid, date)', 'EXECUTE'), false, 'anon cannot execute check_out_equipment');
-select is(has_function_privilege('anon', 'public.check_in_equipment(uuid, date)', 'EXECUTE'), false, 'anon cannot execute check_in_equipment');
+select is(has_function_privilege('anon', 'public.check_out_equipment(uuid, uuid, date, public.equipment_usage_via, uuid)', 'EXECUTE'), false, 'anon cannot execute check_out_equipment');
+select is(has_function_privilege('anon', 'public.check_in_equipment(uuid, date, public.equipment_usage_via)', 'EXECUTE'), false, 'anon cannot execute check_in_equipment');
 select is(has_function_privilege('anon', 'public.freeze_wp_labor_cost(uuid)', 'EXECUTE'), false, 'anon cannot execute freeze_wp_labor_cost');
 select is(has_function_privilege('anon', 'public.assign_project_ht(uuid, uuid)', 'EXECUTE'), false, 'anon cannot execute assign_project_ht');
 select is(has_function_privilege('anon', 'public.assign_worker_to_project(uuid, uuid, text)', 'EXECUTE'), false, 'anon cannot execute assign_worker_to_project');
@@ -28,8 +28,8 @@ select is(has_function_privilege('anon', 'public.assign_worker_to_project(uuid, 
 select is(has_function_privilege('authenticated', 'public.set_equipment_daily_rate(uuid, numeric)', 'EXECUTE'), true, 'authenticated can execute set_equipment_daily_rate');
 select is(has_function_privilege('authenticated', 'public.create_equipment_rental_batch(uuid, numeric, date, date, text, public.equipment_rate_period, numeric, date, integer)', 'EXECUTE'), true, 'authenticated can execute create_equipment_rental_batch');
 select is(has_function_privilege('authenticated', 'public.create_equipment_project_allocation(uuid, uuid, date, date, text)', 'EXECUTE'), true, 'authenticated can execute create_equipment_project_allocation');
-select is(has_function_privilege('authenticated', 'public.check_out_equipment(uuid, uuid, date)', 'EXECUTE'), true, 'authenticated can execute check_out_equipment');
-select is(has_function_privilege('authenticated', 'public.check_in_equipment(uuid, date)', 'EXECUTE'), true, 'authenticated can execute check_in_equipment');
+select is(has_function_privilege('authenticated', 'public.check_out_equipment(uuid, uuid, date, public.equipment_usage_via, uuid)', 'EXECUTE'), true, 'authenticated can execute check_out_equipment');
+select is(has_function_privilege('authenticated', 'public.check_in_equipment(uuid, date, public.equipment_usage_via)', 'EXECUTE'), true, 'authenticated can execute check_in_equipment');
 select is(has_function_privilege('authenticated', 'public.freeze_wp_labor_cost(uuid)', 'EXECUTE'), true, 'authenticated can execute freeze_wp_labor_cost');
 select is(has_function_privilege('authenticated', 'public.assign_project_ht(uuid, uuid)', 'EXECUTE'), true, 'authenticated can execute assign_project_ht');
 select is(has_function_privilege('authenticated', 'public.assign_worker_to_project(uuid, uuid, text)', 'EXECUTE'), true, 'authenticated can execute assign_worker_to_project');
