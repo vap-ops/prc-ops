@@ -8,12 +8,12 @@
 `/review` lists every work package at `status='pending_approval'`, flat, oldest-first,
 and the ภาพรวม hero counts the same set. Live on 2026-07-28:
 
-| population                                      | count  | what it means                         | PM can act?       |
-| ----------------------------------------------- | ------ | ------------------------------------- | ----------------- |
-| never reviewed                                  | 51     | first pass owed                       | ✅ yes            |
-| bounced, SA re-shot (`wp_evidence_resubmitted`) | 1      | ready for a second look               | ✅ yes            |
-| bounced, **not** answered yet                   | 18     | the site admin owes photos, 4–14 days | ❌ no             |
-| **total shown / badged**                        | **70** |                                       | **52 actionable** |
+| population                                      | count  | what it means              | PM can act?       |
+| ----------------------------------------------- | ------ | -------------------------- | ----------------- |
+| never reviewed                                  | 51     | first pass owed            | ✅ yes            |
+| bounced, SA re-shot (`wp_evidence_resubmitted`) | 1      | ready for a second look    | ✅ yes            |
+| bounced, **not** answered yet                   | 18     | the site admin owes photos | ❌ no             |
+| **total shown / badged**                        | **70** |                            | **52 actionable** |
 
 So a PM opening the page is told they owe 70 decisions when 52 are theirs. The 18
 un-cured bounces are marked only by one small `รอถ่ายเพิ่ม` pill on a row otherwise
@@ -63,8 +63,10 @@ scroll.
 Two subgroups, in this order:
 
 1. **`พร้อมตรวจอีกครั้ง`** — the answered bounces (existing `REVIEW_READY_AGAIN_LABEL`).
-   Already ranked first today by `reviewQueueRank`; this makes the ranking visible as a
-   heading instead of an unexplained ordering.
+   Spec 337 U2 already lifted these to the top of the flat list via `reviewQueueRank`;
+   the zone heading makes that ordering legible instead of unexplained, and replaces
+   the rank function — the partition IS the ranking now, so `reviewQueueRank` and its
+   sibling `reviewQueueLabel` are deleted with their only consumer.
 2. **`รอตรวจครั้งแรก`** — never-reviewed, oldest first (spec 15 order, unchanged).
 
 Row chip: **`รอมา N วัน`** (days since queue entry). This replaces a status pill that
@@ -114,7 +116,7 @@ overstates a wait (the same row is 8 days apart by calendar date).
 
 ## 4. Non-goals
 
-- No change to any decision RPC, to `reviewQueueRank`'s ordering within a zone, or to
-  what a WP's status means.
+- No change to any decision RPC, to spec 15's oldest-first ordering _within_ a zone, or
+  to what a WP's status means.
 - No "nudge the site admin" action on zone B rows — chasing needs notification wiring
   and a rate rule; separate spec if the operator wants it.
