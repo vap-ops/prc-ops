@@ -81,6 +81,10 @@ vi.mock("@/lib/approvals/latest-decision", () => ({
   getLatestDecisionsForWorkPackages: latestDecisionMock,
 }));
 
+import {
+  DEFECT_ATTACH_REFUSED_NOT_REWORK,
+  DEFECT_ATTACH_REFUSED_ROLE,
+} from "@/lib/photos/upload-queue";
 import { addPhoto } from "@/app/projects/[projectId]/work-packages/[workPackageId]/actions";
 
 function setup(role: string, wpStatus: string, reworkRound = 2) {
@@ -127,6 +131,10 @@ describe("addPhoto defect scope (spec 248 U2)", () => {
     setup("site_admin", "rework");
     const r = await addPhoto({ workPackageId: WP, phase: "defect", photoId: PHOTO, ext: "jpeg" });
     expect(r.ok).toBe(false);
+    // The EXACT string matters: the defect form classifies this refusal as
+    // permanent by matching the shared constant, so drifting the wording here
+    // silently turns the tile back into a retry that can never succeed.
+    expect(r.ok === false && r.error).toBe(DEFECT_ATTACH_REFUSED_ROLE);
     expect(insertMock).not.toHaveBeenCalled();
   });
 
@@ -134,6 +142,7 @@ describe("addPhoto defect scope (spec 248 U2)", () => {
     setup("project_manager", "complete");
     const r = await addPhoto({ workPackageId: WP, phase: "defect", photoId: PHOTO, ext: "jpeg" });
     expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toBe(DEFECT_ATTACH_REFUSED_NOT_REWORK);
     expect(insertMock).not.toHaveBeenCalled();
   });
 
