@@ -69,7 +69,13 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
   // `approved` carries neither a reason nor a required comment; otherwise the chosen
   // cause decides both. Nothing is sent until a cause is picked, so a half-answered
   // "ไม่อนุมัติ" can never reach the RPC.
-  const payload = approve === false && cause ? decisionPayloadForCause(cause) : null;
+  //
+  // Deliberately keyed on `cause` alone: `pickApprove` clears it, so an `approve ===
+  // false &&` conjunct here would be unreachable — and an unreachable guard asserts a
+  // hazard that is not there (spec 340). Mutation-checked both ways: with the reset in
+  // place that conjunct could be deleted with every test still green, so the reset is
+  // the single truth and carries its own test. The action and the RPC re-validate.
+  const payload = cause ? decisionPayloadForCause(cause) : null;
   const decision = approve === true ? ("approved" as const) : payload?.decision;
   const needsComment = decision ? commentRequiredFor(decision) : false;
   const canSubmit =

@@ -161,7 +161,10 @@ describe("RecordDecisionForm — the cause drives the payload (spec 372 U2)", ()
     fireEvent.click(cause(/รูปไม่ครบ/));
     fireEvent.click(screen.getByRole("radio", { name: /^อนุมัติ/ }));
     fireEvent.click(submitButton());
-    // A stale reason riding an `approved` payload is exactly what the RPC rejects.
+    // A stale reason riding an `approved` payload is exactly what the RPC rejects
+    // (22023). Guaranteed by the `approve === false &&` guard on `payload`, NOT by
+    // the state reset — mutation-checked: deleting the reset leaves this green, so
+    // the reset's own behaviour is pinned separately below.
     await vi.waitFor(() =>
       expect(recordDecision).toHaveBeenCalledWith({
         workPackageId: WP,
@@ -170,6 +173,24 @@ describe("RecordDecisionForm — the cause drives the payload (spec 372 U2)", ()
         revisionReason: null,
       }),
     );
+  });
+});
+
+describe("RecordDecisionForm — reversing the verdict re-asks the cause (spec 372 U2)", () => {
+  it("forgets the cause on the way through อนุมัติ, so returning re-asks it", () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    expect(submitButton()).toBeEnabled();
+
+    // Switching to อนุมัติ is an explicit reversal of judgment. Coming back must not
+    // leave the old cause pre-selected and submit already armed — the PM would be one
+    // tap from recording a cause they had abandoned.
+    fireEvent.click(screen.getByRole("radio", { name: /^อนุมัติ/ }));
+    pickNotApproved();
+
+    expect(cause(/รูปไม่ครบ/)).not.toBeChecked();
+    expect(submitButton()).toBeDisabled();
   });
 });
 
