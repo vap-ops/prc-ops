@@ -1,3 +1,9 @@
+## [0.256.2](https://github.com/vap-ops/prc-ops/compare/v0.256.1...v0.256.2) (2026-07-28)
+
+### Bug Fixes
+
+- **photos:** stop offering หลังแก้ไข capture where the server refuses it ([#822](https://github.com/vap-ops/prc-ops/issues/822)) ([3e942b0](https://github.com/vap-ops/prc-ops/commit/3e942b0e6f73df0003b813f835f815655304f021))
+
 ## [0.256.1](https://github.com/vap-ops/prc-ops/compare/v0.256.0...v0.256.1) (2026-07-28)
 
 ### Bug Fixes
