@@ -2,7 +2,9 @@
 // that need their correction (rework / ให้แก้ไข / ไม่อนุมัติ) vs the rest.
 
 import { describe, it, expect } from "vitest";
-import { buildSaActionList, type SaActionItem } from "@/lib/sa/action-list";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { buildSaActionList, bounceAnswered, type SaActionItem } from "@/lib/sa/action-list";
 import type { MyWorkWp } from "@/lib/sa/my-work";
 
 const projectsById = new Map([
@@ -159,5 +161,85 @@ describe("buildSaActionList", () => {
     });
     expect(actions).toEqual([]);
     expect(rest.map((x) => x.id)).toEqual(["a", "c"]);
+  });
+});
+
+// Spec 372 U3 — `premature` ("งานยังไม่เสร็จ") now sends the WP back to `in_progress`
+// instead of parking un-actionable work in the review queue. That moves it OUT of the
+// pending_approval population the SA's ต้องแก้ไข lane was built from, so without this
+// rule the PM's message would simply vanish and the SA would see an ordinary
+// in-progress WP with no idea it had come back.
+//
+// It also inverts what "answered" means. For the photo bounces the WP never leaves
+// pending_approval, so only a `wp_evidence_resubmitted` audit row can say the SA
+// acted. For premature the STATUS is the signal: while the work is unfinished the WP
+// sits at in_progress; once the SA finishes and submits, it returns to
+// pending_approval and the ball is with the PM again.
+describe("bounceAnswered — whose move is it (spec 372 U3)", () => {
+  const premature = { decision: "needs_revision" as const, revisionReason: "premature" as const };
+  const photoBounce = { decision: "needs_revision" as const, revisionReason: "mismatch" as const };
+
+  it("a premature bounce is the SA's move while the work is unfinished", () => {
+    expect(bounceAnswered({ ...premature, status: "in_progress", hasResubmitAudit: false })).toBe(
+      false,
+    );
+    // …and no resubmit audit row will ever exist for it — the SA submits normally,
+    // so keying on the audit row would pin it to the list forever.
+    expect(bounceAnswered({ ...premature, status: "in_progress", hasResubmitAudit: true })).toBe(
+      false,
+    );
+  });
+
+  it("a premature bounce is ANSWERED once the WP is back in the review queue", () => {
+    expect(
+      bounceAnswered({ ...premature, status: "pending_approval", hasResubmitAudit: false }),
+    ).toBe(true);
+  });
+
+  it("the photo bounces still key on the resubmit audit row, not the status", () => {
+    expect(
+      bounceAnswered({ ...photoBounce, status: "pending_approval", hasResubmitAudit: false }),
+    ).toBe(false);
+    expect(
+      bounceAnswered({ ...photoBounce, status: "pending_approval", hasResubmitAudit: true }),
+    ).toBe(true);
+  });
+
+  it("a reject-work bounce keys on the audit row too", () => {
+    const rejected = { decision: "rejected" as const, revisionReason: null };
+    expect(bounceAnswered({ ...rejected, status: "rework", hasResubmitAudit: false })).toBe(false);
+    expect(bounceAnswered({ ...rejected, status: "rework", hasResubmitAudit: true })).toBe(true);
+  });
+});
+
+// Spec 372 U3 — the WIRING half. /sa is a Server Component vitest cannot render, so
+// the RULE is unit-tested above and the page's use of it is pinned here by source
+// scan (comments stripped first, so prose naming a symbol cannot satisfy it).
+//
+// The thing that must not regress: the population the bounce lane is built from. It
+// was `pendingWps` alone, and a premature WP is no longer in that set — shipping the
+// RPC route without widening this would delete the PM's message from the SA's view.
+describe("/sa surfaces a premature bounce (spec 372 U3)", () => {
+  const src = readFileSync(resolve(process.cwd(), "src/app/sa/page.tsx"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  const occurrences = (needle: string) => src.split(needle).length - 1;
+
+  it("routes the answered question through the shared rule, not an inline audit lookup", () => {
+    // import + one call.
+    expect(occurrences("bounceAnswered")).toBe(2);
+    // `answered` must be DECIDED by the rule. The audit lookup itself survives —
+    // correctly — as an INPUT to it, so forbidding that string would be wrong; what
+    // must not come back is the lookup being the answer.
+    expect(src).toContain("answered: bounceAnswered(");
+    expect(src).not.toContain("answered: dec.id !== undefined && answeredDecisionIds");
+  });
+
+  it("builds the bounce lane from a population that can include a sent-back WP", () => {
+    // `pendingWps` alone excludes in_progress by construction, so the lane must be
+    // built from a wider set. Pinning the symbol, not the exact expression, so the
+    // page can refactor without this becoming a copy of the implementation.
+    expect(occurrences("bounceableWps")).toBeGreaterThanOrEqual(2);
   });
 });

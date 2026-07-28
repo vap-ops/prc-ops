@@ -44,13 +44,13 @@ const CAUSE_LABEL: Record<DecisionCause, string> = {
 };
 
 // What HAPPENS, in words a PM decides on — never round counters or photo-bucket names.
-// ⚠️ `premature` still leaves the WP in the queue: spec 372 U3 is what routes it to
-// `in_progress`, and this line moves with it. Describing tomorrow's behaviour today
-// would be a lie the PM acts on.
+// Spec 372 U3 moved `premature` off the queue-stays line: the WORK is unfinished, so
+// the WP goes back to หน้างาน as ordinary active work. Only the two PHOTO causes keep
+// it in the queue now, and this copy must not outlive that.
 const CAUSE_HINT: Record<DecisionCause, string> = {
   incomplete: "ช่างเพิ่มรูปที่ขาด แล้วส่งตรวจอีกครั้ง · ยังอยู่ในคิวตรวจ",
   mismatch: "ช่างลบรูปที่ผิดแล้วถ่ายใหม่ · ยังอยู่ในคิวตรวจ",
-  premature: "ช่างทำงานให้เสร็จก่อน แล้วค่อยส่งตรวจใหม่ · ยังอยู่ในคิวตรวจ",
+  premature: "งานจะกลับไปเป็นงานที่กำลังทำ ช่างทำให้เสร็จแล้วค่อยส่งตรวจใหม่",
   rework: "งานจะออกจากคิวตรวจ กลับไปให้หน้างานแก้ แล้วช่างถ่ายรูปหลังแก้เสร็จ",
 };
 

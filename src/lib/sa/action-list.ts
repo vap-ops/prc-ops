@@ -45,6 +45,36 @@ export interface BouncedWp {
   answered: boolean;
 }
 
+/**
+ * Spec 372 U3 — is a bounced WP still the SA's move?
+ *
+ * The two PHOTO causes never move the WP: it sits at `pending_approval` the whole
+ * time, so only a `wp_evidence_resubmitted` audit row can say the SA acted. That is
+ * the `hasResubmitAudit` rule, unchanged.
+ *
+ * `premature` is different in both directions. The WP LEAVES the queue for
+ * `in_progress`, and the SA closes the loop with the ordinary ส่งงานเข้าตรวจ submit —
+ * which writes no resubmit audit row at all. Keying it on the audit row would pin it
+ * to the SA's list forever; keying it on the STATUS is exact: unfinished work sits at
+ * `in_progress`, and the moment it is back at `pending_approval` the ball is with the
+ * PM again.
+ *
+ * Without this the premature bounce would simply vanish from the ต้องแก้ไข lane along
+ * with the PM's reason, and the SA would see an ordinary in-progress WP with no idea
+ * it had come back.
+ */
+export function bounceAnswered(input: {
+  decision: "needs_revision" | "rejected";
+  revisionReason: ApprovalRevisionReason | null;
+  status: string;
+  hasResubmitAudit: boolean;
+}): boolean {
+  if (input.decision === "needs_revision" && input.revisionReason === "premature") {
+    return input.status === "pending_approval";
+  }
+  return input.hasResubmitAudit;
+}
+
 export interface ReworkInfo {
   reason: string | null;
   source: ReworkSource | null;

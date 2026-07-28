@@ -90,10 +90,20 @@ describe("RecordDecisionForm — one question, then the cause (spec 372 U2)", ()
 });
 
 describe("RecordDecisionForm — consequences in plain words (spec 372 U2)", () => {
-  it("says the photo causes keep the WP in the review queue", () => {
+  it("says the two PHOTO causes keep the WP in the review queue", () => {
     render(<RecordDecisionForm workPackageId={WP} />);
     pickNotApproved();
-    expect(screen.getAllByText(/ยังอยู่ในคิวตรวจ/).length).toBeGreaterThanOrEqual(3);
+    // Spec 372 U3 narrowed this from three to two: งานยังไม่เสร็จ now LEAVES the
+    // queue, so claiming it stays would be a lie the PM acts on.
+    expect(screen.getAllByText(/ยังอยู่ในคิวตรวจ/)).toHaveLength(2);
+  });
+
+  it("says งานยังไม่เสร็จ sends the WP back to the site (spec 372 U3)", () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    pickNotApproved();
+    const row = cause(/งานยังไม่เสร็จ/).closest("label");
+    expect(row).toHaveTextContent(/กลับไปเป็นงานที่กำลังทำ/);
+    expect(row).not.toHaveTextContent(/ยังอยู่ในคิวตรวจ/);
   });
 
   it("says the work cause takes the WP OUT of the queue, back to site", () => {
