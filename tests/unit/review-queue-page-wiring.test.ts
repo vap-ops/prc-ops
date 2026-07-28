@@ -38,10 +38,13 @@ describe("/review renders the focus split", () => {
     expect(PAGE).not.toContain("reviewQueueLabel");
   });
 
+  // Every label pin below is >=2 occurrences, NOT toContain. Mutation-proved:
+  // deleting the only USE of REVIEW_AWAITING_SITE_NOTE (and of reviewBouncedChip)
+  // left a bare toContain green, because the import line alone satisfies it.
   it("renders both zones from the label SSOT, never inline strings", () => {
-    expect(PAGE).toContain("REVIEW_ACTIONABLE_ZONE_LABEL");
-    expect(PAGE).toContain("REVIEW_AWAITING_SITE_ZONE_LABEL");
-    expect(PAGE).toContain("REVIEW_FIRST_PASS_LABEL");
+    expect(occurrences(PAGE, "REVIEW_ACTIONABLE_ZONE_LABEL")).toBeGreaterThanOrEqual(2);
+    expect(occurrences(PAGE, "REVIEW_AWAITING_SITE_ZONE_LABEL")).toBeGreaterThanOrEqual(2);
+    expect(occurrences(PAGE, "REVIEW_FIRST_PASS_LABEL")).toBeGreaterThanOrEqual(2);
     // Bare, not quote-wrapped: a revert to inline JSX text is still caught.
     expect(PAGE).not.toContain("ตรวจได้ตอนนี้");
     expect(PAGE).not.toContain("รอหน้างานถ่ายรูปใหม่");
@@ -51,19 +54,19 @@ describe("/review renders the focus split", () => {
   it("keeps the awaiting-site zone reachable but collapsed, and says it is excluded", () => {
     expect(PAGE).toContain("<details");
     expect(occurrences(PAGE, "queue.awaitingSite")).toBeGreaterThanOrEqual(2);
-    expect(PAGE).toContain("REVIEW_AWAITING_SITE_NOTE");
+    expect(occurrences(PAGE, "REVIEW_AWAITING_SITE_NOTE")).toBeGreaterThanOrEqual(2);
   });
 
   it("offers the start-here CTA at the oldest actionable WP", () => {
-    expect(PAGE).toContain("REVIEW_START_HERE_CTA");
+    expect(occurrences(PAGE, "REVIEW_START_HERE_CTA")).toBeGreaterThanOrEqual(2);
     expect(occurrences(PAGE, "queue.startHere")).toBeGreaterThanOrEqual(2);
   });
 
   it("ages both zones from their OWN clock — queue entry vs the bounce", () => {
-    expect(PAGE).toContain("reviewWaitingChip");
+    expect(occurrences(PAGE, "reviewWaitingChip")).toBeGreaterThanOrEqual(2);
     // The chase chip counts from approvals.decided_at (bouncedAt), which is the
     // number worth chasing; counting from updated_at would understate it.
-    expect(PAGE).toContain("reviewBouncedChip");
-    expect(PAGE).toContain("bouncedAt");
+    expect(occurrences(PAGE, "reviewBouncedChip")).toBeGreaterThanOrEqual(2);
+    expect(occurrences(PAGE, "bouncedAt")).toBeGreaterThanOrEqual(2);
   });
 });
