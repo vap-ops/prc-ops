@@ -1,3 +1,9 @@
+## [0.256.6](https://github.com/vap-ops/prc-ops/compare/v0.256.5...v0.256.6) (2026-07-28)
+
+### Bug Fixes
+
+- **defect:** a refused photo must not trap the defect report ([#827](https://github.com/vap-ops/prc-ops/issues/827)) ([d820443](https://github.com/vap-ops/prc-ops/commit/d820443d426a4126ff13cb0bc59bcb1463e689e0)), closes [#823](https://github.com/vap-ops/prc-ops/issues/823) [#826](https://github.com/vap-ops/prc-ops/issues/826)
+
 ## [0.256.5](https://github.com/vap-ops/prc-ops/compare/v0.256.4...v0.256.5) (2026-07-28)
 
 ### Bug Fixes
