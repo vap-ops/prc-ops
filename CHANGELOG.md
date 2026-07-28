@@ -1,3 +1,9 @@
+## [0.256.4](https://github.com/vap-ops/prc-ops/compare/v0.256.3...v0.256.4) (2026-07-28)
+
+### Bug Fixes
+
+- **photos:** name a photo group by its rework round, not its phase ([#824](https://github.com/vap-ops/prc-ops/issues/824)) ([919f86b](https://github.com/vap-ops/prc-ops/commit/919f86b0d0ec30e682333f7686b57a9066aa1102))
+
 ## [0.256.3](https://github.com/vap-ops/prc-ops/compare/v0.256.2...v0.256.3) (2026-07-28)
 
 ### Bug Fixes
