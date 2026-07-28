@@ -214,6 +214,7 @@ export type StorageFailureReason =
 export type UploadFailureReason =
   | StorageFailureReason
   | "pairing"
+  | "after_fix_closed"
   | "insert_rejected"
   | "exception";
 
@@ -293,11 +294,25 @@ export function isPairingRejected(message: string | null | undefined): boolean {
   return !!message && message.includes("จับคู่รูปไม่ได้แล้ว");
 }
 
-/** A failure retrying can never fix — authz denial or pairing rejection. The
- *  queue keeps the item either way (evidence is never auto-dropped); this
- *  only drives honest banner copy + one-shot friction reporting. */
+// FIELD BUG 2026-07-28 — spec 353 U2 (4bf4a650) made an after_fix insert
+// permanently uninsertable outside a rework cycle (canCaptureAfterFix), and the SA
+// hit it 52 times across 3 round-0 WPs. Like the pairing rejection, the server will
+// refuse EVERY replay: the WP status/round cannot change from the SA's side, so the
+// queue must classify it terminally instead of promising an auto-send that can
+// never come. addPhoto returns this exact string so the classification is one
+// constant, not a phrase duplicated across the action and the client.
+export const AFTER_FIX_CLOSED_MESSAGE = "ถ่ายรูปหลังแก้ไขได้เฉพาะตอนที่งานอยู่ระหว่างแก้ไข";
+
+export function isAfterFixWindowClosed(message: string | null | undefined): boolean {
+  return !!message && message.includes(AFTER_FIX_CLOSED_MESSAGE);
+}
+
+/** A failure retrying can never fix — authz denial, pairing rejection, or a
+ *  closed after_fix capture window. The queue keeps the item either way
+ *  (evidence is never auto-dropped); this only drives honest banner copy +
+ *  one-shot friction reporting. */
 export function isPermanentUploadFailure(message: string | null | undefined): boolean {
-  return isAuthzDenied(message) || isPairingRejected(message);
+  return isAuthzDenied(message) || isPairingRejected(message) || isAfterFixWindowClosed(message);
 }
 
 // Spec 244 U2b-1 — which queued uploads have PERMANENTLY failed (an RLS/403 denial:
@@ -341,6 +356,7 @@ export function pickUploadFailures(
 // fall through to the storage-error diagnosis (which reads authz off the message).
 export function queuedFailureReason(message: string | null | undefined): UploadFailureReason {
   if (isPairingRejected(message)) return "pairing";
+  if (isAfterFixWindowClosed(message)) return "after_fix_closed";
   return diagnoseStorageFailure({ message: message ?? undefined }).reason;
 }
 

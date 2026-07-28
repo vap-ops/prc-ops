@@ -54,7 +54,7 @@ import {
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
-import { PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
+import { AFTER_FIX_CLOSED_MESSAGE, PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
 import {
@@ -158,7 +158,9 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
         revisionWindowOpen,
       })
     ) {
-      return { ok: false, error: "ถ่ายรูปหลังแก้ไขได้เฉพาะตอนที่งานอยู่ระหว่างแก้ไข" };
+      // One constant, shared with the queue's terminal classification — a refusal
+      // the SA can never clear must not be retried forever (field bug 2026-07-28).
+      return { ok: false, error: AFTER_FIX_CLOSED_MESSAGE };
     }
   }
 

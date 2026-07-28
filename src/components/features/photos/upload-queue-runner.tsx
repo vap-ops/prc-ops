@@ -20,6 +20,7 @@ import {
   bucketForKind,
   classifyStorageUploadError,
   isAuthzDenied,
+  isAfterFixWindowClosed,
   isPairingRejected,
   isPermanentUploadFailure,
   nextPassDelayMs,
@@ -273,6 +274,13 @@ export function UploadQueueRunner() {
                     // (current round's) capture slot.
                     <span className="text-danger shrink-0 text-[10px] font-semibold">
                       จับคู่ไม่ได้แล้ว — ลบแล้วถ่ายใหม่
+                    </span>
+                  ) : isAfterFixWindowClosed(item.lastError) ? (
+                    // Field bug 2026-07-28 — terminal: the WP is not in a rework
+                    // cycle, so this shot belongs in a lifecycle phase instead. Name
+                    // the way out; "รอส่งใหม่" was a lie the queue told 52 times.
+                    <span className="text-danger shrink-0 text-[10px] font-semibold">
+                      งานนี้ยังไม่ได้เปิดแก้ไข — ลบแล้วถ่ายในช่วงอื่น
                     </span>
                   ) : (
                     <span className="text-attn-press shrink-0 text-[10px]">รอส่งใหม่</span>

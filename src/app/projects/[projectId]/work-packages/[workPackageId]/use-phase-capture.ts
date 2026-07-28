@@ -30,6 +30,7 @@ import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
   classifyStorageUploadError,
   diagnoseStorageFailure,
+  isAfterFixWindowClosed,
   isPairingRejected,
   queueNowMs,
   type QueuedUpload,
@@ -188,15 +189,19 @@ export function usePhaseCapture({
         ? "network"
         : isPairingRejected(result.error)
           ? "pairing"
-          : "insert_rejected";
+          : isAfterFixWindowClosed(result.error)
+            ? "after_fix_closed"
+            : "insert_rejected";
       trackFriction("upload_fail", { kind: "phase_photo", stage: "insert", reason });
       notifyQueueChanged();
       updatePending(upload.id, {
         status: "insert-error",
         errorMessage: `อัปโหลดสำเร็จแต่บันทึกข้อมูลไม่สำเร็จ — ${result.error}`,
-        // A pairing rejection is terminal (the U1 guard blocks every replay); a
-        // network/server rejection can still land on retry (feedback 10a15ebe).
-        terminal: reason === "pairing",
+        // A pairing rejection is terminal (the U1 guard blocks every replay), and so
+        // is a closed after_fix window — the WP's status/round cannot change from the
+        // SA's side, so every replay meets the same refusal (field bug 2026-07-28).
+        // A network/server rejection can still land on retry (feedback 10a15ebe).
+        terminal: reason === "pairing" || reason === "after_fix_closed",
       });
       return;
     }

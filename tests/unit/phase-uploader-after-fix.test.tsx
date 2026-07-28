@@ -7,6 +7,7 @@
 // offers no shutter.
 
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 // The CaptureSheet (rendered closed inside the zone) pulls in the capture engine
@@ -113,6 +114,49 @@ describe("PhotoCaptureZone after_fix tile (feedback 0fa23307, spec 216/353)", ()
     renderZone({ showAfterFixCapture: true, currentReworkRound: 2 });
     const afterFix = screen.getByRole("button", { name: "ถ่ายรูป หลังแก้ไข" });
     expect(afterFix).toHaveTextContent("รอบ 2");
+  });
+});
+
+// FIELD BUG 2026-07-28 — the SA hit "ลองใหม่" forever on every หลังแก้ไข shot.
+// Spec 353 U2 (4bf4a650) made an after_fix insert permanently uninsertable outside
+// a rework cycle, and this zone's TILE honors that (showAfterFixCapture) — but the
+// CAPTURE SHEET's own phase switcher was built from the unfiltered phase list, so a
+// round-0 WP still offered a หลังแก้ไข chip inside the sheet. Bytes reached Storage,
+// the metadata insert was refused, and the item retried forever. The sheet's
+// switcher must offer exactly the phases the server will accept.
+describe("capture sheet phase switcher honors the after_fix capture gate", () => {
+  async function openSheet() {
+    await userEvent.click(screen.getByRole("button", { name: "ถ่ายรูป แล้วเสร็จ" }));
+    return screen.getByRole("radiogroup", { name: "เลือกช่วงงาน" });
+  }
+
+  it("offers NO หลังแก้ไข chip when the WP is not in a rework cycle", async () => {
+    renderZone({ showAfterFixCapture: false, showAfterFixHistory: false });
+    const group = await openSheet();
+    expect(screen.queryByRole("radio", { name: /หลังแก้ไข/ })).not.toBeInTheDocument();
+    // …and the three lifecycle phases the server DOES accept are still offered.
+    expect(group).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /เตรียมงาน/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /ระหว่างทำ/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /แล้วเสร็จ/ })).toBeInTheDocument();
+  });
+
+  it("still offers หลังแก้ไข inside a rework cycle, where the insert is accepted", async () => {
+    renderZone({ showAfterFixCapture: true, currentReworkRound: 1 });
+    await openSheet();
+    expect(screen.getByRole("radio", { name: /หลังแก้ไข/ })).toBeInTheDocument();
+  });
+
+  it("keeps the chip hidden even when the WP carries past after_fix photos (history is read-only)", async () => {
+    renderZone({
+      showAfterFixCapture: false,
+      showAfterFixHistory: true,
+      afterFixPhotos: [
+        { id: "a1", url: "/x.jpg", seq: 1, timeLabel: "22 ก.ค.", uploaderName: null },
+      ],
+    });
+    await openSheet();
+    expect(screen.queryByRole("radio", { name: /หลังแก้ไข/ })).not.toBeInTheDocument();
   });
 });
 
