@@ -8,6 +8,7 @@ import {
   ATTENDANCE_AUDIT_ROLES,
   BACK_OFFICE_ROLES,
   DOC_APPROVAL_ROLES,
+  EQUIPMENT_MOVE_ROLES,
   LEGAL_ROLES,
   PAYROLL_ROLES,
   PM_ROLES,
@@ -727,5 +728,16 @@ describe("site_owner + auditor are behavior-free (spec 263 / ADR 0071)", () => {
 
   it("land on /coming-soon (behavior-free)", () => {
     for (const role of NEW_ROLES) expect(roleHome(role)).toBe("/coming-soon");
+  });
+});
+
+// Spec 370 U4 (2026-07-28) — the SA home renders the equipment scan door with NO
+// role gate, because every role that can reach /sa can already move equipment. A
+// gate would be an arm that can never fail (the spec-340 unreachable-clause
+// defect), so the justification is pinned here instead: add a non-mover to
+// SA_SURFACE_ROLES and this reds, telling you the door now needs a gate.
+describe("the /sa scan door renders ungated", () => {
+  it("keeps every SA-home role an equipment mover", () => {
+    expect([...SA_SURFACE_ROLES].filter((r) => !EQUIPMENT_MOVE_ROLES.includes(r))).toEqual([]);
   });
 });
