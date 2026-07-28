@@ -222,7 +222,29 @@ export function ReportDefectControl({
                           p.status === "uploading" ? "opacity-50" : ""
                         }`}
                       />
-                      {p.status === "upload-error" || p.status === "insert-error" ? (
+                      {p.terminal && p.status === "upload-error" ? (
+                        // A REFUSED upload (403 / 413) fails identically on every
+                        // replay. This form is online-only and an upload-error photo
+                        // blocks the submit, so offering ลองใหม่ here — in the very
+                        // branch that would otherwise hold ลบ — trapped the whole
+                        // defect report (#823/#826's class, third surface). Name the
+                        // refusal, keep the only way out reachable.
+                        <>
+                          <span
+                            role="alert"
+                            className="text-danger text-center text-xs leading-tight font-semibold"
+                          >
+                            {p.errorMessage ?? "ส่งรูปนี้ไม่ได้"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => remove(p.id)}
+                            className="text-ink-secondary text-xs underline underline-offset-2"
+                          >
+                            ลบ
+                          </button>
+                        </>
+                      ) : p.status === "upload-error" || p.status === "insert-error" ? (
                         <button
                           type="button"
                           onClick={() => void retry(p.id)}

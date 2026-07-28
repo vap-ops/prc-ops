@@ -158,3 +158,57 @@ describe("useDefectPhotos (spec 248 U2)", () => {
     await waitFor(() => expect(result.current.anyInFlight).toBe(false));
   });
 });
+
+// Writing failing test first.
+//
+// Third surface of the 2026-07-28 honest-copy class (#823 catalog, #826 phase
+// capture). This one is the worst of the three: the defect form is ONLINE-ONLY,
+// so there is no offline queue to fall back on; `anyInFlight` counts
+// upload-error, so a failed photo BLOCKS the submit; and the tile renders ลองใหม่
+// INSTEAD of ลบ for an errored photo. A 403/413 therefore traps the whole defect
+// report — retry can never succeed and the photo cannot be removed.
+describe("useDefectPhotos — a permanent storage refusal (sibling of #823/#826)", () => {
+  it("names an RLS denial instead of inviting a retry, and marks it terminal", async () => {
+    mockUpload.mockResolvedValue({
+      error: { message: "new row violates row-level security policy", statusCode: "403" },
+    });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("upload-error"));
+    const photo = result.current.photos[0]!;
+    expect(photo.terminal).toBe(true);
+    expect(photo.errorMessage).toContain("สิทธิ์ไม่พอ");
+    expect(photo.errorMessage).not.toContain("ลองใหม่");
+  });
+
+  it("names an over-size file as terminal too", async () => {
+    mockUpload.mockResolvedValue({ error: { message: "Payload too large", statusCode: 413 } });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("upload-error"));
+    expect(result.current.photos[0]?.terminal).toBe(true);
+    expect(result.current.photos[0]?.errorMessage).toContain("ไฟล์ใหญ่เกินไป");
+  });
+
+  it("leaves a 401 RETRYABLE — an expired JWT refreshes and the next attempt lands", async () => {
+    mockUpload.mockResolvedValue({ error: { message: "Unauthorized", statusCode: 401 } });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("upload-error"));
+    expect(result.current.photos[0]?.terminal).toBe(false);
+    expect(result.current.photos[0]?.errorMessage).toContain("ลองใหม่");
+  });
+
+  it("leaves a transient 5xx retryable with the original copy", async () => {
+    mockUpload.mockResolvedValue({ error: { message: "Internal Error", statusCode: 500 } });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("upload-error"));
+    expect(result.current.photos[0]?.terminal).toBe(false);
+    expect(result.current.photos[0]?.errorMessage).toContain("ลองใหม่");
+  });
+});
