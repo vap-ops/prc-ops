@@ -26,11 +26,26 @@ import {
   classifyStorageUploadError,
   defectAttachRefusal,
   diagnoseStorageFailure,
+  PHOTO_WP_NOT_FOUND,
   TERMINAL_UPLOAD_COPY,
 } from "@/lib/photos/upload-queue";
 import { addPhoto } from "./actions";
 
 const PHOTOS_BUCKET = "photos";
+
+/** The retryable attach failure. The affordance is a labelled ลองใหม่ button under
+ *  the tile, not a tap on the photo — say what the user actually does. */
+export const ATTACH_RETRYABLE_MESSAGE = "แนบรูปไม่สำเร็จ — กดลองใหม่";
+
+/** One short line per refusal, sized for the tile. A total map, so adding a
+ *  refusal to defectAttachRefusal fails the compile here instead of shipping a
+ *  photo that says nothing. */
+const ATTACH_REFUSAL_COPY: Record<Exclude<ReturnType<typeof defectAttachRefusal>, null>, string> = {
+  role: TERMINAL_UPLOAD_COPY.attachRole,
+  not_rework: TERMINAL_UPLOAD_COPY.attachNotRework,
+  unknown_wp: PHOTO_WP_NOT_FOUND,
+  signed_out: TERMINAL_UPLOAD_COPY.attachSignedOut,
+};
 
 export type DefectPhotoStatus = "uploading" | "ready" | "upload-error" | "insert-error" | "saved";
 
@@ -138,15 +153,7 @@ export function useDefectPhotos({
       const refusal = defectAttachRefusal(result.error);
       patch(photo.id, {
         status: "insert-error",
-        errorMessage:
-          refusal === null
-            ? "แนบรูปไม่สำเร็จ — แตะเพื่อลองใหม่"
-            : refusal === "role"
-              ? TERMINAL_UPLOAD_COPY.attachRole
-              : refusal === "not_rework"
-                ? // Same words as the after-fix window: the WP is not open for rework.
-                  TERMINAL_UPLOAD_COPY.afterFixClosed
-                : TERMINAL_UPLOAD_COPY.attachUnknownWp,
+        errorMessage: refusal === null ? ATTACH_RETRYABLE_MESSAGE : ATTACH_REFUSAL_COPY[refusal],
         terminal: refusal !== null,
       });
       return false;
@@ -193,7 +200,7 @@ export function useDefectPhotos({
       // A refused photo is never replayed — the refusal is the identical call —
       // but it still COUNTS as failed: a zero count closes the sheet, which would
       // drop the photo silently. It leaves via its tile's ลบ instead.
-      if (p.terminal) {
+      if (p.terminal && p.status === "insert-error") {
         failed += 1;
         continue;
       }

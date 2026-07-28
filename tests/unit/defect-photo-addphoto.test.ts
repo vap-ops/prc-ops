@@ -84,6 +84,7 @@ vi.mock("@/lib/approvals/latest-decision", () => ({
 import {
   DEFECT_ATTACH_REFUSED_NOT_REWORK,
   DEFECT_ATTACH_REFUSED_ROLE,
+  PHOTO_WP_NOT_FOUND,
 } from "@/lib/photos/upload-queue";
 import { addPhoto } from "@/app/projects/[projectId]/work-packages/[workPackageId]/actions";
 
@@ -284,6 +285,36 @@ describe("addPhoto after_fix capture window (spec 353 U2)", () => {
       ext: "jpeg",
     });
     expect(r.ok).toBe(false);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+});
+
+// Writing failing test first.
+//
+// The WP lookup's two failure modes had been collapsed into one message, and the
+// defect form classifies that message as PERMANENT — so a dropped fetch or a
+// PostgREST 5xx would have stripped the retry and forced the SA to delete a photo
+// that would have attached on the next tap (review finding).
+describe("addPhoto — a WP LOOKUP failure is not the same as an absent WP", () => {
+  it("returns the retryable message when the lookup itself errored", async () => {
+    mockGetActionUser.mockResolvedValue({ supabase: rlsClient(), user: { id: "u1" } });
+    roleMock.mockResolvedValue({ data: { role: "project_manager" }, error: null });
+    wpMock.mockResolvedValue({ data: null, error: { message: "fetch failed" } });
+
+    const r = await addPhoto({ workPackageId: WP, phase: "defect", photoId: PHOTO, ext: "jpeg" });
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).not.toBe(PHOTO_WP_NOT_FOUND);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the permanent refusal when the WP is genuinely absent/invisible", async () => {
+    mockGetActionUser.mockResolvedValue({ supabase: rlsClient(), user: { id: "u1" } });
+    roleMock.mockResolvedValue({ data: { role: "project_manager" }, error: null });
+    wpMock.mockResolvedValue({ data: null, error: null });
+
+    const r = await addPhoto({ workPackageId: WP, phase: "defect", photoId: PHOTO, ext: "jpeg" });
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toBe(PHOTO_WP_NOT_FOUND);
     expect(insertMock).not.toHaveBeenCalled();
   });
 });

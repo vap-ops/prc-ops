@@ -30,7 +30,13 @@ import { useDefectPhotos } from "@/app/projects/[projectId]/work-packages/[workP
 import {
   DEFECT_ATTACH_REFUSED_NOT_REWORK,
   DEFECT_ATTACH_REFUSED_ROLE,
+  defectAttachRefusal,
+  PHOTO_SIGNED_OUT,
+  PHOTO_WP_NOT_FOUND,
+  TERMINAL_UPLOAD_COPY,
 } from "@/lib/photos/upload-queue";
+import { NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { ATTACH_RETRYABLE_MESSAGE } from "@/app/projects/[projectId]/work-packages/[workPackageId]/use-defect-photos";
 
 function fileList(...files: File[]): FileList {
   return files as unknown as FileList;
@@ -319,5 +325,77 @@ describe("useDefectPhotos — a permanent attach refusal (insert layer)", () => 
     });
     expect(failed).toBe(1);
     expect(mockAddPhoto).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Writing failing test first (review: the refusal→copy MAPPING was unpinned — every
+// arm satisfied `not.toContain("ลองใหม่")`, so swapping two arms stayed green; and
+// two of the four refusals had no test at all).
+describe("useDefectPhotos — each refusal renders ITS OWN line", () => {
+  async function attachWith(error: string) {
+    mockAddPhoto.mockResolvedValue({ ok: false, error });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    await act(() => result.current.attachAll());
+    return result.current.photos[0]!;
+  }
+
+  it("role refusal → ไม่มีสิทธิ์แนบรูปนี้", async () => {
+    expect((await attachWith(DEFECT_ATTACH_REFUSED_ROLE)).errorMessage).toBe(
+      TERMINAL_UPLOAD_COPY.attachRole,
+    );
+  });
+
+  it("not-in-rework → its OWN post-reopen wording, not the after-fix line", async () => {
+    // The sheet's banner says "(เปิดงานใหม่แล้ว)" on this very screen, so reusing
+    // afterFixClosed ("งานยังไม่ได้เปิดแก้ไข") would contradict it.
+    const photo = await attachWith(DEFECT_ATTACH_REFUSED_NOT_REWORK);
+    expect(photo.errorMessage).toBe(TERMINAL_UPLOAD_COPY.attachNotRework);
+    expect(photo.errorMessage).not.toBe(TERMINAL_UPLOAD_COPY.afterFixClosed);
+  });
+
+  it("unknown WP → ไม่พบรายการงาน, terminal", async () => {
+    const photo = await attachWith(PHOTO_WP_NOT_FOUND);
+    expect(photo.terminal).toBe(true);
+    expect(photo.errorMessage).toBe(PHOTO_WP_NOT_FOUND);
+  });
+
+  it("expired session → says to sign in again, and does not invite a retry", async () => {
+    // A retry inside the sheet re-runs the same action with the same dead session.
+    const photo = await attachWith(PHOTO_SIGNED_OUT);
+    expect(photo.terminal).toBe(true);
+    expect(photo.errorMessage).toBe(TERMINAL_UPLOAD_COPY.attachSignedOut);
+  });
+
+  it("an unrecognised failure stays retryable and names the BUTTON, not a tap", async () => {
+    const photo = await attachWith("บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    expect(photo.terminal).toBe(false);
+    expect(photo.errorMessage).toBe(ATTACH_RETRYABLE_MESSAGE);
+  });
+});
+
+describe("defectAttachRefusal — exact match only", () => {
+  it("classifies each constant and nothing else", () => {
+    expect(defectAttachRefusal(DEFECT_ATTACH_REFUSED_ROLE)).toBe("role");
+    expect(defectAttachRefusal(DEFECT_ATTACH_REFUSED_NOT_REWORK)).toBe("not_rework");
+    expect(defectAttachRefusal(PHOTO_WP_NOT_FOUND)).toBe("unknown_wp");
+    expect(defectAttachRefusal(PHOTO_SIGNED_OUT)).toBe("signed_out");
+  });
+
+  it("returns null for empty, unknown, and NEAR-miss messages", () => {
+    // A near miss must stay retryable: mis-reading a transient failure as permanent
+    // deletes the user's only retry.
+    expect(defectAttachRefusal(null)).toBeNull();
+    expect(defectAttachRefusal("")).toBeNull();
+    expect(defectAttachRefusal("บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")).toBeNull();
+    expect(defectAttachRefusal(`${DEFECT_ATTACH_REFUSED_ROLE} `)).toBeNull();
+    expect(defectAttachRefusal(`แนบรูปไม่สำเร็จ — ${DEFECT_ATTACH_REFUSED_ROLE}`)).toBeNull();
+  });
+
+  it("PHOTO_SIGNED_OUT mirrors the action gate's NOT_SIGNED_IN", () => {
+    // upload-queue.ts is client-safe and action-gate.ts is server-only, so the
+    // string is duplicated by necessity — this is what stops it drifting.
+    expect(PHOTO_SIGNED_OUT).toBe(NOT_SIGNED_IN);
   });
 });

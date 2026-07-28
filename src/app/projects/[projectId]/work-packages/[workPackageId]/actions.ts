@@ -58,7 +58,7 @@ import {
   AFTER_FIX_CLOSED_MESSAGE,
   DEFECT_ATTACH_REFUSED_NOT_REWORK,
   DEFECT_ATTACH_REFUSED_ROLE,
-  DEFECT_ATTACH_UNKNOWN_WP,
+  PHOTO_WP_NOT_FOUND,
   PAIRING_REJECTED_MESSAGE,
 } from "@/lib/photos/upload-queue";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
@@ -129,7 +129,11 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     .select("id, project_id, status, rework_round")
     .eq("id", input.workPackageId)
     .maybeSingle();
-  if (wpError || !wp) return { ok: false, error: DEFECT_ATTACH_UNKNOWN_WP };
+  // A LOOKUP failure (dropped fetch, PostgREST 5xx) is transient and must keep its
+  // retry; only a genuinely absent/invisible row is the permanent refusal the client
+  // classifies as terminal.
+  if (wpError) return { ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  if (!wp) return { ok: false, error: PHOTO_WP_NOT_FOUND };
 
   // Spec 248: a defect photo is the FILING roles' evidence (PM/PD/super —
   // isManagerRole) and only lands while the WP is actually in rework, i.e.
