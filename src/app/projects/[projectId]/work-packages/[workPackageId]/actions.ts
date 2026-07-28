@@ -54,7 +54,13 @@ import {
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
-import { AFTER_FIX_CLOSED_MESSAGE, PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
+import {
+  AFTER_FIX_CLOSED_MESSAGE,
+  DEFECT_ATTACH_REFUSED_NOT_REWORK,
+  DEFECT_ATTACH_REFUSED_ROLE,
+  DEFECT_ATTACH_UNKNOWN_WP,
+  PAIRING_REJECTED_MESSAGE,
+} from "@/lib/photos/upload-queue";
 import { photoReworkRoundFor } from "@/lib/photos/rework-round";
 import type { ReworkSource } from "@/lib/db/enums";
 import {
@@ -123,7 +129,7 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     .select("id, project_id, status, rework_round")
     .eq("id", input.workPackageId)
     .maybeSingle();
-  if (wpError || !wp) return { ok: false, error: "ไม่พบรายการงาน" };
+  if (wpError || !wp) return { ok: false, error: DEFECT_ATTACH_UNKNOWN_WP };
 
   // Spec 248: a defect photo is the FILING roles' evidence (PM/PD/super —
   // isManagerRole) and only lands while the WP is actually in rework, i.e.
@@ -135,10 +141,10 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
     // Spec 274 U3: honor a super_admin's "view as" — a narrower assumed role is gated here too.
     const effectiveRole = await applyAssumedRole(self?.role);
     if (!effectiveRole || !isManagerRole(effectiveRole)) {
-      return { ok: false, error: "เฉพาะผู้จัดการที่รายงานข้อบกพร่องจึงแนบรูปได้" };
+      return { ok: false, error: DEFECT_ATTACH_REFUSED_ROLE };
     }
     if (wp.status !== "rework") {
-      return { ok: false, error: "แนบรูปข้อบกพร่องได้เฉพาะงานที่เปิดแก้ไขอยู่" };
+      return { ok: false, error: DEFECT_ATTACH_REFUSED_NOT_REWORK };
     }
   }
 

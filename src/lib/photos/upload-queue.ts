@@ -302,9 +302,37 @@ export const TERMINAL_UPLOAD_COPY = {
    *  `capture`, which is why its uploads record captureMethod "picker") — telling
    *  that user to re-SHOOT names an affordance the screen does not have. */
   sizePicker: "ไฟล์ใหญ่เกินไป — เลือกรูปใหม่",
+  /** The metadata INSERT was refused, not merely interrupted — addPhoto rejects a
+   *  defect attach for a non-manager, for a WP that is not in rework, and for a WP
+   *  it cannot see. Every replay is the identical call. */
+  attachRole: "ไม่มีสิทธิ์แนบรูปนี้",
+  attachUnknownWp: "ไม่พบรายการงาน",
   pairing: "จับคู่ไม่ได้แล้ว — ถ่ายใหม่",
   afterFixClosed: "งานยังไม่ได้เปิดแก้ไข",
 } as const;
+
+// The three ways addPhoto REFUSES a defect attach outright (actions.ts owns the
+// checks; the strings live here so the client can recognise them without
+// re-typing them, the same shape as PAIRING_REJECTED_MESSAGE below). Each is a
+// permanent state from the SA's side — her role, the WP's status, or the WP's
+// visibility — so a replay meets the identical refusal.
+export const DEFECT_ATTACH_REFUSED_ROLE = "เฉพาะผู้จัดการที่รายงานข้อบกพร่องจึงแนบรูปได้";
+export const DEFECT_ATTACH_REFUSED_NOT_REWORK = "แนบรูปข้อบกพร่องได้เฉพาะงานที่เปิดแก้ไขอยู่";
+export const DEFECT_ATTACH_UNKNOWN_WP = "ไม่พบรายการงาน";
+
+/** Which of the refusals a message is — null when it is an ordinary, retryable
+ *  failure (a DB blip, a dropped request). Exact matches only: these are the
+ *  action's own constants, so a partial/fuzzy match would be a way to
+ *  mis-classify a future message that merely contains one of them. */
+export function defectAttachRefusal(
+  message: string | null | undefined,
+): "role" | "not_rework" | "unknown_wp" | null {
+  if (!message) return null;
+  if (message === DEFECT_ATTACH_REFUSED_ROLE) return "role";
+  if (message === DEFECT_ATTACH_REFUSED_NOT_REWORK) return "not_rework";
+  if (message === DEFECT_ATTACH_UNKNOWN_WP) return "unknown_wp";
+  return null;
+}
 
 export const PAIRING_REJECTED_MESSAGE =
   "จับคู่รูปไม่ได้แล้ว — จุดบกพร่องถูกลบหรือรอบงานเปลี่ยน ลบรูปนี้แล้วถ่ายรูปใหม่จากช่องจับคู่";

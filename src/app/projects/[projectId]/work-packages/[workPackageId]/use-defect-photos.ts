@@ -24,6 +24,7 @@ import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/phot
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
   classifyStorageUploadError,
+  defectAttachRefusal,
   diagnoseStorageFailure,
   TERMINAL_UPLOAD_COPY,
 } from "@/lib/photos/upload-queue";
@@ -43,9 +44,11 @@ export interface DefectPendingPhoto {
   lastModifiedMs: number;
   ext: PhotoExt;
   storagePath: string;
-  /** True when the byte upload was REFUSED, not merely interrupted (a 403/RLS
-   *  denial or a 413) — every replay meets the same refusal, so the tile shows
-   *  the reason and ลบ instead of a retry that cannot succeed. */
+  /** True when the step was REFUSED, not merely interrupted — a 403/RLS denial or
+   *  a 413 on the bytes, or one of addPhoto's defect-attach refusals (role, WP not
+   *  in rework, unknown WP) on the metadata. Every replay meets the same refusal,
+   *  so the tile shows the reason and ลบ instead of a retry that cannot succeed,
+   *  and attachAll never replays it. */
   terminal?: boolean;
 }
 
@@ -128,13 +131,27 @@ export function useDefectPhotos({
       capturedAtClient: new Date(photo.lastModifiedMs).toISOString(),
     }).catch(() => ({ ok: false as const, error: "บันทึกข้อมูลไม่สำเร็จ" }));
     if (!result.ok) {
+      // addPhoto REFUSES a defect attach for a non-manager, for a WP that is not
+      // in rework, and for a WP it cannot see — all permanent from the SA's side,
+      // so a retry replays the identical call. Anything else (a DB blip, a dropped
+      // request) is worth another tap. Last piece of the honest-copy class.
+      const refusal = defectAttachRefusal(result.error);
       patch(photo.id, {
         status: "insert-error",
-        errorMessage: "แนบรูปไม่สำเร็จ — แตะเพื่อลองใหม่",
+        errorMessage:
+          refusal === null
+            ? "แนบรูปไม่สำเร็จ — แตะเพื่อลองใหม่"
+            : refusal === "role"
+              ? TERMINAL_UPLOAD_COPY.attachRole
+              : refusal === "not_rework"
+                ? // Same words as the after-fix window: the WP is not open for rework.
+                  TERMINAL_UPLOAD_COPY.afterFixClosed
+                : TERMINAL_UPLOAD_COPY.attachUnknownWp,
+        terminal: refusal !== null,
       });
       return false;
     }
-    patch(photo.id, { status: "saved", errorMessage: null });
+    patch(photo.id, { status: "saved", errorMessage: null, terminal: false });
     return true;
   }
 
@@ -173,6 +190,13 @@ export function useDefectPhotos({
     const targets = photos.filter((p) => p.status === "ready" || p.status === "insert-error");
     let failed = 0;
     for (const p of targets) {
+      // A refused photo is never replayed — the refusal is the identical call —
+      // but it still COUNTS as failed: a zero count closes the sheet, which would
+      // drop the photo silently. It leaves via its tile's ลบ instead.
+      if (p.terminal) {
+        failed += 1;
+        continue;
+      }
       const ok = await insertOne(p);
       if (!ok) failed += 1;
     }

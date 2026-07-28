@@ -110,7 +110,7 @@ describe("ReportDefectControl — a terminal photo failure must not trap the for
 // Writing failing test first (mutation showed the banner-clear had NO coverage —
 // removing it kept every test green).
 describe("ReportDefectControl — a stale attach-failure banner must not contradict a terminal tile", () => {
-  it("clears the 'แตะที่รูปเพื่อลองใหม่' banner when a new file is selected", async () => {
+  it("clears the 'ดูที่รูปแต่ละใบ' banner when a new file is selected", async () => {
     mockDefectPhotos.photos = [{ ...terminalPhoto, status: "ready", terminal: false }];
     mockDefectPhotos.attachAll = vi.fn(async () => 1);
     render(<ReportDefectControl projectId="p1" workPackageId="wp1" canAttachPhotos />);
@@ -120,7 +120,7 @@ describe("ReportDefectControl — a stale attach-failure banner must not contrad
     });
     fireEvent.click(screen.getByRole("button", { name: "เปิดงานใหม่" }));
 
-    const banner = await screen.findByText(/แตะที่รูปเพื่อลองใหม่/);
+    const banner = await screen.findByText(/ดูที่รูปแต่ละใบ/);
     expect(banner).toBeInTheDocument();
 
     // The next selection can land a REFUSED photo, whose tile offers no retry at
@@ -129,8 +129,40 @@ describe("ReportDefectControl — a stale attach-failure banner must not contrad
       target: { files: [new File(["x"], "b.jpg", { type: "image/jpeg" })] },
     });
 
-    await waitFor(() =>
-      expect(screen.queryByText(/แตะที่รูปเพื่อลองใหม่/)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText(/ดูที่รูปแต่ละใบ/)).not.toBeInTheDocument());
+  });
+});
+
+// Writing failing test first.
+//
+// The insert layer (last piece of the class): addPhoto refuses a defect attach
+// permanently for a non-manager, a WP not in rework, and an unknown WP. The tile
+// showed ลองใหม่ for those too — and the insert-error branch never had ลบ, so the
+// only escape was closing the sheet and abandoning the photo.
+describe("ReportDefectControl — a REFUSED attach (insert stage) is terminal too", () => {
+  it("names the refusal and offers ลบ, not a retry", () => {
+    openWithPhoto({
+      ...terminalPhoto,
+      status: "insert-error",
+      terminal: true,
+      errorMessage: TERMINAL_UPLOAD_COPY.attachRole,
+    });
+
+    expect(screen.getByText(TERMINAL_UPLOAD_COPY.attachRole)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ลองใหม่" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ลบ" }));
+    expect(mockRemove).toHaveBeenCalledWith("ph1");
+  });
+
+  it("keeps ลองใหม่ for an ordinary (retryable) attach failure", () => {
+    openWithPhoto({
+      ...terminalPhoto,
+      status: "insert-error",
+      terminal: false,
+      errorMessage: "แนบรูปไม่สำเร็จ — แตะเพื่อลองใหม่",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
+    expect(mockRetry).toHaveBeenCalledWith("ph1");
   });
 });

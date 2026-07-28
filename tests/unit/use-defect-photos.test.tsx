@@ -27,6 +27,10 @@ vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/actions", () =
 }));
 
 import { useDefectPhotos } from "@/app/projects/[projectId]/work-packages/[workPackageId]/use-defect-photos";
+import {
+  DEFECT_ATTACH_REFUSED_NOT_REWORK,
+  DEFECT_ATTACH_REFUSED_ROLE,
+} from "@/lib/photos/upload-queue";
 
 function fileList(...files: File[]): FileList {
   return files as unknown as FileList;
@@ -244,5 +248,76 @@ describe("useDefectPhotos — the terminal photo blocks submit until it is remov
     await waitFor(() => expect(result.current.photos[0]?.status).toBe("upload-error"));
     expect(result.current.photos[0]?.errorMessage).toContain("เลือกรูปใหม่");
     expect(result.current.photos[0]?.errorMessage).not.toContain("ถ่ายใหม่");
+  });
+});
+
+// Writing failing test first.
+//
+// LAST piece of the honest-copy class (#823 catalog, #826 phase capture, #827 the
+// defect form's byte upload). `insertOne` still discards `result.error` and writes
+// a generic "แตะเพื่อลองใหม่" — but addPhoto REFUSES a defect attach permanently
+// when the caller is not a manager, when the WP is not in rework, or when the WP
+// is unknown. Retrying replays the identical call, so the SA loops; the
+// insert-error tile has no ลบ either, so the only escape is closing the sheet.
+describe("useDefectPhotos — a permanent attach refusal (insert layer)", () => {
+  it("marks a role refusal terminal and names it", async () => {
+    mockAddPhoto.mockResolvedValue({
+      ok: false,
+      error: DEFECT_ATTACH_REFUSED_ROLE,
+    });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    await act(() => result.current.attachAll());
+
+    const photo = result.current.photos[0]!;
+    expect(photo.status).toBe("insert-error");
+    expect(photo.terminal).toBe(true);
+    expect(photo.errorMessage).not.toContain("ลองใหม่");
+  });
+
+  it("marks a not-in-rework refusal terminal", async () => {
+    mockAddPhoto.mockResolvedValue({ ok: false, error: DEFECT_ATTACH_REFUSED_NOT_REWORK });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    await act(() => result.current.attachAll());
+
+    expect(result.current.photos[0]?.terminal).toBe(true);
+  });
+
+  it("leaves an ordinary save failure RETRYABLE with the tap-to-retry copy", async () => {
+    mockAddPhoto.mockResolvedValue({ ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    await act(() => result.current.attachAll());
+
+    const photo = result.current.photos[0]!;
+    expect(photo.terminal).toBe(false);
+    expect(photo.errorMessage).toContain("ลองใหม่");
+  });
+
+  it("attachAll never replays a terminal photo, but still counts it as failed", async () => {
+    // Counting matters: a zero count closes the sheet, which would silently drop
+    // the photo. Replaying matters: the refusal is identical every time.
+    mockAddPhoto.mockResolvedValue({ ok: false, error: DEFECT_ATTACH_REFUSED_ROLE });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+
+    let failed = 0;
+    await act(async () => {
+      failed = await result.current.attachAll();
+    });
+    expect(failed).toBe(1);
+    expect(mockAddPhoto).toHaveBeenCalledTimes(1);
+
+    // A second submit (the sheet stays open on failure) must not call it again.
+    await act(async () => {
+      failed = await result.current.attachAll();
+    });
+    expect(failed).toBe(1);
+    expect(mockAddPhoto).toHaveBeenCalledTimes(1);
   });
 });
