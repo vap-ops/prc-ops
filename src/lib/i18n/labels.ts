@@ -886,7 +886,15 @@ export const EQUIPMENT_MOVEMENT_KIND_LABEL: Record<Enums["equipment_movement_kin
 // "อนุมัติ" locally). The old bare "ไม่อนุมัติ" described the pre-F3 inert behaviour.
 export const APPROVAL_DECISION_LABEL: Record<Enums["approval_decision"], string> = {
   approved: "อนุมัติแล้ว",
-  rejected: "ส่งกลับแก้งาน",
+  // Spec 372 U2 — named after the PROBLEM, not the PM's action. The form now asks
+  // "what is wrong", and "ส่งกลับแก้งาน" answered a different question than the three
+  // reasons beside it, which is part of why it was picked 0 times in five weeks. Safe
+  // to rename: `approval_decision` is used by `approvals` only (document_approvals has
+  // its own enum) and there are 0 `rejected` rows ever, so no user has seen the old
+  // string in a decision position. The SA's chip, /review, the ประวัติ timeline and
+  // notifications all read this value, so the PM's choice and what the SA later sees
+  // stay the same words.
+  rejected: "งานต้องแก้ไข",
   needs_revision: "ถ่ายรูปใหม่",
 };
 
@@ -1384,8 +1392,9 @@ export function waitingDaysChip(days: number): string {
 }
 /** Zone B row chip: how long the SITE has sat on the ask — counted from the
  *  decision, not from queue entry, because that is the number worth chasing.
- *  Deliberately NOT "ส่งกลับ…": that verb is already
- *  APPROVAL_DECISION_LABEL.rejected ("ส่งกลับแก้งาน"), and this zone holds only
+ *  Deliberately NOT "ส่งกลับ…": that verb belongs to the other decision, whose
+ *  label is APPROVAL_DECISION_LABEL.rejected ("งานต้องแก้ไข" since spec 372 U2 put
+ *  it on the problem axis), and this zone holds only
  *  needs_revision. Spec 353 separated those two on purpose, and the operator
  *  report that prompted spec 371 was itself a rejected-vs-bounce conflation —
  *  shipping the rejected verb here would hand it straight back. */

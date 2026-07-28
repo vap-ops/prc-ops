@@ -2,44 +2,56 @@
 
 import { BUTTON_PRIMARY, INLINE_ERROR } from "@/lib/ui/classes";
 
-// PM record-decision form. Native radios for the three approval choices
-// (no extra shadcn dep), shadcn Textarea for the comment, client-side
-// required-comment validation, and submit-disabled when invalid. The
-// server action (recordDecision) is the load-bearing validator; this
-// form just refuses to send obviously-bad input so the user gets fast
-// feedback.
+// PM record-decision form.
+//
+// Spec 372 U2 — the PM answers ONE question (อนุมัติ / ไม่อนุมัติ) and then says what
+// is WRONG. They never pick a mechanism.
+//
+// Before, three peer radios sat on different axes — "ถ่ายรูปใหม่" instructed the SA,
+// "ส่งกลับแก้งาน" described the PM's own action — with the reason chips hidden one
+// level down inside the middle one. Measured on prod: `rejected` was chosen **0 times
+// in five weeks**, and `premature` ("งานยังไม่เสร็จ", which is about the WORK) also sat
+// at 0, because a PM who thought "the work isn't done" already found a home inside the
+// OTHER button and never reached the third radio.
+//
+// The cause → (decision, reason) route lives in `decisionPayloadForCause`, so it is
+// testable over its whole domain and the form holds no routing logic of its own. The
+// server action (recordDecision) remains the load-bearing validator; this form just
+// refuses to send obviously-bad input so the user gets fast feedback.
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  APPROVAL_DECISIONS,
   commentRequiredFor,
+  DECISION_CAUSES,
+  decisionPayloadForCause,
   isCommentValid,
-  revisionReasonRequiredFor,
-  type ApprovalDecision,
+  type DecisionCause,
 } from "@/lib/approvals/predicates";
-import type { ApprovalRevisionReason } from "@/lib/db/enums";
 import { APPROVAL_DECISION_LABEL, APPROVAL_REVISION_REASON_LABEL } from "@/lib/i18n/labels";
 import { recordDecision } from "./actions";
 
-// Spec 353 — the two rejections are sharpened on the evidence-vs-work axis and the
-// PM's choice must read the SAME as the SA later sees, so the two rejection labels
-// are single-sourced from APPROVAL_DECISION_LABEL. `approved` stays imperative here
-// (the form asks the PM to DO it); the result surfaces show "อนุมัติแล้ว".
-// needs_revision = re-shoot the photos, the WORK is fine, the WP stays in the queue.
-// rejected (spec 337 F3) = the WORK goes back to a new rework round.
-const DECISION_LABEL: Record<ApprovalDecision, string> = {
-  approved: "อนุมัติ",
-  needs_revision: APPROVAL_DECISION_LABEL.needs_revision,
-  rejected: APPROVAL_DECISION_LABEL.rejected,
+// Every cause label is single-sourced: the three photo causes from the spec-355 reason
+// map, the work cause from APPROVAL_DECISION_LABEL — the same value the SA's chip,
+// /review, the ประวัติ timeline and notifications render, so the PM's choice and what
+// the SA later reads are the same words (the spec-353 rule).
+const CAUSE_LABEL: Record<DecisionCause, string> = {
+  incomplete: APPROVAL_REVISION_REASON_LABEL.incomplete,
+  mismatch: APPROVAL_REVISION_REASON_LABEL.mismatch,
+  premature: APPROVAL_REVISION_REASON_LABEL.premature,
+  rework: APPROVAL_DECISION_LABEL.rejected,
 };
 
-const DECISION_HINT: Record<ApprovalDecision, string> = {
-  approved: "รายการงานจะเปลี่ยนเป็นเสร็จสิ้น",
-  needs_revision:
-    "รูปหลักฐานไม่ครบหรือไม่ชัด — ถ่ายใหม่แล้วส่งตรวจอีกครั้ง · ยังอยู่ในคิวตรวจ (งานไม่ต้องแก้)",
-  rejected: "ตัวงานต้องแก้ไข — จะกลับไปเป็นงานแก้ไข (รอบใหม่) แล้วถ่ายรูปหลังแก้ไข",
+// What HAPPENS, in words a PM decides on — never round counters or photo-bucket names.
+// ⚠️ `premature` still leaves the WP in the queue: spec 372 U3 is what routes it to
+// `in_progress`, and this line moves with it. Describing tomorrow's behaviour today
+// would be a lie the PM acts on.
+const CAUSE_HINT: Record<DecisionCause, string> = {
+  incomplete: "ช่างเพิ่มรูปที่ขาด แล้วส่งตรวจอีกครั้ง · ยังอยู่ในคิวตรวจ",
+  mismatch: "ช่างลบรูปที่ผิดแล้วถ่ายใหม่ · ยังอยู่ในคิวตรวจ",
+  premature: "ช่างทำงานให้เสร็จก่อน แล้วค่อยส่งตรวจใหม่ · ยังอยู่ในคิวตรวจ",
+  rework: "งานจะออกจากคิวตรวจ กลับไปให้หน้างานแก้ แล้วช่างถ่ายรูปหลังแก้เสร็จ",
 };
 
 interface RecordDecisionFormProps {
@@ -48,25 +60,34 @@ interface RecordDecisionFormProps {
 
 export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
   const router = useRouter();
-  const [decision, setDecision] = useState<ApprovalDecision | null>(null);
-  const [revisionReason, setRevisionReason] = useState<ApprovalRevisionReason | null>(null);
+  const [approve, setApprove] = useState<boolean | null>(null);
+  const [cause, setCause] = useState<DecisionCause | null>(null);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
+  // `approved` carries neither a reason nor a required comment; otherwise the chosen
+  // cause decides both. Nothing is sent until a cause is picked, so a half-answered
+  // "ไม่อนุมัติ" can never reach the RPC.
+  //
+  // Deliberately keyed on `cause` alone: `pickApprove` clears it, so an `approve ===
+  // false &&` conjunct here would be unreachable — and an unreachable guard asserts a
+  // hazard that is not there (spec 340). Mutation-checked both ways: with the reset in
+  // place that conjunct could be deleted with every test still green, so the reset is
+  // the single truth and carries its own test. The action and the RPC re-validate.
+  const payload = cause ? decisionPayloadForCause(cause) : null;
+  const decision = approve === true ? ("approved" as const) : payload?.decision;
   const needsComment = decision ? commentRequiredFor(decision) : false;
-  const needsReason = decision ? revisionReasonRequiredFor(decision) : false;
   const canSubmit =
-    decision !== null &&
+    decision !== undefined &&
     isCommentValid(decision, comment.length ? comment : null) &&
-    (!needsReason || revisionReason !== null) &&
     !submitting;
 
-  // Spec 355 — the reason only lives on a needs_revision decision, so switching
-  // away clears it (never send a reason with approved/rejected — the RPC refuses it).
-  function pickDecision(d: ApprovalDecision) {
-    setDecision(d);
-    if (d !== "needs_revision") setRevisionReason(null);
+  function pickApprove(next: boolean) {
+    setApprove(next);
+    // Switching back to อนุมัติ must drop the cause: a stale reason riding an
+    // `approved` payload is exactly what the RPC refuses (22023).
+    if (next) setCause(null);
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -78,17 +99,16 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
         workPackageId,
         decision,
         comment: comment.length > 0 ? comment : null,
-        revisionReason: decision === "needs_revision" ? revisionReason : null,
+        revisionReason: payload?.revisionReason ?? null,
       });
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      // Decision recorded. 'approved' flips the WP to 'complete' and 'rejected'
-      // flips it to 'rework' (spec 337 F3) — both drop off the queue;
-      // 'needs_revision' stays pending_approval awaiting the SA's re-shoot,
-      // with an updated latest-decision label. Either way, the queue is the
-      // right landing.
+      // Decision recorded. `approved` flips the WP to `complete` and `rejected` flips
+      // it to `rework` (spec 337 F3) — both drop off the queue; the three photo causes
+      // leave it at pending_approval awaiting the SA's re-shoot, with an updated
+      // latest-decision label. Either way, the queue is the right landing.
       router.push("/review");
       router.refresh();
     });
@@ -101,55 +121,39 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
     >
       <fieldset className="flex flex-col gap-2" disabled={submitting}>
         <legend className="text-ink mb-1 text-sm font-medium">ผลการตรวจ</legend>
-        {APPROVAL_DECISIONS.map((d) => (
-          <label
-            key={d}
-            className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 transition-colors ${
-              decision === d
-                ? "border-action bg-action-soft"
-                : "border-edge-strong bg-card hover:bg-page"
-            }`}
-          >
-            <input
-              type="radio"
-              name="decision"
-              value={d}
-              checked={decision === d}
-              onChange={() => pickDecision(d)}
-              className="accent-fill mt-1"
-            />
-            <span className="flex flex-col">
-              <span className="text-ink text-sm font-medium">{DECISION_LABEL[d]}</span>
-              <span className="text-ink-secondary text-xs">{DECISION_HINT[d]}</span>
-            </span>
-          </label>
-        ))}
+        <ChoiceRow
+          name="approve"
+          checked={approve === true}
+          onPick={() => pickApprove(true)}
+          label="อนุมัติ"
+          hint="รายการงานจะเปลี่ยนเป็นเสร็จสิ้น"
+        />
+        <ChoiceRow
+          name="approve"
+          checked={approve === false}
+          onPick={() => pickApprove(false)}
+          label="ไม่อนุมัติ"
+          hint="เลือกว่าติดอะไร แล้วระบบจะส่งต่อให้เอง"
+        />
       </fieldset>
 
-      {/* Spec 355 — WHY the photos are sent back. Required for reject-evidence; each
-          reason drives the SA's tailored next-action (mismatch = remove + re-shoot). */}
-      {decision === "needs_revision" ? (
+      {/* The four causes, one axis: each names a PROBLEM. Which decision and which
+          spec-355 reason that becomes is decisionPayloadForCause's job. */}
+      {approve === false ? (
         <fieldset className="flex flex-col gap-2" disabled={submitting}>
           <legend className="text-ink mb-1 text-sm font-medium">
-            เหตุผล <span className="text-danger">*</span>
+            ติดอะไร <span className="text-danger">*</span>
           </legend>
-          <div className="flex flex-wrap gap-2">
-            {(["incomplete", "mismatch", "premature"] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRevisionReason(r)}
-                aria-pressed={revisionReason === r}
-                className={`rounded-control focus-visible:ring-action border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 ${
-                  revisionReason === r
-                    ? "border-action bg-action-soft text-ink"
-                    : "border-edge-strong bg-card text-ink-secondary hover:bg-page"
-                }`}
-              >
-                {APPROVAL_REVISION_REASON_LABEL[r]}
-              </button>
-            ))}
-          </div>
+          {DECISION_CAUSES.map((c) => (
+            <ChoiceRow
+              key={c}
+              name="cause"
+              checked={cause === c}
+              onPick={() => setCause(c)}
+              label={CAUSE_LABEL[c]}
+              hint={CAUSE_HINT[c]}
+            />
+          ))}
         </fieldset>
       ) : null}
 
@@ -185,5 +189,41 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
         </button>
       </div>
     </form>
+  );
+}
+
+/** One radio row — label above, consequence below. Shared by both steps so the two
+ *  read as the same kind of choice. */
+function ChoiceRow({
+  name,
+  checked,
+  onPick,
+  label,
+  hint,
+}: {
+  name: string;
+  checked: boolean;
+  onPick: () => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 transition-colors ${
+        checked ? "border-action bg-action-soft" : "border-edge-strong bg-card hover:bg-page"
+      }`}
+    >
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        onChange={onPick}
+        className="accent-fill mt-1"
+      />
+      <span className="flex flex-col">
+        <span className="text-ink text-sm font-medium">{label}</span>
+        <span className="text-ink-secondary text-xs">{hint}</span>
+      </span>
+    </label>
   );
 }

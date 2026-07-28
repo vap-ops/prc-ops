@@ -5,9 +5,9 @@
 // and the SQL guard in the action mirrors a JS predicate that's
 // individually testable.
 
-import type { ApprovalDecision, WorkPackageStatus } from "@/lib/db/enums";
+import type { ApprovalDecision, ApprovalRevisionReason, WorkPackageStatus } from "@/lib/db/enums";
 
-export type { ApprovalDecision, WorkPackageStatus };
+export type { ApprovalDecision, ApprovalRevisionReason, WorkPackageStatus };
 
 // NOTE (spec 337 U1): shouldTransitionToComplete lived here and told the action
 // whether to run its own admin-client flip. decide_work_package now owns the
@@ -42,6 +42,36 @@ export function commentRequiredFor(decision: ApprovalDecision): boolean {
 // SA gets the right next-action. Required only for needs_revision.
 export function revisionReasonRequiredFor(decision: ApprovalDecision): boolean {
   return decision === "needs_revision";
+}
+
+/**
+ * Spec 372 U2 — what the PM actually decides.
+ *
+ * The PM answers อนุมัติ / ไม่อนุมัติ and then says what is WRONG. They never pick a
+ * mechanism: three of these causes are `needs_revision` reasons and the fourth is the
+ * `rejected` decision, but that is an implementation detail of the RPC, not a question
+ * to put to a reviewer. The old form asked it, and the answer was 0 uses of `rejected`
+ * and 0 of `premature` in five weeks.
+ *
+ * `rework` is deliberately NOT named after the enum value it produces — it is the
+ * cause ("the work itself must be redone"), and the route is this module's job.
+ */
+export const DECISION_CAUSES = ["incomplete", "mismatch", "premature", "rework"] as const;
+export type DecisionCause = (typeof DECISION_CAUSES)[number];
+
+export interface DecisionPayload {
+  decision: ApprovalDecision;
+  revisionReason: ApprovalRevisionReason | null;
+}
+
+/**
+ * The cause → (decision, reason) route. Total over DECISION_CAUSES, and every result
+ * satisfies the RPC's own two rules: a reason is REQUIRED for `needs_revision` and
+ * REFUSED on anything else (both `22023`).
+ */
+export function decisionPayloadForCause(cause: DecisionCause): DecisionPayload {
+  if (cause === "rework") return { decision: "rejected", revisionReason: null };
+  return { decision: "needs_revision", revisionReason: cause };
 }
 
 export function isCommentValid(decision: ApprovalDecision, comment: string | null): boolean {
