@@ -69,14 +69,25 @@ Two subgroups, in this order:
    sibling `reviewQueueLabel` are deleted with their only consumer.
 2. **`รอตรวจครั้งแรก`** — never-reviewed, oldest first (spec 15 order, unchanged).
 
-Row chip: **`รอมา N วัน`** (days since queue entry). This replaces a status pill that
-repeated the group heading on all 51 rows — the age is the only thing that differs
-between them, so the age is what the chip should carry.
+Row chip: **`รอมาแล้ว N วัน`** (days since queue entry) — the wording already shipped on
+the PO worklist, single-sourced as `waitingDaysChip` rather than minting a second
+phrasing for one idea. It replaces a status pill that repeated the group heading on all
+51 rows; the age is the only thing that differs between them, so the age is what the chip
+should carry.
+
+The one exception: a row whose latest decision is `approved` or `rejected` keeps its real
+decision pill. Neither should ever be in this queue, but if one is, captioning it
+"never reviewed" would be a lie — and this is the path where nobody would notice.
 
 ### Zone B — `รอหน้างานถ่ายรูปใหม่` (18), collapsed
 
 Not the PM's move. Collapsed `<details>`, muted surface, and an explicit
-**`ไม่นับในยอดรอตรวจ`** note so the exclusion is stated rather than inferred.
+**`ไม่นับในยอดด้านบน`** note so the exclusion is stated rather than inferred. The note is
+scoped to _this page's_ number on purpose — until U2 the hero and the nav badge still
+count these rows, so a claim about `ยอดรอตรวจ` app-wide would be false — and it renders
+only when there IS a number above it. When nothing is actionable the zone **opens
+itself**, so an all-bounced queue is never a single collapsed bar with no way to tell
+anything is behind it.
 
 Row chip: the spec-355 reason (`รูปไม่ครบ` / `รูปไม่ตรงกับงาน` / `งานยังไม่เสร็จ`), falling
 back to `รอถ่ายเพิ่ม` (`REVIEW_AWAITING_PHOTOS_LABEL`) for bounces that predate spec 355.
@@ -85,10 +96,21 @@ has no live rows here) and **7 are null**, all of them the older cohort. So the 
 the common case and the fallback is the tail — but the tail is precisely the oldest,
 most-stuck rows, so the fallback must read as a normal state, never as missing data.
 
-Second chip: **`ส่งกลับไป N วัน`**, counted from the decision (`approvals.decided_at`),
-not from queue entry. That is the number that says whether the site is stuck. The live
-worst reads **7 วัน**: `daysSince` floors _elapsed 24-hour periods_, so it never
-overstates a wait (the same row is 8 days apart by calendar date).
+Second chip: **`ค้างมา N วัน`**, counted from the decision (`approvals.decided_at`), not
+from queue entry. That is the number that says whether the site is stuck; the live worst
+renders **8 วัน**.
+
+⚠️ Deliberately **not** `ส่งกลับ…`: that verb is already
+`APPROVAL_DECISION_LABEL.rejected` (`ส่งกลับแก้งาน`), while this zone holds only
+`needs_revision`. Spec 353 separated those two on purpose, and the operator report behind
+_this_ spec is itself a rejected-vs-bounce conflation — using the rejected verb here
+would hand it straight back.
+
+Both chips count **Asia/Bangkok calendar days** (`daysWaiting`), not elapsed 24-hour
+periods: `src/lib/dates.ts` fixes app dates to Bangkok civil dates (spec 46 C7), each row
+renders `เข้าคิวเมื่อ` in that same timezone, and the app's other aging chip
+(`poAgingDays` → `รอมาแล้ว N วัน`) already counts this way. An elapsed-ms floor put
+`รอมาแล้ว 0 วัน` on a row stamped 23:30 the previous evening.
 
 ### Wording notes (gate-checked against the label SSOT)
 
