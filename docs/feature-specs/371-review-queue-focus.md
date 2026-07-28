@@ -1,7 +1,7 @@
 # Spec 371 — review queue: focus split (whose move is it?)
 
-**Status:** U1 in build · **Schema:** none (code-only)
-**Origin:** operator, 2026-07-28 — _"pm doesn't know where to focus on approval page, rejected items are counted as well"_
+**Status:** U1 shipped (#814, code-only) · U2 in build (additive schema — one view, mig `075864`)
+**Origin:** operator, 2026-07-28 — _"pm doesn't know where to focus on approval page, rejected items are counted as well"_, then on seeing U1 — _"Amount 70 items is misleading, how about separating them?"_
 
 ## 1. The problem, measured live
 
@@ -83,9 +83,9 @@ decision pill. Neither should ever be in this queue, but if one is, captioning i
 
 Not the PM's move. Collapsed `<details>`, muted surface, and an explicit
 **`ไม่นับในยอดด้านบน`** note so the exclusion is stated rather than inferred. The note is
-scoped to _this page's_ number on purpose — until U2 the hero and the nav badge still
-count these rows, so a claim about `ยอดรอตรวจ` app-wide would be false — and it renders
-only when there IS a number above it. When nothing is actionable the zone **opens
+scoped to _this page's_ number on purpose (it was written while the hero and badge still
+counted these rows; U2 fixed those, and the scoped wording stays correct either way) —
+and it renders only when there IS a number above it. When nothing is actionable the zone **opens
 itself**, so an all-bounced queue is never a single collapsed bar with no way to tell
 anything is behind it.
 
