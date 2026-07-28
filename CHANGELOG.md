@@ -1,3 +1,13 @@
+# [0.255.0](https://github.com/vap-ops/prc-ops/compare/v0.254.0...v0.255.0) (2026-07-28)
+
+### Bug Fixes
+
+- **equipment:** drop the unreachable route check in parseScanText (mutation-proved dead) + pin the decision ([f433969](https://github.com/vap-ops/prc-ops/commit/f433969d3a963956eac407e14185303010a40fef))
+
+### Features
+
+- **equipment:** /equipment/scan — QR/NFC/search in-out door with required condition photos (spec 370 U2+U4) ([319a424](https://github.com/vap-ops/prc-ops/commit/319a4246d7766a1b0b0b1a1fad15ecadcd7d633f))
+
 # [0.254.0](https://github.com/vap-ops/prc-ops/compare/v0.253.0...v0.254.0) (2026-07-28)
 
 ### Features
