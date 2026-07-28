@@ -1,3 +1,9 @@
+## [0.256.5](https://github.com/vap-ops/prc-ops/compare/v0.256.4...v0.256.5) (2026-07-28)
+
+### Bug Fixes
+
+- **photos:** stop offering a retry the capture sheet cannot honour ([#826](https://github.com/vap-ops/prc-ops/issues/826)) ([25a8f9f](https://github.com/vap-ops/prc-ops/commit/25a8f9fef9e7ab515ab48daf4c6f299131f02a80)), closes [#823](https://github.com/vap-ops/prc-ops/issues/823)
+
 ## [0.256.4](https://github.com/vap-ops/prc-ops/compare/v0.256.3...v0.256.4) (2026-07-28)
 
 ### Bug Fixes
