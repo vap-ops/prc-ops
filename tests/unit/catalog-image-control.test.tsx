@@ -57,6 +57,31 @@ describe("CatalogImageControl (spec 175 U4)", () => {
     await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
   });
 
+  // 2026-07-28 field bug: the catalog-images storage policy had never been widened
+  // to procurement_manager, so the one person who curates the catalog got the same
+  // "try again" string as a network blip — and retried forever. A denial is
+  // permanent; say so, and never invite a retry that cannot succeed.
+  it("names a permission denial instead of inviting a retry", async () => {
+    mockUpload.mockResolvedValue({ error: { statusCode: "403", message: "new row violates RLS" } });
+    render(<CatalogImageControl itemId="c1" />);
+    fireEvent.change(screen.getByLabelText("เลือกรูปภาพ"), { target: { files: [imageFile()] } });
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.getByRole("alert").textContent).toContain("ไม่มีสิทธิ์");
+    expect(screen.getByRole("alert").textContent).not.toContain("ลองใหม่");
+    expect(mockSetImage).not.toHaveBeenCalled();
+  });
+
+  it("still invites a retry for a transient failure", async () => {
+    mockUpload.mockResolvedValue({ error: { statusCode: 503, message: "upstream unavailable" } });
+    render(<CatalogImageControl itemId="c1" />);
+    fireEvent.change(screen.getByLabelText("เลือกรูปภาพ"), { target: { files: [imageFile()] } });
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.getByRole("alert").textContent).toContain("ลองใหม่");
+    expect(mockSetImage).not.toHaveBeenCalled();
+  });
+
   it("rejects a non-image without uploading", async () => {
     mockPrepare.mockResolvedValue(null);
     render(<CatalogImageControl itemId="c1" />);
