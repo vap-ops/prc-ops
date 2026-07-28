@@ -7,7 +7,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockUpload, mockPrepare, mockSetImage, mockRefresh } = vi.hoisted(() => ({
+const { mockUpload, mockPrepare, mockSetImage, mockRefresh, trackFriction } = vi.hoisted(() => ({
+  trackFriction: vi.fn(),
   mockUpload: vi.fn(),
   mockPrepare: vi.fn(),
   mockSetImage: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/db/browser", () => ({
 }));
 vi.mock("@/lib/photos/downscale", () => ({ preparePhotoForUpload: mockPrepare }));
 vi.mock("@/app/catalog/actions", () => ({ setCatalogItemImage: mockSetImage }));
+vi.mock("@/lib/telemetry/friction", () => ({ trackFriction }));
 
 import { CatalogImageControl } from "@/components/features/catalog/catalog-image-control";
 
@@ -30,6 +32,7 @@ beforeEach(() => {
     .mockResolvedValue({ blob: new Blob(["x"]), ext: "jpeg", downscaled: true });
   mockSetImage.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
+  trackFriction.mockReset();
 });
 
 const imageFile = () => new File(["x"], "p.jpg", { type: "image/jpeg" });
@@ -93,5 +96,67 @@ describe("CatalogImageControl (spec 175 U4)", () => {
     expect(mockUpload).not.toHaveBeenCalled();
     expect(mockSetImage).not.toHaveBeenCalled();
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+});
+
+// Writing failing test first.
+//
+// #823 was live for ~2 weeks and no one knew: this control reports a failed
+// upload to nobody. The photo pipeline has emitted `upload_fail` since feedback
+// 10a15ebe — the material catalog and the equipment condition photos never did,
+// which is precisely why a 403 could hide behind a generic retry string. Same
+// PDPA-minimal payload: a coarse class + a numeric HTTP status, never the file
+// name, the path, or the raw error text.
+describe("CatalogImageControl — upload_fail telemetry", () => {
+  it("reports a denial with its class and status", async () => {
+    mockUpload.mockResolvedValue({ error: { statusCode: "403", message: "new row violates RLS" } });
+    render(<CatalogImageControl itemId="c1" />);
+    fireEvent.change(screen.getByLabelText("เลือกรูปภาพ"), { target: { files: [imageFile()] } });
+
+    await waitFor(() =>
+      expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
+        kind: "catalog_image",
+        stage: "storage",
+        reason: "authz",
+        status: 403,
+      }),
+    );
+  });
+
+  it("reports a transient failure too — the class is what tells them apart", async () => {
+    mockUpload.mockResolvedValue({ error: { statusCode: 503, message: "upstream unavailable" } });
+    render(<CatalogImageControl itemId="c1" />);
+    fireEvent.change(screen.getByLabelText("เลือกรูปภาพ"), { target: { files: [imageFile()] } });
+
+    await waitFor(() =>
+      expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
+        kind: "catalog_image",
+        stage: "storage",
+        reason: "http_5xx",
+        status: 503,
+      }),
+    );
+  });
+
+  it("emits NO status when the failure carried none (a fetch/network drop)", async () => {
+    mockUpload.mockResolvedValue({ error: { message: "Failed to fetch" } });
+    render(<CatalogImageControl itemId="c1" />);
+    fireEvent.change(screen.getByLabelText("เลือกรูปภาพ"), { target: { files: [imageFile()] } });
+
+    await waitFor(() =>
+      expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
+        kind: "catalog_image",
+        stage: "storage",
+        reason: "network",
+      }),
+    );
+  });
+
+  it("stays silent when the upload succeeds", async () => {
+    render(<CatalogImageControl itemId="c1" />);
+    fireEvent.change(screen.getByLabelText("เลือกรูปภาพ"), { target: { files: [imageFile()] } });
+
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+    expect(trackFriction).not.toHaveBeenCalled();
   });
 });

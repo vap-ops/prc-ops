@@ -15,6 +15,7 @@ import { photoExtToMime } from "@/lib/photos/path";
 import { diagnoseStorageFailure } from "@/lib/photos/upload-queue";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { INLINE_ERROR } from "@/lib/ui/classes";
+import { trackFriction } from "@/lib/telemetry/friction";
 import { setCatalogItemImage } from "@/app/catalog/actions";
 
 export function CatalogImageControl({
@@ -48,15 +49,25 @@ export function CatalogImageControl({
           upsert: false,
         });
       if (upErr) {
+        // #823 was live for ~2 weeks because this control told nobody. Same signal
+        // the photo pipeline emits (feedback 10a15ebe) and the same PDPA-minimal
+        // payload: a coarse class + a numeric HTTP status when the failure was an
+        // HTTP response — never the file name, the storage path, or the raw error.
+        const diag = diagnoseStorageFailure(upErr);
+        trackFriction("upload_fail", {
+          kind: "catalog_image",
+          stage: "storage",
+          reason: diag.reason,
+          ...(diag.status !== undefined ? { status: diag.status } : {}),
+        });
         // A denial is permanent — "ลองใหม่" sends the user into a loop that cannot
         // succeed (2026-07-28: the catalog-images policy had never been widened to
         // procurement_manager, and this one generic string hid it). Reuse the
         // spec-354 storage diagnosis rather than re-rolling the status mapping.
         // "สิทธิ์ไม่พอ" is the house term for a permanent storage denial
         // (upload-queue-runner.tsx) — same condition, same words.
-        const { reason } = diagnoseStorageFailure(upErr);
         setError(
-          reason === "authz"
+          diag.reason === "authz"
             ? "อัปโหลดรูปไม่ได้ — สิทธิ์ไม่พอ"
             : "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่",
         );

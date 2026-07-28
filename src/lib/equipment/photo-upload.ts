@@ -8,6 +8,8 @@
 
 import { createClient } from "@/lib/db/browser";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
+import { diagnoseStorageFailure } from "@/lib/photos/upload-queue";
+import { trackFriction } from "@/lib/telemetry/friction";
 
 export type UploadConditionPhotosResult =
   | { ok: true; paths: string[] }
@@ -29,7 +31,21 @@ export async function uploadConditionPhotos(
     const { error } = await supabase.storage
       .from("equipment-images")
       .upload(path, prepared.blob, { contentType: prepared.blob.type });
-    if (error) return { ok: false, error: "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่" };
+    if (error) {
+      // The second blind uploader (#823's lesson): a failure here was reported to
+      // nobody, so a 403 on the equipment-images policy would hide behind this one
+      // generic string exactly the way the catalog bug hid for two weeks. Same
+      // PDPA-minimal payload as the photo pipeline — a coarse class plus a numeric
+      // HTTP status when there was one, never a file name, path, or raw error.
+      const diag = diagnoseStorageFailure(error);
+      trackFriction("upload_fail", {
+        kind: "equipment_condition_photo",
+        stage: "storage",
+        reason: diag.reason,
+        ...(diag.status !== undefined ? { status: diag.status } : {}),
+      });
+      return { ok: false, error: "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่" };
+    }
     paths.push(path);
   }
   return { ok: true, paths };
