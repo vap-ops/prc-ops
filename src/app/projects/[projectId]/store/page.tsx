@@ -42,11 +42,13 @@ import {
 import { toDivertLines } from "@/lib/store/divert-lines";
 import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { STORE_LABEL } from "@/lib/i18n/labels";
-import {
-  StoreEquipmentSection,
-  type StoreEquipmentRow,
-} from "@/components/features/store/store-equipment-section";
+import { StoreEquipmentSection } from "@/components/features/store/store-equipment-section";
 import { equipmentAtProject } from "@/lib/equipment/at-project";
+import { splitStoreEquipment } from "@/lib/equipment/store-split";
+import { fetchDisplayNames } from "@/lib/users/display-names";
+import { EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
+import { workPackageHref } from "@/lib/nav/project-paths";
+import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -249,13 +251,34 @@ export default async function ProjectStorePage({ params }: PageProps) {
       .sort((a, b) => a.baseItem.localeCompare(b.baseItem, "th"));
   }
 
-  // Spec 368 U1 — tools recorded as deployed to THIS project. Read through the
-  // RLS client, so a viewer without equipment access simply gets an empty set and
-  // the section does not render (rather than an error or a widened read).
-  const [{ data: equipRows }, { data: equipMoves }, { data: equipCats }] = await Promise.all([
-    supabase.from("equipment_items").select("id, name, category_id, asset_tag, status, condition"),
+  // Spec 368 U1+U4 — tools recorded as deployed to THIS project, split into
+  // อยู่ในคลัง vs ยืมไปที่งาน. Read through the RLS client, so a viewer without
+  // equipment access simply gets an empty set and the section does not render.
+  // "Out" = open usage log (checked_in_on null, not superseded — the check_out
+  // anti-join; NEVER derived from status). Explicit limits: silent truncation
+  // of the closing-row set would resurrect closed loans as open.
+  const [
+    { data: equipRows },
+    { data: equipMoves },
+    { data: equipCats },
+    { data: loanCandidates },
+    { data: closingRows },
+  ] = await Promise.all([
+    supabase
+      .from("equipment_items")
+      .select("id, name, category_id, asset_tag, status, condition, tracking, quantity"),
     supabase.from("equipment_movements").select("item_id, kind, project_id, occurred_at"),
     supabase.from("equipment_categories").select("id, name"),
+    supabase
+      .from("equipment_usage_logs")
+      .select("id, item_id, work_package_id, checked_out_on, borrower_worker_id, entered_by")
+      .is("checked_in_on", null)
+      .limit(500),
+    supabase
+      .from("equipment_usage_logs")
+      .select("superseded_by")
+      .not("superseded_by", "is", null)
+      .limit(5000),
   ]);
   const atHere = equipmentAtProject(
     (equipMoves ?? []).map((m) => ({
@@ -267,16 +290,62 @@ export default async function ProjectStorePage({ params }: PageProps) {
     project.id,
   );
   const equipCatName = new Map((equipCats ?? []).map((c) => [c.id, c.name]));
-  const storeEquipment: StoreEquipmentRow[] = (equipRows ?? [])
-    .filter((e) => atHere.has(e.id))
-    .map((e) => ({
+  const equipHere = (equipRows ?? []).filter((e) => atHere.has(e.id));
+
+  // Open loans scoped to tools AT this project (this store's obligations).
+  const supersededIds = new Set((closingRows ?? []).map((r) => r.superseded_by));
+  const openHere = (loanCandidates ?? []).filter(
+    (l) => !supersededIds.has(l.id) && atHere.has(l.item_id),
+  );
+
+  // Names for the out rows: the loan's WP, its borrower, else its recorder.
+  const wpIds = [...new Set(openHere.map((l) => l.work_package_id))];
+  const borrowerIds = openHere
+    .map((l) => l.borrower_worker_id)
+    .filter((id): id is string => id !== null);
+  const recorderIds = [...new Set(openHere.map((l) => l.entered_by))];
+  const [{ data: loanWps }, { data: loanWorkers }, recorderNames] = await Promise.all([
+    wpIds.length
+      ? supabase.from("work_packages").select("id, code, name").in("id", wpIds)
+      : Promise.resolve({ data: [] as { id: string; code: string; name: string }[] }),
+    borrowerIds.length
+      ? supabase.from("workers").select("id, name").in("id", borrowerIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    recorderIds.length
+      ? fetchDisplayNames(recorderIds, "store-equipment-recorders")
+      : Promise.resolve(new Map<string, string>()),
+  ]);
+  const wpById = new Map((loanWps ?? []).map((w) => [w.id, w]));
+  const workerName = new Map((loanWorkers ?? []).map((w) => [w.id, w.name]));
+
+  const equipSplit = splitStoreEquipment({
+    items: equipHere.map((e) => ({
       id: e.id,
       name: e.name,
       categoryName: equipCatName.get(e.category_id) ?? "",
       assetTag: e.asset_tag,
       status: e.status,
       condition: e.condition,
-    }));
+      tracking: e.tracking as "unit" | "bulk",
+      quantity: e.quantity === null ? null : Number(e.quantity),
+    })),
+    openLoans: openHere.map((l) => ({
+      logId: l.id,
+      itemId: l.item_id,
+      wpId: l.work_package_id,
+      wpCode: wpById.get(l.work_package_id)?.code ?? "",
+      wpName: wpById.get(l.work_package_id)?.name ?? "",
+      checkedOutOn: l.checked_out_on,
+      holderName:
+        (l.borrower_worker_id ? workerName.get(l.borrower_worker_id) : undefined) ??
+        recorderNames.get(l.entered_by) ??
+        "—",
+    })),
+    today: bangkokTodayISO(),
+  });
+  // คืน = the movers' set — verified == the live check_in_equipment allowlist
+  // (spec 368 §6.2); non-movers read the split, no button.
+  const canReturnEquipment = EQUIPMENT_MOVE_ROLES.includes(ctx.role);
 
   return (
     <PageShell>
@@ -307,10 +376,19 @@ export default async function ProjectStorePage({ params }: PageProps) {
           counts={counts}
           emptyStateSupplyPlanHref={canPlanSupply ? supplyPlanHref(project.id) : null}
         />
-        {/* Spec 368 U1 — the DURABLE half of the store, beside the stock list.
-            Read-only: moving a tool is a movement, which already has its write
-            path on /equipment. Renders nothing when no tool is recorded here. */}
-        <StoreEquipmentSection items={storeEquipment} />
+        {/* Spec 368 U1+U4 — the DURABLE half of the store, beside the stock
+            list, split ยืมไปที่งาน / อยู่ในคลัง. คืน records here (the tool
+            physically lands at the store — a usage-log close, not a movement;
+            movements keep their single write path on /equipment). Renders
+            nothing when no tool is recorded here. */}
+        <StoreEquipmentSection
+          out={equipSplit.out}
+          inStore={equipSplit.inStore}
+          counts={equipSplit.counts}
+          canReturn={canReturnEquipment}
+          revalidate={`/projects/${project.id}/store`}
+          wpHref={(wpId) => workPackageHref(project.id, wpId)}
+        />
         {/* Spec 198 U2: move delivered WP-bound lines into the store (cost
             transfer). Renders nothing when there are none. */}
         <DivertToStoreList lines={divertLines} />

@@ -12,10 +12,8 @@
 // lesson). A PARTIAL failure (span recorded, photos didn't land) also refreshes
 // — the list must show the new truth even while the error is on screen.
 //
-// State discipline (fresh-eyes 🔴2/🔴3/🟡7): each sheet owns its OWN error;
-// the photo strips are epoch-guarded so an upload resolving after close/เปลี่ยน
-// can never re-arm a submit with another item's evidence; submits are
-// ref-guarded against same-frame double-taps (the muster cooldown lesson).
+// The คืน sheet + photo strip live in return-sheet.tsx, SHARED with the store
+// section (368 U4) — one component per fact, two doors that cannot drift.
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -23,12 +21,14 @@ import { CARD } from "@/lib/ui/classes";
 import { bangkokTodayIso } from "@/lib/dates";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { PersonPicker, type PersonOption } from "@/components/features/common/person-picker";
+import { checkOutEquipment } from "@/lib/equipment/usage-actions";
 import {
-  checkInEquipment,
-  checkOutEquipment,
-  fetchLoanPhotoUrls,
-} from "@/lib/equipment/usage-actions";
-import { uploadConditionPhotos } from "@/lib/equipment/photo-upload";
+  EquipmentReturnSheet,
+  PhotoCaptureStrip,
+  agingLabel,
+  usePhotoStrip,
+  type ReturnableLoan,
+} from "@/components/features/equipment/return-sheet";
 import type { BorrowableItem } from "@/lib/equipment/wp-loans";
 
 export interface WpLoanDisplayRow {
@@ -38,115 +38,6 @@ export interface WpLoanDisplayRow {
   holderName: string;
   checkedOutOn: string;
   days: number;
-}
-
-function agingLabel(days: number): string {
-  return days <= 0 ? "ยืมวันนี้" : `ยืม ${days} วัน`;
-}
-
-interface StripPhoto {
-  path: string;
-  previewUrl: string;
-}
-
-// One capture strip used by both sheets. Uploads immediately on pick — the
-// submit gates on UPLOADED paths, not picked files, so a dead network surfaces
-// here, not as a phantom-complete borrow. Epoch guard: reset() bumps the epoch,
-// and a resolution from an older epoch is DROPPED — closing the sheet or
-// switching items mid-upload can never leave stale evidence armed.
-function usePhotoStrip() {
-  const [photos, setPhotos] = useState<readonly StripPhoto[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const epochRef = useRef(0);
-  const pick = async (files: File[]) => {
-    const epoch = epochRef.current;
-    setBusy(true);
-    setError(null);
-    const previews = files.map((f) => URL.createObjectURL(f));
-    const res = await uploadConditionPhotos(files);
-    if (epochRef.current !== epoch) {
-      previews.forEach((u) => URL.revokeObjectURL(u));
-      return;
-    }
-    setBusy(false);
-    if (res.ok) {
-      setPhotos((prev) => [
-        ...prev,
-        ...res.paths.map((path, i) => ({ path, previewUrl: previews[i] ?? "" })),
-      ]);
-    } else {
-      previews.forEach((u) => URL.revokeObjectURL(u));
-      setError(res.error);
-    }
-  };
-  const reset = () => {
-    epochRef.current += 1;
-    setPhotos((prev) => {
-      prev.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-      return [];
-    });
-    setBusy(false);
-    setError(null);
-  };
-  return { photos, busy, error, pick, reset };
-}
-
-function PhotoCaptureStrip({
-  label,
-  strip,
-}: {
-  label: string;
-  strip: ReturnType<typeof usePhotoStrip>;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={`strip-${label}`} className="text-ink-secondary text-meta">
-        {label} (อย่างน้อย 1 รูป)
-      </label>
-      <input
-        id={`strip-${label}`}
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        multiple
-        className="sr-only"
-        onChange={(e) => {
-          const files = Array.from(e.target.files ?? []);
-          if (files.length > 0) void strip.pick(files);
-          e.target.value = "";
-        }}
-      />
-      <div className="flex [touch-action:pan-x_pinch-zoom] items-center gap-2 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={strip.busy}
-          aria-busy={strip.busy}
-          className="border-edge-strong rounded-control text-ink flex h-16 w-16 shrink-0 items-center justify-center border border-dashed text-2xl"
-          aria-label={`เปิดกล้อง — ${label}`}
-        >
-          {strip.busy ? "…" : "+"}
-        </button>
-        {strip.photos.map((p, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={p.path}
-            src={p.previewUrl}
-            alt={`${label} ${i + 1}`}
-            className="h-16 w-16 shrink-0 rounded object-cover"
-          />
-        ))}
-      </div>
-      {strip.error ? (
-        <p aria-live="polite" className="text-danger text-meta">
-          {strip.error}
-        </p>
-      ) : null}
-    </div>
-  );
 }
 
 export function WpEquipmentSection({
@@ -168,21 +59,16 @@ export function WpEquipmentSection({
 }) {
   const router = useRouter();
   const [borrowOpen, setBorrowOpen] = useState(false);
-  const [returnLog, setReturnLog] = useState<WpLoanDisplayRow | null>(null);
+  const [returnLoan, setReturnLoan] = useState<ReturnableLoan | null>(null);
   const [pickedItem, setPickedItem] = useState<BorrowableItem | null>(null);
   const [borrowerId, setBorrowerId] = useState("");
   const [filter, setFilter] = useState("");
   const [borrowError, setBorrowError] = useState<string | null>(null);
-  const [returnError, setReturnError] = useState<string | null>(null);
-  // Borrow-time photos for the compare strip, minted ON OPEN — page-render
-  // signed URLs are dead (120s TTL) by the time a sheet opens (fresh-eyes 🟡6).
-  const [beforeUrls, setBeforeUrls] = useState<readonly string[] | null>(null);
   // ref = the same-tick double-tap guard (state alone lags a frame — the
-  // muster cooldown lesson); state = what the buttons render from.
+  // muster cooldown lesson); state = what the button renders from.
   const submitRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const borrowStrip = usePhotoStrip();
-  const returnStrip = usePhotoStrip();
 
   const closeBorrow = () => {
     setBorrowOpen(false);
@@ -192,12 +78,6 @@ export function WpEquipmentSection({
     setBorrowError(null);
     borrowStrip.reset();
   };
-  const closeReturn = () => {
-    setReturnLog(null);
-    setReturnError(null);
-    setBeforeUrls(null);
-    returnStrip.reset();
-  };
   // เปลี่ยน swaps the ITEM — the evidence photographed for the previous item
   // goes with it (fresh-eyes 🔴3: keeping it would let a mis-tap borrow ship
   // another tool's photos as its condition record).
@@ -205,13 +85,6 @@ export function WpEquipmentSection({
     setPickedItem(null);
     setBorrowError(null);
     borrowStrip.reset();
-  };
-  const openReturn = (l: WpLoanDisplayRow) => {
-    setReturnLog(l);
-    setBeforeUrls(null);
-    void fetchLoanPhotoUrls(l.logId).then((r) => {
-      setBeforeUrls(r.ok ? r.urls : []);
-    });
   };
 
   const submitBorrow = async () => {
@@ -237,28 +110,6 @@ export function WpEquipmentSection({
     }
     // Refresh either way: a PARTIAL failure (span opened, photos didn't land)
     // must update the list even while the error stays on screen.
-    router.refresh();
-  };
-
-  const submitReturn = async () => {
-    if (!returnLog || returnStrip.photos.length === 0 || submitRef.current) return;
-    submitRef.current = true;
-    setSubmitting(true);
-    setReturnError(null);
-    const res = await checkInEquipment({
-      logId: returnLog.logId,
-      checkinDate: bangkokTodayIso(),
-      revalidate,
-      via: "wp_tab",
-      photoPaths: returnStrip.photos.map((p) => p.path),
-    });
-    submitRef.current = false;
-    setSubmitting(false);
-    if (res.ok) {
-      closeReturn();
-    } else {
-      setReturnError(res.error);
-    }
     router.refresh();
   };
 
@@ -300,7 +151,7 @@ export function WpEquipmentSection({
               {canAct ? (
                 <button
                   type="button"
-                  onClick={() => openReturn(l)}
+                  onClick={() => setReturnLoan(l)}
                   className="border-edge-strong rounded-control text-ink min-h-11 border px-3 text-sm"
                 >
                   คืน
@@ -381,52 +232,12 @@ export function WpEquipmentSection({
         </div>
       </BottomSheet>
 
-      <BottomSheet open={returnLog !== null} title="คืนเครื่องมือ" onClose={closeReturn}>
-        {returnLog ? (
-          <div className="flex flex-col gap-3">
-            <div>
-              <p className="text-ink text-sm font-medium">{returnLog.itemName}</p>
-              <p className="text-ink-secondary text-meta">
-                {agingLabel(returnLog.days)} · {returnLog.holderName}
-              </p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-ink-secondary text-meta">รูปตอนยืม (เทียบสภาพ)</p>
-              {beforeUrls === null ? (
-                <p className="text-ink-muted text-meta">กำลังโหลดรูป…</p>
-              ) : beforeUrls.length === 0 ? (
-                <p className="text-ink-muted text-meta">ไม่มีรูปตอนยืม</p>
-              ) : (
-                <div className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto">
-                  {beforeUrls.map((u, i) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={u}
-                      src={u}
-                      alt={`รูปตอนยืม ${i + 1}`}
-                      className="h-16 w-16 shrink-0 rounded object-cover"
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-            <PhotoCaptureStrip label="รูปสภาพตอนคืน" strip={returnStrip} />
-            {returnError ? (
-              <p aria-live="polite" className="text-danger text-meta">
-                {returnError}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              onClick={submitReturn}
-              disabled={returnStrip.photos.length === 0 || returnStrip.busy || submitting}
-              className="bg-action text-on-fill rounded-control min-h-11 w-full text-sm font-semibold disabled:opacity-50"
-            >
-              บันทึกการคืน
-            </button>
-          </div>
-        ) : null}
-      </BottomSheet>
+      <EquipmentReturnSheet
+        loan={returnLoan}
+        via="wp_tab"
+        revalidate={revalidate}
+        onClose={() => setReturnLoan(null)}
+      />
     </div>
   );
 }
