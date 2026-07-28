@@ -113,6 +113,16 @@ export default async function EquipmentPage({
           >
             {EQUIPMENT_EXPORT_LABEL}
           </a>
+          {/* Spec 370 U3 — sticker printing is registry curation (back office);
+              the SA consumes stickers via the scan door above. */}
+          {canManageRegistry && (
+            <Link
+              href="/equipment/labels?from=%2Fequipment"
+              className="text-action inline-flex min-h-11 items-center text-sm font-medium"
+            >
+              พิมพ์สติกเกอร์ QR
+            </Link>
+          )}
           {/* Spec 367 U3b — import writes, so it is back-office only, matching
               the equipment_items INSERT/UPDATE policies and the action gate. */}
           {canManageRegistry && <ImportEquipmentSheet />}

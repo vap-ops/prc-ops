@@ -47,6 +47,8 @@ const STATIC_DETAIL = [
   // Spec 370 U2: the scan door — reached from /equipment, the store section,
   // and QR/NFC deep links; back chip resolves ?from, else /equipment.
   "equipment/scan",
+  // Spec 370 U3: the printable label sheet drills down from /equipment.
+  "equipment/labels",
   // Spec 175: the item catalog drills down from /settings (back chip).
   "catalog",
   // Spec 219 U2: the subcategory manage screen drills down from /catalog.
