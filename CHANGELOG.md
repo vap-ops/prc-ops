@@ -1,3 +1,9 @@
+## [0.257.1](https://github.com/vap-ops/prc-ops/compare/v0.257.0...v0.257.1) (2026-07-28)
+
+### Bug Fixes
+
+- **defect:** a refused ATTACH is terminal too, and leaves a way out ([#829](https://github.com/vap-ops/prc-ops/issues/829)) ([1877b8b](https://github.com/vap-ops/prc-ops/commit/1877b8b83c88718a90c2ee6cec117305ea731124)), closes [#823](https://github.com/vap-ops/prc-ops/issues/823) [#826](https://github.com/vap-ops/prc-ops/issues/826) [#827](https://github.com/vap-ops/prc-ops/issues/827)
+
 # [0.257.0](https://github.com/vap-ops/prc-ops/compare/v0.256.6...v0.257.0) (2026-07-28)
 
 ### Features
