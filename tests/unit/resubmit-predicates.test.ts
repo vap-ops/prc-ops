@@ -16,10 +16,6 @@ import { describe, expect, it } from "vitest";
 import {
   resubmitState,
   RESUBMIT_EVIDENCE_HINT,
-  REVIEW_AWAITING_PHOTOS_LABEL,
-  REVIEW_READY_AGAIN_LABEL,
-  reviewQueueLabel,
-  reviewQueueRank,
   type ResubmitDecision,
 } from "@/lib/approvals/resubmit";
 
@@ -198,34 +194,6 @@ describe("resubmitState — the new-photo gate", () => {
         currentPhotos: { after: [{ created_at: AFTER }], after_fix: [] },
       }).kind,
     ).toBe("blocked");
-  });
-});
-
-// Spec 337 U2 approver side — the other half of the SA-side clear. When a bounce
-// leaves the SA's list it must become visibly the DECIDER's move here, or the WP
-// belongs to nobody: the resubmit ping is a single mute-able push, and the queue
-// row is otherwise byte-identical before and after the resubmit.
-describe("reviewQueueLabel / reviewQueueRank", () => {
-  const fallback = (d: string | null) => (d === null ? "รอตรวจครั้งแรก" : `label:${d}`);
-
-  it("splits the needs_revision items in two", () => {
-    expect(reviewQueueLabel("needs_revision", false, fallback)).toBe(REVIEW_AWAITING_PHOTOS_LABEL);
-    expect(reviewQueueLabel("needs_revision", true, fallback)).toBe(REVIEW_READY_AGAIN_LABEL);
-  });
-
-  it("leaves every other queue row's label alone", () => {
-    expect(reviewQueueLabel(null, false, fallback)).toBe("รอตรวจครั้งแรก");
-    expect(reviewQueueLabel("rejected", true, fallback)).toBe("label:rejected");
-  });
-
-  it("lifts answered bounces above the rest, and nothing else", () => {
-    expect(reviewQueueRank("needs_revision", true)).toBeLessThan(
-      reviewQueueRank("needs_revision", false),
-    );
-    expect(reviewQueueRank("needs_revision", true)).toBeLessThan(reviewQueueRank(null, false));
-    // Same rank for everything unanswered → a stable sort preserves spec 15's
-    // oldest-first ordering underneath.
-    expect(reviewQueueRank(null, false)).toBe(reviewQueueRank("needs_revision", false));
   });
 });
 

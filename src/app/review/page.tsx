@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { AppHeader } from "@/components/features/chrome/app-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -11,21 +12,33 @@ import { PM_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { SECTION_HEADING } from "@/lib/ui/classes";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
-import { reviewQueueLabel, reviewQueueRank } from "@/lib/approvals/resubmit";
-import { APPROVAL_DECISION_LABEL, formatThaiDateTime } from "@/lib/i18n/labels";
-import { approvalDecisionPillClasses, type ApprovalDecision } from "@/lib/status-colors";
+import { REVIEW_AWAITING_PHOTOS_LABEL, REVIEW_READY_AGAIN_LABEL } from "@/lib/approvals/resubmit";
+import { currentTimeMs, daysSince, partitionReviewQueue } from "@/lib/approvals/review-queue";
+import {
+  APPROVAL_REVISION_REASON_LABEL,
+  formatThaiDateTime,
+  REVIEW_ACTIONABLE_EMPTY,
+  REVIEW_ACTIONABLE_ZONE_LABEL,
+  REVIEW_AWAITING_SITE_NOTE,
+  REVIEW_AWAITING_SITE_ZONE_LABEL,
+  REVIEW_FIRST_PASS_LABEL,
+  REVIEW_START_HERE_CTA,
+  reviewBouncedChip,
+  reviewWaitingChip,
+} from "@/lib/i18n/labels";
+import { approvalDecisionPillClasses } from "@/lib/status-colors";
 import { approvalDecisionIcon } from "@/lib/status-icons";
+import { ArrowRight, ChevronDown, Clock } from "lucide-react";
 
 export const metadata = { title: "รายการรอตรวจ" };
 
-// The label PMs read when scanning the queue: tells "first review" apart
-// from "send-back coming back round". Approved WPs are 'complete' and
-// drop off the queue, so 'approved' never appears here in practice — the
-// map covers it for type safety.
-function statusLabelForDecision(d: string | null): string {
-  return d ? (APPROVAL_DECISION_LABEL[d as ApprovalDecision] ?? d) : "รอตรวจครั้งแรก";
-}
-
+// Spec 371 U1 — the queue used to be one flat list of every pending_approval WP,
+// which is also what the ภาพรวม badge counts. Live on 2026-07-28 that was 70 rows
+// of which only 52 were the PM's move: the rest were needs_revision bounces the
+// site admin has not answered yet, interleaved by queue age and marked only by a
+// small pill. The page now splits on WHOSE MOVE IT IS — actionable work up top,
+// the chase list collapsed below — with the rule itself in
+// `@/lib/approvals/review-queue` so U2 can count from the same predicate.
 export default async function ProjectManagerLandingPage() {
   const ctx = await requireRole(PM_ROLES);
   const supabase = await createClient();
@@ -71,16 +84,73 @@ export default async function ProjectManagerLandingPage() {
       .map((r) => (r.payload as { answers_decision_id?: string } | null)?.answers_decision_id)
       .filter((id): id is string => typeof id === "string"),
   );
-  const isAnswered = (wpId: string) => {
-    const d = latestDecisions.get(wpId);
-    return d?.id !== undefined && answeredDecisionIds.has(d.id);
+
+  // Spec 371: the split itself is a pure rule, so the zones here and the count U2
+  // will put on the badge read the same predicate.
+  const queue = partitionReviewQueue({
+    rows: pendingWps ?? [],
+    decisionFor: (id) => {
+      const d = latestDecisions.get(id);
+      // `id` is optional on ApprovalRow (narrower readers omit it); without it the
+      // answered-join is impossible, so treat the WP as never reviewed rather than
+      // stranding it in a zone whose cure state we cannot know.
+      if (!d?.id) return null;
+      return {
+        id: d.id,
+        decision: d.decision,
+        decided_at: d.decided_at,
+        decided_by: d.decided_by,
+        revision_reason: d.revision_reason ?? null,
+      };
+    },
+    isAnswered: (decisionId) => answeredDecisionIds.has(decisionId),
+  });
+
+  const nowMs = currentTimeMs();
+  const total = (pendingWps ?? []).length;
+  const oldestActionableDays = queue.oldestActionableAt
+    ? daysSince(queue.oldestActionableAt, nowMs)
+    : null;
+
+  type QueueRow = NonNullable<typeof pendingWps>[number];
+
+  const projectLine = (wp: QueueRow) => {
+    const project = projectsById.get(wp.project_id);
+    if (!project) return null;
+    return (
+      <p className="text-ink-secondary truncate text-xs">
+        <span className="font-mono">{project.code}</span>
+        <span className="mx-1">·</span>
+        {project.name}
+      </p>
+    );
   };
-  // Stable: only lifts answered bounces above the rest; spec 15's oldest-first
-  // ordering survives untouched inside each rank.
-  const queue = [...(pendingWps ?? [])].sort(
-    (a, b) =>
-      reviewQueueRank(latestDecisions.get(a.id)?.decision ?? null, isAnswered(a.id)) -
-      reviewQueueRank(latestDecisions.get(b.id)?.decision ?? null, isAnswered(b.id)),
+
+  // One row shape for both zones: identity on the left, the zone's own signal on
+  // the right. `muted` styles the chase list as secondary without hiding it.
+  const queueRow = (wp: QueueRow, right: ReactNode, muted = false) => (
+    <li key={wp.id}>
+      <Link
+        href={`/review/work-packages/${wp.id}`}
+        className={`rounded-card border-edge shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex min-h-16 items-start justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2 ${
+          muted ? "bg-sunk" : "bg-card"
+        }`}
+      >
+        <div className="min-w-0 space-y-0.5">
+          {projectLine(wp)}
+          {/* Spec 57: clamp-2, never single-line truncate. */}
+          <p className="line-clamp-2 break-words">
+            <span className="text-ink-secondary font-mono text-xs">{wp.code}</span>
+            <span className="text-ink-muted mx-2">·</span>
+            <span className="text-ink text-base font-medium">{wp.name}</span>
+          </p>
+          <p className="text-ink-secondary text-xs">
+            เข้าคิวเมื่อ {formatThaiDateTime(wp.updated_at)}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">{right}</div>
+      </Link>
+    </li>
   );
 
   return (
@@ -102,53 +172,127 @@ export default async function ProjectManagerLandingPage() {
 
         {wpError ? (
           <ErrorNotice>โหลดรายการรอตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</ErrorNotice>
-        ) : queue.length === 0 ? (
+        ) : total === 0 ? (
           <EmptyNotice>ไม่มีรายการรอตรวจ</EmptyNotice>
         ) : (
-          <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
-            {queue.map((wp) => {
-              const project = projectsById.get(wp.project_id);
-              const latest = latestDecisions.get(wp.id) ?? null;
-              const label = reviewQueueLabel(
-                latest?.decision ?? null,
-                isAnswered(wp.id),
-                statusLabelForDecision,
-              );
-              return (
-                <li key={wp.id}>
-                  <Link
-                    href={`/review/work-packages/${wp.id}`}
-                    className="rounded-card border-edge bg-card shadow-card hover:bg-sunk focus-visible:ring-action active:bg-sunk flex min-h-16 items-start justify-between gap-3 border px-4 py-3 transition-colors focus:outline-none focus-visible:ring-2"
-                  >
-                    <div className="min-w-0 space-y-0.5">
-                      {project && (
-                        <p className="text-ink-secondary truncate text-xs">
-                          <span className="font-mono">{project.code}</span>
-                          <span className="mx-1">·</span>
-                          {project.name}
-                        </p>
-                      )}
-                      {/* Spec 57: clamp-2, never single-line truncate. */}
-                      <p className="line-clamp-2 break-words">
-                        <span className="text-ink-secondary font-mono text-xs">{wp.code}</span>
-                        <span className="text-ink-muted mx-2">·</span>
-                        <span className="text-ink text-base font-medium">{wp.name}</span>
-                      </p>
-                      <p className="text-ink-secondary text-xs">
-                        เข้าคิวเมื่อ {formatThaiDateTime(wp.updated_at)}
-                      </p>
-                    </div>
-                    <StatusPill
-                      pillClasses={approvalDecisionPillClasses(latest?.decision ?? null)}
-                      icon={approvalDecisionIcon(latest?.decision ?? null)}
+          <div className="flex flex-col gap-6">
+            {/* ZONE A — the PM's move. */}
+            {queue.actionableCount === 0 ? (
+              <EmptyNotice>{REVIEW_ACTIONABLE_EMPTY}</EmptyNotice>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="border-attn-edge bg-attn-soft rounded-card flex flex-col items-start gap-3 border p-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-attn-ink text-3xl leading-none font-bold">
+                      {queue.actionableCount}
+                    </span>
+                    <span className="text-attn-ink text-body font-semibold">
+                      {REVIEW_ACTIONABLE_ZONE_LABEL}
+                    </span>
+                  </div>
+                  {oldestActionableDays !== null ? (
+                    <p className="text-attn-ink text-meta flex items-center gap-1">
+                      <Clock aria-hidden className="size-3.5 shrink-0" />
+                      เก่าสุด {reviewWaitingChip(oldestActionableDays)}
+                    </p>
+                  ) : null}
+                  {queue.startHere ? (
+                    <Link
+                      href={`/review/work-packages/${queue.startHere.id}`}
+                      className="border-attn bg-card text-attn-ink hover:bg-sunk focus-visible:ring-action inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-4 font-semibold transition-colors focus:outline-none focus-visible:ring-2"
                     >
-                      {label}
-                    </StatusPill>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                      {REVIEW_START_HERE_CTA}
+                      <ArrowRight aria-hidden className="size-4" />
+                    </Link>
+                  ) : null}
+                </div>
+
+                {queue.readyAgain.length > 0 ? (
+                  <section className="flex flex-col gap-2">
+                    <h3 className="text-section text-ink font-extrabold">
+                      {REVIEW_READY_AGAIN_LABEL} ({queue.readyAgain.length})
+                    </h3>
+                    <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
+                      {queue.readyAgain.map((wp) =>
+                        queueRow(
+                          wp,
+                          <StatusPill
+                            pillClasses={approvalDecisionPillClasses("needs_revision")}
+                            icon={approvalDecisionIcon("needs_revision")}
+                          >
+                            {REVIEW_READY_AGAIN_LABEL}
+                          </StatusPill>,
+                        ),
+                      )}
+                    </ul>
+                  </section>
+                ) : null}
+
+                {queue.firstReview.length > 0 ? (
+                  <section className="flex flex-col gap-2">
+                    <h3 className="text-section text-ink font-extrabold">
+                      {REVIEW_FIRST_PASS_LABEL} ({queue.firstReview.length})
+                    </h3>
+                    <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
+                      {queue.firstReview.map((wp) => {
+                        // The age is the only thing that differs between these rows, so it
+                        // is what the chip carries — a pill repeating the heading told the
+                        // PM nothing 51 times over.
+                        const days = daysSince(wp.updated_at, nowMs);
+                        return queueRow(
+                          wp,
+                          days === null ? null : (
+                            <span className="text-ink-secondary text-meta whitespace-nowrap">
+                              {reviewWaitingChip(days)}
+                            </span>
+                          ),
+                        );
+                      })}
+                    </ul>
+                  </section>
+                ) : null}
+              </div>
+            )}
+
+            {/* ZONE B — not the PM's move. Collapsed, never removed: this is where
+                they come to chase the site. */}
+            {queue.awaitingSite.length > 0 ? (
+              <details className="border-edge rounded-card border">
+                <summary className="hover:bg-sunk focus-visible:ring-action rounded-t-card flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 focus:outline-none focus-visible:ring-2">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ChevronDown aria-hidden className="text-ink-muted size-4 shrink-0" />
+                    <span className="text-ink-secondary truncate">
+                      {REVIEW_AWAITING_SITE_ZONE_LABEL} ({queue.awaitingSite.length})
+                    </span>
+                  </span>
+                  <span className="bg-sunk text-ink-secondary text-meta shrink-0 rounded-full px-2 py-0.5">
+                    {REVIEW_AWAITING_SITE_NOTE}
+                  </span>
+                </summary>
+                <ul className="flex flex-col gap-2 px-4 pt-1 pb-4 lg:grid lg:grid-cols-2 lg:gap-3">
+                  {queue.awaitingSite.map(({ row, bouncedAt, reason }) => {
+                    const days = daysSince(bouncedAt, nowMs);
+                    return queueRow(
+                      row,
+                      <>
+                        <span className="text-ink-secondary text-meta whitespace-nowrap">
+                          {reason
+                            ? APPROVAL_REVISION_REASON_LABEL[reason]
+                            : REVIEW_AWAITING_PHOTOS_LABEL}
+                        </span>
+                        {days === null ? null : (
+                          <span className="text-danger text-meta whitespace-nowrap">
+                            {reviewBouncedChip(days)}
+                          </span>
+                        )}
+                      </>,
+                      true,
+                    );
+                  })}
+                </ul>
+              </details>
+            ) : null}
+          </div>
         )}
       </section>
     </PageShell>

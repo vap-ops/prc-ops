@@ -10437,3 +10437,7 @@ visitor on a pre-approval screen: no task in flight.
 - **⭐ Real-flow verification, three roles, one probe:** authenticated as `dev-preview` with the spec-274 view-as cookie — `site_admin` → `รูปถ่าย · ของ · ประวัติ`; `procurement_manager` → the same three, all controls (SA parity, spec 348 U4); `procurement` → `รูปถ่าย · แรงงาน · ของ · ประวัติ` (keeps แรงงาน per D4), the `ต้องการของ` trigger **present** (it was hidden before this unit), and every write control **plus** the cost line absent. `เบิกวัสดุจากคลัง` and `สร้างคำขอซื้อ` gone from the served HTML.
 - **⚠️ Browser-pane state re-confirmed, not fixed.** `javascript_tool` returned "The Browser pane is currently hidden" — the exact cause root-caused 2026-07-27. The remedy (display the pane) is an operator-side toggle, so the interactive leg (open ต้องการของ → pick an item → the path buttons) is pinned by RTL + the exhaustive predicate, not driven. The SSR probe covers everything server-rendered, which for a tab strip is the whole question.
 - **▶ Next:** spec 363 U5 (sticky tabs + the state-driven bottom bar) — the last unit in the spec.
+
+## Spec 371 U1 — the review queue splits on whose move it is (2026-07-28)
+
+- **Origin:** operator, _"pm doesn't know where to focus on approval page, rejected items are counted as well"_. IN PROGRESS.

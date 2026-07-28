@@ -1339,3 +1339,32 @@ export const COMPANY_DOC_OTHER_CATEGORY_LABEL = "อื่น ๆ";
 // used on the /accounting hub door, the /accounting/review header and title.
 export const MONEY_REVIEW_LABEL = "ตรวจเอกสารการเงิน";
 export const MONEY_REVIEW_HINT = "ตรวจ ติดธง และติดตามเอกสารการเงินทุกรายการ";
+
+// Spec 371 U1 — /review splits on whose move it is. The two zone headings and the
+// start-here CTA; the row labels inside them are NOT new strings (พร้อมตรวจอีกครั้ง
+// and รอถ่ายเพิ่ม come from `@/lib/approvals/resubmit`, the reason chips from
+// APPROVAL_REVISION_REASON_LABEL above), so the queue keeps one vocabulary.
+/** Zone A: the PM's actual worklist — what they can decide right now. */
+export const REVIEW_ACTIONABLE_ZONE_LABEL = "ตรวจได้ตอนนี้";
+/** Zone A subgroup: never reviewed. Was an inline fallback string on the page. */
+export const REVIEW_FIRST_PASS_LABEL = "รอตรวจครั้งแรก";
+/** Zone A empty: the queue is not empty, but nothing in it is the PM's move. */
+export const REVIEW_ACTIONABLE_EMPTY = "ไม่มีงานที่ตรวจได้ตอนนี้";
+/** Zone B: waiting on the SITE ADMIN (ผู้ดูแลหน้างาน) to re-shoot — composed from
+ *  APPROVAL_DECISION_LABEL.needs_revision so the zone and the decision agree.
+ *  Deliberately not "ช่าง" — that is the technician role, the wrong person. */
+export const REVIEW_AWAITING_SITE_ZONE_LABEL = "รอหน้างานถ่ายรูปใหม่";
+/** States the exclusion instead of leaving the PM to infer it from the count. */
+export const REVIEW_AWAITING_SITE_NOTE = "ไม่นับในยอดรอตรวจ";
+/** A 50-deep queue needs a start button, not a scroll. */
+export const REVIEW_START_HERE_CTA = "เริ่มตรวจงานเก่าสุด";
+
+/** Zone A row chip: how long this WP has waited in the queue. */
+export function reviewWaitingChip(days: number): string {
+  return `รอมา ${days} วัน`;
+}
+/** Zone B row chip: how long the SITE has sat on the ask — counted from the
+ *  bounce, not from queue entry, because that is the number worth chasing. */
+export function reviewBouncedChip(days: number): string {
+  return `ส่งกลับไป ${days} วัน`;
+}
