@@ -101,7 +101,11 @@ export function ReportDefectControl({
   async function attachPhotosThenClose() {
     const failed = await attachAll();
     if (failed > 0) {
-      setError(`แนบรูปไม่สำเร็จ ${failed} รูป — แตะที่รูปเพื่อลองใหม่ (เปิดงานใหม่แล้ว)`);
+      // Not "แตะที่รูปเพื่อลองใหม่": some of those failures are REFUSALS whose
+      // tile carries no retry at all (role / not-in-rework / unknown WP). Each
+      // tile now states its own outcome and its own way out, so the banner only
+      // has to say that the reopen itself did land.
+      setError(`แนบรูปไม่สำเร็จ ${failed} รูป — ดูข้อความใต้รูปแต่ละใบ (เปิดงานใหม่แล้ว)`);
       return;
     }
     finishAndClose();
@@ -229,7 +233,8 @@ export function ReportDefectControl({
                           p.status === "uploading" ? "opacity-50" : ""
                         }`}
                       />
-                      {p.terminal && p.status === "upload-error" ? (
+                      {p.terminal &&
+                      (p.status === "upload-error" || p.status === "insert-error") ? (
                         // A REFUSED upload (403 / 413) fails identically on every
                         // replay. This form is online-only and an upload-error photo
                         // blocks the submit, so offering ลองใหม่ here — in the very
@@ -237,8 +242,13 @@ export function ReportDefectControl({
                         // defect report (#823/#826's class, third surface). Name the
                         // refusal, keep the only way out reachable.
                         <>
+                          {/* status, not alert: the banner above is already an
+                              alert, and three refused photos would otherwise fire
+                              four assertive announcements on one submit. (The
+                              capture sheet keeps alert on its tile — there is no
+                              banner there, so the tile IS the only announcement.) */}
                           <span
-                            role="alert"
+                            role="status"
                             className="text-danger text-meta max-w-24 text-center leading-tight font-semibold break-words"
                           >
                             {p.errorMessage ?? TERMINAL_UPLOAD_COPY.authz}

@@ -302,9 +302,46 @@ export const TERMINAL_UPLOAD_COPY = {
    *  `capture`, which is why its uploads record captureMethod "picker") — telling
    *  that user to re-SHOOT names an affordance the screen does not have. */
   sizePicker: "ไฟล์ใหญ่เกินไป — เลือกรูปใหม่",
+  /** The metadata INSERT was refused, not merely interrupted — addPhoto rejects a
+   *  defect attach for a non-manager, for a WP that is not in rework, for a WP it
+   *  cannot see, and for a session that has expired. Every replay is the identical
+   *  call. `attachNotRework` is worded for AFTER the reopen landed (the sheet's own
+   *  banner says เปิดงานใหม่แล้ว on that screen), which is why it does not reuse
+   *  `afterFixClosed`. */
+  attachRole: "ไม่มีสิทธิ์แนบรูปนี้",
+  attachNotRework: "งานไม่ได้อยู่ระหว่างแก้ไขแล้ว",
+  attachSignedOut: "เซสชันหมดอายุ — เข้าสู่ระบบใหม่",
   pairing: "จับคู่ไม่ได้แล้ว — ถ่ายใหม่",
   afterFixClosed: "งานยังไม่ได้เปิดแก้ไข",
 } as const;
+
+// The ways addPhoto REFUSES a photo attach outright (actions.ts owns the checks;
+// the strings live here so the client can recognise them without re-typing them,
+// the same shape as PAIRING_REJECTED_MESSAGE below). Each is a permanent state
+// from the user's side — her role, the WP's status, the WP's visibility, or an
+// expired session — so a replay meets the identical refusal.
+export const DEFECT_ATTACH_REFUSED_ROLE = "เฉพาะผู้จัดการที่รายงานข้อบกพร่องจึงแนบรูปได้";
+export const DEFECT_ATTACH_REFUSED_NOT_REWORK = "แนบรูปข้อบกพร่องได้เฉพาะงานที่เปิดแก้ไขอยู่";
+/** Not defect-specific — every phase's insert passes the same WP lookup. */
+export const PHOTO_WP_NOT_FOUND = "ไม่พบรายการงาน";
+/** Mirrors NOT_SIGNED_IN in `@/lib/auth/action-gate`, which is `server-only` and
+ *  so cannot be imported here. The equality is pinned by a test, not by prose. */
+export const PHOTO_SIGNED_OUT = "ยังไม่ได้เข้าสู่ระบบ";
+
+/** Which refusal a message is — null when it is an ordinary, RETRYABLE failure (a
+ *  DB blip, a dropped request), which keeps its retry affordance. Exact matches
+ *  only: these are the action's own constants, so a partial/fuzzy match would be a
+ *  way to mis-classify a future message that merely contains one of them. */
+export function defectAttachRefusal(
+  message: string | null | undefined,
+): "role" | "not_rework" | "unknown_wp" | "signed_out" | null {
+  if (!message) return null;
+  if (message === DEFECT_ATTACH_REFUSED_ROLE) return "role";
+  if (message === DEFECT_ATTACH_REFUSED_NOT_REWORK) return "not_rework";
+  if (message === PHOTO_WP_NOT_FOUND) return "unknown_wp";
+  if (message === PHOTO_SIGNED_OUT) return "signed_out";
+  return null;
+}
 
 export const PAIRING_REJECTED_MESSAGE =
   "จับคู่รูปไม่ได้แล้ว — จุดบกพร่องถูกลบหรือรอบงานเปลี่ยน ลบรูปนี้แล้วถ่ายรูปใหม่จากช่องจับคู่";

@@ -27,6 +27,16 @@ vi.mock("@/app/projects/[projectId]/work-packages/[workPackageId]/actions", () =
 }));
 
 import { useDefectPhotos } from "@/app/projects/[projectId]/work-packages/[workPackageId]/use-defect-photos";
+import {
+  DEFECT_ATTACH_REFUSED_NOT_REWORK,
+  DEFECT_ATTACH_REFUSED_ROLE,
+  defectAttachRefusal,
+  PHOTO_SIGNED_OUT,
+  PHOTO_WP_NOT_FOUND,
+  TERMINAL_UPLOAD_COPY,
+} from "@/lib/photos/upload-queue";
+import { NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { ATTACH_RETRYABLE_MESSAGE } from "@/app/projects/[projectId]/work-packages/[workPackageId]/use-defect-photos";
 
 function fileList(...files: File[]): FileList {
   return files as unknown as FileList;
@@ -244,5 +254,148 @@ describe("useDefectPhotos — the terminal photo blocks submit until it is remov
     await waitFor(() => expect(result.current.photos[0]?.status).toBe("upload-error"));
     expect(result.current.photos[0]?.errorMessage).toContain("เลือกรูปใหม่");
     expect(result.current.photos[0]?.errorMessage).not.toContain("ถ่ายใหม่");
+  });
+});
+
+// Writing failing test first.
+//
+// LAST piece of the honest-copy class (#823 catalog, #826 phase capture, #827 the
+// defect form's byte upload). `insertOne` still discards `result.error` and writes
+// a generic "แตะเพื่อลองใหม่" — but addPhoto REFUSES a defect attach permanently
+// when the caller is not a manager, when the WP is not in rework, or when the WP
+// is unknown. Retrying replays the identical call, so the SA loops; the
+// insert-error tile has no ลบ either, so the only escape is closing the sheet.
+describe("useDefectPhotos — a permanent attach refusal (insert layer)", () => {
+  it("marks a role refusal terminal and names it", async () => {
+    mockAddPhoto.mockResolvedValue({
+      ok: false,
+      error: DEFECT_ATTACH_REFUSED_ROLE,
+    });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    await act(() => result.current.attachAll());
+
+    const photo = result.current.photos[0]!;
+    expect(photo.status).toBe("insert-error");
+    expect(photo.terminal).toBe(true);
+    expect(photo.errorMessage).not.toContain("ลองใหม่");
+  });
+
+  it("marks a not-in-rework refusal terminal", async () => {
+    mockAddPhoto.mockResolvedValue({ ok: false, error: DEFECT_ATTACH_REFUSED_NOT_REWORK });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    await act(() => result.current.attachAll());
+
+    expect(result.current.photos[0]?.terminal).toBe(true);
+  });
+
+  it("leaves an ordinary save failure RETRYABLE with the tap-to-retry copy", async () => {
+    mockAddPhoto.mockResolvedValue({ ok: false, error: "บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    await act(() => result.current.attachAll());
+
+    const photo = result.current.photos[0]!;
+    expect(photo.terminal).toBe(false);
+    expect(photo.errorMessage).toContain("ลองใหม่");
+  });
+
+  it("attachAll never replays a terminal photo, but still counts it as failed", async () => {
+    // Counting matters: a zero count closes the sheet, which would silently drop
+    // the photo. Replaying matters: the refusal is identical every time.
+    mockAddPhoto.mockResolvedValue({ ok: false, error: DEFECT_ATTACH_REFUSED_ROLE });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+
+    let failed = 0;
+    await act(async () => {
+      failed = await result.current.attachAll();
+    });
+    expect(failed).toBe(1);
+    expect(mockAddPhoto).toHaveBeenCalledTimes(1);
+
+    // A second submit (the sheet stays open on failure) must not call it again.
+    await act(async () => {
+      failed = await result.current.attachAll();
+    });
+    expect(failed).toBe(1);
+    expect(mockAddPhoto).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Writing failing test first (review: the refusal→copy MAPPING was unpinned — every
+// arm satisfied `not.toContain("ลองใหม่")`, so swapping two arms stayed green; and
+// two of the four refusals had no test at all).
+describe("useDefectPhotos — each refusal renders ITS OWN line", () => {
+  async function attachWith(error: string) {
+    mockAddPhoto.mockResolvedValue({ ok: false, error });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("ready"));
+    await act(() => result.current.attachAll());
+    return result.current.photos[0]!;
+  }
+
+  it("role refusal → ไม่มีสิทธิ์แนบรูปนี้", async () => {
+    expect((await attachWith(DEFECT_ATTACH_REFUSED_ROLE)).errorMessage).toBe(
+      TERMINAL_UPLOAD_COPY.attachRole,
+    );
+  });
+
+  it("not-in-rework → its OWN post-reopen wording, not the after-fix line", async () => {
+    // The sheet's banner says "(เปิดงานใหม่แล้ว)" on this very screen, so reusing
+    // afterFixClosed ("งานยังไม่ได้เปิดแก้ไข") would contradict it.
+    const photo = await attachWith(DEFECT_ATTACH_REFUSED_NOT_REWORK);
+    expect(photo.errorMessage).toBe(TERMINAL_UPLOAD_COPY.attachNotRework);
+    expect(photo.errorMessage).not.toBe(TERMINAL_UPLOAD_COPY.afterFixClosed);
+  });
+
+  it("unknown WP → ไม่พบรายการงาน, terminal", async () => {
+    const photo = await attachWith(PHOTO_WP_NOT_FOUND);
+    expect(photo.terminal).toBe(true);
+    expect(photo.errorMessage).toBe(PHOTO_WP_NOT_FOUND);
+  });
+
+  it("expired session → says to sign in again, and does not invite a retry", async () => {
+    // A retry inside the sheet re-runs the same action with the same dead session.
+    const photo = await attachWith(PHOTO_SIGNED_OUT);
+    expect(photo.terminal).toBe(true);
+    expect(photo.errorMessage).toBe(TERMINAL_UPLOAD_COPY.attachSignedOut);
+  });
+
+  it("an unrecognised failure stays retryable and names the BUTTON, not a tap", async () => {
+    const photo = await attachWith("บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    expect(photo.terminal).toBe(false);
+    expect(photo.errorMessage).toBe(ATTACH_RETRYABLE_MESSAGE);
+  });
+});
+
+describe("defectAttachRefusal — exact match only", () => {
+  it("classifies each constant and nothing else", () => {
+    expect(defectAttachRefusal(DEFECT_ATTACH_REFUSED_ROLE)).toBe("role");
+    expect(defectAttachRefusal(DEFECT_ATTACH_REFUSED_NOT_REWORK)).toBe("not_rework");
+    expect(defectAttachRefusal(PHOTO_WP_NOT_FOUND)).toBe("unknown_wp");
+    expect(defectAttachRefusal(PHOTO_SIGNED_OUT)).toBe("signed_out");
+  });
+
+  it("returns null for empty, unknown, and NEAR-miss messages", () => {
+    // A near miss must stay retryable: mis-reading a transient failure as permanent
+    // deletes the user's only retry.
+    expect(defectAttachRefusal(null)).toBeNull();
+    expect(defectAttachRefusal("")).toBeNull();
+    expect(defectAttachRefusal("บันทึกรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")).toBeNull();
+    expect(defectAttachRefusal(`${DEFECT_ATTACH_REFUSED_ROLE} `)).toBeNull();
+    expect(defectAttachRefusal(`แนบรูปไม่สำเร็จ — ${DEFECT_ATTACH_REFUSED_ROLE}`)).toBeNull();
+  });
+
+  it("PHOTO_SIGNED_OUT mirrors the action gate's NOT_SIGNED_IN", () => {
+    // upload-queue.ts is client-safe and action-gate.ts is server-only, so the
+    // string is duplicated by necessity — this is what stops it drifting.
+    expect(PHOTO_SIGNED_OUT).toBe(NOT_SIGNED_IN);
   });
 });

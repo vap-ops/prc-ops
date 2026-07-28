@@ -24,12 +24,28 @@ import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/phot
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
 import {
   classifyStorageUploadError,
+  defectAttachRefusal,
   diagnoseStorageFailure,
+  PHOTO_WP_NOT_FOUND,
   TERMINAL_UPLOAD_COPY,
 } from "@/lib/photos/upload-queue";
 import { addPhoto } from "./actions";
 
 const PHOTOS_BUCKET = "photos";
+
+/** The retryable attach failure. The affordance is a labelled ลองใหม่ button under
+ *  the tile, not a tap on the photo — say what the user actually does. */
+export const ATTACH_RETRYABLE_MESSAGE = "แนบรูปไม่สำเร็จ — กดลองใหม่";
+
+/** One short line per refusal, sized for the tile. A total map, so adding a
+ *  refusal to defectAttachRefusal fails the compile here instead of shipping a
+ *  photo that says nothing. */
+const ATTACH_REFUSAL_COPY: Record<Exclude<ReturnType<typeof defectAttachRefusal>, null>, string> = {
+  role: TERMINAL_UPLOAD_COPY.attachRole,
+  not_rework: TERMINAL_UPLOAD_COPY.attachNotRework,
+  unknown_wp: PHOTO_WP_NOT_FOUND,
+  signed_out: TERMINAL_UPLOAD_COPY.attachSignedOut,
+};
 
 export type DefectPhotoStatus = "uploading" | "ready" | "upload-error" | "insert-error" | "saved";
 
@@ -43,9 +59,11 @@ export interface DefectPendingPhoto {
   lastModifiedMs: number;
   ext: PhotoExt;
   storagePath: string;
-  /** True when the byte upload was REFUSED, not merely interrupted (a 403/RLS
-   *  denial or a 413) — every replay meets the same refusal, so the tile shows
-   *  the reason and ลบ instead of a retry that cannot succeed. */
+  /** True when the step was REFUSED, not merely interrupted — a 403/RLS denial or
+   *  a 413 on the bytes, or one of addPhoto's defect-attach refusals (role, WP not
+   *  in rework, unknown WP) on the metadata. Every replay meets the same refusal,
+   *  so the tile shows the reason and ลบ instead of a retry that cannot succeed,
+   *  and attachAll never replays it. */
   terminal?: boolean;
 }
 
@@ -128,13 +146,19 @@ export function useDefectPhotos({
       capturedAtClient: new Date(photo.lastModifiedMs).toISOString(),
     }).catch(() => ({ ok: false as const, error: "บันทึกข้อมูลไม่สำเร็จ" }));
     if (!result.ok) {
+      // addPhoto REFUSES a defect attach for a non-manager, for a WP that is not
+      // in rework, and for a WP it cannot see — all permanent from the SA's side,
+      // so a retry replays the identical call. Anything else (a DB blip, a dropped
+      // request) is worth another tap. Last piece of the honest-copy class.
+      const refusal = defectAttachRefusal(result.error);
       patch(photo.id, {
         status: "insert-error",
-        errorMessage: "แนบรูปไม่สำเร็จ — แตะเพื่อลองใหม่",
+        errorMessage: refusal === null ? ATTACH_RETRYABLE_MESSAGE : ATTACH_REFUSAL_COPY[refusal],
+        terminal: refusal !== null,
       });
       return false;
     }
-    patch(photo.id, { status: "saved", errorMessage: null });
+    patch(photo.id, { status: "saved", errorMessage: null, terminal: false });
     return true;
   }
 
@@ -173,6 +197,13 @@ export function useDefectPhotos({
     const targets = photos.filter((p) => p.status === "ready" || p.status === "insert-error");
     let failed = 0;
     for (const p of targets) {
+      // A refused photo is never replayed — the refusal is the identical call —
+      // but it still COUNTS as failed: a zero count closes the sheet, which would
+      // drop the photo silently. It leaves via its tile's ลบ instead.
+      if (p.terminal && p.status === "insert-error") {
+        failed += 1;
+        continue;
+      }
       const ok = await insertOne(p);
       if (!ok) failed += 1;
     }
