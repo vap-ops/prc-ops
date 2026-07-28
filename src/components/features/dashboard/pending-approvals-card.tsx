@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ClipboardCheck, ArrowRight, Clock } from "lucide-react";
 import {
   formatThaiDateTime,
+  REVIEW_ACTIONABLE_EMPTY,
   REVIEW_ACTIONABLE_ZONE_LABEL,
   REVIEW_AWAITING_SITE_SHORT,
 } from "@/lib/i18n/labels";
@@ -35,10 +36,16 @@ export function PendingApprovalsCard({ summary }: { summary: PendingApprovalsSum
         <span className="flex flex-col gap-0.5">
           <span className="flex items-center gap-2">
             <ClipboardCheck aria-hidden className="text-ink-muted size-5" />
-            <span className="text-ink-secondary text-body">ไม่มีงานรอตรวจ</span>
+            {/* "ไม่มีงานรอตรวจ" is only true when the queue is EMPTY. With work
+                still sitting with the site those WPs are pending_approval and ARE
+                listed on /review — just none of them the PM's move — so the card
+                borrows /review's string for exactly this state. Same defect class
+                as the งานรออนุมัติ label below: a sentence that stayed literally
+                true of the rows the new number excludes. */}
+            <span className="text-ink-secondary text-body">
+              {awaitingSite > 0 ? REVIEW_ACTIONABLE_EMPTY : "ไม่มีงานรอตรวจ"}
+            </span>
           </span>
-          {/* Without this the card read "nothing is happening" while N work
-              packages sat with the site — calm, but not true. */}
           {awaitingLine}
         </span>
         <ArrowRight aria-hidden className="text-ink-muted size-5" />

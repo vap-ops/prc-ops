@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/db/browser";
+import { AWAITING_SITE_ZONE } from "@/lib/approvals/pending-summary";
 
 // Pure: the count → label. Hidden (null) at zero, capped at 99+ so the pill
 // never blows out the tab. Exported for unit tests.
@@ -96,13 +97,14 @@ function SelfCountBadge({
 // work the site admin owes, which the PM cannot act on — so the badge reported
 // a blended 70 where /review shows 52 (operator: "Amount 70 items is misleading,
 // how about separating them?"). The view is the one place that predicate lives,
-// so this badge, the ภาพรวม hero and the /review page cannot drift apart. Still
-// a single head-count: the classification happens in SQL.
+// so this badge and the ภาพรวม hero cannot drift apart. ⚠️ /review does NOT read
+// the view yet (it re-derives the rule in TS — spec 371 U3 closes that). Still a
+// single head-count: the classification happens in SQL.
 async function loadPendingWpApprovals(): Promise<number | null> {
   const { count } = await createClient()
     .from("work_package_review_queue")
     .select("id", { count: "exact", head: true })
-    .neq("zone", "awaiting_site");
+    .neq("zone", AWAITING_SITE_ZONE);
   return count;
 }
 

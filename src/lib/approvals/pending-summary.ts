@@ -1,10 +1,10 @@
 // Spec 183 U1 — pending-approval awareness for the ภาพรวม hero card.
 //
 // The work-package approval queue (status = 'pending_approval') reframed
-// from a top-level PM tab into a count + oldest-waiting summary. The async
-// fetch mirrors the /review queue query exactly (all pending WPs, RLS-scoped
-// to the caller) so the dashboard count never disagrees with the list it
-// links to. The reduce is a pure function so it's unit-testable without a
+// from a top-level PM tab into a count + oldest-waiting summary. Spec 371 U2:
+// the async fetch now reads public.work_package_review_queue (NOT work_packages
+// directly), so the hero counts the same actionable subset the nav badge does
+// and neither can drift from the other. The reduce is a pure function so it's unit-testable without a
 // Supabase mock — same shape as latest-decision.ts.
 
 import "server-only";
@@ -20,9 +20,18 @@ import type { Database } from "@/lib/db/database.types";
  */
 export type ReviewZone = "first_review" | "ready_again" | "awaiting_site";
 
+/**
+ * The one zone that is NOT the PM's move. Exported because this literal crosses
+ * the SQL/TS boundary: the view generates `zone` as plain `string`, so nothing
+ * type-checks a mismatch, and both the badge's `.neq()` filter and
+ * `isActionableZone` below would silently start counting everything if the SQL
+ * name ever changed. One home, so a rename breaks in exactly one place.
+ */
+export const AWAITING_SITE_ZONE = "awaiting_site" satisfies ReviewZone;
+
 /** Zones the PM can act on right now — everything except awaiting_site. */
 export function isActionableZone(zone: ReviewZone): boolean {
-  return zone !== "awaiting_site";
+  return zone !== AWAITING_SITE_ZONE;
 }
 
 export interface PendingWp {
@@ -85,18 +94,19 @@ export function summarizePendingApprovals(
   };
 }
 
-// Async fetch — RLS-scoped, user session. Mirrors the /review queue query so
-// the count and the list agree. Two simple queries (pending WPs, then their
-// projects), matching the /review page pattern.
+// Async fetch — RLS-scoped, user session. Two reads (the queue view, then the
+// projects it spans), matching the /review page pattern.
 export async function getPendingApprovalsSummary(
   supabase: SupabaseClient<Database>,
 ): Promise<PendingApprovalsSummary> {
   // Spec 371 U2: read the VIEW, not work_packages. The zone predicate ("is the
   // latest decision an unanswered needs_revision?") is a top-1-per-group join
   // plus an audit_log existence check — it lives in
-  // public.work_package_review_queue so this hero, the nav badge and /review all
-  // derive their numbers from one definition. Still RLS-scoped: the view is
-  // security_invoker, so each viewer sees exactly their own projects.
+  // public.work_package_review_queue, which this hero and the nav badge both read
+  // so their two numbers cannot drift. ⚠️ /review does NOT read it yet — it still
+  // re-derives the same rule in TS (partitionReviewQueue); spec 371 U3 retires
+  // that second home. Still RLS-scoped: the view is security_invoker, so each
+  // viewer sees exactly their own projects.
   const { data: queueRows, error } = await supabase
     .from("work_package_review_queue")
     .select("id, code, project_id, updated_at, zone");

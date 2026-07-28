@@ -1,6 +1,6 @@
 # Spec 371 — review queue: focus split (whose move is it?)
 
-**Status:** U1 shipped (#814, code-only) · U2 in build (additive schema — one view, mig `075864`)
+**Status:** U1 shipped (#814, code-only) · U2 in build (additive schema — one view; migs `075864` + `075865`)
 **Origin:** operator, 2026-07-28 — _"pm doesn't know where to focus on approval page, rejected items are counted as well"_, then on seeing U1 — _"Amount 70 items is misleading, how about separating them?"_
 
 ## 1. The problem, measured live
@@ -135,8 +135,17 @@ renders `เข้าคิวเมื่อ` in that same timezone, and the ap
   New view **`public.work_package_review_queue`** (`security_invoker = true`, the house
   pattern — all four pre-existing public views use it) classifies every pending WP into
   `first_review` / `ready_again` / `awaiting_site` and carries `bounced_at` +
-  `revision_reason`. It is the ONE place the predicate lives, so the hero, the badge and
-  the page derive their numbers from the same definition.
+  `revision_reason`. The hero and the badge both read it, so **those two** cannot drift.
+
+  ⚠️ **The predicate still has two homes.** `/review` does NOT read the view — it
+  re-derives the same rule in TypeScript (`partitionReviewQueue`). Both return 51/1/18 on
+  live data today, but that is a point-in-time probe, not a pinned invariant, and there
+  are real silent drift vectors: the SQL correlates `al.target_id = wp.id` while the TS
+  builds one global answered-set across all pending WPs, and any future change to the
+  audit event name or the tiebreak in one home leaves the two disagreeing. **U3 closes
+  this** by having `/review` read the view and retiring the TS partition. Until then, do
+  not describe the view as the SSOT all three read — it is not, and 075864 said so in a
+  comment stored in the live prod catalog until 075865 corrected it.
   - **Hero** (`PendingApprovalsCard`): headline **52 `ตรวจได้ตอนนี้`** with
     **`รอหน้างาน 18`** beside it. Its label had to change with its meaning — the old
     `งานรออนุมัติ` is equally true of the rows the count now excludes. When nothing is

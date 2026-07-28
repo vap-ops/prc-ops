@@ -97,15 +97,23 @@ describe("the WP term of the badge counts actionable zones only (spec 371 U2)", 
     expect(SRC).not.toContain('.eq("status", "pending_approval")');
   });
 
-  it("excludes the awaiting-site zone from the count", () => {
-    expect(SRC).toContain("awaiting_site");
-    expect(occurrences(SRC, "isActionableZone") + occurrences(SRC, "neq")).toBeGreaterThanOrEqual(
-      1,
-    );
+  // Mutation-proved gap: the old pin (`toContain("awaiting_site")` + a loose
+  // occurrence count) passed on `.neq("code", "awaiting_site")` — a real column,
+  // so TypeScript accepts it, no row matches, and the badge counts 70 again.
+  // Pin the FILTERED COLUMN, and pin that the literal comes from the shared
+  // const rather than being retyped on this side of the SQL/TS boundary.
+  it("filters on the ZONE column, not some other column that happens to compile", () => {
+    expect(SRC).toContain('.neq("zone", AWAITING_SITE_ZONE)');
+    expect(occurrences(SRC, "AWAITING_SITE_ZONE")).toBeGreaterThanOrEqual(2);
+    expect(SRC).not.toContain('.neq("code"');
   });
 
-  it("still leaves the two bank queues in the sum — this unit changes ONE term", () => {
+  // Mutation-proved gap: asserting the two table-name strings exist passed on
+  // `sumApprovalCounts([wp, bank, bank])` — worker bank changes dropped, the
+  // contractor ones double-counted, every binding still "used" so no lint error.
+  it("sums all THREE queues — this unit changes one term, not the shape", () => {
     expect(SRC).toContain("contractor_bank_change_requests");
     expect(SRC).toContain("worker_bank_change_requests");
+    expect(SRC).toContain("sumApprovalCounts([wp, bank, workerBank])");
   });
 });

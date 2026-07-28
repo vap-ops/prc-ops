@@ -1,5 +1,5 @@
 begin;
-select plan(16);
+select plan(17);
 
 -- ============================================================================
 -- Spec 371 U2 — public.work_package_review_queue, the ONE definition of
@@ -170,9 +170,24 @@ select is((select revision_reason::text from public.work_package_review_queue
 -- -------------------------------------------------------------- RLS scoping
 -- Positive control paired with the negative below: without it, "sees 0 rows"
 -- is equally consistent with the view being broken for everyone.
+-- Named for what it actually proves: this caller is a project_director, for whom
+-- can_see_project is true UNCONDITIONALLY. It is the positive half of the pair,
+-- not evidence about membership.
 select is((select count(*)::int from public.work_package_review_queue
            where project_id = 'c1000000-0000-4000-8000-000000000371'),
-          4, 'a project member sees all four queued rows (positive control)');
+          4, 'a caller with project visibility sees all four queued rows (positive control)');
+
+-- The migration comment claims site_admin classifies correctly because the
+-- SECOND audit_log policy ('audit_log select wp rework events') admits them to
+-- wp_evidence_resubmitted. Nothing pinned that: narrowing that policy would
+-- silently flip ready_again → awaiting_site for every SA with pgTAP still green.
+select set_config('request.jwt.claims',
+  json_build_object('sub','20000000-0000-4000-8000-000000000371','role','authenticated')::text, true);
+
+select is((select zone from public.work_package_review_queue
+           where id = 'e3000000-0000-4000-8000-000000000371'),
+          'ready_again',
+          'site_admin resolves the cured bounce too — the rework-events audit policy holds');
 
 select set_config('request.jwt.claims',
   json_build_object('sub','30000000-0000-4000-8000-000000000371','role','authenticated')::text, true);
