@@ -1,3 +1,9 @@
+# [0.256.0](https://github.com/vap-ops/prc-ops/compare/v0.255.0...v0.256.0) (2026-07-28)
+
+### Features
+
+- **equipment:** printable QR label sheet + NFC procedure doc (spec 370 U3) ([cf1b910](https://github.com/vap-ops/prc-ops/commit/cf1b91040dc51b670b647290d126e20ad8ad9993))
+
 # [0.255.0](https://github.com/vap-ops/prc-ops/compare/v0.254.0...v0.255.0) (2026-07-28)
 
 ### Bug Fixes
