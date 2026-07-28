@@ -1,3 +1,9 @@
+# [0.260.0](https://github.com/vap-ops/prc-ops/compare/v0.259.0...v0.260.0) (2026-07-28)
+
+### Features
+
+- **review:** the PM says which phases are missing ([#833](https://github.com/vap-ops/prc-ops/issues/833)) ([1ed44e1](https://github.com/vap-ops/prc-ops/commit/1ed44e11dcb00bc202fe20e76603cb0c569a83cd))
+
 # [0.259.0](https://github.com/vap-ops/prc-ops/compare/v0.258.0...v0.259.0) (2026-07-28)
 
 ### Bug Fixes
