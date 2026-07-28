@@ -47,7 +47,6 @@ import { equipmentAtProject } from "@/lib/equipment/at-project";
 import { splitStoreEquipment } from "@/lib/equipment/store-split";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
-import { workPackageHref } from "@/lib/nav/project-paths";
 import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 
 interface PageProps {
@@ -387,7 +386,7 @@ export default async function ProjectStorePage({ params }: PageProps) {
           counts={equipSplit.counts}
           canReturn={canReturnEquipment}
           revalidate={`/projects/${project.id}/store`}
-          wpHref={(wpId) => workPackageHref(project.id, wpId)}
+          projectId={project.id}
         />
         {/* Spec 198 U2: move delivered WP-bound lines into the store (cost
             transfer). Renders nothing when there are none. */}

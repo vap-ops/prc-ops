@@ -19,6 +19,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CARD } from "@/lib/ui/classes";
+import { workPackageHref } from "@/lib/nav/project-paths";
 import { EQUIPMENT_CONDITION_LABEL, EQUIPMENT_STATUS_LABEL } from "@/lib/i18n/labels";
 import {
   EquipmentReturnSheet,
@@ -36,14 +37,17 @@ export function StoreEquipmentSection({
   counts,
   canReturn,
   revalidate,
-  wpHref,
+  projectId,
 }: {
   out: readonly StoreOutRow[];
   inStore: readonly StoreSplitItem[];
   counts: { inStore: number; out: number };
   canReturn: boolean;
   revalidate: string;
-  wpHref: (wpId: string) => string;
+  // A string, NOT an href-builder function: a function prop cannot cross the
+  // Server→Client boundary (caught live by the SSR probe — jsdom tests render
+  // client-side and never see the RSC serialization error).
+  projectId: string;
 }) {
   const [returnLoan, setReturnLoan] = useState<ReturnableLoan | null>(null);
 
@@ -83,7 +87,10 @@ export function StoreEquipmentSection({
                 <div className="min-w-0 flex-1">
                   <p className="text-ink text-sm">{r.itemName}</p>
                   <p className="text-ink-secondary text-meta">
-                    <Link href={wpHref(r.wpId)} className="text-action underline-offset-2">
+                    <Link
+                      href={workPackageHref(projectId, r.wpId)}
+                      className="text-action underline-offset-2"
+                    >
                       {r.wpCode} {r.wpName}
                     </Link>
                     {" · "}

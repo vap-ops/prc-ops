@@ -64,7 +64,7 @@ const BASE = {
   counts: { inStore: 2, out: 1 },
   canReturn: true,
   revalidate: "/x",
-  wpHref: (wpId: string) => `/wp/${wpId}`,
+  projectId: "p-1",
 };
 
 beforeEach(() => {
@@ -80,7 +80,10 @@ describe("spec 368 U4 — store equipment split", () => {
     expect(screen.getByText(/2 ในคลัง/)).toBeInTheDocument();
     expect(screen.getByText(/1 ยืมออก/)).toBeInTheDocument();
     expect(screen.getByText("เครื่องตัดไฟเบอร์")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /W05-03/ })).toHaveAttribute("href", "/wp/wp-9");
+    expect(screen.getByRole("link", { name: /W05-03/ })).toHaveAttribute(
+      "href",
+      "/projects/p-1/work-packages/wp-9",
+    );
     expect(screen.getByText(/ยืม 3 วัน/)).toBeInTheDocument();
     expect(screen.getByText(/สมชาย/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "คืน" })).toBeInTheDocument();
