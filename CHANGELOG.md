@@ -1,3 +1,13 @@
+# [0.251.0](https://github.com/vap-ops/prc-ops/compare/v0.250.0...v0.251.0) (2026-07-28)
+
+### Bug Fixes
+
+- address the fresh-eyes review on spec 371 U1 ([16910fe](https://github.com/vap-ops/prc-ops/commit/16910fe2a257ba61c6ff347518d11e2d4bd924b4))
+
+### Features
+
+- split the review queue on whose move it is (spec 371 U1) ([eec8cbf](https://github.com/vap-ops/prc-ops/commit/eec8cbf5681cd55b60c9e65963647e5d248e2d14))
+
 # [0.250.0](https://github.com/vap-ops/prc-ops/compare/v0.249.0...v0.250.0) (2026-07-28)
 
 ### Features
