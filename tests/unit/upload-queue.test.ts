@@ -4,11 +4,16 @@ import {
   bucketForKind,
   classifyStorageUploadError,
   diagnoseStorageFailure,
+  isAfterFixWindowClosed,
   isAuthzDenied,
+  isPermanentUploadFailure,
   nextPassDelayMs,
   normalizeQueuedUpload,
   pickUploadFailures,
   processQueue,
+  queuedFailureReason,
+  AFTER_FIX_CLOSED_MESSAGE,
+  PAIRING_REJECTED_MESSAGE,
   type ProcessDeps,
   type QueueStore,
   type QueuedUpload,
@@ -494,5 +499,41 @@ describe("pickUploadFailures (spec 244 U2b-1)", () => {
   it("returns nothing when there is no session user", () => {
     const items = [makeItem({ id: "d1", lastError: "Unauthorized" })];
     expect(pickUploadFailures(items, null, none)).toEqual([]);
+  });
+});
+
+// FIELD BUG 2026-07-28 — 52 stuck uploads from one SA. Spec 353 U2 made an
+// after_fix insert permanently uninsertable outside a rework cycle, but the queue
+// classified that refusal as an ordinary retryable rejection: the sheet promised
+// "บันทึกรูปไว้แล้ว — ระบบจะส่งให้อัตโนมัติ" and the runner re-attempted a dead insert
+// forever. A refusal the server will give on every replay is terminal, like the
+// spec-248 pairing rejection it sits beside.
+describe("after_fix window-closed refusal is a PERMANENT failure", () => {
+  it("recognizes the server's after_fix refusal message", () => {
+    expect(isAfterFixWindowClosed(AFTER_FIX_CLOSED_MESSAGE)).toBe(true);
+    expect(isPermanentUploadFailure(AFTER_FIX_CLOSED_MESSAGE)).toBe(true);
+  });
+
+  it("does not fire on an unrelated rejection, an empty message, or null", () => {
+    expect(isAfterFixWindowClosed("บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")).toBe(false);
+    expect(isAfterFixWindowClosed("")).toBe(false);
+    expect(isAfterFixWindowClosed(null)).toBe(false);
+    expect(isPermanentUploadFailure("บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")).toBe(false);
+  });
+
+  it("carries its own coarse reason so the friction read can tell it from a generic rejection", () => {
+    expect(queuedFailureReason(AFTER_FIX_CLOSED_MESSAGE)).toBe("after_fix_closed");
+  });
+
+  it("is surfaced by pickUploadFailures so the stuck item is reported once", () => {
+    const items = [makeItem({ id: "f1", step: "insert", lastError: AFTER_FIX_CLOSED_MESSAGE })];
+    expect(pickUploadFailures(items, "user-a", new Set())).toEqual([
+      { id: "f1", kind: "phase_photo", reason: "after_fix_closed", stage: "insert" },
+    ]);
+  });
+
+  it("leaves the two pre-existing permanent classes intact", () => {
+    expect(isPermanentUploadFailure("Unauthorized")).toBe(true);
+    expect(isPermanentUploadFailure(PAIRING_REJECTED_MESSAGE)).toBe(true);
   });
 });

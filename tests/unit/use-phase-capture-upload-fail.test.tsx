@@ -132,6 +132,43 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     });
   });
 
+  // FIELD BUG 2026-07-28 — the SA shot into หลังแก้ไข on a round-0 WP 52 times.
+  // Spec 353 U2 refuses that insert on EVERY replay, but it read as an ordinary
+  // retryable rejection, so the sheet showed the green "saved — will auto-send"
+  // reassurance over an item that could never send. `terminal` is what suppresses
+  // that promise, so it is the assertion that matters here, not just the reason.
+  it("marks a closed after_fix window TERMINAL so the sheet never promises auto-send", async () => {
+    uploadMock.mockResolvedValue({ error: null });
+    addPhotoMock.mockResolvedValue({
+      ok: false,
+      error: "ถ่ายรูปหลังแก้ไขได้เฉพาะตอนที่งานอยู่ระหว่างแก้ไข",
+    });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    expect(trackFriction).toHaveBeenCalledWith("upload_fail", {
+      kind: "phase_photo",
+      stage: "insert",
+      reason: "after_fix_closed",
+    });
+    expect(result.current.pending[0]?.terminal).toBe(true);
+  });
+
+  it("leaves an ordinary insert rejection RETRYABLE (not terminal)", async () => {
+    uploadMock.mockResolvedValue({ error: null });
+    addPhotoMock.mockResolvedValue({ ok: false, error: "บันทึกรูปไม่สำเร็จ" });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    expect(result.current.pending[0]?.terminal).toBe(false);
+  });
+
   it("emits stage:insert reason:network when the addPhoto invocation itself throws", async () => {
     uploadMock.mockResolvedValue({ error: null });
     addPhotoMock.mockRejectedValue(new Error("Failed to fetch"));

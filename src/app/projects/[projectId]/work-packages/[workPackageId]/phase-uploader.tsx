@@ -183,6 +183,16 @@ export function PhotoCaptureZone({
   const afterFixData = phases.find((p) => p.phase === "after_fix") ?? null;
   const afterFix = showAfterFixCapture ? afterFixData : null;
   const afterFixHistory = !showAfterFixCapture && showAfterFixHistory ? afterFixData : null;
+  // The capture sheet's phase switcher must offer exactly the phases the SERVER will
+  // accept, so it takes the SAME gate as the shutter tile above — one rule, no drift.
+  // Field bug 2026-07-28: this list was unfiltered, so a round-0 WP still showed a
+  // หลังแก้ไข chip inside the sheet. Spec 353 U2 had already made that insert
+  // permanently uninsertable, so the bytes reached Storage, the metadata insert was
+  // refused, and the item retried forever — 52 stuck uploads from one SA.
+  // Safe by construction: derivePhaseProgress only ever yields before/during/after
+  // (PHASE_ORDER), and after_fix is otherwise reached only via the gated tile or a
+  // defect pair (rework-only), so filtering it can never orphan `activePhase`.
+  const sheetPhases = showAfterFixCapture ? phases : lifecyclePhases;
   const order = lifecyclePhases.map((p) => p.phase);
   const currentIndex = order.indexOf(currentPhase);
   // phases is the photo-phase display list (PHASES); this guard narrows the
@@ -534,7 +544,7 @@ export function PhotoCaptureZone({
           setPairing(null);
           setActivePhase(phase);
         }}
-        phaseSummaries={phases.map((p) => ({
+        phaseSummaries={sheetPhases.map((p) => ({
           phase: p.phase,
           label: p.label,
           count: p.photos.length,
