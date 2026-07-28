@@ -70,9 +70,6 @@ rather than swallow it.
   Append-only in spirit; no UPDATE policy. SELECT for the staff read set
   (mirror `equipment_movements readable by staff`); INSERT for
   EQUIPMENT_MOVE_ROLES with `taken_by = auth.uid()`.
-- Widen `equipment-images` bucket INSERT to the same audience, scoped to the
-  `usage/` prefix if the policy shape allows (keep the back-office-only rule
-  for registry item images).
 - ⚠️ The bucket policy fix is a REWRITE, not an audience widen: the live
   `equipment-images uploads by back office` WITH CHECK ends
   `array_length(storage.foldername(name), 1) = 1`, which refuses any
