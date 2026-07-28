@@ -13,27 +13,27 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type {
+  DefectPendingPhoto,
+  useDefectPhotos,
+} from "@/app/projects/[projectId]/work-packages/[workPackageId]/use-defect-photos";
+
 const { mockReport, mockRefresh, mockDefectPhotos, mockRemove, mockRetry } = vi.hoisted(() => ({
   mockReport: vi.fn(),
   mockRefresh: vi.fn(),
   mockRemove: vi.fn(),
   mockRetry: vi.fn(),
   mockDefectPhotos: {
-    photos: [] as Array<{
-      id: string;
-      previewUrl: string;
-      status: string;
-      fileName: string;
-      errorMessage?: string | null;
-      terminal?: boolean;
-    }>,
+    // Typed against the REAL hook, so a rename or an added field fails tsc here
+    // instead of only in production (review finding).
+    photos: [] as DefectPendingPhoto[],
     anyInFlight: false,
     fileInputRef: { current: null },
     handleFiles: vi.fn(),
     attachAll: vi.fn(async () => 0),
     retry: vi.fn(),
     remove: vi.fn(),
-  },
+  } satisfies ReturnType<typeof useDefectPhotos>,
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
@@ -59,19 +59,23 @@ beforeEach(() => {
   Object.defineProperty(window.navigator, "onLine", { value: true, configurable: true });
 });
 
-function openWithPhoto(photo: (typeof mockDefectPhotos.photos)[number]) {
+function openWithPhoto(photo: DefectPendingPhoto) {
   mockDefectPhotos.photos = [photo];
   render(<ReportDefectControl projectId="p1" workPackageId="wp1" canAttachPhotos />);
   fireEvent.click(screen.getByRole("button", { name: /รายงานข้อบกพร่อง/ }));
 }
 
-const terminalPhoto = {
+const terminalPhoto: DefectPendingPhoto = {
   id: "ph1",
   previewUrl: "blob:preview",
   status: "upload-error",
   fileName: "a.jpg",
   errorMessage: TERMINAL_UPLOAD_COPY.authz,
   terminal: true,
+  blob: new Blob(["x"]),
+  lastModifiedMs: 0,
+  ext: "jpeg",
+  storagePath: "p/wp/x.jpeg",
 };
 
 describe("ReportDefectControl — a terminal photo failure must not trap the form", () => {

@@ -110,7 +110,8 @@ export function useDefectPhotos({
           ? "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
           : denied
             ? TERMINAL_UPLOAD_COPY.authz
-            : TERMINAL_UPLOAD_COPY.size,
+            : // Picker surface — no shutter on this form.
+              TERMINAL_UPLOAD_COPY.sizePicker,
         terminal,
       });
       return;
@@ -182,7 +183,9 @@ export function useDefectPhotos({
     const photo = photos.find((p) => p.id === id);
     if (!photo) return;
     if (photo.status === "upload-error") {
-      patch(id, { status: "uploading", errorMessage: null, terminal: false });
+      // No `terminal` reset needed — uploadOne writes it on both of its exits,
+      // and a terminal photo never offers retry in the first place.
+      patch(id, { status: "uploading", errorMessage: null });
       await uploadOne(photo);
     } else if (photo.status === "insert-error") {
       await insertOne(photo);

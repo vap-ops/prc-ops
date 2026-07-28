@@ -212,3 +212,37 @@ describe("useDefectPhotos — a permanent storage refusal (sibling of #823/#826)
     expect(result.current.photos[0]?.errorMessage).toContain("ลองใหม่");
   });
 });
+
+// Writing failing test first (review findings on the block above).
+describe("useDefectPhotos — the terminal photo blocks submit until it is removed", () => {
+  it("keeps anyInFlight TRUE while a refused photo sits in the list, and clears it on remove", async () => {
+    // This is the commit's central claim and nothing asserted it: the submit gate
+    // counts upload-error, so ลบ is not a nicety — it is what unblocks the form.
+    mockUpload.mockResolvedValue({
+      error: { message: "new row violates row-level security policy", statusCode: "403" },
+    });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("upload-error"));
+    expect(result.current.anyInFlight).toBe(true);
+
+    const id = result.current.photos[0]!.id;
+    act(() => result.current.remove(id));
+    await waitFor(() => expect(result.current.photos).toHaveLength(0));
+    expect(result.current.anyInFlight).toBe(false);
+  });
+
+  it("tells a picker surface to CHOOSE another file, never to re-shoot", async () => {
+    // This form is <input type=file accept=image/*> with no `capture` — the hook
+    // records the method as "picker" for exactly that reason. "ถ่ายใหม่" (re-shoot)
+    // names an affordance this screen does not have.
+    mockUpload.mockResolvedValue({ error: { message: "Payload too large", statusCode: 413 } });
+    const { result } = renderHook(() => useDefectPhotos({ projectId: "p1", workPackageId: "wp1" }));
+    await act(() => result.current.handleFiles(fileList(JPEG)));
+
+    await waitFor(() => expect(result.current.photos[0]?.status).toBe("upload-error"));
+    expect(result.current.photos[0]?.errorMessage).toContain("เลือกรูปใหม่");
+    expect(result.current.photos[0]?.errorMessage).not.toContain("ถ่ายใหม่");
+  });
+});

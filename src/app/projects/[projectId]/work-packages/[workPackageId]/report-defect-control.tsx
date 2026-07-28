@@ -25,6 +25,7 @@ import {
   REWORK_SOURCE_LABEL,
 } from "@/lib/i18n/labels";
 import type { ReworkSource } from "@/lib/db/enums";
+import { TERMINAL_UPLOAD_COPY } from "@/lib/photos/upload-queue";
 import { reportDefect } from "./actions";
 import { useDefectPhotos } from "./use-defect-photos";
 
@@ -207,7 +208,13 @@ export function ReportDefectControl({
                 accept="image/*"
                 multiple
                 disabled={submitting}
-                onChange={(e) => void handleFiles(e.target.files)}
+                onChange={(e) => {
+                  // A stale "แตะที่รูปเพื่อลองใหม่" banner from an earlier attach
+                  // failure would contradict a terminal tile added afterwards (which
+                  // has no retry at all). New selection supersedes it.
+                  setError(null);
+                  void handleFiles(e.target.files);
+                }}
                 className="text-ink-secondary text-sm"
               />
               {photos.length > 0 ? (
@@ -232,14 +239,17 @@ export function ReportDefectControl({
                         <>
                           <span
                             role="alert"
-                            className="text-danger text-center text-xs leading-tight font-semibold"
+                            className="text-danger text-meta max-w-24 text-center leading-tight font-semibold break-words"
                           >
-                            {p.errorMessage ?? "ส่งรูปนี้ไม่ได้"}
+                            {p.errorMessage ?? TERMINAL_UPLOAD_COPY.authz}
                           </span>
+                          {/* The ONLY exit from a blocked submit — a full 44px
+                              target, not a 12px text link, because missing it
+                              means abandoning the whole report. */}
                           <button
                             type="button"
                             onClick={() => remove(p.id)}
-                            className="text-ink-secondary text-xs underline underline-offset-2"
+                            className="border-edge-strong text-ink-secondary text-meta inline-flex min-h-11 items-center rounded border px-2 underline underline-offset-2"
                           >
                             ลบ
                           </button>
