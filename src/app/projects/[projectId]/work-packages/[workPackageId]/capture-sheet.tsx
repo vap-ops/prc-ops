@@ -331,7 +331,25 @@ function PendingThumb({ upload, onRetry }: { upload: PendingUpload; onRetry: () 
             className="border-card/50 border-t-card inline-block h-6 w-6 animate-spin rounded-full border-[3px]"
           />
         )}
-        {isError && (
+        {/* A TERMINAL failure (403 / 413 / pairing / closed after-fix window) meets
+            the same refusal on every replay, so the tile names the reason instead of
+            offering a button that cannot work — the sheet must not contradict the
+            queue runner, which already says สิทธิ์ไม่พอ + names the way out. Until
+            this fix the tile showed a bare "ลองใหม่" for BOTH classes and never
+            rendered errorMessage at all (#823's sibling, 2026-07-28). */}
+        {isError && upload.terminal && upload.errorMessage && (
+          // Clamped: an insert-stage terminal message (pairing / closed after-fix
+          // window) is a full sentence and the tile is 80px. The queue runner is
+          // the full-detail surface; here the SA needs "not this one, and not by
+          // tapping". title= carries the whole string for a long-press/hover.
+          <span
+            title={upload.errorMessage}
+            className="text-danger line-clamp-3 text-[10px] leading-tight font-semibold break-words"
+          >
+            {upload.errorMessage}
+          </span>
+        )}
+        {isError && !upload.terminal && (
           <button
             type="button"
             onClick={onRetry}

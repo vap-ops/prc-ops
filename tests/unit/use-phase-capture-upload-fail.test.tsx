@@ -212,3 +212,53 @@ describe("usePhaseCapture upload_fail friction (feedback 10a15ebe)", () => {
     expect(trackFriction).not.toHaveBeenCalledWith("upload_fail", expect.anything());
   });
 });
+
+// Writing failing test first.
+//
+// Sibling of the 2026-07-28 catalog field bug (#823): the hook ALREADY marks an
+// authz/size storage refusal `terminal` (every replay meets the same refusal) but
+// handed it the same "กรุณาลองใหม่อีกครั้ง" string as a transient blip. Telling a
+// user to retry something that cannot succeed is the copy bug #823 fixed on the
+// catalog side. The queue runner's house term for a denial is "สิทธิ์ไม่พอ".
+describe("usePhaseCapture terminal-failure copy (sibling of #823)", () => {
+  it("names a permission denial and does not invite a retry", async () => {
+    uploadMock.mockResolvedValue({ error: { message: "new row violates RLS", statusCode: "403" } });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    const item = result.current.pending[0]!;
+    expect(item.terminal).toBe(true);
+    expect(item.errorMessage).toContain("สิทธิ์ไม่พอ");
+    expect(item.errorMessage).not.toContain("ลองใหม่");
+  });
+
+  it("names an over-size file and does not invite a retry", async () => {
+    uploadMock.mockResolvedValue({ error: { message: "Payload too large", statusCode: 413 } });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    const item = result.current.pending[0]!;
+    expect(item.terminal).toBe(true);
+    expect(item.errorMessage).toContain("ไฟล์ใหญ่เกินไป");
+    expect(item.errorMessage).not.toContain("ลองใหม่");
+  });
+
+  it("keeps the retry copy for a transient failure", async () => {
+    uploadMock.mockResolvedValue({ error: { message: "Internal Error", statusCode: 500 } });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    const item = result.current.pending[0]!;
+    expect(item.terminal).toBe(false);
+    expect(item.errorMessage).toContain("ลองใหม่");
+  });
+});

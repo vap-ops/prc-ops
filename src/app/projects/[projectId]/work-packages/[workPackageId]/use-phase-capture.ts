@@ -150,12 +150,20 @@ export function usePhaseCapture({
         ...(diag.status !== undefined ? { status: diag.status } : {}),
       });
       notifyQueueChanged();
+      // authz (403) and size (413) will fail identically on retry — do not let the
+      // sheet promise "will auto-send" for them (feedback 10a15ebe), and do not
+      // tell the SA to retry them either: naming the refusal is the whole point
+      // (the catalog side of this same bug, #823 / 2026-07-28). "สิทธิ์ไม่พอ" is
+      // the house term, from the queue runner.
+      const terminal = diag.reason === "authz" || diag.reason === "size";
       updatePending(upload.id, {
         status: "upload-error",
-        errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
-        // authz (403) and size (413) will fail identically on retry — do not let
-        // the sheet promise "will auto-send" for them (feedback 10a15ebe).
-        terminal: diag.reason === "authz" || diag.reason === "size",
+        errorMessage: !terminal
+          ? "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+          : diag.reason === "authz"
+            ? "สิทธิ์ไม่พอ — ส่งรูปนี้ไม่ได้"
+            : "ไฟล์ใหญ่เกินไป — ลบแล้วถ่ายใหม่",
+        terminal,
       });
       return;
     }
