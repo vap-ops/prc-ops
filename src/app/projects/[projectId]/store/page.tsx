@@ -9,6 +9,7 @@
 // เบิก is no longer a store-console action — spec 208 moved it to the WP-detail
 // ของ tab's ต้องการของ sheet).
 
+import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
@@ -358,6 +359,20 @@ export default async function ProjectStorePage({ params }: PageProps) {
         </div>
       </DetailHeader>
       <div className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-5 px-5 py-6`}>
+        {/* Spec 370 field fix (2026-07-28, "SA cannot find it"): the scan door
+            was BURIED below the ~400-row stock list inside the equipment
+            section — telemetry showed the SA reaching this page twice on the
+            current bundle and leaving. The door the section still carries
+            stays; this hoists a copy above the fold (the ปิดวัน buried-button
+            class, #746). Movers only — matches the scan page's own gate. */}
+        {canReturnEquipment ? (
+          <Link
+            href={`/equipment/scan?from=${encodeURIComponent(`/projects/${project.id}/store`)}`}
+            className="border-edge-strong bg-card rounded-control text-ink flex min-h-12 items-center justify-center gap-2 border text-sm font-semibold"
+          >
+            สแกนยืม/คืนอุปกรณ์
+          </Link>
+        ) : null}
         <StoreManager
           projects={[{ id: project.id, code: project.code, name: project.name }]}
           selectedProjectId={project.id}
