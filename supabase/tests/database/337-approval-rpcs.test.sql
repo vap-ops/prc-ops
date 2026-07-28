@@ -83,8 +83,8 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 -- ============================================================================
 select ok(to_regprocedure('public.submit_work_package_for_approval(uuid)') is not null,
   'submit_work_package_for_approval(uuid) exists');
-select ok(to_regprocedure('public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)') is not null,
-  'decide_work_package(uuid,approval_decision,text,approval_revision_reason) exists');
+select ok(to_regprocedure('public.decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[])') is not null,
+  'decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[]) exists');
 select ok(to_regprocedure('public.resubmit_work_package_evidence(uuid)') is not null,
   'resubmit_work_package_evidence(uuid) exists');
 
@@ -92,7 +92,7 @@ select is((select prosecdef from pg_proc
             where oid = 'public.submit_work_package_for_approval(uuid)'::regprocedure),
   true, 'submit_work_package_for_approval is SECURITY DEFINER');
 select is((select prosecdef from pg_proc
-            where oid = 'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)'::regprocedure),
+            where oid = 'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[])'::regprocedure),
   true, 'decide_work_package is SECURITY DEFINER');
 select is((select prosecdef from pg_proc
             where oid = 'public.resubmit_work_package_evidence(uuid)'::regprocedure),
@@ -102,7 +102,7 @@ select is(has_function_privilege('anon',
   'public.submit_work_package_for_approval(uuid)', 'EXECUTE'),
   false, 'anon cannot execute submit_work_package_for_approval');
 select is(has_function_privilege('anon',
-  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)', 'EXECUTE'),
+  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[])', 'EXECUTE'),
   false, 'anon cannot execute decide_work_package');
 select is(has_function_privilege('anon',
   'public.resubmit_work_package_evidence(uuid)', 'EXECUTE'),
@@ -112,7 +112,7 @@ select is(has_function_privilege('authenticated',
   'public.submit_work_package_for_approval(uuid)', 'EXECUTE'),
   true, 'authenticated can execute submit_work_package_for_approval');
 select is(has_function_privilege('authenticated',
-  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)', 'EXECUTE'),
+  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[])', 'EXECUTE'),
   true, 'authenticated can execute decide_work_package');
 select is(has_function_privilege('authenticated',
   'public.resubmit_work_package_evidence(uuid)', 'EXECUTE'),

@@ -26,10 +26,17 @@ import {
   commentRequiredFor,
   DECISION_CAUSES,
   decisionPayloadForCause,
+  FLAGGABLE_PHASES,
   isCommentValid,
+  targetsForCause,
   type DecisionCause,
+  type FlaggablePhase,
 } from "@/lib/approvals/predicates";
-import { APPROVAL_DECISION_LABEL, APPROVAL_REVISION_REASON_LABEL } from "@/lib/i18n/labels";
+import {
+  APPROVAL_DECISION_LABEL,
+  APPROVAL_REVISION_REASON_LABEL,
+  PHOTO_PHASE_LABEL,
+} from "@/lib/i18n/labels";
 import { recordDecision } from "./actions";
 
 // Every cause label is single-sourced: the three photo causes from the spec-355 reason
@@ -62,6 +69,10 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
   const router = useRouter();
   const [approve, setApprove] = useState<boolean | null>(null);
   const [cause, setCause] = useState<DecisionCause | null>(null);
+  // Spec 372 U4a — which lifecycle phases the PM says are missing. Only meaningful
+  // for the incomplete cause; targetsForCause drops them for every other one, so a
+  // stale tick can never ride a payload the RPC would refuse (22023).
+  const [phases, setPhases] = useState<ReadonlyArray<FlaggablePhase>>([]);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
@@ -83,11 +94,24 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
     isCommentValid(decision, comment.length ? comment : null) &&
     !submitting;
 
+  function togglePhase(ph: FlaggablePhase) {
+    setPhases((prev) => (prev.includes(ph) ? prev.filter((p) => p !== ph) : [...prev, ph]));
+  }
+
+  function pickCause(next: DecisionCause) {
+    setCause(next);
+    // Switching cause abandons the ticks — they only mean anything for incomplete.
+    if (next !== "incomplete") setPhases([]);
+  }
+
   function pickApprove(next: boolean) {
     setApprove(next);
     // Switching back to อนุมัติ must drop the cause: a stale reason riding an
     // `approved` payload is exactly what the RPC refuses (22023).
-    if (next) setCause(null);
+    if (next) {
+      setCause(null);
+      setPhases([]);
+    }
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -100,6 +124,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
         decision,
         comment: comment.length > 0 ? comment : null,
         revisionReason: payload?.revisionReason ?? null,
+        ...(cause ? targetsForCause(cause, phases) : { targetPhases: null }),
       });
       if (!result.ok) {
         setError(result.error);
@@ -149,11 +174,46 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
               key={c}
               name="cause"
               checked={cause === c}
-              onPick={() => setCause(c)}
+              onPick={() => pickCause(c)}
               label={CAUSE_LABEL[c]}
               hint={CAUSE_HINT[c]}
             />
           ))}
+        </fieldset>
+      ) : null}
+
+      {/* Spec 372 U4a — WHICH phases are missing. Optional by design: a PM who cannot
+          say still gets to bounce the photos, so this never gates submit. Only the
+          three lifecycle phases are offered — the RPC refuses after_fix and defect,
+          which are not a normal cycle's completion evidence. */}
+      {cause === "incomplete" ? (
+        <fieldset className="flex flex-col gap-2" disabled={submitting}>
+          <legend className="text-ink mb-1 text-sm font-medium">
+            ช่วงไหนที่ยังขาด <span className="text-ink-secondary">(ไม่บังคับ)</span>
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {FLAGGABLE_PHASES.map((ph) => {
+              const on = phases.includes(ph);
+              return (
+                <label
+                  key={ph}
+                  className={`rounded-control focus-within:ring-action flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-sm font-medium transition-colors focus-within:ring-2 ${
+                    on
+                      ? "border-action bg-action-soft text-ink"
+                      : "border-edge-strong bg-card text-ink-secondary hover:bg-page"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() => togglePhase(ph)}
+                    className="accent-fill"
+                  />
+                  {PHOTO_PHASE_LABEL[ph]}
+                </label>
+              );
+            })}
+          </div>
         </fieldset>
       ) : null}
 

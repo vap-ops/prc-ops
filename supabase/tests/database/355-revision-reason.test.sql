@@ -53,16 +53,16 @@ select has_column('public', 'approvals', 'revision_reason', 'approvals.revision_
 select col_is_null('public', 'approvals', 'revision_reason', 'approvals.revision_reason is nullable');
 
 select ok(
-  to_regprocedure('public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)') is not null,
+  to_regprocedure('public.decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[])') is not null,
   'decide_work_package gains the p_revision_reason argument');
 select is((select prosecdef from pg_proc
-            where oid = 'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)'::regprocedure),
+            where oid = 'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[])'::regprocedure),
   true, 'decide_work_package is still SECURITY DEFINER');
 select is(has_function_privilege('anon',
-  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)', 'EXECUTE'),
+  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[])', 'EXECUTE'),
   false, 'anon cannot execute decide_work_package');
 select is(has_function_privilege('authenticated',
-  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason)', 'EXECUTE'),
+  'public.decide_work_package(uuid,approval_decision,text,approval_revision_reason,photo_phase[],uuid[])', 'EXECUTE'),
   true, 'authenticated can execute decide_work_package');
 select ok(not exists (
     select 1 from pg_proc p,

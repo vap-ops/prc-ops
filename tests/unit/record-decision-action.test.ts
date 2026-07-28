@@ -224,3 +224,58 @@ describe("recordDecision — spec 337 U1 attributed decision", () => {
     expect(r).toEqual({ ok: false, error: "บันทึกผลการตรวจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" });
   });
 });
+
+// Spec 372 U4a — the ticked phases must reach the RPC, and must NOT reach it on a
+// cause it refuses them for (22023). The action mirrors the RPC's rule so the error
+// surface stays clean, exactly as it already does for the reason.
+describe("recordDecision — flagged phases (spec 372 U4a)", () => {
+  it("forwards the ticked phases as p_target_phases", async () => {
+    authAs("pending_approval");
+    const result = await recordDecision({
+      workPackageId: WP,
+      decision: "needs_revision",
+      revisionReason: "incomplete",
+      targetPhases: ["before", "after"],
+    });
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "decide_work_package",
+      expect.objectContaining({ p_target_phases: ["before", "after"] }),
+    );
+  });
+
+  it("omits the param entirely when nothing was ticked", async () => {
+    authAs("pending_approval");
+    await recordDecision({
+      workPackageId: WP,
+      decision: "needs_revision",
+      revisionReason: "incomplete",
+      targetPhases: null,
+    });
+    const args = rpc.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+    expect(args).not.toHaveProperty("p_target_phases");
+  });
+
+  it("refuses phases on a cause the RPC would 22023 — before the round trip", async () => {
+    const result = await recordDecision({
+      workPackageId: WP,
+      decision: "needs_revision",
+      revisionReason: "mismatch",
+      targetPhases: ["before"],
+    });
+    expect(result).toEqual({ ok: false, error: "ระบุช่วงงานที่ขาดได้เฉพาะเหตุผลรูปไม่ครบ" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a phase the RPC does not accept — before the round trip", async () => {
+    const result = await recordDecision({
+      workPackageId: WP,
+      decision: "needs_revision",
+      revisionReason: "incomplete",
+      // after_fix is not a normal cycle's completion evidence.
+      targetPhases: ["after_fix"] as unknown as ["before"],
+    });
+    expect(result).toEqual({ ok: false, error: "ช่วงงานไม่ถูกต้อง" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});

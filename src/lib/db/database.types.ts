@@ -74,6 +74,45 @@ export type Database = {
           },
         ]
       }
+      approval_revision_targets: {
+        Row: {
+          approval_id: string
+          created_at: string
+          id: string
+          phase: Database["public"]["Enums"]["photo_phase"] | null
+          photo_log_id: string | null
+        }
+        Insert: {
+          approval_id: string
+          created_at?: string
+          id?: string
+          phase?: Database["public"]["Enums"]["photo_phase"] | null
+          photo_log_id?: string | null
+        }
+        Update: {
+          approval_id?: string
+          created_at?: string
+          id?: string
+          phase?: Database["public"]["Enums"]["photo_phase"] | null
+          photo_log_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_revision_targets_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_revision_targets_photo_log_id_fkey"
+            columns: ["photo_log_id"]
+            isOneToOne: false
+            referencedRelation: "photo_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approvals: {
         Row: {
           comment: string | null
@@ -10015,6 +10054,8 @@ export type Database = {
           p_comment?: string
           p_decision: Database["public"]["Enums"]["approval_decision"]
           p_revision_reason?: Database["public"]["Enums"]["approval_revision_reason"]
+          p_target_phases?: Database["public"]["Enums"]["photo_phase"][]
+          p_target_photo_ids?: string[]
           p_wp: string
         }
         Returns: string

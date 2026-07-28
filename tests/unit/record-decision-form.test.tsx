@@ -128,6 +128,8 @@ describe("RecordDecisionForm — the cause drives the payload (spec 372 U2)", ()
         decision: "needs_revision",
         comment: null,
         revisionReason: "mismatch",
+        // Spec 372 U4a widened the payload; phases ride only on incomplete.
+        targetPhases: null,
       }),
     );
   });
@@ -144,6 +146,7 @@ describe("RecordDecisionForm — the cause drives the payload (spec 372 U2)", ()
         decision: "rejected",
         comment: "ผนังเอียง",
         revisionReason: null,
+        targetPhases: null,
       }),
     );
   });
@@ -181,6 +184,7 @@ describe("RecordDecisionForm — the cause drives the payload (spec 372 U2)", ()
         decision: "approved",
         comment: null,
         revisionReason: null,
+        targetPhases: null,
       }),
     );
   });
@@ -218,5 +222,79 @@ describe("WP-detail re-shoot CTA (spec 353 D7)", () => {
       'wp.rework_round > 0 ? "ถ่ายรูปหลังแก้ไขใหม่" : "ถ่ายรูปหลังทำงานใหม่"',
     );
     expect(pageSrc).not.toContain("ถ่ายรูปเพิ่ม");
+  });
+});
+
+// Spec 372 U4a — "ถ่ายรูปใหม่" on a work package carrying a MEDIAN OF 10 photos sent the
+// SA hunting for an unnamed fault. When the cause is รูปไม่ครบ the PM now ticks WHICH
+// lifecycle phases are missing, and that rides to the RPC as targets.
+describe("RecordDecisionForm — which phases are missing (spec 372 U4a)", () => {
+  const phaseBox = (name: RegExp) => screen.getByRole("checkbox", { name });
+
+  it("offers the three lifecycle phases once รูปไม่ครบ is the cause", () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    expect(phaseBox(/เตรียมงาน/)).toBeInTheDocument();
+    expect(phaseBox(/ระหว่างทำ/)).toBeInTheDocument();
+    expect(phaseBox(/แล้วเสร็จ/)).toBeInTheDocument();
+    // The two the RPC refuses are not offered.
+    expect(screen.queryByRole("checkbox", { name: /หลังแก้ไข/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /จุดบกพร่อง/ })).not.toBeInTheDocument();
+  });
+
+  it("offers them for NO other cause — the RPC refuses phases there", () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    pickNotApproved();
+    for (const c of [/รูปไม่ตรงกับงาน/, /งานยังไม่เสร็จ/, /งานต้องแก้ไข/]) {
+      fireEvent.click(cause(c));
+      expect(screen.queryByRole("checkbox", { name: /เตรียมงาน/ })).not.toBeInTheDocument();
+    }
+  });
+
+  it("sends the ticked phases as targets", async () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    fireEvent.click(phaseBox(/เตรียมงาน/));
+    fireEvent.click(phaseBox(/แล้วเสร็จ/));
+    fireEvent.click(submitButton());
+    await vi.waitFor(() =>
+      expect(recordDecision).toHaveBeenCalledWith({
+        workPackageId: WP,
+        decision: "needs_revision",
+        comment: null,
+        revisionReason: "incomplete",
+        targetPhases: ["before", "after"],
+      }),
+    );
+  });
+
+  it("stays submittable with nothing ticked, and sends null rather than an empty claim", async () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    expect(submitButton()).toBeEnabled();
+    fireEvent.click(submitButton());
+    await vi.waitFor(() =>
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ revisionReason: "incomplete", targetPhases: null }),
+      ),
+    );
+  });
+
+  it("forgets the ticks when the PM switches to another cause", async () => {
+    render(<RecordDecisionForm workPackageId={WP} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    fireEvent.click(phaseBox(/เตรียมงาน/));
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    fireEvent.click(submitButton());
+    // A stale tick riding a mismatch payload is a 22023 from the RPC.
+    await vi.waitFor(() =>
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ revisionReason: "mismatch", targetPhases: null }),
+      ),
+    );
   });
 });
