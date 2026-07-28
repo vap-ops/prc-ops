@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/db/browser";
-import { AWAITING_SITE_ZONE } from "@/lib/approvals/pending-summary";
+import { AWAITING_SITE_ZONE } from "@/lib/approvals/review-zone";
 
 // Pure: the count → label. Hidden (null) at zero, capped at 99+ so the pill
 // never blows out the tab. Exported for unit tests.
