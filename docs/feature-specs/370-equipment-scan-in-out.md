@@ -167,6 +167,16 @@ rather than swallow it.
 
 ## 6. Open questions
 
+- **What D4's existence check does and does not stop** (decided at 363 U7
+  build): the actions verify every submitted path has a REAL object behind it
+  (a well-shaped string with no upload would otherwise satisfy the gate), but
+  do not attempt to stop a caller re-submitting a genuinely-uploaded file as
+  different-phase evidence — D4 protects against omission, not an SA actively
+  forging their own condition record.
+- **No add-photo-later affordance exists.** A partial failure (span recorded,
+  photo rows didn't land) is reported honestly and leaves a photo-less loan;
+  attaching photos to an existing loan is a candidate U2+ addition.
+
 - **Unpriced spans are permanently free** (fresh-eyes F11): `daily_rate_snapshot`
   is written only at check-out, the logs are append-only, and no correction RPC
   exists — so borrows taken before the fleet is priced charge 0 forever, and

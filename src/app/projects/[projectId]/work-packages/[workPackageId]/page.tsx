@@ -8,6 +8,9 @@ import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
 import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { groupWpThings } from "@/lib/work-packages/things";
+import { availableToBorrow, shapeWpLoans } from "@/lib/equipment/wp-loans";
+import { WpEquipmentSection } from "@/components/features/equipment/wp-equipment-section";
+import { bangkokTodayISO } from "@/lib/work-packages/schedule-today";
 import { allowedNeedPaths } from "@/lib/work-packages/need-path";
 import { WpThingsView } from "@/components/features/work-packages/wp-things-view";
 import { WpNeedSheet } from "@/components/features/work-packages/wp-need-sheet";
@@ -762,6 +765,91 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // door into all three write paths. The merge PR deleted คำขอซื้อ / เบิกของ /
   // ค่าใช้จ่ายหน้างาน once every affordance they carried had landed here.
   {
+    // Spec 363 U7 — the เครื่องมือ section's reads (D6: equipment keeps its own
+    // foot-of-tab entry). Open loan = checked_in_on IS NULL and no closing row
+    // points superseded_by at it (spec 368 §6.1 — never derived from `status`,
+    // which movements clobber). daily_rate_snapshot is deliberately NOT selected
+    // — money-walled from this surface.
+    const [
+      { data: loanCandidates },
+      { data: closingRows },
+      { data: equipItems },
+      { data: equipMoves },
+    ] = await Promise.all([
+      // Generous explicit limits, far above the 64-item fleet: silent PostgREST
+      // truncation of the closing-row set would RESURRECT closed loans as open
+      // (the anti-join loses its counter-evidence), so the caps are stated.
+      supabase
+        .from("equipment_usage_logs")
+        .select("id, item_id, work_package_id, checked_out_on, borrower_worker_id, entered_by")
+        .is("checked_in_on", null)
+        .limit(500),
+      supabase
+        .from("equipment_usage_logs")
+        .select("superseded_by")
+        .not("superseded_by", "is", null)
+        .limit(5000),
+      supabase.from("equipment_items").select("id, name, tracking").order("name").limit(1000),
+      supabase
+        .from("equipment_movements")
+        .select("item_id, kind, project_id, occurred_at")
+        .limit(5000),
+    ]);
+    const supersededIds = new Set((closingRows ?? []).map((r) => r.superseded_by));
+    const openLogs = (loanCandidates ?? []).filter((l) => !supersededIds.has(l.id));
+    const equipItemList = (equipItems ?? []).map((i) => ({
+      id: i.id,
+      name: i.name,
+      tracking: i.tracking as "unit" | "bulk",
+    }));
+    // "Who has it" falls back to the RECORDER when no borrower was picked —
+    // and equipment recorders are in NONE of displayNames' source sets
+    // (deciders ∪ requesters ∪ uploaders ∪ removers), so widen the map for
+    // exactly the ids this WP's open loans carry (the statusAwareNames
+    // pattern; fresh-eyes 🔴1).
+    const wpOpenLogRows = openLogs.filter((l) => l.work_package_id === wp.id);
+    const missingRecorderIds = [...new Set(wpOpenLogRows.map((l) => l.entered_by))].filter(
+      (id) => !statusAwareNames.has(id),
+    );
+    const recorderAwareNames = missingRecorderIds.length
+      ? new Map([
+          ...statusAwareNames,
+          ...(await fetchDisplayNames(missingRecorderIds, "equipment-recorders")),
+        ])
+      : statusAwareNames;
+    const wpLoanRows = shapeWpLoans(
+      openLogs.map((l) => ({
+        id: l.id,
+        itemId: l.item_id,
+        workPackageId: l.work_package_id,
+        checkedOutOn: l.checked_out_on,
+        borrowerWorkerId: l.borrower_worker_id,
+        enteredBy: l.entered_by,
+      })),
+      {
+        items: new Map(equipItemList.map((i) => [i.id, i.name])),
+        workers: workerNames,
+        users: recorderAwareNames,
+        wpId: wp.id,
+        today: bangkokTodayISO(),
+      },
+    );
+    // Borrow-time photos are NOT minted here — 120s signed URLs would be dead
+    // before a คืน sheet opens; the component fetches them on open via
+    // fetchLoanPhotoUrls (fresh-eyes 🟡6).
+    const equipmentLoans = wpLoanRows;
+    const borrowable = availableToBorrow({
+      items: equipItemList,
+      movements: (equipMoves ?? []).map((m) => ({
+        itemId: m.item_id,
+        kind: m.kind,
+        projectId: m.project_id,
+        occurredAt: m.occurred_at,
+      })),
+      projectId: wp.project_id,
+      openLoanItemIds: new Set(openLogs.map((l) => l.item_id)),
+    });
+
     const thingGroups = groupWpThings({
       requests: (wpRequests ?? []).map((r) => ({
         id: r.id,
@@ -838,6 +926,24 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
               // `!readOnly` — that IS the reverse_stock_issue / confirm-on-behalf
               // gate.
               canAct={!readOnly}
+            />
+            {/* Spec 363 U7 — เครื่องมือ at the tab foot (D6). Doors gate on
+                !readOnly (NARROWER than the RPCs' own allowlist — plain
+                procurement is admitted by the DB but read-only here by the
+                same decision the sibling controls made); read-only viewers
+                keep the list (an open obligation is a fact of the WP, not a
+                control). wpComplete mirrors the RPC's complete-WP refusal so
+                the borrow door never offers what check_out will refuse —
+                คืน stays live (check_in has no such guard; a tool must be
+                returnable to a closed job). */}
+            <WpEquipmentSection
+              wpId={wp.id}
+              loans={equipmentLoans}
+              available={borrowable}
+              roster={wpWorkers}
+              canAct={!readOnly}
+              wpComplete={wp.status === "complete"}
+              revalidate={workPackageHref(projectId, workPackageId)}
             />
           </div>
         ),
