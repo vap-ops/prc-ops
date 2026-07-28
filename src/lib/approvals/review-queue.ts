@@ -8,9 +8,10 @@
 // back there is nothing for the PM to decide, and interleaved by queue age those
 // rows were indistinguishable from real work.
 //
-// So the split is WHOSE MOVE IS IT, not project or category (all 70 live rows are
-// in one project and every first-review row has a null category_id — neither axis
-// carries signal here).
+// So the split is WHOSE MOVE IS IT. Project is degenerate (all 70 live rows are in
+// one project) and trade — which IS populated, via `category_id` → project_categories
+// — would still mix actionable rows with rows the PM cannot act on inside every
+// group, which is the complaint itself.
 //
 // Pure on purpose: the page renders the zones from this, and spec 371 U2 will
 // count `actionableCount` from the same predicate, so the number the PM is shown
@@ -32,7 +33,8 @@ export interface AwaitingSiteEntry<T> {
   row: T;
   /** approvals.decided_at — days stuck counts from the BOUNCE, not from queue entry. */
   bouncedAt: string;
-  /** Spec 355's reason, null on bounces that predate it (all 18 live rows today). */
+  /** Spec 355's reason. Null on bounces that predate it — 7 of the 18 live rows, and
+   *  they are the OLDEST, so the null path is the most-stuck rows, not a rare edge. */
   reason: ApprovalRevisionReason | null;
 }
 
