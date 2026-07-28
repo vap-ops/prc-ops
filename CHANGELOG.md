@@ -1,3 +1,9 @@
+# [0.250.0](https://github.com/vap-ops/prc-ops/compare/v0.249.0...v0.250.0) (2026-07-28)
+
+### Features
+
+- **equipment:** rate-optional borrows + condition-photo schema + scan attribution (spec 370 U1) ([#815](https://github.com/vap-ops/prc-ops/issues/815)) ([242d809](https://github.com/vap-ops/prc-ops/commit/242d80952d887f63b34dcaaa85fe42e920c5aed8))
+
 # [0.249.0](https://github.com/vap-ops/prc-ops/compare/v0.248.0...v0.249.0) (2026-07-27)
 
 ### Bug Fixes
