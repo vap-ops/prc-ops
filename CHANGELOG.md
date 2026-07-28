@@ -1,3 +1,9 @@
+## [0.256.3](https://github.com/vap-ops/prc-ops/compare/v0.256.2...v0.256.3) (2026-07-28)
+
+### Bug Fixes
+
+- **catalog:** let procurement_manager upload material images ([#823](https://github.com/vap-ops/prc-ops/issues/823)) ([31ec469](https://github.com/vap-ops/prc-ops/commit/31ec469d02d70ae2c8227e7ed47428f1c3c34fe7))
+
 ## [0.256.2](https://github.com/vap-ops/prc-ops/compare/v0.256.1...v0.256.2) (2026-07-28)
 
 ### Bug Fixes
