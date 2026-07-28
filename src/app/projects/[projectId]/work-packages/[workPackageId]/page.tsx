@@ -756,7 +756,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     {
       key: "history",
       label: "ประวัติ",
-      panel: <WpTimelineView days={timelineDays} />,
+      panel: <WpTimelineView days={timelineDays} wpReworkRound={wp.rework_round} />,
     },
   ];
 
