@@ -53,6 +53,12 @@ export function CatalogImageControl({
         // the photo pipeline emits (feedback 10a15ebe) and the same PDPA-minimal
         // payload: a coarse class + a numeric HTTP status when the failure was an
         // HTTP response — never the file name, the storage path, or the raw error.
+        //
+        // NOT deduped, deliberately, unlike the queue runner's per-item guard: that
+        // one exists because its background loop re-reports the SAME stuck item every
+        // few seconds. Here one event = one deliberate user attempt, so five retries
+        // against a permanent refusal genuinely are five friction events, and the
+        // friction map ranking them highly is the correct outcome.
         const diag = diagnoseStorageFailure(upErr);
         trackFriction("upload_fail", {
           kind: "catalog_image",
@@ -75,6 +81,12 @@ export function CatalogImageControl({
       }
       const result = await setCatalogItemImage({ id: itemId, path });
       if (!result.ok) {
+        // The storage policy is only ONE of this control's two gates — the RPC is
+        // the other, and a refusal there was equally invisible. #823 happened to be
+        // a storage policy; the next one need not be. No `reason`: the action
+        // returns a user-facing Thai string, and putting that in telemetry would
+        // carry content this signal deliberately never carries.
+        trackFriction("upload_fail", { kind: "catalog_image", stage: "insert" });
         setError(result.error);
         return;
       }

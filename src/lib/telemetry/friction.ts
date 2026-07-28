@@ -25,5 +25,13 @@ export function setFrictionSink(next: FrictionSink | null): void {
 // (before consent, non-trackable routes, external portals). Best-effort — telemetry
 // must never break a feature.
 export function trackFriction(type: FrictionEventType, context?: Record<string, unknown>): void {
-  sink?.trackFriction(type, context);
+  try {
+    sink?.trackFriction(type, context);
+  } catch {
+    // "Best-effort" has to mean it: emissions now sit on failure paths INSIDE the
+    // work (a storage upload's catch, a server action's refusal), and several of
+    // those callers have no try/catch of their own — a throwing sink would reject
+    // the upload and strand the surface. Swallowed silently; a telemetry fault must
+    // never become the user's fault.
+  }
 }

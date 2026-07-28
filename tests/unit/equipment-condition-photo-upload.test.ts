@@ -7,7 +7,7 @@
 // Same PDPA-minimal signal as the photo pipeline: coarse class + numeric status,
 // never a file name, a path, or raw error text.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockUpload, mockPrepare, trackFriction } = vi.hoisted(() => ({
   mockUpload: vi.fn(),
@@ -31,6 +31,8 @@ beforeEach(() => {
   trackFriction.mockReset();
   vi.stubGlobal("crypto", { randomUUID: () => "11111111-1111-4111-8111-111111111111" });
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("uploadConditionPhotos — upload_fail telemetry", () => {
   it("reports a denial with its class and status", async () => {
