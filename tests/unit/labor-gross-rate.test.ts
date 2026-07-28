@@ -1,6 +1,6 @@
 // Writing failing test first.
 //
-// Spec 368 U1 / ADR 0082 — the gross day-rate derivation, extracted so BOTH the
+// Spec 369 U1 / ADR 0082 — the gross day-rate derivation, extracted so BOTH the
 // /settings/labor-rates editor and the /workers cost-confirm preview show the same
 // number the DB's level_gross_rate() will stamp. Previously a file-local helper on
 // the labor-rates page; a second copy on /workers would be a second SSOT for money.
@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { grossRate } from "@/lib/labor/gross-rate";
 
-describe("spec 368 U1 — grossRate", () => {
+describe("spec 369 U1 — grossRate", () => {
   it("passes a before_wht rate through untouched", () => {
     expect(grossRate(600, "before_wht", 3)).toBe(600);
   });

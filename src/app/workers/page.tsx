@@ -62,7 +62,7 @@ export default async function WorkersPage({
       .from("workers")
       .select(
         // Spec 272 U1: + level (a readable category, ADR 0060 — not money).
-        // Spec 368 U1: + cost_confirmed_at — the confirm door's ยืนยันแล้ว state.
+        // Spec 369 U1: + cost_confirmed_at — the confirm door's ยืนยันแล้ว state.
         // DC edit matrix: + phone/tax_id/bank_* so the row edit sheet can prefill
         // and edit them (money/PII — authorized by the requireRole gate above).
         "id, name, pay_type, employment_type, contractor_id, day_rate, active, note, user_id, project_id, level, cost_confirmed_at, phone, tax_id, bank_name, bank_account_number, bank_account_name, gender",
@@ -97,7 +97,7 @@ export default async function WorkersPage({
       .select("id, code, name_th")
       .eq("is_active", true)
       .order("code", { ascending: true }),
-    // Spec 368 U1: the level standards + firm WHT % feed the cost-confirm preview
+    // Spec 369 U1: the level standards + firm WHT % feed the cost-confirm preview
     // (what confirm_worker_cost will stamp). Money columns, zero authenticated
     // grant — and the firm standard's app audience is /settings/labor-rates
     // (procurement_manager + super_admin), NARROWER than this page's gate, so the
@@ -147,7 +147,7 @@ export default async function WorkersPage({
     .filter((c) => isWorkCategoryTopCode(c.code))
     .map((c) => ({ id: c.id, code: c.code, nameTh: c.name_th }));
 
-  // Spec 368 U1: the GROSS standard rate per level — the number the confirm will
+  // Spec 369 U1: the GROSS standard rate per level — the number the confirm will
   // stamp. Same derivation as /settings/labor-rates (shared grossRate); a level
   // missing from the seed previews as null, which BLOCKS its confirm in the sheet
   // (confirm_worker_cost would coalesce to the existing day_rate — ฿0 on the

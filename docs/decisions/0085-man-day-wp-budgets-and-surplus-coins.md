@@ -7,7 +7,7 @@
 [ADR 0061](0061-worker-ecosystem-mission-and-foundation-invariants.md)'s foundation
 invariants. Extends [ADR 0082](0082-level-standard-rate-wht.md) (level-standard
 rates are the derivation source). Implementing spec =
-[spec 368](../feature-specs/368-man-day-wp-budgets.md).
+[spec 369](../feature-specs/369-man-day-wp-budgets.md).
 
 Originates from an operator proposal, 2026-07-28: _"For internal WPs, I was
 thinking maybe we can create budgets in coins, instead of THB. WP owners will
@@ -193,7 +193,7 @@ Ten failure modes, worst first. The first two are sufficient on their own.
   project close is unchanged and continues to govern the profit component.
 - `coin_postings` needs `work_package_id` (additive, nullable). Two new dials
   (`standard_day_rate`, `coins_per_surplus_man_day`). Nothing else structural.
-- The cost-confirm door (spec 368 U1) is on the critical path for **every** economic
+- The cost-confirm door (spec 369 U1) is on the critical path for **every** economic
   feature already built, not just this one.
 - The legal question in §3.2 gates go-live, not design. Design proceeds; issuance does not.
 - Nothing here changes current behaviour — all affected surfaces read zero today.

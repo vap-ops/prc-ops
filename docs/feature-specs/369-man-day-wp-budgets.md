@@ -1,4 +1,4 @@
-# Spec 368 — WP labour budgets in man-days, surplus to Nova coins
+# Spec 369 — WP labour budgets in man-days, surplus to Nova coins
 
 Implements **[ADR 0085](../decisions/0085-man-day-wp-budgets-and-surplus-coins.md)**.
 Sits on the built-but-unfed economics of [ADR 0060](../decisions/0060-project-profit-sharing-nova-coins.md)

@@ -1,4 +1,4 @@
-// Spec 368 U1 / ADR 0082 — the gross day-rate derivation, shared by the
+// Spec 369 U1 / ADR 0082 — the gross day-rate derivation, shared by the
 // /settings/labor-rates editor and the /workers cost-confirm preview.
 //
 // Re-derives the DB's level_gross_rate() in TS because that function is
