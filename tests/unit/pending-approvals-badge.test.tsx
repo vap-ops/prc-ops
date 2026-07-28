@@ -6,6 +6,8 @@
 
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   formatBadgeCount,
   sumApprovalCounts,
@@ -73,5 +75,37 @@ describe("ApprovalsBadge", () => {
     const inline = screen.getByLabelText("รอตรวจ 2 รายการ");
     expect(inline.className).not.toContain("absolute");
     expect(inline.className).toContain("ml-1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Spec 371 U2 — the nav badge summed bare pending_approval with the two bank
+// queues, so it reported the blended 70. It now counts the ACTIONABLE zones of
+// work_package_review_queue, which is the same predicate /review and the ภาพรวม
+// hero read — the three cannot disagree.
+describe("the WP term of the badge counts actionable zones only (spec 371 U2)", () => {
+  const read = (p: string) =>
+    readFileSync(resolve(process.cwd(), p), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+  const SRC = read("src/components/features/dashboard/pending-approvals-badge.tsx");
+  const occurrences = (s: string, n: string) => s.split(n).length - 1;
+
+  it("reads the review-queue view, not the raw work_packages table", () => {
+    expect(SRC).toContain("work_package_review_queue");
+    // The bare status count is exactly what made the badge misleading.
+    expect(SRC).not.toContain('.eq("status", "pending_approval")');
+  });
+
+  it("excludes the awaiting-site zone from the count", () => {
+    expect(SRC).toContain("awaiting_site");
+    expect(occurrences(SRC, "isActionableZone") + occurrences(SRC, "neq")).toBeGreaterThanOrEqual(
+      1,
+    );
+  });
+
+  it("still leaves the two bank queues in the sum — this unit changes ONE term", () => {
+    expect(SRC).toContain("contractor_bank_change_requests");
+    expect(SRC).toContain("worker_bank_change_requests");
   });
 });

@@ -6,11 +6,25 @@
 
 import Link from "next/link";
 import { ClipboardCheck, ArrowRight, Clock } from "lucide-react";
-import { formatThaiDateTime } from "@/lib/i18n/labels";
+import {
+  formatThaiDateTime,
+  REVIEW_ACTIONABLE_ZONE_LABEL,
+  REVIEW_AWAITING_SITE_SHORT,
+} from "@/lib/i18n/labels";
 import type { PendingApprovalsSummary } from "@/lib/approvals/pending-summary";
 
 export function PendingApprovalsCard({ summary }: { summary: PendingApprovalsSummary }) {
-  const { count, oldest } = summary;
+  const { count, awaitingSite, oldest } = summary;
+
+  // Spec 371 U2 — the second figure. Never folded into `count`: an un-cured
+  // bounce is the site admin's move, and blending the two is what made the old
+  // single number misleading.
+  const awaitingLine =
+    awaitingSite > 0 ? (
+      <span className="text-ink-secondary text-meta">
+        {REVIEW_AWAITING_SITE_SHORT} {awaitingSite}
+      </span>
+    ) : null;
 
   if (count === 0) {
     return (
@@ -18,9 +32,14 @@ export function PendingApprovalsCard({ summary }: { summary: PendingApprovalsSum
         href="/review"
         className="border-edge bg-card shadow-card rounded-card hover:bg-sunk focus-visible:ring-action flex items-center justify-between gap-3 border p-4 transition-colors focus:outline-none focus-visible:ring-2"
       >
-        <span className="flex items-center gap-2">
-          <ClipboardCheck aria-hidden className="text-ink-muted size-5" />
-          <span className="text-ink-secondary text-body">ไม่มีงานรอตรวจ</span>
+        <span className="flex flex-col gap-0.5">
+          <span className="flex items-center gap-2">
+            <ClipboardCheck aria-hidden className="text-ink-muted size-5" />
+            <span className="text-ink-secondary text-body">ไม่มีงานรอตรวจ</span>
+          </span>
+          {/* Without this the card read "nothing is happening" while N work
+              packages sat with the site — calm, but not true. */}
+          {awaitingLine}
         </span>
         <ArrowRight aria-hidden className="text-ink-muted size-5" />
       </Link>
@@ -30,7 +49,11 @@ export function PendingApprovalsCard({ summary }: { summary: PendingApprovalsSum
   return (
     <Link
       href="/review"
-      aria-label={`รอตรวจ ${count} งานรออนุมัติ`}
+      aria-label={
+        awaitingSite > 0
+          ? `รอตรวจ ${count} ${REVIEW_ACTIONABLE_ZONE_LABEL}, ${REVIEW_AWAITING_SITE_SHORT} ${awaitingSite}`
+          : `รอตรวจ ${count} ${REVIEW_ACTIONABLE_ZONE_LABEL}`
+      }
       className="border-attn-edge bg-attn-soft shadow-card rounded-card hover:border-attn focus-visible:ring-action flex flex-col gap-2 border p-4 transition-colors focus:outline-none focus-visible:ring-2"
     >
       <div className="flex items-center justify-between">
@@ -41,9 +64,13 @@ export function PendingApprovalsCard({ summary }: { summary: PendingApprovalsSum
         <ArrowRight aria-hidden className="text-attn-ink size-5" />
       </div>
 
-      <div className="flex items-baseline gap-2">
+      {/* Spec 371 U2: the headline is the ACTIONABLE count, so it is labelled
+          ตรวจได้ตอนนี้ (matching /review's zone A) — not the old งานรออนุมัติ,
+          which is equally true of the awaiting rows this number now excludes. */}
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span className="text-attn-ink text-3xl leading-none font-bold">{count}</span>
-        <span className="text-attn-ink text-body">งานรออนุมัติ</span>
+        <span className="text-attn-ink text-body">{REVIEW_ACTIONABLE_ZONE_LABEL}</span>
+        {awaitingLine}
       </div>
 
       {oldest ? (

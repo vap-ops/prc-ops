@@ -90,11 +90,19 @@ function SelfCountBadge({
 }
 
 // RLS-scoped head-counts (same visibility as the surface each links to).
+//
+// Spec 371 U2: this counts the ACTIONABLE zones of work_package_review_queue,
+// not bare status='pending_approval'. The old count included un-cured bounces —
+// work the site admin owes, which the PM cannot act on — so the badge reported
+// a blended 70 where /review shows 52 (operator: "Amount 70 items is misleading,
+// how about separating them?"). The view is the one place that predicate lives,
+// so this badge, the ภาพรวม hero and the /review page cannot drift apart. Still
+// a single head-count: the classification happens in SQL.
 async function loadPendingWpApprovals(): Promise<number | null> {
   const { count } = await createClient()
-    .from("work_packages")
+    .from("work_package_review_queue")
     .select("id", { count: "exact", head: true })
-    .eq("status", "pending_approval");
+    .neq("zone", "awaiting_site");
   return count;
 }
 

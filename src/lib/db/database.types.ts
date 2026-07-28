@@ -120,6 +120,13 @@ export type Database = {
             foreignKeyName: "approvals_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approvals_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -2129,6 +2136,13 @@ export type Database = {
             foreignKeyName: "daily_work_plan_items_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_work_plan_items_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -2750,6 +2764,13 @@ export type Database = {
             columns: ["superseded_by"]
             isOneToOne: false
             referencedRelation: "equipment_usage_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_usage_logs_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -3451,6 +3472,13 @@ export type Database = {
             foreignKeyName: "journal_lines_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -3527,6 +3555,13 @@ export type Database = {
             columns: ["superseded_by"]
             isOneToOne: false
             referencedRelation: "labor_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labor_logs_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -3851,6 +3886,13 @@ export type Database = {
             foreignKeyName: "muster_team_wps_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "muster_team_wps_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -3944,6 +3986,13 @@ export type Database = {
             columns: ["purchase_request_id"]
             isOneToOne: false
             referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_outbox_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -4320,6 +4369,13 @@ export type Database = {
             foreignKeyName: "photo_logs_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_logs_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -4409,6 +4465,13 @@ export type Database = {
             columns: ["baseline_id"]
             isOneToOne: false
             referencedRelation: "plan_baselines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_baseline_items_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -5477,6 +5540,13 @@ export type Database = {
             foreignKeyName: "purchase_requests_requested_from_work_package_id_fkey"
             columns: ["requested_from_work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_requested_from_work_package_id_fkey"
+            columns: ["requested_from_work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -5499,6 +5569,13 @@ export type Database = {
             columns: ["supply_plan_line_id"]
             isOneToOne: false
             referencedRelation: "supply_plan_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_requests_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -6250,6 +6327,13 @@ export type Database = {
             foreignKeyName: "site_issues_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_issues_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -6695,6 +6779,13 @@ export type Database = {
             foreignKeyName: "stock_issues_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_issues_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -7053,6 +7144,13 @@ export type Database = {
             foreignKeyName: "stock_returns_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_returns_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -7321,6 +7419,13 @@ export type Database = {
             foreignKeyName: "subcontract_wps_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subcontract_wps_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -7490,6 +7595,13 @@ export type Database = {
             columns: ["supply_plan_id"]
             isOneToOne: false
             referencedRelation: "supply_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supply_plan_lines_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -7824,6 +7936,13 @@ export type Database = {
             foreignKeyName: "variance_snapshots_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variance_snapshots_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -8130,7 +8249,21 @@ export type Database = {
             foreignKeyName: "work_package_dependencies_predecessor_id_fkey"
             columns: ["predecessor_id"]
             isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_package_dependencies_predecessor_id_fkey"
+            columns: ["predecessor_id"]
+            isOneToOne: false
             referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_package_dependencies_successor_id_fkey"
+            columns: ["successor_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -8174,6 +8307,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_package_members_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -8276,6 +8416,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_packages_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -8814,6 +8961,13 @@ export type Database = {
             foreignKeyName: "wp_economics_work_package_id_fkey"
             columns: ["work_package_id"]
             isOneToOne: true
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_economics_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: true
             referencedRelation: "work_packages"
             referencedColumns: ["id"]
           },
@@ -8847,6 +9001,13 @@ export type Database = {
             columns: ["frozen_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_labor_costs_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: true
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -8901,6 +9062,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_profit_bank_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
             referencedColumns: ["id"]
           },
           {
@@ -9114,6 +9282,29 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "purchase_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_package_review_queue: {
+        Row: {
+          bounced_at: string | null
+          code: string | null
+          id: string | null
+          name: string | null
+          project_id: string | null
+          revision_reason:
+            | Database["public"]["Enums"]["approval_revision_reason"]
+            | null
+          updated_at: string | null
+          zone: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_packages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
