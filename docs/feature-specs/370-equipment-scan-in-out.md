@@ -80,7 +80,9 @@ rather than swallow it.
   `36-rpc-execute-lockdown`'s signature pins in the SAME PR — the spec-357
   queue-ejector): `p_via text default null` (scan/search/wp-tab — without it
   §5's door-share metric is uncomputable; the `answers_photo_id` 0-of-2,672
-  failure mode) and `p_borrower_worker_id uuid default null` on check-out —
+  failure mode; shipped as enum `equipment_usage_via` = scan/search/wp_tab/
+  **store** — the 4th value is 368 U4's คืน-at-store door) and
+  `p_borrower_worker_id uuid default null` on check-out —
   `entered_by` is ALWAYS the SA under D1, so "who took it" is otherwise
   underivable (fact-check F5). ยืม sheet gains an optional ผู้รับ picker
   (PersonPicker idiom, the เบิก precedent).
@@ -156,11 +158,21 @@ rather than swallow it.
 
 - Share of `equipment_usage_logs` by `via` (scan vs search vs wp-tab — the
   muster QR-share query shape; computable because U1 adds the column).
+  ⚠️ Query note: the BORROW door lives on rows `where superseded_by is null`
+  (originals); a closing row's `via` is the RETURN door — the INVERSE of the
+  house current-state anti-join. Both directions are pinned in the pgTAP.
 - % of logs carrying ≥1 photo per phase — must be 100% by construction; a
   lower number means the requirement leaked.
 - Median days-out per item once real loans exist.
 
 ## 6. Open questions
+
+- **Unpriced spans are permanently free** (fresh-eyes F11): `daily_rate_snapshot`
+  is written only at check-out, the logs are append-only, and no correction RPC
+  exists — so borrows taken before the fleet is priced charge 0 forever, and
+  nothing surfaces "this WP has N unpriced equipment-days". Acceptable while the
+  seeding data-op lands the same day; a snapshot-backfill RPC becomes its own
+  unit if pricing ever lags borrowing again.
 
 - Photo count cap per phase (default: the house uploader's existing limit).
 - NFC tag hardware: operator buys; which sticker size survives site tools.

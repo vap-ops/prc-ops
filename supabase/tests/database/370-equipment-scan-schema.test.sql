@@ -1,5 +1,5 @@
 begin;
-select plan(51);
+select plan(61);
 
 -- ============================================================================
 -- Spec 370 U1 — equipment scan in/out schema.
@@ -62,6 +62,18 @@ insert into public.equipment_items (id, category_id, owner_id, name, daily_rate,
 
 insert into public.workers (id, name, created_by) values
   ('a0a00370-0370-0370-0370-a0a0a0a00370', 'ช่างยืมของ',
+   '11111111-1111-1111-1111-111111110370');
+
+-- A SECOND project the site_admin is NOT a member of — the photo INSERT
+-- policy's F3 membership arm (075863) needs a foreign loan to refuse.
+insert into public.projects (id, code, name) values
+  ('cb0b0370-0370-0370-0370-cb0bcb0b0370', 'PRC-370-P2', 'โครงการอื่น');
+insert into public.work_packages (id, project_id, code, name, status) values
+  ('ec0c0370-0370-0370-0370-ec0cec0c0370', 'cb0b0370-0370-0370-0370-cb0bcb0b0370',
+   'WP-Z', 'งานต่างโครงการ', 'in_progress');
+insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by) values
+  ('17e30370-0370-0370-0370-17e317e30370', 'cae00370-0370-0370-0370-cae0cae00370',
+   '0a0a0370-0370-0370-0370-0a0a0a0a0370', 'เลื่อยต่างโครงการ Z', null,
    '11111111-1111-1111-1111-111111110370');
 
 grant insert on _tap_buf to authenticated;
@@ -129,7 +141,9 @@ select is(has_column_privilege('authenticated', 'public.equipment_usage_logs', '
 select is(has_column_privilege('authenticated', 'public.equipment_usage_logs', 'daily_rate_snapshot', 'SELECT'),
   false, 'daily_rate_snapshot stays money-walled from authenticated');
 
--- Photos are append-only in practice: no UPDATE or DELETE policy exists.
+-- Photos are append-only in practice: no UPDATE or DELETE policy exists —
+-- with the SELECT/INSERT counts as the positive control proving polcmd codes
+-- are the ones we think they are (the absence-assert rule).
 select is(
   (select count(*)::int from pg_policy
     where polrelid = 'public.equipment_usage_photos'::regclass and polcmd = 'w'),
@@ -138,6 +152,25 @@ select is(
   (select count(*)::int from pg_policy
     where polrelid = 'public.equipment_usage_photos'::regclass and polcmd = 'd'),
   0, 'equipment_usage_photos has NO delete policy');
+select is(
+  (select count(*)::int from pg_policy
+    where polrelid = 'public.equipment_usage_photos'::regclass and polcmd = 'r'),
+  1, 'positive control: exactly one SELECT policy');
+select is(
+  (select count(*)::int from pg_policy
+    where polrelid = 'public.equipment_usage_photos'::regclass and polcmd = 'a'),
+  1, 'positive control: exactly one INSERT policy');
+
+-- The GRANT layer matches (the fresh-eyes 🔴: default privileges left ALL —
+-- including RLS-bypassing TRUNCATE — on the new table until 075863 revoked).
+select is(has_table_privilege('authenticated', 'public.equipment_usage_photos', 'UPDATE'),
+  false, 'authenticated holds NO UPDATE grant on photos');
+select is(has_table_privilege('authenticated', 'public.equipment_usage_photos', 'DELETE'),
+  false, 'authenticated holds NO DELETE grant on photos');
+select is(has_table_privilege('authenticated', 'public.equipment_usage_photos', 'TRUNCATE'),
+  false, 'authenticated holds NO TRUNCATE grant on photos (RLS cannot gate it)');
+select is(has_table_privilege('anon', 'public.equipment_usage_photos', 'SELECT'),
+  false, 'anon holds NO grant at all on photos');
 
 set local role authenticated;
 
@@ -269,6 +302,39 @@ select is(
   (select count(*)::int from public.equipment_usage_photos
     where storage_path = 'usage/x/a.jpg'),
   1, 'site_admin reads the photo back (staff SELECT policy)');
+
+-- The supersede trap, both directions (the spec's "trap of the unit"): the
+-- photo sits on the ORIGINAL (superseded) row; the closing row carries none.
+reset role;
+select is(
+  (select count(*)::int from public.equipment_usage_photos p
+     join public.equipment_usage_logs l on l.id = p.log_id
+    where l.item_id='17e00370-0370-0370-0370-17e017e00370'
+      and l.superseded_by is null),
+  1, 'the condition photo hangs off the ORIGINAL row');
+select is(
+  (select count(*)::int from public.equipment_usage_photos p
+     join public.equipment_usage_logs l on l.id = p.log_id
+    where l.item_id='17e00370-0370-0370-0370-17e017e00370'
+      and l.superseded_by is not null),
+  0, 'the CLOSING row carries zero photos — readers must follow the chain');
+
+-- F3 membership arm on the photo policy: open a foreign-project loan, then the
+-- non-member site_admin is refused on ITS log.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110370"}';
+select lives_ok(
+  $$ select public.check_out_equipment('17e30370-0370-0370-0370-17e317e30370',
+       'ec0c0370-0370-0370-0370-ec0cec0c0370', date '2026-07-04') $$,
+  'super opens a loan on the OTHER project');
+set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-222222220370"}';
+select throws_ok(
+  $$ insert into public.equipment_usage_photos (log_id, phase, storage_path, taken_by)
+     values ((select l.id from public.equipment_usage_logs l
+               where l.item_id='17e30370-0370-0370-0370-17e317e30370'
+                 and l.superseded_by is null),
+             'out', 'usage/z/evil.jpg', '22222222-2222-2222-2222-222222220370') $$,
+  '42501', null, 'non-member site_admin cannot attach evidence to a foreign loan (F3 arm)');
 
 set local "request.jwt.claims" = '{"sub": "88888888-8888-8888-8888-888888880370"}';
 select throws_ok(
