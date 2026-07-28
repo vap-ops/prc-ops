@@ -15,6 +15,7 @@ import { photoExtToMime } from "@/lib/photos/path";
 import { diagnoseStorageFailure } from "@/lib/photos/upload-queue";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { INLINE_ERROR } from "@/lib/ui/classes";
+import { trackFriction } from "@/lib/telemetry/friction";
 import { setCatalogItemImage } from "@/app/catalog/actions";
 
 export function CatalogImageControl({
@@ -48,15 +49,31 @@ export function CatalogImageControl({
           upsert: false,
         });
       if (upErr) {
+        // #823 was live for ~2 weeks because this control told nobody. Same signal
+        // the photo pipeline emits (feedback 10a15ebe) and the same PDPA-minimal
+        // payload: a coarse class + a numeric HTTP status when the failure was an
+        // HTTP response — never the file name, the storage path, or the raw error.
+        //
+        // NOT deduped, deliberately, unlike the queue runner's per-item guard: that
+        // one exists because its background loop re-reports the SAME stuck item every
+        // few seconds. Here one event = one deliberate user attempt, so five retries
+        // against a permanent refusal genuinely are five friction events, and the
+        // friction map ranking them highly is the correct outcome.
+        const diag = diagnoseStorageFailure(upErr);
+        trackFriction("upload_fail", {
+          kind: "catalog_image",
+          stage: "storage",
+          reason: diag.reason,
+          ...(diag.status !== undefined ? { status: diag.status } : {}),
+        });
         // A denial is permanent — "ลองใหม่" sends the user into a loop that cannot
         // succeed (2026-07-28: the catalog-images policy had never been widened to
         // procurement_manager, and this one generic string hid it). Reuse the
         // spec-354 storage diagnosis rather than re-rolling the status mapping.
         // "สิทธิ์ไม่พอ" is the house term for a permanent storage denial
         // (upload-queue-runner.tsx) — same condition, same words.
-        const { reason } = diagnoseStorageFailure(upErr);
         setError(
-          reason === "authz"
+          diag.reason === "authz"
             ? "อัปโหลดรูปไม่ได้ — สิทธิ์ไม่พอ"
             : "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่",
         );
@@ -64,6 +81,12 @@ export function CatalogImageControl({
       }
       const result = await setCatalogItemImage({ id: itemId, path });
       if (!result.ok) {
+        // The storage policy is only ONE of this control's two gates — the RPC is
+        // the other, and a refusal there was equally invisible. #823 happened to be
+        // a storage policy; the next one need not be. No `reason`: the action
+        // returns a user-facing Thai string, and putting that in telemetry would
+        // carry content this signal deliberately never carries.
+        trackFriction("upload_fail", { kind: "catalog_image", stage: "insert" });
         setError(result.error);
         return;
       }
