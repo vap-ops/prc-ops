@@ -1,6 +1,6 @@
 // Writing failing test first.
 //
-// Spec 368 U1 — the cost-confirm door. `confirm_worker_cost` (super_admin, sets
+// Spec 369 U1 — the cost-confirm door. `confirm_worker_cost` (super_admin, sets
 // level + derives day_rate from worker_level_rates + stamps cost_confirmed_at) has
 // existed since spec 314 U3 with NO caller anywhere in src/. That is why 0 of 31
 // workers are cost-confirmed, which is why derive_muster_labor skips every worker,
@@ -97,7 +97,7 @@ beforeEach(() => {
   mockRefresh.mockReset();
 });
 
-describe("spec 368 U1 — the cost-confirm door on /workers", () => {
+describe("spec 369 U1 — the cost-confirm door on /workers", () => {
   it("offers the confirm only to super_admin (canGrade), matching the RPC's own gate", () => {
     const { unmount } = render(
       <WorkerRosterManager

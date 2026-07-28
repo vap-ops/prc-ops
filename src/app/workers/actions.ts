@@ -26,7 +26,7 @@ type WorkerType = "own" | "dc";
 // Spec 313 U2b (D4): these toasts fire from /workers, the ช่าง roster — the
 // people-hub term (TEAM_HUB_LABEL) now names only /team.
 const GENERIC_ERROR = "บันทึกช่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-// Spec 368 U1: the confirm is its own action with its own failure — a generic
+// Spec 369 U1: the confirm is its own action with its own failure — a generic
 // "บันทึกช่างไม่สำเร็จ" would read as the edit-sheet save having failed.
 const CONFIRM_COST_ERROR = "ยืนยันค่าแรงไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
@@ -283,7 +283,7 @@ export async function setWorkerLevel(input: {
   return { ok: true };
 }
 
-// Spec 368 U1 / ADR 0082: confirm a worker's COST — one super_admin action that
+// Spec 369 U1 / ADR 0082: confirm a worker's COST — one super_admin action that
 // sets the level, derives day_rate from the level standard, and stamps
 // cost_confirmed_at. Distinct from setWorkerLevel (level only): this one also
 // writes money, and it is the gate derive_muster_labor reads before it will turn a

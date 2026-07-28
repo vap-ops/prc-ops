@@ -63,7 +63,7 @@ import { EMPLOYMENT_TYPE_LABEL, type EmploymentType } from "@/lib/workers/employ
 const ALL = "all";
 
 /**
- * Spec 368 U1 — the GROSS standard day-rate per level (null = no standard set for
+ * Spec 369 U1 — the GROSS standard day-rate per level (null = no standard set for
  * that level). Display-only: the page derives it from worker_level_rates so the
  * operator can see what confirm_worker_cost is about to stamp before pressing.
  */
@@ -114,7 +114,7 @@ export type ManagedWorker = {
   project_id: string | null;
   // Spec 272 U1 / ADR 0060: skill grade (null = ยังไม่ประเมิน; super_admin sets).
   level: WorkerLevel | null;
-  // Spec 368 U1 / ADR 0082: when the cost (level + day_rate) was confirmed. null =
+  // Spec 369 U1 / ADR 0082: when the cost (level + day_rate) was confirmed. null =
   // never — and derive_muster_labor SKIPS a worker with a null here, so an
   // unconfirmed ช่าง generates no labor_logs however many days he is mustered.
   cost_confirmed_at: string | null;
@@ -398,7 +398,7 @@ function WorkerRow({
   // Spec 332: PM_ROLES edit trades (mirrors set_worker_trades); the W0x options.
   canSetTrades?: boolean;
   tradeOptions?: TradeOption[];
-  // Spec 368 U1: standard gross rate per level, for the cost-confirm preview.
+  // Spec 369 U1: standard gross rate per level, for the cost-confirm preview.
   levelRates?: LevelRates;
   // Spec 272 U2: codes of the projects this worker heads (the row badge)…
   htCodes: string[];
@@ -440,7 +440,7 @@ function WorkerRow({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [htBusy, setHtBusy] = useState(false);
-  // Spec 368 U1: the cost-confirm has its own in-flight flag — it is an instant
+  // Spec 369 U1: the cost-confirm has its own in-flight flag — it is an instant
   // action beside บันทึก, so sharing `busy` would disable the save mid-confirm.
   const [confirmBusy, setConfirmBusy] = useState(false);
   const currentProject = projects.find((p) => p.id === worker.project_id) ?? null;
@@ -577,7 +577,7 @@ function WorkerRow({
     }
   }
 
-  // Spec 368 U1: the level this confirm would write — the sheet's pick when the
+  // Spec 369 U1: the level this confirm would write — the sheet's pick when the
   // operator has changed it, otherwise the persisted grade. Reading the PICK (not
   // worker.level) is what lets grade-and-confirm happen in one press.
   const pickedLevel: WorkerLevel | null = level !== "" ? (level as WorkerLevel) : worker.level;
@@ -941,7 +941,7 @@ function WorkerRow({
               </select>
             </label>
           ) : null}
-          {/* Spec 368 U1 — the cost-confirm door. Sits with the grade picker because
+          {/* Spec 369 U1 — the cost-confirm door. Sits with the grade picker because
               it confirms THAT pick; super_admin only, mirroring confirm_worker_cost's
               own gate (offering it wider would be affordance-then-refuse). Until a
               worker is confirmed, derive_muster_labor produces no labor_logs for him
@@ -1116,7 +1116,7 @@ export function WorkerRosterManager({
   // Spec 332: PM_ROLES edit trades; the W01–W09 options the sheet offers.
   canSetTrades?: boolean;
   tradeOptions?: TradeOption[];
-  // Spec 368 U1: gross standard rate per level (the cost-confirm preview).
+  // Spec 369 U1: gross standard rate per level (the cost-confirm preview).
   levelRates?: LevelRates;
 }) {
   const [query, setQuery] = useState("");
