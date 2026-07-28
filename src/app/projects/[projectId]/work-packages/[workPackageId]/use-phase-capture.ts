@@ -60,8 +60,9 @@ export interface PendingUpload {
    *  storage.objects.user_metadata on upload. */
   captureMethod: CaptureMethod;
   /** Feedback 10a15ebe: true when the failure will NOT succeed on plain retry
-   *  (authz/size/pairing) — so the sheet does not falsely promise "will auto-send"
-   *  for a terminal failure, mirroring the queue runner's honest-copy split. */
+   *  (authz/size/pairing, and — field bug 2026-07-28 — a closed after_fix capture
+   *  window) — so the sheet does not falsely promise "will auto-send" for a terminal
+   *  failure, mirroring the queue runner's honest-copy split. */
   terminal?: boolean;
 }
 
@@ -183,8 +184,10 @@ export function usePhaseCapture({
     }
     if (!result.ok) {
       // Feedback 10a15ebe: carry a coarse reason — a thrown invocation is a network
-      // failure to the server action, a pairing rejection is terminal, anything else
-      // is a server-side rejection. PDPA-min: reason class only, never the message.
+      // failure to the server action; a pairing rejection and a closed after_fix
+      // capture window are both terminal (the server refuses every replay); anything
+      // else is a retryable server-side rejection. PDPA-min: reason class only,
+      // never the message.
       const reason = invocationThrew
         ? "network"
         : isPairingRejected(result.error)
