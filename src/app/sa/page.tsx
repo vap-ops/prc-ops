@@ -39,6 +39,7 @@ import { summarizeMuster } from "@/lib/sa/muster";
 import {
   buildSaActionList,
   bounceAnswered,
+  isBounceableStatus,
   type BouncedWp,
   type ReworkInfo,
 } from "@/lib/sa/action-list";
@@ -74,9 +75,7 @@ export default async function SaHomePage() {
   // Spec 372 U3 — a premature bounce sends the WP back to in_progress, so the
   // decision + resubmit reads below must cover BOTH statuses or a sent-back WP
   // arrives with no decision loaded and silently drops out of the ต้องแก้ไข lane.
-  const bounceableWps = wps.filter(
-    (w) => w.status === "pending_approval" || w.status === "in_progress",
-  );
+  const bounceableWps = wps.filter((w) => isBounceableStatus(w.status));
   const reworkWps = wps.filter((w) => w.status === "rework");
 
   // Perf: every read that keys only off wps/projectIds loads in ONE wave — today's

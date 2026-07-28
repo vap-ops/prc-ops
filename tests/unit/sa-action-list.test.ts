@@ -4,7 +4,12 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { buildSaActionList, bounceAnswered, type SaActionItem } from "@/lib/sa/action-list";
+import {
+  buildSaActionList,
+  bounceAnswered,
+  isBounceableStatus,
+  type SaActionItem,
+} from "@/lib/sa/action-list";
 import type { MyWorkWp } from "@/lib/sa/my-work";
 
 const projectsById = new Map([
@@ -236,10 +241,46 @@ describe("/sa surfaces a premature bounce (spec 372 U3)", () => {
     expect(src).not.toContain("answered: dec.id !== undefined && answeredDecisionIds");
   });
 
-  it("builds the bounce lane from a population that can include a sent-back WP", () => {
+  it("builds the bounce lane from the shared predicate, not an inline status list", () => {
+    // Mutation-checked: pinning the SYMBOL alone stayed green when the predicate was
+    // narrowed back to pending-only, because the name survived. The predicate itself
+    // is what must be pinned, so it lives in action-list.ts and is tested over the
+    // whole status domain below.
+    expect(occurrences("isBounceableStatus")).toBe(2);
+  });
+
+  it("OLD-SHAPE GUARD: the page no longer filters the lane to pending_approval alone", () => {
     // `pendingWps` alone excludes in_progress by construction, so the lane must be
     // built from a wider set. Pinning the symbol, not the exact expression, so the
     // page can refactor without this becoming a copy of the implementation.
     expect(occurrences("bounceableWps")).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// The predicate itself, over the WHOLE status domain — so adding a status without
+// deciding whether a bounce can sit in it reds here rather than silently excluding it.
+describe("isBounceableStatus — which statuses can hold a bounce (spec 372 U3)", () => {
+  it("admits exactly pending_approval and in_progress", () => {
+    const ALL = [
+      "not_started",
+      "in_progress",
+      "on_hold",
+      "complete",
+      "pending_approval",
+      "rework",
+    ] as const;
+    expect(ALL.filter(isBounceableStatus).sort()).toEqual(
+      ["in_progress", "pending_approval"].sort(),
+    );
+  });
+
+  it("in_progress is admitted — that is the whole point of U3", () => {
+    // A premature bounce lives here. Excluding it deletes the PM's reason from the
+    // SA's lane, which is the regression this unit exists to prevent.
+    expect(isBounceableStatus("in_progress")).toBe(true);
+  });
+
+  it("rework is NOT a bounce — it has its own lane with the round and defect reason", () => {
+    expect(isBounceableStatus("rework")).toBe(false);
   });
 });

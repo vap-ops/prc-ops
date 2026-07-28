@@ -46,6 +46,22 @@ export interface BouncedWp {
 }
 
 /**
+ * Spec 372 U3 — which statuses can hold a bounce the SA still owes.
+ *
+ * `pending_approval` is where the two PHOTO causes leave the WP. `in_progress` is
+ * where a `premature` bounce sends it: the work is genuinely unfinished, so it goes
+ * back to the site as ordinary active work. `rework` is deliberately excluded — it
+ * has its own lane carrying the round and the defect reason.
+ *
+ * A predicate rather than an inline filter because the inline form could be narrowed
+ * back to pending-only with every source-scan still green (mutation-checked), which
+ * would silently delete the PM's reason from the SA's lane.
+ */
+export function isBounceableStatus(status: string): boolean {
+  return status === "pending_approval" || status === "in_progress";
+}
+
+/**
  * Spec 372 U3 — is a bounced WP still the SA's move?
  *
  * The two PHOTO causes never move the WP: it sits at `pending_approval` the whole
