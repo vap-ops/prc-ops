@@ -155,6 +155,11 @@ are retained in the bucket.
   photos-bucket posture). `catalog_items.image_path text` (inherits the table-level SELECT
   grant — no column-grant trap here). `set_catalog_item_image(id, path) returns void` —
   back-office gate, null clears, unknown id → `22023`, `revoke … from anon`.
+- **Migration `20260813075866` (fix, 2026-07-28):** that INSERT policy shipped with a
+  hardcoded four-role array and was never widened when spec 261 / ADR 0070 added
+  `procurement_manager` to `is_back_office`, so the one person curating the catalog got
+  a Storage 403 behind a generic retry string. The policy now delegates to
+  `is_back_office` — the same SSOT the page gate, the action and the RPC already use.
 - **`CatalogImageControl` ('use client'):** pick a photo → reuse spec-34
   `preparePhotoForUpload` (client downscale) → upload to `catalog-images` at
   `{itemId}/{uuid}.{ext}` via the browser client (the INSERT policy gates it) →

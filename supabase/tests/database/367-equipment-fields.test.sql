@@ -90,11 +90,12 @@ select is(
 -- ============================================================================
 -- F. The upload policy exists and admits the equipment_items INSERT audience.
 --
--- NOT catalog-images' role list: that one names four roles and omits
--- procurement_manager, who CAN create equipment items. Copying it would ship
--- affordance-then-refuse — she creates the row, then the upload 42501s. This
--- asserts the two agree on procurement_manager specifically, which is the one
--- that would silently drift.
+-- NOT copied from catalog-images: that policy shipped a hardcoded four-role list
+-- that omitted procurement_manager, who CAN create equipment items — so it shipped
+-- affordance-then-refuse (she creates the row, then the upload 42501s). She hit it
+-- on the materials side on 2026-07-28; mig 20260813075866 repointed that policy at
+-- is_back_office. This asserts the two agree on procurement_manager specifically,
+-- which is the one that would silently drift.
 -- ============================================================================
 select is(
   (select count(*)::int from pg_policies

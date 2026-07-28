@@ -67,7 +67,7 @@ describe("CatalogImageControl (spec 175 U4)", () => {
     fireEvent.change(screen.getByLabelText("เลือกรูปภาพ"), { target: { files: [imageFile()] } });
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
-    expect(screen.getByRole("alert").textContent).toContain("ไม่มีสิทธิ์");
+    expect(screen.getByRole("alert").textContent).toContain("สิทธิ์ไม่พอ");
     expect(screen.getByRole("alert").textContent).not.toContain("ลองใหม่");
     expect(mockSetImage).not.toHaveBeenCalled();
   });

@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(13);
 
 -- ============================================================================
 -- Spec 175 U4 — catalog item image.
@@ -37,19 +37,18 @@ select ok(
 -- is_back_office — so the /catalog page, the setCatalogItemImage action and the
 -- set_catalog_item_image RPC all admitted her while Storage 403'd the bytes.
 -- Pin the DELEGATION (no re-hardcoding a list that can drift again) …
+-- … AND the bucket scope in the same breath: pinning the delegation alone would
+-- stay green if the bucket_id conjunct were dropped, which would hand the back
+-- office INSERT into every bucket. (The exact positive SET of is_back_office is
+-- pinned once, over the whole enum, in 231-sql-role-predicates.test.sql — one
+-- hardcoded role list, not two.)
 select ok(
-  (select pg_get_expr(polwithcheck, polrelid) from pg_policy
-     where polrelid='storage.objects'::regclass
-       and polname='catalog-images uploads by back-office') like '%is_back_office%',
-  'the catalog-images INSERT policy delegates to is_back_office (not a hardcoded role list)');
--- … and the exact positive set of that one SSOT, over the COMPLETE enum, so a new
--- user_role value cannot silently join or miss the back office.
-select is(
-  (select array_agg(r::text order by r::text)
-     from unnest(enum_range(null::public.user_role)) r
-    where public.is_back_office(r)),
-  array['procurement', 'procurement_manager', 'project_director', 'project_manager', 'super_admin'],
-  'is_back_office admits exactly the 5 back-office roles across the whole user_role enum');
+  (select pg_get_expr(polwithcheck, polrelid) like '%is_back_office%'
+      and pg_get_expr(polwithcheck, polrelid) like '%catalog-images%'
+     from pg_policy
+    where polrelid='storage.objects'::regclass
+      and polname='catalog-images uploads by back-office'),
+  'the policy delegates to is_back_office AND stays scoped to the catalog-images bucket');
 select has_column('public', 'catalog_items', 'image_path', 'catalog_items.image_path exists');
 select ok(
   to_regprocedure('public.set_catalog_item_image(uuid, text)') is not null,

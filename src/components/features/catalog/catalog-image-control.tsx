@@ -52,10 +52,12 @@ export function CatalogImageControl({
         // succeed (2026-07-28: the catalog-images policy had never been widened to
         // procurement_manager, and this one generic string hid it). Reuse the
         // spec-354 storage diagnosis rather than re-rolling the status mapping.
+        // "สิทธิ์ไม่พอ" is the house term for a permanent storage denial
+        // (upload-queue-runner.tsx) — same condition, same words.
         const { reason } = diagnoseStorageFailure(upErr);
         setError(
           reason === "authz"
-            ? "บัญชีนี้ไม่มีสิทธิ์อัปโหลดรูปวัสดุ"
+            ? "อัปโหลดรูปไม่ได้ — สิทธิ์ไม่พอ"
             : "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่",
         );
         return;

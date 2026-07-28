@@ -266,12 +266,13 @@ INSERT policy admits five). Copying the four verbatim would ship
 affordance-then-refuse: she creates the item, then the upload 42501s — the exact
 middle-layer mismatch the doctrine's three-layer rule names. The equipment bucket
 therefore takes the **`equipment_items` INSERT role set**, and a pgTAP case pins
-that the two agree. (Also: `catalog-images`' predicate calls `current_user_role()`
-unwrapped, so it re-evaluates per row — the new policy wraps it.)
+that the two agree.
 
-ⓘ Recorded, not fixed here: `catalog-images` itself is missing
-`procurement_manager` — the same latent bug on the _materials_ side. Out of scope;
-logged in §10 rather than silently widened.
+ⓘ Recorded here, FIXED 2026-07-28 outside this spec: `catalog-images` was missing
+`procurement_manager` — the same latent bug on the _materials_ side — and she hit
+it in the field. Migration `20260813075866` repointed that policy at
+`is_back_office` (and wrapped `current_user_role()` in a `select`, which it did not
+do before), so the four-vs-five mismatch this section warns about no longer exists.
 
 ---
 
@@ -421,11 +422,11 @@ new columns, so the real order is **U0 → U1 → U2 → U3 → U4 → U5**.
    but §3's whole premise is that these get filled, so the follow-up unit (a
    DEFINER RPC accepting cost + acquired-on, mirroring `set_equipment_daily_rate`)
    is **required before the PRI schedule can be produced**, not optional.
-5. **`catalog-images` is missing `procurement_manager`** (§4.3) — she can curate the
-   materials catalog but the bucket's INSERT policy names only four roles, so an
-   image upload from her would 42501. Found while mirroring the policy for
-   equipment; **not** fixed here (materials side, out of this spec's scope). Worth
-   its own one-line unit — confirm before someone hits it.
+5. ~~**`catalog-images` is missing `procurement_manager`**~~ (§4.3) — **CLOSED
+   2026-07-28.** The prediction held: she hit it in the field before the follow-up
+   unit was written (the sheet showed only `อัปโหลดรูปไม่สำเร็จ`, so it had been
+   silent). Migration `20260813075866` repointed the policy at `is_back_office`;
+   pgTAP 122 now pins the delegation + the behaviour instead of the policy's name.
 6. **Spec 361 U1 scope** — confirm the §2.1 narrowing (external rentals only)
    before that unit is built, so the two item sources are designed together.
 
