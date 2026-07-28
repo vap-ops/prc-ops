@@ -45,6 +45,52 @@ export interface BouncedWp {
   answered: boolean;
 }
 
+/**
+ * Spec 372 U3 — which statuses can hold a bounce the SA still owes.
+ *
+ * `pending_approval` is where the two PHOTO causes leave the WP. `in_progress` is
+ * where a `premature` bounce sends it: the work is genuinely unfinished, so it goes
+ * back to the site as ordinary active work. `rework` is deliberately excluded — it
+ * has its own lane carrying the round and the defect reason.
+ *
+ * A predicate rather than an inline filter because the inline form could be narrowed
+ * back to pending-only with every source-scan still green (mutation-checked), which
+ * would silently delete the PM's reason from the SA's lane.
+ */
+export function isBounceableStatus(status: string): boolean {
+  return status === "pending_approval" || status === "in_progress";
+}
+
+/**
+ * Spec 372 U3 — is a bounced WP still the SA's move?
+ *
+ * The two PHOTO causes never move the WP: it sits at `pending_approval` the whole
+ * time, so only a `wp_evidence_resubmitted` audit row can say the SA acted. That is
+ * the `hasResubmitAudit` rule, unchanged.
+ *
+ * `premature` is different in both directions. The WP LEAVES the queue for
+ * `in_progress`, and the SA closes the loop with the ordinary ส่งงานเข้าตรวจ submit —
+ * which writes no resubmit audit row at all. Keying it on the audit row would pin it
+ * to the SA's list forever; keying it on the STATUS is exact: unfinished work sits at
+ * `in_progress`, and the moment it is back at `pending_approval` the ball is with the
+ * PM again.
+ *
+ * Without this the premature bounce would simply vanish from the ต้องแก้ไข lane along
+ * with the PM's reason, and the SA would see an ordinary in-progress WP with no idea
+ * it had come back.
+ */
+export function bounceAnswered(input: {
+  decision: "needs_revision" | "rejected";
+  revisionReason: ApprovalRevisionReason | null;
+  status: string;
+  hasResubmitAudit: boolean;
+}): boolean {
+  if (input.decision === "needs_revision" && input.revisionReason === "premature") {
+    return input.status === "pending_approval";
+  }
+  return input.hasResubmitAudit;
+}
+
 export interface ReworkInfo {
   reason: string | null;
   source: ReworkSource | null;

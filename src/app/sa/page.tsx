@@ -36,7 +36,13 @@ import { WpCategoryCode } from "@/components/features/work-packages/wp-category-
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokHour, bangkokTodayIso } from "@/lib/dates";
 import { summarizeMuster } from "@/lib/sa/muster";
-import { buildSaActionList, type BouncedWp, type ReworkInfo } from "@/lib/sa/action-list";
+import {
+  buildSaActionList,
+  bounceAnswered,
+  isBounceableStatus,
+  type BouncedWp,
+  type ReworkInfo,
+} from "@/lib/sa/action-list";
 import { buildTodayWorklist } from "@/lib/sa/today-worklist";
 import { getLatestDecisionsForWorkPackages } from "@/lib/approvals/latest-decision";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
@@ -66,7 +72,10 @@ export default async function SaHomePage() {
   const wps = wpRows ?? [];
 
   const projectIds = Array.from(new Set(wps.map((w) => w.project_id)));
-  const pendingWps = wps.filter((w) => w.status === "pending_approval");
+  // Spec 372 U3 — a premature bounce sends the WP back to in_progress, so the
+  // decision + resubmit reads below must cover BOTH statuses or a sent-back WP
+  // arrives with no decision loaded and silently drops out of the ต้องแก้ไข lane.
+  const bounceableWps = wps.filter((w) => isBounceableStatus(w.status));
   const reworkWps = wps.filter((w) => w.status === "rework");
 
   // Perf: every read that keys only off wps/projectIds loads in ONE wave — today's
@@ -104,11 +113,11 @@ export default async function SaHomePage() {
       : Promise.resolve({ data: null }),
     // /sa/registrations is a site_admin surface; super_admin uses /registrations.
     ctx.role === "site_admin" ? listVisibleTechnicianRegistrations(supabase) : Promise.resolve([]),
-    // pending_approval WPs whose LATEST decision is negative = the PM bounced them
-    // back to the SA (spec 218). The helper returns an empty Map for an empty id set.
+    // WPs whose LATEST decision is negative = the PM bounced them back to the SA
+    // (spec 218). The helper returns an empty Map for an empty id set.
     getLatestDecisionsForWorkPackages(
       supabase,
-      pendingWps.map((w) => w.id),
+      bounceableWps.map((w) => w.id),
     ),
     // rework WPs: the latest reopen audit row carries the current reason + source
     // (spec 216/217), newest first.
@@ -127,14 +136,14 @@ export default async function SaHomePage() {
     // Those are waiting on the DECIDER, so they drop off the SA's ต้องแก้ไข list
     // even though the WP is still pending_approval. Readable by site_admin
     // because …075828 named this event in their audit_log allowlist.
-    pendingWps.length
+    bounceableWps.length
       ? supabase
           .from("audit_log")
           .select("payload")
           .eq("target_table", "work_packages")
           .in(
             "target_id",
-            pendingWps.map((w) => w.id),
+            bounceableWps.map((w) => w.id),
           )
           .eq("payload->>event", "wp_evidence_resubmitted")
       : Promise.resolve({ data: null }),
@@ -189,7 +198,7 @@ export default async function SaHomePage() {
       .map((r) => (r.payload as { answers_decision_id?: string } | null)?.answers_decision_id)
       .filter((id): id is string => typeof id === "string"),
   );
-  const bounced: BouncedWp[] = pendingWps.flatMap((w) => {
+  const bounced: BouncedWp[] = bounceableWps.flatMap((w) => {
     const dec = latestDecisions.get(w.id);
     if (dec?.decision === "needs_revision" || dec?.decision === "rejected") {
       return [
@@ -199,8 +208,15 @@ export default async function SaHomePage() {
           comment: dec.comment,
           // Spec 355 — why the photos came back; drives the row chip + CTA.
           revisionReason: dec.revision_reason ?? null,
-          // Answered → the ball is with the decider; the item leaves this list.
-          answered: dec.id !== undefined && answeredDecisionIds.has(dec.id),
+          // Answered → the ball is with the decider; the item leaves this list. The
+          // rule differs per cause (a premature bounce writes no resubmit audit row
+          // at all), so it has one home in action-list.ts.
+          answered: bounceAnswered({
+            decision: dec.decision,
+            revisionReason: dec.revision_reason ?? null,
+            status: w.status,
+            hasResubmitAudit: dec.id !== undefined && answeredDecisionIds.has(dec.id),
+          }),
         },
       ];
     }
