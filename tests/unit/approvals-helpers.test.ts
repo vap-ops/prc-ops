@@ -15,6 +15,8 @@ import {
   DECISION_CAUSES,
   decisionPayloadForCause,
   revisionReasonRequiredFor,
+  FLAGGABLE_PHASES,
+  targetsForCause,
 } from "@/lib/approvals/predicates";
 
 function row(partial: Partial<ApprovalRow> & Pick<ApprovalRow, "id" | "decided_at">): ApprovalRow {
@@ -183,6 +185,43 @@ describe("decisionPayloadForCause (spec 372 U2)", () => {
     for (const cause of DECISION_CAUSES) {
       const { decision } = decisionPayloadForCause(cause);
       expect(commentRequiredFor(decision)).toBe(cause === "rework");
+    }
+  });
+});
+
+// Spec 372 U4a — `incomplete` points at ABSENCE, so the PM ticks WHICH lifecycle
+// phases are missing. Only those three can be flagged: after_fix and defect are not a
+// normal cycle's completion evidence, so "this phase is missing" is meaningless for
+// them, and the RPC raises 22023 if one is sent.
+describe("FLAGGABLE_PHASES (spec 372 U4a)", () => {
+  it("is exactly the three lifecycle phases, in capture order", () => {
+    expect([...FLAGGABLE_PHASES]).toEqual(["before", "during", "after"]);
+  });
+
+  it("excludes the two the RPC refuses", () => {
+    expect(FLAGGABLE_PHASES).not.toContain("after_fix");
+    expect(FLAGGABLE_PHASES).not.toContain("defect");
+  });
+});
+
+// The payload the form sends. Targets ride only on the cause that can carry them, so
+// the client never offers the RPC a combination it will refuse (22023).
+describe("targetsForCause (spec 372 U4a)", () => {
+  it("sends ticked phases only for the incomplete cause", () => {
+    expect(targetsForCause("incomplete", ["before", "after"])).toEqual({
+      targetPhases: ["before", "after"],
+    });
+  });
+
+  it("sends nothing when incomplete is chosen but nothing is ticked", () => {
+    // Optional by design: a PM who cannot say which phase is missing still gets to
+    // bounce the photos. An empty array would be a claim that NOTHING is missing.
+    expect(targetsForCause("incomplete", [])).toEqual({ targetPhases: null });
+  });
+
+  it("never sends phases for a cause the RPC refuses them on", () => {
+    for (const cause of ["mismatch", "premature", "rework"] as const) {
+      expect(targetsForCause(cause, ["before"])).toEqual({ targetPhases: null });
     }
   });
 });

@@ -51,6 +51,7 @@ import {
 } from "@/lib/i18n/labels";
 import { AttentionCard } from "@/components/features/common/attention-card";
 import { bounceAnswered } from "@/lib/sa/action-list";
+import { FLAGGABLE_PHASES, type FlaggablePhase } from "@/lib/approvals/predicates";
 import { RevisionReasonGuidance } from "@/components/features/work-packages/revision-reason-guidance";
 import { CountChip } from "@/components/features/common/count-chip";
 import { PhaseProgressBar } from "@/components/features/work-packages/phase-progress-bar";
@@ -417,6 +418,26 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           hasResubmitAudit: answeredDecisionIds.has(attention.id),
         })
       : false;
+
+  // Spec 372 U4a — WHICH lifecycle phases the PM said are missing. Scoped to THIS
+  // decision (`attention.id`), never the whole work package: a flag belongs to one
+  // bounce, and reading them all would show phases from an older bounce the SA has
+  // already answered. Read under the caller's RLS — the targets table mirrors the
+  // approvals read policy one join away.
+  const { data: targetRows } = attention
+    ? await supabase
+        .from("approval_revision_targets")
+        .select("phase")
+        .eq("approval_id", attention.id)
+        .not("phase", "is", null)
+    : { data: null };
+  const flaggedPhases = (targetRows ?? [])
+    .map((r) => r.phase)
+    // The column is the WIDE photo_phase enum; only the three lifecycle values are
+    // flaggable, so narrow here rather than trusting the write path alone.
+    .filter((ph): ph is FlaggablePhase =>
+      ph !== null ? (FLAGGABLE_PHASES as ReadonlyArray<string>).includes(ph) : false,
+    );
 
   const predSet = new Set(predecessorIds);
   const predecessorOptions = siblingWps.filter((w) => predSet.has(w.id));
@@ -1135,6 +1156,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                 <RevisionReasonGuidance
                   reason={attention.revision_reason}
                   showCta={!readOnly && !attentionAnswered}
+                  flaggedPhases={flaggedPhases}
                 />
               ) : !readOnly ? (
                 /* Spec 353: name the evidence phase the SA must re-shoot instead of a

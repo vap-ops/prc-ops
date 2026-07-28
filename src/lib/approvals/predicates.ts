@@ -74,6 +74,33 @@ export function decisionPayloadForCause(cause: DecisionCause): DecisionPayload {
   return { decision: "needs_revision", revisionReason: cause };
 }
 
+/**
+ * Spec 372 U4a — which phases the PM may flag as missing.
+ *
+ * `incomplete` points at ABSENCE, and only a phase can carry that: you cannot tap a
+ * photo that was never taken. Exactly the three lifecycle phases, in capture order —
+ * `after_fix` and `defect` are not a normal cycle's completion evidence, so "this
+ * phase is missing" is meaningless for them and `decide_work_package` raises 22023.
+ */
+export const FLAGGABLE_PHASES = ["before", "during", "after"] as const;
+export type FlaggablePhase = (typeof FLAGGABLE_PHASES)[number];
+
+/**
+ * What the form sends as targets. Keyed on the cause, so the client never offers the
+ * RPC a combination it will refuse: phases ride ONLY on `incomplete`.
+ *
+ * An empty tick-list sends `null`, not `[]` — a PM who cannot say which phase is
+ * missing still gets to bounce the photos, and an empty array would be a positive
+ * claim that nothing is missing.
+ */
+export function targetsForCause(
+  cause: DecisionCause,
+  phases: ReadonlyArray<FlaggablePhase>,
+): { targetPhases: FlaggablePhase[] | null } {
+  if (cause !== "incomplete" || phases.length === 0) return { targetPhases: null };
+  return { targetPhases: [...phases] };
+}
+
 export function isCommentValid(decision: ApprovalDecision, comment: string | null): boolean {
   if (!commentRequiredFor(decision)) return true;
   if (comment === null) return false;

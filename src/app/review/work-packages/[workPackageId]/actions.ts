@@ -26,10 +26,12 @@ import { revalidatePath } from "next/cache";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import {
   APPROVAL_DECISIONS,
+  FLAGGABLE_PHASES,
   isCommentValid,
   NOT_PENDING_REVIEW_ERROR,
   revisionReasonRequiredFor,
   type ApprovalDecision,
+  type FlaggablePhase,
 } from "@/lib/approvals/predicates";
 import type { ApprovalRevisionReason } from "@/lib/db/enums";
 import { canHold, canRelease } from "@/lib/work-packages/hold";
@@ -46,6 +48,10 @@ export interface RecordDecisionInput {
   workPackageId: string;
   decision: ApprovalDecision;
   comment?: string | null;
+  /** Spec 372 U4a — which lifecycle phases the PM says are missing. Only meaningful
+   *  for reason=incomplete; the RPC raises 22023 anywhere else, so the check below
+   *  mirrors that and refuses before the round trip. */
+  targetPhases?: ReadonlyArray<FlaggablePhase> | null;
   /** Spec 355 — required for needs_revision (reject-evidence), forbidden otherwise. */
   revisionReason?: ApprovalRevisionReason | null;
 }
@@ -71,6 +77,18 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
   }
   if (!revisionReasonRequiredFor(input.decision) && revisionReason !== null) {
     return { ok: false, error: "ผลการตรวจนี้ไม่ต้องระบุเหตุผล" };
+  }
+
+  // Spec 372 U4a — mirror the RPC target rules so the error surface stays clean, the
+  // same way the reason rules above already do.
+  const targetPhases = input.targetPhases ?? null;
+  if (targetPhases !== null) {
+    if (revisionReason !== "incomplete") {
+      return { ok: false, error: "ระบุช่วงงานที่ขาดได้เฉพาะเหตุผลรูปไม่ครบ" };
+    }
+    if (targetPhases.some((ph) => !FLAGGABLE_PHASES.includes(ph))) {
+      return { ok: false, error: "ช่วงงานไม่ถูกต้อง" };
+    }
   }
 
   const auth = await getActionUser();
@@ -121,6 +139,11 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     p_decision: input.decision,
     ...(normalisedComment !== null ? { p_comment: normalisedComment } : {}),
     ...(revisionReason !== null ? { p_revision_reason: revisionReason } : {}),
+    // Omitted entirely when nothing was ticked, so the RPC takes its default rather
+    // than being handed an empty array — which would read as "nothing is missing".
+    ...(targetPhases !== null && targetPhases.length > 0
+      ? { p_target_phases: [...targetPhases] }
+      : {}),
   });
   if (rpcError) {
     // 22023 = the RPC's status guard (a colleague decided first) or the

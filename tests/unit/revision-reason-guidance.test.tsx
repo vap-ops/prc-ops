@@ -99,3 +99,56 @@ describe("WP-detail page wiring (spec 355 U3)", () => {
     expect(src).toContain('wp.rework_round > 0 ? "ถ่ายรูปหลังแก้ไขใหม่" : "ถ่ายรูปหลังทำงานใหม่"');
   });
 });
+
+// Spec 372 U4a — the PM ticks WHICH lifecycle phases are missing, and this is where
+// the SA reads it. Without this the flag is written and never surfaced: a signal the
+// PM spends effort on and nobody sees.
+describe("RevisionReasonGuidance — the flagged phases (spec 372 U4a)", () => {
+  it("names the phases the PM flagged, in capture order", () => {
+    render(
+      <RevisionReasonGuidance reason="incomplete" showCta flaggedPhases={["after", "before"]} />,
+    );
+    // Capture order, not the order the PM happened to tick them in.
+    expect(screen.getByText(/เตรียมงาน · แล้วเสร็จ/)).toBeInTheDocument();
+  });
+
+  it("says nothing extra when the PM did not flag any — the tick list is optional", () => {
+    const { container } = render(
+      <RevisionReasonGuidance reason="incomplete" showCta flaggedPhases={[]} />,
+    );
+    expect(container.textContent).not.toContain("ช่วงที่ยังขาด");
+  });
+
+  it("keeps naming them for a read-only viewer — the CTA goes, the fact stays", () => {
+    render(
+      <RevisionReasonGuidance reason="incomplete" showCta={false} flaggedPhases={["during"]} />,
+    );
+    expect(screen.getByText(/ระหว่างทำ/)).toBeInTheDocument();
+  });
+});
+
+// The WIRING half. The WP detail is a Server Component vitest cannot render, so the
+// rule is tested above and the page's use of it is pinned here by source scan
+// (comments stripped first). Without this the component would render a prop the page
+// never supplies — a flag the PM sets and the SA never sees.
+describe("WP detail supplies the flagged phases (spec 372 U4a)", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/app/projects/[projectId]/work-packages/[workPackageId]/page.tsx"),
+    "utf8",
+  )
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+
+  it("reads the targets for the decision on the card", () => {
+    expect(src.split("approval_revision_targets").length - 1).toBeGreaterThanOrEqual(1);
+    expect(src).toContain("flaggedPhases={");
+  });
+
+  it("scopes the read to the decision being shown, not the whole work package", () => {
+    // A flag belongs to ONE decision. Reading them all would show phases from an
+    // older bounce the SA has already answered.
+    const call = src.slice(src.indexOf("approval_revision_targets"));
+    expect(call.slice(0, 400)).toContain("attention.id");
+  });
+});
