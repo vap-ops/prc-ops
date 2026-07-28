@@ -22,7 +22,11 @@ import { createClient as createBrowserSupabase } from "@/lib/db/browser";
 import { captureMethodMetadata } from "@/lib/photos/capture-method";
 import { photoExtToMime, type PhotoExt, buildPhotoStoragePath } from "@/lib/photos/path";
 import { preparePhotoForUpload } from "@/lib/photos/downscale";
-import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
+import {
+  classifyStorageUploadError,
+  diagnoseStorageFailure,
+  TERMINAL_UPLOAD_COPY,
+} from "@/lib/photos/upload-queue";
 import { addPhoto } from "./actions";
 
 const PHOTOS_BUCKET = "photos";
@@ -39,6 +43,10 @@ export interface DefectPendingPhoto {
   lastModifiedMs: number;
   ext: PhotoExt;
   storagePath: string;
+  /** True when the byte upload was REFUSED, not merely interrupted (a 403/RLS
+   *  denial or a 413) — every replay meets the same refusal, so the tile shows
+   *  the reason and ลบ instead of a retry that cannot succeed. */
+  terminal?: boolean;
 }
 
 export function useDefectPhotos({
@@ -86,13 +94,29 @@ export function useDefectPhotos({
     // is uuid-keyed so the object is provably ours (same rule as every other
     // uploader — classifyStorageUploadError).
     if (error && !classifyStorageUploadError(error).alreadyExists) {
+      // Third surface of the 2026-07-28 honest-copy class (#823, #826), and the
+      // one that TRAPS: this form is online-only (no queue behind it), an
+      // upload-error photo blocks the submit via anyInFlight, and the tile used
+      // to render ลองใหม่ in the branch that would otherwise hold ลบ — so a
+      // permanent refusal left the SA no way out of the whole defect report.
+      // ⚠️ `reason: "authz"` also covers 401 (a stale JWT the client refreshes),
+      // which IS retryable — only a 403/statusless denial is permanent.
+      const diag = diagnoseStorageFailure(error);
+      const denied = diag.reason === "authz" && diag.status !== 401;
+      const terminal = denied || diag.reason === "size";
       patch(photo.id, {
         status: "upload-error",
-        errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+        errorMessage: !terminal
+          ? "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+          : denied
+            ? TERMINAL_UPLOAD_COPY.authz
+            : // Picker surface — no shutter on this form.
+              TERMINAL_UPLOAD_COPY.sizePicker,
+        terminal,
       });
       return;
     }
-    patch(photo.id, { status: "ready", errorMessage: null });
+    patch(photo.id, { status: "ready", errorMessage: null, terminal: false });
   }
 
   async function insertOne(photo: DefectPendingPhoto): Promise<boolean> {
@@ -159,6 +183,8 @@ export function useDefectPhotos({
     const photo = photos.find((p) => p.id === id);
     if (!photo) return;
     if (photo.status === "upload-error") {
+      // No `terminal` reset needed — uploadOne writes it on both of its exits,
+      // and a terminal photo never offers retry in the first place.
       patch(id, { status: "uploading", errorMessage: null });
       await uploadOne(photo);
     } else if (photo.status === "insert-error") {

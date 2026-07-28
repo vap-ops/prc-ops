@@ -296,7 +296,12 @@ export function isAuthzDenied(message: string | null | undefined): boolean {
 // here, beside the other house terms, so the engine and its tests share one SSOT.
 export const TERMINAL_UPLOAD_COPY = {
   authz: "สิทธิ์ไม่พอ — ส่งรูปนี้ไม่ได้",
+  /** Camera surfaces (the capture sheet's shutter) — re-shooting is the way out. */
   size: "ไฟล์ใหญ่เกินไป — ถ่ายใหม่",
+  /** Picker surfaces (the defect form is a plain `<input type=file>` with no
+   *  `capture`, which is why its uploads record captureMethod "picker") — telling
+   *  that user to re-SHOOT names an affordance the screen does not have. */
+  sizePicker: "ไฟล์ใหญ่เกินไป — เลือกรูปใหม่",
   pairing: "จับคู่ไม่ได้แล้ว — ถ่ายใหม่",
   afterFixClosed: "งานยังไม่ได้เปิดแก้ไข",
 } as const;
