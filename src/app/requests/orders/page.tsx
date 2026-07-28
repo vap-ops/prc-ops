@@ -16,7 +16,7 @@ import { StatusPill } from "@/components/features/common/status-pill";
 import { requireRole } from "@/lib/auth/require-role";
 import { PO_DETAIL_VIEW_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { formatThaiDate, waitingDaysChip } from "@/lib/i18n/labels";
 import { PURCHASE_ORDER_STATUS_LABEL } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { CARD, FIELD_INPUT, FIELD_SELECT, BUTTON_PRIMARY } from "@/lib/ui/classes";
@@ -166,7 +166,7 @@ export default async function PurchaseOrdersPage({ searchParams }: OrdersPagePro
                       <p className="text-ink-muted text-xs">
                         {r.projectLabel} · {r.lineCount} รายการ
                         {r.orderedAt ? ` · สั่งซื้อ ${formatThaiDate(r.orderedAt)}` : ""}
-                        {r.agingDays !== null ? ` · รอมาแล้ว ${r.agingDays} วัน` : ""}
+                        {r.agingDays !== null ? ` · ${waitingDaysChip(r.agingDays)}` : ""}
                       </p>
                     </div>
                     <p className="text-ink shrink-0 text-sm font-bold tabular-nums">

@@ -32,24 +32,10 @@ export const RESUBMIT_DONE_NOTE = "ส่งตรวจอีกครั้ง
 export const REVIEW_AWAITING_PHOTOS_LABEL = "รอถ่ายเพิ่ม";
 export const REVIEW_READY_AGAIN_LABEL = "พร้อมตรวจอีกครั้ง";
 
-/** The queue row's label. `answered` = a resubmit exists for this decision. */
-export function reviewQueueLabel(
-  decision: string | null,
-  answered: boolean,
-  fallback: (d: string | null) => string,
-): string {
-  if (decision !== "needs_revision") return fallback(decision);
-  return answered ? REVIEW_READY_AGAIN_LABEL : REVIEW_AWAITING_PHOTOS_LABEL;
-}
-
-/**
- * Sort rank: answered bounces first (the decider can act on them NOW), then
- * everything else in the queue's existing oldest-first order. Never re-orders
- * within a rank, so spec 15's updated_at ordering survives underneath.
- */
-export function reviewQueueRank(decision: string | null, answered: boolean): number {
-  return decision === "needs_revision" && answered ? 0 : 1;
-}
+// Spec 371 U1 retired `reviewQueueLabel` / `reviewQueueRank`. Both existed to
+// mark and lift these two states inside ONE flat list; the queue is now split
+// into zones by `@/lib/approvals/review-queue`, so the ranking is the partition
+// itself and the labels above are the zone headings rather than row pills.
 
 export type ResubmitDecision = {
   /** Required on purpose: this joins to the resubmit audit row's
