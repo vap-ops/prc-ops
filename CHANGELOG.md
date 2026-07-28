@@ -1,3 +1,9 @@
+## [0.256.1](https://github.com/vap-ops/prc-ops/compare/v0.256.0...v0.256.1) (2026-07-28)
+
+### Bug Fixes
+
+- **store:** hoist the scan door above the stock list (field report: SA cannot find it) ([fef8751](https://github.com/vap-ops/prc-ops/commit/fef875166fa79b5f4262a607f77e52d84ecaf686)), closes [#746](https://github.com/vap-ops/prc-ops/issues/746)
+
 # [0.256.0](https://github.com/vap-ops/prc-ops/compare/v0.255.0...v0.256.0) (2026-07-28)
 
 ### Features
