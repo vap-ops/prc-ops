@@ -44,6 +44,9 @@ const STATIC_DETAIL = [
   "equipment",
   // Spec 268: the rental recorder drills down from /equipment (back chip → /equipment).
   "equipment/rentals",
+  // Spec 370 U2: the scan door — reached from /equipment, the store section,
+  // and QR/NFC deep links; back chip resolves ?from, else /equipment.
+  "equipment/scan",
   // Spec 175: the item catalog drills down from /settings (back chip).
   "catalog",
   // Spec 219 U2: the subcategory manage screen drills down from /catalog.
@@ -375,6 +378,8 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     "catalog/units/page.tsx",
     "equipment/page.tsx",
     "equipment/rentals/page.tsx",
+    // Spec 370 U2: scan door — store section + /equipment + stickers all lead here.
+    "equipment/scan/page.tsx",
     "contacts/vendors/page.tsx",
     "sa/registrations/page.tsx",
     // 2026-07-27: MULTI-PARENT since the /team hub gained its own badged door here.

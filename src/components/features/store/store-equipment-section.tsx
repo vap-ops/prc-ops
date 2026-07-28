@@ -71,6 +71,16 @@ export function StoreEquipmentSection({
           {counts.inStore} ในคลัง · {counts.out} ยืมออก
         </p>
       </div>
+      {canReturn ? (
+        // Spec 370 U4 — the scan door (D1: scan is the primary way in/out).
+        // Same audience as คืน; the deep link itself works from anywhere.
+        <Link
+          href={`/equipment/scan?from=${encodeURIComponent(`/projects/${projectId}/store`)}`}
+          className="border-edge-strong rounded-control text-ink mt-2 flex min-h-11 items-center justify-center border text-sm font-medium"
+        >
+          สแกนยืม/คืนอุปกรณ์
+        </Link>
+      ) : null}
       <p className="text-ink-secondary mt-1 text-xs">
         อุปกรณ์ที่บันทึกว่าอยู่ที่โครงการนี้ — แยกจากวัสดุในคลัง ย้ายอุปกรณ์ได้ที่หน้าอุปกรณ์
       </p>
