@@ -337,16 +337,17 @@ function PendingThumb({ upload, onRetry }: { upload: PendingUpload; onRetry: () 
             queue runner, which already says สิทธิ์ไม่พอ + names the way out. Until
             this fix the tile showed a bare "ลองใหม่" for BOTH classes and never
             rendered errorMessage at all (#823's sibling, 2026-07-28). */}
-        {isError && upload.terminal && upload.errorMessage && (
-          // Clamped: an insert-stage terminal message (pairing / closed after-fix
-          // window) is a full sentence and the tile is 80px. The queue runner is
-          // the full-detail surface; here the SA needs "not this one, and not by
-          // tapping". title= carries the whole string for a long-press/hover.
+        {isError && upload.terminal && (
+          // The engine keeps terminal copy SHORT for this 80px box (there is no
+          // hover or long-press tooltip on a gloved hand, so a clipped message
+          // would simply be lost). role=alert so a screen reader gets the one
+          // failure class that has no button left to find; a backplate so red text
+          // stays legible over the photo in daylight.
           <span
-            title={upload.errorMessage}
-            className="text-danger line-clamp-3 text-[10px] leading-tight font-semibold break-words"
+            role="alert"
+            className="bg-card/90 text-danger rounded px-1 py-0.5 text-center leading-tight font-semibold break-words"
           >
-            {upload.errorMessage}
+            {upload.errorMessage ?? "ส่งรูปนี้ไม่ได้"}
           </span>
         )}
         {isError && !upload.terminal && (

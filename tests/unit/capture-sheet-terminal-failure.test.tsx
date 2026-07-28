@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // not contradict it.
 
 import type { PendingUpload } from "@/app/projects/[projectId]/work-packages/[workPackageId]/use-phase-capture";
+import { TERMINAL_UPLOAD_COPY } from "@/lib/photos/upload-queue";
 
 const { usePhaseCaptureMock, retryMock } = vi.hoisted(() => ({
   usePhaseCaptureMock: vi.fn(),
@@ -80,25 +81,67 @@ function renderSheet() {
 afterEach(() => vi.clearAllMocks());
 
 describe("CaptureSheet — a terminal upload failure (sibling of #823)", () => {
-  it("shows the reason and offers NO retry when the failure is terminal", () => {
-    mockCapture([
-      pendingItem({ status: "upload-error", terminal: true, errorMessage: "สิทธิ์ไม่พอ" }),
-    ]);
-    renderSheet();
-
-    expect(screen.getByText("สิทธิ์ไม่พอ")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "ลองใหม่" })).not.toBeInTheDocument();
-  });
-
-  it("still offers ลองใหม่ for a retryable failure", () => {
+  // The REAL strings the engine writes — a test that invents its own copy proves
+  // nothing about what the SA sees.
+  it("shows the storage-denial reason and offers NO retry", () => {
     mockCapture([
       pendingItem({
         status: "upload-error",
+        terminal: true,
+        errorMessage: TERMINAL_UPLOAD_COPY.authz,
+      }),
+    ]);
+    renderSheet();
+
+    expect(screen.getByText(TERMINAL_UPLOAD_COPY.authz)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ลองใหม่" })).not.toBeInTheDocument();
+  });
+
+  it("shows an insert-stage terminal reason too (pairing), still with no retry", () => {
+    mockCapture([
+      pendingItem({
+        status: "insert-error",
+        terminal: true,
+        errorMessage: TERMINAL_UPLOAD_COPY.pairing,
+      }),
+    ]);
+    renderSheet();
+
+    expect(screen.getByText(TERMINAL_UPLOAD_COPY.pairing)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ลองใหม่" })).not.toBeInTheDocument();
+  });
+
+  it("announces the terminal reason — it is the one failure with no button left", () => {
+    mockCapture([
+      pendingItem({
+        status: "upload-error",
+        terminal: true,
+        errorMessage: TERMINAL_UPLOAD_COPY.size,
+      }),
+    ]);
+    renderSheet();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(TERMINAL_UPLOAD_COPY.size);
+  });
+
+  it("never renders an empty terminal tile — a dimmed photo with no text reads as idle", () => {
+    mockCapture([pendingItem({ status: "upload-error", terminal: true, errorMessage: null })]);
+    renderSheet();
+
+    expect(screen.getByRole("alert")).toHaveTextContent("ส่งรูปนี้ไม่ได้");
+  });
+
+  it("still offers ลองใหม่ for a retryable failure (terminal explicitly false)", () => {
+    mockCapture([
+      pendingItem({
+        status: "upload-error",
+        terminal: false,
         errorMessage: "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
       }),
     ]);
     renderSheet();
 
     expect(screen.getByRole("button", { name: "ลองใหม่" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

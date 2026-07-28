@@ -33,6 +33,7 @@ import {
   isAfterFixWindowClosed,
   isPairingRejected,
   queueNowMs,
+  TERMINAL_UPLOAD_COPY,
   type QueuedUpload,
 } from "@/lib/photos/upload-queue";
 import { notifyQueueChanged, safeQueuePut, safeQueueRemove } from "@/lib/photos/upload-queue-idb";
@@ -150,19 +151,22 @@ export function usePhaseCapture({
         ...(diag.status !== undefined ? { status: diag.status } : {}),
       });
       notifyQueueChanged();
-      // authz (403) and size (413) will fail identically on retry — do not let the
-      // sheet promise "will auto-send" for them (feedback 10a15ebe), and do not
-      // tell the SA to retry them either: naming the refusal is the whole point
-      // (the catalog side of this same bug, #823 / 2026-07-28). "สิทธิ์ไม่พอ" is
-      // the house term, from the queue runner.
-      const terminal = diag.reason === "authz" || diag.reason === "size";
+      // An RLS denial (403 / statusless) and an over-size file (413) fail
+      // identically on every replay — do not promise "will auto-send" for them
+      // (feedback 10a15ebe) and do not tell the SA to retry them either (#823's
+      // sibling, 2026-07-28). ⚠️ `reason: "authz"` also covers **401**, which is a
+      // stale JWT: supabase-js refreshes it and the next attempt lands, so a 401
+      // stays RETRYABLE — keying terminal on the whole authz class would strand a
+      // user whose token merely expired.
+      const denied = diag.reason === "authz" && diag.status !== 401;
+      const terminal = denied || diag.reason === "size";
       updatePending(upload.id, {
         status: "upload-error",
         errorMessage: !terminal
           ? "อัปโหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
-          : diag.reason === "authz"
-            ? "สิทธิ์ไม่พอ — ส่งรูปนี้ไม่ได้"
-            : "ไฟล์ใหญ่เกินไป — ลบแล้วถ่ายใหม่",
+          : denied
+            ? TERMINAL_UPLOAD_COPY.authz
+            : TERMINAL_UPLOAD_COPY.size,
         terminal,
       });
       return;
@@ -205,14 +209,23 @@ export function usePhaseCapture({
             : "insert_rejected";
       trackFriction("upload_fail", { kind: "phase_photo", stage: "insert", reason });
       notifyQueueChanged();
+      // A pairing rejection is terminal (the U1 guard blocks every replay), and so
+      // is a closed after_fix window — the WP's status/round cannot change from the
+      // SA's side, so every replay meets the same refusal (field bug 2026-07-28).
+      // A network/server rejection can still land on retry (feedback 10a15ebe).
+      const terminal = reason === "pairing" || reason === "after_fix_closed";
       updatePending(upload.id, {
         status: "insert-error",
-        errorMessage: `อัปโหลดสำเร็จแต่บันทึกข้อมูลไม่สำเร็จ — ${result.error}`,
-        // A pairing rejection is terminal (the U1 guard blocks every replay), and so
-        // is a closed after_fix window — the WP's status/round cannot change from the
-        // SA's side, so every replay meets the same refusal (field bug 2026-07-28).
-        // A network/server rejection can still land on retry (feedback 10a15ebe).
-        terminal: reason === "pairing" || reason === "after_fix_closed",
+        // A terminal item's message REPLACES the retry button on an 80px tile, so it
+        // must be short enough to read there; the server's full sentence (and its
+        // "อัปโหลดสำเร็จแต่บันทึกข้อมูลไม่สำเร็จ — " prefix) clips to just the prefix.
+        // A retryable one keeps the full text — the tile shows the button instead.
+        errorMessage: !terminal
+          ? `อัปโหลดสำเร็จแต่บันทึกข้อมูลไม่สำเร็จ — ${result.error}`
+          : reason === "pairing"
+            ? TERMINAL_UPLOAD_COPY.pairing
+            : TERMINAL_UPLOAD_COPY.afterFixClosed,
+        terminal,
       });
       return;
     }

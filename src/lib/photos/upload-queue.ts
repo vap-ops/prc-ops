@@ -287,6 +287,20 @@ export function isAuthzDenied(message: string | null | undefined): boolean {
 // PERMANENTLY uninsertable: the U1 guard trigger raises 23514 on every
 // attempt. addPhoto returns this exact message so the queue can classify the
 // item honestly instead of hot-retrying a dead insert forever.
+// The copy a TERMINAL capture tile shows IN PLACE OF the retry button (#823's
+// sibling, 2026-07-28 — a refusal that cannot be retried must not be offered a
+// retry). Deliberately SHORT: the tile is 80px wide, there is no hover or
+// long-press tooltip on a gloved hand, and a clipped explanation is no
+// explanation. Each names the refusal plus a way out reachable FROM THAT SCREEN
+// (the shutter is on it; the queue's ลบ sits behind the full-screen sheet). Lives
+// here, beside the other house terms, so the engine and its tests share one SSOT.
+export const TERMINAL_UPLOAD_COPY = {
+  authz: "สิทธิ์ไม่พอ — ส่งรูปนี้ไม่ได้",
+  size: "ไฟล์ใหญ่เกินไป — ถ่ายใหม่",
+  pairing: "จับคู่ไม่ได้แล้ว — ถ่ายใหม่",
+  afterFixClosed: "งานยังไม่ได้เปิดแก้ไข",
+} as const;
+
 export const PAIRING_REJECTED_MESSAGE =
   "จับคู่รูปไม่ได้แล้ว — จุดบกพร่องถูกลบหรือรอบงานเปลี่ยน ลบรูปนี้แล้วถ่ายรูปใหม่จากช่องจับคู่";
 

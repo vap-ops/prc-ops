@@ -39,6 +39,7 @@ vi.mock("@/lib/photos/upload-queue-idb", () => ({
 }));
 
 import { usePhaseCapture } from "@/app/projects/[projectId]/work-packages/[workPackageId]/use-phase-capture";
+import { AFTER_FIX_CLOSED_MESSAGE, PAIRING_REJECTED_MESSAGE } from "@/lib/photos/upload-queue";
 
 beforeAll(() => {
   // jsdom lacks object-URL support; the upload path calls it for the preview.
@@ -260,5 +261,83 @@ describe("usePhaseCapture terminal-failure copy (sibling of #823)", () => {
     const item = result.current.pending[0]!;
     expect(item.terminal).toBe(false);
     expect(item.errorMessage).toContain("ลองใหม่");
+  });
+});
+
+// Writing failing test first (review findings on the block above).
+describe("usePhaseCapture terminal classification is narrower than the authz CLASS", () => {
+  it("treats a 401 as RETRYABLE — an expired JWT refreshes and the next attempt lands", async () => {
+    // diagnoseStorageFailure maps BOTH 401 and 403 to reason "authz", so keying
+    // terminal on the class strands a user whose token merely went stale.
+    uploadMock.mockResolvedValue({ error: { message: "Unauthorized", statusCode: 401 } });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    const item = result.current.pending[0]!;
+    expect(item.terminal).toBe(false);
+    expect(item.errorMessage).toContain("ลองใหม่");
+  });
+
+  it("still treats a statusless RLS denial as terminal", async () => {
+    uploadMock.mockResolvedValue({
+      error: { message: "new row violates row-level security policy" },
+    });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    expect(result.current.pending[0]!.terminal).toBe(true);
+  });
+});
+
+describe("usePhaseCapture insert-stage terminal copy fits the 80px tile", () => {
+  it("gives a pairing rejection a SHORT reason, not the prefixed server sentence", async () => {
+    uploadMock.mockResolvedValue({ error: null });
+    addPhotoMock.mockResolvedValue({ ok: false, error: PAIRING_REJECTED_MESSAGE });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    const item = result.current.pending[0]!;
+    expect(item.terminal).toBe(true);
+    expect(item.errorMessage).not.toContain("อัปโหลดสำเร็จแต่บันทึกข้อมูลไม่สำเร็จ");
+    expect(item.errorMessage!.length).toBeLessThanOrEqual(40);
+    expect(item.errorMessage).toContain("จับคู่ไม่ได้แล้ว");
+  });
+
+  it("gives a closed after-fix window a SHORT reason too", async () => {
+    uploadMock.mockResolvedValue({ error: null });
+    addPhotoMock.mockResolvedValue({ ok: false, error: AFTER_FIX_CLOSED_MESSAGE });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    const item = result.current.pending[0]!;
+    expect(item.terminal).toBe(true);
+    expect(item.errorMessage!.length).toBeLessThanOrEqual(40);
+    expect(item.errorMessage).toContain("ยังไม่ได้เปิดแก้ไข");
+  });
+
+  it("keeps the full server message for a RETRYABLE insert failure (the tile shows a button instead)", async () => {
+    uploadMock.mockResolvedValue({ error: null });
+    addPhotoMock.mockResolvedValue({ ok: false, error: "เซิร์ฟเวอร์ปฏิเสธชั่วคราว" });
+    const { result } = renderCapture();
+
+    await act(async () => {
+      await result.current.handleFiles(fileList([IMAGE()]), "camera");
+    });
+
+    const item = result.current.pending[0]!;
+    expect(item.terminal).toBe(false);
+    expect(item.errorMessage).toContain("เซิร์ฟเวอร์ปฏิเสธชั่วคราว");
   });
 });
