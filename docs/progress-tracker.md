@@ -6,7 +6,36 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
-## Spec 368 U1 — the cost-confirm door on /workers (2026-07-28)
+## Spec 368 U4 design + spec 370 (scan in/out) + the 368 renumber (2026-07-28)
+
+**Status:** docs + comment-only PR. Specs designed with the operator in chat
+(mockups approved); no code built in this unit.
+
+- **Spec 368 §6 (U4):** the store equipment section splits ยืมไปที่งาน /
+  อยู่ในคลัง with คืน at the store — full design, gates verified live
+  (`EQUIPMENT_MOVE_ROLES` == the `check_in_equipment` allowlist).
+- **Spec 370 (new):** QR/NFC scan in/out with REQUIRED condition photos both
+  directions; item-uuid deep link; NDEF URL tags ⇒ zero NFC code; backup
+  search by name/serial_no/asset_tag. Schema-lane blocker found by gate-check:
+  `equipment-images` bucket INSERT is back-office-only today.
+- ⚠️ **Renumber:** TWO specs shipped as 368 on main (store-equipment #812,
+  elder, pinned by `Spec 368 U1` comments in three store files; man-day
+  landed its index row as 368 the same day). `368-man-day-wp-budgets.md` →
+  `369-man-day-wp-budgets.md`; comments/describes in `src/app/workers/*`,
+  `worker-roster-manager.tsx`, `gross-rate.ts`, 2 test files, ADR 0085 +
+  both READMEs and the tracker heading below updated. Store keeps 368.
+
+**Open questions:** 🔔 **fleet pricing prerequisite** — `check_out_equipment`
+refuses unpriced items and `daily_rate` is 0/64, so NO borrow door (scan or
+WP-tab) works until back-office prices the fleet or a schema unit makes the
+rate optional (both options in spec 370's header; operator call) · photo count
+cap per phase (default house uploader limit) · NFC sticker hardware pick
+(operator) · whether `/equipment/scan` later also resolves worker badges
+(noted, out of scope).
+
+---
+
+## Spec 369 U1 — the cost-confirm door on /workers (2026-07-28)
 
 - **Status: COMPLETE, shipped via PR.** The missing caller for `confirm_worker_cost` — the RPC that
   sets level + derives `day_rate` from `worker_level_rates` + stamps `cost_confirmed_at`, which
