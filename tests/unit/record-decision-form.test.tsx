@@ -402,3 +402,29 @@ describe("RecordDecisionForm — which photos are wrong (spec 372 U4b)", () => {
     expect(screen.getByText(/ยังไม่มีรูปให้เลือก/)).toBeInTheDocument();
   });
 });
+
+// Mutation-checked finding (spec 372 U4b): the payload rule already drops the wrong
+// shape, so deleting either state reset left every test green — neither was pinned.
+// They are NOT redundant, though: without them, switching cause and back re-arms picks
+// the PM had abandoned, with submit ready. That is what these pin.
+describe("RecordDecisionForm — switching cause and back re-asks (spec 372 U4a/U4b)", () => {
+  it("forgets the ticked phases on the way through another cause", () => {
+    render(<RecordDecisionForm workPackageId={WP} photos={PHOTOS} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    fireEvent.click(screen.getByRole("checkbox", { name: /เตรียมงาน/ }));
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    expect(screen.getByRole("checkbox", { name: /เตรียมงาน/ })).not.toBeChecked();
+  });
+
+  it("forgets the picked photos on the way through another cause", () => {
+    render(<RecordDecisionForm workPackageId={WP} photos={PHOTOS} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    fireEvent.click(screen.getByRole("checkbox", { name: /ระหว่างทำ #3/ }));
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    expect(screen.getByRole("checkbox", { name: /ระหว่างทำ #3/ })).not.toBeChecked();
+  });
+});
