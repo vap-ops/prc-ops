@@ -8,6 +8,7 @@
 // schedule, purchase-request and end-of-day surfaces the SA otherwise reaches only
 // through the project hub or a settings gear.
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { Camera, ClipboardList, HardHat, ShoppingCart } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
@@ -23,7 +24,14 @@ import { loadNotificationReadiness } from "@/lib/notifications/readiness";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
 import { workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
-import { WORK_PACKAGE_STATUS_LABEL, LABOR_TAB_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import {
+  WORK_PACKAGE_STATUS_LABEL,
+  LABOR_TAB_LABEL,
+  formatThaiDate,
+  MY_WORK_SORT_NOTE,
+  noPhotoRuleLabel,
+} from "@/lib/i18n/labels";
+import { coldCutoffFromNow, COLD_PHOTO_DAYS, PHOTO_WINDOW_DAYS } from "@/lib/sa/my-work";
 import { DailyPlanWorklist } from "@/components/features/sa/daily-plan-worklist";
 import { MusterStrip } from "@/components/features/sa/muster-strip";
 import { SaTools } from "@/components/features/sa/sa-tools";
@@ -66,7 +74,8 @@ export default async function SaHomePage() {
   // below, carrying the PM's comment as the round's reason.
   const { data: wpRows } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, category_id, rework_round")
+    // Spec 375 U1: updated_at is the movement tie-break for a WP with no photo.
+    .select("id, code, name, status, project_id, category_id, rework_round, updated_at")
     // Spec 270 U5: งาน grouping rows are never actionable — leaves only.
     .eq("is_group", false)
     .neq("status", "complete");
@@ -95,6 +104,9 @@ export default async function SaHomePage() {
     saCurrent,
     // Spec 318 U2 — OA-friend readiness rides the wave (independent self-read).
     readiness,
+    // Spec 375 U1 — recent photo rows for the visible WPs; reduced to one
+    // timestamp per WP below. Rides the wave (it keys only off `wps`).
+    recentPhotoRes,
   ] = await Promise.all([
     projectIds.length
       ? supabase.from("projects").select("id, code, name").in("id", projectIds)
@@ -154,6 +166,25 @@ export default async function SaHomePage() {
     // aggregate home reads are unchanged.
     getSaCurrentProject(supabase, ctx.id),
     loadNotificationReadiness(supabase),
+    // Spec 375 U1 — the movement signal. Two narrow columns, bounded to
+    // PHOTO_WINDOW_DAYS: only the HOT ordering must be exact, and anything with
+    // no photo in that window is cold regardless and orders by updated_at. On
+    // prod today this is 272 rows (the whole table is 2,704). RLS scopes it via
+    // can_see_wp, the same predicate the WP read above already passes.
+    // storage_path IS NOT NULL drops tombstones — a removal is not a photo
+    // (ADR 0015); superseded rows are deliberately KEPT, because a photo that
+    // was later replaced still means the SA stood at that work package.
+    wps.length
+      ? supabase
+          .from("photo_logs")
+          .select("work_package_id, created_at")
+          .in(
+            "work_package_id",
+            wps.map((w) => w.id),
+          )
+          .not("storage_path", "is", null)
+          .gte("created_at", coldCutoffFromNow(PHOTO_WINDOW_DAYS))
+      : Promise.resolve({ data: null }),
   ]);
 
   const projects = projectRes.data ?? [];
@@ -239,6 +270,15 @@ export default async function SaHomePage() {
     });
   }
 
+  // Spec 375 U1 — reduce the photo rows to ONE timestamp per WP (the newest).
+  // Done here rather than in SQL because PostgREST cannot express a grouped max.
+  const lastPhotoByWp = new Map<string, string>();
+  for (const row of recentPhotoRes.data ?? []) {
+    const prev = lastPhotoByWp.get(row.work_package_id);
+    if (!prev || row.created_at > prev) lastPhotoByWp.set(row.work_package_id, row.created_at);
+  }
+  const coldBeforeIso = coldCutoffFromNow();
+
   const inPlay = wps.filter((w) => w.status !== "pending_approval");
   const { actions, rest } = buildSaActionList({
     inPlay,
@@ -246,6 +286,7 @@ export default async function SaHomePage() {
     reworkInfo,
     projectsById,
     categoryCodeById,
+    movement: { lastPhotoByWp, coldBeforeIso },
   });
   const items = rest;
   const hubItems = hubNavForRole(ctx.role);
@@ -335,7 +376,15 @@ export default async function SaHomePage() {
 
         {/* 6 · งานของฉัน — active leaf WPs, each with its category identity. */}
         <div className="flex flex-col gap-3">
-          <h2 className="text-meta text-ink-secondary font-semibold">งานของฉัน</h2>
+          {/* Spec 375 U1 — the order is stated on the surface. The list is the
+              SA's main door to a WP (275 of ~810 home visits leave through it),
+              and an unexplained sort is one the field cannot trust. */}
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-meta text-ink-secondary font-semibold">งานของฉัน</h2>
+            {items.length > 1 ? (
+              <span className="text-meta text-ink-muted">{MY_WORK_SORT_NOTE}</span>
+            ) : null}
+          </div>
           {items.length === 0 ? (
             <EmptyNotice>
               ยังไม่มีงานที่ต้องดูแล — เริ่มจาก{" "}
@@ -348,52 +397,83 @@ export default async function SaHomePage() {
             </EmptyNotice>
           ) : (
             <ul className="flex flex-col gap-3">
-              {items.map((it) => (
-                <li key={it.id} className="rounded-card border-edge bg-card shadow-card border p-4">
-                  <Link
-                    href={withBackFrom(workPackageHref(it.projectId, it.id), "/sa")}
-                    className="focus-visible:ring-action rounded-control block focus:outline-none focus-visible:ring-2"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-ink text-body font-semibold break-words">{it.name}</p>
-                        <p className="text-ink-muted text-meta">
-                          <WpCategoryCode code={it.code} categoryCode={it.categoryCode} />
-                          {it.projectCode ? ` · ${it.projectCode} ${it.projectName}` : ""}
-                        </p>
-                      </div>
-                      <span
-                        className={`text-meta shrink-0 rounded-full px-2 py-0.5 font-semibold whitespace-nowrap ${workPackageStatusPillClasses(it.status)}`}
-                      >
-                        {WORK_PACKAGE_STATUS_LABEL[it.status]}
+              {items.map((it, i) => (
+                <Fragment key={it.id}>
+                  {/* Spec 375 U1 — the cold rule. Rendered ONCE, at the first cold
+                      row; the ordering guarantees the cold set is a contiguous
+                      tail. Rows below are demoted (dimmed), never hidden — the SA
+                      must always be able to reach all of her work. Neutral ink:
+                      coldness is a state, not an alarm (red stays for danger). */}
+                  {it.isCold && !items[i - 1]?.isCold ? (
+                    // NOT aria-hidden: the rule is the only thing explaining why
+                    // the next 107 rows look different, so hiding it would leave a
+                    // screen-reader user with an unexplained tail. Only the two
+                    // decorative rules are hidden.
+                    <li className="flex items-center gap-3 pt-1">
+                      <span aria-hidden className="bg-edge h-px flex-1" />
+                      <span className="text-meta text-ink-muted whitespace-nowrap">
+                        {noPhotoRuleLabel(COLD_PHOTO_DAYS, items.length - i)}
                       </span>
-                    </div>
-                  </Link>
+                      <span aria-hidden className="bg-edge h-px flex-1" />
+                    </li>
+                  ) : null}
+                  {/* Cold rows sit on the recessed surface rather than being
+                      opacity-dimmed: CDS bans opacity for de-emphasis (it
+                      multiplies against whatever is behind and drifts per
+                      surface), and a token swap stays correct in dark mode. */}
+                  <li
+                    className={`rounded-card border-edge shadow-card border p-4 ${
+                      it.isCold ? "bg-sunk" : "bg-card"
+                    }`}
+                  >
+                    <Link
+                      href={withBackFrom(workPackageHref(it.projectId, it.id), "/sa")}
+                      className="focus-visible:ring-action rounded-control block focus:outline-none focus-visible:ring-2"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-ink text-body font-semibold break-words">{it.name}</p>
+                          <p className="text-ink-muted text-meta">
+                            <WpCategoryCode code={it.code} categoryCode={it.categoryCode} />
+                            {it.projectCode ? ` · ${it.projectCode} ${it.projectName}` : ""}
+                          </p>
+                        </div>
+                        <span
+                          className={`text-meta shrink-0 rounded-full px-2 py-0.5 font-semibold whitespace-nowrap ${workPackageStatusPillClasses(it.status)}`}
+                        >
+                          {WORK_PACKAGE_STATUS_LABEL[it.status]}
+                        </span>
+                      </div>
+                    </Link>
 
-                  <div className="mt-3 flex gap-2">
-                    <ActionChip
-                      href={withBackFrom(
-                        `${workPackageHref(it.projectId, it.id)}#wp-photos`,
-                        "/sa",
-                      )}
-                      icon={Camera}
-                      label="รูปถ่าย"
-                    />
-                    <ActionChip
-                      href={withBackFrom(`${workPackageHref(it.projectId, it.id)}#wp-labor`, "/sa")}
-                      icon={HardHat}
-                      label={LABOR_TAB_LABEL}
-                    />
-                    <ActionChip
-                      href={withBackFrom(
-                        `${workPackageHref(it.projectId, it.id)}#wp-requests`,
-                        "/sa",
-                      )}
-                      icon={ShoppingCart}
-                      label="คำขอซื้อ"
-                    />
-                  </div>
-                </li>
+                    <div className="mt-3 flex gap-2">
+                      <ActionChip
+                        href={withBackFrom(
+                          `${workPackageHref(it.projectId, it.id)}#wp-photos`,
+                          "/sa",
+                        )}
+                        icon={Camera}
+                        label="รูปถ่าย"
+                      />
+                      <ActionChip
+                        href={withBackFrom(
+                          `${workPackageHref(it.projectId, it.id)}#wp-labor`,
+                          "/sa",
+                        )}
+                        icon={HardHat}
+                        label={LABOR_TAB_LABEL}
+                      />
+                      <ActionChip
+                        href={withBackFrom(
+                          `${workPackageHref(it.projectId, it.id)}#wp-requests`,
+                          "/sa",
+                        )}
+                        icon={ShoppingCart}
+                        label="คำขอซื้อ"
+                      />
+                    </div>
+                  </li>
+                </Fragment>
               ))}
             </ul>
           )}

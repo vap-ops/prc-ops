@@ -6,7 +6,12 @@
 // Pure (no fetch) so it's unit-testable; the /sa page supplies the rows.
 
 import type { ApprovalRevisionReason, ReworkSource } from "@/lib/db/enums";
-import { buildMyWorkList, type MyWorkWp, type MyWorkItem } from "@/lib/sa/my-work";
+import {
+  buildMyWorkList,
+  type MyWorkWp,
+  type MyWorkItem,
+  type MovementInput,
+} from "@/lib/sa/my-work";
 
 export type SaActionKind = "rework" | "revision" | "rejected";
 
@@ -111,8 +116,13 @@ export function buildSaActionList(input: {
   /** Spec 277 — project_category id → GLOBAL work-category code (W0x), for the
    *  "งานของฉัน" (rest) cards. Omitted → cards render uncategorised. */
   categoryCodeById?: ReadonlyMap<string, string>;
+  /** Spec 375 U1 — orders `rest` by movement instead of the alphabet. Omitted →
+   *  the legacy project/code order, nothing marked cold. Only `rest` is affected:
+   *  `actions` stay severity-ordered, because a bounce is the SA's move whether
+   *  or not the WP has been photographed lately. */
+  movement?: MovementInput;
 }): { actions: SaActionItem[]; rest: MyWorkItem[] } {
-  const { inPlay, bounced, reworkInfo, projectsById, categoryCodeById } = input;
+  const { inPlay, bounced, reworkInfo, projectsById, categoryCodeById, movement } = input;
 
   const project = (id: string) => projectsById.get(id);
 
@@ -166,6 +176,7 @@ export function buildSaActionList(input: {
     inPlay.filter((w) => w.status !== "rework"),
     projectsById,
     categoryCodeById,
+    movement,
   );
 
   return { actions, rest };
