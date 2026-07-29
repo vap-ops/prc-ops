@@ -1,3 +1,9 @@
+# [0.267.0](https://github.com/vap-ops/prc-ops/compare/v0.266.0...v0.267.0) (2026-07-29)
+
+### Features
+
+- **expenses:** hard validate-before-pay gate (spec 373 §5) ([#841](https://github.com/vap-ops/prc-ops/issues/841)) ([0ec5323](https://github.com/vap-ops/prc-ops/commit/0ec53236b8a27bf634847e61a1153c60776f896e))
+
 # [0.266.0](https://github.com/vap-ops/prc-ops/compare/v0.265.0...v0.266.0) (2026-07-29)
 
 ### Features
