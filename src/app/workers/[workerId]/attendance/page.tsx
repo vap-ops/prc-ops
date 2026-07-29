@@ -58,6 +58,7 @@ export default async function WorkerAttendancePage({
     musterRows: data.musterRows,
     paidRows: data.paidRows,
     dayRate: data.worker.dayRate,
+    holidays: data.holidays,
   });
 
   // Month steppers must carry the referrer forward, or paging a month would

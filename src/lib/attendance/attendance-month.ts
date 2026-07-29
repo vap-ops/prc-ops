@@ -76,9 +76,17 @@ export interface AttendanceMonthSummary {
   varianceDays: number;
 }
 
+export interface HolidayRow {
+  holiday_date: string;
+  name_th: string;
+}
+
 export interface AttendanceMonth {
   grid: MonthGrid;
   cells: Record<string, AttendanceDayCell>;
+  /** Spec 374 U2 — iso date → holiday name, anchor month only. Display-only
+   *  marking (no pay semantics, by operator ruling). */
+  holidayByDate: Record<string, string>;
   summary: AttendanceMonthSummary;
 }
 
@@ -114,8 +122,13 @@ export function buildAttendanceMonth(opts: {
   musterRows: AttendanceMusterRow[];
   paidRows: AttendancePaidRow[];
   dayRate: number | null;
+  holidays?: HolidayRow[];
 }): AttendanceMonth {
   const { monthAnchor, dayRate } = opts;
+  const holidayByDate: Record<string, string> = {};
+  for (const h of opts.holidays ?? []) {
+    if (sameMonth(h.holiday_date, monthAnchor)) holidayByDate[h.holiday_date] = h.name_th;
+  }
   const musterRows = opts.musterRows.filter((r) => sameMonth(r.work_date, monthAnchor));
   const paidRows = opts.paidRows.filter((r) => sameMonth(r.work_date, monthAnchor));
 
@@ -182,6 +195,7 @@ export function buildAttendanceMonth(opts: {
   return {
     grid: monthGrid(monthAnchor),
     cells,
+    holidayByDate,
     summary: {
       daysScanned,
       otHoursTotal,
