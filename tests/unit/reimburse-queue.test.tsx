@@ -10,7 +10,7 @@ vi.mock("@/app/expenses/actions", () => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { ReimburseQueue } from "@/components/features/expenses/reimburse-queue";
-import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
+import type { ReimbursableRow, ReviewedReimbursableRow } from "@/lib/expenses/reimburse-group";
 import { reviewStatusLabel } from "@/lib/accounting/review-queue-view";
 import {
   REIMBURSE_MARK_LABEL,
@@ -54,7 +54,9 @@ describe("ReimburseQueue", () => {
     // pins GROUPING + totals, so its fixtures are verified (the gate has its
     // own cases below).
     render(
-      <ReimburseQueue rows={rows.map((r) => ({ ...r, reviewStatus: "verified" as const }))} />,
+      <ReimburseQueue
+        rows={rows.map((r) => ({ ...r, reviewStatus: "verified" as const, docCount: 1 }))}
+      />,
     );
     expect(screen.getByText("Pattrawut")).toBeTruthy();
     expect(screen.getByText("Acc")).toBeTruthy();
@@ -74,7 +76,7 @@ describe("ReimburseQueue", () => {
   // and a door to the voucher. §5 hard gate (operator 2026-07-29): the mark
   // button itself is review-gated now — see the dedicated gate cases below.
   it("renders review-status and missing-doc chips + a voucher link per row when provided", () => {
-    const withReview: ReimbursableRow[] = [
+    const withReview: ReviewedReimbursableRow[] = [
       { ...rows[0]!, reviewStatus: "pending", docCount: 0 },
       { ...rows[2]!, reviewStatus: "verified", docCount: 1 },
     ];
@@ -92,18 +94,15 @@ describe("ReimburseQueue", () => {
     expect(screen.getAllByRole("button", { name: REIMBURSE_MARK_LABEL })).toHaveLength(1);
   });
 
-  it("stays chip-free (and link-free) when review state is absent — no fake 'pending'", () => {
-    render(<ReimburseQueue rows={rows} />);
-    expect(screen.queryByText(reviewStatusLabel("pending"))).toBeNull();
-    expect(screen.queryAllByRole("link")).toHaveLength(0);
-  });
-
+  // Absent review state is now TYPE-impossible at the component (the page
+  // enrichment guarantees ReviewedReimbursableRow) — the former absent-state
+  // cases moved into the type system.
   // Spec 373 §5 hard pay-gate (operator 2026-07-29): the money button renders
   // ONLY on a verified row. The unverified replacement carries the REASON and
   // the review chip stays the door to the voucher — a removal must re-home the
   // affordance, never just delete it.
   it("unverified rows lose the mark button and gain the reason; verified rows keep it", () => {
-    const mixed: ReimbursableRow[] = [
+    const mixed: ReviewedReimbursableRow[] = [
       { ...rows[0]!, reviewStatus: "pending", docCount: 1 },
       { ...rows[1]!, reviewStatus: "flagged", docCount: 1 },
       { ...rows[2]!, reviewStatus: "verified", docCount: 1 },
@@ -113,11 +112,5 @@ describe("ReimburseQueue", () => {
     expect(screen.getAllByText(REIMBURSE_NEEDS_REVIEW)).toHaveLength(2);
     // The doors survive: every row still links to its voucher.
     expect(screen.getAllByRole("link")).toHaveLength(3);
-  });
-
-  it("absent review state closes the gate too (absent = unverified, never a free pass)", () => {
-    render(<ReimburseQueue rows={[rows[0]!]} />);
-    expect(screen.queryByRole("button", { name: REIMBURSE_MARK_LABEL })).toBeNull();
-    expect(screen.getByText(REIMBURSE_NEEDS_REVIEW)).toBeInTheDocument();
   });
 });

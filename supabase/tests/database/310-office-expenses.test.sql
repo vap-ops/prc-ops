@@ -92,7 +92,6 @@ select throws_ok($$
     (select id from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1))
 $$, '42501', null, 'non-finance cannot mark reimbursed');
 
-set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a2"}';
 -- Spec 373 §5: marking now requires a verified spec-345 review (hard pay-gate)
 -- — verify the fixture expense first (owner insert; the sealed table has no
 -- policies). Intent of this case is unchanged: finance CAN mark.

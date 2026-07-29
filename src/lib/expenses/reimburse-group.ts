@@ -20,15 +20,23 @@ export interface ReimbursableRow {
   docsExpected?: "expected" | "no_path_yet" | "not_expected";
 }
 
-export interface ReimburseGroup {
+// Spec 373 §5 — the queue COMPONENT requires the enriched shape: absent review
+// state must be unrepresentable there (it would render a dead-end row with no
+// button, no chip and no door). The page enrichment guarantees these fields.
+export type ReviewedReimbursableRow = ReimbursableRow & {
+  reviewStatus: NonNullable<ReimbursableRow["reviewStatus"]>;
+  docCount: number;
+};
+
+export interface ReimburseGroup<T extends ReimbursableRow = ReimbursableRow> {
   userId: string;
   name: string | null;
   total: number;
-  items: ReimbursableRow[];
+  items: T[];
 }
 
-export function groupByReimburseTarget(rows: ReimbursableRow[]): ReimburseGroup[] {
-  const byUser = new Map<string, ReimburseGroup>();
+export function groupByReimburseTarget<T extends ReimbursableRow>(rows: T[]): ReimburseGroup<T>[] {
+  const byUser = new Map<string, ReimburseGroup<T>>();
   for (const r of rows) {
     const g = byUser.get(r.reimburseToUserId);
     if (g) {

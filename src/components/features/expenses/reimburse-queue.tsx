@@ -5,15 +5,20 @@
 // "คืนเงินแล้ว" marks it settled (confirm-guarded — it's a money action). Only
 // rendered for OFFICE_EXPENSE_FINANCE_ROLES (the page gates it).
 // Spec 373 D5 — validate-before-pay: rows carry their spec-345 review status +
-// doc chip and link to the voucher. Soft signal only — the mark button is
-// deliberately NOT gated on review state (hard gate = operator call, spec §5).
+// doc chip and link to the voucher. §5 HARD gate (operator 2026-07-29): the
+// mark button renders only on a verified row — mirrored server-side by the
+// mark_expense_reimbursed RPC (mig 075871), the real boundary.
 
 import Link from "next/link";
 import { markExpenseReimbursed } from "@/app/expenses/actions";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { bahtWithSymbol } from "@/lib/format";
 import { docsBadgeLabel, reviewStatusLabel } from "@/lib/accounting/review-queue-view";
-import { groupByReimburseTarget, type ReimbursableRow } from "@/lib/expenses/reimburse-group";
+import {
+  groupByReimburseTarget,
+  type ReimbursableRow,
+  type ReviewedReimbursableRow,
+} from "@/lib/expenses/reimburse-group";
 import {
   REIMBURSE_MARK_CONFIRM,
   REIMBURSE_MARK_LABEL,
@@ -32,7 +37,13 @@ const REVIEW_CHIP_TONE: Record<NonNullable<ReimbursableRow["reviewStatus"]>, str
   verified: "border-done-edge bg-done-soft text-done-ink",
 };
 
-export function ReimburseQueue({ rows, fromHref }: { rows: ReimbursableRow[]; fromHref?: string }) {
+export function ReimburseQueue({
+  rows,
+  fromHref,
+}: {
+  rows: ReviewedReimbursableRow[];
+  fromHref?: string;
+}) {
   const groups = groupByReimburseTarget(rows);
 
   return (
@@ -68,33 +79,31 @@ export function ReimburseQueue({ rows, fromHref }: { rows: ReimbursableRow[]; fr
                       {it.expenseDate}
                       {it.description ? ` · ${it.description}` : ""}
                     </span>
-                    {it.reviewStatus && (
-                      <span className="flex flex-wrap gap-1.5 pt-0.5">
-                        {fromHref ? (
-                          <Link
-                            href={`/accounting/review/office_expenses/${it.id}?from=${encodeURIComponent(fromHref)}`}
-                            className={`${CHIP} ${REVIEW_CHIP_TONE[it.reviewStatus]} underline-offset-2`}
-                          >
-                            {reviewStatusLabel(it.reviewStatus)}
-                          </Link>
-                        ) : (
-                          <span className={`${CHIP} ${REVIEW_CHIP_TONE[it.reviewStatus]}`}>
-                            {reviewStatusLabel(it.reviewStatus)}
+                    <span className="flex flex-wrap gap-1.5 pt-0.5">
+                      {fromHref ? (
+                        <Link
+                          href={`/accounting/review/office_expenses/${it.id}?from=${encodeURIComponent(fromHref)}`}
+                          className={`${CHIP} ${REVIEW_CHIP_TONE[it.reviewStatus]} underline-offset-2`}
+                        >
+                          {reviewStatusLabel(it.reviewStatus)}
+                        </Link>
+                      ) : (
+                        <span className={`${CHIP} ${REVIEW_CHIP_TONE[it.reviewStatus]}`}>
+                          {reviewStatusLabel(it.reviewStatus)}
+                        </span>
+                      )}
+                      {(() => {
+                        const docChip = docsBadgeLabel({
+                          docsExpected: it.docsExpected ?? "expected",
+                          docCount: it.docCount ?? 0,
+                        });
+                        return docChip ? (
+                          <span className={`${CHIP} border-wait-edge bg-wait-soft text-ink`}>
+                            {docChip}
                           </span>
-                        )}
-                        {(() => {
-                          const docChip = docsBadgeLabel({
-                            docsExpected: it.docsExpected ?? "expected",
-                            docCount: it.docCount ?? 0,
-                          });
-                          return docChip ? (
-                            <span className={`${CHIP} border-wait-edge bg-wait-soft text-ink`}>
-                              {docChip}
-                            </span>
-                          ) : null;
-                        })()}
-                      </span>
-                    )}
+                        ) : null;
+                      })()}
+                    </span>
                   </div>
                   {/* Spec 373 §5 hard pay-gate: the money action renders ONLY on
                       a verified row (absent state = unverified, never a free
@@ -111,7 +120,7 @@ export function ReimburseQueue({ rows, fromHref }: { rows: ReimbursableRow[]; fr
                       action={() => markExpenseReimbursed(it.id)}
                     />
                   ) : (
-                    <span role="alert" className="text-ink-secondary shrink-0 text-xs">
+                    <span className="text-ink-secondary shrink-0 text-xs">
                       {REIMBURSE_NEEDS_REVIEW}
                     </span>
                   )}

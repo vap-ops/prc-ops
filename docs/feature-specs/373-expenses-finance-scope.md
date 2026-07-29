@@ -96,8 +96,8 @@ The own scope keeps today's no-filter behaviour — a personal list is short.
 Each reimburse-queue row gains the receipt chip and the review-status chip (the
 `list_money_events_for_review` call runs whenever `isFinance` — the queue renders
 in both scopes, so the call is not conditional on `scope=all`) and links to the
-voucher. \*\*Soft signal
-only at first ship — superseded 2026-07-29: the operator decided the HARD gate
+voucher. **Soft signal only at first ship — superseded 2026-07-29:** the
+operator decided the HARD gate
 (§5), so `คืนเงินแล้ว` now requires review = verified at all three layers
 (button · action · RPC, mig `20260813075871`).
 
@@ -124,11 +124,10 @@ voucher registration actually bites (guard-carries-the-bug lesson).
 
 ## 3. Non-goals
 
-- **No schema.** Everything reads existing tables/RPCs on existing grants.
+- **No schema** ~~(as first shipped)~~ — superseded 2026-07-29: the §5 hard pay-gate ships migs `20260813075871`/`075872` (RPC body gate).
 - **No verify/flag/write actions on /expenses.** The voucher stays the one door.
-- **No hard gate of reimbursement on review state** (§5 operator call).
-- **No CSV export** — logged as follow-up (§5), pattern exists at
-  `/accounting/journal/export`.
+- ~~No hard gate of reimbursement on review state~~ — superseded 2026-07-29, operator decided the hard gate (§5, SHIPPED).
+- ~~No CSV export~~ — shipped 2026-07-29 (#839, §5).
 - Reimburse queue grouping/settle mechanics unchanged.
 
 ## 4. Units

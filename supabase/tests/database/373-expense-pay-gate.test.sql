@@ -82,8 +82,8 @@ select is(
   (select count(*)::int from public.office_expenses
     where id in ('00000000-0000-0000-0000-0000000000f4','00000000-0000-0000-0000-0000000000f5',
                  '00000000-0000-0000-0000-0000000000f6')
-      and reimbursed_at is not null),
-  0, 'refused expenses stay unpaid');
+      and reimbursed_at is null),
+  3, 'refused expenses exist AND stay unpaid');
 
 select * from finish();
 rollback;
