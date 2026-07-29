@@ -1,3 +1,9 @@
+# [0.266.0](https://github.com/vap-ops/prc-ops/compare/v0.265.0...v0.266.0) (2026-07-29)
+
+### Features
+
+- **attendance:** public_holidays + calendar marking (spec 374 U2) ([#840](https://github.com/vap-ops/prc-ops/issues/840)) ([f16f790](https://github.com/vap-ops/prc-ops/commit/f16f7901541441289772e3cd965ff43a08734b38))
+
 # [0.265.0](https://github.com/vap-ops/prc-ops/compare/v0.264.0...v0.265.0) (2026-07-29)
 
 ### Features
