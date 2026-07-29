@@ -1,3 +1,9 @@
+## [0.260.1](https://github.com/vap-ops/prc-ops/compare/v0.260.0...v0.260.1) (2026-07-29)
+
+### Bug Fixes
+
+- **photos:** scope the shutter promise while a refused photo is on screen ([5b6985c](https://github.com/vap-ops/prc-ops/commit/5b6985ca79becc69f96da8b9fd339d31471eb659)), closes [#826](https://github.com/vap-ops/prc-ops/issues/826)
+
 # [0.260.0](https://github.com/vap-ops/prc-ops/compare/v0.259.0...v0.260.0) (2026-07-28)
 
 ### Features
