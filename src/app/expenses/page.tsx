@@ -26,6 +26,7 @@ import {
   type ExpenseScope,
 } from "@/lib/expenses/expense-scope";
 import {
+  fetchOfficeExpenseReviewMap,
   listActiveProjectsForExpense,
   listAllExpenses,
   listExpenseCategories,
@@ -36,9 +37,11 @@ import {
   loadMyExpenseSummary,
   resolveUserNames,
   type AllExpenseRow,
+  type OfficeExpenseReviewInfo,
 } from "@/lib/expenses/load-office-expenses";
 import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
 import {
+  EXPENSE_EXPORT_CSV_LABEL,
   MONTH_FILTER_ALL,
   MONTH_FILTER_APPLY,
   MONTH_FILTER_LABEL,
@@ -95,34 +98,12 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   // p_limit at 200 and orders oldest-first, so a single page would silently
   // mislabel every newer row "รอตรวจ" once the source outgrows 200 events
   // (fresh-eyes 🔴) — page with p_offset until a short page instead.
-  const reviewBySourceId = new Map<
-    string,
-    {
-      status: AllExpenseRow["reviewStatus"];
-      docCount: number;
-      docsExpected: AllExpenseRow["docsExpected"];
-    }
-  >();
-  if (isFinance) {
-    const REVIEW_PAGE = 200;
-    for (let offset = 0; offset < 10_000; offset += REVIEW_PAGE) {
-      const { data: events, error } = await supabase.rpc("list_money_events_for_review", {
-        p_tab: "any",
-        p_limit: REVIEW_PAGE,
-        p_offset: offset,
-        p_source_table: "office_expenses",
-      });
-      if (error) throw new Error(`office-expense review status: ${error.message}`);
-      for (const e of events ?? []) {
-        reviewBySourceId.set(e.source_id, {
-          status: (e.review_status ?? "pending") as AllExpenseRow["reviewStatus"],
-          docCount: e.doc_count ?? 0,
-          docsExpected: (e.docs_expected ?? "expected") as AllExpenseRow["docsExpected"],
-        });
-      }
-      if ((events ?? []).length < REVIEW_PAGE) break;
-    }
-  }
+  // Spec 373 D2/D5 — review status + doc counts + docs-expected class from
+  // the shared paged spec-345 helper, on the AUTHED session. Runs whenever
+  // isFinance — the reimburse queue renders in both scopes.
+  const reviewBySourceId = isFinance
+    ? await fetchOfficeExpenseReviewMap(supabase)
+    : new Map<string, OfficeExpenseReviewInfo>();
 
   // Spec 373 D5 — the queue rows carry their review + doc state (validate-
   // before-pay). Same RPC map as the list; absent row = pending by definition
@@ -217,6 +198,15 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
           )}
           <button type="submit" className={BUTTON_PRIMARY}>
             {MONTH_FILTER_APPLY}
+          </button>
+          {/* Spec 373 §5 — CSV export. A formAction submit so the download carries
+              the LIVE month input, not the last-applied range (fresh-eyes). */}
+          <button
+            type="submit"
+            formAction="/expenses/export"
+            className="text-action pb-2 text-sm underline"
+          >
+            {EXPENSE_EXPORT_CSV_LABEL}
           </button>
         </form>
         <ExpenseSummary

@@ -7,7 +7,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  fetchOfficeExpenseReviewMap,
   listAllExpenses,
+  listAllExpensesForExport,
   loadAllExpenseSummary,
   resolveUserNames,
 } from "@/lib/expenses/load-office-expenses";
@@ -127,6 +129,102 @@ describe("spec 373 D2 — listAllExpenses", () => {
     const admin = recordingClient({ users: [] });
     const { rows } = await listAllExpenses(authed.client, admin.client, {});
     expect(rows[0]?.submitterName).toBeNull();
+  });
+});
+
+describe("spec 373 §5 export — fetchOfficeExpenseReviewMap pages past the RPC's 200-clamp", () => {
+  it("keeps calling with a moving p_offset until a short page; map carries all pages", async () => {
+    const fullPage = Array.from({ length: 200 }, (_, i) => ({
+      source_id: `id-${i}`,
+      review_status: "pending",
+      doc_count: 0,
+      docs_expected: "expected",
+    }));
+    const shortPage = [
+      { source_id: "id-200", review_status: "verified", doc_count: 2, docs_expected: "expected" },
+    ];
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: fullPage, error: null })
+      .mockResolvedValueOnce({ data: shortPage, error: null });
+    const map = await fetchOfficeExpenseReviewMap({ rpc } as never);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_offset: 0,
+      p_source_table: "office_expenses",
+    });
+    expect(rpc.mock.calls[1]?.[1]).toMatchObject({ p_offset: 200 });
+    expect(map.size).toBe(201);
+    expect(map.get("id-200")).toEqual({
+      status: "verified",
+      docCount: 2,
+      docsExpected: "expected",
+    });
+  });
+
+  it("throws on an RPC error instead of returning an empty map as truth", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "boom" } });
+    await expect(fetchOfficeExpenseReviewMap({ rpc } as never)).rejects.toThrow(/boom/);
+  });
+});
+
+describe("spec 373 §5 export — listAllExpensesForExport is UNCAPPED (pages until short)", () => {
+  it("uses range paging, no .limit cap, and resolves names via the admin seam", async () => {
+    const authed = recordingClient({ office_expenses: [expenseRow] });
+    const admin = recordingClient({ users: [{ id: "u-submitter", full_name: "สมชาย ทดสอบ" }] });
+    const rows = await listAllExpensesForExport(authed.client, admin.client, {});
+    const calls = authed.queries.find((q) => q.table === "office_expenses")?.calls ?? [];
+    expect(calls.some((c) => c.method === "range")).toBe(true);
+    expect(calls.filter((c) => c.method === "limit")).toEqual([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.submitterName).toBe("สมชาย ทดสอบ");
+  });
+
+  it("actually walks pages: full page → next window advances by the rows RECEIVED", async () => {
+    // Two builders, each its own query: page 0 returns a FULL 1000, page 1
+    // returns 1 row — the loop must issue range [0,999] then [1000,1999] and
+    // concatenate 1001 rows. (fresh-eyes: the single-row fixture broke the
+    // loop on iteration 0, so the paging math had zero coverage.)
+    const fullPage = Array.from({ length: 1000 }, (_, i) => ({ ...expenseRow, id: `e${i}` }));
+    let call = 0;
+    const pages = [fullPage, [{ ...expenseRow, id: "e-last" }]];
+    const queries: { table: string; calls: { method: string; args: unknown[] }[] }[] = [];
+    const from = (table: string) => {
+      const calls: { method: string; args: unknown[] }[] = [];
+      queries.push({ table, calls });
+      const builder: Record<string, unknown> = {
+        then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
+          resolve({ data: pages[call++] ?? [], error: null }),
+      };
+      for (const m of ["select", "eq", "gte", "lt", "order", "range"]) {
+        builder[m] = (...args: unknown[]) => {
+          calls.push({ method: m, args });
+          return builder;
+        };
+      }
+      return builder;
+    };
+    const admin = recordingClient({ users: [] });
+    const rows = await listAllExpensesForExport({ from } as never, admin.client, {});
+    expect(rows).toHaveLength(1001);
+    const ranges = queries.flatMap((q) => q.calls.filter((c) => c.method === "range"));
+    expect(ranges.map((r) => r.args)).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+  });
+
+  it("month + project filters become DB predicates, same as the list", async () => {
+    const authed = recordingClient();
+    await listAllExpensesForExport(authed.client, recordingClient().client, {
+      projectId: "p1",
+      monthStart: "2026-07-01",
+      monthEndExclusive: "2026-08-01",
+    });
+    const calls = authed.queries.find((q) => q.table === "office_expenses")?.calls ?? [];
+    expect(calls).toContainEqual({ method: "eq", args: ["project_id", "p1"] });
+    expect(calls).toContainEqual({ method: "gte", args: ["expense_date", "2026-07-01"] });
+    expect(calls).toContainEqual({ method: "lt", args: ["expense_date", "2026-08-01"] });
   });
 });
 
