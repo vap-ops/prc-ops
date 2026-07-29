@@ -9,7 +9,7 @@
 // เบิก is no longer a store-console action — spec 208 moved it to the WP-detail
 // ของ tab's ต้องการของ sheet).
 
-import Link from "next/link";
+import { EquipmentScanDoor } from "@/components/features/equipment/equipment-scan-door";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { notFound } from "next/navigation";
@@ -364,15 +364,11 @@ export default async function ProjectStorePage({ params }: PageProps) {
             section — telemetry showed the SA reaching this page twice on the
             current bundle and leaving. The door the section still carries
             stays; this hoists a copy above the fold (the ปิดวัน buried-button
-            class, #746). Movers only — matches the scan page's own gate. */}
-        {canReturnEquipment ? (
-          <Link
-            href={`/equipment/scan?from=${encodeURIComponent(`/projects/${project.id}/store`)}`}
-            className="border-edge-strong bg-card rounded-control text-ink flex min-h-12 items-center justify-center gap-2 border text-sm font-semibold"
-          >
-            สแกนยืม/คืนอุปกรณ์
-          </Link>
-        ) : null}
+            class, #746). Movers only — matches the scan page's own gate.
+            U4 (prominence redesign): the hoisted copy was a text link and the
+            operator judged it insufficient — it is now the shared hero the SA
+            home also renders. */}
+        {canReturnEquipment ? <EquipmentScanDoor from={`/projects/${project.id}/store`} /> : null}
         <StoreManager
           projects={[{ id: project.id, code: project.code, name: project.name }]}
           selectedProjectId={project.id}
