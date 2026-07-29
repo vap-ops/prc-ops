@@ -209,6 +209,12 @@ function SheetCapture({
   const hasUnsentUpload = pending.some(
     (p) => (p.status === "upload-error" || p.status === "insert-error") && !p.terminal,
   );
+  // Its mirror: a photo that will NEVER send (403 / 413 / pairing / closed
+  // after-fix window). It suppresses the banner above AND narrows the shutter
+  // promise below, so the sheet never claims delivery for a refused shot.
+  const hasTerminalUpload = pending.some(
+    (p) => (p.status === "upload-error" || p.status === "insert-error") && p.terminal === true,
+  );
 
   // One lightbox group per phase (spec 50): the loaded photos in capture
   // order. A null-url tile (not yet displayable) is excluded from the
@@ -288,7 +294,15 @@ function SheetCapture({
         <p className="text-meta text-ink-secondary font-semibold">แตะเพื่อถ่าย</p>
         <p className="text-meta text-ink-muted flex items-center gap-1.5">
           <Check aria-hidden className="text-done-strong h-3.5 w-3.5" strokeWidth={3} />
-          บันทึกอัตโนมัติ — ถ่ายต่อได้แม้ไม่มีเน็ต
+          {/* A refused photo (#826) sits ~200px above this line, so the unqualified
+              "keep shooting even offline" promise would contradict it on one screen.
+              It is not false though — NEW shots still save and queue; only the
+              refused one never sends. Scope it rather than drop it: deleting the
+              reassurance is what made the SA re-tap a working shutter in the first
+              place (feedback 10a15ebe). */}
+          {hasTerminalUpload
+            ? "รูปใหม่บันทึกอัตโนมัติ"
+            : "บันทึกอัตโนมัติ — ถ่ายต่อได้แม้ไม่มีเน็ต"}
         </p>
         {/* Spec 96: secondary path — pick an existing photo from the library.
             No `capture`, so iOS opens the gallery; same handleFiles engine. */}
