@@ -12,7 +12,12 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES, MONEY_REVIEW_ROLES } from "@/lib/auth/role-home";
-import { MONEY_REVIEW_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import {
+  MONEY_REVIEW_LABEL,
+  REVIEW_CHAIN_DONE,
+  REVIEW_NEXT_CTA,
+  formatThaiDate,
+} from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
 import {
@@ -55,6 +60,14 @@ export default async function ReviewVoucherPage({ params, searchParams }: Vouche
   const data = await loadReviewVoucher(sourceTable, id);
   if (!data) notFound();
   const { event, review, flags, docs, journal } = data;
+
+  // Spec 373 §6 — the verify chain door target comes from the loader (same
+  // authed client, same error-throw posture; keyed on the DB-normalized event
+  // id, never the raw URL param — a case-variant param must not make a door
+  // to itself).
+  const nextHref = data.nextPendingId
+    ? `/accounting/review/${sourceTable}/${data.nextPendingId}${from ? `?from=${encodeURIComponent(from)}` : ""}`
+    : null;
 
   const status = review?.status ?? "pending";
   const openFlags = flags.filter((f) => f.status === "open");
@@ -159,6 +172,19 @@ export default async function ReviewVoucherPage({ params, searchParams }: Vouche
           // ever diverge, a read-only accountant sees the state, not dead buttons.
           <p className="text-muted-foreground text-sm">ดูอย่างเดียว — ไม่มีสิทธิ์ตรวจ/ติดธง</p>
         )}
+
+        {/* Spec 373 §6 — the chain door: after deciding, walk straight to the
+            oldest remaining pending voucher of this source; the ?from= referrer
+            rides along so the whole chain returns to one origin. */}
+        <p className="mt-4">
+          {nextHref ? (
+            <Link href={nextHref} className="text-action text-sm font-medium underline">
+              {REVIEW_NEXT_CTA} →
+            </Link>
+          ) : (
+            <span className="text-muted-foreground text-sm">{REVIEW_CHAIN_DONE}</span>
+          )}
+        </p>
 
         {closedFlags.length > 0 ? (
           <>

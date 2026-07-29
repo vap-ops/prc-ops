@@ -29,10 +29,22 @@ describe("spec 373 — /expenses page scope wiring", () => {
   it("review status comes from the shared paged review-map helper on the AUTHED session", () => {
     // The paging loop (p_offset until a short page — the RPC clamps at 200)
     // lives in fetchOfficeExpenseReviewMap, shared with the export route; the
-    // page must call it with the AUTHED client, never re-inline the RPC.
+    // page must call it with the AUTHED client and never re-inline a paging
+    // loop. The §6 chain CTA's single oldest-pending call (p_limit: 1) is the
+    // ONLY direct RPC use allowed here.
     expect(count("fetchOfficeExpenseReviewMap")).toBeGreaterThanOrEqual(2);
     expect(src).toMatch(/fetchOfficeExpenseReviewMap\(supabase\)/);
-    expect(src).not.toContain("list_money_events_for_review");
+    expect(count("list_money_events_for_review")).toBe(1);
+    expect(src).toMatch(/p_tab: "pending"[\s\S]{0,80}p_limit: 1,/);
+  });
+
+  it("the all scope offers the verify-chain CTA into the oldest pending voucher (§6)", () => {
+    expect(count("EXPENSE_VERIFY_START_CTA")).toBeGreaterThanOrEqual(2);
+    // The CTA targets the OLDEST pending firm-wide (the RPC's pending order),
+    // not the month-filtered view, and threads the referrer home.
+    expect(count("oldestPendingId")).toBeGreaterThanOrEqual(2);
+    // Pending count comes from the review map already in hand — no extra sweep.
+    expect(src).toMatch(/pendingCount/);
   });
 
   it("the CSV export door is a formAction submit — it carries the LIVE month input (§5)", () => {

@@ -174,3 +174,34 @@ hold precedent, e.g. #827/#829) or operator one-tap.
 - ⬜ The 19 open reimbursements + 0 reviews are a live operational backlog, not a
   code gap — surfacing them to the accounting team is what this spec does; chasing
   them is theirs.
+
+## 6. The verify assembly line (follow-up, 2026-07-29 — operator "Go")
+
+The §5 hard gate makes per-voucher verification the accounting bottleneck (19
+backlog on ship day). Bulk-verify was REJECTED — it would rubber-stamp the gate
+§5 exists to enforce. Instead the flow chains:
+
+- **Voucher chain door:** every review voucher renders `ตรวจรายการถัดไป` → the
+  oldest OTHER pending event of the SAME source (one `p_tab:'pending'` RPC
+  call, `p_limit: 2` — ids are unique so the first non-current id sits within
+  two rows), threading the same `?from=` so the whole chain returns to one
+  origin. Dry chain renders `ไม่มีรายการรอตรวจแล้ว` — deliberately NOT "all
+  done": ⚠️ the pending tab EXCLUDES flagged rows, so a flagged backlog is
+  invisible to the chain (flag resolution is its own flow on the voucher);
+  the copy claims only what the query proves. The chain query lives in
+  `loadReviewVoucher` (shared authed client; throws on error — a failed query
+  must never masquerade as "nothing pending") and keys on the DB-normalized
+  event id (a case-variant URL param must not make a door to itself). All 15
+  sources get the door — the code path is source-generic.
+  ⓘ The chain only advances by DECIDING (verify/flag) — standing on a pending
+  voucher, the next door points at the oldest OTHER pending, so an undecided
+  reviewer ping-pongs between the two oldest by design; a skip affordance is a
+  possible follow-up. Ties in the RPC order (same date+amount) make "oldest"
+  non-deterministic for some sources — acceptable, every pending row is still
+  reachable by deciding.
+- **Entry door on /expenses (all scope):** `เริ่มตรวจรายการเก่าสุด (N)` → the
+  oldest pending expense FIRM-WIDE (deliberately not month-filtered — the
+  backlog must not hide behind a view); N = pending count from the review map
+  already in hand.
+- Pure `pickNextPending` in `src/lib/accounting/review-chain.ts`; never
+  returns the current voucher (a door must not lead to itself).

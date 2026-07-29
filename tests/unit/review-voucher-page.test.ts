@@ -30,3 +30,21 @@ describe("spec 373 D6 — review voucher back chip", () => {
     expect(src).not.toContain('backHref="/accounting/review"');
   });
 });
+
+describe("spec 373 §6 — the verify chain door", () => {
+  it("takes the chain target from the LOADER (shared client + error-throw), never a page-side RPC", () => {
+    // The pending query lives in loadReviewVoucher — a page-side copy would
+    // silently swallow errors as "nothing pending" (fresh-eyes 🟠).
+    expect(count("data.nextPendingId")).toBeGreaterThanOrEqual(2);
+    expect(src).not.toContain("list_money_events_for_review");
+  });
+
+  it("the next door threads the SAME ?from= so the whole chain returns to one origin", () => {
+    expect(src).toMatch(/nextHref[\s\S]{0,300}encodeURIComponent\(from\)/);
+  });
+
+  it("renders the end state when the chain is dry (a door to nowhere is a dead door)", () => {
+    expect(count("REVIEW_CHAIN_DONE")).toBeGreaterThanOrEqual(2);
+    expect(count("REVIEW_NEXT_CTA")).toBeGreaterThanOrEqual(2);
+  });
+});
