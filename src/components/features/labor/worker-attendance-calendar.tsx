@@ -1,0 +1,199 @@
+// Spec 374 U1 — the per-worker attendance month calendar (ปฏิทินเข้างาน).
+// Pure presentational and server-renderable: the page loads + builds the
+// month, this renders it. Three blocks: worker header (rate + info), month
+// summary (scanned / OT / estimate / paid variance + the cost-unconfirmed
+// explainer), and the muster day grid. Month steppers are plain links so the
+// whole surface stays a Server Component.
+
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+import type { AttendanceMonth } from "@/lib/attendance/attendance-month";
+import { THAI_WEEKDAYS } from "@/lib/work-packages/calendar-grid";
+import { baht } from "@/lib/format";
+import { CONFIRM_COST_LABEL } from "@/lib/i18n/labels";
+
+export interface AttendanceWorkerHeader {
+  id: string;
+  name: string;
+  levelLabel: string | null;
+  dayRate: number | null;
+  phone: string | null;
+  payTypeLabel: string;
+  active: boolean;
+  costConfirmedAt: string | null;
+  projectLabel: string | null;
+}
+
+const STEPPER =
+  "rounded-control border-edge bg-card text-ink-secondary hover:text-ink hover:bg-sunk " +
+  "focus-visible:ring-action inline-flex h-11 w-11 items-center justify-center border " +
+  "transition-colors focus:outline-none focus-visible:ring-2";
+
+function fmtDays(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toLocaleString("th-TH", { maximumFractionDigits: 2 });
+}
+
+export function WorkerAttendanceCalendar({
+  month,
+  worker,
+  stdRate,
+  prevHref,
+  nextHref,
+}: {
+  month: AttendanceMonth;
+  worker: AttendanceWorkerHeader;
+  /** Standard gross rate for the worker's level — null when unset OR when the
+   *  viewer is outside the /settings/labor-rates money audience. */
+  stdRate: number | null;
+  prevHref: string;
+  nextHref: string;
+}) {
+  const { summary } = month;
+  const showStd = stdRate !== null && stdRate !== worker.dayRate;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* ── Worker header ─────────────────────────────────────────────── */}
+      <section className="border-edge bg-card rounded-card border p-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-ink text-base font-bold">{worker.name}</h2>
+          {!worker.active ? (
+            <span className="text-ink-muted text-xs font-medium">ปิดใช้งาน</span>
+          ) : null}
+        </div>
+        <dl className="text-ink-secondary mt-2 flex flex-col gap-1 text-sm">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <dt className="font-medium">ค่าแรง</dt>
+            <dd className="text-ink font-semibold">
+              {worker.dayRate === null ? "ยังไม่กำหนด" : `฿${baht(worker.dayRate)} /วัน`}
+            </dd>
+            {showStd ? (
+              <dd className="text-ink-muted text-xs">มาตรฐานระดับ ฿{baht(stdRate)}</dd>
+            ) : null}
+          </div>
+          {worker.levelLabel ? (
+            <div className="flex gap-2">
+              <dt className="font-medium">ระดับ</dt>
+              <dd>{worker.levelLabel}</dd>
+            </div>
+          ) : null}
+          <div className="flex gap-2">
+            <dt className="font-medium">การจ่าย</dt>
+            <dd>{worker.payTypeLabel}</dd>
+          </div>
+          {worker.phone ? (
+            <div className="flex gap-2">
+              <dt className="font-medium">โทร</dt>
+              <dd>{worker.phone}</dd>
+            </div>
+          ) : null}
+          {worker.projectLabel ? (
+            <div className="flex gap-2">
+              <dt className="font-medium">โครงการ</dt>
+              <dd>{worker.projectLabel}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </section>
+
+      {/* ── Month summary ─────────────────────────────────────────────── */}
+      <section className="border-edge bg-card rounded-card border p-4">
+        <p className="text-ink text-sm font-semibold">
+          มาทำงาน {fmtDays(summary.daysScanned)} วัน
+          {summary.otHoursTotal > 0 ? ` · OT รวม ${fmtDays(summary.otHoursTotal)} ชม.` : ""}
+        </p>
+        <p className="text-ink-secondary mt-1 text-sm">
+          ประมาณการค่าแรง{" "}
+          {summary.estimatedGross === null ? "—" : `฿${baht(summary.estimatedGross)}`}
+          <span className="text-ink-muted text-xs"> (จำนวนวัน × ค่าแรง/วัน)</span>
+        </p>
+        <p className="text-ink-secondary mt-1 text-sm">
+          บันทึกค่าแรงแล้ว {fmtDays(summary.paidDaysTotal)} วัน
+          {summary.varianceDays !== 0 ? (
+            <span className="text-attn-ink font-medium">
+              {" "}
+              · ต่างกัน {fmtDays(Math.abs(summary.varianceDays))} วัน
+            </span>
+          ) : null}
+        </p>
+        {/* derive_muster_labor (verified live) skips a worker until
+            confirm_worker_cost stamps him — that is WHY scanned days can sit at
+            N while recorded pay stays 0. Name the real affordance. */}
+        {worker.costConfirmedAt === null ? (
+          <p className="text-attn-ink mt-2 text-xs">
+            ยังไม่ยืนยันค่าแรง — ระบบจะยังไม่สร้างบันทึกค่าแรงจากการเช็คชื่อ จนกว่าจะกด &quot;
+            {CONFIRM_COST_LABEL}&quot; ในหน้าทีมงาน
+          </p>
+        ) : null}
+      </section>
+
+      {/* ── Calendar ──────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center gap-1">
+          <Link href={prevHref} aria-label="เดือนก่อนหน้า" className={STEPPER}>
+            <ChevronLeft aria-hidden className="h-5 w-5" />
+          </Link>
+          <p className="text-body text-ink min-w-28 text-center font-bold">{month.grid.label}</p>
+          <Link href={nextHref} aria-label="เดือนถัดไป" className={STEPPER}>
+            <ChevronRight aria-hidden className="h-5 w-5" />
+          </Link>
+        </div>
+
+        <div className="border-edge bg-card rounded-card overflow-hidden border">
+          <div className="border-edge-strong grid grid-cols-7 border-b">
+            {THAI_WEEKDAYS.map((wd, i) => (
+              <div
+                key={wd}
+                className={`text-meta py-1.5 text-center font-semibold ${
+                  i === 0 || i === 6 ? "text-ink-muted" : "text-ink-secondary"
+                }`}
+              >
+                {wd}
+              </div>
+            ))}
+          </div>
+          {month.grid.weeks.map((week, wi) => (
+            <div key={wi} className="border-edge grid grid-cols-7 border-b last:border-b-0">
+              {week.map((cell) => {
+                const data = cell.inMonth ? month.cells[cell.iso] : undefined;
+                return (
+                  <div
+                    key={cell.iso}
+                    className={`border-edge min-h-16 border-r p-1 last:border-r-0 ${
+                      cell.inMonth ? (cell.isWeekend ? "bg-sunk" : "") : "opacity-40"
+                    }`}
+                  >
+                    <p
+                      className={`text-meta text-right ${
+                        data ? "text-ink font-semibold" : "text-ink-muted"
+                      }`}
+                    >
+                      {cell.day}
+                    </p>
+                    {data ? (
+                      <div className="text-ink-secondary text-[10px] leading-tight">
+                        {data.inTime ? <p>{data.inTime}</p> : null}
+                        {data.outTime ? (
+                          <p>
+                            {data.outTime}
+                            {data.outAuto ? (
+                              <span className="text-ink-muted"> อัตโนมัติ</span>
+                            ) : null}
+                          </p>
+                        ) : null}
+                        {data.otHours > 0 ? (
+                          <p className="text-attn-ink font-medium">+{fmtDays(data.otHours)} ชม.</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

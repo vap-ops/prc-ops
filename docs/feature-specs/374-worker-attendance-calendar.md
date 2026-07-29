@@ -14,32 +14,41 @@ operator-held spec 306 U5 money unit.
 
 ## 1. Why
 
-### Today there is no answer to the operator's question
+### What exists today (fact-checked 2026-07-29, corrected from the first draft)
 
 Check-in/out truth lives in the muster tables (spec 306): `muster_attendance`
 carries `work_date, in_at/out_at, in_method/out_method, out_auto, ot_hours,
-session` per worker per day. It is real, live data — running daily since
-2026-07-15, 19 team-days, 146 scans as of 2026-07-29 — but the ONLY surface that
-renders it is the SA scan cockpit `/projects/[projectId]/muster`, which:
+session` at the **(worker, date, session)** grain — a day legitimately holds
+two rows once OT runs (spec 351). Live: teams since 07-15 across **6 work
+dates**, 146 scans all within 07-24 → 07-29 (adoption is one week old and
+accelerating).
 
-- is gated `site_admin` + `super_admin` — procurement roles cannot open it;
-- renders **today only** (`bangkokTodayIso()` hardcoded, no date param);
-- is a scan surface built for gloved thumbs, not a review surface.
+Two surfaces already render muster, neither answering the operator's question:
 
-Procurement's closest existing surfaces answer a different question:
+| Surface                       | Gate                                                 | What it shows                                                      | What it lacks                             |
+| ----------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------- |
+| `/projects/[id]/muster`       | `SA_SURFACE_ROLES` (SA, super, procurement_manager)  | today's scan cockpit                                               | any history (no date param)               |
+| `/team/attendance` (spec 358) | `ATTENDANCE_AUDIT_ROLES` (incl. procurement_manager) | range summary per worker + per-DAY drill (times, method, OT) + CSV | per-WORKER calendar view, rate/money link |
+| `/payroll`                    | `PAYROLL_VIEW_ROLES` (incl. accounting)              | per-worker day COUNT × rate snapshot → gross/WHT                   | dates, in/out times                       |
+| `/workers`                    | `WORKER_ROSTER_ROLES`                                | roster + `day_rate` (procurement already edits it)                 | attendance                                |
 
-| Surface    | What it shows                                          | What it lacks             |
-| ---------- | ------------------------------------------------------ | ------------------------- |
-| `/payroll` | per-worker day COUNT × `day_rate_snapshot` → gross/WHT | no dates, no in/out times |
-| `/workers` | roster + `day_rate` (procurement already edits it)     | no attendance at all      |
+So the genuinely missing delta — what this spec builds — is narrow: **a
+per-worker MONTH view**, **the rate + money link on the same screen**, and
+**plain `procurement` access** (it fails `can_see_project`, so both muster
+surfaces above are closed to it; only the admin-seam pattern reaches it).
 
 ### The divergence the calendar makes visible
 
-`/payroll` reads `labor_logs` — which received **0 rows on 07-27 and 07-28**
-while muster scanned daily. Scan truth and pay truth are disconnected tables;
-the muster→`labor_logs` derivation is spec 306 U5, deliberately operator-held.
-A per-worker calendar that shows BOTH (scanned days vs paid days) gives
-procurement the variance at a glance instead of hiding it.
+`labor_logs` — what `/payroll` pays from — has **zero rows, ever**. The
+muster→labor derivation is NOT missing: `derive_muster_labor` shipped (spec 369) and `close_muster_day` calls it — but it deliberately skips any worker
+without `cost_confirmed_at`, and **0 of 31 workers are confirmed**, so every
+close-day derives nothing and `/payroll` renders empty for every period. The
+calendar shows scanned days AND recorded-pay days side by side, and when the
+gap is explained by an unconfirmed worker it says so, naming the real
+affordance (ยืนยันค่าแรงและระดับ on /workers). Until workers start being
+confirmed the variance line fires for everyone — the explainer, not the
+variance, is the actionable element today; the variance becomes the signal
+the moment confirms begin.
 
 ### The holiday gap
 
@@ -67,19 +76,30 @@ One new page: a month calendar for one worker.
   OT chip when `ot_hours > 0`, `(อัตโนมัติ)` marker when `out_auto`, project
   short-name when the worker mustered on a non-default project. Empty cell =
   no record. (U2 adds the holiday state.)
-- **Header card:** worker name · level · `day_rate` บาท/วัน · standard level
-  rate beside it when it differs (spec 314 `worker_level_rates`) · phone ·
-  project · worker_type (ช่างบริษัท / DC).
+- **Header card:** worker name · level (`workers.level`, `WORKER_LEVEL_LABEL`;
+  NULL on 31/31 live rows today, renders once grading starts) · `day_rate`
+  บาท/วัน · standard level rate beside it when it differs
+  (`worker_level_rates.entered_rate` through `grossRate`, shown ONLY to the
+  /settings/labor-rates money audience: procurement_manager + super_admin —
+  pinned by an exhaustive role-domain test) · phone · project ·
+  `pay_type` (รายเดือน/รายวัน — there is no `worker_type` column; pay_type +
+  employment_type are the real discriminators).
 - **Month summary row:** days scanned · OT hours total · **ประมาณการค่าแรง =
   scanned days × day_rate** explicitly labeled ประมาณการ (muster does not feed
   payroll yet) · paid days per `labor_logs` for the same month · a variance
   chip when scanned ≠ paid.
-- **Doors:** row link in the `/workers` roster sheet
-  (`worker-roster-manager.tsx`) and per-worker link on `/payroll` rows. Both
-  pass `?from=`; the page resolves `safeBackHref` and registers in
-  `STATIC_DETAIL` + `STATIC_MULTI_PARENT` + the owning hub's `DRILL_DOWNS`
-  (nav-back-affordance guard). ⚠️ NO team-map door in this spec — lane
-  365teammap actively owns `team-map/**`.
+- **Doors:** row link on the `/workers` roster rows
+  (`worker-roster-manager.tsx`; ships in U1) and a per-worker link on
+  `/payroll` rows (ships as **U1b**, a separate one-file PR — `src/app/payroll/`
+  is on the danger-path deny list, so folding it into U1 would hold the whole
+  unit). Both pass `?from=`; the page resolves `safeBackHref` and joins
+  `MULTI_PARENT_DETAILS` in the nav-back guard (a dynamic-segment route is
+  auto-classified DETAIL — the draft's `STATIC_DETAIL`/`STATIC_MULTI_PARENT`/
+  `DRILL_DOWNS` names were the wrong registries). ⚠️ The payroll door renders
+  ONLY for `WORKER_ROSTER_ROLES` viewers: `/payroll` also admits `accounting`,
+  which this page's gate refuses — an unconditional door would be
+  affordance-then-refuse. ⚠️ NO team-map door in this spec — lane 365teammap
+  actively owns `team-map/**`.
 - **View-model:** pure `buildAttendanceMonth(...)` in `src/lib/attendance/` —
   cells + summary computed from rows, fully unit-testable; the page stays a
   thin server component pinned by source scan.
@@ -103,8 +123,11 @@ One new page: a month calendar for one worker.
 1. **Holiday PAY rules** — paid holidays for company staff, DC holiday
    premium, OT-on-holiday multipliers: operator-held, parked with spec 306 U5.
    U2 is display-only marking.
-2. **Muster→labor_logs derivation** — stays spec 306 U5, operator-held. The
-   calendar SHOWS the variance; it does not resolve it.
+2. **Feeding `labor_logs`** — the derivation itself shipped (spec 369:
+   `close_muster_day` → `derive_muster_labor`, skipping cost-unconfirmed
+   workers). Confirming the 31 unconfirmed workers is the operator's
+   super_admin action on /workers, not this spec's; the calendar SHOWS the gap
+   and names that affordance, it does not write anything.
 3. **Editing attendance** from this page — read-only. Corrections happen where
    they happen today (cockpit / back-date via open/move/close per
    paper-attendance-backfill).

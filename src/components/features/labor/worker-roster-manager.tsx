@@ -38,12 +38,16 @@ import {
   type WorkerTrade,
 } from "@/lib/workers/trades";
 import {
+  ATTENDANCE_CALENDAR_LABEL,
+  CONFIRM_COST_LABEL,
+  PAY_TYPE_LABEL,
   TRADE_LABEL,
   TRADE_PRIMARY_CLEAR_LABEL,
   TRADE_PRIMARY_LABEL,
   TRADES_EMPTY_LABEL,
 } from "@/lib/i18n/labels";
 import { Search } from "lucide-react";
+import Link from "next/link";
 import { BankSelect } from "@/components/features/common/bank-select";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { RadioChip } from "@/components/features/common/radio-chip";
@@ -76,18 +80,13 @@ const NO_LEVEL_RATES: LevelRates = Object.fromEntries(
   WORKER_LEVEL_ORDER.map((l) => [l, null]),
 ) as LevelRates;
 
-const CONFIRM_COST_LABEL = "ยืนยันค่าแรงและระดับ";
-
 type PayType = Database["public"]["Enums"]["pay_type"];
 
 // Spec 266 U3 (ADR 0073): การจ่าย (pay_type) and สถานะ (employment_type) are two
 // orthogonal axes on every ช่าง; these label maps drive the two add-form selectors.
 // EMPLOYMENT_TYPE_LABEL is single-sourced in @/lib/workers/employment (also used by
-// the SA team view).
-const PAY_TYPE_LABEL: Record<PayType, string> = {
-  monthly: "รายเดือน",
-  daily: "รายวัน",
-};
+// the SA team view); PAY_TYPE_LABEL moved to labels.ts when spec 374 gave it a
+// second surface (the attendance-calendar header).
 
 // Spec 357 U-F: เพศ — optional on both forms (null = ยังไม่ระบุ; no clear path,
 // the RPC coalesce-keeps). The muster cockpit renders its ช/ญ chip off this.
@@ -715,6 +714,16 @@ function WorkerRow({
           of 29 rows otherwise offers 29 buttons all called แก้ไข, which is
           ambiguous for a screen reader and for anyone driving by voice. */}
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        {/* Spec 374 U1 — door to the per-worker attendance calendar. ?from
+            keeps the calendar's back chip returning HERE (multi-parent detail:
+            /payroll links there too). */}
+        <Link
+          href={`/workers/${worker.id}/attendance?from=/workers`}
+          aria-label={`${ATTENDANCE_CALENDAR_LABEL} ${worker.name}`}
+          className={BUTTON_SECONDARY_COMPACT}
+        >
+          ปฏิทิน
+        </Link>
         <button
           type="button"
           aria-label={`แก้ไข ${worker.name}`}

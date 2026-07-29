@@ -31,6 +31,19 @@ export const TEAM_HUB_LABEL = "ทีมงาน";
 export const WORKER_ROSTER_LABEL = "รายชื่อช่าง";
 export const LABOR_TAB_LABEL = "แรงงาน";
 
+// Spec 374 — the per-worker attendance calendar (roster door + payroll door +
+// the page itself), and the cost-confirm CTA it references in its explainer
+// (hoisted from worker-roster-manager, where it was file-local until a second
+// surface needed the exact affordance name).
+export const ATTENDANCE_CALENDAR_LABEL = "ปฏิทินเข้างาน";
+export const CONFIRM_COST_LABEL = "ยืนยันค่าแรงและระดับ";
+// Hoisted from worker-roster-manager for the same reason: the attendance
+// calendar header renders the pay classification too.
+export const PAY_TYPE_LABEL: Record<Enums["pay_type"], string> = {
+  monthly: "รายเดือน",
+  daily: "รายวัน",
+};
+
 // Spec 332 — worker trades (สายงาน): the assignment axis, tags on W01–W09.
 // One home for the roster sheet's trade labels + the message-keyed error map
 // (never let a raw set_worker_trades Postgres error reach the user).

@@ -1,0 +1,178 @@
+// Spec 374 U1 — pure view-model for the per-worker attendance calendar.
+// Merges muster sessions (spec 351: a date can carry a regular AND an OT row)
+// into one cell per date, overlays labor_logs paid days, and derives the
+// month summary (scanned days, OT, estimate, scanned-vs-paid variance).
+// Bangkok is fixed UTC+7 (no DST) so time-of-day math is plain offset math,
+// matching the UTC-ms convention in calendar-grid.ts.
+
+import { monthGrid, type MonthGrid } from "@/lib/work-packages/calendar-grid";
+
+export interface AttendanceMusterRow {
+  work_date: string;
+  in_at: string | null;
+  out_at: string | null;
+  in_method: string | null;
+  out_method: string | null;
+  out_auto: boolean;
+  ot_hours: number;
+  session: string;
+  project_id: string;
+  project_name: string | null;
+}
+
+export interface AttendancePaidRow {
+  work_date: string;
+  day_fraction: number;
+}
+
+export interface LaborLogRow {
+  id: string;
+  superseded_by: string | null;
+  work_date: string;
+  day_fraction: "full" | "half" | null;
+}
+
+/**
+ * labor_logs → paid rows, with the SAME current-state semantics as
+ * src/lib/labor/payroll.ts (currentRows + fractionDays): drop rows a newer
+ * correction supersedes (ADR 0009 anti-join), drop cancellation rows
+ * (null fraction), map full→1 / half→0.5. Duplicated rather than imported so
+ * this reader does not touch the payroll danger-path module; the parity is
+ * pinned by attendance-month.test.ts. Deliberate difference from the payroll
+ * REPORT: no pay_type filter — this counts recorded labor days for monthly
+ * ช่าง too (the label reads บันทึกค่าแรงแล้ว, not จ่ายแล้ว).
+ */
+export function paidRowsFromLaborLogs(rows: ReadonlyArray<LaborLogRow>): AttendancePaidRow[] {
+  const superseded = new Set(rows.map((r) => r.superseded_by).filter((v) => v !== null));
+  return rows
+    .filter((r) => !superseded.has(r.id) && r.day_fraction !== null)
+    .map((r) => ({
+      work_date: r.work_date,
+      day_fraction: r.day_fraction === "full" ? 1 : 0.5,
+    }));
+}
+
+export interface AttendanceDayCell {
+  inTime: string | null;
+  outTime: string | null;
+  inMethod: string | null;
+  outMethod: string | null;
+  outAuto: boolean;
+  otHours: number;
+  projectName: string | null;
+  paidFraction: number;
+}
+
+export interface AttendanceMonthSummary {
+  daysScanned: number;
+  otHoursTotal: number;
+  /** daysScanned × dayRate; null when the worker has no rate recorded. */
+  estimatedGross: number | null;
+  paidDaysTotal: number;
+  /** daysScanned − paidDaysTotal. */
+  varianceDays: number;
+}
+
+export interface AttendanceMonth {
+  grid: MonthGrid;
+  cells: Record<string, AttendanceDayCell>;
+  summary: AttendanceMonthSummary;
+}
+
+const BANGKOK_OFFSET_MS = 7 * 3_600_000;
+
+function bangkokHm(ts: string | null): string | null {
+  if (!ts) return null;
+  const ms = Date.parse(ts);
+  if (Number.isNaN(ms)) return null;
+  const d = new Date(ms + BANGKOK_OFFSET_MS);
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function sameMonth(dateIso: string, anchorIso: string): boolean {
+  return dateIso.slice(0, 7) === anchorIso.slice(0, 7);
+}
+
+export function buildAttendanceMonth(opts: {
+  /** First day of the month being rendered, YYYY-MM-01. */
+  monthAnchor: string;
+  musterRows: AttendanceMusterRow[];
+  paidRows: AttendancePaidRow[];
+  dayRate: number | null;
+}): AttendanceMonth {
+  const { monthAnchor, dayRate } = opts;
+  const musterRows = opts.musterRows.filter((r) => sameMonth(r.work_date, monthAnchor));
+  const paidRows = opts.paidRows.filter((r) => sameMonth(r.work_date, monthAnchor));
+
+  const cells: Record<string, AttendanceDayCell> = {};
+  const cellFor = (date: string): AttendanceDayCell => {
+    let cell = cells[date];
+    if (!cell) {
+      cell = {
+        inTime: null,
+        outTime: null,
+        inMethod: null,
+        outMethod: null,
+        outAuto: false,
+        otHours: 0,
+        projectName: null,
+        paidFraction: 0,
+      };
+      cells[date] = cell;
+    }
+    return cell;
+  };
+
+  // Merge sessions per date: earliest in wins, latest out wins, OT sums.
+  const earliestIn = new Map<string, number>();
+  const latestOut = new Map<string, number>();
+  for (const row of musterRows) {
+    const cell = cellFor(row.work_date);
+    if (row.in_at) {
+      const ms = Date.parse(row.in_at);
+      const best = earliestIn.get(row.work_date);
+      if (!Number.isNaN(ms) && (best === undefined || ms < best)) {
+        earliestIn.set(row.work_date, ms);
+        cell.inTime = bangkokHm(row.in_at);
+        cell.inMethod = row.in_method;
+      }
+    }
+    if (row.out_at) {
+      const ms = Date.parse(row.out_at);
+      const best = latestOut.get(row.work_date);
+      if (!Number.isNaN(ms) && (best === undefined || ms > best)) {
+        latestOut.set(row.work_date, ms);
+        cell.outTime = bangkokHm(row.out_at);
+        cell.outMethod = row.out_method;
+        cell.outAuto = row.out_auto;
+      }
+    }
+    cell.otHours += row.ot_hours;
+    if (!cell.projectName && row.project_name) cell.projectName = row.project_name;
+  }
+
+  let paidDaysTotal = 0;
+  for (const row of paidRows) {
+    const cell = cellFor(row.work_date);
+    cell.paidFraction += row.day_fraction;
+    paidDaysTotal += row.day_fraction;
+  }
+
+  const scannedDates = new Set(musterRows.map((r) => r.work_date));
+  const daysScanned = scannedDates.size;
+  const otHoursTotal = musterRows.reduce((sum, r) => sum + r.ot_hours, 0);
+
+  return {
+    grid: monthGrid(monthAnchor),
+    cells,
+    summary: {
+      daysScanned,
+      otHoursTotal,
+      estimatedGross: dayRate === null ? null : daysScanned * dayRate,
+      paidDaysTotal,
+      varianceDays: daysScanned - paidDaysTotal,
+    },
+  };
+}
