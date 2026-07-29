@@ -323,6 +323,13 @@ export const noPhotoRuleLabel = (days: number, count: number) =>
 export const MY_PROJECT_LABEL = "โครงการของฉัน";
 export const openWorkCountLabel = (count: number) => `${count} งานเปิดค้าง`;
 
+// Spec 339 U2b — the non-forcing update chip. Deliberately an OFFER, not an
+// instruction: an approved user may be mid-capture, so the copy never implies the
+// app is broken or that they must act now.
+export const UPDATE_AVAILABLE_LABEL = "มีเวอร์ชันใหม่";
+export const UPDATE_APPLY_LABEL = "อัปเดต";
+export const UPDATE_DISMISS_LABEL = "ปิดข้อความ";
+
 // UI strings for the แจ้งปัญหา surface (SSOT — used by the FAB, the sheet and the section).
 export const REPORT_ISSUE_LABEL = "แจ้งปัญหา";
 export const TODAY_ISSUES_LABEL = "ปัญหาวันนี้";

@@ -9,6 +9,7 @@ import { ToastProvider } from "@/components/features/common/toast-provider";
 import { ThemeScript } from "@/components/features/chrome/theme-script";
 import { ViewAsBanner } from "@/components/features/chrome/view-as-banner";
 import { SandboxBanner } from "@/components/features/chrome/sandbox-banner";
+import { UpdateAvailableChip } from "@/components/features/chrome/update-available-chip";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TelemetryProvider } from "@/components/features/telemetry/telemetry-provider";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
@@ -82,6 +83,13 @@ export default async function RootLayout({
         {/* Spec 294: sandbox-tenant environment banner — bottom-fixed, renders
             only when NEXT_PUBLIC_APP_ENV=sandbox (inert on production). */}
         <SandboxBanner />
+        {/* Spec 339 U2b: the non-forcing update chip. Measured 2026-07-30 — 14 of
+            15 active users were on a stale bundle, one 31 releases behind, while
+            the only signal was U1's passive line inside /settings. Mounted in the
+            chrome so the offer reaches them where they already are. Renders
+            nothing when current, when the probe fails, or once dismissed for that
+            version; NEVER reloads on its own (an approved user may be mid-task). */}
+        <UpdateAvailableChip />
         {/* Spec 76: the toast viewport wraps {children} so a toast fired just
             before a router.refresh() survives the RSC re-render. */}
         <ToastProvider>{children}</ToastProvider>
