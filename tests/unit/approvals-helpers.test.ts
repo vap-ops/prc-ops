@@ -210,18 +210,67 @@ describe("targetsForCause (spec 372 U4a)", () => {
   it("sends ticked phases only for the incomplete cause", () => {
     expect(targetsForCause("incomplete", ["before", "after"])).toEqual({
       targetPhases: ["before", "after"],
+      // Spec 372 U4b widened the return; one cause carries one shape.
+      targetPhotoIds: null,
     });
   });
 
   it("sends nothing when incomplete is chosen but nothing is ticked", () => {
     // Optional by design: a PM who cannot say which phase is missing still gets to
     // bounce the photos. An empty array would be a claim that NOTHING is missing.
-    expect(targetsForCause("incomplete", [])).toEqual({ targetPhases: null });
+    expect(targetsForCause("incomplete", [])).toEqual({
+      targetPhases: null,
+      targetPhotoIds: null,
+    });
   });
 
   it("never sends phases for a cause the RPC refuses them on", () => {
     for (const cause of ["mismatch", "premature", "rework"] as const) {
-      expect(targetsForCause(cause, ["before"])).toEqual({ targetPhases: null });
+      expect(targetsForCause(cause, ["before"])).toEqual({
+        targetPhases: null,
+        targetPhotoIds: null,
+      });
     }
+  });
+});
+
+// Spec 372 U4b — `mismatch` points at photos that EXIST, so it points at photo ids.
+// The live comments say "ลบรูปที่ใช้อุปกรณ์อื่น" — a couple of bad shots, not the whole
+// bucket — so phase-level would be a lie here. Same optional-at-every-layer rule as
+// the phases: nothing picked sends null, never an empty array.
+describe("targetsForCause — photos (spec 372 U4b)", () => {
+  const P1 = "11111111-1111-4111-8111-111111111111";
+  const P2 = "22222222-2222-4222-8222-222222222222";
+
+  it("sends picked photos only for the mismatch cause", () => {
+    expect(targetsForCause("mismatch", [], [P1, P2])).toEqual({
+      targetPhases: null,
+      targetPhotoIds: [P1, P2],
+    });
+  });
+
+  it("sends nothing when mismatch is chosen but nothing is picked", () => {
+    expect(targetsForCause("mismatch", [], [])).toEqual({
+      targetPhases: null,
+      targetPhotoIds: null,
+    });
+  });
+
+  it("never sends photos for a cause the RPC refuses them on", () => {
+    for (const cause of ["incomplete", "premature", "rework"] as const) {
+      expect(targetsForCause(cause, [], [P1]).targetPhotoIds).toBeNull();
+    }
+  });
+
+  it("never mixes the two axes — one cause, one shape", () => {
+    // The RPC raises 22023 for either combination; the client must not offer it.
+    expect(targetsForCause("incomplete", ["before"], [P1])).toEqual({
+      targetPhases: ["before"],
+      targetPhotoIds: null,
+    });
+    expect(targetsForCause("mismatch", ["before"], [P1])).toEqual({
+      targetPhases: null,
+      targetPhotoIds: [P1],
+    });
   });
 });

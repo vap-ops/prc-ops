@@ -26,7 +26,7 @@ import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { CATALOG_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import { loadCatalogCategories, categoryNameById } from "@/lib/catalog/categories";
 import { getDecisionHistoryForWorkPackage } from "@/lib/approvals/latest-decision";
-import { NOT_PENDING_REVIEW_ERROR } from "@/lib/approvals/predicates";
+import { NOT_PENDING_REVIEW_ERROR, FLAGGABLE_PHASES } from "@/lib/approvals/predicates";
 import {
   APPROVAL_DECISION_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
@@ -136,6 +136,19 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     ...photosByPhase.defect,
   ];
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
+
+  // Spec 372 U4b — what `รูปไม่ตรงกับงาน` can point at. Built from the CURRENT photos
+  // this page already loaded (getCurrentPhotosForWorkPackage has done the ADR 0009
+  // anti-join and dropped tombstones), so the picker can only offer photos the RPC
+  // will accept. Lifecycle phases only, matching FLAGGABLE_PHASES.
+  const decisionPhotos = FLAGGABLE_PHASES.flatMap((phase) =>
+    photosByPhase[phase].map((p) => ({
+      id: p.id,
+      phase,
+      seq: p.seq,
+      url: signedUrls.get(p.id) ?? null,
+    })),
+  );
 
   // Spec 353: this review surface is READ-ONLY (no capture), so the หลังแก้ไข
   // section is pure history — show it whenever the WP carries after_fix photos,
@@ -472,7 +485,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
         <section>
           <h2 className={SECTION_HEADING}>บันทึกผลการตรวจ</h2>
           {wp.status === "pending_approval" ? (
-            <RecordDecisionForm workPackageId={wp.id} />
+            <RecordDecisionForm workPackageId={wp.id} photos={decisionPhotos} />
           ) : (
             <EmptyNotice className="text-ink-secondary">{NOT_PENDING_REVIEW_ERROR}</EmptyNotice>
           )}

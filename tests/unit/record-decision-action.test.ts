@@ -279,3 +279,60 @@ describe("recordDecision — flagged phases (spec 372 U4a)", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 });
+
+// Spec 372 U4b — the picked photo ids must reach the RPC, and must NOT reach it on a
+// cause it refuses them for. The RPC also validates each id against the supersede
+// chain; the action only mirrors the CAUSE rule, because only the DB can know which
+// photos are current.
+describe("recordDecision — flagged photos (spec 372 U4b)", () => {
+  const P1 = "aaaaaaa1-1111-4111-8111-111111111111";
+
+  it("forwards the picked photos as p_target_photo_ids", async () => {
+    authAs("pending_approval");
+    const result = await recordDecision({
+      workPackageId: WP,
+      decision: "needs_revision",
+      revisionReason: "mismatch",
+      targetPhotoIds: [P1],
+    });
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "decide_work_package",
+      expect.objectContaining({ p_target_photo_ids: [P1] }),
+    );
+  });
+
+  it("omits the param entirely when nothing was picked", async () => {
+    authAs("pending_approval");
+    await recordDecision({
+      workPackageId: WP,
+      decision: "needs_revision",
+      revisionReason: "mismatch",
+      targetPhotoIds: null,
+    });
+    const args = rpc.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+    expect(args).not.toHaveProperty("p_target_photo_ids");
+  });
+
+  it("refuses photos on a cause the RPC would 22023 — before the round trip", async () => {
+    const result = await recordDecision({
+      workPackageId: WP,
+      decision: "needs_revision",
+      revisionReason: "incomplete",
+      targetPhotoIds: [P1],
+    });
+    expect(result).toEqual({ ok: false, error: "ระบุรูปที่ไม่ตรงได้เฉพาะเหตุผลรูปไม่ตรงกับงาน" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a malformed id before the round trip", async () => {
+    const result = await recordDecision({
+      workPackageId: WP,
+      decision: "needs_revision",
+      revisionReason: "mismatch",
+      targetPhotoIds: ["not-a-uuid"],
+    });
+    expect(result).toEqual({ ok: false, error: "รหัสรูปไม่ถูกต้อง" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});

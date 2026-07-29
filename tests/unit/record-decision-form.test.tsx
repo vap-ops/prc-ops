@@ -128,8 +128,9 @@ describe("RecordDecisionForm — the cause drives the payload (spec 372 U2)", ()
         decision: "needs_revision",
         comment: null,
         revisionReason: "mismatch",
-        // Spec 372 U4a widened the payload; phases ride only on incomplete.
+        // Spec 372 U4a/U4b widened the payload; each shape rides one cause.
         targetPhases: null,
+        targetPhotoIds: null,
       }),
     );
   });
@@ -147,6 +148,7 @@ describe("RecordDecisionForm — the cause drives the payload (spec 372 U2)", ()
         comment: "ผนังเอียง",
         revisionReason: null,
         targetPhases: null,
+        targetPhotoIds: null,
       }),
     );
   });
@@ -185,6 +187,7 @@ describe("RecordDecisionForm — the cause drives the payload (spec 372 U2)", ()
         comment: null,
         revisionReason: null,
         targetPhases: null,
+        targetPhotoIds: null,
       }),
     );
   });
@@ -266,6 +269,7 @@ describe("RecordDecisionForm — which phases are missing (spec 372 U4a)", () =>
         comment: null,
         revisionReason: "incomplete",
         targetPhases: ["before", "after"],
+        targetPhotoIds: null,
       }),
     );
   });
@@ -296,5 +300,131 @@ describe("RecordDecisionForm — which phases are missing (spec 372 U4a)", () =>
         expect.objectContaining({ revisionReason: "mismatch", targetPhases: null }),
       ),
     );
+  });
+});
+
+// Spec 372 U4b — `รูปไม่ตรงกับงาน` points at photos that EXIST. The live comments say
+// "ลบรูปที่ใช้อุปกรณ์อื่น" — a couple of bad shots, not the whole bucket — so telling
+// the SA "all your ระหว่างทำ photos are wrong" would make them re-shoot 10 to fix 2.
+const PHOTOS = [
+  { id: "aaaaaaa1-1111-4111-8111-111111111111", phase: "during" as const, seq: 3, url: null },
+  { id: "aaaaaaa2-2222-4222-8222-222222222222", phase: "during" as const, seq: 4, url: null },
+  { id: "aaaaaaa3-3333-4333-8333-333333333333", phase: "after" as const, seq: 1, url: null },
+];
+
+describe("RecordDecisionForm — which photos are wrong (spec 372 U4b)", () => {
+  const renderWithPhotos = () => render(<RecordDecisionForm workPackageId={WP} photos={PHOTOS} />);
+
+  it("offers the photos, named by the number the SA sees, once รูปไม่ตรงกับงาน is the cause", () => {
+    renderWithPhotos();
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    // seq is per-PHASE, so the label must carry the phase or #3 is ambiguous.
+    expect(screen.getByRole("checkbox", { name: /ระหว่างทำ #3/ })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /ระหว่างทำ #4/ })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /แล้วเสร็จ #1/ })).toBeInTheDocument();
+  });
+
+  it("offers them for NO other cause", () => {
+    renderWithPhotos();
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    expect(screen.queryByRole("checkbox", { name: /ระหว่างทำ #3/ })).not.toBeInTheDocument();
+  });
+
+  it("sends the picked photo ids", async () => {
+    renderWithPhotos();
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    fireEvent.click(screen.getByRole("checkbox", { name: /ระหว่างทำ #4/ }));
+    fireEvent.click(submitButton());
+    await vi.waitFor(() =>
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          revisionReason: "mismatch",
+          targetPhotoIds: ["aaaaaaa2-2222-4222-8222-222222222222"],
+          targetPhases: null,
+        }),
+      ),
+    );
+  });
+
+  it("has a per-phase select-all for the genuine replace-everything case", async () => {
+    renderWithPhotos();
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    fireEvent.click(screen.getByRole("button", { name: /ระหว่างทำ.*ทั้งหมดในช่วงนี้/ }));
+    fireEvent.click(submitButton());
+    await vi.waitFor(() =>
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetPhotoIds: [
+            "aaaaaaa1-1111-4111-8111-111111111111",
+            "aaaaaaa2-2222-4222-8222-222222222222",
+          ],
+        }),
+      ),
+    );
+  });
+
+  it("stays submittable with nothing picked, and sends null", async () => {
+    renderWithPhotos();
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    expect(submitButton()).toBeEnabled();
+    fireEvent.click(submitButton());
+    await vi.waitFor(() =>
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ targetPhotoIds: null }),
+      ),
+    );
+  });
+
+  it("forgets the picks when the PM switches cause", async () => {
+    renderWithPhotos();
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    fireEvent.click(screen.getByRole("checkbox", { name: /ระหว่างทำ #3/ }));
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    fireEvent.click(submitButton());
+    // A stale pick riding an incomplete payload is a 22023 from the RPC.
+    await vi.waitFor(() =>
+      expect(recordDecision).toHaveBeenCalledWith(
+        expect.objectContaining({ revisionReason: "incomplete", targetPhotoIds: null }),
+      ),
+    );
+  });
+
+  it("says so plainly when the WP carries no photos to point at", () => {
+    render(<RecordDecisionForm workPackageId={WP} photos={[]} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    expect(screen.getByText(/ยังไม่มีรูปให้เลือก/)).toBeInTheDocument();
+  });
+});
+
+// Mutation-checked finding (spec 372 U4b): the payload rule already drops the wrong
+// shape, so deleting either state reset left every test green — neither was pinned.
+// They are NOT redundant, though: without them, switching cause and back re-arms picks
+// the PM had abandoned, with submit ready. That is what these pin.
+describe("RecordDecisionForm — switching cause and back re-asks (spec 372 U4a/U4b)", () => {
+  it("forgets the ticked phases on the way through another cause", () => {
+    render(<RecordDecisionForm workPackageId={WP} photos={PHOTOS} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    fireEvent.click(screen.getByRole("checkbox", { name: /เตรียมงาน/ }));
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    expect(screen.getByRole("checkbox", { name: /เตรียมงาน/ })).not.toBeChecked();
+  });
+
+  it("forgets the picked photos on the way through another cause", () => {
+    render(<RecordDecisionForm workPackageId={WP} photos={PHOTOS} />);
+    pickNotApproved();
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    fireEvent.click(screen.getByRole("checkbox", { name: /ระหว่างทำ #3/ }));
+    fireEvent.click(cause(/รูปไม่ครบ/));
+    fireEvent.click(cause(/รูปไม่ตรงกับงาน/));
+    expect(screen.getByRole("checkbox", { name: /ระหว่างทำ #3/ })).not.toBeChecked();
   });
 });

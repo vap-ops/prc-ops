@@ -96,9 +96,14 @@ export type FlaggablePhase = (typeof FLAGGABLE_PHASES)[number];
 export function targetsForCause(
   cause: DecisionCause,
   phases: ReadonlyArray<FlaggablePhase>,
-): { targetPhases: FlaggablePhase[] | null } {
-  if (cause !== "incomplete" || phases.length === 0) return { targetPhases: null };
-  return { targetPhases: [...phases] };
+  photoIds: ReadonlyArray<string> = [],
+): { targetPhases: FlaggablePhase[] | null; targetPhotoIds: string[] | null } {
+  return {
+    targetPhases: cause === "incomplete" && phases.length > 0 ? [...phases] : null,
+    // Spec 372 U4b — `mismatch` points at photos that EXIST. One cause, one shape:
+    // the RPC raises 22023 for either mixture, so the client never offers one.
+    targetPhotoIds: cause === "mismatch" && photoIds.length > 0 ? [...photoIds] : null,
+  };
 }
 
 export function isCommentValid(decision: ApprovalDecision, comment: string | null): boolean {
