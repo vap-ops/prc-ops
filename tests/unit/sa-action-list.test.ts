@@ -18,7 +18,17 @@ const projectsById = new Map([
 ]);
 
 function wp(id: string, status: MyWorkWp["status"], project_id = "pr1"): MyWorkWp {
-  return { id, code: id.toUpperCase(), name: `งาน ${id}`, status, project_id, category_id: null };
+  return {
+    id,
+    code: id.toUpperCase(),
+    name: `งาน ${id}`,
+    status,
+    project_id,
+    category_id: null,
+    // Spec 375 U1 — movement tie-break; constant here so these cases keep
+    // exercising the legacy project/code ordering they were written for.
+    updated_at: "2026-01-01T00:00:00.000Z",
+  };
 }
 
 describe("buildSaActionList", () => {

@@ -307,6 +307,16 @@ export const SITE_ISSUE_STATUS_LABEL: Record<Enums["site_issue_status"], string>
   open: "เปิดอยู่",
   resolved: "แก้ไขแล้ว",
 };
+// Spec 375 U1 — the SA home's งานของฉัน list is ordered by MOVEMENT (last photo),
+// not alphabetically. The order is stated on the surface rather than left implicit:
+// an unexplained sort is one the field cannot trust, and this list is the SA's
+// main door to a work package (275 of ~810 home visits leave through it).
+export const MY_WORK_SORT_NOTE = "เรียงตามรูปล่าสุด";
+// The divider where the cold tail begins. Rows below it are NOT hidden — they are
+// demoted (dimmed, still tappable), so the SA can always reach all of her work.
+export const noPhotoRuleLabel = (days: number, count: number) =>
+  `ไม่มีรูปใน ${days} วัน · ${count} งาน`;
+
 // UI strings for the แจ้งปัญหา surface (SSOT — used by the FAB, the sheet and the section).
 export const REPORT_ISSUE_LABEL = "แจ้งปัญหา";
 export const TODAY_ISSUES_LABEL = "ปัญหาวันนี้";

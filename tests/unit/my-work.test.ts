@@ -15,7 +15,13 @@ const PROJECTS = new Map([
 ]);
 
 function wp(p: Partial<MyWorkWp> & Pick<MyWorkWp, "id" | "code" | "project_id">): MyWorkWp {
-  return { name: "งาน", status: "in_progress", category_id: null, ...p };
+  return {
+    name: "งาน",
+    status: "in_progress",
+    category_id: null,
+    updated_at: "2026-01-01T00:00:00.000Z",
+    ...p,
+  };
 }
 
 describe("buildMyWorkList", () => {
@@ -63,5 +69,147 @@ describe("buildMyWorkList", () => {
     expect(result.find((r) => r.id === "a")?.categoryCode).toBe("W05");
     expect(result.find((r) => r.id === "b")?.categoryCode).toBeNull();
     expect(result.find((r) => r.id === "c")?.categoryCode).toBeNull();
+  });
+});
+
+// Spec 375 U1 — the list is ordered by MOVEMENT, not by alphabet.
+//
+// Measured on prod 2026-07-29: the SA home rendered 139 rows sorted by project
+// code then WP code, 105 of them cold backlog. The app's own ranking SSOT could
+// not fix it — `rankFromPriority` reads `work_packages.priority` and all 177 open
+// leaf WPs are `priority='normal'`, so it is a constant. Last-photo recency is
+// the only input with variance.
+//
+// ⚠️ The sort key and the cold-divider key MUST be the same field, or the cold
+// rows are not contiguous and the `ไม่มีรูปใน 14 วัน` rule lands mid-list with hot
+// rows below it. So the order is: last photo desc (nulls last) → updated_at desc
+// → the pre-existing project/code order as the final stable tie-break.
+describe("buildMyWorkList — movement ordering (spec 375 U1)", () => {
+  const COLD_BEFORE = "2026-07-15T00:00:00.000Z";
+
+  it("orders by last photo, newest first", () => {
+    const result = buildMyWorkList(
+      [
+        wp({ id: "old", code: "WP-01", project_id: "p1" }),
+        wp({ id: "new", code: "WP-02", project_id: "p1" }),
+        wp({ id: "mid", code: "WP-03", project_id: "p1" }),
+      ],
+      PROJECTS,
+      new Map(),
+      {
+        lastPhotoByWp: new Map([
+          ["old", "2026-07-20T08:00:00.000Z"],
+          ["new", "2026-07-29T08:00:00.000Z"],
+          ["mid", "2026-07-25T08:00:00.000Z"],
+        ]),
+        coldBeforeIso: COLD_BEFORE,
+      },
+    );
+    expect(result.map((r) => r.id)).toEqual(["new", "mid", "old"]);
+    expect(result[0]?.lastPhotoAt).toBe("2026-07-29T08:00:00.000Z");
+  });
+
+  it("sorts every photographed WP above every WP that has no photo", () => {
+    const result = buildMyWorkList(
+      [
+        wp({ id: "never", code: "WP-01", project_id: "p1" }),
+        wp({ id: "shot", code: "WP-99", project_id: "p2" }),
+      ],
+      PROJECTS,
+      new Map(),
+      {
+        lastPhotoByWp: new Map([["shot", "2026-07-20T08:00:00.000Z"]]),
+        coldBeforeIso: COLD_BEFORE,
+      },
+    );
+    // WP-99/PRJ-002 would sort LAST alphabetically — recency must beat the alphabet.
+    expect(result.map((r) => r.id)).toEqual(["shot", "never"]);
+    expect(result[1]?.lastPhotoAt).toBeNull();
+  });
+
+  it("falls back to updated_at when neither WP has a photo", () => {
+    const result = buildMyWorkList(
+      [
+        wp({
+          id: "stale",
+          code: "WP-01",
+          project_id: "p1",
+          updated_at: "2026-07-01T00:00:00.000Z",
+        }),
+        wp({
+          id: "fresh",
+          code: "WP-02",
+          project_id: "p1",
+          updated_at: "2026-07-28T00:00:00.000Z",
+        }),
+      ],
+      PROJECTS,
+      new Map(),
+      { lastPhotoByWp: new Map(), coldBeforeIso: COLD_BEFORE },
+    );
+    expect(result.map((r) => r.id)).toEqual(["fresh", "stale"]);
+  });
+
+  it("marks a WP cold when its last photo predates the threshold, or it has none", () => {
+    const result = buildMyWorkList(
+      [
+        wp({ id: "hot", code: "WP-01", project_id: "p1" }),
+        wp({ id: "coldish", code: "WP-02", project_id: "p1" }),
+        wp({ id: "never", code: "WP-03", project_id: "p1" }),
+      ],
+      PROJECTS,
+      new Map(),
+      {
+        lastPhotoByWp: new Map([
+          ["hot", "2026-07-29T08:00:00.000Z"],
+          ["coldish", "2026-07-02T08:00:00.000Z"],
+        ]),
+        coldBeforeIso: COLD_BEFORE,
+      },
+    );
+    expect(result.find((r) => r.id === "hot")?.isCold).toBe(false);
+    expect(result.find((r) => r.id === "coldish")?.isCold).toBe(true);
+    expect(result.find((r) => r.id === "never")?.isCold).toBe(true);
+  });
+
+  it("keeps the cold rows CONTIGUOUS at the tail — the divider invariant", () => {
+    // The labelled rule is rendered at the first cold row. If a hot row could
+    // appear below a cold one the rule would be a lie, so this is the property
+    // the whole unit rests on: isCold must never go true→false down the list.
+    const rows = Array.from({ length: 12 }, (_, i) =>
+      wp({
+        id: `w${i}`,
+        code: `WP-${String(i).padStart(2, "0")}`,
+        project_id: i % 2 ? "p1" : "p2",
+      }),
+    );
+    const lastPhotoByWp = new Map(
+      rows
+        .filter((_, i) => i % 3 !== 0)
+        .map((r, i) => [
+          r.id,
+          `2026-07-${String(((i * 7) % 27) + 1).padStart(2, "0")}T08:00:00.000Z`,
+        ]),
+    );
+    const result = buildMyWorkList(rows, PROJECTS, new Map(), {
+      lastPhotoByWp,
+      coldBeforeIso: COLD_BEFORE,
+    });
+    const firstCold = result.findIndex((r) => r.isCold);
+    expect(firstCold).toBeGreaterThan(-1);
+    expect(result.slice(firstCold).every((r) => r.isCold)).toBe(true);
+  });
+
+  it("defaults to the legacy alphabetical order when no movement input is given", () => {
+    // The 4th argument is optional so every existing caller keeps its contract.
+    const result = buildMyWorkList(
+      [
+        wp({ id: "b", code: "WP-02", project_id: "p2" }),
+        wp({ id: "a", code: "WP-02", project_id: "p1" }),
+      ],
+      PROJECTS,
+    );
+    expect(result.map((r) => r.id)).toEqual(["a", "b"]);
+    expect(result[0]?.isCold).toBe(false);
   });
 });
