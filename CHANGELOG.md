@@ -1,3 +1,9 @@
+# [0.273.0](https://github.com/vap-ops/prc-ops/compare/v0.272.0...v0.273.0) (2026-07-29)
+
+### Features
+
+- **sa:** pair เบิกวัสดุ with เบิกอุปกรณ์ on the SA home (spec 375 U3) ([f59384c](https://github.com/vap-ops/prc-ops/commit/f59384c8d73fd3e42466add23368f751355c08ac))
+
 # [0.272.0](https://github.com/vap-ops/prc-ops/compare/v0.271.0...v0.272.0) (2026-07-29)
 
 ### Features
