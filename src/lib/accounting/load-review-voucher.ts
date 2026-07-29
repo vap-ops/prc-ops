@@ -182,10 +182,14 @@ export async function loadReviewVoucher(
         d.storage_path !== null && !supersededIds.has(d.id),
     );
     const urls = await mintSignedUrls(docSource.bucket, paths);
+    // ⚠️ mintSignedUrls keys its map by row.id, NOT storage_path (every other
+    // caller agrees). A storage_path lookup here silently filtered EVERY doc
+    // to "" — the voucher showed เอกสาร (0) for rows with receipts (spec 373
+    // verify catch; live-reproduced, pinned by review-voucher-docs.test.ts).
     docs = paths
       .map((d, i) => ({
         label: `${docSource.label} ${i + 1}`,
-        url: urls.get(d.storage_path) ?? "",
+        url: urls.get(d.id) ?? "",
       }))
       .filter((d) => d.url !== "");
   }
