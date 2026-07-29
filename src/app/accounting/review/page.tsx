@@ -17,7 +17,14 @@ import { ACCOUNTING_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
-import { MONEY_REVIEW_HINT, MONEY_REVIEW_LABEL } from "@/lib/i18n/labels";
+import {
+  MONEY_REVIEW_HINT,
+  MONEY_REVIEW_LABEL,
+  MONTH_FILTER_ALL,
+  MONTH_FILTER_APPLY,
+  MONTH_FILTER_LABEL,
+  MONTH_FILTER_THIS,
+} from "@/lib/i18n/labels";
 import { SECTION_HEADING, FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
 import {
   REVIEW_TABS,
@@ -144,7 +151,7 @@ export default async function MoneyReviewPage({ searchParams }: ReviewPageProps)
         >
           {tab !== "pending" ? <input type="hidden" name="tab" value={tab} /> : null}
           <label className="text-muted-foreground flex flex-col gap-1 text-xs">
-            เดือน
+            {MONTH_FILTER_LABEL}
             <input
               type="month"
               name="m"
@@ -157,11 +164,11 @@ export default async function MoneyReviewPage({ searchParams }: ReviewPageProps)
               href={withParams(tab, today.slice(0, 7))}
               className="text-action pb-2 text-sm underline"
             >
-              เดือนนี้
+              {MONTH_FILTER_THIS}
             </Link>
           ) : (
             <Link href={withParams(tab, ALL_MONTHS)} className="text-action pb-2 text-sm underline">
-              ดูทุกเดือน
+              {MONTH_FILTER_ALL}
             </Link>
           )}
           <label className="text-muted-foreground flex flex-col gap-1 text-xs">
@@ -176,7 +183,7 @@ export default async function MoneyReviewPage({ searchParams }: ReviewPageProps)
             </select>
           </label>
           <button type="submit" className={BUTTON_PRIMARY}>
-            ดู
+            {MONTH_FILTER_APPLY}
           </button>
         </form>
 

@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { ReimburseQueue } from "@/components/features/expenses/reimburse-queue";
 import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
+import { reviewStatusLabel } from "@/lib/accounting/review-queue-view";
 import { REIMBURSE_MARK_LABEL, REIMBURSE_QUEUE_EMPTY } from "@/lib/i18n/labels";
 
 const rows: ReimbursableRow[] = [
@@ -58,5 +59,32 @@ describe("ReimburseQueue", () => {
   it("shows the empty state when nothing is awaiting reimbursement", () => {
     render(<ReimburseQueue rows={[]} />);
     expect(screen.getByText(REIMBURSE_QUEUE_EMPTY)).toBeTruthy();
+  });
+
+  // Spec 373 D5 — validate-before-pay: each row carries its review + doc state
+  // and a door to the voucher, so คืนเงินแล้ว is never pressed blind. Soft
+  // signal only — the mark button is NOT gated on review state.
+  it("renders review-status and missing-doc chips + a voucher link per row when provided", () => {
+    const withReview: ReimbursableRow[] = [
+      { ...rows[0]!, reviewStatus: "pending", docCount: 0 },
+      { ...rows[2]!, reviewStatus: "verified", docCount: 1 },
+    ];
+    render(<ReimburseQueue rows={withReview} fromHref="/expenses" />);
+    expect(screen.getByText(reviewStatusLabel("pending"))).toBeTruthy();
+    expect(screen.getByText(reviewStatusLabel("verified"))).toBeTruthy();
+    expect(screen.getAllByText("ไม่มีเอกสาร")).toHaveLength(1);
+    const links = screen.getAllByRole("link");
+    expect(links.map((l) => l.getAttribute("href")).sort()).toEqual([
+      `/accounting/review/office_expenses/1?from=${encodeURIComponent("/expenses")}`,
+      `/accounting/review/office_expenses/3?from=${encodeURIComponent("/expenses")}`,
+    ]);
+    // The money action itself is NOT review-gated (hard gate = operator call).
+    expect(screen.getAllByRole("button", { name: REIMBURSE_MARK_LABEL })).toHaveLength(2);
+  });
+
+  it("stays chip-free (and link-free) when review state is absent — no fake 'pending'", () => {
+    render(<ReimburseQueue rows={rows} />);
+    expect(screen.queryByText(reviewStatusLabel("pending"))).toBeNull();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 });

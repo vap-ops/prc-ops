@@ -11,6 +11,13 @@ export interface ReimbursableRow {
   categoryLabel: string | null;
   expenseDate: string;
   description: string;
+  // Spec 373 D5 — validate-before-pay: review + doc state joined from the
+  // spec-345 RPC by the page. Optional so the loader's raw rows still typecheck;
+  // the queue renders the chips (and the voucher door) only when present —
+  // absent state must never render as a fake "รอตรวจ".
+  reviewStatus?: "pending" | "flagged" | "verified";
+  docCount?: number;
+  docsExpected?: "expected" | "no_path_yet" | "not_expected";
 }
 
 export interface ReimburseGroup {

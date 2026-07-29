@@ -5,13 +5,55 @@
 // direct-labeled in ink (no legend, no hover needed — values are on the marks).
 
 import type { MyExpenseSummary } from "@/lib/expenses/load-office-expenses";
+import type { SourceSpend } from "@/lib/expenses/expense-summary";
 import { bahtWithSymbol } from "@/lib/format";
 import {
+  EXPENSE_ALL_MONTHS_TOTAL_LABEL,
   EXPENSE_CHART_HEADING,
+  EXPENSE_CHART_HEADING_ALL,
+  EXPENSE_CHART_HEADING_SELECTED,
   EXPENSE_MONTH_EMPTY,
   EXPENSE_MONTH_TOTAL_LABEL,
+  EXPENSE_PAYMENT_SOURCE_LABEL,
+  EXPENSE_PENDING_TOTAL_ALL_LABEL,
   EXPENSE_PENDING_TOTAL_LABEL,
+  EXPENSE_RANGE_EMPTY,
+  EXPENSE_SELECTED_MONTH_TOTAL_LABEL,
+  PAYMENT_SOURCE_CARD_LABEL,
+  PAYMENT_SOURCE_DIRECT_LABEL,
+  PAYMENT_SOURCE_OWN_LABEL,
 } from "@/lib/i18n/labels";
+
+// Spec 373 D3/D4 — every "เดือนนี้"-flavoured label follows the active range
+// (tiles, chart heading AND empty state — a label claiming this month over a
+// filtered past month is the lie the relabel rule exists to prevent).
+export type ExpenseMonthMode = "current" | "selected" | "all";
+
+const MONTH_LABELS: Record<ExpenseMonthMode, { tile: string; chart: string; empty: string }> = {
+  current: {
+    tile: EXPENSE_MONTH_TOTAL_LABEL,
+    chart: EXPENSE_CHART_HEADING,
+    empty: EXPENSE_MONTH_EMPTY,
+  },
+  selected: {
+    tile: EXPENSE_SELECTED_MONTH_TOTAL_LABEL,
+    chart: EXPENSE_CHART_HEADING_SELECTED,
+    empty: EXPENSE_RANGE_EMPTY,
+  },
+  all: {
+    tile: EXPENSE_ALL_MONTHS_TOTAL_LABEL,
+    chart: EXPENSE_CHART_HEADING_ALL,
+    empty: EXPENSE_RANGE_EMPTY,
+  },
+};
+
+// Spec 373 D3 — the SSOT labels for the payment_source enum (fact-check: never
+// invent parallel terms; these three already exist for the record form).
+const SOURCE_LABELS: Record<string, string> = {
+  company_card: PAYMENT_SOURCE_CARD_LABEL,
+  own_money: PAYMENT_SOURCE_OWN_LABEL,
+  company_direct: PAYMENT_SOURCE_DIRECT_LABEL,
+};
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
@@ -22,25 +64,56 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ExpenseSummary({ summary }: { summary: MyExpenseSummary }) {
+export function ExpenseSummary({
+  summary,
+  allScope = false,
+  bySource,
+  monthMode = "current",
+}: {
+  summary: MyExpenseSummary;
+  // Spec 373 D3 — under ทั้งหมด both figures go firm-wide, so the pending tile
+  // must stop claiming "(ของคุณ)" and the source subtotal line appears.
+  allScope?: boolean;
+  bySource?: SourceSpend[];
+  monthMode?: ExpenseMonthMode;
+}) {
   const max = Math.max(1, ...summary.byCategory.map((c) => c.total));
+  const monthLabels = MONTH_LABELS[monthMode];
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <StatTile label={EXPENSE_MONTH_TOTAL_LABEL} value={bahtWithSymbol(summary.monthTotal)} />
+        <StatTile label={monthLabels.tile} value={bahtWithSymbol(summary.monthTotal)} />
         <StatTile
-          label={EXPENSE_PENDING_TOTAL_LABEL}
+          label={allScope ? EXPENSE_PENDING_TOTAL_ALL_LABEL : EXPENSE_PENDING_TOTAL_LABEL}
           value={bahtWithSymbol(summary.pendingReimburse)}
         />
       </div>
 
+      {allScope && bySource && bySource.length > 0 && (
+        <div className="border-edge bg-card flex flex-col gap-1.5 rounded-xl border p-4">
+          <span className="text-ink-secondary text-xs font-medium">
+            {EXPENSE_PAYMENT_SOURCE_LABEL}
+          </span>
+          <ul className="flex flex-col gap-1">
+            {bySource.map((s) => (
+              <li key={s.source} className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="text-ink">{SOURCE_LABELS[s.source] ?? s.source}</span>
+                <span className="text-ink font-semibold tabular-nums">
+                  {bahtWithSymbol(s.total)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         <h2 className="text-ink-secondary px-1 text-xs font-semibold tracking-wide uppercase">
-          {EXPENSE_CHART_HEADING}
+          {monthLabels.chart}
         </h2>
         {summary.byCategory.length === 0 ? (
-          <p className="text-ink-secondary text-sm">{EXPENSE_MONTH_EMPTY}</p>
+          <p className="text-ink-secondary text-sm">{monthLabels.empty}</p>
         ) : (
           <ul className="border-edge bg-card flex flex-col gap-2.5 rounded-xl border p-4">
             {summary.byCategory.map((c) => (

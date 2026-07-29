@@ -100,6 +100,13 @@ voucher. **Soft signal
 only** — `คืนเงินแล้ว` is not blocked by review state; hard-gating payment on
 verification is a workflow change that needs an operator decision (logged in §5).
 
+**Amendment (build-time find, U2):** the queue's group names hit the same `users`
+RLS wall — `listReimbursableExpenses` embeds `users.full_name` on the authed
+session, which nulls for an `accounting` viewer (only super_admin reads all
+users), so the person-grouped queue rendered `—` for every group for the exact
+audience it serves. Fixed with the same admin-client seam (`resolveUserNames`),
+shared with D2's submitter names.
+
 ### D6 — voucher back chip becomes referrer-aware
 
 `/accounting/review/[source]/[id]` hardcodes its back chip to `/accounting/review`.
