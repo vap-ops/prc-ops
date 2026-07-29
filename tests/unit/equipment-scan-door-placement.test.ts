@@ -26,33 +26,30 @@ function occurrences(src: string, needle: string): number {
   return src.split(needle).length - 1;
 }
 
-describe("scan door placement — /sa home", () => {
-  it("imports and renders the door exactly once", () => {
+// Spec 375 U3 — the /sa home no longer hosts the door DIRECTLY. It became the
+// right half of the เบิกจากคลังหน้างาน custody pair, alongside เบิกวัสดุ, because
+// the SA holds materials and equipment both and both are withdrawals from the
+// same store. The pair owns the scan href now (pinned in store-withdraw-pair
+// .test.tsx); what this file still guards is that the standalone door has not
+// crept BACK onto /sa as a second equipment door, and that the store page —
+// the other host, unchanged — kept its copy.
+describe("scan door placement — /sa home (retired in favour of the pair)", () => {
+  it("no longer renders the standalone door", () => {
     const src = withoutComments(SA_HOME);
-    // import line PLUS one real usage; a bare toContain would pass on the import alone.
-    expect(occurrences(src, "EquipmentScanDoor")).toBe(2);
-    expect(occurrences(src, "<EquipmentScanDoor")).toBe(1);
+    // Bare, not quote-wrapped: a revert to plain JSX must red this too.
+    expect(occurrences(src, "EquipmentScanDoor")).toBe(0);
   });
 
-  it("sits between แผนวันนี้ and the เครื่องมือ tiles", () => {
+  it("renders the custody pair in its place, ungated, above the tools grid", () => {
     const src = withoutComments(SA_HOME);
+    expect(occurrences(src, "StoreWithdrawPair")).toBe(2); // import + one usage
+    expect(src).toMatch(/\n\s*<StoreWithdrawPair projectId=\{primaryProjectId\} from="\/sa" \/>\n/);
     const plan = src.indexOf("<DailyPlanWorklist");
-    const door = src.indexOf("<EquipmentScanDoor");
+    const pair = src.indexOf("<StoreWithdrawPair");
     const tools = src.indexOf("<SaTools");
     expect(plan).toBeGreaterThan(-1);
-    expect(door).toBeGreaterThan(plan);
-    expect(tools).toBeGreaterThan(door);
-  });
-
-  it("renders unconditionally — no gate of any kind wraps it", () => {
-    // A ROLE gate here would be an arm that can never fail (the spec-340
-    // unreachable-clause defect); the subset invariant in role-sets.test.ts
-    // carries that instead. But this pin must catch ANY wrapper, not just a
-    // role one: asserting the absence of `EQUIPMENT_MOVE_ROLES` leaves
-    // `{pendingRegCount > 0 ? <EquipmentScanDoor/> : null}` green. So pin the
-    // render as a bare JSX sibling — nothing on its line but the element.
-    const src = withoutComments(SA_HOME);
-    expect(src).toMatch(/\n\s*<EquipmentScanDoor from="\/sa" \/>\n/);
+    expect(pair).toBeGreaterThan(plan);
+    expect(tools).toBeGreaterThan(pair);
   });
 });
 
@@ -76,14 +73,14 @@ describe("scan door placement — project store", () => {
     expect(src).not.toContain("!canReturnEquipment");
   });
 
-  it("threads its own route as the back href, not the other host's", () => {
+  it("threads its own route as the back href", () => {
     // An empty or copy-pasted `from` degrades silently: /equipment/scan runs it
     // through safeBackHref, so a wrong value lands the user on a default rather
-    // than erroring. Pin both hosts' values.
+    // than erroring. Spec 375 U3: the /sa host is gone (the custody pair owns
+    // that href now and pins its own `from`), so only the store host remains here.
     expect(withoutComments(STORE)).toContain(
       "<EquipmentScanDoor from={`/projects/${project.id}/store`} />",
     );
-    expect(withoutComments(SA_HOME)).toContain('<EquipmentScanDoor from="/sa" />');
   });
 
   it("puts the door above the stock console", () => {
