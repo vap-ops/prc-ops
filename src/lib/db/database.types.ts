@@ -4964,6 +4964,21 @@ export type Database = {
           },
         ]
       }
+      public_holidays: {
+        Row: {
+          holiday_date: string
+          name_th: string
+        }
+        Insert: {
+          holiday_date: string
+          name_th: string
+        }
+        Update: {
+          holiday_date?: string
+          name_th?: string
+        }
+        Relationships: []
+      }
       purchase_order_attachments: {
         Row: {
           created_at: string

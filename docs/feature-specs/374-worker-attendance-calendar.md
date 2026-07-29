@@ -135,6 +135,25 @@ One new page: a month calendar for one worker.
 5. **Company-staff monthly payroll semantics** — this page is muster-truth ×
    daily-rate; the payroll page remains the money SSOT.
 
+## 3b. U2 follow-ups (logged at review, not built — display-only v1)
+
+1. **Observance regimes.** The seed mixes three: วันแรงงาน (private-sector),
+   วันพืชมงคล + the Jan-2 special (government-sector), the rest (both). Which
+   days PRC actually closes is an operator/company-policy fact the app does
+   not know; an `observed_by` scope column is REQUIRED before any pay
+   semantics ever land on this table. Until then a ทำงานวันหยุด chip on a
+   sector-specific day is a calendar fact, not a pay claim.
+2. **Coverage window.** Seed ends 2026-12-31; a 2027 seed migration is owed by
+   December, and months outside the seeded window render unmarked —
+   indistinguishable from "no holidays". A covered-range marker is the fix if
+   this page outlives ad-hoc reseeding.
+3. **วันพืชมงคล is announced annually** (palace announcement, not statute) —
+   2026-05-11 came from published 2026 calendars; re-verify against the actual
+   announcement if precision starts to matter.
+4. **List changes = NEW migrations** with `on conflict (holiday_date)`
+   handling — the applied seed migration no-ops on edit, and its bare insert
+   would abort a future overlapping seed.
+
 ## 4. Rollout
 
 U1 ships first (code-only, auto-merge on green) and does not reference

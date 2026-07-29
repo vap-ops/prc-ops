@@ -208,6 +208,63 @@ describe("WorkerAttendanceCalendar", () => {
     expect(screen.queryByText(/มาตรฐานระดับ/)).not.toBeInTheDocument();
   });
 
+  it("marks a holiday cell with its name and flags work on it (spec 374 U2)", () => {
+    const holidayMonth = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [
+        {
+          work_date: "2026-07-29",
+          in_at: "2026-07-29T00:30:00Z",
+          out_at: "2026-07-29T10:00:00Z",
+          in_method: "qr",
+          out_method: "qr",
+          out_auto: false,
+          ot_hours: 0,
+          project_name: "P05 โพธิ์ทอง",
+        },
+      ],
+      paidRows: [],
+      dayRate: null,
+      holidays: [
+        { holiday_date: "2026-07-28", name_th: "วันเฉลิมพระชนมพรรษา" },
+        { holiday_date: "2026-07-29", name_th: "วันอาสาฬหบูชา" },
+      ],
+    });
+    const { container } = renderCal({ month: holidayMonth });
+    // Empty holiday cell: name shown, no worked chip.
+    expect(screen.getByText("วันเฉลิมพระชนมพรรษา")).toBeInTheDocument();
+    // Scanned holiday cell: the worked-on-holiday chip.
+    expect(screen.getByText("วันอาสาฬหบูชา")).toBeInTheDocument();
+    expect(screen.getAllByText("ทำงานวันหยุด")).toHaveLength(1);
+    // The tint is the at-a-glance marking — pin the real token (an invented
+    // class would silently no-op).
+    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(2);
+    // A truncated name must still be reachable — desktop back-office audience,
+    // so title is the affordance.
+    expect(screen.getByTitle("วันอาสาฬหบูชา")).toBeInTheDocument();
+  });
+
+  it("holiday tint beats the weekend tint (Sunday holiday)", () => {
+    const sundayHoliday = buildAttendanceMonth({
+      monthAnchor: "2026-05-01",
+      musterRows: [],
+      paidRows: [],
+      dayRate: null,
+      holidays: [{ holiday_date: "2026-05-31", name_th: "วันวิสาขบูชา" }],
+    });
+    const { container } = renderCal({ month: sundayHoliday });
+    const cell = screen.getByText("วันวิสาขบูชา").closest("div");
+    expect(cell?.className).toContain("bg-attn-soft");
+    expect(cell?.className).not.toContain("bg-sunk");
+    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(1);
+  });
+
+  it("renders no holiday marking on an ordinary month", () => {
+    const { container } = renderCal();
+    expect(screen.queryByText("ทำงานวันหยุด")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(0);
+  });
+
   it("estimate renders — (not ฿0) when the worker has no rate", () => {
     const noRate = buildAttendanceMonth({
       monthAnchor: "2026-07-01",

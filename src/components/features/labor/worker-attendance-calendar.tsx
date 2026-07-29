@@ -157,11 +157,18 @@ export function WorkerAttendanceCalendar({
             <div key={wi} className="border-edge grid grid-cols-7 border-b last:border-b-0">
               {week.map((cell) => {
                 const data = cell.inMonth ? month.cells[cell.iso] : undefined;
+                const holiday = cell.inMonth ? month.holidayByDate[cell.iso] : undefined;
                 return (
                   <div
                     key={cell.iso}
                     className={`border-edge min-h-16 border-r p-1 last:border-r-0 ${
-                      cell.inMonth ? (cell.isWeekend ? "bg-sunk" : "") : "opacity-40"
+                      cell.inMonth
+                        ? holiday
+                          ? "bg-attn-soft"
+                          : cell.isWeekend
+                            ? "bg-sunk"
+                            : ""
+                        : "opacity-40"
                     }`}
                   >
                     <p
@@ -171,6 +178,25 @@ export function WorkerAttendanceCalendar({
                     >
                       {cell.day}
                     </p>
+                    {holiday ? (
+                      // title: long royal-holiday names truncate at cell width;
+                      // this page's audience is desktop back-office, where
+                      // hover is real (unlike the gloved-hand PWA surfaces).
+                      <p
+                        title={holiday}
+                        className="text-attn-ink truncate text-[10px] leading-tight"
+                      >
+                        {holiday}
+                      </p>
+                    ) : null}
+                    {/* `data` includes paid-only cells (paper-backfilled labor
+                        days) on purpose — a recorded labor day IS work on that
+                        holiday, scan or no scan. */}
+                    {holiday && data ? (
+                      <p className="text-attn-ink text-[10px] leading-tight font-semibold">
+                        ทำงานวันหยุด
+                      </p>
+                    ) : null}
                     {data ? (
                       <div className="text-ink-secondary text-[10px] leading-tight">
                         {data.inTime ? <p>{data.inTime}</p> : null}

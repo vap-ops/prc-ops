@@ -202,6 +202,31 @@ describe("buildAttendanceMonth", () => {
     });
     expect(m.cells["2026-07-15"]?.outNextDay).toBe(false);
   });
+
+  it("maps holidays by date, filtered to the anchor month (spec 374 U2)", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [],
+      paidRows: [],
+      dayRate: null,
+      holidays: [
+        { holiday_date: "2026-07-28", name_th: "วันเฉลิมพระชนมพรรษา" },
+        { holiday_date: "2026-08-12", name_th: "วันแม่แห่งชาติ" },
+      ],
+    });
+    expect(m.holidayByDate["2026-07-28"]).toBe("วันเฉลิมพระชนมพรรษา");
+    expect(m.holidayByDate["2026-08-12"]).toBeUndefined();
+  });
+
+  it("holidays default to an empty map when absent", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [],
+      paidRows: [],
+      dayRate: null,
+    });
+    expect(m.holidayByDate).toEqual({});
+  });
 });
 
 describe("resolveMonthAnchor", () => {

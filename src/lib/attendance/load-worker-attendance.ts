@@ -4,7 +4,9 @@
 // — workers.day_rate has no authenticated grant, muster_attendance RLS is
 // can_see_project-scoped (plain procurement fails it), and labor_logs has no
 // authenticated SELECT at all, so the RLS client would return nothing useful
-// for exactly the audience this page serves.
+// for exactly the audience this page serves. (public_holidays alone is
+// authenticated-readable reference data; it rides the same client so the
+// month loads on one connection, not because it needs the seam.)
 import "server-only";
 
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
@@ -18,6 +20,7 @@ import {
   paidRowsFromLaborLogs,
   type AttendanceMusterRow,
   type AttendancePaidRow,
+  type HolidayRow,
 } from "@/lib/attendance/attendance-month";
 import { canSeeStandardRate } from "@/lib/attendance/std-rate-audience";
 import { viewerSeesAllMusterProjects } from "@/lib/attendance/muster-scope";
@@ -26,6 +29,8 @@ export interface WorkerAttendancePayload {
   worker: AttendanceWorkerHeader;
   musterRows: AttendanceMusterRow[];
   paidRows: AttendancePaidRow[];
+  /** Spec 374 U2 — the month's public holidays (display-only marking). */
+  holidays: HolidayRow[];
   /** Standard gross rate for the worker's level — null unless the viewer is in
    *  the labor-rates money audience AND the worker has a level AND the level
    *  has a configured standard. */
@@ -85,7 +90,7 @@ export async function loadWorkerAttendance(
     );
   }
 
-  const [musterRes, laborRes, projectRes, stdRes] = await Promise.all([
+  const [musterRes, laborRes, holidayRes, projectRes, stdRes] = await Promise.all([
     musterQuery,
     admin
       .from("labor_logs")
@@ -93,6 +98,11 @@ export async function loadWorkerAttendance(
       .eq("worker_id", workerId)
       .gte("work_date", monthAnchor)
       .lt("work_date", nextAnchor),
+    admin
+      .from("public_holidays")
+      .select("holiday_date, name_th")
+      .gte("holiday_date", monthAnchor)
+      .lt("holiday_date", nextAnchor),
     worker.project_id
       ? admin.from("projects").select("code, name").eq("id", worker.project_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -110,6 +120,8 @@ export async function loadWorkerAttendance(
 
   if (musterRes.error) throw new Error(`attendance muster read failed: ${musterRes.error.message}`);
   if (laborRes.error) throw new Error(`attendance labor read failed: ${laborRes.error.message}`);
+  if (holidayRes.error)
+    throw new Error(`attendance holiday read failed: ${holidayRes.error.message}`);
   if (projectRes.error)
     throw new Error(`attendance project read failed: ${projectRes.error.message}`);
 
@@ -164,6 +176,7 @@ export async function loadWorkerAttendance(
     },
     musterRows,
     paidRows,
+    holidays: holidayRes.data ?? [],
     stdRate,
   };
 }
