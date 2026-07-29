@@ -39,7 +39,7 @@ import {
   type AllExpenseRow,
   type OfficeExpenseReviewInfo,
 } from "@/lib/expenses/load-office-expenses";
-import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
+import type { ReviewedReimbursableRow } from "@/lib/expenses/reimburse-group";
 import {
   EXPENSE_EXPORT_CSV_LABEL,
   MONTH_FILTER_ALL,
@@ -110,7 +110,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   // for finance (office_expenses is an allowlisted spec-345 source). Group
   // names go through the admin seam too — the loader's authed `users` embed
   // nulls for an accounting viewer (D5 amendment).
-  let reimbursable: ReimbursableRow[] = [];
+  let reimbursable: ReviewedReimbursableRow[] = [];
   if (isFinance) {
     const rawQueue = await listReimbursableExpenses(supabase, projectId);
     const queueNames = await resolveUserNames(

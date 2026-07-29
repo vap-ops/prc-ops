@@ -96,9 +96,10 @@ The own scope keeps today's no-filter behaviour — a personal list is short.
 Each reimburse-queue row gains the receipt chip and the review-status chip (the
 `list_money_events_for_review` call runs whenever `isFinance` — the queue renders
 in both scopes, so the call is not conditional on `scope=all`) and links to the
-voucher. **Soft signal
-only** — `คืนเงินแล้ว` is not blocked by review state; hard-gating payment on
-verification is a workflow change that needs an operator decision (logged in §5).
+voucher. **Soft signal only at first ship — superseded 2026-07-29:** the
+operator decided the HARD gate
+(§5), so `คืนเงินแล้ว` now requires review = verified at all three layers
+(button · action · RPC, mig `20260813075871`).
 
 **Amendment (build-time find, U2):** the queue's group names hit the same `users`
 RLS wall — `listReimbursableExpenses` embeds `users.full_name` on the authed
@@ -123,11 +124,10 @@ voucher registration actually bites (guard-carries-the-bug lesson).
 
 ## 3. Non-goals
 
-- **No schema.** Everything reads existing tables/RPCs on existing grants.
+- **No schema** ~~(as first shipped)~~ — superseded 2026-07-29: the §5 hard pay-gate ships migs `20260813075871`/`075872` (RPC body gate).
 - **No verify/flag/write actions on /expenses.** The voucher stays the one door.
-- **No hard gate of reimbursement on review state** (§5 operator call).
-- **No CSV export** — logged as follow-up (§5), pattern exists at
-  `/accounting/journal/export`.
+- ~~No hard gate of reimbursement on review state~~ — superseded 2026-07-29, operator decided the hard gate (§5, SHIPPED).
+- ~~No CSV export~~ — shipped 2026-07-29 (#839, §5).
 - Reimburse queue grouping/settle mechanics unchanged.
 
 ## 4. Units
@@ -163,11 +163,14 @@ hold precedent, e.g. #827/#829) or operator one-tap.
 
 ## 5. Follow-ups / operator decisions logged
 
-- 🔔 **Hard validate-before-pay?** Should `คืนเงินแล้ว` refuse (or confirm-warn)
-  when the expense's review status isn't `verified`? Workflow change — operator
-  call.
-- ⬜ **CSV export of office expenses** (month + scope params) for consolidation
-  in a spreadsheet — copy the `/accounting/journal/export` route pattern.
+- ✅ **Hard validate-before-pay — DECIDED + SHIPPED 2026-07-29** (operator: hard
+  gate). `mark_expense_reimbursed` refuses an unverified expense (P0001
+  "expense not verified", mig `20260813075871`); the queue button renders only
+  on verified rows, replaced by ต้องตรวจก่อนคืนเงิน + the voucher door; pgTAP
+  `373-expense-pay-gate` pins absent/pending/flagged refuse + the verified
+  positive control.
+- ✅ **CSV export — SHIPPED 2026-07-29 (#839):** `/expenses/export` on the
+  hardened `src/lib/csv` writer, ดาวน์โหลด CSV on the all-scope toolbar.
 - ⬜ The 19 open reimbursements + 0 reviews are a live operational backlog, not a
   code gap — surfacing them to the accounting team is what this spec does; chasing
   them is theirs.
