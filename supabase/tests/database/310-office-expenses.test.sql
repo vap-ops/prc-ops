@@ -93,10 +93,21 @@ select throws_ok($$
 $$, '42501', null, 'non-finance cannot mark reimbursed');
 
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a2"}';
+-- Spec 373 §5: marking now requires a verified spec-345 review (hard pay-gate)
+-- — verify the fixture expense first (owner insert; the sealed table has no
+-- policies). Intent of this case is unchanged: finance CAN mark.
+reset role;
+insert into public.money_event_reviews (source_table, source_id, status, verified_at, verified_via, verified_by)
+select 'office_expenses', id, 'verified', now(), 'reviewer', '00000000-0000-0000-0000-0000000000a2'
+  from public.office_expenses
+ where payment_source='company_card' and submitted_by='00000000-0000-0000-0000-0000000000a3'
+ limit 1;
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000a2"}';
 select lives_ok($$
   select public.mark_expense_reimbursed(
     (select id from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1))
-$$, 'accounting can mark reimbursed');
+$$, 'accounting can mark reimbursed (once verified — spec 373 gate)');
 select isnt(
   (select reimbursed_at from public.office_expenses where payment_source='company_card' and submitted_by = '00000000-0000-0000-0000-0000000000a3' limit 1),
   null, 'reimbursed_at set');

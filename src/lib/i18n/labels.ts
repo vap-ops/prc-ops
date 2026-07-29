@@ -1296,6 +1296,10 @@ export const MONTH_FILTER_ALL = "ดูทุกเดือน";
 export const MONTH_FILTER_THIS = "เดือนนี้";
 export const MONTH_FILTER_APPLY = "ดู";
 export const EXPENSE_EXPORT_CSV_LABEL = "ดาวน์โหลด CSV";
+// Spec 373 §5 — the hard validate-before-pay gate (operator 2026-07-29):
+// คืนเงินแล้ว requires the expense's review = ตรวจแล้ว, at the button, the
+// action AND the DEFINER RPC.
+export const REIMBURSE_NEEDS_REVIEW = "ต้องตรวจก่อนคืนเงิน";
 export const EXPENSE_CHART_HEADING = "ค่าใช้จ่ายตามประเภท (เดือนนี้)";
 export const EXPENSE_MONTH_EMPTY = "ยังไม่มีค่าใช้จ่ายเดือนนี้";
 export const EXPENSE_ADD_HEADING = "บันทึกค่าใช้จ่ายใหม่";

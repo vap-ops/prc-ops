@@ -5,6 +5,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
+import { REIMBURSE_NEEDS_REVIEW } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import { buildExpenseAttachmentPath } from "@/lib/expenses/attachment-path";
 import {
@@ -112,6 +113,11 @@ export async function markExpenseReimbursed(id: string): Promise<MarkReimbursedR
     // surface that specific case in Thai (the raw RPC message is English).
     if (error.message?.includes("already reimbursed")) {
       return { ok: false, error: "รายการนี้ถูกทำเครื่องหมายคืนเงินแล้ว" };
+    }
+    // Spec 373 §5 hard pay-gate — the RPC refuses an unverified expense; relay
+    // the reason (the UI hides the button, but a stale page can still submit).
+    if (error.message?.includes("not verified")) {
+      return { ok: false, error: REIMBURSE_NEEDS_REVIEW };
     }
     return { ok: false, error: "ทำเครื่องหมายคืนเงินไม่สำเร็จ" };
   }

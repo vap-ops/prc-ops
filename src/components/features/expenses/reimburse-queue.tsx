@@ -18,6 +18,7 @@ import {
   REIMBURSE_MARK_CONFIRM,
   REIMBURSE_MARK_LABEL,
   REIMBURSE_MARK_PENDING,
+  REIMBURSE_NEEDS_REVIEW,
   REIMBURSE_QUEUE_EMPTY,
   REIMBURSE_QUEUE_HEADING,
   REIMBURSE_TOTAL_PREFIX,
@@ -95,14 +96,25 @@ export function ReimburseQueue({ rows, fromHref }: { rows: ReimbursableRow[]; fr
                       </span>
                     )}
                   </div>
-                  <ConfirmActionButton
-                    idleLabel={REIMBURSE_MARK_LABEL}
-                    pendingLabel={REIMBURSE_MARK_PENDING}
-                    confirmMessage={REIMBURSE_MARK_CONFIRM}
-                    confirmLabel={REIMBURSE_MARK_LABEL}
-                    buttonClassName="border-edge text-ink rounded-control shrink-0 border px-3 py-1.5 text-xs font-medium"
-                    action={() => markExpenseReimbursed(it.id)}
-                  />
+                  {/* Spec 373 §5 hard pay-gate: the money action renders ONLY on
+                      a verified row (absent state = unverified, never a free
+                      pass). The replacement carries the reason; the review chip
+                      above stays the door to the voucher where verifying
+                      happens. The RPC enforces the same rule server-side. */}
+                  {it.reviewStatus === "verified" ? (
+                    <ConfirmActionButton
+                      idleLabel={REIMBURSE_MARK_LABEL}
+                      pendingLabel={REIMBURSE_MARK_PENDING}
+                      confirmMessage={REIMBURSE_MARK_CONFIRM}
+                      confirmLabel={REIMBURSE_MARK_LABEL}
+                      buttonClassName="border-edge text-ink rounded-control shrink-0 border px-3 py-1.5 text-xs font-medium"
+                      action={() => markExpenseReimbursed(it.id)}
+                    />
+                  ) : (
+                    <span role="alert" className="text-ink-secondary shrink-0 text-xs">
+                      {REIMBURSE_NEEDS_REVIEW}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
