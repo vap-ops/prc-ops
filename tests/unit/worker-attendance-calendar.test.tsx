@@ -20,9 +20,7 @@ const month = buildAttendanceMonth({
       out_method: "manual",
       out_auto: false,
       ot_hours: 0,
-      session: "regular",
-      project_id: "p1",
-      project_name: "โพธิ์ทอง",
+      project_name: "P05 โพธิ์ทอง",
     },
     {
       work_date: "2026-07-16",
@@ -32,9 +30,7 @@ const month = buildAttendanceMonth({
       out_method: "manual",
       out_auto: true,
       ot_hours: 0,
-      session: "regular",
-      project_id: "p1",
-      project_name: "โพธิ์ทอง",
+      project_name: "P05 โพธิ์ทอง",
     },
     {
       work_date: "2026-07-16",
@@ -44,9 +40,7 @@ const month = buildAttendanceMonth({
       out_method: "qr",
       out_auto: false,
       ot_hours: 3,
-      session: "ot",
-      project_id: "p1",
-      project_name: "โพธิ์ทอง",
+      project_name: "P05 โพธิ์ทอง",
     },
   ],
   paidRows: [{ work_date: "2026-07-15", day_fraction: 1 }],
@@ -101,13 +95,88 @@ describe("WorkerAttendanceCalendar", () => {
     );
   });
 
-  it("day cells show in–out, OT chip, auto-out marker", () => {
+  it("day cells show in–out and the OT chip", () => {
     renderCal();
     expect(screen.getByText(/07:30/)).toBeInTheDocument();
     expect(screen.getByText(/\+3 ชม\./)).toBeInTheDocument();
     // 07-16's latest out (21:00) came from the OT session; the auto flag
     // belongs to whichever row supplied the rendered out time.
     expect(screen.getByText(/21:00/)).toBeInTheDocument();
+  });
+
+  it("marks an auto check-out with the drill's (อัตโนมัติ) form", () => {
+    const auto = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [
+        {
+          work_date: "2026-07-20",
+          in_at: "2026-07-20T00:30:00Z",
+          out_at: "2026-07-20T10:00:00Z",
+          in_method: "qr",
+          out_method: "manual",
+          out_auto: true,
+          ot_hours: 0,
+          project_name: "P05 โพธิ์ทอง",
+        },
+      ],
+      paidRows: [],
+      dayRate: null,
+    });
+    renderCal({ month: auto });
+    expect(screen.getByText(/\(อัตโนมัติ\)/)).toBeInTheDocument();
+  });
+
+  it("marks a next-day out with (+1 วัน)", () => {
+    const overnight = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [
+        {
+          work_date: "2026-07-21",
+          in_at: "2026-07-21T15:00:00Z",
+          out_at: "2026-07-21T18:30:00Z", // 01:30 Bangkok on the 22nd
+          in_method: "qr",
+          out_method: "qr",
+          out_auto: false,
+          ot_hours: 3,
+          project_name: "P05 โพธิ์ทอง",
+        },
+      ],
+      paidRows: [],
+      dayRate: null,
+    });
+    renderCal({ month: overnight });
+    expect(screen.getByText(/\(\+1 วัน\)/)).toBeInTheDocument();
+  });
+
+  it("marks manually-recorded days with the drill's บันทึกมือ term", () => {
+    renderCal();
+    // 07-15 (manual OUT) and 07-16 (manual IN) both carry the marker.
+    expect(screen.getAllByText("บันทึกมือ")).toHaveLength(2);
+  });
+
+  it("shows the project code on a cell only when it differs from the home project", () => {
+    const away = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [
+        {
+          work_date: "2026-07-22",
+          in_at: "2026-07-22T00:30:00Z",
+          out_at: "2026-07-22T10:00:00Z",
+          in_method: "qr",
+          out_method: "qr",
+          out_auto: false,
+          ot_hours: 0,
+          project_name: "P99 อื่น",
+        },
+      ],
+      paidRows: [],
+      dayRate: null,
+    });
+    renderCal({ month: away });
+    expect(screen.getByText("P99")).toBeInTheDocument();
+    // Home-project cells (the shared fixture) never show a code.
+    renderCal();
+    expect(screen.queryByText("P05")).not.toBeInTheDocument();
   });
 
   it("summary: scanned days, OT total, labeled estimate, paid days, variance", () => {

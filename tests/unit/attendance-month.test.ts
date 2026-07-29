@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAttendanceMonth,
   paidRowsFromLaborLogs,
+  resolveMonthAnchor,
   type AttendanceMusterRow,
   type AttendancePaidRow,
 } from "@/lib/attendance/attendance-month";
@@ -19,8 +20,6 @@ const muster = (over: Partial<AttendanceMusterRow>): AttendanceMusterRow => ({
   out_method: "manual",
   out_auto: false,
   ot_hours: 0,
-  session: "regular",
-  project_id: "p1",
   project_name: "TFM โพธิ์ทอง",
   ...over,
 });
@@ -72,7 +71,6 @@ describe("buildAttendanceMonth", () => {
       musterRows: [
         muster({}),
         muster({
-          session: "ot",
           in_at: "2026-07-15T11:00:00Z", // 18:00
           out_at: "2026-07-15T14:00:00Z", // 21:00
           ot_hours: 3,
@@ -173,10 +171,58 @@ describe("buildAttendanceMonth", () => {
   it("estimate multiplies DISTINCT scanned days, not session rows", () => {
     const m = buildAttendanceMonth({
       monthAnchor: "2026-07-01",
-      musterRows: [muster({}), muster({ session: "ot", ot_hours: 2 })],
+      musterRows: [muster({}), muster({ ot_hours: 2 })],
       paidRows: [],
       dayRate: 300,
     });
     expect(m.summary.estimatedGross).toBe(300);
+  });
+
+  it("flags an out that lands past midnight Bangkok (OT crossing the date line)", () => {
+    // 15T18:30Z = 01:30 Bangkok on the 16th — a 22:00→01:30 OT session must
+    // not read as out-before-in on the work_date cell (the sibling drill
+    // carries the same outNextDay flag for live data of this shape).
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [muster({ in_at: "2026-07-15T15:00:00Z", out_at: "2026-07-15T18:30:00Z" })],
+      paidRows: [],
+      dayRate: null,
+    });
+    const cell = m.cells["2026-07-15"];
+    expect(cell?.outTime).toBe("01:30");
+    expect(cell?.outNextDay).toBe(true);
+  });
+
+  it("same-day out is not flagged as next-day", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [muster({})],
+      paidRows: [],
+      dayRate: null,
+    });
+    expect(m.cells["2026-07-15"]?.outNextDay).toBe(false);
+  });
+});
+
+describe("resolveMonthAnchor", () => {
+  const today = "2026-07-29";
+
+  it("accepts a valid YYYY-MM and anchors to day 1", () => {
+    expect(resolveMonthAnchor("2026-03", today)).toBe("2026-03-01");
+  });
+
+  it("falls back to the current Bangkok month when absent or malformed", () => {
+    expect(resolveMonthAnchor(undefined, today)).toBe("2026-07-01");
+    expect(resolveMonthAnchor("garbage", today)).toBe("2026-07-01");
+    expect(resolveMonthAnchor("2026-13", today)).toBe("2026-07-01");
+  });
+
+  it("rejects out-of-range years (no 22007 from the DB, no 1900s grid)", () => {
+    expect(resolveMonthAnchor("9999-12", today)).toBe("2026-07-01");
+    expect(resolveMonthAnchor("0000-01", today)).toBe("2026-07-01");
+  });
+
+  it("takes the first value of a repeated param", () => {
+    expect(resolveMonthAnchor(["2026-06", "2026-08"], today)).toBe("2026-06-01");
   });
 });

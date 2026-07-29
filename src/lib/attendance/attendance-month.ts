@@ -6,6 +6,8 @@
 // matching the UTC-ms convention in calendar-grid.ts.
 
 import { monthGrid, type MonthGrid } from "@/lib/work-packages/calendar-grid";
+import { bangkokDateOf } from "@/lib/dates";
+import { formatThaiTime } from "@/lib/i18n/labels";
 
 export interface AttendanceMusterRow {
   work_date: string;
@@ -15,8 +17,6 @@ export interface AttendanceMusterRow {
   out_method: string | null;
   out_auto: boolean;
   ot_hours: number;
-  session: string;
-  project_id: string;
   project_name: string | null;
 }
 
@@ -58,6 +58,9 @@ export interface AttendanceDayCell {
   inMethod: string | null;
   outMethod: string | null;
   outAuto: boolean;
+  /** The rendered out time falls on the day AFTER work_date (post-midnight
+   *  OT check-out) — without this the cell reads as out-before-in. */
+  outNextDay: boolean;
   otHours: number;
   projectName: string | null;
   paidFraction: number;
@@ -79,20 +82,30 @@ export interface AttendanceMonth {
   summary: AttendanceMonthSummary;
 }
 
-const BANGKOK_OFFSET_MS = 7 * 3_600_000;
-
+// One home for wall-clock display: formatThaiTime (Intl, Asia/Bangkok, h23)
+// — the same formatter the sibling /team/attendance drill uses for this field.
 function bangkokHm(ts: string | null): string | null {
   if (!ts) return null;
-  const ms = Date.parse(ts);
-  if (Number.isNaN(ms)) return null;
-  const d = new Date(ms + BANGKOK_OFFSET_MS);
-  const hh = String(d.getUTCHours()).padStart(2, "0");
-  const mm = String(d.getUTCMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
+  if (Number.isNaN(Date.parse(ts))) return null;
+  return formatThaiTime(ts);
 }
 
 function sameMonth(dateIso: string, anchorIso: string): boolean {
   return dateIso.slice(0, 7) === anchorIso.slice(0, 7);
+}
+
+const MONTH_PARAM = /^(20\d{2})-(0[1-9]|1[0-2])$/;
+
+/**
+ * ?m= → a safe YYYY-MM-01 anchor. First value of a repeated param; years
+ * outside 2000–2099 (and anything malformed) fall back to the current
+ * Bangkok month — an unclamped year reaches the DB as an expanded-year ISO
+ * string (22007 → 500) or renders a mislabeled 1900s grid.
+ */
+export function resolveMonthAnchor(m: string | string[] | undefined, todayIso: string): string {
+  const first = Array.isArray(m) ? m[0] : m;
+  if (first !== undefined && MONTH_PARAM.test(first)) return `${first}-01`;
+  return `${todayIso.slice(0, 7)}-01`;
 }
 
 export function buildAttendanceMonth(opts: {
@@ -116,6 +129,7 @@ export function buildAttendanceMonth(opts: {
         inMethod: null,
         outMethod: null,
         outAuto: false,
+        outNextDay: false,
         otHours: 0,
         projectName: null,
         paidFraction: 0,
@@ -147,6 +161,7 @@ export function buildAttendanceMonth(opts: {
         cell.outTime = bangkokHm(row.out_at);
         cell.outMethod = row.out_method;
         cell.outAuto = row.out_auto;
+        cell.outNextDay = bangkokDateOf(row.out_at) > row.work_date;
       }
     }
     cell.otHours += row.ot_hours;

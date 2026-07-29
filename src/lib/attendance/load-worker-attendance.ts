@@ -20,6 +20,7 @@ import {
   type AttendancePaidRow,
 } from "@/lib/attendance/attendance-month";
 import { canSeeStandardRate } from "@/lib/attendance/std-rate-audience";
+import { viewerSeesAllMusterProjects } from "@/lib/attendance/muster-scope";
 
 export interface WorkerAttendancePayload {
   worker: AttendanceWorkerHeader;
@@ -36,6 +37,7 @@ export async function loadWorkerAttendance(
   /** YYYY-MM-01 */
   monthAnchor: string,
   viewerRole: UserRole,
+  viewerUserId: string,
 ): Promise<WorkerAttendancePayload | null> {
   const admin = createAdminSupabase();
   const nextAnchor = addMonthsIso(monthAnchor, 1);
@@ -48,16 +50,43 @@ export async function loadWorkerAttendance(
   if (workerError) throw new Error(`attendance worker read failed: ${workerError.message}`);
   if (!worker) return null;
 
+  // The admin seam exists to unlock plain `procurement` (can_see_project =
+  // false). A project_manager stays MEMBERSHIP-scoped, exactly as the muster
+  // RLS scopes them — the seam must not widen what a non-member PM can read.
+  let musterQuery = admin
+    .from("muster_attendance")
+    .select(
+      "work_date, in_at, out_at, in_method, out_method, out_auto, ot_hours, muster_teams!inner(project_id, projects(code, name))",
+    )
+    .eq("worker_id", workerId)
+    .gte("work_date", monthAnchor)
+    .lt("work_date", nextAnchor)
+    .order("work_date", { ascending: true });
+  if (!viewerSeesAllMusterProjects(viewerRole)) {
+    const [memRes, ledRes] = await Promise.all([
+      admin.from("project_members").select("project_id").eq("user_id", viewerUserId),
+      admin.from("projects").select("id").eq("project_lead_id", viewerUserId),
+    ]);
+    if (memRes.error || ledRes.error) {
+      throw new Error(
+        `attendance scope read failed: ${memRes.error?.message ?? ledRes.error?.message}`,
+      );
+    }
+    const allowed = [
+      ...new Set([
+        ...(memRes.data ?? []).map((r) => r.project_id),
+        ...(ledRes.data ?? []).map((r) => r.id),
+      ]),
+    ];
+    // Empty membership must yield zero rows, not an unfiltered read.
+    musterQuery = musterQuery.in(
+      "muster_teams.project_id",
+      allowed.length > 0 ? allowed : ["00000000-0000-0000-0000-000000000000"],
+    );
+  }
+
   const [musterRes, laborRes, projectRes, stdRes] = await Promise.all([
-    admin
-      .from("muster_attendance")
-      .select(
-        "work_date, in_at, out_at, in_method, out_method, out_auto, ot_hours, session, muster_teams(project_id, projects(code, name))",
-      )
-      .eq("worker_id", workerId)
-      .gte("work_date", monthAnchor)
-      .lt("work_date", nextAnchor)
-      .order("work_date", { ascending: true }),
+    musterQuery,
     admin
       .from("labor_logs")
       .select("id, superseded_by, work_date, day_fraction")
@@ -85,8 +114,7 @@ export async function loadWorkerAttendance(
     throw new Error(`attendance project read failed: ${projectRes.error.message}`);
 
   const musterRows: AttendanceMusterRow[] = (musterRes.data ?? []).map((r) => {
-    const team = r.muster_teams;
-    const project = team?.projects ?? null;
+    const project = r.muster_teams?.projects ?? null;
     return {
       work_date: r.work_date,
       in_at: r.in_at,
@@ -95,8 +123,6 @@ export async function loadWorkerAttendance(
       out_method: r.out_method,
       out_auto: r.out_auto,
       ot_hours: r.ot_hours === null ? 0 : Number(r.ot_hours),
-      session: r.session,
-      project_id: team?.project_id ?? "",
       project_name: project ? `${project.code} ${project.name}` : null,
     };
   });

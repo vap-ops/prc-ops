@@ -1,8 +1,8 @@
 import { PageShell } from "@/components/features/chrome/page-shell";
-// Spec 46 P1 — /workers: roster management. The ONE surface where day
-// rates render: the page is requireRole-gated and the rates are fetched
-// with the service-role client (the column has no authenticated grant —
-// C3). Nothing here flows to a field role.
+// Spec 46 P1 — /workers: roster management. Day rates render here and on the
+// spec-374 attendance calendar (/workers/[id]/attendance) — both requireRole-
+// gated on WORKER_ROSTER_ROLES, both fetching with the service-role client
+// (the column has no authenticated grant — C3). Nothing flows to a field role.
 // Spec 172 Phase C / ADR 0062: procurement joins PM/super here — it owns ช่าง
 // onboarding (incl. the pay rate). The gate widens to WORKER_ROSTER_ROLES; the
 // admin-client day_rate read stays authorized by that same gate.

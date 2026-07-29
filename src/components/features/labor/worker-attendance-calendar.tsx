@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { AttendanceMonth } from "@/lib/attendance/attendance-month";
 import { THAI_WEEKDAYS } from "@/lib/work-packages/calendar-grid";
-import { baht } from "@/lib/format";
+import { bahtWithSymbol } from "@/lib/format";
 import { CONFIRM_COST_LABEL } from "@/lib/i18n/labels";
 
 export interface AttendanceWorkerHeader {
@@ -66,10 +66,10 @@ export function WorkerAttendanceCalendar({
           <div className="flex flex-wrap items-baseline gap-x-2">
             <dt className="font-medium">ค่าแรง</dt>
             <dd className="text-ink font-semibold">
-              {worker.dayRate === null ? "ยังไม่กำหนด" : `฿${baht(worker.dayRate)} /วัน`}
+              {worker.dayRate === null ? "ยังไม่กำหนด" : `${bahtWithSymbol(worker.dayRate)} /วัน`}
             </dd>
             {showStd ? (
-              <dd className="text-ink-muted text-xs">มาตรฐานระดับ ฿{baht(stdRate)}</dd>
+              <dd className="text-ink-muted text-xs">มาตรฐานระดับ {bahtWithSymbol(stdRate)}</dd>
             ) : null}
           </div>
           {worker.levelLabel ? (
@@ -105,7 +105,7 @@ export function WorkerAttendanceCalendar({
         </p>
         <p className="text-ink-secondary mt-1 text-sm">
           ประมาณการค่าแรง{" "}
-          {summary.estimatedGross === null ? "—" : `฿${baht(summary.estimatedGross)}`}
+          {summary.estimatedGross === null ? "—" : bahtWithSymbol(summary.estimatedGross)}
           <span className="text-ink-muted text-xs"> (จำนวนวัน × ค่าแรง/วัน)</span>
         </p>
         <p className="text-ink-secondary mt-1 text-sm">
@@ -177,13 +177,27 @@ export function WorkerAttendanceCalendar({
                         {data.outTime ? (
                           <p>
                             {data.outTime}
+                            {/* Marker copy mirrors the /team/attendance drill:
+                                (+1 วัน) for a post-midnight out, (อัตโนมัติ)
+                                for the close-day auto-out. */}
+                            {data.outNextDay ? (
+                              <span className="text-ink-muted"> (+1 วัน)</span>
+                            ) : null}
                             {data.outAuto ? (
-                              <span className="text-ink-muted"> อัตโนมัติ</span>
+                              <span className="text-ink-muted"> (อัตโนมัติ)</span>
                             ) : null}
                           </p>
                         ) : null}
                         {data.otHours > 0 ? (
                           <p className="text-attn-ink font-medium">+{fmtDays(data.otHours)} ชม.</p>
+                        ) : null}
+                        {data.inMethod === "manual" || data.outMethod === "manual" ? (
+                          <p className="text-ink-muted">บันทึกมือ</p>
+                        ) : null}
+                        {data.projectName && data.projectName !== worker.projectLabel ? (
+                          <p className="text-ink-muted font-medium">
+                            {data.projectName.split(" ")[0]}
+                          </p>
                         ) : null}
                       </div>
                     ) : null}

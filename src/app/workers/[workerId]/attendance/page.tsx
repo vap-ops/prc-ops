@@ -21,29 +21,36 @@ import { safeBackHref } from "@/lib/nav/back-href";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { bangkokTodayIso } from "@/lib/dates";
 import { addMonthsIso } from "@/lib/work-packages/calendar-grid";
-import { ATTENDANCE_CALENDAR_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
-import { buildAttendanceMonth } from "@/lib/attendance/attendance-month";
+import { isValidUuid } from "@/lib/validate/uuid";
+import { ATTENDANCE_CALENDAR_LABEL } from "@/lib/i18n/labels";
+import { buildAttendanceMonth, resolveMonthAnchor } from "@/lib/attendance/attendance-month";
 import { loadWorkerAttendance } from "@/lib/attendance/load-worker-attendance";
 import { WorkerAttendanceCalendar } from "@/components/features/labor/worker-attendance-calendar";
 
 export const metadata = { title: ATTENDANCE_CALENDAR_LABEL };
-
-const MONTH_PARAM = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export default async function WorkerAttendancePage({
   params,
   searchParams,
 }: {
   params: Promise<{ workerId: string }>;
-  searchParams: Promise<{ m?: string; from?: string }>;
+  // Next hands back string | string[] for repeated params — normalize, never
+  // assume the scalar shape (a doubled ?from would otherwise leak a bogus
+  // "a,b" target into the stepper links).
+  searchParams: Promise<{ m?: string | string[]; from?: string | string[] }>;
 }) {
   const { workerId } = await params;
-  const { m, from } = await searchParams;
+  const { m, from: fromRaw } = await searchParams;
+  const from = Array.isArray(fromRaw) ? fromRaw[0] : fromRaw;
   const ctx = await requireRole(WORKER_ROSTER_ROLES);
 
-  const monthAnchor = MONTH_PARAM.test(m ?? "") ? `${m}-01` : `${bangkokTodayIso().slice(0, 7)}-01`;
+  // A non-uuid segment is a 22P02 at PostgREST — surface it as the 404 it is,
+  // not a 500 (same dead-end class the attendance-audit lib documents).
+  if (!isValidUuid(workerId)) notFound();
 
-  const data = await loadWorkerAttendance(workerId, monthAnchor, ctx.role);
+  const monthAnchor = resolveMonthAnchor(m, bangkokTodayIso());
+
+  const data = await loadWorkerAttendance(workerId, monthAnchor, ctx.role, ctx.id);
   if (!data) notFound();
 
   const month = buildAttendanceMonth({
@@ -64,7 +71,10 @@ export default async function WorkerAttendancePage({
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
-      <DetailHeader backHref={safeBackHref(from, "/workers")} backLabel={WORKER_ROSTER_LABEL}>
+      {/* Generic กลับ: the chip's target follows ?from (roster OR payroll), so
+          a parent-specific label would announce the wrong destination — the
+          feedback/[id] precedent for referrer-aware chips. */}
+      <DetailHeader backHref={safeBackHref(from, "/workers")} backLabel="กลับ">
         <h1 className="text-title text-ink font-bold tracking-tight">
           {ATTENDANCE_CALENDAR_LABEL}
         </h1>

@@ -39,8 +39,17 @@ describe("worker attendance page wiring (spec 374 U1)", () => {
 
   it("month steppers preserve the ?from referrer (chip survives month paging)", () => {
     const src = stripComments(read(PAGE));
-    // The href builder must thread `from` into the m= links, not just the chip.
+    // The literal query-string append is the load-bearing part — a builder
+    // NAMED withFrom that drops the param would keep a name-count green.
+    expect(uses(src, "&from=")).toBeGreaterThanOrEqual(1);
     expect(uses(src, "withFrom")).toBeGreaterThanOrEqual(3);
+  });
+
+  it("guards the worker id shape and clamps the month param", () => {
+    const src = stripComments(read(PAGE));
+    expect(uses(src, "isValidUuid")).toBeGreaterThanOrEqual(2);
+    expect(uses(src, "notFound")).toBeGreaterThanOrEqual(2);
+    expect(uses(src, "resolveMonthAnchor")).toBeGreaterThanOrEqual(2);
   });
 
   it("loader is server-only and reads via the admin client", () => {
@@ -49,6 +58,15 @@ describe("worker attendance page wiring (spec 374 U1)", () => {
     expect(uses(src, "@/lib/db/admin")).toBeGreaterThanOrEqual(1);
     expect(uses(src, "canSeeStandardRate")).toBeGreaterThanOrEqual(2);
     expect(uses(src, "paidRowsFromLaborLogs")).toBeGreaterThanOrEqual(2);
+  });
+
+  it("loader re-applies membership scoping for viewers outside the see-all set", () => {
+    const src = stripComments(read(LOADER));
+    expect(uses(src, "viewerSeesAllMusterProjects")).toBeGreaterThanOrEqual(2);
+    expect(uses(src, "project_members")).toBeGreaterThanOrEqual(1);
+    expect(uses(src, "project_lead_id")).toBeGreaterThanOrEqual(1);
+    // The filter must target the muster read's embedded team project.
+    expect(uses(src, "muster_teams.project_id")).toBeGreaterThanOrEqual(1);
   });
 
   it("roster row carries the calendar door with the ?from referrer", () => {

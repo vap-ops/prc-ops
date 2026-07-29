@@ -713,10 +713,11 @@ function WorkerRow({
       {/* Both controls carry the worker's NAME in their accessible name: a roster
           of 29 rows otherwise offers 29 buttons all called แก้ไข, which is
           ambiguous for a screen reader and for anyone driving by voice. */}
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
         {/* Spec 374 U1 — door to the per-worker attendance calendar. ?from
             keeps the calendar's back chip returning HERE (multi-parent detail:
-            /payroll links there too). */}
+            /payroll links there too). flex-wrap: three controls overflow a
+            320px card otherwise (clipped by main's overflow-x-clip). */}
         <Link
           href={`/workers/${worker.id}/attendance?from=/workers`}
           aria-label={`${ATTENDANCE_CALENDAR_LABEL} ${worker.name}`}
