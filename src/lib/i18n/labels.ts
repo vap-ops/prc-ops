@@ -1302,7 +1302,7 @@ export const EXPENSE_EXPORT_CSV_LABEL = "ดาวน์โหลด CSV";
 export const REIMBURSE_NEEDS_REVIEW = "ต้องตรวจก่อนคืนเงิน";
 // Spec 373 §6 — the verify assembly line (chain doors, not bulk rubber-stamps).
 export const REVIEW_NEXT_CTA = "ตรวจรายการถัดไป";
-export const REVIEW_CHAIN_DONE = "ตรวจครบทุกรายการแล้ว";
+export const REVIEW_CHAIN_DONE = "ไม่มีรายการรอตรวจแล้ว";
 export const EXPENSE_VERIFY_START_CTA = "เริ่มตรวจรายการเก่าสุด";
 export const EXPENSE_CHART_HEADING = "ค่าใช้จ่ายตามประเภท (เดือนนี้)";
 export const EXPENSE_MONTH_EMPTY = "ยังไม่มีค่าใช้จ่ายเดือนนี้";

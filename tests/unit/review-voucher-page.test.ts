@@ -32,10 +32,11 @@ describe("spec 373 D6 — review voucher back chip", () => {
 });
 
 describe("spec 373 §6 — the verify chain door", () => {
-  it("computes the next pending voucher of the SAME source through the pure helper", () => {
-    expect(count("pickNextPending")).toBeGreaterThanOrEqual(2);
-    // One pending-tab RPC call, source-filtered — oldest first is the RPC's order.
-    expect(src).toMatch(/p_tab: "pending"[\s\S]{0,200}p_source_table: sourceTable/);
+  it("takes the chain target from the LOADER (shared client + error-throw), never a page-side RPC", () => {
+    // The pending query lives in loadReviewVoucher — a page-side copy would
+    // silently swallow errors as "nothing pending" (fresh-eyes 🟠).
+    expect(count("data.nextPendingId")).toBeGreaterThanOrEqual(2);
+    expect(src).not.toContain("list_money_events_for_review");
   });
 
   it("the next door threads the SAME ?from= so the whole chain returns to one origin", () => {

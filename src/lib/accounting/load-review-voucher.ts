@@ -11,6 +11,7 @@ import "server-only";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { pickNextPending } from "@/lib/accounting/review-chain";
 import type { MoneySourceTable } from "@/lib/accounting/review-queue-view";
 import type { ReviewQueueRow } from "@/components/features/accounting/review-queue-list";
 
@@ -43,6 +44,10 @@ export interface ReviewVoucherData {
   flags: ReviewVoucherFlag[];
   docs: ReviewVoucherDoc[];
   journal: { id: string; entryNo: number; entryDate: string; count: number } | null;
+  // Spec 373 §6 — the verify chain: oldest OTHER pending event of the SAME
+  // source (null = no pending remains; flagged rows are NOT in this tab — the
+  // chain walks pending only, the flag flow is its own path).
+  nextPendingId: string | null;
 }
 
 // The three sources that carry documents today (spec 345 §1.1); U6 adds wage +
@@ -91,6 +96,17 @@ export async function loadReviewVoucher(
   if (error) throw new Error(`review voucher event: ${error.message}`);
   const raw = rows?.[0];
   if (!raw) return null;
+
+  // Spec 373 §6 — one small pending-tab call on the same authed client; ids
+  // are unique so the first non-current id sits within two rows. Throws on
+  // error like every read here — a failed query must never masquerade as
+  // "nothing pending" (fresh-eyes 🟠).
+  const { data: pendingEvents, error: pendingError } = await supabase.rpc(
+    "list_money_events_for_review",
+    { p_tab: "pending", p_limit: 2, p_offset: 0, p_source_table: sourceTable },
+  );
+  if (pendingError) throw new Error(`review chain next: ${pendingError.message}`);
+  const nextPendingId = pickNextPending(pendingEvents ?? [], raw.source_id);
 
   const event: ReviewQueueRow = {
     sourceTable: raw.source_table as MoneySourceTable,
@@ -214,5 +230,5 @@ export async function loadReviewVoucher(
       }
     : null;
 
-  return { event, review, flags, docs, journal };
+  return { event, review, flags, docs, journal, nextPendingId };
 }

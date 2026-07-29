@@ -185,8 +185,20 @@ backlog on ship day). Bulk-verify was REJECTED — it would rubber-stamp the gat
   oldest OTHER pending event of the SAME source (one `p_tab:'pending'` RPC
   call, `p_limit: 2` — ids are unique so the first non-current id sits within
   two rows), threading the same `?from=` so the whole chain returns to one
-  origin. Dry chain renders `ตรวจครบทุกรายการแล้ว`. All 15 sources get the
-  door — the code path is source-generic.
+  origin. Dry chain renders `ไม่มีรายการรอตรวจแล้ว` — deliberately NOT "all
+  done": ⚠️ the pending tab EXCLUDES flagged rows, so a flagged backlog is
+  invisible to the chain (flag resolution is its own flow on the voucher);
+  the copy claims only what the query proves. The chain query lives in
+  `loadReviewVoucher` (shared authed client; throws on error — a failed query
+  must never masquerade as "nothing pending") and keys on the DB-normalized
+  event id (a case-variant URL param must not make a door to itself). All 15
+  sources get the door — the code path is source-generic.
+  ⓘ The chain only advances by DECIDING (verify/flag) — standing on a pending
+  voucher, the next door points at the oldest OTHER pending, so an undecided
+  reviewer ping-pongs between the two oldest by design; a skip affordance is a
+  possible follow-up. Ties in the RPC order (same date+amount) make "oldest"
+  non-deterministic for some sources — acceptable, every pending row is still
+  reachable by deciding.
 - **Entry door on /expenses (all scope):** `เริ่มตรวจรายการเก่าสุด (N)` → the
   oldest pending expense FIRM-WIDE (deliberately not month-filtered — the
   backlog must not hide behind a view); N = pending count from the review map

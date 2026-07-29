@@ -23,3 +23,11 @@ describe("spec 373 §6 — pickNextPending", () => {
     expect(pickNextPending([ev("a")], "a")).toBeNull();
   });
 });
+
+describe("spec 373 §6 — id normalization contract", () => {
+  it("compares ids exactly — callers must pass the DB-normalized id, never the raw URL param", () => {
+    // A case-variant param ('ABC' vs 'abc') would defeat the exclusion and
+    // make a door to itself; the loader passes raw.source_id for this reason.
+    expect(pickNextPending([{ source_id: "abc" }], "ABC")).toBe("abc");
+  });
+});

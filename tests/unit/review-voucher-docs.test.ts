@@ -33,7 +33,12 @@ function chain(result: unknown) {
 
 vi.mock("@/lib/db/server", () => ({
   createClient: async () => ({
-    rpc: async () => ({ data: [rpcEvent], error: null }),
+    // The loader makes TWO RPC calls: the event row (p_tab 'any') and the §6
+    // chain's pending window (p_tab 'pending').
+    rpc: async (_fn: string, args: { p_tab: string }) =>
+      args.p_tab === "pending"
+        ? { data: [{ source_id: "e1" }, { source_id: "e2" }], error: null }
+        : { data: [rpcEvent], error: null },
   }),
 }));
 
@@ -61,5 +66,7 @@ describe("spec 373 — voucher docs resolve against the id-keyed signed-url map"
     const data = await loadReviewVoucher("office_expenses", "e1");
     expect(data).not.toBeNull();
     expect(data?.docs).toEqual([{ label: "ใบเสร็จ 1", url: "https://signed.example/att-1" }]);
+    // §6: the chain target excludes the current voucher (e1) and picks e2.
+    expect(data?.nextPendingId).toBe("e2");
   });
 });

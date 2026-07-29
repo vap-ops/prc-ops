@@ -50,7 +50,7 @@ import {
   OFFICE_EXPENSE_NAV_LABEL,
 } from "@/lib/i18n/labels";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { FIELD_INPUT, BUTTON_PRIMARY } from "@/lib/ui/classes";
+import { FIELD_INPUT, BUTTON_PRIMARY, BUTTON_PRIMARY_COMPACT } from "@/lib/ui/classes";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import Link from "next/link";
 
@@ -190,7 +190,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
           <p>
             <Link
               href={`/accounting/review/office_expenses/${oldestPendingId}?from=${encodeURIComponent(withParams("all"))}`}
-              className="bg-action text-on-fill inline-block rounded-full px-4 py-2 text-sm font-medium"
+              className={BUTTON_PRIMARY_COMPACT}
             >
               {EXPENSE_VERIFY_START_CTA} ({pendingCount})
             </Link>

@@ -29,8 +29,6 @@ import {
   type MoneySourceTable,
 } from "@/lib/accounting/review-queue-view";
 import { loadReviewVoucher } from "@/lib/accounting/load-review-voucher";
-import { pickNextPending } from "@/lib/accounting/review-chain";
-import { createClient } from "@/lib/db/server";
 import { ReviewVoucherActions } from "@/components/features/accounting/review-voucher-actions";
 import {
   verifyMoneyEventAction,
@@ -63,20 +61,12 @@ export default async function ReviewVoucherPage({ params, searchParams }: Vouche
   if (!data) notFound();
   const { event, review, flags, docs, journal } = data;
 
-  // Spec 373 §6 — the verify chain: the oldest OTHER pending event of the
-  // SAME source (the RPC's pending tab orders oldest-first). One extra cheap
-  // call on the authed session; p_limit 2 always suffices because ids are
-  // unique, so the first non-current id sits within the first two rows.
-  const supabaseChain = await createClient();
-  const { data: pendingEvents } = await supabaseChain.rpc("list_money_events_for_review", {
-    p_tab: "pending",
-    p_limit: 2,
-    p_offset: 0,
-    p_source_table: sourceTable,
-  });
-  const nextPendingId = pickNextPending(pendingEvents ?? [], id);
-  const nextHref = nextPendingId
-    ? `/accounting/review/${sourceTable}/${nextPendingId}${from ? `?from=${encodeURIComponent(from)}` : ""}`
+  // Spec 373 §6 — the verify chain door target comes from the loader (same
+  // authed client, same error-throw posture; keyed on the DB-normalized event
+  // id, never the raw URL param — a case-variant param must not make a door
+  // to itself).
+  const nextHref = data.nextPendingId
+    ? `/accounting/review/${sourceTable}/${data.nextPendingId}${from ? `?from=${encodeURIComponent(from)}` : ""}`
     : null;
 
   const status = review?.status ?? "pending";
