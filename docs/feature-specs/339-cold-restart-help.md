@@ -96,10 +96,29 @@ U2 splits:
   U1's passive line. Operator confirmed the reload-flash on resume is acceptable
   for this cohort. Decision logic is a pure `shouldReload()`; route wiring is
   source-pinned.
-- **U2b — the non-forcing chip, APPROVED users (still owed).** The dismissible
-  `มีเวอร์ชันใหม่ · แตะเพื่ออัปเดต` chip above stays the design for approved users,
-  where forcing a reload could discard in-flight work. Not yet built; U1's passive
-  `AppVersionCheck` line on `/settings` is the interim signal.
+- **U2b — the non-forcing chip, APPROVED users (SHIPPED 2026-07-30).** Operator
+  directive: _"whenever we require user to cold restart, notify them"_. New client
+  island `UpdateAvailableChip`, mounted in the ROOT LAYOUT so it reaches users
+  where they already are. On mount and on `visibilitychange → visible` it fetches
+  `/api/health` (no-store) and compares `version` with the semver part of
+  `NEXT_PUBLIC_APP_VERSION`; on mismatch it renders a `role="status"` chip —
+  `มีเวอร์ชันใหม่` + an **อัปเดต** button (`location.reload()`) + a dismiss.
+  **Never reloads on its own, never blocks, and renders nothing when the probe
+  fails** (offline must not produce a nag). Dismiss is scoped to the DEPLOYED
+  version in `sessionStorage`, not a blanket mute, so dismissing 0.270.0 does not
+  silence 0.271.0. Decision logic is a pure `shouldOfferUpdate()`; the chrome
+  mount is source-pinned, because dropping it would leave every unit test green
+  while restoring the original defect.
+
+  **Why it was owed, measured 2026-07-30:** of the 15 users active in the last 3
+  days, **14 were running a stale bundle** — one technician **31 releases behind**
+  (0.239.0 against a deployed 0.270.0), plus a super_admin on 0.246.0 and
+  accounting on 0.260.1. The only signal was U1's passive line inside
+  `/settings → เกี่ยวกับ`, which site admins opened **70 times in 14 days against
+  810 visits to `/sa`**. The detection was correct; its placement could not reach
+  anyone. ⭐ Carry: **a correct detector on a page nobody opens is not a shipped
+  feature** — check the route telemetry of the surface a signal lands on, not just
+  the correctness of the signal.
 
 ## Verification
 
