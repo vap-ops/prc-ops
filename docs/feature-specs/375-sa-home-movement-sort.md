@@ -35,9 +35,19 @@ The app already owns a ranking lens — `src/lib/work-packages/action-bands.ts` 
 
 So the only relevance signal that exists today is **derived activity**. That is not a preference; it is the only input with variance.
 
-### 1.2 A single-project SA has no door to her own project
+### 1.2 ~~A single-project SA has no door to her own project~~ — WITHDRAWN 2026-07-30
 
-`CurrentProjectSwitcher` renders nothing for an SA with fewer than 2 projects — and **all 5 site admins are on exactly 1 project**. The home therefore contains no link to the project at all, which is why **395 of ~810 visits leak sideways** into `/projects` (a 4-item list, 3 of them with zero open WPs) and on into the hub. A two-tap detour, every session, on the app's second-busiest route.
+**This defect was not real, and the unit built from it (U2) has been reverted.** Kept in place rather than deleted, because the way it was wrong is the useful part.
+
+The original claim: `CurrentProjectSwitcher` renders nothing below 2 projects, all 5 SAs are single-project, therefore the home has no project link, therefore **395 of ~810 visits leak sideways** into `/projects` (a 4-item list, 3 of them empty) — a two-tap detour. Three errors:
+
+1. **The tab already goes straight there.** The SA's `โครงการ` tab points at `/projects`, and [spec 313 U4](313-nav-map-redesign.md) already redirects a `site_admin` from there to her project hub (`saProjectsLandingTarget`, with `?view=all` as the escape). One tap, shipped since 2026-07 — verified in-browser: as `site_admin`, `/projects` returns a `NEXT_REDIRECT` payload naming the hub and renders no list.
+2. **The "leak" was a telemetry misread.** An RSC redirect logs a `route_view` for BOTH `/projects` and the destination hub, so **one tap emits two events**. The 207 + 188 pair is the same journey counted twice, not a detour.
+3. **The "4-item list, 3 empty" was `dev-preview`'s super_admin view.** Every real SA has 1 membership and 0 lead-of rows, so their list has exactly ONE item.
+
+Operator verdict, which was right on all counts: _"I don't see the point of putting my project on top, redundant nav with bottom menu."_
+
+⭐ **Carries:** a page's contents are **principal-relative** — never describe what a role sees from what a super_admin test account sees. And **a redirect inflates route-view counts**; before reading consecutive route views as a multi-tap journey, check whether the first one redirects.
 
 ### 1.3 The red `แจ้งปัญหา` FAB is permanent rent for a feature nobody uses
 
@@ -53,9 +63,11 @@ The first read of this page blamed the conditional sections that are empty on mo
 
 The chosen shape (Claude Design **2b**). The principle, in the operator's frame: **the cold set is never filtered away, it is demoted.**
 
-### 2.1 Project block, first in the body
+### 2.1 ~~Project block, first in the body~~ — BUILT (#846), then REVERTED (#849)
 
-Name · open-WP count · tap → the project hub. Renders for **every** SA, not only multi-project ones. The id comes from `saCurrent.current.projectId` (spec 292 U3, already loaded on this page) — **not** from the WP-derived `projectIds`, so an SA with zero open WPs still gets the door rather than losing it exactly when she needs it. Multi-project SAs keep the existing `CurrentProjectSwitcher` behaviour.
+Shipped 2026-07-30 and removed the same day on the operator's call. See §1.2 for why the premise was false: the `โครงการ` tab already lands on her hub in one tap, so the block was a second project affordance beside an existing one. `CurrentProjectSwitcher` keeps its pre-existing behaviour (multi-project only) — the revert restores the page to exactly that.
+
+**Do not re-propose this without new evidence.** An absence pin in `sa-home-movement-wiring.test.ts` reds if the card returns.
 
 ### 2.2 One continuous list, sorted by movement
 
@@ -93,7 +105,7 @@ The site admin has custody of both, and both are withdrawals from the same physi
 | Unit   | Scope                                                                                                                                                                                                     |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **U1** | Movement sort + stated sort header + the cold rule. Replaces the alphabetical sort in `my-work.ts`; adds one aggregate read for last-photo-per-WP into the page's existing `Promise.all` wave (≤139 ids). |
-| **U2** | Project block, unconditional, sourced from `saCurrent.current.projectId`.                                                                                                                                 |
+| **U2** | ~~Project block~~ — **built #846, REVERTED #849** (§1.2/§2.1: the โครงการ tab already lands on the hub; premise was false). Sourced from `saCurrent.current.projectId`.                                   |
 | **U3** | The `เบิกจากคลังหน้างาน` pair — renames the `คลัง` tile, re-homes spec 370's `EquipmentScanDoor` (shipped #843) into the right half, adds the counts.                                                     |
 | **U4** | `ReportIssueFab` → `เครื่องมือ` tile.                                                                                                                                                                     |
 | **U5** | Per-row camera chip (optional; the row already carries a `รูปถ่าย` ActionChip — this unit is a promotion, not a new affordance).                                                                          |

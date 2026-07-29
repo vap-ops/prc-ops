@@ -64,39 +64,25 @@ describe("spec 375 U1 — the /sa page feeds the movement input", () => {
   });
 });
 
-describe("spec 375 U2 — the /sa page renders the project door", () => {
-  it("renders the card exactly once, ungated", () => {
+// Spec 375 U2 was REVERTED 2026-07-30 (operator: "I don't see the point of putting
+// my project on top, redundant nav with bottom menu"). It solved a problem that did
+// not exist, and all three of my supporting claims were wrong:
+//
+//   • The SA's โครงการ tab points at /projects, and **spec 313 U4 already redirects
+//     a site_admin from there straight to her project hub** (`saProjectsLandingTarget`;
+//     `?view=all` escapes). One tap, shipped since 2026-07 — verified in-browser.
+//   • "395 of ~810 visits leak sideways, a two-tap detour" MISREAD telemetry: an RSC
+//     redirect logs a `route_view` for BOTH /projects and the hub, so one tap emits
+//     two events.
+//   • "/projects is a 4-item list, 3 of them empty" was dev-preview's SUPER_ADMIN
+//     view — every real SA has 1 membership and sees exactly ONE project.
+//
+// This absence pin exists so the card cannot be re-added on the same bad premise.
+describe("spec 375 U2 — the project card stays REVERTED", () => {
+  it("renders no project card on the home", () => {
     const src = withoutComments(SA_HOME);
-    // ⚠️ Count collision-free strings: `buildHomeProjectCard` CONTAINS
-    // "HomeProjectCard", so a bare count of the component name reads 4 and any
-    // round number you pick is meaningless. Pin the import specifier, the JSX
-    // tag and the builder separately.
-    expect(occurrences(src, "{ HomeProjectCard }")).toBe(1);
-    expect(occurrences(src, "<HomeProjectCard")).toBe(1);
-    expect(occurrences(src, "buildHomeProjectCard")).toBe(2); // import + one call
-    // Bare JSX sibling — pinned as a whole line so ANY wrapper (a role gate, a
-    // `projectCard && …`, a multi-project condition) reds this. The card decides
-    // its own emptiness by returning null; a caller-side gate would re-create the
-    // exact defect this unit fixes for whichever cohort it excluded.
-    expect(src).toMatch(/\n\s*<HomeProjectCard card=\{projectCard\} \/>\n/);
-  });
-
-  it("builds the card from the resolved current project, not the WP-derived ids", () => {
-    const src = withoutComments(SA_HOME);
-    // `projectIds` is derived from the WP rows, so an SA with zero open WPs would
-    // lose the door exactly when she needs it. The spec-292 resolver is the source.
-    expect(src).toContain("current: saCurrent.current");
-    expect(src).toContain("visibleProjects: saCurrent.visibleProjects");
-  });
-
-  it("puts the project door above the switcher and the worklist", () => {
-    const src = withoutComments(SA_HOME);
-    const card = src.indexOf("<HomeProjectCard");
-    const switcher = src.indexOf("<CurrentProjectSwitcher");
-    const plan = src.indexOf("<DailyPlanWorklist");
-    expect(card).toBeGreaterThan(-1);
-    expect(switcher).toBeGreaterThan(card);
-    expect(plan).toBeGreaterThan(card);
+    expect(occurrences(src, "HomeProjectCard")).toBe(0);
+    expect(occurrences(src, "buildHomeProjectCard")).toBe(0);
   });
 });
 

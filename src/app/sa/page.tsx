@@ -41,8 +41,6 @@ import { ReportIssueFab } from "@/components/features/sa/report-issue-fab";
 import { TodayIssuesSection } from "@/components/features/sa/today-issues-section";
 import { loadTodayIssues } from "@/lib/site-issues/load-today-issues";
 import { CurrentProjectSwitcher } from "@/components/features/sa/current-project-switcher";
-import { HomeProjectCard } from "@/components/features/sa/home-project-card";
-import { buildHomeProjectCard } from "@/lib/sa/home-project-card";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { bangkokHour, bangkokTodayIso } from "@/lib/dates";
@@ -281,14 +279,6 @@ export default async function SaHomePage() {
   }
   const coldBeforeIso = coldCutoffFromNow();
 
-  // Spec 375 U2 — the door to the SA's own project. Both inputs are already in
-  // memory (the spec-292 resolver + the RLS-scoped WP rows), so this costs no read.
-  const projectCard = buildHomeProjectCard({
-    current: saCurrent.current,
-    visibleProjects: saCurrent.visibleProjects,
-    wps,
-  });
-
   const inPlay = wps.filter((w) => w.status !== "pending_approval");
   const { actions, rest } = buildSaActionList({
     inPlay,
@@ -330,13 +320,6 @@ export default async function SaHomePage() {
             สวัสดี{ctx.fullName ? ` ${ctx.fullName}` : ""}
           </h1>
         </div>
-
-        {/* Spec 375 U2 — the door to her own project, FIRST in the body. Before
-            this the home had no project link at all for a single-project SA
-            (CurrentProjectSwitcher renders null below 2 projects, and all 5 SAs
-            are single-project), so 395 of ~810 visits reached the hub the long
-            way round through /projects. */}
-        <HomeProjectCard card={projectCard} />
 
         {/* Spec 292 U4 — the current-site chip: names the project the scoped tiles/
             plan below point at, and switches (view-override) / pins (primary). The
