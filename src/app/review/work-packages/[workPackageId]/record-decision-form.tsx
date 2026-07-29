@@ -61,11 +61,25 @@ const CAUSE_HINT: Record<DecisionCause, string> = {
   rework: "งานจะออกจากคิวตรวจ กลับไปให้หน้างานแก้ แล้วช่างถ่ายรูปหลังแก้เสร็จ",
 };
 
-interface RecordDecisionFormProps {
-  workPackageId: string;
+/** Spec 372 U4b — one current photo the PM can point at. `seq` is the per-PHASE
+ *  ordinal the SA sees on the tile (spec 340: retired-not-renumbered on delete, so a
+ *  number is safe to quote), which is why the label always carries the phase too —
+ *  "#3" alone is ambiguous across phases. */
+export interface DecisionPhoto {
+  id: string;
+  phase: FlaggablePhase;
+  seq: number;
+  url: string | null;
 }
 
-export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
+interface RecordDecisionFormProps {
+  workPackageId: string;
+  /** The WP's CURRENT photos (tombstones and superseded rows already excluded by the
+   *  page's read) — what `รูปไม่ตรงกับงาน` points at. */
+  photos?: ReadonlyArray<DecisionPhoto>;
+}
+
+export function RecordDecisionForm({ workPackageId, photos = [] }: RecordDecisionFormProps) {
   const router = useRouter();
   const [approve, setApprove] = useState<boolean | null>(null);
   const [cause, setCause] = useState<DecisionCause | null>(null);
@@ -73,6 +87,9 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
   // for the incomplete cause; targetsForCause drops them for every other one, so a
   // stale tick can never ride a payload the RPC would refuse (22023).
   const [phases, setPhases] = useState<ReadonlyArray<FlaggablePhase>>([]);
+  // Spec 372 U4b — which existing photos are the wrong ones. Same optional, same
+  // cleared-on-cause-switch rule as the phases above.
+  const [photoIds, setPhotoIds] = useState<ReadonlyArray<string>>([]);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
@@ -98,10 +115,28 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
     setPhases((prev) => (prev.includes(ph) ? prev.filter((p) => p !== ph) : [...prev, ph]));
   }
 
+  function togglePhoto(id: string) {
+    setPhotoIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  }
+
+  /** Select-all for one phase — the genuine "เปลี่ยนรูปใหม่ทั้งหมด" case that appears
+   *  in the live comments. Toggles: pressing it again clears that phase. */
+  function togglePhasePhotos(phase: FlaggablePhase) {
+    const ids = photos.filter((p) => p.phase === phase).map((p) => p.id);
+    const allOn = ids.length > 0 && ids.every((id) => photoIds.includes(id));
+    setPhotoIds((prev) =>
+      allOn
+        ? prev.filter((id) => !ids.includes(id))
+        : [...prev, ...ids.filter((id) => !prev.includes(id))],
+    );
+  }
+
   function pickCause(next: DecisionCause) {
     setCause(next);
-    // Switching cause abandons the ticks — they only mean anything for incomplete.
+    // Switching cause abandons the targets — each shape belongs to ONE cause, and a
+    // stale one riding the other's payload is a 22023 from the RPC.
     if (next !== "incomplete") setPhases([]);
+    if (next !== "mismatch") setPhotoIds([]);
   }
 
   function pickApprove(next: boolean) {
@@ -111,6 +146,7 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
     if (next) {
       setCause(null);
       setPhases([]);
+      setPhotoIds([]);
     }
   }
 
@@ -124,7 +160,9 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
         decision,
         comment: comment.length > 0 ? comment : null,
         revisionReason: payload?.revisionReason ?? null,
-        ...(cause ? targetsForCause(cause, phases) : { targetPhases: null }),
+        ...(cause
+          ? targetsForCause(cause, phases, photoIds)
+          : { targetPhases: null, targetPhotoIds: null }),
       });
       if (!result.ok) {
         setError(result.error);
@@ -214,6 +252,65 @@ export function RecordDecisionForm({ workPackageId }: RecordDecisionFormProps) {
               );
             })}
           </div>
+        </fieldset>
+      ) : null}
+
+      {/* Spec 372 U4b — WHICH photos are wrong. Optional, like the phases: a PM who
+          cannot single any out still gets to bounce them. Grouped by phase because
+          `seq` is a PER-PHASE ordinal, so "#3" alone is ambiguous. */}
+      {cause === "mismatch" ? (
+        <fieldset className="flex flex-col gap-3" disabled={submitting}>
+          <legend className="text-ink mb-1 text-sm font-medium">
+            รูปไหนที่ไม่ตรง <span className="text-ink-secondary">(ไม่บังคับ)</span>
+          </legend>
+          {photos.length === 0 ? (
+            <p className="text-ink-secondary text-sm">ยังไม่มีรูปให้เลือก</p>
+          ) : (
+            FLAGGABLE_PHASES.filter((ph) => photos.some((p) => p.phase === ph)).map((ph) => {
+              const inPhase = photos.filter((p) => p.phase === ph);
+              const allOn = inPhase.every((p) => photoIds.includes(p.id));
+              return (
+                <div key={ph} className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-ink text-sm font-semibold">{PHOTO_PHASE_LABEL[ph]}</span>
+                    <button
+                      type="button"
+                      onClick={() => togglePhasePhotos(ph)}
+                      aria-pressed={allOn}
+                      className="rounded-control border-edge-strong bg-card text-ink-secondary hover:bg-page focus-visible:ring-action inline-flex min-h-11 items-center border px-2.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2"
+                    >
+                      {PHOTO_PHASE_LABEL[ph]} · ทั้งหมดในช่วงนี้
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {inPhase.map((p) => {
+                      const on = photoIds.includes(p.id);
+                      return (
+                        <label
+                          key={p.id}
+                          className={`rounded-control focus-within:ring-action flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-sm font-medium transition-colors focus-within:ring-2 ${
+                            on
+                              ? "border-action bg-action-soft text-ink"
+                              : "border-edge-strong bg-card text-ink-secondary hover:bg-page"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={() => togglePhoto(p.id)}
+                            className="accent-fill"
+                          />
+                          {/* The phase rides the label: seq is per-phase, and this is
+                              the exact string the SA reads back on the card. */}
+                          {PHOTO_PHASE_LABEL[p.phase]} #{p.seq}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </fieldset>
       ) : null}
 

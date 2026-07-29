@@ -152,3 +152,66 @@ describe("WP detail supplies the flagged phases (spec 372 U4a)", () => {
     expect(call.slice(0, 400)).toContain("attention.id");
   });
 });
+
+// Spec 372 U4b — the SA reads the flagged photos back as phase + stable number, the
+// exact string on the tile. `seq` is a PER-PHASE ordinal (spec 340), so "#3" without
+// its phase would point at two different photos.
+describe("RevisionReasonGuidance — the flagged photos (spec 372 U4b)", () => {
+  it("names them by phase and number, in a stable order", () => {
+    render(
+      <RevisionReasonGuidance
+        reason="mismatch"
+        showCta
+        flaggedPhotos={[
+          { phase: "after", seq: 1 },
+          { phase: "during", seq: 4 },
+          { phase: "during", seq: 3 },
+        ]}
+      />,
+    );
+    // Capture order across phases, then number within a phase.
+    expect(screen.getByText(/ระหว่างทำ #3 · ระหว่างทำ #4 · แล้วเสร็จ #1/)).toBeInTheDocument();
+  });
+
+  it("says nothing extra when the PM singled none out", () => {
+    const { container } = render(
+      <RevisionReasonGuidance reason="mismatch" showCta flaggedPhotos={[]} />,
+    );
+    expect(container.textContent).not.toContain("รูปที่ต้องเปลี่ยน");
+  });
+
+  it("keeps naming them for a read-only viewer", () => {
+    render(
+      <RevisionReasonGuidance
+        reason="mismatch"
+        showCta={false}
+        flaggedPhotos={[{ phase: "during", seq: 2 }]}
+      />,
+    );
+    expect(screen.getByText(/ระหว่างทำ #2/)).toBeInTheDocument();
+  });
+});
+
+// The WIRING for both halves. The review page must hand the form the WP photos, or
+// the picker renders an empty list forever; the WP detail must read the photo targets
+// back, or the PM's picks are written and never surfaced.
+describe("pages supply and read back the photo targets (spec 372 U4b)", () => {
+  const strip = (p: string) =>
+    readFileSync(join(process.cwd(), p), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "")
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+
+  it("the review page hands the form the work package photos", () => {
+    const src = strip("src/app/review/work-packages/[workPackageId]/page.tsx");
+    expect(src).toContain("photos={decisionPhotos}");
+    // Built from the CURRENT photos the page already loaded, not a fresh read.
+    expect(src).toContain("photosByPhase");
+  });
+
+  it("the WP detail reads the photo targets for the decision on the card", () => {
+    const src = strip("src/app/projects/[projectId]/work-packages/[workPackageId]/page.tsx");
+    expect(src).toContain("flaggedPhotos={");
+    expect(src).toContain("photo_log_id");
+  });
+});

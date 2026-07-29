@@ -52,6 +52,11 @@ export interface RecordDecisionInput {
    *  for reason=incomplete; the RPC raises 22023 anywhere else, so the check below
    *  mirrors that and refuses before the round trip. */
   targetPhases?: ReadonlyArray<FlaggablePhase> | null;
+  /** Spec 372 U4b — which existing photos are the wrong ones. Only meaningful for
+   *  reason=mismatch. The RPC additionally validates each id against the supersede
+   *  chain and this work package; only the DB can know which photos are current, so
+   *  the check below mirrors the CAUSE rule and the id SHAPE, nothing more. */
+  targetPhotoIds?: ReadonlyArray<string> | null;
   /** Spec 355 — required for needs_revision (reject-evidence), forbidden otherwise. */
   revisionReason?: ApprovalRevisionReason | null;
 }
@@ -88,6 +93,16 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     }
     if (targetPhases.some((ph) => !FLAGGABLE_PHASES.includes(ph))) {
       return { ok: false, error: "ช่วงงานไม่ถูกต้อง" };
+    }
+  }
+
+  const targetPhotoIds = input.targetPhotoIds ?? null;
+  if (targetPhotoIds !== null) {
+    if (revisionReason !== "mismatch") {
+      return { ok: false, error: "ระบุรูปที่ไม่ตรงได้เฉพาะเหตุผลรูปไม่ตรงกับงาน" };
+    }
+    if (targetPhotoIds.some((id) => !isValidUuid(id))) {
+      return { ok: false, error: "รหัสรูปไม่ถูกต้อง" };
     }
   }
 
@@ -143,6 +158,9 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Record
     // than being handed an empty array — which would read as "nothing is missing".
     ...(targetPhases !== null && targetPhases.length > 0
       ? { p_target_phases: [...targetPhases] }
+      : {}),
+    ...(targetPhotoIds !== null && targetPhotoIds.length > 0
+      ? { p_target_photo_ids: [...targetPhotoIds] }
       : {}),
   });
   if (rpcError) {

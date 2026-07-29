@@ -427,9 +427,8 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   const { data: targetRows } = attention
     ? await supabase
         .from("approval_revision_targets")
-        .select("phase")
+        .select("phase, photo_log_id")
         .eq("approval_id", attention.id)
-        .not("phase", "is", null)
     : { data: null };
   const flaggedPhases = (targetRows ?? [])
     .map((r) => r.phase)
@@ -438,6 +437,18 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     .filter((ph): ph is FlaggablePhase =>
       ph !== null ? (FLAGGABLE_PHASES as ReadonlyArray<string>).includes(ph) : false,
     );
+  // Spec 372 U4b — the flagged photos, named the way the SA sees them on the tile
+  // (phase + the per-phase `seq`). Resolved against the CURRENT photos this page
+  // already loaded, so a flagged photo the SA has since deleted simply drops out
+  // rather than rendering a number that points at nothing.
+  const flaggedPhotoIds = new Set(
+    (targetRows ?? []).flatMap((r) => (r.photo_log_id ? [r.photo_log_id] : [])),
+  );
+  const flaggedPhotos = FLAGGABLE_PHASES.flatMap((phase) =>
+    photosByPhase[phase]
+      .filter((p) => flaggedPhotoIds.has(p.id))
+      .map((p) => ({ phase, seq: p.seq })),
+  );
 
   const predSet = new Set(predecessorIds);
   const predecessorOptions = siblingWps.filter((w) => predSet.has(w.id));
@@ -1157,6 +1168,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
                   reason={attention.revision_reason}
                   showCta={!readOnly && !attentionAnswered}
                   flaggedPhases={flaggedPhases}
+                  flaggedPhotos={flaggedPhotos}
                 />
               ) : !readOnly ? (
                 /* Spec 353: name the evidence phase the SA must re-shoot instead of a
