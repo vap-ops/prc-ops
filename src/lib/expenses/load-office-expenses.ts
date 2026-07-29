@@ -6,8 +6,10 @@ import { bangkokTodayIso } from "@/lib/dates";
 import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
 import {
   aggregateCategorySpend,
+  aggregateSourceSpend,
   sumAmounts,
   type CategorySpend,
+  type SourceSpend,
 } from "@/lib/expenses/expense-summary";
 
 type DB = Awaited<ReturnType<typeof createClient>>;
@@ -169,6 +171,137 @@ export async function listMyExpenses(
       awaitingReceipt: attachments.length === 0,
     };
   });
+}
+
+// Spec 373 D2 — the firm-wide list for the finance scope (RLS admits
+// accounting/super_admin on every row; everyone else still only matches their
+// own — but the page's resolver never routes them here anyway). ⚠️ Names are
+// resolved via the ADMIN client behind the page's requireRole gate: users RLS
+// is self-read-only for accounting, so an authed `users` embed would null the
+// submitter on every row the accountant didn't submit (fact-check 2026-07-29;
+// spec-345 voucher precedent). Review status + doc counts are NOT read here —
+// the page joins them from list_money_events_for_review (spec 345 SSOT).
+export interface AllExpenseRow {
+  id: string;
+  description: string;
+  amount: number;
+  expenseDate: string;
+  paymentSource: string;
+  categoryLabel: string | null;
+  projectName: string | null;
+  cardLabel: string | null;
+  reimburseToName: string | null;
+  reimbursedAt: string | null;
+  submitterId: string;
+  submitterName: string | null;
+  docCount: number;
+  reviewStatus: "pending" | "flagged" | "verified";
+}
+
+export type AllExpenseLoaderRow = Omit<AllExpenseRow, "docCount" | "reviewStatus">;
+
+export const ALL_EXPENSES_CAP = 100;
+
+export interface AllExpenseFilters {
+  projectId?: string;
+  monthStart?: string;
+  monthEndExclusive?: string;
+}
+
+export async function listAllExpenses(
+  supabase: DB,
+  admin: DB,
+  { projectId, monthStart, monthEndExclusive }: AllExpenseFilters,
+): Promise<AllExpenseLoaderRow[]> {
+  let query = supabase
+    .from("office_expenses")
+    .select(
+      "id, description, amount, expense_date, payment_source, reimbursed_at, submitted_by, reimburse_to_user_id, category:office_expense_categories!office_expenses_category_id_fkey(label_th), project:projects!office_expenses_project_id_fkey(name), card:company_cards!office_expenses_company_card_id_fkey(label)",
+    );
+  if (projectId) query = query.eq("project_id", projectId);
+  if (monthStart) query = query.gte("expense_date", monthStart);
+  if (monthEndExclusive) query = query.lt("expense_date", monthEndExclusive);
+  const { data } = await query
+    .order("expense_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(ALL_EXPENSES_CAP);
+
+  const rows = data ?? [];
+  const userIds = [
+    ...new Set(
+      rows.flatMap((r) => [r.submitted_by, r.reimburse_to_user_id].filter((v): v is string => !!v)),
+    ),
+  ];
+  const names = new Map<string, string | null>();
+  if (userIds.length > 0) {
+    const { data: users } = await admin.from("users").select("id, full_name").in("id", userIds);
+    for (const u of users ?? []) names.set(u.id, u.full_name);
+  }
+
+  return rows.map((r) => {
+    const category = one(r.category as OneOrArray<{ label_th: string }>);
+    const project = one(r.project as OneOrArray<{ name: string }>);
+    const card = one(r.card as OneOrArray<{ label: string }>);
+    return {
+      id: r.id,
+      description: r.description,
+      amount: r.amount,
+      expenseDate: r.expense_date,
+      paymentSource: r.payment_source,
+      categoryLabel: category?.label_th ?? null,
+      projectName: project?.name ?? null,
+      cardLabel: card?.label ?? null,
+      reimburseToName: r.reimburse_to_user_id ? (names.get(r.reimburse_to_user_id) ?? null) : null,
+      reimbursedAt: r.reimbursed_at,
+      submitterId: r.submitted_by,
+      submitterName: names.get(r.submitted_by) ?? null,
+    };
+  });
+}
+
+// Spec 373 D3 — the firm-wide summary for the finance scope. Same shape as the
+// personal one so <ExpenseSummary> renders either; bySource is the card-
+// statement reconciliation line. ⚠️ The pending figure is NEVER month-scoped —
+// debt has no month — and payment source is orthogonal to reimbursement state.
+export interface AllExpenseSummary extends MyExpenseSummary {
+  bySource: SourceSpend[];
+}
+
+export async function loadAllExpenseSummary(
+  supabase: DB,
+  { projectId, monthStart, monthEndExclusive }: AllExpenseFilters,
+): Promise<AllExpenseSummary> {
+  let spendQuery = supabase
+    .from("office_expenses")
+    .select(
+      "amount, payment_source, category:office_expense_categories!office_expenses_category_id_fkey(label_th)",
+    );
+  if (projectId) spendQuery = spendQuery.eq("project_id", projectId);
+  if (monthStart) spendQuery = spendQuery.gte("expense_date", monthStart);
+  if (monthEndExclusive) spendQuery = spendQuery.lt("expense_date", monthEndExclusive);
+
+  let pendQuery = supabase
+    .from("office_expenses")
+    .select("amount")
+    .not("reimburse_to_user_id", "is", null)
+    .is("reimbursed_at", null);
+  if (projectId) pendQuery = pendQuery.eq("project_id", projectId);
+
+  const [spendRes, pendRes] = await Promise.all([spendQuery, pendQuery]);
+
+  const spendRows = (spendRes.data ?? []).map((r) => ({
+    label: one(r.category as OneOrArray<{ label_th: string }>)?.label_th ?? null,
+    amount: r.amount,
+    paymentSource: r.payment_source,
+  }));
+
+  return {
+    monthLabel: monthStart ? monthStart.slice(0, 7) : "all",
+    monthTotal: sumAmounts(spendRows),
+    pendingReimburse: sumAmounts((pendRes.data ?? []).map((r) => ({ amount: r.amount }))),
+    byCategory: aggregateCategorySpend(spendRows),
+    bySource: aggregateSourceSpend(spendRows),
+  };
 }
 
 // Expenses awaiting reimbursement (target set, not yet reimbursed). RLS restricts

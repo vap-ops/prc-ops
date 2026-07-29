@@ -1260,6 +1260,22 @@ export const EXPENSE_RECORDED_ATTACH = "บันทึกแล้ว — แ�
 // Spec 310 U7 — personal expense dashboard (summary + category chart).
 export const EXPENSE_MONTH_TOTAL_LABEL = "ใช้จ่ายเดือนนี้";
 export const EXPENSE_PENDING_TOTAL_LABEL = "รอคืนเงิน (ของคุณ)";
+// Spec 373 — the finance all-scope. The pending tile MUST drop "(ของคุณ)" when
+// the figure goes firm-wide (changed-behaviour relabel rule), and the month
+// tile stops claiming "เดือนนี้" when a month filter or ทุกเดือน is active.
+export const EXPENSE_SCOPE_OWN_LABEL = "ของฉัน";
+export const EXPENSE_SCOPE_ALL_LABEL = "ทั้งหมด";
+export const EXPENSE_PENDING_TOTAL_ALL_LABEL = "รอคืนเงิน (ทั้งบริษัท)";
+export const EXPENSE_SELECTED_MONTH_TOTAL_LABEL = "ใช้จ่ายเดือนที่เลือก";
+export const EXPENSE_ALL_MONTHS_TOTAL_LABEL = "ใช้จ่ายรวมทุกเดือน";
+export const EXPENSE_ALL_CAP_NOTE = "แสดง 100 รายการล่าสุด";
+export const EXPENSE_SUBMITTER_PREFIX = "บันทึกโดย";
+// Spec 373 D4 — month-filter copy, shared with /accounting/review (term SSOT:
+// the same control now exists on two surfaces).
+export const MONTH_FILTER_LABEL = "เดือน";
+export const MONTH_FILTER_ALL = "ดูทุกเดือน";
+export const MONTH_FILTER_THIS = "เดือนนี้";
+export const MONTH_FILTER_APPLY = "ดู";
 export const EXPENSE_CHART_HEADING = "ค่าใช้จ่ายตามประเภท (เดือนนี้)";
 export const EXPENSE_MONTH_EMPTY = "ยังไม่มีค่าใช้จ่ายเดือนนี้";
 export const EXPENSE_ADD_HEADING = "บันทึกค่าใช้จ่ายใหม่";
