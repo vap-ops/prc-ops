@@ -1,3 +1,9 @@
+# [0.262.0](https://github.com/vap-ops/prc-ops/compare/v0.261.0...v0.262.0) (2026-07-29)
+
+### Features
+
+- **expenses:** finance all-scope + validate-before-pay + voucher docs fix (spec 373) ([#837](https://github.com/vap-ops/prc-ops/issues/837)) ([057d293](https://github.com/vap-ops/prc-ops/commit/057d293635f11b5648224a6a116a60c1a706b253))
+
 # [0.261.0](https://github.com/vap-ops/prc-ops/compare/v0.260.1...v0.261.0) (2026-07-29)
 
 ### Features
