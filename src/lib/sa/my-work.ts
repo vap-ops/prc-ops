@@ -90,6 +90,13 @@ export function buildMyWorkList(
     .map((r) => {
       const project = projectsById.get(r.project_id);
       const lastPhotoAt = movement?.lastPhotoByWp.get(r.id) ?? null;
+      // ⚠️ Compare INSTANTS, never the raw strings. The two sources are encoded
+      // differently — PostgREST returns `…+00:00` while `toISOString()` (the cold
+      // cutoff) returns `…Z`, and `"+" < "Z"` bytewise — so a lexicographic
+      // compare of a photo timestamp against the cutoff is only accidentally
+      // right, and wrong at the boundary. Parsing once here also keeps the
+      // comparator O(1) per call instead of re-parsing inside the sort.
+      const lastPhotoMs = lastPhotoAt === null ? null : Date.parse(lastPhotoAt);
       return {
         id: r.id,
         code: r.code,
@@ -101,8 +108,11 @@ export function buildMyWorkList(
         categoryCode: (r.category_id && categoryCodeById.get(r.category_id)) || null,
         lastPhotoAt,
         // No movement input → the legacy alphabetical list, nothing marked cold.
-        isCold: movement ? lastPhotoAt === null || lastPhotoAt < movement.coldBeforeIso : false,
-        updatedAt: r.updated_at,
+        isCold: movement
+          ? lastPhotoMs === null || lastPhotoMs < Date.parse(movement.coldBeforeIso)
+          : false,
+        lastPhotoMs,
+        updatedMs: Date.parse(r.updated_at),
       };
     })
     .sort((a, b) => {
@@ -111,18 +121,18 @@ export function buildMyWorkList(
         // below every WP that has one. This ordering is what makes the cold set a
         // contiguous TAIL, which is the precondition for rendering the
         // `ไม่มีรูปใน N วัน` rule as a single divider rather than a repeated chip.
-        if (a.lastPhotoAt !== b.lastPhotoAt) {
-          if (a.lastPhotoAt === null) return 1;
-          if (b.lastPhotoAt === null) return -1;
-          return b.lastPhotoAt.localeCompare(a.lastPhotoAt);
+        if (a.lastPhotoMs !== b.lastPhotoMs) {
+          if (a.lastPhotoMs === null) return 1;
+          if (b.lastPhotoMs === null) return -1;
+          return b.lastPhotoMs - a.lastPhotoMs;
         }
         // Same photo recency (or both unphotographed) → whichever the app touched
         // most recently. Catches a WP moved through labor or a purchase request.
-        if (a.updatedAt !== b.updatedAt) return b.updatedAt.localeCompare(a.updatedAt);
+        if (a.updatedMs !== b.updatedMs) return b.updatedMs - a.updatedMs;
       }
       // Final stable tie-break — the pre-spec-375 order, preserved so the list
       // never reshuffles between renders for rows with identical movement.
       return a.projectCode.localeCompare(b.projectCode) || a.code.localeCompare(b.code);
     })
-    .map(({ updatedAt: _updatedAt, ...item }) => item);
+    .map(({ lastPhotoMs: _lastPhotoMs, updatedMs: _updatedMs, ...item }) => item);
 }

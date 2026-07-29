@@ -200,6 +200,45 @@ describe("buildMyWorkList — movement ordering (spec 375 U1)", () => {
     expect(result.slice(firstCold).every((r) => r.isCold)).toBe(true);
   });
 
+  it("compares INSTANTS, not the raw timestamp strings", () => {
+    // The two sources are encoded differently: PostgREST returns `…+00:00`,
+    // `toISOString()` (the cutoff) returns `…Z`, and bytewise "+" < "Z". A photo
+    // taken at EXACTLY the cutoff instant is not "before" it, so it must be HOT —
+    // but a lexicographic compare reads ".000000+00:00" as less than ".000Z" and
+    // marks it cold. This case fails on string comparison and passes on Date.parse.
+    const result = buildMyWorkList(
+      [wp({ id: "boundary", code: "WP-01", project_id: "p1" })],
+      PROJECTS,
+      new Map(),
+      {
+        lastPhotoByWp: new Map([["boundary", "2026-07-15T12:00:00.000000+00:00"]]),
+        coldBeforeIso: "2026-07-15T12:00:00.000Z",
+      },
+    );
+    expect(result[0]?.isCold).toBe(false);
+  });
+
+  it("orders mixed-encoding timestamps chronologically", () => {
+    const result = buildMyWorkList(
+      [
+        wp({ id: "older", code: "WP-01", project_id: "p1" }),
+        wp({ id: "newer", code: "WP-02", project_id: "p1" }),
+      ],
+      PROJECTS,
+      new Map(),
+      {
+        lastPhotoByWp: new Map([
+          // Same instant expressed two ways plus a minute — a naive string sort
+          // would put the "+07:00" row first because "+" sorts below every digit.
+          ["older", "2026-07-20T19:00:00.000000+07:00"],
+          ["newer", "2026-07-20T12:01:00.000000+00:00"],
+        ]),
+        coldBeforeIso: COLD_BEFORE,
+      },
+    );
+    expect(result.map((r) => r.id)).toEqual(["newer", "older"]);
+  });
+
   it("defaults to the legacy alphabetical order when no movement input is given", () => {
     // The 4th argument is optional so every existing caller keeps its contract.
     const result = buildMyWorkList(

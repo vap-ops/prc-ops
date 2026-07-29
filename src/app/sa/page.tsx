@@ -405,17 +405,25 @@ export default async function SaHomePage() {
                       must always be able to reach all of her work. Neutral ink:
                       coldness is a state, not an alarm (red stays for danger). */}
                   {it.isCold && !items[i - 1]?.isCold ? (
-                    <li aria-hidden className="flex items-center gap-3 pt-1">
-                      <span className="bg-edge h-px flex-1" />
+                    // NOT aria-hidden: the rule is the only thing explaining why
+                    // the next 107 rows look different, so hiding it would leave a
+                    // screen-reader user with an unexplained tail. Only the two
+                    // decorative rules are hidden.
+                    <li className="flex items-center gap-3 pt-1">
+                      <span aria-hidden className="bg-edge h-px flex-1" />
                       <span className="text-meta text-ink-muted whitespace-nowrap">
                         {noPhotoRuleLabel(COLD_PHOTO_DAYS, items.length - i)}
                       </span>
-                      <span className="bg-edge h-px flex-1" />
+                      <span aria-hidden className="bg-edge h-px flex-1" />
                     </li>
                   ) : null}
+                  {/* Cold rows sit on the recessed surface rather than being
+                      opacity-dimmed: CDS bans opacity for de-emphasis (it
+                      multiplies against whatever is behind and drifts per
+                      surface), and a token swap stays correct in dark mode. */}
                   <li
-                    className={`rounded-card border-edge bg-card shadow-card border p-4 ${
-                      it.isCold ? "opacity-60" : ""
+                    className={`rounded-card border-edge shadow-card border p-4 ${
+                      it.isCold ? "bg-sunk" : "bg-card"
                     }`}
                   >
                     <Link
