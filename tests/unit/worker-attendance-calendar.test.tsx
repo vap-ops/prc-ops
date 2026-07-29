@@ -230,12 +230,15 @@ describe("WorkerAttendanceCalendar", () => {
         { holiday_date: "2026-07-29", name_th: "วันอาสาฬหบูชา" },
       ],
     });
-    renderCal({ month: holidayMonth });
+    const { container } = renderCal({ month: holidayMonth });
     // Empty holiday cell: name shown, no worked chip.
     expect(screen.getByText("วันเฉลิมพระชนมพรรษา")).toBeInTheDocument();
     // Scanned holiday cell: the worked-on-holiday chip.
     expect(screen.getByText("วันอาสาฬหบูชา")).toBeInTheDocument();
     expect(screen.getAllByText("ทำงานวันหยุด")).toHaveLength(1);
+    // The tint is the at-a-glance marking — pin the real token (an invented
+    // class would silently no-op).
+    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(2);
   });
 
   it("renders no holiday marking on an ordinary month", () => {
