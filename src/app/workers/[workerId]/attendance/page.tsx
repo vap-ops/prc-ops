@@ -8,7 +8,7 @@
 // no authenticated grant, labor_logs has no authenticated SELECT, and plain
 // procurement fails muster's can_see_project RLS, so the seam is the point).
 // Multi-parent detail: /workers roster rows and /payroll rows both link here,
-// so the back chip resolves ?from via safeBackHref (MULTI_PARENT_DETAILS pin).
+// so the back chip resolves ?from via the referrer-aware standard.
 
 import { notFound } from "next/navigation";
 
