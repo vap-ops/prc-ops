@@ -1,3 +1,9 @@
+# [0.264.0](https://github.com/vap-ops/prc-ops/compare/v0.263.0...v0.264.0) (2026-07-29)
+
+### Features
+
+- **payroll:** attendance-calendar door on worker rows (spec 374 U1b) ([#838](https://github.com/vap-ops/prc-ops/issues/838)) ([b41d570](https://github.com/vap-ops/prc-ops/commit/b41d57002adc78e0688ed22b21f3d6cf8ae14131))
+
 # [0.263.0](https://github.com/vap-ops/prc-ops/compare/v0.262.0...v0.263.0) (2026-07-29)
 
 ### Bug Fixes
