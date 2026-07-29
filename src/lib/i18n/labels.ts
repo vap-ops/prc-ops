@@ -317,6 +317,12 @@ export const MY_WORK_SORT_NOTE = "เรียงตามรูปล่าส�
 export const noPhotoRuleLabel = (days: number, count: number) =>
   `ไม่มีรูปใน ${days} วัน · ${count} งาน`;
 
+// Spec 375 U2 — the SA home's project block. "โครงการของฉัน" is the eyebrow; the
+// count names the work still open on that project, which is what makes the block
+// worth a tap rather than a decoration.
+export const MY_PROJECT_LABEL = "โครงการของฉัน";
+export const openWorkCountLabel = (count: number) => `${count} งานเปิดค้าง`;
+
 // UI strings for the แจ้งปัญหา surface (SSOT — used by the FAB, the sheet and the section).
 export const REPORT_ISSUE_LABEL = "แจ้งปัญหา";
 export const TODAY_ISSUES_LABEL = "ปัญหาวันนี้";
