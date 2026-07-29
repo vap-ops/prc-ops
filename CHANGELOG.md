@@ -1,3 +1,13 @@
+# [0.263.0](https://github.com/vap-ops/prc-ops/compare/v0.262.0...v0.263.0) (2026-07-29)
+
+### Bug Fixes
+
+- **attendance:** address fresh-eyes review — scoping, params, markers, SSOT ([32e2b33](https://github.com/vap-ops/prc-ops/commit/32e2b3307f7ae0c6a722e8f63fff7debf3d3cc64))
+
+### Features
+
+- **attendance:** per-worker attendance calendar for the roster audience ([edb5c6e](https://github.com/vap-ops/prc-ops/commit/edb5c6ea6432ba55f676dc20b08456fba58348ee))
+
 # [0.262.0](https://github.com/vap-ops/prc-ops/compare/v0.261.0...v0.262.0) (2026-07-29)
 
 ### Features
