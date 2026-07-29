@@ -17,15 +17,6 @@ describe("SaTools", () => {
       "href",
       "/projects/p1/incoming",
     );
-    expect(screen.getByRole("link", { name: /คลัง/ })).toHaveAttribute(
-      "href",
-      "/projects/p1/store",
-    );
-    // Spec 307 follow-up 2: the คลัง (store) tile uses the Warehouse icon — the same
-    // store symbol as the project-page คลัง chip (page.tsx) — not a Box.
-    expect(
-      screen.getByRole("link", { name: /คลัง/ }).querySelector("svg.lucide-warehouse"),
-    ).not.toBeNull();
     expect(screen.getByRole("link", { name: /ตารางงาน/ })).toHaveAttribute(
       "href",
       "/projects/p1/schedule",
@@ -36,8 +27,23 @@ describe("SaTools", () => {
 
   it("falls back to the project picker when there is no single project", () => {
     render(<SaTools primaryProjectId={null} showCloseNudge={false} />);
-    expect(screen.getByRole("link", { name: /คลัง/ })).toHaveAttribute("href", "/projects");
     expect(screen.getByRole("link", { name: /ตารางงาน/ })).toHaveAttribute("href", "/projects");
+  });
+
+  // Spec 375 U3: the คลัง tile is RETIRED. It became the left half of the
+  // เบิกจากคลังหน้างาน custody pair (เบิกวัสดุ → the same /store route), so keeping
+  // it here would be a SECOND door to one destination — the spec-313 U3 defect
+  // that retired the ทีมงาน tile. Asserted as an ABSENCE, not merely deleted:
+  // without this, re-adding the tile would restore the duplicate silently.
+  it("no longer carries a คลัง tile — the custody pair owns that door", () => {
+    render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
+    expect(screen.queryByRole("link", { name: /คลัง/ })).toBeNull();
+    // ของเข้า is a DIFFERENT destination (receiving, spec 300 U4) and must survive
+    // this removal — a regex on คลัง alone would not have caught deleting it too.
+    expect(screen.getByRole("link", { name: /ของเข้า/ })).toHaveAttribute(
+      "href",
+      "/projects/p1/incoming",
+    );
   });
 
   // Spec 313 U3: the ทีมงาน tile is RETIRED. U1 added it as the only way into
@@ -64,9 +70,10 @@ describe("SaTools", () => {
     render(<SaTools primaryProjectId="p1" showCloseNudge={false} />);
     // ของเข้า (spec 300 U4): the incoming-deliveries surface — กำลังมา + รับของ.
     expect(screen.getByText("กำลังมา · รับของ")).toBeInTheDocument();
-    // คลัง: spec 208 relocated เบิก to the WP-detail เบิกของ tab; deliveries moved to
-    // ของเข้า (spec 300 U4), so the store console now offers stock + ตรวจนับ only.
-    expect(screen.getByText("สต๊อก · ตรวจนับ")).toBeInTheDocument();
+    // Spec 375 U3: the คลัง tile and its "สต๊อก · ตรวจนับ" subtitle are gone —
+    // the custody pair owns that door now. The absence pin lives in its own case
+    // above; what remains here is that no tile in THIS grid offers a เบิก action,
+    // which is still the truthful claim (the pair is a separate component).
     expect(screen.queryByText(/เบิก/)).toBeNull();
     // คำขอซื้อ: /requests is track-only — PR creation lives on the WP detail.
     expect(screen.getByText("ติดตามคำขอ")).toBeInTheDocument();

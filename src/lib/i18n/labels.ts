@@ -323,6 +323,17 @@ export const noPhotoRuleLabel = (days: number, count: number) =>
 export const MY_PROJECT_LABEL = "โครงการของฉัน";
 export const openWorkCountLabel = (count: number) => `${count} งานเปิดค้าง`;
 
+// Spec 375 U3 — the custody pair. The SA holds BOTH materials and equipment, and
+// both are withdrawals from the same physical store, so they carry one heading.
+// ⚠️ `เบิกวัสดุ` REPLACES the generic คลัง tile — there is exactly one materials
+// door. คลัง (STORE_LABEL) stays the DESTINATION noun in the hub row and bottom
+// tab; these two are the ACTIONS.
+export const STORE_WITHDRAW_HEADING = "เบิกจากคลังหน้างาน";
+export const WITHDRAW_MATERIALS_LABEL = "เบิกวัสดุ";
+export const WITHDRAW_MATERIALS_HINT = "ของใช้หน้างาน";
+export const WITHDRAW_EQUIPMENT_LABEL = "เบิกอุปกรณ์";
+export const WITHDRAW_EQUIPMENT_HINT = "สแกน QR ที่เครื่องมือ";
+
 // Spec 339 U2b — the non-forcing update chip. Deliberately an OFFER, not an
 // instruction: an approved user may be mid-capture, so the copy never implies the
 // app is broken or that they must act now.

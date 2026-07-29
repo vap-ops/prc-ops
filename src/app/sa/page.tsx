@@ -35,7 +35,7 @@ import { coldCutoffFromNow, COLD_PHOTO_DAYS, PHOTO_WINDOW_DAYS } from "@/lib/sa/
 import { DailyPlanWorklist } from "@/components/features/sa/daily-plan-worklist";
 import { MusterStrip } from "@/components/features/sa/muster-strip";
 import { SaTools } from "@/components/features/sa/sa-tools";
-import { EquipmentScanDoor } from "@/components/features/equipment/equipment-scan-door";
+import { StoreWithdrawPair } from "@/components/features/sa/store-withdraw-pair";
 import { CameraFab } from "@/components/features/sa/camera-fab";
 import { ReportIssueFab } from "@/components/features/sa/report-issue-fab";
 import { TodayIssuesSection } from "@/components/features/sa/today-issues-section";
@@ -377,14 +377,17 @@ export default async function SaHomePage() {
           items={worklistItems}
         />
 
-        {/* 4 · สแกนยืม/คืนอุปกรณ์ — spec 370 U4. The door lived only on the project
+        {/* 4 · เบิกจากคลังหน้างาน — spec 375 U3. The custody PAIR replaces both the
+            lone spec-370 scan hero that stood here and the generic คลัง tile in
+            the tools grid below: the SA holds materials AND equipment, and both
+            are withdrawals from the same physical store. LEGACY NOTE — the door
             store page, which a site_admin opens ~20 times a WEEK against 1,367
             route events here, so #821's hoist fixed the position on a page the
             SA does not visit. Above the tools grid because it is an action, not
             a destination; ungated because every SA_SURFACE_ROLES member is in
             EQUIPMENT_MOVE_ROLES (a gate would be an arm that can never fail —
             the invariant is pinned in role-sets.test.ts instead). */}
-        <EquipmentScanDoor from="/sa" />
+        <StoreWithdrawPair projectId={primaryProjectId} from="/sa" />
 
         {/* 5 · เครื่องมือ — moved ABOVE งานของฉัน (temporary): the long WP list was
             burying the tool tiles, so the menu (incl. the new ทีมงาน onboarding tile)

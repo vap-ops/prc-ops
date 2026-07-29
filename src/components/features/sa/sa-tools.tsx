@@ -16,11 +16,10 @@ import {
   ClipboardCheck,
   ShoppingCart,
   Truck,
-  Warehouse,
   type LucideIcon,
 } from "lucide-react";
-import { scheduleHref, storeHref, incomingHref } from "@/lib/nav/project-paths";
-import { STORE_LABEL, STORE_INCOMING_HEADING } from "@/lib/i18n/labels";
+import { scheduleHref, incomingHref } from "@/lib/nav/project-paths";
+import { STORE_INCOMING_HEADING } from "@/lib/i18n/labels";
 
 export function SaTools({
   primaryProjectId,
@@ -47,13 +46,11 @@ export function SaTools({
           title={STORE_INCOMING_HEADING}
           subtitle="กำลังมา · รับของ"
         />
-        <Tile
-          href={projectScoped(storeHref)}
-          icon={Warehouse}
-          accent="text-cat-w05"
-          title={STORE_LABEL}
-          subtitle="สต๊อก · ตรวจนับ"
-        />
+        {/* Spec 375 U3: the คลัง tile is RETIRED — it became the left half of the
+            เบิกจากคลังหน้างาน custody pair above (เบิกวัสดุ), so keeping it here would
+            be a SECOND door to the same destination (the spec-313 U3 lesson that
+            retired the duplicate ทีมงาน tile). คลัง survives as the destination
+            noun in the hub row and bottom tab. Pinned by sa-tools.test.tsx. */}
         <Tile
           href={projectScoped(scheduleHref)}
           icon={CalendarDays}
