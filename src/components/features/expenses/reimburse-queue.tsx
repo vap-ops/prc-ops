@@ -27,7 +27,7 @@ const CHIP = "rounded-control border px-2 py-0.5 text-xs font-medium";
 
 const REVIEW_CHIP_TONE: Record<NonNullable<ReimbursableRow["reviewStatus"]>, string> = {
   pending: "border-edge text-ink-secondary",
-  flagged: "border-warn-edge bg-warn-soft text-ink",
+  flagged: "border-attn-edge bg-attn-soft text-attn-ink",
   verified: "border-done-edge bg-done-soft text-done-ink",
 };
 

@@ -64,7 +64,7 @@ export function ExpenseList({ expenses }: { expenses: OfficeExpenseRow[] }) {
 // stays neutral — same semantic family as the queue's own chips.
 const REVIEW_CHIP_TONE: Record<AllExpenseRow["reviewStatus"], string> = {
   pending: "border-edge text-ink-secondary",
-  flagged: "border-warn-edge bg-warn-soft text-ink",
+  flagged: "border-attn-edge bg-attn-soft text-attn-ink",
   verified: "border-done-edge bg-done-soft text-done-ink",
 };
 
