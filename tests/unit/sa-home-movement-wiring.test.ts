@@ -64,6 +64,42 @@ describe("spec 375 U1 — the /sa page feeds the movement input", () => {
   });
 });
 
+describe("spec 375 U2 — the /sa page renders the project door", () => {
+  it("renders the card exactly once, ungated", () => {
+    const src = withoutComments(SA_HOME);
+    // ⚠️ Count collision-free strings: `buildHomeProjectCard` CONTAINS
+    // "HomeProjectCard", so a bare count of the component name reads 4 and any
+    // round number you pick is meaningless. Pin the import specifier, the JSX
+    // tag and the builder separately.
+    expect(occurrences(src, "{ HomeProjectCard }")).toBe(1);
+    expect(occurrences(src, "<HomeProjectCard")).toBe(1);
+    expect(occurrences(src, "buildHomeProjectCard")).toBe(2); // import + one call
+    // Bare JSX sibling — pinned as a whole line so ANY wrapper (a role gate, a
+    // `projectCard && …`, a multi-project condition) reds this. The card decides
+    // its own emptiness by returning null; a caller-side gate would re-create the
+    // exact defect this unit fixes for whichever cohort it excluded.
+    expect(src).toMatch(/\n\s*<HomeProjectCard card=\{projectCard\} \/>\n/);
+  });
+
+  it("builds the card from the resolved current project, not the WP-derived ids", () => {
+    const src = withoutComments(SA_HOME);
+    // `projectIds` is derived from the WP rows, so an SA with zero open WPs would
+    // lose the door exactly when she needs it. The spec-292 resolver is the source.
+    expect(src).toContain("current: saCurrent.current");
+    expect(src).toContain("visibleProjects: saCurrent.visibleProjects");
+  });
+
+  it("puts the project door above the switcher and the worklist", () => {
+    const src = withoutComments(SA_HOME);
+    const card = src.indexOf("<HomeProjectCard");
+    const switcher = src.indexOf("<CurrentProjectSwitcher");
+    const plan = src.indexOf("<DailyPlanWorklist");
+    expect(card).toBeGreaterThan(-1);
+    expect(switcher).toBeGreaterThan(card);
+    expect(plan).toBeGreaterThan(card);
+  });
+});
+
 describe("spec 375 U1 — the cold cutoff", () => {
   it("returns the ISO instant N days before the given clock", () => {
     const now = Date.parse("2026-07-29T12:00:00.000Z");
