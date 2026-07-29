@@ -179,8 +179,19 @@ export function WorkerAttendanceCalendar({
                       {cell.day}
                     </p>
                     {holiday ? (
-                      <p className="text-attn-ink truncate text-[10px] leading-tight">{holiday}</p>
+                      // title: long royal-holiday names truncate at cell width;
+                      // this page's audience is desktop back-office, where
+                      // hover is real (unlike the gloved-hand PWA surfaces).
+                      <p
+                        title={holiday}
+                        className="text-attn-ink truncate text-[10px] leading-tight"
+                      >
+                        {holiday}
+                      </p>
                     ) : null}
+                    {/* `data` includes paid-only cells (paper-backfilled labor
+                        days) on purpose — a recorded labor day IS work on that
+                        holiday, scan or no scan. */}
                     {holiday && data ? (
                       <p className="text-attn-ink text-[10px] leading-tight font-semibold">
                         ทำงานวันหยุด

@@ -4,7 +4,9 @@
 // — workers.day_rate has no authenticated grant, muster_attendance RLS is
 // can_see_project-scoped (plain procurement fails it), and labor_logs has no
 // authenticated SELECT at all, so the RLS client would return nothing useful
-// for exactly the audience this page serves.
+// for exactly the audience this page serves. (public_holidays alone is
+// authenticated-readable reference data; it rides the same client so the
+// month loads on one connection, not because it needs the seam.)
 import "server-only";
 
 import { createClient as createAdminSupabase } from "@/lib/db/admin";

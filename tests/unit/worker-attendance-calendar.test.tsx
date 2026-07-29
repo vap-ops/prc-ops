@@ -239,11 +239,30 @@ describe("WorkerAttendanceCalendar", () => {
     // The tint is the at-a-glance marking — pin the real token (an invented
     // class would silently no-op).
     expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(2);
+    // A truncated name must still be reachable — desktop back-office audience,
+    // so title is the affordance.
+    expect(screen.getByTitle("วันอาสาฬหบูชา")).toBeInTheDocument();
+  });
+
+  it("holiday tint beats the weekend tint (Sunday holiday)", () => {
+    const sundayHoliday = buildAttendanceMonth({
+      monthAnchor: "2026-05-01",
+      musterRows: [],
+      paidRows: [],
+      dayRate: null,
+      holidays: [{ holiday_date: "2026-05-31", name_th: "วันวิสาขบูชา" }],
+    });
+    const { container } = renderCal({ month: sundayHoliday });
+    const cell = screen.getByText("วันวิสาขบูชา").closest("div");
+    expect(cell?.className).toContain("bg-attn-soft");
+    expect(cell?.className).not.toContain("bg-sunk");
+    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(1);
   });
 
   it("renders no holiday marking on an ordinary month", () => {
-    renderCal();
+    const { container } = renderCal();
     expect(screen.queryByText("ทำงานวันหยุด")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(0);
   });
 
   it("estimate renders — (not ฿0) when the worker has no rate", () => {

@@ -3,10 +3,13 @@
 -- chip). NO pay semantics — holiday pay rules are explicitly parked (operator
 -- ruling 2026-07-29). Seeded with the B.E. 2569 (2026) government-calendar
 -- list, cross-checked against two published sources 2026-07-29; substitution
--- days (ชดเชย) carry their own rows. Writes are migration-only for now: RLS has
--- a SELECT policy and nothing else, and the table grant is read-only, so no
--- app path can mutate it (a management UI is a deliberate non-goal until asked
--- for).
+-- days (ชดเชย) carry their own rows. Writes are migration-only BY CONVENTION:
+-- RLS has a SELECT policy and nothing else, and the authenticated/anon grants
+-- are read-only — but the service-role admin client retains write privilege
+-- (as it does everywhere), so "no app path writes" holds only as long as no
+-- code does. A management UI is a deliberate non-goal until asked for; future
+-- list changes ship as NEW migrations (this one is applied — edits here
+-- silently no-op), guarding any overlapping date with `on conflict`.
 
 create table public.public_holidays (
   holiday_date date primary key,
