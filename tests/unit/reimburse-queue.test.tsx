@@ -71,8 +71,8 @@ describe("ReimburseQueue", () => {
   });
 
   // Spec 373 D5 — validate-before-pay: each row carries its review + doc state
-  // and a door to the voucher, so คืนเงินแล้ว is never pressed blind. Soft
-  // signal only — the mark button is NOT gated on review state.
+  // and a door to the voucher. §5 hard gate (operator 2026-07-29): the mark
+  // button itself is review-gated now — see the dedicated gate cases below.
   it("renders review-status and missing-doc chips + a voucher link per row when provided", () => {
     const withReview: ReimbursableRow[] = [
       { ...rows[0]!, reviewStatus: "pending", docCount: 0 },
