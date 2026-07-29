@@ -6,7 +6,11 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { listAllExpenses, loadAllExpenseSummary } from "@/lib/expenses/load-office-expenses";
+import {
+  listAllExpenses,
+  loadAllExpenseSummary,
+  resolveUserNames,
+} from "@/lib/expenses/load-office-expenses";
 
 type Call = { method: string; args: unknown[] };
 
@@ -122,6 +126,22 @@ describe("spec 373 D2 — listAllExpenses", () => {
     const admin = recordingClient({ users: [] });
     const rows = await listAllExpenses(authed.client, admin.client, {});
     expect(rows[0]?.submitterName).toBeNull();
+  });
+});
+
+describe("spec 373 D5 amendment — resolveUserNames (the shared admin seam)", () => {
+  it("resolves distinct ids in one query; empty input makes NO query", async () => {
+    const admin = recordingClient({ users: [{ id: "u1", full_name: "ชื่อจริง" }] });
+    const names = await resolveUserNames(admin.client, ["u1", "u1"]);
+    expect(admin.queries.find((q) => q.table === "users")?.calls).toContainEqual({
+      method: "in",
+      args: ["id", ["u1"]],
+    });
+    expect(names.get("u1")).toBe("ชื่อจริง");
+
+    const idle = recordingClient();
+    await resolveUserNames(idle.client, []);
+    expect(idle.queries).toHaveLength(0);
   });
 });
 

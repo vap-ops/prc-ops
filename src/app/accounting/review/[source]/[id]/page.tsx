@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/features/chrome/page-shell";
+import { safeBackHref } from "@/lib/nav/back-href";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
@@ -37,11 +38,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 interface VoucherPageProps {
   params: Promise<{ source: string; id: string }>;
+  // Spec 373 D6 — multi-parent: reached from /accounting/review AND the
+  // /expenses finance scope (list rows + reimburse-queue rows).
+  searchParams: Promise<{ from?: string }>;
 }
 
-export default async function ReviewVoucherPage({ params }: VoucherPageProps) {
+export default async function ReviewVoucherPage({ params, searchParams }: VoucherPageProps) {
   const ctx = await requireRole(ACCOUNTING_ROLES);
   const { source, id } = await params;
+  const { from } = await searchParams;
   if (!(MONEY_SOURCE_TABLES as readonly string[]).includes(source) || !UUID_RE.test(id)) {
     notFound();
   }
@@ -58,7 +63,10 @@ export default async function ReviewVoucherPage({ params }: VoucherPageProps) {
 
   return (
     <>
-      <DetailHeader backHref="/accounting/review" backLabel={MONEY_REVIEW_LABEL}>
+      <DetailHeader
+        backHref={safeBackHref(from, "/accounting/review")}
+        backLabel={MONEY_REVIEW_LABEL}
+      >
         <h1 className="text-foreground text-lg font-semibold">
           {moneySourceLabel(event.sourceTable)}
         </h1>

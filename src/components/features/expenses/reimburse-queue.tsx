@@ -4,10 +4,15 @@
 // grouped by the person they're owed to, each with a running total; a per-row
 // "คืนเงินแล้ว" marks it settled (confirm-guarded — it's a money action). Only
 // rendered for OFFICE_EXPENSE_FINANCE_ROLES (the page gates it).
+// Spec 373 D5 — validate-before-pay: rows carry their spec-345 review status +
+// doc chip and link to the voucher. Soft signal only — the mark button is
+// deliberately NOT gated on review state (hard gate = operator call, spec §5).
 
+import Link from "next/link";
 import { markExpenseReimbursed } from "@/app/expenses/actions";
 import { ConfirmActionButton } from "@/components/features/common/confirm-action-button";
 import { bahtWithSymbol } from "@/lib/format";
+import { docsBadgeLabel, reviewStatusLabel } from "@/lib/accounting/review-queue-view";
 import { groupByReimburseTarget, type ReimbursableRow } from "@/lib/expenses/reimburse-group";
 import {
   REIMBURSE_MARK_CONFIRM,
@@ -18,7 +23,15 @@ import {
   REIMBURSE_TOTAL_PREFIX,
 } from "@/lib/i18n/labels";
 
-export function ReimburseQueue({ rows }: { rows: ReimbursableRow[] }) {
+const CHIP = "rounded-control border px-2 py-0.5 text-xs font-medium";
+
+const REVIEW_CHIP_TONE: Record<NonNullable<ReimbursableRow["reviewStatus"]>, string> = {
+  pending: "border-edge text-ink-secondary",
+  flagged: "border-warn-edge bg-warn-soft text-ink",
+  verified: "border-done-edge bg-done-soft text-done-ink",
+};
+
+export function ReimburseQueue({ rows, fromHref }: { rows: ReimbursableRow[]; fromHref?: string }) {
   const groups = groupByReimburseTarget(rows);
 
   return (
@@ -46,7 +59,7 @@ export function ReimburseQueue({ rows }: { rows: ReimbursableRow[] }) {
                   key={it.id}
                   className="border-edge flex items-center justify-between gap-3 rounded-lg border p-2"
                 >
-                  <div className="flex min-w-0 flex-col">
+                  <div className="flex min-w-0 flex-col gap-0.5">
                     <span className="text-ink truncate text-sm">
                       {it.categoryLabel ?? "—"} · {bahtWithSymbol(it.amount)}
                     </span>
@@ -54,6 +67,33 @@ export function ReimburseQueue({ rows }: { rows: ReimbursableRow[] }) {
                       {it.expenseDate}
                       {it.description ? ` · ${it.description}` : ""}
                     </span>
+                    {it.reviewStatus && (
+                      <span className="flex flex-wrap gap-1.5 pt-0.5">
+                        {fromHref ? (
+                          <Link
+                            href={`/accounting/review/office_expenses/${it.id}?from=${encodeURIComponent(fromHref)}`}
+                            className={`${CHIP} ${REVIEW_CHIP_TONE[it.reviewStatus]} underline-offset-2`}
+                          >
+                            {reviewStatusLabel(it.reviewStatus)}
+                          </Link>
+                        ) : (
+                          <span className={`${CHIP} ${REVIEW_CHIP_TONE[it.reviewStatus]}`}>
+                            {reviewStatusLabel(it.reviewStatus)}
+                          </span>
+                        )}
+                        {(() => {
+                          const docChip = docsBadgeLabel({
+                            docsExpected: "expected",
+                            docCount: it.docCount ?? 0,
+                          });
+                          return docChip ? (
+                            <span className={`${CHIP} border-wait-edge bg-wait-soft text-ink`}>
+                              {docChip}
+                            </span>
+                          ) : null;
+                        })()}
+                      </span>
+                    )}
                   </div>
                   <ConfirmActionButton
                     idleLabel={REIMBURSE_MARK_LABEL}

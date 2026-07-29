@@ -355,6 +355,9 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // kanban — already resolves safeBackHref, pinned here so the guard covers it
     // (the audit flagged it as a COVERED-but-unpinned gap).
     "feedback/[id]/page.tsx",
+    // Spec 373 D6: the money-review voucher — reached from /accounting/review
+    // AND the /expenses finance scope (list rows + reimburse-queue rows).
+    "accounting/review/[source]/[id]/page.tsx",
   ];
 
   it.each(MULTI_PARENT_DETAILS)("%s resolves its back chip via safeBackHref", (route) => {

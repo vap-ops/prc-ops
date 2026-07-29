@@ -35,8 +35,10 @@ import {
   loadAllExpenseSummary,
   loadMyActiveCard,
   loadMyExpenseSummary,
+  resolveUserNames,
   type AllExpenseRow,
 } from "@/lib/expenses/load-office-expenses";
+import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
 import {
   EXPENSE_ALL_MONTHS_TOTAL_LABEL,
   EXPENSE_SELECTED_MONTH_TOTAL_LABEL,
@@ -112,7 +114,28 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     }
   }
 
-  const reimbursable = isFinance ? await listReimbursableExpenses(supabase, projectId) : [];
+  // Spec 373 D5 — the queue rows carry their review + doc state (validate-
+  // before-pay). Same RPC map as the list; absent row = pending by definition
+  // for finance (office_expenses is an allowlisted spec-345 source). Group
+  // names go through the admin seam too — the loader's authed `users` embed
+  // nulls for an accounting viewer (D5 amendment).
+  let reimbursable: ReimbursableRow[] = [];
+  if (isFinance) {
+    const rawQueue = await listReimbursableExpenses(supabase, projectId);
+    const queueNames = await resolveUserNames(
+      createAdminClient(),
+      rawQueue.filter((r) => r.reimburseToName === null).map((r) => r.reimburseToUserId),
+    );
+    reimbursable = rawQueue.map((r) => {
+      const review = reviewBySourceId.get(r.id);
+      return {
+        ...r,
+        reimburseToName: r.reimburseToName ?? queueNames.get(r.reimburseToUserId) ?? null,
+        reviewStatus: review?.status ?? "pending",
+        docCount: review?.docCount ?? 0,
+      };
+    });
+  }
 
   // Spec 373 D1: chip/filter navigation keeps every live param.
   const withParams = (nextScope: ExpenseScope, nextMonth = range.month) => {
@@ -230,7 +253,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         <ProjectLens projects={projects} />
         {isFinance && <ExpenseScopeChips scope={scope} hrefFor={withParams} />}
         {body}
-        {isFinance && <ReimburseQueue rows={reimbursable} />}
+        {isFinance && <ReimburseQueue rows={reimbursable} fromHref={withParams(scope)} />}
       </section>
 
       <AddExpenseFab categories={categories} projects={projects} myCard={myCard} />

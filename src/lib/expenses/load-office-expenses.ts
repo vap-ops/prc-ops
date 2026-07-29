@@ -200,6 +200,23 @@ export interface AllExpenseRow {
 
 export type AllExpenseLoaderRow = Omit<AllExpenseRow, "docCount" | "reviewStatus">;
 
+// Spec 373 — the shared admin-client name seam. `public.users` RLS is
+// self-read-only for accounting, so ANY authed `users` embed on a finance
+// surface nulls names the viewer didn't submit; every /expenses name read goes
+// through here instead (behind the page's requireRole gate). Distinct ids, one
+// query, empty input short-circuits.
+export async function resolveUserNames(
+  admin: DB,
+  ids: readonly string[],
+): Promise<Map<string, string | null>> {
+  const names = new Map<string, string | null>();
+  const distinct = [...new Set(ids)];
+  if (distinct.length === 0) return names;
+  const { data } = await admin.from("users").select("id, full_name").in("id", distinct);
+  for (const u of data ?? []) names.set(u.id, u.full_name);
+  return names;
+}
+
 export const ALL_EXPENSES_CAP = 100;
 
 export interface AllExpenseFilters {
@@ -227,16 +244,10 @@ export async function listAllExpenses(
     .limit(ALL_EXPENSES_CAP);
 
   const rows = data ?? [];
-  const userIds = [
-    ...new Set(
-      rows.flatMap((r) => [r.submitted_by, r.reimburse_to_user_id].filter((v): v is string => !!v)),
-    ),
-  ];
-  const names = new Map<string, string | null>();
-  if (userIds.length > 0) {
-    const { data: users } = await admin.from("users").select("id, full_name").in("id", userIds);
-    for (const u of users ?? []) names.set(u.id, u.full_name);
-  }
+  const names = await resolveUserNames(
+    admin,
+    rows.flatMap((r) => [r.submitted_by, r.reimburse_to_user_id].filter((v): v is string => !!v)),
+  );
 
   return rows.map((r) => {
     const category = one(r.category as OneOrArray<{ label_th: string }>);
