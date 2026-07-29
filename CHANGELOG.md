@@ -1,3 +1,13 @@
+# [0.269.0](https://github.com/vap-ops/prc-ops/compare/v0.268.0...v0.269.0) (2026-07-29)
+
+### Bug Fixes
+
+- **equipment:** make the scan door a real filled primary; harden its pins ([c9e3905](https://github.com/vap-ops/prc-ops/commit/c9e390574a7a4966374656bd1bcd10029dcc3561))
+
+### Features
+
+- **equipment:** make the scan door a hero on the SA home, reuse it at the store ([636f860](https://github.com/vap-ops/prc-ops/commit/636f86081b99f9d207c6027fd923527f9b982dea)), closes [#821](https://github.com/vap-ops/prc-ops/issues/821)
+
 # [0.268.0](https://github.com/vap-ops/prc-ops/compare/v0.267.0...v0.268.0) (2026-07-29)
 
 ### Features
