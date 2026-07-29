@@ -1,3 +1,13 @@
+# [0.270.0](https://github.com/vap-ops/prc-ops/compare/v0.269.0...v0.270.0) (2026-07-29)
+
+### Bug Fixes
+
+- **sa:** compare photo instants, fix the cold-rule a11y and drop opacity ([0ef0db0](https://github.com/vap-ops/prc-ops/commit/0ef0db0ba598795841a1cd3af57d253d6435ab85))
+
+### Features
+
+- **sa:** order the home worklist by movement, not by alphabet (spec 375 U1) ([8d6e64c](https://github.com/vap-ops/prc-ops/commit/8d6e64c0e6a32183e795b9292cc78f20b1ac4132))
+
 # [0.269.0](https://github.com/vap-ops/prc-ops/compare/v0.268.0...v0.269.0) (2026-07-29)
 
 ### Bug Fixes
