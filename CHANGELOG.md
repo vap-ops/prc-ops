@@ -1,3 +1,9 @@
+# [0.261.0](https://github.com/vap-ops/prc-ops/compare/v0.260.1...v0.261.0) (2026-07-29)
+
+### Features
+
+- **review:** the PM points at the photos that are wrong ([8b907bd](https://github.com/vap-ops/prc-ops/commit/8b907bdca96f1cd81699a4f9b62daaf942fee01f))
+
 ## [0.260.1](https://github.com/vap-ops/prc-ops/compare/v0.260.0...v0.260.1) (2026-07-29)
 
 ### Bug Fixes
