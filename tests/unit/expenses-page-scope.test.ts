@@ -50,6 +50,11 @@ describe("spec 373 — /expenses page scope wiring", () => {
     // existed (component tests drive their own fixtures; the enrichment lives
     // here in the page).
     expect(count("reviewBySourceId.get")).toBeGreaterThanOrEqual(2);
+    // The queue map must SET the fields, not merely read the map — a mutant
+    // dropping the two field lines (keeping the .get) stayed green under the
+    // count pin alone.
+    expect(src).toMatch(/rawQueue\.map[\s\S]{0,400}reviewStatus:/);
+    expect(src).toMatch(/rawQueue\.map[\s\S]{0,400}docCount:/);
     expect(src).toMatch(/<ReimburseQueue rows=\{reimbursable\} fromHref=/);
     // Queue group names go through the admin seam too (D5 amendment).
     expect(count("resolveUserNames")).toBeGreaterThanOrEqual(2);
