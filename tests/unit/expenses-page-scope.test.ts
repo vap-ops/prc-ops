@@ -43,4 +43,15 @@ describe("spec 373 — /expenses page scope wiring", () => {
     // The admin client import exists and listAllExpenses receives it.
     expect(count("createAdminClient")).toBeGreaterThanOrEqual(2);
   });
+
+  it("the reimburse queue is enriched from the SAME review map and gets the referrer (D5)", () => {
+    // Both consumers consult the map — the list rows AND the queue rows. A
+    // mutation dropping the queue enrichment stayed green until this pin
+    // existed (component tests drive their own fixtures; the enrichment lives
+    // here in the page).
+    expect(count("reviewBySourceId.get")).toBeGreaterThanOrEqual(2);
+    expect(src).toMatch(/<ReimburseQueue rows=\{reimbursable\} fromHref=/);
+    // Queue group names go through the admin seam too (D5 amendment).
+    expect(count("resolveUserNames")).toBeGreaterThanOrEqual(2);
+  });
 });
