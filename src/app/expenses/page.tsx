@@ -199,14 +199,15 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
           <button type="submit" className={BUTTON_PRIMARY}>
             {MONTH_FILTER_APPLY}
           </button>
-          {/* Spec 373 §5 — CSV export carrying the live month + project filters. */}
-          <a
-            href={`/expenses/export?m=${range.month}${projectId ? `&project=${projectId}` : ""}`}
+          {/* Spec 373 §5 — CSV export. A formAction submit so the download carries
+              the LIVE month input, not the last-applied range (fresh-eyes). */}
+          <button
+            type="submit"
+            formAction="/expenses/export"
             className="text-action pb-2 text-sm underline"
-            download
           >
             {EXPENSE_EXPORT_CSV_LABEL}
-          </a>
+          </button>
         </form>
         <ExpenseSummary
           summary={allSummary}

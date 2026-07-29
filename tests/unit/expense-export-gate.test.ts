@@ -17,8 +17,12 @@ const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(
 const route = () => stripComments(readFileSync(ROUTE, "utf8"));
 
 describe("expense export gate (spec 373 §5)", () => {
-  it("gates on requireRole(OFFICE_EXPENSE_FINANCE_ROLES) — the firm-wide audience", () => {
-    expect(route()).toContain("requireRole(OFFICE_EXPENSE_FINANCE_ROLES)");
+  it("gates on requireRole(OFFICE_EXPENSE_FINANCE_ROLES) BEFORE any client or read", () => {
+    const src = route();
+    expect(src).toContain("requireRole(OFFICE_EXPENSE_FINANCE_ROLES)");
+    // Placement is the property, not presence — a gate below the reads passes
+    // a bare toContain (fresh-eyes).
+    expect(src.indexOf("requireRole(")).toBeLessThan(src.indexOf("createClient("));
   });
 
   it("OFFICE_EXPENSE_FINANCE_ROLES is exactly accounting + super_admin", () => {

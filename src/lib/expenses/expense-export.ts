@@ -6,6 +6,8 @@
 // load-office-expenses.ts (listAllExpensesForExport); the route gates first.
 
 import { reviewStatusLabel } from "@/lib/accounting/review-queue-view";
+import { csvCell, csvFilename, toCsvBody } from "@/lib/csv";
+import { bangkokDateOf } from "@/lib/dates";
 import type { AllExpenseRow } from "@/lib/expenses/load-office-expenses";
 import {
   PAYMENT_SOURCE_CARD_LABEL,
@@ -26,12 +28,6 @@ export function paymentSourceLabel(source: string): string {
   return SOURCE_LABELS[source] ?? source;
 }
 
-// RFC 4180: quote a field containing a quote, comma, or newline; double any
-// internal quote. (Same rule as journal-export.ts / payroll.ts.)
-function csvCell(value: string): string {
-  return /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
-}
-
 const CSV_HEADER = [
   "วันที่", // expense_date
   "บันทึกโดย", // submitter
@@ -49,7 +45,7 @@ const CSV_HEADER = [
 
 /** One CSV row per expense. UTF-8 BOM prefix so Excel reads Thai correctly. */
 export function officeExpensesToCsv(rows: ReadonlyArray<AllExpenseRow>): string {
-  const lines: string[] = [CSV_HEADER.join(",")];
+  const lines: string[] = [];
   for (const r of rows) {
     lines.push(
       [
@@ -62,15 +58,15 @@ export function officeExpensesToCsv(rows: ReadonlyArray<AllExpenseRow>): string 
         csvCell(r.cardLabel ?? ""),
         r.amount.toFixed(2),
         csvCell(r.reimburseToName ?? ""),
-        csvCell(r.reimbursedAt ?? ""),
+        csvCell(r.reimbursedAt ? bangkokDateOf(r.reimbursedAt) : ""),
         csvCell(reviewStatusLabel(r.reviewStatus)),
         String(r.docCount),
       ].join(","),
     );
   }
-  return "﻿" + lines.join("\n") + "\n";
+  return toCsvBody(CSV_HEADER, lines);
 }
 
 export function buildExpenseExportFileName(month: string): string {
-  return `office-expenses-${month === "all" ? "all" : month.replaceAll("-", "")}.csv`;
+  return csvFilename("office-expenses", month);
 }

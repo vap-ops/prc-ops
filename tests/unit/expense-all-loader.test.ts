@@ -180,6 +180,40 @@ describe("spec 373 §5 export — listAllExpensesForExport is UNCAPPED (pages un
     expect(rows[0]?.submitterName).toBe("สมชาย ทดสอบ");
   });
 
+  it("actually walks pages: full page → next window advances by the rows RECEIVED", async () => {
+    // Two builders, each its own query: page 0 returns a FULL 1000, page 1
+    // returns 1 row — the loop must issue range [0,999] then [1000,1999] and
+    // concatenate 1001 rows. (fresh-eyes: the single-row fixture broke the
+    // loop on iteration 0, so the paging math had zero coverage.)
+    const fullPage = Array.from({ length: 1000 }, (_, i) => ({ ...expenseRow, id: `e${i}` }));
+    let call = 0;
+    const pages = [fullPage, [{ ...expenseRow, id: "e-last" }]];
+    const queries: { table: string; calls: { method: string; args: unknown[] }[] }[] = [];
+    const from = (table: string) => {
+      const calls: { method: string; args: unknown[] }[] = [];
+      queries.push({ table, calls });
+      const builder: Record<string, unknown> = {
+        then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
+          resolve({ data: pages[call++] ?? [], error: null }),
+      };
+      for (const m of ["select", "eq", "gte", "lt", "order", "range"]) {
+        builder[m] = (...args: unknown[]) => {
+          calls.push({ method: m, args });
+          return builder;
+        };
+      }
+      return builder;
+    };
+    const admin = recordingClient({ users: [] });
+    const rows = await listAllExpensesForExport({ from } as never, admin.client, {});
+    expect(rows).toHaveLength(1001);
+    const ranges = queries.flatMap((q) => q.calls.filter((c) => c.method === "range"));
+    expect(ranges.map((r) => r.args)).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+  });
+
   it("month + project filters become DB predicates, same as the list", async () => {
     const authed = recordingClient();
     await listAllExpensesForExport(authed.client, recordingClient().client, {

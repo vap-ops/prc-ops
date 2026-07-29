@@ -35,10 +35,12 @@ describe("spec 373 — /expenses page scope wiring", () => {
     expect(src).not.toContain("list_money_events_for_review");
   });
 
-  it("the all scope offers the CSV export door carrying the live filters (§5)", () => {
-    expect(src).toContain("/expenses/export");
-    // The door threads the month + project params, not a bare href.
-    expect(src).toMatch(/\/expenses\/export\?[^"`]*m=/);
+  it("the CSV export door is a formAction submit — it carries the LIVE month input (§5)", () => {
+    // An href built from the APPLIED range downloads stale state when the
+    // user changes the month without pressing ดู (fresh-eyes) — the door must
+    // submit the form itself.
+    expect(src).toMatch(/formAction="\/expenses\/export"/);
+    expect(src).not.toMatch(/href=\{`\/expenses\/export/);
   });
 
   it("renders the scope chips and the all-scope month filter", () => {

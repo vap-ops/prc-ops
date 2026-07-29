@@ -320,7 +320,17 @@ export async function listAllExpensesForExport(
   filters: AllExpenseFilters,
 ): Promise<AllExpenseLoaderRow[]> {
   const raw: RawAllExpenseRow[] = [];
-  for (let page = 0; page < EXPORT_MAX_PAGES; page++) {
+  // Advance by the rows RECEIVED and stop only on an empty page — a fixed
+  // stride would silently drop rows if the server clips below EXPORT_PAGE
+  // (fresh-eyes). The final .order("id") makes the walk deterministic when
+  // expense_date + created_at tie across a page boundary.
+  let offset = 0;
+  for (let page = 0; ; page++) {
+    if (page >= EXPORT_MAX_PAGES) {
+      throw new Error(
+        `listAllExpensesForExport: exceeded ${EXPORT_MAX_PAGES} pages — refusing to return a partial consolidation file`,
+      );
+    }
     const query = applyAllExpenseFilters(
       supabase.from("office_expenses").select(ALL_EXPENSE_SELECT),
       filters,
@@ -328,10 +338,13 @@ export async function listAllExpensesForExport(
     const { data, error } = await query
       .order("expense_date", { ascending: false })
       .order("created_at", { ascending: false })
-      .range(page * EXPORT_PAGE, (page + 1) * EXPORT_PAGE - 1);
+      .order("id", { ascending: true })
+      .range(offset, offset + EXPORT_PAGE - 1);
     if (error) throw new Error(`listAllExpensesForExport: ${error.message}`);
-    raw.push(...((data ?? []) as unknown as RawAllExpenseRow[]));
-    if ((data ?? []).length < EXPORT_PAGE) break;
+    const batch = (data ?? []) as unknown as RawAllExpenseRow[];
+    raw.push(...batch);
+    if (batch.length < EXPORT_PAGE) break;
+    offset += batch.length;
   }
   return mapAllExpenseRows(admin, raw);
 }

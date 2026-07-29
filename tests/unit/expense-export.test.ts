@@ -77,9 +77,24 @@ describe("spec 373 export — officeExpensesToCsv", () => {
     expect(csv).toContain('"ค่า ""พิเศษ"", แถวใหม่"');
   });
 
-  it("null-ish fields render empty, not the string null", () => {
+  it("null-ish fields render empty cells — the row keeps every column", () => {
     const csv = officeExpensesToCsv([row({ submitterName: null, categoryLabel: null })]);
     expect(csv).not.toContain("null");
+    const header = csv.slice(1).split("\n")[0] ?? "";
+    const line = csv.split("\n")[1] ?? "";
+    expect(line.split(",").length).toBe(header.split(",").length);
+  });
+
+  it("formula-injection guard: =/+/-/@ cells are apostrophe-prefixed (lib/csv SSOT)", () => {
+    const csv = officeExpensesToCsv([row({ description: '=HYPERLINK("x")' })]);
+    expect(csv).toContain("'=HYPERLINK");
+  });
+
+  it("reimbursedAt exports as the BANGKOK calendar date, not the raw UTC instant", () => {
+    // 2026-07-01T17:30:00Z = 2026-07-02 00:30 Bangkok — the previous UTC date.
+    const csv = officeExpensesToCsv([row({ reimbursedAt: "2026-07-01T17:30:00Z" })]);
+    expect(csv).toContain("2026-07-02");
+    expect(csv).not.toContain("17:30");
   });
 });
 
