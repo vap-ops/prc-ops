@@ -1,3 +1,9 @@
+# [0.272.0](https://github.com/vap-ops/prc-ops/compare/v0.271.0...v0.272.0) (2026-07-29)
+
+### Features
+
+- **chrome:** notify users when a cold restart is needed (spec 339 U2b) ([a591c29](https://github.com/vap-ops/prc-ops/commit/a591c293fff46edf330935b0c5d160c1b1e60e22))
+
 # [0.271.0](https://github.com/vap-ops/prc-ops/compare/v0.270.0...v0.271.0) (2026-07-29)
 
 ### Features
