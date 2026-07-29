@@ -317,12 +317,6 @@ export const MY_WORK_SORT_NOTE = "เรียงตามรูปล่าส�
 export const noPhotoRuleLabel = (days: number, count: number) =>
   `ไม่มีรูปใน ${days} วัน · ${count} งาน`;
 
-// Spec 375 U2 — the SA home's project block. "โครงการของฉัน" is the eyebrow; the
-// count names the work still open on that project, which is what makes the block
-// worth a tap rather than a decoration.
-export const MY_PROJECT_LABEL = "โครงการของฉัน";
-export const openWorkCountLabel = (count: number) => `${count} งานเปิดค้าง`;
-
 // Spec 375 U3 — the custody pair. The SA holds BOTH materials and equipment, and
 // both are withdrawals from the same physical store, so they carry one heading.
 // ⚠️ `เบิกวัสดุ` REPLACES the generic คลัง tile — there is exactly one materials
