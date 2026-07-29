@@ -74,4 +74,13 @@ describe("worker attendance page wiring (spec 374 U1)", () => {
     expect(uses(src, "/attendance?from=/workers")).toBeGreaterThanOrEqual(1);
     expect(uses(src, "ATTENDANCE_CALENDAR_LABEL")).toBeGreaterThanOrEqual(2);
   });
+
+  it("payroll row door renders ONLY for the calendar page's own audience (U1b)", () => {
+    // /payroll admits `accounting` (PAYROLL_VIEW_ROLES), the calendar's gate
+    // does not — an unconditional door would be affordance-then-refuse.
+    const src = stripComments(read("src/app/payroll/page.tsx"));
+    expect(uses(src, "/attendance?from=/payroll")).toBeGreaterThanOrEqual(1);
+    expect(uses(src, "WORKER_ROSTER_ROLES")).toBeGreaterThanOrEqual(2);
+    expect(uses(src, "canOpenCalendar")).toBeGreaterThanOrEqual(2);
+  });
 });

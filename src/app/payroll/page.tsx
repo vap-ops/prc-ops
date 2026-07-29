@@ -13,7 +13,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { ProjectLens } from "@/components/features/common/project-lens";
 import { requireRole } from "@/lib/auth/require-role";
-import { PAYROLL_ROLES, PAYROLL_VIEW_ROLES } from "@/lib/auth/role-home";
+import { PAYROLL_ROLES, PAYROLL_VIEW_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { createClient as createServerClient } from "@/lib/db/server";
 import {
@@ -23,8 +23,10 @@ import {
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
 } from "@/lib/ui/classes";
+import Link from "next/link";
 import { bangkokTodayIso } from "@/lib/dates";
 import {
+  ATTENDANCE_CALENDAR_LABEL,
   formatThaiDate,
   PAYROLL_PAYMENT_PERIOD_WIDE_NOTE,
   PAYROLL_WHT_LABEL,
@@ -65,6 +67,11 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
   // record_wage_payment RPC refuses accounting regardless.
   const ctx = await requireRole(PAYROLL_VIEW_ROLES);
   const canRecord = PAYROLL_ROLES.includes(ctx.role);
+  // Spec 374 U1b: the attendance-calendar door on each worker row — rendered
+  // ONLY for the calendar page's own audience. This page also admits
+  // `accounting` (PAYROLL_VIEW_ROLES), which /workers/[id]/attendance refuses;
+  // an unconditional link would be affordance-then-refuse.
+  const canOpenCalendar = WORKER_ROSTER_ROLES.includes(ctx.role);
   const { start, end, from, project } = await searchParams;
   const range = parsePayrollRange(start, end, bangkokTodayIso());
   const projectId = project || undefined;
@@ -222,7 +229,17 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                   <li key={w.workerId} className={CARD}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-ink truncate font-semibold">{w.name}</p>
+                        {canOpenCalendar ? (
+                          <Link
+                            href={`/workers/${w.workerId}/attendance?from=/payroll`}
+                            aria-label={`${ATTENDANCE_CALENDAR_LABEL} ${w.name}`}
+                            className="text-ink block truncate font-semibold hover:underline"
+                          >
+                            {w.name}
+                          </Link>
+                        ) : (
+                          <p className="text-ink truncate font-semibold">{w.name}</p>
+                        )}
                         <p className="text-ink-secondary text-xs">{formatDays(w.days)} วัน</p>
                       </div>
                       <div className="shrink-0 text-right">
