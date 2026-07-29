@@ -1,3 +1,9 @@
+# [0.268.0](https://github.com/vap-ops/prc-ops/compare/v0.267.0...v0.268.0) (2026-07-29)
+
+### Features
+
+- **accounting:** verify assembly line — chain doors on vouchers + /expenses entry CTA (spec 373 §6) ([#842](https://github.com/vap-ops/prc-ops/issues/842)) ([0be75ff](https://github.com/vap-ops/prc-ops/commit/0be75ff2b359d9f8f7436104549387e66c9f36c6))
+
 # [0.267.0](https://github.com/vap-ops/prc-ops/compare/v0.266.0...v0.267.0) (2026-07-29)
 
 ### Features
