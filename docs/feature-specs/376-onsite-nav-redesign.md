@@ -15,7 +15,7 @@ sibling of spec 349 (accounting nav). Scope chosen by the operator from the coho
 | --- | --- | --- |
 | site_admin | 6 (5) | 5 tabs at the ceiling: หน้าหลัก `/sa` · โครงการ `/projects` · ทีมงาน `/team` · จัดซื้อ `/requests` · ตั้งค่า |
 | technician | 13 (7) | **No tab bar** (`tabsForRole` → null). One long scroll page `/technician` |
-| DC workers | ~31 workers, no login | Printed QR badge only |
+| ช่าง without a login | 17 of 31 `workers` rows unbound (roster = 28 PRC-daily "DC" + 3 subcon-tied; 14 bound) | Printed QR badge only |
 | storekeeper | — not a role (17-value `user_role` enum has none) | — |
 | site_owner | role exists, **0 users** | `roleHome` falls through to `/coming-soon` |
 
@@ -47,9 +47,13 @@ sibling of spec 349 (accounting nav). Scope chosen by the operator from the coho
 
 ## 2. Decisions (operator, 2026-07-30 chat)
 
-- **D1 — Storekeeper is an SA hat, not a role.** No enum change, no new user. The redesign
-  surfaces store work (รับของ · คลัง · เบิก · นับสต็อก) as one visible cluster inside the SA's
-  project world. (คลัง = SA custody per doctrine; store-first directive unchanged.)
+- **D1 — Storekeeper is an SA hat, not a role — today.** No enum change, no new user. The
+  redesign surfaces store work (รับของ · คลัง · เบิก · นับสต็อก) as one visible cluster inside
+  the SA's project world. (คลัง = SA custody per doctrine; store-first directive unchanged.)
+  **Forward-compat (operator 2026-07-30): storekeeper may become a real role later.** So U2
+  gates the cluster through the store surfaces' EXISTING named gates/role sets — never an
+  inline `role === "site_admin"` literal — and the cluster's doors point at the existing
+  routes, so a future `storekeeper` enum value is a role-set add + tab set, not a rework.
 - **D2 — Site Owner = site-oversight home.** Read-mostly view of their site: WP status, teams
   today, photos, issues. **This revises the parked spec 313 U6**: the site_owner half of U6
   (roleHome → `/expenses`) is superseded by this spec; the **auditor half of U6 stays parked
@@ -62,8 +66,12 @@ sibling of spec 349 (accounting nav). Scope chosen by the operator from the coho
   both label sites single-source from `labels.ts`.
 - **D4 — SA keeps her 5 tabs; no reshuffle.** The redesign fixes seams (D5, U1, U2), it does
   not move tabs. เช็คชื่อ stays under ทีมงาน + the muster cockpit (313 U1 already did the move).
-- **D5 — DC-worker "nav" = the printed-QR entry map**, not screens. One documented map of
-  every QR landing + the one known entry bug (shared-phone register QR, §3.4).
+- **D5 — the no-login ช่าง cohort's "nav" = the printed-QR entry map**, not screens. One
+  documented map of every QR landing + the one known entry bug (shared-phone register QR,
+  §3.4). **Clarified with the operator: these are the SAME people as the technician cohort,
+  pre-login** — a `workers` row without a `user_id` binding (17 of 31 today). The register QR
+  is the bridge: scanning it turns a badge-only ช่าง into a `technician` user, so U4's
+  interstitial is also the on-ramp guard for U3's audience.
 
 ## 3. Design per cohort
 
@@ -105,7 +113,7 @@ e-card, QR, assigned work, wage, bank, consents, receipts. Split:
 ⚠️ The move must not orphan any section currently on the page (the §2 "half that removes a
 signal" rule): every section keeps exactly one home across the two routes.
 
-### 3.3 DC workers (D5)
+### 3.3 ช่าง without a login (D5)
 
 **U4 — QR entry map + the shared-phone fix.**
 
