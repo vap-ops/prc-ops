@@ -84,7 +84,7 @@ export function AllExpenseList({
     <div className="flex flex-col gap-2">
       <ul className="flex flex-col gap-2">
         {expenses.map((e) => {
-          const docChip = docsBadgeLabel({ docsExpected: "expected", docCount: e.docCount });
+          const docChip = docsBadgeLabel({ docsExpected: e.docsExpected, docCount: e.docCount });
           return (
             <li key={e.id}>
               <Link

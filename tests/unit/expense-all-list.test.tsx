@@ -26,6 +26,7 @@ function row(overrides: Partial<AllExpenseRow>): AllExpenseRow {
     submitterName: "สมชาย ทดสอบ",
     docCount: 1,
     reviewStatus: "pending",
+    docsExpected: "expected",
     ...overrides,
   };
 }

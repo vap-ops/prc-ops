@@ -6,7 +6,11 @@
 
 import Link from "next/link";
 import type { ExpenseScope } from "@/lib/expenses/expense-scope";
-import { EXPENSE_SCOPE_ALL_LABEL, EXPENSE_SCOPE_OWN_LABEL } from "@/lib/i18n/labels";
+import {
+  EXPENSE_SCOPE_ALL_LABEL,
+  EXPENSE_SCOPE_ARIA,
+  EXPENSE_SCOPE_OWN_LABEL,
+} from "@/lib/i18n/labels";
 
 export function ExpenseScopeChips({
   scope,
@@ -20,7 +24,7 @@ export function ExpenseScopeChips({
     { key: "all", label: EXPENSE_SCOPE_ALL_LABEL },
   ];
   return (
-    <nav aria-label="ขอบเขต" className="flex flex-wrap gap-2">
+    <nav aria-label={EXPENSE_SCOPE_ARIA} className="flex flex-wrap gap-2">
       {chips.map((c) => (
         <Link
           key={c.key}

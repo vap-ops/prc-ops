@@ -23,8 +23,7 @@ describe("spec 373 D6 — review voucher back chip", () => {
   });
 
   it("reads ?from= from searchParams (the page was single-parent before 373)", () => {
-    expect(src).toMatch(/searchParams/);
-    expect(count("from")).toBeGreaterThanOrEqual(2);
+    expect(src).toMatch(/const { from } = await searchParams/);
   });
 
   it("no hardcoded back chip remains", () => {

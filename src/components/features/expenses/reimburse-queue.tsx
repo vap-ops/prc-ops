@@ -83,7 +83,7 @@ export function ReimburseQueue({ rows, fromHref }: { rows: ReimbursableRow[]; fr
                         )}
                         {(() => {
                           const docChip = docsBadgeLabel({
-                            docsExpected: "expected",
+                            docsExpected: it.docsExpected ?? "expected",
                             docCount: it.docCount ?? 0,
                           });
                           return docChip ? (

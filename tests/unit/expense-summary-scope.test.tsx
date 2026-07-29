@@ -44,6 +44,18 @@ describe("spec 373 D3 — ExpenseSummary scope labels", () => {
     expect(screen.queryByText(PAYMENT_SOURCE_CARD_LABEL)).not.toBeInTheDocument();
   });
 
+  it("month-mode relabels the tile, chart heading AND empty state (no เดือนนี้ lie)", () => {
+    const empty = { ...base, byCategory: [] };
+    const { rerender } = render(<ExpenseSummary summary={empty} allScope monthMode="all" />);
+    expect(screen.getByText("ใช้จ่ายรวมทุกเดือน")).toBeInTheDocument();
+    expect(screen.getByText("ค่าใช้จ่ายตามประเภท (ทุกเดือน)")).toBeInTheDocument();
+    expect(screen.getByText("ยังไม่มีค่าใช้จ่ายในช่วงที่เลือก")).toBeInTheDocument();
+    expect(screen.queryByText(/เดือนนี้/)).not.toBeInTheDocument();
+    rerender(<ExpenseSummary summary={empty} allScope monthMode="selected" />);
+    expect(screen.getByText("ใช้จ่ายเดือนที่เลือก")).toBeInTheDocument();
+    expect(screen.queryByText(/เดือนนี้/)).not.toBeInTheDocument();
+  });
+
   it("all scope swaps the pending label off (ของคุณ) and renders source subtotals", () => {
     render(
       <ExpenseSummary

@@ -17,6 +17,7 @@ export interface ReimbursableRow {
   // absent state must never render as a fake "รอตรวจ".
   reviewStatus?: "pending" | "flagged" | "verified";
   docCount?: number;
+  docsExpected?: "expected" | "no_path_yet" | "not_expected";
 }
 
 export interface ReimburseGroup {

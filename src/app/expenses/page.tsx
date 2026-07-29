@@ -26,7 +26,6 @@ import {
   type ExpenseScope,
 } from "@/lib/expenses/expense-scope";
 import {
-  ALL_EXPENSES_CAP,
   listActiveProjectsForExpense,
   listAllExpenses,
   listExpenseCategories,
@@ -40,8 +39,6 @@ import {
 } from "@/lib/expenses/load-office-expenses";
 import type { ReimbursableRow } from "@/lib/expenses/reimburse-group";
 import {
-  EXPENSE_ALL_MONTHS_TOTAL_LABEL,
-  EXPENSE_SELECTED_MONTH_TOTAL_LABEL,
   MONTH_FILTER_ALL,
   MONTH_FILTER_APPLY,
   MONTH_FILTER_LABEL,
@@ -60,7 +57,7 @@ interface ExpensesPageProps {
   // — reached from the /settings hub AND the /procurement Resources tile).
   searchParams: Promise<{
     project?: string | string[];
-    from?: string;
+    from?: string | string[];
     scope?: string | string[];
     m?: string | string[];
   }>;
@@ -74,8 +71,9 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   // Spec 323 U4: the universal project lens (?project=). Non-UUID garbage is
   // treated as unfiltered rather than passed to a uuid-typed DB predicate; a
   // well-formed unknown id simply matches nothing (the /requests posture).
-  const { project, from, scope: rawScope, m } = await searchParams;
+  const { project, from: rawFrom, scope: rawScope, m } = await searchParams;
   const projectParam = Array.isArray(project) ? project[0] : project;
+  const from = Array.isArray(rawFrom) ? rawFrom[0] : rawFrom;
   const projectId = projectParam && UUID_REGEX.test(projectParam) ? projectParam : undefined;
 
   // Spec 373 D1: the role gate lives in the resolver — a crafted ?scope=all
@@ -90,27 +88,39 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     loadMyActiveCard(supabase, ctx.id),
   ]);
 
-  // Spec 373 D2/D5 — review status + doc counts for the finance surfaces come
-  // from ONE spec-345 RPC call on the AUTHED session (the DB gate reads the
-  // caller's role; service-role is refused). Runs whenever isFinance — the
-  // reimburse queue renders in both scopes.
+  // Spec 373 D2/D5 — review status + doc counts + docs-expected class for the
+  // finance surfaces come from the spec-345 RPC on the AUTHED session (the DB
+  // gate reads the caller's role; service-role is refused). Runs whenever
+  // isFinance — the reimburse queue renders in both scopes. ⚠️ The RPC clamps
+  // p_limit at 200 and orders oldest-first, so a single page would silently
+  // mislabel every newer row "รอตรวจ" once the source outgrows 200 events
+  // (fresh-eyes 🔴) — page with p_offset until a short page instead.
   const reviewBySourceId = new Map<
     string,
-    { status: AllExpenseRow["reviewStatus"]; docCount: number }
+    {
+      status: AllExpenseRow["reviewStatus"];
+      docCount: number;
+      docsExpected: AllExpenseRow["docsExpected"];
+    }
   >();
   if (isFinance) {
-    const { data: events, error } = await supabase.rpc("list_money_events_for_review", {
-      p_tab: "any",
-      p_limit: 200,
-      p_offset: 0,
-      p_source_table: "office_expenses",
-    });
-    if (error) throw new Error(`office-expense review status: ${error.message}`);
-    for (const e of events ?? []) {
-      reviewBySourceId.set(e.source_id, {
-        status: (e.review_status ?? "pending") as AllExpenseRow["reviewStatus"],
-        docCount: e.doc_count ?? 0,
+    const REVIEW_PAGE = 200;
+    for (let offset = 0; offset < 10_000; offset += REVIEW_PAGE) {
+      const { data: events, error } = await supabase.rpc("list_money_events_for_review", {
+        p_tab: "any",
+        p_limit: REVIEW_PAGE,
+        p_offset: offset,
+        p_source_table: "office_expenses",
       });
+      if (error) throw new Error(`office-expense review status: ${error.message}`);
+      for (const e of events ?? []) {
+        reviewBySourceId.set(e.source_id, {
+          status: (e.review_status ?? "pending") as AllExpenseRow["reviewStatus"],
+          docCount: e.doc_count ?? 0,
+          docsExpected: (e.docs_expected ?? "expected") as AllExpenseRow["docsExpected"],
+        });
+      }
+      if ((events ?? []).length < REVIEW_PAGE) break;
     }
   }
 
@@ -133,6 +143,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         reimburseToName: r.reimburseToName ?? queueNames.get(r.reimburseToUserId) ?? null,
         reviewStatus: review?.status ?? "pending",
         docCount: review?.docCount ?? 0,
+        docsExpected: review?.docsExpected ?? "expected",
       };
     });
   }
@@ -161,24 +172,21 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
       ...(range.start ? { monthStart: range.start } : {}),
       ...(range.endExclusive ? { monthEndExclusive: range.endExclusive } : {}),
     };
-    const [loaderRows, allSummary] = await Promise.all([
+    const [allList, allSummary] = await Promise.all([
       listAllExpenses(supabase, admin, filters),
       loadAllExpenseSummary(supabase, filters),
     ]);
-    const rows: AllExpenseRow[] = loaderRows.map((r) => {
+    const rows: AllExpenseRow[] = allList.rows.map((r) => {
       const review = reviewBySourceId.get(r.id);
       return {
         ...r,
         docCount: review?.docCount ?? 0,
         reviewStatus: review?.status ?? "pending",
+        docsExpected: review?.docsExpected ?? "expected",
       };
     });
-    const monthTitle =
-      range.month === "all"
-        ? EXPENSE_ALL_MONTHS_TOTAL_LABEL
-        : range.month !== today.slice(0, 7)
-          ? EXPENSE_SELECTED_MONTH_TOTAL_LABEL
-          : undefined;
+    const monthMode =
+      range.month === "all" ? "all" : range.month !== today.slice(0, 7) ? "selected" : "current";
 
     body = (
       <>
@@ -215,13 +223,9 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
           summary={allSummary}
           allScope
           bySource={allSummary.bySource}
-          {...(monthTitle ? { monthTitle } : {})}
+          monthMode={monthMode}
         />
-        <AllExpenseList
-          expenses={rows}
-          fromHref={withParams("all")}
-          capped={rows.length >= ALL_EXPENSES_CAP}
-        />
+        <AllExpenseList expenses={rows} fromHref={withParams("all")} capped={allList.capped} />
       </>
     );
   } else {

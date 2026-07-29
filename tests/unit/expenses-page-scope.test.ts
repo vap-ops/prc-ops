@@ -29,7 +29,11 @@ describe("spec 373 — /expenses page scope wiring", () => {
   it("review status comes from the spec-345 RPC with the source filter and an explicit limit", () => {
     expect(count("list_money_events_for_review")).toBe(1);
     expect(src).toContain('p_source_table: "office_expenses"');
-    expect(src).toContain("p_limit: 200");
+    // Paged: the RPC clamps p_limit at 200 and orders oldest-first, so a
+    // single page would mislabel newer rows once the source outgrows 200.
+    expect(src).toContain("p_limit: REVIEW_PAGE");
+    expect(src).toContain("p_offset: offset");
+    expect(src).toContain("if ((events ?? []).length < REVIEW_PAGE) break;");
     // On the AUTHED session — the DB gate reads the caller's role.
     expect(src).not.toMatch(/admin\s*\.\s*rpc\(\s*"list_money_events_for_review/);
   });

@@ -24,7 +24,7 @@ function recordingClient(rowsBySelect: Record<string, unknown[]> = {}) {
       then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
         resolve({ data: rowsBySelect[table] ?? [], error: null }),
     };
-    for (const m of ["select", "eq", "in", "is", "not", "gte", "lt", "order", "limit"]) {
+    for (const m of ["select", "eq", "in", "is", "not", "gte", "lt", "order", "limit", "range"]) {
       builder[m] = vi.fn((...args: unknown[]) => {
         calls.push({ method: m, args });
         return builder;
@@ -61,12 +61,13 @@ describe("spec 373 D2 — listAllExpenses", () => {
     ).toEqual([]);
   });
 
-  it("caps at 100 rows, newest first", async () => {
+  it("overfetches cap+1 (the note only shows when a 101st row exists), newest first", async () => {
     const { client, queries } = recordingClient();
     const { client: admin } = recordingClient();
-    await listAllExpenses(client, admin, {});
+    const { capped } = await listAllExpenses(client, admin, {});
+    expect(capped).toBe(false);
     const calls = queries.find((q) => q.table === "office_expenses")?.calls ?? [];
-    expect(calls).toContainEqual({ method: "limit", args: [100] });
+    expect(calls).toContainEqual({ method: "limit", args: [101] });
     expect(calls).toContainEqual({
       method: "order",
       args: ["expense_date", { ascending: false }],
@@ -106,7 +107,7 @@ describe("spec 373 D2 — listAllExpenses", () => {
         { id: "u-target", full_name: "สมหญิง เป้าหมาย" },
       ],
     });
-    const rows = await listAllExpenses(authed.client, admin.client, {});
+    const { rows } = await listAllExpenses(authed.client, admin.client, {});
     // The AUTHED client never touches users (its embed would null every name) …
     expect(authed.queries.some((q) => q.table === "users")).toBe(false);
     // … the admin client resolves exactly the distinct ids seen.
@@ -124,7 +125,7 @@ describe("spec 373 D2 — listAllExpenses", () => {
   it("an unknown submitter id degrades to null name, not a crash", async () => {
     const authed = recordingClient({ office_expenses: [expenseRow] });
     const admin = recordingClient({ users: [] });
-    const rows = await listAllExpenses(authed.client, admin.client, {});
+    const { rows } = await listAllExpenses(authed.client, admin.client, {});
     expect(rows[0]?.submitterName).toBeNull();
   });
 });

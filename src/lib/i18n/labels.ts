@@ -1268,6 +1268,12 @@ export const EXPENSE_SCOPE_ALL_LABEL = "ทั้งหมด";
 export const EXPENSE_PENDING_TOTAL_ALL_LABEL = "รอคืนเงิน (ทั้งบริษัท)";
 export const EXPENSE_SELECTED_MONTH_TOTAL_LABEL = "ใช้จ่ายเดือนที่เลือก";
 export const EXPENSE_ALL_MONTHS_TOTAL_LABEL = "ใช้จ่ายรวมทุกเดือน";
+// The chart heading + empty state must stop claiming "เดือนนี้" too when a
+// month filter or ทุกเดือน is active (fresh-eyes: same label-lie as the tiles).
+export const EXPENSE_CHART_HEADING_SELECTED = "ค่าใช้จ่ายตามประเภท (เดือนที่เลือก)";
+export const EXPENSE_CHART_HEADING_ALL = "ค่าใช้จ่ายตามประเภท (ทุกเดือน)";
+export const EXPENSE_RANGE_EMPTY = "ยังไม่มีค่าใช้จ่ายในช่วงที่เลือก";
+export const EXPENSE_SCOPE_ARIA = "ขอบเขต";
 export const EXPENSE_ALL_CAP_NOTE = "แสดง 100 รายการล่าสุด";
 export const EXPENSE_SUBMITTER_PREFIX = "บันทึกโดย";
 // Spec 373 D4 — month-filter copy, shared with /accounting/review (term SSOT:
