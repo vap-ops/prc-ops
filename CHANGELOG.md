@@ -1,3 +1,9 @@
+# [0.265.0](https://github.com/vap-ops/prc-ops/compare/v0.264.0...v0.265.0) (2026-07-29)
+
+### Features
+
+- **expenses:** CSV export for consolidation (spec 373 §5) ([#839](https://github.com/vap-ops/prc-ops/issues/839)) ([7141eed](https://github.com/vap-ops/prc-ops/commit/7141eed02b474ad3a3615c99d77b829c2326d18b))
+
 # [0.264.0](https://github.com/vap-ops/prc-ops/compare/v0.263.0...v0.264.0) (2026-07-29)
 
 ### Features
