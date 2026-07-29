@@ -30,3 +30,20 @@ describe("spec 373 D6 — review voucher back chip", () => {
     expect(src).not.toContain('backHref="/accounting/review"');
   });
 });
+
+describe("spec 373 §6 — the verify chain door", () => {
+  it("computes the next pending voucher of the SAME source through the pure helper", () => {
+    expect(count("pickNextPending")).toBeGreaterThanOrEqual(2);
+    // One pending-tab RPC call, source-filtered — oldest first is the RPC's order.
+    expect(src).toMatch(/p_tab: "pending"[\s\S]{0,200}p_source_table: sourceTable/);
+  });
+
+  it("the next door threads the SAME ?from= so the whole chain returns to one origin", () => {
+    expect(src).toMatch(/nextHref[\s\S]{0,300}encodeURIComponent\(from\)/);
+  });
+
+  it("renders the end state when the chain is dry (a door to nowhere is a dead door)", () => {
+    expect(count("REVIEW_CHAIN_DONE")).toBeGreaterThanOrEqual(2);
+    expect(count("REVIEW_NEXT_CTA")).toBeGreaterThanOrEqual(2);
+  });
+});

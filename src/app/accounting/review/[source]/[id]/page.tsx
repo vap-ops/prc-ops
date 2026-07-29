@@ -12,7 +12,12 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { requireRole } from "@/lib/auth/require-role";
 import { ACCOUNTING_ROLES, MONEY_REVIEW_ROLES } from "@/lib/auth/role-home";
-import { MONEY_REVIEW_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import {
+  MONEY_REVIEW_LABEL,
+  REVIEW_CHAIN_DONE,
+  REVIEW_NEXT_CTA,
+  formatThaiDate,
+} from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
 import { SECTION_HEADING, CARD } from "@/lib/ui/classes";
 import {
@@ -24,6 +29,8 @@ import {
   type MoneySourceTable,
 } from "@/lib/accounting/review-queue-view";
 import { loadReviewVoucher } from "@/lib/accounting/load-review-voucher";
+import { pickNextPending } from "@/lib/accounting/review-chain";
+import { createClient } from "@/lib/db/server";
 import { ReviewVoucherActions } from "@/components/features/accounting/review-voucher-actions";
 import {
   verifyMoneyEventAction,
@@ -55,6 +62,22 @@ export default async function ReviewVoucherPage({ params, searchParams }: Vouche
   const data = await loadReviewVoucher(sourceTable, id);
   if (!data) notFound();
   const { event, review, flags, docs, journal } = data;
+
+  // Spec 373 §6 — the verify chain: the oldest OTHER pending event of the
+  // SAME source (the RPC's pending tab orders oldest-first). One extra cheap
+  // call on the authed session; p_limit 2 always suffices because ids are
+  // unique, so the first non-current id sits within the first two rows.
+  const supabaseChain = await createClient();
+  const { data: pendingEvents } = await supabaseChain.rpc("list_money_events_for_review", {
+    p_tab: "pending",
+    p_limit: 2,
+    p_offset: 0,
+    p_source_table: sourceTable,
+  });
+  const nextPendingId = pickNextPending(pendingEvents ?? [], id);
+  const nextHref = nextPendingId
+    ? `/accounting/review/${sourceTable}/${nextPendingId}${from ? `?from=${encodeURIComponent(from)}` : ""}`
+    : null;
 
   const status = review?.status ?? "pending";
   const openFlags = flags.filter((f) => f.status === "open");
@@ -159,6 +182,19 @@ export default async function ReviewVoucherPage({ params, searchParams }: Vouche
           // ever diverge, a read-only accountant sees the state, not dead buttons.
           <p className="text-muted-foreground text-sm">ดูอย่างเดียว — ไม่มีสิทธิ์ตรวจ/ติดธง</p>
         )}
+
+        {/* Spec 373 §6 — the chain door: after deciding, walk straight to the
+            oldest remaining pending voucher of this source; the ?from= referrer
+            rides along so the whole chain returns to one origin. */}
+        <p className="mt-4">
+          {nextHref ? (
+            <Link href={nextHref} className="text-action text-sm font-medium underline">
+              {REVIEW_NEXT_CTA} →
+            </Link>
+          ) : (
+            <span className="text-muted-foreground text-sm">{REVIEW_CHAIN_DONE}</span>
+          )}
+        </p>
 
         {closedFlags.length > 0 ? (
           <>

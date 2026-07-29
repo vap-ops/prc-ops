@@ -42,6 +42,7 @@ import {
 import type { ReviewedReimbursableRow } from "@/lib/expenses/reimburse-group";
 import {
   EXPENSE_EXPORT_CSV_LABEL,
+  EXPENSE_VERIFY_START_CTA,
   MONTH_FILTER_ALL,
   MONTH_FILTER_APPLY,
   MONTH_FILTER_LABEL,
@@ -144,6 +145,20 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
 
   let body: React.ReactNode;
   if (scope === "all") {
+    // Spec 373 §6 — the verify chain's entry door: the OLDEST pending expense
+    // firm-wide (the RPC's pending tab orders oldest-first), independent of the
+    // month filter so the backlog can't hide behind a view. Count comes from
+    // the map already in hand.
+    const pendingCount = [...reviewBySourceId.values()].filter(
+      (r) => r.status === "pending",
+    ).length;
+    const { data: oldestPending } = await supabase.rpc("list_money_events_for_review", {
+      p_tab: "pending",
+      p_limit: 1,
+      p_offset: 0,
+      p_source_table: "office_expenses",
+    });
+    const oldestPendingId = oldestPending?.[0]?.source_id ?? null;
     // Spec 373 D2 — names via the admin seam behind the requireRole gate
     // (users RLS is self-read-only for accounting; an authed embed would null
     // every name the viewer didn't submit).
@@ -171,6 +186,16 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
 
     body = (
       <>
+        {oldestPendingId && (
+          <p>
+            <Link
+              href={`/accounting/review/office_expenses/${oldestPendingId}?from=${encodeURIComponent(withParams("all"))}`}
+              className="bg-action text-on-fill inline-block rounded-full px-4 py-2 text-sm font-medium"
+            >
+              {EXPENSE_VERIFY_START_CTA} ({pendingCount})
+            </Link>
+          </p>
+        )}
         <form method="get" action="/expenses" className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="scope" value="all" />
           {projectId ? <input type="hidden" name="project" value={projectId} /> : null}
