@@ -31,6 +31,11 @@ const allPages = walkPages(APP);
 const routeOf = (abs: string) => relative(APP, abs).split(sep).join("/");
 const hasDynamicSegment = (route: string) => /\[[^\]]+\]/.test(route);
 const reads = (abs: string) => readFileSync(abs, "utf8");
+// For occurrence-COUNT asserts: a comment naming the counted symbol otherwise
+// satisfies the pin with the real call deleted (the comment-quotes-the-symbol
+// trap, mutation-proven here 2026-07-29).
+const stripComments = (src: string) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 // DETAIL: any dynamic-segment page (entity detail, drilled down from a hub)
 // PLUS the static drill-downs folded under /settings — each carries a back chip
@@ -358,10 +363,22 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // Spec 373 D6: the money-review voucher — reached from /accounting/review
     // AND the /expenses finance scope (list rows + reimburse-queue rows).
     "accounting/review/[source]/[id]/page.tsx",
+    // Spec 374 U1: the per-worker attendance calendar — reached from the
+    // /workers roster rows AND the /payroll worker rows.
+    "workers/[workerId]/attendance/page.tsx",
   ];
 
+  // ≥2 occurrences = the IMPORT plus a real call — same hardening as the
+  // STATIC_MULTI_PARENT assert below; the bare toContain this replaced was
+  // satisfied by the import line alone (the proven fake-coverage trap).
+  // Counted over comment-STRIPPED source: a doc comment naming the helper
+  // otherwise stands in for the deleted call (mutation-proven 2026-07-29 on
+  // the attendance page — import + comment kept this green with the chip
+  // hardcoded).
   it.each(MULTI_PARENT_DETAILS)("%s resolves its back chip via safeBackHref", (route) => {
-    expect(reads(join(APP, route))).toContain("safeBackHref");
+    expect(
+      stripComments(reads(join(APP, route))).split("safeBackHref").length - 1,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   // Nav-coherence audit 2026-07 (Decision 1): STATIC drill-down pages that spec
@@ -423,8 +440,11 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
   it.each(STATIC_MULTI_PARENT)("%s resolves its back chip via safeBackHref", (route) => {
     // No shape assertion beyond this: routes legitimately differ (some inline it
     // in the JSX, contacts/vendors assigns a `const backHref` first), and pinning
-    // one shape flagged a correct page.
-    expect(reads(join(APP, route)).split("safeBackHref").length - 1).toBeGreaterThanOrEqual(2);
+    // one shape flagged a correct page. Comment-stripped for the same reason as
+    // the dynamic list above.
+    expect(
+      stripComments(reads(join(APP, route))).split("safeBackHref").length - 1,
+    ).toBeGreaterThanOrEqual(2);
   });
 });
 
