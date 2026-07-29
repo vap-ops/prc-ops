@@ -7,7 +7,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  fetchOfficeExpenseReviewMap,
   listAllExpenses,
+  listAllExpensesForExport,
   loadAllExpenseSummary,
   resolveUserNames,
 } from "@/lib/expenses/load-office-expenses";
@@ -127,6 +129,68 @@ describe("spec 373 D2 — listAllExpenses", () => {
     const admin = recordingClient({ users: [] });
     const { rows } = await listAllExpenses(authed.client, admin.client, {});
     expect(rows[0]?.submitterName).toBeNull();
+  });
+});
+
+describe("spec 373 §5 export — fetchOfficeExpenseReviewMap pages past the RPC's 200-clamp", () => {
+  it("keeps calling with a moving p_offset until a short page; map carries all pages", async () => {
+    const fullPage = Array.from({ length: 200 }, (_, i) => ({
+      source_id: `id-${i}`,
+      review_status: "pending",
+      doc_count: 0,
+      docs_expected: "expected",
+    }));
+    const shortPage = [
+      { source_id: "id-200", review_status: "verified", doc_count: 2, docs_expected: "expected" },
+    ];
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: fullPage, error: null })
+      .mockResolvedValueOnce({ data: shortPage, error: null });
+    const map = await fetchOfficeExpenseReviewMap({ rpc } as never);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_offset: 0,
+      p_source_table: "office_expenses",
+    });
+    expect(rpc.mock.calls[1]?.[1]).toMatchObject({ p_offset: 200 });
+    expect(map.size).toBe(201);
+    expect(map.get("id-200")).toEqual({
+      status: "verified",
+      docCount: 2,
+      docsExpected: "expected",
+    });
+  });
+
+  it("throws on an RPC error instead of returning an empty map as truth", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: "boom" } });
+    await expect(fetchOfficeExpenseReviewMap({ rpc } as never)).rejects.toThrow(/boom/);
+  });
+});
+
+describe("spec 373 §5 export — listAllExpensesForExport is UNCAPPED (pages until short)", () => {
+  it("uses range paging, no .limit cap, and resolves names via the admin seam", async () => {
+    const authed = recordingClient({ office_expenses: [expenseRow] });
+    const admin = recordingClient({ users: [{ id: "u-submitter", full_name: "สมชาย ทดสอบ" }] });
+    const rows = await listAllExpensesForExport(authed.client, admin.client, {});
+    const calls = authed.queries.find((q) => q.table === "office_expenses")?.calls ?? [];
+    expect(calls.some((c) => c.method === "range")).toBe(true);
+    expect(calls.filter((c) => c.method === "limit")).toEqual([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.submitterName).toBe("สมชาย ทดสอบ");
+  });
+
+  it("month + project filters become DB predicates, same as the list", async () => {
+    const authed = recordingClient();
+    await listAllExpensesForExport(authed.client, recordingClient().client, {
+      projectId: "p1",
+      monthStart: "2026-07-01",
+      monthEndExclusive: "2026-08-01",
+    });
+    const calls = authed.queries.find((q) => q.table === "office_expenses")?.calls ?? [];
+    expect(calls).toContainEqual({ method: "eq", args: ["project_id", "p1"] });
+    expect(calls).toContainEqual({ method: "gte", args: ["expense_date", "2026-07-01"] });
+    expect(calls).toContainEqual({ method: "lt", args: ["expense_date", "2026-08-01"] });
   });
 });
 

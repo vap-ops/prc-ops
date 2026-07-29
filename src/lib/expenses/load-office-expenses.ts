@@ -227,19 +227,74 @@ export interface AllExpenseFilters {
   monthEndExclusive?: string;
 }
 
+const ALL_EXPENSE_SELECT =
+  "id, description, amount, expense_date, payment_source, reimbursed_at, submitted_by, reimburse_to_user_id, category:office_expense_categories!office_expenses_category_id_fkey(label_th), project:projects!office_expenses_project_id_fkey(name), card:company_cards!office_expenses_company_card_id_fkey(label)";
+
+interface RawAllExpenseRow {
+  id: string;
+  description: string;
+  amount: number;
+  expense_date: string;
+  payment_source: string;
+  reimbursed_at: string | null;
+  submitted_by: string;
+  reimburse_to_user_id: string | null;
+  category: OneOrArray<{ label_th: string }>;
+  project: OneOrArray<{ name: string }>;
+  card: OneOrArray<{ label: string }>;
+}
+
+interface FilterableQuery {
+  eq(column: string, value: string): this;
+  gte(column: string, value: string): this;
+  lt(column: string, value: string): this;
+}
+
+function applyAllExpenseFilters<Q extends FilterableQuery>(
+  query: Q,
+  { projectId, monthStart, monthEndExclusive }: AllExpenseFilters,
+): Q {
+  let q = query;
+  if (projectId) q = q.eq("project_id", projectId);
+  if (monthStart) q = q.gte("expense_date", monthStart);
+  if (monthEndExclusive) q = q.lt("expense_date", monthEndExclusive);
+  return q;
+}
+
+// Shared row mapping + admin-seam name resolution for the list AND the export.
+async function mapAllExpenseRows(
+  admin: DB,
+  rows: RawAllExpenseRow[],
+): Promise<AllExpenseLoaderRow[]> {
+  const names = await resolveUserNames(
+    admin,
+    rows.flatMap((r) => [r.submitted_by, r.reimburse_to_user_id].filter((v): v is string => !!v)),
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    description: r.description,
+    amount: r.amount,
+    expenseDate: r.expense_date,
+    paymentSource: r.payment_source,
+    categoryLabel: one(r.category)?.label_th ?? null,
+    projectName: one(r.project)?.name ?? null,
+    cardLabel: one(r.card)?.label ?? null,
+    reimburseToName: r.reimburse_to_user_id ? (names.get(r.reimburse_to_user_id) ?? null) : null,
+    reimbursedAt: r.reimbursed_at,
+    submitterId: r.submitted_by,
+    submitterName: names.get(r.submitted_by) ?? null,
+  }));
+}
+
 export async function listAllExpenses(
   supabase: DB,
   admin: DB,
-  { projectId, monthStart, monthEndExclusive }: AllExpenseFilters,
+  filters: AllExpenseFilters,
 ): Promise<{ rows: AllExpenseLoaderRow[]; capped: boolean }> {
-  let query = supabase
-    .from("office_expenses")
-    .select(
-      "id, description, amount, expense_date, payment_source, reimbursed_at, submitted_by, reimburse_to_user_id, category:office_expense_categories!office_expenses_category_id_fkey(label_th), project:projects!office_expenses_project_id_fkey(name), card:company_cards!office_expenses_company_card_id_fkey(label)",
-    );
-  if (projectId) query = query.eq("project_id", projectId);
-  if (monthStart) query = query.gte("expense_date", monthStart);
-  if (monthEndExclusive) query = query.lt("expense_date", monthEndExclusive);
+  const query = applyAllExpenseFilters(
+    supabase.from("office_expenses").select(ALL_EXPENSE_SELECT),
+    filters,
+  );
   // Overfetch by one so the cap note only shows when a 101st row exists
   // (fresh-eyes: length >= CAP fires on exactly-100 with nothing hidden).
   const { data, error } = await query
@@ -249,32 +304,76 @@ export async function listAllExpenses(
   if (error) throw new Error(`listAllExpenses: ${error.message}`);
 
   const capped = (data ?? []).length > ALL_EXPENSES_CAP;
-  const rows = (data ?? []).slice(0, ALL_EXPENSES_CAP);
-  const names = await resolveUserNames(
-    admin,
-    rows.flatMap((r) => [r.submitted_by, r.reimburse_to_user_id].filter((v): v is string => !!v)),
-  );
+  const rows = (data ?? []).slice(0, ALL_EXPENSES_CAP) as unknown as RawAllExpenseRow[];
+  return { rows: await mapAllExpenseRows(admin, rows), capped };
+}
 
-  const mapped = rows.map((r) => {
-    const category = one(r.category as OneOrArray<{ label_th: string }>);
-    const project = one(r.project as OneOrArray<{ name: string }>);
-    const card = one(r.card as OneOrArray<{ label: string }>);
-    return {
-      id: r.id,
-      description: r.description,
-      amount: r.amount,
-      expenseDate: r.expense_date,
-      paymentSource: r.payment_source,
-      categoryLabel: category?.label_th ?? null,
-      projectName: project?.name ?? null,
-      cardLabel: card?.label ?? null,
-      reimburseToName: r.reimburse_to_user_id ? (names.get(r.reimburse_to_user_id) ?? null) : null,
-      reimbursedAt: r.reimbursed_at,
-      submitterId: r.submitted_by,
-      submitterName: names.get(r.submitted_by) ?? null,
-    };
-  });
-  return { rows: mapped, capped };
+// Spec 373 §5 — the export read: UNCAPPED, paged past PostgREST's db-max-rows
+// clip (1000) until a short page. A capped export would silently drop rows
+// from a consolidation file, which is worse than a slow download.
+const EXPORT_PAGE = 1000;
+const EXPORT_MAX_PAGES = 50;
+
+export async function listAllExpensesForExport(
+  supabase: DB,
+  admin: DB,
+  filters: AllExpenseFilters,
+): Promise<AllExpenseLoaderRow[]> {
+  const raw: RawAllExpenseRow[] = [];
+  for (let page = 0; page < EXPORT_MAX_PAGES; page++) {
+    const query = applyAllExpenseFilters(
+      supabase.from("office_expenses").select(ALL_EXPENSE_SELECT),
+      filters,
+    );
+    const { data, error } = await query
+      .order("expense_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(page * EXPORT_PAGE, (page + 1) * EXPORT_PAGE - 1);
+    if (error) throw new Error(`listAllExpensesForExport: ${error.message}`);
+    raw.push(...((data ?? []) as unknown as RawAllExpenseRow[]));
+    if ((data ?? []).length < EXPORT_PAGE) break;
+  }
+  return mapAllExpenseRows(admin, raw);
+}
+
+// Spec 373 — review status + doc counts + docs-expected class per office
+// expense, from the spec-345 RPC on the AUTHED session (the DB gate reads the
+// caller's role; service-role coalesces to '' and is refused). ⚠️ The RPC
+// clamps p_limit at 200 and orders oldest-first, so a single call would
+// silently mislabel newer rows "รอตรวจ" once the source outgrows 200 events —
+// page with p_offset until a short page. Shared by the /expenses page and the
+// CSV export route; spec 345's queue stays the SSOT.
+export interface OfficeExpenseReviewInfo {
+  status: AllExpenseRow["reviewStatus"];
+  docCount: number;
+  docsExpected: DocsExpectedClass;
+}
+
+const REVIEW_PAGE = 200;
+const REVIEW_MAX_EVENTS = 10_000;
+
+export async function fetchOfficeExpenseReviewMap(
+  supabase: DB,
+): Promise<Map<string, OfficeExpenseReviewInfo>> {
+  const map = new Map<string, OfficeExpenseReviewInfo>();
+  for (let offset = 0; offset < REVIEW_MAX_EVENTS; offset += REVIEW_PAGE) {
+    const { data: events, error } = await supabase.rpc("list_money_events_for_review", {
+      p_tab: "any",
+      p_limit: REVIEW_PAGE,
+      p_offset: offset,
+      p_source_table: "office_expenses",
+    });
+    if (error) throw new Error(`office-expense review status: ${error.message}`);
+    for (const e of events ?? []) {
+      map.set(e.source_id, {
+        status: (e.review_status ?? "pending") as AllExpenseRow["reviewStatus"],
+        docCount: e.doc_count ?? 0,
+        docsExpected: (e.docs_expected ?? "expected") as DocsExpectedClass,
+      });
+    }
+    if ((events ?? []).length < REVIEW_PAGE) break;
+  }
+  return map;
 }
 
 // Spec 373 D3 — the firm-wide summary for the finance scope. Same shape as the

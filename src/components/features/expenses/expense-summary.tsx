@@ -6,6 +6,7 @@
 
 import type { MyExpenseSummary } from "@/lib/expenses/load-office-expenses";
 import type { SourceSpend } from "@/lib/expenses/expense-summary";
+import { paymentSourceLabel } from "@/lib/expenses/expense-export";
 import { bahtWithSymbol } from "@/lib/format";
 import {
   EXPENSE_ALL_MONTHS_TOTAL_LABEL,
@@ -19,9 +20,6 @@ import {
   EXPENSE_PENDING_TOTAL_LABEL,
   EXPENSE_RANGE_EMPTY,
   EXPENSE_SELECTED_MONTH_TOTAL_LABEL,
-  PAYMENT_SOURCE_CARD_LABEL,
-  PAYMENT_SOURCE_DIRECT_LABEL,
-  PAYMENT_SOURCE_OWN_LABEL,
 } from "@/lib/i18n/labels";
 
 // Spec 373 D3/D4 — every "เดือนนี้"-flavoured label follows the active range
@@ -47,13 +45,8 @@ const MONTH_LABELS: Record<ExpenseMonthMode, { tile: string; chart: string; empt
   },
 };
 
-// Spec 373 D3 — the SSOT labels for the payment_source enum (fact-check: never
-// invent parallel terms; these three already exist for the record form).
-const SOURCE_LABELS: Record<string, string> = {
-  company_card: PAYMENT_SOURCE_CARD_LABEL,
-  own_money: PAYMENT_SOURCE_OWN_LABEL,
-  company_direct: PAYMENT_SOURCE_DIRECT_LABEL,
-};
+// Spec 373 §5 — the payment_source enum → label map lives in expense-export.ts
+// (paymentSourceLabel), one home for the summary line AND the CSV.
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
@@ -98,7 +91,7 @@ export function ExpenseSummary({
           <ul className="flex flex-col gap-1">
             {bySource.map((s) => (
               <li key={s.source} className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="text-ink">{SOURCE_LABELS[s.source] ?? s.source}</span>
+                <span className="text-ink">{paymentSourceLabel(s.source)}</span>
                 <span className="text-ink font-semibold tabular-nums">
                   {bahtWithSymbol(s.total)}
                 </span>

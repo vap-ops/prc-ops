@@ -26,16 +26,19 @@ describe("spec 373 — /expenses page scope wiring", () => {
     expect(src).toMatch(/scope === "all"/);
   });
 
-  it("review status comes from the spec-345 RPC with the source filter and an explicit limit", () => {
-    expect(count("list_money_events_for_review")).toBe(1);
-    expect(src).toContain('p_source_table: "office_expenses"');
-    // Paged: the RPC clamps p_limit at 200 and orders oldest-first, so a
-    // single page would mislabel newer rows once the source outgrows 200.
-    expect(src).toContain("p_limit: REVIEW_PAGE");
-    expect(src).toContain("p_offset: offset");
-    expect(src).toContain("if ((events ?? []).length < REVIEW_PAGE) break;");
-    // On the AUTHED session — the DB gate reads the caller's role.
-    expect(src).not.toMatch(/admin\s*\.\s*rpc\(\s*"list_money_events_for_review/);
+  it("review status comes from the shared paged review-map helper on the AUTHED session", () => {
+    // The paging loop (p_offset until a short page — the RPC clamps at 200)
+    // lives in fetchOfficeExpenseReviewMap, shared with the export route; the
+    // page must call it with the AUTHED client, never re-inline the RPC.
+    expect(count("fetchOfficeExpenseReviewMap")).toBeGreaterThanOrEqual(2);
+    expect(src).toMatch(/fetchOfficeExpenseReviewMap\(supabase\)/);
+    expect(src).not.toContain("list_money_events_for_review");
+  });
+
+  it("the all scope offers the CSV export door carrying the live filters (§5)", () => {
+    expect(src).toContain("/expenses/export");
+    // The door threads the month + project params, not a bare href.
+    expect(src).toMatch(/\/expenses\/export\?[^"`]*m=/);
   });
 
   it("renders the scope chips and the all-scope month filter", () => {
