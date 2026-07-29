@@ -1,3 +1,9 @@
+# [0.271.0](https://github.com/vap-ops/prc-ops/compare/v0.270.0...v0.271.0) (2026-07-29)
+
+### Features
+
+- **sa:** give the site admin a door to her own project (spec 375 U2) ([8b65399](https://github.com/vap-ops/prc-ops/commit/8b6539985412aa097ea43f270d62c17994839a68)), closes [#2](https://github.com/vap-ops/prc-ops/issues/2)
+
 # [0.270.0](https://github.com/vap-ops/prc-ops/compare/v0.269.0...v0.270.0) (2026-07-29)
 
 ### Bug Fixes
