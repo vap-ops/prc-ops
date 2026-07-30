@@ -132,6 +132,16 @@ criterion binding is OUT of v1 (open question 1) — counts only.
 
 ### 4.4 Authoring (U2)
 
+**Authoring is tablet-first** (operator ruling 2026-07-30, mid-U1): WP-brief
+management assumes a bigger screen — design U2 for tablet/desktop (the ADR-0046
+side-by-side precedent), with the phone as a read surface, not an authoring one.
+**The PD also selects which information types render on the WP page** (same ruling):
+per-brief display selection, stored in `wp_briefs.display_config` (jsonb — the U1
+seam) and snapshotted into the version at publish. This is FINER than the ADR-0086
+registry dial: `is_active` = the firm-wide kill switch per attachment type;
+`display_config` = one PD's choice for one WP's page. U2/U3 design the vocabulary
+(which sections/types are selectable); U1 ships only the column.
+
 `clone-from-previous-project` = pick a source project → matching briefs land as DRAFTS
 on the target's leaves (match key is U2's design call; `clone_work_packages` is the
 mechanical precedent) → PD edits deltas → publish per WP. work_category template

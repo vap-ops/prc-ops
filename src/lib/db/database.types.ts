@@ -8978,6 +8978,300 @@ export type Database = {
           },
         ]
       }
+      wp_brief_attachment_types: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name_en: string | null
+          name_th: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name_en?: string | null
+          name_th: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name_en?: string | null
+          name_th?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wp_brief_attachments: {
+        Row: {
+          brief_id: string
+          caption: string | null
+          created_at: string
+          created_by: string
+          id: string
+          sheet_code: string | null
+          sheet_rev: string | null
+          storage_path: string | null
+          superseded_by: string | null
+          type_id: string
+        }
+        Insert: {
+          brief_id: string
+          caption?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          sheet_code?: string | null
+          sheet_rev?: string | null
+          storage_path?: string | null
+          superseded_by?: string | null
+          type_id: string
+        }
+        Update: {
+          brief_id?: string
+          caption?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          sheet_code?: string | null
+          sheet_rev?: string | null
+          storage_path?: string | null
+          superseded_by?: string | null
+          type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_brief_attachments_brief_id_fkey"
+            columns: ["brief_id"]
+            isOneToOne: false
+            referencedRelation: "wp_briefs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_brief_attachments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_brief_attachments_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "wp_brief_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_brief_attachments_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "wp_brief_attachment_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wp_brief_criteria: {
+        Row: {
+          body: string
+          brief_id: string
+          created_at: string
+          id: string
+          sort_order: number
+        }
+        Insert: {
+          body: string
+          brief_id: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+        }
+        Update: {
+          body?: string
+          brief_id?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_brief_criteria_brief_id_fkey"
+            columns: ["brief_id"]
+            isOneToOne: false
+            referencedRelation: "wp_briefs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wp_brief_evidence_slots: {
+        Row: {
+          brief_id: string
+          created_at: string
+          criterion_id: string | null
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          brief_id: string
+          created_at?: string
+          criterion_id?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          brief_id?: string
+          created_at?: string
+          criterion_id?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_brief_evidence_slots_brief_id_fkey"
+            columns: ["brief_id"]
+            isOneToOne: false
+            referencedRelation: "wp_briefs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_brief_evidence_slots_criterion_id_fkey"
+            columns: ["criterion_id"]
+            isOneToOne: false
+            referencedRelation: "wp_brief_criteria"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wp_brief_versions: {
+        Row: {
+          content: Json
+          id: string
+          published_at: string
+          published_by: string
+          version: number
+          work_package_id: string
+        }
+        Insert: {
+          content: Json
+          id?: string
+          published_at?: string
+          published_by: string
+          version: number
+          work_package_id: string
+        }
+        Update: {
+          content?: Json
+          id?: string
+          published_at?: string
+          published_by?: string
+          version?: number
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_brief_versions_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_brief_versions_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_brief_versions_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wp_briefs: {
+        Row: {
+          created_at: string
+          display_config: Json | null
+          id: string
+          location: string | null
+          quantity: string | null
+          scope_excluded: string | null
+          scope_included: string | null
+          sheet_code: string | null
+          sheet_rev: string | null
+          updated_at: string
+          updated_by: string | null
+          work_package_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_config?: Json | null
+          id?: string
+          location?: string | null
+          quantity?: string | null
+          scope_excluded?: string | null
+          scope_included?: string | null
+          sheet_code?: string | null
+          sheet_rev?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          work_package_id: string
+        }
+        Update: {
+          created_at?: string
+          display_config?: Json | null
+          id?: string
+          location?: string | null
+          quantity?: string | null
+          scope_excluded?: string | null
+          scope_included?: string | null
+          sheet_code?: string | null
+          sheet_rev?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_briefs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_briefs_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: true
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_briefs_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: true
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wp_economics: {
         Row: {
           budget: number | null
@@ -11213,6 +11507,10 @@ export type Database = {
       }
       set_worker_trades: {
         Args: { p_categories: string[]; p_primary?: string; p_worker: string }
+        Returns: undefined
+      }
+      set_wp_brief_attachment_type_active: {
+        Args: { p_code: string; p_is_active: boolean }
         Returns: undefined
       }
       set_wp_budget: {
