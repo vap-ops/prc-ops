@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(22);
 
 -- ============================================================================
 -- Spec 379 U1 — muster_undo_scan: retract ONE worker's muster check-in.
@@ -38,11 +38,15 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('71000000-0379-0379-0379-710000000379', 'sa-none@s379.local', '{}'::jsonb),
   ('75000000-0379-0379-0379-750000000379', 'super@s379.local',   '{}'::jsonb),
   ('72000000-0379-0379-0379-720000000379', 'visitor@s379.local', '{}'::jsonb),
-  ('74000000-0379-0379-0379-740000000379', 'tech@s379.local',    '{}'::jsonb);
-update public.users set role = 'site_admin'  where id = '70000000-0379-0379-0379-700000000379';
-update public.users set role = 'site_admin'  where id = '71000000-0379-0379-0379-710000000379';
-update public.users set role = 'super_admin' where id = '75000000-0379-0379-0379-750000000379';
-update public.users set role = 'technician'  where id = '74000000-0379-0379-0379-740000000379';
+  ('74000000-0379-0379-0379-740000000379', 'tech@s379.local',    '{}'::jsonb),
+  ('76000000-0379-0379-0379-760000000379', 'pmgr@s379.local',    '{}'::jsonb);
+update public.users set role = 'site_admin'          where id = '70000000-0379-0379-0379-700000000379';
+update public.users set role = 'site_admin'          where id = '71000000-0379-0379-0379-710000000379';
+update public.users set role = 'super_admin'         where id = '75000000-0379-0379-0379-750000000379';
+update public.users set role = 'technician'          where id = '74000000-0379-0379-0379-740000000379';
+-- super_admin and procurement_manager are unconditional-true in can_see_project,
+-- so neither needs a project_members row.
+update public.users set role = 'procurement_manager' where id = '76000000-0379-0379-0379-760000000379';
 
 insert into public.projects (id, code, name) values
   ('a1000000-0379-0379-0379-a10000000379', 'TAP-379A', 'โครงการทดสอบยกเลิกเช็คชื่อ');
@@ -58,6 +62,10 @@ insert into public.workers (id, name, pay_type, employment_type, day_rate, activ
   ('e3000000-0379-0379-0379-e30000000379', 'ลูกทีม สอง', 'daily', 'temporary', 400, true,
    '75000000-0379-0379-0379-750000000379'),
   ('e4000000-0379-0379-0379-e40000000379', 'ลูกทีม สาม', 'daily', 'temporary', 400, true,
+   '75000000-0379-0379-0379-750000000379'),
+  ('e5000000-0379-0379-0379-e50000000379', 'ลูกทีม สี่', 'daily', 'temporary', 400, true,
+   '75000000-0379-0379-0379-750000000379'),
+  ('e6000000-0379-0379-0379-e60000000379', 'ลูกทีม ห้า', 'daily', 'temporary', 400, true,
    '75000000-0379-0379-0379-750000000379'),
   ('e9000000-0379-0379-0379-e90000000379', 'ไม่เคยเช็คชื่อ', 'daily', 'temporary', 400, true,
    '75000000-0379-0379-0379-750000000379');
@@ -88,6 +96,10 @@ select public.muster_scan_in((select id from _ids where k = 'team'),
   'e3000000-0379-0379-0379-e30000000379', 'qr', 'ot');
 select public.muster_scan_in((select id from _ids where k = 'team'),
   'e4000000-0379-0379-0379-e40000000379', 'qr');
+select public.muster_scan_in((select id from _ids where k = 'team'),
+  'e5000000-0379-0379-0379-e50000000379', 'qr');
+select public.muster_scan_in((select id from _ids where k = 'team'),
+  'e6000000-0379-0379-0379-e60000000379', 'qr');
 reset role;
 insert into _ids select 'att4', id from public.muster_attendance
   where worker_id = 'e4000000-0379-0379-0379-e40000000379' and work_date = current_date
@@ -122,20 +134,25 @@ select throws_ok(
   $$ select public.muster_undo_scan('e2000000-0379-0379-0379-e20000000379',
        current_date, 'regular') $$,
   '42501', null, 'a technician cannot undo a check-in');
+-- can_see_project is folded into the lookup, so an invisible row must be
+-- INDISTINGUISHABLE from an absent one — same SQLSTATE, same message. Split,
+-- the pair is an existence oracle across projects.
 set local "request.jwt.claims" = '{"sub": "71000000-0379-0379-0379-710000000379"}';
 select throws_ok(
   $$ select public.muster_undo_scan('e2000000-0379-0379-0379-e20000000379',
        current_date, 'regular') $$,
-  '42501', null, 'a non-member SA cannot undo in this project (can_see_project)');
+  'P0001', 'muster_undo_scan: no check-in to undo',
+  'a non-member SA sees an invisible row as ABSENT, not as forbidden');
 
 -- ============================================================================
--- C. No such row.
+-- C. No such row — byte-identical answer to the one above.
 -- ============================================================================
 set local "request.jwt.claims" = '{"sub": "70000000-0379-0379-0379-700000000379"}';
 select throws_ok(
   $$ select public.muster_undo_scan('e9000000-0379-0379-0379-e90000000379',
        current_date, 'regular') $$,
-  'P0001', null, 'undoing a worker who was never checked in raises P0001');
+  'P0001', 'muster_undo_scan: no check-in to undo',
+  'undoing a worker who was never checked in raises the SAME P0001');
 
 -- ============================================================================
 -- D. OT depends on the regular session — refuse to strand it.
@@ -143,7 +160,8 @@ select throws_ok(
 select throws_ok(
   $$ select public.muster_undo_scan('e3000000-0379-0379-0379-e30000000379',
        current_date, 'regular') $$,
-  'P0001', null, 'cannot undo the regular session while an OT session is open');
+  'P0001', 'muster_undo_scan: undo the OT session first',
+  'cannot undo the regular session while an OT session is open');
 select lives_ok(
   $$ select public.muster_undo_scan('e3000000-0379-0379-0379-e30000000379',
        current_date, 'ot') $$,
@@ -178,13 +196,20 @@ select is(
       and payload->>'worker_id' = 'e2000000-0379-0379-0379-e20000000379'
     order by created_at desc limit 1),
   'muster_undo', 'an audit row records the retraction as muster_undo');
+-- The snapshot is to_jsonb(row), not a hand-listed key set: the delete is
+-- irreversible and this is the only copy, so a column added later must not
+-- silently stop being captured. `note` is pinned by name because hand-listing
+-- had already dropped it, and 17 of 167 live rows carry operator free text.
 select ok(
-  (select payload ? 'in_at' and payload ? 'team_id' and payload ? 'in_method'
+  (select payload->'row' ? 'in_at' and payload->'row' ? 'in_method'
+      and payload->'row' ? 'note' and payload->'row' ? 'out_at'
+      and payload->'row' ? 'ot_hours' and payload->'row' ? 'scanned_by'
+      and payload ? 'team_id'
      from public.audit_log
     where action = 'crew_change' and target_table = 'muster_attendance'
       and payload->>'worker_id' = 'e2000000-0379-0379-0379-e20000000379'
     order by created_at desc limit 1),
-  'the audit payload snapshots the deleted row (in_at, team_id, in_method)');
+  'the audit payload snapshots the WHOLE deleted row, note included');
 
 -- ============================================================================
 -- F. A CURRENT derived wage row blocks; a SUPERSEDED one must NOT.
@@ -205,7 +230,8 @@ set local "request.jwt.claims" = '{"sub": "70000000-0379-0379-0379-700000000379"
 select throws_ok(
   $$ select public.muster_undo_scan('e4000000-0379-0379-0379-e40000000379',
        current_date, 'regular') $$,
-  'P0001', null, 'a CURRENT derived wage row blocks the undo');
+  'P0001', 'muster_undo_scan: wages are already booked for this check-in',
+  'a CURRENT derived wage row blocks the undo');
 reset role;
 
 -- Tombstone it the append-only way: a null-fraction row pointing at the first.
@@ -229,15 +255,51 @@ select lives_ok(
   'a SUPERSEDED wage row does NOT block — the guard is an anti-join, not exists()');
 
 -- ============================================================================
+-- F2. The OTHER two roles in the gate. Without these, deleting 'super_admin' or
+--     'procurement_manager' from the allowlist leaves the whole file green —
+--     only site_admin was ever exercised positively.
+-- ============================================================================
+set local "request.jwt.claims" = '{"sub": "75000000-0379-0379-0379-750000000379"}';
+select lives_ok(
+  $$ select public.muster_undo_scan('e5000000-0379-0379-0379-e50000000379',
+       current_date, 'regular') $$,
+  'a super_admin can undo a check-in');
+set local "request.jwt.claims" = '{"sub": "76000000-0379-0379-0379-760000000379"}';
+select lives_ok(
+  $$ select public.muster_undo_scan('e6000000-0379-0379-0379-e60000000379',
+       current_date, 'regular') $$,
+  'a procurement_manager can undo a check-in');
+
+-- ============================================================================
+-- F3. The delete is SCOPED. Every count above filters on the undone worker, so
+--     a DELETE that also took the lead's row or the whole team would pass them
+--     all. Scoped assertions, never a global count over an operator-written
+--     table (the merge-queue-ejector class).
+-- ============================================================================
+reset role;
+select is(
+  (select count(*)::int from public.muster_attendance
+    where team_id = (select id from _ids where k = 'team')
+      and worker_id = 'e1000000-0379-0379-0379-e10000000379'),
+  0, 'the lead was never checked in, and no undo invented a row for them');
+select is(
+  (select count(*)::int from public.muster_teams
+    where id = (select id from _ids where k = 'team')),
+  1, 'the team row itself survives every undo');
+
+-- ============================================================================
 -- G. A closed day refuses — closing books wages.
 -- ============================================================================
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0379-0379-0379-700000000379"}';
 select public.muster_scan_in((select id from _ids where k = 'team'),
   'e2000000-0379-0379-0379-e20000000379', 'qr');
 select public.close_muster_day('a1000000-0379-0379-0379-a10000000379', current_date);
 select throws_ok(
   $$ select public.muster_undo_scan('e2000000-0379-0379-0379-e20000000379',
        current_date, 'regular') $$,
-  'P0001', null, 'once the day is closed the undo refuses');
+  'P0001', 'muster_undo_scan: the day is already closed',
+  'once the day is closed the undo refuses');
 reset role;
 select is(
   (select count(*)::int from public.muster_attendance

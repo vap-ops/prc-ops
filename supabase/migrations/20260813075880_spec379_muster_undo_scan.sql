@@ -43,20 +43,42 @@ begin
 
   -- (worker, date, session) is the live unique key, so this identifies exactly
   -- one row.
-  select * into v_att
-    from public.muster_attendance
-   where worker_id = p_worker and work_date = p_date and session = p_session;
+  --
+  -- can_see_project is folded INTO the lookup rather than checked after it, so
+  -- an invisible row reads as an absent one. Split the other way, the two
+  -- SQLSTATEs form an existence oracle: a site_admin of another project could
+  -- tell "no such check-in" from "not yours" and learn whether a given worker
+  -- uuid was mustered on a given date in a project she cannot see. The sibling
+  -- RPCs avoid this by construction — they take a team id and gate before they
+  -- touch attendance at all.
+  --
+  -- FOR UPDATE OF a: the snapshot written to audit_log is the only surviving
+  -- copy of this row, so a concurrent scan_out / move / auto-out landing between
+  -- here and the delete would make the trace describe a state the row was never
+  -- in. It also serialises two concurrent undos, which would otherwise both pass
+  -- every guard and both write an audit row for one deletion.
+  select a.* into v_att
+    from public.muster_attendance a
+    join public.muster_teams t on t.id = a.team_id
+   where a.worker_id = p_worker and a.work_date = p_date and a.session = p_session
+     and public.can_see_project(t.project_id)
+     for update of a;
   if not found then
     raise exception 'muster_undo_scan: no check-in to undo' using errcode = 'P0001';
   end if;
 
+  -- team_id is NOT NULL with an FK to muster_teams, so this cannot miss; it is
+  -- read for the project, not as a guard.
   select * into v_team from public.muster_teams where id = v_att.team_id;
-  if not found then
-    raise exception 'muster_undo_scan: team not found' using errcode = 'P0001';
-  end if;
-  if not public.can_see_project(v_team.project_id) then
-    raise exception 'muster_undo_scan: not a member of this project' using errcode = '42501';
-  end if;
+
+  -- Serialise against derive_muster_labor on the same day, using ITS key.
+  -- Without this the closure check below is a TOCTOU: close_muster_day could
+  -- commit a closure and derive wages between the check and the delete, leaving
+  -- a CURRENT labor_logs row whose source_muster_id points at a row that no
+  -- longer exists. That wage could never be retracted afterwards, because
+  -- derive's retract loop walks muster_attendance — and the row is gone.
+  perform pg_advisory_xact_lock(
+    hashtextextended(v_team.project_id::text || '|' || p_date::text, 0));
 
   -- Closing the day books wages (close_muster_day calls derive_muster_labor
   -- inline). Retracting underneath a closure would strand a labor_logs row
@@ -69,8 +91,11 @@ begin
     raise exception 'muster_undo_scan: the day is already closed' using errcode = 'P0001';
   end if;
 
-  -- Defence in depth behind the closure check: derive_muster_labor is callable
-  -- directly, not only through close_muster_day.
+  -- Insurance, not a live path: derive_muster_labor early-returns unless a
+  -- closure exists for the day, and it is the only writer of
+  -- labor_logs.source_muster_id, so the check above already excludes every way
+  -- a wage row can exist today. This guard is what keeps that true if an
+  -- un-close or a partial-retract path is ever added.
   --
   -- ANTI-JOIN, not a bare exists(): labor_logs is append-only and a retraction
   -- is a null-fraction supersede row (ADR 0009/0015), so a day that was derived
@@ -103,6 +128,12 @@ begin
   -- Audit BEFORE the delete — after the next statement the row is gone, so the
   -- payload is the only surviving copy. Convention follows move_muster_worker:
   -- an existing action plus a `kind` in the payload, never a new enum value.
+  -- to_jsonb(v_att) rather than a hand-listed set of keys: the delete is
+  -- irreversible and this is the only surviving copy, so a column added to
+  -- muster_attendance later must not silently stop being captured. Hand-listing
+  -- had already dropped `note`, which 17 of 167 live rows carry. The flat keys
+  -- stay alongside it because every existing reader of this action queries
+  -- payload->>'kind' and payload->>'worker_id'.
   insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)
   values ('crew_change', auth.uid(), v_role, 'muster_attendance', v_att.id,
           jsonb_build_object(
@@ -111,15 +142,15 @@ begin
             'work_date', p_date,
             'session', p_session,
             'team_id', v_att.team_id,
-            'in_at', v_att.in_at,
-            'in_method', v_att.in_method,
-            'out_at', v_att.out_at,
-            'out_method', v_att.out_method,
-            'out_auto', v_att.out_auto,
-            'ot_hours', v_att.ot_hours,
-            'scanned_by', v_att.scanned_by));
+            'row', to_jsonb(v_att)));
 
   delete from public.muster_attendance where id = v_att.id;
+  if not found then
+    -- Unreachable while the row is held FOR UPDATE, but an audit row claiming a
+    -- retraction that did not happen is worse than a failure.
+    raise exception 'muster_undo_scan: the check-in vanished mid-undo'
+      using errcode = 'P0001';
+  end if;
 end;
 $$;
 
