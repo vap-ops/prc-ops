@@ -139,4 +139,19 @@ describe("PROJECT_LANDING_ROLES (spec 376 U5)", () => {
     const normalised = src.replace(/\s+/g, " ");
     expect(normalised).toContain("PROJECT_LANDING_ROLES.includes(ctx.role)");
   });
+
+  // The hub picks its kicker + desktop strip with its OWN role ladder, whose LAST
+  // arm is the SA's. site_owner is not site staff: falling into that arm would hand
+  // it SA_HUB_NAV, whose /sa, /team and /requests are all doors it cannot open —
+  // "never promote a role's home without its chrome" (the 313 U6 lesson) applies to
+  // the page's ladder as much as to hubNavForRole, and nav-law-strip-superset only
+  // covers the latter. Pinned as contiguous ternary arms so the ORDER is asserted:
+  // the site_owner arm must sit ahead of the SA fallback, not merely exist.
+  it("the hub gives site_owner its own kicker + strip, ahead of the SA fallback", () => {
+    const src = readFileSync(join(process.cwd(), "src/app/projects/page.tsx"), "utf8");
+    const normalised = src.replace(/\s+/g, " ");
+    expect(normalised).toContain(": isSiteOwner ? USER_ROLE_LABEL.site_owner :");
+    expect(normalised).toContain(": isSiteOwner ? SITE_OWNER_HUB_NAV :");
+    expect(normalised).toContain('const isSiteOwner = ctx.role === "site_owner";');
+  });
 });
