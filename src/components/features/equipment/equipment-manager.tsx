@@ -324,9 +324,11 @@ function AddEquipmentForm({
     setTracking("unit");
     setStatus("available");
     setCategoryId("");
-    // Back to the default, not to the sentinel: the registry is filled in runs
-    // of items that share an owner, so clearing it would re-ask the same
-    // question on every row.
+    // Mirrors the initial state rather than the sentinel — clearing it here
+    // would contradict what the next open shows. Unobservable today (BottomSheet
+    // returns null when closed, so onDone() unmounts this form and useState
+    // re-seeds it), which is why no test pins it; it is kept in step with its
+    // six sibling resets rather than left as the one that says "".
     setOwnerId(defaultOwnerId);
     onDone();
     router.refresh();
