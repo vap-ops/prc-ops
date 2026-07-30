@@ -1,3 +1,9 @@
+# [0.288.0](https://github.com/vap-ops/prc-ops/compare/v0.287.1...v0.288.0) (2026-07-30)
+
+### Features
+
+- **equipment:** spec 382 + U1 — four photo slots per item ([#884](https://github.com/vap-ops/prc-ops/issues/884)) ([8194fe1](https://github.com/vap-ops/prc-ops/commit/8194fe19bf86d9ba7ea8154ed574e89d64e03c03))
+
 ## [0.287.1](https://github.com/vap-ops/prc-ops/compare/v0.287.0...v0.287.1) (2026-07-30)
 
 ### Bug Fixes
