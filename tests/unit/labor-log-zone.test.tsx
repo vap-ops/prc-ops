@@ -26,6 +26,9 @@ const ROSTER = {
       pay_type: "monthly" as const,
       contractor_id: null,
       active: true,
+      // Spec 306: cost-confirmed ⇒ log_labor_day accepts them ⇒ the row is
+      // tickable. The money-wall cases below supply their own unconfirmed row.
+      cost_confirmed_at: "2026-07-01T00:00:00Z",
     },
   ],
   dc: [
@@ -39,6 +42,7 @@ const ROSTER = {
           pay_type: "daily" as const,
           contractor_id: "c1",
           active: true,
+          cost_confirmed_at: "2026-07-01T00:00:00Z",
         },
       ],
     },

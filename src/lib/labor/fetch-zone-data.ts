@@ -37,7 +37,9 @@ export async function fetchLaborZoneData(
     supabase
       .from("workers")
       // project_id is not money (spec 160 U1) — covered by the column grant.
-      .select("id, name, pay_type, contractor_id, active, project_id")
+      // cost_confirmed_at likewise (spec 306: the picker's only readable proxy
+      // for "log_labor_day will accept this worker"; day_rate is walled).
+      .select("id, name, pay_type, contractor_id, active, project_id, cost_confirmed_at")
       .order("name", { ascending: true }),
     sharedContractors ??
       supabase
@@ -77,6 +79,7 @@ export async function fetchLaborZoneData(
       pay_type: w.pay_type,
       contractor_id: w.contractor_id,
       active: w.active,
+      cost_confirmed_at: w.cost_confirmed_at,
     })),
     contractors,
   );

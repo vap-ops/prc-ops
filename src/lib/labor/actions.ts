@@ -35,6 +35,15 @@ function rpcErrorToThai(message: string): string {
   if (message.includes("already exists")) return "มีบันทึกของวันนั้นอยู่แล้ว";
   if (message.includes("inactive")) return "ทีมงานถูกปิดใช้งานแล้ว";
   if (message.includes("complete")) return "งานปิดแล้ว บันทึกเพิ่มไม่ได้";
+  // Spec 306 money wall — each arm is a PERMANENT refusal for this worker, so
+  // none of them may read as "try again" (the honest-copy rule). Each names the
+  // actor who can clear it, because none of them is the person on site.
+  if (message.includes("subcontractor firm"))
+    return "ช่างสังกัดผู้รับเหมา ค่าแรงรวมอยู่ในค่างานแล้ว บันทึกรายวันไม่ได้";
+  if (message.includes("cost is not confirmed"))
+    return "ยังไม่ยืนยันค่าแรงของช่างคนนี้ — ให้ฝ่ายจัดซื้อยืนยันที่หน้า รายชื่อช่าง ก่อน";
+  if (message.includes("day rate is not set"))
+    return "ยังไม่ตั้งค่าแรงต่อวันของช่างคนนี้ — ให้ฝ่ายจัดซื้อตั้งที่หน้า รายชื่อช่าง ก่อน";
   return GENERIC_ERROR;
 }
 

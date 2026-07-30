@@ -16,7 +16,7 @@ import { correctLaborLog, logLaborDays } from "@/lib/labor/actions";
 import { bangkokTodayIso } from "@/lib/labor/dates";
 import { validateCorrection } from "@/lib/labor/validate";
 import { formatThaiDate } from "@/lib/i18n/labels";
-import { filterRoster, partitionRosterByProject } from "@/lib/labor/group-workers";
+import { filterRoster, isCostConfirmed, partitionRosterByProject } from "@/lib/labor/group-workers";
 import type { GroupedRoster, RosterWorker } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
 import type { Database } from "@/lib/db/database.types";
@@ -33,6 +33,13 @@ const FRACTION_LABEL: Record<DayFraction, string> = {
   full: "เต็มวัน",
   half: "ครึ่งวัน",
 };
+
+// Spec 306 — the money wall's affordance layer. Single-use strings, kept local
+// (the MusterTodayCard precedent); promote to labels.ts if a second surface
+// starts naming the same state.
+const UNCONFIRMED_COST_CHIP = "ยังไม่ยืนยันค่าแรง";
+const UNCONFIRMED_COST_HINT =
+  "ช่างที่ยังไม่ยืนยันค่าแรงจะบันทึกวันทำงานไม่ได้ — ให้ฝ่ายจัดซื้อยืนยันระดับและค่าแรงที่หน้า รายชื่อช่าง ก่อน";
 
 function FractionToggle({
   value,
@@ -71,18 +78,34 @@ function WorkerPickRow({
   onToggle: () => void;
   onFraction: (f: DayFraction) => void;
 }) {
+  // Spec 306: log_labor_day refuses an unconfirmed worker. Ticking one could
+  // only ever produce a refusal on submit, so the row states the reason instead
+  // of pretending to be selectable — the fix belongs to procurement, not to the
+  // person standing on site.
+  const capturable = isCostConfirmed(worker);
   return (
     <li className="flex min-h-11 items-center justify-between gap-2">
-      <label className="text-ink flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm">
+      <label
+        className={`flex min-w-0 flex-1 items-center gap-2 text-sm ${
+          capturable ? "text-ink cursor-pointer" : "text-ink-muted"
+        }`}
+      >
         <input
           type="checkbox"
           checked={fraction !== null}
           onChange={onToggle}
+          disabled={!capturable}
           className="accent-brand size-4"
         />
         <span className="truncate">{worker.name}</span>
       </label>
-      {fraction !== null ? <FractionToggle value={fraction} onChange={onFraction} /> : null}
+      {capturable ? (
+        fraction !== null ? (
+          <FractionToggle value={fraction} onChange={onFraction} />
+        ) : null
+      ) : (
+        <span className="text-ink-muted shrink-0 text-xs">{UNCONFIRMED_COST_CHIP}</span>
+      )}
     </li>
   );
 }
@@ -265,11 +288,16 @@ export function LaborLogZone({
 
   const today = bangkokTodayIso();
   const selectedIds = Object.keys(selected);
-  const workerNames = new Map(
-    [...roster.own, ...roster.dc.flatMap((g) => g.workers)].map((w) => [w.id, w.name]),
-  );
+  const allWorkers = [...roster.own, ...roster.dc.flatMap((g) => g.workers)];
+  const workerNames = new Map(allWorkers.map((w) => [w.id, w.name]));
+  // Spec 306 — the disabled checkbox is the affordance; this is the guard that
+  // makes it true, so a selection can never be built for a worker the RPC will
+  // refuse (a tick that survived the worker's state changing under the page).
+  const capturableIds = new Set(allWorkers.filter(isCostConfirmed).map((w) => w.id));
+  const unconfirmedCount = allWorkers.length - capturableIds.size;
 
   function toggle(workerId: string) {
+    if (!capturableIds.has(workerId)) return;
     setSelected((prev) => {
       const next = { ...prev };
       if (next[workerId]) delete next[workerId];
@@ -359,6 +387,15 @@ export function LaborLogZone({
             </p>
           ) : (
             <>
+              {/* Spec 306 — say WHY the roster is un-tickable, once, above the
+                  list. Without this a fully-unconfirmed roster reads as a broken
+                  page: every name renders, nothing can be selected, and the
+                  per-row chip alone never names the actor who can fix it. */}
+              {unconfirmedCount > 0 ? (
+                <p className="text-ink-secondary mt-3 text-sm" role="note">
+                  {UNCONFIRMED_COST_HINT}
+                </p>
+              ) : null}
               {/* Spec 158 U1: find a ช่าง in a long company-wide roster. */}
               <input
                 type="search"
