@@ -10711,6 +10711,18 @@ P0001 asserts.
   session first"; without an OT undo that instruction names an action that does not
   exist. Both member-row controls are session-gated exactly like the round buttons
   beside them.
+- **Self-review found two holes in the two-tap control, both fixed.** ① The armed
+  state could only be **discharged** — the only way out was to fire the delete. An
+  armed delete with no escape is a trap, not a confirmation, and the house confirm
+  (ปิดวัน) pairs its confirm with one; both doors now render `เก็บไว้` ("keep it" —
+  not `ยกเลิก`, which beside `ยืนยันยกเลิก` would ask the SA to cancel a cancel), and
+  it stays enabled while a write is in flight. ② **Arming** was gated on `pending`,
+  freezing it during exactly the window the door exists for — the wrong person was
+  tapped three seconds ago and the sweep is still writing. That is the per-write
+  freeze spec 359 removed from the tap list for the same reason. Arming and escaping
+  are not writes; only the confirm keeps the gate, so the delete never races the
+  insert it retracts. Both doors now share ONE `UndoControl`, so wording, arming and
+  escape cannot drift between them.
 - **New Thai for the four refusals (D7), never `scanErrorToThai`** — its `role not
 permitted` arm answers ไม่มีสิทธิ์เช็คชื่อ, a claim about TAKING attendance, and no arm
   of it says what to do about a closed day or a booked wage. Label `ยกเลิกเช็คชื่อ`,
@@ -10727,6 +10739,18 @@ permitted` arm answers ไม่มีสิทธิ์เช็คชื่อ
   the stale branch's `router.refresh()`) IS caught, and the carry matches #764's proven
   shape, but it is pinned by construction, not by a discriminating test. Said plainly
   rather than claimed.
+- **Real-flow verified** (the Browser pane was hidden — the documented hydration
+  wedge — so this is the sanctioned floor): dev server on this branch, signed in as
+  dev-preview, **the live muster board renders 4 team cards / 21 member rows / 21
+  `ยกเลิกเช็คชื่อ` controls**, with `ยืนยันยกเลิก` + `เก็บไว้` correctly absent from the
+  SSR payload (armed-only client state). And `muster_undo_scan` exercised over the
+  exact PostgREST wire the action uses, for BOTH session values, returning
+  `400 / P0001 / "muster_undo_scan: no check-in to undo"` — the message the Thai map
+  keys on — which proves the function name, arg names, enum cast and the
+  `authenticated` EXECUTE grant with **zero writes to live data**. `pnpm build`
+  exit 0 (the gate jsdom cannot see — a `server-only` module reaching the client
+  cockpit typechecks green and fails the build, the #742/spec-371 class). ⓘ The
+  sweep-tally door is client-only, so it is pinned by RTL, not by SSR.
 - **Open questions surfaced, not built:** §7 owed-#2 (undo after check-out) was decided
   **permissive** — the RPC allows it, the day is unclosed so no wage exists, and the
   two-tap confirm plus the visible in–out times carry the weight; a mis-scan discovered
