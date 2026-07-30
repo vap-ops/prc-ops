@@ -60,18 +60,19 @@ export interface RegisterQrParams {
   role?: string | undefined;
 }
 
-/** Where /login returns a logged-out visitor who tapped this door.
+/** This door's own same-origin path, carrying the QR attribution params it was
+ * opened with — the value every "come back HERE" hop is built from.
  *
- * A brand-new worker is ALWAYS logged out at first scan, so the QR's
- * attribution params must survive the LINE login round-trip — a static path
- * here silently orphaned every real registration (0 of 18 live rows ever
- * carried attribution). The produced `next` must pass safeNextPath at every
- * hop (/login → /auth/line/start → callback). URLSearchParams percent-encodes
- * label content, so the only label content the guard rejects is a literal
- * slash/backslash (%2F/%5C); such a label drops ALL labels in favor of keeping
- * the uuid bindings, and the no-params output stays byte-identical to the
- * historical static path. */
-export function registerLoginNext(variant: RegisterVariant, params?: RegisterQrParams): string {
+ * The QR's params are mint-once bindings (start_staff_registration binds
+ * project/contractor/inviter), so a hop that drops them orphans the
+ * registration for good — that is what a static path did to all 18 early live
+ * rows (0 carried attribution). The produced path must pass safeNextPath at
+ * EVERY point it is consumed (/login → /auth/line/start → callback, and spec
+ * 376 U4's /auth/logout?next). URLSearchParams percent-encodes label content, so
+ * the only label content the guard rejects is a literal slash/backslash
+ * (%2F/%5C); such a label drops ALL labels in favor of keeping the uuid
+ * bindings, and the no-params output is byte-identical to the bare door path. */
+export function registerReturnPath(variant: RegisterVariant, params?: RegisterQrParams): string {
   const path = COPY[variant].path;
   const bindings = new URLSearchParams();
   for (const key of ["project", "by", "contractor"] as const) {
@@ -89,9 +90,18 @@ export function registerLoginNext(variant: RegisterVariant, params?: RegisterQrP
     const qs = candidate.toString();
     if (!qs) continue;
     const next = safeNextPath(`${path}?${qs}`);
-    if (next) return `/login?next=${encodeURIComponent(next)}`;
+    if (next) return next;
   }
-  return `/login?next=${encodeURIComponent(path)}`;
+  return path;
+}
+
+/** Where /login returns a logged-out visitor who tapped this door.
+ *
+ * A brand-new worker is ALWAYS logged out at first scan, so the QR's
+ * attribution params must survive the LINE login round-trip (see
+ * registerReturnPath for the guard's one rejected label shape). */
+export function registerLoginNext(variant: RegisterVariant, params?: RegisterQrParams): string {
+  return `/login?next=${encodeURIComponent(registerReturnPath(variant, params))}`;
 }
 
 /** Spec 342 U2.1 — a valid office invite = a uuid-shaped `by` AND an

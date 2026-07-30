@@ -16,7 +16,11 @@ import {
   PROCUREMENT_MANAGER_ROLES,
   PR_DECIDER_ROLES,
   PROJECT_TEAM_STAFF_ROLES,
+  PROJECT_VIEW_ROLES,
+  PURCHASE_REPORT_ROLES,
   PURCHASING_ROLES,
+  TEAM_MAP_ROLES,
+  isTeamMapRole,
   SA_SURFACE_ROLES,
   SA_REGISTRATION_VIEW_ROLES,
   SCHEDULE_VIEW_ROLES,
@@ -299,7 +303,7 @@ describe("SUPPLY_PLAN_ROLES (spec 181)", () => {
 // from the schedule — it can't follow the chip). Kept distinct from WP_DETAIL_ROLES
 // (same membership, different meaning: "who opens the schedule" vs "who opens a WP").
 describe("SCHEDULE_VIEW_ROLES (spec 173)", () => {
-  it("is SITE_STAFF_ROLES plus procurement", () => {
+  it("is SITE_STAFF_ROLES plus procurement plus the site owner", () => {
     expect([...SCHEDULE_VIEW_ROLES]).toEqual([
       "site_admin",
       "project_manager",
@@ -307,6 +311,12 @@ describe("SCHEDULE_VIEW_ROLES (spec 173)", () => {
       "project_director",
       "procurement",
       "procurement_manager",
+      // Spec 376 U5 (D2): the ตารางงาน admit. The page is a READ-ONLY Gantt — it
+      // renders no write control at all — and every read behind it
+      // (projects / work_packages / deliverables / work_package_dependencies /
+      // photo_logs) resolves through can_see_project or can_see_wp, whose
+      // membership arm already admits site_owner (live bodies read 2026-07-30).
+      "site_owner",
     ]);
   });
 
@@ -695,8 +705,12 @@ describe("STAFF_ONBOARDABLE_ROLES / isStaffOnboardableRole (spec 264 G4)", () =>
   });
 });
 
-describe("site_owner + auditor are behavior-free (spec 263 / ADR 0071)", () => {
-  const NEW_ROLES = ["site_owner", "auditor"] as const;
+describe("auditor is behavior-free (spec 263 / ADR 0071)", () => {
+  // Spec 376 U5 (D2) served site_owner, so `auditor` is the one role still
+  // shipping behavior-free — the half of spec 313 U6 that stays parked. It keeps
+  // the original assertions verbatim: a future behavior unit for it must be a
+  // deliberate gate widening, never a silent inheritance from being an enum value.
+  const NEW_ROLES = ["auditor"] as const;
 
   it("belong to no privileged role set", () => {
     const SETS = [
@@ -706,6 +720,7 @@ describe("site_owner + auditor are behavior-free (spec 263 / ADR 0071)", () => {
       PM_ROLES,
       PO_DETAIL_VIEW_ROLES,
       PROCUREMENT_MANAGER_ROLES,
+      PROJECT_VIEW_ROLES,
       PURCHASING_ROLES,
       SCHEDULE_VIEW_ROLES,
       SITE_STAFF_ROLES,
@@ -726,8 +741,70 @@ describe("site_owner + auditor are behavior-free (spec 263 / ADR 0071)", () => {
     }
   });
 
-  it("land on /coming-soon (behavior-free)", () => {
-    for (const role of NEW_ROLES) expect(roleHome(role)).toBe("/coming-soon");
+  it("auditor still lands on /coming-soon (behavior-free)", () => {
+    expect(roleHome("auditor")).toBe("/coming-soon");
+  });
+});
+
+// Spec 376 U5 (D2) — the page-gate audit, made mechanical.
+//
+// U5 enumerated the gate of every /projects and /projects/[id]/** page and made an
+// explicit admit-or-refuse call per route, on ONE line: read-mostly site oversight.
+// The ADMIT half lives in the two sets' own exact-set pins (PROJECT_VIEW_ROLES in
+// role-home.test.ts, SCHEDULE_VIEW_ROLES above). This describe is the REFUSE half —
+// without it the audit is prose in a PR body, and the next widen of any of these
+// sets would carry site_owner into a write surface with nothing to say so.
+//
+// Each entry names the ROUTE the set gates, so a red here reads as "you just gave a
+// site owner the store" rather than "a role set changed".
+describe("spec 376 U5 — the site_owner page-gate audit (refuse column)", () => {
+  const REFUSED: ReadonlyArray<{ route: string; set: ReadonlyArray<UserRole> }> = [
+    // The WP detail is the one REFUSAL that is not a write surface per se. Its gate
+    // is SHARED with three surfaces the audit refuses (store, store items,
+    // incoming), so a set-widen opens all four; and the page's read-only treatment
+    // is the binary isReadOnlyWpViewer, which today means "procurement: read-only
+    // EXCEPT raise a PR". A site_owner admitted through it would arrive as a FULL
+    // capture user (photos, labour, defect, assign, submit) whose writes the RPC
+    // gates then refuse — affordance-then-refuse. An honest admit needs a third
+    // viewer tier, which is its own unit. Flagged to the operator, left refused.
+    { route: "/projects/[id]/work-packages/[wpId]", set: WP_DETAIL_ROLES },
+    { route: "/projects/[id]/store (+ /store/items/[id])", set: WP_DETAIL_ROLES },
+    { route: "/projects/[id]/incoming (+ /[deliveryId])", set: WP_DETAIL_ROLES },
+    // The attendance-scan cockpit — open/scan/close a muster session. A write.
+    { route: "/projects/[id]/muster", set: SA_SURFACE_ROLES },
+    // The only surface that creates a crew, sets a หัวหน้าทีม, or moves a worker.
+    { route: "/projects/[id]/team", set: TEAM_MAP_ROLES },
+    // Money (spec 46): the per-project cost view.
+    { route: "/projects/[id]/costs", set: PURCHASE_REPORT_ROLES },
+    // Money: the rental recorder AUTO-POSTS to the GL.
+    { route: "/projects/[id]/rentals", set: BACK_OFFICE_ROLES },
+    // Project configuration + the report generator. Both ride PM_ROLES, the base
+    // of ~10 derived sets — a widen there is never a nav unit's call.
+    { route: "/projects/[id]/settings + /reports", set: PM_ROLES },
+    // Supply PLANNING — create / add / remove / submit. A write.
+    { route: "/projects/[id]/supply-plan", set: SUPPLY_PLAN_ROLES },
+  ];
+
+  it.each(REFUSED)("$route stays closed to site_owner", ({ set }) => {
+    expect(set).not.toContain("site_owner");
+  });
+
+  // The positive counterpart, so the describe above cannot be satisfied by the
+  // role simply losing every gate: the two ADMITTED sets must still hold it.
+  it("the two admitted read gates DO hold it", () => {
+    expect(PROJECT_VIEW_ROLES).toContain("site_owner");
+    expect(SCHEDULE_VIEW_ROLES).toContain("site_owner");
+  });
+
+  // The audit's load-bearing premise: admission is READ reach only. site_owner is
+  // not the read-only WP viewer (it never reaches that page) and holds no write
+  // predicate on the surfaces it CAN open.
+  it("admission grants no write predicate", () => {
+    expect(isManagerRole("site_owner")).toBe(false);
+    expect(isProcurementManagerTier("site_owner")).toBe(false);
+    expect(isTeamMapRole("site_owner")).toBe(false);
+    expect(WP_SUBMIT_ROLES).not.toContain("site_owner");
+    expect(SITE_STAFF_ROLES).not.toContain("site_owner");
   });
 });
 

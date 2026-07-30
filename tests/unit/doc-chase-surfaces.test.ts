@@ -38,6 +38,36 @@ describe("chase page (/requests/docs) source pins", () => {
   });
 });
 
+describe("/requests worklist doc-chase pins (U4)", () => {
+  const reqPage = strip(readFileSync("src/app/requests/page.tsx", "utf8"));
+
+  it("loads the SSOT and threads the verdict to all three sites (filter + grid record + phone card)", () => {
+    expect(count(reqPage, "loadDocChaseOrders")).toBe(2);
+    expect(count(reqPage, "docCoverage.get(r.id)")).toBe(3);
+  });
+
+  it("?docs=missing narrows the pipeline groups behind its own gate", () => {
+    expect(count(reqPage, "docsMissingActive")).toBe(6);
+    expect(count(reqPage, 'singleParam(docsParam) === "missing"')).toBe(1);
+    expect(count(reqPage, "chipGroups")).toBe(4);
+  });
+
+  it("the docs lens has a real entry point (toggle chip) and fires alongside loadRequestsData, not after it", () => {
+    expect(count(reqPage, "docsToggleHref")).toBe(2);
+    expect(count(reqPage, "Promise.all([")).toBeGreaterThanOrEqual(1);
+    expect(count(reqPage, "loadDocChaseOrders(supabase) : Promise.resolve")).toBe(1);
+  });
+
+  it("the empty-state gates on the FILTERED set, never the unfiltered one — a zero-result filter must not render blank", () => {
+    // Regression: procurementGroups.length===0 would stay false while
+    // chipGroups is empty under ?docs=missing with no matches, rendering
+    // nothing instead of "ไม่พบคำขอซื้อตามตัวกรอง" (fresh-eyes catch).
+    expect(reqPage).not.toContain("procurementGroups.length === 0");
+    expect(count(reqPage, "chipGroups.length === 0")).toBe(1);
+    expect(count(reqPage, "filterActive || docsMissingActive")).toBe(1);
+  });
+});
+
 describe("procurement dashboard doc-chase pins", () => {
   it("carries the chip label in strip AND card (plus the import)", () => {
     expect(count(dash, "DOC_MISSING_LABEL")).toBe(3);

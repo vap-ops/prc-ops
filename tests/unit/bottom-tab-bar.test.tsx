@@ -22,6 +22,7 @@ import {
   PROCUREMENT_TABS,
   PROCUREMENT_MANAGER_TABS,
   SA_TABS,
+  SITE_OWNER_TABS,
   TECHNICIAN_TABS,
   tabsForRole,
 } from "@/components/features/chrome/bottom-tab-bar";
@@ -115,6 +116,41 @@ describe("BottomTabBar", () => {
       ["ประวัติ", "/technician/history"],
       ["โปรไฟล์", "/profile"],
     ]);
+    // Spec 376 U5 (D2): the site owner's bar — the COORDINATOR_TABS shape, and a
+    // SEPARATE array on purpose (members coincide, meanings differ: "the see-all
+    // oversight role's bar" vs "the owner of ONE site's bar"), so a future
+    // coordinator change cannot silently move a site owner's chrome. Two tabs
+    // because those are the only surfaces U5 admits it to — every tab a live
+    // destination, the COORDINATOR_TABS / LEGAL_TABS rule.
+    expect(SITE_OWNER_TABS.map((t) => [t.label, t.href])).toEqual([
+      ["โครงการ", "/projects"],
+      ["ตั้งค่า", "/settings"],
+    ]);
+  });
+
+  // Spec 376 U5: the role rendered NO bar before (tabsForRole → null), which is
+  // why 313 U6's landing-without-chrome was refused. Pinned as identity (toBe),
+  // not shape, so the arm cannot be re-pointed at COORDINATOR_TABS.
+  it("maps site_owner to its own set and lights โครงการ on a project screen", () => {
+    expect(tabsForRole("site_owner")).toBe(SITE_OWNER_TABS);
+    mockUsePathname.mockReturnValue("/projects/abc/work-packages/def");
+    const { container } = render(<BottomTabBar role="site_owner" />);
+    expect(screen.queryByText("หน้าหลัก")).not.toBeInTheDocument();
+    expect(screen.queryByText("จัดซื้อ")).not.toBeInTheDocument();
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("โครงการ");
+  });
+
+  // Spec 376 U1 built the direct-resolve swap for the SA. site_owner redirects
+  // from /projects too (PROJECT_LANDING_ROLES), but its tab keeps the STATIC
+  // href — the U1 helper is site_admin-only by its own pin, and U5 does not
+  // widen it. Pinned so the divergence is a recorded decision, not a surprise:
+  // the owner pays one redirect hop, exactly as the SA did before U1.
+  it("leaves site_owner's โครงการ tab on the static /projects href", () => {
+    mockUsePathname.mockReturnValue("/projects/abc");
+    render(<BottomTabBar role="site_owner" />);
+    expect(screen.getByRole("link", { name: /โครงการ/ })).toHaveAttribute("href", "/projects");
   });
 
   // Spec 100: ภาพรวม graduated from a coming-soon placeholder to a live tab —

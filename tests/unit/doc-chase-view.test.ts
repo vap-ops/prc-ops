@@ -9,6 +9,7 @@ import {
   assembleDocChaseOrders,
   buildDocChaseView,
   countMissingByProject,
+  docCoverageById,
   type DocChaseOrderInput,
 } from "@/lib/purchasing/doc-chase-view";
 
@@ -204,6 +205,22 @@ describe("buildDocChaseView", () => {
       supplier: { isVatRegistered: false },
       waived: true,
     });
+  });
+
+  it("docCoverageById maps every order to its verdict (U4 row chips)", () => {
+    const m = docCoverageById([
+      order({ id: "a", attachments: [] }),
+      order({
+        id: "b",
+        attachments: [{ docType: "tax_invoice_full", source: "po", purpose: "source_document" }],
+      }),
+      order({ id: "c", waived: true }),
+      order({ id: "d", status: "approved" }),
+    ]);
+    expect(m.get("a")).toBe("missing");
+    expect(m.get("b")).toBe("covered_typed");
+    expect(m.get("c")).toBe("waived");
+    expect(m.get("d")).toBe("out_of_scope");
   });
 
   it("counts missing per project for the hub cards (covered rows excluded, null = store rows)", () => {

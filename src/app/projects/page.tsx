@@ -9,6 +9,7 @@ import {
   SA_HUB_NAV,
   PROCUREMENT_HUB_NAV,
   COORDINATOR_HUB_NAV,
+  SITE_OWNER_HUB_NAV,
 } from "@/components/features/chrome/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { StatusPill } from "@/components/features/common/status-pill";
@@ -17,7 +18,7 @@ import { PROJECT_VIEW_ROLES, isManagerRole, isProcurementWorklist } from "@/lib/
 import { projectHref } from "@/lib/nav/project-paths";
 import { redirect } from "next/navigation";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
-import { saProjectsLandingTarget } from "@/lib/nav/projects-landing";
+import { PROJECT_LANDING_ROLES, saProjectsLandingTarget } from "@/lib/nav/projects-landing";
 import { NewProjectSheet } from "./new-project-sheet";
 import { createClient } from "@/lib/db/server";
 import { loadProjectsHub } from "@/lib/projects/load-hub";
@@ -31,7 +32,7 @@ import {
   projectListHref,
 } from "@/lib/projects/list-view";
 import { ProjectsFilterBar } from "@/components/features/projects/projects-filter-bar";
-import { PROJECT_STATUS_LABEL } from "@/lib/i18n/labels";
+import { PROJECT_STATUS_LABEL, USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { projectStatusPillClasses } from "@/lib/status-colors";
 import { projectStatusIcon } from "@/lib/status-icons";
 
@@ -75,20 +76,25 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   const isProcurement = isProcurementWorklist(ctx.role);
   // Spec 143 U2: project_coordinator is the see-all oversight role.
   const isCoordinator = ctx.role === "project_coordinator";
+  // Spec 376 U5 (D2): site_owner homes here. Its chrome must be its OWN — falling
+  // into the else-branch below would hand it the SA kicker + SA_HUB_NAV, whose
+  // /sa, /team and /requests items are all doors it cannot open.
+  const isSiteOwner = ctx.role === "site_owner";
 
-  // Spec 313 U4 (D3): SA direct landing. The SA belongs to one project at a time,
-  // so the hub is a guaranteed extra tap — send them to its WP list instead. The
-  // resolver runs only for site_admin, so this is one extra read on exactly the
-  // role that owns the shortcut. ?view=all opts back into the hub; every SA-facing
-  // link INTO the hub pins it below, or this redirect would re-fire immediately.
+  // Spec 313 U4 (D3): direct landing. The SA belongs to one project at a time, so
+  // the hub is a guaranteed extra tap — send them to its WP list instead. Spec 376
+  // U5: site_owner is the same shape, so the branch reads PROJECT_LANDING_ROLES
+  // rather than a role literal and inherits every guarantee below. ?view=all opts
+  // back into the hub; every link INTO the hub from a landing role pins it, or this
+  // redirect would re-fire immediately.
   const view = pick(sp.view);
-  const isSaLanding = ctx.role === "site_admin";
+  const isDirectLanding = PROJECT_LANDING_ROLES.includes(ctx.role);
   // `view === "all"` short-circuits the resolver anyway, so skip the read entirely
-  // on the escape path — otherwise every SA hub render pays a `projects` select
-  // (plus its project_members embed) serially AHEAD of loadProjectsHub, which
-  // reads the same table again. The hub is the one /projects view an SA reaches
-  // deliberately; it should not be the slow one.
-  if (isSaLanding && view !== "all") {
+  // on the escape path — otherwise every landing-role hub render pays a `projects`
+  // select (plus its project_members embed) serially AHEAD of loadProjectsHub,
+  // which reads the same table again. The hub is the one /projects view these roles
+  // reach deliberately; it should not be the slow one.
+  if (isDirectLanding && view !== "all") {
     const { current } = await getSaCurrentProject(supabase, ctx.id);
     const target = saProjectsLandingTarget({
       role: ctx.role,
@@ -111,10 +117,11 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   // (membership-bounded), so filter/count in JS — keeps the chip counts live with
   // one query and no extra round-trips.
   const { rows, counts, clientCounts } = viewProjects(projects, { status, client, query });
-  // Spec 313 U4: only the SA's hub redirects, so only its hrefs pin ?view=all.
-  // An SA reaching this line asked for the hub explicitly (?view=all) — every
-  // link out of it must keep saying so or the redirect above re-fires.
-  const pinViewAll = isSaLanding;
+  // Spec 313 U4 / 376 U5: only a LANDING role's hub redirects, so only its hrefs
+  // pin ?view=all. Such a role reaching this line asked for the hub explicitly
+  // (?view=all) — every link out of it must keep saying so or the redirect above
+  // re-fires on the first filter-chip tap.
+  const pinViewAll = isDirectLanding;
   const statusChips = buildProjectStatusChips({ counts, status, client, query, pinViewAll });
   const clientChips = buildProjectClientChips({
     clientCounts,
@@ -128,20 +135,26 @@ export default async function ProjectsHubPage({ searchParams }: ProjectsHubPageP
   const searchClearHref = projectListHref(status, client, "", { pinViewAll });
 
   // Spec 102: procurement browses projects read-only for purchase context.
+  // Spec 376 U5: site_owner is checked BEFORE the SA else-branch — it is not site
+  // staff, and SA_HUB_NAV's /sa, /team and /requests are all closed to it.
   const kicker = isCoordinator
     ? "ผู้ประสานงานโครงการ"
-    : isProcurement
-      ? "จัดซื้อ"
-      : isPm
-        ? "ผู้จัดการโครงการ"
-        : "หน้างาน";
+    : isSiteOwner
+      ? USER_ROLE_LABEL.site_owner
+      : isProcurement
+        ? "จัดซื้อ"
+        : isPm
+          ? "ผู้จัดการโครงการ"
+          : "หน้างาน";
   const hubItems = isCoordinator
     ? COORDINATOR_HUB_NAV
-    : isProcurement
-      ? PROCUREMENT_HUB_NAV
-      : isPm
-        ? PM_HUB_NAV
-        : SA_HUB_NAV;
+    : isSiteOwner
+      ? SITE_OWNER_HUB_NAV
+      : isProcurement
+        ? PROCUREMENT_HUB_NAV
+        : isPm
+          ? PM_HUB_NAV
+          : SA_HUB_NAV;
 
   return (
     <PageShell>

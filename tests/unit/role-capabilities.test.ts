@@ -104,7 +104,12 @@ describe("spec 316 — capability registry", () => {
     for (const role of ALL_ROLES) {
       expect(isUnbuiltRole(role), role).toBe(roleHome(role) === "/coming-soon");
     }
-    expect(isUnbuiltRole("site_owner")).toBe(true);
+    // Spec 376 U5: site_owner is BUILT now (roleHome → /projects), so the
+    // still-unbuilt witness moved to `auditor` — the half of spec 313 U6 that
+    // stays parked. Keeping a real unbuilt witness matters: without one the
+    // derive-from-roleHome loop above could pass with isUnbuiltRole hardwired false.
+    expect(isUnbuiltRole("auditor")).toBe(true);
+    expect(isUnbuiltRole("site_owner")).toBe(false);
     expect(isUnbuiltRole("site_admin")).toBe(false);
     expect(isUnbuiltRole("legal")).toBe(false);
   });

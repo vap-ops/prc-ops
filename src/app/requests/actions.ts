@@ -48,6 +48,7 @@ import {
 import { validateCreatePurchaseOrder } from "@/lib/purchasing/validate-create-purchase-order";
 import { voidPurchaseOrderErrorMessage } from "@/lib/purchasing/purchase-order";
 import { validateSitePurchase } from "@/lib/purchasing/validate-site-purchase";
+import type { PurchaseDocType } from "@/lib/purchasing/doc-chase";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
 // Spec 65: file-local consts for the Thai error strings this module
@@ -284,6 +285,12 @@ export interface AddDeliveryConfirmationPhotoInput {
   purchaseRequestId: string;
   attachmentId: string;
   ext: string;
+  /** Spec 380 U5: optional accounting-doc class. Only addInvoiceAttachment
+   *  reads it — shared here so InvoiceUploaderProps.action (typed as
+   *  `typeof addInvoiceAttachment`) stays satisfied by every other caller
+   *  of this same input shape (addPaymentProofAttachment, addReferenceAttachment,
+   *  addDeliveryConfirmationPhoto), which accept-and-ignore the field. */
+  docType?: PurchaseDocType;
 }
 
 export type AttachmentActionResult = { ok: true } | { ok: false; error: string };
@@ -419,6 +426,8 @@ export async function addInvoiceAttachment(
     purpose: "invoice",
     storage_path: storagePath,
     created_by: user.id,
+    // Spec 380 U5 — omitted stays NULL (covered-loose, untouched behaviour).
+    doc_type: input.docType ?? null,
   });
   if (error) {
     if (error.code !== "23505") {
@@ -614,6 +623,9 @@ export interface AddPurchaseOrderAttachmentInput {
   purchaseOrderId: string;
   attachmentId: string;
   ext: string;
+  /** Spec 380 U5 — only addPurchaseOrderAttachment reads it; proof-of-delivery
+   *  stays untyped (spec §4 U5 follow-up). */
+  docType?: PurchaseDocType;
 }
 
 export async function addPurchaseOrderAttachment(
@@ -657,6 +669,7 @@ export async function addPurchaseOrderAttachment(
     kind: fileKind,
     storage_path: storagePath,
     created_by: user.id,
+    doc_type: input.docType ?? null,
   });
   if (error) {
     // Idempotent replay (identity-complete, spec 37 lesson): a retried upload

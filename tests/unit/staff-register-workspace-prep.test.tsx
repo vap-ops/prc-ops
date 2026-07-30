@@ -66,6 +66,27 @@ beforeEach(() => {
   getBank.mockReset().mockResolvedValue(null);
 });
 
+// Spec 376 U4 — PAIRED PIN. `isForeignSession` calls role `technician` borrowed
+// unconditionally because THIS is what the door does with them: redirect home
+// before the registration is ever read, so no row can make the door serve them.
+// If this redirect ever changes, the predicate in src/lib/register/foreign-session.ts
+// must change with it — the notice would otherwise fire on a served session.
+describe("StaffRegisterWorkspace — a technician session is redirected home", () => {
+  it("redirects role technician to roleHome without reading a registration", async () => {
+    fromMock.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: { role: "technician", line_avatar_url: null } }),
+        }),
+      }),
+    });
+    await expect(StaffRegisterWorkspace({ variant: "field" })).rejects.toThrow(
+      "REDIRECT:/technician",
+    );
+    expect(getReg).not.toHaveBeenCalled();
+  });
+});
+
 describe("StaffRegisterWorkspace — fresh applicant sees the prep gate (spec 343 U2)", () => {
   it("renders the เตรียมตัว landing, not the form fields, on first arrival", async () => {
     render(await StaffRegisterWorkspace({ variant: "field" }));

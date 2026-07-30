@@ -1,3 +1,88 @@
+# [0.291.0](https://github.com/vap-ops/prc-ops/compare/v0.290.0...v0.291.0) (2026-07-30)
+
+### Features
+
+- **nav:** site_owner landing + tabs (spec 376 U5) ([#859](https://github.com/vap-ops/prc-ops/issues/859)) ([715fdb6](https://github.com/vap-ops/prc-ops/commit/715fdb6fb26e428049f6aa24095ffab74dcd0163))
+- **register:** shared-phone session interstitial (spec 376 U4) ([#857](https://github.com/vap-ops/prc-ops/issues/857)) ([fd38570](https://github.com/vap-ops/prc-ops/commit/fd385703c6be1dcd8eac7196e18c079380805b57))
+
+# [0.290.0](https://github.com/vap-ops/prc-ops/compare/v0.289.0...v0.290.0) (2026-07-30)
+
+### Features
+
+- **labor:** log_labor_day money-wall parity (spec 306) ([#887](https://github.com/vap-ops/prc-ops/issues/887)) ([6e4dbde](https://github.com/vap-ops/prc-ops/commit/6e4dbde51130b92dc3c8693b18945d9f27f4e69c))
+
+# [0.289.0](https://github.com/vap-ops/prc-ops/compare/v0.288.0...v0.289.0) (2026-07-30)
+
+### Features
+
+- **equipment:** four photo slots with drawn guides + a รูป n/4 chip (spec 382 U2) ([#885](https://github.com/vap-ops/prc-ops/issues/885)) ([23242c1](https://github.com/vap-ops/prc-ops/commit/23242c1d7fe0714d6d464431a4de5b8288a0befd))
+
+# [0.288.0](https://github.com/vap-ops/prc-ops/compare/v0.287.1...v0.288.0) (2026-07-30)
+
+### Features
+
+- **equipment:** spec 382 + U1 — four photo slots per item ([#884](https://github.com/vap-ops/prc-ops/issues/884)) ([8194fe1](https://github.com/vap-ops/prc-ops/commit/8194fe19bf86d9ba7ea8154ed574e89d64e03c03))
+
+## [0.287.1](https://github.com/vap-ops/prc-ops/compare/v0.287.0...v0.287.1) (2026-07-30)
+
+### Bug Fixes
+
+- **equipment:** id-mirror a new owner into suppliers so its first item saves ([d1ba93e](https://github.com/vap-ops/prc-ops/commit/d1ba93ecfde9dc369a0ea3f76820c2ef15566e28))
+
+# [0.287.0](https://github.com/vap-ops/prc-ops/compare/v0.286.0...v0.287.0) (2026-07-30)
+
+### Features
+
+- **equipment:** photograph an item while adding it (spec 367 U5b) ([b4be2e6](https://github.com/vap-ops/prc-ops/commit/b4be2e60a0a38b48c3ab985509a85702a8c748d3))
+
+# [0.286.0](https://github.com/vap-ops/prc-ops/compare/v0.285.0...v0.286.0) (2026-07-30)
+
+### Features
+
+- **equipment:** ประวัติ sheet — the history U1 collects, made visible (spec 381 U2) ([#883](https://github.com/vap-ops/prc-ops/issues/883)) ([1bbd4db](https://github.com/vap-ops/prc-ops/commit/1bbd4db0a43d13331a010b71639b57930d56bfc5))
+
+# [0.285.0](https://github.com/vap-ops/prc-ops/compare/v0.284.1...v0.285.0) (2026-07-30)
+
+### Features
+
+- **equipment:** spec 381 + U1 — a real history trail per item ([#882](https://github.com/vap-ops/prc-ops/issues/882)) ([ea52a2d](https://github.com/vap-ops/prc-ops/commit/ea52a2df883a3c18816487159c70e4e22ea2d729))
+
+## [0.284.1](https://github.com/vap-ops/prc-ops/compare/v0.284.0...v0.284.1) (2026-07-30)
+
+### Bug Fixes
+
+- **equipment:** a picker must look like a picker ([1f49490](https://github.com/vap-ops/prc-ops/commit/1f494900bfe2ba8481f8f8fec4d00788e753142c))
+
+# [0.284.0](https://github.com/vap-ops/prc-ops/compare/v0.283.0...v0.284.0) (2026-07-30)
+
+### Bug Fixes
+
+- **purchasing:** 380 U4 fresh-eyes — empty-state gate, entry point, concurrent wave ([4de54f1](https://github.com/vap-ops/prc-ops/commit/4de54f1d74230fb01b9c59ca1efb6208ac299b80))
+
+### Features
+
+- **purchasing:** 380 U5 slice 1 — doc_type foundation (shared type, defaults lib, InvoiceUploader passthrough) ([d7f9eca](https://github.com/vap-ops/prc-ops/commit/d7f9ecaabd26957bf0e5fc4d5d64394a8416408f))
+- **purchasing:** 380 U5 slice 2 — 4 doc_type mounts, fresh-eyes hardened ([4388ecd](https://github.com/vap-ops/prc-ops/commit/4388ecdd51e85cf2227ce56d82e956f3373ccc6c))
+- **purchasing:** spec 380 U4 — worklist doc-chase chips + ?docs=missing filter ([0532849](https://github.com/vap-ops/prc-ops/commit/05328496964d53e0557535dd6735b70c1e735bec))
+
+# [0.283.0](https://github.com/vap-ops/prc-ops/compare/v0.282.0...v0.283.0) (2026-07-30)
+
+### Features
+
+- **equipment:** reset the registry and default the owner to PRI ([#873](https://github.com/vap-ops/prc-ops/issues/873)) ([80e8ec4](https://github.com/vap-ops/prc-ops/commit/80e8ec43dabd734e70aa50355bc5520d08dae90f))
+
+# [0.282.0](https://github.com/vap-ops/prc-ops/compare/v0.281.0...v0.282.0) (2026-07-30)
+
+### Features
+
+- **wp-brief:** U2b — PD authoring UI for ข้อมูลงาน (spec 377) ([c6b2943](https://github.com/vap-ops/prc-ops/commit/c6b294326f9a4d392dc7a47e9574a88f3399143e))
+
+# [0.281.0](https://github.com/vap-ops/prc-ops/compare/v0.280.1...v0.281.0) (2026-07-30)
+
+### Features
+
+- **muster:** muster_undo_scan — retract one worker's check-in (spec 379 U1) ([#872](https://github.com/vap-ops/prc-ops/issues/872)) ([ed5d737](https://github.com/vap-ops/prc-ops/commit/ed5d7373b3e6d29182e152762cb4dedb4aa4a4eb)), closes [#860](https://github.com/vap-ops/prc-ops/issues/860)
+
 ## [0.280.1](https://github.com/vap-ops/prc-ops/compare/v0.280.0...v0.280.1) (2026-07-30)
 
 ### Bug Fixes

@@ -17,6 +17,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { EQUIPMENT_IMAGES_BUCKET } from "@/lib/storage/buckets";
+import type { EquipmentPhotoKind } from "@/lib/equipment/photo-kinds";
 import {
   EquipmentManager,
   type ManagedEquipmentItem,
@@ -49,10 +50,17 @@ export default async function EquipmentPage({
       .from("equipment_items")
       // image_path (spec 367 U1) rides along for U5's per-item thumbnails; it is
       // a storage path, so it never reaches the client — only the signed URL does.
-      .select("id, name, category_id, owner_id, tracking, asset_tag, quantity, status, image_path")
+      .select("id, name, category_id, owner_id, tracking, asset_tag, quantity, status")
       .order("name", { ascending: true }),
     supabase.from("equipment_categories").select("id, name").order("name", { ascending: true }),
-    supabase.from("equipment_owners").select("id, name").order("name", { ascending: true }),
+    // is_default (mig …_075881_) drives the add form's preselected owner. The
+    // column carries its own SELECT grant — equipment_owners is column-granted,
+    // so an ungranted column makes PostgREST refuse the WHOLE read, not return
+    // null.
+    supabase
+      .from("equipment_owners")
+      .select("id, name, is_default")
+      .order("name", { ascending: true }),
     supabase.from("projects").select("id, name").order("name", { ascending: true }),
     supabase
       .from("equipment_movements")
@@ -62,16 +70,29 @@ export default async function EquipmentPage({
 
   const items: ManagedEquipmentItem[] = itemRows ?? [];
 
-  // Spec 367 U5 — 120s signed thumbnails for the edit sheet. equipment-images is
-  // private and storage SELECT RLS does not cover these reads; the authorisation
-  // is the row-level SELECT the caller already passed above (the mintSignedUrls
-  // contract, ADR 0015/0026/0028). Rows with no image are skipped by the helper,
-  // so an all-blank registry costs zero storage calls.
-  const imageUrlMap = await mintSignedUrls(
+  // Spec 382 U2 — the four slots per item, with 120s signed thumbnails.
+  // equipment-images is private and storage SELECT RLS does not cover these reads;
+  // the authorisation is the row-level SELECT the caller already passed above (the
+  // mintSignedUrls contract, ADR 0015/0026/0028).
+  //
+  // The KIND list and the URL map are kept separate on purpose: the n/4 chip counts
+  // kinds, so a slot whose signed URL failed to mint still reads as filled instead
+  // of silently dropping out of the count.
+  const { data: photoRows } = await supabase
+    .from("equipment_item_photos")
+    .select("id, item_id, kind, storage_path");
+  const photoUrlMap = await mintSignedUrls(
     EQUIPMENT_IMAGES_BUCKET,
-    (itemRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
+    (photoRows ?? []).map((r) => ({ id: r.id, storage_path: r.storage_path })),
   );
-  const imageUrls = Object.fromEntries(imageUrlMap);
+  const photosByItem: Record<string, { kind: EquipmentPhotoKind; url?: string }[]> = {};
+  for (const row of photoRows ?? []) {
+    const url = photoUrlMap.get(row.id);
+    (photosByItem[row.item_id] ??= []).push({
+      kind: row.kind,
+      ...(url ? { url } : {}),
+    });
+  }
   const movements: EquipmentMovementRow[] = (movementRows ?? []).map((m) => ({
     itemId: m.item_id,
     kind: m.kind,
@@ -145,12 +166,16 @@ export default async function EquipmentPage({
         <EquipmentManager
           items={items}
           categories={categoryRows ?? []}
-          owners={ownerRows ?? []}
+          owners={(ownerRows ?? []).map((o) => ({
+            id: o.id,
+            name: o.name,
+            isDefault: o.is_default,
+          }))}
           projects={projectRows ?? []}
           movements={movements}
           canManageRegistry={canManageRegistry}
           {...(dailyRates ? { dailyRates } : {})}
-          {...(Object.keys(imageUrls).length > 0 ? { imageUrls } : {})}
+          {...(Object.keys(photosByItem).length > 0 ? { photosByItem } : {})}
         />
       </div>
     </PageShell>

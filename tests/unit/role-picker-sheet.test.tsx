@@ -47,19 +47,36 @@ describe("RolePickerSheet", () => {
     expect(externalTile).toHaveTextContent("สิทธิ์ปัจจุบัน");
   });
 
-  it("category → role list; unbuilt roles sink last with the ยังไม่มีหน้าจอ badge", () => {
+  // Spec 376 U5: the หน้างาน (field) category no longer HAS an unbuilt role —
+  // site_admin, technician and site_owner are all served now — so the badge half
+  // of this case moved to สำนักงาน below, where hr / subcon_manager / auditor still
+  // sink. Splitting them keeps both halves real: a category with no unbuilt member
+  // can never prove the sink, and asserting the sink here would have quietly
+  // become vacuous the moment U5 landed.
+  it("category → role list, with summaries on the rows", () => {
     openSheet();
     fireEvent.click(screen.getByRole("button", { name: /^หน้างาน/ }));
-    // field = site_admin, technician (built) then site_owner (unbuilt, badged)
-    const rows = screen.getAllByRole("radio");
-    const labels = rows.map((r) => r.textContent ?? "");
+    const labels = screen.getAllByRole("radio").map((r) => r.textContent ?? "");
     expect(labels.some((t) => t.includes(USER_ROLE_LABEL.site_admin))).toBe(true);
     expect(labels.some((t) => t.includes(USER_ROLE_LABEL.technician))).toBe(true);
-    const last = labels[labels.length - 1] ?? "";
-    expect(last).toContain(USER_ROLE_LABEL.site_owner);
-    expect(last).toContain("ยังไม่มีหน้าจอ");
+    expect(labels.some((t) => t.includes(USER_ROLE_LABEL.site_owner))).toBe(true);
+    // Every field role is built now, so NONE of them may carry the badge.
+    expect(labels.filter((t) => t.includes("ยังไม่มีหน้าจอ"))).toEqual([]);
     // Summaries render on the rows.
     expect(screen.getByText(ROLE_SUMMARY.technician)).toBeInTheDocument();
+  });
+
+  it("unbuilt roles sink last with the ยังไม่มีหน้าจอ badge", () => {
+    openSheet();
+    fireEvent.click(screen.getByRole("button", { name: /^สำนักงาน/ }));
+    const labels = screen.getAllByRole("radio").map((r) => r.textContent ?? "");
+    // office ends with the still-unbuilt trio (hr, subcon_manager, auditor).
+    const last = labels[labels.length - 1] ?? "";
+    expect(last).toContain("ยังไม่มีหน้าจอ");
+    // …and the built office roles are above them, unbadged.
+    const firstBadged = labels.findIndex((t) => t.includes("ยังไม่มีหน้าจอ"));
+    expect(firstBadged).toBeGreaterThan(0);
+    expect(labels.slice(0, firstBadged).some((t) => t.includes("ยังไม่มีหน้าจอ"))).toBe(false);
   });
 
   it("selecting a role shows the derived preview (home + capabilities) and enables confirm", () => {

@@ -27,6 +27,9 @@ import { PurchaseRequestTracker } from "@/components/features/purchasing/purchas
 import { PurchaseMiniStepper } from "@/components/features/purchasing/purchase-mini-stepper";
 import {
   CREATE_PO_LABEL,
+  DOC_COMPLETE_LABEL,
+  DOC_MISSING_LABEL,
+  DOC_WAIVED_LABEL,
   ETA_LABEL,
   PURCHASE_ORDER_STATUS_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
@@ -35,6 +38,7 @@ import {
   formatThaiDate,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
+import type { DocCoverage } from "@/lib/purchasing/doc-chase";
 import {
   purchaseOrderStatusPillClasses,
   purchaseRequestPriorityPillClasses,
@@ -59,7 +63,8 @@ import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
 import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import { suggestVendorsForCategories } from "@/lib/purchasing/vendor-suggestion";
 import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
-import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { DocTypeInvoiceUploader } from "@/components/features/purchasing/doc-type-invoice-uploader";
+import { defaultInvoiceDocType } from "@/lib/purchasing/doc-type-defaults";
 import { PaymentProofUploader } from "@/components/features/purchasing/payment-proof-uploader";
 import { DeliveryPhotoUploader } from "@/components/features/purchasing/delivery-photo-uploader";
 import {
@@ -138,6 +143,9 @@ export interface ProcurementGridRecord {
   // Spec 301 U2: the approver-side off-category verdict (picker semantics).
   // The grid renders the amber mismatch only — matches stay quiet.
   category_match: "match" | "mismatch" | null;
+  // Spec 380 U4: the doc-chase verdict for in-scope (delivered/site_purchased)
+  // rows; null = not computed (site view / non-procurement callers).
+  doc_coverage: DocCoverage | null;
 }
 
 // Structural group meta — a real pipeline band (ProcurementBandMeta) OR a
@@ -504,6 +512,22 @@ function BandRows({
                           {WORK_CATEGORY_MISMATCH_LABEL}
                         </span>
                       ) : null}
+                      {/* Spec 380 U4: the doc-chase verdict — amber missing /
+                          quiet ครบ / muted waiver; out-of-scope rows stay silent. */}
+                      {r.doc_coverage === "missing" ? (
+                        <span className="bg-attn-soft text-attn-ink inline-flex items-center rounded-full px-1.5 font-medium">
+                          {DOC_MISSING_LABEL}
+                        </span>
+                      ) : r.doc_coverage === "covered_typed" ||
+                        r.doc_coverage === "covered_loose" ? (
+                        <span className="bg-done-soft text-done-ink inline-flex items-center rounded-full px-1.5">
+                          {DOC_COMPLETE_LABEL}
+                        </span>
+                      ) : r.doc_coverage === "waived" ? (
+                        <span className="text-ink-secondary inline-flex items-center">
+                          {DOC_WAIVED_LABEL}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -796,7 +820,11 @@ function DrawerBody({
             />
           ) : null}
           {actions.invoice && record.project_id ? (
-            <InvoiceUploader purchaseRequestId={record.id} projectId={record.project_id} />
+            <DocTypeInvoiceUploader
+              purchaseRequestId={record.id}
+              projectId={record.project_id}
+              defaultDocType={defaultInvoiceDocType(record.status)}
+            />
           ) : null}
           {/* Bug 2: proof of payment shares the invoice visibility window. */}
           {actions.invoice && record.project_id ? (

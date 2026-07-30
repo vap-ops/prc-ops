@@ -10,12 +10,16 @@ import { ChevronRight, Receipt } from "lucide-react";
 import { StatusIconBadge, StatusPill } from "@/components/features/common/status-pill";
 import { PurchaseRequestTracker } from "@/components/features/purchasing/purchase-request-tracker";
 import {
+  DOC_COMPLETE_LABEL,
+  DOC_MISSING_LABEL,
+  DOC_WAIVED_LABEL,
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
   SITE_EXPENSE_BADGE,
   formatThaiDate,
   formatThaiDateTime,
 } from "@/lib/i18n/labels";
+import type { DocCoverage } from "@/lib/purchasing/doc-chase";
 import {
   purchaseRequestPriorityPillClasses,
   purchaseRequestStatusPillClasses,
@@ -63,6 +67,8 @@ interface PurchaseRequestCardProps {
    * page passes itself). Omit on /requests — the fallback already lands there.
    */
   backFrom?: string;
+  /** Spec 380 U4: doc-chase verdict for in-scope rows; omit/null = no chip. */
+  docCoverage?: DocCoverage | null;
   /** Spec 301f: shown for procurement (spans projects). Site callers omit it —
    *  their card stays lean (they work one project). */
   projectName?: string | null;
@@ -76,6 +82,7 @@ export function PurchaseRequestCard({
   poNumber = null,
   backFrom,
   projectName = null,
+  docCoverage = null,
 }: PurchaseRequestCardProps) {
   const href = `/requests/${request.id}`;
   return (
@@ -163,6 +170,21 @@ export function PurchaseRequestCard({
               >
                 {PURCHASE_REQUEST_PRIORITY_LABEL[request.priority]}
               </StatusPill>
+            ) : null}
+            {/* Spec 380 U4: doc-chase verdict — amber missing / quiet ครบ /
+                muted waiver; null (site callers, out-of-scope) renders nothing. */}
+            {docCoverage === "missing" ? (
+              <span className="bg-attn-soft text-attn-ink text-meta rounded-full px-1.5 font-medium whitespace-nowrap">
+                {DOC_MISSING_LABEL}
+              </span>
+            ) : docCoverage === "covered_typed" || docCoverage === "covered_loose" ? (
+              <span className="bg-done-soft text-done-ink text-meta rounded-full px-1.5 whitespace-nowrap">
+                {DOC_COMPLETE_LABEL}
+              </span>
+            ) : docCoverage === "waived" ? (
+              <span className="text-ink-secondary text-meta whitespace-nowrap">
+                {DOC_WAIVED_LABEL}
+              </span>
             ) : null}
           </span>
           <ChevronRight aria-hidden className="text-ink-muted mt-1 size-4 shrink-0" />

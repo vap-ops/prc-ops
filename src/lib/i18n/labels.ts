@@ -37,6 +37,12 @@ export const LABOR_TAB_LABEL = "แรงงาน";
 // surface needed the exact affordance name).
 export const ATTENDANCE_CALENDAR_LABEL = "ปฏิทินเข้างาน";
 export const CONFIRM_COST_LABEL = "ยืนยันค่าแรงและระดับ";
+// Spec 306 — the state a worker sits in until CONFIRM_COST_LABEL is pressed.
+// Hoisted when the money wall gave it a third surface: the attendance calendar
+// explains it, the WP capture picker chips every un-tickable row with it, and
+// the refusal message from log_labor_day names it. Three surfaces describing one
+// state must use one word for it.
+export const UNCONFIRMED_COST_LABEL = "ยังไม่ยืนยันค่าแรง";
 // Hoisted from worker-roster-manager for the same reason: the attendance
 // calendar header renders the pay classification too.
 export const PAY_TYPE_LABEL: Record<Enums["pay_type"], string> = {
@@ -393,7 +399,20 @@ export const DOC_MISSING_LABEL = "ไม่มีเอกสาร";
 export const DOC_CHIP_SITE_PAPER = "ใบส่งของ/ใบเสร็จ";
 export const DOC_CHIP_VENDOR_DOC = "เอกสารร้านค้า";
 export const DOC_WAIVED_LABEL = "ยกเว้นโดยบัญชี";
+export const DOC_COMPLETE_LABEL = "เอกสารครบ";
 export const DOC_CHASE_EMPTY_LABEL = "ไม่มีรายการรอเอกสาร";
+// Spec 380 U5 — the doc_type picker options (RD ladder, spec §2).
+export const DOC_TYPE_LABEL: Record<Enums["purchase_doc_type"], string> = {
+  tax_invoice_full: "ใบกำกับภาษีเต็มรูป",
+  receipt_cash_bill: "ใบเสร็จ / บิลเงินสด",
+  payment_voucher: "ใบสำคัญรับเงิน",
+  cert_in_lieu: "ใบรับรองแทนใบเสร็จรับเงิน",
+  delivery_note: "ใบส่งของ",
+  transfer_slip: "สลิปโอนเงิน",
+  other: "อื่นๆ",
+};
+export const DOC_TYPE_PICKER_PLACEHOLDER = "เลือกประเภทเอกสาร";
+export const DOC_TYPE_PICKER_LABEL = "ประเภทเอกสาร";
 // Spec 303 — goods-photo integrity: the receive proof is taken live (capture),
 // must cover everything received, and pairs with the row's delivered amount.
 export const DELIVERY_PHOTO_COVERAGE_HINT = "ถ่ายให้เห็นของที่รับครบทุกรายการ — ถ่ายได้หลายรูป";
@@ -1411,6 +1430,11 @@ export const COMPANY_DOC_DOWNLOAD_LABEL = "ดาวน์โหลด";
 export const COMPANY_DOC_HISTORY_LABEL = "ประวัติเวอร์ชัน";
 export const COMPANY_DOC_EXPIRED_LABEL = "หมดอายุ";
 export const COMPANY_DOC_EXPIRING_LABEL = "ใกล้หมดอายุ";
+
+// Spec 377 — WP brief authoring (ข้อมูลงาน). The SA/PM read surfaces (U3) land
+// in a later unit; this is the PD authoring editor's own label.
+export const WP_BRIEF_LABEL = "ข้อมูลงาน";
+export const WP_BRIEF_MANAGE_LABEL = "จัดการข้อมูลงาน";
 export const COMPANY_DOC_ISSUED_LABEL = "วันที่ออกเอกสาร";
 export const COMPANY_DOC_EXPIRES_LABEL = "วันหมดอายุ";
 export const COMPANY_DOC_TITLE_LABEL = "ชื่อเอกสาร";

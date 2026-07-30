@@ -18,6 +18,8 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
 import { validateEquipmentDailyRate } from "@/lib/equipment/validate-equipment-daily-rate";
 import { parseEquipmentImport } from "@/lib/equipment/equipment-import";
+import { isOwnItemImagePath } from "@/lib/equipment/image-path";
+import { EQUIPMENT_PHOTO_KINDS, type EquipmentPhotoKind } from "@/lib/equipment/photo-kinds";
 import type { Database } from "@/lib/db/database.types";
 
 type EquipmentStatus = Database["public"]["Enums"]["equipment_status"];
@@ -55,6 +57,17 @@ interface EquipmentInput {
   status: string;
 }
 
+// Spec 367 U5b — the add form may carry a photo taken BEFORE the row exists.
+// The client mints the item id so the upload has a folder to live in, then hands
+// both back here. See `isOwnItemImagePath` for why the shape is checked.
+interface NewEquipmentInput extends EquipmentInput {
+  id: string;
+  // Spec 382 U2 — up to four slots, uploaded under the client-minted id before the
+  // row exists. Written as rows AFTER the insert (FK); image_path is left to the
+  // U1 mirror trigger so that column keeps exactly one writer.
+  photos: { kind: string; path: string }[];
+}
+
 function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
   if (!UUID_REGEX.test(input.categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
   if (!UUID_REGEX.test(input.ownerId)) return { ok: false, error: "กรุณาเลือกเจ้าของอุปกรณ์" };
@@ -64,7 +77,7 @@ function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
   return { ok: true };
 }
 
-export async function createEquipment(input: EquipmentInput): Promise<EquipmentActionResult> {
+export async function createEquipment(input: NewEquipmentInput): Promise<EquipmentActionResult> {
   const ctx = await requireRole(BACK_OFFICE_ROLES);
   const item = validateEquipmentItem({
     name: input.name,
@@ -76,8 +89,24 @@ export async function createEquipment(input: EquipmentInput): Promise<EquipmentA
   const refs = validateRefsAndStatus(input);
   if (!refs.ok) return refs;
 
+  // U5b — the id arrives from the client because the photo is uploaded to
+  // `<id>/…` before this row exists. Supplying a PK is safe: the column is in the
+  // authenticated INSERT grant, a duplicate raises 23505 (an insert can never
+  // overwrite an existing row), and the INSERT policy still gates who may write
+  // at all. The path must belong to THIS id — same rule the edit path applies.
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  for (const photo of input.photos) {
+    if (!EQUIPMENT_PHOTO_KINDS.includes(photo.kind as EquipmentPhotoKind)) {
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    if (!isOwnItemImagePath(input.id, photo.path)) {
+      return { ok: false, error: GENERIC_ERROR };
+    }
+  }
+
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("equipment_items").insert({
+    id: input.id,
     name: item.value.name,
     category_id: input.categoryId,
     owner_id: input.ownerId,
@@ -91,6 +120,20 @@ export async function createEquipment(input: EquipmentInput): Promise<EquipmentA
     created_by: ctx.id,
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
+
+  // After the row exists (FK). A photo that fails to attach must NOT roll back the
+  // item: the operator is standing at the machine and the record is the point —
+  // the slot simply stays empty and the n/4 chip says so.
+  if (input.photos.length > 0) {
+    await supabase.from("equipment_item_photos").insert(
+      input.photos.map((photo) => ({
+        item_id: input.id,
+        kind: photo.kind as EquipmentPhotoKind,
+        storage_path: photo.path,
+        created_by: ctx.id,
+      })),
+    );
+  }
 
   revalidatePath("/equipment");
   return { ok: true };
@@ -188,6 +231,27 @@ export async function renameEquipmentCategory(input: {
   return { ok: true };
 }
 
+// A new owner is TWO rows, not one. `createEquipment` / `updateEquipment` /
+// `importEquipmentCsv` all write `supplier_id = ownerId` because spec 275 U0
+// id-mirrors every owner into `suppliers` for the GL-party edge, and
+// `equipment_items.supplier_id` FKs to `public.suppliers` — so an owner without
+// its mirror 23503s on the FIRST item created under it, behind the generic
+// GENERIC_ERROR retry. Migration …_075881_ mirrored the PRI owner by hand; this
+// is the app-side half that was missing (fix 2026-07-30).
+//
+// The suppliers row goes FIRST and that ordering is the design, not a detail:
+// `authenticated` holds NO DELETE on `suppliers` and there are zero DELETE
+// policies (verified live), so there is no compensating rollback and these two
+// statements cannot be made atomic without a DEFINER RPC. Supplier-first means
+// every outcome preserves the invariant that matters — a failure between the two
+// leaves at worst a spare supplier, never a mirror-less owner. Owner-first would
+// re-create the bug. The atomic version is a follow-up (it needs a migration).
+//
+// Both rows carry the SAME generated id — the mirror is an identity copy, which
+// is what makes `supplier_id = owner_id` resolve. `id` is INSERT-granted to
+// `authenticated` on both tables; `created_at`/`is_default` are NOT, so they are
+// left to their defaults. The two INSERT policies admit the same five roles as
+// BACK_OFFICE_ROLES above and both require `created_by = auth.uid()`.
 export async function createEquipmentOwner(input: {
   name: string;
   phone?: string;
@@ -200,12 +264,18 @@ export async function createEquipmentOwner(input: {
   const phone = (input.phone ?? "").trim();
   if (phone.length > 40) return { ok: false, error: GENERIC_ERROR };
 
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("equipment_owners").insert({
+  const row = {
+    id: crypto.randomUUID(),
     name,
     phone: phone.length === 0 ? null : phone,
     created_by: ctx.id,
-  });
+  };
+
+  const supabase = await createServerSupabase();
+  const mirror = await supabase.from("suppliers").insert(row);
+  if (mirror.error) return { ok: false, error: GENERIC_ERROR };
+
+  const { error } = await supabase.from("equipment_owners").insert(row);
   if (error) return { ok: false, error: GENERIC_ERROR };
 
   revalidatePath("/equipment");
@@ -237,49 +307,6 @@ export async function setEquipmentDailyRate(input: {
     if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์ตั้งค่าเช่าอุปกรณ์" };
     if (error.code === "P0001")
       return { ok: false, error: "ไม่พบอุปกรณ์นี้ หรือค่าเช่าไม่ถูกต้อง" };
-    return { ok: false, error: GENERIC_ERROR };
-  }
-
-  revalidatePath("/equipment");
-  return { ok: true };
-}
-
-// Spec 367 U5 — record (or clear) an item's reference image path.
-//
-// A plain RLS UPDATE, NOT an RPC — and that is a deliberate difference from the
-// catalog twin. `set_catalog_item_image` exists because catalog_items has no
-// authenticated write path for that column; `equipment_items.image_path` DOES
-// carry a column-scoped UPDATE grant (mig …_075860_, spec 367 U1) and the
-// `equipment_items update by back office` policy is the gate. Adding a DEFINER
-// RPC here would add a second, unpinned copy of an authority rule that the
-// policy already states.
-//
-// The upload itself happens browser-side against the private equipment-images
-// bucket before this is called, so a refusal HERE leaves an orphan object in the
-// bucket — acceptable, and the same trade the catalog control makes: the
-// alternative is a signed-upload dance that trades a stray object for a stray
-// row. Nothing reads an object that no row points at.
-export async function setEquipmentItemImage(input: {
-  id: string;
-  path: string | null;
-}): Promise<EquipmentActionResult> {
-  await requireRole(BACK_OFFICE_ROLES);
-  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
-  // Depth 1 under the item's own id — the exact shape the equipment-images INSERT
-  // policy admits for the back office, and the shape the control uploads to.
-  // Checked here too so a crafted call cannot point a row at another item's
-  // folder (or at spec 370's `usage/` tree).
-  if (input.path !== null && !new RegExp(`^${input.id}/[^/]+$`).test(input.path)) {
-    return { ok: false, error: GENERIC_ERROR };
-  }
-
-  const supabase = await createServerSupabase();
-  const { error } = await supabase
-    .from("equipment_items")
-    .update({ image_path: input.path })
-    .eq("id", input.id);
-  if (error) {
-    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์แก้ไขรูปอุปกรณ์" };
     return { ok: false, error: GENERIC_ERROR };
   }
 

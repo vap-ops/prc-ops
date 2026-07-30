@@ -63,8 +63,13 @@ insert into public.work_packages (id, project_id, code, name, status) values
 insert into public.work_packages (id, project_id, code, name, status, is_group) values
   ('d1d1d1d1-0000-4000-8000-0000002710d1', 'a1a1a1a1-0000-4000-8000-0000002710a1', 'G-1', 'งานกลุ่ม', 'not_started', true);
 
-insert into public.workers (id, name, pay_type, employment_type, day_rate, active, created_by) values
+-- Spec 306: this worker is logged successfully in section F ("today still
+-- logs"), so the money wall requires them cost-confirmed — log_labor_day now
+-- refuses an unconfirmed worker at parity with derive_muster_labor.
+insert into public.workers (id, name, pay_type, employment_type, day_rate, active,
+                            cost_confirmed_at, cost_confirmed_by, created_by) values
   ('b1b1b1b1-0000-4000-8000-0000002710b1', 'ช่างทดสอบ U3', 'daily', 'permanent', 400.00, true,
+   now(), '11111111-0000-4000-8000-0000002710e1',
    '11111111-0000-4000-8000-0000002710e1');
 
 create temp table _ids (k text primary key, v uuid);
