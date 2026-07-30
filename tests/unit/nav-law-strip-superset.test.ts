@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { tabsForRole } from "@/components/features/chrome/bottom-tab-bar";
@@ -101,20 +104,35 @@ describe("spec 313 U5 — no role is stranded on a promoted (chip-less) hub", ()
 describe("spec 376 U3 — the roles whose nav world has no /settings door", () => {
   const SETTINGS_HREF = "/settings";
 
-  const servedRoles = ROLE_GROUP_ORDER.filter(
+  // "Nav world" = renders a bottom bar and/or a hub strip. NOT the same as
+  // "has a built home": contractor (/portal) and client (/client) have homes and
+  // no /settings door either, but they render neither surface, so there is no
+  // nav for a door to be missing from.
+  const rolesWithNav = ROLE_GROUP_ORDER.filter(
     (role) => tabsForRole(role) !== null || hubNavForRole(role) !== null,
   );
 
-  const hasSettingsDoor = (role: string) =>
-    (tabsForRole(role) ?? []).some((t) => t.href === SETTINGS_HREF) ||
-    (hubNavForRole(role) ?? []).some((i) => i.href === SETTINGS_HREF);
+  // Prefix match, not equality: every /settings/* page chips back to /settings,
+  // so a nav item pointing at a SUB-route is also a door into the hub. That
+  // pattern already ships — ACCOUNTING_TABS + ACCOUNTING_HUB_NAV both carry
+  // /settings/company-docs — so an equality check here would go green if
+  // technician were handed a /settings/my-info item while the property this
+  // describe pins ("no way into the settings hub from the ช่าง's nav") stayed false.
+  const hasSettingsDoor = (role: string) => {
+    const reachesHub = (href: string) =>
+      href === SETTINGS_HREF || href.startsWith(`${SETTINGS_HREF}/`);
+    return (
+      (tabsForRole(role) ?? []).some((t) => reachesHub(t.href)) ||
+      (hubNavForRole(role) ?? []).some((i) => reachesHub(i.href))
+    );
+  };
 
-  it("has a meaningful served-role set (guards against the filter emptying)", () => {
-    expect(servedRoles.length).toBeGreaterThanOrEqual(9);
+  it("has a meaningful nav-rendering role set (guards against the filter emptying)", () => {
+    expect(rolesWithNav.length).toBeGreaterThanOrEqual(9);
   });
 
-  it("technician is the ONLY served role without one", () => {
-    expect(servedRoles.filter((role) => !hasSettingsDoor(role))).toEqual(["technician"]);
+  it("technician is the ONLY nav-rendering role without one", () => {
+    expect(rolesWithNav.filter((role) => !hasSettingsDoor(role))).toEqual(["technician"]);
   });
 
   it("a technician's only door to /settings is therefore off-nav", () => {
@@ -123,5 +141,23 @@ describe("spec 376 U3 — the roles whose nav world has no /settings door", () =
     expect(tabsForRole("technician")).not.toBeNull();
     expect(hubNavForRole("technician")).not.toBeNull();
     expect(hasSettingsDoor("technician")).toBe(false);
+  });
+
+  it("and that off-nav door is /profile's back chip", () => {
+    // Without this the describe pins only the ABSENCE, so re-pointing the chip —
+    // the very fix this note argues against — would leave every assertion above
+    // green while the capability it protects is gone. nav-back-affordance pins
+    // that /profile renders a DetailHeader, never where its chip goes.
+    // Comment-stripped: a doc comment quoting the href would otherwise stand in
+    // for the deleted attribute (the proven fake-coverage trap).
+    const src = readFileSync(
+      join(process.cwd(), "src", "app", "profile", "page.tsx"),
+      "utf8",
+    ).replace(/\/\*[\s\S]*?\*\//g, "");
+    const code = src
+      .split("\n")
+      .filter((l) => !/^\s*\/\//.test(l))
+      .join("\n");
+    expect(code.split(`backHref="${SETTINGS_HREF}"`).length - 1).toBe(1);
   });
 });
