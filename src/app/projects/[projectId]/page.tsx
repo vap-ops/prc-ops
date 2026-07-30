@@ -11,9 +11,7 @@ import {
   Forklift,
   ScanLine,
   Settings,
-  Truck,
   Users,
-  Warehouse,
 } from "lucide-react";
 import {
   BACK_OFFICE_ROLES,
@@ -33,8 +31,6 @@ import {
   rentalsHref,
   reportsHref,
   scheduleHref,
-  storeHref,
-  incomingHref,
   supplyPlanHref,
 } from "@/lib/nav/project-paths";
 import { safeBackHref } from "@/lib/nav/back-href";
@@ -49,8 +45,6 @@ import {
   PROJECT_COSTS_LABEL,
   PROJECT_TEAM_LABEL,
   PROJECT_STATUS_LABEL,
-  STORE_LABEL,
-  STORE_INCOMING_HEADING,
 } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -64,6 +58,7 @@ import { OnboardingChecklist } from "./onboarding-checklist";
 import { AddWorkPackageSheet } from "./add-work-package-sheet";
 import { CopyWorkPackagesSheet } from "./copy-work-packages-sheet";
 import { ImportWorkPackagesSheet } from "./import-work-packages-sheet";
+import { StoreCluster } from "@/components/features/projects/store-cluster";
 
 interface PageProps {
   params: Promise<{ projectId: string }>;
@@ -147,15 +142,18 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
   // Spec 181: who reaches the supply plan — PM tier + procurement (PM's stead).
   // Its own door, separate from the manager-only reports/settings chips below.
   const canPlanSupply = SUPPLY_PLAN_ROLES.includes(ctx.role);
-  // Spec 197 U1: the คลัง (store) chip — the per-project store destination.
+  // Spec 197 U1 / 376 U2: who reaches the store destinations — now the
+  // คลังหน้างาน cluster in the body rather than two header chips.
   // WP_DETAIL_ROLES (site staff + procurement), the same set that opens the WPs;
   // this finally admits site_admin (the on-site storekeeper). RLS scopes the
-  // viewer inside the sub-route.
+  // viewer inside the sub-route. Spec 376 forward-compat: the cluster gates
+  // through THIS named predicate, so a future `storekeeper` enum value is a
+  // role-set add, never a rework of the page.
   const canSeeStore = WP_DETAIL_ROLES.includes(ctx.role);
   // Spec 275 U5: the เช่าอุปกรณ์ chip — the equipment-rental recorder relocated
   // into the project (was the settings /equipment/rentals hub). MONEY surface,
   // so BACK_OFFICE_ROLES only (the create-RPC audience) — deliberately NEVER
-  // site_admin (spec 46 / ADR 0055 decision 6), unlike the store chip above.
+  // site_admin (spec 46 / ADR 0055 decision 6), unlike `canSeeStore` above.
   const canSeeRentals = BACK_OFFICE_ROLES.includes(ctx.role);
   // Spec 325 U2: the ต้นทุนโครงการ chip — the per-project cost view. Money
   // surface gated to the spec §4 audience (PM tier + procurement tiers +
@@ -242,30 +240,11 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
                 <ClipboardList aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
-            {/* Spec 300 U4: the ของเข้า (incoming deliveries) chip — same gate as คลัง
-                (WP_DETAIL_ROLES), so procurement + site_admin reach the receiving view from
-                the project too, not only the SA-home tile. Before คลัง (receiving first). */}
-            {canSeeStore ? (
-              <Link
-                href={incomingHref(project.id)}
-                aria-label={STORE_INCOMING_HEADING}
-                className={ICON_CHIP_MUTED}
-              >
-                <Truck aria-hidden className="h-5 w-5" />
-              </Link>
-            ) : null}
-            {/* Spec 197 U1: the คลัง (store) chip — after แผนจัดหา (plan → hold
-                lifecycle order). WP_DETAIL_ROLES, so site_admin (storekeeper) now
-                reaches its own store. */}
-            {canSeeStore ? (
-              <Link
-                href={storeHref(project.id)}
-                aria-label={STORE_LABEL}
-                className={ICON_CHIP_MUTED}
-              >
-                <Warehouse aria-hidden className="h-5 w-5" />
-              </Link>
-            ) : null}
+            {/* Spec 376 U2: the ของเข้า + คลัง icon chips that stood here (specs 300
+                U4 / 197 U1) are RETIRED — both destinations are now labeled doors in
+                the คลังหน้างาน cluster in the body below. One door per destination per
+                surface (the spec 313 U3 rule); keeping the chips too would be the
+                duplicate-door defect. */}
             {/* Spec 275 U5: the เช่าอุปกรณ์ recorder — money-gated
                 (BACK_OFFICE_ROLES), so it never renders for a site_admin. */}
             {canSeeRentals ? (
@@ -352,6 +331,11 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
             {DAILY_WORK_PLAN_LABEL}
           </Link>
         ) : null}
+        {/* Spec 376 U2: the คลังหน้างาน cluster — the storekeeper hat named on the
+            surface where the work happens, replacing the two icon chips that used to
+            carry these destinations in the header. After the daily actions (muster /
+            แผนพรุ่งนี้), above the งาน list. */}
+        {canSeeStore ? <StoreCluster projectId={project.id} /> : null}
         {/* Spec 145: a closed project shows a lock banner instead of seeding
             controls. Warranty defect-rework stays available on each WP page. */}
         {!projectOpen && (
