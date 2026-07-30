@@ -1,3 +1,9 @@
+# [0.286.0](https://github.com/vap-ops/prc-ops/compare/v0.285.0...v0.286.0) (2026-07-30)
+
+### Features
+
+- **equipment:** ประวัติ sheet — the history U1 collects, made visible (spec 381 U2) ([#883](https://github.com/vap-ops/prc-ops/issues/883)) ([1bbd4db](https://github.com/vap-ops/prc-ops/commit/1bbd4db0a43d13331a010b71639b57930d56bfc5))
+
 # [0.285.0](https://github.com/vap-ops/prc-ops/compare/v0.284.1...v0.285.0) (2026-07-30)
 
 ### Features
