@@ -32,12 +32,64 @@ import { MusterCamera } from "./muster-camera";
 // the member row this control sits beside the check-out button.
 export const MUSTER_UNDO_LABEL = "ยกเลิกเช็คชื่อ";
 export const MUSTER_UNDO_CONFIRM_LABEL = "ยืนยันยกเลิก";
-/** Two-tap, on both doors: this deletes an attendance record, and the cockpit's
- *  precedent for a destructive-feeling action is confirm-then-act. */
-export const UNDO_BTN =
+/** The way OUT of the armed state. The house confirm (ปิดวัน) pairs its confirm
+ *  with an escape and leaves the escape enabled while a write is in flight; an
+ *  armed delete that can only be discharged is a trap, not a confirmation. Named
+ *  for what it does rather than `ยกเลิก`, which beside `ยืนยันยกเลิก` would ask
+ *  the SA to cancel a cancel. */
+export const MUSTER_UNDO_KEEP_LABEL = "เก็บไว้";
+
+const UNDO_BTN =
   "min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50 bg-sunk text-ink";
-export const UNDO_BTN_ARMED =
+const UNDO_BTN_ARMED =
   "min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50 bg-danger-soft text-danger-ink";
+
+/**
+ * Spec 379 U2 — the two-tap retraction control, shared by BOTH doors (the sweep
+ * tally row and the team-card member row) so the wording, the arming behaviour
+ * and the escape can never drift between them. Arming is the caller's state:
+ * each surface owns "which one is armed" and disarms the others, so a stray tap
+ * can never leave two live one-tap deletes on screen.
+ */
+export function UndoControl({
+  armed,
+  pending,
+  onArm,
+  onDisarm,
+  onConfirm,
+}: {
+  armed: boolean;
+  pending: boolean;
+  onArm: () => void;
+  onDisarm: () => void;
+  onConfirm: () => void;
+}) {
+  // ARMING is not a write, and it is wanted at exactly the moment a write is in
+  // flight — the wrong person was tapped three seconds ago and the sweep is
+  // still going. Freezing it here would be the per-write freeze spec 359 removed
+  // from the tap list for the same reason. Only the CONFIRM below is gated on
+  // `pending`, so the delete never races the insert it is retracting.
+  if (!armed) {
+    return (
+      <button type="button" onClick={onArm} className={UNDO_BTN}>
+        {MUSTER_UNDO_LABEL}
+      </button>
+    );
+  }
+  return (
+    <>
+      <button type="button" onClick={onConfirm} disabled={pending} className={UNDO_BTN_ARMED}>
+        {MUSTER_UNDO_CONFIRM_LABEL}
+      </button>
+      {/* Not disabled by `pending`: backing out must stay reachable even while
+          some other write is in flight, or the armed state outlives the SA's
+          intention. */}
+      <button type="button" onClick={onDisarm} className={UNDO_BTN}>
+        {MUSTER_UNDO_KEEP_LABEL}
+      </button>
+    </>
+  );
+}
 
 type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 
@@ -345,21 +397,16 @@ export function MusterAddSheet({
                         a check-out write is not one of them, because the RPC
                         deletes the row rather than clearing `out_at`. */}
                     {undoableSession(e.outcome) !== null ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (armedUndo === e.seq) {
-                            setArmedUndo(null);
-                            onUndo(e.seq);
-                          } else {
-                            setArmedUndo(e.seq);
-                          }
+                      <UndoControl
+                        armed={armedUndo === e.seq}
+                        pending={pending}
+                        onArm={() => setArmedUndo(e.seq)}
+                        onDisarm={() => setArmedUndo(null)}
+                        onConfirm={() => {
+                          setArmedUndo(null);
+                          onUndo(e.seq);
                         }}
-                        disabled={pending}
-                        className={armedUndo === e.seq ? UNDO_BTN_ARMED : UNDO_BTN}
-                      >
-                        {armedUndo === e.seq ? MUSTER_UNDO_CONFIRM_LABEL : MUSTER_UNDO_LABEL}
-                      </button>
+                      />
                     ) : null}
                   </li>
                 );

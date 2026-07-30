@@ -38,6 +38,7 @@ vi.mock("@/components/features/muster/muster-camera", () => ({
 import { MusterCockpit } from "@/components/features/muster/muster-cockpit";
 import {
   MUSTER_UNDO_CONFIRM_LABEL,
+  MUSTER_UNDO_KEEP_LABEL,
   MUSTER_UNDO_LABEL,
 } from "@/components/features/muster/muster-add-sheet";
 import type { MusterBoard } from "@/lib/muster/load-muster";
@@ -353,6 +354,59 @@ describe("undo door 2 — the team-card member row", () => {
     await user.click(within(row).getByRole("button", { name: MUSTER_UNDO_LABEL }));
     await user.click(within(row).getByRole("button", { name: MUSTER_UNDO_CONFIRM_LABEL }));
     expect(screen.getByRole("alert")).toHaveTextContent("ต้องยกเลิก OT ของช่างคนนี้ก่อน");
+  });
+});
+
+// An armed delete that can only be discharged is a trap, not a confirmation —
+// and the house confirm (ปิดวัน) pairs its confirm with an escape. Both doors
+// share one control, so both get the same way out.
+describe("the armed state is escapable on both doors", () => {
+  it("keeps the tally row's check-in when the SA backs out", async () => {
+    const user = userEvent.setup();
+    renderCockpit();
+    const sheet = await openSheetAndAdd(user, "สมชาย");
+    const tally = within(sheet).getByTestId("sweep-tally");
+
+    await user.click(within(tally).getByRole("button", { name: MUSTER_UNDO_LABEL }));
+    await user.click(within(tally).getByRole("button", { name: MUSTER_UNDO_KEEP_LABEL }));
+
+    expect(undoMusterScan).not.toHaveBeenCalled();
+    expect(within(tally).getByRole("button", { name: MUSTER_UNDO_LABEL })).toBeVisible();
+    expect(within(tally).queryByRole("button", { name: MUSTER_UNDO_CONFIRM_LABEL })).toBeNull();
+    expect(within(tally).getByTestId("sweep-count")).toHaveTextContent("เพิ่มแล้ว 1 คน");
+  });
+
+  it("keeps the member row's check-in when the SA backs out", async () => {
+    const user = userEvent.setup();
+    renderCockpit();
+    const row = within(screen.getByTestId(`team-${T1}`)).getByTestId(`member-${W3}`);
+
+    await user.click(within(row).getByRole("button", { name: MUSTER_UNDO_LABEL }));
+    await user.click(within(row).getByRole("button", { name: MUSTER_UNDO_KEEP_LABEL }));
+
+    expect(undoMusterScan).not.toHaveBeenCalled();
+    expect(within(row).getByRole("button", { name: MUSTER_UNDO_LABEL })).toBeVisible();
+  });
+
+  // Arming and backing out are not writes, and arming is wanted at exactly the
+  // moment a write is in flight: the wrong person was tapped three seconds ago
+  // and the sweep is still running. Only the CONFIRM waits, so the delete never
+  // races the insert it is retracting.
+  it("stays armable and escapable while the add's own write is still in flight", async () => {
+    const user = userEvent.setup();
+    musterScan.mockReturnValue(new Promise(() => {}));
+    renderCockpit();
+    const sheet = await openSheetAndAdd(user, "สมชาย");
+    const tally = within(sheet).getByTestId("sweep-tally");
+
+    await user.click(within(tally).getByRole("button", { name: MUSTER_UNDO_LABEL }));
+    // The one control that IS a write waits for the in-flight one to land.
+    expect(within(tally).getByRole("button", { name: MUSTER_UNDO_CONFIRM_LABEL })).toBeDisabled();
+
+    const keep = within(tally).getByRole("button", { name: MUSTER_UNDO_KEEP_LABEL });
+    expect(keep).toBeEnabled();
+    await user.click(keep);
+    expect(within(tally).getByRole("button", { name: MUSTER_UNDO_LABEL })).toBeVisible();
   });
 });
 

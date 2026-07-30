@@ -41,14 +41,7 @@ import { playScanCue } from "@/lib/muster/scan-cue";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import type { MusterWp } from "@/lib/muster/wp-groups";
 import type { MusterBoard, MusterTeam } from "@/lib/muster/load-muster";
-import {
-  MusterAddSheet,
-  genderChip,
-  MUSTER_UNDO_CONFIRM_LABEL,
-  MUSTER_UNDO_LABEL,
-  UNDO_BTN,
-  UNDO_BTN_ARMED,
-} from "./muster-add-sheet";
+import { MusterAddSheet, genderChip, UndoControl } from "./muster-add-sheet";
 
 type Mode = "in" | "out";
 type Session = "regular" | "ot";
@@ -913,21 +906,16 @@ function TeamCard({
   const undoButton = (workerId: string, undoSession: Session) => {
     const key = `${workerId}:${undoSession}`;
     return (
-      <button
-        type="button"
-        onClick={() => {
-          if (armedUndo === key) {
-            setArmedUndo(null);
-            onUndo(workerId, undoSession);
-          } else {
-            setArmedUndo(key);
-          }
+      <UndoControl
+        armed={armedUndo === key}
+        pending={pending}
+        onArm={() => setArmedUndo(key)}
+        onDisarm={() => setArmedUndo(null)}
+        onConfirm={() => {
+          setArmedUndo(null);
+          onUndo(workerId, undoSession);
         }}
-        disabled={pending}
-        className={armedUndo === key ? UNDO_BTN_ARMED : UNDO_BTN}
-      >
-        {armedUndo === key ? MUSTER_UNDO_CONFIRM_LABEL : MUSTER_UNDO_LABEL}
-      </button>
+      />
     );
   };
   const [checked, setChecked] = useState<Set<string>>(new Set(team.wpIds));

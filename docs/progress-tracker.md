@@ -10676,5 +10676,60 @@ P0001 asserts.
 
 - **Origin:** operator — procurement can't tell which orders lack accounting documents; doc-definition round first (RD manual: per-class requirements + the fallback ladder ใบรับเงิน/ใบสำคัญรับเงิน/ใบรับรองแทนใบเสร็จรับเงิน). Decisions: per-class ✓ · doc_type v1 (legacy grandfathered) ✓ · waiver = accounting ✓.
 - **Evidence (live):** 242/529 delivered PRs no accounting doc; 195 VAT-supplier rows ≈ ฿48,277 input VAT locked; /procurement 780 · /requests 417 views/14d. Review-RPC doc_count blind to PO docs AND purpose-blind (U6 scope).
-- **Shipped:** migs 075877+075878 (doc_type both attachment tables · waivers + DEFINER waive/unwaive · column INSERT grants · _current views recreated w/ doc_type · privilege hardening) · doc-chase SSOT lib · /requests/docs chase page · hub strip chip + per-project card counts. pgTAP 28/28 RED-first; browser-verified live (chip 243 = SQL mirror exact).
+- **Shipped:** migs 075877+075878 (doc_type both attachment tables · waivers + DEFINER waive/unwaive · column INSERT grants · \_current views recreated w/ doc_type · privilege hardening) · doc-chase SSOT lib · /requests/docs chase page · hub strip chip + per-project card counts. pgTAP 28/28 RED-first; browser-verified live (chip 243 = SQL mirror exact).
 - **Open (spec §4–5):** U4 row chips · U5 uploader pickers · U6 accounting waiver UI + RPC union fix (danger) · operator data: juristic-name suppliers flagged non-VAT (ตรวจสถานะ VAT hints live).
+
+## Spec 379 U2 — the two undo doors for `muster_undo_scan` (2026-07-30)
+
+- **Shipped:** `undoMusterScan` server action + both doors — the **sweep tally row**
+  (wrong person, three seconds ago, sheet still open) and the **team-card member row**
+  (the same repair, found later). Two-tap on both, one armed control at a time per
+  surface. **CODE-ONLY — no migration; the RPC is U1's `20260813075880`.**
+- **⚠️ Spec defect found at gate-check and corrected in build.** §4/D6.1 says the tally
+  undo belongs on rows whose outcome is in `WRITE_KINDS`. That set includes
+  `checked_out` and `ot_closed`, whose writes only stamp `out_at` on a row that
+  **already existed** — and `muster_undo_scan` DELETES the row, so "undoing" a
+  check-out would erase the worker's whole day including the morning check-in. That is
+  also §5's explicit non-goal ("no un-checkout in v1"). The correct predicate is the
+  outcomes whose write **CREATED** an attendance row: `added` / `added_first_time` /
+  `added_team_changed` (session `regular`) + `ot_opened` (session `ot`, verified live —
+  `muster_scan_in` INSERTs a separate `session='ot'` row, and `muster_scan_out` cannot
+  create one). ⭐ Carry: _"the set that WROTE" and "the set this RPC can undo" are not
+  the same set whenever the RPC's verb is DELETE._
+- **The session is derived from the outcome kind, never read off the live toggle** —
+  the round toggles sit on the page BEHIND a `fixed inset-0` sheet, and keying a delete
+  on a control the SA cannot see while she taps is the 2026-07-26 direction defect in a
+  more expensive form. `undoableSession` is a **full `Record` over the outcome union**,
+  so a new outcome kind must be classified deliberately instead of defaulting to
+  silence.
+- **`markUndone` mirrors `markFailed`'s `addedIds` removal** (the id must leave, or the
+  closing `router.refresh()` count and the "already added this sweep" classification
+  both go on believing the worker is on the team) **but keys on `seq`, not workerId** —
+  `markFailed`/`markMoved` rewrite a worker's NEWEST entry, which is the wrong row when
+  a re-tap has stacked an `already_here` above the add the SA is pointing at.
+- **The OT half of door 2 is what makes D4 honest.** D4's refusal reads "undo the OT
+  session first"; without an OT undo that instruction names an action that does not
+  exist. Both member-row controls are session-gated exactly like the round buttons
+  beside them.
+- **New Thai for the four refusals (D7), never `scanErrorToThai`** — its `role not
+permitted` arm answers ไม่มีสิทธิ์เช็คชื่อ, a claim about TAKING attendance, and no arm
+  of it says what to do about a closed day or a booked wage. Label `ยกเลิกเช็คชื่อ`,
+  deliberately not a synonym of `เช็คออก`: on the member row the two sit side by side.
+- **`db:types` regenerated — the U1 blocker had cleared.** Live `schema_migrations` was
+  set-equal to `origin/main`'s migration files plus U1's own `075880` (checked both
+  directions), so the regen is **exactly 8 lines**: the `muster_undo_scan` entry.
+- **Verification:** 33 new tests, RED-first. **8 mutants, all caught, each with a run
+  tally** (ot_opened not undoable · checked_out undoable · addedIds not cleared ·
+  newest-row instead of seq · first-tap fires, both doors · `scanErrorToThai` reused).
+  ⚠️ **One honest gap: a `false &&` on the sweep-generation branch is NOT
+  distinguishable in jsdom** — the refresh-count assertions pass either way, and the
+  added seq-collision case did not separate them either. The direct mutant (deleting
+  the stale branch's `router.refresh()`) IS caught, and the carry matches #764's proven
+  shape, but it is pinned by construction, not by a discriminating test. Said plainly
+  rather than claimed.
+- **Open questions surfaced, not built:** §7 owed-#2 (undo after check-out) was decided
+  **permissive** — the RPC allows it, the day is unclosed so no wage exists, and the
+  two-tap confirm plus the visible in–out times carry the weight; a mis-scan discovered
+  late would otherwise be unrepairable. And **the lead's own row carries the control
+  like any member's** — retracting it leaves a team whose หัวหน้า is not checked in
+  (recoverable by re-scanning). Both are cheap to narrow later if the operator wants.
