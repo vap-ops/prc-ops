@@ -170,13 +170,22 @@ function EquipmentFields({
           className={FIELD_STACKED}
         />
       </label>
+      {/* ⚠️ Do NOT add `appearance-none` to these selects. FIELD_STACKED is an
+          INPUT class, so with the native chevron suppressed a picker renders
+          pixel-identical to a text box — the operator read the prefilled owner as
+          typed text and reported the field as "text, not a selection"
+          (2026-07-30), which is also why nobody would think to tap it.
+          `appearance-none` IS right on a date input (it tames iOS's native date
+          chrome, as /accounting and /requests use it); on a select it deletes the
+          control's only affordance. Pinned in
+          tests/unit/equipment-select-affordance.test.tsx. */}
       <label className="text-ink-secondary mt-2 block text-sm">
         หมวดหมู่
         <select
           aria-label="หมวดหมู่"
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
-          className={`${FIELD_STACKED} appearance-none`}
+          className={FIELD_STACKED}
         >
           <option value="">— เลือกหมวดหมู่ —</option>
           {categories.map((c) => (
@@ -192,7 +201,7 @@ function EquipmentFields({
           aria-label="เจ้าของ"
           value={ownerId}
           onChange={(e) => setOwnerId(e.target.value)}
-          className={`${FIELD_STACKED} appearance-none`}
+          className={FIELD_STACKED}
         >
           <option value="">— เลือกเจ้าของ —</option>
           {owners.map((o) => (
@@ -243,7 +252,7 @@ function EquipmentFields({
           aria-label="สถานะ"
           value={status}
           onChange={(e) => setStatus(e.target.value as EquipmentStatus)}
-          className={`${FIELD_STACKED} appearance-none`}
+          className={FIELD_STACKED}
         >
           {STATUS_ORDER.map((s) => (
             <option key={s} value={s}>
@@ -421,7 +430,7 @@ function MoveEquipmentForm({
           aria-label="ประเภทการเคลื่อนย้าย"
           value={kind}
           onChange={(e) => setKind(e.target.value as EquipmentMovementKind)}
-          className={`${FIELD_STACKED} appearance-none`}
+          className={FIELD_STACKED}
         >
           {MOVEMENT_KIND_ORDER.map((k) => (
             <option key={k} value={k}>
@@ -437,7 +446,7 @@ function MoveEquipmentForm({
             aria-label="โครงการ"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className={`${FIELD_STACKED} appearance-none`}
+            className={FIELD_STACKED}
           >
             <option value="">— เลือกโครงการ —</option>
             {projects.map((p) => (
