@@ -1,3 +1,9 @@
+# [0.282.0](https://github.com/vap-ops/prc-ops/compare/v0.281.0...v0.282.0) (2026-07-30)
+
+### Features
+
+- **wp-brief:** U2b — PD authoring UI for ข้อมูลงาน (spec 377) ([c6b2943](https://github.com/vap-ops/prc-ops/commit/c6b294326f9a4d392dc7a47e9574a88f3399143e))
+
 # [0.281.0](https://github.com/vap-ops/prc-ops/compare/v0.280.1...v0.281.0) (2026-07-30)
 
 ### Features
