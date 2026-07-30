@@ -23,8 +23,11 @@ import { bangkokTodayIso } from "@/lib/dates";
 import {
   ALL_PROJECTS_OPTION_LABEL,
   ARRIVALS_TODAY_LABEL,
+  DOC_MISSING_LABEL,
   LATE_RISK_LABEL,
 } from "@/lib/i18n/labels";
+import { buildDocChaseView, countMissingByProject } from "@/lib/purchasing/doc-chase-view";
+import { loadDocChaseOrders } from "@/lib/purchasing/load-doc-chase";
 import {
   buildDashboardCards,
   isArrivalToday,
@@ -46,20 +49,27 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
   // Three RLS reads (procurement's policies admit all projects + WPs): the full
   // project list (cards), PR count rows (both ADR-0065 anchors, no ฿), and the
   // WP planned_start map late-risk resolves anchors against.
-  const [{ data: projectRows }, { data: prRows }, { data: wpRows }, cookieValue, pendingCount] =
-    await Promise.all([
-      supabase.from("projects").select("id, name").order("name"),
-      supabase
-        .from("purchase_requests")
-        .select("project_id, status, eta, work_package_id, requested_from_work_package_id"),
-      supabase.from("work_packages").select("id, project_id, planned_start"),
-      readProcurementProjectCookie(),
-      isApprover
-        ? listVisibleTechnicianRegistrations(supabase).then(
-            (regs) => regs.filter((r) => r.status === "pending").length,
-          )
-        : Promise.resolve(0),
-    ]);
+  const [
+    { data: projectRows },
+    { data: prRows },
+    { data: wpRows },
+    cookieValue,
+    pendingCount,
+    docChase,
+  ] = await Promise.all([
+    supabase.from("projects").select("id, name").order("name"),
+    supabase
+      .from("purchase_requests")
+      .select("project_id, status, eta, work_package_id, requested_from_work_package_id"),
+    supabase.from("work_packages").select("id, project_id, planned_start"),
+    readProcurementProjectCookie(),
+    isApprover
+      ? listVisibleTechnicianRegistrations(supabase).then(
+          (regs) => regs.filter((r) => r.status === "pending").length,
+        )
+      : Promise.resolve(0),
+    loadDocChaseOrders(supabase),
+  ]);
 
   const projects = projectRows ?? [];
   const rows: DashboardPrRow[] = (prRows ?? []).map((r) => ({
@@ -85,6 +95,9 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
   const arrivalsTotal = rows.filter((r) =>
     isArrivalToday(requestBand(r.status), r.eta, todayIso),
   ).length;
+  // Spec 380: delivered orders still owing accounting docs (doc-chase SSOT).
+  const docsMissingTotal = buildDocChaseView(docChase.orders, docChase.nowMs).summary.missing;
+  const missingDocsByProject = countMissingByProject(docChase.orders);
 
   return (
     <section className={`mx-auto ${PAGE_MAX_W} flex flex-col gap-6 px-5 py-6`}>
@@ -99,7 +112,7 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
           U3; §0.2 alerts carry their action). Grain-labeled ทุกโครงการ (§0.5):
           these totals count EVERY visible PR incl. store-bound null-project
           rows, so they can exceed the sum of the per-card badges. */}
-      {lateRiskTotal > 0 || arrivalsTotal > 0 ? (
+      {lateRiskTotal > 0 || arrivalsTotal > 0 || docsMissingTotal > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-ink-secondary text-meta">{ALL_PROJECTS_OPTION_LABEL}:</span>
           {lateRiskTotal > 0 ? (
@@ -122,6 +135,17 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
               className="bg-action text-on-fill text-meta inline-flex min-h-11 items-center rounded-full px-3 font-bold"
             >
               {ARRIVALS_TODAY_LABEL} {arrivalsTotal}
+            </Link>
+          ) : null}
+          {docsMissingTotal > 0 ? (
+            // Spec 380: the chase-list door — delivered orders with no
+            // accounting document (per-class rule; ~฿48k of input VAT was
+            // sitting unclaimable when this shipped).
+            <Link
+              href={withBackFrom("/requests/docs", "/procurement")}
+              className="bg-attn-soft text-attn-ink text-meta inline-flex min-h-11 items-center rounded-full px-3 font-bold"
+            >
+              {DOC_MISSING_LABEL} {docsMissingTotal}
             </Link>
           ) : null}
         </div>
@@ -168,6 +192,11 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
                     {c.lateRisk > 0 ? (
                       <span className="bg-danger-soft text-danger text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
                         {LATE_RISK_LABEL} {c.lateRisk}
+                      </span>
+                    ) : null}
+                    {(missingDocsByProject.get(c.projectId) ?? 0) > 0 ? (
+                      <span className="bg-attn-soft text-attn-ink text-meta shrink-0 rounded-full px-2 py-0.5 font-bold">
+                        {DOC_MISSING_LABEL} {missingDocsByProject.get(c.projectId)}
                       </span>
                     ) : null}
                   </button>

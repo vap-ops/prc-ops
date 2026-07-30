@@ -116,5 +116,8 @@ export function agingDays(
   createdAt: string,
 ): number {
   const anchor = deliveredAt ?? purchasedAt ?? createdAt;
-  return Math.max(0, Math.floor((nowMs - Date.parse(anchor)) / DAY_MS));
+  const anchorMs = Date.parse(anchor);
+  // NaN would silently drop the row from every aging band — treat as fresh.
+  if (!Number.isFinite(anchorMs)) return 0;
+  return Math.max(0, Math.floor((nowMs - anchorMs) / DAY_MS));
 }

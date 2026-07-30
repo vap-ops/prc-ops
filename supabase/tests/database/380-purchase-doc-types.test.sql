@@ -6,7 +6,7 @@
 -- broken RPC (doctrine: absence asserts need a positive control).
 
 begin;
-select plan(24);
+select plan(27);
 
 -- 1–4 · the two enums, values pinned exactly (order matters — UI sorts by it)
 select has_type('public', 'purchase_doc_type', 'purchase_doc_type enum exists');
@@ -26,6 +26,14 @@ select has_column('public', 'purchase_request_attachments', 'doc_type', 'PR atta
 select col_type_is('public', 'purchase_request_attachments', 'doc_type', 'purchase_doc_type',
   'PR doc_type is the enum');
 select has_column('public', 'purchase_order_attachments', 'doc_type', 'PO attachments gain doc_type');
+select col_type_is('public', 'purchase_order_attachments', 'doc_type', 'purchase_doc_type',
+  'PO doc_type is the enum');
+select results_eq(
+  $$select attname::text from pg_attribute
+     where attrelid = 'public.purchase_request_attachments_current'::regclass
+       and attname = 'doc_type' and not attisdropped$$,
+  $$values ('doc_type')$$,
+  'the _current view carries doc_type (readers never fall to the base table)');
 
 -- 8–11 · waiver table shape + sealed-but-readable RLS
 select has_table('public', 'purchase_doc_waivers', 'waiver table exists');
@@ -89,6 +97,14 @@ select throws_ok($$
 $$, '42501', 'unwaive_purchase_docs: role not permitted',
   'procurement cannot unwaive');
 
+-- 17b · the coalesce-null branch: a subject with NO public.users row (role NULL)
+-- must land in the same 42501, never fall through an unbound gate
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000e9"}';
+select throws_ok($$
+  select public.waive_purchase_docs('00000000-0000-0000-0000-0000000000e5', 'vendor_refused', null)
+$$, '42501', 'waive_purchase_docs: role not permitted',
+  'unbound subject (no users row) refused, not silently admitted');
+
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000e1"}';
 
 -- 18–21 · accounting positive control: waive, re-waive upserts, unknown PR refused
@@ -109,6 +125,15 @@ select results_eq(
   $$values ('docs_unobtainable')$$,
   're-waive replaced the reason');
 
+-- 21b · the OTHER read arm: procurement sees the waiver via parent-PR visibility
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000e2"}';
+select results_eq(
+  $$select reason::text from public.purchase_doc_waivers
+     where purchase_request_id = '00000000-0000-0000-0000-0000000000e5'$$,
+  $$values ('docs_unobtainable')$$,
+  'procurement reads the waiver through parent-PR visibility');
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000e1"}';
+
 -- 22 · unknown PR refused with the pinned message
 select throws_ok($$
   select public.waive_purchase_docs('00000000-0000-0000-0000-0000000000ee', 'vendor_refused', null)
@@ -122,13 +147,17 @@ $$, 'accounting unwaives');
 
 reset role;
 
--- 24 · the audit trail carries every state change: 2 waives + 1 unwaive
+-- 27 · the audit trail carries every state change: 2 waives + 1 unwaive.
+-- Keyed by the payload's purchase_request_id (target_id is the WAIVER row id,
+-- the audit lookup convention); event-sorted because all three rows share one
+-- transaction timestamp and an unqualified sort is not stable.
 select results_eq(
-  $$select array_agg(payload->>'event' order by created_at) from public.audit_log
+  $$select payload->>'event' from public.audit_log
      where target_table = 'purchase_doc_waivers'
-       and target_id = '00000000-0000-0000-0000-0000000000e5'$$,
-  $$values (array['purchase_docs_waived','purchase_docs_waived','purchase_docs_unwaived'])$$,
-  'audit rows for waive/rewaive/unwaive');
+       and payload->>'purchase_request_id' = '00000000-0000-0000-0000-0000000000e5'
+     order by payload->>'event'$$,
+  $$values ('purchase_docs_unwaived'), ('purchase_docs_waived'), ('purchase_docs_waived')$$,
+  'audit rows for waive/rewaive/unwaive, PR id in payload');
 
 select * from finish();
 rollback;

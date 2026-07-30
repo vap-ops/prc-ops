@@ -46,25 +46,27 @@ describe("doc-type partition", () => {
     }
   });
 
-  it("vat is satisfied ONLY by the full tax invoice; unknown accepts what non_vat accepts", () => {
+  it("vat is satisfied ONLY by the full tax invoice; non_vat and unknown by the ladder", () => {
     expect(SATISFYING_DOC_TYPES.vat).toEqual(["tax_invoice_full"]);
-    expect([...SATISFYING_DOC_TYPES.non_vat].sort()).toEqual(
-      ["cert_in_lieu", "payment_voucher", "receipt_cash_bill", "tax_invoice_full"].sort(),
-    );
-    expect(SATISFYING_DOC_TYPES.unknown).toEqual(SATISFYING_DOC_TYPES.non_vat);
+    // both pinned against LITERALS — asserting unknown === non_vat would pass
+    // for any wrong shared ladder (reviewer catch)
+    const ladder = ["tax_invoice_full", "receipt_cash_bill", "payment_voucher", "cert_in_lieu"];
+    expect([...SATISFYING_DOC_TYPES.non_vat]).toEqual(ladder);
+    expect([...SATISFYING_DOC_TYPES.unknown]).toEqual(ladder);
   });
 });
 
 describe("docCoverage", () => {
   it("out of scope before money is spent or after cancellation", () => {
-    for (const status of [
-      "requested",
-      "approved",
-      "purchased",
-      "on_route",
-      "rejected",
-      "cancelled",
-    ] as const) {
+    // Derived complement over the LIVE enum — a 9th status value lands here
+    // and fails loudly instead of silently reading as out_of_scope forever.
+    const outOfScope = Constants.public.Enums.purchase_request_status.filter(
+      (s) => !IN_SCOPE_STATUSES.includes(s),
+    );
+    expect(outOfScope.sort()).toEqual(
+      ["approved", "cancelled", "on_route", "purchased", "rejected", "requested"].sort(),
+    );
+    for (const status of outOfScope) {
       expect(
         docCoverage({
           status,
@@ -201,5 +203,9 @@ describe("agingDays", () => {
   it("falls back delivered_at → purchased_at → created_at", () => {
     expect(agingDays(now, null, "2026-07-20T05:00:00+00:00", "2026-07-01T00:00:00+00:00")).toBe(10);
     expect(agingDays(now, null, null, "2026-07-01T05:00:00+00:00")).toBe(29);
+  });
+
+  it("an unparseable anchor reads as fresh, never NaN-vanishing from bands", () => {
+    expect(agingDays(now, "not-a-date", null, "2026-07-01T00:00:00+00:00")).toBe(0);
   });
 });

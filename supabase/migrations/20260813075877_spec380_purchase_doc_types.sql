@@ -43,14 +43,19 @@ create table public.purchase_doc_waivers (
 
 alter table public.purchase_doc_waivers enable row level security;
 
--- Read follows the parent PR exactly like purchase_request_attachments
--- ("select via parent"): whoever may see the order may see that its docs were
--- waived. No INSERT/UPDATE/DELETE policies — the DEFINER RPCs are the only writers.
-create policy "select via parent pr" on public.purchase_doc_waivers
+-- Read follows the parent PR ("select via parent", as on the attachment tables)
+-- PLUS the money-review roles: accounting has no purchase_requests SELECT arm,
+-- so without its own arm the waiver's PRIMARY AUDIENCE could not read the row it
+-- just wrote (caught by pgTAP 380 asserts 19/21 — have: NULL). initplan-wrapped
+-- per house RLS perf doctrine. No INSERT/UPDATE/DELETE policies — the DEFINER
+-- RPCs are the only writers.
+create policy "select via parent pr or money reviewer" on public.purchase_doc_waivers
   for select to authenticated
-  using (exists (
-    select 1 from public.purchase_requests pr
-    where pr.id = purchase_doc_waivers.purchase_request_id));
+  using (
+    (select public.current_user_role()) in ('accounting', 'super_admin')
+    or exists (
+      select 1 from public.purchase_requests pr
+      where pr.id = purchase_doc_waivers.purchase_request_id));
 
 revoke all on public.purchase_doc_waivers from anon;
 
