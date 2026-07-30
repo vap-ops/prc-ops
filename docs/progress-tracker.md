@@ -10529,3 +10529,10 @@ fresh worktree off `f473a5ad` origin/main + both indexes + `git ls-remote` + ope
 - **Evidence:** pgTAP 62/62 RED-first — 16/62 red on the pre-hardening DB (direct-run proof), 62/62 after; full runner exit 0, zero collateral (only tolerated 221) · lint + typecheck clean · full vitest 6132/6141 with all 4 red files the load-flake class, 29/29 isolated on the same commit · live registry read (5 seeds active).
 - **Out-of-scope find, task-chipped:** `delete_work_package`'s guard also misses `stock_issues` and joins the force-nulled `purchase_requests.work_package_id` instead of `requested_from_work_package_id` — pre-existing, its own unit.
 - **▶ Next:** U2 PD authoring (clone-from-project, edit, publish; tablet-first) — code + RPCs, schema lane stays with this lane until merged.
+
+## Spec 380 — missing purchase-doc visibility, spec authored (2026-07-30)
+
+- **Origin:** operator — procurement can't tell which orders lack accounting documents; make it prominent; PM must see it in the dashboard. Doc-definition round first (operator directive): per-supplier-class requirements from the RD manual + the fallback ladder when suppliers refuse (ใบรับเงิน / ใบสำคัญรับเงิน / ใบรับรองแทนใบเสร็จรับเงิน).
+- **Evidence (live 2026-07-30):** 242/529 delivered PRs carry no accounting doc under the PR-invoice ∪ PO-source_document union; 195 are VAT suppliers ≈ ฿48,277 input VAT locked; ตั้งเง็กฮะ 58 · 4 อ.เจริญ 40 · ไทวัสดุ 27; telemetry /procurement 780 · /requests 417 · PO list 45 views/14d. Existing `invoiceMissingFlag` (spec 302) is leaf-only. Found in passing: `list_money_events_for_review` doc_count is blind to PO-level docs (U6 fixes).
+- **Operator decisions:** coverage per class ✓ · `doc_type` in v1, legacy untyped grandfathered as covered-loose ✓ · waiver = accounting-only ✓.
+- **Units:** U1 schema (`purchase_doc_type` + `doc_type` cols + waivers + DEFINER waive/unwaive) · U2 SSOT lib · U3 chase page + hub chip · U4 row chips · U5 uploader pickers · U6 accounting waiver UI + RPC union fix (danger).
