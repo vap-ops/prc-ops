@@ -6,9 +6,9 @@
 // the manual tap-add list (เข้า + regular mode). The tap list is the
 // lost-badge / phoneless / no-camera safety net the removed + เพิ่มช่าง button
 // used to carry — the sheet stays open across taps so the SA can add a whole
-// lineup in a row. A successful SCAN closes the sheet (one-shot, matching the
-// pre-357 camera behavior; continuous multi-scan is deferred until the #745
-// decode loop has on-device proof).
+// lineup in a row. A successful scan does NOT close the sheet either (spec 359),
+// and since the decode loop learned to reschedule it does not stop scanning
+// either: one camera-open per lineup, scan or tap.
 //
 // The action error message renders IN the sheet — the cockpit suppresses its
 // page-top alert while the sheet is open (one live alert at a time).
@@ -254,7 +254,11 @@ export function MusterAddSheet({
           </p>
         </div>
 
-        {hasCamera ? <MusterCamera onDetected={onScanDetected} /> : null}
+        {/* `continuous` — the sheet exists to sweep a whole lineup in ONE
+            camera-open. Without it the loop stopped on the first badge and the
+            SA had to close and reopen the sheet per worker, which is what she
+            reported as "the scanner turns off after adding". */}
+        {hasCamera ? <MusterCamera onDetected={onScanDetected} continuous /> : null}
 
         {sweep.length > 0 ? (
           <div className="bg-card rounded-card flex flex-col gap-2 p-3" data-testid="sweep-tally">

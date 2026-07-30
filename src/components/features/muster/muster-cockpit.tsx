@@ -362,8 +362,16 @@ export function MusterCockpit({
     // ref (see its declaration): `sweep` is a render closure and would be stale
     // for a second decode in the same tick. A TAP needs no cooldown — it is one
     // deliberate press, and swallowing a repeat would answer the SA with silence.
-    if (isCoolingDown({ ...EMPTY_SWEEP, lastSeen: lastSeenRef.current }, workerId, now)) return;
+    // Re-arm on the suppressed decode, don't just drop it: a badge PARKED in the
+    // viewfinder keeps decoding now that the loop reschedules, so a window that
+    // only counted from the last ACCEPTED scan would let the same worker record
+    // a fresh row and play a fresh cue every 3s until the sheet closed. Counting
+    // from the last decode instead means the badge has to leave the frame for a
+    // full window before it can speak again — which is exactly what a deliberate
+    // re-scan looks like, and what a parked badge never does.
+    const cooling = isCoolingDown({ ...EMPTY_SWEEP, lastSeen: lastSeenRef.current }, workerId, now);
     lastSeenRef.current = { ...lastSeenRef.current, [workerId]: now };
+    if (cooling) return;
     sweepAdd(teamId, workerId, "qr", now);
   };
 
