@@ -28,11 +28,7 @@ select col_type_is('public', 'purchase_request_attachments', 'doc_type', 'purcha
 select has_column('public', 'purchase_order_attachments', 'doc_type', 'PO attachments gain doc_type');
 select col_type_is('public', 'purchase_order_attachments', 'doc_type', 'purchase_doc_type',
   'PO doc_type is the enum');
-select results_eq(
-  $$select attname::text from pg_attribute
-     where attrelid = 'public.purchase_request_attachments_current'::regclass
-       and attname = 'doc_type' and not attisdropped$$,
-  $$values ('doc_type')$$,
+select has_column('public', 'purchase_request_attachments_current', 'doc_type',
   'the _current view carries doc_type (readers never fall to the base table)');
 
 -- 8–11 · waiver table shape + sealed-but-readable RLS
