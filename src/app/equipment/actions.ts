@@ -244,6 +244,49 @@ export async function setEquipmentDailyRate(input: {
   return { ok: true };
 }
 
+// Spec 367 U5 — record (or clear) an item's reference image path.
+//
+// A plain RLS UPDATE, NOT an RPC — and that is a deliberate difference from the
+// catalog twin. `set_catalog_item_image` exists because catalog_items has no
+// authenticated write path for that column; `equipment_items.image_path` DOES
+// carry a column-scoped UPDATE grant (mig …_075860_, spec 367 U1) and the
+// `equipment_items update by back office` policy is the gate. Adding a DEFINER
+// RPC here would add a second, unpinned copy of an authority rule that the
+// policy already states.
+//
+// The upload itself happens browser-side against the private equipment-images
+// bucket before this is called, so a refusal HERE leaves an orphan object in the
+// bucket — acceptable, and the same trade the catalog control makes: the
+// alternative is a signed-upload dance that trades a stray object for a stray
+// row. Nothing reads an object that no row points at.
+export async function setEquipmentItemImage(input: {
+  id: string;
+  path: string | null;
+}): Promise<EquipmentActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  // Depth 1 under the item's own id — the exact shape the equipment-images INSERT
+  // policy admits for the back office, and the shape the control uploads to.
+  // Checked here too so a crafted call cannot point a row at another item's
+  // folder (or at spec 370's `usage/` tree).
+  if (input.path !== null && !new RegExp(`^${input.id}/[^/]+$`).test(input.path)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase
+    .from("equipment_items")
+    .update({ image_path: input.path })
+    .eq("id", input.id);
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์แก้ไขรูปอุปกรณ์" };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
 // Spec 141 U4 — record a movement into the append-only equipment_movements log
 // (U3). Goes through the RLS client: U3 granted INSERT(...) to authenticated and
 // the staff INSERT policy + the DB CHECKs (project-IFF-deployed, qty≥1) are the
