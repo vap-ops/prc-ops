@@ -56,14 +56,19 @@ describe("spec 384 U1 — the /sa page feeds the ages the band reads", () => {
 });
 
 describe("spec 384 U1 — the stale cutoff", () => {
-  it("is 3 days, the empty band in a bimodal age distribution", () => {
-    // 2026-07-31: 29 open bounces aged 1–3 days, 7 aged 6–10, NOTHING at 4–5.
-    // Spec 384 §6 ③ re-runs that query as acceptance; if the gap closes this
-    // constant is wrong and the band splits a real mode.
-    expect(STALE_ACTION_DAYS).toBe(3);
+  it("is 5 days — the centre of the empty interval, measured in ELAPSED time", () => {
+    // 2026-07-31, `now() - decided_at`: 29 open bounces below 4.0 days, 7 above
+    // 6.0, NOTHING between. 5 sits dead centre with a day of slack either side.
+    //
+    // ⚠️ It was 3 for one commit, derived from a `now()::date - decided_at::date`
+    // histogram — whose "1–3 day" mode is really elapsed [0, 4). The code compares
+    // elapsed instants, so a 3-day cut sliced that mode by time of day and the
+    // band rendered 18 of 36 rows. The suite was green throughout; rendering the
+    // real page is what caught it. Spec 384 §6 ③ re-runs the ELAPSED query.
+    expect(STALE_ACTION_DAYS).toBe(5);
   });
 
   it("returns the ISO instant STALE_ACTION_DAYS before the given clock", () => {
-    expect(staleCutoffIso(Date.parse("2026-07-31T09:00:00.000Z"))).toBe("2026-07-28T09:00:00.000Z");
+    expect(staleCutoffIso(Date.parse("2026-07-31T09:00:00.000Z"))).toBe("2026-07-26T09:00:00.000Z");
   });
 });

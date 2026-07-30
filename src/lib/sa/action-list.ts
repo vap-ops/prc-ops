@@ -215,13 +215,20 @@ export function buildSaActionList(input: {
 /**
  * A row older than this is banded out of its reason group and always shown.
  *
- * DERIVED, not chosen. Open-bounce ages on 2026-07-31 are bimodal — 29 rows at
- * 1–3 days, 7 at 6–10, and NOTHING at 4–5 — because a sweep clears inside its own
- * review cycle or not at all. `> 3 days` therefore splits neither mode. The query
- * that produced it is spec 384 §6 ③ and is re-run as acceptance: if the empty band
- * closes, this constant is wrong.
+ * DERIVED, not chosen. Open-bounce ages are bimodal — a sweep clears inside its
+ * own review cycle or not at all — so the cut goes in the empty interval between
+ * the modes. Measured 2026-07-31 in ELAPSED days: 29 rows below 4.0, 7 above 6.0,
+ * and NOTHING between, so 5 sits dead centre with a full day of slack either side.
+ *
+ * ⚠️ The unit is ELAPSED time (`now() - decided_at`), NOT calendar-date
+ * subtraction. The first draft of this constant was 3, derived from a
+ * `now()::date - decided_at::date` histogram whose "1–3 day" mode is really
+ * elapsed [0, 4) — so a 3-day cut sliced that mode by time of day and the band
+ * came out 18 of 36 rows instead of 7. Caught by rendering the real page, not by
+ * the suite. Spec 384 §6 ③ re-runs the ELAPSED query as acceptance: if the empty
+ * interval closes, this constant is wrong.
  */
-export const STALE_ACTION_DAYS = 3;
+export const STALE_ACTION_DAYS = 5;
 
 /** ISO cutoff for `groupSaActions`, `days` before `nowMs`. Pure. */
 export function staleCutoffIso(nowMs: number, days: number = STALE_ACTION_DAYS): string {

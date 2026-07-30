@@ -22,6 +22,8 @@ All figures live on prod, queried 2026-07-31.
 
 ### 1.2 The 38 are homogeneous, and they arrived together
 
+Ages below are **calendar-date** differences, the form the first read used. §2.2 explains why that unit is the wrong one to derive a threshold in.
+
 | Reason (`approval_revision_reason`) | n   | Age           |
 | ----------------------------------- | --- | ------------- |
 | `incomplete` → `รูปไม่ครบ`          | 16  | 1–3 days      |
@@ -50,7 +52,7 @@ The section's own header comment states the assumption it was built on: _"pinned
 - `wp_evidence_resubmitted` audit rows, lifetime: **14**.
 - Of the 36 open bounces, **0 are answered** — none has a resubmit row against its current decision.
 
-⚠️ **Do not read "reasonless bounces go stale" out of §1.2.** The 7 reasonless rows are stale _and_ reasonless, but spec 355 shipped the reason on 2026-07-24 — so reasonless ⇔ decided before 07-24 ⇔ older, by construction. The confound is total; this data cannot separate the two. What it does establish is the boundary in §2.2: **the age distribution has an empty gap between 3 and 6 days.**
+⚠️ **Do not read "reasonless bounces go stale" out of §1.2.** The 7 reasonless rows are stale _and_ reasonless, but spec 355 shipped the reason on 2026-07-24 — so reasonless ⇔ decided before 07-24 ⇔ older, by construction. The confound is total; this data cannot separate the two. What it does establish is the boundary in §2.2: **the age distribution has an empty interval, `[4, 6)` in elapsed days.**
 
 ### 1.4 ⭐ The camera FAB cannot open a single one of the 38
 
@@ -82,19 +84,22 @@ Spec 371 met the same shape from the PM's side: a 70-item `/review` queue where 
 ```
 ต้องแก้ไข  38
 ┌──────────────────────────────────────────┐
-│ ค้างเกิน 3 วัน · 7 งาน                    │   ← always expanded, oldest first
+│ ค้างเกิน 5 วัน · 7 งาน                    │   ← always expanded, oldest first
 │   … full cards, exactly as today          │
 └──────────────────────────────────────────┘
-▸ รูปไม่ครบ · 16 งาน · เก่าสุด 3 วัน
-▸ รูปไม่ตรงกับงาน · 13 งาน · เก่าสุด 3 วัน
    งานแก้ไข · 2 งาน                            ← ≤3 items: no collapse, cards inline
+▸ รูปไม่ตรงกับงาน · 13 งาน
+▸ รูปไม่ครบ · 16 งาน
 ```
+
+Verified against the running page 2026-07-31: header `38`, band `ค้างเกิน 5 วัน · 7 งาน`, groups `งานแก้ไข 2` (open) · `รูปไม่ตรงกับงาน 13` · `รูปไม่ครบ 16` (both collapsed), and **9 cards in the DOM instead of 38**. Tapping `รูปไม่ครบ` flips `aria-expanded` to `true` and brings the section to 25.
 
 - **Stale first, always open.** A row older than the boundary in §2.2 is the one actually being dropped, and it is never part of a fresh sweep. It keeps the full card it has today.
 - **A fresh batch collapses to one row per reason.** Tap expands the cards in place. Collapsed, a group costs one 48px row instead of sixteen 160px cards.
 - **A group of ≤3 renders expanded**, no tap. Hiding two cards behind a chevron costs more than it saves, and `rework` is a 2-row group today.
 - **Inside every group, oldest first.** Today the order is `kind → projectCode → code` — alphabetical within a kind, which scatters a 10-day-old row among rows from this morning.
-- Height: **~6,000px → ~700px**, with no row removed and no row moved off the page.
+- Cost: the section renders **9 cards instead of 38** — measured on the running page, not estimated — plus two one-line group rows. At the ~160px card height of §1.1 that is roughly **6,000px → 1,600px**; the card count is the measured figure and the pixel figure is derived from it.
+- No row is removed and no row moves off the page: every one of the 38 is still one tap away, and the header still counts all of them.
 
 **The age each row is sorted and banded by** is _when it landed back on the SA_, and it already exists on both paths:
 
@@ -105,11 +110,22 @@ Spec 371 met the same shape from the PM's side: a 70-item `/review` queue where 
 
 So U1 adds **one column to one existing select** and no new round trip. `SaActionItem` gains one field (`sinceIso`). ⚠️ A rework row whose reopen audit row is missing has no age — it sorts last within its group and is **never** banded stale, because "unknown" is not "old". `reopens` is 2 lifetime, so this arm is real but unexercised: it needs a test, not a guess.
 
-### 2.2 The stale boundary is **3 days**, and the data picks it
+### 2.2 The stale boundary is **5 days**, and the data picks it — in ELAPSED time
 
-Ages present today: 1, 2, 3 … then nothing … then 6, 7, 8, 9, 10. The distribution is bimodal with an empty band at 4–5 days, because a sweep clears within its own cycle or not at all. `> 3 days` therefore separates "this morning's batch" from "the ones nobody came back to" without splitting either mode.
+The distribution is bimodal, because a sweep clears within its own cycle or not at all, so the cut goes in the empty interval between the modes. Measured 2026-07-31 as `now() - decided_at`:
 
-⚠️ **This is a distribution, and a distribution moves.** The constant lives in one place with the query that produced it written beside it, and §6's acceptance re-runs that query. If the empty band closes, the boundary is wrong and the spec is wrong with it.
+| Boundary   | Rows in the band (of 36) |
+| ---------- | ------------------------ |
+| `> 3 days` | **18**                   |
+| `> 4 days` | 7                        |
+| `> 5 days` | **7**                    |
+| `> 6 days` | 7                        |
+
+29 rows sit below 4.0 elapsed days, 7 above 6.0, and nothing in between. **5 is the centre of that empty interval**, with a full day of slack either side, so no row is ever near the cut.
+
+⚠️ **This spec said 3 for its first two commits, and it was wrong — the units did not match.** The 3 came from a `now()::date - decided_at::date` histogram reading "29 rows at 1–3 days, 7 at 6–10, nothing at 4–5". But calendar-date subtraction returns 3 for anything from 3.0 to 3.99 elapsed days, so that mode is really elapsed `[0, 4)` — and the code compares elapsed instants. A 3-day cut therefore sliced the fresh sweep by time of day, and the band rendered **18 of 36 rows** instead of 7. The vitest suite was green through all of it; **rendering the real page is what caught it.** State the unit of any threshold you derive from a histogram, and derive it in the unit the code will compare in.
+
+⚠️ **A distribution moves.** The constant lives in one place with the query that produced it beside it, and §6's acceptance re-runs that query. If the empty interval closes, the boundary is wrong and the spec is wrong with it.
 
 ### 2.3 The group key, stated exhaustively
 
@@ -192,15 +208,23 @@ join (select distinct work_package_id wpid from approvals where decision='needs_
   on b.wpid = l.wpid
 group by 1;
 
--- ③ is the 3-day boundary still real?  baseline: modes at 1–3 and 6–10, empty at 4–5
+-- ③ is the 5-day boundary still in an EMPTY interval?
+--    baseline: 18 / 7 / 7 / 7 at >3 / >4 / >5 / >6 elapsed days, of 36 open.
+--    ⚠️ ELAPSED time, not `::date` subtraction — that unit slip is what put the
+--    first draft of this constant at 3 and the band at half the list.
 with latest as (
   select distinct on (work_package_id) work_package_id wpid, decision::text dec, decided_at
   from approvals order by work_package_id, decided_at desc
+), open as (
+  select l.* from latest l join work_packages wp on wp.id = l.wpid
+  where wp.status in ('pending_approval','in_progress') and l.dec in ('needs_revision','rejected')
 )
-select (now()::date - decided_at::date) age, count(*) from latest l
-join work_packages wp on wp.id = l.wpid
-where wp.status in ('pending_approval','in_progress') and l.dec in ('needs_revision','rejected')
-group by 1 order by 1;
+select count(*) filter (where now() - decided_at > interval '3 days') d3,
+       count(*) filter (where now() - decided_at > interval '4 days') d4,
+       count(*) filter (where now() - decided_at > interval '5 days') d5,
+       count(*) filter (where now() - decided_at > interval '6 days') d6,
+       count(*) total
+from open;
 ```
 
 **A green suite proves nothing here.** ① rising and ② shifting toward `approved` is the only evidence the redesign worked; ③ unchanged is the only evidence the boundary in §2.2 is still honest. If ① is flat a week after U1+U2 ship, the wall was not what stopped her, and the next unit is batch resubmit (§4), not more layout.
