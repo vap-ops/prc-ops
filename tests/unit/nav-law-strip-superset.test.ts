@@ -78,3 +78,50 @@ describe("spec 313 U5 — no role is stranded on a promoted (chip-less) hub", ()
     expect(onStrip || onBar).toBe(true);
   });
 });
+
+// Spec 376 U3 follow-up — which served roles carry a /settings door.
+//
+// A review of U3 flagged /profile's hardcoded backHref="/settings" as a chip
+// "no technician can open (requireRole bounces them home)". That mechanism is
+// FALSE: /settings is getClaims-gated (src/app/settings/page.tsx), there is no
+// middleware.ts in the repo, and proxy.ts redirects only the unauthenticated —
+// every authenticated role opens it, and a technician sees a real page (its
+// ungated my-info section is pinned for technician in settings-sections.test.ts).
+//
+// What IS true is narrower and worth pinning: technician is the only role with a
+// nav world that does not contain /settings, so the /profile chip is the ONLY UI
+// path a ช่าง has into the settings hub — and therefore into /settings/my-info,
+// /settings/notifications and /feedback, each of which chips back to /settings.
+// That makes the chip load-bearing: re-pointing it (the review's suggested fix)
+// would REMOVE capability until the role gets a settings door of its own.
+//
+// Pinned as an EXACT set over ROLE_GROUP_ORDER (enum-guarded), not a hand-listed
+// membership check: giving technician that door — or shipping a second door-less
+// role — must red HERE and force the doc + the chip decision to be revisited.
+describe("spec 376 U3 — the roles whose nav world has no /settings door", () => {
+  const SETTINGS_HREF = "/settings";
+
+  const servedRoles = ROLE_GROUP_ORDER.filter(
+    (role) => tabsForRole(role) !== null || hubNavForRole(role) !== null,
+  );
+
+  const hasSettingsDoor = (role: string) =>
+    (tabsForRole(role) ?? []).some((t) => t.href === SETTINGS_HREF) ||
+    (hubNavForRole(role) ?? []).some((i) => i.href === SETTINGS_HREF);
+
+  it("has a meaningful served-role set (guards against the filter emptying)", () => {
+    expect(servedRoles.length).toBeGreaterThanOrEqual(9);
+  });
+
+  it("technician is the ONLY served role without one", () => {
+    expect(servedRoles.filter((role) => !hasSettingsDoor(role))).toEqual(["technician"]);
+  });
+
+  it("a technician's only door to /settings is therefore off-nav", () => {
+    // The positive half of the same fact — asserted separately so the exact-set
+    // test above cannot be satisfied by technician simply losing its nav world.
+    expect(tabsForRole("technician")).not.toBeNull();
+    expect(hubNavForRole("technician")).not.toBeNull();
+    expect(hasSettingsDoor("technician")).toBe(false);
+  });
+});

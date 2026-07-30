@@ -100,9 +100,20 @@ ui-conventions.md.
   strip (`TECHNICIAN_HUB_NAV`) mirrors all three exactly — no superset item, these
   three surfaces are the ช่าง's whole app. ประวัติ lives UNDER `/technician`, so
   longest-prefix is what keeps exactly one tab lit on it (no `match` either side).
-  ⓘ `/profile` is a DetailHeader page whose chip goes to `/settings` — a route no
-  technician can open (requireRole bounces them home). The tab reaches the page
-  correctly; the chip is a pre-existing wrong-parent, out of U3's scope.
+  ⓘ `/profile` is a DetailHeader page whose chip goes to `/settings`. The tab
+  reaches the page correctly; the chip is a pre-existing wrong-parent, out of
+  U3's scope. ⚠️ An earlier revision of this note claimed `/settings` is "a route
+  no technician can open (requireRole bounces them home)" — **that is false, and
+  it contradicted the `/settings` row below.** `/settings` is getClaims-gated,
+  there is no `middleware.ts` in the repo, and `proxy.ts` redirects only the
+  unauthenticated: every authenticated role opens it, and a ช่าง sees a real page
+  (its ungated ข้อมูลของฉัน section is pinned for `technician` in
+  `settings-sections.test.ts`). The narrower truth, pinned in
+  `nav-law-strip-superset.test.ts`: technician is the ONLY served role whose nav
+  world omits `/settings`, so this chip is a ช่าง's only UI path into the settings
+  hub — and thus into `/settings/my-info`, `/settings/notifications` and
+  `/feedback`, which each chip back to it. **Re-pointing the chip would remove
+  capability; a settings door for the role has to come first.**
 
 The ตั้งค่า tab lights (match) on `/profile`, `/contacts`, `/workers`,
 `/equipment`, `/catalog`, `/payroll`, `/accounting`, `/legal`, `/expenses`
