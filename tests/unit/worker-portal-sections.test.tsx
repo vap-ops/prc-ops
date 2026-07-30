@@ -2,14 +2,23 @@
 //
 // Spec 266 U7 (option C) — the ช่าง gets their OWN portal at /technician (not the
 // subcontractor /portal). WorkerPortalSections is the worker-portal content
-// (receipts, profile, tax id, consents, bank, wage history) extracted from
-// /portal so /technician can host it and /portal reverts to subcontractor-only.
+// extracted from /portal so /technician can host it and /portal reverts to
+// subcontractor-only.
+//
+// Spec 376 U3 (D3) — reduced surface. This component is now the IDENTITY half
+// only (ข้อมูลของฉัน contact + tax id, ความยินยอม); the money half moved to
+// WorkerHistorySections on the ประวัติ route. Six assertions left this file with
+// it — ประวัติการจ่ายเงิน, /12,000/, ยังไม่มีประวัติการจ่ายเงิน, both
+// worker-bank-form data-pending pins, and the two bankExempt cases (which is why
+// two whole cases below are gone) — and all six now live in
+// worker-history-sections.test.tsx. Nothing was dropped; the tax-id + child-wiring
+// assertions stayed because their sections stayed.
 
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // The client child components are tested on their own — mock them so this test
-// isolates WorkerPortalSections' own logic (wage history, tax id, bank display).
+// isolates WorkerPortalSections' own logic (tax id, child wiring).
 // Spec 321 U3b — the worker contact block is now the shared ProfileContactSection
 // (read card + edit-in-sheet, decision 6), hosting WorkerProfileEdit inside.
 vi.mock("@/components/features/profile/profile-contact-section", () => ({
@@ -19,16 +28,6 @@ vi.mock("@/components/features/profile/profile-contact-section", () => ({
 }));
 vi.mock("@/components/features/portal/worker-consents", () => ({
   WorkerConsents: () => <div data-testid="worker-consents" />,
-}));
-vi.mock("@/components/features/profile/profile-bank-section", () => ({
-  ProfileBankSection: ({ hasPending }: { hasPending: boolean }) => (
-    <div data-testid="worker-bank-form" data-pending={String(hasPending)} />
-  ),
-}));
-vi.mock("@/components/features/portal/portal-receipts", () => ({
-  PortalReceipts: ({ receipts }: { receipts: unknown[] }) => (
-    <div data-testid="portal-receipts" data-count={receipts.length} />
-  ),
 }));
 
 import { WorkerPortalSections } from "@/components/features/portal/worker-portal-sections";
@@ -47,90 +46,29 @@ const WP = {
   bank_account_number: "1112223334",
   bank_account_name: "สมชาย ใจดี",
 } as any;
-
-const PAYMENTS = [
-  {
-    id: "p1",
-    period_from: "2026-06-01",
-    period_to: "2026-06-30",
-    paid_amount: 12000,
-    paid_at: "2026-07-01",
-    method: "bank_transfer",
-  },
-] as any;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 describe("WorkerPortalSections", () => {
-  it("renders the ช่าง's wage history, tax id, bank, and wires the child sections", () => {
-    render(
-      <WorkerPortalSections
-        uid="11111111-1111-1111-1111-111111111111"
-        wp={WP}
-        payments={PAYMENTS}
-        consents={[]}
-        receipts={[]}
-        hasPendingBank={false}
-      />,
-    );
-    expect(screen.getByText("ประวัติการจ่ายเงิน")).toBeInTheDocument();
-    expect(screen.getByText(/12,000/)).toBeInTheDocument();
+  it("renders the ช่าง's tax id and wires the child sections", () => {
+    render(<WorkerPortalSections wp={WP} consents={[]} />);
+    expect(screen.getByText("ข้อมูลของฉัน")).toBeInTheDocument();
     // tax id shows when present
     expect(screen.getByText("1234567890123")).toBeInTheDocument();
-    // bank display + form now live in the mocked ProfileBankSection (below)
     // children wired
     expect(screen.getByTestId("profile-contact-section")).toHaveAttribute(
       "data-audience",
       "worker",
     );
     expect(screen.getByTestId("worker-consents")).toBeInTheDocument();
-    expect(screen.getByTestId("worker-bank-form")).toHaveAttribute("data-pending", "false");
   });
 
-  it("shows the empty wage-history notice when there are no payments", () => {
-    render(
-      <WorkerPortalSections
-        uid="11111111-1111-1111-1111-111111111111"
-        wp={WP}
-        payments={[]}
-        consents={[]}
-        receipts={[]}
-        hasPendingBank
-      />,
-    );
-    expect(screen.getByText("ยังไม่มีประวัติการจ่ายเงิน")).toBeInTheDocument();
-    expect(screen.getByTestId("worker-bank-form")).toHaveAttribute("data-pending", "true");
-  });
-
-  // Spec 328 U3 — a contractor-tied (pay-exempt) member never sees the bank
-  // section: PRC never pays them (the firm does), so there is no bank to keep.
-  it("hides the bank section entirely for a contractor-tied member (bankExempt)", () => {
-    render(
-      <WorkerPortalSections
-        uid="11111111-1111-1111-1111-111111111111"
-        wp={WP}
-        payments={[]}
-        consents={[]}
-        receipts={[]}
-        hasPendingBank={false}
-        bankExempt
-      />,
-    );
+  // Spec 376 U3 — the money half is NOT here any more. Pinned as an ABSENCE so a
+  // future edit cannot quietly re-stack the two halves onto หน้าหลัก (which is the
+  // long-scroll page the split exists to end).
+  it("carries none of the money half (receipts, wage history, bank)", () => {
+    render(<WorkerPortalSections wp={WP} consents={[]} />);
+    expect(screen.queryByText("รายการรอรับ")).not.toBeInTheDocument();
+    expect(screen.queryByText("ประวัติการจ่ายเงิน")).not.toBeInTheDocument();
     expect(screen.queryByText("บัญชีธนาคาร")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("worker-bank-form")).not.toBeInTheDocument();
-  });
-
-  it("keeps the bank section for a regular (non-exempt) worker", () => {
-    render(
-      <WorkerPortalSections
-        uid="11111111-1111-1111-1111-111111111111"
-        wp={WP}
-        payments={[]}
-        consents={[]}
-        receipts={[]}
-        hasPendingBank={false}
-      />,
-    );
-    expect(screen.getByText("บัญชีธนาคาร")).toBeInTheDocument();
-    expect(screen.getByTestId("worker-bank-form")).toBeInTheDocument();
   });
 });

@@ -13,6 +13,7 @@ import {
   COORDINATOR_HUB_NAV,
   ACCOUNTING_HUB_NAV,
   LEGAL_HUB_NAV,
+  TECHNICIAN_HUB_NAV,
   hubNavForRole,
 } from "@/components/features/chrome/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -133,6 +134,24 @@ describe("canonical nav sets", () => {
       { label: "ทรัพยากร", href: "/procurement/resources" },
       { label: "ตั้งค่า", href: "/settings" },
     ]);
+  });
+
+  // Writing failing test first.
+  //
+  // Spec 376 U3 (D3): the technician strip. Mirrors TECHNICIAN_TABS one-for-one
+  // (nav law rule 2 — the phone bar is sm:hidden, so a tab missing from the strip
+  // is unreachable on desktop). Three items, no superset: a ช่าง's whole app is
+  // these three surfaces.
+  it("pins the technician set's destinations and order", () => {
+    expect(TECHNICIAN_HUB_NAV).toEqual([
+      { label: "หน้าหลัก", href: "/technician" },
+      { label: "ประวัติ", href: "/technician/history" },
+      { label: "โปรไฟล์", href: "/profile" },
+    ]);
+  });
+
+  it("maps the technician role to that strip (was null)", () => {
+    expect(hubNavForRole("technician")).toBe(TECHNICIAN_HUB_NAV);
   });
 });
 

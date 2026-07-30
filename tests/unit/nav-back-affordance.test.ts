@@ -250,12 +250,17 @@ const NON_DETAIL_ROUTES = [
   // destination — its own header + logout, no back chip (mirrors /portal). U4
   // fills the read-only render; the U1 stub redirects to access-ended.
   "client",
-  // Spec 264 G3 / ADR 0072 §8: /technician is the approved technician's minimal
-  // role home (e-card + status + assigned-WPs placeholder). A primary landing,
-  // not a drill-down — no DetailHeader back chip. Not a tab-bar/HubNav hub yet
-  // (room to grow into the real WP list later), so it is excluded from the
-  // HUB_STRIP_ROUTES coverage below, like /portal.
+  // Spec 264 G3 / ADR 0072 §8: /technician is the approved technician's role home
+  // (QR badge + assigned work + e-card + identity). A primary landing, not a
+  // drill-down — no DetailHeader back chip.
+  // Spec 376 U3 (D3): it became a real tab-bar/HubNav hub — tabsForRole and
+  // hubNavForRole both serve `technician` now — so both routes appear in
+  // HUB_STRIP_ROUTES below too (it is no longer a /portal-style exception).
   "technician",
+  // Spec 376 U3 (D3): ประวัติ, the ช่าง's money record (รายการรอรับ + wage history
+  // + bank, split off the home page). A TAB destination reached from the bar /
+  // strip, so it carries no back chip — same bucket as its หน้าหลัก sibling.
+  "technician/history",
   // Spec 313 U5: the department role-homes. Each is where roleHome() lands its
   // role, so the old back chip to /settings claimed a parent that role never
   // came from. Promoted to hub chrome (AppHeader + HubNav, no back chip); both
@@ -480,6 +485,13 @@ describe("desktop hub-strip coverage (spec 153)", () => {
     // chip is gone).
     "accounting/review",
     "legal",
+    // Spec 376 U3 (D3): the technician's two tab destinations. Both were
+    // chip-less already; U3 gave the role a bar AND a strip (TECHNICIAN_TABS /
+    // TECHNICIAN_HUB_NAV), so on desktop — where the bar is sm:hidden — the strip
+    // is the only way between them. That makes the coverage assert load-bearing
+    // here, unlike /portal (still strip-less, still the documented exception).
+    "technician",
+    "technician/history",
   ].map((r) => `${r}/page.tsx`);
 
   it.each(HUB_STRIP_ROUTES)("hub route %s renders HubNav", (route) => {
