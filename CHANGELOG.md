@@ -1,3 +1,9 @@
+## [0.287.1](https://github.com/vap-ops/prc-ops/compare/v0.287.0...v0.287.1) (2026-07-30)
+
+### Bug Fixes
+
+- **equipment:** id-mirror a new owner into suppliers so its first item saves ([d1ba93e](https://github.com/vap-ops/prc-ops/commit/d1ba93ecfde9dc369a0ea3f76820c2ef15566e28))
+
 # [0.287.0](https://github.com/vap-ops/prc-ops/compare/v0.286.0...v0.287.0) (2026-07-30)
 
 ### Features
