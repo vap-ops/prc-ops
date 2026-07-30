@@ -10553,7 +10553,10 @@ that half-request actually requires, both DOCS-ONLY here.
   closed, once `labor_logs` points at it, or while an `ot` row depends on the `regular` one.
   ⚠️ `labor_logs.source_muster_id` has **no FK** (verified), so nothing cascades — the guard is
   the only protection.
-- Both are **schema-lane** units when built; DB head `20260813075872` untouched by this docs PR.
+- Both are **schema-lane** units when built; this docs PR touches no schema. Live DB head
+  re-queried at rebase time: **`20260813075874`** (spec 377 U1 landed `075873`+`075874` while
+  these specs were being written) — next claimant `075875`. The earlier `075872` in my lane note
+  was already stale within the hour; query the watermark, never inherit it.
 - **Numbers claimed from a tree cut off `origin/main` today** and cross-checked against the spec
   files, the README index and `git ls-remote --heads origin` — 377 had been taken by the WP-brief
   lane hours earlier, which is exactly the branch-relative trap.
