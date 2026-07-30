@@ -20,6 +20,7 @@ import {
   closeMusterDay,
   moveMusterWorker,
   closeOpenOt,
+  undoMusterScan,
 } from "@/lib/muster/actions";
 import { groupMusterWps, pickerWps } from "@/lib/muster/wp-groups";
 import { hasScannerSupport } from "@/lib/muster/scanner-support";
@@ -30,7 +31,9 @@ import {
   isCoolingDown,
   markFailed,
   markMoved,
+  markUndone,
   recordScan,
+  undoableSession,
   type SweepAction,
   type SweepState,
 } from "@/lib/muster/sweep";
@@ -38,7 +41,7 @@ import { playScanCue } from "@/lib/muster/scan-cue";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import type { MusterWp } from "@/lib/muster/wp-groups";
 import type { MusterBoard, MusterTeam } from "@/lib/muster/load-muster";
-import { MusterAddSheet, genderChip } from "./muster-add-sheet";
+import { MusterAddSheet, genderChip, UndoControl } from "./muster-add-sheet";
 
 type Mode = "in" | "out";
 type Session = "regular" | "ot";
@@ -395,6 +398,52 @@ export function MusterCockpit({
     });
   };
 
+  // Spec 379 U2, door 1 — retract a write this sweep made. The session is
+  // DERIVED from the row's own outcome (undoableSession), never read off the
+  // live session toggle: the toggles sit on the page behind the sheet, and
+  // keying a delete on a control the SA cannot see while she taps is exactly the
+  // 2026-07-26 direction defect in a more expensive form.
+  const undoSweepEntry = (seq: number) => {
+    const entry = sweep.entries.find((e) => e.seq === seq);
+    if (!entry) return;
+    const undoSession = undoableSession(entry.outcome);
+    if (undoSession === null) return;
+    const gen = sweepGenRef.current;
+    startTransition(async () => {
+      const res = await undoMusterScan({
+        workerId: entry.workerId,
+        date,
+        session: undoSession,
+        revalidate,
+      });
+      if (!res.ok) {
+        playScanCue("failed");
+        // Covers BOTH sweeps: while the sheet is open the sheet renders
+        // `message`, and once it has closed the page-level alert does. The one
+        // thing that must never happen is a refusal with nowhere to land.
+        setMessage(res.error);
+        return;
+      }
+      playScanCue("undone");
+      setMessage(null);
+      if (gen !== sweepGenRef.current) {
+        // The sweep that issued this retraction is over. Its tally is gone, and
+        // the closing router.refresh() already counted a worker the DB no
+        // longer holds — so the board needs a second look.
+        router.refresh();
+        return;
+      }
+      addedRef.current.delete(entry.workerId);
+      setSweep((s) => markUndone(s, seq));
+    });
+  };
+
+  // Spec 379 U2, door 2 — the same repair from the team card, found later. Goes
+  // through `run` so a refusal reaches the page alert and a success refreshes
+  // the board the row is rendered from.
+  const undoMember = (workerId: string, undoSession: Session) =>
+    run(() => undoMusterScan({ workerId, date, session: undoSession, revalidate }));
+
   // One refresh for the whole sweep, on close — not per scan.
   const closeSheet = () => {
     setScanTeamId(null);
@@ -606,6 +655,7 @@ export function MusterCockpit({
             onScanOt={scanOt}
             onSaveWps={saveWps}
             onCheckIn={onCheckInMissing}
+            onUndo={undoMember}
             onOpenSheet={() => {
               // A leftover error from an earlier, unrelated action (open-team,
               // save-WPs…) must not greet the SA inside a fresh scan/add sheet.
@@ -804,6 +854,7 @@ export function MusterCockpit({
             onScanDetected={(workerId) => onSweepDetected(sheetTeam?.id ?? null, workerId)}
             onTapAdd={(workerId) => (sheetTeam ? onSheetTapAdd(sheetTeam.id, workerId) : undefined)}
             onMoveHere={(workerId) => (sheetTeam ? onMoveHere(sheetTeam.id, workerId) : undefined)}
+            onUndo={undoSweepEntry}
             onClose={closeSheet}
           />
         );
@@ -822,6 +873,7 @@ function TeamCard({
   onScanOt,
   onSaveWps,
   onCheckIn,
+  onUndo,
   onOpenSheet,
 }: {
   team: MusterTeam;
@@ -839,10 +891,33 @@ function TeamCard({
    * regular check-IN, independent of the เข้า/ออก toggle (a late arrival is
    * checked in even while the SA is doing the evening pass). */
   onCheckIn: (teamId: string, workerId: string) => void;
+  /** Spec 379 U2 — retract this worker's check-in for one session. Not a
+   * check-out: it says the muster never happened, and the RPC deletes the row
+   * (after writing it whole into audit_log). */
+  onUndo: (workerId: string, session: Session) => void;
   /** Spec 357 U-D — opens this team's scan/add sheet (the header QR door). */
   onOpenSheet: () => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
+  // Spec 379 U2 — the armed row, keyed `<workerId>:<session>`: the regular and
+  // OT retractions are two different deletes on one member, and arming one must
+  // never leave the other a single tap away. One armed control at a time.
+  const [armedUndo, setArmedUndo] = useState<string | null>(null);
+  const undoButton = (workerId: string, undoSession: Session) => {
+    const key = `${workerId}:${undoSession}`;
+    return (
+      <UndoControl
+        armed={armedUndo === key}
+        pending={pending}
+        onArm={() => setArmedUndo(key)}
+        onDisarm={() => setArmedUndo(null)}
+        onConfirm={() => {
+          setArmedUndo(null);
+          onUndo(workerId, undoSession);
+        }}
+      />
+    );
+  };
   const [checked, setChecked] = useState<Set<string>>(new Set(team.wpIds));
   // Spec 306 grain-coverage — which parent งาน groups are expanded in the picker.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -1020,13 +1095,20 @@ function TeamCard({
 
         <ul className="flex flex-col gap-1.5">
           {team.members.map((m) => (
-            <li key={m.workerId} className="flex flex-col gap-1.5">
+            <li
+              key={m.workerId}
+              data-testid={`member-${m.workerId}`}
+              className="flex flex-col gap-1.5"
+            >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-ink flex items-center gap-1.5 text-sm">
                   {m.name}
                   {genderChip(m.gender)}
                 </span>
-                <div className="flex items-center gap-2">
+                {/* Spec 379 U2 — wraps: the retraction is a third control on a
+                    row that already carries a time and a round button, and a
+                    phone-width row must never push one of them off screen. */}
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <span className="text-ink-muted text-meta tabular-nums">
                     {bangkokTime(m.inAt)}
                     {m.outAt ? ` – ${bangkokTime(m.outAt)}` : ""}
@@ -1066,12 +1148,21 @@ function TeamCard({
                       OT ออก
                     </button>
                   ) : null}
+                  {/* Spec 379 U2, door 2 — session-gated exactly like the round
+                      buttons beside it: the งานปกติ round retracts the regular
+                      row, the OT round retracts the OT row (below). Without the
+                      OT half, D4's refusal — "undo the OT session first" —
+                      would name an action that does not exist. */}
+                  {session === "regular" && m.inAt ? undoButton(m.workerId, "regular") : null}
                 </div>
               </div>
               {/* Spec 351 — the worker's OT session: its window + an open-OT flag
                   (surfaced whenever there is an OT row, in either session view). */}
               {m.ot ? (
-                <div className="flex items-center gap-2">
+                <div
+                  data-testid={`member-ot-${m.workerId}`}
+                  className="flex flex-wrap items-center gap-2"
+                >
                   <span className="text-accent text-meta tabular-nums">
                     OT {bangkokTime(m.ot.inAt)}
                     {m.ot.outAt ? ` – ${bangkokTime(m.ot.outAt)}` : ""}
@@ -1082,6 +1173,7 @@ function TeamCard({
                       OT ยังไม่ปิด
                     </span>
                   ) : null}
+                  {session === "ot" ? undoButton(m.workerId, "ot") : null}
                 </div>
               ) : null}
             </li>

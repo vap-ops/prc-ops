@@ -50,6 +50,63 @@ function scanErrorToThai(message: string): string {
   return GENERIC;
 }
 
+// Spec 379 U2 (D7) — `muster_undo_scan`'s refusals get their OWN copy, and
+// scanErrorToThai is deliberately not reused. Its `role not permitted` arm
+// answers ไม่มีสิทธิ์เช็คชื่อ — "no permission to TAKE attendance" — which is a
+// claim about the wrong action, and none of its arms tells the SA what to do
+// next about a closed day or a booked wage. Each arm below therefore names the
+// retraction and, where the SA cannot fix it herself, who can.
+const UNDO_GENERIC = "ยกเลิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+
+function undoErrorToThai(message: string): string {
+  if (message.includes("role not permitted")) return "ไม่มีสิทธิ์ยกเลิกการเช็คชื่อ";
+  // Also the answer for a row in a project the caller cannot see: the RPC folds
+  // can_see_project INTO the lookup so an invisible check-in reads as an absent
+  // one, and this copy must not contradict that by implying it exists.
+  if (message.includes("no check-in to undo")) return "ไม่พบการเช็คชื่อนี้ — อาจถูกยกเลิกไปแล้ว";
+  if (message.includes("already closed"))
+    return "ปิดวันแล้ว — ยกเลิกไม่ได้ ต้องแจ้งผู้จัดการให้แก้ไข";
+  if (message.includes("wages are already booked")) {
+    return "บันทึกค่าแรงของรายการนี้แล้ว — ต้องแจ้งผู้จัดการให้แก้ไข";
+  }
+  // The one refusal the SA can clear herself — the OT round carries its own
+  // undo control, so this instruction points at something that exists.
+  if (message.includes("undo the OT session first")) return "ต้องยกเลิก OT ของช่างคนนี้ก่อน";
+  return UNDO_GENERIC;
+}
+
+/**
+ * Spec 379 U2 — retract ONE worker's check-in for a (date, session). The RPC
+ * owns every guard (role parity with muster_scan_in/_out + can_see_project,
+ * day-not-closed, no current wage row, no surviving OT session under a regular
+ * retraction) and writes the whole deleted row to audit_log before deleting it.
+ */
+export async function undoMusterScan(input: {
+  workerId: string;
+  date: string;
+  session: MusterSession;
+  revalidate: string;
+}): Promise<MusterVoidResult> {
+  if (
+    !UUID_REGEX.test(input.workerId) ||
+    !ISO_DATE_REGEX.test(input.date) ||
+    !input.revalidate.startsWith("/")
+  ) {
+    return { ok: false, error: UNDO_GENERIC };
+  }
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("muster_undo_scan", {
+    p_worker: input.workerId,
+    p_date: input.date,
+    p_session: input.session,
+  });
+  if (error) return { ok: false, error: undoErrorToThai(error.message) };
+  revalidatePath(input.revalidate);
+  return { ok: true };
+}
+
 export async function openMusterTeam(input: {
   projectId: string;
   date: string;

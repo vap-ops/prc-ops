@@ -69,7 +69,12 @@ export type SweepOutcomeKind =
   /** OT session closed by this scan — this is the timestamp `ot_hours` prices. */
   | "ot_closed"
   /** OT check-out for a worker who never opened OT. */
-  | "no_ot";
+  | "no_ot"
+  // ---- Spec 379 U2 ------------------------------------------------------------
+  /** The SA retracted this sweep's own write (`muster_undo_scan`). Deliberately
+   *  NOT `failed`: the write succeeded and was then taken back, and the red
+   *  refusal chip would read as an error still to be dealt with. */
+  | "undone";
 
 export interface SweepEntry {
   /** Monotonic within a sweep; React key. */
@@ -311,6 +316,65 @@ export function markMoved(state: SweepState, workerId: string): SweepState {
       i === idx ? { ...e, outcome: "added" as const, detail: null } : e,
     ),
     addedIds: state.addedIds.includes(workerId) ? state.addedIds : [...state.addedIds, workerId],
+  };
+}
+
+// Spec 379 U2 — which outcomes may be retracted, and which muster session the
+// retraction names. `muster_undo_scan` DELETES the attendance row, so this is
+// NOT the set of outcomes that wrote: `checked_out` and `ot_closed` are writes,
+// but they only stamp `out_at` on a row that already existed, and deleting that
+// row would take the worker's morning check-in with it — un-checking-out is
+// spec 379 §5's explicit non-goal and needs an RPC of its own.
+//
+// `ot_opened` IS undoable because `muster_scan_in` INSERTs a separate
+// `session='ot'` row (verified live), so retracting it leaves the regular
+// session standing.
+//
+// A full Record, not a Partial: a new outcome kind must be classified
+// deliberately rather than defaulting to "no undo" in silence.
+const UNDO_SESSION: Record<SweepOutcomeKind, SweepAction["session"] | null> = {
+  added: "regular",
+  added_first_time: "regular",
+  added_team_changed: "regular",
+  ot_opened: "ot",
+  already_here: null,
+  other_team: null,
+  unknown_badge: null,
+  failed: null,
+  checked_out: null,
+  already_out: null,
+  not_checked_in: null,
+  ot_already_open: null,
+  ot_already_closed: null,
+  ot_closed: null,
+  no_ot: null,
+  undone: null,
+};
+
+/** The session an undo of this outcome must name, or null when the outcome
+ *  created no attendance row to retract. */
+export function undoableSession(kind: SweepOutcomeKind): SweepAction["session"] | null {
+  return UNDO_SESSION[kind];
+}
+
+// Spec 379 U2 — the SA retracted one of this sweep's writes. Mirrors markFailed
+// below: the id must LEAVE `addedIds`, or the closing `router.refresh()` count
+// and the "already added this sweep" classification both go on believing the
+// worker is on the team.
+//
+// Keyed on `seq`, not on workerId — markFailed/markMoved rewrite a worker's
+// NEWEST entry, which is the wrong row here. The undo control is rendered per
+// ENTRY, and re-tapping an already-added name produces a newer `already_here`
+// row above the add the SA is pointing at.
+export function markUndone(state: SweepState, seq: number): SweepState {
+  const target = state.entries.find((e) => e.seq === seq);
+  if (target === undefined) return state;
+  return {
+    ...state,
+    entries: state.entries.map((e) =>
+      e.seq === seq ? { ...e, outcome: "undone" as const, detail: null } : e,
+    ),
+    addedIds: state.addedIds.filter((id) => id !== target.workerId),
   };
 }
 

@@ -947,6 +947,7 @@ describe("MusterCockpit — header QR door + add sheet (spec 357 U-D)", () => {
         onScanDetected={() => {}}
         onTapAdd={() => {}}
         onMoveHere={() => {}}
+        onUndo={() => {}}
         onClose={() => {}}
       />,
     );
@@ -1427,6 +1428,7 @@ describe("MusterAddSheet — action header + tally (spec 359 U1)", () => {
     onTapAdd: () => {},
     onClose: () => {},
     onMoveHere: () => {},
+    onUndo: () => {},
   };
 
   it("names the action, the team and the session in one header line", () => {
@@ -1935,6 +1937,7 @@ describe("MusterAddSheet — camera-first (spec 359 U2)", () => {
     onScanDetected: () => {},
     onTapAdd: () => {},
     onMoveHere: () => {},
+    onUndo: () => {},
     onClose: () => {},
   };
 

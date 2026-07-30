@@ -17,10 +17,79 @@
 // Escape-close, scrim-click close, focus-on-open. The tab-trap stays deferred
 // exactly as bottom-sheet documents.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Database } from "@/lib/db/database.types";
-import type { SweepEntry, SweepOutcomeKind } from "@/lib/muster/sweep";
+import { undoableSession, type SweepEntry, type SweepOutcomeKind } from "@/lib/muster/sweep";
 import { MusterCamera } from "./muster-camera";
+
+// Spec 379 U2 — the retraction's words, single-sourced here (the `genderChip`
+// precedent: this file is the leaf of the muster component graph, so the cockpit
+// imports it without a cycle) because BOTH undo doors render them and a drift
+// between the two would be invisible.
+//
+// ⚠️ Deliberately not เช็คออก and deliberately not a synonym of it: "they left"
+// and "they were never here" are different claims about a person's day, and on
+// the member row this control sits beside the check-out button.
+export const MUSTER_UNDO_LABEL = "ยกเลิกเช็คชื่อ";
+export const MUSTER_UNDO_CONFIRM_LABEL = "ยืนยันยกเลิก";
+/** The way OUT of the armed state. The house confirm (ปิดวัน) pairs its confirm
+ *  with an escape and leaves the escape enabled while a write is in flight; an
+ *  armed delete that can only be discharged is a trap, not a confirmation. Named
+ *  for what it does rather than `ยกเลิก`, which beside `ยืนยันยกเลิก` would ask
+ *  the SA to cancel a cancel. */
+export const MUSTER_UNDO_KEEP_LABEL = "เก็บไว้";
+
+const UNDO_BTN =
+  "min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50 bg-sunk text-ink";
+const UNDO_BTN_ARMED =
+  "min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50 bg-danger-soft text-danger-ink";
+
+/**
+ * Spec 379 U2 — the two-tap retraction control, shared by BOTH doors (the sweep
+ * tally row and the team-card member row) so the wording, the arming behaviour
+ * and the escape can never drift between them. Arming is the caller's state:
+ * each surface owns "which one is armed" and disarms the others, so a stray tap
+ * can never leave two live one-tap deletes on screen.
+ */
+export function UndoControl({
+  armed,
+  pending,
+  onArm,
+  onDisarm,
+  onConfirm,
+}: {
+  armed: boolean;
+  pending: boolean;
+  onArm: () => void;
+  onDisarm: () => void;
+  onConfirm: () => void;
+}) {
+  // ARMING is not a write, and it is wanted at exactly the moment a write is in
+  // flight — the wrong person was tapped three seconds ago and the sweep is
+  // still going. Freezing it here would be the per-write freeze spec 359 removed
+  // from the tap list for the same reason. Only the CONFIRM below is gated on
+  // `pending`, so the delete never races the insert it is retracting.
+  if (!armed) {
+    return (
+      <button type="button" onClick={onArm} className={UNDO_BTN}>
+        {MUSTER_UNDO_LABEL}
+      </button>
+    );
+  }
+  return (
+    <>
+      <button type="button" onClick={onConfirm} disabled={pending} className={UNDO_BTN_ARMED}>
+        {MUSTER_UNDO_CONFIRM_LABEL}
+      </button>
+      {/* Not disabled by `pending`: backing out must stay reachable even while
+          some other write is in flight, or the armed state outlives the SA's
+          intention. */}
+      <button type="button" onClick={onDisarm} className={UNDO_BTN}>
+        {MUSTER_UNDO_KEEP_LABEL}
+      </button>
+    </>
+  );
+}
 
 type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 
@@ -60,6 +129,10 @@ const OUTCOME_NOTE: Record<SweepOutcomeKind, (detail: string | null) => string |
   ot_closed: (d) => (d ? `ปิด OT · ทีม ${d}` : "ปิด OT"),
   ot_already_closed: () => "ปิด OT แล้ว",
   no_ot: () => "ยังไม่ได้เปิด OT",
+  // Spec 379 U2 — the row stays in the tally rather than disappearing: the SA
+  // needs to see that the retraction landed, and a row vanishing under a finger
+  // mid-lineup is the reflow this sheet already avoids everywhere else.
+  undone: () => "ยกเลิกแล้ว",
 };
 
 // Outcomes that actually put someone on the team — these drive the ย้ายมาทีมนี้
@@ -108,6 +181,7 @@ export function MusterAddSheet({
   onScanDetected,
   onTapAdd,
   onMoveHere,
+  onUndo,
   onClose,
 }: {
   /** Spec 359 U4 — null for the resolved rounds: they scan the whole site, so
@@ -147,9 +221,18 @@ export function MusterAddSheet({
   onTapAdd: (workerId: string) => void;
   /** Spec 359 U1 — resolve an `other_team` tally row by moving them onto this team. */
   onMoveHere: (workerId: string) => void;
+  /** Spec 379 U2 — retract the write this tally row recorded. Identified by
+   *  `seq`, never by worker: one worker can hold several rows in a sweep and the
+   *  SA is pointing at ONE of them. The cockpit derives the muster session from
+   *  that row's outcome. */
+  onUndo: (seq: number) => void;
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Spec 379 U2 — which tally row's undo is armed. One at a time: arming a
+  // second row disarms the first, so a stray tap can never leave two live
+  // one-tap deletes on screen.
+  const [armedUndo, setArmedUndo] = useState<number | null>(null);
 
   // Spec 359 U3 — workers this sweep has settled onto THIS team (an add, or an
   // other_team row resolved by a move — markMoved rewrites it to `added`). Their
@@ -307,6 +390,23 @@ export function MusterAddSheet({
                       >
                         ย้ายมาทีมนี้
                       </button>
+                    ) : null}
+                    {/* Spec 379 U2, door 1 — the common case: wrong person,
+                        three seconds ago, sheet still open. Offered on the rows
+                        whose write CREATED an attendance row (undoableSession);
+                        a check-out write is not one of them, because the RPC
+                        deletes the row rather than clearing `out_at`. */}
+                    {undoableSession(e.outcome) !== null ? (
+                      <UndoControl
+                        armed={armedUndo === e.seq}
+                        pending={pending}
+                        onArm={() => setArmedUndo(e.seq)}
+                        onDisarm={() => setArmedUndo(null)}
+                        onConfirm={() => {
+                          setArmedUndo(null);
+                          onUndo(e.seq);
+                        }}
+                      />
                     ) : null}
                   </li>
                 );
