@@ -10624,3 +10624,44 @@ migrations/*`) so `db:push`'s divergence check passes — none of the parallel
 - **Evidence (live):** 242/529 delivered PRs no accounting doc; 195 VAT-supplier rows ≈ ฿48,277 input VAT locked; /procurement 780 · /requests 417 views/14d. Review-RPC doc_count blind to PO docs AND purpose-blind (U6 scope).
 - **Shipped:** migs 075877+075878 (doc_type both attachment tables · waivers + DEFINER waive/unwaive · column INSERT grants · _current views recreated w/ doc_type · privilege hardening) · doc-chase SSOT lib · /requests/docs chase page · hub strip chip + per-project card counts. pgTAP 28/28 RED-first; browser-verified live (chip 243 = SQL mirror exact).
 - **Open (spec §4–5):** U4 row chips · U5 uploader pickers · U6 accounting waiver UI + RPC union fix (danger) · operator data: juristic-name suppliers flagged non-VAT (ตรวจสถานะ VAT hints live).
+
+## Spec 377 U2b — PD brief authoring UI (2026-07-30)
+
+- **Shipped:** [#877](https://github.com/vap-ops/prc-ops/pull/877), code-only (no
+  migration) — dedicated `/projects/:projectId/work-packages/:workPackageId/brief`
+  route (tablet-first, per the operator's mid-U1 ruling: authoring assumes a bigger
+  screen, phone stays a read surface only), wrapping U2a's 9 RPCs. Draft-fields
+  section (full-replace save, round-trips `display_config` unchanged since no
+  control writes it yet), criteria section (add/update/delete, `ConfirmActionButton`
+  on delete with the mapped-evidence-slot count in the confirm message), evidence
+  slots section (same CRUD + confirm pattern), publish section (blocked while the
+  draft has unsaved edits — a `draftDirty` guard prevents publishing stale-looking
+  content). Entry door added to the WP detail page's จัดการ (manage) tab.
+- **Evidence:** 49 new unit tests (16 server-action tests + 33 editor component
+  tests, RED-first) · lint + typecheck clean · full vitest suite clean apart from
+  the documented Windows-load flake class (re-confirmed in isolation, not real) ·
+  fresh-eyes review (cavecrew-reviewer): zero findings.
+- **Real-flow verification used the sanctioned fallback floor, not a live
+  click-drive.** The Browser pane was not composited this session
+  (`document.hidden = true`, screenshot timed out) — the documented environmental
+  wedge, not a code defect. Verified instead via SSR fetch-probes as dev-preview
+  (super_admin): the `/brief` route renders 200 with the correct WP name/code/label,
+  and the WP detail page's entry door links to the exact right href. A scripted
+  smoke-test issuing several live write-RPCs against a real WP was correctly
+  blocked by the auto-mode classifier; rather than route around it, verification
+  leaned on the already-green RTL suite plus U2a's 60 rollback-wrapped pgTAP
+  assertions for the RPC contracts. `publish_wp_brief` specifically was NOT
+  exercised against this real production WP even though other RPCs could have
+  been — a published version is a permanent, immutable row (ADR 0086 §4), so a
+  fake test brief would be visible to real PMs; its correctness rests on U2a's
+  pgTAP coverage instead.
+- **One transient false alarm, isolated and refuted before shipping:** the route's
+  very first-ever request 404'd with a `notFound()`-shaped body even though the
+  target WP existed and matched every query filter. A temporary debug log on the
+  exact query proved it resolved correctly on the next (warm) request — a
+  Turbopack cold-compile race on this specific dev server instance, not a logic
+  bug. The response body's `BAILOUT_TO_CLIENT_SIDE_RENDERING` marker pointed at an
+  unrelated root-layout `next/dynamic` component, which was the initial (wrong)
+  lead before the direct query-level check settled it.
+- **▶ Next:** U3 SA/PM read surfaces (client role gets no brief door, by design) →
+  U4 drawings register + uploads + dial + usage signal.
