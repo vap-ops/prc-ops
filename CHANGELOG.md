@@ -1,3 +1,15 @@
+# [0.274.0](https://github.com/vap-ops/prc-ops/compare/v0.273.0...v0.274.0) (2026-07-30)
+
+### Features
+
+- **nav:** /sa hands the bar her resolved project-tab href (spec 376 U1) ([7160058](https://github.com/vap-ops/prc-ops/commit/716005887832c5c5434be4fa5a662c4dabf6be84)), closes [hi#frequency](https://github.com/hi/issues/frequency)
+- **nav:** sa projects-tab target resolver (spec 376 U1) ([a7ba12e](https://github.com/vap-ops/prc-ops/commit/a7ba12e95b3e5a7f28dae11093056de81071954b))
+- **nav:** SA โครงการ tab renders her project href (spec 376 U1) ([bd106ba](https://github.com/vap-ops/prc-ops/commit/bd106ba50b37f3680dbf488c1dcd750761c498e3))
+
+### Reverts
+
+- **sa:** remove the home project card — its premise was false (spec 375 U2) ([fedab96](https://github.com/vap-ops/prc-ops/commit/fedab963fecc4f93c9abe69d3a33ed9f0746ebd4)), closes [pre-#846](https://github.com/pre-/issues/846)
+
 # [0.273.0](https://github.com/vap-ops/prc-ops/compare/v0.272.0...v0.273.0) (2026-07-29)
 
 ### Features
