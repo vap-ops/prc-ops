@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PROJECT_VIEW_ROLES, PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import type { UserRole } from "@/lib/db/enums";
 
 describe("roleHome", () => {
@@ -65,7 +66,11 @@ describe("roleHome", () => {
       visitor: "/coming-soon",
       hr: "/coming-soon",
       subcon_manager: "/coming-soon",
-      site_owner: "/coming-soon",
+      // Spec 376 U5 (D2): site_owner lands on the project world — the hub IS the
+      // site dashboard, so no new page was built. The hub then redirects a
+      // single-project owner on to /projects/:id (saProjectsLandingTarget);
+      // roleHome itself stays PURE, exactly like the SA's /sa → project hop.
+      site_owner: "/projects",
       auditor: "/coming-soon",
       // Spec 284 U5 / ADR 0080: the `legal` role now lands on its own /legal home
       // (contracts + document-approval queue). U1 added the role but deferred the
@@ -95,10 +100,19 @@ describe("roleHome", () => {
     // (asserted above). hr / subcon_manager remain genuinely-unbuilt.
     expect(roleHome("hr")).toBe("/coming-soon");
     expect(roleHome("subcon_manager")).toBe("/coming-soon");
-    // Spec 263 / ADR 0071: site_owner + auditor ship behavior-free — no route,
-    // no gate. They fall through roleHome to /coming-soon until their own specs.
-    expect(roleHome("site_owner")).toBe("/coming-soon");
+    // Spec 263 / ADR 0071 shipped site_owner + auditor behavior-free. Spec 376 U5
+    // serves site_owner (below); AUDITOR is still the behavior-free one, and the
+    // parked half of spec 313 U6 stays parked — its exclusion is deliberate.
     expect(roleHome("auditor")).toBe("/coming-soon");
+  });
+
+  // Spec 376 U5 (D2) — the site-oversight landing. The project hub already IS the
+  // site dashboard (WP status, งวดงาน, schedule, photos), so U5 built no page: it
+  // points the role at /projects and lets saProjectsLandingTarget carry a
+  // single-project owner the last hop. Asserted on its own (not only inside the
+  // rest-unchanged table) so the arm has a named, greppable pin.
+  it("sends a site_owner to the project world (spec 376 U5)", () => {
+    expect(roleHome("site_owner")).toBe("/projects");
   });
 
   // Spec 130 / ADR 0051: external direct-contractor accounts land on the
@@ -137,10 +151,23 @@ describe("PURCHASING_ROLES", () => {
 
 // Spec 143 U2 / ADR 0056: project browsing now admits project_coordinator (the
 // see-all oversight role) alongside the existing site staff + procurement.
+// Spec 376 U5 (D2): + site_owner — the ADMIT half of the U5 page-gate audit. This
+// one set gates all three of the read surfaces the audit admitted by name:
+// /projects (the hub), /projects/[id] (the site dashboard) and the งวดงาน detail
+// /projects/[id]/deliverables/[id]. Every write affordance on those pages keys off
+// its OWN narrower predicate (isManagerRole for the deliverable rename and the
+// seeding/onboarding controls; WP_DETAIL_ROLES for the WP rows and the store
+// cluster; BACK_OFFICE / PURCHASE_REPORT / TEAM_MAP for rentals, costs, team), so
+// membership here can never open one — that separation is what makes the admit safe.
+//
+// Pinned over the EXHAUSTIVE role domain (USER_ROLE_LABEL is a Record<UserRole>, so
+// a new enum value reds here) as an EXACT positive set: a hand-listed denial loop
+// silently misses the next enum value — the spec-348-U5 allowlist lesson.
 describe("PROJECT_VIEW_ROLES", () => {
-  it("admits site staff, procurement, the coordinator, and the director", () => {
+  it("admits site staff, procurement, the coordinator, the director, and the site owner", () => {
+    const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
     // Spec 152 / ADR 0058: project_director browses every project (see-all).
-    expect([...PROJECT_VIEW_ROLES].sort()).toEqual(
+    expect(all.filter((r) => PROJECT_VIEW_ROLES.includes(r)).sort()).toEqual(
       [
         "procurement",
         "procurement_manager",
@@ -148,6 +175,10 @@ describe("PROJECT_VIEW_ROLES", () => {
         "project_director",
         "project_manager",
         "site_admin",
+        // Spec 376 U5: the site owner's landing — read-only, RLS-scoped to the
+        // project(s) it holds a project_members row for (can_see_project's
+        // membership arm, read live 2026-07-30).
+        "site_owner",
         "super_admin",
       ].sort(),
     );

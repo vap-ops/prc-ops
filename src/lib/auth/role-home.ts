@@ -273,15 +273,31 @@ export const BACK_OFFICE_ROLES: ReadonlyArray<UserRole> = [
  * visibility incl. the schedule; procurement is already a cross-project reader of
  * projects/WPs (and, after spec 173 U1, deliverables + dependencies), so the
  * schedule renders fully for it. project_coordinator is deliberately EXCLUDED
- * (spec 154: it can't follow the calendar chip — was a bounce). Same membership as
- * WP_DETAIL_ROLES today, but the meaning differs ("opens the schedule" vs "opens a
- * WP detail") — keep them separate per the role-doctrine convention.
+ * (spec 154: it can't follow the calendar chip — was a bounce). Kept separate from
+ * WP_DETAIL_ROLES ("opens the schedule" vs "opens a WP detail") — and spec 376 U5
+ * is exactly why: the two sets' memberships now DIVERGE.
  */
 export const SCHEDULE_VIEW_ROLES: ReadonlyArray<UserRole> = [
   ...SITE_STAFF_ROLES,
   "procurement",
   // Spec 261 / ADR 0070: procurement_manager reads the schedule like procurement.
   "procurement_manager",
+  // Spec 376 U5 (D2) — the site owner's ตารางงาน admit, from the U5 page-gate
+  // audit. The schedule is the one project sub-surface that is PURE read: the page
+  // renders no write control, and its one server action (getSchedulePhotos, which
+  // shares this gate) only mints short-lived signed URLs for photo rows the caller
+  // can already read under its own RLS session — the ADR 0015 exposure model, not
+  // a new grant. Every read behind it (projects / work_packages / deliverables /
+  // work_package_dependencies / photo_logs) resolves through can_see_project or
+  // can_see_wp, whose membership arm has admitted site_owner since spec 263 (live
+  // bodies read 2026-07-30), so this opens PAGE reach only — no data widens.
+  //
+  // The audit deliberately did NOT do the same to WP_DETAIL_ROLES: that set is
+  // shared with the store, store-item and incoming surfaces (all refused as
+  // write/ops), and the WP detail's read-only treatment is the binary
+  // isReadOnlyWpViewer, so an admit there would render every capture affordance
+  // and let the RPCs refuse them. That needs its own unit.
+  "site_owner",
 ];
 
 /**
@@ -463,6 +479,24 @@ export const PROJECT_VIEW_ROLES: ReadonlyArray<UserRole> = [
   "project_coordinator",
   // Spec 152 / ADR 0058: project_director is also a see-all role (browses all).
   "project_director",
+  // Spec 376 U5 (D2) — the site owner's landing. This set gates all three surfaces
+  // the U5 page-gate audit ADMITTED: the hub, the project page (which IS the site
+  // dashboard — WP status, งวดงาน, ตารางงาน) and the งวดงาน detail. Unlike the
+  // see-all roles above, site_owner is MEMBERSHIP-scoped: can_see_project's
+  // membership arm (project_members row or project_lead_id) has covered it since
+  // spec 263, so RLS already hands it exactly its own site and this widens page
+  // reach only. Its ONBOARDING is a project_members row — the /projects/[id]/team
+  // add picker already offers the role (PROJECT_TEAM_STAFF_ROLES); with none, every
+  // read returns empty and the hub renders its safe empty state.
+  //
+  // Read reach ONLY, and structurally so: every write affordance on these three
+  // pages keys off a narrower predicate site_owner is NOT in (isManagerRole,
+  // WP_DETAIL_ROLES, BACK_OFFICE_ROLES, PURCHASE_REPORT_ROLES, TEAM_MAP_ROLES,
+  // SUPPLY_PLAN_ROLES). The WP rows render in project_coordinator's proven
+  // non-interactive form (canOpen=false), which also suppresses the defect door.
+  // The audit's refuse column is pinned in role-sets.test.ts — read it before
+  // widening any of those sets.
+  "site_owner",
 ];
 
 /**
@@ -686,8 +720,22 @@ export function roleHome(role: UserRole): string {
   // /technician home (e-card + approval status + assigned-WPs placeholder) — the
   // anti-dead-end landing that replaces the /coming-soon fall-through for the
   // technician journey. Every OTHER still-unbuilt role (hr, subcon_manager,
-  // site_owner, auditor) keeps falling through to /coming-soon below.
+  // auditor) keeps falling through to /coming-soon below.
   if (role === "technician") return "/technician";
+  // Spec 376 U5 (D2, supersedes the site_owner half of the parked spec 313 U6 —
+  // the auditor half stays parked): the site owner lands on the project world.
+  // No new page was built: the project hub ALREADY is the site dashboard (WP
+  // status, งวดงาน, schedule), and can_see_project's membership arm already scopes
+  // a site_owner to their own site — U5 only opens the page gates (PROJECT_VIEW /
+  // SCHEDULE_VIEW) and gives the role its chrome.
+  //
+  // roleHome stays PURE. A single-project owner is carried the last hop to
+  // /projects/:id by saProjectsLandingTarget (PROJECT_LANDING_ROLES) at the hub
+  // itself, exactly like the SA's — the resolution needs a DB read and a cookie,
+  // neither of which belongs in this pure table. Zero projects → the hub renders
+  // empty, which is the safe stop (the role needs a project_members row; the
+  // /projects/:id/team add picker already offers site_owner).
+  if (role === "site_owner") return "/projects";
   return "/coming-soon";
 }
 

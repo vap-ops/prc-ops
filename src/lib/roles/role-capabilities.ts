@@ -101,7 +101,9 @@ export const ROLE_SUMMARY: Record<UserRole, string> = {
   legal: "ฝ่ายกฎหมาย — ระบบสัญญาและอนุมัติเอกสาร",
   hr: "ฝ่ายบุคคล — ยังไม่เปิดใช้งาน",
   subcon_manager: "ผู้จัดการผู้รับเหมาช่วง — ยังไม่เปิดใช้งาน",
-  site_owner: "หัวหน้าหน้างาน — ยังไม่เปิดใช้งาน",
+  // Spec 376 U5: no longer "ยังไม่เปิดใช้งาน" — the role homes on the project world
+  // (read-only: WP status, งวดงาน, ตารางงาน; no store/team/money surfaces).
+  site_owner: "เจ้าของไซต์ — ดูโครงการของตัวเอง (อ่านอย่างเดียว)",
   auditor: "ผู้ตรวจสอบ — ยังไม่เปิดใช้งาน",
   visitor: "ยังไม่ได้รับสิทธิ์ (ค่าเริ่มต้นหลังสมัคร)",
   contractor: "ผู้รับเหมาภายนอก — ใช้พอร์ทัล DC",

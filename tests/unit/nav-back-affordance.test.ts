@@ -270,10 +270,13 @@ const NON_DETAIL_ROUTES = [
   // have a real strip via hubNavForRole, so they also appear in
   // HUB_STRIP_ROUTES. Their sub-surfaces (/accounting/*, /legal/contracts,
   // /legal/approvals) stay DETAIL routes drilling down from them.
-  // ⚠️ /expenses was NOT promoted alongside them: hubNavForRole returns null for
+  // ⚠️ /expenses was NOT promoted alongside them: hubNavForRole returned null for
   // site_owner + auditor, so it would render no strip AND no back chip for the
   // roles U6 homes there. It stays a multi-parent detail route until U6 adds
-  // that coverage.
+  // that coverage. (Spec 376 U5 gave site_owner a strip + bar, so only AUDITOR is
+  // still uncovered — but U6's /expenses landing is superseded for site_owner
+  // anyway: D2 homes it on the project world, and /expenses stays a settings
+  // drill-down its ตั้งค่า tab claims via SETTINGS_TAB.match.)
   "accounting",
   // Spec 349 U2: /accounting/review is now the accounting role's HOME (roleHome
   // flip, work-queue-first). Promoted to hub chrome (AppHeader + HubNav, no back
@@ -479,9 +482,11 @@ describe("desktop hub-strip coverage (spec 153)", () => {
     // role never came from there). Both have a real strip via hubNavForRole
     // (ACCOUNTING_HUB_NAV / LEGAL_HUB_NAV), which is what makes the promotion
     // safe: a hub has no back chip, so the strip is the only nav affordance.
-    // ⚠️ /expenses is NOT here — hubNavForRole returns null for site_owner and
+    // ⚠️ /expenses is NOT here — hubNavForRole returned null for site_owner and
     // auditor, so promoting it would leave them with no chip AND no strip. It
-    // waits for U6 to add that coverage.
+    // waits for U6 to add that coverage. (Spec 376 U5 covered site_owner —
+    // SITE_OWNER_HUB_NAV — but D2 supersedes U6's /expenses landing for it, so
+    // /expenses stays an un-promoted detail route; AUDITOR is still uncovered.)
     "accounting",
     // Spec 349 U2: /accounting/review became the accounting role's home hub — it
     // renders the ACCOUNTING_HUB_NAV strip (its only nav affordance now the back
