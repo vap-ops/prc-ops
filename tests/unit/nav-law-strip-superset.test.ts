@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { tabsForRole } from "@/components/features/chrome/bottom-tab-bar";
@@ -76,5 +79,85 @@ describe("spec 313 U5 — no role is stranded on a promoted (chip-less) hub", ()
     // Either affordance is enough; neither means the page belongs to no section
     // and, with the chip gone, reads as a dead end.
     expect(onStrip || onBar).toBe(true);
+  });
+});
+
+// Spec 376 U3 follow-up — which served roles carry a /settings door.
+//
+// A review of U3 flagged /profile's hardcoded backHref="/settings" as a chip
+// "no technician can open (requireRole bounces them home)". That mechanism is
+// FALSE: /settings is getClaims-gated (src/app/settings/page.tsx), there is no
+// middleware.ts in the repo, and proxy.ts redirects only the unauthenticated —
+// every authenticated role opens it, and a technician sees a real page (its
+// ungated my-info section is pinned for technician in settings-sections.test.ts).
+//
+// What IS true is narrower and worth pinning: technician is the only role with a
+// nav world that does not contain /settings, so the /profile chip is the ONLY UI
+// path a ช่าง has into the settings hub — and therefore into /settings/my-info,
+// /settings/notifications and /feedback, each of which chips back to /settings.
+// That makes the chip load-bearing: re-pointing it (the review's suggested fix)
+// would REMOVE capability until the role gets a settings door of its own.
+//
+// Pinned as an EXACT set over ROLE_GROUP_ORDER (enum-guarded), not a hand-listed
+// membership check: giving technician that door — or shipping a second door-less
+// role — must red HERE and force the doc + the chip decision to be revisited.
+describe("spec 376 U3 — the roles whose nav world has no /settings door", () => {
+  const SETTINGS_HREF = "/settings";
+
+  // "Nav world" = renders a bottom bar and/or a hub strip. NOT the same as
+  // "has a built home": contractor (/portal) and client (/client) have homes and
+  // no /settings door either, but they render neither surface, so there is no
+  // nav for a door to be missing from.
+  const rolesWithNav = ROLE_GROUP_ORDER.filter(
+    (role) => tabsForRole(role) !== null || hubNavForRole(role) !== null,
+  );
+
+  // Prefix match, not equality: every /settings/* page chips back to /settings,
+  // so a nav item pointing at a SUB-route is also a door into the hub. That
+  // pattern already ships — ACCOUNTING_TABS + ACCOUNTING_HUB_NAV both carry
+  // /settings/company-docs — so an equality check here would go green if
+  // technician were handed a /settings/my-info item while the property this
+  // describe pins ("no way into the settings hub from the ช่าง's nav") stayed false.
+  const hasSettingsDoor = (role: string) => {
+    const reachesHub = (href: string) =>
+      href === SETTINGS_HREF || href.startsWith(`${SETTINGS_HREF}/`);
+    return (
+      (tabsForRole(role) ?? []).some((t) => reachesHub(t.href)) ||
+      (hubNavForRole(role) ?? []).some((i) => reachesHub(i.href))
+    );
+  };
+
+  it("has a meaningful nav-rendering role set (guards against the filter emptying)", () => {
+    expect(rolesWithNav.length).toBeGreaterThanOrEqual(9);
+  });
+
+  it("technician is the ONLY nav-rendering role without one", () => {
+    expect(rolesWithNav.filter((role) => !hasSettingsDoor(role))).toEqual(["technician"]);
+  });
+
+  it("a technician's only door to /settings is therefore off-nav", () => {
+    // The positive half of the same fact — asserted separately so the exact-set
+    // test above cannot be satisfied by technician simply losing its nav world.
+    expect(tabsForRole("technician")).not.toBeNull();
+    expect(hubNavForRole("technician")).not.toBeNull();
+    expect(hasSettingsDoor("technician")).toBe(false);
+  });
+
+  it("and that off-nav door is /profile's back chip", () => {
+    // Without this the describe pins only the ABSENCE, so re-pointing the chip —
+    // the very fix this note argues against — would leave every assertion above
+    // green while the capability it protects is gone. nav-back-affordance pins
+    // that /profile renders a DetailHeader, never where its chip goes.
+    // Comment-stripped: a doc comment quoting the href would otherwise stand in
+    // for the deleted attribute (the proven fake-coverage trap).
+    const src = readFileSync(
+      join(process.cwd(), "src", "app", "profile", "page.tsx"),
+      "utf8",
+    ).replace(/\/\*[\s\S]*?\*\//g, "");
+    const code = src
+      .split("\n")
+      .filter((l) => !/^\s*\/\//.test(l))
+      .join("\n");
+    expect(code.split(`backHref="${SETTINGS_HREF}"`).length - 1).toBe(1);
   });
 });
