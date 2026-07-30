@@ -4,7 +4,10 @@
 // the URL never binds — the approver confirms at approval (D5).
 
 import { RegisterFreshnessGate } from "@/components/features/chrome/register-freshness-gate";
+import { ForeignSessionNotice } from "@/components/features/register/foreign-session-notice";
 import { StaffRegisterWorkspace } from "@/components/features/register/staff-register-workspace";
+import { borrowedRegisterSession } from "@/lib/register/foreign-session";
+import { registerReturnPath } from "@/lib/register/register-entry";
 import { REGISTER_OFFICE_HEADING } from "@/lib/i18n/labels";
 
 export const metadata = { title: REGISTER_OFFICE_HEADING };
@@ -15,12 +18,27 @@ export default async function RegisterOfficePage({
   searchParams: Promise<{ by?: string; role?: string }>;
 }) {
   const { by, role } = await searchParams;
+  // Spec 376 U4 — the office door carries the SAME hazard as the field door: an
+  // invite link opened on a shared/office phone (or forwarded and opened on the
+  // inviter's own device) lands the invitee inside that live session, where the
+  // invite gate passes and the fresh form is filled under the wrong identity.
+  // Same interstitial, same two ways out — logout back to this door with
+  // ?by/?role, or on to the signed-in account's own home.
+  const borrowed = await borrowedRegisterSession();
   return (
     <>
       {/* Spec 339 U2 — see register/technician/page.tsx. Office workspace also
           redirects approved users (and gates un-invited ones) before render. */}
       <RegisterFreshnessGate />
-      <StaffRegisterWorkspace variant="office" by={by} role={role} />
+      {borrowed ? (
+        <ForeignSessionNotice
+          displayName={borrowed.displayName}
+          returnTo={registerReturnPath("office", { by, role })}
+          homeHref={borrowed.homeHref}
+        />
+      ) : (
+        <StaffRegisterWorkspace variant="office" by={by} role={role} />
+      )}
     </>
   );
 }

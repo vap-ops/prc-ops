@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import {
   staffRegisterCopy,
   registerLoginNext,
+  registerReturnPath,
   VISITOR_REGISTER_ENTRIES,
   REGISTER_FIELD_PATH,
   REGISTER_OFFICE_PATH,
@@ -136,6 +137,48 @@ describe("registerLoginNext", () => {
     for (const key of ["project", "site", "by", "contractor", "firm"]) {
       expect(parsed.searchParams.get(key)).toBe(qr.searchParams.get(key));
     }
+  });
+});
+
+// Spec 376 U4 — registerLoginNext's own body, now shared with the interstitial's
+// logout return path. Pinned directly so the two consumers can never drift apart
+// (both feed values into safeNextPath-guarded hops).
+describe("registerReturnPath", () => {
+  it("no params → the bare door path", () => {
+    expect(registerReturnPath("field")).toBe("/register/technician");
+    expect(registerReturnPath("office")).toBe("/register/office");
+  });
+
+  it("carries the QR params and stays safeNextPath-clean", () => {
+    const path = registerReturnPath("field", {
+      project: PROJECT,
+      site: "TFM โพธิ์ทอง",
+      by: BY,
+      contractor: CONTRACTOR,
+      firm: "ช่างอวย",
+    });
+    expect(safeNextPath(path)).toBe(path);
+    const parsed = new URL(path, "https://prc.invalid");
+    expect(parsed.pathname).toBe("/register/technician");
+    expect(parsed.searchParams.get("project")).toBe(PROJECT);
+    expect(parsed.searchParams.get("site")).toBe("TFM โพธิ์ทอง");
+  });
+
+  it("a slash label drops labels, keeps the uuid bindings", () => {
+    const parsed = new URL(
+      registerReturnPath("field", { project: PROJECT, firm: "a/b" }),
+      "https://prc.invalid",
+    );
+    expect(parsed.searchParams.get("project")).toBe(PROJECT);
+    expect(parsed.searchParams.get("firm")).toBeNull();
+  });
+
+  it("is exactly what registerLoginNext encodes into its next", () => {
+    const params = { project: PROJECT, site: "TFM โพธิ์ทอง", by: BY };
+    const loginUrl = registerLoginNext("field", params);
+    expect(decodeURIComponent(loginUrl.slice("/login?next=".length))).toBe(
+      registerReturnPath("field", params),
+    );
   });
 });
 
