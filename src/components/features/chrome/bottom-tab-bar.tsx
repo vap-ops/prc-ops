@@ -268,7 +268,9 @@ export function BottomTabBar({
   // Spec 376 U1 — see projects-tab-target.ts. Swap is render-only; the constant
   // (and every guard pinned to it) is untouched. The rendered item keeps
   // "/projects" in its match so the bare hub (?view=all) still lights it.
-  const saTarget = saProjectsTabHref({ role, pathname, projectsTabHref });
+  // ?? null: the prop is optional here, and exactOptionalPropertyTypes forbids
+  // forwarding `undefined` into the helper's optional `string | null`.
+  const saTarget = saProjectsTabHref({ role, pathname, projectsTabHref: projectsTabHref ?? null });
   const renderTabs = saTarget
     ? tabs.map((t) =>
         t.href === "/projects"

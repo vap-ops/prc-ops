@@ -73,3 +73,27 @@ describe("spec 292 U4 — sa/page.tsx renders the current-site switcher", () => 
     expect(src()).toMatch(/projects=\{saCurrent\.visibleProjects\}/);
   });
 });
+
+// Writing failing test first.
+//
+// Spec 376 U1 — the โครงการ tab's per-user href is resolved on the server and
+// handed to BottomTabBar. The swap logic itself is covered by
+// tests/unit/projects-tab-target.test.ts + the bar's own component tests; what
+// only a source pin can hold is that this page actually PASSES the prop —
+// sa/page.tsx is a Server Component vitest cannot render, and without the prop
+// the bar silently falls back to the static /projects (the exact hop U1 removes,
+// with nothing else in the suite noticing).
+describe("spec 376 U1 — sa/page.tsx hands the bar her project-tab href", () => {
+  const src = () => code("src/app/sa/page.tsx");
+
+  it("passes projectsTabHref exactly once, off the resolved current project", () => {
+    const s = src();
+    // EXACT count, not toContain: a second mount would be a stale duplicate.
+    expect(s.split("projectsTabHref").length - 1).toBe(1);
+    // Null-guarded: a zero-project SA keeps the static /projects (its redirect
+    // is still the fallback), and the href is built through the project-paths SSOT.
+    expect(s).toContain(
+      "projectsTabHref={primaryProjectId ? projectHref(primaryProjectId) : null}",
+    );
+  });
+});
