@@ -25,6 +25,7 @@ import {
   type AttachmentExt,
 } from "@/lib/purchasing/attachment-file";
 import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
+import type { PurchaseDocType } from "@/lib/purchasing/doc-chase";
 import { BUTTON_SECONDARY_MUTED, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 interface InvoiceUploaderProps {
@@ -40,6 +41,11 @@ interface InvoiceUploaderProps {
    *  failure. (`| undefined` explicit so ItemPhotoUploader can forward it under
    *  exactOptionalPropertyTypes.) */
   onUploaded?: (() => void) | undefined;
+  /** Spec 380 U5: the accounting-doc class, resolved by the caller (a select
+   *  the caller owns, or a context-derived default/inference — see
+   *  doc-type-defaults.ts). Omitted = the field is absent from the action
+   *  call, so callers that never type (PaymentProofUploader, ItemPhotoUploader) are unchanged. */
+  docType?: PurchaseDocType;
 }
 
 type UploadPhase = "idle" | "uploading" | "saving" | "error";
@@ -50,6 +56,7 @@ export function InvoiceUploader({
   label,
   action = addInvoiceAttachment,
   onUploaded,
+  docType,
 }: InvoiceUploaderProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +108,12 @@ export function InvoiceUploader({
       setPhase("saving");
       let result: Awaited<ReturnType<typeof addInvoiceAttachment>>;
       try {
-        result = await action({ purchaseRequestId, attachmentId, ext });
+        result = await action({
+          purchaseRequestId,
+          attachmentId,
+          ext,
+          ...(docType !== undefined ? { docType } : {}),
+        });
       } catch (err) {
         console.error("[invoice-uploader] action invocation failed", err);
         result = { ok: false, error: "บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
