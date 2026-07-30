@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { MONEY_TABLES, REGISTERED_MONEY_READ_SITES } from "@/lib/accounting/money-read-policy";
 
 // ERD audit M5 — the integration guard. Money tables are RLS zero-grant and read
@@ -11,7 +11,11 @@ import { MONEY_TABLES, REGISTERED_MONEY_READ_SITES } from "@/lib/accounting/mone
 
 const SRC = "src";
 
+/** Filesystem work the sweep actually performed — read by the cheapness guard. */
+const io = { dirs: 0, files: 0 };
+
 function walk(dir: string): string[] {
+  io.dirs += 1;
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
@@ -25,8 +29,18 @@ function toPosix(p: string): string {
   return p.split(sep).join("/");
 }
 
-/** Files that contain a direct `.from("<money table>")` read. */
-function discoverMoneyReadSites(): string[] {
+let discovered: readonly string[] | null = null;
+
+/** Files that contain a direct `.from("<money table>")` read.
+ *
+ *  Memoized: the two tests below ask the same question of the same tree, and
+ *  each call walks + reads all ~1036 `.ts`/`.tsx` files under src/ (5.8 MB).
+ *  Running it twice cost ~380ms idle but up to 6080ms under full-suite CPU+IO
+ *  load on the Windows box — past vitest's 5000ms default, seen RED 2026-07-30.
+ *  Linux CI is far too fast to ever catch a revert, so the sweep is pinned to
+ *  exactly one pass by the cheapness guard at the bottom of this file. */
+function discoverMoneyReadSites(): readonly string[] {
+  if (discovered) return discovered;
   const ignore = new Set([
     "src/lib/db/database.types.ts",
     "src/lib/accounting/money-read-policy.ts",
@@ -36,11 +50,19 @@ function discoverMoneyReadSites(): string[] {
   for (const file of walk(SRC)) {
     const rel = toPosix(relative(".", file));
     if (ignore.has(rel)) continue;
+    io.files += 1;
     const text = readFileSync(file, "utf8");
     if (patterns.some((p) => text.includes(p))) hits.push(rel);
   }
-  return hits.sort();
+  discovered = hits.sort();
+  return discovered;
 }
+
+// Warmed in a hook so the one-time cost lands on hookTimeout rather than on
+// whichever `it` happens to run first.
+beforeAll(() => {
+  discoverMoneyReadSites();
+});
 
 describe("money-read tenant-scope guard (ERD audit M5)", () => {
   it("every money-table read site is registered in money-read-policy.ts", () => {
@@ -56,12 +78,33 @@ describe("money-read tenant-scope guard (ERD audit M5)", () => {
   });
 
   it("no registered money-read site is stale (each still reads a money table)", () => {
-    const discovered = new Set(discoverMoneyReadSites());
-    const stale = REGISTERED_MONEY_READ_SITES.filter((f) => !discovered.has(f));
+    const sites = new Set(discoverMoneyReadSites());
+    const stale = REGISTERED_MONEY_READ_SITES.filter((f) => !sites.has(f));
     expect(
       stale,
       `These files are registered in money-read-policy.ts but no longer read a money table — remove them:\n` +
         stale.map((f) => `  - ${f}`).join("\n"),
     ).toEqual([]);
+  });
+
+  // The cheapness guard. Both tests above scan the whole src tree, so this file
+  // is only affordable while that scan runs ONCE — and the regression breaks no
+  // assertion and cannot go red on Linux CI, so it is pinned here instead.
+  it("discovers the read sites with exactly one sweep of src/", () => {
+    const sites = discoverMoneyReadSites();
+    // A collapsed walk would leave test 1 passing vacuously (nothing found ⇒
+    // nothing unregistered). Test 2 would catch it, but state it outright.
+    expect(
+      io.files,
+      "the src/ sweep came back near-empty — test 1 above is now vacuous",
+    ).toBeGreaterThan(500);
+    expect(sites.length).toBeGreaterThan(0);
+
+    const before = { ...io };
+    discoverMoneyReadSites();
+    expect(
+      io,
+      "discoverMoneyReadSites() must be memoized — a later call re-walked or re-read src/",
+    ).toEqual(before);
   });
 });

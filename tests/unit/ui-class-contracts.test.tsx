@@ -18,7 +18,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { RadioChip } from "@/components/features/common/radio-chip";
@@ -50,16 +50,64 @@ export function topHalfViolations(content: string): string[] {
   return out;
 }
 
-function tsxFiles(
-  dir: string,
-  match: (name: string) => boolean = (n) => n.endsWith(".tsx"),
-): string[] {
+// ---------------------------------------------------------------------------
+// ONE src/ sweep for the whole file.
+//
+// Four static scans below ask four different questions of the SAME tree. Run
+// per-`it` they walked and read it four times over — 3126 readFileSync calls /
+// 17.9 MB, measured at 1712ms of a 2089ms total on an idle box against just
+// 269ms of actual checking. Under full-suite CPU+IO load that multiplies: the
+// colour-override scan was seen at 5456ms (past vitest's 5000ms default) and
+// 18622ms, and 16 concurrent processes here put every one of the four between
+// 2.1s and 3.4s. So the tree is walked once, read once, and filtered in memory.
+//
+// Linux CI runs this in well under a second, so a revert to per-scan reads
+// could NEVER go red there — the cheapness guard at the bottom of this file is
+// what holds the invariant instead.
+// ---------------------------------------------------------------------------
+
+const SRC_ROOT = path.resolve(__dirname, "../../src");
+
+type SrcFile = { readonly rel: string; readonly content: string };
+
+/** Filesystem work the sweep actually performed — read by the cheapness guard. */
+const io = { dirs: 0, files: 0 };
+
+let sweep: readonly SrcFile[] | null = null;
+
+function walkSrc(dir: string): string[] {
+  io.dirs += 1;
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) return tsxFiles(p, match);
-    return match(e.name) ? [p] : [];
+    if (e.isDirectory()) return walkSrc(p);
+    return e.name.endsWith(".tsx") || e.name.endsWith(".ts") ? [p] : [];
   });
 }
+
+/** Every `.ts`/`.tsx` file under src/, read ONCE per process and memoized.
+ *  `rel` is posix-normalised so a scan can compare it against a checked-in path. */
+function srcFiles(): readonly SrcFile[] {
+  if (sweep) return sweep;
+  sweep = walkSrc(SRC_ROOT).map((abs) => {
+    io.files += 1;
+    return {
+      rel: path.relative(SRC_ROOT, abs).replaceAll(path.sep, "/"),
+      content: fs.readFileSync(abs, "utf8"),
+    };
+  });
+  return sweep;
+}
+
+/** The `.tsx` subset — the two className scans only ever looked at components. */
+function tsxFiles(): readonly SrcFile[] {
+  return srcFiles().filter((f) => f.rel.endsWith(".tsx"));
+}
+
+// Warmed in a hook so the one-time cost lands on hookTimeout rather than on
+// whichever `it` happens to run first (the #865 lightbox-warmup shape).
+beforeAll(() => {
+  srcFiles();
+});
 
 describe("absolute-centering contract (#236 bug class)", () => {
   it("the checker flags top-1/2 without the translate, and only that", () => {
@@ -70,11 +118,9 @@ describe("absolute-centering contract (#236 bug class)", () => {
   });
 
   it("no className in src/ uses top-1/2 without -translate-y-1/2", () => {
-    const srcRoot = path.resolve(__dirname, "../../src");
-    const offenders = tsxFiles(srcRoot).flatMap((f) => {
-      const hits = topHalfViolations(fs.readFileSync(f, "utf8"));
-      return hits.map((h) => `${path.relative(srcRoot, f)}: ${h}`);
-    });
+    const offenders = tsxFiles().flatMap((f) =>
+      topHalfViolations(f.content).map((h) => `${f.rel}: ${h}`),
+    );
     expect(offenders, "add -translate-y-1/2 next to top-1/2 (see #236)").toEqual([]);
   });
 });
@@ -152,14 +198,11 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
   });
 
   it("no className in src/ uses overflow-x-auto without [touch-action:pan-x_pinch-zoom]", () => {
-    const srcRoot = path.resolve(__dirname, "../../src");
-    const offenders = tsxFiles(srcRoot).flatMap((f) => {
-      const rel = path.relative(srcRoot, f).replaceAll(path.sep, "/");
-      const hits = scrollRowTouchActionViolations(fs.readFileSync(f, "utf8"), {
-        allowManipulation: MANIPULATION_ALLOWED_FILES.has(rel),
-      });
-      return hits.map((h) => `${rel}: ${h}`);
-    });
+    const offenders = tsxFiles().flatMap((f) =>
+      scrollRowTouchActionViolations(f.content, {
+        allowManipulation: MANIPULATION_ALLOWED_FILES.has(f.rel),
+      }).map((h) => `${f.rel}: ${h}`),
+    );
     expect(
       offenders,
       "add [touch-action:pan-x_pinch-zoom] next to overflow-x-auto (see feedback 14263ad8; tall 2-axis surfaces may use [touch-action:manipulation] once allow-listed in MANIPULATION_ALLOWED_FILES)",
@@ -532,31 +575,80 @@ describe("shared-constant colour-override contract (2026-07-26 bug class)", () =
   // import would sail straight past it, so pin that src/ never uses one — the
   // guard's reach is then a fact about the repo, not an assumption.
   it("src/ imports the class constants only in the named form the scan can read", () => {
-    const srcRoot = path.resolve(__dirname, "../../src");
-    const odd = tsxFiles(srcRoot, (n) => n.endsWith(".tsx") || n.endsWith(".ts")).filter((f) =>
+    const odd = srcFiles().filter((f) =>
       /import\s+(?!type\s)(?:\*\s*as\s+\w+|\w+\s*,)\s*.*from\s*["'][^"']*\/ui\/classes["']/.test(
-        fs.readFileSync(f, "utf8"),
+        f.content,
       ),
     );
     expect(
-      odd.map((f) => path.relative(srcRoot, f).replaceAll(path.sep, "/")),
+      odd.map((f) => f.rel),
       "namespace/default imports of @/lib/ui/classes are invisible to the colour-override scan — use named imports",
     ).toEqual([]);
   });
 
   it("no className in src/ overrides a colour a shared constant already sets", () => {
-    const srcRoot = path.resolve(__dirname, "../../src");
-    const offenders = tsxFiles(srcRoot, (n) => n.endsWith(".tsx") || n.endsWith(".ts")).flatMap(
-      (f) => {
-        const rel = path.relative(srcRoot, f).replaceAll(path.sep, "/");
-        return constColorOverrides(fs.readFileSync(f, "utf8"), CONSTANTS).map(
-          (h) => `${rel}: ${h}`,
-        );
-      },
+    const offenders = srcFiles().flatMap((f) =>
+      constColorOverrides(f.content, CONSTANTS).map((h) => `${f.rel}: ${h}`),
     );
     expect(
       offenders,
       "the constant wins or loses by the GENERATED stylesheet's order, not the className's — compose CARD_LAYOUT (geometry only) and spell out both colours at the call site",
     ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cheapness guard for the sweep above.
+//
+// Every scan in this file is a whole-tree static scan, and the cost is almost
+// entirely I/O — so the file is only affordable while the tree is read ONCE.
+// The regression is invisible everywhere it would normally be caught: it breaks
+// no assertion, and Linux CI is fast enough that even four full sweeps stay
+// green there. It only ever surfaces as a Windows timeout on a loaded box,
+// which is not a signal anyone can act on. So the invariant is asserted here.
+// ---------------------------------------------------------------------------
+
+describe("src/ sweep cheapness guard", () => {
+  it("walks and reads the tree exactly once, however many scans consume it", () => {
+    const files = srcFiles();
+
+    // A walk that silently yielded nothing would make all four scans above pass
+    // VACUOUSLY — the one real hazard of hoisting them onto a shared loader.
+    // Floors, not exact counts: src/ grows, and a collapsed sweep is the defect.
+    expect(
+      files.length,
+      "the src/ sweep came back near-empty — every scan above is now vacuous",
+    ).toBeGreaterThan(500);
+    expect(tsxFiles().length, "the .tsx subset came back near-empty").toBeGreaterThan(300);
+
+    // Exactly one read per file. Four unhoisted scans made this 4x the count.
+    expect(io.files, "src/ was read more than once — hoist the scan, do not re-read").toBe(
+      files.length,
+    );
+
+    const before = { ...io };
+    srcFiles();
+    tsxFiles();
+    expect(io, "srcFiles() must be memoized — a later call re-walked or re-read src/").toEqual(
+      before,
+    );
+  });
+
+  it("reads the filesystem only from the shared loader", () => {
+    // The counters above cannot see a scan that calls fs directly, so pin the
+    // call sites too. The needle is built from a variable so this assertion
+    // cannot match itself, and whitespace is collapsed first because prettier
+    // wraps one of the real calls as `fs\n  .readFileSync(`.
+    // Expected: globals.css, the loader, and this file's own read below.
+    const countCalls = (src: string, fn: string) =>
+      src.replace(/\s+/g, "").split(`fs.${fn}(`).length - 1;
+    const own = stripCommentLines(
+      fs.readFileSync(path.join(__dirname, "ui-class-contracts.test.tsx"), "utf8"),
+    );
+    expect(
+      countCalls(own, "readFileSync"),
+      "a new file read appeared outside the memoized loader — that is the per-scan sweep this guard exists to prevent",
+    ).toBe(3);
+    expect(countCalls(own, "readdirSync"), "src/ must be walked from walkSrc() alone").toBe(1);
   });
 });
