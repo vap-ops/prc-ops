@@ -49,6 +49,7 @@ import {
   buildSaActionList,
   bounceAnswered,
   isBounceableStatus,
+  staleCutoffFromNow,
   type BouncedWp,
   type ReworkInfo,
 } from "@/lib/sa/action-list";
@@ -137,7 +138,10 @@ export default async function SaHomePage() {
     reworkWps.length
       ? supabase
           .from("audit_log")
-          .select("target_id, payload")
+          // Spec 384 U1 — created_at is a rework row's AGE (when it landed back on
+          // the SA), which the stale band and the within-group order read. The
+          // query already orders by it; it just was not selected.
+          .select("target_id, payload, created_at")
           .in(
             "target_id",
             reworkWps.map((w) => w.id),
@@ -240,6 +244,8 @@ export default async function SaHomePage() {
           comment: dec.comment,
           // Spec 355 — why the photos came back; drives the row chip + CTA.
           revisionReason: dec.revision_reason ?? null,
+          // Spec 384 U1 — when this bounce landed back on the SA. Already fetched.
+          decidedAt: dec.decided_at,
           // Answered → the ball is with the decider; the item leaves this list. The
           // rule differs per cause (a premature bounce writes no resubmit audit row
           // at all), so it has one home in action-list.ts.
@@ -259,7 +265,9 @@ export default async function SaHomePage() {
   // (spec 216/217); the round is on the WP itself. reopenRes was read in the batch.
   const reworkInfo = new Map<string, ReworkInfo>();
   for (const w of reworkWps) {
-    const p = (reopenRes.data ?? []).find((r) => r.target_id === w.id)?.payload as {
+    // Rows arrive newest-first, so the first match is the CURRENT reopen.
+    const reopen = (reopenRes.data ?? []).find((r) => r.target_id === w.id);
+    const p = reopen?.payload as {
       reason?: string;
       source?: ReworkSource;
     } | null;
@@ -267,6 +275,9 @@ export default async function SaHomePage() {
       reason: p?.reason ?? null,
       source: p?.source === "client" || p?.source === "internal" ? p.source : null,
       round: w.rework_round,
+      // Spec 384 U1 — no reopen row means the age is UNKNOWN, and unknown is not
+      // old: the row sorts last in its group and is never banded stale.
+      since: reopen?.created_at ?? null,
     });
   }
 
@@ -335,7 +346,7 @@ export default async function SaHomePage() {
 
         {/* 1 · ต้องแก้ไข — WPs the PM/defect bounced back (spec 218), pinned top,
             color-coded, one tap to the capture. Renders nothing when empty. */}
-        <SaActionSection items={actions} />
+        <SaActionSection items={actions} staleBeforeIso={staleCutoffFromNow()} />
 
         {/* ปัญหาวันนี้ — today's reported site issues (spec 277 P1a). Renders nothing
             when the day has no issues (conditional-section idiom). */}

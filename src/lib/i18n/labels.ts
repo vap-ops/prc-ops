@@ -323,6 +323,18 @@ export const MY_WORK_SORT_NOTE = "เรียงตามรูปล่าส�
 export const noPhotoRuleLabel = (days: number, count: number) =>
   `ไม่มีรูปใน ${days} วัน · ${count} งาน`;
 
+// Spec 384 U1 — the ต้องแก้ไข section receives the PM's SWEEP (12–16 bounces at
+// once), so a fresh batch collapses to one row per reason and the rows nobody came
+// back to are banded out and always shown. These two are the only new strings: the
+// group headings themselves are the EXISTING decision/reason SSOTs
+// (APPROVAL_REVISION_REASON_LABEL / APPROVAL_DECISION_LABEL), read through the
+// section's own KIND_META so the group heading and the row chip cannot drift apart.
+/** The band above the reason groups: rows older than the stale boundary. */
+export const staleActionBandLabel = (days: number, count: number) =>
+  `ค้างเกิน ${days} วัน · ${count} งาน`;
+/** A reason group's size, on both the collapsed row and the open heading. */
+export const actionGroupCountLabel = (count: number) => `${count} งาน`;
+
 // Spec 375 U3 — the custody pair. The SA holds BOTH materials and equipment, and
 // both are withdrawals from the same physical store, so they carry one heading.
 // ⚠️ `เบิกวัสดุ` REPLACES the generic คลัง tile — there is exactly one materials
