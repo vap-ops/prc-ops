@@ -75,6 +75,7 @@ import {
   INCOMING_LENS_LABEL,
   DELIVERY_LENS_FILTER_ARIA,
   DELIVERY_OVERDUE_FLAG,
+  DOC_MISSING_LABEL,
 } from "@/lib/i18n/labels";
 import { bahtCompact as baht } from "@/lib/format";
 import type { Database } from "@/lib/db/database.types";
@@ -323,6 +324,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
 
   // Spec 134 U2: the in_transit band's rows collapse into PO cards; derive those PO
   // groups here so their ids feed the PO-facts read in the concurrent batch below.
+  // Deliberately sourced from procurementGroups, NOT chipGroups: the doc-chase
+  // scope is delivered/site_purchased only (IN_SCOPE_STATUSES), which never
+  // includes in_transit (purchased/on_route) — so ?docs=missing can only ever
+  // DROP this band, never narrow it, and the unfiltered set is always correct
+  // here. Re-check this invariant before ever widening IN_SCOPE_STATUSES.
   const inTransitGrouped = groupByPurchaseOrder(
     procurementGroups.find((g) => g.meta.band === "in_transit")?.items ?? [],
   );
@@ -331,6 +337,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // each depends only on the loaded request rows — so load them in ONE concurrent wave
   // (loadRequestsData) instead of the ~10 serial round-trips this page used to run.
   // Output is byte-identical to the former inline reads (pinned by load-requests-data.test).
+  // Spec 380 U4: loadDocChaseOrders depends on nothing loadRequestsData produces
+  // (and vice versa) — fired in the SAME wave, not after it, per this page's own
+  // TTFB rule above (independent reads belong in one Promise.all, not serial awaits).
+  const [requestsData, docChase] = await Promise.all([
+    loadRequestsData({
+      supabase,
+      myRequests,
+      isProcurement,
+      inTransitPoIds: inTransitGrouped.poGroups.map((g) => g.poId),
+    }),
+    isProcurement ? loadDocChaseOrders(supabase) : Promise.resolve({ orders: [], nowMs: 0 }),
+  ]);
   const {
     requesterNames,
     wpById,
@@ -345,16 +363,14 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     categoryVendors,
     docCountById,
     categoryMatchById,
-  } = await loadRequestsData({
-    supabase,
-    myRequests,
-    isProcurement,
-    inTransitPoIds: inTransitGrouped.poGroups.map((g) => g.poId),
-  });
-
-  // Spec 380 U4: the doc-chase verdict per in-scope order (chip + ?docs=missing).
+  } = requestsData;
   // Same SSOT read as the hub chip and /requests/docs — never a local re-derivation.
-  const docChase = isProcurement ? await loadDocChaseOrders(supabase) : { orders: [], nowMs: 0 };
+  // ⚠ docChase.orders is the FULL unbounded set, but the chip/filter only ever
+  // meets rows already inside myRequests (PR_DECIDED_LIMIT above) — a missing-doc
+  // order older than that window has no row here to chip, so ?docs=missing on
+  // THIS page is a convenience lens over what's on screen, not a complete count.
+  // /requests/docs (U3) and the dashboard chip read docChase directly and stay
+  // authoritative for the true total.
   const docCoverage = docCoverageById(docChase.orders);
   const docsMissingActive = isProcurement && singleParam(docsParam) === "missing";
   const chipGroups = docsMissingActive
@@ -362,6 +378,20 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         .map((g) => ({ ...g, items: g.items.filter((r) => docCoverage.get(r.id) === "missing") }))
         .filter((g) => g.items.length > 0)
     : procurementGroups;
+  // Entry point + toggle for the docs lens — mirrors the site view's `reqHref`
+  // shape (a self-contained href over the CURRENT axes, not routed through
+  // buildWorklistQuery/ProcurementFilters — same house pattern as `mine`/
+  // `incoming`, which are narrow single-purpose lenses that don't propagate
+  // through the compositional filter controls either).
+  const docsToggleHref = (() => {
+    const base = buildWorklistQuery(filter);
+    const [path, qs] = base.split("?");
+    const params = new URLSearchParams(qs ?? "");
+    if (docsMissingActive) params.delete("docs");
+    else params.set("docs", "missing");
+    const s = params.toString();
+    return s ? `${path}?${s}` : (path ?? "/requests");
+  })();
 
   // A WP-less PR (null work_package_id) is project-level / store-bound.
   const wpFor = (id: string | null) => (id ? wpById.get(id) : undefined);
@@ -674,6 +704,18 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                   live counts) — replaces the status <select>. Sits between the KPI
                   hero and the supplier/project pickers. */}
               <WorklistStatusChips chips={statusChips} />
+              {/* Spec 380 U4: the doc-chase lens — toggles ?docs=missing over
+                  whatever axes are already active. Entry point for the row
+                  chips above; /requests/docs stays the unbounded chase list. */}
+              <div className="flex flex-wrap items-center gap-1 text-xs">
+                <Link
+                  href={docsToggleHref}
+                  aria-pressed={docsMissingActive}
+                  className={worklistChipClass(docsMissingActive)}
+                >
+                  {DOC_MISSING_LABEL}
+                </Link>
+              </div>
               {/* Spec 110: supplier / project filters (the status <select> moved to
                   the U3 chips above). */}
               <ProcurementFilters
@@ -681,9 +723,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 suppliers={supplierOptions}
                 projects={projectOptions}
               />
-              {procurementGroups.length === 0 ? (
+              {chipGroups.length === 0 ? (
                 <EmptyNotice>
-                  {filterActive ? "ไม่พบคำขอซื้อตามตัวกรอง" : "ยังไม่มีคำขอซื้อ"}
+                  {filterActive || docsMissingActive
+                    ? "ไม่พบคำขอซื้อตามตัวกรอง"
+                    : "ยังไม่มีคำขอซื้อ"}
                 </EmptyNotice>
               ) : (
                 <>
