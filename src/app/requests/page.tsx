@@ -9,6 +9,8 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
 import { loadRequestsData } from "@/lib/purchasing/load-requests-data";
+import { docCoverageById } from "@/lib/purchasing/doc-chase-view";
+import { loadDocChaseOrders } from "@/lib/purchasing/load-doc-chase";
 
 // /requests — THE purchasing worklist for every role (spec 19 §4 merged
 // the PM decision queue here; spec 16 A1 / ADR 0026 made the list
@@ -101,6 +103,9 @@ interface RequestsPageProps {
     q?: string | string[];
     // Spec 300 U1: the SA delivery lens over the incoming band (today | onroute | all).
     incoming?: string | string[];
+    // Spec 380 U4: docs=missing narrows the procurement bands to orders still
+    // owing accounting documents (the /requests/docs chase list's row set).
+    docs?: string | string[];
   }>;
 }
 
@@ -130,6 +135,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     band: bandParam,
     q: qParam,
     incoming: incomingParam,
+    docs: docsParam,
   } = await searchParams;
 
   // Spec 110: parse the worklist filter (procurement only — SA/PM ignore it).
@@ -346,6 +352,17 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
     inTransitPoIds: inTransitGrouped.poGroups.map((g) => g.poId),
   });
 
+  // Spec 380 U4: the doc-chase verdict per in-scope order (chip + ?docs=missing).
+  // Same SSOT read as the hub chip and /requests/docs — never a local re-derivation.
+  const docChase = isProcurement ? await loadDocChaseOrders(supabase) : { orders: [], nowMs: 0 };
+  const docCoverage = docCoverageById(docChase.orders);
+  const docsMissingActive = isProcurement && singleParam(docsParam) === "missing";
+  const chipGroups = docsMissingActive
+    ? procurementGroups
+        .map((g) => ({ ...g, items: g.items.filter((r) => docCoverage.get(r.id) === "missing") }))
+        .filter((g) => g.items.length > 0)
+    : procurementGroups;
+
   // A WP-less PR (null work_package_id) is project-level / store-bound.
   const wpFor = (id: string | null) => (id ? wpById.get(id) : undefined);
   // Spec 301 U2a: display anchor — the binding WP (legacy rows) or the
@@ -434,7 +451,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // Spec 109: the desktop grid + its review drawer is a client component, so the
   // page bakes wp name/code + amount into serializable records (a client boundary
   // can't take server-closure functions). Procurement-only, mirroring the bands.
-  const gridGroups = procurementGroups.map(({ meta, items }) => ({
+  const gridGroups = chipGroups.map(({ meta, items }) => ({
     meta,
     // Spec 134 U2b: order the in_transit band so each PO's members are contiguous
     // (PO groups first-appearance, then loose) — the grid renders a PO header
@@ -483,6 +500,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         received_by: r.received_by,
         delivery_note: r.delivery_note,
         doc_count: docCountById.get(r.id) ?? 0,
+        doc_coverage: docCoverage.get(r.id) ?? null,
         // Spec 230: the PR's managed material category (its catalog item's category).
         category_id: prCategory.get(r.id)?.id ?? null,
         category_name: prCategory.get(r.id)?.name ?? null,
@@ -538,6 +556,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             eta: r.eta,
           }}
           workPackage={wp ? { code: wp.code, name: wp.name, categoryCode: wp.categoryCode } : null}
+          docCoverage={docCoverage.get(r.id) ?? null}
           requesterName={
             (r.requested_by ? requesterNames.get(r.requested_by) : null) ??
             r.requested_by_email ??
@@ -670,7 +689,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                 <>
                   {/* Spec 104: card pipeline on phone. */}
                   <div className="flex flex-col gap-6 lg:hidden">
-                    {procurementGroups.map(({ meta, items }) => (
+                    {chipGroups.map(({ meta, items }) => (
                       <section key={meta.band} className="flex flex-col gap-2.5">
                         <div className="flex items-center gap-2">
                           <h3

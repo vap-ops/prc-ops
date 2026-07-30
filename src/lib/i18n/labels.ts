@@ -393,6 +393,7 @@ export const DOC_MISSING_LABEL = "ไม่มีเอกสาร";
 export const DOC_CHIP_SITE_PAPER = "ใบส่งของ/ใบเสร็จ";
 export const DOC_CHIP_VENDOR_DOC = "เอกสารร้านค้า";
 export const DOC_WAIVED_LABEL = "ยกเว้นโดยบัญชี";
+export const DOC_COMPLETE_LABEL = "เอกสารครบ";
 export const DOC_CHASE_EMPTY_LABEL = "ไม่มีรายการรอเอกสาร";
 // Spec 303 — goods-photo integrity: the receive proof is taken live (capture),
 // must cover everything received, and pairs with the row's delivered amount.

@@ -38,6 +38,21 @@ describe("chase page (/requests/docs) source pins", () => {
   });
 });
 
+describe("/requests worklist doc-chase pins (U4)", () => {
+  const reqPage = strip(readFileSync("src/app/requests/page.tsx", "utf8"));
+
+  it("loads the SSOT and threads the verdict to BOTH renderers (grid record + phone card)", () => {
+    expect(count(reqPage, "loadDocChaseOrders")).toBe(2);
+    expect(count(reqPage, "docCoverage.get(r.id)")).toBe(2);
+  });
+
+  it("?docs=missing narrows the pipeline groups behind its own gate", () => {
+    expect(count(reqPage, "docsMissingActive")).toBe(2);
+    expect(count(reqPage, 'singleParam(docsParam) === "missing"')).toBe(1);
+    expect(count(reqPage, "chipGroups")).toBe(3);
+  });
+});
+
 describe("procurement dashboard doc-chase pins", () => {
   it("carries the chip label in strip AND card (plus the import)", () => {
     expect(count(dash, "DOC_MISSING_LABEL")).toBe(3);
