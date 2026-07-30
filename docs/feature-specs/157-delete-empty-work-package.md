@@ -42,8 +42,9 @@ own spec, ADR 0059 §3).
   coordinator), behind the themed `ConfirmDialog` (no `window.confirm` —
   ui-conventions §7). On success it navigates to `/projects/[id]` (the WP is gone,
   so `router.refresh` would 404). If the WP is non-empty the RPC raises `P0001` →
-  the inline "ลบไม่ได้ — งานนี้มีรูป แรงงาน หรือคำขอซื้อแล้ว" message points at the future
-  cancel path.
+  an inline refusal message points at the future cancel path. _(The exact copy
+  has changed twice since this line was written — see ADR 0059 §3 for the
+  current guard scope; do not quote wording here, it goes stale.)_
 - `database.types.ts` regenerated after `db:push` + `db:types`.
 
 ## TDD

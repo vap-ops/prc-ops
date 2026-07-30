@@ -2,8 +2,8 @@
 --
 -- The guard's exists() list was hand-grown per spec and had drifted from the FK
 -- graph. Audited live 2026-07-30 (pg_constraint over confrelid = work_packages,
--- 24 referencing columns + a name sweep): a WP whose only references were in the
--- unlisted tables either
+-- 26 referencing columns across 24 tables + a name sweep): a WP whose only
+-- references were in the unlisted tables either
 --   * died mid-delete on a ledger BEFORE DELETE trigger (stock_issues — its FK
 --     is ON DELETE CASCADE and the cascade hits stock_issues_no_delete),
 --   * silently destroyed cross-role history (CASCADE: daily_work_plan_items,
@@ -18,8 +18,9 @@
 --
 -- Deliberately STILL cascading (audited, not missed):
 --   * notification_outbox — system queue; RLS on, zero policies, no reader.
---   * wp_briefs DRAFT row — 377 U1 ruling: the draft dies with the WP, the
---     published wp_brief_versions rows are the blocking history (ADR 0086 §4).
+--   * wp_briefs DRAFT row — 377 U1's own fresh-eyes fix (mig 20260813075874):
+--     the draft FK cascades (derived content), the published wp_brief_versions
+--     rows are the blocking history (already a guard arm, unchanged here).
 --
 -- Body-only CREATE OR REPLACE sourced from the LIVE definition (mig 075874's
 -- form) — signature, DEFINER, search_path, role gate, audit write unchanged.

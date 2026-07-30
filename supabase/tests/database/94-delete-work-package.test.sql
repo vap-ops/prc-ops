@@ -72,7 +72,9 @@ insert into public.work_packages (id, project_id, code, name) values
   ('c0110157-0157-0157-0157-c0c0c1100157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-RF', 'มีที่มาคำขอ'),
   ('c0120157-0157-0157-0157-c0c0c1200157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-DP', 'มีแผนวัน'),
   ('c0130157-0157-0157-0157-c0c0c1300157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-EC', 'มีงบ'),
-  ('c0150157-0157-0157-0157-c0c0c1500157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-CH', 'งานย่อย');
+  ('c0150157-0157-0157-0157-c0c0c1500157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-CH', 'งานย่อย'),
+  ('c0160157-0157-0157-0157-c0c0c1600157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-LC', 'มีต้นทุนแรงงาน'),
+  ('c0170157-0157-0157-0157-c0c0c1700157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-SU', 'มีปัญหาหน้างาน');
 -- wp_hierarchy_guard: a parent must be a group (งาน) — insert WP-PA as one.
 insert into public.work_packages (id, project_id, code, name, is_group) values
   ('c0140157-0157-0157-0157-c0c0c1400157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-PA', 'มีงานย่อย', true);
@@ -102,6 +104,13 @@ insert into public.daily_work_plan_items (plan_id, work_package_id) values
 
 insert into public.wp_economics (work_package_id) values
   ('c0130157-0157-0157-0157-c0c0c1300157');
+
+insert into public.wp_labor_costs (work_package_id, own_cost, dc_cost, frozen_by) values
+  ('c0160157-0157-0157-0157-c0c0c1600157', 0, 0, '11111111-1111-1111-1111-111111110157');
+
+insert into public.site_issues (project_id, work_package_id, issue_type, reported_by) values
+  ('a1a10157-0157-0157-0157-a1a1a1a10157', 'c0170157-0157-0157-0157-c0c0c1700157',
+   'other', '11111111-1111-1111-1111-111111110157');
 
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
@@ -239,33 +248,55 @@ select is(
                  'c0150157-0157-0157-0157-c0c0c1500157')),
   2, 'parent and child both survive');
 
+-- C.7 a WP with frozen labor cost is refused (was a raw 23503).
+select throws_ok(
+  $$ select public.delete_work_package('c0160157-0157-0157-0157-c0c0c1600157') $$,
+  'P0001',
+  'delete_work_package: work package has history (photos/labor/approvals/requests/members/dependencies/brief/stock/plans/money) — cancel it instead',
+  'a WP with a frozen wp_labor_costs row is refused');
+
+-- C.8 a WP with a reported site issue is refused (was a silent SET NULL unlink).
+select throws_ok(
+  $$ select public.delete_work_package('c0170157-0157-0157-0157-c0c0c1700157') $$,
+  'P0001',
+  'delete_work_package: work package has history (photos/labor/approvals/requests/members/dependencies/brief/stock/plans/money) — cancel it instead',
+  'a WP with a reported site issue is refused');
+
 reset role;
 
--- C.6 wiring pins: every remaining guarded table appears in the LIVE body as a
---     guard read (behavioural coverage above carries the message contract; these
---     pin the arms whose fixtures would drag in whole subsystems).
+-- C.9 wiring pins: the remaining guarded tables — whose behavioural fixtures
+--     would drag in whole subsystems (GL journal lines, equipment usage,
+--     variance snapshots, subcontracts, muster, supply plans) — appear in the
+--     LIVE body as a guard read scoped to THIS WP's id, not just mentioned
+--     anywhere in the function text (a stray comment naming the table would
+--     not satisfy this).
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.journal_lines%', 'guard reads journal_lines');
+  ilike '%from public.journal_lines where work_package_id = p_work_package_id%',
+  'guard reads journal_lines scoped to p_work_package_id');
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.stock_returns%', 'guard reads stock_returns');
+  ilike '%from public.stock_returns where work_package_id = p_work_package_id%',
+  'guard reads stock_returns scoped to p_work_package_id');
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.equipment_usage_logs%', 'guard reads equipment_usage_logs');
+  ilike '%from public.equipment_usage_logs where work_package_id = p_work_package_id%',
+  'guard reads equipment_usage_logs scoped to p_work_package_id');
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.wp_labor_costs%', 'guard reads wp_labor_costs');
+  ilike '%from public.wp_profit_bank where work_package_id = p_work_package_id%',
+  'guard reads wp_profit_bank scoped to p_work_package_id');
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.wp_profit_bank%', 'guard reads wp_profit_bank');
+  ilike '%from public.plan_baseline_items where work_package_id = p_work_package_id%',
+  'guard reads plan_baseline_items scoped to p_work_package_id');
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.plan_baseline_items%', 'guard reads plan_baseline_items');
+  ilike '%from public.variance_snapshots where work_package_id = p_work_package_id%',
+  'guard reads variance_snapshots scoped to p_work_package_id');
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.variance_snapshots%', 'guard reads variance_snapshots');
+  ilike '%from public.subcontract_wps where work_package_id = p_work_package_id%',
+  'guard reads subcontract_wps scoped to p_work_package_id');
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.subcontract_wps%', 'guard reads subcontract_wps');
+  ilike '%from public.muster_team_wps where work_package_id = p_work_package_id%',
+  'guard reads muster_team_wps scoped to p_work_package_id');
 select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.muster_team_wps%', 'guard reads muster_team_wps');
-select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.supply_plan_lines%', 'guard reads supply_plan_lines');
-select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
-  ilike '%from public.site_issues%', 'guard reads site_issues');
+  ilike '%from public.supply_plan_lines where work_package_id = p_work_package_id%',
+  'guard reads supply_plan_lines scoped to p_work_package_id');
 
 select * from finish();
 rollback;

@@ -42,15 +42,21 @@ select ok(
   'authenticated holds the column-level INSERT grant (form insert must not 42501)'
 );
 
--- Review finding (U2 fresh-eyes): provenance must never BLOCK a WP delete —
--- delete_work_package's empty-guard checks only work_package_id, so a NO ACTION
--- FK here would 23503 a legitimate delete of a WP that store PRs were raised
--- from. Provenance semantics = drop the pointer, keep the PR (+receipt/GL).
+-- Review finding (U2 fresh-eyes): the raw FK must never 23503 a WP delete —
+-- provenance semantics = drop the pointer, keep the PR (+receipt/GL), so this
+-- column is ON DELETE SET NULL rather than NO ACTION/RESTRICT.
+-- ⚠️ SUPERSEDED 2026-07-30 (mig 20260813075875, 94-delete-work-package.test.sql
+-- §C.2): delete_work_package's OWN guard now blocks a WP that is still
+-- REFERENCED by a live PR's provenance — a deliberate app-level check stricter
+-- than the FK's referential action, closing a silent-orphan gap the SET NULL
+-- alone left open. The FK assertion below is still true and still the reason
+-- a raw DELETE (service-role / break-glass) never 23503s — it just no longer
+-- means the RPC lets provenance through.
 select ok(
   (select confdeltype = 'n' from pg_constraint
     where conrelid = 'public.purchase_requests'::regclass
       and conname = 'purchase_requests_requested_from_work_package_id_fkey'),
-  'provenance FK is ON DELETE SET NULL (a WP delete never blocks on provenance)'
+  'provenance FK is ON DELETE SET NULL (a raw delete never 23503s on provenance)'
 );
 
 select ok(

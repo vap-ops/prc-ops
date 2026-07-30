@@ -67,8 +67,10 @@ p_work_package_id, p_name)` (non-empty + length CHECK, mirrors
      supply-plan lines, site issues — plus **child WPs**, which refuse with their
      own "delete the children first" message. Two references still cascade by
      decision: `notification_outbox` (system queue, RLS-on with zero policies, no
-     reader) and a DRAFT `wp_briefs` row (§4 of ADR 0086 — a published
-     `wp_brief_versions` row is the history that blocks). **Any NEW table that
+     reader) and a DRAFT `wp_briefs` row (spec 377 U1's own fresh-eyes fix, mig
+     `20260813075874` — the draft FK cascades as derived content; a published
+     `wp_brief_versions` row is the history that blocks, already a guard arm).
+     **Any NEW table that
      references `work_packages` must be classified into the guard or into that
      exemption list in the same unit** — a missing arm is not a red test, it is a
      silent cascade, a SET-NULL orphan, or a raw `23503` the UI shows as a

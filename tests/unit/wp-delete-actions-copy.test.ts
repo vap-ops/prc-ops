@@ -10,16 +10,24 @@ const SRC_PATH = join(
   process.cwd(),
   "src/app/projects/[projectId]/work-packages/[workPackageId]/delete-actions.ts",
 );
+const CONTROL_PATH = join(
+  process.cwd(),
+  "src/components/features/work-packages/wp-delete-control.tsx",
+);
 
 // Strip // comments so a comment quoting a string can never satisfy a pin.
-function sourceWithoutComments(): string {
-  return readFileSync(SRC_PATH, "utf8")
+function withoutComments(path: string): string {
+  return readFileSync(path, "utf8")
     .split("\n")
     .map((line) => {
       const i = line.indexOf("//");
       return i === -1 ? line : line.slice(0, i);
     })
     .join("\n");
+}
+
+function sourceWithoutComments(): string {
+  return withoutComments(SRC_PATH);
 }
 
 describe("deleteWorkPackage refusal copy (mig 075875 guard widening)", () => {
@@ -38,5 +46,22 @@ describe("deleteWorkPackage refusal copy (mig 075875 guard widening)", () => {
     const src = sourceWithoutComments();
     expect(src.split("HAS_HISTORY").length - 1).toBe(2);
     expect(src.split('"P0001"').length - 1).toBe(1);
+  });
+});
+
+// The confirm-dialog control names the same guard from a second surface — a
+// fresh-eyes review caught it still quoting the pre-075875 photo/team/PR list
+// after the action's copy had already been fixed. Same class as the
+// "changing what a control does makes every surface naming it part of the
+// change" rule: pin both surfaces so they cannot drift apart again.
+describe("WP-delete confirm dialog copy (mig 075875 guard widening)", () => {
+  it("no longer carries the pre-075875 partial example list (bare)", () => {
+    const src = withoutComments(CONTROL_PATH);
+    expect(src).not.toContain("ยังไม่มีรูป ทีมงาน หรือคำขอซื้อ");
+  });
+
+  it("names the guard as a class, matching the action's HAS_HISTORY class wording", () => {
+    const src = withoutComments(CONTROL_PATH);
+    expect(src).toContain("ยังไม่มีประวัติการใช้งานหรือมีงานย่อย");
   });
 });
