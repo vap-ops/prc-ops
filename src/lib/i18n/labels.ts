@@ -395,6 +395,18 @@ export const DOC_CHIP_VENDOR_DOC = "เอกสารร้านค้า";
 export const DOC_WAIVED_LABEL = "ยกเว้นโดยบัญชี";
 export const DOC_COMPLETE_LABEL = "เอกสารครบ";
 export const DOC_CHASE_EMPTY_LABEL = "ไม่มีรายการรอเอกสาร";
+// Spec 380 U5 — the doc_type picker options (RD ladder, spec §2).
+export const DOC_TYPE_LABEL: Record<Enums["purchase_doc_type"], string> = {
+  tax_invoice_full: "ใบกำกับภาษีเต็มรูป",
+  receipt_cash_bill: "ใบเสร็จ / บิลเงินสด",
+  payment_voucher: "ใบสำคัญรับเงิน",
+  cert_in_lieu: "ใบรับรองแทนใบเสร็จรับเงิน",
+  delivery_note: "ใบส่งของ",
+  transfer_slip: "สลิปโอนเงิน",
+  other: "อื่นๆ",
+};
+export const DOC_TYPE_PICKER_PLACEHOLDER = "เลือกประเภทเอกสาร";
+export const DOC_TYPE_PICKER_LABEL = "ประเภทเอกสาร";
 // Spec 303 — goods-photo integrity: the receive proof is taken live (capture),
 // must cover everything received, and pairs with the row's delivered amount.
 export const DELIVERY_PHOTO_COVERAGE_HINT = "ถ่ายให้เห็นของที่รับครบทุกรายการ — ถ่ายได้หลายรูป";

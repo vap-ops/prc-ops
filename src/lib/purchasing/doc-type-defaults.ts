@@ -17,6 +17,12 @@ export function defaultInvoiceDocType(status: PurchaseRequestStatus): PurchaseDo
   switch (status) {
     case "purchased":
       return "tax_invoice_full";
+    // Fresh-eyes: this default is class-blind and safe only because
+    // record_site_purchase never stamps supplier_id, so every site_purchased
+    // row classes 'unknown' -> the full ladder -> receipt_cash_bill always
+    // satisfies. If a future change ever attaches a VAT-registered supplier
+    // to a site_purchased row, this default would silently flip a covered
+    // order to missing. Re-check that invariant before touching either side.
     case "site_purchased":
       return "receipt_cash_bill";
     default:

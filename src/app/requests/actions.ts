@@ -623,6 +623,9 @@ export interface AddPurchaseOrderAttachmentInput {
   purchaseOrderId: string;
   attachmentId: string;
   ext: string;
+  /** Spec 380 U5 — only addPurchaseOrderAttachment reads it; proof-of-delivery
+   *  stays untyped (spec §4 U5 follow-up). */
+  docType?: PurchaseDocType;
 }
 
 export async function addPurchaseOrderAttachment(
@@ -666,6 +669,7 @@ export async function addPurchaseOrderAttachment(
     kind: fileKind,
     storage_path: storagePath,
     created_by: user.id,
+    doc_type: input.docType ?? null,
   });
   if (error) {
     // Idempotent replay (identity-complete, spec 37 lesson): a retried upload

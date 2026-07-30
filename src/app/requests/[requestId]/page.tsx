@@ -70,7 +70,8 @@ import { WpCategoryCode } from "@/components/features/work-packages/wp-category-
 import { mintSignedUrlsForAttachments } from "@/lib/purchasing/attachment-signed-urls";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { AttentionCard } from "@/components/features/common/attention-card";
-import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { DocTypeInvoiceUploader } from "@/components/features/purchasing/doc-type-invoice-uploader";
+import { defaultInvoiceDocType } from "@/lib/purchasing/doc-type-defaults";
 import { isReceivedIntoStore } from "@/lib/purchasing/store-receive";
 import { PaymentProofUploader } from "@/components/features/purchasing/payment-proof-uploader";
 import { AttachmentPdf } from "@/components/features/purchasing/attachment-pdf";
@@ -621,9 +622,11 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
                         {INVOICE_PAPER_MISSING_LABEL}
                       </p>
                     ) : null}
-                    <InvoiceUploader
+                    <DocTypeInvoiceUploader
                       purchaseRequestId={request.id}
                       projectId={request.project_id}
+                      defaultDocType={defaultInvoiceDocType(status)}
+                      wideTypes
                     />
                   </div>
                 </>
@@ -693,7 +696,11 @@ export default async function RequestDetailPage({ params, searchParams }: PagePr
               {invoiceImages.length === 0 && invoicePdfs.length === 0 ? (
                 <p className="text-ink-secondary text-xs">ยังไม่มีเอกสาร</p>
               ) : null}
-              <InvoiceUploader purchaseRequestId={request.id} projectId={request.project_id} />
+              <DocTypeInvoiceUploader
+                purchaseRequestId={request.id}
+                projectId={request.project_id}
+                defaultDocType={defaultInvoiceDocType(status)}
+              />
             </div>
           </div>
         ) : null}

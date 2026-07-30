@@ -23,7 +23,8 @@ import {
 import { ScopedCatalogItemPicker } from "@/components/features/purchasing/catalog-item-picker";
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import { ItemPhotoUploader } from "@/components/features/purchasing/item-photo-uploader";
-import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { DocTypeInvoiceUploader } from "@/components/features/purchasing/doc-type-invoice-uploader";
+import { inferSelfPurchaseDocType } from "@/lib/purchasing/doc-type-defaults";
 import { BUTTON_PRIMARY, FIELD_INPUT, INLINE_ERROR } from "@/lib/ui/classes";
 
 const SELECT =
@@ -123,6 +124,10 @@ export function SelfPurchaseForm({
     // are post-create (they FK the row), so completeness is gated here at the
     // form layer from the uploaders' onUploaded signals — not atomically.
     const complete = isExpenseComplete({ hasItemPhoto, hasAccountingDoc });
+    // The form is inert once recordedId is set (this branch returns
+    // unconditionally above), so hasVat/vatRate still hold exactly what was
+    // submitted — the same VAT split record_site_purchase already computed.
+    const vatUsed = hasVat ? Number(vatRate) : 0;
     return (
       <div className="flex flex-col gap-3">
         {complete ? (
@@ -142,9 +147,10 @@ export function SelfPurchaseForm({
           projectId={projectId}
           onUploaded={() => setHasItemPhoto(true)}
         />
-        <InvoiceUploader
+        <DocTypeInvoiceUploader
           purchaseRequestId={recordedId}
           projectId={projectId}
+          defaultDocType={inferSelfPurchaseDocType(vatUsed)}
           onUploaded={() => setHasAccountingDoc(true)}
         />
       </div>

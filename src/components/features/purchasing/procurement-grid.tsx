@@ -63,7 +63,8 @@ import { procurementDrawerActions } from "@/lib/purchasing/drawer-actions";
 import type { SupplierOption } from "@/lib/purchasing/supplier-option";
 import { suggestVendorsForCategories } from "@/lib/purchasing/vendor-suggestion";
 import { PurchaseRequestShip } from "@/components/features/purchasing/purchase-request-ship";
-import { InvoiceUploader } from "@/components/features/purchasing/invoice-uploader";
+import { DocTypeInvoiceUploader } from "@/components/features/purchasing/doc-type-invoice-uploader";
+import { defaultInvoiceDocType } from "@/lib/purchasing/doc-type-defaults";
 import { PaymentProofUploader } from "@/components/features/purchasing/payment-proof-uploader";
 import { DeliveryPhotoUploader } from "@/components/features/purchasing/delivery-photo-uploader";
 import {
@@ -819,7 +820,11 @@ function DrawerBody({
             />
           ) : null}
           {actions.invoice && record.project_id ? (
-            <InvoiceUploader purchaseRequestId={record.id} projectId={record.project_id} />
+            <DocTypeInvoiceUploader
+              purchaseRequestId={record.id}
+              projectId={record.project_id}
+              defaultDocType={defaultInvoiceDocType(record.status)}
+            />
           ) : null}
           {/* Bug 2: proof of payment shares the invoice visibility window. */}
           {actions.invoice && record.project_id ? (
