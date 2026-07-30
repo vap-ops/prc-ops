@@ -10562,3 +10562,58 @@ that half-request actually requires, both DOCS-ONLY here.
   lane hours earlier, which is exactly the branch-relative trap.
 - **▶ Next:** 🔔 operator answers 378 §8.1 (PDPA) and §8.2 (is the face photo required at
   add-a-worker?) before 378 is buildable. 379 is buildable as soon as the schema lane is free.
+
+## Spec 377 U2a — PD brief authoring RPCs (2026-07-30)
+
+- **Shipped:** migrations `20260813075876` + `20260813075879` (additive; both applied
+  → DB head `075879` at merge) + pgTAP `377-wp-brief-authoring` — 9 SECURITY DEFINER
+  RPCs: `save_wp_brief_draft` (upsert, full-replace incl. `display_config`) ·
+  `add/update/delete_wp_brief_criterion` · `add/update/delete_wp_brief_evidence_slot` ·
+  `publish_wp_brief` (snapshots the draft into the immutable `wp_brief_versions` row —
+  the publish event, ADR 0086 §4) · `clone_wp_briefs_from_project` (name-matched
+  cross-project clone, remaps slot→criterion ids). Every gate mirrors the live
+  `set_work_package_deliverable` shape verbatim (`is_manager()` + `can_see_wp()`,
+  42501 collapsing "not found"/"not a member" so existence is never leaked, 22023
+  reserved for genuine validation errors).
+- **⭐ Fresh-eyes (opus) live-probed a real cross-project RLS-bypass before ship.**
+  `clone_wp_briefs_from_project` originally gated only the TARGET project — a
+  `project_manager` who could see the target but not the source could still copy
+  (and thereby read) confidential source-project briefs: scope, quantities, sheet
+  citations, acceptance criteria. The reviewer demonstrated it live against the
+  pre-fix code (impersonated the exact role, read back `CONFIDENTIAL-SRC-SCOPE`
+  through the clone). Fixed in the same PR (mig `075879`): gates BOTH projects now.
+- **Four smaller findings fixed alongside:** `publish_wp_brief`'s two-statement read
+  (head, then children) could torn-snapshot a concurrent edit into the append-only
+  version row — combined into ONE statement; the snapshot never carried attachment
+  ids, so a post-publish tombstone would silently change what a published version
+  renders once U4 wires uploads — now snapshots current-state ids; duplicate
+  `sort_order` (reachable, no unique constraint) left criteria/slot ordering
+  Postgres-undefined — tiebreak on id added; `update_wp_brief_criterion`/
+  `update_wp_brief_evidence_slot` raised a raw 23502 on a null `sort_order` instead
+  of this file's own reserved-for-validation 22023 — now explicit; the clone had no
+  `ON CONFLICT` guard, so a race against a concurrent manual save aborted the WHOLE
+  batch — now skips that one leaf; the clone carried `sheet_code`/`sheet_rev`
+  verbatim into the target project — a citation naming a different project's
+  drawing register is wrong by construction, not merely unverified — now stripped.
+- **Spec split U2 → U2a (RPCs, this unit) / U2b (authoring UI, TABLET-FIRST per the
+  operator's mid-U1 ruling)** — an adding-only split, nothing removed. Also
+  corrected §5's "DB? No" for U2 — authoring needs RPCs since U1 locked writes to
+  RPC-only (spotted at claim time, fixed same PR).
+- **⚠️ Two migration-number collisions this lane, both caught before push landed
+  wrong.** The schema counter was raced by 3+ concurrent sessions the same
+  afternoon (`delwpguard`, `380docchase`, `musterundo`). Fix pattern used both
+  times: re-query live `schema_migrations` MAX(version) immediately before the
+  push (not just at lane-claim time), and if another session's file is missing
+  locally, `cp` it from their sibling worktree (`../prc-ops-<lane>/supabase/
+migrations/*`) so `db:push`'s divergence check passes — none of the parallel
+  branches were on origin yet, so this was the only clean path. Full account in
+  LANES.archive.md.
+- **Evidence:** pgTAP 60/60 — RED-first for BOTH migrations (the base RPCs against
+  no-RPCs-exist-yet; separately, the security-fix regression tests proven red
+  against the live vulnerable clone RPC before the fix landed) · full runner exit
+  0, zero collateral (only tolerated 221) · lint + typecheck clean · full vitest
+  green (6141/6154 and 6154/6167 across two runs, all reds the documented
+  Windows-under-load flake class, confirmed 38/38 and 45/45 isolated same commit) ·
+  CI's own Linux run 8/8 substantive green (sidesteps the Windows flakes entirely).
+- **▶ Next:** U2b (authoring UI, tablet-first) → U3 SA/PM surfaces (client role gets
+  no brief door, by design) → U4 drawings register + uploads + dial + usage signal.
