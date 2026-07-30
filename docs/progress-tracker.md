@@ -10482,3 +10482,40 @@ visitor on a pre-approval screen: no task in flight.
 - **U2: `public_holidays`** (mig `20260813075870`, applied + pushed) — the app's first holiday model, DISPLAY-ONLY by operator ruling. B.E. 2569 government-calendar seed (23 rows incl. ชดเชย pairs, cross-checked two published sources). Calendar: holiday cells tint `bg-attn-soft` + name (`title` for truncation; desktop audience), ทำงานวันหยุด chip when the cell also has work — **live on day one: 2026-07-29 IS อาสาฬหบูชา and the site scanned, so มิตร's July shows the chip today.**
 - **Fresh-eyes hardening:** pgTAP 16 asserts — `polroles` pinned (a `to public` rewrite passed the polcmd-only check), authenticated POSITIVE control (reads > 0 rows — the absence-needs-a-positive-control class), anon write-denies, floor 23 + both ชดเชย pairs; migration header's "no app path can mutate" claim corrected (service_role retains writes, as everywhere). Follow-ups logged in spec §3b: observance regimes (`observed_by` REQUIRED before pay semantics), 2027 seed owed, พืชมงคล annual announcement, list-changes-as-new-migrations.
 - **Evidence:** vitest 42/42 touched (13 mutation checks across the spec, all red-where-expected) · pgTAP 331 files, only tolerated known-red 221, exit 0 · typecheck + lint clean · DOM-verified live: 3 tinted July cells, 3 names, exactly 1 ทำงานวันหยุด.
+
+## WP Brief v1 (ข้อมูลงาน) — ADR 0086 + spec 377 authored (2026-07-30)
+
+**Status:** DOCS ONLY, complete. Zero migrations, zero app code. Numbers claimed from a
+fresh worktree off `f473a5ad` origin/main + both indexes + `git ls-remote` + open PRs.
+
+- **Authored:** `docs/decisions/0086-wp-brief-reference-attachments.md` +
+  `docs/feature-specs/377-wp-brief.md`; both indexed. The operator's locked design
+  (11 items, rulings 2026-07-30) is copied verbatim into spec §2.
+- **The one design question the brief left open — where the publish event lives — is
+  RESOLVED in ADR 0086 §4: NOT `approvals`.** Three live disqualifiers, each
+  sufficient: `decision` is a NOT-NULL enum of review decisions; `approvals_notify_decision`
+  (AFTER INSERT, unconditional, error-swallowing) would enqueue a bogus `wp_decision`
+  outbox row on publish; every latest-decision reader (spec-337 resubmit boundary,
+  spec-371 queue view, spec-355 attention card) would mistake a publish row for the
+  decision — silently shifting the resubmit photo boundary. Resolution: the immutable
+  `wp_brief_versions` row itself is the append-only, attributed publish event
+  (`published_by`/`published_at`, user-session DEFINER RPC per the spec-337 U1
+  attribution lesson). No second table.
+- **Fact-check record in spec §3** (live DB + HEAD, 2026-07-30): `work_packages` = 19
+  cols, nothing brief-shaped · SA tabs exactly `รูปถ่าย · ของ · ประวัติ` · spec 355
+  SHIPPED (`revision_reason` live; reasons used: incomplete 17 / mismatch 13 /
+  premature 0) · `WP_DETAIL_ROLES` = 6 roles, field tier = `site_admin` only ·
+  ⭐ `project_categories.work_category_id` FK exists, so the work_category template
+  fallback is a clean FK chain (no `left(code,3)` parsing) · `clone_work_packages`
+  live · `interaction_events` carries `actor_role`/`route`/`context` for the U4 usage
+  signal (enum-add trips guard `251-friction-event-types` — U4 decides seam vs table).
+- **Fresh-eyes fact-checker (opus) ran refute-first over both docs: all structural
+  claims CONFIRMED; 9 wording defects found and fixed** — an ADR-0074 mis-cite (D5→D1/D4),
+  the "live reasons" overstatement (premature = 0 uses ever), a 355-validation-vs-reader
+  mislabel, the ADR-0046 format-set narrowing attributed as inherited, a blank line
+  that detached the 0086 row from the index table, + sharper notify-trigger wording.
+  The locked block stayed verbatim — the item-11 foreman/ADR-0033 precision landed in
+  spec §3 instead.
+- **▶ Next:** spec 377 U1 (schema — brief + immutable versions + criteria/slots +
+  typed attachments + registry + RLS + pgTAP; 🔔 schema lane, held). NOT started here
+  by instruction.
