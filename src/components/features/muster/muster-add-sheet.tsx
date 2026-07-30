@@ -17,10 +17,27 @@
 // Escape-close, scrim-click close, focus-on-open. The tab-trap stays deferred
 // exactly as bottom-sheet documents.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Database } from "@/lib/db/database.types";
-import type { SweepEntry, SweepOutcomeKind } from "@/lib/muster/sweep";
+import { undoableSession, type SweepEntry, type SweepOutcomeKind } from "@/lib/muster/sweep";
 import { MusterCamera } from "./muster-camera";
+
+// Spec 379 U2 — the retraction's words, single-sourced here (the `genderChip`
+// precedent: this file is the leaf of the muster component graph, so the cockpit
+// imports it without a cycle) because BOTH undo doors render them and a drift
+// between the two would be invisible.
+//
+// ⚠️ Deliberately not เช็คออก and deliberately not a synonym of it: "they left"
+// and "they were never here" are different claims about a person's day, and on
+// the member row this control sits beside the check-out button.
+export const MUSTER_UNDO_LABEL = "ยกเลิกเช็คชื่อ";
+export const MUSTER_UNDO_CONFIRM_LABEL = "ยืนยันยกเลิก";
+/** Two-tap, on both doors: this deletes an attendance record, and the cockpit's
+ *  precedent for a destructive-feeling action is confirm-then-act. */
+export const UNDO_BTN =
+  "min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50 bg-sunk text-ink";
+export const UNDO_BTN_ARMED =
+  "min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50 bg-danger-soft text-danger-ink";
 
 type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 
@@ -60,6 +77,10 @@ const OUTCOME_NOTE: Record<SweepOutcomeKind, (detail: string | null) => string |
   ot_closed: (d) => (d ? `ปิด OT · ทีม ${d}` : "ปิด OT"),
   ot_already_closed: () => "ปิด OT แล้ว",
   no_ot: () => "ยังไม่ได้เปิด OT",
+  // Spec 379 U2 — the row stays in the tally rather than disappearing: the SA
+  // needs to see that the retraction landed, and a row vanishing under a finger
+  // mid-lineup is the reflow this sheet already avoids everywhere else.
+  undone: () => "ยกเลิกแล้ว",
 };
 
 // Outcomes that actually put someone on the team — these drive the ย้ายมาทีมนี้
@@ -108,6 +129,7 @@ export function MusterAddSheet({
   onScanDetected,
   onTapAdd,
   onMoveHere,
+  onUndo,
   onClose,
 }: {
   /** Spec 359 U4 — null for the resolved rounds: they scan the whole site, so
@@ -147,9 +169,18 @@ export function MusterAddSheet({
   onTapAdd: (workerId: string) => void;
   /** Spec 359 U1 — resolve an `other_team` tally row by moving them onto this team. */
   onMoveHere: (workerId: string) => void;
+  /** Spec 379 U2 — retract the write this tally row recorded. Identified by
+   *  `seq`, never by worker: one worker can hold several rows in a sweep and the
+   *  SA is pointing at ONE of them. The cockpit derives the muster session from
+   *  that row's outcome. */
+  onUndo: (seq: number) => void;
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Spec 379 U2 — which tally row's undo is armed. One at a time: arming a
+  // second row disarms the first, so a stray tap can never leave two live
+  // one-tap deletes on screen.
+  const [armedUndo, setArmedUndo] = useState<number | null>(null);
 
   // Spec 359 U3 — workers this sweep has settled onto THIS team (an add, or an
   // other_team row resolved by a move — markMoved rewrites it to `added`). Their
@@ -306,6 +337,28 @@ export function MusterAddSheet({
                         className="bg-sunk text-ink min-h-11 rounded-lg px-2.5 text-xs font-bold disabled:opacity-50"
                       >
                         ย้ายมาทีมนี้
+                      </button>
+                    ) : null}
+                    {/* Spec 379 U2, door 1 — the common case: wrong person,
+                        three seconds ago, sheet still open. Offered on the rows
+                        whose write CREATED an attendance row (undoableSession);
+                        a check-out write is not one of them, because the RPC
+                        deletes the row rather than clearing `out_at`. */}
+                    {undoableSession(e.outcome) !== null ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (armedUndo === e.seq) {
+                            setArmedUndo(null);
+                            onUndo(e.seq);
+                          } else {
+                            setArmedUndo(e.seq);
+                          }
+                        }}
+                        disabled={pending}
+                        className={armedUndo === e.seq ? UNDO_BTN_ARMED : UNDO_BTN}
+                      >
+                        {armedUndo === e.seq ? MUSTER_UNDO_CONFIRM_LABEL : MUSTER_UNDO_LABEL}
                       </button>
                     ) : null}
                   </li>

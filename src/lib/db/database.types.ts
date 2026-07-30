@@ -10820,6 +10820,14 @@ export type Database = {
         }
         Returns: string
       }
+      muster_undo_scan: {
+        Args: {
+          p_date: string
+          p_session: Database["public"]["Enums"]["muster_session"]
+          p_worker: string
+        }
+        Returns: undefined
+      }
       my_contact_bank_present: { Args: never; Returns: boolean }
       open_accounting_period: { Args: { p_month: string }; Returns: string }
       open_muster_team: {

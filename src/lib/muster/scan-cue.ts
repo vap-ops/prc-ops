@@ -29,6 +29,10 @@ const PATTERN: Record<SweepOutcomeKind, number[]> = {
   ot_already_closed: [15],
   not_checked_in: [180],
   no_ot: [180],
+  // Spec 379 U2 — a retraction is a deliberate two-tap act, so it CONFIRMS
+  // rather than warns. Its own shape: two short ticks, told apart by feel from
+  // both the single add pulse and the long attention buzz.
+  undone: [25, 50, 25],
 };
 
 /** Tone frequency in Hz, paired with the pattern above. */
@@ -50,6 +54,9 @@ const TONE: Record<SweepOutcomeKind, number> = {
   ot_already_closed: 520,
   not_checked_in: 300,
   no_ot: 300,
+  // Below every success tone, above the error buzz: the write did happen and
+  // was taken back — neither a new record nor a failure.
+  undone: 420,
 };
 
 type AudioCtor = new () => AudioContext;
