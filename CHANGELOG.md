@@ -1,3 +1,9 @@
+# [0.281.0](https://github.com/vap-ops/prc-ops/compare/v0.280.1...v0.281.0) (2026-07-30)
+
+### Features
+
+- **muster:** muster_undo_scan — retract one worker's check-in (spec 379 U1) ([#872](https://github.com/vap-ops/prc-ops/issues/872)) ([ed5d737](https://github.com/vap-ops/prc-ops/commit/ed5d7373b3e6d29182e152762cb4dedb4aa4a4eb)), closes [#860](https://github.com/vap-ops/prc-ops/issues/860)
+
 ## [0.280.1](https://github.com/vap-ops/prc-ops/compare/v0.280.0...v0.280.1) (2026-07-30)
 
 ### Bug Fixes
