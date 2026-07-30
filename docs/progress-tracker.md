@@ -10529,3 +10529,33 @@ fresh worktree off `f473a5ad` origin/main + both indexes + `git ls-remote` + ope
 - **Evidence:** pgTAP 62/62 RED-first — 16/62 red on the pre-hardening DB (direct-run proof), 62/62 after; full runner exit 0, zero collateral (only tolerated 221) · lint + typecheck clean · full vitest 6132/6141 with all 4 red files the load-flake class, 29/29 isolated on the same commit · live registry read (5 seeds active).
 - **Out-of-scope find, task-chipped:** `delete_work_package`'s guard also misses `stock_issues` and joins the force-nulled `purchase_requests.work_package_id` instead of `requested_from_work_package_id` — pre-existing, its own unit.
 - **▶ Next:** U2 PD authoring (clone-from-project, edit, publish; tablet-first) — code + RPCs, schema lane stays with this lane until merged.
+
+## 2026-07-30 — specs 378 (worker identity photo) + 379 (undo a muster check-in)
+
+Operator, after the #860 continuous-scan fix: _"allow each scan to add to team, then allow SA to
+confirm or edit, displaying profile image of the technicians scanned."_ Split into the two things
+that half-request actually requires, both DOCS-ONLY here.
+
+- **378 worker identity photo.** The blocking discovery is that the picture does not exist: no
+  photo column on `workers`, no worker-photo bucket, and `users.line_avatar_url` covers only
+  **12 of 31 active workers (~39%)** — a self-chosen image, absent for exactly the 17 phoneless
+  workers muster serves. ⚠️ **`create_worker`/`update_worker` gate on `is_back_office`, which
+  EXCLUDES `site_admin`** — routing the photo through them would have shipped a button the server
+  refuses (the three-layer authority class). New `set_worker_photo` RPC instead, gated like the
+  other SA-facing worker RPCs. Storage reuses the `contact-docs` + `sa-bank-capture/` pattern
+  under a `worker-photo/` prefix, with the policy **delegating to a new `is_sa_capture_role`
+  helper** and the existing bank-capture policy repointed at it (the #823 inlined-array class,
+  swept rather than duplicated). 🔔 **PDPA is blocking** (§5): consent/notice, retention,
+  deletion-on-request.
+- **379 undo a muster check-in.** Of the seven muster RPCs **none removes an attendance row**; the
+  SA has been forcing corrections through `move_muster_worker` **13× since 07-19**. One DEFINER
+  RPC that deletes the row after writing it whole into `audit_log`, refusing once the day is
+  closed, once `labor_logs` points at it, or while an `ot` row depends on the `regular` one.
+  ⚠️ `labor_logs.source_muster_id` has **no FK** (verified), so nothing cascades — the guard is
+  the only protection.
+- Both are **schema-lane** units when built; DB head `20260813075872` untouched by this docs PR.
+- **Numbers claimed from a tree cut off `origin/main` today** and cross-checked against the spec
+  files, the README index and `git ls-remote --heads origin` — 377 had been taken by the WP-brief
+  lane hours earlier, which is exactly the branch-relative trap.
+- **▶ Next:** 🔔 operator answers 378 §8.1 (PDPA) and §8.2 (is the face photo required at
+  add-a-worker?) before 378 is buildable. 379 is buildable as soon as the schema lane is free.
