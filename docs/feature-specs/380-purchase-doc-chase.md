@@ -24,12 +24,23 @@ No list, no count, no dashboard presence.
 - Telemetry 14d (procurement roles): `/procurement` 780 · `/requests` 417 · `/requests/orders` 45.
   The signal must live on the hub + the requests list; the PO list is quiet.
 - ⚠ Found in passing: `list_money_events_for_review` computes `doc_count` for purchases from
-  `purchase_request_attachments` ONLY — blind to all 341 PO-level docs, so accounting's
-  ไม่มีเอกสาร tab overstates ~500 vs the true 242. Fixed here as U6.
+  `purchase_request_attachments` ONLY — blind to all 341 PO-level docs — and **purpose-blind**
+  (a `reference`/`quote` photo counts as a doc). So the ไม่มีเอกสาร tab both over-counts
+  (~500 vs the true 242) and under-counts (a PR carrying only a `delivery_confirmation` photo
+  reads as documented). U6 fixes BOTH: union in PO `source_document` AND purpose-filter the PR
+  half to `invoice`/`payment` + typed-satisfying rows.
 
 ## 2. Document model (defined with operator 2026-07-30, RD-grounded)
 
 Per-supplier-class requirement — class derived live from `suppliers`:
+
+> **Amended post-fact-check (same day):** `suppliers.is_vat_registered` is **NOT NULL DEFAULT
+> false** — a null flag is unreachable, so `unknown` = **no supplier row at all** (free-text
+> `pr.supplier` only). Corollary: an un-flagged VAT vendor silently classes `non_vat` and a cash
+> bill would satisfy it — the exact VAT gap this spec closes. v1 mitigation (U3): a display-only
+> mis-flag hint when the supplier name carries a juristic marker (บริษัท/หจก./บมจ.) while classed
+> `non_vat` — "ตรวจสถานะ VAT" — plus an operator data-fix list. Not auto-upgraded (juristic ≠
+> VAT-registered in law; the flag stays the SSOT).
 
 | Class     | Derivation                  | Satisfying doc (typed)                                                                                                                                           |
 | --------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -71,7 +82,12 @@ An in-scope order is **covered** when any of:
 
 ## 4. Units
 
-### U1 — schema (mig `20260813075877`, additive; pgTAP `380-purchase-doc-types.test.sql`)
+### U1 — schema (mig `20260813075877`, additive; pgTAP `380-purchase-doc-types.test.sql`) — ✅ BUILT 2026-07-30
+
+> As-built notes: applied via `db query --file` + `migration repair --status applied` because
+> `db:push` refuses while migrations `075875`/`075876` (two open danger-held lanes) exist on the
+> remote with no files on main. RED-first proven (42704 pre-migration). The waiver upserts on
+> re-waive (idempotent correction; every call audits).
 
 - `create type purchase_doc_type as enum ('tax_invoice_full','receipt_cash_bill',
 'payment_voucher','cert_in_lieu','delivery_note','transfer_slip','other')`.
@@ -99,7 +115,8 @@ p_note text default null)` + `unwaive_purchase_docs(p_purchase_request uuid)` �
 Pure, no IO. Produces everything U3–U6 render.
 
 - `type DocRequirementClass = "vat" | "non_vat" | "unknown"`;
-  `docRequirementClass(s: { isVatRegistered: boolean | null } | null): DocRequirementClass`.
+  `docRequirementClass(s: { isVatRegistered: boolean } | null): DocRequirementClass` — null =
+  no supplier row (the only reachable unknown; the column is NOT NULL).
 - `SATISFYING_DOC_TYPES: Record<DocRequirementClass, readonly PurchaseDocType[]>` (§2 table);
   `NEVER_SATISFYING: readonly ["delivery_note","transfer_slip","other"]`.
 - `type DocAttachment = { docType: PurchaseDocType | null; source: "pr" | "po";
@@ -119,8 +136,12 @@ attachments: DocAttachment[]; waived: boolean }): "out_of_scope" | "covered_type
 ### U3 — chase page `/requests/docs` + hub chip (the operator-visible core)
 
 - New `src/app/requests/docs/page.tsx` (+ `loading.tsx`), title ตามเอกสารซื้อ. Server component;
-  role gate = the same allowlist `/requests` uses for the procurement engine (read the page at
-  build — do NOT invent a new set; intersect with reachability like spec 363). Reads (RLS): in-
+  role gate = **`PURCHASING_ROLES`** (the requireRole set `/requests` itself uses — fact-checked:
+  site_admin, project_manager, super_admin, procurement, procurement_manager, project_director;
+  `isProcurementWorklist` is a separate VIEW switch, not the gate).
+  ⚠ Build note (fact-check): the dashboard alert strip's OUTER wrapper renders only when
+  `lateRiskTotal > 0 || arrivalsTotal > 0` — U3 must extend that OR with the docs count or the
+  chip is invisible whenever the other two are quiet. Add the mis-flag hint chip (§2 amendment). Reads (RLS): in-
   scope PRs w/ supplier join · both attachment tables (current, id/doc_type/purpose only) ·
   waivers. View model in `src/lib/purchasing/doc-chase-view.ts` (pure, tested): group missing by
   supplier → sort groups by count desc → rows sorted oldest first; group header = supplier name ·
@@ -144,10 +165,11 @@ attachments: DocAttachment[]; waived: boolean }): "out_of_scope" | "covered_type
 
 ### U4 — `/requests` row chips (done-band rows)
 
-Amber ไม่มีเอกสาร / green เอกสารครบ chip per §3 predicate on the procurement pipeline AND site
-band views (read both renderers first; site view may be out of scope if SA-facing — gate-check:
-operator asked for procurement prominence; site rows already have `invoiceMissingFlag` upstream).
-Filter affordance `?docs=missing`.
+Amber ไม่มีเอกสาร / green เอกสารครบ chip per §3 predicate on the procurement pipeline view.
+Filter affordance `?docs=missing`. ⚠ Deliberate divergence, not a bug (fact-check): the PR-detail
+`invoiceMissingFlag` asks a NARROWER question — "did the site photograph the paper?" (purpose
+`invoice` only, its label says จากหน้างาน) — so an order can be §3-covered by a PO tax invoice
+while that line still shows. Both are true; leave the leaf flag alone in this spec.
 
 ### U5 — uploader doc_type pickers
 
@@ -160,9 +182,11 @@ Legacy rows untouched.
 
 - Waiver buttons (waive/unwaive w/ reason+note) on the review voucher action panel, gated
   MONEY_REVIEW_ROLES (UI) + the U1 RPC (DB).
-- `list_money_events_for_review` doc_count for `purchase_requests` becomes the §3 union
-  (current PR attachments + current PO source docs); body reproduced from LIVE def verbatim
-  except that subquery (byte-diff proof, 345 U4 discipline); pgTAP updated.
+- `list_money_events_for_review` doc_count for `purchase_requests` becomes the §3 union WITH the
+  purpose filter on the PR half (`invoice`/`payment` or a typed satisfying `doc_type`) + current
+  PO `source_document` — fixing both the over-count and the purpose-blind under-count; body
+  reproduced from LIVE def verbatim except that subquery (byte-diff proof, 345 U4 discipline);
+  pgTAP updated.
 
 ## 5. Non-goals / later
 
