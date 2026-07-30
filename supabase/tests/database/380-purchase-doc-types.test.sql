@@ -6,7 +6,7 @@
 -- broken RPC (doctrine: absence asserts need a positive control).
 
 begin;
-select plan(27);
+select plan(28);
 
 -- 1–4 · the two enums, values pinned exactly (order matters — UI sorts by it)
 select has_type('public', 'purchase_doc_type', 'purchase_doc_type enum exists');
