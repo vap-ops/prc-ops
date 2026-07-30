@@ -2407,6 +2407,48 @@ export type Database = {
           },
         ]
       }
+      equipment_item_photos: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          item_id: string
+          kind: Database["public"]["Enums"]["equipment_photo_kind"]
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          item_id: string
+          kind: Database["public"]["Enums"]["equipment_photo_kind"]
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          item_id?: string
+          kind?: Database["public"]["Enums"]["equipment_photo_kind"]
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_item_photos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_item_photos_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_items: {
         Row: {
           acquired_at: string | null
@@ -12362,6 +12404,7 @@ export type Database = {
         | "returned"
         | "maintenance"
         | "lost"
+      equipment_photo_kind: "item" | "nameplate" | "brand" | "qr_tag"
       equipment_photo_phase: "out" | "in"
       equipment_rate_period: "monthly" | "daily"
       equipment_status:
@@ -12833,6 +12876,7 @@ export const Constants = {
         "maintenance",
         "lost",
       ],
+      equipment_photo_kind: ["item", "nameplate", "brand", "qr_tag"],
       equipment_photo_phase: ["out", "in"],
       equipment_rate_period: ["monthly", "daily"],
       equipment_status: [
