@@ -1,3 +1,9 @@
+## [0.284.1](https://github.com/vap-ops/prc-ops/compare/v0.284.0...v0.284.1) (2026-07-30)
+
+### Bug Fixes
+
+- **equipment:** a picker must look like a picker ([1f49490](https://github.com/vap-ops/prc-ops/commit/1f494900bfe2ba8481f8f8fec4d00788e753142c))
+
 # [0.284.0](https://github.com/vap-ops/prc-ops/compare/v0.283.0...v0.284.0) (2026-07-30)
 
 ### Bug Fixes
