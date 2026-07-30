@@ -44,7 +44,9 @@ describe("nav law rule 2 — the hub strip is a superset of the bottom bar", () 
 // U5 justified promoting /accounting + /legal (and deferring /expenses) on exactly
 // this reasoning, but the existing HUB_STRIP_ROUTES guard only asserts that the
 // string "HubNav" appears in the source — it would have green-lit the /expenses
-// promotion that strands site_owner + auditor. This makes the argument mechanical.
+// promotion that stranded site_owner + auditor. This makes the argument mechanical.
+// (Spec 376 U5 gave site_owner a strip + bar, so `auditor` is the last role that
+// promoting /expenses would strand.)
 //
 // The invariant is deliberately NOT "the strip contains the page's own href for
 // every gated role": super_admin legitimately gets PM_HUB_NAV on both pages, which

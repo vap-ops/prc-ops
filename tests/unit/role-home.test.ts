@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PROJECT_VIEW_ROLES, PURCHASING_ROLES, roleHome } from "@/lib/auth/role-home";
+import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import type { UserRole } from "@/lib/db/enums";
 
 describe("roleHome", () => {
@@ -150,10 +151,23 @@ describe("PURCHASING_ROLES", () => {
 
 // Spec 143 U2 / ADR 0056: project browsing now admits project_coordinator (the
 // see-all oversight role) alongside the existing site staff + procurement.
+// Spec 376 U5 (D2): + site_owner — the ADMIT half of the U5 page-gate audit. This
+// one set gates all three of the read surfaces the audit admitted by name:
+// /projects (the hub), /projects/[id] (the site dashboard) and the งวดงาน detail
+// /projects/[id]/deliverables/[id]. Every write affordance on those pages keys off
+// its OWN narrower predicate (isManagerRole for the deliverable rename and the
+// seeding/onboarding controls; WP_DETAIL_ROLES for the WP rows and the store
+// cluster; BACK_OFFICE / PURCHASE_REPORT / TEAM_MAP for rentals, costs, team), so
+// membership here can never open one — that separation is what makes the admit safe.
+//
+// Pinned over the EXHAUSTIVE role domain (USER_ROLE_LABEL is a Record<UserRole>, so
+// a new enum value reds here) as an EXACT positive set: a hand-listed denial loop
+// silently misses the next enum value — the spec-348-U5 allowlist lesson.
 describe("PROJECT_VIEW_ROLES", () => {
-  it("admits site staff, procurement, the coordinator, and the director", () => {
+  it("admits site staff, procurement, the coordinator, the director, and the site owner", () => {
+    const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
     // Spec 152 / ADR 0058: project_director browses every project (see-all).
-    expect([...PROJECT_VIEW_ROLES].sort()).toEqual(
+    expect(all.filter((r) => PROJECT_VIEW_ROLES.includes(r)).sort()).toEqual(
       [
         "procurement",
         "procurement_manager",
@@ -161,6 +175,10 @@ describe("PROJECT_VIEW_ROLES", () => {
         "project_director",
         "project_manager",
         "site_admin",
+        // Spec 376 U5: the site owner's landing — read-only, RLS-scoped to the
+        // project(s) it holds a project_members row for (can_see_project's
+        // membership arm, read live 2026-07-30).
+        "site_owner",
         "super_admin",
       ].sort(),
     );
