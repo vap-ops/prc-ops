@@ -9,7 +9,13 @@
 // owns the confirm, the action owns the gate + the Thai refusals.
 
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { warmLightboxOverlay } from "../helpers/lightbox-overlay-warmup";
+
+// The overlay is a next/dynamic chunk; resolve it before any `findBy*` so the
+// cold import can't eat the 1000ms assertion budget. See the helper's header.
+beforeAll(warmLightboxOverlay);
 
 // The removal glue calls the real removePhoto server action + router.refresh —
 // mock both. (removePhoto is imported by phase-uploader via "./actions"; the

@@ -3,9 +3,14 @@
 // due markers and tap-day drill, week/day agendas, and the Gantt intact under
 // ไทม์ไลน์.
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import { warmLightboxOverlay } from "../helpers/lightbox-overlay-warmup";
 import { ScheduleViews } from "@/components/features/work-packages/schedule-views";
+
+// The overlay is a next/dynamic chunk; resolve it before any `findBy*` so the
+// cold import can't eat the 1000ms assertion budget. See the helper's header.
+beforeAll(warmLightboxOverlay);
 import type { GanttWp } from "@/components/features/work-packages/schedule-gantt";
 import { getSchedulePhotos } from "@/app/projects/[projectId]/schedule/actions";
 

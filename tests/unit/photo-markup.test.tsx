@@ -4,9 +4,14 @@
 // saves via addPhotoMarkup and is creator-gated for removal.
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
+import { warmLightboxOverlay } from "../helpers/lightbox-overlay-warmup";
+
+// The overlay is a next/dynamic chunk; resolve it before any `findBy*` so the
+// cold import can't eat the 1000ms assertion budget. See the helper's header.
+beforeAll(warmLightboxOverlay);
 
 const SRC = "https://example.test/storage/photo-1.jpg";
 const PHOTO_ID = "7f1f2a3b-4c5d-6e7f-8a9b-0c1d2e3f4a5b";
