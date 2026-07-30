@@ -1,3 +1,9 @@
+# [0.275.0](https://github.com/vap-ops/prc-ops/compare/v0.274.0...v0.275.0) (2026-07-30)
+
+### Features
+
+- **projects:** คลังหน้างาน cluster on the project hub (spec 376 U2) ([97d4c45](https://github.com/vap-ops/prc-ops/commit/97d4c45fca46ed6e6c335d150712ab9be75b26ff))
+
 # [0.274.0](https://github.com/vap-ops/prc-ops/compare/v0.273.0...v0.274.0) (2026-07-30)
 
 ### Features
