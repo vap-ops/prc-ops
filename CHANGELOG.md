@@ -1,3 +1,9 @@
+# [0.278.0](https://github.com/vap-ops/prc-ops/compare/v0.277.2...v0.278.0) (2026-07-30)
+
+### Features
+
+- **wp-brief:** spec 377 U2a — PD brief authoring RPCs ([#869](https://github.com/vap-ops/prc-ops/issues/869)) ([ee43213](https://github.com/vap-ops/prc-ops/commit/ee432134f95e94d7c57a0f20defc7d2df417a158))
+
 ## [0.277.2](https://github.com/vap-ops/prc-ops/compare/v0.277.1...v0.277.2) (2026-07-30)
 
 ### Bug Fixes
