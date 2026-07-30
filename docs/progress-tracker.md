@@ -10655,3 +10655,19 @@ migrations/*`) so `db:push`'s divergence check passes — none of the parallel
   spec 379 §4: the tally must mirror `markFailed`'s `addedIds` removal (it already exists), the
   undo belongs on rows whose outcome is in `WRITE_KINDS`, and the label must not read like
   `เช็คออก`.
+
+**Fresh-eyes round on 379 U1 — 4 findings fixed, all verified live first:**
+`pg_advisory_xact_lock` on derive's own key (a concurrent `close_muster_day`
+could otherwise book a wage against a row this function had already decided to
+delete, and derive's retract loop walks `muster_attendance`, so that wage would
+be permanently unretractable) · the snapshot is `to_jsonb(v_att)`, not a
+hand-listed key set — it had already dropped `note`, which **17 of 167** live
+rows carry · `can_see_project` folded into the lookup, because checking it AFTER
+a global lookup let a site_admin of another project distinguish "no such
+check-in" from "not yours" · `for update of a` + a post-delete not-found guard.
+The wage-guard comment was also wrong (derive early-returns unless a closure
+exists, so it cannot fire on a day that passed the closure check) and the "team
+not found" arm was dead (`team_id` NOT NULL + FK). Tests 18 → 22: positive
+controls for the other two roles in the gate (deleting either previously left
+the file green), a scoped-delete assertion, and messages pinned on all five
+P0001 asserts.
