@@ -1,3 +1,13 @@
+# [0.292.0](https://github.com/vap-ops/prc-ops/compare/v0.291.0...v0.292.0) (2026-07-30)
+
+### Bug Fixes
+
+- **muster:** give the armed retraction a way out, and stop freezing it ([4377231](https://github.com/vap-ops/prc-ops/commit/437723165596a80ab81b6f198197f201a5e2fe2b))
+
+### Features
+
+- **muster:** the two undo doors for muster_undo_scan (spec 379 U2) ([71705e7](https://github.com/vap-ops/prc-ops/commit/71705e73c16495a398dff056ae58ac5593d17e6b)), closes [#872](https://github.com/vap-ops/prc-ops/issues/872)
+
 # [0.291.0](https://github.com/vap-ops/prc-ops/compare/v0.290.0...v0.291.0) (2026-07-30)
 
 ### Features
