@@ -9,12 +9,14 @@
 // lost/phoneless badge ≠ absent). The decoded value is the worker id (the same opaque payload the
 // phone card + printed badge carry — black-on-white, so jsQR runs dontInvert).
 //
-// The camera loop is not unit-tested: getUserMedia/BarcodeDetector/video don't
-// exist in jsdom. The jsQR decode itself IS — tests/unit/muster-jsqr-decode
-// round-trips a badge payload through qrcode→jsQR. Kept in its own file so the
-// untestable surface stays isolated.
+// The camera PLUMBING is not unit-tested: getUserMedia/BarcodeDetector/video
+// don't exist in jsdom. The two testable halves are extracted and covered — the
+// jsQR decode round-trips through qrcode→jsQR (tests/unit/muster-jsqr-decode),
+// and the loop's control flow lives in @/lib/muster/decode-loop
+// (tests/unit/muster-decode-loop). What is left here is acquisition + teardown.
 
 import { useEffect, useRef, useState } from "react";
+import { createDecodeTick } from "@/lib/muster/decode-loop";
 import { hasNativeDetector } from "@/lib/muster/scanner-support";
 
 interface BarcodeLike {
@@ -29,9 +31,21 @@ const DECODE_W = 480;
 
 // Spec 357 U-D: the standalone overlay shell (backdrop + ปิดกล้อง button) moved
 // to MusterAddSheet, which hosts this viewfinder alongside the tap-add list —
-// this component renders only the video / error view. The decode loop below is
-// unchanged from #745 (on-device proof still owed; keep it byte-stable).
-export function MusterCamera({ onDetected }: { onDetected: (workerId: string) => void }) {
+// this component renders only the video / error view.
+//
+// `continuous` — the muster sweep scans a whole lineup in one camera-open, so it
+// keeps decoding after a hit; the equipment scan resolves one sticker and
+// unmounts this component, so it passes false and the loop stops itself rather
+// than racing that unmount. (The #745 note that once said "keep the loop
+// byte-stable, on-device proof still owed" is retired: the proof arrived
+// 2026-07-26 — 17 of 18 check-ins by QR on the pilot iPhone.)
+export function MusterCamera({
+  onDetected,
+  continuous = false,
+}: {
+  onDetected: (workerId: string) => void;
+  continuous?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   // Latest-ref for the scan callback: the cockpit passes an inline arrow, and
@@ -43,6 +57,12 @@ export function MusterCamera({ onDetected }: { onDetected: (workerId: string) =>
   useEffect(() => {
     onDetectedRef.current = onDetected;
   }, [onDetected]);
+  // Same latest-ref reason: keying the camera-init effect on `continuous` would
+  // tear down and re-acquire the camera if a caller ever flipped it.
+  const continuousRef = useRef(continuous);
+  useEffect(() => {
+    continuousRef.current = continuous;
+  }, [continuous]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -102,30 +122,20 @@ export function MusterCamera({ onDetected }: { onDetected: (workerId: string) =>
         await video.play();
         if (stopped) return bail();
 
-        let lastDecode = 0;
-        const tick = async () => {
-          if (stopped || !videoRef.current) return;
-          // Throttle the fallback path; the native detector is cheap enough per
-          // frame. jsQR runs synchronously on the main thread, so the stamp is
-          // taken AFTER the decode — measuring from the start would let a slow
-          // decode (> DECODE_MS) re-run back-to-back with no idle gap.
-          if (native || performance.now() - lastDecode >= DECODE_MS) {
-            try {
-              const value = await decode(videoRef.current);
-              if (stopped) return; // closed mid-detect → don't fire a stale scan
-              if (value) {
-                onDetectedRef.current(value);
-                return;
-              }
-            } catch {
-              // transient decode error — keep scanning
-            } finally {
-              lastDecode = performance.now();
-            }
-          }
-          raf = requestAnimationFrame(tick);
-        };
-        raf = requestAnimationFrame(tick);
+        // Throttle only the fallback path — the native detector is cheap enough
+        // to run every frame, which is also what it did before the first decode.
+        const tick = createDecodeTick({
+          decode: async () => (videoRef.current ? await decode(videoRef.current) : null),
+          onDetected: (value) => onDetectedRef.current(value),
+          isStopped: () => stopped || !videoRef.current,
+          schedule: (next) => {
+            raf = requestAnimationFrame(() => void next());
+          },
+          now: () => performance.now(),
+          throttleMs: native ? 0 : DECODE_MS,
+          continuous: continuousRef.current,
+        });
+        raf = requestAnimationFrame(() => void tick());
       } catch {
         // Neutral copy — the sheet renders the tap-add list right below when it
         // applies, so the error must not name a specific fallback button.

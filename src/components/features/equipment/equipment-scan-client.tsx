@@ -171,7 +171,10 @@ export function EquipmentScanClient({
         {canScan ? (
           scanning ? (
             <div className="mt-3">
-              <MusterCamera onDetected={onDecoded} />
+              {/* One-shot on purpose: resolving a sticker unmounts this camera
+                  (setScanning(false)), so a rescheduling loop would only race
+                  that unmount. The muster sweep is the continuous caller. */}
+              <MusterCamera onDetected={onDecoded} continuous={false} />
               <button
                 type="button"
                 onClick={() => setScanning(false)}
