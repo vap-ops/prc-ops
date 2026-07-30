@@ -1,3 +1,9 @@
+# [0.283.0](https://github.com/vap-ops/prc-ops/compare/v0.282.0...v0.283.0) (2026-07-30)
+
+### Features
+
+- **equipment:** reset the registry and default the owner to PRI ([#873](https://github.com/vap-ops/prc-ops/issues/873)) ([80e8ec4](https://github.com/vap-ops/prc-ops/commit/80e8ec43dabd734e70aa50355bc5520d08dae90f))
+
 # [0.282.0](https://github.com/vap-ops/prc-ops/compare/v0.281.0...v0.282.0) (2026-07-30)
 
 ### Features
