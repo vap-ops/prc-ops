@@ -211,10 +211,45 @@ describe("undo door 1 — the sweep tally row", () => {
     expect(within(tally).getByTestId("sweep-count")).toHaveTextContent("เพิ่มแล้ว 1 คน");
   });
 
-  // Spec 379 §4 — episode state. A retraction issued for a sweep that has since
-  // ended must land on the PAGE-level alert, not no-op against a replaced tally
-  // (the #764 late-completion hazard).
-  it("routes a late refusal to the page alert when the sweep has already ended", async () => {
+  // Spec 379 §4 — episode state, and the test that actually DISCRIMINATES the
+  // generation carry. `seq` restarts at 1 in every sweep, so a retraction that
+  // lands after the SA has opened a new sheet would, without the carry, fold a
+  // seq belonging to the DEAD sweep into the LIVE one — marking an innocent row
+  // ยกเลิกแล้ว and releasing its id from addedRef, which lets the very next tap
+  // write the same worker a second time. (Mutation-checked: the earlier
+  // refresh-count assertions below pass with the carry removed; this one reds.)
+  it("never folds a dead sweep's retraction into the sweep that replaced it", async () => {
+    const user = userEvent.setup();
+    let settle: (v: { ok: boolean }) => void = () => {};
+    undoMusterScan.mockReturnValue(
+      new Promise<{ ok: boolean }>((res) => {
+        settle = res;
+      }),
+    );
+    renderCockpit();
+    const first = await openSheetAndAdd(user, "สมชาย");
+    const firstTally = within(first).getByTestId("sweep-tally");
+    await user.click(within(firstTally).getByRole("button", { name: MUSTER_UNDO_LABEL }));
+    await user.click(within(firstTally).getByRole("button", { name: MUSTER_UNDO_CONFIRM_LABEL }));
+    await user.click(within(first).getByRole("button", { name: "ปิด" }));
+
+    // A fresh sweep, whose first entry carries the SAME seq the dead one did.
+    const second = await openSheetAndAdd(user, "สมชาย");
+    const secondTally = within(second).getByTestId("sweep-tally");
+    expect(within(secondTally).getByTestId("sweep-count")).toHaveTextContent("เพิ่มแล้ว 1 คน");
+
+    await act(async () => {
+      settle({ ok: true });
+    });
+
+    expect(within(secondTally).getByTestId("sweep-count")).toHaveTextContent("เพิ่มแล้ว 1 คน");
+    expect(within(secondTally).queryByText("ยกเลิกแล้ว")).toBeNull();
+    // The live sweep still owns this worker — his tap row stays ticked and inert
+    // rather than re-offering a second check-in for the same man.
+    expect(within(second).getByRole("button", { name: /สมชาย/ })).toBeDisabled();
+  });
+
+  it("still puts a refusal on the page alert once the sheet has closed", async () => {
     const user = userEvent.setup();
     let settle: (v: { ok: boolean; error?: string }) => void = () => {};
     undoMusterScan.mockReturnValue(
