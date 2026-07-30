@@ -43,7 +43,9 @@ select enum_has_labels(
         -- Spec 312: void an equipment-rental batch.
         'equipment_batch_void',
         -- Spec 324: correct an over-accepted store receipt.
-        'stock_receipt_correction'],
+        'stock_receipt_correction',
+        -- Spec 381: per-item equipment edit history.
+        'equipment_item_updated'],
   'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
 );
 

@@ -10518,6 +10518,15 @@ export type Database = {
         }
         Returns: string
       }
+      equipment_item_history: {
+        Args: { p_item_id: string }
+        Returns: {
+          actor_id: string
+          detail: Json
+          kind: string
+          occurred_at: string
+        }[]
+      }
       explode_assembly: {
         Args: { p_assembly_id: string; p_qty?: number }
         Returns: {
@@ -12284,6 +12293,7 @@ export type Database = {
         | "office_expense_reimburse"
         | "equipment_batch_void"
         | "stock_receipt_correction"
+        | "equipment_item_updated"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -12745,6 +12755,7 @@ export const Constants = {
         "office_expense_reimburse",
         "equipment_batch_void",
         "stock_receipt_correction",
+        "equipment_item_updated",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
