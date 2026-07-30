@@ -35,8 +35,11 @@ export default async function RegisterTechnicianPage({
   return (
     <>
       {/* Spec 339 U2 — a stale PWA on this pre-approval route reloads itself onto
-          the current build. The workspace redirects approved users away first,
-          so this only ever runs for an unapproved (visitor) applicant. */}
+          the current build. Spec 376 U4: it now also runs on the interstitial
+          path, i.e. for a signed-in role of any kind, not just an unapproved
+          visitor. Still safe — neither body holds in-flight work a reload could
+          discard (the notice is static, the workspace's form is behind the prep
+          gate), and a borrowed phone is exactly where a stale bundle lives. */}
       <RegisterFreshnessGate />
       {borrowed ? (
         <ForeignSessionNotice

@@ -12,33 +12,49 @@ import "server-only";
 // that person's home with no explanation at all.
 
 import { createClient } from "@/lib/db/server";
-import { getOwnTechnicianRegistration } from "@/lib/register/own-registration";
+import {
+  getOwnRegistrationDocuments,
+  getOwnStaffBank,
+  getOwnTechnicianRegistration,
+} from "@/lib/register/own-registration";
+import { deferredDocsOwed } from "@/lib/register/docs-owed";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import type { UserRole } from "@/lib/db/enums";
 import type { Database } from "@/lib/db/database.types";
 
 // Local alias, as in docs-owed.ts / card-view.ts (the register lib's convention).
 type RegistrationStatus = Database["public"]["Enums"]["registration_status"];
+type RegistrationRow = Database["public"]["Tables"]["staff_registrations"]["Row"];
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
 export interface OwnRegistrationState {
   status: RegistrationStatus;
   /** `staff_registrations.documents_deferred_at` (spec 333 U2). */
   documentsDeferredAt: string | null;
+  /** `deferredDocsOwed(...).length > 0` — computed by the caller with the same
+   * helper and the same document/bank reads the workspace uses. Only consulted
+   * for an approved+deferred row. */
+  deferredDocsOwed: boolean;
 }
 
-/** Does this door still RENDER the caller's own registration row? That — not the
- * role — is what makes the session belong to the person standing there.
+/** Does this door RENDER anything for the caller's own registration row? That —
+ * not the role — is what makes the session belong to the person standing there.
  *
- * Mirrors StaffRegisterWorkspace's own branching: a `pending` row gets the status
- * view + edit form, a `rejected` row gets the reason + form, and an `approved`
- * row is redirected home EXCEPT while `documents_deferred_at` is set, which is
- * the spec-333 U2 docs-owed view. Keep this in step with the workspace: a row the
- * workspace serves but this helper calls unserved is a person locked out of their
- * own flow — the 2026-07-30 `legal` incident. */
+ * Stated as what StaffRegisterWorkspace actually DOES, which is not the same as
+ * what the row is: `pending`/`rejected` get the status view + edit form, and an
+ * `approved` row is redirected home in every case EXCEPT a deferred approval with
+ * something still owed (the spec-333 U2 docs-owed view, gated on
+ * `deferredDocsOwed(...).length > 0`, not on the stamp).
+ *
+ * The owed condition is load-bearing, not defensive: nothing in `src/` or the
+ * migrations ever clears `documents_deferred_at`, so treating the bare stamp as
+ * "served" would suppress the notice FOREVER for every deferred hire who finished
+ * their documents — while the door silently redirects them, which is the exact
+ * symptom U4 exists to remove. */
 export function servesOwnRegistration(registration: OwnRegistrationState | null): boolean {
   if (!registration) return false;
   if (registration.status !== "approved") return true;
-  return registration.documentsDeferredAt !== null;
+  return registration.documentsDeferredAt !== null && registration.deferredDocsOwed;
 }
 
 export interface RegisterSessionIdentity {
@@ -51,16 +67,22 @@ export interface RegisterSessionIdentity {
   hasOwnRegistration: boolean;
 }
 
-/** Foreign ⇔ a session exists AND its owner is not the person this door serves.
+/** Foreign ⇔ a session exists AND this door renders nothing that belongs to its
+ * owner. Exhaustive over the live `user_role` domain in BOTH directions:
  *
- * Exhaustive over the live `user_role` domain in BOTH registration directions: a
- * served registration clears every role, and without one every role except
- * `visitor` (who is always a would-be registrant, registration or not) is
- * borrowed. A new enum value therefore classifies as foreign-when-unregistered —
- * and reds the domain pin, which is where that call gets made. */
+ *   - `visitor` — always the would-be registrant; the door serves them the form.
+ *   - `technician` — always borrowed: StaffRegisterWorkspace redirects that role
+ *     home BEFORE it ever reads a registration, so no row can make the door serve
+ *     them, and that silent bounce is U4's headline symptom. (Paired pin:
+ *     staff-register-workspace-prep.test.tsx holds the workspace's own redirect.)
+ *   - everything else — borrowed unless the door still serves their own row.
+ *
+ * A new enum value classifies as foreign-when-unregistered — and reds the domain
+ * pin, which is where that call gets made. */
 export function isForeignSession({ role, hasOwnRegistration }: RegisterSessionIdentity): boolean {
-  if (hasOwnRegistration) return false;
-  return role !== "visitor";
+  if (role === "visitor") return false;
+  if (role === "technician") return true;
+  return !hasOwnRegistration;
 }
 
 export interface BorrowedRegisterSession {
@@ -91,10 +113,40 @@ export async function borrowedRegisterSession(): Promise<BorrowedRegisterSession
   const registration = await getOwnTechnicianRegistration(supabase, uid);
   const hasOwnRegistration = servesOwnRegistration(
     registration
-      ? { status: registration.status, documentsDeferredAt: registration.documents_deferred_at }
+      ? {
+          status: registration.status,
+          documentsDeferredAt: registration.documents_deferred_at,
+          deferredDocsOwed: await stillOwesDeferredDocs(supabase, registration),
+        }
       : null,
   );
   if (!isForeignSession({ role: row.role, hasOwnRegistration })) return null;
 
   return { displayName: row.full_name ?? row.line_display_name ?? USER_ROLE_LABEL[row.role] };
+}
+
+/** `deferredDocsOwed(...)` on the caller's own row — the SAME helper and the same
+ * inputs StaffRegisterWorkspace feeds it, so the two can only ever agree. The
+ * document/bank reads happen ONLY for an approved+deferred row (every other row's
+ * served-ness is decided without them), which is why they are not hoisted. */
+async function stillOwesDeferredDocs(
+  supabase: ServerClient,
+  registration: RegistrationRow,
+): Promise<boolean> {
+  if (registration.status !== "approved" || registration.documents_deferred_at === null) {
+    return false;
+  }
+  const [{ urls }, bank] = await Promise.all([
+    getOwnRegistrationDocuments(supabase, registration.id),
+    getOwnStaffBank(supabase),
+  ]);
+  return (
+    deferredDocsOwed({
+      status: registration.status,
+      documentsDeferredAt: registration.documents_deferred_at,
+      hasIdCard: Boolean(urls.id_card),
+      hasBookBank: Boolean(urls.book_bank),
+      hasBankFields: bank !== null,
+    }).length > 0
+  );
 }

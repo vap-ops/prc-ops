@@ -32,7 +32,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getClaims, row, getReg } = vi.hoisted(() => ({
+const { getClaims, row, getReg, getDocs, getBank } = vi.hoisted(() => ({
   getClaims: vi.fn(),
   row: {
     current: null as {
@@ -42,6 +42,8 @@ const { getClaims, row, getReg } = vi.hoisted(() => ({
     } | null,
   },
   getReg: vi.fn(),
+  getDocs: vi.fn(),
+  getBank: vi.fn(),
 }));
 
 vi.mock("@/lib/db/server", () => ({
@@ -57,6 +59,8 @@ vi.mock("@/lib/db/server", () => ({
 
 vi.mock("@/lib/register/own-registration", () => ({
   getOwnTechnicianRegistration: getReg,
+  getOwnRegistrationDocuments: getDocs,
+  getOwnStaffBank: getBank,
 }));
 
 // The gate renders null and probes /api/health on mount — irrelevant here, and
@@ -78,9 +82,11 @@ import RegisterOfficePage from "@/app/register/office/page";
 import { ForeignSessionNotice } from "@/components/features/register/foreign-session-notice";
 import { isForeignSession, servesOwnRegistration } from "@/lib/register/foreign-session";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { Constants } from "@/lib/db/database.types";
 import type { UserRole } from "@/lib/db/enums";
 
 const UID = "a4000376-0000-4000-8000-000000000376";
+const REG_ID = "b4000376-0000-4000-8000-000000000376";
 const PROJECT = "123e4567-e89b-12d3-a456-426614174000";
 const BY = "223e4567-e89b-12d3-a456-426614174000";
 const CONTRACTOR = "323e4567-e89b-12d3-a456-426614174000";
@@ -131,6 +137,9 @@ beforeEach(() => {
   getClaims.mockReset().mockResolvedValue({ data: { claims: { sub: UID } } });
   row.current = null;
   getReg.mockReset().mockResolvedValue(null);
+  // Nothing uploaded, no bank row → a deferred approval OWES all three.
+  getDocs.mockReset().mockResolvedValue({ urls: {} });
+  getBank.mockReset().mockResolvedValue(null);
 });
 
 describe("isForeignSession — exhaustive over the live role domain", () => {
@@ -143,9 +152,14 @@ describe("isForeignSession — exhaustive over the live role domain", () => {
     expect(sorted(foreign)).toEqual(sorted(FOREIGN_WHEN_UNREGISTERED));
   });
 
-  it("an own registration this door serves → NO role is foreign", () => {
+  // `technician` is the exception in BOTH directions: staff-register-workspace
+  // redirects that role home BEFORE it ever reads the registration, so no row can
+  // make the door serve them — and being bounced into someone's home with no
+  // explanation is U4's headline symptom. Paired pin on the workspace's own
+  // redirect lives in staff-register-workspace-prep.test.tsx.
+  it("a served registration clears every role EXCEPT technician", () => {
     const foreign = ROLES.filter((role) => isForeignSession({ role, hasOwnRegistration: true }));
-    expect(foreign).toEqual([]);
+    expect(foreign).toEqual(["technician"]);
   });
 
   it("a visitor is the registrant — own registration or not, never foreign", () => {
@@ -163,19 +177,58 @@ describe("isForeignSession — exhaustive over the live role domain", () => {
 });
 
 describe("servesOwnRegistration — which own rows the door still renders", () => {
-  it("pending and rejected rows are served (form + status view)", () => {
-    expect(servesOwnRegistration({ status: "pending", documentsDeferredAt: null })).toBe(true);
-    expect(servesOwnRegistration({ status: "rejected", documentsDeferredAt: null })).toBe(true);
+  // Exhaustive over the live registration_status domain, same discipline as the
+  // role domain: a new status value reds this instead of silently suppressing
+  // the notice for it.
+  const STATUSES = Constants.public.Enums.registration_status;
+
+  it("no deferral: exactly pending + rejected are served", () => {
+    const served = STATUSES.filter((status) =>
+      servesOwnRegistration({ status, documentsDeferredAt: null, deferredDocsOwed: false }),
+    );
+    expect([...served].sort()).toEqual(["pending", "rejected"]);
   });
 
-  it("an approved row with deferred documents is served (spec 333 U2 docs-owed)", () => {
+  it("a deferred stamp changes nothing for a non-approved status", () => {
+    const served = STATUSES.filter((status) =>
+      servesOwnRegistration({
+        status,
+        documentsDeferredAt: "2026-07-21T00:00:00Z",
+        deferredDocsOwed: true,
+      }),
+    );
+    expect([...served].sort()).toEqual(["approved", "pending", "rejected"]);
+  });
+
+  it("a deferred approval is served only while something is still owed", () => {
+    const deferredAt = "2026-07-21T00:00:00Z";
     expect(
-      servesOwnRegistration({ status: "approved", documentsDeferredAt: "2026-07-21T00:00:00Z" }),
+      servesOwnRegistration({
+        status: "approved",
+        documentsDeferredAt: deferredAt,
+        deferredDocsOwed: true,
+      }),
     ).toBe(true);
+    // Documents complete → the workspace redirects home and renders NOTHING, so
+    // calling it served would suppress the notice for this class forever (the
+    // stamp is never cleared anywhere in src/ or the migrations).
+    expect(
+      servesOwnRegistration({
+        status: "approved",
+        documentsDeferredAt: deferredAt,
+        deferredDocsOwed: false,
+      }),
+    ).toBe(false);
   });
 
   it("a plain approved row is NOT served — the door only redirects it home", () => {
-    expect(servesOwnRegistration({ status: "approved", documentsDeferredAt: null })).toBe(false);
+    expect(
+      servesOwnRegistration({
+        status: "approved",
+        documentsDeferredAt: null,
+        deferredDocsOwed: false,
+      }),
+    ).toBe(false);
   });
 
   it("no row at all is not served", () => {
@@ -273,7 +326,7 @@ describe("register doors mount the interstitial ahead of the workspace", () => {
     // The headline hazard: nearly every ช่าง login HAS a registration row, so
     // "any row" would have to leave this case in the old silent-redirect state.
     row.current = { role: "technician", full_name: "ช่างเก่า", line_display_name: null };
-    getReg.mockResolvedValue({ status: "approved", documents_deferred_at: null });
+    getReg.mockResolvedValue({ id: REG_ID, status: "approved", documents_deferred_at: null });
     render(await RegisterTechnicianPage({ searchParams: Promise.resolve({ project: PROJECT }) }));
     expect(screen.getByText("เข้าสู่ระบบในชื่อ ช่างเก่า อยู่")).toBeInTheDocument();
     expect(screen.queryByTestId("register-workspace")).toBeNull();
@@ -281,17 +334,45 @@ describe("register doors mount the interstitial ahead of the workspace", () => {
 
   it("field door: an office applicant mid-registration reaches their OWN workspace", async () => {
     row.current = { role: "legal", full_name: "จารุวัฒน์", line_display_name: null };
-    getReg.mockResolvedValue({ status: "pending", documents_deferred_at: null });
+    getReg.mockResolvedValue({ id: REG_ID, status: "pending", documents_deferred_at: null });
     render(await RegisterTechnicianPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByTestId("register-workspace")).toBeInTheDocument();
     expect(screen.queryByText(/เข้าสู่ระบบในชื่อ/)).toBeNull();
   });
 
-  it("field door: an approved deferred-docs row is served, not blocked", async () => {
+  it("field door: a deferred-docs row with documents still owed is served", async () => {
     row.current = { role: "accounting", full_name: "ณัฐวุฒิ", line_display_name: null };
-    getReg.mockResolvedValue({ status: "approved", documents_deferred_at: "2026-07-21T00:00:00Z" });
+    getReg.mockResolvedValue({
+      id: REG_ID,
+      status: "approved",
+      documents_deferred_at: "2026-07-21T00:00:00Z",
+    });
     render(await RegisterTechnicianPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByTestId("register-workspace")).toBeInTheDocument();
+  });
+
+  it("field door: a deferred-docs row with NOTHING owed is borrowed — the door only redirects it", async () => {
+    // The stamp is never cleared, so "any deferred row is served" would suppress
+    // the notice for this person forever while the door silently bounces them.
+    row.current = { role: "accounting", full_name: "ณัฐวุฒิ", line_display_name: null };
+    getReg.mockResolvedValue({
+      id: REG_ID,
+      status: "approved",
+      documents_deferred_at: "2026-07-21T00:00:00Z",
+    });
+    getDocs.mockResolvedValue({ urls: { id_card: "signed://id", book_bank: "signed://bb" } });
+    getBank.mockResolvedValue({ bankName: "kbank", accountNumber: "1", accountName: "ณัฐวุฒิ" });
+    render(await RegisterTechnicianPage({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByText("เข้าสู่ระบบในชื่อ ณัฐวุฒิ อยู่")).toBeInTheDocument();
+    expect(screen.queryByTestId("register-workspace")).toBeNull();
+  });
+
+  it("field door: a technician is borrowed even mid-registration — the door bounces the role home", async () => {
+    row.current = { role: "technician", full_name: "ช่างเก่า", line_display_name: null };
+    getReg.mockResolvedValue({ id: REG_ID, status: "pending", documents_deferred_at: null });
+    render(await RegisterTechnicianPage({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByText("เข้าสู่ระบบในชื่อ ช่างเก่า อยู่")).toBeInTheDocument();
+    expect(screen.queryByTestId("register-workspace")).toBeNull();
   });
 
   it("field door: a logged-out scan falls through to the workspace's login redirect", async () => {
@@ -319,7 +400,7 @@ describe("register doors mount the interstitial ahead of the workspace", () => {
 
   it("office door: a `legal` applicant with a pending registration is not locked out", async () => {
     row.current = { role: "legal", full_name: "จารุวัฒน์", line_display_name: null };
-    getReg.mockResolvedValue({ status: "pending", documents_deferred_at: null });
+    getReg.mockResolvedValue({ id: REG_ID, status: "pending", documents_deferred_at: null });
     render(await RegisterOfficePage({ searchParams: Promise.resolve({ by: BY, role: "legal" }) }));
     expect(screen.getByTestId("register-workspace")).toHaveAttribute("data-variant", "office");
     expect(screen.queryByText(/เข้าสู่ระบบในชื่อ/)).toBeNull();
