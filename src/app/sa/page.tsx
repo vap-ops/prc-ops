@@ -22,7 +22,7 @@ import { createClient } from "@/lib/db/server";
 import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
 import { loadNotificationReadiness } from "@/lib/notifications/readiness";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
-import { workPackageHref } from "@/lib/nav/project-paths";
+import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
 import { withBackFrom } from "@/lib/nav/back-href";
 import {
   WORK_PACKAGE_STATUS_LABEL,
@@ -306,7 +306,14 @@ export default async function SaHomePage() {
 
   return (
     <PageShell>
-      <BottomTabBar role={ctx.role} />
+      {/* Spec 376 U1 — the โครงการ tab points straight at her resolved project,
+          so the high-frequency tap stops paying the /projects redirect hop (and
+          stops double-logging route_views). null (zero visible projects) keeps
+          the static /projects, whose redirect is still the fallback. */}
+      <BottomTabBar
+        role={ctx.role}
+        projectsTabHref={primaryProjectId ? projectHref(primaryProjectId) : null}
+      />
       {hubItems ? (
         <HubNav maxWidthClass={PAGE_MAX_W} items={hubItems} currentHref="/sa" role={ctx.role} />
       ) : null}
