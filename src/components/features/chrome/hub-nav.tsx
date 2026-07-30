@@ -99,6 +99,17 @@ export const COORDINATOR_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
+// Spec 376 U5 (D2): the site owner's desktop strip — mirrors SITE_OWNER_TABS
+// one-for-one (nav law rule 2: the phone bar is sm:hidden, so a tab whose href is
+// missing here is unreachable from the chrome on desktop). A separate export from
+// COORDINATOR_HUB_NAV for the same reason its bar is separate: the two roles' nav
+// worlds diverge the moment either gains a surface, and the mapping below is pinned
+// by identity, which is only meaningful against a distinct object.
+export const SITE_OWNER_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "โครงการ", href: "/projects" },
+  { label: "ตั้งค่า", href: "/settings" },
+];
+
 // Spec 153 → 349 U1: accounting's desktop strip went work-queue-first. Mirrors
 // ACCOUNTING_TABS (the phone bottom bar) exactly — nav law rule 2 (strip ⊇ bar),
 // enforced by nav-law-strip-superset; every entry a live destination.
@@ -143,6 +154,8 @@ export function hubNavForRole(role: string): ReadonlyArray<HubNavItem> | null {
   if (role === "procurement_manager") return PROCUREMENT_MANAGER_HUB_NAV;
   if (role === "procurement") return PROCUREMENT_HUB_NAV;
   if (role === "project_coordinator") return COORDINATOR_HUB_NAV;
+  // Spec 376 U5 (D2): the site owner's strip — the role returned null before.
+  if (role === "site_owner") return SITE_OWNER_HUB_NAV;
   if (role === "accounting") return ACCOUNTING_HUB_NAV;
   // Spec 284 U5 / ADR 0080: the Legal department strip.
   if (role === "legal") return LEGAL_HUB_NAV;

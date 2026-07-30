@@ -211,6 +211,24 @@ export const COORDINATOR_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
+// Spec 376 U5 (D2): the site owner's bar. `site_owner` fell through to null here,
+// which is exactly why the parked spec 313 U6 was refused — it would have moved the
+// role's HOME without giving it any chrome (lesson ①: never promote a landing
+// without a bar and a strip). Two tabs, the COORDINATOR_TABS shape, because those
+// are the only surfaces U5 admits it to (the page-gate audit refused store,
+// incoming, team, costs, rentals, muster, reports, supply-plan and project
+// settings) — and every tab must be a live destination.
+//
+// A SEPARATE array from COORDINATOR_TABS even though the items coincide today:
+// "members coincide, meanings differ" (the role doctrine). A coordinator is the
+// see-all oversight role; a site owner sees exactly the project(s) it holds a
+// project_members row for. Their nav worlds will diverge, and aliasing would make
+// the first divergence a silent move of someone else's chrome.
+export const SITE_OWNER_TABS: ReadonlyArray<TabItem> = [
+  { label: "โครงการ", href: "/projects", icon: FolderKanban },
+  SETTINGS_TAB,
+];
+
 // Spec 149 U9 → 349 U1: accounting goes work-queue-first — the spec-345 review
 // queue and the company-document library (its #1 real destination, 100 hits/30d,
 // previously two taps deep behind ตั้งค่า) join the bar. Short tab labels
@@ -269,6 +287,8 @@ export function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "procurement_manager") return PROCUREMENT_MANAGER_TABS;
   if (role === "procurement") return PROCUREMENT_TABS;
   if (role === "project_coordinator") return COORDINATOR_TABS;
+  // Spec 376 U5 (D2): the site owner's own set — the role rendered no bar before.
+  if (role === "site_owner") return SITE_OWNER_TABS;
   if (role === "accounting") return ACCOUNTING_TABS;
   // Spec 284 U5 / ADR 0080: the Legal department tab set.
   if (role === "legal") return LEGAL_TABS;

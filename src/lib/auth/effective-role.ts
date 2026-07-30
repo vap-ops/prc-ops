@@ -24,8 +24,17 @@ export const ASSUMED_ROLE_COOKIE = "assumed_role";
 /**
  * The roles a super_admin may assume — the SERVED roles that have a real UI to
  * view. Deliberately EXCLUDES super_admin itself (no self-assume) and every
- * unbuilt /coming-soon role (visitor, hr, subcon_manager, site_owner, auditor):
- * assuming those would just park on the /coming-soon stub. Identity-scoped roles
+ * unbuilt /coming-soon role (visitor, hr, subcon_manager, auditor): assuming
+ * those would just park on the /coming-soon stub.
+ *
+ * `site_owner` is SERVED since spec 376 U5 (roleHome → /projects) but is still
+ * held OUT, and deliberately so: its whole surface is scoped by a
+ * `project_members` row, while view-as is a TS-layer lens that leaves RLS
+ * resolving on the super_admin's own auth.uid(). A super_admin viewing as
+ * site_owner would therefore see EVERY project through the see-all arm of
+ * can_see_project — the site owner's defining constraint is the one thing the
+ * lens cannot reproduce, so the "faithful experience" premise fails. Admitting it
+ * is an operator call, not a free widen. Identity-scoped roles
  * (technician, contractor, client) ARE included — their pages render for the
  * super_admin but show a "no personal data in this view" placeholder, since the
  * self-scoped reads key on the super_admin's own (empty) records. Pinned by

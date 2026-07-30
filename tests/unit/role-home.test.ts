@@ -65,7 +65,11 @@ describe("roleHome", () => {
       visitor: "/coming-soon",
       hr: "/coming-soon",
       subcon_manager: "/coming-soon",
-      site_owner: "/coming-soon",
+      // Spec 376 U5 (D2): site_owner lands on the project world — the hub IS the
+      // site dashboard, so no new page was built. The hub then redirects a
+      // single-project owner on to /projects/:id (saProjectsLandingTarget);
+      // roleHome itself stays PURE, exactly like the SA's /sa → project hop.
+      site_owner: "/projects",
       auditor: "/coming-soon",
       // Spec 284 U5 / ADR 0080: the `legal` role now lands on its own /legal home
       // (contracts + document-approval queue). U1 added the role but deferred the
@@ -95,10 +99,19 @@ describe("roleHome", () => {
     // (asserted above). hr / subcon_manager remain genuinely-unbuilt.
     expect(roleHome("hr")).toBe("/coming-soon");
     expect(roleHome("subcon_manager")).toBe("/coming-soon");
-    // Spec 263 / ADR 0071: site_owner + auditor ship behavior-free — no route,
-    // no gate. They fall through roleHome to /coming-soon until their own specs.
-    expect(roleHome("site_owner")).toBe("/coming-soon");
+    // Spec 263 / ADR 0071 shipped site_owner + auditor behavior-free. Spec 376 U5
+    // serves site_owner (below); AUDITOR is still the behavior-free one, and the
+    // parked half of spec 313 U6 stays parked — its exclusion is deliberate.
     expect(roleHome("auditor")).toBe("/coming-soon");
+  });
+
+  // Spec 376 U5 (D2) — the site-oversight landing. The project hub already IS the
+  // site dashboard (WP status, งวดงาน, schedule, photos), so U5 built no page: it
+  // points the role at /projects and lets saProjectsLandingTarget carry a
+  // single-project owner the last hop. Asserted on its own (not only inside the
+  // rest-unchanged table) so the arm has a named, greppable pin.
+  it("sends a site_owner to the project world (spec 376 U5)", () => {
+    expect(roleHome("site_owner")).toBe("/projects");
   });
 
   // Spec 130 / ADR 0051: external direct-contractor accounts land on the

@@ -34,6 +34,7 @@ import {
   supplyPlanHref,
 } from "@/lib/nav/project-paths";
 import { safeBackHref } from "@/lib/nav/back-href";
+import { PROJECT_LANDING_ROLES } from "@/lib/nav/projects-landing";
 import { BUTTON_SECONDARY, ICON_CHIP_MUTED } from "@/lib/ui/classes";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { ProjectInfoButton } from "@/components/features/work-packages/project-info-button";
@@ -92,9 +93,12 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
   // cards — referrer first, the projects hub as the hierarchical fallback.
   // Spec 313 U4: for a site_admin the bare hub REDIRECTS back to this page, so
   // the fallback must request the hub explicitly or the back chip is a no-op loop.
+  // Spec 376 U5: site_owner redirects too, so the branch reads the SET — a literal
+  // here would have left the owner's back chip looping straight back into the WP
+  // list it was trying to leave.
   const backHref = safeBackHref(
     from,
-    ctx.role === "site_admin" ? "/projects?view=all" : "/projects",
+    PROJECT_LANDING_ROLES.includes(ctx.role) ? "/projects?view=all" : "/projects",
   );
 
   if (!project) {

@@ -726,8 +726,11 @@ describe("site_owner + auditor are behavior-free (spec 263 / ADR 0071)", () => {
     }
   });
 
-  it("land on /coming-soon (behavior-free)", () => {
-    for (const role of NEW_ROLES) expect(roleHome(role)).toBe("/coming-soon");
+  // Spec 376 U5 (D2): site_owner is NO LONGER behavior-free — it homes on the
+  // project world. `auditor` is the one still shipping behavior-free (the parked
+  // half of spec 313 U6), so it carries this assertion alone now.
+  it("auditor still lands on /coming-soon (behavior-free)", () => {
+    expect(roleHome("auditor")).toBe("/coming-soon");
   });
 });
 

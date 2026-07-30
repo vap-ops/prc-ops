@@ -13,6 +13,7 @@ import {
   COORDINATOR_HUB_NAV,
   ACCOUNTING_HUB_NAV,
   LEGAL_HUB_NAV,
+  SITE_OWNER_HUB_NAV,
   TECHNICIAN_HUB_NAV,
   hubNavForRole,
 } from "@/components/features/chrome/hub-nav";
@@ -152,6 +153,26 @@ describe("canonical nav sets", () => {
 
   it("maps the technician role to that strip (was null)", () => {
     expect(hubNavForRole("technician")).toBe(TECHNICIAN_HUB_NAV);
+  });
+
+  // Writing failing test first.
+  //
+  // Spec 376 U5 (D2): the site owner's strip. Mirrors SITE_OWNER_TABS one-for-one
+  // (nav law rule 2). A SEPARATE array from COORDINATOR_HUB_NAV even though the
+  // items coincide today — the two roles' worlds diverge the moment either gains a
+  // surface, and identity-pinning the mapping below is only meaningful if the sets
+  // are actually distinct objects. site_owner is absent from ASSUMABLE_ROLES, so
+  // view-as cannot catch a regression here in a browser — this pin is the floor.
+  it("pins the site_owner set's destinations and order", () => {
+    expect(SITE_OWNER_HUB_NAV).toEqual([
+      { label: "โครงการ", href: "/projects" },
+      { label: "ตั้งค่า", href: "/settings" },
+    ]);
+  });
+
+  it("maps the site_owner role to that strip (was null)", () => {
+    expect(hubNavForRole("site_owner")).toBe(SITE_OWNER_HUB_NAV);
+    expect(SITE_OWNER_HUB_NAV).not.toBe(COORDINATOR_HUB_NAV);
   });
 });
 

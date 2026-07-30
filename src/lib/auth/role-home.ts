@@ -686,8 +686,22 @@ export function roleHome(role: UserRole): string {
   // /technician home (e-card + approval status + assigned-WPs placeholder) — the
   // anti-dead-end landing that replaces the /coming-soon fall-through for the
   // technician journey. Every OTHER still-unbuilt role (hr, subcon_manager,
-  // site_owner, auditor) keeps falling through to /coming-soon below.
+  // auditor) keeps falling through to /coming-soon below.
   if (role === "technician") return "/technician";
+  // Spec 376 U5 (D2, supersedes the site_owner half of the parked spec 313 U6 —
+  // the auditor half stays parked): the site owner lands on the project world.
+  // No new page was built: the project hub ALREADY is the site dashboard (WP
+  // status, งวดงาน, schedule), and can_see_project's membership arm already scopes
+  // a site_owner to their own site — U5 only opens the page gates (PROJECT_VIEW /
+  // SCHEDULE_VIEW) and gives the role its chrome.
+  //
+  // roleHome stays PURE. A single-project owner is carried the last hop to
+  // /projects/:id by saProjectsLandingTarget (PROJECT_LANDING_ROLES) at the hub
+  // itself, exactly like the SA's — the resolution needs a DB read and a cookie,
+  // neither of which belongs in this pure table. Zero projects → the hub renders
+  // empty, which is the safe stop (the role needs a project_members row; the
+  // /projects/:id/team add picker already offers site_owner).
+  if (role === "site_owner") return "/projects";
   return "/coming-soon";
 }
 
