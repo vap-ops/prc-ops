@@ -15,6 +15,8 @@ import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { safeBackHref } from "@/lib/nav/back-href";
+import { mintSignedUrls } from "@/lib/storage/signed-urls";
+import { EQUIPMENT_IMAGES_BUCKET } from "@/lib/storage/buckets";
 import {
   EquipmentManager,
   type ManagedEquipmentItem,
@@ -45,7 +47,9 @@ export default async function EquipmentPage({
   ] = await Promise.all([
     supabase
       .from("equipment_items")
-      .select("id, name, category_id, owner_id, tracking, asset_tag, quantity, status")
+      // image_path (spec 367 U1) rides along for U5's per-item thumbnails; it is
+      // a storage path, so it never reaches the client — only the signed URL does.
+      .select("id, name, category_id, owner_id, tracking, asset_tag, quantity, status, image_path")
       .order("name", { ascending: true }),
     supabase.from("equipment_categories").select("id, name").order("name", { ascending: true }),
     supabase.from("equipment_owners").select("id, name").order("name", { ascending: true }),
@@ -57,6 +61,17 @@ export default async function EquipmentPage({
   ]);
 
   const items: ManagedEquipmentItem[] = itemRows ?? [];
+
+  // Spec 367 U5 — 120s signed thumbnails for the edit sheet. equipment-images is
+  // private and storage SELECT RLS does not cover these reads; the authorisation
+  // is the row-level SELECT the caller already passed above (the mintSignedUrls
+  // contract, ADR 0015/0026/0028). Rows with no image are skipped by the helper,
+  // so an all-blank registry costs zero storage calls.
+  const imageUrlMap = await mintSignedUrls(
+    EQUIPMENT_IMAGES_BUCKET,
+    (itemRows ?? []).map((r) => ({ id: r.id, storage_path: r.image_path })),
+  );
+  const imageUrls = Object.fromEntries(imageUrlMap);
   const movements: EquipmentMovementRow[] = (movementRows ?? []).map((m) => ({
     itemId: m.item_id,
     kind: m.kind,
@@ -135,6 +150,7 @@ export default async function EquipmentPage({
           movements={movements}
           canManageRegistry={canManageRegistry}
           {...(dailyRates ? { dailyRates } : {})}
+          {...(Object.keys(imageUrls).length > 0 ? { imageUrls } : {})}
         />
       </div>
     </PageShell>

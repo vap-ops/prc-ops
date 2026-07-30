@@ -10,6 +10,11 @@ export const REPORTS_BUCKET = "reports";
 export const CONTACT_DOCS_BUCKET = "contact-docs";
 // Spec 175 U4 — one reference image per catalog item (private; back-office upload).
 export const CATALOG_IMAGES_BUCKET = "catalog-images";
+// Spec 367 U1 — equipment images, private. Two shapes share the bucket and the
+// policy tells them apart by folder depth: `<itemId>/<file>` is the registry's
+// one reference image per item (U5), `usage/<log>/<file>` is spec 370's borrow /
+// return condition photos.
+export const EQUIPMENT_IMAGES_BUCKET = "equipment-images";
 // Spec 277 P1a — site-issue (แจ้งปัญหา) photos, private, owner-bound upload.
 export const SITE_ISSUES_BUCKET = "site-issues";
 // Spec 329 — firm-level documents (private; accounting upload, signed-URL reads).
