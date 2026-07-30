@@ -1,3 +1,9 @@
+## [0.277.2](https://github.com/vap-ops/prc-ops/compare/v0.277.1...v0.277.2) (2026-07-30)
+
+### Bug Fixes
+
+- **db:** guard delete_work_package against every live WP reference ([#867](https://github.com/vap-ops/prc-ops/issues/867)) ([41fd701](https://github.com/vap-ops/prc-ops/commit/41fd701ccac90f9b51097d3728af24589dc8e5c5))
+
 ## [0.277.1](https://github.com/vap-ops/prc-ops/compare/v0.277.0...v0.277.1) (2026-07-30)
 
 ### Bug Fixes
