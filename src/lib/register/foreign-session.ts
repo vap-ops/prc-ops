@@ -12,28 +12,54 @@ import "server-only";
 // that person's home with no explanation at all.
 
 import { createClient } from "@/lib/db/server";
+import { getOwnTechnicianRegistration } from "@/lib/register/own-registration";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import type { UserRole } from "@/lib/db/enums";
+import type { Database } from "@/lib/db/database.types";
+
+// Local alias, as in docs-owed.ts / card-view.ts (the register lib's convention).
+type RegistrationStatus = Database["public"]["Enums"]["registration_status"];
+
+export interface OwnRegistrationState {
+  status: RegistrationStatus;
+  /** `staff_registrations.documents_deferred_at` (spec 333 U2). */
+  documentsDeferredAt: string | null;
+}
+
+/** Does this door still RENDER the caller's own registration row? That — not the
+ * role — is what makes the session belong to the person standing there.
+ *
+ * Mirrors StaffRegisterWorkspace's own branching: a `pending` row gets the status
+ * view + edit form, a `rejected` row gets the reason + form, and an `approved`
+ * row is redirected home EXCEPT while `documents_deferred_at` is set, which is
+ * the spec-333 U2 docs-owed view. Keep this in step with the workspace: a row the
+ * workspace serves but this helper calls unserved is a person locked out of their
+ * own flow — the 2026-07-30 `legal` incident. */
+export function servesOwnRegistration(registration: OwnRegistrationState | null): boolean {
+  if (!registration) return false;
+  if (registration.status !== "approved") return true;
+  return registration.documentsDeferredAt !== null;
+}
 
 export interface RegisterSessionIdentity {
   /** The signed-in user's role (`public.users.role`). */
   role: UserRole;
-  /** Whether that user holds their OWN `staff_registration`.
-   *
-   * Accepted and DELIBERATELY inert — it is the input a reader expects to matter,
-   * and the answer is that it must not: a `visitor` mid-registration IS the
-   * registrant (their pending/rejected workspace is the whole point of the door),
-   * and no registration makes a non-visitor role the person standing there. Both
-   * directions are pinned in foreign-session-notice.test.tsx; keeping the field
-   * means the callers pay no `staff_registrations` read to answer this, and the
-   * refutation is visible in the type rather than lost in a comment. */
-  hasOwnRegistration?: boolean;
+  /** Whether the caller holds an own registration THIS DOOR STILL SERVES
+   * (servesOwnRegistration). A role-only rule was refuted by live data: two
+   * `legal` users' one remaining step is on this page, and the deferred-docs view
+   * is served to approved office roles — both would have been locked out. */
+  hasOwnRegistration: boolean;
 }
 
-/** Exhaustive over the live `user_role` domain: every role EXCEPT `visitor` is a
- * borrowed session at a register door. A new enum value therefore classifies as
- * foreign — and reds the domain pin, which is where that call gets made. */
-export function isForeignSession({ role }: RegisterSessionIdentity): boolean {
+/** Foreign ⇔ a session exists AND its owner is not the person this door serves.
+ *
+ * Exhaustive over the live `user_role` domain in BOTH registration directions: a
+ * served registration clears every role, and without one every role except
+ * `visitor` (who is always a would-be registrant, registration or not) is
+ * borrowed. A new enum value therefore classifies as foreign-when-unregistered —
+ * and reds the domain pin, which is where that call gets made. */
+export function isForeignSession({ role, hasOwnRegistration }: RegisterSessionIdentity): boolean {
+  if (hasOwnRegistration) return false;
   return role !== "visitor";
 }
 
@@ -51,13 +77,24 @@ export async function borrowedRegisterSession(): Promise<BorrowedRegisterSession
   const { data } = await supabase.auth.getClaims();
   if (!data) return null;
 
+  const uid = data.claims.sub;
   const { data: row } = await supabase
     .from("users")
     .select("role, full_name, line_display_name")
-    .eq("id", data.claims.sub)
+    .eq("id", uid)
     .maybeSingle();
   if (!row) return null;
-  if (!isForeignSession({ role: row.role })) return null;
+
+  // The own-row read the workspace also makes (RLS own-row policy, spec 263 G1).
+  // Deliberately unconditional: deriving hasOwnRegistration only for some roles
+  // would put a second copy of the rule in the caller.
+  const registration = await getOwnTechnicianRegistration(supabase, uid);
+  const hasOwnRegistration = servesOwnRegistration(
+    registration
+      ? { status: registration.status, documentsDeferredAt: registration.documents_deferred_at }
+      : null,
+  );
+  if (!isForeignSession({ role: row.role, hasOwnRegistration })) return null;
 
   return { displayName: row.full_name ?? row.line_display_name ?? USER_ROLE_LABEL[row.role] };
 }

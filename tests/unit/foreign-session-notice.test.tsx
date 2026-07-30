@@ -10,18 +10,29 @@
 // attribution params intact (they are mint-once — start_staff_registration binds
 // project/contractor/inviter, so losing them loses the binding for good).
 //
-// Two pins live here:
+// The question is "is this session's owner the person registering?", NOT "is
+// their role visitor?" — a role-only rule locks out any signed-in applicant whose
+// own registration is still in flight. Constraint (live, 2026-07-30): two `legal`
+// users hold `pending` own registrations whose only remaining step is to reopen
+// this page and tick PDPA, and the spec-333 deferred-docs view is served here to
+// approved office roles. So: foreign ⇔ a session exists AND that user has no own
+// registration THIS DOOR STILL SERVES.
+//
+// Three pins live here:
 //   1. isForeignSession over the WHOLE live role domain (Object.keys of the
-//      USER_ROLE_LABEL Record<UserRole, …>) — the exact positive set, so adding
-//      an enum value REDS this file and forces a deliberate classification.
-//   2. The mount seam on BOTH register doors: foreign session → notice and the
-//      workspace is NOT rendered; a visitor (the actual registrant, with or
-//      without their own registration) still gets the workspace untouched.
+//      USER_ROLE_LABEL Record<UserRole, …>) — the exact positive set in both
+//      registration directions, so adding an enum value REDS this file and
+//      forces a deliberate classification.
+//   2. servesOwnRegistration — which own rows the door renders (that is what
+//      makes the session the registrant's own).
+//   3. The mount seam on BOTH register doors: foreign session → notice and the
+//      workspace is NOT rendered; a visitor, and anyone whose own registration
+//      is still served, gets the workspace untouched.
 
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getClaims, row } = vi.hoisted(() => ({
+const { getClaims, row, getReg } = vi.hoisted(() => ({
   getClaims: vi.fn(),
   row: {
     current: null as {
@@ -30,6 +41,7 @@ const { getClaims, row } = vi.hoisted(() => ({
       line_display_name: string | null;
     } | null,
   },
+  getReg: vi.fn(),
 }));
 
 vi.mock("@/lib/db/server", () => ({
@@ -41,6 +53,10 @@ vi.mock("@/lib/db/server", () => ({
       }),
     }),
   }),
+}));
+
+vi.mock("@/lib/register/own-registration", () => ({
+  getOwnTechnicianRegistration: getReg,
 }));
 
 // The gate renders null and probes /api/health on mount — irrelevant here, and
@@ -60,7 +76,7 @@ vi.mock("@/components/features/register/staff-register-workspace", () => ({
 import RegisterTechnicianPage from "@/app/register/technician/page";
 import RegisterOfficePage from "@/app/register/office/page";
 import { ForeignSessionNotice } from "@/components/features/register/foreign-session-notice";
-import { isForeignSession } from "@/lib/register/foreign-session";
+import { isForeignSession, servesOwnRegistration } from "@/lib/register/foreign-session";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import type { UserRole } from "@/lib/db/enums";
 
@@ -73,9 +89,10 @@ const LOGOUT_LABEL = "ออกจากระบบเพื่อสมัค�
 
 const ROLES = Object.keys(USER_ROLE_LABEL) as UserRole[];
 
-// The exact positive set, pinned as a literal (not `ROLES.filter(r => r !==
-// "visitor")`, which would silently auto-classify a newly added role).
-const FOREIGN_ROLES: UserRole[] = [
+// The exact positive set WHEN THE USER HOLDS NO SERVED REGISTRATION, pinned as a
+// literal (not `ROLES.filter(r => r !== "visitor")`, which would silently
+// auto-classify a newly added role).
+const FOREIGN_WHEN_UNREGISTERED: UserRole[] = [
   "accounting",
   "auditor",
   "client",
@@ -113,27 +130,56 @@ function logoutReturnTo(): URL {
 beforeEach(() => {
   getClaims.mockReset().mockResolvedValue({ data: { claims: { sub: UID } } });
   row.current = null;
+  getReg.mockReset().mockResolvedValue(null);
 });
 
 describe("isForeignSession — exhaustive over the live role domain", () => {
   it("classifies every role in the domain (an enum add must land here)", () => {
-    expect(sorted([...FOREIGN_ROLES, "visitor"])).toEqual(sorted(ROLES));
+    expect(sorted([...FOREIGN_WHEN_UNREGISTERED, "visitor"])).toEqual(sorted(ROLES));
   });
 
-  it("every role except visitor is a borrowed session", () => {
-    const foreign = ROLES.filter((role) => isForeignSession({ role }));
-    expect(sorted(foreign)).toEqual(sorted(FOREIGN_ROLES));
+  it("no served registration → every role except visitor is a borrowed session", () => {
+    const foreign = ROLES.filter((role) => isForeignSession({ role, hasOwnRegistration: false }));
+    expect(sorted(foreign)).toEqual(sorted(FOREIGN_WHEN_UNREGISTERED));
+  });
+
+  it("an own registration this door serves → NO role is foreign", () => {
+    const foreign = ROLES.filter((role) => isForeignSession({ role, hasOwnRegistration: true }));
+    expect(foreign).toEqual([]);
   });
 
   it("a visitor is the registrant — own registration or not, never foreign", () => {
-    expect(isForeignSession({ role: "visitor" })).toBe(false);
     expect(isForeignSession({ role: "visitor", hasOwnRegistration: false })).toBe(false);
     expect(isForeignSession({ role: "visitor", hasOwnRegistration: true })).toBe(false);
   });
 
-  it("an own registration never rescues a non-visitor role either", () => {
-    const foreign = ROLES.filter((role) => isForeignSession({ role, hasOwnRegistration: true }));
-    expect(sorted(foreign)).toEqual(sorted(FOREIGN_ROLES));
+  // Constraint, not a story: a served office role must reach its own workspace.
+  // Two live `legal` users hold pending registrations whose only remaining step
+  // is on this page; a role-only rule would lock them out of it.
+  it("role `legal` with a pending own registration is NOT foreign", () => {
+    expect(isForeignSession({ role: "legal", hasOwnRegistration: true })).toBe(false);
+    expect(isForeignSession({ role: "legal", hasOwnRegistration: false })).toBe(true);
+  });
+});
+
+describe("servesOwnRegistration — which own rows the door still renders", () => {
+  it("pending and rejected rows are served (form + status view)", () => {
+    expect(servesOwnRegistration({ status: "pending", documentsDeferredAt: null })).toBe(true);
+    expect(servesOwnRegistration({ status: "rejected", documentsDeferredAt: null })).toBe(true);
+  });
+
+  it("an approved row with deferred documents is served (spec 333 U2 docs-owed)", () => {
+    expect(
+      servesOwnRegistration({ status: "approved", documentsDeferredAt: "2026-07-21T00:00:00Z" }),
+    ).toBe(true);
+  });
+
+  it("a plain approved row is NOT served — the door only redirects it home", () => {
+    expect(servesOwnRegistration({ status: "approved", documentsDeferredAt: null })).toBe(false);
+  });
+
+  it("no row at all is not served", () => {
+    expect(servesOwnRegistration(null)).toBe(false);
   });
 });
 
@@ -223,6 +269,31 @@ describe("register doors mount the interstitial ahead of the workspace", () => {
     expect(screen.queryByText(/เข้าสู่ระบบในชื่อ/)).toBeNull();
   });
 
+  it("field door: an approved ช่าง's session is still borrowed — notice, not a silent home redirect", async () => {
+    // The headline hazard: nearly every ช่าง login HAS a registration row, so
+    // "any row" would have to leave this case in the old silent-redirect state.
+    row.current = { role: "technician", full_name: "ช่างเก่า", line_display_name: null };
+    getReg.mockResolvedValue({ status: "approved", documents_deferred_at: null });
+    render(await RegisterTechnicianPage({ searchParams: Promise.resolve({ project: PROJECT }) }));
+    expect(screen.getByText("เข้าสู่ระบบในชื่อ ช่างเก่า อยู่")).toBeInTheDocument();
+    expect(screen.queryByTestId("register-workspace")).toBeNull();
+  });
+
+  it("field door: an office applicant mid-registration reaches their OWN workspace", async () => {
+    row.current = { role: "legal", full_name: "จารุวัฒน์", line_display_name: null };
+    getReg.mockResolvedValue({ status: "pending", documents_deferred_at: null });
+    render(await RegisterTechnicianPage({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByTestId("register-workspace")).toBeInTheDocument();
+    expect(screen.queryByText(/เข้าสู่ระบบในชื่อ/)).toBeNull();
+  });
+
+  it("field door: an approved deferred-docs row is served, not blocked", async () => {
+    row.current = { role: "accounting", full_name: "ณัฐวุฒิ", line_display_name: null };
+    getReg.mockResolvedValue({ status: "approved", documents_deferred_at: "2026-07-21T00:00:00Z" });
+    render(await RegisterTechnicianPage({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByTestId("register-workspace")).toBeInTheDocument();
+  });
+
   it("field door: a logged-out scan falls through to the workspace's login redirect", async () => {
     getClaims.mockResolvedValue({ data: null });
     render(await RegisterTechnicianPage({ searchParams: Promise.resolve({}) }));
@@ -244,6 +315,14 @@ describe("register doors mount the interstitial ahead of the workspace", () => {
     row.current = { role: "visitor", full_name: null, line_display_name: null };
     render(await RegisterOfficePage({ searchParams: Promise.resolve({ by: BY, role: "hr" }) }));
     expect(screen.getByTestId("register-workspace")).toHaveAttribute("data-variant", "office");
+  });
+
+  it("office door: a `legal` applicant with a pending registration is not locked out", async () => {
+    row.current = { role: "legal", full_name: "จารุวัฒน์", line_display_name: null };
+    getReg.mockResolvedValue({ status: "pending", documents_deferred_at: null });
+    render(await RegisterOfficePage({ searchParams: Promise.resolve({ by: BY, role: "legal" }) }));
+    expect(screen.getByTestId("register-workspace")).toHaveAttribute("data-variant", "office");
+    expect(screen.queryByText(/เข้าสู่ระบบในชื่อ/)).toBeNull();
   });
 
   it("a nameless account is still identified — by its role label, never blank", async () => {
