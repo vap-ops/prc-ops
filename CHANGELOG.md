@@ -1,3 +1,10 @@
+## [0.276.1](https://github.com/vap-ops/prc-ops/compare/v0.276.0...v0.276.1) (2026-07-30)
+
+### Bug Fixes
+
+- **muster:** a badge parked in frame must not refill the sweep tally ([7bfd00b](https://github.com/vap-ops/prc-ops/commit/7bfd00b1077aa00426acd40f5103a794f4bea2ae))
+- **muster:** keep the QR loop scanning after a hit ([7438c9e](https://github.com/vap-ops/prc-ops/commit/7438c9e6f77a5a4ba8f936678a9638064b9878ac)), closes [#745](https://github.com/vap-ops/prc-ops/issues/745)
+
 # [0.276.0](https://github.com/vap-ops/prc-ops/compare/v0.275.0...v0.276.0) (2026-07-30)
 
 ### Features
