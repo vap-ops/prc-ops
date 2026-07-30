@@ -2325,3 +2325,45 @@ describe("MusterCockpit — manual tap-add runs the sweep pipeline (spec 359 U3)
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 });
+
+// A badge left sitting in the viewfinder. Impossible before the decode loop
+// learned to reschedule — the loop died on the first hit, so a second decode of
+// the same badge could not happen without closing and reopening the sheet. Now
+// the camera keeps decoding, so the 3s per-badge cooldown is the only thing
+// between a parked badge and an endlessly growing tally: every time the window
+// expires the same worker records another row and plays another cue, pushing the
+// real entries off a phone screen.
+describe("MusterCockpit — a badge parked in frame does not refill the tally", () => {
+  it("re-arms the cooldown on a suppressed decode instead of firing again", async () => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: () => Promise.resolve() },
+      configurable: true,
+    });
+    const nowSpy = vi.spyOn(Date, "now");
+    try {
+      let clock = 1_000_000;
+      nowSpy.mockImplementation(() => clock);
+      const user = userEvent.setup();
+      nextScanId.current = W3;
+      renderCockpit();
+      await user.click(screen.getByRole("button", { name: "สแกน QR / เพิ่มช่าง" }));
+      const badge = within(screen.getByRole("dialog")).getByTestId("camera-mock-next");
+
+      await user.click(badge);
+      expect(screen.getAllByTestId("sweep-entry-name")).toHaveLength(1);
+
+      // The badge never leaves the frame: decodes keep arriving, each one just
+      // inside the window the previous decode should have re-armed.
+      for (let i = 0; i < 4; i++) {
+        clock += 2_000;
+        await user.click(badge);
+      }
+
+      expect(screen.getAllByTestId("sweep-entry-name")).toHaveLength(1);
+    } finally {
+      nowSpy.mockRestore();
+      delete (navigator as unknown as Record<string, unknown>).mediaDevices;
+      nextScanId.current = W3;
+    }
+  });
+});
