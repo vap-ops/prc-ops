@@ -15,8 +15,8 @@ import { useRouter } from "next/navigation";
 import { correctLaborLog, logLaborDays } from "@/lib/labor/actions";
 import { bangkokTodayIso } from "@/lib/labor/dates";
 import { validateCorrection } from "@/lib/labor/validate";
-import { formatThaiDate } from "@/lib/i18n/labels";
-import { filterRoster, partitionRosterByProject } from "@/lib/labor/group-workers";
+import { CONFIRM_COST_LABEL, UNCONFIRMED_COST_LABEL, formatThaiDate } from "@/lib/i18n/labels";
+import { filterRoster, isCostConfirmed, partitionRosterByProject } from "@/lib/labor/group-workers";
 import type { GroupedRoster, RosterWorker } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
 import type { Database } from "@/lib/db/database.types";
@@ -33,6 +33,15 @@ const FRACTION_LABEL: Record<DayFraction, string> = {
   full: "เต็มวัน",
   half: "ครึ่งวัน",
 };
+
+// Spec 306 — the money wall's affordance layer. The state and the CTA both come
+// from the labels SSOT: spec 374's attendance calendar already explains this
+// exact state to the same audience, and two surfaces describing one thing in two
+// wordings is how a user concludes they are two different things.
+// ⚠️ The page this names is รายชื่อช่าง. Spec 313 U2b reserved the /team hub's
+// own noun for that hub alone and holds this file to it by test — including in
+// comments, so the retired word cannot even be written here to warn about it.
+const UNCONFIRMED_COST_HINT = `${UNCONFIRMED_COST_LABEL} — บันทึกวันทำงานไม่ได้ จนกว่าจะกด "${CONFIRM_COST_LABEL}" ในหน้ารายชื่อช่าง`;
 
 function FractionToggle({
   value,
@@ -71,18 +80,34 @@ function WorkerPickRow({
   onToggle: () => void;
   onFraction: (f: DayFraction) => void;
 }) {
+  // Spec 306: log_labor_day refuses an unconfirmed worker. Ticking one could
+  // only ever produce a refusal on submit, so the row states the reason instead
+  // of pretending to be selectable — the fix belongs to procurement, not to the
+  // person standing on site.
+  const capturable = isCostConfirmed(worker);
   return (
     <li className="flex min-h-11 items-center justify-between gap-2">
-      <label className="text-ink flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm">
+      <label
+        className={`flex min-w-0 flex-1 items-center gap-2 text-sm ${
+          capturable ? "text-ink cursor-pointer" : "text-ink-muted"
+        }`}
+      >
         <input
           type="checkbox"
           checked={fraction !== null}
           onChange={onToggle}
+          disabled={!capturable}
           className="accent-brand size-4"
         />
         <span className="truncate">{worker.name}</span>
       </label>
-      {fraction !== null ? <FractionToggle value={fraction} onChange={onFraction} /> : null}
+      {capturable ? (
+        fraction !== null ? (
+          <FractionToggle value={fraction} onChange={onFraction} />
+        ) : null
+      ) : (
+        <span className="text-ink-muted shrink-0 text-xs">{UNCONFIRMED_COST_LABEL}</span>
+      )}
     </li>
   );
 }
@@ -265,9 +290,16 @@ export function LaborLogZone({
 
   const today = bangkokTodayIso();
   const selectedIds = Object.keys(selected);
-  const workerNames = new Map(
-    [...roster.own, ...roster.dc.flatMap((g) => g.workers)].map((w) => [w.id, w.name]),
-  );
+  const allWorkers = [...roster.own, ...roster.dc.flatMap((g) => g.workers)];
+  const workerNames = new Map(allWorkers.map((w) => [w.id, w.name]));
+  // Spec 306 — the money wall's affordance layer is the `disabled` attribute on
+  // the row's checkbox (pinned by test). A second guard inside toggle() was
+  // written and then removed: mutation-checking proved it UNREACHABLE, because a
+  // disabled input never fires onChange, so it asserted a hazard that cannot
+  // occur while the affordance is correct — the spec-340 unreachable-clause
+  // rule. If the checkbox ever stops being disabled, submit still refuses per
+  // worker with a specific Thai reason rather than silently.
+  const unconfirmedCount = allWorkers.filter((w) => !isCostConfirmed(w)).length;
 
   function toggle(workerId: string) {
     setSelected((prev) => {
@@ -359,6 +391,15 @@ export function LaborLogZone({
             </p>
           ) : (
             <>
+              {/* Spec 306 — say WHY the roster is un-tickable, once, above the
+                  list. Without this a fully-unconfirmed roster reads as a broken
+                  page: every name renders, nothing can be selected, and the
+                  per-row chip alone never names the actor who can fix it. */}
+              {unconfirmedCount > 0 ? (
+                <p className="text-ink-secondary mt-3 text-sm" role="note">
+                  {UNCONFIRMED_COST_HINT}
+                </p>
+              ) : null}
               {/* Spec 158 U1: find a ช่าง in a long company-wide roster. */}
               <input
                 type="search"

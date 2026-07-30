@@ -19,6 +19,7 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 import { bangkokTodayIso } from "./dates";
 import { validateCorrection, validateWagePayment, validateLaborEntry } from "./validate";
 import { validateNotes } from "@/lib/notes/validate";
+import { CONFIRM_COST_LABEL, UNCONFIRMED_COST_LABEL } from "@/lib/i18n/labels";
 
 type DayFraction = Database["public"]["Enums"]["day_fraction"];
 type WagePaymentMethod = Database["public"]["Enums"]["wage_payment_method"];
@@ -35,6 +36,15 @@ function rpcErrorToThai(message: string): string {
   if (message.includes("already exists")) return "มีบันทึกของวันนั้นอยู่แล้ว";
   if (message.includes("inactive")) return "ทีมงานถูกปิดใช้งานแล้ว";
   if (message.includes("complete")) return "งานปิดแล้ว บันทึกเพิ่มไม่ได้";
+  // Spec 306 money wall — each arm is a PERMANENT refusal for this worker, so
+  // none of them may read as "try again" (the honest-copy rule). Each names the
+  // actor who can clear it, because none of them is the person on site.
+  if (message.includes("subcontractor firm"))
+    return "ช่างสังกัดผู้รับเหมา ค่าแรงรวมอยู่ในค่างานแล้ว บันทึกรายวันไม่ได้";
+  if (message.includes("cost is not confirmed"))
+    return `${UNCONFIRMED_COST_LABEL} — กด "${CONFIRM_COST_LABEL}" ในหน้ารายชื่อช่างก่อน`;
+  if (message.includes("day rate is not set"))
+    return `ยังไม่ตั้งค่าแรงต่อวันของช่างคนนี้ — กด "${CONFIRM_COST_LABEL}" ในหน้ารายชื่อช่างก่อน`;
   return GENERIC_ERROR;
 }
 

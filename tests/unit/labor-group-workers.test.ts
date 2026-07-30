@@ -21,6 +21,9 @@ function worker(overrides: Partial<RosterWorker>): RosterWorker {
     pay_type: "monthly",
     contractor_id: null,
     active: true,
+    // Spec 306: the default fixture worker is capturable — cases that care
+    // about the money wall override this explicitly.
+    cost_confirmed_at: "2026-07-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -78,7 +81,14 @@ describe("groupRoster", () => {
 // formed, so the fixtures are literals (groupRoster itself now excludes
 // contractor-tied workers per spec 328, see above).
 function dcWorker(id: string, name: string, contractor_id: string): RosterWorker {
-  return { id, name, pay_type: "daily", contractor_id, active: true };
+  return {
+    id,
+    name,
+    pay_type: "daily",
+    contractor_id,
+    active: true,
+    cost_confirmed_at: "2026-07-01T00:00:00Z",
+  };
 }
 
 describe("filterRoster (spec 158 U1)", () => {

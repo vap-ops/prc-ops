@@ -1,5 +1,5 @@
 begin;
-select plan(59);
+select plan(60);
 
 -- ============================================================================
 -- Spec 46 — daily labor capture: workers master + labor_logs.
@@ -45,17 +45,34 @@ insert into public.contractors (id, name, created_by) values
 
 -- Worker fixtures (direct insert as postgres — owner bypasses the
 -- zero-grant posture; the app can only use the RPCs).
+-- Spec 306: log_labor_day now refuses a worker whose cost is unconfirmed or
+-- whose day_rate is 0, at parity with derive_muster_labor. Every fixture that a
+-- test expects to LOG successfully therefore carries cost_confirmed_at. The two
+-- that must be refused keep exactly one disqualifying attribute each, so the
+-- assertion below names the arm that fired: aaaaaaa2 is inactive, aaaaaaa3 is
+-- contractor-tied.
 insert into public.workers (id, name, pay_type, employment_type, contractor_id, user_id,
-                            day_rate, active, created_by) values
+                            day_rate, active, cost_confirmed_at, cost_confirmed_by,
+                            created_by) values
   ('aaaaaaa1-0000-4000-8000-000000ab0fe1', 'Own Tech A', 'monthly', 'permanent', null, null,
-   500.00, true,  '11111111-1111-1111-1111-1111111ab0fe'),
+   500.00, true, now(), '11111111-1111-1111-1111-1111111ab0fe',
+   '11111111-1111-1111-1111-1111111ab0fe'),
   ('aaaaaaa2-0000-4000-8000-000000ab0fe2', 'Own Tech B (inactive)', 'monthly', 'permanent', null,
-   null, 450.00, false, '11111111-1111-1111-1111-1111111ab0fe'),
+   null, 450.00, false, now(), '11111111-1111-1111-1111-1111111ab0fe',
+   '11111111-1111-1111-1111-1111111ab0fe'),
   ('aaaaaaa3-0000-4000-8000-000000ab0fe3', 'DC Worker C', 'daily', 'permanent',
    'dddddddd-dddd-dddd-dddd-dddddddab0fe', null, 380.00, true,
+   now(), '11111111-1111-1111-1111-1111111ab0fe',
    '11111111-1111-1111-1111-1111111ab0fe'),
   ('aaaaaaa4-0000-4000-8000-000000ab0fe4', 'SA Self Worker', 'monthly', 'permanent', null,
    '22222222-2222-2222-2222-2222222ab0fe', 520.00, true,
+   now(), '11111111-1111-1111-1111-1111111ab0fe',
+   '11111111-1111-1111-1111-1111111ab0fe'),
+  -- Spec 306: the note tests in section G used to run on the DC worker, who is
+  -- now correctly refused. They need a worker the RPC accepts, so this one
+  -- exists purely to carry them — untied, confirmed, rated.
+  ('aaaaaaa5-0000-4000-8000-000000ab0fe5', 'Own Tech D (notes)', 'daily', 'permanent', null,
+   null, 400.00, true, now(), '11111111-1111-1111-1111-1111111ab0fe',
    '11111111-1111-1111-1111-1111111ab0fe');
 
 grant insert on _tap_buf to authenticated, anon;
@@ -252,6 +269,15 @@ select throws_ok(
   $$ select public.log_labor_day('eeeeeeee-eeee-eeee-eeee-eeeeee3ab0fe',
        'aaaaaaa1-0000-4000-8000-000000ab0fe1', date '2026-06-10', 'full') $$,
   'P0001', null, 'complete WP refused');
+-- Spec 306 §money wall: the DC worker is otherwise perfectly loggable here —
+-- active, cost-confirmed, rated, on an open WP — so the contractor tie is the
+-- only thing refusing them. (The full arm-by-arm proof, each with its own
+-- negative control, lives in 306b-log-labor-money-wall.test.sql.)
+select throws_ok(
+  $$ select public.log_labor_day('eeeeeeee-eeee-eeee-eeee-eeeeeeeab0fe',
+       'aaaaaaa3-0000-4000-8000-000000ab0fe3', date '2026-06-10', 'full') $$,
+  'P0001', 'log_labor_day: worker is paid by a subcontractor firm',
+  'a contractor-tied worker is refused (the firm already pays them)');
 select ok(
   (select public.log_labor_day('eeeeeeee-eeee-eeee-eeee-eeeeeeeab0fe',
      'aaaaaaa4-0000-4000-8000-000000ab0fe4', date '2026-06-10', 'half')) is not null,
@@ -345,14 +371,14 @@ set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"
 -- G.1 log a fresh day WITH a note (DC worker on wp1, 2026-06-12).
 select ok(
   (select public.log_labor_day('eeeeeeee-eeee-eeee-eeee-eeeeeeeab0fe',
-     'aaaaaaa3-0000-4000-8000-000000ab0fe3', date '2026-06-12', 'full',
+     'aaaaaaa5-0000-4000-8000-000000ab0fe5', date '2026-06-12', 'full',
      p_note => 'มาสายครึ่งชั่วโมง')) is not null,
   'log_labor_day stores a note');
 
 reset role;
 select is(
   (select ll.note from public.labor_logs ll
-    where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+    where ll.worker_id = 'aaaaaaa5-0000-4000-8000-000000ab0fe5'
       and ll.work_date = date '2026-06-12'
       and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
   'มาสายครึ่งชั่วโมง', 'the day note was stored');
@@ -363,7 +389,7 @@ set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"
 select ok(
   (select public.correct_labor_log(
      (select ll.id from public.labor_logs ll
-       where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+       where ll.worker_id = 'aaaaaaa5-0000-4000-8000-000000ab0fe5'
          and ll.work_date = date '2026-06-12'
          and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
      'แก้เป็นครึ่งวัน', p_fraction => 'half')) is not null,
@@ -372,7 +398,7 @@ select ok(
 reset role;
 select is(
   (select ll.note from public.labor_logs ll
-    where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+    where ll.worker_id = 'aaaaaaa5-0000-4000-8000-000000ab0fe5'
       and ll.work_date = date '2026-06-12'
       and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
   'มาสายครึ่งชั่วโมง', 'the correction carries the note forward (unedited)');
@@ -383,7 +409,7 @@ set local "request.jwt.claims" = '{"sub": "22222222-2222-2222-2222-2222222ab0fe"
 select ok(
   (select public.correct_labor_log(
      (select ll.id from public.labor_logs ll
-       where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+       where ll.worker_id = 'aaaaaaa5-0000-4000-8000-000000ab0fe5'
          and ll.work_date = date '2026-06-12'
          and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
      'ลบทิ้ง', p_tombstone => true)) is not null,
@@ -392,7 +418,7 @@ select ok(
 reset role;
 select is(
   (select ll.note from public.labor_logs ll
-    where ll.worker_id = 'aaaaaaa3-0000-4000-8000-000000ab0fe3'
+    where ll.worker_id = 'aaaaaaa5-0000-4000-8000-000000ab0fe5'
       and ll.work_date = date '2026-06-12'
       and not exists (select 1 from public.labor_logs n where n.superseded_by = ll.id)),
   null::text, 'a tombstone removal clears the note');

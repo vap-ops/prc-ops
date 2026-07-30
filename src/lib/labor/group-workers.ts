@@ -18,7 +18,24 @@ export type RosterWorker = {
   pay_type: PayType;
   contractor_id: string | null;
   active: boolean;
+  // Spec 306 — log_labor_day now refuses a worker whose cost is unconfirmed
+  // (and, below that, whose day_rate is 0). day_rate itself carries NO
+  // authenticated grant, so this column is the only readable proxy a field
+  // session has: confirm_worker_cost stamps it and restamps the rate from the
+  // worker's level, so confirmed ⇒ rated. Unlike contractor_id this does NOT
+  // filter the worker out — see isCostConfirmed.
+  cost_confirmed_at: string | null;
 };
+
+// Spec 306 — capturable = the RPC will accept them. Contractor-tied workers are
+// HIDDEN (pay-exempt: they are never capturable, and showing them invites a tick
+// that can only ever be refused). Cost-unconfirmed workers are SHOWN but not
+// selectable: their state is temporary and someone else fixes it, so hiding them
+// would turn a full roster into a silently empty picker with nothing to explain
+// it. The row renders the reason instead.
+export function isCostConfirmed(worker: Pick<RosterWorker, "cost_confirmed_at">): boolean {
+  return worker.cost_confirmed_at !== null;
+}
 
 export type GroupedRoster = {
   own: RosterWorker[];

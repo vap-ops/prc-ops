@@ -37,6 +37,12 @@ export const LABOR_TAB_LABEL = "แรงงาน";
 // surface needed the exact affordance name).
 export const ATTENDANCE_CALENDAR_LABEL = "ปฏิทินเข้างาน";
 export const CONFIRM_COST_LABEL = "ยืนยันค่าแรงและระดับ";
+// Spec 306 — the state a worker sits in until CONFIRM_COST_LABEL is pressed.
+// Hoisted when the money wall gave it a third surface: the attendance calendar
+// explains it, the WP capture picker chips every un-tickable row with it, and
+// the refusal message from log_labor_day names it. Three surfaces describing one
+// state must use one word for it.
+export const UNCONFIRMED_COST_LABEL = "ยังไม่ยืนยันค่าแรง";
 // Hoisted from worker-roster-manager for the same reason: the attendance
 // calendar header renders the pay classification too.
 export const PAY_TYPE_LABEL: Record<Enums["pay_type"], string> = {
