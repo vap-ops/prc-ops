@@ -45,6 +45,7 @@ import {
   type EquipmentMovementKind,
 } from "@/lib/equipment/current-location";
 import { equipmentLocationLabel } from "@/lib/equipment/equipment-location-label";
+import { EquipmentImageControl } from "@/components/features/equipment/equipment-image-control";
 import {
   EQUIPMENT_MOVEMENT_KIND_LABEL,
   EQUIPMENT_STATUS_LABEL,
@@ -485,6 +486,7 @@ function EquipmentRow({
   locationLabel,
   canManageRegistry,
   dailyRate,
+  imageUrl,
 }: {
   item: ManagedEquipmentItem;
   categories: Ref[];
@@ -496,6 +498,10 @@ function EquipmentRow({
   // Spec 202 U1 — present ONLY for the money audience (page omits it otherwise).
   // `undefined` = not the money audience → no rate control renders. MONEY.
   dailyRate?: number | null;
+  // Spec 367 U5 — a 120s signed URL minted by the page, absent when the item has
+  // no image. Not a storage path: equipment-images is private and reads only ever
+  // happen through server-minted signed URLs.
+  imageUrl?: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -596,6 +602,12 @@ function EquipmentRow({
 
       <BottomSheet open={editing} title="แก้ไขอุปกรณ์" onClose={() => setEditing(false)}>
         <div>
+          {/* Spec 367 §7 — first in the sheet: the picture is how someone
+              recognises the machine, and every field below it describes the same
+              object. The sheet is already behind the canManageRegistry-gated
+              แก้ไข button, which is the same audience the storage policy and the
+              action admit, so it carries no gate of its own. */}
+          <EquipmentImageControl itemId={item.id} thumbnailUrl={imageUrl ?? null} />
           <EquipmentFields
             idPrefix={`equip-edit-${item.id}`}
             categories={categories}
@@ -748,6 +760,7 @@ export function EquipmentManager({
   movements,
   canManageRegistry,
   dailyRates,
+  imageUrls,
 }: {
   items: ManagedEquipmentItem[];
   categories: Ref[];
@@ -762,6 +775,10 @@ export function EquipmentManager({
   // MONEY: present ONLY when the page resolved the back-office money audience; the
   // field view (site_admin) never receives it, so no rate ever reaches that client.
   dailyRates?: Record<string, number | null>;
+  // Spec 367 U5 — itemId → 120s signed thumbnail URL, present only for items that
+  // have an image. Minted by the page with the service role; equipment-images is
+  // private, so a raw storage path would render nothing.
+  imageUrls?: Record<string, string>;
 }) {
   const ownerNames = new Map(owners.map((o) => [o.id, o.name]));
   const categoryNames = new Map(categories.map((c) => [c.id, c.name]));
@@ -954,6 +971,7 @@ export function EquipmentManager({
                     locationLabel={equipmentLocationLabel(loc, projectName)}
                     canManageRegistry={canManageRegistry}
                     {...(canPriceEquipment ? { dailyRate: dailyRates![it.id] ?? null } : {})}
+                    {...(imageUrls?.[it.id] ? { imageUrl: imageUrls[it.id]! } : {})}
                   />
                 );
               })}
