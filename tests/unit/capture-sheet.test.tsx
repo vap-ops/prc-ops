@@ -6,7 +6,13 @@
 // (mocked here; the real one pulls in the offline queue + server actions).
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { warmLightboxOverlay } from "../helpers/lightbox-overlay-warmup";
+
+// The overlay is a next/dynamic chunk; resolve it before any `findBy*` so the
+// cold import can't eat the 1000ms assertion budget. See the helper's header.
+beforeAll(warmLightboxOverlay);
 
 const { mockHandleFiles, mockHandleRemoveConfirmed } = vi.hoisted(() => ({
   mockHandleFiles: vi.fn(),

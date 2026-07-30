@@ -6,9 +6,15 @@
 // doesn't dismiss the view).
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+
+import { warmLightboxOverlay } from "../helpers/lightbox-overlay-warmup";
+
+// The overlay is a next/dynamic chunk; resolve it before any `findBy*` so the
+// cold import can't eat the 1000ms assertion budget. See the helper's header.
+beforeAll(warmLightboxOverlay);
 
 // Spec 51 made the lightbox import the markup server actions; the
 // module carries `import "server-only"`, so client-component tests mock

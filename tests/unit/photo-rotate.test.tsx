@@ -12,9 +12,14 @@
 //     captured at 0° so the normalized-point math is never rotated).
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
+import { warmLightboxOverlay } from "../helpers/lightbox-overlay-warmup";
+
+// The overlay is a next/dynamic chunk; resolve it before any `findBy*` so the
+// cold import can't eat the 1000ms assertion budget. See the helper's header.
+beforeAll(warmLightboxOverlay);
 
 const A = "https://example.test/storage/receipt-1.jpg";
 const B = "https://example.test/storage/receipt-2.jpg";
