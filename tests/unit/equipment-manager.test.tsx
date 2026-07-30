@@ -85,12 +85,13 @@ function renderManager(over?: {
   movements?: EquipmentMovementRow[];
   canManageRegistry?: boolean;
   dailyRates?: Record<string, number | null>;
+  owners?: { id: string; name: string; isDefault?: boolean }[];
 }) {
   render(
     <EquipmentManager
       items={over?.items ?? []}
       categories={CATEGORIES}
-      owners={OWNERS}
+      owners={over?.owners ?? OWNERS}
       projects={PROJECTS}
       movements={over?.movements ?? []}
       canManageRegistry={over?.canManageRegistry ?? true}
@@ -131,6 +132,37 @@ describe("EquipmentManager", () => {
         }),
       ),
     );
+  });
+
+  // Operator ask 2026-07-30 — "owner defaults to PRI as selection". The default
+  // is data (`equipment_owners.is_default`), so these drive the flag, never a
+  // company name.
+  it("preselects the flagged owner on the add form and submits it untouched", async () => {
+    renderManager({
+      owners: [
+        { id: "o1", name: "Preston Construction Co., Ltd." },
+        { id: "o2", name: "Preston International Co., Ltd.", isDefault: true },
+      ],
+    });
+    openSheet("เพิ่มอุปกรณ์");
+    expect(screen.getByLabelText<HTMLSelectElement>("เจ้าของ").value).toBe("o2");
+    // No เจ้าของ interaction at all — the point is that the operator can add a
+    // run of items without re-answering the question.
+    fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "สว่านไฟฟ้า" } });
+    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ ownerId: "o2" })),
+    );
+  });
+
+  it("keeps the picker sentinel when no owner is flagged, so submit stays disabled", () => {
+    renderManager({ owners: [{ id: "o1", name: "Preston Construction Co., Ltd." }] });
+    openSheet("เพิ่มอุปกรณ์");
+    expect(screen.getByLabelText<HTMLSelectElement>("เจ้าของ").value).toBe("");
+    fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "สว่านไฟฟ้า" } });
+    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
+    expect(screen.getByRole("button", { name: "เพิ่มรายการ" })).toBeDisabled();
   });
 
   it("switches to bulk, hides the asset tag, and passes a quantity", async () => {

@@ -48,7 +48,14 @@ export default async function EquipmentPage({
       .select("id, name, category_id, owner_id, tracking, asset_tag, quantity, status")
       .order("name", { ascending: true }),
     supabase.from("equipment_categories").select("id, name").order("name", { ascending: true }),
-    supabase.from("equipment_owners").select("id, name").order("name", { ascending: true }),
+    // is_default (mig …_075881_) drives the add form's preselected owner. The
+    // column carries its own SELECT grant — equipment_owners is column-granted,
+    // so an ungranted column makes PostgREST refuse the WHOLE read, not return
+    // null.
+    supabase
+      .from("equipment_owners")
+      .select("id, name, is_default")
+      .order("name", { ascending: true }),
     supabase.from("projects").select("id, name").order("name", { ascending: true }),
     supabase
       .from("equipment_movements")
@@ -130,7 +137,11 @@ export default async function EquipmentPage({
         <EquipmentManager
           items={items}
           categories={categoryRows ?? []}
-          owners={ownerRows ?? []}
+          owners={(ownerRows ?? []).map((o) => ({
+            id: o.id,
+            name: o.name,
+            isDefault: o.is_default,
+          }))}
           projects={projectRows ?? []}
           movements={movements}
           canManageRegistry={canManageRegistry}
