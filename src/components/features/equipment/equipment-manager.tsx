@@ -45,6 +45,7 @@ import {
   type EquipmentMovementKind,
 } from "@/lib/equipment/current-location";
 import { equipmentLocationLabel } from "@/lib/equipment/equipment-location-label";
+import { EquipmentHistorySheet } from "@/components/features/equipment/equipment-history-sheet";
 import { EquipmentImageControl } from "@/components/features/equipment/equipment-image-control";
 import { pickDefaultOwnerId, type OwnerOption } from "@/lib/equipment/default-owner";
 import {
@@ -614,6 +615,11 @@ function EquipmentRow({
         ) : null}
         {/* MONEY: `undefined` means "not the money audience" and renders nothing.
             Stays in the row — see the file header on why it must not travel. */}
+        {/* Spec 381 U2 — the third control in the cluster. Shown to the whole
+            row audience, not just curators: the site_admin who moved the tool is
+            the person most likely to ask where it went, and the RPC omits the
+            money events for her. It fetches only when tapped. */}
+        <EquipmentHistorySheet itemId={item.id} itemName={item.name} />
         {dailyRate !== undefined ? <SetDailyRate itemId={item.id} currentRate={dailyRate} /> : null}
       </span>
 
