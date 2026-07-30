@@ -58,6 +58,7 @@ import {
   PROCUREMENT_BANDS,
 } from "@/lib/purchasing/procurement-pipeline";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import type { UserRole } from "@/lib/db/enums";
 
 const PURCHASE_BADGE_LABEL = "คำขอซื้อรอพิจารณา 3 รายการ";
@@ -129,7 +130,7 @@ describe("HubNav pending-purchase badge", () => {
     expect(items).not.toBeNull();
     render(
       <HubNav
-        maxWidthClass="max-w-6xl"
+        maxWidthClass={PAGE_MAX_W}
         items={items!}
         currentHref="/procurement"
         role="procurement_manager"
@@ -143,7 +144,7 @@ describe("HubNav pending-purchase badge", () => {
     const items = hubNavForRole("procurement");
     render(
       <HubNav
-        maxWidthClass="max-w-6xl"
+        maxWidthClass={PAGE_MAX_W}
         items={items!}
         currentHref="/procurement"
         role="procurement"
