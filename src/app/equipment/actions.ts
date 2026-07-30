@@ -19,6 +19,7 @@ import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
 import { validateEquipmentDailyRate } from "@/lib/equipment/validate-equipment-daily-rate";
 import { parseEquipmentImport } from "@/lib/equipment/equipment-import";
 import { isOwnItemImagePath } from "@/lib/equipment/image-path";
+import { EQUIPMENT_PHOTO_KINDS, type EquipmentPhotoKind } from "@/lib/equipment/photo-kinds";
 import type { Database } from "@/lib/db/database.types";
 
 type EquipmentStatus = Database["public"]["Enums"]["equipment_status"];
@@ -61,7 +62,10 @@ interface EquipmentInput {
 // both back here. See `isOwnItemImagePath` for why the shape is checked.
 interface NewEquipmentInput extends EquipmentInput {
   id: string;
-  imagePath: string | null;
+  // Spec 382 U2 — up to four slots, uploaded under the client-minted id before the
+  // row exists. Written as rows AFTER the insert (FK); image_path is left to the
+  // U1 mirror trigger so that column keeps exactly one writer.
+  photos: { kind: string; path: string }[];
 }
 
 function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
@@ -91,14 +95,18 @@ export async function createEquipment(input: NewEquipmentInput): Promise<Equipme
   // overwrite an existing row), and the INSERT policy still gates who may write
   // at all. The path must belong to THIS id — same rule the edit path applies.
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
-  if (!isOwnItemImagePath(input.id, input.imagePath)) {
-    return { ok: false, error: GENERIC_ERROR };
+  for (const photo of input.photos) {
+    if (!EQUIPMENT_PHOTO_KINDS.includes(photo.kind as EquipmentPhotoKind)) {
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    if (!isOwnItemImagePath(input.id, photo.path)) {
+      return { ok: false, error: GENERIC_ERROR };
+    }
   }
 
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("equipment_items").insert({
     id: input.id,
-    image_path: input.imagePath,
     name: item.value.name,
     category_id: input.categoryId,
     owner_id: input.ownerId,
@@ -112,6 +120,20 @@ export async function createEquipment(input: NewEquipmentInput): Promise<Equipme
     created_by: ctx.id,
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
+
+  // After the row exists (FK). A photo that fails to attach must NOT roll back the
+  // item: the operator is standing at the machine and the record is the point —
+  // the slot simply stays empty and the n/4 chip says so.
+  if (input.photos.length > 0) {
+    await supabase.from("equipment_item_photos").insert(
+      input.photos.map((photo) => ({
+        item_id: input.id,
+        kind: photo.kind as EquipmentPhotoKind,
+        storage_path: photo.path,
+        created_by: ctx.id,
+      })),
+    );
+  }
 
   revalidatePath("/equipment");
   return { ok: true };
@@ -285,49 +307,6 @@ export async function setEquipmentDailyRate(input: {
     if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์ตั้งค่าเช่าอุปกรณ์" };
     if (error.code === "P0001")
       return { ok: false, error: "ไม่พบอุปกรณ์นี้ หรือค่าเช่าไม่ถูกต้อง" };
-    return { ok: false, error: GENERIC_ERROR };
-  }
-
-  revalidatePath("/equipment");
-  return { ok: true };
-}
-
-// Spec 367 U5 — record (or clear) an item's reference image path.
-//
-// A plain RLS UPDATE, NOT an RPC — and that is a deliberate difference from the
-// catalog twin. `set_catalog_item_image` exists because catalog_items has no
-// authenticated write path for that column; `equipment_items.image_path` DOES
-// carry a column-scoped UPDATE grant (mig …_075860_, spec 367 U1) and the
-// `equipment_items update by back office` policy is the gate. Adding a DEFINER
-// RPC here would add a second, unpinned copy of an authority rule that the
-// policy already states.
-//
-// The upload itself happens browser-side against the private equipment-images
-// bucket before this is called, so a refusal HERE leaves an orphan object in the
-// bucket — acceptable, and the same trade the catalog control makes: the
-// alternative is a signed-upload dance that trades a stray object for a stray
-// row. Nothing reads an object that no row points at.
-export async function setEquipmentItemImage(input: {
-  id: string;
-  path: string | null;
-}): Promise<EquipmentActionResult> {
-  await requireRole(BACK_OFFICE_ROLES);
-  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
-  // Depth 1 under the item's own id — the exact shape the equipment-images INSERT
-  // policy admits for the back office, and the shape the control uploads to.
-  // Checked here too so a crafted call cannot point a row at another item's
-  // folder (or at spec 370's `usage/` tree).
-  if (!isOwnItemImagePath(input.id, input.path)) {
-    return { ok: false, error: GENERIC_ERROR };
-  }
-
-  const supabase = await createServerSupabase();
-  const { error } = await supabase
-    .from("equipment_items")
-    .update({ image_path: input.path })
-    .eq("id", input.id);
-  if (error) {
-    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์แก้ไขรูปอุปกรณ์" };
     return { ok: false, error: GENERIC_ERROR };
   }
 
