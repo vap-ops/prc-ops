@@ -31,13 +31,26 @@ import { setEquipmentItemImage } from "@/app/equipment/actions";
 export function EquipmentImageControl({
   itemId,
   thumbnailUrl,
+  onPathChange,
 }: {
   itemId: string;
   thumbnailUrl?: string | null;
+  // Spec 367 U5b — the ADD form has no row to update yet, so it mints the item id
+  // client-side, lets the upload happen under it, and collects the path here to
+  // pass to createEquipment. When provided, the DB write is the CALLER's job and
+  // setEquipmentItemImage is NOT called: there is nothing to update, and calling
+  // it would fail against a row that does not exist.
+  onPathChange?: (path: string | null) => void;
 }) {
   const router = useRouter();
   const [busy, startBusy] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Draft mode has no signed URL to show — the row does not exist, so the page
+  // never minted one. Without a local preview the control would look completely
+  // inert after a successful pick (label unchanged, no thumbnail, no ลบรูป), which
+  // is the silent-success failure: indistinguishable from nothing happening.
+  const [draftPreview, setDraftPreview] = useState<string | null>(null);
+  const shownThumbnail = draftPreview ?? thumbnailUrl;
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -83,6 +96,16 @@ export function EquipmentImageControl({
         );
         return;
       }
+      // Draft mode (add form): the object is in the bucket, the row is not born
+      // yet. Hand the path up and stop — the row is created WITH it.
+      if (onPathChange) {
+        setDraftPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(prepared.blob);
+        });
+        onPathChange(path);
+        return;
+      }
       const result = await setEquipmentItemImage({ id: itemId, path });
       if (!result.ok) {
         // The storage policy is one gate; the action's role check + the column
@@ -98,6 +121,17 @@ export function EquipmentImageControl({
 
   function handleRemove() {
     setError(null);
+    if (onPathChange) {
+      setDraftPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      // Draft mode: nothing to un-write. The uploaded object is left behind, the
+      // same trade the edit path makes when replacing an image (keep-originals);
+      // nothing reads an object no row points at.
+      onPathChange(null);
+      return;
+    }
     startBusy(async () => {
       const result = await setEquipmentItemImage({ id: itemId, path: null });
       if (!result.ok) {
@@ -110,10 +144,10 @@ export function EquipmentImageControl({
 
   return (
     <div className="mt-2 flex items-center gap-3">
-      {thumbnailUrl ? (
+      {shownThumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element -- signed URL, same as ZoomablePhoto
         <img
-          src={thumbnailUrl}
+          src={shownThumbnail}
           alt="รูปอุปกรณ์"
           className="border-edge rounded-control size-16 shrink-0 border object-cover"
         />
@@ -124,7 +158,7 @@ export function EquipmentImageControl({
       )}
       <div className="flex flex-col items-start gap-1">
         <label className="border-edge-strong text-ink hover:bg-sunk focus-within:ring-action rounded-control inline-flex min-h-11 cursor-pointer items-center border px-3 py-2 text-sm font-medium focus-within:ring-2">
-          {busy ? "กำลังอัปโหลด…" : thumbnailUrl ? "เปลี่ยนรูป" : "เพิ่มรูป"}
+          {busy ? "กำลังอัปโหลด…" : shownThumbnail ? "เปลี่ยนรูป" : "เพิ่มรูป"}
           <input
             type="file"
             accept="image/*"
@@ -134,7 +168,7 @@ export function EquipmentImageControl({
             className="sr-only"
           />
         </label>
-        {thumbnailUrl && (
+        {shownThumbnail && (
           <button
             type="button"
             onClick={handleRemove}

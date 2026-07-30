@@ -18,6 +18,7 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
 import { validateEquipmentDailyRate } from "@/lib/equipment/validate-equipment-daily-rate";
 import { parseEquipmentImport } from "@/lib/equipment/equipment-import";
+import { isOwnItemImagePath } from "@/lib/equipment/image-path";
 import type { Database } from "@/lib/db/database.types";
 
 type EquipmentStatus = Database["public"]["Enums"]["equipment_status"];
@@ -55,6 +56,14 @@ interface EquipmentInput {
   status: string;
 }
 
+// Spec 367 U5b — the add form may carry a photo taken BEFORE the row exists.
+// The client mints the item id so the upload has a folder to live in, then hands
+// both back here. See `isOwnItemImagePath` for why the shape is checked.
+interface NewEquipmentInput extends EquipmentInput {
+  id: string;
+  imagePath: string | null;
+}
+
 function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
   if (!UUID_REGEX.test(input.categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
   if (!UUID_REGEX.test(input.ownerId)) return { ok: false, error: "กรุณาเลือกเจ้าของอุปกรณ์" };
@@ -64,7 +73,7 @@ function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
   return { ok: true };
 }
 
-export async function createEquipment(input: EquipmentInput): Promise<EquipmentActionResult> {
+export async function createEquipment(input: NewEquipmentInput): Promise<EquipmentActionResult> {
   const ctx = await requireRole(BACK_OFFICE_ROLES);
   const item = validateEquipmentItem({
     name: input.name,
@@ -76,8 +85,20 @@ export async function createEquipment(input: EquipmentInput): Promise<EquipmentA
   const refs = validateRefsAndStatus(input);
   if (!refs.ok) return refs;
 
+  // U5b — the id arrives from the client because the photo is uploaded to
+  // `<id>/…` before this row exists. Supplying a PK is safe: the column is in the
+  // authenticated INSERT grant, a duplicate raises 23505 (an insert can never
+  // overwrite an existing row), and the INSERT policy still gates who may write
+  // at all. The path must belong to THIS id — same rule the edit path applies.
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  if (!isOwnItemImagePath(input.id, input.imagePath)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("equipment_items").insert({
+    id: input.id,
+    image_path: input.imagePath,
     name: item.value.name,
     category_id: input.categoryId,
     owner_id: input.ownerId,
@@ -269,7 +290,7 @@ export async function setEquipmentItemImage(input: {
   // policy admits for the back office, and the shape the control uploads to.
   // Checked here too so a crafted call cannot point a row at another item's
   // folder (or at spec 370's `usage/` tree).
-  if (input.path !== null && !new RegExp(`^${input.id}/[^/]+$`).test(input.path)) {
+  if (!isOwnItemImagePath(input.id, input.path)) {
     return { ok: false, error: GENERIC_ERROR };
   }
 
