@@ -1,3 +1,10 @@
+## [0.280.1](https://github.com/vap-ops/prc-ops/compare/v0.280.0...v0.280.1) (2026-07-30)
+
+### Bug Fixes
+
+- address fresh-eyes findings on the ship-pr token-path fix ([1f8b2a0](https://github.com/vap-ops/prc-ops/commit/1f8b2a095b77c59074b3065a0435aeea783723ea))
+- **ship:** resolve the PAT from the main worktree, not the current one ([0dcaa5c](https://github.com/vap-ops/prc-ops/commit/0dcaa5c8679f3d65b0eda41ec1fdc852e9b77136)), closes [#871](https://github.com/vap-ops/prc-ops/issues/871)
+
 # [0.280.0](https://github.com/vap-ops/prc-ops/compare/v0.279.0...v0.280.0) (2026-07-30)
 
 ### Features
