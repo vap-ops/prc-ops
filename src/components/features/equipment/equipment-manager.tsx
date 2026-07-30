@@ -46,7 +46,8 @@ import {
 } from "@/lib/equipment/current-location";
 import { equipmentLocationLabel } from "@/lib/equipment/equipment-location-label";
 import { EquipmentHistorySheet } from "@/components/features/equipment/equipment-history-sheet";
-import { EquipmentImageControl } from "@/components/features/equipment/equipment-image-control";
+import { EquipmentPhotoSlots } from "@/components/features/equipment/equipment-photo-slots";
+import { photoCompleteness, type EquipmentPhotoKind } from "@/lib/equipment/photo-kinds";
 import { pickDefaultOwnerId, type OwnerOption } from "@/lib/equipment/default-owner";
 import {
   EQUIPMENT_MOVEMENT_KIND_LABEL,
@@ -296,7 +297,7 @@ function AddEquipmentForm({
   // createEquipment, so the row owns the folder its photo landed in. Minted once
   // per mount: the sheet unmounts on save, so the next open gets a fresh one.
   const [draftId] = useState(() => crypto.randomUUID());
-  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [draftPhotos, setDraftPhotos] = useState<Partial<Record<EquipmentPhotoKind, string>>>({});
   // Operator ask 2026-07-30 — the fleet has one standing owner (PRI), so the
   // form starts there instead of on the sentinel. Read from the data
   // (`equipment_owners.is_default`), never from a name: spec 367 §3 is about the
@@ -324,7 +325,7 @@ function AddEquipmentForm({
     setBusy(true);
     const result = await createEquipment({
       id: draftId,
-      imagePath,
+      photos: Object.entries(draftPhotos).map(([kind, path]) => ({ kind, path })),
       name,
       categoryId,
       ownerId,
@@ -350,16 +351,27 @@ function AddEquipmentForm({
     // re-seeds it), which is why no test pins it; it is kept in step with its
     // six sibling resets rather than left as the one that says "".
     setOwnerId(defaultOwnerId);
+    setDraftPhotos({});
     onDone();
     router.refresh();
   }
 
   return (
     <div>
-      {/* Spec 367 U5b — photograph the machine while adding it. Draft mode: the
-          upload lands under draftId and the path rides along to createEquipment,
-          so no second visit to the edit sheet is needed. */}
-      <EquipmentImageControl itemId={draftId} onPathChange={setImagePath} />
+      {/* Spec 382 U2 — photograph the machine while adding it: four slots with
+          drawn guides, all optional. Draft mode uploads under draftId and the
+          paths ride along to createEquipment, so no second visit is needed. */}
+      <EquipmentPhotoSlots
+        itemId={draftId}
+        onDraftChange={(kind, path) =>
+          setDraftPhotos((prev) => {
+            const next = { ...prev };
+            if (path === null) delete next[kind];
+            else next[kind] = path;
+            return next;
+          })
+        }
+      />
       <EquipmentFields
         idPrefix="equip-add"
         categories={categories}
@@ -521,7 +533,7 @@ function EquipmentRow({
   locationLabel,
   canManageRegistry,
   dailyRate,
-  imageUrl,
+  photos,
 }: {
   item: ManagedEquipmentItem;
   categories: Ref[];
@@ -533,10 +545,11 @@ function EquipmentRow({
   // Spec 202 U1 — present ONLY for the money audience (page omits it otherwise).
   // `undefined` = not the money audience → no rate control renders. MONEY.
   dailyRate?: number | null;
-  // Spec 367 U5 — a 120s signed URL minted by the page, absent when the item has
-  // no image. Not a storage path: equipment-images is private and reads only ever
-  // happen through server-minted signed URLs.
-  imageUrl?: string;
+  // Spec 382 U2 — which of the four slots are filled, with a 120s signed URL for
+  // each (minted by the page; equipment-images is private, so a raw path renders
+  // nothing). The KINDS drive the n/4 chip and the URLs drive the thumbnails —
+  // kept together so a slot whose URL failed to mint still counts as filled.
+  photos?: { kind: EquipmentPhotoKind; url?: string }[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -584,6 +597,8 @@ function EquipmentRow({
       ? `${(item.quantity ?? 0).toLocaleString("th-TH")} หน่วย`
       : (item.asset_tag ?? "ไม่มีรหัส");
 
+  const photoCount = photoCompleteness((photos ?? []).map((p) => p.kind));
+
   // Spec 362 U1 — the /catalog card row. The name block is floored at min-w-40
   // (NOT min-w-0) with a wrapping row: the fixed control cluster would otherwise
   // squeeze the name to one character per line on a phone (feedback 65de06ca).
@@ -601,6 +616,20 @@ function EquipmentRow({
         <span className="text-ink-muted text-meta block">
           <span aria-hidden="true">📍 </span>
           <span>{locationLabel}</span>
+        </span>
+        {/* Spec 382 U2 — completeness, never a blocker. Photos are optional by
+            operator ruling, so this REPORTS the gap rather than refusing the
+            save; it is also the PRI-transfer readiness number, per item. Muted
+            at 4/4 so a finished item stops asking for attention. */}
+        <span
+          className={
+            photoCount.have === photoCount.total
+              ? "text-ink-muted text-meta block"
+              : "text-ink-secondary text-meta block font-medium"
+          }
+        >
+          <span aria-hidden="true">🖼 </span>
+          <span>{`รูป ${photoCount.have}/${photoCount.total}`}</span>
         </span>
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-2">
@@ -642,12 +671,17 @@ function EquipmentRow({
 
       <BottomSheet open={editing} title="แก้ไขอุปกรณ์" onClose={() => setEditing(false)}>
         <div>
-          {/* Spec 367 §7 — first in the sheet: the picture is how someone
-              recognises the machine, and every field below it describes the same
-              object. The sheet is already behind the canManageRegistry-gated
-              แก้ไข button, which is the same audience the storage policy and the
-              action admit, so it carries no gate of its own. */}
-          <EquipmentImageControl itemId={item.id} thumbnailUrl={imageUrl ?? null} />
+          {/* Spec 382 U2 — first in the sheet: the pictures are how someone
+              recognises the machine, and every field below describes the same
+              object. The sheet sits behind the canManageRegistry-gated แก้ไข
+              button, the same audience the storage policy and the action admit,
+              so it carries no gate of its own. */}
+          <EquipmentPhotoSlots
+            itemId={item.id}
+            thumbnails={Object.fromEntries(
+              (photos ?? []).filter((p) => p.url).map((p) => [p.kind, p.url!]),
+            )}
+          />
           <EquipmentFields
             idPrefix={`equip-edit-${item.id}`}
             categories={categories}
@@ -800,7 +834,7 @@ export function EquipmentManager({
   movements,
   canManageRegistry,
   dailyRates,
-  imageUrls,
+  photosByItem,
 }: {
   items: ManagedEquipmentItem[];
   categories: Ref[];
@@ -815,10 +849,11 @@ export function EquipmentManager({
   // MONEY: present ONLY when the page resolved the back-office money audience; the
   // field view (site_admin) never receives it, so no rate ever reaches that client.
   dailyRates?: Record<string, number | null>;
-  // Spec 367 U5 — itemId → 120s signed thumbnail URL, present only for items that
-  // have an image. Minted by the page with the service role; equipment-images is
-  // private, so a raw storage path would render nothing.
-  imageUrls?: Record<string, string>;
+  // Spec 382 U2 — itemId → the slots that are filled, each with a 120s signed URL
+  // where one could be minted. equipment-images is private, so a raw storage path
+  // would render nothing; the KIND list is what the n/4 chip counts, so a slot
+  // whose URL failed to mint still reads as filled rather than vanishing.
+  photosByItem?: Record<string, { kind: EquipmentPhotoKind; url?: string }[]>;
 }) {
   const ownerNames = new Map(owners.map((o) => [o.id, o.name]));
   const categoryNames = new Map(categories.map((c) => [c.id, c.name]));
@@ -1011,7 +1046,7 @@ export function EquipmentManager({
                     locationLabel={equipmentLocationLabel(loc, projectName)}
                     canManageRegistry={canManageRegistry}
                     {...(canPriceEquipment ? { dailyRate: dailyRates![it.id] ?? null } : {})}
-                    {...(imageUrls?.[it.id] ? { imageUrl: imageUrls[it.id]! } : {})}
+                    {...(photosByItem?.[it.id] ? { photos: photosByItem[it.id]! } : {})}
                   />
                 );
               })}
