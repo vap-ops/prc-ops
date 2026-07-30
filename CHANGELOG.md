@@ -1,3 +1,9 @@
+# [0.279.0](https://github.com/vap-ops/prc-ops/compare/v0.278.0...v0.279.0) (2026-07-30)
+
+### Features
+
+- spec 380 — missing purchase-doc visibility (ตามเอกสารซื้อ) U1+U2+U3 ([#868](https://github.com/vap-ops/prc-ops/issues/868)) ([862cf4d](https://github.com/vap-ops/prc-ops/commit/862cf4dd20d5c3dadba31f05c068e70b0b62c35a))
+
 # [0.278.0](https://github.com/vap-ops/prc-ops/compare/v0.277.2...v0.278.0) (2026-07-30)
 
 ### Features

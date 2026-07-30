@@ -11,7 +11,7 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 function src(path: string): string {
   return readFileSync(path, "utf8");
@@ -43,8 +43,8 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
   // Pinning the U3a migration alone would be vacuous — migrations are
   // append-only, so the regression this guards against (a LATER migration
   // re-sourcing an older body and dropping the arm) lands in a NEW file and
-  // leaves that pin green. So: scan the whole migrations dir, take the LAST
-  // definition of each walled function, and require the arm to survive there.
+  // leaves that pin green. So: find the LAST definition of each walled function
+  // across the whole migrations dir, and require the arm to survive there.
   const MIGRATIONS = "supabase/migrations";
   const WALLED_FNS = [
     "add_worker_to_crew",
@@ -53,49 +53,89 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
     "set_crew_lead",
     "reassign_crew_lead",
   ];
+  // Spec 306 U5a's derive is the most DIRECT pay-path writer there is — it
+  // writes labor_logs itself — so it belongs in this inventory. It is NOT in
+  // WALLED_FNS because those assert the crew-specific phrase ("cannot join/lead
+  // a crew"), which does not describe this surface: the derive never touches
+  // crews, it simply must not turn a firm-paid worker's attendance into a PRC
+  // wage. Its own assertion (contractor_id is null) lives below.
+  const DERIVE_FN = "derive_muster_labor";
+  const WANTED = [...WALLED_FNS, DERIVE_FN];
 
-  function lastDefinitionOf(fn: string): string {
+  // Extract the CREATE ... FUNCTION body starting at `start`. A migration
+  // re-emitted from `pg_get_functiondef` closes with `$function$`; a
+  // hand-written one closes with `$$;`. Take whichever terminator comes first.
+  function extractDefinition(text: string, start: number): string {
+    const endDollar = text.indexOf("$$;", start);
+    const endTagged = text.indexOf("$function$\n", text.indexOf("$function$", start) + 1);
+    const ends = [endDollar, endTagged].filter((i) => i !== -1);
+    const end = ends.length ? Math.min(...ends) : -1;
+    return text.slice(start, end === -1 ? undefined : end);
+  }
+
+  // ONE reverse sweep resolves the LAST definition of every wanted function.
+  //
+  // Why reverse-and-stop instead of forward-take-last: migration filenames are
+  // timestamp-prefixed, so lexical order IS apply order. The forward sweep this
+  // replaced re-read the ENTIRE dir once per function (6 × ~585 files ≈ 3510
+  // reads / ~29 MB) — cheap on CI Linux, but on the Windows dev box under suite
+  // load each `it` blew past vitest's 5000ms default and the file flaked.
+  // Walking from the NEWEST file and stopping each function at its first hit is
+  // provably identical (append-only ⇒ the last file to CONTAIN the definition
+  // is the newest to contain it) and reads only the newest slice (~54 files).
+  // Done ONCE in beforeAll so every assertion below reads from the map.
+  //
+  // Case-INsensitive on the needle: `pg_get_functiondef` writes
+  // `CREATE OR REPLACE FUNCTION public.f(` in upper case, so a matcher tuned to
+  // the hand-written lower-case form would skip that file and silently resolve
+  // to an OLDER body — pinning a definition no longer in the database, the exact
+  // regression this whole block exists to catch.
+  const lastDefinition = new Map<string, string>();
+  let sqlFileCount = 0;
+  let filesRead = 0;
+
+  beforeAll(() => {
     const files = readdirSync(MIGRATIONS)
       .filter((f) => f.endsWith(".sql"))
       .sort(); // timestamp-prefixed — lexical order IS apply order
-    let latest = "";
-    for (const file of files) {
+    sqlFileCount = files.length;
+    for (const file of files.slice().reverse()) {
+      if (lastDefinition.size === WANTED.length) break;
       const text = src(join(MIGRATIONS, file));
-      // Case-INsensitive, and dollar-quote-tag agnostic. A migration re-emitted
-      // from `pg_get_functiondef` writes `CREATE OR REPLACE FUNCTION public.f(`
-      // in upper case and closes with `$function$`, not `$$;`. A scanner that
-      // matched only the hand-written lower-case `$$;` form would skip that file
-      // and silently resolve to an OLDER definition — pinning a body that is no
-      // longer the one in the database, which is the exact regression this whole
-      // block exists to catch.
+      filesRead++;
       const lower = text.toLowerCase();
-      const start = lower.indexOf(`function public.${fn.toLowerCase()}(`);
-      if (start === -1) continue;
-      const endDollar = text.indexOf("$$;", start);
-      const endTagged = text.indexOf("$function$\n", text.indexOf("$function$", start) + 1);
-      const ends = [endDollar, endTagged].filter((i) => i !== -1);
-      const end = ends.length ? Math.min(...ends) : -1;
-      latest = text.slice(start, end === -1 ? undefined : end);
+      for (const fn of WANTED) {
+        if (lastDefinition.has(fn)) continue;
+        const start = lower.indexOf(`function public.${fn.toLowerCase()}(`);
+        if (start !== -1) lastDefinition.set(fn, extractDefinition(text, start));
+      }
     }
-    return latest;
-  }
+  });
 
   it.each(WALLED_FNS)("the LAST definition of %s carries the money wall", (fn) => {
-    const body = lastDefinitionOf(fn);
+    const body = lastDefinition.get(fn) ?? "";
     expect(body, `${fn} has no definition in ${MIGRATIONS}`).not.toBe("");
     expect(body).toMatch(/contractor/);
     expect(body).toMatch(/pay-exempt and cannot (join|lead) a crew/);
   });
 
-  // Spec 306 U5a's derive is the most DIRECT pay-path writer there is — it writes
-  // labor_logs itself — so it belongs in this inventory. It is not in WALLED_FNS
-  // because those assert the crew-specific phrase ("cannot join/lead a crew"),
-  // which does not describe this surface: the derive never touches crews, it
-  // simply must not turn a firm-paid worker's attendance into a PRC wage.
   it("the LAST definition of derive_muster_labor carries the money wall", () => {
-    const body = lastDefinitionOf("derive_muster_labor");
+    const body = lastDefinition.get(DERIVE_FN) ?? "";
     expect(body, `derive_muster_labor has no definition in ${MIGRATIONS}`).not.toBe("");
     expect(body).toContain("v_worker.contractor_id is null");
+  });
+
+  // This suite is Windows-load-only: it is GREEN on CI Linux however slow the
+  // sweep is, so a regression that reverts the beforeAll to a per-function
+  // full-dir sweep can NEVER go red in CI. Pin the cheapness itself — the
+  // reverse sweep must terminate in the newest slice of the dir, never walk all
+  // ~585 files. A forward full-sweep pushes filesRead to sqlFileCount and reds
+  // this. (Mutation-checked by removing the early-break: 11 ran, only this 1
+  // failed — the wall assertions stay green, so the guard is isolated.)
+  it("finds every walled definition without re-reading the whole migrations dir", () => {
+    expect(lastDefinition.size).toBe(WANTED.length);
+    expect(filesRead).toBeGreaterThan(0);
+    expect(filesRead).toBeLessThan(sqlFileCount / 2);
   });
 
   // The trigger layer is what makes the wall true for writers nobody has

@@ -10671,3 +10671,10 @@ not found" arm was dead (`team_id` NOT NULL + FK). Tests 18 → 22: positive
 controls for the other two roles in the gate (deleting either previously left
 the file green), a scoped-delete assertion, and messages pinned on all five
 P0001 asserts.
+
+## Spec 380 — missing purchase-doc visibility, spec + U1–U3 (2026-07-30)
+
+- **Origin:** operator — procurement can't tell which orders lack accounting documents; doc-definition round first (RD manual: per-class requirements + the fallback ladder ใบรับเงิน/ใบสำคัญรับเงิน/ใบรับรองแทนใบเสร็จรับเงิน). Decisions: per-class ✓ · doc_type v1 (legacy grandfathered) ✓ · waiver = accounting ✓.
+- **Evidence (live):** 242/529 delivered PRs no accounting doc; 195 VAT-supplier rows ≈ ฿48,277 input VAT locked; /procurement 780 · /requests 417 views/14d. Review-RPC doc_count blind to PO docs AND purpose-blind (U6 scope).
+- **Shipped:** migs 075877+075878 (doc_type both attachment tables · waivers + DEFINER waive/unwaive · column INSERT grants · _current views recreated w/ doc_type · privilege hardening) · doc-chase SSOT lib · /requests/docs chase page · hub strip chip + per-project card counts. pgTAP 28/28 RED-first; browser-verified live (chip 243 = SQL mirror exact).
+- **Open (spec §4–5):** U4 row chips · U5 uploader pickers · U6 accounting waiver UI + RPC union fix (danger) · operator data: juristic-name suppliers flagged non-VAT (ตรวจสถานะ VAT hints live).
