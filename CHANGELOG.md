@@ -1,3 +1,9 @@
+# [0.289.0](https://github.com/vap-ops/prc-ops/compare/v0.288.0...v0.289.0) (2026-07-30)
+
+### Features
+
+- **equipment:** four photo slots with drawn guides + a รูป n/4 chip (spec 382 U2) ([#885](https://github.com/vap-ops/prc-ops/issues/885)) ([23242c1](https://github.com/vap-ops/prc-ops/commit/23242c1d7fe0714d6d464431a4de5b8288a0befd))
+
 # [0.288.0](https://github.com/vap-ops/prc-ops/compare/v0.287.1...v0.288.0) (2026-07-30)
 
 ### Features
