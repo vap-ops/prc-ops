@@ -1473,3 +1473,12 @@ export function waitingDaysChip(days: number): string {
 export function reviewStuckChip(days: number): string {
   return `ค้างมา ${days} วัน`;
 }
+
+/** Spec 376 U2 — the storekeeper cluster on the project hub. The hat is not a role
+ *  (no `storekeeper` in the `user_role` enum), so this heading is what names it on
+ *  the surface where the work happens.
+ *  ⚠️ Three neighbouring terms, deliberately distinct: `STORE_LABEL` (คลัง) is the
+ *  DESTINATION noun and stays the tile label + page title; `STORE_WITHDRAW_HEADING`
+ *  (เบิกจากคลังหน้างาน) is the /sa custody pair's ACTION heading (spec 375 U3); this
+ *  one names the PLACE the two hub doors lead into. */
+export const STORE_CLUSTER_HEADING = "คลังหน้างาน";
