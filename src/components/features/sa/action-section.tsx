@@ -198,25 +198,30 @@ function ActionGroup({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Both arms are an h3, so the section's structure reads the same to a
+          screen reader whether or not this particular group happened to be big
+          enough to collapse — the band above is an h3 too. */}
       {collapsible ? (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={contentId}
-          className="border-edge bg-card hover:bg-sunk focus-visible:ring-action rounded-card flex min-h-12 w-full items-center gap-3 border px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
-        >
-          <ChevronRight
-            aria-hidden
-            className={`text-ink-secondary size-4 shrink-0 transition-transform motion-reduce:transition-none ${
-              open ? "rotate-90" : ""
-            }`}
-          />
-          <span className="text-body text-ink min-w-0 flex-1 font-semibold break-words">
-            {label}
-          </span>
-          <span className="text-meta text-ink-muted shrink-0">{count}</span>
-        </button>
+        <h3>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-controls={contentId}
+            className="border-edge bg-card hover:bg-sunk focus-visible:ring-action rounded-card flex min-h-12 w-full items-center gap-3 border px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
+          >
+            <ChevronRight
+              aria-hidden
+              className={`text-ink-secondary size-4 shrink-0 transition-transform motion-reduce:transition-none ${
+                open ? "rotate-90" : ""
+              }`}
+            />
+            <span className="text-body text-ink min-w-0 flex-1 font-semibold break-words">
+              {label}
+            </span>
+            <span className="text-meta text-ink-muted shrink-0">{count}</span>
+          </button>
+        </h3>
       ) : (
         <h3 className="text-meta text-ink-secondary flex items-baseline justify-between gap-3 font-semibold">
           <span className="min-w-0 break-words">{label}</span>
