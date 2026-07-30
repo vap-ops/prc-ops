@@ -1,6 +1,7 @@
 # Spec 383 — Equipment documents & expiries (เอกสารและวันหมดอายุของอุปกรณ์)
 
-**Status:** draft, awaiting the operator's sign-off on the §4 type list.
+**Status:** ✅ decided 2026-07-30 — all four open questions answered (§8). U1 is
+buildable; the two re-check-at-build-time caveats in §8 are not blockers.
 **Origin:** operator, 2026-07-30 — _"each equipment may have warrantees, how do we
 record that? explore other information we might have missed."_
 
@@ -90,9 +91,11 @@ type demands an `expires_at`; a manual does not. One flag, no per-type code.
   and it matches the field reality (a phone, not a scanner) — but it silently
   degrades a PDF the operator already has into a photo of a screen.
 
-**Recommendation: (a).** The documents that matter here (warranty, insurance,
-inspection certificate) arrive as PDFs from third parties, and (b) would make the
-system worse than the email inbox it replaces. ⚠️ Whichever is chosen, the path
+✅ **DECIDED 2026-07-30: (a), a new `equipment-docs` bucket accepting
+`application/pdf` + the four image types.** The documents that matter here
+(warranty, insurance, inspection certificate) arrive as PDFs from third parties,
+and (b) would make the system worse than the email inbox it replaces — it
+degrades a file the operator already holds into a photograph of a screen. ⚠️ Whichever is chosen, the path
 must stay **depth 1** — `<itemId>/<uuid>.<ext>` — because the live INSERT policy
 arm matches on folder depth. One extra segment 403s everything with no code error
 (spec 367 U5 / 370 lesson, paid twice already).
@@ -101,6 +104,16 @@ arm matches on folder depth. One extra segment 403s everything with no code erro
 walled, ADR 0055 d6) and copying that pattern by reflex onto a child table makes
 PostgREST refuse the _whole_ read rather than hide a column — the spec 382
 finding. Nothing here is money.
+
+**D8 — ✅ procurement chases expiries, and this was settled by the SCHEMA, not by
+preference.** The live `user_role` enum has **17 values and none of them is a
+safety role** (`site_admin · project_manager · super_admin · project_coordinator ·
+procurement · technician · hr · subcon_manager · accounting · visitor ·
+contractor · project_director · client · procurement_manager · site_owner ·
+auditor · legal`), so "the safety officer owns it" is not a buildable answer
+today — it would need a new enum value, which needs an ADR (CLAUDE.md, Roles).
+Procurement already curates the registry. If a real safety officer must own this
+later, that is its own unit and a much larger one than U3.
 
 **D6 — v1 is VISIBLE, not PUSHED.** An expiry chip and a list, no notifications.
 A push channel for expiring certificates is a real want, but it needs an owner
@@ -113,38 +126,51 @@ spec 381 had to — its history RPC needed `SECURITY DEFINER` on _both_ the writ
 and the read because `audit_log` excludes procurement and site_admin. Do not
 assume this table inherits a convenient audience.
 
-## 4. 🔔 The seed type list — THIS IS WHAT NEEDS YOUR SIGN-OFF
+## 4. The seed type list — ✅ DECIDED 2026-07-30 (six ship, two dropped)
 
 The operator asked what else we have missed. This is the answer in one table.
 Each row becomes an `equipment_document_types` seed row.
 
-| Code             | ชื่อ                    | Expiry? | Why it earns a row                                                                                                                                                                                                                                     |
-| ---------------- | ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `WARRANTY`       | ใบรับประกัน             | ✅      | The original ask. Warranty follows the asset — PRI will want it at transfer.                                                                                                                                                                           |
-| `INSPECTION`     | ใบตรวจรับรอง (ปจ.)      | ✅      | Cranes, lifts, pressure vessels require periodic inspection by a licensed engineer in Thailand. ⚠️ **Confirm the exact forms and cadence with your safety officer — I am not asserting the legal detail.** Today nothing records an inspection at all. |
-| `INSURANCE`      | กรมธรรม์ประกันภัย       | ✅      | Machinery insurance per asset.                                                                                                                                                                                                                         |
-| `REGISTRATION`   | ทะเบียน / พ.ร.บ. / ภาษี | ✅      | Road-registered plant (รถแบคโฮ, รถบรรทุก). `serial_no` and `asset_tag` do not cover a plate.                                                                                                                                                           |
-| `CALIBRATION`    | ใบสอบเทียบ              | ✅      | Measuring instruments — a survey level or torque wrench out of calibration silently produces wrong work.                                                                                                                                               |
-| `PURCHASE_DOC`   | ใบเสร็จ / ใบกำกับภาษี   | ❌      | The source document behind `acquisition_cost` + `acquired_at` — i.e. the evidence for the PRI valuation. Ties into spec 380's doc-chase vocabulary.                                                                                                    |
-| `MANUAL`         | คู่มือการใช้งาน         | ❌      | Operating and service manual.                                                                                                                                                                                                                          |
-| `SERVICE_RECORD` | ใบซ่อม / บำรุงรักษา     | ❌      | Each repair or service visit, appended over the asset's life.                                                                                                                                                                                          |
+**Ruling: seed the SIX below; `MANUAL` and `SERVICE_RECORD` are dropped from
+v1.** The test each survivor passes is that it has either an **expiry** — so U3
+gives it a deadline and a surface that nags — or a **named consumer** (the
+purchase document is the evidence behind the PRI valuation). Manual and
+service-record have neither: they are filing, and filing with no deadline does
+not get done. The named precedent is spec 248's `answers_photo_id`, which holds
+**0 of 2,712 rows** because it needed a curatorial act with no consequence
+attached. A type nobody fills also dilutes the §7 fill-rate signal, which is the
+one number that tells us whether any of this is working. Both are one registry
+row away (U4) the day someone actually asks for them.
 
-**Please strike anything you do not want and add anything missing.** The registry
-is operator-editable afterwards, so this list is a starting point, not a wall —
-but the ones present at refill time are the ones that get filled in during the
-single pass over the yard.
+| Code           | ชื่อ                    | Expiry? | Why it earns a row                                                                                                                                                                                                                                     |
+| -------------- | ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WARRANTY`     | ใบรับประกัน             | ✅      | The original ask. Warranty follows the asset — PRI will want it at transfer.                                                                                                                                                                           |
+| `INSPECTION`   | ใบตรวจรับรอง (ปจ.)      | ✅      | Cranes, lifts, pressure vessels require periodic inspection by a licensed engineer in Thailand. ⚠️ **Confirm the exact forms and cadence with your safety officer — I am not asserting the legal detail.** Today nothing records an inspection at all. |
+| `INSURANCE`    | กรมธรรม์ประกันภัย       | ✅      | Machinery insurance per asset.                                                                                                                                                                                                                         |
+| `REGISTRATION` | ทะเบียน / พ.ร.บ. / ภาษี | ✅      | Road-registered plant (รถแบคโฮ, รถบรรทุก). `serial_no` and `asset_tag` do not cover a plate.                                                                                                                                                           |
+| `CALIBRATION`  | ใบสอบเทียบ              | ✅      | Measuring instruments — a survey level or torque wrench out of calibration silently produces wrong work.                                                                                                                                               |
+| `PURCHASE_DOC` | ใบเสร็จ / ใบกำกับภาษี   | ❌      | The source document behind `acquisition_cost` + `acquired_at` — i.e. the evidence for the PRI valuation. Ties into spec 380's doc-chase vocabulary.                                                                                                    |
+
+⛔ **Dropped from v1 (see the ruling above):** `MANUAL` (คู่มือการใช้งาน) and
+`SERVICE_RECORD` (ใบซ่อม / บำรุงรักษา). Neither carries an expiry or a named
+consumer. Re-add as registry rows via U4 on request — no migration needed.
+
+ⓘ `CALIBRATION` earns its row only if PRC owns measuring instruments (survey
+level, torque wrench). Seeded anyway: the cost is one registry row and the
+operator can deactivate it (`is_active = false`) without a migration, which is
+exactly the flexibility D1 bought.
 
 ## 5. What we ALSO missed that is _not_ a document
 
 Surfaced by the same sweep, deliberately kept out of this spec with a reason:
 
-| Gap                                               | Verdict                                                                                                                                                                                                                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Registration / plate number as a field**        | If you own road-registered plant, a plate is an identifier you will search by, not a document — it wants a nullable `registration_no` column beside `serial_no`. 🔔 **Operator: do you own any registered vehicles?** If no, drop it entirely.         |
-| **Hour meter / running hours**                    | The natural key for "when is the next service due", but `equipment_usage_logs` has **never had a row**, so there is no usage signal to hang it on. Own spec, after the scan-borrow flow has real data.                                                 |
-| **Responsible person while idle**                 | Movements say _where_, usage logs say _who borrowed_. Nobody owns an item at rest. Real gap; deferred — custody doctrine already assigns on-site materials to the SA.                                                                                  |
-| **`acquisition_cost` / `acquired_at` write path** | ⚠️ **Not new, and it BLOCKS the PRI transfer.** Both columns exist, both are money-walled, and `acquisition_cost` has **no write path in the app at all** — a DEFINER RPC is owed (spec 367 §10.4). The transfer schedule cannot be priced without it. |
-| **Depreciation / book value**                     | Accounting's model, not the registry's. Out of scope.                                                                                                                                                                                                  |
+| Gap                                               | Verdict                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Registration / plate number as a field**        | ✅ **IN, decided 2026-07-30** — nullable `registration_no` beside `serial_no`. A plate is an identifier you search by, not a document. The cost is asymmetric: one always-null column if PRC owns no registered plant, versus a **second walk around the yard** if it does, because the plate is readable exactly once — while someone stands in front of the machine typing it in. |
+| **Hour meter / running hours**                    | The natural key for "when is the next service due", but `equipment_usage_logs` has **never had a row**, so there is no usage signal to hang it on. Own spec, after the scan-borrow flow has real data.                                                                                                                                                                              |
+| **Responsible person while idle**                 | Movements say _where_, usage logs say _who borrowed_. Nobody owns an item at rest. Real gap; deferred — custody doctrine already assigns on-site materials to the SA.                                                                                                                                                                                                               |
+| **`acquisition_cost` / `acquired_at` write path** | ⚠️ **Not new, and it BLOCKS the PRI transfer.** Both columns exist, both are money-walled, and `acquisition_cost` has **no write path in the app at all** — a DEFINER RPC is owed (spec 367 §10.4). The transfer schedule cannot be priced without it.                                                                                                                              |
+| **Depreciation / book value**                     | Accounting's model, not the registry's. Out of scope.                                                                                                                                                                                                                                                                                                                               |
 
 ## 6. Units
 
@@ -153,9 +179,14 @@ Surfaced by the same sweep, deliberately kept out of this spec with a reason:
 - **U2 — the per-item เอกสาร sheet.** A fourth control in the row cluster beside
   ย้าย · แก้ไข · ประวัติ (the spec 381 U2 pattern), fetched on open. Add, replace
   (supersede), view.
-- **U3 — the expiry surface.** A chip on the item row when something is expired or
-  near it, plus a filtered list for procurement. This is the unit that makes the
-  data worth entering; U1+U2 without it is a filing cabinet nobody opens.
+- **U3 — the expiry surface. ⚠️ SHIPS IN THE SAME RELEASE AS U1+U2, not after.**
+  A chip on the item row when something is expired or near it, plus a filtered
+  list for procurement. Splitting it off would ship the half that removes the
+  reason to use the feature — a document store with no deadline is a filing
+  cabinet, and it is the nag that makes anyone put paper in it. (Doctrine §2: a
+  half that removes a signal without adding one is not shippable. Here the
+  "signal" is the only thing that drives the fill rate §7 measures.) Sequencing
+  inside the release is free; the release boundary is not.
 - **U4 — type registry editor** (optional), mirroring the company-doc-types
   settings screen so the operator can add a type without a migration.
 
@@ -173,14 +204,28 @@ during the yard pass, and the answer is a nudge on the add-item sheet — not mo
 schema. The same query, restricted to rows with `expires_at < now()`, is the
 number U3 exists to make visible.
 
-## 8. Open questions for the operator
+## 8. Decisions taken 2026-07-30 — U1 is UNBLOCKED
 
-1. **The §4 type list** — strike / add.
-2. **D4** — new `equipment-docs` bucket accepting PDFs (recommended), or
-   photograph the paper into the existing images bucket?
-3. **Registered vehicles** — do you own any? Decides `registration_no`.
-4. **Who chases an expiry?** Procurement is the assumed audience for U3. If it is
-   the safety officer instead, that is a different role gate.
+All four open questions are answered; nothing in this spec now waits on the
+operator.
+
+| #   | Question             | Ruling                                                                                                          |
+| --- | -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1   | The §4 type list     | **Six seeded**, `MANUAL` + `SERVICE_RECORD` dropped — each survivor carries an expiry or a named consumer (§4). |
+| 2   | Bucket (D4)          | **New `equipment-docs`** accepting `application/pdf` + images.                                                  |
+| 3   | `registration_no`    | **In** — asymmetric cost, and the plate is readable exactly once (§5).                                          |
+| 4   | Who chases an expiry | **Procurement** — forced by the live enum, which has no safety role (D8).                                       |
+| +   | U3 sequencing        | **Same release as U1+U2**, not a follow-up (§6).                                                                |
+
+⚠️ **Two claims in this spec are deliberately NOT settled and must be re-checked
+at build time, not inherited:**
+
+1. **The ปจ. inspection forms and cadence are unverified.** §4 states them as a
+   candidate, from general knowledge, not from law. Confirm with the safety
+   officer before the seed text is written into a migration — a wrong Thai
+   statutory label in a picker is worse than a generic one.
+2. **The reader audience (D7).** Gate-check the live role set the way spec 381
+   had to; do not assume this table inherits a convenient one.
 
 Related: [[spec367-equipment-registry]] · [[spec381-equipment-item-history]] ·
 [[spec382-equipment-photo-set]] · spec 331 (company documents — the model this
