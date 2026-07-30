@@ -6,7 +6,7 @@ import {
   PendingApprovalsBadge,
   PendingPurchaseDecisionsBadge,
 } from "@/components/features/dashboard/pending-approvals-badge";
-import { TEAM_HUB_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
+import { PROFILE_LABEL, TEAM_HUB_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
 
 // Shared hub nav strip (spec 18). One consistent item set per role
 // surface — the PM pages all show the same four destinations, /sa shows
@@ -119,6 +119,17 @@ export const LEGAL_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
+// Spec 376 U3 (D3): the ช่าง's desktop strip — mirrors TECHNICIAN_TABS
+// one-for-one (nav law rule 2: the phone bar is sm:hidden, so a tab whose href
+// is missing here is unreachable from the chrome on desktop). No superset item:
+// these three surfaces ARE a ช่าง's whole app. Labels match the bar exactly —
+// the ประวัติ / โปรไฟล์ pair reads the same on both surfaces.
+export const TECHNICIAN_HUB_NAV: ReadonlyArray<HubNavItem> = [
+  { label: "หน้าหลัก", href: "/technician" },
+  { label: "ประวัติ", href: "/technician/history" },
+  { label: PROFILE_LABEL, href: "/profile" },
+];
+
 // Spec 153: the single role→strip selector — mirrors bottom-tab-bar's tabsForRole
 // exactly, so the SAME strip renders on every hub page (incl. /settings +
 // /dashboard, which previously rendered none). An unserved role gets null and the
@@ -135,6 +146,8 @@ export function hubNavForRole(role: string): ReadonlyArray<HubNavItem> | null {
   if (role === "accounting") return ACCOUNTING_HUB_NAV;
   // Spec 284 U5 / ADR 0080: the Legal department strip.
   if (role === "legal") return LEGAL_HUB_NAV;
+  // Spec 376 U3 (D3): the ช่าง's strip — desktop parity for the new bar.
+  if (role === "technician") return TECHNICIAN_HUB_NAV;
   return null;
 }
 

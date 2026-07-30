@@ -5,52 +5,30 @@
 // data — no I/O; the caller fetches on the RLS server client (self-scoped by the
 // workers.user_id binding). Server Component (the interactive bits are the
 // already-'use client' children).
+//
+// Spec 376 U3 (D3): this is now the IDENTITY half only — ข้อมูลของฉัน (contact +
+// the PM-entered tax id) and ความยินยอม. The money half (รายการรอรับ, wage
+// history, bank) moved to WorkerHistorySections on the ประวัติ route when the
+// technician's one scroll page became a three-tab surface. `uid` left with it:
+// its only reader was the bank form's upload path.
 
-import { EmptyNotice } from "@/components/features/common/notices";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
-import { formatThaiDate } from "@/lib/i18n/labels";
-import { WAGE_PAYMENT_METHOD_LABELS } from "@/lib/labor/payments";
 import { ProfileContactSection } from "@/components/features/profile/profile-contact-section";
 import { WorkerConsents } from "@/components/features/portal/worker-consents";
-import { ProfileBankSection } from "@/components/features/profile/profile-bank-section";
-import { PortalReceipts, type PortalReceipt } from "@/components/features/portal/portal-receipts";
 import type { PortalConsent } from "@/components/features/portal/portal-self-edit";
 import type { Database } from "@/lib/db/database.types";
-import { bahtUnit as baht } from "@/lib/format";
 
 type WorkerProfile = Database["public"]["Functions"]["get_my_worker_profile"]["Returns"][number];
-type WagePayment = Database["public"]["Functions"]["get_my_wage_payments"]["Returns"][number];
 
 export function WorkerPortalSections({
-  uid,
   wp,
-  payments,
   consents,
-  receipts,
-  hasPendingBank,
-  bankExempt = false,
 }: {
-  /** Spec 315 U2 — the bank-change form uploads to technician/<uid>/book_bank/. */
-  uid: string;
   wp: WorkerProfile;
-  payments: WagePayment[];
   consents: PortalConsent[];
-  receipts: PortalReceipt[];
-  hasPendingBank: boolean;
-  /** Spec 328 U3 — contractor-tied (pay-exempt) member: PRC never pays them, so
-   *  the bank section is hidden entirely (no display, no change form). */
-  bankExempt?: boolean;
 }) {
-  const sortedPayments = [...payments].sort((a, b) => b.period_to.localeCompare(a.period_to));
-
   return (
     <>
-      {/* Spec 177 U8: items to confirm receipt — the actionable surface first. */}
-      <h2 className={SECTION_HEADING}>รายการรอรับ</h2>
-      <div className="mb-6">
-        <PortalReceipts receipts={receipts} />
-      </div>
-
       <h2 className={SECTION_HEADING}>ข้อมูลของฉัน</h2>
       <div className="mb-3">
         <ProfileContactSection
@@ -80,54 +58,6 @@ export function WorkerPortalSections({
       <div className="mb-6">
         <WorkerConsents consents={consents} />
       </div>
-
-      {/* Bank — display + self-service staged change → PM approval (U4c-2, the
-          ADR-0051 §6 anti-fraud gate). The PM may also enter/edit it on /workers.
-          Spec 328 U3: hidden entirely for a contractor-tied member (pay-exempt —
-          the firm pays them, PRC holds no bank for them). */}
-      {bankExempt ? null : (
-        <>
-          <h2 className={SECTION_HEADING}>บัญชีธนาคาร</h2>
-          <div className="mb-6">
-            <ProfileBankSection
-              audience="worker"
-              ownerId={uid}
-              current={
-                wp.bank_name || wp.bank_account_number || wp.bank_account_name
-                  ? {
-                      bankName: wp.bank_name ?? "",
-                      accountNo: wp.bank_account_number ?? "",
-                      accountName: wp.bank_account_name ?? "",
-                    }
-                  : null
-              }
-              showEmptyState
-              hasPending={hasPendingBank}
-            />
-          </div>
-        </>
-      )}
-
-      <h2 className={SECTION_HEADING}>ประวัติการจ่ายเงิน</h2>
-      {sortedPayments.length > 0 ? (
-        <ul className="flex flex-col gap-3">
-          {sortedPayments.map((p) => (
-            <li key={p.id} className={CARD}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-ink-secondary text-xs">
-                  {formatThaiDate(p.period_from)} – {formatThaiDate(p.period_to)}
-                </p>
-                <p className="text-ink shrink-0 text-sm font-bold">{baht(p.paid_amount ?? 0)}</p>
-              </div>
-              <p className="text-ink-secondary mt-1 text-xs">
-                จ่ายเมื่อ {formatThaiDate(p.paid_at)} · {WAGE_PAYMENT_METHOD_LABELS[p.method]}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <EmptyNotice>ยังไม่มีประวัติการจ่ายเงิน</EmptyNotice>
-      )}
     </>
   );
 }

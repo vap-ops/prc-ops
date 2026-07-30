@@ -32,10 +32,11 @@ import {
   Settings,
   ListChecks,
   ShoppingCart,
+  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { TEAM_HUB_LABEL } from "@/lib/i18n/labels";
+import { PROFILE_LABEL, TEAM_HUB_LABEL } from "@/lib/i18n/labels";
 
 export interface TabItem {
   label: string;
@@ -234,6 +235,26 @@ export const LEGAL_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
+// Spec 376 U3 (D3): the ช่าง's own bar. `technician` fell through to null here,
+// so the role's whole app was ONE unbroken scroll page with no chrome at all
+// (13 views / 14d — spec 376 §1: the portal had no pull). Three tabs, which is
+// the ช่าง's entire surface area:
+//   หน้าหลัก  /technician         — the daily home (QR badge first)
+//   ประวัติ    /technician/history — the money half this unit split out
+//   โปรไฟล์    /profile            — the universal profile route, open to every
+//                                   authed role (no gate to widen)
+// The ประวัติ href lives UNDER /technician, so longest-prefix (below) is what
+// keeps exactly one tab lit on it — no `match` needed on either side.
+// The label is inline (the house bar pattern — spec 313 D2), and it is NOT the
+// same term as the WP-detail ประวัติ tab: that one is a work timeline, this one is
+// a ช่าง's own pay/receipt record. Accepted D4 exception (spec 376 §2 D3) —
+// labels.ts single-sources โปรไฟล์ (PROFILE_LABEL) and that constant IS used.
+export const TECHNICIAN_TABS: ReadonlyArray<TabItem> = [
+  { label: "หน้าหลัก", href: "/technician", icon: Home },
+  { label: "ประวัติ", href: "/technician/history", icon: Clock },
+  { label: PROFILE_LABEL, href: "/profile", icon: UserRound },
+];
+
 // Exported for the nav-law rule 2 invariant test (spec 313 U3): the strip must
 // carry every bottom-tab destination, and that was previously asserted only by
 // hand-maintained literal arrays in two separate test files — which agree with
@@ -251,6 +272,8 @@ export function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "accounting") return ACCOUNTING_TABS;
   // Spec 284 U5 / ADR 0080: the Legal department tab set.
   if (role === "legal") return LEGAL_TABS;
+  // Spec 376 U3 (D3): the ช่าง's three-tab set — the role rendered no bar before.
+  if (role === "technician") return TECHNICIAN_TABS;
   return null;
 }
 

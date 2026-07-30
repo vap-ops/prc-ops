@@ -22,6 +22,8 @@ import {
   PROCUREMENT_TABS,
   PROCUREMENT_MANAGER_TABS,
   SA_TABS,
+  TECHNICIAN_TABS,
+  tabsForRole,
 } from "@/components/features/chrome/bottom-tab-bar";
 
 function activeTabs(container: HTMLElement) {
@@ -103,6 +105,15 @@ describe("BottomTabBar", () => {
       ["เวลา", "/procurement/time"],
       ["ทรัพยากร", "/procurement/resources"],
       ["ตั้งค่า", "/settings"],
+    ]);
+    // Spec 376 U3 (D3): the ช่าง's own three-tab set — the role rendered NO bar
+    // at all before this (one long scroll page). ประวัติ (not เงิน — operator's
+    // call) is the new /technician/history route; โปรไฟล์ points at the universal
+    // /profile, which every authed role can already open.
+    expect(TECHNICIAN_TABS.map((t) => [t.label, t.href])).toEqual([
+      ["หน้าหลัก", "/technician"],
+      ["ประวัติ", "/technician/history"],
+      ["โปรไฟล์", "/profile"],
     ]);
   });
 
@@ -545,5 +556,53 @@ describe("BottomTabBar — SA โครงการ tab direct-resolve (spec 376
     const active = container.querySelectorAll('[aria-current="page"]');
     expect(active).toHaveLength(1);
     expect(active[0]?.textContent).toContain("โครงการ");
+  });
+});
+
+// Writing failing test first.
+//
+// Spec 376 U3 (D3) — the technician arm. `tabsForRole("technician")` returned
+// null, so a ช่าง navigated one long scroll page with no bar at all (13 views /
+// 14d, spec §1). Three tabs now: the daily home, the new ประวัติ money route,
+// and the universal profile. The ประวัติ href lives UNDER /technician, so the
+// longest-prefix rule is what keeps exactly one tab lit on it.
+describe("BottomTabBar — technician 3-tab set (spec 376 U3)", () => {
+  it("maps the technician role to TECHNICIAN_TABS (was null)", () => {
+    expect(tabsForRole("technician")).toBe(TECHNICIAN_TABS);
+  });
+
+  it("renders all three tabs as links to their roots", () => {
+    mockUsePathname.mockReturnValue("/technician");
+    render(<BottomTabBar role="technician" />);
+    expect(screen.getByRole("link", { name: /หน้าหลัก/ })).toHaveAttribute("href", "/technician");
+    expect(screen.getByRole("link", { name: /ประวัติ/ })).toHaveAttribute(
+      "href",
+      "/technician/history",
+    );
+    expect(screen.getByRole("link", { name: /โปรไฟล์/ })).toHaveAttribute("href", "/profile");
+  });
+
+  it("lights หน้าหลัก on /technician", () => {
+    mockUsePathname.mockReturnValue("/technician");
+    const { container } = render(<BottomTabBar role="technician" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("หน้าหลัก");
+  });
+
+  it("lights ประวัติ (not หน้าหลัก) on /technician/history — longest prefix wins", () => {
+    mockUsePathname.mockReturnValue("/technician/history");
+    const { container } = render(<BottomTabBar role="technician" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("ประวัติ");
+  });
+
+  it("lights โปรไฟล์ on /profile", () => {
+    mockUsePathname.mockReturnValue("/profile");
+    const { container } = render(<BottomTabBar role="technician" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("โปรไฟล์");
   });
 });

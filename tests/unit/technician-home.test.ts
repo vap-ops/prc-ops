@@ -14,6 +14,11 @@ import { describe, expect, it } from "vitest";
 
 const APP = join(process.cwd(), "src", "app");
 const read = (...segs: string[]) => readFileSync(join(APP, ...segs), "utf8");
+// Spec 376 U3 — the order + absence pins below are counted over comment-STRIPPED
+// source: this page's doc comment names the very symbols they assert are gone
+// (the comment-quotes-the-symbol trap, mutation-proven in this repo 2026-07-29).
+const stripComments = (src: string) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 describe("/technician home (spec 264 G3)", () => {
   const page = read("technician", "page.tsx");
@@ -45,5 +50,48 @@ describe("/technician home (spec 264 G3)", () => {
   it("is a role-home destination — no DetailHeader back chip (spec 63 nav rule)", () => {
     // Like /portal and /client, /technician is a primary landing, not a drill-down.
     expect(page).not.toContain("DetailHeader");
+  });
+});
+
+// Writing failing test first.
+//
+// Spec 376 U3 (D3) — หน้าหลัก after the split. The page kept everything: e-card,
+// QR, assigned work, wage, bank, consents, receipts, no chrome. Now it is the
+// DAILY half with a tab bar, and the QR badge leads because it is the artifact a
+// ช่าง is actually asked for at the morning talk (the e-card led before, and it is
+// read-once identity).
+describe("/technician home after the ประวัติ split (spec 376 U3)", () => {
+  const page = stripComments(read("technician", "page.tsx"));
+
+  // ≥2 = the import PLUS a real mount; a bare toContain is satisfied by the
+  // import line alone.
+  it("mounts the technician chrome (bottom bar + desktop strip)", () => {
+    expect(page.split("BottomTabBar").length - 1).toBeGreaterThanOrEqual(2);
+    expect(page.split("HubNav").length - 1).toBeGreaterThanOrEqual(2);
+  });
+
+  it("leads with the QR badge, before the assigned work and the e-card", () => {
+    const qr = page.indexOf("<WorkerBadgeQr");
+    const work = page.indexOf("<AssignedWorkCard");
+    const card = page.indexOf("<EmployeeCard");
+    expect(qr).toBeGreaterThan(-1);
+    expect(work).toBeGreaterThan(qr);
+    expect(card).toBeGreaterThan(work);
+  });
+
+  // The money half moved to /technician/history — with its READS, not just its
+  // JSX. A page that still fetches wage/receipt/bank data is doing the work of a
+  // route it no longer renders.
+  it("no longer loads the money half's data", () => {
+    expect(page).not.toContain("get_my_wage_payments");
+    expect(page).not.toContain("stock_issues");
+    expect(page).not.toContain("worker_bank_change_requests");
+    expect(page).not.toContain("bankExempt");
+  });
+
+  it("keeps the identity half (the slimmed WorkerPortalSections)", () => {
+    expect(page.split("WorkerPortalSections").length - 1).toBeGreaterThanOrEqual(2);
+    // …and does not host the money half's component instead.
+    expect(page).not.toContain("WorkerHistorySections");
   });
 });
