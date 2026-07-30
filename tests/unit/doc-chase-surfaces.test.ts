@@ -41,9 +41,9 @@ describe("chase page (/requests/docs) source pins", () => {
 describe("/requests worklist doc-chase pins (U4)", () => {
   const reqPage = strip(readFileSync("src/app/requests/page.tsx", "utf8"));
 
-  it("loads the SSOT and threads the verdict to BOTH renderers (grid record + phone card)", () => {
+  it("loads the SSOT and threads the verdict to all three sites (filter + grid record + phone card)", () => {
     expect(count(reqPage, "loadDocChaseOrders")).toBe(2);
-    expect(count(reqPage, "docCoverage.get(r.id)")).toBe(2);
+    expect(count(reqPage, "docCoverage.get(r.id)")).toBe(3);
   });
 
   it("?docs=missing narrows the pipeline groups behind its own gate", () => {
