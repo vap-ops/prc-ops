@@ -1,3 +1,9 @@
+# [0.287.0](https://github.com/vap-ops/prc-ops/compare/v0.286.0...v0.287.0) (2026-07-30)
+
+### Features
+
+- **equipment:** photograph an item while adding it (spec 367 U5b) ([b4be2e6](https://github.com/vap-ops/prc-ops/commit/b4be2e60a0a38b48c3ab985509a85702a8c748d3))
+
 # [0.286.0](https://github.com/vap-ops/prc-ops/compare/v0.285.0...v0.286.0) (2026-07-30)
 
 ### Features
