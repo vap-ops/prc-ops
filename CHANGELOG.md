@@ -1,3 +1,10 @@
+# [0.291.0](https://github.com/vap-ops/prc-ops/compare/v0.290.0...v0.291.0) (2026-07-30)
+
+### Features
+
+- **nav:** site_owner landing + tabs (spec 376 U5) ([#859](https://github.com/vap-ops/prc-ops/issues/859)) ([715fdb6](https://github.com/vap-ops/prc-ops/commit/715fdb6fb26e428049f6aa24095ffab74dcd0163))
+- **register:** shared-phone session interstitial (spec 376 U4) ([#857](https://github.com/vap-ops/prc-ops/issues/857)) ([fd38570](https://github.com/vap-ops/prc-ops/commit/fd385703c6be1dcd8eac7196e18c079380805b57))
+
 # [0.290.0](https://github.com/vap-ops/prc-ops/compare/v0.289.0...v0.290.0) (2026-07-30)
 
 ### Features
