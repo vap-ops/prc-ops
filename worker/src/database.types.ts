@@ -4979,11 +4979,54 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_doc_waivers: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          note: string | null
+          purchase_request_id: string
+          reason: Database["public"]["Enums"]["purchase_doc_waiver_reason"]
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          note?: string | null
+          purchase_request_id: string
+          reason: Database["public"]["Enums"]["purchase_doc_waiver_reason"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          note?: string | null
+          purchase_request_id?: string
+          reason?: Database["public"]["Enums"]["purchase_doc_waiver_reason"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_doc_waivers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_doc_waivers_purchase_request_id_fkey"
+            columns: ["purchase_request_id"]
+            isOneToOne: true
+            referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_order_attachments: {
         Row: {
           created_at: string
           created_by: string
           delivery_id: string | null
+          doc_type: Database["public"]["Enums"]["purchase_doc_type"] | null
           id: string
           kind: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id: string
@@ -4995,6 +5038,7 @@ export type Database = {
           created_at?: string
           created_by: string
           delivery_id?: string | null
+          doc_type?: Database["public"]["Enums"]["purchase_doc_type"] | null
           id?: string
           kind: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id: string
@@ -5006,6 +5050,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           delivery_id?: string | null
+          doc_type?: Database["public"]["Enums"]["purchase_doc_type"] | null
           id?: string
           kind?: Database["public"]["Enums"]["purchase_order_attachment_kind"]
           purchase_order_id?: string
@@ -5300,6 +5345,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          doc_type: Database["public"]["Enums"]["purchase_doc_type"] | null
           id: string
           kind: Database["public"]["Enums"]["purchase_request_attachment_kind"]
           purchase_request_id: string
@@ -5312,6 +5358,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          doc_type?: Database["public"]["Enums"]["purchase_doc_type"] | null
           id?: string
           kind: Database["public"]["Enums"]["purchase_request_attachment_kind"]
           purchase_request_id: string
@@ -5324,6 +5371,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          doc_type?: Database["public"]["Enums"]["purchase_doc_type"] | null
           id?: string
           kind?: Database["public"]["Enums"]["purchase_request_attachment_kind"]
           purchase_request_id?: string
@@ -9477,6 +9525,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           delivery_id: string | null
+          doc_type: Database["public"]["Enums"]["purchase_doc_type"] | null
           id: string | null
           kind:
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]
@@ -9491,6 +9540,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           delivery_id?: string | null
+          doc_type?: Database["public"]["Enums"]["purchase_doc_type"] | null
           id?: string | null
           kind?:
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]
@@ -9505,6 +9555,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           delivery_id?: string | null
+          doc_type?: Database["public"]["Enums"]["purchase_doc_type"] | null
           id?: string | null
           kind?:
             | Database["public"]["Enums"]["purchase_order_attachment_kind"]
@@ -9568,6 +9619,7 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          doc_type: Database["public"]["Enums"]["purchase_doc_type"] | null
           id: string | null
           kind:
             | Database["public"]["Enums"]["purchase_request_attachment_kind"]
@@ -9583,6 +9635,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          doc_type?: Database["public"]["Enums"]["purchase_doc_type"] | null
           id?: string | null
           kind?:
             | Database["public"]["Enums"]["purchase_request_attachment_kind"]
@@ -9598,6 +9651,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          doc_type?: Database["public"]["Enums"]["purchase_doc_type"] | null
           id?: string | null
           kind?:
             | Database["public"]["Enums"]["purchase_request_attachment_kind"]
@@ -9830,6 +9884,19 @@ export type Database = {
         Args: { p_crew: string; p_worker: string }
         Returns: string
       }
+      add_wp_brief_criterion: {
+        Args: { p_body: string; p_brief_id: string; p_sort_order?: number }
+        Returns: string
+      }
+      add_wp_brief_evidence_slot: {
+        Args: {
+          p_brief_id: string
+          p_criterion_id?: string
+          p_label: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
       approve_crew_registration: {
         Args: {
           p_day_rate?: number
@@ -9982,6 +10049,10 @@ export type Database = {
       client_has_live_access: { Args: { p_project: string }; Returns: boolean }
       clone_work_packages: {
         Args: { p_dst_project_id: string; p_src_project_id: string }
+        Returns: number
+      }
+      clone_wp_briefs_from_project: {
+        Args: { p_source_project_id: string; p_target_project_id: string }
         Returns: number
       }
       close_muster_day: {
@@ -10381,6 +10452,11 @@ export type Database = {
       delete_work_package: {
         Args: { p_work_package_id: string }
         Returns: boolean
+      }
+      delete_wp_brief_criterion: { Args: { p_id: string }; Returns: undefined }
+      delete_wp_brief_evidence_slot: {
+        Args: { p_id: string }
+        Returns: undefined
       }
       derive_muster_labor: {
         Args: { p_date: string; p_project: string }
@@ -10908,6 +10984,7 @@ export type Database = {
         Returns: number
       }
       publish_feedback_draft: { Args: { p_draft_id: string }; Returns: string }
+      publish_wp_brief: { Args: { p_work_package_id: string }; Returns: string }
       purchase_report: {
         Args: {
           p_bucket: string
@@ -11277,6 +11354,19 @@ export type Database = {
           status: Database["public"]["Enums"]["worker_bank_capture_status"]
           worker_id: string
         }[]
+      }
+      save_wp_brief_draft: {
+        Args: {
+          p_display_config: Json
+          p_location: string
+          p_quantity: string
+          p_scope_excluded: string
+          p_scope_included: string
+          p_sheet_code: string
+          p_sheet_rev: string
+          p_work_package_id: string
+        }
+        Returns: string
       }
       send_back_staff_registration: {
         Args: { p_id: string; p_note: string }
@@ -11737,6 +11827,10 @@ export type Database = {
         Args: { p_a: string; p_b: string }
         Returns: boolean
       }
+      unwaive_purchase_docs: {
+        Args: { p_purchase_request: string }
+        Returns: undefined
+      }
       update_assembly_component: {
         Args: { p_id: string; p_qty_per: number; p_waste_factor?: number }
         Returns: undefined
@@ -12002,6 +12096,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_wp_brief_criterion: {
+        Args: { p_body: string; p_id: string; p_sort_order: number }
+        Returns: undefined
+      }
+      update_wp_brief_evidence_slot: {
+        Args: {
+          p_criterion_id: string
+          p_id: string
+          p_label: string
+          p_sort_order: number
+        }
+        Returns: undefined
+      }
       upsert_company_card: {
         Args: {
           p_holder_user_id: string
@@ -12066,6 +12173,14 @@ export type Database = {
         Returns: undefined
       }
       void_rental_charge: { Args: { p_charge_id: string }; Returns: undefined }
+      waive_purchase_docs: {
+        Args: {
+          p_note?: string
+          p_purchase_request: string
+          p_reason: Database["public"]["Enums"]["purchase_doc_waiver_reason"]
+        }
+        Returns: string
+      }
       wp_equipment_sell: { Args: { p_wp: string }; Returns: number }
       wp_labor_sell: { Args: { p_wp: string }; Returns: number }
       wp_profit: {
@@ -12317,6 +12432,18 @@ export type Database = {
         | "factory_warehouse"
         | "infrastructure"
         | "systems"
+        | "other"
+      purchase_doc_type:
+        | "tax_invoice_full"
+        | "receipt_cash_bill"
+        | "payment_voucher"
+        | "cert_in_lieu"
+        | "delivery_note"
+        | "transfer_slip"
+        | "other"
+      purchase_doc_waiver_reason:
+        | "vendor_refused"
+        | "docs_unobtainable"
         | "other"
       purchase_order_attachment_kind: "image" | "pdf"
       purchase_order_attachment_purpose: "source_document" | "proof_of_delivery"
@@ -12780,6 +12907,20 @@ export const Constants = {
         "factory_warehouse",
         "infrastructure",
         "systems",
+        "other",
+      ],
+      purchase_doc_type: [
+        "tax_invoice_full",
+        "receipt_cash_bill",
+        "payment_voucher",
+        "cert_in_lieu",
+        "delivery_note",
+        "transfer_slip",
+        "other",
+      ],
+      purchase_doc_waiver_reason: [
+        "vendor_refused",
+        "docs_unobtainable",
         "other",
       ],
       purchase_order_attachment_kind: ["image", "pdf"],
