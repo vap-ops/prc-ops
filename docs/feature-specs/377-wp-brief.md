@@ -1,6 +1,6 @@
 # Spec 377 — WP Brief v1 (ข้อมูลงาน)
 
-**Status:** DESIGN LOCKED (operator rulings 2026-07-30) — docs only, build not started.
+**Status:** BUILDING. U1 ✅ SHIPPED (#861, migs 075873+075874 — schema). U2a ✅ SHIPPED (migs 075876+075877 — PD authoring RPCs). ▶ U2b next (authoring UI, tablet-first) — then U3 SA/PM surfaces · U4 register+dial+usage signal.
 **ADR:** [0086](../decisions/0086-wp-brief-reference-attachments.md) (typed reference
 attachments; the publish-event resolution; the 3D engine-port principle).
 **Builds on:** spec [363](363-wp-detail-sa-nav.md) (the SA's 3-tab WP detail — the brief
@@ -165,17 +165,20 @@ in these units.
 
 ## 5. Units
 
-| U      | Ships                                                                                                                                                                                  | DB?                            |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **U1** | Schema: brief + immutable versions + criteria/slots + typed attachments (sheet_code/rev pin fields now, register FK later; per-type disable seam) + RLS + pgTAP                        | **Yes — 🔔 schema lane, held** |
-| **U2** | PD authoring: clone-from-project, edit, publish                                                                                                                                        | No                             |
-| **U3** | SA + PM surfaces: brief card in รูปถ่าย, evidence slots, soft gate, review criteria panel (355 tie-in)                                                                                 | No                             |
-| **U4** | Drawings register + crop/ISO/GLB upload + stale-flag wiring + attachment-type operator dial + item-10/11 usage signal; DWG→register extraction documented as an OPERATOR tool in docs/ | Yes                            |
-| **U5** | (later, optional) structured bar-schedule rows + rendered shape diagrams                                                                                                               | —                              |
+| U       | Ships                                                                                                                                                                                  | DB?                            |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **U1**  | Schema: brief + immutable versions + criteria/slots + typed attachments (sheet_code/rev pin fields now, register FK later; per-type disable seam) + RLS + pgTAP                        | **Yes — 🔔 schema lane, held** |
+| **U2a** | PD authoring RPCs: draft upsert (full-replace), criteria/evidence-slot CRUD, publish (snapshot, ADR 0086 §4), clone-from-previous-project (name-matched, draft-only)                   | **Yes — schema lane**          |
+| **U2b** | PD authoring UI (tablet-first, operator ruling 2026-07-30): the form over U2a's RPCs                                                                                                   | No                             |
+| **U3**  | SA + PM surfaces: brief card in รูปถ่าย, evidence slots, soft gate, review criteria panel (355 tie-in)                                                                                 | No                             |
+| **U4**  | Drawings register + crop/ISO/GLB upload + stale-flag wiring + attachment-type operator dial + item-10/11 usage signal; DWG→register extraction documented as an OPERATOR tool in docs/ | Yes                            |
+| **U5**  | (later, optional) structured bar-schedule rows + rendered shape diagrams                                                                                                               | —                              |
 
 ## 6. Out of scope
 
-Migrations in this unit · any UI code · any AI pipeline · any 3D/AI generation API
+Out of scope for the ORIGINAL docs-authoring session that wrote this spec (no
+migrations, no app code — superseded by §5's U1/U2a, both since shipped). Still out
+of scope for the whole v1 build: any AI pipeline · any 3D/AI generation API
 integration · GLB viewer (three.js/model-viewer) · telemetry dashboards · per-photo
 criterion binding · clone diff UI · non-TFM template seeding beyond the §4.4 stub note.
 Out-of-scope ideas land in §7, not in the build.
