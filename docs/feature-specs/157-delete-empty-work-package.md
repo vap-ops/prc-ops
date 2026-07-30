@@ -16,11 +16,16 @@ own spec, ADR 0059 §3).
   `search_path`, returns `boolean`.
   - Gate: `current_user_role() in ('project_manager','super_admin','project_director')`
     → else `42501`. Plus `can_see_wp(p_work_package_id)` → else `42501`.
-  - **Empty guard:** raise `P0001` if ANY child row exists for the WP —
-    `photo_logs`, `labor_logs`, `approvals`, `purchase_requests`,
-    `work_package_members`, schedule dependencies (predecessor OR successor).
+  - **Empty guard:** raise `P0001` if ANY child row exists for the WP.
     (Because we refuse when children exist, the CASCADE / append-only-trigger /
     orphan conflict never fires.)
+    ⚠️ **As shipped, this spec's list — `photo_logs`, `labor_logs`, `approvals`,
+    `purchase_requests`, `work_package_members`, schedule dependencies — was a
+    SUBSET of the live FK graph, so a WP whose only references sat elsewhere
+    either cascaded silently, orphaned provenance, or raised a raw `23503`.
+    Corrected 2026-07-30 by mig `20260813075875` (found reviewing spec 377 U1):
+    the guard is now the full FK graph plus a child-WP check. **The current list
+    lives in ADR 0059 §3 Tier 1 — do not re-derive it from this spec.**
   - On pass: `delete from work_packages where id = p_work_package_id` (SECURITY
     DEFINER owner can delete; no DELETE RLS policy is added — the RPC is the only
     entry point). Unknown WP → false.
