@@ -55,6 +55,7 @@ function rec(over: Partial<ProcurementGridRecord>): ProcurementGridRecord {
     received_by: null,
     delivery_note: null,
     doc_count: 0,
+    doc_coverage: null,
     category_id: null,
     category_name: null,
     ...over,

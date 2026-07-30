@@ -45,6 +45,7 @@ function row(
     received_by: null,
     delivery_note: null,
     doc_count: 0,
+    doc_coverage: null,
     purchase_order_id: null,
     po_number: null,
     category_id: null,

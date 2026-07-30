@@ -130,6 +130,19 @@ export function assembleDocChaseOrders(src: DocChaseSourceRows): DocChaseOrderIn
   });
 }
 
+/** Per-order verdict map for the U4 worklist row chips. */
+export function docCoverageById(orders: readonly DocChaseOrderInput[]): Map<string, DocCoverage> {
+  const m = new Map<string, DocCoverage>();
+  for (const o of orders) {
+    const cls = docRequirementClass(o.supplier);
+    m.set(
+      o.id,
+      docCoverage({ status: o.status, cls, attachments: o.attachments, waived: o.waived }),
+    );
+  }
+  return m;
+}
+
 /** Missing-doc count per project (null key = store-bound rows) for the hub cards. */
 export function countMissingByProject(
   orders: readonly DocChaseOrderInput[],

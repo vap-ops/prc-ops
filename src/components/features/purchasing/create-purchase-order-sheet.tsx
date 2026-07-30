@@ -63,8 +63,20 @@ import {
   isNonVatVatMismatch,
 } from "@/lib/purchasing/vat";
 import type { SupplierOption } from "@/lib/purchasing/supplier-option";
+import type { PurchaseDocType } from "@/lib/purchasing/doc-chase";
+import { DOC_TYPE_LABEL, DOC_TYPE_PICKER_LABEL } from "@/lib/i18n/labels";
 import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
+
+// Spec 380 U5: the label covers two real worlds (a supplier quote, which
+// never satisfies doc-chase → 'other', or their invoice) plus the RD
+// fallback ladder for whichever paper the buyer actually attaches.
+const PO_DOC_TYPES: readonly PurchaseDocType[] = [
+  "tax_invoice_full",
+  "receipt_cash_bill",
+  "cert_in_lieu",
+  "other",
+];
 
 export interface CreatePoLine {
   id: string;
@@ -136,6 +148,13 @@ export function CreatePurchaseOrderSheet({
   // the po_id (ADR 0046 upload-on-submit; resolves the no-po_id-yet problem).
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
+  // Spec 380 U5: the attach here is normally a QUOTATION, not an accounting
+  // doc — never default to a satisfying type an unread select would let
+  // silently certify a VAT claim it never earned. 'other' is the one type
+  // that appears in NO class's satisfying set (doc-chase.ts), so an unread
+  // default can only under-claim, never falsely satisfy (fresh-eyes catch).
+  const PO_DOC_TYPE_SAFE_DEFAULT: PurchaseDocType = "other";
+  const [docType, setDocType] = useState<PurchaseDocType>(PO_DOC_TYPE_SAFE_DEFAULT);
   // Spec 126: phone doc⇄form toggle (lg+ shows both side-by-side). A fresh
   // attach lands on the doc so the buyer confirms it loaded, then taps ฟอร์ม.
   const [docTab, setDocTab] = useState<"doc" | "form">("doc");
@@ -238,7 +257,11 @@ export function CreatePurchaseOrderSheet({
   // raw (the spec-34 downscale pipeline is photo-only); images are prepared.
   // Returns false on any failure — the caller treats it as non-fatal (the PO is
   // already created; the doc is optional, no re-attach surface yet = a seam).
-  async function uploadPoDocument(poId: string, file: File): Promise<boolean> {
+  async function uploadPoDocument(
+    poId: string,
+    file: File,
+    type: PurchaseDocType,
+  ): Promise<boolean> {
     let blob: Blob;
     let ext: AttachmentExt;
     if (isPdfMime(file.type)) {
@@ -259,7 +282,12 @@ export function CreatePurchaseOrderSheet({
       .upload(path, blob, { upsert: false, contentType: attachmentExtToMime(ext) });
     if (uploadError) return false;
     try {
-      const res = await addPurchaseOrderAttachment({ purchaseOrderId: poId, attachmentId, ext });
+      const res = await addPurchaseOrderAttachment({
+        purchaseOrderId: poId,
+        attachmentId,
+        ext,
+        docType: type,
+      });
       return res.ok;
     } catch {
       return false;
@@ -326,7 +354,7 @@ export function CreatePurchaseOrderSheet({
       }
       // Upload-on-submit: the PO now exists (poId) — attach the source doc.
       // A failed doc upload is non-fatal (the PO stands; the doc is optional).
-      const docOk = docFile ? await uploadPoDocument(result.poId, docFile) : true;
+      const docOk = docFile ? await uploadPoDocument(result.poId, docFile, docType) : true;
       // Spec 260 — record the charges now that the PO exists (sequential). A
       // failed charge is non-fatal: the PO stands and the charge is re-addable
       // from the PO detail (surfaced in the toast, the doc-upload precedent).
@@ -364,6 +392,18 @@ export function CreatePurchaseOrderSheet({
   // — the bytes upload on submit (Unit 1's uploadPoDocument).
   const docPane = docFile ? (
     <div className="flex flex-col gap-2">
+      <select
+        aria-label={DOC_TYPE_PICKER_LABEL}
+        value={docType}
+        onChange={(e) => setDocType(e.target.value as PurchaseDocType)}
+        className={FIELD_SELECT}
+      >
+        {PO_DOC_TYPES.map((t) => (
+          <option key={t} value={t}>
+            {DOC_TYPE_LABEL[t]}
+          </option>
+        ))}
+      </select>
       <div className="flex items-center gap-2 text-xs">
         <FileText aria-hidden className="text-ink-muted size-4 shrink-0" />
         <span className="text-ink min-w-0 flex-1 truncate">{docFile.name}</span>
@@ -390,6 +430,11 @@ export function CreatePurchaseOrderSheet({
           onClick={() => {
             setDocFile(null);
             setDocTab("doc");
+            // Spec 380 U5 fresh-eyes: the sheet never unmounts between attaches
+            // (toggled by `open`, keyed by quote id) — without this reset a
+            // removed file's chosen type survives onto a later, unrelated
+            // re-attach with no re-confirmation.
+            setDocType(PO_DOC_TYPE_SAFE_DEFAULT);
             if (docInputRef.current) docInputRef.current.value = "";
           }}
           disabled={pending}
