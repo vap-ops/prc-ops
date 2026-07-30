@@ -1,22 +1,13 @@
 // Writing failing test first.
 //
-// Spec 376 U2 — the `คลังหน้างาน` cluster on the project hub.
+// Spec 376 U2 — the `คลังหน้างาน` cluster on the project hub: two labeled store
+// doors, ของเข้า first.
 //
-// The storekeeper hat is not a role (the 17-value `user_role` enum has none), so
-// the store work an SA does had no visible home: its two destinations reached the
-// project hub only as ICON-ONLY chips in the `DetailHeader` actions row, wedged
-// between six other glyphs. Live grounding (14d): incoming 153 views against the
-// store's 11 — receiving IS the storekeeper's real work, and it was the one with
-// no label. One labeled section names the hat and puts รับของ first.
-//
-// ⚠️ ONE door per destination per surface (the spec 313 U3 rule). The section
-// REPLACES the two header chips — shipping both would be the exact duplicate-door
-// defect that retired the ทีมงาน tile. The page pins below hold that: the hub must
-// not build a store/incoming href at all any more.
-//
-// ⓘ Destinations, not actions. เบิก stays on `/sa` as the spec 375 U3 custody pair
-// (actions live where the actor starts); นับสต็อก is inside the คลัง page, so it
-// gets no tile of its own.
+// ⚠️ ONE door per destination per surface (spec 313 U3). The cluster REPLACES the
+// two header chips, so the page pins below assert the hub builds NO store/incoming
+// href any more — exact-zero, or a re-added chip slips through.
+// ⚠️ Destinations, not actions: เบิก stays on `/sa` (the spec 375 U3 custody pair)
+// and นับสต็อก is inside the คลัง page, so neither earns a tile here.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";

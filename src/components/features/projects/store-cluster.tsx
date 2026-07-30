@@ -1,27 +1,15 @@
-// Spec 376 U2 — the `คลังหน้างาน` cluster on the project hub.
+// Spec 376 U2 — the `คลังหน้างาน` cluster on the project hub. Two labeled store
+// doors, ของเข้า first (the higher-traffic one: 153 views vs the store page's 11
+// over 14d).
 //
-// The storekeeper hat has no role of its own (the 17-value `user_role` enum has
-// none), so the store work an SA does had no named home. Both of its destinations
-// reached this page only as ICON-ONLY chips in the DetailHeader actions row, one
-// glyph among eight. Live grounding (14d): the incoming queue drew 153 views
-// against the store page's 11 — receiving IS the storekeeper's real work, and it
-// was the unlabelled one. So: one labeled section, รับของ first.
+// ⚠️ ONE door per destination per surface (spec 313 U3). This REPLACED the two icon
+// chips in the DetailHeader — re-adding either is the duplicate-door defect.
+// ⚠️ Destinations, not actions: เบิก stays on `/sa` (the spec 375 U3 custody pair)
+// and นับสต็อก is a console inside the คลัง page, so neither earns a tile here.
+// ⚠️ D1 forward-compat (spec 376 §2): holds NO role knowledge — the caller gates on
+// `canSeeStore`, so a future `storekeeper` role is a role-set add, not a rework.
 //
-// ⚠️ ONE door per destination per surface (the spec 313 U3 rule). This REPLACES the
-// two header chips in the same commit; keeping both would be the exact
-// duplicate-door defect that retired the ทีมงาน tile.
-//
-// ⓘ Destinations, not actions. เบิก stays on `/sa` as the custody pair (spec 375 U3
-// — actions live where the actor starts), and นับสต็อก is a console inside the คลัง
-// page, so neither earns a tile here.
-//
-// Forward-compat (operator 2026-07-30, spec 376 §2): `storekeeper` may become a
-// real role. The caller gates on the store surfaces' own named predicate, so that
-// day is a role-set add — this component holds no role knowledge at all.
-//
-// Server-component safe: two pure Links, no client state. Tile pattern copied from
-// the spec 375 U3 custody pair (`sa/store-withdraw-pair.tsx`) so the two store
-// clusters read as one family.
+// Server component: two pure Links. Tile pattern from the spec 375 U3 custody pair.
 
 import Link from "next/link";
 import { ChevronRight, Truck, Warehouse } from "lucide-react";

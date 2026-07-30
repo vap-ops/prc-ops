@@ -153,7 +153,7 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
   // Spec 275 U5: the เช่าอุปกรณ์ chip — the equipment-rental recorder relocated
   // into the project (was the settings /equipment/rentals hub). MONEY surface,
   // so BACK_OFFICE_ROLES only (the create-RPC audience) — deliberately NEVER
-  // site_admin (spec 46 / ADR 0055 decision 6), unlike the store chip above.
+  // site_admin (spec 46 / ADR 0055 decision 6), unlike `canSeeStore` above.
   const canSeeRentals = BACK_OFFICE_ROLES.includes(ctx.role);
   // Spec 325 U2: the ต้นทุนโครงการ chip — the per-project cost view. Money
   // surface gated to the spec §4 audience (PM tier + procurement tiers +
