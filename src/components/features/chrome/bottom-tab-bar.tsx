@@ -87,10 +87,14 @@ const SETTINGS_TAB: TabItem = {
     // role that does not home there, so the tab claims it — before this it lit no
     // tab at all and read as belonging to no section. The procurement tiers are
     // unaffected: PROCUREMENT_SETTINGS_TAB overrides `match` to /profile only, so
-    // /expenses stays an unlit leaf for them (spec 323 U4's rule). When U6 gives
-    // site_owner/auditor their own /expenses tab, that tab and this entry are the
-    // same length, so the winner is decided by index order (strict `>` below keeps
-    // whichever comes first) — put the U6 tab ahead of SETTINGS_TAB deliberately.
+    // /expenses stays an unlit leaf for them (spec 323 U4's rule).
+    // Spec 376 D2 supersedes the site_owner half of parked 313 U6: site_owner's
+    // home is its project hub (the SA-shaped resolver, spec 376 U5), not
+    // /expenses — so it gets no /expenses tab and this entry stands for it. The
+    // AUDITOR half of U6 is untouched and still carries the constraint: an
+    // auditor /expenses tab and this entry are the same length, so the winner is
+    // decided by index order (strict `>` below keeps whichever comes first) —
+    // put that tab ahead of SETTINGS_TAB deliberately.
     "/expenses",
   ],
 };

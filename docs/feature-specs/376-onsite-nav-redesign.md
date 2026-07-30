@@ -11,13 +11,13 @@ sibling of spec 349 (accounting nav). Scope chosen by the operator from the coho
 
 ### 1.1 Who is on site
 
-| Cohort | Users (active 14d) | Nav today |
-| --- | --- | --- |
-| site_admin | 6 (5) | 5 tabs at the ceiling: หน้าหลัก `/sa` · โครงการ `/projects` · ทีมงาน `/team` · จัดซื้อ `/requests` · ตั้งค่า |
-| technician | 13 (7) | **No tab bar** (`tabsForRole` → null). One long scroll page `/technician` |
-| ช่าง without a login | 17 of 31 `workers` rows unbound (roster = 28 PRC-daily "DC" + 3 subcon-tied; 14 bound) | Printed QR badge only |
-| storekeeper | — not a role (17-value `user_role` enum has none) | — |
-| site_owner | role exists, **0 users** | `roleHome` falls through to `/coming-soon` |
+| Cohort               | Users (active 14d)                                                                     | Nav today                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| site_admin           | 6 (5)                                                                                  | 5 tabs at the ceiling: หน้าหลัก `/sa` · โครงการ `/projects` · ทีมงาน `/team` · จัดซื้อ `/requests` · ตั้งค่า |
+| technician           | 13 (7)                                                                                 | **No tab bar** (`tabsForRole` → null). One long scroll page `/technician`                                    |
+| ช่าง without a login | 17 of 31 `workers` rows unbound (roster = 28 PRC-daily "DC" + 3 subcon-tied; 14 bound) | Printed QR badge only                                                                                        |
+| storekeeper          | — not a role (17-value `user_role` enum has none)                                      | —                                                                                                            |
+| site_owner           | role exists, **0 users**                                                               | `roleHome` falls through to `/coming-soon`                                                                   |
 
 ### 1.2 Where the traffic actually goes (route_view, 14d)
 
@@ -85,16 +85,29 @@ project world and the `?view=all` hub. The `/projects` redirect itself **stays**
 into the hub still funnel), but the tab — the high-frequency path — stops paying the RSC
 round-trip and stops double-logging telemetry.
 ⚠️ Build traps: `SA_TABS` is a static constant pinned by `nav-law-strip-superset` and the
-lighting tests — a dynamic href needs the guard reworked deliberately, never weakened; the
-strip (rule 2) must carry the same resolved destination; 0-project SA falls back to `/projects`
-(the resolver's own null branch).
+lighting tests — a dynamic href needs the guard reworked deliberately, never weakened;
+0-project SA falls back to `/projects` (the resolver's own null branch).
+**SHIPPED DECISION (U1) — the desktop strip was deliberately NOT changed.** `HubNav` keeps the
+bare `/projects` item; only `BottomTabBar` consumes `saProjectsTabHref`. Reason: the whole
+value of U1 is the saved RSC hop and the un-doubled `route_view` on a **high-frequency phone
+tap**, and the `/projects` redirect already lands a desktop SA on the same hub — so resolving
+it twice would add a second dynamic-href surface (and a second guard rework) for no measured
+gain. Rule 2 is satisfied by DESTINATION PARITY, not by an identical href. This is not
+outstanding work: §7's U1 acceptance measures bare-`/projects` views collapsing, which the tab
+swap alone delivers.
 
 **U2 — the storekeeper cluster on the project hub.** One grouped คลังหน้างาน section on
-`/projects/:id`: รับของ (incoming deliveries — 153 views/14d, this IS the storekeeper's real
-work) · คลัง (store, on-hand + equipment view) · นับสต็อก. เบิก stays on `/sa` (the 375 U3
-custody pair — actions live where the actor starts; the destinations live here). Rejected
-alternative in §5. Labels from `labels.ts` SSOT (`STORE_LABEL` = คลัง exists — check every new
-term against it).
+`/projects/:id`. **SHIPPED: TWO doors, not three** — ของเข้า (incoming deliveries — 153
+views/14d, this IS the storekeeper's real work; the term is `STORE_INCOMING_HEADING` — the name
+the destination page already carries. The draft's `รับของ` is `DELIVERY_RECEIVE_PAGE_TITLE`, a
+DIFFERENT surface reached from inside ของเข้า, so labelling this door with it would have named
+the tile after the page one level below it) · คลัง (store, on-hand + equipment view).
+**นับสต็อก is folded into
+คลัง** — it is a console inside that page, not a destination, so a tile for it would have been
+a duplicate door (spec 313 U3's one-door-per-destination rule). เบิก likewise stays on `/sa`
+(the 375 U3 custody pair — actions live where the actor starts; the destinations live here).
+Rejected alternative in §5. Labels from `labels.ts` SSOT (`STORE_LABEL` = คลัง exists — check
+every new term against it).
 
 ### 3.2 technician (D3)
 
@@ -148,13 +161,13 @@ photos, teams, schedule). So:
 
 ## 4. Units (each = one ship-unit PR; order = value)
 
-| Unit | What | Files (indicative) | Risk |
-| --- | --- | --- | --- |
-| U1 | SA โครงการ tab direct-resolve | `bottom-tab-bar.tsx` · `hub-nav.tsx` · app layout · `projects-landing.ts` · nav guards | ⚠️ nav SSOT, guard rework |
-| U2 | Project-hub คลังหน้างาน cluster | `projects/[projectId]/page.tsx` (hub body) · `labels.ts` | low |
-| U3 | Technician tab bar + `/technician/history` split | `bottom-tab-bar.tsx` · `hub-nav.tsx` · `technician/**` · nav guards | medium |
-| U4 | Shared-phone register interstitial + QR map | `register/**` landing | low |
-| U5 | site_owner roleHome + tabs + page-gate audit | `role-home.ts` (**danger**) · `bottom-tab-bar.tsx` · `hub-nav.tsx` · project page gates | ⚠️ danger-path, operator-merge |
+| Unit | What                                             | Files (indicative)                                                                      | Risk                           |
+| ---- | ------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------ |
+| U1   | SA โครงการ tab direct-resolve                    | `bottom-tab-bar.tsx` · `hub-nav.tsx` · app layout · `projects-landing.ts` · nav guards  | ⚠️ nav SSOT, guard rework      |
+| U2   | Project-hub คลังหน้างาน cluster                  | `projects/[projectId]/page.tsx` (hub body) · `labels.ts`                                | low                            |
+| U3   | Technician tab bar + `/technician/history` split | `bottom-tab-bar.tsx` · `hub-nav.tsx` · `technician/**` · nav guards                     | medium                         |
+| U4   | Shared-phone register interstitial + QR map      | `register/**` landing                                                                   | low                            |
+| U5   | site_owner roleHome + tabs + page-gate audit     | `role-home.ts` (**danger**) · `bottom-tab-bar.tsx` · `hub-nav.tsx` · project page gates | ⚠️ danger-path, operator-merge |
 
 U1 and U3 both touch `bottom-tab-bar.tsx`/`hub-nav.tsx` — serialize (U1 first). U5 is
 independent but danger-held.
@@ -174,12 +187,12 @@ independent but danger-held.
 
 ## 6. Printed-QR entry map (canonical, D5)
 
-| QR artifact | Lands | Session state handled? |
-| --- | --- | --- |
-| Worker badge (printed / digital) | Muster cockpit scan — payload `workers.id`, no navigation on the worker's own phone | n/a (SA's device scans) |
-| Register QR (site poster) | `/register` onboarding | ⚠️ U4 — stale foreign session shows the interstitial |
-| Contractor poster QR (spec 365, `/team/poster?...`) | Registration pre-bound to the firm | same interstitial (U4 covers both) |
-| Equipment item QR/NFC (spec 370) | `/equipment/scan?item=<uuid>` | gated `EQUIPMENT_MOVE_ROLES` (SA device) |
+| QR artifact                                         | Lands                                                                               | Session state handled?                               |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Worker badge (printed / digital)                    | Muster cockpit scan — payload `workers.id`, no navigation on the worker's own phone | n/a (SA's device scans)                              |
+| Register QR (site poster)                           | `/register` onboarding                                                              | ⚠️ U4 — stale foreign session shows the interstitial |
+| Contractor poster QR (spec 365, `/team/poster?...`) | Registration pre-bound to the firm                                                  | same interstitial (U4 covers both)                   |
+| Equipment item QR/NFC (spec 370)                    | `/equipment/scan?item=<uuid>`                                                       | gated `EQUIPMENT_MOVE_ROLES` (SA device)             |
 
 ## 7. Acceptance (fill-rate queries, not green suites)
 

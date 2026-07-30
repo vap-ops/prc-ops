@@ -24,6 +24,7 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { WorkerHistorySections } from "@/components/features/portal/worker-history-sections";
 import { EmptyNotice } from "@/components/features/common/notices";
+import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { type PortalReceipt } from "@/components/features/portal/portal-receipts";
 
 export const metadata = { title: "ประวัติ" };
@@ -86,6 +87,12 @@ export default async function TechnicianHistoryPage() {
       />
 
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 pt-6 pb-28`}>
+        {/* Spec 274 U2 — same mount, same position as /technician, /portal and
+            /client. Without it a super_admin viewing-as-technician reads the
+            empty branch below as "this ช่าง has no record"; every read on this
+            page self-scopes to the CALLER's workers row, so an assumed role
+            legitimately has none. Renders null in normal use. */}
+        <ViewAsEmptyNote />
         {wp ? (
           <div>
             <WorkerHistorySections

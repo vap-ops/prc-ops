@@ -59,4 +59,17 @@ describe("/technician/history (spec 376 U3)", () => {
   it("keeps the ช่าง's logout affordance (the /technician header pattern)", () => {
     expect(page).toContain("LogoutButton");
   });
+
+  // Spec 274 U2 convention — the note that makes an identity-scoped page's
+  // emptiness read as intentional. U3 made this the FOURTH such route, and the
+  // only one without it: its empty branch says ยังไม่มีข้อมูลช่างของคุณ, which a
+  // super_admin viewing-as-technician reads as "this ช่าง has no record" rather
+  // than "you are not a ช่าง". /technician, /portal and /client all mount it.
+  //
+  // Exact use count, not a ≥2 floor: 2 = the import PLUS one render. A floor
+  // would stay green with the JSX deleted once the symbol had two real uses.
+  it("mounts ViewAsEmptyNote, like the other three identity-scoped routes", () => {
+    expect(page.split("ViewAsEmptyNote").length - 1).toBe(2);
+    expect(page).toContain("ยังไม่มีข้อมูลช่างของคุณ");
+  });
 });
