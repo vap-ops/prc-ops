@@ -53,11 +53,28 @@ p_work_package_id, p_name)` (non-empty + length CHECK, mirrors
 
 3. **Delete = two tiers, never a destructive cascade.**
    - **Tier 1 — hard delete only when empty.** `delete_work_package(p_id)` refuses
-     (raises `P0001`) if ANY child row exists (`photo_logs`, `labor_logs`,
-     `approvals`, `purchase_requests`, `work_package_members`, schedule
-     dependencies), else deletes the row. This covers the real case — a WP created
-     by mistake, with no captured evidence — with zero risk: empty means the
-     append-only-trigger / orphan conflict never fires.
+     (raises `P0001`) if ANY child row exists, else deletes the row. This covers
+     the real case — a WP created by mistake, with no captured evidence — with
+     zero risk: empty means the append-only-trigger / orphan conflict never fires.
+     **The guard is the FULL live FK graph, not a spec-time list** (mig
+     `20260813075875`, audited 2026-07-30 over `pg_constraint` where
+     `confrelid = work_packages`): photos, labor, approvals, purchase requests
+     (**both** `work_package_id` and the store-first
+     `requested_from_work_package_id`), members, schedule dependencies, brief
+     versions + attachments, the stock ledger, GL journal lines, equipment usage,
+     labor costs, profit bank, `wp_economics` budget config, plan baseline items,
+     variance snapshots, subcontract WPs, muster team WPs, daily-plan items,
+     supply-plan lines, site issues — plus **child WPs**, which refuse with their
+     own "delete the children first" message. Two references still cascade by
+     decision: `notification_outbox` (system queue, RLS-on with zero policies, no
+     reader) and a DRAFT `wp_briefs` row (spec 377 U1's own fresh-eyes fix, mig
+     `20260813075874` — the draft FK cascades as derived content; a published
+     `wp_brief_versions` row is the history that blocks, already a guard arm).
+     **Any NEW table that
+     references `work_packages` must be classified into the guard or into that
+     exemption list in the same unit** — a missing arm is not a red test, it is a
+     silent cascade, a SET-NULL orphan, or a raw `23503` the UI shows as a
+     retryable "try again".
    - **Tier 2 — cancel (reversible) when there IS history.** A WP with
      photos/labor/approvals is never destroyed; it gets a new
      `work_package_status` value `cancelled` (ยกเลิก) via `cancel_work_package` /

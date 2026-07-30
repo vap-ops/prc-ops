@@ -1,11 +1,17 @@
 begin;
-select plan(15);
+select plan(35);
 
 -- ============================================================================
 -- Spec 157 / ADR 0059 — delete_work_package(p_work_package_id). Tier 1: hard
 --   delete only when EMPTY. SECURITY DEFINER; PM/super/project_director,
 --   membership-gated (can_see_wp). Refuses (P0001) if any child row exists
---   (photo_logs / labor_logs / approvals / purchase_requests / members / deps).
+--   (photo_logs / labor_logs / approvals / purchase_requests / members / deps
+--   / briefs — and, per the 377-U1-review FK audit, EVERY other live reference:
+--   stock ledger, GL lines, plan/muster/supply rows, money config, provenance
+--   PRs via requested_from_work_package_id, and child WPs). The deliberate
+--   exceptions that still cascade: notification_outbox (system queue, no
+--   reader) and a DRAFT wp_briefs row (published versions block instead —
+--   377-wp-brief pins that lives_ok).
 --   Writes an audit_log row. site_admin + visitor denied by role (42501); a
 --   non-member PM denied by membership (42501). The labor_logs FK already exists.
 -- ============================================================================
@@ -59,6 +65,52 @@ insert into public.purchase_requests
   (work_package_id, item_description, quantity, unit, requested_by, status) values
   ('c00b0157-0157-0157-0157-c0c0c00b0157', 'ปูน', 1, 'ถุง',
    '11111111-1111-1111-1111-111111110157', 'requested');
+
+-- 377-U1-review FK-audit fixtures — one WP per newly-guarded reference class.
+insert into public.work_packages (id, project_id, code, name) values
+  ('c0100157-0157-0157-0157-c0c0c1000157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-SI', 'มีเบิกสต๊อก'),
+  ('c0110157-0157-0157-0157-c0c0c1100157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-RF', 'มีที่มาคำขอ'),
+  ('c0120157-0157-0157-0157-c0c0c1200157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-DP', 'มีแผนวัน'),
+  ('c0130157-0157-0157-0157-c0c0c1300157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-EC', 'มีงบ'),
+  ('c0150157-0157-0157-0157-c0c0c1500157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-CH', 'งานย่อย'),
+  ('c0160157-0157-0157-0157-c0c0c1600157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-LC', 'มีต้นทุนแรงงาน'),
+  ('c0170157-0157-0157-0157-c0c0c1700157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-SU', 'มีปัญหาหน้างาน');
+-- wp_hierarchy_guard: a parent must be a group (งาน) — insert WP-PA as one.
+insert into public.work_packages (id, project_id, code, name, is_group) values
+  ('c0140157-0157-0157-0157-c0c0c1400157', 'a1a10157-0157-0157-0157-a1a1a1a10157', 'WP-PA', 'มีงานย่อย', true);
+update public.work_packages
+   set parent_id = 'c0140157-0157-0157-0157-c0c0c1400157'
+ where id = 'c0150157-0157-0157-0157-c0c0c1500157';
+
+insert into public.catalog_items (id, base_item, unit) values
+  ('ca700157-0157-0157-0157-ca70ca700157', 'ปูนทดสอบ-94-guard', 'ถุง');
+insert into public.stock_issues (project_id, catalog_item_id, work_package_id, qty, unit, unit_cost) values
+  ('a1a10157-0157-0157-0157-a1a1a1a10157', 'ca700157-0157-0157-0157-ca70ca700157',
+   'c0100157-0157-0157-0157-c0c0c1000157', 1, 'ถุง', 10.00);
+
+-- The store-first shape: provenance lives in requested_from_work_package_id,
+-- work_package_id deliberately NULL (project_id explicit — normally derived
+-- from the WP binding this row doesn't have).
+insert into public.purchase_requests
+  (project_id, requested_from_work_package_id, item_description, quantity, unit, requested_by, status) values
+  ('a1a10157-0157-0157-0157-a1a1a1a10157', 'c0110157-0157-0157-0157-c0c0c1100157', 'ทรายทดสอบ', 1, 'คิว',
+   '11111111-1111-1111-1111-111111110157', 'requested');
+
+insert into public.daily_work_plans (id, project_id, plan_date, created_by) values
+  ('da900157-0157-0157-0157-da90da900157', 'a1a10157-0157-0157-0157-a1a1a1a10157',
+   date '2026-06-20', '11111111-1111-1111-1111-111111110157');
+insert into public.daily_work_plan_items (plan_id, work_package_id) values
+  ('da900157-0157-0157-0157-da90da900157', 'c0120157-0157-0157-0157-c0c0c1200157');
+
+insert into public.wp_economics (work_package_id) values
+  ('c0130157-0157-0157-0157-c0c0c1300157');
+
+insert into public.wp_labor_costs (work_package_id, own_cost, dc_cost, frozen_by) values
+  ('c0160157-0157-0157-0157-c0c0c1600157', 0, 0, '11111111-1111-1111-1111-111111110157');
+
+insert into public.site_issues (project_id, work_package_id, issue_type, reported_by) values
+  ('a1a10157-0157-0157-0157-a1a1a1a10157', 'c0170157-0157-0157-0157-c0c0c1700157',
+   'other', '11111111-1111-1111-1111-111111110157');
 
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;
@@ -139,7 +191,112 @@ select throws_ok(
   $$ select public.delete_work_package('c0d00157-0157-0157-0157-c0d0c0d00157') $$,
   '42501', null, 'a non-member project_manager denied by membership');
 
+-- ── C. 377-U1-review FK audit: the guard covers EVERY live WP reference ──────
+-- pm_lead (member) again for the behavioural arms.
+set local "request.jwt.claims" = '{"sub": "33333333-3333-3333-3333-333333330157"}';
+
+-- C.1 a WP whose only history is a stock issue refuses with the GUARD's message
+--     — not the stock_issues BEFORE DELETE trigger's, and no cascade fires.
+select throws_ok(
+  $$ select public.delete_work_package('c0100157-0157-0157-0157-c0c0c1000157') $$,
+  'P0001',
+  'delete_work_package: work package has history (photos/labor/approvals/requests/members/dependencies/brief/stock/plans/money) — cancel it instead',
+  'a WP with a stock issue is refused by the guard, not the ledger trigger');
+select is(
+  (select count(*)::int from public.work_packages where id='c0100157-0157-0157-0157-c0c0c1000157'),
+  1, 'the stock-issue WP survives');
+select is(
+  (select count(*)::int from public.stock_issues
+    where work_package_id='c0100157-0157-0157-0157-c0c0c1000157'),
+  1, 'the stock ledger row survives (no cascade)');
+
+-- C.2 a WP referenced only as a PR's PROVENANCE (requested_from_work_package_id,
+--     the store-first shape) is refused — never silently SET-NULL-orphaned.
+select throws_ok(
+  $$ select public.delete_work_package('c0110157-0157-0157-0157-c0c0c1100157') $$,
+  'P0001',
+  'delete_work_package: work package has history (photos/labor/approvals/requests/members/dependencies/brief/stock/plans/money) — cancel it instead',
+  'a WP referenced by requested_from_work_package_id is refused');
+select is(
+  (select count(*)::int from public.purchase_requests
+    where requested_from_work_package_id='c0110157-0157-0157-0157-c0c0c1100157'),
+  1, 'the PR provenance link survives (no silent SET NULL)');
+
+-- C.3 a WP on a daily work plan is refused (was a silent CASCADE).
+select throws_ok(
+  $$ select public.delete_work_package('c0120157-0157-0157-0157-c0c0c1200157') $$,
+  'P0001',
+  'delete_work_package: work package has history (photos/labor/approvals/requests/members/dependencies/brief/stock/plans/money) — cancel it instead',
+  'a WP on a daily work plan is refused (no silent cascade)');
+
+-- C.4 a WP with money config (wp_economics — set_wp_budget writes it) is refused.
+select throws_ok(
+  $$ select public.delete_work_package('c0130157-0157-0157-0157-c0c0c1300157') $$,
+  'P0001',
+  'delete_work_package: work package has history (photos/labor/approvals/requests/members/dependencies/brief/stock/plans/money) — cancel it instead',
+  'a WP with wp_economics budget config is refused');
+
+-- C.5 a parent WP refuses with the CHILDREN message (was a raw 23503).
+select throws_ok(
+  $$ select public.delete_work_package('c0140157-0157-0157-0157-c0c0c1400157') $$,
+  'P0001',
+  'delete_work_package: work package has child work packages — delete the children first',
+  'a parent WP is refused with the children message, not a raw 23503');
+select is(
+  (select count(*)::int from public.work_packages
+    where id in ('c0140157-0157-0157-0157-c0c0c1400157',
+                 'c0150157-0157-0157-0157-c0c0c1500157')),
+  2, 'parent and child both survive');
+
+-- C.7 a WP with frozen labor cost is refused (was a raw 23503).
+select throws_ok(
+  $$ select public.delete_work_package('c0160157-0157-0157-0157-c0c0c1600157') $$,
+  'P0001',
+  'delete_work_package: work package has history (photos/labor/approvals/requests/members/dependencies/brief/stock/plans/money) — cancel it instead',
+  'a WP with a frozen wp_labor_costs row is refused');
+
+-- C.8 a WP with a reported site issue is refused (was a silent SET NULL unlink).
+select throws_ok(
+  $$ select public.delete_work_package('c0170157-0157-0157-0157-c0c0c1700157') $$,
+  'P0001',
+  'delete_work_package: work package has history (photos/labor/approvals/requests/members/dependencies/brief/stock/plans/money) — cancel it instead',
+  'a WP with a reported site issue is refused');
+
 reset role;
+
+-- C.9 wiring pins: the remaining guarded tables — whose behavioural fixtures
+--     would drag in whole subsystems (GL journal lines, equipment usage,
+--     variance snapshots, subcontracts, muster, supply plans) — appear in the
+--     LIVE body as a guard read scoped to THIS WP's id, not just mentioned
+--     anywhere in the function text (a stray comment naming the table would
+--     not satisfy this).
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.journal_lines where work_package_id = p_work_package_id%',
+  'guard reads journal_lines scoped to p_work_package_id');
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.stock_returns where work_package_id = p_work_package_id%',
+  'guard reads stock_returns scoped to p_work_package_id');
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.equipment_usage_logs where work_package_id = p_work_package_id%',
+  'guard reads equipment_usage_logs scoped to p_work_package_id');
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.wp_profit_bank where work_package_id = p_work_package_id%',
+  'guard reads wp_profit_bank scoped to p_work_package_id');
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.plan_baseline_items where work_package_id = p_work_package_id%',
+  'guard reads plan_baseline_items scoped to p_work_package_id');
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.variance_snapshots where work_package_id = p_work_package_id%',
+  'guard reads variance_snapshots scoped to p_work_package_id');
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.subcontract_wps where work_package_id = p_work_package_id%',
+  'guard reads subcontract_wps scoped to p_work_package_id');
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.muster_team_wps where work_package_id = p_work_package_id%',
+  'guard reads muster_team_wps scoped to p_work_package_id');
+select ok(pg_get_functiondef('public.delete_work_package(uuid)'::regprocedure)
+  ilike '%from public.supply_plan_lines where work_package_id = p_work_package_id%',
+  'guard reads supply_plan_lines scoped to p_work_package_id');
 
 select * from finish();
 rollback;

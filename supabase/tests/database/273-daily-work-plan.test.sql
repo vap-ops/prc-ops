@@ -397,9 +397,13 @@ select is(
 reset role;
 
 -- ----------------------------------------------- I. WP delete cascades to board
--- An empty leaf WP that sits on a board drops from it when hard-deleted — the
--- board is ephemeral, so the FK cascades rather than blocking the delete
--- (delete_work_package guards WP history but not the daily board).
+-- A raw DELETE (owner/service-role, bypassing the delete_work_package RPC) still
+-- cascades the board item away — the FK's referential action is CASCADE and this
+-- migration didn't touch it. ⚠️ CORRECTED 2026-07-30 (mig 20260813075875): the
+-- RPC itself is now STRICTER than the raw FK — daily_work_plan_items is a guarded
+-- arm (94-delete-work-package.test.sql §C.3), so a normal user's delete_work_package
+-- call on a WP that is on a live board refuses with P0001, it does not cascade.
+-- This assertion is only about what a raw DELETE does, never about the RPC path.
 delete from public.work_packages where id = 'b2b20273-0273-0273-0273-b2b2b2b20273';
 select is(
   (select count(*)::int from public.daily_work_plan_items i
