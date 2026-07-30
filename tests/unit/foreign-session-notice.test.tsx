@@ -18,7 +18,7 @@
 // approved office roles. So: foreign ⇔ a session exists AND that user has no own
 // registration THIS DOOR STILL SERVES.
 //
-// Three pins live here:
+// Four pins live here:
 //   1. isForeignSession over the WHOLE live role domain (Object.keys of the
 //      USER_ROLE_LABEL Record<UserRole, …>) — the exact positive set in both
 //      registration directions, so adding an enum value REDS this file and
@@ -28,6 +28,15 @@
 //   3. The mount seam on BOTH register doors: foreign session → notice and the
 //      workspace is NOT rendered; a visitor, and anyone whose own registration
 //      is still served, gets the workspace untouched.
+//   4. The screen's TWO ways out, and a heading true of both. The predicate
+//      classifies as borrowed a session whose owner IS the person holding the
+//      phone — every `technician` (13 live users re-scanning the site poster on
+//      their OWN phone) and the site admin who printed it. So the heading may
+//      not assert someone ELSE is signed in, and logout-only was a loop: it
+//      returns to this same door, and logging back in with the same LINE
+//      identity lands here again with no in-app break (the page renders no
+//      bottom bar, no hub strip, no home link). The secondary exit is
+//      roleHome() for the signed-in account.
 
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -92,6 +101,8 @@ const BY = "223e4567-e89b-12d3-a456-426614174000";
 const CONTRACTOR = "323e4567-e89b-12d3-a456-426614174000";
 
 const LOGOUT_LABEL = "ออกจากระบบเพื่อสมัครใหม่";
+const HOME_LABEL = "ไปหน้าหลัก";
+const NEUTRAL_HEADING = "เครื่องนี้มีการเข้าสู่ระบบอยู่แล้ว";
 
 const ROLES = Object.keys(USER_ROLE_LABEL) as UserRole[];
 
@@ -131,6 +142,14 @@ function logoutAction(): string {
 function logoutReturnTo(): URL {
   const action = new URL(logoutAction(), "https://prc.invalid");
   return new URL(action.searchParams.get("next") ?? "", "https://prc.invalid");
+}
+
+/** The secondary exit. Queried BY ROLE, so it only resolves for an element the
+ * a11y tree exposes as a link — i.e. an <a> that carries an href, which is also
+ * exactly what makes it a real tab stop (a bare <a> is role=generic and
+ * unfocusable). */
+function homeLink(): HTMLAnchorElement {
+  return screen.getByRole("link", { name: HOME_LABEL }) as HTMLAnchorElement;
 }
 
 beforeEach(() => {
@@ -242,9 +261,10 @@ describe("ForeignSessionNotice", () => {
       <ForeignSessionNotice
         displayName="สมชาย ใจดี"
         returnTo="/register/technician?site=โพธิ์ทอง"
+        homeHref="/technician"
       />,
     );
-    expect(screen.getByText("เครื่องนี้มีคนอื่นเข้าสู่ระบบอยู่")).toBeInTheDocument();
+    expect(screen.getByText(NEUTRAL_HEADING)).toBeInTheDocument();
     expect(screen.getByText("เข้าสู่ระบบในชื่อ สมชาย ใจดี อยู่")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -254,11 +274,30 @@ describe("ForeignSessionNotice", () => {
     expect(screen.getByRole("button", { name: LOGOUT_LABEL })).toBeInTheDocument();
   });
 
+  // The heading is FALSE for the case the predicate cannot distinguish: a
+  // technician re-scanning the site poster on their own phone is classified
+  // borrowed (the role is always foreign — the workspace bounces it home before
+  // it reads a row), and so is the site admin who printed the poster. Pinned as
+  // a BARE substring so reverting to the old wording reds this whether the
+  // literal is quoted, interpolated, or written as JSX text.
+  it("never claims the session belongs to someone ELSE", () => {
+    const { container } = render(
+      <ForeignSessionNotice
+        displayName="สมชาย ใจดี"
+        returnTo="/register/technician"
+        homeHref="/technician"
+      />,
+    );
+    expect(container.textContent).toContain(NEUTRAL_HEADING);
+    expect(container.textContent).not.toContain("มีคนอื่น");
+  });
+
   it("logs out BACK to the door it was rendered on, params intact", () => {
     render(
       <ForeignSessionNotice
         displayName="สมชาย ใจดี"
         returnTo={`/register/technician?project=${PROJECT}&site=โพธิ์ทอง`}
+        homeHref="/technician"
       />,
     );
     const returnTo = logoutReturnTo();
@@ -268,10 +307,44 @@ describe("ForeignSessionNotice", () => {
     expect(returnTo.searchParams.get("site")).toBe("โพธิ์ทอง");
   });
 
-  it("offers no other way on (one primary action, spec 376 U4)", () => {
-    render(<ForeignSessionNotice displayName="สมชาย ใจดี" returnTo="/register/technician" />);
+  // Logout alone was a closed loop: it returns to THIS door, and signing back in
+  // with the same LINE identity lands here again. Nothing else on the page
+  // breaks it — no bottom bar, no hub strip. So exactly two ways out, logout
+  // first (the primary) and the account's own home second.
+  it("offers the logout primary plus exactly one secondary exit", () => {
+    render(
+      <ForeignSessionNotice
+        displayName="สมชาย ใจดี"
+        returnTo="/register/technician"
+        homeHref="/technician"
+      />,
+    );
     expect(screen.getAllByRole("button")).toHaveLength(1);
-    expect(screen.queryAllByRole("link")).toEqual([]);
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toBe(homeLink());
+    // Secondary = it comes AFTER the primary in DOM (and so in tab) order.
+    const button = screen.getByRole("button", { name: LOGOUT_LABEL });
+    expect(
+      button.compareDocumentPosition(homeLink()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("the secondary exit is a real tab stop pointing at the given home", () => {
+    render(
+      <ForeignSessionNotice
+        displayName="อรุณี ผู้ดูแล"
+        returnTo="/register/technician"
+        homeHref="/dashboard"
+      />,
+    );
+    const link = homeLink();
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe("/dashboard");
+    // Never removed from the tab order — this is the only in-app break in the
+    // logout↔re-login loop for a user standing in their OWN account.
+    expect(link.getAttribute("tabindex")).toBeNull();
+    expect(link.getAttribute("aria-disabled")).toBeNull();
   });
 });
 
@@ -291,6 +364,22 @@ describe("register doors mount the interstitial ahead of the workspace", () => {
     );
     expect(screen.getByText("เข้าสู่ระบบในชื่อ อรุณี ผู้ดูแล อยู่")).toBeInTheDocument();
     expect(screen.queryByTestId("register-workspace")).toBeNull();
+  });
+
+  // The secondary exit is resolved from the role the session read ALREADY has,
+  // through roleHome() — no second read, and no per-role branch in the door.
+  // Driven through the page (not the component) so the resolution itself is
+  // pinned, for two roles whose homes differ.
+  it("field door: the secondary exit is the signed-in role's own roleHome", async () => {
+    row.current = { role: "technician", full_name: "ช่างเก่า", line_display_name: null };
+    render(await RegisterTechnicianPage({ searchParams: Promise.resolve({ project: PROJECT }) }));
+    expect(homeLink().getAttribute("href")).toBe("/technician");
+  });
+
+  it("field door: a super_admin's secondary exit is the PM home, not the ช่าง one", async () => {
+    row.current = { role: "super_admin", full_name: "อรุณี ผู้ดูแล", line_display_name: null };
+    render(await RegisterTechnicianPage({ searchParams: Promise.resolve({ project: PROJECT }) }));
+    expect(homeLink().getAttribute("href")).toBe("/dashboard");
   });
 
   it("field door: the logout return path keeps every QR attribution param", async () => {

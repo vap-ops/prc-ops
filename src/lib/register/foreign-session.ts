@@ -11,6 +11,7 @@ import "server-only";
 // half of the reported symptom: a borrowed `technician` session was bounced into
 // that person's home with no explanation at all.
 
+import { roleHome } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import {
   getOwnRegistrationDocuments,
@@ -89,6 +90,20 @@ export interface BorrowedRegisterSession {
   /** Whose session this is. Never blank: the app name, else the LINE-owned name,
    * else the role label — a screen that asks "is this you?" must name something. */
   displayName: string;
+  /** `roleHome(role)` for that session — the interstitial's SECONDARY way out.
+   *
+   * Load-bearing, because "borrowed" is a conservative classification, not a
+   * proven one: `technician` is foreign by ROLE (the workspace bounces it home
+   * before it reads any row), so all 13 live ช่าง re-scanning the site poster on
+   * their OWN phone land here, as does the site admin who printed it. For them
+   * logout is a closed loop — it returns to this same door, and signing back in
+   * with the same LINE identity lands here again — and the page renders no
+   * bottom bar and no hub strip to break it.
+   *
+   * Resolved HERE because this is where the role is already in hand; the doors
+   * pass it straight through, so neither of them re-reads the session or
+   * re-derives a landing. */
+  homeHref: string;
 }
 
 /** The signed-in identity when a register door is being opened inside someone
@@ -122,7 +137,10 @@ export async function borrowedRegisterSession(): Promise<BorrowedRegisterSession
   );
   if (!isForeignSession({ role: row.role, hasOwnRegistration })) return null;
 
-  return { displayName: row.full_name ?? row.line_display_name ?? USER_ROLE_LABEL[row.role] };
+  return {
+    displayName: row.full_name ?? row.line_display_name ?? USER_ROLE_LABEL[row.role],
+    homeHref: roleHome(row.role),
+  };
 }
 
 /** `deferredDocsOwed(...)` on the caller's own row — the SAME helper and the same

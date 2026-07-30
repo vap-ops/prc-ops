@@ -22,7 +22,8 @@ export default async function RegisterOfficePage({
   // invite link opened on a shared/office phone (or forwarded and opened on the
   // inviter's own device) lands the invitee inside that live session, where the
   // invite gate passes and the fresh form is filled under the wrong identity.
-  // Same interstitial, same one way forward — back to this door with ?by/?role.
+  // Same interstitial, same two ways out — logout back to this door with
+  // ?by/?role, or on to the signed-in account's own home.
   const borrowed = await borrowedRegisterSession();
   return (
     <>
@@ -33,6 +34,7 @@ export default async function RegisterOfficePage({
         <ForeignSessionNotice
           displayName={borrowed.displayName}
           returnTo={registerReturnPath("office", { by, role })}
+          homeHref={borrowed.homeHref}
         />
       ) : (
         <StaffRegisterWorkspace variant="office" by={by} role={role} />

@@ -45,6 +45,7 @@ export default async function RegisterTechnicianPage({
         <ForeignSessionNotice
           displayName={borrowed.displayName}
           returnTo={registerReturnPath("field", { site, project, by, contractor, firm })}
+          homeHref={borrowed.homeHref}
         />
       ) : (
         <StaffRegisterWorkspace
