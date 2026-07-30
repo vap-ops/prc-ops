@@ -65,9 +65,17 @@ fi
 # The COMMON git dir is the main repo's `.git` from the main worktree and from
 # every linked worktree alike, so its parent is the main root in all three
 # layouts. `--path-format=absolute` needs git 2.31, and this script already
-# requires 2.38 for `git merge-tree --write-tree` below, so it is always there.
+# requires 2.38 for `git merge-tree --write-tree` below.
 root="$(git rev-parse --show-toplevel)"
-main_root="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+# Assigned on its OWN line, not nested inside `dirname "$(...)"`: under
+# `set -e`, a failing inner command substitution is invisible to the shell once
+# it is an argument to `dirname` rather than the whole right-hand side, so a
+# git that rejects the flag or prints nothing would silently make main_root
+# "." — the parent of the CURRENT WORKING DIRECTORY, a location the old code
+# never consulted and that the CALLER's cwd picks, not the repo's.
+common_git_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+[ -n "$common_git_dir" ] || { echo "git rev-parse --git-common-dir returned nothing" >&2; exit 1; }
+main_root="$(dirname "$common_git_dir")"
 # The path beside the worktree is tried FIRST, so every checkout that resolves
 # today keeps resolving to the very same file — the main-root path only ever
 # rescues a layout that finds nothing today.
@@ -76,7 +84,7 @@ for candidate in "$root/../.github.env" "$main_root/../.github.env"; do
   if [ -f "$candidate" ]; then env_file="$candidate"; break; fi
 done
 [ -n "$env_file" ] || {
-  echo "missing .github.env (expected GITHUB_TOKEN=...) — tried $root/../.github.env and $main_root/../.github.env" >&2
+  echo "missing .github.env (expected GITHUB_TOKEN=...) — tried $root/../.github.env and $main_root/../.github.env; run this from a checkout of the repo, not an unrelated directory" >&2
   exit 1
 }
 token="$(sed -n 's/^GITHUB_TOKEN=//p' "$env_file" | head -1)"

@@ -130,7 +130,24 @@ ${tokenBlock()}
   }
 }
 
-describe("ship-pr.sh token resolution", () => {
+describe("ship-pr.sh token resolution", { timeout: 30000 }, () => {
+  // Each case below spawns real bash (and stubs git), which under full-suite
+  // load on this Windows box costs well past vitest's 5000ms default — the
+  // same irreducible process-spawn cost ship-pr-repo-derivation.test.ts
+  // documents (msys fork() is the floor, not this test's logic).
+
+  it("the derivation actually uses a flag THIS git build supports", () => {
+    // The stubbed `git()` below matches `*--git-common-dir*` regardless of the
+    // rest of the invocation, so a typo'd or unsupported flag would still pass
+    // every case in this file — it only pins the LOGIC, not the real command.
+    // Run it for real, unstubbed, in this repo.
+    expect(tokenBlock()).toContain("git rev-parse --path-format=absolute --git-common-dir");
+    const real = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+      encoding: "utf8",
+    }).trim();
+    expect(real.length).toBeGreaterThan(0);
+  });
+
   it("finds the token from the MAIN worktree — the layout that always worked", () => {
     const { roots, commonGitDir } = layout("main-case");
     expect(resolveToken(roots.main, commonGitDir)?.token).toBe("canonical-tok");
@@ -153,9 +170,16 @@ describe("ship-pr.sh token resolution", () => {
     // Back-compat is deliberate: the legacy candidate is tried FIRST, so any
     // checkout that resolves today keeps resolving to the very same file.
     const { roots, commonGitDir } = layout("legacy-case", { legacyToken: "legacy-tok" });
-    expect(resolveToken(roots.nested, commonGitDir)?.token).toBe("legacy-tok");
+    const legacy = resolveToken(roots.nested, commonGitDir);
+    expect(legacy?.token).toBe("legacy-tok");
+    // Not just the right VALUE — the right FILE. A regression that searched
+    // main-root-first would still return "legacy-tok" if no other candidate
+    // existed, so pin which candidate actually won.
+    expect(legacy?.envFile).toBe(`${roots.nested}/../.github.env`);
     // …while a worktree with no adjacent token still reaches the canonical one.
-    expect(resolveToken(roots.sibling, commonGitDir)?.token).toBe("canonical-tok");
+    const canonical = resolveToken(roots.sibling, commonGitDir);
+    expect(canonical?.token).toBe("canonical-tok");
+    expect(canonical?.envFile).toBe(`${roots.sibling}/../.github.env`);
   });
 
   it("refuses to ship when no token exists anywhere, naming every path it tried", () => {
@@ -164,8 +188,11 @@ describe("ship-pr.sh token resolution", () => {
     // A diagnostic naming only one candidate is what made this bug confusing: it
     // pointed inside `.claude/worktrees/`, a place nobody should put a token, and
     // said nothing about the path that actually holds one. Both are named now.
+    // "missing .github.env" pins THIS branch specifically — "GITHUB_TOKEN" alone
+    // would also match the other failure message below (a file with no token
+    // line), so it cannot tell the two apart.
     const err = failureOutput(roots.nested, commonGitDir);
-    expect(err).toContain("GITHUB_TOKEN");
+    expect(err).toContain("missing .github.env");
     expect(err).toContain(`${roots.nested}/../.github.env`);
     expect(err).toContain(`${roots.main}/../.github.env`);
   });
@@ -175,5 +202,40 @@ describe("ship-pr.sh token resolution", () => {
     writeFileSync(join(tmpRoot, "blank-case", ".github.env"), "# nothing useful here\n");
     expect(resolveToken(roots.nested, commonGitDir)).toBeNull();
     expect(failureOutput(roots.nested, commonGitDir)).toContain("no GITHUB_TOKEN");
+  });
+
+  it("stops instead of falling back to the working directory when git itself fails", () => {
+    // Fresh-eyes finding: `main_root="$(dirname "$(git rev-parse ...)")"` would
+    // have masked a failing inner substitution under `set -e` — `dirname`, given
+    // nothing, prints "." and exits 0, so the whole assignment "succeeds" and
+    // main_root silently becomes the CALLER's cwd instead of the repo. Proven
+    // live: with a stub returning nothing for --git-common-dir, and a token
+    // planted one level above an arbitrary cwd, the unfixed block read that
+    // planted file and exited 0 — a token search steered by the caller's
+    // current directory rather than the repository being shipped.
+    const container = join(tmpRoot, "git-fails-case");
+    const planted = join(container, "elsewhere", "cwd");
+    mkdirSync(planted, { recursive: true });
+    writeFileSync(join(container, ".github.env"), "GITHUB_TOKEN=should-never-be-read\n");
+
+    const script = `
+set -euo pipefail
+cd "${sh(planted)}"
+git() {
+  case "$*" in
+    "rev-parse --show-toplevel") printf '%s' "\${FAKE_ROOT}" ;;
+    *--git-common-dir*) exit 1 ;;
+    *) return 1 ;;
+  esac
+}
+${tokenBlock()}
+`;
+    expect(() =>
+      execFileSync("bash", ["-c", script], {
+        env: { ...process.env, FAKE_ROOT: sh(join(container, "some-worktree")) },
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
+    ).toThrow();
   });
 });
