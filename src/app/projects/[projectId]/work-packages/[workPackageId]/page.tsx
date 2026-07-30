@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Camera } from "lucide-react";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { DETAIL_TITLE } from "@/lib/ui/classes";
+import { DETAIL_TITLE, BUTTON_SECONDARY } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
@@ -45,6 +45,7 @@ import {
   WORK_PACKAGE_STATUS_LABEL,
   PHOTO_PHASE_LABEL,
   LABOR_TAB_LABEL,
+  WP_BRIEF_MANAGE_LABEL,
   reworkSourceLabel,
   formatThaiDateTime,
   formatThaiTime,
@@ -1054,6 +1055,16 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             predecessors={predecessorOptions}
             candidates={candidateOptions}
           />
+          {/* Spec 377 U2b — the PD brief-authoring editor door. Dedicated page
+              (tablet-first), not a sheet — see the route's own header comment.
+              No ?from= — the target's own safeBackHref fallback IS this WP,
+              so passing it explicitly would be a no-op. */}
+          <Link
+            href={`${workPackageHref(wp.project_id, wp.id)}/brief`}
+            className={`${BUTTON_SECONDARY} w-full text-center`}
+          >
+            {WP_BRIEF_MANAGE_LABEL}
+          </Link>
           {/* Spec 157: delete an empty WP (created by mistake); a WP with
               history is refused (P0001). Destructive — sits last, divided off. */}
           <div className="border-edge border-t pt-4">

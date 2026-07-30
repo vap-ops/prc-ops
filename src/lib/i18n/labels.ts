@@ -1411,6 +1411,11 @@ export const COMPANY_DOC_DOWNLOAD_LABEL = "ดาวน์โหลด";
 export const COMPANY_DOC_HISTORY_LABEL = "ประวัติเวอร์ชัน";
 export const COMPANY_DOC_EXPIRED_LABEL = "หมดอายุ";
 export const COMPANY_DOC_EXPIRING_LABEL = "ใกล้หมดอายุ";
+
+// Spec 377 — WP brief authoring (ข้อมูลงาน). The SA/PM read surfaces (U3) land
+// in a later unit; this is the PD authoring editor's own label.
+export const WP_BRIEF_LABEL = "ข้อมูลงาน";
+export const WP_BRIEF_MANAGE_LABEL = "จัดการข้อมูลงาน";
 export const COMPANY_DOC_ISSUED_LABEL = "วันที่ออกเอกสาร";
 export const COMPANY_DOC_EXPIRES_LABEL = "วันหมดอายุ";
 export const COMPANY_DOC_TITLE_LABEL = "ชื่อเอกสาร";
