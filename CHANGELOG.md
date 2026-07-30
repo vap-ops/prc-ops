@@ -1,3 +1,14 @@
+# [0.293.0](https://github.com/vap-ops/prc-ops/compare/v0.292.0...v0.293.0) (2026-07-30)
+
+### Bug Fixes
+
+- **sa:** collapse an unparseable ต้องแก้ไข timestamp to unknown, not NaN ([cc90a46](https://github.com/vap-ops/prc-ops/commit/cc90a465beb676fae1b4ed0d027c5eab9c93ef40))
+- **sa:** move the ต้องแก้ไข stale cut to 5 elapsed days ([38dfd39](https://github.com/vap-ops/prc-ops/commit/38dfd396377dda5eb33c805dec002d051d369bd6))
+
+### Features
+
+- **sa:** group ต้องแก้ไข by reason, band the rows nobody came back to ([559f357](https://github.com/vap-ops/prc-ops/commit/559f35704e5d88f52ac5362f8186f14bad8e1482))
+
 # [0.292.0](https://github.com/vap-ops/prc-ops/compare/v0.291.0...v0.292.0) (2026-07-30)
 
 ### Bug Fixes
