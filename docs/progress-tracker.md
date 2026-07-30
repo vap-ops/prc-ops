@@ -10618,6 +10618,60 @@ migrations/*`) so `db:push`'s divergence check passes — none of the parallel
 - **▶ Next:** U2b (authoring UI, tablet-first) → U3 SA/PM surfaces (client role gets
   no brief door, by design) → U4 drawings register + uploads + dial + usage signal.
 
+## Spec 379 U1 — `muster_undo_scan` (2026-07-30)
+
+- **Shipped:** migration `20260813075880` (additive, one new DEFINER RPC) + pgTAP
+  `379-muster-undo.test.sql` **22/22** (18 at first green, 22 after the review round), RED-first observed (the file errored before the
+  function existed). No `src/` — the two UI doors are U2, code-only, and need no schema lane.
+- **Why the row is DELETED, not tombstoned:** `muster_attendance` has no triggers and is not
+  append-only, and a tombstone column would have to be honoured by `derive_muster_labor`, the
+  cockpit board, the spec-374 calendar and the spec-358 report — each reader that forgot the
+  filter would keep counting a retracted person. The whole row is snapshotted into the
+  append-only `audit_log` first (`crew_change` / `kind=muster_undo`), so the trace outlives it.
+- **⭐ The guard that needed the gate-check: the wage check is an ANTI-JOIN, not `exists()`.**
+  `labor_logs` is append-only and a retraction is a null-fraction supersede row (ADR 0009/0015),
+  so a day that was derived then retracted still has rows pointing at the attendance. A bare
+  `exists()` would freeze that attendance row forever for a wage that is no longer current.
+  Proven both ways: pgTAP asserts the superseded row does NOT block, and the mutation to
+  `exists()` flips exactly that arm.
+- **4 mutation checks, behavioural, against the LIVE function** (a mutated migration file proves
+  nothing): anti-join→`exists()`, OT guard removed, closure guard removed, each flipping ONLY its
+  own arm, plus a restore probe returning to baseline. The mutation script **aborts when its
+  anchor is not found**, so none was a silently-unapplied false green.
+- **⚠️ `db:types` NOT regenerated, deliberately.** The live DB carries `075876`–`075879` from the
+  unmerged 377brief-u2 + 380docchase lanes, so a regeneration imports THEIR objects
+  (`p_brief_id`, `p_criterion_id`, `p_sheet_code`, `doc_type`, `p_purchase_request`) into this
+  diff — 149 lines of other lanes' schema. **U2 must regenerate once main is coherent**; nothing
+  in `src/` calls the RPC yet, so U1 does not need the type.
+- **⚠️ `db:push` REFUSES** while those four migrations are absent from main; applied via
+  `db query -f` + `migration repair --status applied 20260813075880`. **Do NOT run the CLI's
+  suggested `migration repair --status reverted 075876..079`** — that rewrites other lanes'
+  history on the shared DB.
+- **⚠️ Two pgTAP traps hit:** the file needs `grant` on `_tap_buf` + its sequence AND on its own
+  `_ids` temp table (assertions fire while `role authenticated` is set), and the tombstone insert
+  must carry `correction_reason` (`labor_logs_reason_iff_correction`: `(superseded_by IS NULL) =
+(correction_reason IS NULL)`).
+- **▶ Next:** U2 — the two undo doors (sweep tally row + team-card member row), code-only. Read
+  spec 379 §4: the tally must mirror `markFailed`'s `addedIds` removal (it already exists), the
+  undo belongs on rows whose outcome is in `WRITE_KINDS`, and the label must not read like
+  `เช็คออก`.
+
+**Fresh-eyes round on 379 U1 — 4 findings fixed, all verified live first:**
+`pg_advisory_xact_lock` on derive's own key (a concurrent `close_muster_day`
+could otherwise book a wage against a row this function had already decided to
+delete, and derive's retract loop walks `muster_attendance`, so that wage would
+be permanently unretractable) · the snapshot is `to_jsonb(v_att)`, not a
+hand-listed key set — it had already dropped `note`, which **17 of 167** live
+rows carry · `can_see_project` folded into the lookup, because checking it AFTER
+a global lookup let a site_admin of another project distinguish "no such
+check-in" from "not yours" · `for update of a` + a post-delete not-found guard.
+The wage-guard comment was also wrong (derive early-returns unless a closure
+exists, so it cannot fire on a day that passed the closure check) and the "team
+not found" arm was dead (`team_id` NOT NULL + FK). Tests 18 → 22: positive
+controls for the other two roles in the gate (deleting either previously left
+the file green), a scoped-delete assertion, and messages pinned on all five
+P0001 asserts.
+
 ## Spec 380 — missing purchase-doc visibility, spec + U1–U3 (2026-07-30)
 
 - **Origin:** operator — procurement can't tell which orders lack accounting documents; doc-definition round first (RD manual: per-class requirements + the fallback ladder ใบรับเงิน/ใบสำคัญรับเงิน/ใบรับรองแทนใบเสร็จรับเงิน). Decisions: per-class ✓ · doc_type v1 (legacy grandfathered) ✓ · waiver = accounting ✓.
