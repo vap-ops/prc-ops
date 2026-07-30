@@ -501,3 +501,49 @@ describe("BottomTabBar", () => {
     expect(container.querySelector("svg")?.getAttribute("class")).toContain("size-6");
   });
 });
+
+// Writing failing test first.
+//
+// Spec 376 U1 — the SA's โครงการ tab points AT her project, not at the /projects
+// hub that redirects her there (one tap = two route_views, the refuted-#846
+// artifact). The swap is render-only: SA_TABS above stays static, so every guard
+// and lighting pin keyed on the constant still holds. Non-SA roles never swap.
+describe("BottomTabBar — SA โครงการ tab direct-resolve (spec 376 U1)", () => {
+  const UUID = "0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9";
+
+  function projectsHref(): string | null {
+    return screen.getByRole("link", { name: /โครงการ/ }).getAttribute("href");
+  }
+
+  it("swaps in the /sa-resolved href for site_admin", () => {
+    mockUsePathname.mockReturnValue("/sa");
+    render(<BottomTabBar role="site_admin" projectsTabHref={`/projects/${UUID}`} />);
+    expect(projectsHref()).toBe(`/projects/${UUID}`);
+  });
+
+  it("leaves the static /projects href for a non-SA role given the same prop", () => {
+    mockUsePathname.mockReturnValue("/dashboard");
+    render(<BottomTabBar role="project_manager" projectsTabHref={`/projects/${UUID}`} />);
+    expect(projectsHref()).toBe("/projects");
+  });
+
+  it("derives the project root from the pathname when no prop is passed", () => {
+    mockUsePathname.mockReturnValue(`/projects/${UUID}/work-packages/${UUID}`);
+    const { container } = render(<BottomTabBar role="site_admin" />);
+    expect(projectsHref()).toBe(`/projects/${UUID}`);
+    // Longest-prefix still lights exactly one tab, and it is this one.
+    const active = container.querySelectorAll('[aria-current="page"]');
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("โครงการ");
+  });
+
+  it("keeps the swapped tab lit on the bare /projects hub (?view=all)", () => {
+    mockUsePathname.mockReturnValue("/projects");
+    const { container } = render(
+      <BottomTabBar role="site_admin" projectsTabHref={`/projects/${UUID}`} />,
+    );
+    const active = container.querySelectorAll('[aria-current="page"]');
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("โครงการ");
+  });
+});

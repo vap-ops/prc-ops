@@ -13,6 +13,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isManagerRole } from "@/lib/auth/role-home";
+import { saProjectsTabHref } from "@/lib/nav/projects-tab-target";
 import type { UserRole } from "@/lib/db/enums";
 import {
   PendingApprovalsBadge,
@@ -253,17 +254,35 @@ export function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   return null;
 }
 
-export function BottomTabBar({ role }: { role: string }) {
+export function BottomTabBar({
+  role,
+  projectsTabHref,
+}: {
+  role: string;
+  projectsTabHref?: string | null;
+}) {
   const pathname = usePathname();
   const tabs = tabsForRole(role);
   if (!tabs) return null;
+
+  // Spec 376 U1 — see projects-tab-target.ts. Swap is render-only; the constant
+  // (and every guard pinned to it) is untouched. The rendered item keeps
+  // "/projects" in its match so the bare hub (?view=all) still lights it.
+  const saTarget = saProjectsTabHref({ role, pathname, projectsTabHref });
+  const renderTabs = saTarget
+    ? tabs.map((t) =>
+        t.href === "/projects"
+          ? { ...t, href: saTarget, match: [...(t.match ?? []), "/projects"] }
+          : t,
+      )
+    : tabs;
 
   // Longest matching prefix across href + extra match prefixes — still
   // exactly one active tab; the longest claim wins regardless of which
   // tab owns it.
   let active: TabItem | null = null;
   let activeLen = -1;
-  for (const tab of tabs) {
+  for (const tab of renderTabs) {
     for (const prefix of [tab.href, ...(tab.match ?? [])]) {
       const matches = pathname === prefix || pathname.startsWith(`${prefix}/`);
       if (matches && prefix.length > activeLen) {
@@ -279,7 +298,7 @@ export function BottomTabBar({ role }: { role: string }) {
       className="border-edge-strong bg-card/95 fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_rgba(0,0,0,0.1)] backdrop-blur sm:hidden"
     >
       <div className="mx-auto flex h-16 max-w-2xl items-stretch">
-        {tabs.map((tab) => {
+        {renderTabs.map((tab) => {
           const Icon = tab.icon;
           // Every tab is a first-layer destination: even the ACTIVE tab is a link
           // to its root, so a tap from a sub-page returns to the top of the
