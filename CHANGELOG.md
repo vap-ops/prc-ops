@@ -1,3 +1,9 @@
+# [0.277.0](https://github.com/vap-ops/prc-ops/compare/v0.276.1...v0.277.0) (2026-07-30)
+
+### Features
+
+- **wp-brief:** spec 377 U1 — brief schema, immutable versions, typed attachments ([#861](https://github.com/vap-ops/prc-ops/issues/861)) ([feaa9cb](https://github.com/vap-ops/prc-ops/commit/feaa9cbb9888fb1ae3a05f9b8a3089230a86e40a))
+
 ## [0.276.1](https://github.com/vap-ops/prc-ops/compare/v0.276.0...v0.276.1) (2026-07-30)
 
 ### Bug Fixes
