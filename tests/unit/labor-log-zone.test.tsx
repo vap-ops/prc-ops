@@ -97,6 +97,56 @@ describe("LaborLogZone", () => {
     expect(screen.getByLabelText("ดีซีสอง")).toBeInTheDocument();
   });
 
+  // Spec 306 — log_labor_day refuses a cost-unconfirmed worker, so offering a
+  // tickable checkbox for one would be affordance-then-refuse: the tap can only
+  // ever end in an error the site admin cannot act on. They stay VISIBLE (a
+  // silently short roster reads as broken data, and today every worker is
+  // unconfirmed) but are not selectable, and the reason names the actor who can
+  // clear it.
+  describe("the cost-confirmation money wall (spec 306)", () => {
+    const UNCONFIRMED = {
+      own: [
+        {
+          id: "w9",
+          name: "ยังไม่ยืนยัน",
+          pay_type: "monthly" as const,
+          contractor_id: null,
+          active: true,
+          cost_confirmed_at: null,
+        },
+      ],
+      dc: [],
+    };
+
+    it("renders an unconfirmed worker but leaves the checkbox disabled", () => {
+      renderZone({ roster: UNCONFIRMED });
+      const box = screen.getByLabelText("ยังไม่ยืนยัน");
+      expect(box).toBeInTheDocument();
+      expect(box).toBeDisabled();
+      expect(screen.getByText("ยังไม่ยืนยันค่าแรง")).toBeInTheDocument();
+    });
+
+    it("names procurement as the actor who can clear it", () => {
+      renderZone({ roster: UNCONFIRMED });
+      expect(screen.getByText(/ให้ฝ่ายจัดซื้อยืนยันระดับและค่าแรง/)).toBeInTheDocument();
+    });
+
+    it("clicking an unconfirmed worker never builds a selection", async () => {
+      renderZone({ roster: UNCONFIRMED });
+      await userEvent.click(screen.getByLabelText("ยังไม่ยืนยัน"));
+      // No fraction control ⇒ nothing was selected. (A disabled input swallows
+      // the click, so this also pins that the guard survives if the disabled
+      // attribute is ever dropped.)
+      expect(screen.queryByRole("button", { name: "เต็มวัน" })).toBeNull();
+    });
+
+    it("says nothing when every worker is confirmed", () => {
+      renderZone();
+      expect(screen.queryByText(/ให้ฝ่ายจัดซื้อยืนยันระดับและค่าแรง/)).toBeNull();
+      expect(screen.queryByText("ยังไม่ยืนยันค่าแรง")).toBeNull();
+    });
+  });
+
   it("selecting a worker reveals the fraction control defaulting to full day", async () => {
     renderZone();
     await userEvent.click(screen.getByLabelText("ช่างหนึ่ง"));

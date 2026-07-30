@@ -16,7 +16,7 @@ import { BUTTON_PRIMARY_COMPACT, CARD } from "@/lib/ui/classes";
 const MAX_DOTS = 8;
 
 export function MusterStrip({ summary, dateIso }: { summary: MusterSummary; dateIso: string }) {
-  const { busy, mark } = useMarkPresent(dateIso);
+  const { busy, mark, error } = useMarkPresent(dateIso);
 
   if (summary.total === 0) return null;
   const allPresent = summary.present >= summary.total;
@@ -38,6 +38,15 @@ export function MusterStrip({ summary, dateIso }: { summary: MusterSummary; date
             />
           ))}
         </div>
+        {/* Spec 306 — a refusal replaces the outcome the tap promised, so it
+            has to be readable here rather than inferred from a board that did
+            not change. role="alert" because the button stays enabled and there
+            is no other cue that anything happened. */}
+        {error ? (
+          <p role="alert" className="text-meta text-danger-strong mt-1">
+            {error}
+          </p>
+        ) : null}
       </div>
       {allPresent ? (
         <span className="text-meta text-done-strong shrink-0 font-medium">ครบแล้ว</span>

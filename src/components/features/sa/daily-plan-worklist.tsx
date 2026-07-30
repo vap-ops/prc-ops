@@ -35,7 +35,7 @@ export function DailyPlanWorklist({
   dateLabel: string;
   items: WorklistItem[];
 }) {
-  const { busy, mark } = useMarkPresent(dateIso);
+  const { busy, mark, error } = useMarkPresent(dateIso);
 
   if (items.length === 0) return null;
 
@@ -44,6 +44,14 @@ export function DailyPlanWorklist({
       <div className="flex flex-col gap-0.5">
         <h2 className="text-meta text-ink-secondary font-semibold">แผนวันนี้</h2>
         <p className="text-meta text-ink-muted">{dateLabel}</p>
+        {/* Spec 306 — every มาทำ button on this list shares one hook, so one
+            alert covers them all. Without it a refused tap leaves the row
+            exactly as it was, which reads as a successful check-in. */}
+        {error ? (
+          <p role="alert" className="text-meta text-danger-strong mt-1">
+            {error}
+          </p>
+        ) : null}
       </div>
       <ul className="flex flex-col gap-3">
         {items.map((it) => {

@@ -60,7 +60,13 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
   // crews, it simply must not turn a firm-paid worker's attendance into a PRC
   // wage. Its own assertion (contractor_id is null) lives below.
   const DERIVE_FN = "derive_muster_labor";
-  const WANTED = [...WALLED_FNS, DERIVE_FN];
+  // Spec 306 — the MANUAL twin of the derive, and the other direct labor_logs
+  // writer. It carried no contractor guard at all until 075885: spec 328 U3
+  // filtered the picker, so the wall existed only in the UI and any caller of
+  // the RPC walked straight through it. Same reason as the derive for living
+  // outside WALLED_FNS — the crew-specific phrase does not describe it.
+  const MANUAL_FN = "log_labor_day";
+  const WANTED = [...WALLED_FNS, DERIVE_FN, MANUAL_FN];
 
   // Extract the CREATE ... FUNCTION body starting at `start`. A migration
   // re-emitted from `pg_get_functiondef` closes with `$function$`; a
@@ -123,6 +129,16 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
     const body = lastDefinition.get(DERIVE_FN) ?? "";
     expect(body, `derive_muster_labor has no definition in ${MIGRATIONS}`).not.toBe("");
     expect(body).toContain("v_worker.contractor_id is null");
+  });
+
+  // Spec 306 — the manual writer reaches the same table, so it needs the same
+  // pin. It refuses rather than skips (a person is waiting on an answer, unlike
+  // the derive's batch), hence the different predicate.
+  it("the LAST definition of log_labor_day carries the money wall", () => {
+    const body = lastDefinition.get(MANUAL_FN) ?? "";
+    expect(body, `log_labor_day has no definition in ${MIGRATIONS}`).not.toBe("");
+    expect(body).toContain("v_worker.contractor_id is not null");
+    expect(body).toContain("paid by a subcontractor firm");
   });
 
   // This suite is Windows-load-only: it is GREEN on CI Linux however slow the
