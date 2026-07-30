@@ -1,6 +1,6 @@
 # Spec 377 — WP Brief v1 (ข้อมูลงาน)
 
-**Status:** BUILDING. U1 ✅ SHIPPED (#861, migs 075873+075874 — schema). U2a ✅ SHIPPED (migs 075876+075877 — PD authoring RPCs). ▶ U2b next (authoring UI, tablet-first) — then U3 SA/PM surfaces · U4 register+dial+usage signal.
+**Status:** BUILDING. U1 ✅ SHIPPED (#861, migs 075873+075874 — schema). U2a ✅ SHIPPED (migs 075876+075879 — PD authoring RPCs). ▶ U2b next (authoring UI, tablet-first) — then U3 SA/PM surfaces · U4 register+dial+usage signal.
 **ADR:** [0086](../decisions/0086-wp-brief-reference-attachments.md) (typed reference
 attachments; the publish-event resolution; the 3D engine-port principle).
 **Builds on:** spec [363](363-wp-detail-sa-nav.md) (the SA's 3-tab WP detail — the brief
