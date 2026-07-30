@@ -280,6 +280,13 @@ function AddEquipmentForm({
   onDone: () => void;
 }) {
   const router = useRouter();
+  // Spec 367 U5b — the item id is minted HERE, before the row exists, because the
+  // photo has to be uploaded to `<itemId>/…` (the depth-1 arm of the
+  // equipment-images policy) and there is no id to use yet. Same id then goes to
+  // createEquipment, so the row owns the folder its photo landed in. Minted once
+  // per mount: the sheet unmounts on save, so the next open gets a fresh one.
+  const [draftId] = useState(() => crypto.randomUUID());
+  const [imagePath, setImagePath] = useState<string | null>(null);
   // Operator ask 2026-07-30 — the fleet has one standing owner (PRI), so the
   // form starts there instead of on the sentinel. Read from the data
   // (`equipment_owners.is_default`), never from a name: spec 367 §3 is about the
@@ -306,6 +313,8 @@ function AddEquipmentForm({
     }
     setBusy(true);
     const result = await createEquipment({
+      id: draftId,
+      imagePath,
       name,
       categoryId,
       ownerId,
@@ -337,6 +346,10 @@ function AddEquipmentForm({
 
   return (
     <div>
+      {/* Spec 367 U5b — photograph the machine while adding it. Draft mode: the
+          upload lands under draftId and the path rides along to createEquipment,
+          so no second visit to the edit sheet is needed. */}
+      <EquipmentImageControl itemId={draftId} onPathChange={setImagePath} />
       <EquipmentFields
         idPrefix="equip-add"
         categories={categories}
