@@ -1,3 +1,9 @@
+## [0.293.1](https://github.com/vap-ops/prc-ops/compare/v0.293.0...v0.293.1) (2026-07-30)
+
+### Bug Fixes
+
+- **nav:** pending-PR badge + decider-first band for procurement_manager ([#889](https://github.com/vap-ops/prc-ops/issues/889)) ([9064270](https://github.com/vap-ops/prc-ops/commit/90642704a260ff70ff0855db277528c2470b679a))
+
 # [0.293.0](https://github.com/vap-ops/prc-ops/compare/v0.292.0...v0.293.0) (2026-07-30)
 
 ### Bug Fixes
