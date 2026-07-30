@@ -173,10 +173,50 @@ while that line still shows. Both are true; leave the leaf flag alone in this sp
 
 ### U5 — uploader doc_type pickers
 
-`InvoiceUploader` (PR) + PO source-doc + receive-page uploaders gain a required type select
-(defaults per context: PR invoice card → receipt_cash_bill · PO source doc → tax_invoice_full ·
-receive card → delivery_note). Server actions in `src/app/requests/actions.ts` pass `doc_type`.
-Legacy rows untouched.
+> **Amended post-investigation (2026-07-30):** the original bullet undersold real complexity —
+> `InvoiceUploader` is ONE shared component mounted at 4 different doc-chase-relevant sites with
+> different correct defaults, and `docCoverage`'s typed branch is deliberately purpose/source-blind
+> (any attachment with a satisfying `doc_type` counts, regardless of which button uploaded it) —
+> confirmed correct, not a bug, and it's what lets U5 type a `proof_of_delivery`-purpose row and
+> have it count. ⚠️ The original "receive card → delivery_note" default was WRONG and would have
+> been a live regression: today an untyped `purpose='invoice'` row on a `delivered` PR reads
+> `covered_loose`; forcing a `delivery_note` default (in `NEVER_SATISFYING`) flips it to `missing`
+> on the very upload meant to document it. No card gets a pre-selected default that can make an
+> order worse than doing nothing — required-select-no-default, or a default provably safe by
+> construction (see below).
+
+Scope, by mount (`src/components/features/purchasing/invoice-uploader.tsx` used at 4 sites +
+`create-purchase-order-sheet.tsx` + `self-purchase-form.tsx`):
+
+- **PR receive card** (`/requests/[id]`, status `delivered`) — required select, **no pre-selection**
+  (what the driver hands over genuinely varies; a wrong default is worse than an empty one).
+- **PR standalone card + procurement grid drawer** (status `purchased`/`site_purchased`) — required
+  select, default `tax_invoice_full` at `purchased` (back-office ordered from a vendor) / `receipt_cash_bill`
+  at `site_purchased` (SA cash buy) — split on the row's own status, not a single constant.
+- **Self-purchase form** (`self-purchase-form.tsx`, always `site_purchased`) — inferred from the
+  form's own `vatRate` field (`> 0 → tax_invoice_full`, else `receipt_cash_bill`; the VAT split
+  already computed server-side needs a matching doc), select stays visible for override.
+- **PO create-sheet** (`create-purchase-order-sheet.tsx`) — required select, default `tax_invoice_full`
+  (its own label already says "ใบเสนอราคา / ใบแจ้งหนี้" — two real types behind one button).
+- **🔔 Operator decision, NOT built in U5:** `PaymentProofUploader` (payment-slip uploads) stays
+  **untyped** (`doc_type` NULL, unchanged covered-loose behaviour). Typing it would require either
+  hardcoding `transfer_slip` — which is in `NEVER_SATISFYING`, so every payment-only-proof order
+  would silently flip to `missing`, a real coverage drop with no sign-off — or adding a payment-slip
+  satisfying type, which the RD ladder (§2) doesn't currently name. Flagged for a future unit once
+  the operator rules on it.
+- **Follow-up, not U5:** `src/app/projects/[projectId]/incoming/[deliveryId]/page.tsx`'s SA receive
+  uploader is labelled "แนบใบส่งของ / ใบเสร็จ" but is actually `ProofOfDeliveryUploader` writing
+  `purpose='proof_of_delivery'` — a genuine mislabel independent of doc-chase (the honest-copy
+  class). Typing it WOULD work (purpose-blind coverage, confirmed above) but it's a different
+  page/subsystem; bundling it here risks scope creep on an already-large unit. Own follow-up.
+
+Shared server-action shape: the one input type all four PR-writing actions
+(`addInvoiceAttachment`/`addPaymentProofAttachment`/`addReferenceAttachment`/
+`addDeliveryConfirmationPhoto`) already share gains an optional `docType?: PurchaseDocType | null`
+field — only `addInvoiceAttachment` (and the new PO/PO-create action) reads and writes it; the
+others accept-and-ignore so `InvoiceUploaderProps.action`'s structural type (`typeof
+addInvoiceAttachment`) stays satisfied by every current caller. Legacy rows untouched (`doc_type`
+stays NULL; §2 decision ② covered-loose grandfathering is unaffected).
 
 ### U6 — accounting side (DANGER, operator merge)
 
