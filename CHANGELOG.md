@@ -1,3 +1,9 @@
+# [0.276.0](https://github.com/vap-ops/prc-ops/compare/v0.275.0...v0.276.0) (2026-07-30)
+
+### Features
+
+- **technician:** 3-tab bar + ประวัติ route split (spec 376 U3) ([dee805d](https://github.com/vap-ops/prc-ops/commit/dee805da28b75b8f30f060beb394fed675e32a84))
+
 # [0.275.0](https://github.com/vap-ops/prc-ops/compare/v0.274.0...v0.275.0) (2026-07-30)
 
 ### Features
