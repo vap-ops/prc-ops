@@ -1,3 +1,9 @@
+# [0.285.0](https://github.com/vap-ops/prc-ops/compare/v0.284.1...v0.285.0) (2026-07-30)
+
+### Features
+
+- **equipment:** spec 381 + U1 — a real history trail per item ([#882](https://github.com/vap-ops/prc-ops/issues/882)) ([ea52a2d](https://github.com/vap-ops/prc-ops/commit/ea52a2df883a3c18816487159c70e4e22ea2d729))
+
 ## [0.284.1](https://github.com/vap-ops/prc-ops/compare/v0.284.0...v0.284.1) (2026-07-30)
 
 ### Bug Fixes
