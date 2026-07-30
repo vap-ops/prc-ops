@@ -1,3 +1,9 @@
+# [0.280.0](https://github.com/vap-ops/prc-ops/compare/v0.279.0...v0.280.0) (2026-07-30)
+
+### Features
+
+- **equipment:** per-item image upload on the edit sheet (spec 367 U5) ([#874](https://github.com/vap-ops/prc-ops/issues/874)) ([11f13ca](https://github.com/vap-ops/prc-ops/commit/11f13ca03e3f35cfc667b992609826f1ca2e3438))
+
 # [0.279.0](https://github.com/vap-ops/prc-ops/compare/v0.278.0...v0.279.0) (2026-07-30)
 
 ### Features
