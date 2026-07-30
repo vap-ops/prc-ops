@@ -1,3 +1,9 @@
+# [0.290.0](https://github.com/vap-ops/prc-ops/compare/v0.289.0...v0.290.0) (2026-07-30)
+
+### Features
+
+- **labor:** log_labor_day money-wall parity (spec 306) ([#887](https://github.com/vap-ops/prc-ops/issues/887)) ([6e4dbde](https://github.com/vap-ops/prc-ops/commit/6e4dbde51130b92dc3c8693b18945d9f27f4e69c))
+
 # [0.289.0](https://github.com/vap-ops/prc-ops/compare/v0.288.0...v0.289.0) (2026-07-30)
 
 ### Features
