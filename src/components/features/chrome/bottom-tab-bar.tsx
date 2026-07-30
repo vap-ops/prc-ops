@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isManagerRole } from "@/lib/auth/role-home";
+import { isManagerRole, purchaseDecisionBadgeHref } from "@/lib/auth/role-home";
 import { saProjectsTabHref } from "@/lib/nav/projects-tab-target";
 import type { UserRole } from "@/lib/db/enums";
 import {
@@ -360,10 +360,13 @@ export function BottomTabBar({
           // at-a-glance count while anywhere in the app. site_admin shares the
           // tab but does not approve, so no badge.
           const showApprovalsBadge = tab.href === "/dashboard" && isManagerRole(role as UserRole);
-          // Spec 184 U1: purchase requests awaiting the PM tier's decision ride
-          // the จัดซื้อ tab (SA requesters / procurement processors share it but
-          // don't decide, so no badge for them).
-          const showPurchaseBadge = tab.href === "/requests" && isManagerRole(role as UserRole);
+          // Spec 184 U1: purchase requests awaiting a decision ride the tab that
+          // owns the queue for THIS role — จัดซื้อ for the PM tier, หน้าหลัก for
+          // procurement_manager (its STR spine has no /requests tab; หน้าหลัก
+          // claims the route via `match` above). SA requesters and plain
+          // procurement share these surfaces but don't decide, so no badge for
+          // them — purchaseDecisionBadgeHref is the single judge.
+          const showPurchaseBadge = tab.href === purchaseDecisionBadgeHref(role as UserRole);
           // Spec 218: WPs the PM/defect bounced back to the SA ride the หน้าหลัก
           // tab, so the SA sees them while anywhere in the app. site_admin only —
           // super/PM use a different bar and don't field rework.

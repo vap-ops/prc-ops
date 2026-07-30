@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { isManagerRole } from "@/lib/auth/role-home";
+import { isManagerRole, purchaseDecisionBadgeHref } from "@/lib/auth/role-home";
 import type { UserRole } from "@/lib/db/enums";
 import {
   PendingApprovalsBadge,
@@ -176,6 +176,10 @@ interface HubNavProps {
 
 export function HubNav({ maxWidthClass, items, currentHref, role }: HubNavProps) {
   const showApprovalsBadge = role !== undefined && isManagerRole(role as UserRole);
+  // The PR count is a DIFFERENT audience from the ภาพรวม count above: spec 286
+  // made procurement_manager a decider without giving it /dashboard, so the two
+  // badges no longer share a gate. Mirrors the bottom bar via the same helper.
+  const purchaseBadgeHref = role === undefined ? null : purchaseDecisionBadgeHref(role as UserRole);
   return (
     // Desktop-only (spec 19 §2): phones navigate via the bottom tab bar.
     // Spec 20: light strip; the current page carries a blue underline —
@@ -203,7 +207,7 @@ export function HubNav({ maxWidthClass, items, currentHref, role }: HubNavProps)
               {showApprovalsBadge && item.href === "/dashboard" ? (
                 <PendingApprovalsBadge position="inline" />
               ) : null}
-              {showApprovalsBadge && item.href === "/requests" ? (
+              {purchaseBadgeHref !== null && item.href === purchaseBadgeHref ? (
                 <PendingPurchaseDecisionsBadge position="inline" />
               ) : null}
             </Link>

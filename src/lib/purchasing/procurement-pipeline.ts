@@ -37,9 +37,30 @@ export const PROCUREMENT_BANDS: ReadonlyArray<ProcurementBandMeta> = [
   { band: "to_order", label: PROCUREMENT_BAND_LABEL.to_order, hot: true },
   { band: "in_transit", label: PROCUREMENT_BAND_LABEL.in_transit, hot: false },
   { band: "received", label: PROCUREMENT_BAND_LABEL.received, hot: false },
-  // Waiting on the PM's decision — procurement can't act yet (visibility only).
+  // Waiting on a DECIDER's call. For plain procurement that is somebody else's
+  // move (visibility only), which is why it sits last here — see
+  // procurementBandsFor for the decider's order.
   { band: "awaiting_approval", label: PROCUREMENT_BAND_LABEL.awaiting_approval, hot: false },
 ];
+
+/**
+ * The band order for THIS viewer. Spec 104 wrote the constant above when no
+ * procurement role could decide a request, so awaiting_approval was pure
+ * history and trailed the buyer's piles. Spec 286 made procurement_manager a
+ * decider — and for a decider that band is the one pile nobody else can clear,
+ * so it leads and renders hot (the amber "your move" treatment to_order gets).
+ *
+ * Returns the shared constant untouched for a non-decider — same identity, so
+ * nothing about plain procurement's screen changes.
+ */
+export function procurementBandsFor(isDecider: boolean): ReadonlyArray<ProcurementBandMeta> {
+  if (!isDecider) return PROCUREMENT_BANDS;
+  const rest = PROCUREMENT_BANDS.filter((b) => b.band !== "awaiting_approval");
+  const awaiting = PROCUREMENT_BANDS.find((b) => b.band === "awaiting_approval");
+  // Defensive only — awaiting_approval is a literal member above. A spread copy
+  // keeps PROCUREMENT_BANDS' own entry at hot: false for every other caller.
+  return awaiting ? [{ ...awaiting, hot: true }, ...rest] : rest;
+}
 
 // Map a purchase-request status to a procurement band. rejected/cancelled are
 // not the buyer's work → null (excluded from the pipeline).
@@ -100,10 +121,13 @@ export function sumOutstanding(rows: ReadonlyArray<{ amount: number | null }>): 
   return total;
 }
 
-// Group rows into bands, in PROCUREMENT_BANDS order, dropping empty bands and
-// rows with no band. Within-band order is preserved from the input.
+// Group rows into bands, in the CALLER's band order (default: the buyer's
+// PROCUREMENT_BANDS — pass procurementBandsFor(true) for a decider), dropping
+// empty bands and rows with no band. Within-band order is preserved from the
+// input.
 export function groupByProcurementBand<T extends { status: string }>(
   rows: ReadonlyArray<T>,
+  bands: ReadonlyArray<ProcurementBandMeta> = PROCUREMENT_BANDS,
 ): Array<{ meta: ProcurementBandMeta; items: T[] }> {
   const byBand = new Map<ProcurementBand, T[]>();
   for (const r of rows) {
@@ -113,7 +137,7 @@ export function groupByProcurementBand<T extends { status: string }>(
     arr.push(r);
     byBand.set(b, arr);
   }
-  return PROCUREMENT_BANDS.map((meta) => ({ meta, items: byBand.get(meta.band) ?? [] })).filter(
-    (g) => g.items.length > 0,
-  );
+  return bands
+    .map((meta) => ({ meta, items: byBand.get(meta.band) ?? [] }))
+    .filter((g) => g.items.length > 0);
 }

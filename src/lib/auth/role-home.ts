@@ -98,6 +98,25 @@ export function isPurchaseDecider(role: UserRole): boolean {
 }
 
 /**
+ * Which nav item carries the pending-purchase-decision count — the bottom-tab
+ * badge AND the desktop strip badge read this one answer, so the two chromes
+ * cannot drift. null = this role decides nothing, so it gets no count.
+ *
+ * Operator report 2026-07-31 ("procurement manager … cannot find the page"):
+ * both badges were gated on isManagerRole, which spec 286 did NOT widen — so
+ * procurement_manager, a full PR decider since 286, saw no pending count in
+ * either chrome. The naive fix (swap in isPurchaseDecider) is not enough: the
+ * badge rode `href === "/requests"`, and the procurement tiers' STR spine has
+ * no /requests item at all (spec 323 U3b). Its หน้าหลัก entry is what CLAIMS
+ * /requests — via the bottom tab's `match`, and as the strip item the queue
+ * hangs off — so that is where the count belongs for her.
+ */
+export function purchaseDecisionBadgeHref(role: UserRole): string | null {
+  if (!isPurchaseDecider(role)) return null;
+  return role === "procurement_manager" ? "/procurement" : "/requests";
+}
+
+/**
  * Spec 233 / ADR 0067: who may ISSUE or REVOKE a temporary client portal login —
  * project_director + super_admin ONLY. Deliberately NOT PM_ROLES: that set also
  * contains project_manager, and the operator scoped client access to the director
