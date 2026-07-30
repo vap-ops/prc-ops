@@ -16,8 +16,10 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 export type DeleteWorkPackageResult = { ok: true } | { ok: false; error: string };
 
 const FAILED = "ลบงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-// P0001 = the empty-guard (the WP has photos / labor / requests / members / deps).
-const HAS_HISTORY = "ลบไม่ได้ — งานนี้มีรูป ทีมงาน หรือคำขอซื้อแล้ว (การยกเลิกงานจะมาเร็วๆนี้)";
+// P0001 = the empty-guard. Since mig 075875 it fires for EVERY live reference
+// (photos / labor / stock / GL / plans / provenance PRs / …) and for child WPs,
+// so the copy names the class, not a partial example list.
+const HAS_HISTORY = "ลบไม่ได้ — งานนี้มีประวัติการใช้งานหรือมีงานย่อยแล้ว (การยกเลิกงานจะมาเร็วๆนี้)";
 
 export async function deleteWorkPackage(input: {
   projectId: string;
