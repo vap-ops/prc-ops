@@ -377,6 +377,23 @@ export const RECEIPT_PAPER_PROMPT = "ถ่ายรูปใบส่งขอ�
 // sees them. Procurement DOES see every SA-doc gap (the ยังไม่มี flags below).
 export const PO_DOCS_FROM_PROCUREMENT_LABEL = "เอกสารจากฝ่ายจัดซื้อ (ใบเสนอราคา / ใบแจ้งหนี้)";
 export const INVOICE_PAPER_MISSING_LABEL = "ยังไม่มีใบส่งของ / ใบเสร็จจากหน้างาน";
+
+// Spec 380 — doc-chase (ตามเอกสารซื้อ): the per-class ask a chase row shows.
+// vat = the vendor is legally obliged to issue a full tax invoice (ม.86);
+// non_vat = the RD fallback ladder's documents; unknown = no supplier row.
+export const DOC_CHASE_TITLE = "ตามเอกสารซื้อ";
+export const DOC_CHASE_ASK_VAT = "ทวงใบกำกับภาษีเต็มรูป";
+export const DOC_CHASE_ASK_NON_VAT = "ขอบิลเงินสด / ใบสำคัญรับเงิน";
+export const DOC_CHASE_ASK_UNKNOWN = "ขอเอกสารการซื้อ";
+export const DOC_CHASE_NO_SUPPLIER_LABEL = "ไม่ระบุร้านค้า";
+export const DOC_CHASE_MISFLAG_HINT = "ตรวจสถานะ VAT ของร้านนี้";
+// The no-docs state term matches the accounting review queue's existing tab
+// literal (review-queue-view.ts) — same concept, same word (ui-term SSOT).
+export const DOC_MISSING_LABEL = "ไม่มีเอกสาร";
+export const DOC_CHIP_SITE_PAPER = "ใบส่งของ/ใบเสร็จ";
+export const DOC_CHIP_VENDOR_DOC = "เอกสารร้านค้า";
+export const DOC_WAIVED_LABEL = "ยกเว้นโดยบัญชี";
+export const DOC_CHASE_EMPTY_LABEL = "ไม่มีรายการรอเอกสาร";
 // Spec 303 — goods-photo integrity: the receive proof is taken live (capture),
 // must cover everything received, and pairs with the row's delivered amount.
 export const DELIVERY_PHOTO_COVERAGE_HINT = "ถ่ายให้เห็นของที่รับครบทุกรายการ — ถ่ายได้หลายรูป";

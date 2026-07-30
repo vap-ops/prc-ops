@@ -166,6 +166,9 @@ const STATIC_DETAIL = [
   "requests/reports/register",
   // Spec 262 U3: the PO list drills down from /requests (back chip → /requests).
   "requests/orders",
+  // Spec 380 U3: the doc-chase list drills down from the /procurement hub chip
+  // (and rides ?from when entered from elsewhere); back chip → /procurement.
+  "requests/docs",
   // Spec 361 U4: the ข้อมูลหลัก index is a LEAF of the STR hub (a door is an
   // unlit leaf, spec 323 decision A) — back chip → /procurement/resources,
   // resolved through safeBackHref so a future second parent lands correctly.
