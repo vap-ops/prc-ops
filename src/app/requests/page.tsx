@@ -4,7 +4,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { AppHeader } from "@/components/features/chrome/app-header";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
-import { PURCHASING_ROLES, isProcurementWorklist } from "@/lib/auth/role-home";
+import { PURCHASING_ROLES, isProcurementWorklist, isPurchaseDecider } from "@/lib/auth/role-home";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PR_LIST_COLUMNS } from "@/lib/purchasing/columns";
@@ -38,6 +38,7 @@ import {
 } from "@/lib/purchasing/request-bands";
 import {
   groupByProcurementBand,
+  procurementBandsFor,
   procurementSummary,
   PROCUREMENT_BANDS,
   type ProcurementBand,
@@ -252,6 +253,10 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
   // Spec 280 (ADR 0070): procurement_manager is a full-parity buyer — same worklist
   // view (KPI hero, band chips, filters, grid, PO flow) as plain procurement.
   const isProcurement = isProcurementWorklist(ctx.role);
+  // Spec 286 gave procurement_manager the PR decision, so for her the
+  // รออนุมัติ band is her own move, not somebody else's — it leads the pipeline
+  // instead of trailing the history piles (operator report 2026-07-31).
+  const pipelineBands = procurementBandsFor(isPurchaseDecider(ctx.role));
   const today = bangkokTodayISO();
 
   // Spec 137: the site list groups into action-state bands; the view filter (active
@@ -317,7 +322,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
             },
           ]
         : []
-      : groupByProcurementBand(filteredRequests).map(({ meta, items }) => ({
+      : groupByProcurementBand(filteredRequests, pipelineBands).map(({ meta, items }) => ({
           meta,
           items: sortByPriority(items),
         }));
