@@ -290,14 +290,16 @@ export function LaborLogZone({
   const selectedIds = Object.keys(selected);
   const allWorkers = [...roster.own, ...roster.dc.flatMap((g) => g.workers)];
   const workerNames = new Map(allWorkers.map((w) => [w.id, w.name]));
-  // Spec 306 — the disabled checkbox is the affordance; this is the guard that
-  // makes it true, so a selection can never be built for a worker the RPC will
-  // refuse (a tick that survived the worker's state changing under the page).
-  const capturableIds = new Set(allWorkers.filter(isCostConfirmed).map((w) => w.id));
-  const unconfirmedCount = allWorkers.length - capturableIds.size;
+  // Spec 306 — the money wall's affordance layer is the `disabled` attribute on
+  // the row's checkbox (pinned by test). A second guard inside toggle() was
+  // written and then removed: mutation-checking proved it UNREACHABLE, because a
+  // disabled input never fires onChange, so it asserted a hazard that cannot
+  // occur while the affordance is correct — the spec-340 unreachable-clause
+  // rule. If the checkbox ever stops being disabled, submit still refuses per
+  // worker with a specific Thai reason rather than silently.
+  const unconfirmedCount = allWorkers.filter((w) => !isCostConfirmed(w)).length;
 
   function toggle(workerId: string) {
-    if (!capturableIds.has(workerId)) return;
     setSelected((prev) => {
       const next = { ...prev };
       if (next[workerId]) delete next[workerId];
