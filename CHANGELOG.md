@@ -1,3 +1,15 @@
+# [0.284.0](https://github.com/vap-ops/prc-ops/compare/v0.283.0...v0.284.0) (2026-07-30)
+
+### Bug Fixes
+
+- **purchasing:** 380 U4 fresh-eyes — empty-state gate, entry point, concurrent wave ([4de54f1](https://github.com/vap-ops/prc-ops/commit/4de54f1d74230fb01b9c59ca1efb6208ac299b80))
+
+### Features
+
+- **purchasing:** 380 U5 slice 1 — doc_type foundation (shared type, defaults lib, InvoiceUploader passthrough) ([d7f9eca](https://github.com/vap-ops/prc-ops/commit/d7f9ecaabd26957bf0e5fc4d5d64394a8416408f))
+- **purchasing:** 380 U5 slice 2 — 4 doc_type mounts, fresh-eyes hardened ([4388ecd](https://github.com/vap-ops/prc-ops/commit/4388ecdd51e85cf2227ce56d82e956f3373ccc6c))
+- **purchasing:** spec 380 U4 — worklist doc-chase chips + ?docs=missing filter ([0532849](https://github.com/vap-ops/prc-ops/commit/05328496964d53e0557535dd6735b70c1e735bec))
+
 # [0.283.0](https://github.com/vap-ops/prc-ops/compare/v0.282.0...v0.283.0) (2026-07-30)
 
 ### Features
