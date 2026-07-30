@@ -95,6 +95,33 @@ describe("groupSaActions — the stale band", () => {
     expect(groups[0]?.items.map((i) => i.id)).toEqual(["noage"]);
   });
 
+  it("treats an unparseable timestamp as unknown, never as NaN", () => {
+    // NaN would leak into the comparator (`NaN - x` is NaN), and a comparator
+    // that returns NaN gives an implementation-defined order — a whole group
+    // could silently shuffle. Unknown is both safe and honest.
+    const { stale, groups } = groupSaActions({
+      items: [
+        item({ id: "bad", kind: "rework", sinceIso: "not-a-timestamp" }),
+        item({ id: "good", kind: "rework", sinceIso: daysAgo(1) }),
+      ],
+      staleBeforeIso: CUTOFF,
+    });
+    expect(stale).toEqual([]);
+    expect(groups[0]?.items.map((i) => i.id)).toEqual(["good", "bad"]);
+  });
+
+  it("renders no groups at all when every row is stale", () => {
+    const { stale, groups } = groupSaActions({
+      items: [
+        item({ id: "a", kind: "revision", sinceIso: daysAgo(9) }),
+        item({ id: "b", kind: "rework", sinceIso: daysAgo(6) }),
+      ],
+      staleBeforeIso: CUTOFF,
+    });
+    expect(stale.map((i) => i.id)).toEqual(["a", "b"]);
+    expect(groups).toEqual([]);
+  });
+
   it("compares INSTANTS, not strings — the two sides use different encodings", () => {
     // PostgREST returns `…+00:00`; the cutoff is built by toISOString() (`…Z`),
     // and `"+" (0x2B) < "Z" (0x5A)` bytewise. A row sitting exactly ON the

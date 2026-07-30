@@ -279,13 +279,19 @@ function kindOfGroup(key: SaActionGroupKey): SaActionKind {
   return "revision";
 }
 
-/** Epoch ms, or null when the row carries no age. */
+/** Epoch ms, or null when the row carries no USABLE age. */
 function sinceMs(item: SaActionItem): number | null {
   // Parse, never string-compare: `sinceIso` comes from PostgREST (`…+00:00`) and
   // the cutoff from `toISOString()` (`…Z`), and `"+" < "Z"` bytewise — so a
   // lexicographic compare is only accidentally right and wrong at the boundary
   // (spec 375 U1's second defect).
-  return item.sinceIso === null ? null : Date.parse(item.sinceIso);
+  if (item.sinceIso === null) return null;
+  const ms = Date.parse(item.sinceIso);
+  // An unparseable timestamp collapses to UNKNOWN rather than leaking NaN into
+  // the comparator: `NaN - x` is NaN, and a comparator that returns NaN gives an
+  // implementation-defined order — a whole group could silently shuffle. Unknown
+  // is the honest reading anyway, and unknown is never banded stale.
+  return Number.isNaN(ms) ? null : ms;
 }
 
 /** Oldest first, unknown ages last, then the legacy project/code tie-break. */
