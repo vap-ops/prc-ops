@@ -46,6 +46,7 @@ import {
 } from "@/lib/equipment/current-location";
 import { equipmentLocationLabel } from "@/lib/equipment/equipment-location-label";
 import { EquipmentImageControl } from "@/components/features/equipment/equipment-image-control";
+import { pickDefaultOwnerId, type OwnerOption } from "@/lib/equipment/default-owner";
 import {
   EQUIPMENT_MOVEMENT_KIND_LABEL,
   EQUIPMENT_STATUS_LABEL,
@@ -142,7 +143,7 @@ function EquipmentFields({
 }: {
   idPrefix: string;
   categories: Ref[];
-  owners: Ref[];
+  owners: OwnerOption[];
   name: string;
   setName: (v: string) => void;
   categoryId: string;
@@ -275,13 +276,19 @@ function AddEquipmentForm({
   onDone,
 }: {
   categories: Ref[];
-  owners: Ref[];
+  owners: OwnerOption[];
   onDone: () => void;
 }) {
   const router = useRouter();
+  // Operator ask 2026-07-30 — the fleet has one standing owner (PRI), so the
+  // form starts there instead of on the sentinel. Read from the data
+  // (`equipment_owners.is_default`), never from a name: spec 367 §3 is about the
+  // plant changing hands. Falls back to "" — the "— เลือกเจ้าของ —" option, which
+  // keeps the submit button disabled — when nothing is flagged.
+  const defaultOwnerId = pickDefaultOwnerId(owners);
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [ownerId, setOwnerId] = useState("");
+  const [ownerId, setOwnerId] = useState(defaultOwnerId);
   const [tracking, setTracking] = useState<EquipmentTracking>("unit");
   const [assetTag, setAssetTag] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -318,7 +325,12 @@ function AddEquipmentForm({
     setTracking("unit");
     setStatus("available");
     setCategoryId("");
-    setOwnerId("");
+    // Mirrors the initial state rather than the sentinel — clearing it here
+    // would contradict what the next open shows. Unobservable today (BottomSheet
+    // returns null when closed, so onDone() unmounts this form and useState
+    // re-seeds it), which is why no test pins it; it is kept in step with its
+    // six sibling resets rather than left as the one that says "".
+    setOwnerId(defaultOwnerId);
     onDone();
     router.refresh();
   }
@@ -490,7 +502,7 @@ function EquipmentRow({
 }: {
   item: ManagedEquipmentItem;
   categories: Ref[];
-  owners: Ref[];
+  owners: OwnerOption[];
   projects: Ref[];
   ownerName: string | null;
   locationLabel: string;
@@ -764,7 +776,7 @@ export function EquipmentManager({
 }: {
   items: ManagedEquipmentItem[];
   categories: Ref[];
-  owners: Ref[];
+  owners: OwnerOption[];
   projects: Ref[];
   movements: EquipmentMovementRow[];
   // U5 — false for the site_admin field view: list + where-is-it + move only,

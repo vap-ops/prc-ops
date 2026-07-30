@@ -2578,6 +2578,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          is_default: boolean
           name: string
           phone: string | null
         }
@@ -2585,6 +2586,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          is_default?: boolean
           name: string
           phone?: string | null
         }
@@ -2592,6 +2594,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          is_default?: boolean
           name?: string
           phone?: string | null
         }
@@ -10819,6 +10822,14 @@ export type Database = {
           p_worker: string
         }
         Returns: string
+      }
+      muster_undo_scan: {
+        Args: {
+          p_date: string
+          p_session: Database["public"]["Enums"]["muster_session"]
+          p_worker: string
+        }
+        Returns: undefined
       }
       my_contact_bank_present: { Args: never; Returns: boolean }
       open_accounting_period: { Args: { p_month: string }; Returns: string }
