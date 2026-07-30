@@ -209,6 +209,27 @@ export async function renameEquipmentCategory(input: {
   return { ok: true };
 }
 
+// A new owner is TWO rows, not one. `createEquipment` / `updateEquipment` /
+// `importEquipmentCsv` all write `supplier_id = ownerId` because spec 275 U0
+// id-mirrors every owner into `suppliers` for the GL-party edge, and
+// `equipment_items.supplier_id` FKs to `public.suppliers` — so an owner without
+// its mirror 23503s on the FIRST item created under it, behind the generic
+// GENERIC_ERROR retry. Migration …_075881_ mirrored the PRI owner by hand; this
+// is the app-side half that was missing (fix 2026-07-30).
+//
+// The suppliers row goes FIRST and that ordering is the design, not a detail:
+// `authenticated` holds NO DELETE on `suppliers` and there are zero DELETE
+// policies (verified live), so there is no compensating rollback and these two
+// statements cannot be made atomic without a DEFINER RPC. Supplier-first means
+// every outcome preserves the invariant that matters — a failure between the two
+// leaves at worst a spare supplier, never a mirror-less owner. Owner-first would
+// re-create the bug. The atomic version is a follow-up (it needs a migration).
+//
+// Both rows carry the SAME generated id — the mirror is an identity copy, which
+// is what makes `supplier_id = owner_id` resolve. `id` is INSERT-granted to
+// `authenticated` on both tables; `created_at`/`is_default` are NOT, so they are
+// left to their defaults. The two INSERT policies admit the same five roles as
+// BACK_OFFICE_ROLES above and both require `created_by = auth.uid()`.
 export async function createEquipmentOwner(input: {
   name: string;
   phone?: string;
@@ -221,12 +242,18 @@ export async function createEquipmentOwner(input: {
   const phone = (input.phone ?? "").trim();
   if (phone.length > 40) return { ok: false, error: GENERIC_ERROR };
 
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("equipment_owners").insert({
+  const row = {
+    id: crypto.randomUUID(),
     name,
     phone: phone.length === 0 ? null : phone,
     created_by: ctx.id,
-  });
+  };
+
+  const supabase = await createServerSupabase();
+  const mirror = await supabase.from("suppliers").insert(row);
+  if (mirror.error) return { ok: false, error: GENERIC_ERROR };
+
+  const { error } = await supabase.from("equipment_owners").insert(row);
   if (error) return { ok: false, error: GENERIC_ERROR };
 
   revalidatePath("/equipment");
