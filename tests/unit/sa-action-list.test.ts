@@ -42,6 +42,8 @@ describe("buildSaActionList", () => {
           comment: "ขอรูปเพิ่ม",
           revisionReason: null,
           answered: false,
+          // Spec 384 U1 — the age the stale band and the group order read.
+          decidedAt: "2026-07-20T00:00:00.000+00:00",
         },
         {
           wp: wp("e", "pending_approval"),
@@ -49,9 +51,11 @@ describe("buildSaActionList", () => {
           comment: "ทำใหม่",
           revisionReason: null,
           answered: false,
+          // Spec 384 U1 — the age the stale band and the group order read.
+          decidedAt: "2026-07-20T00:00:00.000+00:00",
         },
       ],
-      reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2 }]]),
+      reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2, since: null }]]),
       projectsById,
     });
     expect(actions.map((x) => [x.id, x.kind])).toEqual([
@@ -74,6 +78,8 @@ describe("buildSaActionList", () => {
           comment: null,
           revisionReason: "mismatch",
           answered: false,
+          // Spec 384 U1 — the age the stale band and the group order read.
+          decidedAt: "2026-07-20T00:00:00.000+00:00",
         },
         {
           wp: wp("e", "pending_approval"),
@@ -81,9 +87,11 @@ describe("buildSaActionList", () => {
           comment: "ทำใหม่",
           revisionReason: null,
           answered: false,
+          // Spec 384 U1 — the age the stale band and the group order read.
+          decidedAt: "2026-07-20T00:00:00.000+00:00",
         },
       ],
-      reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2 }]]),
+      reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2, since: null }]]),
       projectsById,
     });
     expect(actions.find((x) => x.id === "d")!.revisionReason).toBe("mismatch");
@@ -101,9 +109,11 @@ describe("buildSaActionList", () => {
           comment: "ขอรูปเพิ่ม",
           revisionReason: null,
           answered: false,
+          // Spec 384 U1 — the age the stale band and the group order read.
+          decidedAt: "2026-07-20T00:00:00.000+00:00",
         },
       ],
-      reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2 }]]),
+      reworkInfo: new Map([["b", { reason: "รอยร้าว", source: "client", round: 2, since: null }]]),
       projectsById,
     });
     const rework = actions.find((x): x is SaActionItem => x.id === "b")!;
@@ -131,6 +141,8 @@ describe("buildSaActionList", () => {
           comment: "ขอรูปเพิ่ม",
           revisionReason: null,
           answered: true,
+          // Spec 384 U1 — the age the stale band and the group order read.
+          decidedAt: "2026-07-20T00:00:00.000+00:00",
         },
       ],
       reworkInfo: new Map(),
@@ -152,6 +164,8 @@ describe("buildSaActionList", () => {
           comment: "ขอรูปเพิ่ม",
           revisionReason: null,
           answered: true,
+          // Spec 384 U1 — the age the stale band and the group order read.
+          decidedAt: "2026-07-20T00:00:00.000+00:00",
         },
         {
           wp: wp("f", "pending_approval"),
@@ -159,6 +173,8 @@ describe("buildSaActionList", () => {
           comment: "อีกจุด",
           revisionReason: null,
           answered: false,
+          // Spec 384 U1 — the age the stale band and the group order read.
+          decidedAt: "2026-07-20T00:00:00.000+00:00",
         },
       ],
       reworkInfo: new Map(),
