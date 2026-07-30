@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { correctLaborLog, logLaborDays } from "@/lib/labor/actions";
 import { bangkokTodayIso } from "@/lib/labor/dates";
 import { validateCorrection } from "@/lib/labor/validate";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { CONFIRM_COST_LABEL, UNCONFIRMED_COST_LABEL, formatThaiDate } from "@/lib/i18n/labels";
 import { filterRoster, isCostConfirmed, partitionRosterByProject } from "@/lib/labor/group-workers";
 import type { GroupedRoster, RosterWorker } from "@/lib/labor/group-workers";
 import type { LaborDisplayRow } from "@/lib/labor/types";
@@ -34,12 +34,14 @@ const FRACTION_LABEL: Record<DayFraction, string> = {
   half: "ครึ่งวัน",
 };
 
-// Spec 306 — the money wall's affordance layer. Single-use strings, kept local
-// (the MusterTodayCard precedent); promote to labels.ts if a second surface
-// starts naming the same state.
-const UNCONFIRMED_COST_CHIP = "ยังไม่ยืนยันค่าแรง";
-const UNCONFIRMED_COST_HINT =
-  "ช่างที่ยังไม่ยืนยันค่าแรงจะบันทึกวันทำงานไม่ได้ — ให้ฝ่ายจัดซื้อยืนยันระดับและค่าแรงที่หน้า รายชื่อช่าง ก่อน";
+// Spec 306 — the money wall's affordance layer. The state and the CTA both come
+// from the labels SSOT: spec 374's attendance calendar already explains this
+// exact state to the same audience, and two surfaces describing one thing in two
+// wordings is how a user concludes they are two different things.
+// ⚠️ The page this names is รายชื่อช่าง. Spec 313 U2b reserved the /team hub's
+// own noun for that hub alone and holds this file to it by test — including in
+// comments, so the retired word cannot even be written here to warn about it.
+const UNCONFIRMED_COST_HINT = `${UNCONFIRMED_COST_LABEL} — บันทึกวันทำงานไม่ได้ จนกว่าจะกด "${CONFIRM_COST_LABEL}" ในหน้ารายชื่อช่าง`;
 
 function FractionToggle({
   value,
@@ -104,7 +106,7 @@ function WorkerPickRow({
           <FractionToggle value={fraction} onChange={onFraction} />
         ) : null
       ) : (
-        <span className="text-ink-muted shrink-0 text-xs">{UNCONFIRMED_COST_CHIP}</span>
+        <span className="text-ink-muted shrink-0 text-xs">{UNCONFIRMED_COST_LABEL}</span>
       )}
     </li>
   );

@@ -11,7 +11,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { AttendanceMonth } from "@/lib/attendance/attendance-month";
 import { THAI_WEEKDAYS } from "@/lib/work-packages/calendar-grid";
 import { bahtWithSymbol } from "@/lib/format";
-import { CONFIRM_COST_LABEL } from "@/lib/i18n/labels";
+import { CONFIRM_COST_LABEL, UNCONFIRMED_COST_LABEL } from "@/lib/i18n/labels";
 
 export interface AttendanceWorkerHeader {
   id: string;
@@ -122,8 +122,8 @@ export function WorkerAttendanceCalendar({
             N while recorded pay stays 0. Name the real affordance. */}
         {worker.costConfirmedAt === null ? (
           <p className="text-attn-ink mt-2 text-xs">
-            ยังไม่ยืนยันค่าแรง — ระบบจะยังไม่สร้างบันทึกค่าแรงจากการเช็คชื่อ จนกว่าจะกด &quot;
-            {CONFIRM_COST_LABEL}&quot; ในหน้าทีมงาน
+            {UNCONFIRMED_COST_LABEL} — ระบบจะยังไม่สร้างบันทึกค่าแรงจากการเช็คชื่อ จนกว่าจะกด &quot;
+            {CONFIRM_COST_LABEL}&quot; ในหน้ารายชื่อช่าง
           </p>
         ) : null}
       </section>

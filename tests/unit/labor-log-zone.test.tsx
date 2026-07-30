@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LaborLogZone, type LaborDisplayRow } from "@/components/features/labor/labor-log-zone";
 import { logLaborDays, correctLaborLog } from "@/lib/labor/actions";
+import { CONFIRM_COST_LABEL, UNCONFIRMED_COST_LABEL } from "@/lib/i18n/labels";
 
 vi.mock("@/lib/labor/actions", () => ({
   logLaborDays: vi.fn(),
@@ -123,27 +124,33 @@ describe("LaborLogZone", () => {
       const box = screen.getByLabelText("ยังไม่ยืนยัน");
       expect(box).toBeInTheDocument();
       expect(box).toBeDisabled();
-      expect(screen.getByText("ยังไม่ยืนยันค่าแรง")).toBeInTheDocument();
+      expect(screen.getByText(UNCONFIRMED_COST_LABEL)).toBeInTheDocument();
     });
 
-    it("names procurement as the actor who can clear it", () => {
+    // The hint must name the REAL affordance, in the SSOT's words — the same
+    // ones spec 374's attendance calendar uses for this state — or it sends the
+    // site admin hunting for a button whose label does not match.
+    it("names the actual CTA that clears it", () => {
       renderZone({ roster: UNCONFIRMED });
-      expect(screen.getByText(/ให้ฝ่ายจัดซื้อยืนยันระดับและค่าแรง/)).toBeInTheDocument();
+      const hint = screen.getByText(new RegExp(CONFIRM_COST_LABEL));
+      expect(hint).toBeInTheDocument();
+      expect(hint).toHaveTextContent("ในหน้ารายชื่อช่าง");
     });
 
     it("clicking an unconfirmed worker never builds a selection", async () => {
       renderZone({ roster: UNCONFIRMED });
       await userEvent.click(screen.getByLabelText("ยังไม่ยืนยัน"));
-      // No fraction control ⇒ nothing was selected. (A disabled input swallows
-      // the click, so this also pins that the guard survives if the disabled
-      // attribute is ever dropped.)
+      // No fraction control ⇒ nothing was selected. What this pins is the
+      // OUTCOME, not a second guard: the disabled input swallows the click, and
+      // mutation-checking showed a belt-and-braces check inside toggle() was
+      // unreachable behind it, so that check was removed rather than kept.
       expect(screen.queryByRole("button", { name: "เต็มวัน" })).toBeNull();
     });
 
     it("says nothing when every worker is confirmed", () => {
       renderZone();
-      expect(screen.queryByText(/ให้ฝ่ายจัดซื้อยืนยันระดับและค่าแรง/)).toBeNull();
-      expect(screen.queryByText("ยังไม่ยืนยันค่าแรง")).toBeNull();
+      expect(screen.queryByText(new RegExp(CONFIRM_COST_LABEL))).toBeNull();
+      expect(screen.queryByText(UNCONFIRMED_COST_LABEL)).toBeNull();
     });
   });
 

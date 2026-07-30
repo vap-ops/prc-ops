@@ -25,6 +25,13 @@ describe("spec 313 U2b — ทีมงาน no longer leaks into roster/labor 
     "src/components/features/labor/labor-log-zone.tsx",
     "src/app/workers/actions.ts",
     "src/app/review/work-packages/[workPackageId]/page.tsx",
+    // Spec 306 — added after this guard caught the term coming BACK: the
+    // attendance calendar (spec 374) told the reader to press the cost-confirm
+    // CTA "ในหน้าทีมงาน", which is the /team hub, not the รายชื่อช่าง roster
+    // where that button actually lives. It escaped only because it was not on
+    // this list, and it was then copied into a second surface. The guard is only
+    // as wide as its list, so a file that NAMES the roster page belongs on it.
+    "src/components/features/labor/worker-attendance-calendar.tsx",
   ];
 
   it.each(MIGRATED)("%s no longer contains the literal ทีมงาน", (path) => {
