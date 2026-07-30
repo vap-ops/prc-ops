@@ -57,9 +57,11 @@ export function topHalfViolations(content: string): string[] {
 // per-`it` they walked and read it four times over — 3126 readFileSync calls /
 // 17.9 MB, measured at 1712ms of a 2089ms total on an idle box against just
 // 269ms of actual checking. Under full-suite CPU+IO load that multiplies: the
-// colour-override scan was seen at 5456ms (past vitest's 5000ms default) and
-// 18622ms, and 16 concurrent processes here put every one of the four between
-// 2.1s and 3.4s. So the tree is walked once, read once, and filtered in memory.
+// colour-override scan was seen at 5456ms, past vitest's 5000ms default, and 16
+// concurrent processes put every one of the four between 2.1s and 3.4s (with a
+// sibling scan in money-read-guard.test.ts red at 6080ms). Hoisted, that same
+// scan runs in 349ms under a real full-suite run. So the tree is walked once,
+// read once, and filtered in memory.
 //
 // Linux CI runs this in well under a second, so a revert to per-scan reads
 // could NEVER go red there — the cheapness guard at the bottom of this file is
@@ -619,7 +621,17 @@ describe("src/ sweep cheapness guard", () => {
       files.length,
       "the src/ sweep came back near-empty — every scan above is now vacuous",
     ).toBeGreaterThan(500);
-    expect(tsxFiles().length, "the .tsx subset came back near-empty").toBeGreaterThan(300);
+    // BOTH halves, because the total floor alone does not hold them: the .tsx
+    // files are 527 on their own, so a walk that dropped every plain `.ts`
+    // would clear a 500 total and silently narrow the odd-import and
+    // colour-override scans from the whole tree to components only.
+    expect(tsxFiles().length, "the .tsx half of the sweep came back near-empty").toBeGreaterThan(
+      300,
+    );
+    expect(
+      files.length - tsxFiles().length,
+      "the plain-.ts half of the sweep came back near-empty — the two .ts+.tsx scans below are now component-only",
+    ).toBeGreaterThan(300);
 
     // Exactly one read per file. Four unhoisted scans made this 4x the count.
     expect(io.files, "src/ was read more than once — hoist the scan, do not re-read").toBe(
@@ -636,19 +648,23 @@ describe("src/ sweep cheapness guard", () => {
 
   it("reads the filesystem only from the shared loader", () => {
     // The counters above cannot see a scan that calls fs directly, so pin the
-    // call sites too. The needle is built from a variable so this assertion
-    // cannot match itself, and whitespace is collapsed first because prettier
-    // wraps one of the real calls as `fs\n  .readFileSync(`.
+    // call sites too. The needle is UNPREFIXED on purpose: matching only
+    // `fs.readFileSync(` would miss a destructured `import { readFileSync }`
+    // call — which is not hypothetical, it is the style the sibling
+    // money-read-guard.test.ts uses. It is built from a variable so this
+    // assertion cannot match itself, and whitespace is collapsed first because
+    // prettier wraps one of the real calls across two lines.
     // Expected: globals.css, the loader, and this file's own read below.
     const countCalls = (src: string, fn: string) =>
-      src.replace(/\s+/g, "").split(`fs.${fn}(`).length - 1;
-    const own = stripCommentLines(
-      fs.readFileSync(path.join(__dirname, "ui-class-contracts.test.tsx"), "utf8"),
-    );
+      src.replace(/\s+/g, "").split(`${fn}(`).length - 1;
+    const own = stripCommentLines(fs.readFileSync(__filename, "utf8"));
     expect(
       countCalls(own, "readFileSync"),
-      "a new file read appeared outside the memoized loader — that is the per-scan sweep this guard exists to prevent",
+      "a file read appeared outside the memoized loader — if it is a whole-tree sweep, hoist it onto srcFiles() instead; if it is a genuinely unrelated one-off read, bump this pin",
     ).toBe(3);
-    expect(countCalls(own, "readdirSync"), "src/ must be walked from walkSrc() alone").toBe(1);
+    expect(
+      countCalls(own, "readdirSync"),
+      "src/ must be walked from walkSrc() alone — if this is an unrelated one-off, bump this pin",
+    ).toBe(1);
   });
 });

@@ -11,8 +11,10 @@ import { MONEY_TABLES, REGISTERED_MONEY_READ_SITES } from "@/lib/accounting/mone
 
 const SRC = "src";
 
-/** Filesystem work the sweep actually performed — read by the cheapness guard. */
-const io = { dirs: 0, files: 0 };
+/** Filesystem work the sweep actually performed — read by the cheapness guard.
+ *  `read` holds the DISTINCT files opened, so `files > read.size` means some
+ *  file was opened twice, i.e. the tree was swept more than once. */
+const io = { dirs: 0, files: 0, read: new Set<string>() };
 
 function walk(dir: string): string[] {
   io.dirs += 1;
@@ -51,6 +53,7 @@ function discoverMoneyReadSites(): readonly string[] {
     const rel = toPosix(relative(".", file));
     if (ignore.has(rel)) continue;
     io.files += 1;
+    io.read.add(rel);
     const text = readFileSync(file, "utf8");
     if (patterns.some((p) => text.includes(p))) hits.push(rel);
   }
@@ -66,9 +69,9 @@ beforeAll(() => {
 
 describe("money-read tenant-scope guard (ERD audit M5)", () => {
   it("every money-table read site is registered in money-read-policy.ts", () => {
-    const discovered = discoverMoneyReadSites();
+    const sites = discoverMoneyReadSites();
     const registered = new Set(REGISTERED_MONEY_READ_SITES);
-    const unregistered = discovered.filter((f) => !registered.has(f));
+    const unregistered = sites.filter((f) => !registered.has(f));
     expect(
       unregistered,
       `These files read a money table but are not registered in money-read-policy.ts.\n` +
@@ -98,13 +101,42 @@ describe("money-read tenant-scope guard (ERD audit M5)", () => {
       io.files,
       "the src/ sweep came back near-empty — test 1 above is now vacuous",
     ).toBeGreaterThan(500);
-    expect(sites.length).toBeGreaterThan(0);
+    expect(
+      sites.length,
+      "no money-read site was discovered at all — test 1 above is now vacuous",
+    ).toBeGreaterThan(0);
 
-    const before = { ...io };
+    // ONE sweep, not just one per caller: opening any file twice means the tree
+    // was walked again inside the loader, which a memo check cannot see.
+    expect(io.files, "some file under src/ was opened more than once").toBe(io.read.size);
+
+    const before = { dirs: io.dirs, files: io.files };
     discoverMoneyReadSites();
     expect(
-      io,
+      { dirs: io.dirs, files: io.files },
       "discoverMoneyReadSites() must be memoized — a later call re-walked or re-read src/",
     ).toEqual(before);
+  });
+
+  it("reads the filesystem only from the memoized sweep", () => {
+    // The counters cannot see a test that calls fs directly, so pin the call
+    // sites too — this file is the one that actually timed out, so the revert it
+    // guards against is a live risk. The needle is built from a variable so the
+    // assertion cannot match itself, and whitespace is collapsed so a reflowed
+    // call still counts. Expected: the sweep's read, and this file's own below.
+    const countCalls = (src: string, fn: string) =>
+      src.replace(/\s+/g, "").split(`${fn}(`).length - 1;
+    const own = readFileSync(__filename, "utf8")
+      .split("\n")
+      .filter((l) => !l.trimStart().startsWith("//") && !l.trimStart().startsWith("*"))
+      .join("\n");
+    expect(
+      countCalls(own, "readFileSync"),
+      "a file read appeared outside discoverMoneyReadSites() — if it is a whole-tree sweep, reuse the memoized one; if it is a genuinely unrelated one-off read, bump this pin",
+    ).toBe(2);
+    expect(
+      countCalls(own, "readdirSync"),
+      "src/ must be walked from walk() alone — if this is an unrelated one-off, bump this pin",
+    ).toBe(1);
   });
 });
