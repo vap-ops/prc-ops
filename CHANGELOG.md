@@ -1,3 +1,9 @@
+## [0.277.1](https://github.com/vap-ops/prc-ops/compare/v0.277.0...v0.277.1) (2026-07-30)
+
+### Bug Fixes
+
+- **nav:** spec 376 follow-ups — view-as note, tab comment, spec reconciliation ([5ede599](https://github.com/vap-ops/prc-ops/commit/5ede59970e4b87da01295e3e52cac033c63660f9))
+
 # [0.277.0](https://github.com/vap-ops/prc-ops/compare/v0.276.1...v0.277.0) (2026-07-30)
 
 ### Features
