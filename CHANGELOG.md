@@ -1,3 +1,9 @@
+## [0.297.1](https://github.com/vap-ops/prc-ops/compare/v0.297.0...v0.297.1) (2026-07-31)
+
+### Bug Fixes
+
+- **hooks:** quoted env-prefix evaded the cd wall (spaced placeholder) ([#901](https://github.com/vap-ops/prc-ops/issues/901)) ([18c89c8](https://github.com/vap-ops/prc-ops/commit/18c89c89245355efe6c6226f020f0b8d8bc3a411))
+
 # [0.297.0](https://github.com/vap-ops/prc-ops/compare/v0.296.0...v0.297.0) (2026-07-31)
 
 ### Features
