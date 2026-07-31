@@ -15,6 +15,9 @@ import { DailyReportPreviewButton } from "@/components/features/daily-report/dai
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { createClient } from "@/lib/db/server";
+import { createClient as createAdminClient } from "@/lib/db/admin";
+import { NotificationDeliveryHealthNotice } from "@/components/features/notifications/delivery-health-notice";
+import { loadDeliveryHealth } from "@/lib/notifications/delivery-health";
 import { getOpenFeedbackCount } from "@/lib/feedback/triage-count";
 import { SETTINGS_SECTIONS } from "./sections";
 import { GROUP_CARD, ROW, SettingsSectionCard } from "./section-card";
@@ -63,6 +66,12 @@ export default async function SettingsPage() {
   // app-admin surface), not on the ภาพรวม dashboard. super_admin only (they alone
   // triage; RLS reads all open reports).
   const openFeedback = role === "super_admin" ? await getOpenFeedbackCount(supabase) : 0;
+  // Spec 387 U2 — is the notification pipeline delivering? super_admin only:
+  // they alone can act on a dead channel, and the read needs the service-role
+  // client because `authenticated` holds no grant on notification_outbox.
+  // Best-effort — null renders nothing.
+  const deliveryHealth =
+    role === "super_admin" ? await loadDeliveryHealth(createAdminClient()) : null;
   // Awareness pills injected into the config-driven rows by href.
   const badges: Record<string, ReactNode> = {
     "/feedback": <ApprovalsBadge count={unreadFeedback} position="inline" label="ตอบกลับใหม่" />,
@@ -115,6 +124,13 @@ export default async function SettingsPage() {
             to the account/appearance personal controls, not gated behind a role. */}
         <div className="flex flex-col gap-2">
           <h2 className="text-meta text-ink-secondary font-semibold">{NOTIF_SETTINGS_LABEL}</h2>
+          {/* Spec 387 U2 — the pipeline-health notice, super_admin only (they are
+              the only one who can fix a channel), and silent unless the outbox
+              actually has failures. It sits HERE and not on /settings/integrity:
+              that console has 0 route_views in 21 days while this page has 231
+              from the same super_admin — a correct detector on a page nobody
+              opens is not a shipped feature (spec 339 U1). */}
+          <NotificationDeliveryHealthNotice health={deliveryHealth} />
           <div className={`${GROUP_CARD} border`}>
             <Link href="/settings/notifications" className={ROW} aria-label={NOTIF_SETTINGS_LABEL}>
               <BellRing aria-hidden className="text-ink h-5 w-5 shrink-0" />

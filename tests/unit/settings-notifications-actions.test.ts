@@ -99,4 +99,32 @@ describe("sendTestNotification", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain("เพิ่มเพื่อน");
   });
+
+  // Spec 387 U1 — honest-copy class. A 429 is the OA's MONTHLY quota: it cannot
+  // succeed on a retry until the billing cycle rolls, so "กรุณาลองใหม่" is a lie
+  // that sends the user back to press a button that is guaranteed to refuse.
+  // This was live from 2026-07-22 and still refusing ten days later.
+  it("maps a LINE 429 quota refusal to a NON-retryable message", async () => {
+    pushLineMessageMock.mockResolvedValue({
+      ok: false,
+      status: 429,
+      body: '{"message":"You have reached your monthly limit."}',
+    });
+    const r = await sendTestNotification();
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toContain("โควตา");
+      // the exact wording that made it dishonest
+      expect(r.error).not.toBe("ส่งข้อความทดสอบไม่สำเร็จ กรุณาลองใหม่");
+    }
+  });
+
+  it("still tells a genuinely retryable failure to retry", async () => {
+    pushLineMessageMock.mockResolvedValue({ ok: false, status: 500, body: "boom" });
+    const r = await sendTestNotification();
+    expect(r.ok).toBe(false);
+    // positive control: without this, "429 is not the generic message" would
+    // also pass if the generic arm had been deleted outright.
+    if (!r.ok) expect(r.error).toContain("ลองใหม่");
+  });
 });
