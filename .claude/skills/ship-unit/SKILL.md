@@ -71,9 +71,14 @@ fail. (CLAUDE.md project rule; restated here because it is the most-skipped gate
 
 ## Gate 4 — Fresh-eyes review
 
-Dispatch a reviewer subagent (cavecrew-reviewer, or /code-review for bigger diffs)
-on the full diff. Address every finding or state why not. An adversarial pass has
-caught real holes (hidden-bind, returns double-count) — it is not ceremony.
+Dispatch the `unit-reviewer` project agent (`.claude/agents/unit-reviewer.md` —
+**opus-pinned**, so this gate never silently runs on a small model) on the full
+diff; /code-review for bigger diffs. Fallback when `unit-reviewer` doesn't
+resolve (a branch predating this agent, or this gate quoted outside a project
+session): cavecrew-reviewer WITH `model: 'opus'` passed explicitly — its own
+frontmatter pins haiku. Address every finding or
+state why not. An adversarial pass has caught real holes (hidden-bind, returns
+double-count) — it is not ceremony.
 
 ## Gate 5 — Ship through the gate
 
