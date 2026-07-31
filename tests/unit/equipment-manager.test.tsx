@@ -240,6 +240,10 @@ describe("EquipmentManager", () => {
   it("refuses a second bulk row for a SKU that already owns one — points at แก้ไข", () => {
     renderManager({
       items: [{ ...BULK_ITEMS[0]!, equipment_catalog_item_id: "s2" }],
+      // A FLAGGED owner, so ownerId is prefilled and cannot be what disables the
+      // button — bulkTaken must hold it alone (mutation-proven: without this the
+      // case passed through the ownerId === "" guard instead).
+      owners: [{ id: "o1", name: "Preston International Co., Ltd.", isDefault: true }],
     });
     openSheet("เพิ่มอุปกรณ์");
     pickSku("s2");
