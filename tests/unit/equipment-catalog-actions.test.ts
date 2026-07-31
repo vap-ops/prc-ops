@@ -10,8 +10,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   inserts: [] as { table: string; payload: Record<string, unknown> }[],
   updates: [] as { table: string; payload: Record<string, unknown>; id: string }[],
+  rpcs: [] as { fn: string; args: Record<string, unknown> }[],
   insertError: null as unknown,
   updateError: null as unknown,
+  rpcError: null as unknown,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -21,6 +23,10 @@ vi.mock("@/lib/auth/require-role", () => ({
 }));
 vi.mock("@/lib/db/server", () => ({
   createClient: async () => ({
+    rpc(fn: string, args: Record<string, unknown>) {
+      state.rpcs.push({ fn, args });
+      return Promise.resolve({ error: state.rpcError });
+    },
     from(table: string) {
       return {
         insert(payload: Record<string, unknown>) {
@@ -44,6 +50,7 @@ import {
   createEquipmentCatalogItem,
   updateEquipmentCatalogItem,
   setEquipmentCatalogItemActive,
+  setEquipmentCatalogDefaultRate,
 } from "@/app/equipment/actions";
 
 const CAT_ID = "ac49d5cf-06f7-4e43-963d-58d36763f429";
@@ -52,8 +59,10 @@ const SKU_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 beforeEach(() => {
   state.inserts = [];
   state.updates = [];
+  state.rpcs = [];
   state.insertError = null;
   state.updateError = null;
+  state.rpcError = null;
 });
 
 describe("createEquipmentCatalogItem", () => {
@@ -169,5 +178,36 @@ describe("setEquipmentCatalogItemActive", () => {
     const result = await setEquipmentCatalogItemActive({ id: SKU_ID, active: true });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("มีชื่อนี้ในทะเบียน");
+  });
+});
+
+// Spec 385 U3b — MONEY goes through the DEFINER RPC only: default_daily_rate
+// has no authenticated grant, so a table write here would silently no-op.
+describe("setEquipmentCatalogDefaultRate", () => {
+  it("writes through the RPC with the validated rate — never a table update", async () => {
+    const result = await setEquipmentCatalogDefaultRate({ id: SKU_ID, rate: 250 });
+    expect(result).toEqual({ ok: true });
+    expect(state.rpcs).toEqual([
+      { fn: "set_equipment_catalog_default_rate", args: { p_id: SKU_ID, p_rate: 250 } },
+    ]);
+    expect(state.updates).toEqual([]);
+  });
+
+  it("maps 42501 and P0001 to named messages", async () => {
+    state.rpcError = { code: "42501" };
+    const denied = await setEquipmentCatalogDefaultRate({ id: SKU_ID, rate: 100 });
+    expect(denied.ok).toBe(false);
+    if (!denied.ok) expect(denied.error).toContain("สิทธิ์");
+
+    state.rpcError = { code: "P0001" };
+    const bad = await setEquipmentCatalogDefaultRate({ id: SKU_ID, rate: 100 });
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.error).toContain("ทะเบียน");
+  });
+
+  it("refuses a bad id or negative rate before calling the RPC", async () => {
+    expect((await setEquipmentCatalogDefaultRate({ id: "nope", rate: 100 })).ok).toBe(false);
+    expect((await setEquipmentCatalogDefaultRate({ id: SKU_ID, rate: -5 })).ok).toBe(false);
+    expect(state.rpcs).toEqual([]);
   });
 });

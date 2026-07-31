@@ -11620,6 +11620,10 @@ export type Database = {
         Args: { p_department: string; p_head_user: string }
         Returns: undefined
       }
+      set_equipment_catalog_default_rate: {
+        Args: { p_id: string; p_rate: number }
+        Returns: undefined
+      }
       set_equipment_daily_rate: {
         Args: { p_id: string; p_rate: number }
         Returns: undefined

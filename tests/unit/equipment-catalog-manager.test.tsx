@@ -23,6 +23,8 @@ vi.mock("@/app/equipment/actions", () => ({
   setEquipmentCatalogItemActive: mockSetActive,
   createEquipmentCategory: mockAddCategory,
   renameEquipmentCategory: vi.fn().mockResolvedValue({ ok: true }),
+  // Spec 385 U3b — the rate control lives inside SkuRow.
+  setEquipmentCatalogDefaultRate: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
 import { EquipmentCatalogManager } from "@/components/features/equipment/equipment-catalog-manager";
@@ -61,9 +63,14 @@ const SKUS = [
   },
 ];
 
-function renderCatalog() {
+function renderCatalog(over?: { defaultRates?: Record<string, number | null> }) {
   render(
-    <EquipmentCatalogManager skus={SKUS} categories={CATEGORIES} instanceCounts={{ s1: 2 }} />,
+    <EquipmentCatalogManager
+      skus={SKUS}
+      categories={CATEGORIES}
+      instanceCounts={{ s1: 2 }}
+      {...(over?.defaultRates ? { defaultRates: over.defaultRates } : {})}
+    />,
   );
 }
 
@@ -157,9 +164,19 @@ describe("EquipmentCatalogManager", () => {
     expect(screen.getByLabelText("ชื่อหมวดหมู่ใหม่")).toBeInTheDocument();
   });
 
-  it("shows no money anywhere — the rate editor is U3b's DEFINER seam", () => {
+  // Spec 385 U3b — money renders ONLY through the admin-read map: absent map =
+  // zero money in the tree (the /equipment dailyRate idiom, kept at the SKU
+  // grain). This pair is the non-vacuous version of the old "no money" case.
+  it("renders no money when the page passed no rate map", () => {
     renderCatalog();
-    expect(screen.queryByText(/ค่าเช่า/)).toBeNull();
     expect(screen.queryByText(/฿/)).toBeNull();
+    expect(screen.queryByText("ตั้งค่าเช่า/วัน")).toBeNull();
+  });
+
+  it("renders the default-rate control from the map — value or the set door", () => {
+    renderCatalog({ defaultRates: { s1: 300, s2: null } });
+    expect(screen.getByText(/฿300/)).toBeInTheDocument();
+    // s2 has no default yet → the set door, not a number.
+    expect(screen.getAllByText("ตั้งค่าเช่า/วัน").length).toBeGreaterThan(0);
   });
 });

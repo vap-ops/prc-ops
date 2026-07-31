@@ -379,6 +379,37 @@ export async function updateEquipmentCatalogItem(input: {
   return { ok: true };
 }
 
+// Spec 385 U3b — the ทะเบียน default rate (MONEY). `default_daily_rate` has no
+// authenticated grant in any direction, so the DEFINER
+// set_equipment_catalog_default_rate RPC (gate + audit inside, mig 075890) is
+// the only write path — the twin of setEquipmentDailyRate at the SKU grain.
+export async function setEquipmentCatalogDefaultRate(input: {
+  id: string;
+  rate: number;
+}): Promise<EquipmentActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  const rate = validateEquipmentDailyRate(input.rate);
+  if (!rate.ok) return rate;
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("set_equipment_catalog_default_rate", {
+    p_id: input.id,
+    p_rate: rate.value,
+  });
+  if (error) {
+    if (error.code === "42501") return { ok: false, error: "ไม่มีสิทธิ์ตั้งค่าเช่าอุปกรณ์" };
+    if (error.code === "P0001")
+      return { ok: false, error: "ไม่พบรายการนี้ในทะเบียน หรือค่าเช่าไม่ถูกต้อง" };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/equipment/catalog");
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
 // Deactivate = leave the picker, keep the history: instances keep their FK and
 // their names; the active-name unique index frees the name for a successor.
 // Reactivating can therefore collide with a newer active SKU — same 23505 arm.
