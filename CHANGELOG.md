@@ -1,3 +1,9 @@
+## [0.300.1](https://github.com/vap-ops/prc-ops/compare/v0.300.0...v0.300.1) (2026-07-31)
+
+### Bug Fixes
+
+- **sandbox-sync:** make 075881 owner seed survive an empty-database replay ([#905](https://github.com/vap-ops/prc-ops/issues/905)) ([bea3c42](https://github.com/vap-ops/prc-ops/commit/bea3c420770765e31e895b3caab1e9ddde406f76))
+
 # [0.300.0](https://github.com/vap-ops/prc-ops/compare/v0.299.0...v0.300.0) (2026-07-31)
 
 ### Bug Fixes
