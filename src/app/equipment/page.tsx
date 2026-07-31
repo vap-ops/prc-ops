@@ -45,12 +45,17 @@ export default async function EquipmentPage({
     { data: ownerRows },
     { data: projectRows },
     { data: movementRows },
+    { data: skuRows },
   ] = await Promise.all([
     supabase
       .from("equipment_items")
       // image_path (spec 367 U1) rides along for U5's per-item thumbnails; it is
       // a storage path, so it never reaches the client — only the signed URL does.
-      .select("id, name, category_id, owner_id, tracking, asset_tag, quantity, status")
+      // equipment_catalog_item_id (spec 385 U2) drives the add sheet's No.<n+1>
+      // preview and the bulk one-row rule.
+      .select(
+        "id, name, category_id, owner_id, tracking, asset_tag, quantity, status, equipment_catalog_item_id",
+      )
       .order("name", { ascending: true }),
     supabase.from("equipment_categories").select("id, name").order("name", { ascending: true }),
     // is_default (mig …_075881_) drives the add form's preselected owner. The
@@ -66,6 +71,16 @@ export default async function EquipmentPage({
       .from("equipment_movements")
       .select("item_id, kind, project_id, occurred_at")
       .order("occurred_at", { ascending: false }),
+    // Spec 385 U2 — the ทะเบียน the add sheet picks from. COLUMN-PROJECTED on
+    // purpose: equipment_catalog_items is column-granted and default_daily_rate
+    // has NO authenticated grant, so a select("*") would refuse the whole read
+    // (the worker_level_rates class). The wall stays on the money column; this
+    // page never touches it.
+    supabase
+      .from("equipment_catalog_items")
+      .select("id, name, category_id, brand, model, default_tracking")
+      .eq("is_active", true)
+      .order("name", { ascending: true }),
   ]);
 
   const items: ManagedEquipmentItem[] = itemRows ?? [];
@@ -165,6 +180,14 @@ export default async function EquipmentPage({
         </div>
         <EquipmentManager
           items={items}
+          catalogSkus={(skuRows ?? []).map((s) => ({
+            id: s.id,
+            name: s.name,
+            categoryId: s.category_id,
+            brand: s.brand,
+            model: s.model,
+            defaultTracking: s.default_tracking,
+          }))}
           categories={categoryRows ?? []}
           owners={(ownerRows ?? []).map((o) => ({
             id: o.id,

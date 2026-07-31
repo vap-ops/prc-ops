@@ -12,7 +12,9 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { requireRole } from "@/lib/auth/require-role";
+import { nextUnitName } from "@/lib/equipment/catalog-pick";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
@@ -137,6 +139,190 @@ export async function createEquipment(input: NewEquipmentInput): Promise<Equipme
 
   revalidatePath("/equipment");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Spec 385 U2 — pick-from-ทะเบียน. The instance INHERITS from the SKU: name
+// (`<SKU> No.<n+1>` for unit tracking, the crew's own stencil convention),
+// category (the function-first principle binds the TYPE — units inherit),
+// brand/model, tracking. All server-derived; the client's pick is a reference,
+// never a payload, so the free-text duplicate disease cannot return here.
+//
+// The rate copy is two seams on purpose:
+//   * READ through the admin client — `default_daily_rate` has no authenticated
+//     grant in any direction (ADR 0055 d6 mirror), so an RLS read would land on
+//     the worker_level_rates class of silent nothing.
+//   * WRITE through the EXISTING `set_equipment_daily_rate` DEFINER RPC — the
+//     real money gate plus its `equipment_rate_change` audit row, with the real
+//     actor. A raw admin UPDATE would bypass both.
+// A failed copy must not lose the item (the operator is standing at the
+// machine): the action stays ok and raises `rateWarning`; an unpriced unit is
+// already an honest, visible state (scan-ยืม refuses it, the rate control shows
+// the gap).
+// ---------------------------------------------------------------------------
+
+export type CreateFromCatalogSource =
+  | { kind: "existing"; catalogItemId: string }
+  | { kind: "new"; name: string; categoryId: string; tracking: string };
+
+export type CreateFromCatalogResult =
+  | { ok: true; rateWarning?: boolean }
+  | { ok: false; error: string };
+
+const SKU_COLUMNS = "id, name, category_id, brand, model, default_tracking, is_active";
+
+interface CatalogSkuRow {
+  id: string;
+  name: string;
+  category_id: string;
+  brand: string | null;
+  model: string | null;
+  default_tracking: Database["public"]["Enums"]["equipment_tracking"];
+  is_active: boolean;
+}
+
+export async function createEquipmentFromCatalog(input: {
+  id: string;
+  photos: { kind: string; path: string }[];
+  source: CreateFromCatalogSource;
+  ownerId: string;
+  assetTag: string;
+  quantity: number | null;
+  status: string;
+}): Promise<CreateFromCatalogResult> {
+  const ctx = await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  if (!UUID_REGEX.test(input.ownerId)) return { ok: false, error: "กรุณาเลือกเจ้าของอุปกรณ์" };
+  if (!EQUIPMENT_STATUSES.includes(input.status as EquipmentStatus)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  for (const photo of input.photos) {
+    if (!EQUIPMENT_PHOTO_KINDS.includes(photo.kind as EquipmentPhotoKind)) {
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    if (!isOwnItemImagePath(input.id, photo.path)) {
+      return { ok: false, error: GENERIC_ERROR };
+    }
+  }
+
+  const supabase = await createServerSupabase();
+
+  // Resolve the SKU — an existing pick, or the escape that registers a new one.
+  let sku: CatalogSkuRow;
+  if (input.source.kind === "existing") {
+    if (!UUID_REGEX.test(input.source.catalogItemId)) return { ok: false, error: GENERIC_ERROR };
+    const { data, error } = await supabase
+      .from("equipment_catalog_items")
+      .select(SKU_COLUMNS)
+      .eq("id", input.source.catalogItemId)
+      .single();
+    if (error || !data) return { ok: false, error: "ไม่พบรายการนี้ในทะเบียนเครื่องมือ" };
+    sku = data as CatalogSkuRow;
+    if (!sku.is_active) return { ok: false, error: "รายการนี้ถูกปิดใช้งานในทะเบียนแล้ว" };
+  } else {
+    const name = input.source.name.trim();
+    if (name.length === 0 || name.length > 120) {
+      return { ok: false, error: "ชื่อรายการต้องไม่เกิน 120 ตัวอักษร" };
+    }
+    if (!UUID_REGEX.test(input.source.categoryId))
+      return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
+    if (input.source.tracking !== "unit" && input.source.tracking !== "bulk") {
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    const { data, error } = await supabase
+      .from("equipment_catalog_items")
+      .insert({
+        name,
+        category_id: input.source.categoryId,
+        default_tracking: input.source.tracking,
+        created_by: ctx.id,
+      })
+      .select(SKU_COLUMNS)
+      .single();
+    if (error || !data) {
+      if ((error as { code?: string } | null)?.code === "23505") {
+        return { ok: false, error: "มีชื่อนี้ในทะเบียนอยู่แล้ว — เลือกจากทะเบียนได้เลย" };
+      }
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    sku = data as CatalogSkuRow;
+  }
+
+  // How many units this SKU already has — drives No.<n+1> and the bulk one-row rule.
+  const { count } = await supabase
+    .from("equipment_items")
+    .select("id", { count: "exact", head: true })
+    .eq("equipment_catalog_item_id", sku.id);
+  const existing = count ?? 0;
+
+  if (sku.default_tracking === "bulk" && existing > 0) {
+    return {
+      ok: false,
+      error: "มีแถวของรายการนี้อยู่แล้ว — แก้ไขจำนวนที่แถวเดิมแทนการเพิ่มใหม่",
+    };
+  }
+
+  const derivedName =
+    sku.default_tracking === "unit" ? nextUnitName(sku.name, existing) : sku.name.trim();
+  const item = validateEquipmentItem({
+    name: derivedName,
+    tracking: sku.default_tracking,
+    quantity: sku.default_tracking === "bulk" ? input.quantity : null,
+    assetTag: sku.default_tracking === "unit" ? input.assetTag : "",
+  });
+  if (!item.ok) return item;
+
+  const { error: insertError } = await supabase.from("equipment_items").insert({
+    id: input.id,
+    name: item.value.name,
+    category_id: sku.category_id,
+    owner_id: input.ownerId,
+    // Spec 275 id-mirror (see createEquipment).
+    supplier_id: input.ownerId,
+    tracking: item.value.tracking,
+    asset_tag: item.value.assetTag,
+    quantity: item.value.quantity,
+    status: input.status as EquipmentStatus,
+    brand: sku.brand,
+    model: sku.model,
+    equipment_catalog_item_id: sku.id,
+    created_by: ctx.id,
+  });
+  if (insertError) return { ok: false, error: GENERIC_ERROR };
+
+  // Photos after the row exists (FK) — a failed attach never rolls back the item
+  // (same contract as createEquipment).
+  if (input.photos.length > 0) {
+    await supabase.from("equipment_item_photos").insert(
+      input.photos.map((photo) => ({
+        item_id: input.id,
+        kind: photo.kind as EquipmentPhotoKind,
+        storage_path: photo.path,
+        created_by: ctx.id,
+      })),
+    );
+  }
+
+  // Rate copy: admin-read the walled default, write through the audited RPC.
+  let rateWarning = false;
+  const admin = createAdminSupabase();
+  const { data: rateRow } = await admin
+    .from("equipment_catalog_items")
+    .select("default_daily_rate")
+    .eq("id", sku.id)
+    .single();
+  const defaultRate = rateRow?.default_daily_rate;
+  if (typeof defaultRate === "number") {
+    const { error: rateError } = await supabase.rpc("set_equipment_daily_rate", {
+      p_id: input.id,
+      p_rate: defaultRate,
+    });
+    if (rateError) rateWarning = true;
+  }
+
+  revalidatePath("/equipment");
+  return rateWarning ? { ok: true, rateWarning: true } : { ok: true };
 }
 
 export async function updateEquipment(

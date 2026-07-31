@@ -31,7 +31,8 @@ vi.mock("@/lib/db/browser", () => ({
 vi.mock("@/lib/photos/downscale", () => ({ preparePhotoForUpload: mockPrepare }));
 vi.mock("@/app/equipment/photo-actions", () => ({ setEquipmentItemPhoto: mockSetPhoto }));
 vi.mock("@/app/equipment/actions", () => ({
-  createEquipment: mockCreate,
+  // Spec 385 U2 — the add sheet writes through the pick-from-ทะเบียน action.
+  createEquipmentFromCatalog: mockCreate,
   updateEquipment: vi.fn().mockResolvedValue({ ok: true }),
   createEquipmentCategory: vi.fn().mockResolvedValue({ ok: true }),
   createEquipmentOwner: vi.fn().mockResolvedValue({ ok: true }),
@@ -43,6 +44,16 @@ import { EquipmentManager } from "@/components/features/equipment/equipment-mana
 
 const CATEGORIES = [{ id: "c1", name: "เครื่องปั่นไฟ" }];
 const OWNERS = [{ id: "o2", name: "Preston International Co., Ltd.", isDefault: true }];
+const SKUS = [
+  {
+    id: "s1",
+    name: "สว่านไฟฟ้า",
+    categoryId: "c1",
+    brand: null,
+    model: null,
+    defaultTracking: "unit" as const,
+  },
+];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function renderManager() {
@@ -53,6 +64,7 @@ function renderManager() {
       owners={OWNERS}
       projects={[{ id: "p1", name: "ไซต์บางนา" }]}
       movements={[]}
+      catalogSkus={SKUS}
       canManageRegistry
     />,
   );
@@ -62,9 +74,12 @@ function openAddSheet() {
   fireEvent.click(screen.getByRole("button", { name: "เพิ่มอุปกรณ์" }));
 }
 
+// Spec 385 U2 — "required fields" is now one pick: the SKU decides name and
+// category, and the default owner is already selected.
 function fillRequiredFields() {
-  fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "สว่านไฟฟ้า" } });
-  fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
+  fireEvent.change(screen.getByLabelText("รายการจากทะเบียนเครื่องมือ"), {
+    target: { value: "s1" },
+  });
 }
 
 const imageFile = () => new File(["x"], "p.jpg", { type: "image/jpeg" });
