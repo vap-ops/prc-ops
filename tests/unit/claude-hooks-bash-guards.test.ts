@@ -4,17 +4,19 @@
 // exit code + guidance. Doubles as the unit's real-flow evidence (CLAUDE.md
 // gate 4: "run the hook against crafted stdin").
 //
-// ONE script, two checks (single Node cold-start per Bash call — the two-spawn
+// ONE script, three checks (single Node cold-start per Bash call — the split
 // shape measured 841 ms/call on this box):
 // ① cd-prefix — the cwd-drift wall: a repo-tool command must START with an
-//   absolute `cd` (drift bit 6× on 2026-07-31 alone; worst case a verification
+//   absolute `cd` (drift bit 7× on 2026-07-31 alone; worst case a verification
 //   that measures nothing and reads as success).
 // ② schema-writes — the Write|Edit-matcher bypass wall: write-shaped shell
 //   commands into supabase/migrations|tests dodge the audit-log/lane-claim
 //   hooks, which only see file tools. Heuristic belt, not a vault.
-// Overrides: launch-env vars, or an in-command marker (#ALLOW_NO_CD /
-// #ALLOW_BASH_SCHEMA_WRITE) — the env form is unreachable from inside a
-// session (shell env does not reach the hook process), review finding.
+// ③ secret-reads — Bash reads of .telegram.env/.github.env put creds in the
+//   transcript; the legitimate pwsh flows never need that.
+// Overrides per check: launch-env vars, or an in-command marker (#ALLOW_NO_CD /
+// #ALLOW_BASH_SCHEMA_WRITE / #ALLOW_SECRET_READ) — the env form is unreachable
+// from inside a session (shell env does not reach the hook process).
 
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
@@ -33,7 +35,13 @@ function runHook(
   const res = spawnSync(process.execPath, [HOOK], {
     input,
     encoding: "utf8",
-    env: { ...process.env, CLAUDE_ALLOW_NO_CD: "", CLAUDE_ALLOW_BASH_SCHEMA_WRITE: "", ...env },
+    env: {
+      ...process.env,
+      CLAUDE_ALLOW_NO_CD: "",
+      CLAUDE_ALLOW_BASH_SCHEMA_WRITE: "",
+      CLAUDE_ALLOW_SECRET_READ: "",
+      ...env,
+    },
   });
   return { status: res.status, stderr: res.stderr ?? "" };
 }
@@ -95,6 +103,54 @@ describe("bash-guards: cd-prefix check (cwd-drift wall)", () => {
   it("fails open on garbage stdin and on a non-string command", () => {
     expect(runHook("__GARBAGE__").status).toBe(0);
     expect(runHook(42).status).toBe(0);
+  });
+});
+
+describe("bash-guards: secret-read check (creds must not enter the transcript)", () => {
+  // Audit item ⑥ — the Read-tool deny on .telegram.env/.github.env had a side
+  // door: Bash(cat:*) was allowlisted, so `cat .telegram.env` sailed into the
+  // transcript. The legitimate flows load the VALUES in-process (ship-pr.sh
+  // sources ../.github.env itself; tg-send.ps1 reads inside pwsh — the
+  // PowerShell tool is a different matcher, out of this hook's scope), so
+  // blocking Bash-side reads costs them nothing — pinned green below.
+  it("blocks cat/grep/tail of the two cred files", () => {
+    const r = runHook("cat /d/claude/projects/prc-ops/.telegram.env");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("transcript");
+    expect(runHook("grep -i token ../.github.env").status).toBe(2);
+    expect(runHook("cd /d/x && tail -3 .telegram.env").status).toBe(2);
+  });
+
+  it("allows naming the files without reading them (ls, existence checks)", () => {
+    expect(runHook("ls -la /d/claude/projects/prc-ops/.telegram.env").status).toBe(0);
+    expect(runHook("test -f ../.github.env && echo present").status).toBe(0);
+  });
+
+  it("blocks the sneaky read shapes: dot-source, redirect-read, rg, case variant", () => {
+    expect(runHook(". ../.telegram.env").status).toBe(2);
+    expect(runHook("cd /d/x && . ../.telegram.env && echo $TELEGRAM_BOT_TOKEN").status).toBe(2);
+    expect(runHook("while read l; do echo $l; done < ../.github.env").status).toBe(2);
+    expect(runHook("rg TOKEN ../.telegram.env").status).toBe(2);
+    expect(runHook("cat ../.Telegram.ENV").status).toBe(2);
+  });
+
+  it("never fires on the files named inside quoted prose (ship bodies, doc greps)", () => {
+    expect(
+      runHook(
+        'bash scripts/ship-pr.sh "chore: x" "the hook blocks cat ../.telegram.env" #ALLOW_NO_CD demo',
+      ).status,
+    ).toBe(0);
+    expect(runHook('git commit -m "creds live in .telegram.env, gitignored"').status).toBe(0);
+  });
+
+  it("pins the legitimate flows green (they load creds in-process)", () => {
+    expect(runHook('pwsh -File /d/claude/projects/prc-ops/tg-send.ps1 "hello"').status).toBe(0);
+    expect(runHook('cd /d/x && bash scripts/ship-pr.sh "title" "body"').status).toBe(0);
+  });
+
+  it("honours the launch-env override and the in-command marker", () => {
+    expect(runHook("cat ../.telegram.env", { CLAUDE_ALLOW_SECRET_READ: "1" }).status).toBe(0);
+    expect(runHook("head -1 ../.github.env #ALLOW_SECRET_READ operator asked").status).toBe(0);
   });
 });
 
