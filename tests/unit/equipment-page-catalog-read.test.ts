@@ -8,13 +8,20 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const src = readFileSync("src/app/equipment/page.tsx", "utf8")
-  .split("\n")
-  // Line-based comment strip (the photomarkup lesson: mid-line // after code is
-  // rare here and a URL-bearing line must not be truncated — drop only lines
-  // that START as comments).
-  .filter((l) => !l.trimStart().startsWith("//") && !l.trimStart().startsWith("*"))
-  .join("\n");
+const stripComments = (path: string) =>
+  readFileSync(path, "utf8")
+    .split("\n")
+    // Line-based comment strip (the photomarkup lesson: mid-line // after code is
+    // rare here and a URL-bearing line must not be truncated — drop only lines
+    // that START as comments).
+    .filter((l) => !l.trimStart().startsWith("//") && !l.trimStart().startsWith("*"))
+    .join("\n");
+
+const src = stripComments("src/app/equipment/page.tsx");
+// Spec 385 U3a — the catalog PAGE reads the same column-granted table; its wall
+// is the same wall (and its component money test is structurally vacuous, so
+// THIS pin is the one that bites on a select("*") regression).
+const catalogSrc = stripComments("src/app/equipment/catalog/page.tsx");
 
 describe("equipment page — catalog read shape (spec 385 U2)", () => {
   it("reads equipment_catalog_items with the projected column list, active only", () => {
@@ -29,5 +36,19 @@ describe("equipment page — catalog read shape (spec 385 U2)", () => {
 
   it("passes the catalog to the manager", () => {
     expect(src).toContain("catalogSkus={");
+  });
+});
+
+describe("equipment CATALOG page — read shape (spec 385 U3a)", () => {
+  it("projects the granted columns and never selects * from the walled table", () => {
+    expect(catalogSrc).toContain(
+      '"id, name, category_id, brand, model, default_tracking, is_active"',
+    );
+    expect(catalogSrc).not.toMatch(/equipment_catalog_items"\)\s*\.select\(\s*"\s*\*\s*"/);
+    expect(catalogSrc).not.toContain("default_daily_rate");
+  });
+
+  it("pages the instance-count read to exhaustion (db-max-rows is 1000)", () => {
+    expect(catalogSrc).toContain(".range(start, start + PAGE - 1)");
   });
 });

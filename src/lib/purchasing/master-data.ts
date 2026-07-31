@@ -140,7 +140,9 @@ export const MASTER_DATA_GROUPS: readonly MasterDataGroup[] = [
         key: "equipment-categories",
         label: EQUIPMENT_CATEGORY_MENU_LABEL,
         hint: "หมวดตามลักษณะงาน — ตัด เจาะ เชื่อม วัด · จัดการที่หน้าทะเบียน",
-        href: "/equipment/catalog",
+        // Deep-links the category sheet OPEN — a door that lands with its named
+        // thing closed repeats the operator's "mixed up" complaint.
+        href: "/equipment/catalog?open=categories",
         countKey: "equipmentCategories",
         editorPending: false,
       },

@@ -26,26 +26,25 @@ import {
 
 export const metadata = { title: EQUIPMENT_CATALOG_LABEL };
 
-// Multi-parent: reached from the ข้อมูลหลัก hub, /settings and the /equipment
-// door — back chip resolves ?from, else the domain home /equipment.
+// Multi-parent: reached from the ข้อมูลหลัก hub (?from threaded by the board),
+// /settings (its entry href carries ?from) and the /equipment door — back chip
+// resolves ?from, else the domain home /equipment. ?open=categories deep-links
+// the หมวดเครื่องมือ sheet.
 export default async function EquipmentCatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; open?: string }>;
 }) {
-  const { from } = await searchParams;
+  const { from, open } = await searchParams;
   const ctx = await requireRole(BACK_OFFICE_ROLES);
 
   const supabase = await createServerSupabase();
-  const [{ data: skuRows }, { data: categoryRows }, { data: fkRows }] = await Promise.all([
+  const [{ data: skuRows }, { data: categoryRows }] = await Promise.all([
     supabase
       .from("equipment_catalog_items")
       .select("id, name, category_id, brand, model, default_tracking, is_active")
       .order("name", { ascending: true }),
     supabase.from("equipment_categories").select("id, name").order("name", { ascending: true }),
-    // The one instance-grain fact this page needs: how many real units stand
-    // behind each SKU.
-    supabase.from("equipment_items").select("equipment_catalog_item_id"),
   ]);
 
   const skus: CatalogSkuRowData[] = (skuRows ?? []).map((s) => ({
@@ -57,11 +56,24 @@ export default async function EquipmentCatalogPage({
     defaultTracking: s.default_tracking,
     isActive: s.is_active,
   }));
+
+  // The one instance-grain fact this page needs: how many real units stand
+  // behind each SKU. PAGED to exhaustion — PostgREST caps a read at db-max-rows
+  // (1000 on this project), so a single select would silently undercount past
+  // 1000 units (the spec-361 U8 lesson).
   const instanceCounts: Record<string, number> = {};
-  for (const row of fkRows ?? []) {
-    const ref = row.equipment_catalog_item_id;
-    if (!ref) continue;
-    instanceCounts[ref] = (instanceCounts[ref] ?? 0) + 1;
+  const PAGE = 1000;
+  for (let start = 0; ; start += PAGE) {
+    const { data: fkRows } = await supabase
+      .from("equipment_items")
+      .select("equipment_catalog_item_id")
+      .range(start, start + PAGE - 1);
+    for (const row of fkRows ?? []) {
+      const ref = row.equipment_catalog_item_id;
+      if (!ref) continue;
+      instanceCounts[ref] = (instanceCounts[ref] ?? 0) + 1;
+    }
+    if ((fkRows ?? []).length < PAGE) break;
   }
 
   return (
@@ -75,6 +87,7 @@ export default async function EquipmentCatalogPage({
           skus={skus}
           categories={categoryRows ?? []}
           instanceCounts={instanceCounts}
+          initialCategoriesOpen={open === "categories"}
         />
       </div>
     </PageShell>

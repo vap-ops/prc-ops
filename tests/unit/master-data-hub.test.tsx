@@ -57,7 +57,8 @@ describe("master-data group SSOT (spec 361 U4)", () => {
   // Exact hrefs, not `stringContaining` — a substring assertion survives
   // repointing วัสดุ at /catalog/boq-templates, which is precisely the kind of
   // silent mis-link this table exists to prevent. Two rows may share a
-  // destination (/equipment hosts both the registry and the category quick-add).
+  // destination (/equipment/catalog hosts the ทะเบียน and, via ?open=categories,
+  // the category sheet).
   it("every entry points exactly where its list is curated", () => {
     const actual = Object.fromEntries(masterDataEntries().map((e) => [e.key, e.href]));
     expect(actual).toEqual({
@@ -70,7 +71,7 @@ describe("master-data group SSOT (spec 361 U4)", () => {
       // is a property of the TYPE).
       "equipment-catalog": "/equipment/catalog",
       "equipment-items": "/equipment",
-      "equipment-categories": "/equipment/catalog",
+      "equipment-categories": "/equipment/catalog?open=categories",
       "worker-level-rates": "/settings/labor-rates",
       "work-categories": null,
       "expense-categories": null,
@@ -110,10 +111,9 @@ describe("master-data group SSOT (spec 361 U4)", () => {
       .filter((e) => e.editorPending)
       .map((e) => e.key)
       .sort();
-    // หมวดอุปกรณ์ is NOT here: /equipment's QuickAddCategory can add one
-    // (createEquipmentCategory, BACK_OFFICE_ROLES), so claiming otherwise would
-    // be a false statement to the reader — only rename/deactivate are missing,
-    // which the hint says instead.
+    // หมวดเครื่องมือ is NOT here: the catalog page's QuickAddCategory can add
+    // one and EditCategoryRow renames (spec 385 U3a moved both there) — only
+    // deactivate is missing, which needs an is_active column (migration).
     expect(pending).toEqual(["expense-categories", "work-categories"]);
   });
 });

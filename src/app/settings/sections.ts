@@ -186,7 +186,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
       // into the item page (operator's "mixed up" report, 2026-07-31).
       {
         kind: "link",
-        href: "/equipment/catalog",
+        // ?from so the catalog page's back chip returns HERE — SettingsLink
+        // renders the bare href, so the referrer must ride in it.
+        href: "/equipment/catalog?from=%2Fsettings",
         icon: Wrench,
         label: EQUIPMENT_CATALOG_LABEL,
         hint: "รายการกลาง 1 ชนิดมี 1 แถว · หมวดเครื่องมือแก้ที่นี่",

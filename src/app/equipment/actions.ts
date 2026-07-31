@@ -305,7 +305,9 @@ export async function createEquipmentFromCatalog(input: {
 // U3b's DEFINER RPC, deliberately not reachable from here.
 // ---------------------------------------------------------------------------
 
-const SKU_DUP_ERROR = "มีชื่อนี้ในทะเบียนอยู่แล้ว — แก้ไขหรือเปิดใช้รายการเดิมแทน";
+// The active-name index is partial (`where is_active`), so a 23505 always names
+// an already-ACTIVE row — the fix is editing that row, never "reactivating" it.
+const SKU_DUP_ERROR = "มีชื่อนี้ในทะเบียนอยู่แล้ว — แก้ไขรายการเดิมแทน";
 
 export async function createEquipmentCatalogItem(input: {
   name: string;
@@ -459,6 +461,9 @@ export async function createEquipmentCategory(input: {
   });
   if (error) return { ok: false, error: GENERIC_ERROR };
 
+  // Spec 385 U3a: category curation renders on the catalog page now; the item
+  // page still reads categories for its filter chips.
+  revalidatePath("/equipment/catalog");
   revalidatePath("/equipment");
   return { ok: true };
 }
@@ -490,6 +495,8 @@ export async function renameEquipmentCategory(input: {
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  // Spec 385 U3a: EditCategoryRow renders on the catalog page now.
+  revalidatePath("/equipment/catalog");
   revalidatePath("/equipment");
   return { ok: true };
 }

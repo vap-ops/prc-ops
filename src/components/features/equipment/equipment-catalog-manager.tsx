@@ -221,32 +221,21 @@ function SkuRow({
         </span>
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        {sku.isActive ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className={BUTTON_SECONDARY_COMPACT}
-            >
-              แก้ไข
-            </button>
-            <button
-              type="button"
-              onClick={() => void toggleActive()}
-              className={BUTTON_SECONDARY_COMPACT}
-            >
-              ปิดใช้งาน
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void toggleActive()}
-            className={BUTTON_SECONDARY_COMPACT}
-          >
-            เปิดใช้อีกครั้ง
-          </button>
-        )}
+        {/* แก้ไข renders for BOTH states: a reactivate can 23505 against a newer
+            active SKU with the same name, and renaming the inactive row is the
+            only way out — hiding the edit door there would be a dead end
+            (review find, 2026-07-31). */}
+        <button type="button" onClick={() => setEditing(true)} className={BUTTON_SECONDARY_COMPACT}>
+          แก้ไข
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void toggleActive()}
+          className={BUTTON_SECONDARY_COMPACT}
+        >
+          {sku.isActive ? "ปิดใช้งาน" : "เปิดใช้อีกครั้ง"}
+        </button>
       </span>
       {error ? <p className="text-danger w-full text-sm">{error}</p> : null}
 
@@ -308,7 +297,16 @@ function SkuRow({
             </button>
             <button
               type="button"
-              onClick={() => setEditing(false)}
+              onClick={() => {
+                // Reset to the row's truth — an abandoned edit must not greet
+                // the next open (the EditCategoryRow convention).
+                setName(sku.name);
+                setCategoryId(sku.categoryId);
+                setBrand(sku.brand ?? "");
+                setModel(sku.model ?? "");
+                setError(null);
+                setEditing(false);
+              }}
               className={BUTTON_SECONDARY_COMPACT}
             >
               ยกเลิก
@@ -324,15 +322,20 @@ export function EquipmentCatalogManager({
   skus,
   categories,
   instanceCounts,
+  initialCategoriesOpen,
 }: {
   skus: CatalogSkuRowData[];
   categories: Ref[];
   // equipment_items rows per SKU (the FK count) — "is anything real behind this
   // row" is the one instance-grain fact the TYPE page needs.
   instanceCounts: Record<string, number>;
+  // The หมวดเครื่องมือ hub door deep-links here with ?open=categories — landing
+  // with the sheet closed would repeat the very "door shows something else"
+  // complaint this unit fixes.
+  initialCategoriesOpen?: boolean;
 }) {
   const [addingSku, setAddingSku] = useState(false);
-  const [managingCategories, setManagingCategories] = useState(false);
+  const [managingCategories, setManagingCategories] = useState(initialCategoriesOpen ?? false);
 
   const active = skus.filter((s) => s.isActive);
   const inactive = skus.filter((s) => !s.isActive);
@@ -413,7 +416,9 @@ export function EquipmentCatalogManager({
               <EditCategoryRow
                 key={c.id}
                 category={c}
-                itemCount={skus.filter((s) => s.categoryId === c.id).length}
+                // ACTIVE SKUs, matching the group headings above — one page, one
+                // meaning for a category's count (review find, 2026-07-31).
+                itemCount={skus.filter((s) => s.categoryId === c.id && s.isActive).length}
               />
             ))}
           </ul>

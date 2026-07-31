@@ -56,7 +56,7 @@ describe("settings sections config (role → entries matrix)", () => {
     // Spec 268: +1 — the เช่าอุปกรณ์ rental-recorder door.
     // Spec 385 U3a: +1 — the ทะเบียนเครื่องมือ door (/equipment/catalog).
     expect(list).toHaveLength(8);
-    expect(list).toContain("/equipment/catalog");
+    expect(list).toContain("/equipment/catalog?from=%2Fsettings");
   });
 
   it("site_admin: field equipment only; master-data/labor-team/finance/admin empty", () => {
