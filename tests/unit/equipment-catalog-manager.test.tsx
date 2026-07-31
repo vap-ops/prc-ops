@@ -144,6 +144,19 @@ describe("EquipmentCatalogManager", () => {
     );
   });
 
+  it("the หมวดเครื่องมือ deep link opens the category sheet on mount", () => {
+    render(
+      <EquipmentCatalogManager
+        skus={SKUS}
+        categories={CATEGORIES}
+        instanceCounts={{}}
+        initialCategoriesOpen
+      />,
+    );
+    // The sheet is already open — its add field is in the document without a tap.
+    expect(screen.getByLabelText("ชื่อหมวดหมู่ใหม่")).toBeInTheDocument();
+  });
+
   it("shows no money anywhere — the rate editor is U3b's DEFINER seam", () => {
     renderCatalog();
     expect(screen.queryByText(/ค่าเช่า/)).toBeNull();
