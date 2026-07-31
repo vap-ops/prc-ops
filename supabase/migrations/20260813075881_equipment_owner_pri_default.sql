@@ -77,7 +77,10 @@ begin
   -- any schema-only preview branch. A raise here aborts `db push` and wedges
   -- every later migration, so the derivation falls back instead: oldest user,
   -- else forgo the seed. Prod's ledger never re-runs this file; on any DB that
-  -- has owner rows the behaviour is unchanged.
+  -- has owner rows the behaviour is unchanged. The forgo arm is one-shot by
+  -- design (the ledger records this file applied either way): a replay that had
+  -- zero users at push time keeps an empty owner registry, and the sandbox
+  -- seeder does not backfill owners — a fidelity follow-up, never a wedge.
   select created_by into v_creator from public.equipment_owners
    order by created_at limit 1;
   if v_creator is null then
@@ -85,7 +88,7 @@ begin
      order by created_at limit 1;
   end if;
   if v_creator is null then
-    raise notice 'equipment_owner_pri_default: no users yet on this database - skipping PRI seed; the default owner can be added once a user exists';
+    raise notice 'equipment_owner_pri_default: no users yet on this database - skipping PRI seed (this database will have no default equipment owner)';
     return;
   end if;
 
