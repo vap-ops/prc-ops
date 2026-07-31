@@ -24,8 +24,9 @@ const ALL_COUNTS: MasterDataCounts = {
   catalogCategories: 15,
   catalogUnits: 25,
   orderingTemplates: 28,
+  equipmentCatalogItems: 39,
   equipmentItems: 63,
-  equipmentCategories: 9,
+  equipmentCategories: 13,
   workCategories: 52,
   workerLevelRates: 4,
   expenseCategories: 8,
@@ -56,7 +57,8 @@ describe("master-data group SSOT (spec 361 U4)", () => {
   // Exact hrefs, not `stringContaining` — a substring assertion survives
   // repointing วัสดุ at /catalog/boq-templates, which is precisely the kind of
   // silent mis-link this table exists to prevent. Two rows may share a
-  // destination (/equipment hosts both the registry and the category quick-add).
+  // destination (/equipment/catalog hosts the ทะเบียน and, via ?open=categories,
+  // the category sheet).
   it("every entry points exactly where its list is curated", () => {
     const actual = Object.fromEntries(masterDataEntries().map((e) => [e.key, e.href]));
     expect(actual).toEqual({
@@ -64,8 +66,12 @@ describe("master-data group SSOT (spec 361 U4)", () => {
       "catalog-categories": "/catalog/subcategories",
       "catalog-units": "/catalog/units",
       "ordering-templates": "/settings/ordering-templates",
+      // Spec 385 U3a: the ทะเบียน is the SKU catalog page; the per-unit registry
+      // keeps /equipment; categories are curated on the catalog page (a category
+      // is a property of the TYPE).
+      "equipment-catalog": "/equipment/catalog",
       "equipment-items": "/equipment",
-      "equipment-categories": "/equipment",
+      "equipment-categories": "/equipment/catalog?open=categories",
       "worker-level-rates": "/settings/labor-rates",
       "work-categories": null,
       "expense-categories": null,
@@ -105,10 +111,9 @@ describe("master-data group SSOT (spec 361 U4)", () => {
       .filter((e) => e.editorPending)
       .map((e) => e.key)
       .sort();
-    // หมวดอุปกรณ์ is NOT here: /equipment's QuickAddCategory can add one
-    // (createEquipmentCategory, BACK_OFFICE_ROLES), so claiming otherwise would
-    // be a false statement to the reader — only rename/deactivate are missing,
-    // which the hint says instead.
+    // หมวดเครื่องมือ is NOT here: the catalog page's QuickAddCategory can add
+    // one and EditCategoryRow renames (spec 385 U3a moved both there) — only
+    // deactivate is missing, which needs an is_active column (migration).
     expect(pending).toEqual(["expense-categories", "work-categories"]);
   });
 });

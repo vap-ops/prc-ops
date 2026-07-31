@@ -701,6 +701,16 @@ export const EQUIPMENT_TRACKING_LABEL: Record<Enums["equipment_tracking"], strin
 export const EQUIPMENT_EXPORT_LABEL = "ดาวน์โหลด CSV";
 export const EQUIPMENT_IMPORT_LABEL = "นำเข้า CSV";
 
+// Spec 385 U3a — the equipment-domain menu vocabulary after the SKU pivot
+// (operator: "หมวดอุปกรณ์ and ทะเบียนอุปกรณ์ are mixed up to อุปกรณ์ item" +
+// "rethink of the wordings in menu"). ทะเบียน now means the SKU catalog — the
+// operator's own phrase for it; the per-unit page keeps อุปกรณ์ with the grain
+// spelled out. Used in the ข้อมูลหลัก hub, /settings and the pages themselves —
+// 2+ surfaces each, so labels.ts per the term-consistency rule.
+export const EQUIPMENT_CATALOG_LABEL = "ทะเบียนเครื่องมือ";
+export const EQUIPMENT_UNITS_MENU_LABEL = "อุปกรณ์ (รายเครื่อง)";
+export const EQUIPMENT_CATEGORY_MENU_LABEL = "หมวดเครื่องมือ";
+
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";
 export const EQUIPMENT_SET_DAILY_RATE_LABEL = "ตั้งค่าเช่า/วัน";

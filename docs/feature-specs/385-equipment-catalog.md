@@ -117,10 +117,30 @@ at purchase time, never through a merged category list.
     (accepted v1: no unique on instance names).
   - The CSV importer (367 U3) keeps its documented free-text path until U4
     rules on it.
-- **U3 — catalog manage surface**: rename/deactivate/rate on the SKU list, a
-  door beside ทะเบียนอุปกรณ์ in the ข้อมูลหลัก hub group.
+- **U3a ✅ (2026-07-31) — the ทะเบียน gets its own surface + the menu wording
+  rethink.** Operator report, verbatim: _"now หมวดอุปกรณ์ and ทะเบียนอุปกรณ์ are
+  mixed up to อุปกรณ์ item"_ + _"rethink of the wordings in menu"_. NEW
+  `/equipment/catalog` (BACK_OFFICE_ROLES): SKU rows grouped by the function
+  categories with per-SKU instance counts, rename/recategorise/brand/model
+  (plain RLS on the granted columns), deactivate/reactivate (`is_active` — the
+  active-name index frees a deactivated name, so reactivation can 23505; named
+  message), register-new-SKU, and the **category quick-add moved here** (a
+  category is a property of the TYPE; `/equipment` keeps its filter chips but
+  loses the curation door). Menu vocabulary (labels.ts SSOT):
+  **ทะเบียนเครื่องมือ** (the catalog) · **อุปกรณ์ (รายเครื่อง)** (the per-unit
+  page) · **หมวดเครื่องมือ** (categories) — hub group relabelled
+  **เครื่องมือ · อุปกรณ์** (the rental deal recorder is money, not master data;
+  the เช่า entry returns when 361 U1 lands). Hub + /settings both carry the
+  three-door split; NO money renders on the catalog surface.
+- **U3b — the rate editor** (schema): `set_equipment_catalog_default_rate`
+  DEFINER RPC twin + its surface on the catalog page.
 - **U4 — tighten**: backfill any straggler instances, `equipment_catalog_item_id`
-  → NOT NULL, decide `equipment_items.category_id` retirement.
+  → NOT NULL, decide `equipment_items.category_id` retirement, the bulk
+  partial-unique index (from U2's review), the importer ruling, and **the
+  rename-reconciliation policy** (U3a review find: renaming a SKU leaves
+  existing units stencilled `<old> No.<n>` while new units mint
+  `<new> No.<n+1>` — numbering stays unique, family identity does not; decide
+  cascade-rename vs leave-and-note).
 
 ## 5. Verification
 

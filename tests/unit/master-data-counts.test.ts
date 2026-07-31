@@ -70,6 +70,7 @@ describe("loadMasterDataCounts (spec 361 U4)", () => {
         "catalog_items",
         "catalog_units",
         "contractors",
+        "equipment_catalog_items",
         "equipment_categories",
         "equipment_items",
         "office_expense_categories",
@@ -83,6 +84,9 @@ describe("loadMasterDataCounts (spec 361 U4)", () => {
     // The two the review caught.
     expect(byTable.supply_plans?.filters).toEqual([["is_template", true]]);
     expect(byTable.contractors?.filters).toEqual([["contractor_category", "contractor"]]);
+    // Spec 385 U3a: the ทะเบียน door counts ACTIVE SKUs — a deactivated row left
+    // the picker's world, so counting it would overstate the list the door opens.
+    expect(byTable.equipment_catalog_items?.filters).toEqual([["is_active", true]]);
     // `wp_templates` is a DIFFERENT list (BOQ templates) — it must not appear.
     expect(recorded.some((q) => q.table === "wp_templates")).toBe(false);
 
@@ -117,7 +121,7 @@ describe("loadMasterDataCounts (spec 361 U4)", () => {
     const { client, recorded } = fakeClient(7);
     await loadMasterDataCounts(client);
     expect(recorded.every((q) => q.head && q.count === "exact")).toBe(true);
-    expect(recorded).toHaveLength(11);
+    expect(recorded).toHaveLength(12);
   });
 
   it("a refused read is null, never 0 — an unreadable list must not read as empty", async () => {

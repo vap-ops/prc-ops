@@ -6,7 +6,11 @@
 import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { EQUIPMENT_EXPORT_LABEL, EQUIPMENT_RENTAL_LABEL } from "@/lib/i18n/labels";
+import {
+  EQUIPMENT_CATALOG_LABEL,
+  EQUIPMENT_EXPORT_LABEL,
+  EQUIPMENT_RENTAL_LABEL,
+} from "@/lib/i18n/labels";
 import { ImportEquipmentSheet } from "@/components/features/equipment/import-equipment-sheet";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
@@ -172,6 +176,16 @@ export default async function EquipmentPage({
               className="text-action inline-flex min-h-11 items-center text-sm font-medium"
             >
               พิมพ์สติกเกอร์ QR
+            </Link>
+          )}
+          {/* Spec 385 U3a — the ทะเบียน (SKU catalog) is its own page; this is
+              the per-unit registry's door to it. */}
+          {canManageRegistry && (
+            <Link
+              href="/equipment/catalog?from=%2Fequipment"
+              className="text-action inline-flex min-h-11 items-center text-sm font-medium"
+            >
+              {EQUIPMENT_CATALOG_LABEL} →
             </Link>
           )}
           {/* Spec 367 U3b — import writes, so it is back-office only, matching

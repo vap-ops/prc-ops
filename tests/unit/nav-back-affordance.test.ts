@@ -47,6 +47,9 @@ const STATIC_DETAIL = [
   "profile",
   "workers",
   "equipment",
+  // Spec 385 U3a: the ทะเบียน (SKU catalog) — reached from the ข้อมูลหลัก hub,
+  // /settings and the /equipment door; back chip resolves ?from, else /equipment.
+  "equipment/catalog",
   // Spec 268: the rental recorder drills down from /equipment (back chip → /equipment).
   "equipment/rentals",
   // Spec 370 U2: the scan door — reached from /equipment, the store section,
@@ -410,6 +413,8 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     "catalog/page.tsx",
     "catalog/units/page.tsx",
     "equipment/page.tsx",
+    // Spec 385 U3a: hub + /settings + the /equipment door all lead to the catalog.
+    "equipment/catalog/page.tsx",
     "equipment/rentals/page.tsx",
     // Spec 370 U2: scan door — store section + /equipment + stickers all lead here.
     "equipment/scan/page.tsx",

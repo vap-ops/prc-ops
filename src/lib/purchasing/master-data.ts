@@ -17,6 +17,9 @@
 import {
   CATALOG_LABEL,
   CATALOG_UNITS_LABEL,
+  EQUIPMENT_CATALOG_LABEL,
+  EQUIPMENT_CATEGORY_MENU_LABEL,
+  EQUIPMENT_UNITS_MENU_LABEL,
   EXPENSE_CATEGORY_LABEL,
   LABOR_RATES_LABEL,
   MANAGE_TAXONOMY_LABEL,
@@ -31,6 +34,7 @@ export interface MasterDataCounts {
   catalogCategories: number | null;
   catalogUnits: number | null;
   orderingTemplates: number | null;
+  equipmentCatalogItems: number | null;
   equipmentItems: number | null;
   equipmentCategories: number | null;
   workCategories: number | null;
@@ -104,25 +108,41 @@ export const MASTER_DATA_GROUPS: readonly MasterDataGroup[] = [
     ],
   },
   {
+    // Spec 385 U3a — the operator's report ("หมวดอุปกรณ์ and ทะเบียนอุปกรณ์ are
+    // mixed up to อุปกรณ์ item"): the ทะเบียน is the SKU catalog now, with its
+    // own page, and the per-unit registry names its grain. The group key stays
+    // `rentals` (stable identity for the order contract); the LABEL drops เช่า —
+    // the rental deal recorder is a money surface, not master data, and the
+    // rental catalog returns as its own entry when spec 361 U1 lands.
     key: "rentals",
-    label: "เช่า · อุปกรณ์",
+    label: "เครื่องมือ · อุปกรณ์",
     entries: [
       {
+        key: "equipment-catalog",
+        label: EQUIPMENT_CATALOG_LABEL,
+        hint: "รายการกลางของเครื่องมือ/เครื่องจักร — 1 ชนิดมี 1 แถว เพิ่มเครื่องจริงโดยเลือกจากทะเบียนนี้",
+        href: "/equipment/catalog",
+        countKey: "equipmentCatalogItems",
+        editorPending: false,
+      },
+      {
         key: "equipment-items",
-        label: "ทะเบียนอุปกรณ์",
-        hint: "อุปกรณ์ของบริษัท · สถานะและที่อยู่ปัจจุบัน",
+        label: EQUIPMENT_UNITS_MENU_LABEL,
+        hint: "เครื่องจริงทีละเครื่อง — รูป · QR · ที่อยู่ · การยืม",
         href: "/equipment",
         countKey: "equipmentItems",
         editorPending: false,
       },
-      // Spec 361 U6 added rename beside the existing add (both on /equipment).
-      // Deactivate still has no surface — the table has no is_active column, so
-      // that half needs a migration and is queued behind the schema lane.
+      // Spec 385 U3a: categories bind the TYPE, so their curation moved to the
+      // catalog page (add + rename there; deactivate still needs an is_active
+      // column — a migration, queued behind the schema lane).
       {
         key: "equipment-categories",
-        label: "หมวดอุปกรณ์",
-        hint: "หมวดของอุปกรณ์และของที่เช่า · เพิ่ม/เปลี่ยนชื่อได้จากหน้าอุปกรณ์ (ยังปิดใช้งานไม่ได้)",
-        href: "/equipment",
+        label: EQUIPMENT_CATEGORY_MENU_LABEL,
+        hint: "หมวดตามลักษณะงาน — ตัด เจาะ เชื่อม วัด · จัดการที่หน้าทะเบียน",
+        // Deep-links the category sheet OPEN — a door that lands with its named
+        // thing closed repeats the operator's "mixed up" complaint.
+        href: "/equipment/catalog?open=categories",
         countKey: "equipmentCategories",
         editorPending: false,
       },

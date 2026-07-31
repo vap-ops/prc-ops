@@ -308,14 +308,11 @@ describe("EquipmentManager", () => {
     );
   });
 
-  it("quick-adds a category", async () => {
-    renderManager();
-    openSheet("หมวดหมู่");
-    fireEvent.change(screen.getByLabelText("ชื่อหมวดหมู่ใหม่"), { target: { value: "รถขุด" } });
-    fireEvent.click(screen.getByRole("button", { name: "เพิ่มหมวดหมู่" }));
-    await waitFor(() =>
-      expect(mockAddCategory).toHaveBeenCalledWith(expect.objectContaining({ name: "รถขุด" })),
-    );
+  // Spec 385 U3a: category quick-add moved to the ทะเบียน page — pinned in
+  // equipment-catalog-manager.test.tsx; this page keeps owner + item doors only.
+  it("offers NO category door here — หมวดเครื่องมือ is curated on the catalog page", () => {
+    renderManager({ items: ITEMS });
+    expect(screen.queryByRole("button", { name: "หมวดหมู่" })).not.toBeInTheDocument();
   });
 
   it("quick-adds an owner", async () => {
@@ -605,10 +602,6 @@ describe("EquipmentManager", () => {
     }
   });
 
-  it("the category sheet lists existing categories with their item counts", () => {
-    renderMixed();
-    openSheet("หมวดหมู่");
-    expect(screen.getByRole("button", { name: "เปลี่ยนชื่อ นั่งร้าน" })).toBeInTheDocument();
-    expect(screen.getByText("2 รายการ")).toBeInTheDocument();
-  });
+  // Spec 385 U3a: the category sheet (add + rename with counts) moved to the
+  // ทะเบียน page — see equipment-catalog-manager.test.tsx.
 });
