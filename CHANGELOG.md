@@ -1,3 +1,9 @@
+## [0.295.1](https://github.com/vap-ops/prc-ops/compare/v0.295.0...v0.295.1) (2026-07-31)
+
+### Bug Fixes
+
+- **notifications:** notify the purchase decider on pr_created + keep nav counts fresh ([#896](https://github.com/vap-ops/prc-ops/issues/896)) ([bd411eb](https://github.com/vap-ops/prc-ops/commit/bd411eb719234a18f7379bc81b25de803cc46351))
+
 # [0.295.0](https://github.com/vap-ops/prc-ops/compare/v0.294.0...v0.295.0) (2026-07-31)
 
 ### Features
