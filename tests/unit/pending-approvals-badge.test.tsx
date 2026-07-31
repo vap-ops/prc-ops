@@ -1,17 +1,19 @@
 // Spec 183 U3 — the count badge on the ภาพรวม nav (the "number on the main
-// menu"). Two testable parts: the pure formatter (cap + zero-hide) and the
-// presentational badge that renders it. The self-fetching wrapper
-// (PendingApprovalsBadge) is a thin client island over ApprovalsBadge — its
-// network read is best-effort and not unit-tested.
+// menu"). Three testable parts: the pure formatter (cap + zero-hide), the
+// presentational badge that renders it, and SelfCountBadge's refresh SCHEDULE
+// (injected `load`). Only the network read itself — the module-level fetchers
+// that hit the browser client — stays best-effort and untested.
 
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   formatBadgeCount,
   sumApprovalCounts,
   ApprovalsBadge,
+  SelfCountBadge,
+  BADGE_REFRESH_MS,
 } from "@/components/features/dashboard/pending-approvals-badge";
 
 describe("sumApprovalCounts", () => {
@@ -75,6 +77,124 @@ describe("ApprovalsBadge", () => {
     const inline = screen.getByLabelText("รอตรวจ 2 รายการ");
     expect(inline.className).not.toContain("absolute");
     expect(inline.className).toContain("ml-1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Operator report 2026-07-31 — "procurement manager cannot yet see requested PRs
+// instantly". The count read ONCE per mount, so in a PWA that is never closed it
+// froze for the whole session: a PR raised at 08:49 was still uncounted at 11:27.
+// The island now re-reads on an interval and whenever the app comes back to the
+// foreground, and skips reads while hidden so a backgrounded PWA costs nothing.
+//
+// `load` is injected, which is what makes this control flow testable at all —
+// the network read stays best-effort and untested, the SCHEDULING does not.
+describe("SelfCountBadge refresh (the count must not freeze at mount)", () => {
+  const setVisibility = (state: "visible" | "hidden") => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => state,
+    });
+  };
+
+  afterEach(() => {
+    vi.useRealTimers();
+    setVisibility("visible");
+  });
+
+  it("re-reads on the interval, so a count raised mid-session appears", async () => {
+    vi.useFakeTimers();
+    setVisibility("visible");
+    const load = vi.fn<() => Promise<number | null>>().mockResolvedValue(0);
+    render(<SelfCountBadge load={load} label="คำขอซื้อรอพิจารณา" />);
+    await act(async () => {});
+    expect(load).toHaveBeenCalledTimes(1);
+
+    load.mockResolvedValue(3);
+    await act(async () => {
+      vi.advanceTimersByTime(BADGE_REFRESH_MS);
+    });
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("คำขอซื้อรอพิจารณา 3 รายการ").textContent).toBe("3");
+  });
+
+  // Self-review catch, confirmed in the live preview (which reports hidden):
+  // skipping the read while hidden must not swallow the FIRST one, or a chrome
+  // that mounts in a backgrounded/prerendered tab shows no count until the user
+  // happens to switch away and back. Mount always reads; only the poll skips.
+  it("still reads once at mount even when the app starts hidden", async () => {
+    setVisibility("hidden");
+    const load = vi.fn<() => Promise<number | null>>().mockResolvedValue(5);
+    render(<SelfCountBadge load={load} />);
+    await act(async () => {});
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("รอตรวจ 5 รายการ").textContent).toBe("5");
+  });
+
+  it("re-reads when the app returns to the foreground", async () => {
+    setVisibility("visible");
+    const load = vi.fn<() => Promise<number | null>>().mockResolvedValue(0);
+    render(<SelfCountBadge load={load} />);
+    await act(async () => {});
+    expect(load).toHaveBeenCalledTimes(1);
+
+    load.mockResolvedValue(2);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("รอตรวจ 2 รายการ").textContent).toBe("2");
+  });
+
+  it("does not poll while the app is in the background", async () => {
+    vi.useFakeTimers();
+    setVisibility("visible");
+    const load = vi.fn<() => Promise<number | null>>().mockResolvedValue(1);
+    render(<SelfCountBadge load={load} />);
+    await act(async () => {});
+    expect(load).toHaveBeenCalledTimes(1);
+
+    setVisibility("hidden");
+    await act(async () => {
+      vi.advanceTimersByTime(BADGE_REFRESH_MS * 3);
+    });
+
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the last good count when a refresh fails (best-effort, never blanks)", async () => {
+    setVisibility("visible");
+    const load = vi.fn<() => Promise<number | null>>().mockResolvedValue(4);
+    render(<SelfCountBadge load={load} />);
+    await act(async () => {});
+    expect(screen.getByLabelText("รอตรวจ 4 รายการ")).toBeInTheDocument();
+
+    load.mockRejectedValue(new Error("offline"));
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(screen.getByLabelText("รอตรวจ 4 รายการ").textContent).toBe("4");
+  });
+
+  it("stops reading once unmounted — no timer and no listener survive", async () => {
+    vi.useFakeTimers();
+    setVisibility("visible");
+    const load = vi.fn<() => Promise<number | null>>().mockResolvedValue(1);
+    const { unmount } = render(<SelfCountBadge load={load} />);
+    await act(async () => {});
+    expect(load).toHaveBeenCalledTimes(1);
+
+    unmount();
+    await act(async () => {
+      vi.advanceTimersByTime(BADGE_REFRESH_MS * 2);
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(load).toHaveBeenCalledTimes(1);
   });
 });
 

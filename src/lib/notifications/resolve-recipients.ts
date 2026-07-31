@@ -44,6 +44,17 @@ export interface RecipientContext {
    * queue is not project-bound). Empty for every non-correction event.
    */
   backOfficeIds: ReadonlyArray<string>;
+  /**
+   * Spec 286 — the PR deciders that are NOT in PM_ROLES (procurement_manager).
+   * Org-wide, never project-scoped: purchasing is not project-bound.
+   *
+   * Deliberately its own field rather than folded into the PM pools: this
+   * routing rule predates spec 286, and `approvalPool` also feeds
+   * `wp_pending_approval`. Widening that pool would have handed
+   * procurement_manager the WP review queue spec 286 keeps it out of — so the
+   * deciders are unioned in at the `pr_created` case ONLY.
+   */
+  prDeciderIds: ReadonlyArray<string>;
 }
 
 function unique(ids: ReadonlyArray<string>): string[] {
@@ -73,8 +84,12 @@ export function resolveRecipients(
     // the payload only carries submitted_by since mig 20260813075886.
     case "wp_pending_approval":
       return without(approvalPool, payload.submittedBy);
+    // Spec 286 → operator report 2026-07-31 ("procurement manager cannot yet
+    // see requested PRs instantly"): the decider pool is the approval pool PLUS
+    // the purchasing deciders. Union here, not in `approvalPool` — see the
+    // prDeciderIds doc above for why the two events must not share an audience.
     case "pr_created":
-      return without(approvalPool, payload.requestedBy);
+      return without([...approvalPool, ...context.prDeciderIds], payload.requestedBy);
     case "wp_decision":
       return without(context.wpUploaderIds, payload.decidedBy);
     // Spec 218 U5 — a defect reopened the WP; ping the SAs who shot it (minus the

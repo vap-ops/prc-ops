@@ -59,9 +59,23 @@ export function ApprovalsBadge({
   );
 }
 
+// How often a mounted badge re-reads its count. Operator report 2026-07-31
+// ("procurement manager cannot yet see requested PRs instantly"): the island
+// read ONCE per mount, and this app is a PWA that field/office users leave open
+// for hours — a purchase request raised at 08:49 was still uncounted on screen
+// at 11:27. A minute is well under the human latency that matters for a queue
+// people check by eye, and the read is a `head: true` count, not a row fetch.
+export const BADGE_REFRESH_MS = 60_000;
+
 // Generic self-fetching island. `load` is a stable module-level fetcher (see
-// below) so the effect runs once. Best-effort: errors leave the badge hidden.
-function SelfCountBadge({
+// below) so the effect runs once and the schedule is set up once.
+// Best-effort throughout: a failed read never clears a good count and never
+// blocks nav — the badge simply keeps showing what it last knew.
+//
+// Exported for unit tests: the network read stays untested, but the REFRESH
+// CONTROL FLOW (interval, foreground resume, background skip, unmount cleanup)
+// is the half that can silently rot, so it takes an injected `load`.
+export function SelfCountBadge({
   load,
   position = "overlay",
   label = "รอตรวจ",
@@ -74,16 +88,30 @@ function SelfCountBadge({
 
   useEffect(() => {
     let alive = true;
-    void (async () => {
+    // `force` = the mount read, which happens whatever the visibility is. A
+    // chrome can mount in a backgrounded or prerendered tab, and skipping that
+    // read would leave the badge blank until the user switched away and back.
+    // Only the POLL skips while hidden — a backgrounded PWA then costs nothing,
+    // and the visibilitychange handler below catches it up on return.
+    const read = async (force = false) => {
+      if (!force && document.visibilityState === "hidden") return;
       try {
         const n = await load();
         if (alive && typeof n === "number") setCount(n);
       } catch {
-        // Best-effort badge — leave hidden on any read failure.
+        // Best-effort badge — keep the last known count on any read failure.
       }
-    })();
+    };
+    void read(true);
+    const timer = setInterval(() => void read(), BADGE_REFRESH_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void read();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       alive = false;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [load]);
 

@@ -387,6 +387,67 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     }
   });
 
+  // Operator report 2026-07-31 — "procurement manager cannot yet see requested
+  // PRs instantly". The pool query was PM_ROLES-only, so the spec-286 PR decider
+  // was never fetched, let alone notified. These two pin the SPLIT: the decider
+  // joins pr_created and stays out of wp_pending_approval.
+  it("pr_created reaches the spec-286 purchase decider alongside the PM pool", async () => {
+    const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+    const PD_1 = "dddddddd-0000-4000-8000-00000000000d";
+    const PROC_M = "cccccccc-0000-4000-8000-00000000000c";
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+      { id: PD_1, role: "project_director", line_user_id: "Lpd", telegram_chat_id: null },
+      { id: PROC_M, role: "procurement_manager", line_user_id: "Lproc", telegram_chat_id: null },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "pr_created",
+        work_package_id: null,
+        purchase_request_id: "99999999-0000-4000-8000-000000000009",
+        payload: { item_description: "ปูน", quantity: 1, unit: "ถุง", pr_number: 9 },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const targets = pushLineMessageMock.mock.calls.map((c) => (c[0] as { to: string }).to);
+    expect(targets).toContain("Lproc");
+  });
+
+  it("wp_pending_approval never reaches the purchase decider, even on the legacy fallback", async () => {
+    const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+    const PD_1 = "dddddddd-0000-4000-8000-00000000000d";
+    const PROC_M = "cccccccc-0000-4000-8000-00000000000c";
+    const W1 = "eeeeeeee-0000-4000-8000-00000000000e";
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+      { id: PD_1, role: "project_director", line_user_id: "Lpd", telegram_chat_id: null },
+      { id: PROC_M, role: "procurement_manager", line_user_id: "Lproc", telegram_chat_id: null },
+    ];
+    // No project on the WP → eventProjectPmIds null → the legacy FULL pool path,
+    // which is where an un-split pool would leak the decider into WP approvals.
+    wpTableRows = [{ id: W1, code: "P-02", project_id: null }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "wp_pending_approval",
+        work_package_id: W1,
+        purchase_request_id: null,
+        payload: { code: "P-02", name: "งานทดสอบ" },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const targets = pushLineMessageMock.mock.calls.map((c) => (c[0] as { to: string }).to);
+    expect(targets).not.toContain("Lproc");
+    expect(targets.sort()).toEqual(["Lpd", "LpmA"]);
+  });
+
   it("pr_created without a project payload falls back to the FULL legacy pool", async () => {
     const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
     const PM_B = "aaaaaaaa-0000-4000-8000-00000000000b";

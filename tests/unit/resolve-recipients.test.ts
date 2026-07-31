@@ -26,6 +26,10 @@ const ctx = {
   siteIssueProjectPmIds: [],
   siteIssueRolePoolIds: [],
   backOfficeIds: [],
+  // Spec 286 — PR deciders outside PM_ROLES (procurement_manager). Empty in the
+  // shared fixture so every OTHER event keeps its exact pre-existing audience;
+  // the pr_created cases below opt in explicitly.
+  prDeciderIds: [] as ReadonlyArray<string>,
 };
 
 describe("resolveRecipients", () => {
@@ -67,6 +71,42 @@ describe("resolveRecipients", () => {
     expect(
       resolveRecipients("pr_created", { requestedBy: PM_A }, { ...ctx, eventProjectPmIds: null }),
     ).toEqual([PM_B, DIR_1, SU_1]);
+  });
+
+  // Spec 286 delegated the PR decision to procurement_manager, but this routing
+  // rule predates it: the pool was PM_ROLES-only, so the operator's PR decider
+  // (28 decisions, 0 project_members rows) was never notified of a new request.
+  // Operator report 2026-07-31: "procurement manager cannot yet see requested
+  // PRs instantly."
+  it("sends pr_created to the purchase deciders outside PM_ROLES too (spec 286)", () => {
+    expect(
+      resolveRecipients("pr_created", { requestedBy: SA_1 }, { ...ctx, prDeciderIds: [PROC_1] }),
+    ).toEqual([PM_A, DIR_1, SU_1, PROC_1]);
+  });
+
+  it("reaches the purchase deciders on the legacy fallback path as well", () => {
+    expect(
+      resolveRecipients(
+        "pr_created",
+        { requestedBy: SA_1 },
+        { ...ctx, eventProjectPmIds: null, prDeciderIds: [PROC_1] },
+      ),
+    ).toEqual([PM_A, PM_B, DIR_1, SU_1, PROC_1]);
+  });
+
+  it("does not self-notify a purchase decider who raised the request", () => {
+    expect(
+      resolveRecipients("pr_created", { requestedBy: PROC_1 }, { ...ctx, prDeciderIds: [PROC_1] }),
+    ).not.toContain(PROC_1);
+  });
+
+  // The guard on the widening: procurement_manager decides PURCHASES, not work
+  // packages — spec 286 keeps it off /review. The two events share approvalPool,
+  // so folding the deciders INTO that pool would have leaked WP approvals to it.
+  it("never sends wp_pending_approval to a purchase decider", () => {
+    expect(
+      resolveRecipients("wp_pending_approval", {}, { ...ctx, prDeciderIds: [PROC_1] }),
+    ).not.toContain(PROC_1);
   });
 
   it("sends wp_decision to the WP's photo uploaders, excluding the decider", () => {
@@ -115,6 +155,7 @@ describe("resolveRecipients", () => {
           eventProjectPmIds: [],
           orgWidePmIds: [],
           legacyPmPoolIds: [],
+          prDeciderIds: [],
           wpUploaderIds: [SA_1, SA_1, SA_2],
           superIds: [],
           siteIssueProjectPmIds: [],
