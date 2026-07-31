@@ -11,7 +11,11 @@ import {
   LOCKED_NOTIFICATION_EVENTS,
   type NotificationEventType,
 } from "@/lib/notifications/notification-catalog";
-import { NOTIF_TEST_MESSAGE, NOTIF_TEST_NONFRIEND_ERROR } from "@/lib/i18n/labels";
+import {
+  NOTIF_TEST_MESSAGE,
+  NOTIF_TEST_NONFRIEND_ERROR,
+  NOTIF_TEST_QUOTA_ERROR,
+} from "@/lib/i18n/labels";
 
 export type NotificationSettingResult = { ok: true } | { ok: false; error: string };
 
@@ -70,13 +74,21 @@ export async function sendTestNotification(): Promise<NotificationSettingResult>
   });
   // A push to a non-friend of the OA returns LINE 403 — the exact case the
   // readiness card's add-friend CTA fixes, so name it plainly.
+  //
+  // Spec 387 U1 — and a 429 is the OA's MONTHLY QUOTA, which cannot succeed on a
+  // retry until the billing cycle rolls. It fell into the generic "กรุณาลองใหม่"
+  // arm below, telling every user to retry a refusal that was permanent for the
+  // rest of the month — the honest-copy class. Measured live: the quota blew
+  // 2026-07-22 and was still refusing ten days later.
   if (!result.ok) {
     return {
       ok: false,
       error:
         result.status === 403
           ? NOTIF_TEST_NONFRIEND_ERROR
-          : "ส่งข้อความทดสอบไม่สำเร็จ กรุณาลองใหม่",
+          : result.status === 429
+            ? NOTIF_TEST_QUOTA_ERROR
+            : "ส่งข้อความทดสอบไม่สำเร็จ กรุณาลองใหม่",
     };
   }
   return { ok: true };

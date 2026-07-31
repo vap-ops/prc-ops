@@ -1427,6 +1427,20 @@ export const NOTIF_OA_UNKNOWN_ROW = "จะตรวจสอบเมื่อ�
 export const NOTIF_TELEGRAM_ROW = "เชื่อม Telegram แล้ว";
 export const NOTIF_TEST_NONFRIEND_ERROR =
   "ส่งไม่สำเร็จ — ยังไม่ได้เพิ่มเพื่อน LINE ของบริษัท กดปุ่มเพิ่มเพื่อนด้านบนก่อน";
+// Spec 387 U1 — a LINE 429 is the monthly-quota refusal: it CANNOT succeed on a
+// retry until the billing cycle rolls, so it must never be shown as "ลองใหม่".
+export const NOTIF_TEST_QUOTA_ERROR =
+  "ส่งไม่สำเร็จ — โควตาข้อความ LINE ของบริษัทเต็มแล้ว รอรอบบิลถัดไปหรือแจ้งผู้ดูแลระบบ (กดใหม่ตอนนี้ก็ยังส่งไม่ได้)";
+
+// Spec 387 U2 — the delivery-health notice. Shown to the operator on /settings
+// when the outbox has failures, because the channel that would normally carry
+// such an alert is the one that breaks.
+export const NOTIF_HEALTH_TITLE = "ระบบส่งการแจ้งเตือนมีปัญหา";
+export const NOTIF_HEALTH_CAUSE_LABEL = "สาเหตุล่าสุดจากระบบ";
+export const NOTIF_HEALTH_ACTION = "ต้องให้ผู้ดูแลระบบแก้ที่ต้นทาง — ผู้ใช้กดลองใหม่เองไม่ได้";
+export function notifHealthBody(failed: number, terminal: number, windowDays: number): string {
+  return `${failed} จาก ${terminal} รายการใน ${windowDays} วันล่าสุดส่งไม่ถึงผู้รับ`;
+}
 
 // Spec 320 — temporary payout nominee (PM-managed bridge for bankless workers).
 export const PAYOUT_NOMINEE_TITLE = "บัญชีตัวแทนรับเงิน (ชั่วคราว)";
