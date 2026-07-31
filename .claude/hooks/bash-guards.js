@@ -59,7 +59,7 @@ function violatesCdPrefix(command) {
   if (/#ALLOW_NO_CD\b/.test(command)) return false;
   if (ANCHORED.test(command)) return false;
 
-  const blanked = command.replace(/'[^']*'|"[^"]*"/g, " q ");
+  const blanked = command.replace(/'[^']*'|"[^"]*"/g, "q");
   const segments = blanked.split(/&&|\|\||[;|\n]/);
   return segments.some((seg) => REPO_TOOL.test(seg.trimStart().replace(ENV_ASSIGN_PREFIX, "")));
 }
@@ -126,7 +126,7 @@ function violatesSecretRead(command) {
   if (/#ALLOW_SECRET_READ\b/.test(command)) return false;
   // Blank quoted spans first: prose naming the files (commit messages, PR
   // bodies, doc greps) must never block. Cost, stated: a QUOTED path evades.
-  const blanked = command.replace(/\\/g, "/").replace(/'[^']*'|"[^"]*"/g, " q ");
+  const blanked = command.replace(/\\/g, "/").replace(/'[^']*'|"[^"]*"/g, "q");
   return SECRET_READ.test(blanked);
 }
 
