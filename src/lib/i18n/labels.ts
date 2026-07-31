@@ -1442,6 +1442,27 @@ export const NOTIF_TEST_NONFRIEND_ERROR =
 export const NOTIF_TEST_QUOTA_ERROR =
   "ส่งไม่สำเร็จ — โควตาข้อความ LINE ของบริษัทเต็มแล้ว รอรอบบิลถัดไปหรือแจ้งผู้ดูแลระบบ (กดใหม่ตอนนี้ก็ยังส่งไม่ได้)";
 
+// Spec 386 U5 — the reachability roster on /settings/roles. "ยังไม่ทราบ" is a
+// FIRST-CLASS state, not a soft no: line_oa_friend is only refreshed at LINE
+// login, so null means never probed and must never read as unreachable.
+export const REACH_TELEGRAM = "Telegram";
+export const REACH_LINE = "LINE";
+export const REACH_UNKNOWN = "ยังไม่ทราบ";
+export const REACH_NONE = "ติดต่อไม่ได้";
+export const REACH_HEADING = "ช่องทางแจ้งเตือน";
+export const REACH_UNKNOWN_HINT =
+  "ยังไม่ทราบ = ยังไม่ได้เข้าสู่ระบบด้วย LINE ตั้งแต่เปิดระบบตรวจ — ไม่ได้แปลว่าติดต่อไม่ได้";
+export const REACH_BOT_UNSET =
+  "⚠️ ยังไม่ได้ตั้งค่าบอท Telegram — คนที่เชื่อม Telegram แล้วก็ยังไม่ได้รับข้อความ";
+export function reachSummaryLine(s: {
+  telegram: number;
+  line: number;
+  unknown: number;
+  none: number;
+}): string {
+  return `Telegram ${s.telegram} · LINE ${s.line} · ยังไม่ทราบ ${s.unknown} · ติดต่อไม่ได้ ${s.none}`;
+}
+
 // Spec 387 U2 — the delivery-health notice. Shown to the operator on /settings
 // when the outbox has failures, because the channel that would normally carry
 // such an alert is the one that breaks.

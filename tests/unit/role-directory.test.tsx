@@ -18,10 +18,12 @@ import { RoleDirectory, filterUsersByName } from "@/components/features/roles/ro
 import type { RoleUserVM } from "@/components/features/roles/role-admin-list";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 
+// spec 386 U5 added `reach` — the fixture spans the states on purpose so the
+// directory's grouping/filtering is exercised against a mixed roster.
 const USERS: RoleUserVM[] = [
-  { id: "u1", name: "สมชาย ใจดี", role: "visitor", isSelf: false },
-  { id: "u2", name: "สมหญิง เก่งงาน", role: "site_admin", isSelf: false },
-  { id: "u3", name: "John Walker", role: "accounting", isSelf: false },
+  { id: "u1", name: "สมชาย ใจดี", role: "visitor", isSelf: false, reach: "unknown" },
+  { id: "u2", name: "สมหญิง เก่งงาน", role: "site_admin", isSelf: false, reach: "line" },
+  { id: "u3", name: "John Walker", role: "accounting", isSelf: false, reach: "none" },
 ];
 
 describe("filterUsersByName", () => {
