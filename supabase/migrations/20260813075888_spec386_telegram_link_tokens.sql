@@ -36,7 +36,7 @@ create table public.telegram_link_tokens (
 comment on table public.telegram_link_tokens is
   'Spec 386: short-lived single-use tokens that trade a t.me/<bot>?start=<token> deep link for a Telegram chat id. RPC-only — no policies, no grants.';
 
--- the lookup both RPCs make (mint rotates the caller''s outstanding token;
+-- the lookup both RPCs make (mint rotates the caller's outstanding token;
 -- unlink drops it)
 create index telegram_link_tokens_open_by_user_idx
   on public.telegram_link_tokens (user_id) where consumed_at is null;
@@ -53,8 +53,8 @@ revoke all on table public.telegram_link_tokens from public, anon, authenticated
 -- ============================================================================
 -- §3 users: when the link was made, and the one-chat-one-user rule.
 --
--- A Telegram chat is a person''s account. Without the unique index two app users
--- could share one chat, and one person would receive the other''s notifications.
+-- A Telegram chat is a person's account. Without the unique index two app users
+-- could share one chat, and one person would receive the other's notifications.
 -- Safe to create: exactly one non-null telegram_chat_id exists today.
 -- ============================================================================
 alter table public.users add column telegram_linked_at timestamptz;
@@ -104,7 +104,7 @@ revoke all on function public.start_telegram_link() from public, anon;
 grant execute on function public.start_telegram_link() to authenticated;
 
 -- ============================================================================
--- §5 consume_telegram_link_token — the webhook''s half.
+-- §5 consume_telegram_link_token — the webhook's half.
 --
 -- SERVICE ROLE ONLY. This is the function that writes an identity link, and its
 -- only legitimate caller is the Telegram webhook holding the service key; it is
