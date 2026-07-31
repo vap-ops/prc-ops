@@ -1,3 +1,9 @@
+# [0.296.0](https://github.com/vap-ops/prc-ops/compare/v0.295.1...v0.296.0) (2026-07-31)
+
+### Features
+
+- **385:** U2 — pick-from-ทะเบียน add flow ([#898](https://github.com/vap-ops/prc-ops/issues/898)) ([c191651](https://github.com/vap-ops/prc-ops/commit/c191651aa51ad6f4ed955150b63e7538563fdc33))
+
 ## [0.295.1](https://github.com/vap-ops/prc-ops/compare/v0.295.0...v0.295.1) (2026-07-31)
 
 ### Bug Fixes
