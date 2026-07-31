@@ -17,7 +17,7 @@ import {
   projectPmRecipients,
   SITE_ISSUE_ALERT_ROLE_POOL,
 } from "@/lib/notifications/site-issue-recipients";
-import { BACK_OFFICE_ROLES, PM_ROLES } from "@/lib/auth/role-home";
+import { BACK_OFFICE_ROLES, PM_ROLES, PR_DECIDER_ROLES } from "@/lib/auth/role-home";
 import { clientEnv } from "@/lib/env";
 import type { UserRole } from "@/lib/db/enums";
 import {
@@ -162,7 +162,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // tier vs the project-scoped PMs; legacy full pool kept as the
           // unresolvable-project fallback. SSOT'd to role-home, not re-listed.
           .select("id, role, line_user_id, telegram_chat_id")
-          .in("role", [...PM_ROLES])
+          // Spec 286 (operator report 2026-07-31) — PR_DECIDER_ROLES is
+          // PM_ROLES + procurement_manager. Fetched as ONE pool and split below
+          // by role: the PM arms keep their exact pre-286 membership, and the
+          // extra deciders reach pr_created only.
+          .in("role", [...PR_DECIDER_ROLES])
       : Promise.resolve({ data: [], error: null }),
     decisionWpIds.length > 0
       ? admin
@@ -254,9 +258,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   // Spec 318 U5 — legacy pool = every PM_ROLES user (fallback only);
   // org-wide tier = PD + super (see-all, always alerted on approval events).
-  const legacyPmPoolIds = (pmResult.data ?? []).map((u) => u.id);
-  const orgWidePmIds = (pmResult.data ?? [])
+  // Spec 286 — one query, two audiences. The PM arms are filtered back down to
+  // PM_ROLES so every approval event keeps the membership it had before the
+  // decider was added to the query; prDeciderIds is the remainder
+  // (procurement_manager), unioned in at pr_created ONLY.
+  const pmPoolRows = (pmResult.data ?? []).filter((u) =>
+    PM_ROLES.includes(u.role as (typeof PM_ROLES)[number]),
+  );
+  const legacyPmPoolIds = pmPoolRows.map((u) => u.id);
+  const orgWidePmIds = pmPoolRows
     .filter((u) => u.role === "project_director" || u.role === "super_admin")
+    .map((u) => u.id);
+  const prDeciderIds = (pmResult.data ?? [])
+    .filter((u) => !PM_ROLES.includes(u.role as (typeof PM_ROLES)[number]))
     .map((u) => u.id);
   const superIds = (superResult.data ?? []).map((u) => u.id);
 
@@ -503,6 +517,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           : [],
         siteIssueRolePoolIds,
         backOfficeIds,
+        prDeciderIds,
       });
       // Spec 318 U3 — apply per-user mutes before contact mapping. A muted
       // recipient is an intentional drop; locked events bypass the filter.
