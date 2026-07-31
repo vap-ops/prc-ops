@@ -21,14 +21,16 @@
 -- human may legitimately edit). The invariants above are what must survive.
 
 begin;
-select plan(14);
+select plan(16);
 
 -- principals
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-00000000e201','cat-pm@t.local','{}'::jsonb),
-  ('00000000-0000-0000-0000-00000000e202','cat-sa@t.local','{}'::jsonb);
+  ('00000000-0000-0000-0000-00000000e202','cat-sa@t.local','{}'::jsonb),
+  ('00000000-0000-0000-0000-00000000e205','cat-tech@t.local','{}'::jsonb);
 update public.users set role='procurement_manager' where id='00000000-0000-0000-0000-00000000e201';
 update public.users set role='site_admin'          where id='00000000-0000-0000-0000-00000000e202';
+update public.users set role='technician'          where id='00000000-0000-0000-0000-00000000e205';
 
 -- fixture category (RLS bypassed for setup; no dependence on live seed data)
 insert into public.equipment_categories (id, name, created_by) values
@@ -90,9 +92,22 @@ select is(
 );
 
 select is(
+  has_column_privilege('authenticated', 'public.equipment_catalog_items', 'default_daily_rate', 'INSERT'),
+  false,
+  'authenticated may NOT supply default_daily_rate on insert (wall, third direction)'
+);
+
+select is(
   has_column_privilege('anon', 'public.equipment_catalog_items', 'name', 'SELECT'),
   false,
   'anon has no access at all'
+);
+
+-- masters posture: SKUs deactivate (is_active), never delete — no grant, no policy.
+select is(
+  has_table_privilege('authenticated', 'public.equipment_catalog_items', 'DELETE'),
+  false,
+  'authenticated holds no DELETE on the catalog (deactivate, never delete)'
 );
 
 -- ============================================================================
@@ -133,6 +148,16 @@ select throws_ok($$
   values ('สว่านทดสอบแคตตาล็อก', '00000000-0000-0000-0000-00000000e203',
           '00000000-0000-0000-0000-00000000e202')
 $$, '42501', null, 'site_admin may NOT create SKUs (write stays back-office)');
+
+-- the read audience STOPS at back office + site_admin: a technician sees no rows
+-- (the arm this spec widened past equipment_items, pinned in the negative).
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-00000000e205"}';
+
+select ok(
+  (select count(id) from public.equipment_catalog_items
+    where id = '00000000-0000-0000-0000-00000000e204') = 0,
+  'technician reads ZERO catalog rows (read audience excludes field-crew roles)'
+);
 
 select * from finish();
 rollback;

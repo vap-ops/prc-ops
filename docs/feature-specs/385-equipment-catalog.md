@@ -48,10 +48,14 @@ at purchase time, never through a merged category list.
 1. **Duplicate-name protection at birth** — partial unique index on
    `lower(trim(name)) where is_active`. The spec-344 consolidation (27 dup pairs,
    fold-and-retire) exists because materials got this only after the fact.
-2. **Money wall = column ABSENCE, mirrored** — `default_daily_rate` carries NO
-   authenticated grant in either direction (equipment_items precedent, ADR 0055
-   decision 6). Consequence for U2: the pick flow copies the default rate
-   server-side through a DEFINER/service seam — an RLS client cannot read it.
+2. **Money wall = column ABSENCE, mirrored** — `default_daily_rate` (numeric(12,2),
+   matching `equipment_items.daily_rate`) carries NO authenticated grant in any
+   direction (equipment_items precedent, ADR 0055 decision 6). Consequence, stated
+   deliberately: **until U2/U3 ship their DEFINER seam, no app path can read or
+   change the seeded defaults** — the equipment_items precedent pairs its wall with
+   `set_equipment_daily_rate`, and this table's twin RPC is U3's first task. The
+   U2 pick flow copies default → per-unit `daily_rate` server-side for the same
+   reason (an RLS client cannot see the column).
 3. **Write audience DELEGATES to `is_back_office()`** (the storage-RLS lesson —
    a policy restating a helper's role list rots when the helper widens). Read
    audience = back office + `site_admin` (the field sees the pick list).
@@ -61,8 +65,12 @@ at purchase time, never through a merged category list.
    Seed is guarded on the dev-preview user existing, so schema-only replays
    (preview branches) skip it instead of failing the FK.
 5. **§0 folds the same-day ad-hoc category ops into the artifact of record**
-   (change-management §1): the 2 renames + 4 function categories are idempotent
-   re-statements — no-ops on prod, effective on fresh replays.
+   (change-management §1): the 2 renames + insert-if-missing of ALL ELEVEN
+   categories §5 references (the 4 new + the 7 legacy, renamed forms) — no-ops
+   on prod, self-contained on fresh replays, so the seed can never 23503 on a
+   DB that has the dev-preview user but not the legacy category rows. §5 itself
+   is `on conflict do nothing` against the active-name index, so an accidental
+   re-apply is inert rather than fatal.
 6. **Instance rows deliberately at 0.** The 63 instance rows seeded earlier on
    2026-07-31 were deleted the same day on the operator's direction (guarded
    data op; photos/usage/movements all verified 0 first). Units are born from
@@ -99,7 +107,11 @@ at purchase time, never through a merged category list.
 
 ## 5. Verification
 
-- pgTAP `385-equipment-catalog.test.sql` (14 asserts) — green on the applied DB.
+- pgTAP `385-equipment-catalog.test.sql` (16 asserts — shape ×5, wall ×6 incl.
+  positive control + no-DELETE posture, role-switched behaviour ×5 incl. the
+  technician read-EXCLUSION). First run red-first proved the runner's
+  plan-mismatch gate (planned 14, ran 13); fixed by adding the three review
+  asserts, not by editing the plan down.
 - Live post-apply: head `20260813075887` · 39 SKUs · 11 categories used ·
   0 unpriced · 0 instances · wall probe `default_daily_rate`=refused with
   `name`=readable control.
