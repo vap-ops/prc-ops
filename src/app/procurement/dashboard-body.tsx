@@ -174,11 +174,17 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
                     // ทุกโครงการ row below is a door to the spanning queue, not a
                     // selection state, so it carries no current marker.
                     aria-current={selected ? "true" : undefined}
-                    className={`rounded-card shadow-card border-edge bg-card text-ink hover:bg-sunk flex min-h-11 w-full items-center gap-3 border px-4 py-3 text-left ${
+                    // The row WRAPS (bug 2026-07-31): four shrink-0 badges plus
+                    // the name do not fit a 375px card, and in a non-wrapping
+                    // row the truncating name is the only item that yields — it
+                    // rendered at 0px while the last badge still overflowed and
+                    // was clipped. Wrapping moves the badges to a second line
+                    // and the min-width floor keeps the name readable.
+                    className={`rounded-card shadow-card border-edge bg-card text-ink hover:bg-sunk flex min-h-11 w-full flex-wrap items-center gap-x-3 gap-y-1 border px-4 py-3 text-left ${
                       selected ? "ring-action ring-2" : ""
                     }`}
                   >
-                    <span className="text-body min-w-0 flex-1 truncate font-semibold">
+                    <span className="text-body min-w-[8rem] flex-1 truncate font-semibold">
                       {c.name}
                     </span>
                     <span className="text-ink-secondary text-meta shrink-0">
