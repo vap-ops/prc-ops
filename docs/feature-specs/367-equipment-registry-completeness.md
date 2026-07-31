@@ -450,3 +450,67 @@ from public.equipment_items;
 Baseline 2026-07-27 = `64, 0, 0, 0, 0, 0, 0, 0, 0`. Run it after the operator's
 first real import; a still-zero column means the template or the importer is not
 being used for it.
+
+---
+
+## 12. Refill seed + หลักการตั้งหมวด (2026-07-31, prod data op — no migration)
+
+Post-reset refill, from the operator's 2-branch tool sheet (61 types across
+กกกระทอน + นายาว). Operator directives, 2026-07-31: the ทะเบียน stays in the same
+menu group as ทะเบียนวัสดุ so the procurement manager completes setup in one place
+(already true — the ข้อมูลหลัก hub's `เช่า · อุปกรณ์` group, spec 361 U4); the
+registry is **seeded to assist her**, not typed from scratch; and _"the principle
+behind categories must exist, so tuning in would be easy for users."_
+
+### หลักการตั้งหมวด (the category principle)
+
+**หมวด = ลักษณะงานที่เครื่องมือใช้ทำ (function-first).** ผู้ใช้คิดจากงานที่กำลังจะทำ
+— ตัด → เครื่องมือตัดและเจียร, เจาะ → เครื่องมือเจาะและสกัด — แล้วเจอเครื่องมือทันที
+โดยไม่ต้องรู้ยี่ห้อหรือชนิดมอเตอร์. มีหมวดขวางแนว 2 หมวดที่ตัดสินด้วยภาระดูแล
+ไม่ใช่ลักษณะงาน:
+
+- **เครื่องจักรก่อสร้าง** — เครื่องจักรหนัก/อยู่กับที่ (ตบดิน, ดัดเหล็กเส้น):
+  รอบบำรุงรักษาและมูลค่าต่างจากเครื่องมือถือ.
+- **อุปกรณ์เซฟตี้** — PPE ตรวจสภาพตามรอบเวลา ไม่ใช่ตามงาน.
+
+`รถขุด` / `รถหกล้อ` เป็นหมวดของ rental catalog (spec 361) — ไม่แตะ.
+
+The 13 live categories after the seed (4 new ⁺, 2 renamed ᵣ):
+เครื่องมือตัดและเจียร⁺ 15 · เครื่องวัด 11 · เครื่องมือเจาะและสกัดᵣ 8 ·
+เครื่องมือช่างทั่วไป 7 · เครื่องมืองานปูน⁺ 6 · เครื่องมือเชื่อมและยึด⁺ 5 ·
+เครื่องมือลม⁺ 3 · เครื่องจักรก่อสร้าง 3 · เครื่องสูบน้ำและอุปกรณ์ระบายน้ำ 2 ·
+อุปกรณ์เซฟตี้ᵣ 2 · เครื่องเทส 1 (+ รถขุด/รถหกล้อ, 0 items, rental-only).
+Renames: `เครื่องมือเจาะ` → `เครื่องมือเจาะและสกัด` (สกัดคอนกรีตอยู่หมวดนี้),
+`Safety` → `อุปกรณ์เซฟตี้` (ชื่อไทยตามหลักการ; id เดิมทั้งคู่).
+
+### Seed record
+
+- **63 rows = 68 physical units** (rehearsal-rollback first, then commit;
+  in-txn verify: 63 rows / 68 units / 13 cats / 0 unpriced / 0 mirror-mismatch).
+- **unit vs bulk follows the sheet's own numbering**: anything the crew already
+  labels `No.1, No.2, …` (even ฿10 คีมผูกลวด) = `unit` rows, one per physical
+  tool, named exactly as labelled; un-numbered flat multiples
+  (สามเหลี่ยมปาดปูน ×2+2, สายยางวัดระดับน้ำ ×3, แม่เหล็กจับฉาก ×2) = `bulk` + qty.
+- Owner = **PRI** (default owner, `suppliers` id-mirror intact); `created_by` =
+  dev-preview; brand/model captured where the sheet states them
+  (XYLON Rebar Bender, ASADA TEST PUMP TP50E).
+- **`daily_rate` seeded ฿10–300** on the same estimate scale the operator approved
+  2026-07-28 — an unpriced item is P0001-refused at `check_out_equipment`, so NULL
+  rates would kill the scan-ยืม door on day 1. PRI valuation supersedes; each rate
+  is adjustable via `set_equipment_daily_rate` (procurement_manager is in its
+  allowlist).
+- **Location NOT seeded** — the sheet totals `มี 2 สาขา` without saying which
+  branch holds which unit; inventing `deployed` movements would fake the ledger.
+  Both sites exist as active projects (`PRC-2026-007` TFM นายาว, `PRC-2026-008`
+  TFM กกกระทอน); locations get recorded per item at the store / scan door during
+  the completion pass.
+- **มี 0 rows were not seeded** (ปลั๊กพ่วงไฟฟ้า ทำเอง) — the registry records what
+  the firm owns, not what it wants.
+- The sheet's `จำนวนที่ต้องการ/ไซต์` + `จำนวนที่ขาด` columns are **per-site demand
+  planning — deliberately NOT modelled** (prove-value: one-time move planning
+  lives in the sheet; if gap tracking recurs, it needs a type grain above the
+  per-unit rows, not a bolt-on).
+
+**Her completion pass, per item, all on `/equipment`:** 4 photo slots (spec 382
+chips รูป n/4) · serial/เพลท · condition · adjust rate · record the branch via a
+movement. Readiness query = spec 382's photo fill rate + §11's column fill rate.
