@@ -1388,6 +1388,15 @@ export const EXPENSE_ADD_HEADING = "บันทึกค่าใช้จ่�
 export const EXPENSE_ADD_LABEL = "เพิ่มค่าใช้จ่าย";
 export const EXPENSE_ATTACH_HEADING = "แนบเอกสาร (ถ้ามี)";
 export const EXPENSE_DESCRIPTION_HELP = "ไม่บังคับ — เช่น จ่ายค่าอะไร / ซื้อจากที่ไหน";
+// Feedback 41cd07d9 — edit/delete an office expense (mig 075888).
+export const EXPENSE_EDIT_LABEL = "แก้ไข";
+export const EXPENSE_EDIT_HEADING = "แก้ไขค่าใช้จ่าย";
+export const EXPENSE_UPDATE_SUBMIT = "บันทึกการแก้ไข";
+export const EXPENSE_DELETE_LABEL = "ลบรายการ";
+export const EXPENSE_DELETE_CONFIRM = "ลบรายการนี้? ประวัติการลบถูกบันทึกไว้ แต่รายการกู้คืนไม่ได้";
+export const EXPENSE_DELETE_PENDING = "กำลังลบ…";
+// A reimbursed row is permanently locked — honest copy: no "ลองใหม่".
+export const EXPENSE_LOCKED_REIMBURSED = "รายการนี้คืนเงินแล้ว แก้ไขหรือลบไม่ได้";
 // Spec 310 U5 — finance reimburse queue.
 export const REIMBURSE_QUEUE_HEADING = "รายการรอคืนเงิน";
 export const REIMBURSE_QUEUE_EMPTY = "ไม่มีรายการรอคืนเงิน";

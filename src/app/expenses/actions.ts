@@ -5,7 +5,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
-import { REIMBURSE_NEEDS_REVIEW } from "@/lib/i18n/labels";
+import { EXPENSE_LOCKED_REIMBURSED, REIMBURSE_NEEDS_REVIEW } from "@/lib/i18n/labels";
 import type { Database } from "@/lib/db/database.types";
 import { buildExpenseAttachmentPath } from "@/lib/expenses/attachment-path";
 import {
@@ -95,6 +95,65 @@ export async function addExpenseReceipt(input: AddExpenseReceiptInput): Promise<
   });
   if (error && error.code !== "23505") return { ok: false, error: ERR_RECEIPT };
 
+  revalidatePath("/expenses");
+  return { ok: true };
+}
+
+// Feedback 41cd07d9 — edit a mis-keyed expense (wrong date/project/amount) or
+// delete it. Gates live in the DEFINER RPCs (mig 075888): submitter-until-
+// reimbursed OR finance; a reimbursed row is locked (P0001) for everyone.
+export interface UpdateOfficeExpenseInput extends OfficeExpenseInput {
+  expenseId: string;
+}
+
+export async function updateOfficeExpense(input: UpdateOfficeExpenseInput): Promise<ReceiptResult> {
+  if (!UUID_REGEX.test(input.expenseId)) {
+    return { ok: false, error: "แก้ไขค่าใช้จ่ายไม่สำเร็จ กรุณาลองใหม่" };
+  }
+  const validated = validateOfficeExpense(input);
+  if (!validated.ok) return validated;
+
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const v = validated.value;
+  const { error } = await auth.supabase.rpc("update_office_expense", {
+    p_expense_id: input.expenseId,
+    p_category_id: v.categoryId,
+    p_description: v.description,
+    p_amount: v.amount,
+    p_expense_date: v.expenseDate,
+    p_payment_source: v.paymentSource,
+    ...(v.projectId ? { p_project_id: v.projectId } : {}),
+    ...(v.companyCardId ? { p_company_card_id: v.companyCardId } : {}),
+  });
+  if (error) {
+    if (error.message?.includes("already reimbursed")) {
+      return { ok: false, error: EXPENSE_LOCKED_REIMBURSED };
+    }
+    if (error.code === "42501") {
+      return { ok: false, error: "ไม่มีสิทธิ์แก้ไขรายการนี้" };
+    }
+    return { ok: false, error: "แก้ไขค่าใช้จ่ายไม่สำเร็จ กรุณาลองใหม่" };
+  }
+  revalidatePath("/expenses");
+  return { ok: true };
+}
+
+export async function deleteOfficeExpense(id: string): Promise<ReceiptResult> {
+  if (!UUID_REGEX.test(id)) return { ok: false, error: "ลบรายการไม่สำเร็จ" };
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+  const { error } = await auth.supabase.rpc("delete_office_expense", { p_expense_id: id });
+  if (error) {
+    if (error.message?.includes("already reimbursed")) {
+      return { ok: false, error: EXPENSE_LOCKED_REIMBURSED };
+    }
+    if (error.code === "42501") {
+      return { ok: false, error: "ไม่มีสิทธิ์ลบรายการนี้" };
+    }
+    return { ok: false, error: "ลบรายการไม่สำเร็จ กรุณาลองใหม่" };
+  }
   revalidatePath("/expenses");
   return { ok: true };
 }

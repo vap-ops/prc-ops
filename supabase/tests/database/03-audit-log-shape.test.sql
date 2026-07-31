@@ -45,7 +45,9 @@ select enum_has_labels(
         -- Spec 324: correct an over-accepted store receipt.
         'stock_receipt_correction',
         -- Spec 381: per-item equipment edit history.
-        'equipment_item_updated'],
+        'equipment_item_updated',
+        -- Feedback 41cd07d9: edit/delete an office expense (mig 075888).
+        'office_expense_update', 'office_expense_delete'],
   'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
 );
 

@@ -6,6 +6,12 @@
 
 import Link from "next/link";
 import type { AllExpenseRow, OfficeExpenseRow } from "@/lib/expenses/load-office-expenses";
+import {
+  ExpenseRowActions,
+  type ExpenseEditCard,
+  type ExpenseEditOption,
+  type ExpenseEditProject,
+} from "@/components/features/expenses/expense-row-actions";
 import { bahtWithSymbol } from "@/lib/format";
 import { docsBadgeLabel, reviewStatusLabel } from "@/lib/accounting/review-queue-view";
 import {
@@ -19,7 +25,21 @@ import {
 
 const CHIP = "rounded-control border px-2 py-0.5 text-xs font-medium";
 
-export function ExpenseList({ expenses }: { expenses: OfficeExpenseRow[] }) {
+// editContext (feedback 41cd07d9): when provided, each un-reimbursed row gains
+// the แก้ไข/ลบ affordance. Absent = read-only list, exactly as before.
+export interface ExpenseEditContext {
+  categories: ExpenseEditOption[];
+  projects: ExpenseEditProject[];
+  cards: ExpenseEditCard[];
+}
+
+export function ExpenseList({
+  expenses,
+  editContext,
+}: {
+  expenses: OfficeExpenseRow[];
+  editContext?: ExpenseEditContext;
+}) {
   if (expenses.length === 0) {
     return <p className="text-ink-secondary text-sm">{EXPENSE_LIST_EMPTY}</p>;
   }
@@ -29,7 +49,17 @@ export function ExpenseList({ expenses }: { expenses: OfficeExpenseRow[] }) {
         <li key={e.id} className="border-edge bg-card flex flex-col gap-1 rounded-xl border p-3">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-ink text-sm font-medium">{e.categoryLabel ?? "—"}</span>
-            <span className="text-ink text-sm font-semibold">{bahtWithSymbol(e.amount)}</span>
+            <span className="flex shrink-0 items-baseline gap-2">
+              {editContext && (
+                <ExpenseRowActions
+                  row={e}
+                  categories={editContext.categories}
+                  projects={editContext.projects}
+                  cards={editContext.cards}
+                />
+              )}
+              <span className="text-ink text-sm font-semibold">{bahtWithSymbol(e.amount)}</span>
+            </span>
           </div>
           <div className="text-ink-secondary flex flex-wrap items-center gap-x-2 text-xs">
             <span>{e.expenseDate}</span>
