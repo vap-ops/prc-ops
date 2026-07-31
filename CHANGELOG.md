@@ -1,3 +1,9 @@
+## [0.303.1](https://github.com/vap-ops/prc-ops/compare/v0.303.0...v0.303.1) (2026-07-31)
+
+### Bug Fixes
+
+- **sa:** camera FAB can now reach bounced/rework WPs (spec 384 U2) ([ecee49c](https://github.com/vap-ops/prc-ops/commit/ecee49cb206288205fe977835526b0c158d11b37))
+
 # [0.303.0](https://github.com/vap-ops/prc-ops/compare/v0.302.0...v0.303.0) (2026-07-31)
 
 ### Features
