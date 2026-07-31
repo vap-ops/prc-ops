@@ -341,6 +341,12 @@ export async function createEquipmentCatalogItem(input: {
   return { ok: true };
 }
 
+// Spec 385 U4 — the reconciliation policy (spec §4 U4): instances MIRROR the
+// SKU. On recategorise, every instance's category_id follows (the chips on
+// /equipment group by it — an unsynced mirror strands units in the old group).
+// On rename, only names still carrying the DERIVED shape cascade — `<old> No.n`
+// for unit rows, the exact old name for bulk — so a hand-edited name is never
+// clobbered; the physical stencil may lag, but QR resolution is by id.
 export async function updateEquipmentCatalogItem(input: {
   id: string;
   name: string;
@@ -360,6 +366,15 @@ export async function updateEquipmentCatalogItem(input: {
   if (brand.length > 80 || model.length > 80) return { ok: false, error: GENERIC_ERROR };
 
   const supabase = await createServerSupabase();
+
+  // The OLD name drives the cascade's pattern match — read before writing.
+  const { data: before } = await supabase
+    .from("equipment_catalog_items")
+    .select("name")
+    .eq("id", input.id)
+    .single();
+  const oldName = before?.name ?? null;
+
   const { error } = await supabase
     .from("equipment_catalog_items")
     .update({
@@ -374,8 +389,42 @@ export async function updateEquipmentCatalogItem(input: {
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  let syncFailed = false;
+
+  // Category mirror — unconditional (a no-op when unchanged).
+  const { error: catSyncError } = await supabase
+    .from("equipment_items")
+    .update({ category_id: input.categoryId })
+    .eq("equipment_catalog_item_id", input.id);
+  if (catSyncError) syncFailed = true;
+
+  // Name cascade — pattern-matched per row.
+  if (oldName !== null && oldName !== name) {
+    const { data: units, error: readError } = await supabase
+      .from("equipment_items")
+      .select("id, name")
+      .eq("equipment_catalog_item_id", input.id);
+    if (readError) syncFailed = true;
+    const derived = new RegExp(`^${oldName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( No\\.\\d+)?$`);
+    for (const unit of units ?? []) {
+      const match = unit.name.match(derived);
+      if (!match) continue; // hand-edited — never clobber
+      const { error: renameError } = await supabase
+        .from("equipment_items")
+        .update({ name: `${name}${match[1] ?? ""}` })
+        .eq("id", unit.id);
+      if (renameError) syncFailed = true;
+    }
+  }
+
   revalidatePath("/equipment/catalog");
   revalidatePath("/equipment");
+  if (syncFailed) {
+    return {
+      ok: false,
+      error: "บันทึกทะเบียนแล้ว แต่ปรับรายการเครื่องตามไม่ครบ — รีเฟรชแล้วตรวจสอบหน้าอุปกรณ์",
+    };
+  }
   return { ok: true };
 }
 

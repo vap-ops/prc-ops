@@ -35,7 +35,11 @@ const HEADER =
 
 const cellsOf = (over: Record<string, string> = {}): string[] => {
   const cells: Record<string, string> = {
-    id: "",
+    // Spec 385 U4: the default fixture row is an UPDATE — the blank-id insert
+    // arm is retired (instances are born from the ทะเบียน), so a blank default
+    // would make every unrelated case red on the refusal instead of its own
+    // concern. The refusal itself is pinned in its dedicated case.
+    id: EXISTING_ID,
     name: "เครื่องตบดิน",
     category: "เครื่องจักรก่อสร้าง",
     brand: "MARTON",
@@ -138,12 +142,15 @@ describe("equipment import — the round trip with the exporter", () => {
 });
 
 describe("equipment import — insert vs update", () => {
-  it("treats a BLANK id as an insert", () => {
+  // Spec 385 U4: the INSERT arm is retired — instances are born from the
+  // ทะเบียน (U2), and the NOT NULL SKU FK (mig 075891) would refuse a file-born
+  // row anyway. The file is the bulk EDITOR for rows that exist.
+  it("REFUSES a blank id — new machines are added through the ทะเบียน, not a file", () => {
     const r = parseEquipmentImport(csv(line({ id: "" })), ctx());
-    expect(r.errors).toEqual([]);
-    expect(r.rows[0]?.kind).toBe("insert");
-    expect(r.inserts).toBe(1);
-    expect(r.updates).toBe(0);
+    expect(r.errors).toHaveLength(1);
+    expect(r.errors[0]).toContain("ทะเบียน");
+    expect(r.rows).toEqual([]);
+    expect(r.inserts).toBe(0);
   });
 
   it("treats a KNOWN id as an update", () => {

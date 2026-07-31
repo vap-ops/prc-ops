@@ -22,10 +22,13 @@ insert into public.equipment_owners (id, name, created_by) values
   ('b0000001-0000-4000-8000-000000000143', 'Sister Co', '11111111-1111-1111-1111-111111110143');
 insert into public.equipment_categories (id, name, created_by) values
   ('c0000001-0000-4000-8000-000000000143', 'Generators', '11111111-1111-1111-1111-111111110143');
-insert into public.equipment_items (id, category_id, owner_id, name, tracking, created_by) values
+-- Spec 385 U4: every instance carries its SKU (NOT NULL) - fixture SKU.
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('ca7a0143-0143-4143-8143-ca7aca7a0143', 'fixture-sku-0143', 'c0000001-0000-4000-8000-000000000143', '11111111-1111-1111-1111-111111110143');
+insert into public.equipment_items (id, category_id, owner_id, name, tracking, created_by, equipment_catalog_item_id) values
   ('d0000001-0000-4000-8000-000000000143',
    'c0000001-0000-4000-8000-000000000143', 'b0000001-0000-4000-8000-000000000143',
-   'Generator 5kVA #1', 'unit', '11111111-1111-1111-1111-111111110143');
+   'Generator 5kVA #1', 'unit', '11111111-1111-1111-1111-111111110143', 'ca7a0143-0143-4143-8143-ca7aca7a0143');
 
 -- ============================================================================
 -- A. Catalog.

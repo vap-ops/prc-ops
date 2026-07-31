@@ -30,11 +30,13 @@ insert into public.equipment_categories (id, name, created_by) values
   ('00000000-0000-0000-0000-00000000f202','ทดสอบชุดรูป','00000000-0000-0000-0000-00000000f201');
 insert into public.equipment_owners (id, name, created_by) values
   ('00000000-0000-0000-0000-00000000f203','ทดสอบเจ้าของชุดรูป','00000000-0000-0000-0000-00000000f201');
-insert into public.equipment_items
-  (id, name, category_id, owner_id, tracking, status, created_by) values
+-- Spec 385 U4: every instance carries its SKU (NOT NULL) - fixture SKU.
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('00000000-0000-0000-0000-00000000f2f0', 'fixture-sku-f2f0', '00000000-0000-0000-0000-00000000f202', '00000000-0000-0000-0000-00000000f201');
+insert into public.equipment_items (id, name, category_id, owner_id, tracking, status, created_by, equipment_catalog_item_id) values
   ('00000000-0000-0000-0000-00000000f204','เครื่องทดสอบชุดรูป',
    '00000000-0000-0000-0000-00000000f202','00000000-0000-0000-0000-00000000f203',
-   'unit','available','00000000-0000-0000-0000-00000000f201');
+   'unit','available','00000000-0000-0000-0000-00000000f201', '00000000-0000-0000-0000-00000000f2f0');
 
 -- ============================================================================
 -- A. Shape.

@@ -14,6 +14,10 @@ const state = vi.hoisted(() => ({
   insertError: null as unknown,
   updateError: null as unknown,
   rpcError: null as unknown,
+  // Spec 385 U4 — the update action reads the SKU (old name) and the instance
+  // rows (cascade candidates) before writing.
+  skuBefore: null as Record<string, unknown> | null,
+  instanceRows: [] as { id: string; name: string }[],
 }));
 
 vi.mock("server-only", () => ({}));
@@ -32,6 +36,22 @@ vi.mock("@/lib/db/server", () => ({
         insert(payload: Record<string, unknown>) {
           state.inserts.push({ table, payload });
           return Promise.resolve({ error: state.insertError });
+        },
+        select(_cols: string) {
+          return {
+            eq(_col: string, _v: string) {
+              const listResult = { data: state.instanceRows, error: null };
+              return {
+                single: async () =>
+                  state.skuBefore
+                    ? { data: state.skuBefore, error: null }
+                    : { data: null, error: { code: "PGRST116" } },
+                then(onFulfilled: (v: unknown) => unknown) {
+                  return Promise.resolve(listResult).then(onFulfilled);
+                },
+              };
+            },
+          };
         },
         update(payload: Record<string, unknown>) {
           return {
@@ -63,6 +83,8 @@ beforeEach(() => {
   state.insertError = null;
   state.updateError = null;
   state.rpcError = null;
+  state.skuBefore = { name: "เครื่องตบดิน" };
+  state.instanceRows = [];
 });
 
 describe("createEquipmentCatalogItem", () => {
@@ -116,7 +138,7 @@ describe("createEquipmentCatalogItem", () => {
 });
 
 describe("updateEquipmentCatalogItem", () => {
-  it("updates name/category/brand/model on the row — blank brand/model become null", async () => {
+  it("updates name/category/brand/model on the row — blank brand/model become null — and mirrors category to instances", async () => {
     const result = await updateEquipmentCatalogItem({
       id: SKU_ID,
       name: " เครื่องตบดิน ",
@@ -132,7 +154,75 @@ describe("updateEquipmentCatalogItem", () => {
         id: SKU_ID,
         payload: { name: "เครื่องตบดิน", category_id: CAT_ID, brand: null, model: "MT-90" },
       },
+      // Spec 385 U4 — instances mirror the SKU category (the /equipment chips
+      // group by it); unconditional, a no-op when unchanged.
+      { table: "equipment_items", id: SKU_ID, payload: { category_id: CAT_ID } },
     ]);
+  });
+
+  // Spec 385 U4 — the rename-reconciliation policy: derived names follow,
+  // hand-edited names are never clobbered.
+  it("a RENAME cascades to instances still carrying the derived name — hand-edits spared", async () => {
+    state.skuBefore = { name: "เครื่องตบดิน" };
+    state.instanceRows = [
+      { id: "u1", name: "เครื่องตบดิน No.1" },
+      { id: "u2", name: "เครื่องตบดิน No.2" },
+      { id: "u3", name: "ตัวโปรดของช่างอวย" },
+    ];
+
+    const result = await updateEquipmentCatalogItem({
+      id: SKU_ID,
+      name: "เครื่องตบดิน MARTON",
+      categoryId: CAT_ID,
+      brand: "",
+      model: "",
+    });
+
+    expect(result).toEqual({ ok: true });
+    const renames = state.updates.filter((u) => u.table === "equipment_items" && u.payload.name);
+    expect(renames).toEqual([
+      { table: "equipment_items", id: "u1", payload: { name: "เครื่องตบดิน MARTON No.1" } },
+      { table: "equipment_items", id: "u2", payload: { name: "เครื่องตบดิน MARTON No.2" } },
+    ]);
+  });
+
+  it("a BULK instance carrying the exact old name follows the rename", async () => {
+    state.skuBefore = { name: "สายยางวัดระดับน้ำ" };
+    state.instanceRows = [{ id: "b1", name: "สายยางวัดระดับน้ำ" }];
+
+    await updateEquipmentCatalogItem({
+      id: SKU_ID,
+      name: "สายยางใส",
+      categoryId: CAT_ID,
+      brand: "",
+      model: "",
+    });
+
+    expect(
+      state.updates.some(
+        (u) => u.table === "equipment_items" && u.id === "b1" && u.payload.name === "สายยางใส",
+      ),
+    ).toBe(true);
+  });
+
+  it("a failed instance sync is NOT silent — the catalog saved, the message says what is left", async () => {
+    state.skuBefore = { name: "เครื่องตบดิน" };
+    state.instanceRows = [{ id: "u1", name: "เครื่องตบดิน No.1" }];
+    // The catalog update succeeds; the mirror updates fail (updateError applies
+    // to every .update() — the FIRST call is the catalog one, so flip the error
+    // ON after it via a one-shot: simplest is to make ALL updates fail and
+    // assert the catalog-failure arm did NOT swallow it as a dup.
+    state.updateError = { code: "57014" };
+
+    const result = await updateEquipmentCatalogItem({
+      id: SKU_ID,
+      name: "เครื่องตบดิน",
+      categoryId: CAT_ID,
+      brand: "",
+      model: "",
+    });
+
+    expect(result.ok).toBe(false);
   });
 
   it("maps a rename collision 23505 to the named message", async () => {

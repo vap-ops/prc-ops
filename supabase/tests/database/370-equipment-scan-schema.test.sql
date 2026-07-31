@@ -49,16 +49,19 @@ insert into public.equipment_categories (id, name, created_by) values
 
 -- U unpriced (the point of the unit), P priced 800 (positive control),
 -- T priced 300 (the site_admin behavioural case).
-insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by) values
+-- Spec 385 U4: every instance carries its SKU (NOT NULL) - fixture SKU.
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('ca7a0370-0370-0370-0370-ca7aca7a0370', 'fixture-sku-0370', 'cae00370-0370-0370-0370-cae0cae00370', '11111111-1111-1111-1111-111111110370');
+insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by, equipment_catalog_item_id) values
   ('17e00370-0370-0370-0370-17e017e00370', 'cae00370-0370-0370-0370-cae0cae00370',
    '0a0a0370-0370-0370-0370-0a0a0a0a0370', 'สว่านไร้ราคา U', null,
-   '11111111-1111-1111-1111-111111110370'),
+   '11111111-1111-1111-1111-111111110370', 'ca7a0370-0370-0370-0370-ca7aca7a0370'),
   ('17e10370-0370-0370-0370-17e117e10370', 'cae00370-0370-0370-0370-cae0cae00370',
    '0a0a0370-0370-0370-0370-0a0a0a0a0370', 'เครื่องตัดมีราคา P', 800,
-   '11111111-1111-1111-1111-111111110370'),
+   '11111111-1111-1111-1111-111111110370', 'ca7a0370-0370-0370-0370-ca7aca7a0370'),
   ('17e20370-0370-0370-0370-17e217e20370', 'cae00370-0370-0370-0370-cae0cae00370',
    '0a0a0370-0370-0370-0370-0a0a0a0a0370', 'ปั๊มมีราคา T', 300,
-   '11111111-1111-1111-1111-111111110370');
+   '11111111-1111-1111-1111-111111110370', 'ca7a0370-0370-0370-0370-ca7aca7a0370');
 
 insert into public.workers (id, name, created_by) values
   ('a0a00370-0370-0370-0370-a0a0a0a00370', 'ช่างยืมของ',
@@ -71,10 +74,10 @@ insert into public.projects (id, code, name) values
 insert into public.work_packages (id, project_id, code, name, status) values
   ('ec0c0370-0370-0370-0370-ec0cec0c0370', 'cb0b0370-0370-0370-0370-cb0bcb0b0370',
    'WP-Z', 'งานต่างโครงการ', 'in_progress');
-insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by) values
+insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by, equipment_catalog_item_id) values
   ('17e30370-0370-0370-0370-17e317e30370', 'cae00370-0370-0370-0370-cae0cae00370',
    '0a0a0370-0370-0370-0370-0a0a0a0a0370', 'เลื่อยต่างโครงการ Z', null,
-   '11111111-1111-1111-1111-111111110370');
+   '11111111-1111-1111-1111-111111110370', 'ca7a0370-0370-0370-0370-ca7aca7a0370');
 
 grant insert on _tap_buf to authenticated;
 grant select on _tap_buf to authenticated;

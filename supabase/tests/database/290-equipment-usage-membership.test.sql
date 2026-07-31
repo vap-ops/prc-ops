@@ -57,19 +57,22 @@ insert into public.equipment_categories (id, name, created_by) values
 -- Priced items (default status 'available' passes the F2 physical guard). itemR is
 -- shared by the reject arms (post-fix the gate throws before the insert, so it is
 -- never consumed); itemM/itemP/itemD are each consumed by one lives_ok checkout.
-insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by) values
+-- Spec 385 U4: every instance carries its SKU (NOT NULL) - fixture SKU.
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('ca7a0290-0290-0290-0290-ca7aca7a0290', 'fixture-sku-0290', 'caca0290-0290-0290-0290-cacacaca0290', '11111111-1111-1111-1111-111111110290');
+insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by, equipment_catalog_item_id) values
   ('e1e10290-0290-0290-0290-e1e1e1e10290', 'caca0290-0290-0290-0290-cacacaca0290',
-   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemR REJECT', 500, '11111111-1111-1111-1111-111111110290'),
+   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemR REJECT', 500, '11111111-1111-1111-1111-111111110290', 'ca7a0290-0290-0290-0290-ca7aca7a0290'),
   ('e2e20290-0290-0290-0290-e2e2e2e20290', 'caca0290-0290-0290-0290-cacacaca0290',
-   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemM MEMBER', 500, '11111111-1111-1111-1111-111111110290'),
+   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemM MEMBER', 500, '11111111-1111-1111-1111-111111110290', 'ca7a0290-0290-0290-0290-ca7aca7a0290'),
   ('e3e30290-0290-0290-0290-e3e3e3e30290', 'caca0290-0290-0290-0290-cacacaca0290',
-   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemP PROC',   500, '11111111-1111-1111-1111-111111110290'),
+   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemP PROC',   500, '11111111-1111-1111-1111-111111110290', 'ca7a0290-0290-0290-0290-ca7aca7a0290'),
   ('e4e40290-0290-0290-0290-e4e4e4e40290', 'caca0290-0290-0290-0290-cacacaca0290',
-   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemD DIR',    500, '11111111-1111-1111-1111-111111110290'),
+   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemD DIR',    500, '11111111-1111-1111-1111-111111110290', 'ca7a0290-0290-0290-0290-ca7aca7a0290'),
   ('e5e50290-0290-0290-0290-e5e5e5e50290', 'caca0290-0290-0290-0290-cacacaca0290',
-   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemU CHECKIN-M', 500, '11111111-1111-1111-1111-111111110290'),
+   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemU CHECKIN-M', 500, '11111111-1111-1111-1111-111111110290', 'ca7a0290-0290-0290-0290-ca7aca7a0290'),
   ('e6e60290-0290-0290-0290-e6e6e6e60290', 'caca0290-0290-0290-0290-cacacaca0290',
-   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemU2 CHECKIN-P', 500, '11111111-1111-1111-1111-111111110290');
+   '0a0a0290-0290-0290-0290-0a0a0a0a0290', 'itemU2 CHECKIN-P', 500, '11111111-1111-1111-1111-111111110290', 'ca7a0290-0290-0290-0290-ca7aca7a0290');
 
 -- Seed two OPEN usage spans on WP-1 (privileged, pre-set-role) for the check_in arms.
 insert into public.equipment_usage_logs

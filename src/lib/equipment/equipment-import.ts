@@ -187,16 +187,22 @@ export function parseEquipmentImport(
     const before = errors.length;
 
     const id = cell(COL.id);
+    // Spec 385 U4 — the INSERT arm is retired: an instance is born by picking
+    // from the ทะเบียน (U2), never from a spreadsheet row, and the NOT NULL FK
+    // (mig 075891) would refuse a file-born row anyway. This file remains the
+    // bulk EDITOR for rows that exist (the export → edit → import round trip).
     let kind: "insert" | "update" = "insert";
-    if (id !== "") {
-      if (!ctx.existingIds.has(id)) {
-        bad(`ไม่พบรหัสอ้างอิง ${id} — หากต้องการเพิ่มรายการใหม่ ให้เว้นช่องนี้ว่าง`);
-      } else if (seenIds.has(id)) {
-        bad(`รหัสอ้างอิง ${id} ซ้ำในไฟล์เดียวกัน`);
-      } else {
-        seenIds.add(id);
-        kind = "update";
-      }
+    if (id === "") {
+      bad(
+        "ไม่มีรหัสอ้างอิง — ไฟล์นี้ใช้แก้ไขรายการเดิมเท่านั้น เพิ่มเครื่องใหม่ผ่านทะเบียนบนหน้าอุปกรณ์",
+      );
+    } else if (!ctx.existingIds.has(id)) {
+      bad(`ไม่พบรหัสอ้างอิง ${id} — แก้ไขได้เฉพาะรายการที่มีอยู่แล้ว`);
+    } else if (seenIds.has(id)) {
+      bad(`รหัสอ้างอิง ${id} ซ้ำในไฟล์เดียวกัน`);
+    } else {
+      seenIds.add(id);
+      kind = "update";
     }
 
     const categoryName = cell(COL.category);

@@ -34,11 +34,13 @@ insert into public.equipment_categories (id, name, created_by) values
   ('00000000-0000-0000-0000-00000000e103','ทดสอบประวัติ','00000000-0000-0000-0000-00000000e101');
 insert into public.equipment_owners (id, name, created_by) values
   ('00000000-0000-0000-0000-00000000e104','ทดสอบเจ้าของประวัติ','00000000-0000-0000-0000-00000000e101');
-insert into public.equipment_items
-  (id, name, category_id, owner_id, tracking, status, created_by) values
+-- Spec 385 U4: every instance carries its SKU (NOT NULL) - fixture SKU.
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('00000000-0000-0000-0000-00000000e1f0', 'fixture-sku-e1f0', '00000000-0000-0000-0000-00000000e103', '00000000-0000-0000-0000-00000000e101');
+insert into public.equipment_items (id, name, category_id, owner_id, tracking, status, created_by, equipment_catalog_item_id) values
   ('00000000-0000-0000-0000-00000000e105','สว่านทดสอบ',
    '00000000-0000-0000-0000-00000000e103','00000000-0000-0000-0000-00000000e104',
-   'unit','available','00000000-0000-0000-0000-00000000e101');
+   'unit','available','00000000-0000-0000-0000-00000000e101', '00000000-0000-0000-0000-00000000e1f0');
 
 -- ============================================================================
 -- A. The writer exists and can actually write.
