@@ -48,6 +48,10 @@ describe("equipment CATALOG page — read shape (spec 385 U3a/U3b)", () => {
   });
 
   it("reads the money column ONLY through the admin seam (spec 385 U3b)", () => {
+    // The requireRole gate IS this page's money wall — the admin read is legal
+    // only while the WHOLE audience is back office. Widening the gate one role
+    // must fail here first (review find, 2026-07-31).
+    expect(catalogSrc).toContain("requireRole(BACK_OFFICE_ROLES)");
     // The RLS projection above must never gain the walled column; the one
     // sanctioned read is the admin client's rate map.
     expect(catalogSrc).toContain("createAdminSupabase");

@@ -176,7 +176,8 @@ describe("EquipmentCatalogManager", () => {
   it("renders the default-rate control from the map — value or the set door", () => {
     renderCatalog({ defaultRates: { s1: 300, s2: null } });
     expect(screen.getByText(/฿300/)).toBeInTheDocument();
-    // s2 has no default yet → the set door, not a number.
-    expect(screen.getAllByText("ตั้งค่าเช่า/วัน").length).toBeGreaterThan(0);
+    // Exactly two set doors: s2 (null in the map) and s3 (absent → ?? null).
+    // A looser >0 could not tell "read the map" from "ignored it".
+    expect(screen.getAllByText("ตั้งค่าเช่า/วัน")).toHaveLength(2);
   });
 });

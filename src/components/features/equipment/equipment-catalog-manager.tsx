@@ -7,9 +7,11 @@
 // brand/model, deactivate/reactivate, register a new SKU — and the category
 // quick-add lives here now, because a category is a property of the TYPE.
 //
-// NO MONEY on this surface: default_daily_rate has no authenticated grant in
-// any direction, and the rate editor is U3b's DEFINER RPC. Rendering a rate
-// column here would silently read nothing (the worker_level_rates class).
+// MONEY (U3b): the per-SKU default-rate control renders ONLY when the page
+// passes the admin-read `defaultRates` map — no map, zero money in the tree.
+// default_daily_rate has no authenticated grant in any direction, so an RLS
+// read here would silently see nothing (the worker_level_rates class); every
+// write goes through the DEFINER set_equipment_catalog_default_rate RPC.
 //
 // 'use client' justification: sheet open/edit state, the busy/error state of
 // the three curation actions.

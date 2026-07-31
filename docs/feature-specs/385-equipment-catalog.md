@@ -132,8 +132,20 @@ at purchase time, never through a merged category list.
   **เครื่องมือ · อุปกรณ์** (the rental deal recorder is money, not master data;
   the เช่า entry returns when 361 U1 lands). Hub + /settings both carry the
   three-door split; NO money renders on the catalog surface.
-- **U3b — the rate editor** (schema): `set_equipment_catalog_default_rate`
-  DEFINER RPC twin + its surface on the catalog page.
+- **U3b ✅ (2026-07-31) — the rate editor.** Mig `20260813075890`:
+  `set_equipment_catalog_default_rate(uuid, numeric)` DEFINER — gate DELEGATES
+  to `is_back_office()` (the twin item-RPC predates that lesson and restates
+  the array), ≥0 validation, `equipment_rate_change` audit row with
+  `target_table='equipment_catalog_items'` + payload kind
+  `default_rate_change` (the 381 item-history reader filters by target_table,
+  verified live, so catalog events never appear in a unit's history). Function
+  EXECUTE revoked from public/anon, granted to authenticated. Surface:
+  `SetCatalogDefaultRate` on each SKU row; the page admin-reads the rate map
+  for its whole audience (the catalog page is BACK_OFFICE_ROLES-only, unlike
+  /equipment where site_admin shares). Setting a default affects FUTURE picks
+  only. pgTAP `385b-equipment-catalog-rate.test.sql` (9 asserts incl. both
+  role arms + the audit-trail equality); the U3a source pin now allows exactly
+  the admin seam's two mentions of the walled column.
 - **U4 — tighten**: backfill any straggler instances, `equipment_catalog_item_id`
   → NOT NULL, decide `equipment_items.category_id` retirement, the bulk
   partial-unique index (from U2's review), the importer ruling, and **the

@@ -12,7 +12,7 @@
 --     leak into a unit's history (verified live before this file was written).
 
 begin;
-select plan(9);
+select plan(11);
 
 -- principals
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -83,6 +83,17 @@ select throws_ok($$
   select public.set_equipment_catalog_default_rate('00000000-0000-0000-0000-00000000e304', 100)
 $$, '42501', null, 'site_admin may NOT set a default rate (money stays back-office)');
 
+-- The rls-self-check-coalesce arm: a caller whose sub resolves NO public.users
+-- row makes current_user_role() NULL — is_back_office must coalesce that to
+-- REFUSED, not let a NULL comparison open the money gate. This is the migration
+-- header's hygiene claim, asserted rather than trusted (the helper is shared
+-- and has been re-created twice since it was made NULL-safe).
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-00000000e999"}';
+
+select throws_ok($$
+  select public.set_equipment_catalog_default_rate('00000000-0000-0000-0000-00000000e304', 100)
+$$, '42501', null, 'a roleless caller (no users row → NULL role) is refused, never NULL-slipped');
+
 -- ============================================================================
 -- C. The write landed and left its trail — read from the privileged side
 -- (default_daily_rate is money-walled from authenticated).
@@ -99,6 +110,19 @@ select is(
                   and action = 'equipment_rate_change'))),
   '{"rate": 250, "audit": 1}'::jsonb,
   'the rate landed at 250 with exactly one equipment_rate_change audit row on the CATALOG table'
+);
+
+-- The payload SHAPE is the grain discriminator (kind) plus the numbers a future
+-- reader will parse — a count-only assert would stay green while all of it
+-- drifted (review find, 2026-07-31).
+select is(
+  (select a.payload - 'ts' from public.audit_log a
+    where a.target_table = 'equipment_catalog_items'
+      and a.target_id = '00000000-0000-0000-0000-00000000e304'
+      and a.action = 'equipment_rate_change'
+    order by a.created_at desc limit 1),
+  '{"kind": "default_rate_change", "old_rate": null, "new_rate": 250}'::jsonb,
+  'the audit payload carries kind/old/new exactly (old was NULL — the fixture SKU was unpriced)'
 );
 
 select * from finish();
