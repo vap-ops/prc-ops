@@ -6,11 +6,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   buildSaActionList,
+  buildCaptureWps,
   bounceAnswered,
   isBounceableStatus,
   type SaActionItem,
 } from "@/lib/sa/action-list";
-import type { MyWorkWp } from "@/lib/sa/my-work";
+import type { MyWorkWp, MyWorkItem } from "@/lib/sa/my-work";
 
 const projectsById = new Map([
   ["pr1", { code: "PRC-A", name: "อาคาร A" }],
@@ -195,6 +196,106 @@ describe("buildSaActionList", () => {
   });
 });
 
+// Spec 384 U2 — `captureWps = rest` made the camera FAB's picker the exact
+// COMPLEMENT of `actions`: every rework/bounced WP `buildSaActionList` puts in
+// `actions` (the ones the ต้องแก้ไข section is asking for a photo on) is by
+// construction absent from `rest`, so the SA's most-used control could never
+// resolve to precisely the WPs she opened it for.
+function actionItem(id: string, overrides: Partial<SaActionItem> = {}): SaActionItem {
+  return {
+    id,
+    code: id.toUpperCase(),
+    name: `งาน ${id}`,
+    projectId: "pr1",
+    projectCode: "PRC-A",
+    projectName: "อาคาร A",
+    kind: "revision",
+    reason: null,
+    source: null,
+    round: null,
+    revisionReason: null,
+    sinceIso: null,
+    ...overrides,
+  };
+}
+
+function restItem(id: string, overrides: Partial<MyWorkItem> = {}): MyWorkItem {
+  return {
+    id,
+    code: id.toUpperCase(),
+    name: `งาน ${id}`,
+    status: "in_progress",
+    projectId: "pr1",
+    projectName: "อาคาร A",
+    projectCode: "PRC-A",
+    categoryCode: null,
+    lastPhotoAt: null,
+    isCold: false,
+    ...overrides,
+  };
+}
+
+describe("buildCaptureWps — the camera FAB's domain (spec 384 U2)", () => {
+  it("includes action WPs (rework/bounced) — the whole point of the fix", () => {
+    const wps = buildCaptureWps([actionItem("d"), actionItem("b", { kind: "rework" })], []);
+    expect(wps.map((w) => w.id).sort()).toEqual(["b", "d"]);
+  });
+
+  it("still includes the ordinary rest WPs", () => {
+    const wps = buildCaptureWps([], [restItem("a"), restItem("c")]);
+    expect(wps.map((w) => w.id).sort()).toEqual(["a", "c"]);
+  });
+
+  it("unions both sets", () => {
+    const wps = buildCaptureWps([actionItem("d")], [restItem("a")]);
+    expect(wps.map((w) => w.id).sort()).toEqual(["a", "d"]);
+  });
+
+  // Spec 384 §5 build-trap 8: widening CameraFab's domain moves both of its
+  // boundaries. This is the newly-REACHABLE one — a SA with exactly one
+  // bounced/rework WP and nothing else in play used to get NO fab at all
+  // (`rest` was empty); she now gets the single-WP direct-link form. Before
+  // this fix that state was unreachable, so nothing pinned it.
+  it("reaches length 1 from an action WP alone — the FAB's single-link boundary", () => {
+    expect(buildCaptureWps([actionItem("a")], [])).toHaveLength(1);
+  });
+
+  // A `premature` bounce sits at `in_progress` (spec 372 U3), which is BOTH an
+  // action (unanswered bounce) and, today, a `rest` row — the one case where
+  // the two input sets already overlap. The picker must not offer it twice.
+  it("de-dupes a WP that appears in both sets", () => {
+    const wps = buildCaptureWps([actionItem("a")], [restItem("a")]);
+    expect(wps.map((w) => w.id)).toEqual(["a"]);
+  });
+
+  it("carries only the fields the FAB needs, from the action row on a dupe", () => {
+    const wps = buildCaptureWps(
+      [actionItem("a", { code: "A-1", name: "งานเอ", projectId: "pr9" })],
+      [restItem("a", { code: "STALE", name: "ชื่อเก่า", projectId: "pr1" })],
+    );
+    expect(wps).toEqual([{ id: "a", projectId: "pr9", code: "A-1", name: "งานเอ" }]);
+  });
+
+  it("returns nothing when both sets are empty", () => {
+    expect(buildCaptureWps([], [])).toEqual([]);
+  });
+
+  // Spec 384 §3 U2: "actions ∪ rest, bounced rows first" — the ต้องแก้ไข rows
+  // (already severity-ordered by buildSaActionList: rejected → rework →
+  // revision) come before the ordinary worklist, not re-sorted or interleaved.
+  it("orders every action row ahead of every rest row, in the actions' own order", () => {
+    const wps = buildCaptureWps(
+      [
+        actionItem("rejected-1", { kind: "rejected" }),
+        actionItem("rework-1", { kind: "rework" }),
+        actionItem("revision-1", { kind: "revision" }),
+      ],
+      [restItem("z"), restItem("a")],
+    );
+    expect(wps.map((w) => w.id)).toEqual(["rejected-1", "rework-1", "revision-1", "z", "a"]);
+  });
+});
+
 // Spec 372 U3 — `premature` ("งานยังไม่เสร็จ") now sends the WP back to `in_progress`
 // instead of parking un-actionable work in the review queue. That moves it OUT of the
 // pending_approval population the SA's ต้องแก้ไข lane was built from, so without this
@@ -340,5 +441,31 @@ describe("WP detail decides answered by the same rule (spec 372 U3)", () => {
     expect(args).toContain("status: wp.status");
     expect(args).toContain("decision: attention.decision");
     expect(args).toContain("hasResubmitAudit:");
+  });
+});
+
+// /sa is a Server Component vitest cannot render, so — same idiom as the two
+// wiring-pin blocks above — the RULE is unit-tested above and the page's use
+// of it is pinned here by source scan.
+describe("/sa wires the FAB from buildCaptureWps, not from rest alone (spec 384 U2)", () => {
+  const src = readFileSync(resolve(process.cwd(), "src/app/sa/page.tsx"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  const occurrences = (needle: string) => src.split(needle).length - 1;
+
+  it("routes captureWps through the shared union helper, called with actions", () => {
+    // import + one call — a bare toContain("buildCaptureWps") is satisfied by
+    // the IMPORT LINE ALONE (comments are stripped, the import is not), so
+    // `buildCaptureWps([], items)` — the §1.4 bug verbatim — would pass a
+    // presence-only check while lint/typecheck/the suite all stay green.
+    expect(occurrences("buildCaptureWps")).toBe(2);
+    expect(src).toMatch(/captureWps\s*=\s*buildCaptureWps\(\s*actions\s*,/);
+  });
+
+  // OLD-SHAPE GUARD: this is the exact bug — captureWps derived by mapping
+  // `items` (== rest) alone, which is `actions`' complement by construction.
+  it("OLD-SHAPE GUARD: captureWps is no longer items.map(...) alone", () => {
+    expect(src).not.toMatch(/captureWps\s*=\s*items\.map/);
   });
 });

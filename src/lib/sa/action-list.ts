@@ -12,6 +12,9 @@ import {
   type MyWorkItem,
   type MovementInput,
 } from "@/lib/sa/my-work";
+// Type-only — erased at compile time, so this does not pull the client
+// component's "use client" directive into this pure/server-safe module.
+import type { CameraFabWp } from "@/components/features/sa/camera-fab";
 
 export type SaActionKind = "rework" | "revision" | "rejected";
 
@@ -197,6 +200,31 @@ export function buildSaActionList(input: {
   );
 
   return { actions, rest };
+}
+
+/**
+ * Spec 384 U2 — the camera FAB's candidate list.
+ *
+ * `captureWps = rest` made the FAB's picker the exact COMPLEMENT of `actions`:
+ * `rest` is `inPlay` minus rework minus (upstream) every pending_approval WP,
+ * so a rework row or a pending_approval bounce — precisely the WPs the
+ * ต้องแก้ไข section is asking for a photo on — could never be reached from the
+ * SA's most-used control. Union both sets instead, deduped by id (a
+ * `premature` bounce sits at `in_progress`, spec 372 U3, so it is already in
+ * BOTH `actions` and `rest` today — the FAB must offer it once, not twice).
+ */
+export function buildCaptureWps(
+  actions: ReadonlyArray<SaActionItem>,
+  rest: ReadonlyArray<MyWorkItem>,
+): CameraFabWp[] {
+  const seen = new Set<string>();
+  const out: CameraFabWp[] = [];
+  for (const it of [...actions, ...rest]) {
+    if (seen.has(it.id)) continue;
+    seen.add(it.id);
+    out.push({ id: it.id, projectId: it.projectId, code: it.code, name: it.name });
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------------------- *

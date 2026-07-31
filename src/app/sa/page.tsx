@@ -47,6 +47,7 @@ import { bangkokHour, bangkokTodayIso } from "@/lib/dates";
 import { summarizeMuster } from "@/lib/sa/muster";
 import {
   buildSaActionList,
+  buildCaptureWps,
   bounceAnswered,
   isBounceableStatus,
   staleCutoffFromNow,
@@ -308,12 +309,10 @@ export default async function SaHomePage() {
   // ANY SA (single- or multi-project), not just the single-project case. null only
   // when the SA has zero visible projects → SaTools keeps its /projects fallback.
   const primaryProjectId = saCurrent.current.projectId;
-  const captureWps = items.map((it) => ({
-    id: it.id,
-    projectId: it.projectId,
-    code: it.code,
-    name: it.name,
-  }));
+  // Spec 384 U2 — the FAB must reach the WPs `actions` is asking for a photo
+  // on too, not just `rest`; see buildCaptureWps for why the two sets are NOT
+  // disjoint (a premature bounce sits in both) and must be de-duped.
+  const captureWps = buildCaptureWps(actions, items);
 
   return (
     <PageShell>

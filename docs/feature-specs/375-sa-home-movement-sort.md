@@ -141,6 +141,8 @@ The most interesting direction (`อาคาร A · ชั้น 3` tiles show
 
 `CameraFab` is fed the same `items` array the list renders. Under a truncating design this would silently shrink the picker from 176 to the cap — the class of defect where a "half that removes a signal" ships alone. **2b removes nothing**, so the hazard is answered structurally rather than by a guard. Any future capping unit must re-check this before touching the array.
 
+⚠️ **SUPERSEDED 2026-07-31 (spec 384 U2):** the FAB is no longer fed `items` alone — `captureWps = buildCaptureWps(actions, items)` unions in the `ต้องแก้ไข` rows too (they were the picker's exact complement, spec 384 §1.4). The "same array" premise above is gone; the still-true half is "never truncate the picker's domain" — check `buildCaptureWps`, not `items`, before touching it.
+
 ### 5.5 Owed at build time
 
 - **RSC boundary** — any constant shared between the (server) page and a client row component must live in a leaf module with no `server-only` and no DB imports. `src/lib/photos/current-photos.ts` is `server-only` and is **not** a home for shared types. (The spec-371 U2 `/dashboard` 500 that vitest could not see.)
