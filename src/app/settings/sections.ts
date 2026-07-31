@@ -41,7 +41,9 @@ import {
   COMPANY_DOCS_LABEL,
   CARD_REGISTRY_LABEL,
   CATALOG_LABEL,
+  EQUIPMENT_CATALOG_LABEL,
   EQUIPMENT_RENTAL_LABEL,
+  EQUIPMENT_UNITS_MENU_LABEL,
   LABOR_RATES_HINT,
   LABOR_RATES_LABEL,
   MASTER_DATA_LABEL,
@@ -179,15 +181,24 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: SUBCONTRACTOR_LABEL,
         hint: "บริษัทที่จ้างช่วง (จ่ายลูกทีมเอง)",
       },
+      // Spec 385 U3a: the ทะเบียน is the SKU catalog (its own page) and the
+      // per-unit door names its grain — the two used to be one door that dumped
+      // into the item page (operator's "mixed up" report, 2026-07-31).
+      {
+        kind: "link",
+        href: "/equipment/catalog",
+        icon: Wrench,
+        label: EQUIPMENT_CATALOG_LABEL,
+        hint: "รายการกลาง 1 ชนิดมี 1 แถว · หมวดเครื่องมือแก้ที่นี่",
+      },
       {
         kind: "link",
         href: "/equipment",
         icon: Wrench,
-        label: "อุปกรณ์",
-        // Spec 367 U0: was `ทะเบียนอุปกรณ์เช่า`, which described the door BELOW
-        // this one. This registry is `equipment_items` — 64 company-OWNED tools
-        // and machines, zero rentals. Pinned by settings-sections.test.ts.
-        hint: "ทะเบียนอุปกรณ์และเครื่องมือ",
+        label: EQUIPMENT_UNITS_MENU_LABEL,
+        // Spec 367 U0 pin (settings-sections.test.ts): never describe the OWNED
+        // registry as a rental one; must name เครื่องมือ.
+        hint: "เครื่องมือรายเครื่อง — รูป QR และที่อยู่",
       },
       // Spec 268: record inbound rental deals (money — the /equipment/rentals
       // page re-gates to BACK_OFFICE_ROLES; this card is visibility only).

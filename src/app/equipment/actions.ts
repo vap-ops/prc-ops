@@ -297,6 +297,111 @@ export async function createEquipmentFromCatalog(input: {
   return rateWarning ? { ok: true, rateWarning: true } : { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Spec 385 U3a — ทะเบียน curation. Plain RLS writes: `authenticated` holds
+// INSERT/UPDATE grants on exactly these columns (U1) and the is_back_office
+// policies gate the rows; requireRole is defense-in-depth. Money
+// (default_daily_rate) has NO grant in any direction — the rate editor is
+// U3b's DEFINER RPC, deliberately not reachable from here.
+// ---------------------------------------------------------------------------
+
+const SKU_DUP_ERROR = "มีชื่อนี้ในทะเบียนอยู่แล้ว — แก้ไขหรือเปิดใช้รายการเดิมแทน";
+
+export async function createEquipmentCatalogItem(input: {
+  name: string;
+  categoryId: string;
+  tracking: string;
+}): Promise<EquipmentActionResult> {
+  const ctx = await requireRole(BACK_OFFICE_ROLES);
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 120) {
+    return { ok: false, error: "ชื่อรายการต้องไม่เกิน 120 ตัวอักษร" };
+  }
+  if (!UUID_REGEX.test(input.categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
+  if (input.tracking !== "unit" && input.tracking !== "bulk") {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from("equipment_catalog_items").insert({
+    name,
+    category_id: input.categoryId,
+    default_tracking: input.tracking,
+    created_by: ctx.id,
+  });
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: SKU_DUP_ERROR };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/equipment/catalog");
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
+export async function updateEquipmentCatalogItem(input: {
+  id: string;
+  name: string;
+  categoryId: string;
+  brand: string;
+  model: string;
+}): Promise<EquipmentActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  const name = input.name.trim();
+  if (name.length === 0 || name.length > 120) {
+    return { ok: false, error: "ชื่อรายการต้องไม่เกิน 120 ตัวอักษร" };
+  }
+  if (!UUID_REGEX.test(input.categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
+  const brand = input.brand.trim();
+  const model = input.model.trim();
+  if (brand.length > 80 || model.length > 80) return { ok: false, error: GENERIC_ERROR };
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase
+    .from("equipment_catalog_items")
+    .update({
+      name,
+      category_id: input.categoryId,
+      brand: brand.length === 0 ? null : brand,
+      model: model.length === 0 ? null : model,
+    })
+    .eq("id", input.id);
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: SKU_DUP_ERROR };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/equipment/catalog");
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
+// Deactivate = leave the picker, keep the history: instances keep their FK and
+// their names; the active-name unique index frees the name for a successor.
+// Reactivating can therefore collide with a newer active SKU — same 23505 arm.
+export async function setEquipmentCatalogItemActive(input: {
+  id: string;
+  active: boolean;
+}): Promise<EquipmentActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+
+  const supabase = await createServerSupabase();
+  const { error } = await supabase
+    .from("equipment_catalog_items")
+    .update({ is_active: input.active })
+    .eq("id", input.id);
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: SKU_DUP_ERROR };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/equipment/catalog");
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
 export async function updateEquipment(
   input: EquipmentInput & { id: string },
 ): Promise<EquipmentActionResult> {

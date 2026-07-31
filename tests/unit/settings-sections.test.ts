@@ -49,12 +49,14 @@ describe("settings sections config (role → entries matrix)", () => {
     ]);
   });
 
-  it("project_manager master-data: customers first, 7 entries (ช่าง roster moved out)", () => {
+  it("project_manager master-data: customers first, 8 entries (ช่าง roster moved out)", () => {
     const list = hrefs("master-data", "project_manager");
     expect(list[0]).toBe("/contacts/customers");
     // Spec 266 U6: was 7; /workers moved to the ทีมช่าง section.
     // Spec 268: +1 — the เช่าอุปกรณ์ rental-recorder door.
-    expect(list).toHaveLength(7);
+    // Spec 385 U3a: +1 — the ทะเบียนเครื่องมือ door (/equipment/catalog).
+    expect(list).toHaveLength(8);
+    expect(list).toContain("/equipment/catalog");
   });
 
   it("site_admin: field equipment only; master-data/labor-team/finance/admin empty", () => {

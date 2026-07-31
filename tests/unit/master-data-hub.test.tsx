@@ -24,8 +24,9 @@ const ALL_COUNTS: MasterDataCounts = {
   catalogCategories: 15,
   catalogUnits: 25,
   orderingTemplates: 28,
+  equipmentCatalogItems: 39,
   equipmentItems: 63,
-  equipmentCategories: 9,
+  equipmentCategories: 13,
   workCategories: 52,
   workerLevelRates: 4,
   expenseCategories: 8,
@@ -64,8 +65,12 @@ describe("master-data group SSOT (spec 361 U4)", () => {
       "catalog-categories": "/catalog/subcategories",
       "catalog-units": "/catalog/units",
       "ordering-templates": "/settings/ordering-templates",
+      // Spec 385 U3a: the ทะเบียน is the SKU catalog page; the per-unit registry
+      // keeps /equipment; categories are curated on the catalog page (a category
+      // is a property of the TYPE).
+      "equipment-catalog": "/equipment/catalog",
       "equipment-items": "/equipment",
-      "equipment-categories": "/equipment",
+      "equipment-categories": "/equipment/catalog",
       "worker-level-rates": "/settings/labor-rates",
       "work-categories": null,
       "expense-categories": null,

@@ -27,7 +27,6 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { RadioChip } from "@/components/features/common/radio-chip";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
-import { EditCategoryRow } from "./edit-category-row";
 import {
   BUTTON_PRIMARY,
   BUTTON_PRIMARY_COMPACT,
@@ -61,7 +60,6 @@ import {
 } from "@/lib/i18n/labels";
 import { SetDailyRate } from "@/components/features/equipment/set-daily-rate";
 import {
-  createEquipmentCategory,
   createEquipmentFromCatalog,
   createEquipmentOwner,
   recordEquipmentMovement,
@@ -920,50 +918,6 @@ function EquipmentRow({
   );
 }
 
-function QuickAddCategory() {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function submit() {
-    setError(null);
-    setBusy(true);
-    const result = await createEquipmentCategory({ name });
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setName("");
-    router.refresh();
-  }
-
-  return (
-    <div>
-      <label className="text-ink-secondary block text-sm">
-        ชื่อหมวดหมู่ใหม่
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={80}
-          placeholder="เช่น รถขุด เครื่องปั่นไฟ นั่งร้าน"
-          className={FIELD_STACKED}
-        />
-      </label>
-      {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
-      <button
-        type="button"
-        disabled={busy || name.trim() === ""}
-        onClick={() => void submit()}
-        className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
-      >
-        เพิ่มหมวดหมู่
-      </button>
-    </div>
-  );
-}
-
 function QuickAddOwner() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -1074,7 +1028,6 @@ export function EquipmentManager({
   const [query, setQuery] = useState("");
   const [selectedCat, setSelectedCat] = useState<string>(ALL);
   const [addingItem, setAddingItem] = useState(false);
-  const [managingCategories, setManagingCategories] = useState(false);
   const [addingOwner, setAddingOwner] = useState(false);
 
   // Spec 362 U1 — search over the two things a curator actually knows about a
@@ -1106,13 +1059,9 @@ export function EquipmentManager({
   const curatorDoors = canManageRegistry ? (
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={() => setManagingCategories(true)}
-          className="text-action inline-flex min-h-11 items-center text-sm font-medium hover:underline"
-        >
-          หมวดหมู่
-        </button>
+        {/* Spec 385 U3a — category curation moved to the ทะเบียน page (a
+            category is a property of the TYPE); this page keeps the per-unit
+            doors only. */}
         <button
           type="button"
           onClick={() => setAddingOwner(true)}
@@ -1141,28 +1090,6 @@ export function EquipmentManager({
           skuInstanceCounts={skuInstanceCounts}
           onDone={() => setAddingItem(false)}
         />
-      </BottomSheet>
-
-      {/* Spec 361 U6 — add a category and fix an existing one live together:
-          renaming a category with equipment in it is a different decision from
-          renaming an empty one, so the counts stay beside the rename. */}
-      <BottomSheet
-        open={managingCategories}
-        title="หมวดหมู่อุปกรณ์"
-        onClose={() => setManagingCategories(false)}
-      >
-        <QuickAddCategory />
-        {categories.length > 0 ? (
-          <ul className="border-edge mt-4 flex flex-col border-t pt-2">
-            {categories.map((c) => (
-              <EditCategoryRow
-                key={c.id}
-                category={c}
-                itemCount={items.filter((it) => it.category_id === c.id).length}
-              />
-            ))}
-          </ul>
-        ) : null}
       </BottomSheet>
 
       <BottomSheet open={addingOwner} title="เจ้าของอุปกรณ์" onClose={() => setAddingOwner(false)}>

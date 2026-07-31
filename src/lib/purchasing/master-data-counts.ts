@@ -41,6 +41,7 @@ export async function loadMasterDataCounts(
     catalogCategories,
     catalogUnits,
     orderingTemplates,
+    equipmentCatalogItems,
     equipmentItems,
     equipmentCategories,
     workCategories,
@@ -55,6 +56,11 @@ export async function loadMasterDataCounts(
     // The door (/settings/ordering-templates) lists supply_plans. (It never listed
     // the retired `wp_templates`; that mis-mapping is the one described up top.)
     readCount(supabase.from("supply_plans").select("id", HEAD_COUNT).eq("is_template", true)),
+    // Spec 385: the ทะเบียน counts ACTIVE SKUs — a deactivated row left the
+    // picker's world, so counting it would overstate the list the door opens.
+    readCount(
+      supabase.from("equipment_catalog_items").select("id", HEAD_COUNT).eq("is_active", true),
+    ),
     readCount(supabase.from("equipment_items").select("id", HEAD_COUNT)),
     readCount(supabase.from("equipment_categories").select("id", HEAD_COUNT)),
     readCount(supabase.from("work_categories").select("id", HEAD_COUNT).eq("is_active", true)),
@@ -76,6 +82,7 @@ export async function loadMasterDataCounts(
     catalogCategories,
     catalogUnits,
     orderingTemplates,
+    equipmentCatalogItems,
     equipmentItems,
     equipmentCategories,
     workCategories,
