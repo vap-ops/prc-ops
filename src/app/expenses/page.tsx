@@ -251,7 +251,16 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     body = (
       <>
         <ExpenseSummary summary={summary} />
-        <ExpenseList expenses={myExpenses} />
+        <ExpenseList
+          expenses={myExpenses}
+          editContext={{
+            categories: categories.map((c) => ({ id: c.id, label: c.labelTh })),
+            projects: projects.map((p) => ({ id: p.id, name: p.name })),
+            cards: myCard
+              ? [{ id: myCard.id, label: myCard.label, holderName: myCard.holderName }]
+              : [],
+          }}
+        />
       </>
     );
   }

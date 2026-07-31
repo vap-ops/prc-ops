@@ -126,6 +126,11 @@ export interface OfficeExpenseRow {
   reimburseToName: string | null;
   reimbursedAt: string | null;
   awaitingReceipt: boolean;
+  // Feedback 41cd07d9 — raw ids so the edit sheet can prefill; the labels
+  // above stay the display SSOT.
+  categoryId: string | null;
+  projectId: string | null;
+  companyCardId: string | null;
 }
 
 type OneOrArray<T> = T | T[] | null;
@@ -144,7 +149,7 @@ export async function listMyExpenses(
   let query = supabase
     .from("office_expenses")
     .select(
-      "id, description, amount, expense_date, payment_source, reimbursed_at, category:office_expense_categories!office_expenses_category_id_fkey(label_th), project:projects!office_expenses_project_id_fkey(name), card:company_cards!office_expenses_company_card_id_fkey(label), reimburse:users!office_expenses_reimburse_to_user_id_fkey(full_name), attachments:office_expense_attachments(id)",
+      "id, description, amount, expense_date, payment_source, reimbursed_at, category_id, project_id, company_card_id, category:office_expense_categories!office_expenses_category_id_fkey(label_th), project:projects!office_expenses_project_id_fkey(name), card:company_cards!office_expenses_company_card_id_fkey(label), reimburse:users!office_expenses_reimburse_to_user_id_fkey(full_name), attachments:office_expense_attachments(id)",
     )
     .eq("submitted_by", userId);
   if (projectId) query = query.eq("project_id", projectId);
@@ -170,6 +175,9 @@ export async function listMyExpenses(
       reimburseToName: reimburse?.full_name ?? null,
       reimbursedAt: r.reimbursed_at,
       awaitingReceipt: attachments.length === 0,
+      categoryId: r.category_id,
+      projectId: r.project_id,
+      companyCardId: r.company_card_id,
     };
   });
 }

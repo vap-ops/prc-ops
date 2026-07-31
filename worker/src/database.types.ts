@@ -7904,6 +7904,41 @@ export type Database = {
           },
         ]
       }
+      telegram_link_tokens: {
+        Row: {
+          consumed_at: string | null
+          consumed_chat_id: string | null
+          created_at: string
+          expires_at: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          consumed_chat_id?: string | null
+          created_at?: string
+          expires_at: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          consumed_chat_id?: string | null
+          created_at?: string
+          expires_at?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_link_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_daily: {
         Row: {
           active: boolean
@@ -8065,6 +8100,7 @@ export type Database = {
           line_user_id: string | null
           role: Database["public"]["Enums"]["user_role"]
           telegram_chat_id: string | null
+          telegram_linked_at: string | null
           updated_at: string
         }
         Insert: {
@@ -8080,6 +8116,7 @@ export type Database = {
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           telegram_chat_id?: string | null
+          telegram_linked_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -8095,6 +8132,7 @@ export type Database = {
           line_user_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           telegram_chat_id?: string | null
+          telegram_linked_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -10204,6 +10242,10 @@ export type Database = {
         }
         Returns: number
       }
+      consume_telegram_link_token: {
+        Args: { p_chat_id: string; p_token: string }
+        Returns: Json
+      }
       correct_labor_log: {
         Args: {
           p_fraction?: Database["public"]["Enums"]["day_fraction"]
@@ -10559,6 +10601,10 @@ export type Database = {
       delete_deliverable: {
         Args: { p_deliverable_id: string }
         Returns: boolean
+      }
+      delete_office_expense: {
+        Args: { p_expense_id: string }
+        Returns: undefined
       }
       delete_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       delete_work_package: {
@@ -11798,6 +11844,7 @@ export type Database = {
         }
         Returns: string
       }
+      start_telegram_link: { Args: never; Returns: string }
       store_pnl: {
         Args: { p_project_id: string }
         Returns: {
@@ -11956,6 +12003,7 @@ export type Database = {
         Args: { p_a: string; p_b: string }
         Returns: boolean
       }
+      unlink_telegram: { Args: never; Returns: undefined }
       unwaive_purchase_docs: {
         Args: { p_purchase_request: string }
         Returns: undefined
@@ -12107,6 +12155,19 @@ export type Database = {
       }
       update_my_display_name: {
         Args: { p_full_name: string }
+        Returns: undefined
+      }
+      update_office_expense: {
+        Args: {
+          p_amount: number
+          p_category_id: string
+          p_company_card_id?: string
+          p_description: string
+          p_expense_date: string
+          p_expense_id: string
+          p_payment_source: Database["public"]["Enums"]["payment_source"]
+          p_project_id?: string
+        }
         Returns: undefined
       }
       update_own_contractor_profile: {
@@ -12403,6 +12464,8 @@ export type Database = {
         | "equipment_batch_void"
         | "stock_receipt_correction"
         | "equipment_item_updated"
+        | "office_expense_update"
+        | "office_expense_delete"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -12866,6 +12929,8 @@ export const Constants = {
         "equipment_batch_void",
         "stock_receipt_correction",
         "equipment_item_updated",
+        "office_expense_update",
+        "office_expense_delete",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
