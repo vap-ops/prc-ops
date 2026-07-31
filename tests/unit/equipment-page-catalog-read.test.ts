@@ -39,13 +39,27 @@ describe("equipment page — catalog read shape (spec 385 U2)", () => {
   });
 });
 
-describe("equipment CATALOG page — read shape (spec 385 U3a)", () => {
+describe("equipment CATALOG page — read shape (spec 385 U3a/U3b)", () => {
   it("projects the granted columns and never selects * from the walled table", () => {
     expect(catalogSrc).toContain(
       '"id, name, category_id, brand, model, default_tracking, is_active"',
     );
     expect(catalogSrc).not.toMatch(/equipment_catalog_items"\)\s*\.select\(\s*"\s*\*\s*"/);
-    expect(catalogSrc).not.toContain("default_daily_rate");
+  });
+
+  it("reads the money column ONLY through the admin seam (spec 385 U3b)", () => {
+    // The requireRole gate IS this page's money wall — the admin read is legal
+    // only while the WHOLE audience is back office. Widening the gate one role
+    // must fail here first (review find, 2026-07-31).
+    expect(catalogSrc).toContain("requireRole(BACK_OFFICE_ROLES)");
+    // The RLS projection above must never gain the walled column; the one
+    // sanctioned read is the admin client's rate map.
+    expect(catalogSrc).toContain("createAdminSupabase");
+    expect(catalogSrc).toContain('"id, default_daily_rate"');
+    // Exactly two mentions — the admin projection and its map read. A third is
+    // a new consumer that must justify itself against the wall.
+    expect(catalogSrc).toContain("r.default_daily_rate");
+    expect(catalogSrc.split("default_daily_rate").length - 1).toBe(2);
   });
 
   it("pages the instance-count read to exhaustion (db-max-rows is 1000)", () => {

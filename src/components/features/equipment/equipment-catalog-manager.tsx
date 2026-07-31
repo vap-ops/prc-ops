@@ -7,9 +7,11 @@
 // brand/model, deactivate/reactivate, register a new SKU — and the category
 // quick-add lives here now, because a category is a property of the TYPE.
 //
-// NO MONEY on this surface: default_daily_rate has no authenticated grant in
-// any direction, and the rate editor is U3b's DEFINER RPC. Rendering a rate
-// column here would silently read nothing (the worker_level_rates class).
+// MONEY (U3b): the per-SKU default-rate control renders ONLY when the page
+// passes the admin-read `defaultRates` map — no map, zero money in the tree.
+// default_daily_rate has no authenticated grant in any direction, so an RLS
+// read here would silently see nothing (the worker_level_rates class); every
+// write goes through the DEFINER set_equipment_catalog_default_rate RPC.
 //
 // 'use client' justification: sheet open/edit state, the busy/error state of
 // the three curation actions.
@@ -26,6 +28,7 @@ import {
   FIELD_STACKED,
 } from "@/lib/ui/classes";
 import { groupSkusByCategory, type CatalogSkuOption } from "@/lib/equipment/catalog-pick";
+import { SetCatalogDefaultRate } from "@/components/features/equipment/set-catalog-default-rate";
 import { EQUIPMENT_CATEGORY_MENU_LABEL, EQUIPMENT_TRACKING_LABEL } from "@/lib/i18n/labels";
 import {
   createEquipmentCatalogItem,
@@ -166,10 +169,14 @@ function SkuRow({
   sku,
   categories,
   instanceCount,
+  defaultRate,
 }: {
   sku: CatalogSkuRowData;
   categories: Ref[];
   instanceCount: number;
+  // Spec 385 U3b — MONEY. `undefined` = the page passed no rate map → render no
+  // control (the /equipment dailyRate idiom); `null` = audience, rate unset.
+  defaultRate?: number | null;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -236,6 +243,9 @@ function SkuRow({
         >
           {sku.isActive ? "ปิดใช้งาน" : "เปิดใช้อีกครั้ง"}
         </button>
+        {defaultRate !== undefined ? (
+          <SetCatalogDefaultRate skuId={sku.id} currentRate={defaultRate} />
+        ) : null}
       </span>
       {error ? <p className="text-danger w-full text-sm">{error}</p> : null}
 
@@ -322,6 +332,7 @@ export function EquipmentCatalogManager({
   skus,
   categories,
   instanceCounts,
+  defaultRates,
   initialCategoriesOpen,
 }: {
   skus: CatalogSkuRowData[];
@@ -329,6 +340,9 @@ export function EquipmentCatalogManager({
   // equipment_items rows per SKU (the FK count) — "is anything real behind this
   // row" is the one instance-grain fact the TYPE page needs.
   instanceCounts: Record<string, number>;
+  // Spec 385 U3b — MONEY: skuId → default rate, admin-read by the page (the
+  // whole catalog page is the back-office money audience). Absent = no control.
+  defaultRates?: Record<string, number | null>;
   // The หมวดเครื่องมือ hub door deep-links here with ?open=categories — landing
   // with the sheet closed would repeat the very "door shows something else"
   // complaint this unit fixes.
@@ -374,6 +388,7 @@ export function EquipmentCatalogManager({
                     sku={s as CatalogSkuRowData}
                     categories={categories}
                     instanceCount={instanceCounts[s.id] ?? 0}
+                    {...(defaultRates ? { defaultRate: defaultRates[s.id] ?? null } : {})}
                   />
                 ))}
               </ul>
@@ -394,6 +409,7 @@ export function EquipmentCatalogManager({
                 sku={s}
                 categories={categories}
                 instanceCount={instanceCounts[s.id] ?? 0}
+                {...(defaultRates ? { defaultRate: defaultRates[s.id] ?? null } : {})}
               />
             ))}
           </ul>

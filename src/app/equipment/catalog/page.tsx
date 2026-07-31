@@ -7,14 +7,17 @@
 //
 // Reads are COLUMN-PROJECTED: equipment_catalog_items is column-granted and
 // default_daily_rate has NO authenticated grant, so a select("*") would refuse
-// the whole read (the worker_level_rates class). No money renders here — the
-// rate editor is U3b's DEFINER seam.
+// the whole read (the worker_level_rates class). MONEY (U3b): the default-rate
+// map is admin-read below — legal ONLY because this page's entire audience is
+// BACK_OFFICE_ROLES (the requireRole gate IS the money wall here, pinned in
+// equipment-page-catalog-read.test.ts); writes go through the DEFINER RPC.
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { safeBackHref } from "@/lib/nav/back-href";
@@ -76,6 +79,23 @@ export default async function EquipmentCatalogPage({
     if ((fkRows ?? []).length < PAGE) break;
   }
 
+  // Spec 385 U3b — the default rates are MONEY (zero authenticated grant), read
+  // via the admin client. Safe here without a role split: this page's whole
+  // audience IS the back-office money audience (requireRole above), unlike
+  // /equipment where site_admin shares the page. PAGED like the count read —
+  // an unpaged map past db-max-rows would render a priced SKU as unpriced and
+  // invite an overwrite (review find, 2026-07-31).
+  const admin = createAdminSupabase();
+  const defaultRates: Record<string, number | null> = {};
+  for (let start = 0; ; start += PAGE) {
+    const { data: rateRows } = await admin
+      .from("equipment_catalog_items")
+      .select("id, default_daily_rate")
+      .range(start, start + PAGE - 1);
+    for (const r of rateRows ?? []) defaultRates[r.id] = r.default_daily_rate;
+    if ((rateRows ?? []).length < PAGE) break;
+  }
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -87,6 +107,7 @@ export default async function EquipmentCatalogPage({
           skus={skus}
           categories={categoryRows ?? []}
           instanceCounts={instanceCounts}
+          defaultRates={defaultRates}
           initialCategoriesOpen={open === "categories"}
         />
       </div>
