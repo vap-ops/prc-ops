@@ -312,7 +312,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const siteIssueRows = parsed.filter(({ row }) => row.event_type === "site_issue_reported");
   const projectPmIdsByProject = new Map<string, string[]>();
   const projectNameById = new Map<string, string>();
-  const reporterNameById = new Map<string, string>();
+  const displayNameById = new Map<string, string>();
   let siteIssueRolePoolIds: string[] = [];
 
   // Spec 318 U5 — project-scoped PM resolution now serves BOTH the serious-issue
@@ -327,7 +327,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return [];
   });
 
-  if (siteIssueRows.length > 0 || approvalProjectIds.length > 0) {
+  // Feedback c5136ad9 — wp_pending_approval payloads carry submitted_by; the
+  // submitter is usually NOT a recipient, so their name must ride the same
+  // candidate lookup or the compose line silently never renders. Hoisted above
+  // the gate and OR-ed into it so submitter resolution never depends on the
+  // project-PM legs staying non-empty (latent-coupling review finding).
+  const submitterIds = [
+    ...new Set(
+      parsed
+        .filter(({ row }) => row.event_type === "wp_pending_approval")
+        .map(({ payload }) => payload.submittedBy)
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
+
+  if (siteIssueRows.length > 0 || approvalProjectIds.length > 0 || submitterIds.length > 0) {
     const enrichmentProjectIds = [
       ...new Set([
         ...siteIssueRows
@@ -398,6 +412,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ...leadByProject.values(),
         ...[...memberIdsByProject.values()].flat(),
         ...reporterIds,
+        ...submitterIds,
       ]),
     ];
     const roleById = new Map<string, UserRole>();
@@ -416,7 +431,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       for (const u of candidates ?? []) {
         roleById.set(u.id, u.role);
         const name = u.full_name ?? u.line_display_name;
-        if (name) reporterNameById.set(u.id, name);
+        if (name) displayNameById.set(u.id, name);
         if (u.line_user_id) lineIdByUser.set(u.id, u.line_user_id);
         if (u.telegram_chat_id) telegramChatByUser.set(u.id, u.telegram_chat_id);
       }
@@ -519,9 +534,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           composeContext.issueDeepLink = `${clientEnv.NEXT_PUBLIC_APP_URL}/projects/${projectId}`;
         }
         if (payload.reportedBy !== undefined) {
-          const reporterName = reporterNameById.get(payload.reportedBy);
+          const reporterName = displayNameById.get(payload.reportedBy);
           if (reporterName !== undefined) composeContext.issueReporterName = reporterName;
         }
+      }
+      // Feedback c5136ad9 — name who submitted for approval on the ping itself.
+      if (row.event_type === "wp_pending_approval" && payload.submittedBy !== undefined) {
+        const submitterName = displayNameById.get(payload.submittedBy);
+        if (submitterName !== undefined) composeContext.submitterName = submitterName;
       }
       const text = composeNotification(row.event_type, payload, composeContext);
 

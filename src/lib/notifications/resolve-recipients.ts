@@ -68,8 +68,11 @@ export function resolveRecipients(
       : [...context.eventProjectPmIds, ...context.orgWidePmIds];
 
   switch (eventType) {
+    // Feedback c5136ad9 — minus the submitter (a PM submitting their own WP is
+    // not self-pinged), the same actor-exclusion every sibling event applies;
+    // the payload only carries submitted_by since mig 20260813075886.
     case "wp_pending_approval":
-      return unique(approvalPool);
+      return without(approvalPool, payload.submittedBy);
     case "pr_created":
       return without(approvalPool, payload.requestedBy);
     case "wp_decision":

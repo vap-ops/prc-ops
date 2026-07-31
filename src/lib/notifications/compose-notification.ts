@@ -28,6 +28,9 @@ export interface ComposeContext {
   projectName?: string;
   issueReporterName?: string;
   issueDeepLink?: string;
+  // Feedback c5136ad9 — wp_pending_approval context: the submitter's display
+  // name, resolved by the drain from the payload's submitted_by uid.
+  submitterName?: string;
 }
 
 function label(map: Record<string, string>, value: string | undefined): string {
@@ -50,8 +53,12 @@ export function composeNotification(
   context: ComposeContext,
 ): string {
   switch (eventType) {
-    case "wp_pending_approval":
-      return `งานรอตรวจ: ${payload.code ?? ""} ${payload.name ?? ""}`.trim();
+    case "wp_pending_approval": {
+      // Feedback c5136ad9 — name who submitted; omit the line when the drain
+      // could not resolve a name (system flip / pre-migration rows).
+      const head = `งานรอตรวจ: ${payload.code ?? ""} ${payload.name ?? ""}`.trim();
+      return context.submitterName ? `${head}\nส่งตรวจโดย ${context.submitterName}` : head;
+    }
 
     case "wp_decision": {
       const head = `ผลการตรวจ ${context.wpCode ?? ""}: ${label(

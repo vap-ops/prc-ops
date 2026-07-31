@@ -37,6 +37,16 @@ describe("resolveRecipients", () => {
     expect(resolveRecipients("wp_pending_approval", {}, ctx)).not.toContain(PM_B);
   });
 
+  // Feedback c5136ad9 follow-through — every sibling event excludes its actor
+  // (requestedBy / decidedBy / reportedBy…); the payload only now carries ours.
+  // A PM submitting their own WP must not be pinged "ส่งตรวจโดย <themselves>".
+  it("wp_pending_approval excludes the submitter from the pool (no self-ping)", () => {
+    expect(resolveRecipients("wp_pending_approval", { submittedBy: PM_A }, ctx)).toEqual([
+      DIR_1,
+      SU_1,
+    ]);
+  });
+
   it("falls back to the legacy full pool when the project is unresolvable (null)", () => {
     expect(
       resolveRecipients("wp_pending_approval", {}, { ...ctx, eventProjectPmIds: null }),
