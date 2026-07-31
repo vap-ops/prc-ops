@@ -67,6 +67,14 @@ describe("bash-guards: cd-prefix check (cwd-drift wall)", () => {
     expect(runHook("NODE_ENV=test pnpm exec vitest run").status).toBe(2);
   });
 
+  it("blocks the QUOTED env-prefix shape (live evasion 2026-07-31: the spaced placeholder broke env-strip adjacency)", () => {
+    expect(
+      runHook(
+        'PATH="/c/Program Files/nodejs:$PATH" pnpm exec supabase db query --linked "select 1"',
+      ).status,
+    ).toBe(2);
+  });
+
   it("blocks unanchored script invocations in every house shape", () => {
     expect(runHook('bash scripts/ship-pr.sh "t" "b"').status).toBe(2);
     expect(runHook("./scripts/ship-pr.sh a b").status).toBe(2);
