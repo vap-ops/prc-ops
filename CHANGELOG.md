@@ -1,3 +1,13 @@
+# [0.300.0](https://github.com/vap-ops/prc-ops/compare/v0.299.0...v0.300.0) (2026-07-31)
+
+### Bug Fixes
+
+- **385:** U3a review batch — honest doors, aligned counts, paged reads ([80a1a87](https://github.com/vap-ops/prc-ops/commit/80a1a875200cb03325158b2e262c89585c8949f2))
+
+### Features
+
+- **385:** U3a — the ทะเบียน gets its own surface + menu wording rethink ([3d500fd](https://github.com/vap-ops/prc-ops/commit/3d500fd1700dcc926372d6757673a0e31d66869b))
+
 # [0.299.0](https://github.com/vap-ops/prc-ops/compare/v0.298.0...v0.299.0) (2026-07-31)
 
 ### Features
