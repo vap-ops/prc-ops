@@ -88,10 +88,13 @@ export function SelfCountBadge({
 
   useEffect(() => {
     let alive = true;
-    const read = async () => {
-      // A backgrounded PWA costs nothing: the visibilitychange handler below
-      // catches it up the moment the user returns.
-      if (document.visibilityState === "hidden") return;
+    // `force` = the mount read, which happens whatever the visibility is. A
+    // chrome can mount in a backgrounded or prerendered tab, and skipping that
+    // read would leave the badge blank until the user switched away and back.
+    // Only the POLL skips while hidden — a backgrounded PWA then costs nothing,
+    // and the visibilitychange handler below catches it up on return.
+    const read = async (force = false) => {
+      if (!force && document.visibilityState === "hidden") return;
       try {
         const n = await load();
         if (alive && typeof n === "number") setCount(n);
@@ -99,7 +102,7 @@ export function SelfCountBadge({
         // Best-effort badge — keep the last known count on any read failure.
       }
     };
-    void read();
+    void read(true);
     const timer = setInterval(() => void read(), BADGE_REFRESH_MS);
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") void read();

@@ -119,6 +119,20 @@ describe("SelfCountBadge refresh (the count must not freeze at mount)", () => {
     expect(screen.getByLabelText("คำขอซื้อรอพิจารณา 3 รายการ").textContent).toBe("3");
   });
 
+  // Self-review catch, confirmed in the live preview (which reports hidden):
+  // skipping the read while hidden must not swallow the FIRST one, or a chrome
+  // that mounts in a backgrounded/prerendered tab shows no count until the user
+  // happens to switch away and back. Mount always reads; only the poll skips.
+  it("still reads once at mount even when the app starts hidden", async () => {
+    setVisibility("hidden");
+    const load = vi.fn<() => Promise<number | null>>().mockResolvedValue(5);
+    render(<SelfCountBadge load={load} />);
+    await act(async () => {});
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("รอตรวจ 5 รายการ").textContent).toBe("5");
+  });
+
   it("re-reads when the app returns to the foreground", async () => {
     setVisibility("visible");
     const load = vi.fn<() => Promise<number | null>>().mockResolvedValue(0);

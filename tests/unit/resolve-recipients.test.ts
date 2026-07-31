@@ -155,6 +155,7 @@ describe("resolveRecipients", () => {
           eventProjectPmIds: [],
           orgWidePmIds: [],
           legacyPmPoolIds: [],
+          prDeciderIds: [],
           wpUploaderIds: [SA_1, SA_1, SA_2],
           superIds: [],
           siteIssueProjectPmIds: [],
