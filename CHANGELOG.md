@@ -1,3 +1,9 @@
+## [0.293.2](https://github.com/vap-ops/prc-ops/compare/v0.293.1...v0.293.2) (2026-07-31)
+
+### Bug Fixes
+
+- **procurement:** wrap the home project card so badges stop eating the name ([3d2a115](https://github.com/vap-ops/prc-ops/commit/3d2a115e8ffcc380768b71190226285bb136ca5f))
+
 ## [0.293.1](https://github.com/vap-ops/prc-ops/compare/v0.293.0...v0.293.1) (2026-07-30)
 
 ### Bug Fixes
