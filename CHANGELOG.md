@@ -1,3 +1,9 @@
+# [0.301.0](https://github.com/vap-ops/prc-ops/compare/v0.300.1...v0.301.0) (2026-07-31)
+
+### Features
+
+- **385:** U3b — the ทะเบียน default-rate editor ([#906](https://github.com/vap-ops/prc-ops/issues/906)) ([ff5876b](https://github.com/vap-ops/prc-ops/commit/ff5876bfdfe1070e41374fd78cf654d1551b55f0))
+
 ## [0.300.1](https://github.com/vap-ops/prc-ops/compare/v0.300.0...v0.300.1) (2026-07-31)
 
 ### Bug Fixes
