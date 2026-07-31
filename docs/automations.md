@@ -172,3 +172,47 @@ Scanning either tag (or tapping the NFC sticker) opens the scan screen with
 the item resolved; the ยืม/คืน flow requires ≥1 condition photo in both
 directions (spec 370 D4). Re-printing after registry changes: just reload
 `/equipment/labels` and print again — labels are derived, never stored.
+
+---
+
+## AUT-CC1…CC3 — Claude Code scheduled agents (operator-side automations)
+
+Autonomous Claude Code sessions that run on a schedule on the operator's cloud
+PC (Claude Code scheduled tasks — NOT app code). Gates, scoped honestly: every
+repo change they make lands as a PR through `scripts/ship-pr.sh` (CI + the
+danger-path hold apply in full), but the repo's `.claude` hooks arm only for
+sessions launched inside the worktree — a headless scheduled session gets the
+CI/PR gates, not the local hook layer. Registered here per the
+automation-documentation doctrine (2026-07-07): every "it happens on its own"
+behaviour is visible in ONE registry. (The `.claude/hooks/` guard scripts are
+deliberately NOT rows here — they block actions rather than initiate them; the
+registry catalogues behaviours that ACT on their own.) Recorded by the
+2026-07-31 subagent-architecture audit (memory
+`subagent-architecture-audit-2026-07`), which found these missing. Each task's
+prompt = its SKILL.md under `C:\Users\PresIn01\.claude\scheduled-tasks\<task-id>\`
+— that file is the toggle (disable/edit the task in the Claude app's Scheduled
+section) and the config surface.
+
+- **AUT-CC1** — daily autonomous bug-fix pass / รอบแก้บั๊กอัตโนมัติรายวัน ·
+  **trigger:** daily 07:43 Bangkok (task `prc-ops-bug-fix-daily`) · **action:**
+  the `bug-fix-flow` skill end-to-end (triage → TDD fix → ship via PR gate →
+  tiered reply → Telegram digest) · **recipients:** operator via Telegram
+  digest; reporters via published/staged replies · **toggleable?** yes —
+  disable the task · **status:** live (prompt rewritten 2026-07-31: standing
+  worktree + ship-pr.sh; formerly pre-fence) · **backing:**
+  `.claude/skills/bug-fix-flow/SKILL.md` + the task's SKILL.md (path above).
+- **AUT-CC2** — weekly image capture-method split / รายงานสัดส่วนวิธีถ่ายรูปรายสัปดาห์ ·
+  **trigger:** Monday 09:02 Bangkok (task `weekly-image-capture-split`) ·
+  **action:** spec-354 in-app-camera vs upload telemetry split → Telegram ·
+  **recipients:** operator · **toggleable?** yes — disable the task ·
+  **status:** live · **backing:** spec 354 + the task's SKILL.md.
+- **AUT-CC3** — weekly fill-rate acceptance sweep / ตรวจอัตราการใช้งานจริงรายสัปดาห์ ·
+  **trigger:** Monday ~09:30 Bangkok (09:38 with scheduler jitter; task
+  `prc-ops-fill-rate-weekly`, created 2026-07-31) · **action:** read-only
+  queries proving shipped features actually fire in prod (doctrine: a feature
+  whose write never fires is dead however green its tests) — invite
+  attribution, worker trades, deferred docs, approval-ping submitter fill,
+  stale app bundles; one ✅/🚨 line each → Telegram · **recipients:** operator ·
+  **toggleable?** yes — disable the task · **status:** live 2026-07-31 ·
+  **backing:** memory `subagent-architecture-audit-2026-07` + the task's
+  SKILL.md.
