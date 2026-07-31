@@ -1,3 +1,9 @@
+# [0.297.0](https://github.com/vap-ops/prc-ops/compare/v0.296.0...v0.297.0) (2026-07-31)
+
+### Features
+
+- **notifications:** spec 386 + U1 telegram self-serve binding ([#900](https://github.com/vap-ops/prc-ops/issues/900)) ([e62b725](https://github.com/vap-ops/prc-ops/commit/e62b725f461fb9f785da215473c2d607ea8a2d0c))
+
 # [0.296.0](https://github.com/vap-ops/prc-ops/compare/v0.295.1...v0.296.0) (2026-07-31)
 
 ### Features
