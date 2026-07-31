@@ -2368,6 +2368,63 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment_catalog_items: {
+        Row: {
+          brand: string | null
+          category_id: string
+          created_at: string
+          created_by: string
+          default_daily_rate: number | null
+          default_tracking: Database["public"]["Enums"]["equipment_tracking"]
+          description: string | null
+          id: string
+          is_active: boolean
+          model: string | null
+          name: string
+        }
+        Insert: {
+          brand?: string | null
+          category_id: string
+          created_at?: string
+          created_by: string
+          default_daily_rate?: number | null
+          default_tracking?: Database["public"]["Enums"]["equipment_tracking"]
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          model?: string | null
+          name: string
+        }
+        Update: {
+          brand?: string | null
+          category_id?: string
+          created_at?: string
+          created_by?: string
+          default_daily_rate?: number | null
+          default_tracking?: Database["public"]["Enums"]["equipment_tracking"]
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          model?: string | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_catalog_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_catalog_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_categories: {
         Row: {
           created_at: string
@@ -2461,6 +2518,7 @@ export type Database = {
           created_by: string
           daily_rate: number | null
           description: string | null
+          equipment_catalog_item_id: string | null
           id: string
           image_path: string | null
           model: string | null
@@ -2484,6 +2542,7 @@ export type Database = {
           created_by: string
           daily_rate?: number | null
           description?: string | null
+          equipment_catalog_item_id?: string | null
           id?: string
           image_path?: string | null
           model?: string | null
@@ -2507,6 +2566,7 @@ export type Database = {
           created_by?: string
           daily_rate?: number | null
           description?: string | null
+          equipment_catalog_item_id?: string | null
           id?: string
           image_path?: string | null
           model?: string | null
@@ -2532,6 +2592,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_items_equipment_catalog_item_id_fkey"
+            columns: ["equipment_catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_catalog_items"
             referencedColumns: ["id"]
           },
           {

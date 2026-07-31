@@ -28,7 +28,8 @@ const { mockCreate, mockUpdate, mockAddCategory, mockAddOwner, mockMove, mockRef
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/equipment/actions", () => ({
-  createEquipment: mockCreate,
+  // Spec 385 U2 — the add sheet writes through the pick-from-ทะเบียน action.
+  createEquipmentFromCatalog: mockCreate,
   updateEquipment: mockUpdate,
   createEquipmentCategory: mockAddCategory,
   createEquipmentOwner: mockAddOwner,
@@ -42,10 +43,30 @@ import {
   type ManagedEquipmentItem,
   type EquipmentMovementRow,
 } from "@/components/features/equipment/equipment-manager";
+import type { CatalogSkuOption } from "@/lib/equipment/catalog-pick";
 
 const CATEGORIES = [{ id: "c1", name: "เครื่องปั่นไฟ" }];
 const OWNERS = [{ id: "o1", name: "บริษัทพี่น้อง" }];
 const PROJECTS = [{ id: "p1", name: "ไซต์บางนา" }];
+// Spec 385 U2 — the ทะเบียน the add sheet picks from.
+const SKUS: CatalogSkuOption[] = [
+  {
+    id: "s1",
+    name: "สว่านไฟฟ้า",
+    categoryId: "c1",
+    brand: null,
+    model: null,
+    defaultTracking: "unit",
+  },
+  {
+    id: "s2",
+    name: "นั่งร้านโครง",
+    categoryId: "c1",
+    brand: null,
+    model: null,
+    defaultTracking: "bulk",
+  },
+];
 const ITEMS: ManagedEquipmentItem[] = [
   {
     id: "e1",
@@ -56,6 +77,7 @@ const ITEMS: ManagedEquipmentItem[] = [
     asset_tag: "GEN-001",
     quantity: null,
     status: "available",
+    equipment_catalog_item_id: null,
   },
 ];
 const BULK_ITEMS: ManagedEquipmentItem[] = [
@@ -68,6 +90,7 @@ const BULK_ITEMS: ManagedEquipmentItem[] = [
     asset_tag: null,
     quantity: 200,
     status: "available",
+    equipment_catalog_item_id: null,
   },
 ];
 
@@ -86,6 +109,7 @@ function renderManager(over?: {
   canManageRegistry?: boolean;
   dailyRates?: Record<string, number | null>;
   owners?: { id: string; name: string; isDefault?: boolean }[];
+  catalogSkus?: CatalogSkuOption[];
 }) {
   render(
     <EquipmentManager
@@ -94,6 +118,7 @@ function renderManager(over?: {
       owners={over?.owners ?? OWNERS}
       projects={PROJECTS}
       movements={over?.movements ?? []}
+      catalogSkus={over?.catalogSkus ?? SKUS}
       canManageRegistry={over?.canManageRegistry ?? true}
       {...(over?.dailyRates ? { dailyRates: over.dailyRates } : {})}
     />,
@@ -105,33 +130,52 @@ function openSheet(triggerName: string) {
   fireEvent.click(screen.getByRole("button", { name: triggerName }));
 }
 
+/** Spec 385 U2 — the add sheet leads with the ทะเบียน picker. */
+function pickSku(id: string) {
+  fireEvent.change(screen.getByLabelText("รายการจากทะเบียนเครื่องมือ"), {
+    target: { value: id },
+  });
+}
+
 describe("EquipmentManager", () => {
   it("shows an equipment item on the row", () => {
     renderManager({ items: ITEMS });
     expect(screen.getByText("เครื่องปั่นไฟ 5kVA")).toBeInTheDocument();
   });
 
-  it("adds a serialized (unit) item with its asset tag", async () => {
+  it("adds a unit item by PICKING its SKU — name/category come from the ทะเบียน", async () => {
     renderManager();
     openSheet("เพิ่มอุปกรณ์");
-    fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "สว่านไฟฟ้า" } });
-    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
+    // No name field, no category field: the pick decides both.
+    expect(screen.queryByLabelText("ชื่ออุปกรณ์")).not.toBeInTheDocument();
+    pickSku("s1");
+    expect(screen.getByText("สว่านไฟฟ้า No.1")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
     fireEvent.change(screen.getByLabelText("รหัสครุภัณฑ์"), { target: { value: "DR-1" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: "สว่านไฟฟ้า",
-          categoryId: "c1",
+          source: { kind: "existing", catalogItemId: "s1" },
           ownerId: "o1",
-          tracking: "unit",
           assetTag: "DR-1",
           quantity: null,
           status: "available",
         }),
       ),
     );
+  });
+
+  it("previews the crew's next number — two existing units make the next No.3", () => {
+    renderManager({
+      items: [
+        { ...ITEMS[0]!, id: "u1", equipment_catalog_item_id: "s1" },
+        { ...ITEMS[0]!, id: "u2", equipment_catalog_item_id: "s1" },
+      ],
+    });
+    openSheet("เพิ่มอุปกรณ์");
+    pickSku("s1");
+    expect(screen.getByText("สว่านไฟฟ้า No.3")).toBeInTheDocument();
   });
 
   // Operator ask 2026-07-30 — "owner defaults to PRI as selection". The default
@@ -145,11 +189,10 @@ describe("EquipmentManager", () => {
       ],
     });
     openSheet("เพิ่มอุปกรณ์");
+    pickSku("s1");
     expect(screen.getByLabelText<HTMLSelectElement>("เจ้าของ").value).toBe("o2");
     // No เจ้าของ interaction at all — the point is that the operator can add a
     // run of items without re-answering the question.
-    fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "สว่านไฟฟ้า" } });
-    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ ownerId: "o2" })),
@@ -159,41 +202,94 @@ describe("EquipmentManager", () => {
   it("keeps the picker sentinel when no owner is flagged, so submit stays disabled", () => {
     renderManager({ owners: [{ id: "o1", name: "Preston Construction Co., Ltd." }] });
     openSheet("เพิ่มอุปกรณ์");
+    pickSku("s1");
     expect(screen.getByLabelText<HTMLSelectElement>("เจ้าของ").value).toBe("");
-    fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "สว่านไฟฟ้า" } });
-    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
     expect(screen.getByRole("button", { name: "เพิ่มรายการ" })).toBeDisabled();
   });
 
-  it("switches to bulk, hides the asset tag, and passes a quantity", async () => {
+  it("a bulk SKU hides the asset tag, shows quantity, and passes it through", async () => {
     renderManager();
     openSheet("เพิ่มอุปกรณ์");
-    fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "นั่งร้านโครง" } });
-    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
-    fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
-    fireEvent.click(screen.getByRole("radio", { name: "จำนวนมาก (นับจำนวน)" }));
+    pickSku("s2");
     expect(screen.queryByLabelText("รหัสครุภัณฑ์")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
     fireEvent.change(screen.getByLabelText("จำนวน"), { target: { value: "200" } });
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
     await waitFor(() =>
       expect(mockCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ tracking: "bulk", quantity: 200, assetTag: "" }),
+        expect.objectContaining({
+          source: { kind: "existing", catalogItemId: "s2" },
+          quantity: 200,
+          assetTag: "",
+        }),
       ),
     );
   });
 
-  it("rejects an invalid item client-side before calling the action", async () => {
+  it("rejects a blank bulk quantity client-side before calling the action", async () => {
     renderManager();
     openSheet("เพิ่มอุปกรณ์");
-    // Bulk with no quantity → validateEquipmentItem fails; action never called.
-    fireEvent.change(screen.getByLabelText("ชื่ออุปกรณ์"), { target: { value: "x" } });
-    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
+    pickSku("s2");
     fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
-    fireEvent.click(screen.getByRole("radio", { name: "จำนวนมาก (นับจำนวน)" }));
     // quantity left blank
     fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
     await waitFor(() => expect(screen.getByText(/จำนวนต้องเป็นจำนวนเต็ม/)).toBeInTheDocument());
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a second bulk row for a SKU that already owns one — points at แก้ไข", () => {
+    renderManager({
+      items: [{ ...BULK_ITEMS[0]!, equipment_catalog_item_id: "s2" }],
+      // A FLAGGED owner, so ownerId is prefilled and cannot be what disables the
+      // button — bulkTaken must hold it alone (mutation-proven: without this the
+      // case passed through the ownerId === "" guard instead).
+      owners: [{ id: "o1", name: "Preston International Co., Ltd.", isDefault: true }],
+    });
+    openSheet("เพิ่มอุปกรณ์");
+    pickSku("s2");
+    expect(screen.getByText(/แก้ไขจำนวนที่แถวเดิม/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("จำนวน")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "เพิ่มรายการ" })).toBeDisabled();
+  });
+
+  it("the พิมพ์เอง escape registers a NEW SKU: name + category + tracking travel as source", async () => {
+    renderManager();
+    openSheet("เพิ่มอุปกรณ์");
+    pickSku("__new__");
+    expect(screen.getByText(/จะถูกเพิ่มเข้าทะเบียนเครื่องมือด้วย/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("ชื่อรายการ (ตามทะเบียน)"), {
+      target: { value: "เครื่องปั่นไฟ 5kVA" },
+    });
+    fireEvent.change(screen.getByLabelText("หมวดหมู่"), { target: { value: "c1" } });
+    fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: { kind: "new", name: "เครื่องปั่นไฟ 5kVA", categoryId: "c1", tracking: "unit" },
+        }),
+      ),
+    );
+  });
+
+  it("freezes the form on rateWarning — the row exists, the draftId is spent, the gap is named", async () => {
+    mockCreate.mockResolvedValue({ ok: true, rateWarning: true });
+    renderManager();
+    openSheet("เพิ่มอุปกรณ์");
+    pickSku("s1");
+    fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+    await waitFor(() =>
+      expect(screen.getByText(/คัดลอกค่าเช่าจากทะเบียนไม่สำเร็จ/)).toBeInTheDocument(),
+    );
+    // No second submit under the spent draftId — only ปิด remains. The sheet's
+    // own X carries aria-label "ปิด" too, so pin the TEXT-bearing button.
+    expect(screen.queryByRole("button", { name: "เพิ่มรายการ" })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "ปิด" }).some((b) => b.textContent?.trim() === "ปิด"),
+    ).toBe(true);
+    // The list behind refreshed, so the row is visible once closed.
+    expect(mockRefresh).toHaveBeenCalled();
   });
 
   it("edits an item's name", async () => {
@@ -358,6 +454,7 @@ describe("EquipmentManager", () => {
       asset_tag: "SC-77",
       quantity: null,
       status: "available",
+      equipment_catalog_item_id: null,
     },
   ];
 
@@ -369,6 +466,7 @@ describe("EquipmentManager", () => {
         owners={OWNERS}
         projects={PROJECTS}
         movements={[]}
+        catalogSkus={SKUS}
         canManageRegistry={over?.canManageRegistry ?? true}
       />,
     );
@@ -426,6 +524,7 @@ describe("EquipmentManager", () => {
         owners={OWNERS}
         projects={PROJECTS}
         movements={[]}
+        catalogSkus={SKUS}
         canManageRegistry
       />,
     );

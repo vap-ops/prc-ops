@@ -26,7 +26,7 @@ const { mockRefresh } = vi.hoisted(() => ({ mockRefresh: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/equipment/actions", () => ({
-  createEquipment: vi.fn().mockResolvedValue({ ok: true }),
+  createEquipmentFromCatalog: vi.fn().mockResolvedValue({ ok: true }),
   updateEquipment: vi.fn().mockResolvedValue({ ok: true }),
   createEquipmentCategory: vi.fn().mockResolvedValue({ ok: true }),
   createEquipmentOwner: vi.fn().mockResolvedValue({ ok: true }),
@@ -39,6 +39,7 @@ import {
   EquipmentManager,
   type ManagedEquipmentItem,
 } from "@/components/features/equipment/equipment-manager";
+import type { CatalogSkuOption } from "@/lib/equipment/catalog-pick";
 
 const CATEGORIES = [{ id: "c1", name: "เครื่องปั่นไฟ" }];
 const OWNERS = [
@@ -46,6 +47,16 @@ const OWNERS = [
   { id: "o2", name: "Preston International Co., Ltd.", isDefault: true },
 ];
 const PROJECTS = [{ id: "p1", name: "ไซต์บางนา" }];
+const SKUS: CatalogSkuOption[] = [
+  {
+    id: "s1",
+    name: "สว่านไฟฟ้า",
+    categoryId: "c1",
+    brand: null,
+    model: null,
+    defaultTracking: "unit",
+  },
+];
 const ITEMS: ManagedEquipmentItem[] = [
   {
     id: "e1",
@@ -56,6 +67,7 @@ const ITEMS: ManagedEquipmentItem[] = [
     asset_tag: "GEN-001",
     quantity: null,
     status: "available",
+    equipment_catalog_item_id: null,
   },
 ];
 
@@ -67,6 +79,7 @@ function renderManager(items: ManagedEquipmentItem[] = []) {
       owners={OWNERS}
       projects={PROJECTS}
       movements={[]}
+      catalogSkus={SKUS}
       canManageRegistry
     />,
   );
@@ -90,13 +103,28 @@ beforeEach(() => {
 });
 
 describe("equipment sheets — a picker must look like a picker", () => {
-  it("the add sheet's หมวดหมู่ / เจ้าของ / สถานะ keep their dropdown affordance", () => {
+  it("the add sheet's ทะเบียน picker, then เจ้าของ / สถานะ, keep their dropdown affordance", () => {
     renderManager();
     openSheet("เพิ่มอุปกรณ์");
-    // The three fields the operator meets when filling the registry by hand.
-    expect(screen.getByLabelText("หมวดหมู่")).toBeInTheDocument();
+    // Spec 385 U2 — the sheet leads with the SKU picker; the per-unit fields
+    // appear once a SKU is chosen.
+    expect(screen.getByLabelText("รายการจากทะเบียนเครื่องมือ")).toBeInTheDocument();
+    expectPickersLookLikePickers();
+    fireEvent.change(screen.getByLabelText("รายการจากทะเบียนเครื่องมือ"), {
+      target: { value: "s1" },
+    });
     expect(screen.getByLabelText("เจ้าของ")).toBeInTheDocument();
     expect(screen.getByLabelText("สถานะ")).toBeInTheDocument();
+    expectPickersLookLikePickers();
+  });
+
+  it("the พิมพ์เอง escape's หมวดหมู่ select keeps the affordance too", () => {
+    renderManager();
+    openSheet("เพิ่มอุปกรณ์");
+    fireEvent.change(screen.getByLabelText("รายการจากทะเบียนเครื่องมือ"), {
+      target: { value: "__new__" },
+    });
+    expect(screen.getByLabelText("หมวดหมู่")).toBeInTheDocument();
     expectPickersLookLikePickers();
   });
 
@@ -120,6 +148,9 @@ describe("equipment sheets — a picker must look like a picker", () => {
   it("เจ้าของ is a real combobox already holding the default owner", () => {
     renderManager();
     openSheet("เพิ่มอุปกรณ์");
+    fireEvent.change(screen.getByLabelText("รายการจากทะเบียนเครื่องมือ"), {
+      target: { value: "s1" },
+    });
     const owner = screen.getByLabelText<HTMLSelectElement>("เจ้าของ");
     expect(owner.tagName).toBe("SELECT");
     expect(owner.value).toBe("o2");

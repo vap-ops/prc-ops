@@ -12,7 +12,9 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createClient as createServerSupabase } from "@/lib/db/server";
+import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { requireRole } from "@/lib/auth/require-role";
+import { nextUnitName } from "@/lib/equipment/catalog-pick";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
@@ -57,17 +59,6 @@ interface EquipmentInput {
   status: string;
 }
 
-// Spec 367 U5b — the add form may carry a photo taken BEFORE the row exists.
-// The client mints the item id so the upload has a folder to live in, then hands
-// both back here. See `isOwnItemImagePath` for why the shape is checked.
-interface NewEquipmentInput extends EquipmentInput {
-  id: string;
-  // Spec 382 U2 — up to four slots, uploaded under the client-minted id before the
-  // row exists. Written as rows AFTER the insert (FK); image_path is left to the
-  // U1 mirror trigger so that column keeps exactly one writer.
-  photos: { kind: string; path: string }[];
-}
-
 function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
   if (!UUID_REGEX.test(input.categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
   if (!UUID_REGEX.test(input.ownerId)) return { ok: false, error: "กรุณาเลือกเจ้าของอุปกรณ์" };
@@ -77,24 +68,68 @@ function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
   return { ok: true };
 }
 
-export async function createEquipment(input: NewEquipmentInput): Promise<EquipmentActionResult> {
-  const ctx = await requireRole(BACK_OFFICE_ROLES);
-  const item = validateEquipmentItem({
-    name: input.name,
-    tracking: input.tracking,
-    quantity: input.quantity,
-    assetTag: input.assetTag,
-  });
-  if (!item.ok) return item;
-  const refs = validateRefsAndStatus(input);
-  if (!refs.ok) return refs;
+// Spec 385 U2 — `createEquipment` (the free-text instance writer, spec 141 U2 →
+// 367 U5b → 382 U2) is DELETED, not kept-but-unwired: an exported server action
+// is a live endpoint, and a free-text instance with no catalog FK is the exact
+// path the ทะเบียน exists to close. The CSV importer keeps its own documented
+// free-text path (367 U3) until U4 decides its fate.
 
-  // U5b — the id arrives from the client because the photo is uploaded to
-  // `<id>/…` before this row exists. Supplying a PK is safe: the column is in the
-  // authenticated INSERT grant, a duplicate raises 23505 (an insert can never
-  // overwrite an existing row), and the INSERT policy still gates who may write
-  // at all. The path must belong to THIS id — same rule the edit path applies.
+// ---------------------------------------------------------------------------
+// Spec 385 U2 — pick-from-ทะเบียน. The instance INHERITS from the SKU: name
+// (`<SKU> No.<n+1>` for unit tracking, the crew's own stencil convention),
+// category (the function-first principle binds the TYPE — units inherit),
+// brand/model, tracking. All server-derived; the client's pick is a reference,
+// never a payload, so the free-text duplicate disease cannot return here.
+//
+// The rate copy is two seams on purpose:
+//   * READ through the admin client — `default_daily_rate` has no authenticated
+//     grant in any direction (ADR 0055 d6 mirror), so an RLS read would land on
+//     the worker_level_rates class of silent nothing.
+//   * WRITE through the EXISTING `set_equipment_daily_rate` DEFINER RPC — the
+//     real money gate plus its `equipment_rate_change` audit row, with the real
+//     actor. A raw admin UPDATE would bypass both.
+// A failed copy must not lose the item (the operator is standing at the
+// machine): the action stays ok and raises `rateWarning`; an unpriced unit is
+// already an honest, visible state (scan-ยืม refuses it, the rate control shows
+// the gap).
+// ---------------------------------------------------------------------------
+
+export type CreateFromCatalogSource =
+  | { kind: "existing"; catalogItemId: string }
+  | { kind: "new"; name: string; categoryId: string; tracking: string };
+
+export type CreateFromCatalogResult =
+  | { ok: true; rateWarning?: boolean }
+  | { ok: false; error: string };
+
+const SKU_COLUMNS = "id, name, category_id, brand, model, default_tracking, is_active";
+
+interface CatalogSkuRow {
+  id: string;
+  name: string;
+  category_id: string;
+  brand: string | null;
+  model: string | null;
+  default_tracking: Database["public"]["Enums"]["equipment_tracking"];
+  is_active: boolean;
+}
+
+export async function createEquipmentFromCatalog(input: {
+  id: string;
+  photos: { kind: string; path: string }[];
+  source: CreateFromCatalogSource;
+  ownerId: string;
+  assetTag: string;
+  quantity: number | null;
+  status: string;
+}): Promise<CreateFromCatalogResult> {
+  const ctx = await requireRole(BACK_OFFICE_ROLES);
+
   if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
+  if (!UUID_REGEX.test(input.ownerId)) return { ok: false, error: "กรุณาเลือกเจ้าของอุปกรณ์" };
+  if (!EQUIPMENT_STATUSES.includes(input.status as EquipmentStatus)) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
   for (const photo of input.photos) {
     if (!EQUIPMENT_PHOTO_KINDS.includes(photo.kind as EquipmentPhotoKind)) {
       return { ok: false, error: GENERIC_ERROR };
@@ -104,26 +139,128 @@ export async function createEquipment(input: NewEquipmentInput): Promise<Equipme
     }
   }
 
+  if (input.source.kind !== "existing" && input.source.kind !== "new") {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("equipment_items").insert({
+
+  // Resolve the SKU — an existing pick, or the escape that registers a new one.
+  let sku: CatalogSkuRow;
+  if (input.source.kind === "existing") {
+    if (!UUID_REGEX.test(input.source.catalogItemId)) return { ok: false, error: GENERIC_ERROR };
+    const { data, error } = await supabase
+      .from("equipment_catalog_items")
+      .select(SKU_COLUMNS)
+      .eq("id", input.source.catalogItemId)
+      .single();
+    if (error || !data) return { ok: false, error: "ไม่พบรายการนี้ในทะเบียนเครื่องมือ" };
+    sku = data as CatalogSkuRow;
+    if (!sku.is_active) return { ok: false, error: "รายการนี้ถูกปิดใช้งานในทะเบียนแล้ว" };
+  } else {
+    const name = input.source.name.trim();
+    if (name.length === 0 || name.length > 120) {
+      return { ok: false, error: "ชื่อรายการต้องไม่เกิน 120 ตัวอักษร" };
+    }
+    if (!UUID_REGEX.test(input.source.categoryId))
+      return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
+    if (input.source.tracking !== "unit" && input.source.tracking !== "bulk") {
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    const { data, error } = await supabase
+      .from("equipment_catalog_items")
+      .insert({
+        name,
+        category_id: input.source.categoryId,
+        default_tracking: input.source.tracking,
+        created_by: ctx.id,
+      })
+      .select(SKU_COLUMNS)
+      .single();
+    if (error || !data) {
+      if ((error as { code?: string } | null)?.code === "23505") {
+        return { ok: false, error: "มีชื่อนี้ในทะเบียนอยู่แล้ว — เลือกจากทะเบียนได้เลย" };
+      }
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    sku = data as CatalogSkuRow;
+  }
+
+  // How many units this SKU already has — drives No.<n+1> and the bulk one-row
+  // rule. A FAILED count must refuse, not default to 0: existing = 0 would both
+  // hand out a colliding No.1 and wave a second bulk row past the one-row rule.
+  const { count, error: countError } = await supabase
+    .from("equipment_items")
+    .select("id", { count: "exact", head: true })
+    .eq("equipment_catalog_item_id", sku.id);
+  if (countError) return { ok: false, error: GENERIC_ERROR };
+  const existing = count ?? 0;
+
+  if (sku.default_tracking === "bulk" && existing > 0) {
+    return {
+      ok: false,
+      error: "มีแถวของรายการนี้อยู่แล้ว — แก้ไขจำนวนที่แถวเดิมแทนการเพิ่มใหม่",
+    };
+  }
+
+  const derivedName =
+    sku.default_tracking === "unit" ? nextUnitName(sku.name, existing) : sku.name.trim();
+  // The name cap (120) applies to the DERIVED name, which carries a " No.<n>"
+  // suffix the operator cannot edit — name the real fix instead of surfacing a
+  // length error on a field that is not on the form.
+  if (derivedName.length > 120) {
+    return {
+      ok: false,
+      error: "ชื่อในทะเบียนยาวเกินไปสำหรับตั้งหมายเลขหน่วย — ย่อชื่อรายการในทะเบียนก่อน",
+    };
+  }
+  const item = validateEquipmentItem({
+    name: derivedName,
+    tracking: sku.default_tracking,
+    quantity: sku.default_tracking === "bulk" ? input.quantity : null,
+    assetTag: sku.default_tracking === "unit" ? input.assetTag : "",
+  });
+  if (!item.ok) return item;
+
+  const { error: insertError } = await supabase.from("equipment_items").insert({
     id: input.id,
     name: item.value.name,
-    category_id: input.categoryId,
+    category_id: sku.category_id,
     owner_id: input.ownerId,
-    // Spec 275: owners are id-mirrored into suppliers — dual-write keeps the
-    // supplier edge (GL party, 274 invariant) in step. Fix 2026-07-14.
+    // Spec 275 id-mirror (see createEquipment).
     supplier_id: input.ownerId,
     tracking: item.value.tracking,
     asset_tag: item.value.assetTag,
     quantity: item.value.quantity,
     status: input.status as EquipmentStatus,
+    brand: sku.brand,
+    model: sku.model,
+    equipment_catalog_item_id: sku.id,
     created_by: ctx.id,
   });
-  if (error) return { ok: false, error: GENERIC_ERROR };
+  if (insertError) {
+    // The escape path has already REGISTERED the SKU by here. That is by design
+    // (self-healing: the SKU is real master data and stays pickable), but the
+    // client's dropdown was rendered before it existed — refresh the server
+    // props and say so, or the retry meets a 23505 pointing at an invisible row.
+    if (input.source.kind === "new") revalidatePath("/equipment");
+    if ((insertError as { code?: string }).code === "23505") {
+      // The only unique index on equipment_items is the asset tag — a permanent,
+      // user-fixable refusal must not be dressed as a retry (honest-copy class).
+      return { ok: false, error: "รหัสครุภัณฑ์นี้ถูกใช้กับเครื่องอื่นแล้ว — ตรวจสอบเลขบนเครื่อง" };
+    }
+    if (input.source.kind === "new") {
+      return {
+        ok: false,
+        error:
+          "เพิ่มรายการเข้าทะเบียนแล้ว แต่บันทึกหน่วยไม่สำเร็จ — เปิดชีตใหม่แล้วเลือกจากทะเบียนได้เลย",
+      };
+    }
+    return { ok: false, error: GENERIC_ERROR };
+  }
 
-  // After the row exists (FK). A photo that fails to attach must NOT roll back the
-  // item: the operator is standing at the machine and the record is the point —
-  // the slot simply stays empty and the n/4 chip says so.
+  // Photos after the row exists (FK) — a failed attach never rolls back the item
+  // (same contract as createEquipment).
   if (input.photos.length > 0) {
     await supabase.from("equipment_item_photos").insert(
       input.photos.map((photo) => ({
@@ -135,8 +272,29 @@ export async function createEquipment(input: NewEquipmentInput): Promise<Equipme
     );
   }
 
+  // Rate copy: admin-read the walled default, write through the audited RPC.
+  // A FAILED read raises the same warning as a failed write — silently skipping
+  // would make "read broke" indistinguishable from "SKU has no default", and an
+  // unpriced unit with no message is the silent-success class.
+  let rateWarning = false;
+  const admin = createAdminSupabase();
+  const { data: rateRow, error: rateReadError } = await admin
+    .from("equipment_catalog_items")
+    .select("default_daily_rate")
+    .eq("id", sku.id)
+    .single();
+  if (rateReadError) {
+    rateWarning = true;
+  } else if (typeof rateRow?.default_daily_rate === "number") {
+    const { error: rateError } = await supabase.rpc("set_equipment_daily_rate", {
+      p_id: input.id,
+      p_rate: rateRow.default_daily_rate,
+    });
+    if (rateError) rateWarning = true;
+  }
+
   revalidatePath("/equipment");
-  return { ok: true };
+  return rateWarning ? { ok: true, rateWarning: true } : { ok: true };
 }
 
 export async function updateEquipment(

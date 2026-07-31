@@ -50,14 +50,19 @@ import { EquipmentPhotoSlots } from "@/components/features/equipment/equipment-p
 import { photoCompleteness, type EquipmentPhotoKind } from "@/lib/equipment/photo-kinds";
 import { pickDefaultOwnerId, type OwnerOption } from "@/lib/equipment/default-owner";
 import {
+  groupSkusByCategory,
+  nextUnitName,
+  type CatalogSkuOption,
+} from "@/lib/equipment/catalog-pick";
+import {
   EQUIPMENT_MOVEMENT_KIND_LABEL,
   EQUIPMENT_STATUS_LABEL,
   EQUIPMENT_TRACKING_LABEL,
 } from "@/lib/i18n/labels";
 import { SetDailyRate } from "@/components/features/equipment/set-daily-rate";
 import {
-  createEquipment,
   createEquipmentCategory,
+  createEquipmentFromCatalog,
   createEquipmentOwner,
   recordEquipmentMovement,
   updateEquipment,
@@ -87,6 +92,8 @@ export type ManagedEquipmentItem = {
   asset_tag: string | null;
   quantity: number | null;
   status: EquipmentStatus;
+  // Spec 385 U2 — which SKU this unit instantiates (null on pre-catalog rows).
+  equipment_catalog_item_id: string | null;
 };
 
 type Ref = { id: string; name: string };
@@ -281,86 +288,140 @@ function buildItemArgs(
   };
 }
 
+// Spec 385 U2 — the "not in the ทะเบียน yet" escape value. A real uuid can never
+// equal it, so the picker's three states (unpicked / SKU / escape) stay disjoint.
+const NEW_SKU = "__new__";
+
 function AddEquipmentForm({
   categories,
   owners,
+  catalogSkus,
+  skuInstanceCounts,
   onDone,
 }: {
   categories: Ref[];
   owners: OwnerOption[];
+  catalogSkus: CatalogSkuOption[];
+  // itemId-FK counts per SKU — the client-side PREVIEW of the server's own
+  // No.<n+1> derivation, and the bulk one-row rule's input. ONE predicate on
+  // both sides: the server refuses a bulk SKU with ANY existing instance, so the
+  // client must key on the same count (a tracking-filtered variant would render
+  // an enabled form the server then refuses — review find, 2026-07-31).
+  skuInstanceCounts: Record<string, number>;
   onDone: () => void;
 }) {
   const router = useRouter();
   // Spec 367 U5b — the item id is minted HERE, before the row exists, because the
   // photo has to be uploaded to `<itemId>/…` (the depth-1 arm of the
   // equipment-images policy) and there is no id to use yet. Same id then goes to
-  // createEquipment, so the row owns the folder its photo landed in. Minted once
-  // per mount: the sheet unmounts on save, so the next open gets a fresh one.
+  // the action, so the row owns the folder its photo landed in. Minted once per
+  // mount: the sheet unmounts on save, so the next open gets a fresh one.
   const [draftId] = useState(() => crypto.randomUUID());
   const [draftPhotos, setDraftPhotos] = useState<Partial<Record<EquipmentPhotoKind, string>>>({});
   // Operator ask 2026-07-30 — the fleet has one standing owner (PRI), so the
-  // form starts there instead of on the sentinel. Read from the data
-  // (`equipment_owners.is_default`), never from a name: spec 367 §3 is about the
-  // plant changing hands. Falls back to "" — the "— เลือกเจ้าของ —" option, which
-  // keeps the submit button disabled — when nothing is flagged.
+  // form starts there instead of on the sentinel (equipment_owners.is_default).
   const defaultOwnerId = pickDefaultOwnerId(owners);
+  const [skuId, setSkuId] = useState("");
+  // Escape-mode SKU fields (what gets REGISTERED when the tool is not in the
+  // ทะเบียน yet — name/category/tracking describe the TYPE, not the unit).
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [ownerId, setOwnerId] = useState(defaultOwnerId);
   const [tracking, setTracking] = useState<EquipmentTracking>("unit");
+  // Instance fields.
+  const [ownerId, setOwnerId] = useState(defaultOwnerId);
   const [assetTag, setAssetTag] = useState("");
   const [quantity, setQuantity] = useState("");
   const [status, setStatus] = useState<EquipmentStatus>("available");
   const [error, setError] = useState<string | null>(null);
+  // Saved, but the rate copy failed: the row EXISTS, so the form freezes rather
+  // than inviting a second submit under the same (spent) draftId — and closing
+  // silently would hide the one follow-up that is owed (silent-success rule).
+  const [rateNotice, setRateNotice] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const groups = groupSkusByCategory(catalogSkus, categories);
+  const sku = catalogSkus.find((s) => s.id === skuId) ?? null;
+  const isNewSku = skuId === NEW_SKU;
+  const effectiveTracking: EquipmentTracking = sku ? sku.defaultTracking : tracking;
+  const bulkTaken =
+    sku !== null && sku.defaultTracking === "bulk" && (skuInstanceCounts[sku.id] ?? 0) > 0;
+  const categoryName = sku
+    ? (categories.find((c) => c.id === sku.categoryId)?.name ?? "อื่น ๆ")
+    : null;
+  const previewName = sku
+    ? sku.defaultTracking === "unit"
+      ? nextUnitName(sku.name, skuInstanceCounts[sku.id] ?? 0)
+      : sku.name
+    : null;
 
   async function submit() {
     setError(null);
-    const args = buildItemArgs(name, tracking, assetTag, quantity);
-    const valid = validateEquipmentItem(args);
-    if (!valid.ok) {
-      setError(valid.error);
+    if (!sku && !isNewSku) return;
+    const qty =
+      effectiveTracking === "bulk"
+        ? quantity.trim() === ""
+          ? Number.NaN
+          : Number(quantity)
+        : null;
+    if (effectiveTracking === "bulk" && (!Number.isInteger(qty) || (qty as number) < 1)) {
+      setError("จำนวนต้องเป็นจำนวนเต็มอย่างน้อย 1");
       return;
     }
     setBusy(true);
-    const result = await createEquipment({
-      id: draftId,
-      photos: Object.entries(draftPhotos).map(([kind, path]) => ({ kind, path })),
-      name,
-      categoryId,
-      ownerId,
-      tracking,
-      assetTag: args.assetTag,
-      quantity: args.quantity,
-      status,
-    });
-    setBusy(false);
+    let result: Awaited<ReturnType<typeof createEquipmentFromCatalog>>;
+    try {
+      result = await createEquipmentFromCatalog({
+        id: draftId,
+        photos: Object.entries(draftPhotos).map(([kind, path]) => ({ kind, path })),
+        source: sku
+          ? { kind: "existing", catalogItemId: sku.id }
+          : { kind: "new", name, categoryId, tracking },
+        ownerId,
+        assetTag: effectiveTracking === "unit" ? assetTag : "",
+        quantity: qty,
+        status,
+      });
+    } catch {
+      // Transport failure — without this arm `busy` never clears and the sheet
+      // dies silently. The write may or may not have landed; a retry under the
+      // same draftId answers that honestly (a landed row 23505s the id).
+      setError("เชื่อมต่อไม่สำเร็จ — ลองใหม่อีกครั้ง");
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    setName("");
-    setAssetTag("");
-    setQuantity("");
-    setTracking("unit");
-    setStatus("available");
-    setCategoryId("");
-    // Mirrors the initial state rather than the sentinel — clearing it here
-    // would contradict what the next open shows. Unobservable today (BottomSheet
-    // returns null when closed, so onDone() unmounts this form and useState
-    // re-seeds it), which is why no test pins it; it is kept in step with its
-    // six sibling resets rather than left as the one that says "".
-    setOwnerId(defaultOwnerId);
-    setDraftPhotos({});
+    if (result.rateWarning) {
+      setRateNotice(true);
+      router.refresh();
+      return;
+    }
     onDone();
     router.refresh();
+  }
+
+  if (rateNotice) {
+    return (
+      <div>
+        <p className="text-ink text-body">
+          บันทึกอุปกรณ์แล้ว แต่คัดลอกค่าเช่าจากทะเบียนไม่สำเร็จ —
+          ตั้งค่าเช่าได้ที่ปุ่มค่าเช่าบนแถวรายการ
+        </p>
+        <button type="button" onClick={onDone} className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}>
+          ปิด
+        </button>
+      </div>
+    );
   }
 
   return (
     <div>
       {/* Spec 382 U2 — photograph the machine while adding it: four slots with
           drawn guides, all optional. Draft mode uploads under draftId and the
-          paths ride along to createEquipment, so no second visit is needed. */}
+          paths ride along to the action, so no second visit is needed. */}
       <EquipmentPhotoSlots
         itemId={draftId}
         onDraftChange={(kind, path) =>
@@ -372,29 +433,163 @@ function AddEquipmentForm({
           })
         }
       />
-      <EquipmentFields
-        idPrefix="equip-add"
-        categories={categories}
-        owners={owners}
-        name={name}
-        setName={setName}
-        categoryId={categoryId}
-        setCategoryId={setCategoryId}
-        ownerId={ownerId}
-        setOwnerId={setOwnerId}
-        tracking={tracking}
-        setTracking={setTracking}
-        assetTag={assetTag}
-        setAssetTag={setAssetTag}
-        quantity={quantity}
-        setQuantity={setQuantity}
-        status={status}
-        setStatus={setStatus}
-      />
+      {/* Spec 385 U2 — the ทะเบียน comes first: the unit is an instance OF a SKU,
+          so the pick decides name/category/brand/tracking and the fields below
+          shrink to what actually varies per unit. See FIELD_STACKED note above on
+          why selects must keep their native chevron. */}
+      <label className="text-ink-secondary mt-2 block text-sm">
+        รายการจากทะเบียนเครื่องมือ
+        <select
+          aria-label="รายการจากทะเบียนเครื่องมือ"
+          value={skuId}
+          onChange={(e) => setSkuId(e.target.value)}
+          className={FIELD_STACKED}
+        >
+          <option value="">— เลือกจากทะเบียน —</option>
+          {groups.map((g) => (
+            <optgroup key={g.id} label={g.name}>
+              {g.skus.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+          <option value={NEW_SKU}>+ พิมพ์เอง (เพิ่มเข้าทะเบียนใหม่)</option>
+        </select>
+      </label>
+
+      {sku ? (
+        <div className="border-edge bg-page rounded-control mt-2 border px-3 py-2">
+          <p className="text-ink text-body font-semibold">{previewName}</p>
+          <p className="text-ink-secondary text-meta">
+            {categoryName}
+            {sku.brand ? ` · ${sku.brand}` : ""}
+            {sku.model ? ` ${sku.model}` : ""}
+            {" · "}
+            {EQUIPMENT_TRACKING_LABEL[sku.defaultTracking]}
+          </p>
+        </div>
+      ) : null}
+
+      {bulkTaken ? (
+        <p className="text-ink-secondary mt-2 text-sm">
+          มีแถวของรายการนี้อยู่แล้ว — แก้ไขจำนวนที่แถวเดิม (ปุ่ม แก้ไข) แทนการเพิ่มใหม่
+        </p>
+      ) : null}
+
+      {isNewSku ? (
+        <>
+          <p className="text-ink-secondary mt-2 text-sm">
+            รายการใหม่จะถูกเพิ่มเข้าทะเบียนเครื่องมือด้วย
+          </p>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            ชื่อรายการ (ตามทะเบียน)
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={120}
+              className={FIELD_STACKED}
+            />
+          </label>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            หมวดหมู่
+            <select
+              aria-label="หมวดหมู่"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              className={FIELD_STACKED}
+            >
+              <option value="">— เลือกหมวดหมู่ —</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="ประเภทการติดตาม">
+            {TRACKING_OPTIONS.map((option) => (
+              <RadioChip
+                key={option.value}
+                name="equip-add-sku-tracking"
+                label={option.label}
+                checked={tracking === option.value}
+                onSelect={() => setTracking(option.value)}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {(sku && !bulkTaken) || isNewSku ? (
+        <>
+          <label className="text-ink-secondary mt-2 block text-sm">
+            เจ้าของ
+            <select
+              aria-label="เจ้าของ"
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value)}
+              className={FIELD_STACKED}
+            >
+              <option value="">— เลือกเจ้าของ —</option>
+              {owners.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {effectiveTracking === "unit" ? (
+            <label className="text-ink-secondary mt-2 block text-sm">
+              รหัสครุภัณฑ์
+              <input
+                value={assetTag}
+                onChange={(e) => setAssetTag(e.target.value)}
+                maxLength={80}
+                placeholder="ไม่บังคับ"
+                className={FIELD_STACKED}
+              />
+            </label>
+          ) : (
+            <label className="text-ink-secondary mt-2 block text-sm">
+              จำนวน
+              <input
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                inputMode="numeric"
+                className={FIELD_STACKED}
+              />
+            </label>
+          )}
+          <label className="text-ink-secondary mt-2 block text-sm">
+            สถานะ
+            <select
+              aria-label="สถานะ"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as EquipmentStatus)}
+              className={FIELD_STACKED}
+            >
+              {STATUS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      ) : null}
+
       {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
       <button
         type="button"
-        disabled={busy || name.trim() === "" || categoryId === "" || ownerId === ""}
+        disabled={
+          busy ||
+          (!sku && !isNewSku) ||
+          bulkTaken ||
+          ownerId === "" ||
+          (isNewSku && (name.trim() === "" || categoryId === ""))
+        }
         onClick={() => void submit()}
         className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}
       >
@@ -832,6 +1027,7 @@ export function EquipmentManager({
   owners,
   projects,
   movements,
+  catalogSkus,
   canManageRegistry,
   dailyRates,
   photosByItem,
@@ -841,6 +1037,8 @@ export function EquipmentManager({
   owners: OwnerOption[];
   projects: Ref[];
   movements: EquipmentMovementRow[];
+  // Spec 385 U2 — the ทะเบียน (active SKUs) the add sheet picks from.
+  catalogSkus: CatalogSkuOption[];
   // U5 — false for the site_admin field view: list + where-is-it + move only,
   // no registry editing (add/edit items, bootstrap categories/owners). RLS is
   // the real guard; this just hides the affordances the field can't use.
@@ -859,6 +1057,16 @@ export function EquipmentManager({
   const categoryNames = new Map(categories.map((c) => [c.id, c.name]));
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const locations = currentEquipmentLocation(movements);
+
+  // Spec 385 U2 — per-SKU instance counts, mirroring the server's own No.<n+1>
+  // derivation (count of ALL rows under the FK). The bulk one-row rule derives
+  // from the same counts — one predicate, both sides.
+  const skuInstanceCounts: Record<string, number> = {};
+  for (const it of items) {
+    const ref = it.equipment_catalog_item_id;
+    if (!ref) continue;
+    skuInstanceCounts[ref] = (skuInstanceCounts[ref] ?? 0) + 1;
+  }
   // Belt-and-braces: only surface rates when BOTH the audience flag and the map
   // are present (a rate map must never render on the field view).
   const canPriceEquipment = canManageRegistry && dailyRates !== undefined;
@@ -929,6 +1137,8 @@ export function EquipmentManager({
         <AddEquipmentForm
           categories={categories}
           owners={owners}
+          catalogSkus={catalogSkus}
+          skuInstanceCounts={skuInstanceCounts}
           onDone={() => setAddingItem(false)}
         />
       </BottomSheet>
