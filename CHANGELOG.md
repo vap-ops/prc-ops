@@ -1,3 +1,9 @@
+# [0.295.0](https://github.com/vap-ops/prc-ops/compare/v0.294.0...v0.295.0) (2026-07-31)
+
+### Features
+
+- **notifications:** name the submitter on approval pings (feedback c5136ad9) ([#895](https://github.com/vap-ops/prc-ops/issues/895)) ([b826c72](https://github.com/vap-ops/prc-ops/commit/b826c72fb6ca549cec8ddc5590131c972dff34f6))
+
 # [0.294.0](https://github.com/vap-ops/prc-ops/compare/v0.293.2...v0.294.0) (2026-07-31)
 
 ### Features
