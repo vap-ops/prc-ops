@@ -17,6 +17,14 @@ import { RoleDirectory } from "@/components/features/roles/role-directory";
 import { OfficeInviteLinkBlock } from "@/components/features/roles/office-invite-link-block";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
+import { serverEnv } from "@/lib/env.server";
+import { classifyReachability, summarizeReachability } from "@/lib/notifications/reachability";
+import {
+  REACH_BOT_UNSET,
+  REACH_HEADING,
+  REACH_UNKNOWN_HINT,
+  reachSummaryLine,
+} from "@/lib/i18n/labels";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 export const metadata = { title: "จัดการสิทธิ์ผู้ใช้" };
@@ -25,9 +33,14 @@ export default async function RolesPage() {
   const ctx = await requireRole(["super_admin"]);
 
   const supabase = await createClient();
+  // Spec 386 U5 — + the two contact columns so the roster doubles as the
+  // notification-onboarding tracker (operator ask 2026-07-31: "where do I track
+  // the status who is onboarding to this feature?"). Both carry an authenticated
+  // SELECT grant and the super_admin RLS policy already permits the all-users
+  // read, so this stays on the session client — no admin seam.
   const { data: rows } = await supabase
     .from("users")
-    .select("id, full_name, role, created_at")
+    .select("id, full_name, role, created_at, telegram_chat_id, line_oa_friend")
     .order("created_at", { ascending: true });
   const users = rows ?? [];
 
@@ -36,7 +49,14 @@ export default async function RolesPage() {
     name: u.full_name?.trim() || "(ไม่มีชื่อ)",
     role: u.role,
     isSelf: u.id === ctx.id,
+    reach: classifyReachability(u),
   }));
+
+  const reach = summarizeReachability(users);
+  // Honest pairing: a Telegram chip means BOUND, not delivered. Until the bot
+  // token is configured the drain skips Telegram entirely, so a green chip
+  // would otherwise imply a message that never left the building.
+  const telegramBotConfigured = serverEnv.TELEGRAM_BOT_TOKEN !== undefined;
 
   const visitorCount = users.filter((u) => u.role === "visitor").length;
 
@@ -52,6 +72,19 @@ export default async function RolesPage() {
           ทั้งหมด {users.length} คน
           {visitorCount > 0 ? ` · รอกำหนดสิทธิ์ ${visitorCount} คน` : ""}
         </p>
+
+        {/* Spec 386 U5 — the onboarding tracker. Counts first (the chase list at
+            a glance), then the two caveats that keep it honest: ยังไม่ทราบ is an
+            absence of data rather than a failure, and a Telegram chip means
+            BOUND, not delivered, until the bot is configured. */}
+        <div className="border-edge bg-card rounded-control flex flex-col gap-1 border px-4 py-3">
+          <span className="text-ink text-meta font-semibold">{REACH_HEADING}</span>
+          <span className="text-ink-secondary text-meta">{reachSummaryLine(reach)}</span>
+          <span className="text-ink-muted text-meta">{REACH_UNKNOWN_HINT}</span>
+          {!telegramBotConfigured ? (
+            <span className="text-attn-ink text-meta font-medium">{REACH_BOT_UNSET}</span>
+          ) : null}
+        </div>
 
         {/* Spec 316 U3: the derived who-can-do-what reference for this screen. */}
         <Link

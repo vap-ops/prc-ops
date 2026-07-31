@@ -13,11 +13,20 @@ import { useState, useTransition } from "react";
 import { ChevronRight, ShieldCheck } from "lucide-react";
 
 import { RolePickerSheet } from "@/components/features/roles/role-picker-sheet";
+import { ReachabilityChip } from "@/components/features/roles/reachability-chip";
 import { setUserRole } from "@/app/settings/roles/actions";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import type { UserRole } from "@/lib/db/enums";
+import type { Reachability } from "@/lib/notifications/reachability";
 
-export type RoleUserVM = { id: string; name: string; role: UserRole; isSelf: boolean };
+export type RoleUserVM = {
+  id: string;
+  name: string;
+  role: UserRole;
+  isSelf: boolean;
+  /** Spec 386 U5 — can a notification reach this person at all? */
+  reach: Reachability;
+};
 
 export function RoleAdminList({ users }: { users: RoleUserVM[] }) {
   return (
@@ -67,7 +76,14 @@ function RoleRow({ user }: { user: RoleUserVM }) {
       >
         <span className="flex min-w-0 flex-col">
           <span className="text-ink text-body truncate font-semibold">{user.name}</span>
-          <span className="text-ink-secondary text-meta">{USER_ROLE_LABEL[user.role]}</span>
+          {/* Spec 386 U5 — role + reachability on one wrapping line. It WRAPS
+              (gap-y-1) rather than sitting in the outer non-wrapping row: a
+              shrink-0 chip beside a truncating name collapses the name to width
+              0 and overflows anyway (the spec-230 / pmoverflow defect). */}
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-ink-secondary text-meta">{USER_ROLE_LABEL[user.role]}</span>
+            <ReachabilityChip reach={user.reach} />
+          </span>
         </span>
         <ChevronRight aria-hidden className="text-ink-muted size-4 shrink-0" />
       </Link>

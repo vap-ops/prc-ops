@@ -143,15 +143,37 @@ Pinned by an **exhaustive-domain** test over every `user_role` value asserting t
 
 ## 4. Unit order, sizing, merge path
 
-| Unit                            | Class                            | Merge path                         | Points |
-| ------------------------------- | -------------------------------- | ---------------------------------- | ------ |
-| U0 bot + env + `setWebhook`     | operator                         | —                                  | —      |
-| U1 token store + 3 RPCs + pgTAP | mig `075888` (additive)          | standing-grant self-merge on green | 5      |
-| U2 webhook route                | **danger path** `src/app/api/**` | **operator merge**                 | 5      |
-| U3 settings bind/unbind/test    | code-only                        | auto-merge                         | 4      |
-| U4 role-scoped nudge            | code-only                        | auto-merge                         | 3      |
+| Unit                            | Class                                | Merge path                         | Points |
+| ------------------------------- | ------------------------------------ | ---------------------------------- | ------ |
+| U0 bot + env + `setWebhook`     | operator                             | —                                  | —      |
+| U1 token store + 3 RPCs + pgTAP | mig `075888` (additive)              | standing-grant self-merge on green | 5      |
+| U2 webhook route                | **danger path** `src/app/api/**`     | **operator merge**                 | 5      |
+| U3 settings bind/unbind/test    | code-only                            | auto-merge                         | 4      |
+| U4 role-scoped nudge            | code-only                            | auto-merge                         | 3      |
+| U5 onboarding roster            | code-only (`src/lib/notifications/`) | **operator merge** (danger path)   | 3      |
 
 U1 does not depend on U0 — the token store is bot-agnostic. U2 cannot be real-flow verified before U0.
+
+### 3.6 U5 — the onboarding roster (code-only)
+
+Operator, 2026-07-31: _"where do I track the status who is onboarding to this feature?"_ — the honest answer was **nowhere**. §6's fill rate is the acceptance number, but a number is not a chase list.
+
+Home is `/settings/roles`: already `requireRole(["super_admin"])`, already lists every user, and — unlike the integrity console — **alive: 46 views / 2 users / last opened today**. It gains a per-person reachability chip plus a counts header.
+
+Four states, and the third is the load-bearing one:
+
+| state         | meaning                                                      |
+| ------------- | ------------------------------------------------------------ |
+| `telegram`    | `telegram_chat_id` bound                                     |
+| `line`        | confirmed OA friend                                          |
+| **`unknown`** | **`line_oa_friend is null` — never probed, NOT unreachable** |
+| `none`        | confirmed non-friend, unbound                                |
+
+`line_oa_friend` refreshes only at LINE login (spec 318 U1), so **15 of 40 users sit at null right now**. Rendering those as a failure would send the operator chasing people who may already be fine, so `unknown` is its own arm and is styled **neutrally**, never as a warning.
+
+⚠️ **The roster measures BINDING, not delivery.** While `TELEGRAM_BOT_TOKEN` is unset the drain skips Telegram entirely, so a green chip would imply a message that never left the building. The page reads `serverEnv.TELEGRAM_BOT_TOKEN` and renders an explicit "the bot is not configured" line until U0 lands.
+
+Both columns carry an `authenticated` SELECT grant and the super_admin RLS policy already permits the all-users read, so this stays on the session client — no admin seam, no migration.
 
 ## 5. Out of scope (explicit)
 
