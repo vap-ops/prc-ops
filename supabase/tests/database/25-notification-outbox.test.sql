@@ -1,5 +1,5 @@
 begin;
-select plan(39);
+select plan(40);
 
 -- ============================================================================
 -- Spec 32 / ADR 0037 — LINE notification outbox.
@@ -245,6 +245,11 @@ select is(
 -- ============================================================================
 
 -- F.1 WP flips to pending_approval (admin-client path shape: direct UPDATE).
+-- Feedback c5136ad9: the flip runs under the SA's jwt claims so the payload can
+-- snapshot WHO submitted (auth.uid() at flip time). `set local` — the runner
+-- rewrites every `select …` statement into the _tap_buf collector, so a
+-- select set_config() would print junk into the TAP stream (house idiom).
+set local "request.jwt.claims" = '{"sub":"22222222-2222-2222-2222-22222222feed"}';
 update public.work_packages
    set status = 'pending_approval'
  where id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed';
@@ -256,6 +261,18 @@ select is(
        and payload->>'code' = 'WP-NOTIF-1'),
   1, 'WP → pending_approval produced one wp_pending_approval row with code');
 
+-- F.1b Feedback c5136ad9 — the payload names the submitter ("who submitted for
+-- approval"): auth.uid() of the session that flipped the status. A system flip
+-- with no user context stores the key WITH a JSON null (jsonb_build_object
+-- keeps null values); the drain's parser rejects non-strings, so compose
+-- omits the line — never an invented actor.
+select is(
+  (select payload->>'submitted_by' from public.notification_outbox
+     where event_type = 'wp_pending_approval'
+       and work_package_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed'::uuid),
+  '22222222-2222-2222-2222-22222222feed',
+  'wp_pending_approval payload carries submitted_by = the flipping session uid');
+
 -- F.2 A WP update that does NOT change status must not produce a second row.
 update public.work_packages
    set name = 'Notification fixture WP (renamed)'
@@ -266,6 +283,11 @@ select is(
      where event_type = 'wp_pending_approval'
        and work_package_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeefeed'::uuid),
   1, 'status-unchanged WP update produced no extra wp_pending_approval row');
+
+-- Claims hygiene: F.1's SA identity is transaction-scoped and would leak into
+-- every later section; re-set to the PM who actually decides below (per-section
+-- idiom — a fixture's identity is part of the fixture).
+set local "request.jwt.claims" = '{"sub":"33333333-3333-3333-3333-33333333feed"}';
 
 -- F.3 Approvals insert → wp_decision with decision + comment snapshot.
 insert into public.approvals (work_package_id, decision, comment, decided_by)

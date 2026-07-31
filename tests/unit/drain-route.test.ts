@@ -44,6 +44,8 @@ let wpTableRows: Array<{ id: string; code: string; project_id: string | null }> 
 let projectRows: Array<{ id: string; name: string; project_lead_id: string | null }> = [];
 let memberRows: Array<{ project_id: string; user_id: string }> = [];
 let rowUpdates: Array<{ id: unknown; values: Record<string, unknown> }> = [];
+// Feedback c5136ad9 — captured (cols, ids) of every users .in() lookup.
+let usersInCalls: Array<{ cols: string; ids: unknown[] }> = [];
 
 const pushLineMessageMock = vi.fn();
 
@@ -106,14 +108,21 @@ vi.mock("@/lib/db/admin", () => ({
           // extra-user lookup reads contacts only, the super pool uses .eq.
           select: (cols: string) => ({
             eq: async () => ({ data: superUsers, error: null }),
-            in: async () => ({
-              data: cols.includes("full_name")
-                ? candidateUsers
-                : cols.includes("role")
-                  ? pmPoolUsers
-                  : [],
-              error: null,
-            }),
+            in: async (_col: string, ids: unknown[]) => {
+              // Feedback c5136ad9 — the mock ignores the id filter, so a test
+              // that only reads the RESULT cannot pin which ids were looked up.
+              // Capture the args so the submitter-enrichment test can assert
+              // the submitter uid actually reached the candidates query.
+              usersInCalls.push({ cols, ids: ids ?? [] });
+              return {
+                data: cols.includes("full_name")
+                  ? candidateUsers
+                  : cols.includes("role")
+                    ? pmPoolUsers
+                    : [],
+                error: null,
+              };
+            },
           }),
         };
       }
@@ -316,6 +325,66 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     const targets = pushLineMessageMock.mock.calls.map((c) => (c[0] as { to: string }).to);
     expect(targets.sort()).toEqual(["Lpd", "LpmA"]);
     expect(targets).not.toContain("LpmB");
+  });
+
+  // Feedback c5136ad9 — the ping names who submitted. The submitter is an SA
+  // OUTSIDE the recipient pool, so this pins the whole chain: payload
+  // submitted_by → submitterIds → the candidates .in() lookup (captured args —
+  // the result-only mock cannot pin that) → composeContext → the pushed text.
+  it("wp_pending_approval names the submitter, resolved via the candidates lookup", async () => {
+    const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+    const PD_1 = "dddddddd-0000-4000-8000-00000000000d";
+    const SA_1 = "bbbbbbbb-0000-4000-8000-00000000000b";
+    const W1 = "eeeeeeee-0000-4000-8000-00000000000e";
+    const P1 = "ffffffff-0000-4000-8000-00000000000f";
+    usersInCalls = [];
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+      { id: PD_1, role: "project_director", line_user_id: "Lpd", telegram_chat_id: null },
+    ];
+    wpTableRows = [{ id: W1, code: "P-01", project_id: P1 }];
+    projectRows = [{ id: P1, name: "โครงการทดสอบ", project_lead_id: PM_A }];
+    memberRows = [{ project_id: P1, user_id: PM_A }];
+    candidateUsers = [
+      {
+        id: PM_A,
+        role: "project_manager",
+        line_user_id: "LpmA",
+        telegram_chat_id: null,
+        full_name: "พีเอ็มเอ",
+        line_display_name: null,
+      },
+      {
+        id: SA_1,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "wp_pending_approval",
+        work_package_id: W1,
+        purchase_request_id: null,
+        payload: { code: "P-01", name: "งานทดสอบ", submitted_by: SA_1 },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    // The submitter uid reached the candidates lookup (not just the pool ids).
+    const candidateCall = usersInCalls.find((c) => c.cols.includes("full_name"));
+    expect(candidateCall?.ids).toContain(SA_1);
+    // Every delivered ping carries the submitter line.
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts.length).toBeGreaterThan(0);
+    for (const text of texts) {
+      expect(text).toContain("ส่งตรวจโดย สมชาย ทดสอบ");
+    }
   });
 
   it("pr_created without a project payload falls back to the FULL legacy pool", async () => {

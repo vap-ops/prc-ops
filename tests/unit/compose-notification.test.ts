@@ -11,6 +11,18 @@ describe("composeNotification", () => {
     ).toBe("งานรอตรวจ: WP-001 งานเทพื้น");
   });
 
+  // Feedback c5136ad9 — "we want to know who submitted for approval": the drain
+  // resolves payload.submittedBy → a display name; compose appends the line.
+  it("appends the submitter line to wp_pending_approval when the drain resolved a name", () => {
+    expect(
+      composeNotification(
+        "wp_pending_approval",
+        { code: "WP-001", name: "งานเทพื้น", submittedBy: "22222222-2222-2222-2222-22222222feed" },
+        { submitterName: "สมชาย ใจดี" },
+      ),
+    ).toBe("งานรอตรวจ: WP-001 งานเทพื้น\nส่งตรวจโดย สมชาย ใจดี");
+  });
+
   it("composes wp_decision with the Thai decision label and WP code from context", () => {
     expect(
       composeNotification(
