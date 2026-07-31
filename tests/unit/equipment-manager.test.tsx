@@ -272,6 +272,26 @@ describe("EquipmentManager", () => {
     );
   });
 
+  it("freezes the form on rateWarning — the row exists, the draftId is spent, the gap is named", async () => {
+    mockCreate.mockResolvedValue({ ok: true, rateWarning: true });
+    renderManager();
+    openSheet("เพิ่มอุปกรณ์");
+    pickSku("s1");
+    fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+    await waitFor(() =>
+      expect(screen.getByText(/คัดลอกค่าเช่าจากทะเบียนไม่สำเร็จ/)).toBeInTheDocument(),
+    );
+    // No second submit under the spent draftId — only ปิด remains. The sheet's
+    // own X carries aria-label "ปิด" too, so pin the TEXT-bearing button.
+    expect(screen.queryByRole("button", { name: "เพิ่มรายการ" })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "ปิด" }).some((b) => b.textContent?.trim() === "ปิด"),
+    ).toBe(true);
+    // The list behind refreshed, so the row is visible once closed.
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
   it("edits an item's name", async () => {
     renderManager({ items: ITEMS });
     // Spec 362 U1 — the add form is behind its own sheet now, so the edit sheet

@@ -59,17 +59,6 @@ interface EquipmentInput {
   status: string;
 }
 
-// Spec 367 U5b — the add form may carry a photo taken BEFORE the row exists.
-// The client mints the item id so the upload has a folder to live in, then hands
-// both back here. See `isOwnItemImagePath` for why the shape is checked.
-interface NewEquipmentInput extends EquipmentInput {
-  id: string;
-  // Spec 382 U2 — up to four slots, uploaded under the client-minted id before the
-  // row exists. Written as rows AFTER the insert (FK); image_path is left to the
-  // U1 mirror trigger so that column keeps exactly one writer.
-  photos: { kind: string; path: string }[];
-}
-
 function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
   if (!UUID_REGEX.test(input.categoryId)) return { ok: false, error: "กรุณาเลือกหมวดหมู่" };
   if (!UUID_REGEX.test(input.ownerId)) return { ok: false, error: "กรุณาเลือกเจ้าของอุปกรณ์" };
@@ -79,67 +68,11 @@ function validateRefsAndStatus(input: EquipmentInput): EquipmentActionResult {
   return { ok: true };
 }
 
-export async function createEquipment(input: NewEquipmentInput): Promise<EquipmentActionResult> {
-  const ctx = await requireRole(BACK_OFFICE_ROLES);
-  const item = validateEquipmentItem({
-    name: input.name,
-    tracking: input.tracking,
-    quantity: input.quantity,
-    assetTag: input.assetTag,
-  });
-  if (!item.ok) return item;
-  const refs = validateRefsAndStatus(input);
-  if (!refs.ok) return refs;
-
-  // U5b — the id arrives from the client because the photo is uploaded to
-  // `<id>/…` before this row exists. Supplying a PK is safe: the column is in the
-  // authenticated INSERT grant, a duplicate raises 23505 (an insert can never
-  // overwrite an existing row), and the INSERT policy still gates who may write
-  // at all. The path must belong to THIS id — same rule the edit path applies.
-  if (!UUID_REGEX.test(input.id)) return { ok: false, error: GENERIC_ERROR };
-  for (const photo of input.photos) {
-    if (!EQUIPMENT_PHOTO_KINDS.includes(photo.kind as EquipmentPhotoKind)) {
-      return { ok: false, error: GENERIC_ERROR };
-    }
-    if (!isOwnItemImagePath(input.id, photo.path)) {
-      return { ok: false, error: GENERIC_ERROR };
-    }
-  }
-
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.from("equipment_items").insert({
-    id: input.id,
-    name: item.value.name,
-    category_id: input.categoryId,
-    owner_id: input.ownerId,
-    // Spec 275: owners are id-mirrored into suppliers — dual-write keeps the
-    // supplier edge (GL party, 274 invariant) in step. Fix 2026-07-14.
-    supplier_id: input.ownerId,
-    tracking: item.value.tracking,
-    asset_tag: item.value.assetTag,
-    quantity: item.value.quantity,
-    status: input.status as EquipmentStatus,
-    created_by: ctx.id,
-  });
-  if (error) return { ok: false, error: GENERIC_ERROR };
-
-  // After the row exists (FK). A photo that fails to attach must NOT roll back the
-  // item: the operator is standing at the machine and the record is the point —
-  // the slot simply stays empty and the n/4 chip says so.
-  if (input.photos.length > 0) {
-    await supabase.from("equipment_item_photos").insert(
-      input.photos.map((photo) => ({
-        item_id: input.id,
-        kind: photo.kind as EquipmentPhotoKind,
-        storage_path: photo.path,
-        created_by: ctx.id,
-      })),
-    );
-  }
-
-  revalidatePath("/equipment");
-  return { ok: true };
-}
+// Spec 385 U2 — `createEquipment` (the free-text instance writer, spec 141 U2 →
+// 367 U5b → 382 U2) is DELETED, not kept-but-unwired: an exported server action
+// is a live endpoint, and a free-text instance with no catalog FK is the exact
+// path the ทะเบียน exists to close. The CSV importer keeps its own documented
+// free-text path (367 U3) until U4 decides its fate.
 
 // ---------------------------------------------------------------------------
 // Spec 385 U2 — pick-from-ทะเบียน. The instance INHERITS from the SKU: name
@@ -206,6 +139,10 @@ export async function createEquipmentFromCatalog(input: {
     }
   }
 
+  if (input.source.kind !== "existing" && input.source.kind !== "new") {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
   const supabase = await createServerSupabase();
 
   // Resolve the SKU — an existing pick, or the escape that registers a new one.
@@ -249,11 +186,14 @@ export async function createEquipmentFromCatalog(input: {
     sku = data as CatalogSkuRow;
   }
 
-  // How many units this SKU already has — drives No.<n+1> and the bulk one-row rule.
-  const { count } = await supabase
+  // How many units this SKU already has — drives No.<n+1> and the bulk one-row
+  // rule. A FAILED count must refuse, not default to 0: existing = 0 would both
+  // hand out a colliding No.1 and wave a second bulk row past the one-row rule.
+  const { count, error: countError } = await supabase
     .from("equipment_items")
     .select("id", { count: "exact", head: true })
     .eq("equipment_catalog_item_id", sku.id);
+  if (countError) return { ok: false, error: GENERIC_ERROR };
   const existing = count ?? 0;
 
   if (sku.default_tracking === "bulk" && existing > 0) {
@@ -265,6 +205,15 @@ export async function createEquipmentFromCatalog(input: {
 
   const derivedName =
     sku.default_tracking === "unit" ? nextUnitName(sku.name, existing) : sku.name.trim();
+  // The name cap (120) applies to the DERIVED name, which carries a " No.<n>"
+  // suffix the operator cannot edit — name the real fix instead of surfacing a
+  // length error on a field that is not on the form.
+  if (derivedName.length > 120) {
+    return {
+      ok: false,
+      error: "ชื่อในทะเบียนยาวเกินไปสำหรับตั้งหมายเลขหน่วย — ย่อชื่อรายการในทะเบียนก่อน",
+    };
+  }
   const item = validateEquipmentItem({
     name: derivedName,
     tracking: sku.default_tracking,
@@ -289,7 +238,26 @@ export async function createEquipmentFromCatalog(input: {
     equipment_catalog_item_id: sku.id,
     created_by: ctx.id,
   });
-  if (insertError) return { ok: false, error: GENERIC_ERROR };
+  if (insertError) {
+    // The escape path has already REGISTERED the SKU by here. That is by design
+    // (self-healing: the SKU is real master data and stays pickable), but the
+    // client's dropdown was rendered before it existed — refresh the server
+    // props and say so, or the retry meets a 23505 pointing at an invisible row.
+    if (input.source.kind === "new") revalidatePath("/equipment");
+    if ((insertError as { code?: string }).code === "23505") {
+      // The only unique index on equipment_items is the asset tag — a permanent,
+      // user-fixable refusal must not be dressed as a retry (honest-copy class).
+      return { ok: false, error: "รหัสครุภัณฑ์นี้ถูกใช้กับเครื่องอื่นแล้ว — ตรวจสอบเลขบนเครื่อง" };
+    }
+    if (input.source.kind === "new") {
+      return {
+        ok: false,
+        error:
+          "เพิ่มรายการเข้าทะเบียนแล้ว แต่บันทึกหน่วยไม่สำเร็จ — เปิดชีตใหม่แล้วเลือกจากทะเบียนได้เลย",
+      };
+    }
+    return { ok: false, error: GENERIC_ERROR };
+  }
 
   // Photos after the row exists (FK) — a failed attach never rolls back the item
   // (same contract as createEquipment).
@@ -305,18 +273,22 @@ export async function createEquipmentFromCatalog(input: {
   }
 
   // Rate copy: admin-read the walled default, write through the audited RPC.
+  // A FAILED read raises the same warning as a failed write — silently skipping
+  // would make "read broke" indistinguishable from "SKU has no default", and an
+  // unpriced unit with no message is the silent-success class.
   let rateWarning = false;
   const admin = createAdminSupabase();
-  const { data: rateRow } = await admin
+  const { data: rateRow, error: rateReadError } = await admin
     .from("equipment_catalog_items")
     .select("default_daily_rate")
     .eq("id", sku.id)
     .single();
-  const defaultRate = rateRow?.default_daily_rate;
-  if (typeof defaultRate === "number") {
+  if (rateReadError) {
+    rateWarning = true;
+  } else if (typeof rateRow?.default_daily_rate === "number") {
     const { error: rateError } = await supabase.rpc("set_equipment_daily_rate", {
       p_id: input.id,
-      p_rate: defaultRate,
+      p_rate: rateRow.default_daily_rate,
     });
     if (rateError) rateWarning = true;
   }

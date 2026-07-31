@@ -297,18 +297,17 @@ function AddEquipmentForm({
   owners,
   catalogSkus,
   skuInstanceCounts,
-  bulkTakenSkuIds,
   onDone,
 }: {
   categories: Ref[];
   owners: OwnerOption[];
   catalogSkus: CatalogSkuOption[];
   // itemId-FK counts per SKU — the client-side PREVIEW of the server's own
-  // No.<n+1> derivation (the server recomputes authoritatively).
+  // No.<n+1> derivation, and the bulk one-row rule's input. ONE predicate on
+  // both sides: the server refuses a bulk SKU with ANY existing instance, so the
+  // client must key on the same count (a tracking-filtered variant would render
+  // an enabled form the server then refuses — review find, 2026-07-31).
   skuInstanceCounts: Record<string, number>;
-  // Bulk SKUs that already own their one row — a second row would duplicate the
-  // name, so the form refuses up front instead of at the action.
-  bulkTakenSkuIds: string[];
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -345,7 +344,7 @@ function AddEquipmentForm({
   const isNewSku = skuId === NEW_SKU;
   const effectiveTracking: EquipmentTracking = sku ? sku.defaultTracking : tracking;
   const bulkTaken =
-    sku !== null && sku.defaultTracking === "bulk" && bulkTakenSkuIds.includes(sku.id);
+    sku !== null && sku.defaultTracking === "bulk" && (skuInstanceCounts[sku.id] ?? 0) > 0;
   const categoryName = sku
     ? (categories.find((c) => c.id === sku.categoryId)?.name ?? "อื่น ๆ")
     : null;
@@ -369,18 +368,28 @@ function AddEquipmentForm({
       return;
     }
     setBusy(true);
-    const result = await createEquipmentFromCatalog({
-      id: draftId,
-      photos: Object.entries(draftPhotos).map(([kind, path]) => ({ kind, path })),
-      source: sku
-        ? { kind: "existing", catalogItemId: sku.id }
-        : { kind: "new", name, categoryId, tracking },
-      ownerId,
-      assetTag: effectiveTracking === "unit" ? assetTag : "",
-      quantity: qty,
-      status,
-    });
-    setBusy(false);
+    let result: Awaited<ReturnType<typeof createEquipmentFromCatalog>>;
+    try {
+      result = await createEquipmentFromCatalog({
+        id: draftId,
+        photos: Object.entries(draftPhotos).map(([kind, path]) => ({ kind, path })),
+        source: sku
+          ? { kind: "existing", catalogItemId: sku.id }
+          : { kind: "new", name, categoryId, tracking },
+        ownerId,
+        assetTag: effectiveTracking === "unit" ? assetTag : "",
+        quantity: qty,
+        status,
+      });
+    } catch {
+      // Transport failure — without this arm `busy` never clears and the sheet
+      // dies silently. The write may or may not have landed; a retry under the
+      // same draftId answers that honestly (a landed row 23505s the id).
+      setError("เชื่อมต่อไม่สำเร็จ — ลองใหม่อีกครั้ง");
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!result.ok) {
       setError(result.error);
       return;
@@ -1050,15 +1059,13 @@ export function EquipmentManager({
   const locations = currentEquipmentLocation(movements);
 
   // Spec 385 U2 — per-SKU instance counts, mirroring the server's own No.<n+1>
-  // derivation (count of ALL rows under the FK), and which bulk SKUs already own
-  // their single row.
+  // derivation (count of ALL rows under the FK). The bulk one-row rule derives
+  // from the same counts — one predicate, both sides.
   const skuInstanceCounts: Record<string, number> = {};
-  const bulkTakenSkuIds: string[] = [];
   for (const it of items) {
     const ref = it.equipment_catalog_item_id;
     if (!ref) continue;
     skuInstanceCounts[ref] = (skuInstanceCounts[ref] ?? 0) + 1;
-    if (it.tracking === "bulk") bulkTakenSkuIds.push(ref);
   }
   // Belt-and-braces: only surface rates when BOTH the audience flag and the map
   // are present (a rate map must never render on the field view).
@@ -1132,7 +1139,6 @@ export function EquipmentManager({
           owners={owners}
           catalogSkus={catalogSkus}
           skuInstanceCounts={skuInstanceCounts}
-          bulkTakenSkuIds={bulkTakenSkuIds}
           onDone={() => setAddingItem(false)}
         />
       </BottomSheet>

@@ -94,12 +94,29 @@ at purchase time, never through a merged category list.
 - **U1 ✅ (this PR)** — schema + RLS/grants + seed + pgTAP
   (`385-equipment-catalog.test.sql`: shape, wall with positive control, live
   role-switched insert/read/refuse, expression-index bite).
-- **U2 — pick-from-ทะเบียน add flow.** The `/equipment` add sheet leads with a
-  SKU picker (grouped by the function categories); picking fills name
-  (`<SKU> No.<n+1>` for unit-tracked, plain name + qty for bulk), category,
-  brand/model, tracking, and copies `default_daily_rate` → `daily_rate`
-  server-side. Free-text stays possible only for "not in ทะเบียน yet" (which
-  creates the SKU too — back-office only).
+- **U2 ✅ (2026-07-31) — pick-from-ทะเบียน add flow.** The `/equipment` add sheet
+  leads with a SKU picker (grouped by the function categories); picking derives
+  name (`<SKU> No.<n+1>` for unit-tracked, plain name + qty for bulk), category,
+  brand/model and tracking SERVER-side (`createEquipmentFromCatalog`), and copies
+  `default_daily_rate` → `daily_rate` through the existing audited
+  `set_equipment_daily_rate` RPC after an admin-seam read. The พิมพ์เอง escape
+  registers the SKU first (back-office only), so **`createEquipment` — the
+  free-text instance writer — is DELETED**, not merely unwired (an exported
+  server action is a live endpoint; U4's "retire free-text add" landed here).
+  Decisions recorded from the U2 review:
+  - **An orphan SKU is self-healing by design** — if the escape registers the
+    SKU and the instance insert then fails, the SKU stays (it is real master
+    data, pickable after refresh) and the error copy says exactly that.
+  - **A failed rate copy or rate READ raises `rateWarning`**, never loses the
+    row; the sheet freezes on the notice (the draftId is spent) instead of
+    closing silently.
+  - **The bulk one-row rule is ONE predicate on both sides** (any instance
+    exists under the FK) — but it is app-code only; the DB-level partial unique
+    index (`(equipment_catalog_item_id) where tracking='bulk'`) is **owed to
+    U4** (schema), which also closes the concurrent same-SKU `No.<n>` collision
+    (accepted v1: no unique on instance names).
+  - The CSV importer (367 U3) keeps its documented free-text path until U4
+    rules on it.
 - **U3 — catalog manage surface**: rename/deactivate/rate on the SKU list, a
   door beside ทะเบียนอุปกรณ์ in the ข้อมูลหลัก hub group.
 - **U4 — tighten**: backfill any straggler instances, `equipment_catalog_item_id`

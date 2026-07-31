@@ -35,8 +35,10 @@ const state = vi.hoisted(() => ({
   newSkuError: null as unknown,
   itemInsertError: null as unknown,
   unitCount: 0,
+  countError: null as unknown,
   rpcError: null as unknown,
   adminRate: null as number | null,
+  adminReadError: null as unknown,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -63,7 +65,7 @@ vi.mock("@/lib/db/server", () => ({
                           ? { data: state.sku, error: null }
                           : { data: null, error: { code: "PGRST116" } },
                     }
-                  : { count: state.unitCount, error: null };
+                  : { count: state.unitCount, error: state.countError };
               return {
                 ...resolved,
                 then(onFulfilled: (v: unknown) => unknown) {
@@ -113,7 +115,9 @@ vi.mock("@/lib/db/admin", () => ({
               return {
                 single: async () => {
                   state.adminReads += 1;
-                  return { data: { default_daily_rate: state.adminRate }, error: null };
+                  return state.adminReadError
+                    ? { data: null, error: state.adminReadError }
+                    : { data: { default_daily_rate: state.adminRate }, error: null };
                 },
               };
             },
@@ -157,8 +161,10 @@ beforeEach(() => {
   state.newSkuError = null;
   state.itemInsertError = null;
   state.unitCount = 0;
+  state.countError = null;
   state.rpcError = null;
   state.adminRate = 300;
+  state.adminReadError = null;
 });
 
 describe("createEquipmentFromCatalog — existing SKU", () => {
@@ -208,6 +214,58 @@ describe("createEquipmentFromCatalog — existing SKU", () => {
 
     expect(result).toEqual({ ok: true });
     expect(state.rpcs).toEqual([]);
+  });
+
+  it("raises rateWarning when the ADMIN READ fails — a broken read must not pass as 'no default'", async () => {
+    state.adminReadError = { code: "XX000" };
+
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(result).toEqual({ ok: true, rateWarning: true });
+    expect(state.rpcs).toEqual([]);
+  });
+
+  it("refuses when the instance COUNT read fails — existing=0 would collide No.1 and bypass the bulk rule", async () => {
+    state.countError = { code: "XX000" };
+
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(state.inserts).toEqual([]);
+  });
+
+  it("maps an asset-tag 23505 to a named, non-retry message (honest-copy class)", async () => {
+    state.itemInsertError = { code: "23505" };
+
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      assetTag: "GEN-001",
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("รหัสครุภัณฑ์");
+      expect(result.error).not.toContain("ลองใหม่");
+    }
+  });
+
+  it("refuses a crafted source.kind instead of crashing", async () => {
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      source: { kind: "evil" } as unknown as Parameters<
+        typeof createEquipmentFromCatalog
+      >[0]["source"],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(state.inserts).toEqual([]);
   });
 
   it("keeps the item and raises rateWarning when the rate copy fails — never lose the row", async () => {
@@ -313,7 +371,69 @@ describe("createEquipmentFromCatalog — the new-SKU escape", () => {
     });
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("ทะเบียน");
+    if (!result.ok) {
+      expect(result.error).toBe("มีชื่อนี้ในทะเบียนอยู่แล้ว — เลือกจากทะเบียนได้เลย");
+    }
     expect(state.inserts.map((c) => c.table)).toEqual(["equipment_catalog_items"]);
+  });
+
+  it("registers a BULK SKU through the escape and creates its row with the quantity", async () => {
+    state.newSkuRow = {
+      id: SKU_ID,
+      name: "สายไฟพ่วงสนาม",
+      category_id: CAT_ID,
+      brand: null,
+      model: null,
+      default_tracking: "bulk",
+      is_active: true,
+    };
+
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      quantity: 4,
+      source: { kind: "new", name: "สายไฟพ่วงสนาม", categoryId: CAT_ID, tracking: "bulk" },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(state.inserts[0]?.payload).toMatchObject({ default_tracking: "bulk" });
+    expect(state.inserts[1]?.payload).toMatchObject({
+      name: "สายไฟพ่วงสนาม",
+      tracking: "bulk",
+      quantity: 4,
+    });
+  });
+
+  it("refuses an invalid tracking string on the escape — the one client-trusted field", async () => {
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      source: { kind: "new", name: "ของใหม่", categoryId: CAT_ID, tracking: "weird" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(state.inserts).toEqual([]);
+  });
+
+  it("a failed instance insert on the escape path names the state honestly — the SKU is already registered", async () => {
+    state.newSkuRow = {
+      id: SKU_ID,
+      name: "เครื่องปั่นไฟ",
+      category_id: CAT_ID,
+      brand: null,
+      model: null,
+      default_tracking: "unit",
+      is_active: true,
+    };
+    state.itemInsertError = { code: "42501" };
+
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      source: { kind: "new", name: "เครื่องปั่นไฟ", categoryId: CAT_ID, tracking: "unit" },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("เพิ่มรายการเข้าทะเบียนแล้ว");
+      expect(result.error).not.toContain("ลองใหม่");
+    }
   });
 });
