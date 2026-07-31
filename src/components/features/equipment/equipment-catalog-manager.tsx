@@ -193,6 +193,10 @@ function SkuRow({
     const result = await updateEquipmentCatalogItem({ id: sku.id, name, categoryId, brand, model });
     setBusy(false);
     if (!result.ok) {
+      // The catalog row may have SAVED with only the instance sync failing —
+      // refresh so the list shows the truth instead of inviting a no-op retry
+      // against stale rows (review find, 2026-07-31).
+      router.refresh();
       setError(result.error);
       return;
     }

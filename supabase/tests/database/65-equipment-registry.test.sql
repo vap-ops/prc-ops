@@ -100,9 +100,10 @@ select lives_ok(
   $$ select id, name, status from public.equipment_items limit 1 $$,
   'staff can read the non-money columns');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'SA item', '22222222-2222-2222-2222-222222220141') $$,
+             'SA item', '22222222-2222-2222-2222-222222220141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   '42501', null, 'site_admin cannot insert an equipment item (back-office only)');
 
 -- ============================================================================
@@ -111,15 +112,17 @@ select throws_ok(
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110141"}';
 
 select lives_ok(
-  $$ insert into public.equipment_items (id, category_id, owner_id, name, tracking, created_by)
+  $$ insert into public.equipment_items (id, category_id, owner_id, name, tracking, created_by, equipment_catalog_item_id)
      values ('d0000001-0000-4000-8000-000000000141',
              'c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'Generator 5kVA #1', 'unit', '11111111-1111-1111-1111-111111110141') $$,
+             'Generator 5kVA #1', 'unit', '11111111-1111-1111-1111-111111110141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   'project_manager inserts a serialized item');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'spoofed', '22222222-2222-2222-2222-222222220141') $$,
+             'spoofed', '22222222-2222-2222-2222-222222220141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   '42501', null, 'created_by must equal the caller (pin)');
 select throws_ok(
   $$ delete from public.equipment_items where id = 'd0000001-0000-4000-8000-000000000141' $$,

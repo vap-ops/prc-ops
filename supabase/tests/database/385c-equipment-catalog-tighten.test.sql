@@ -3,7 +3,7 @@
 -- a race only because this index exists).
 
 begin;
-select plan(4);
+select plan(5);
 
 -- fixtures (RLS bypassed for setup)
 insert into auth.users (id, email, raw_user_meta_data) values
@@ -48,6 +48,26 @@ select throws_ok($$
           '00000000-0000-0000-0000-00000000e403', 'bulk', 5, 'available',
           '00000000-0000-0000-0000-00000000e401', '00000000-0000-0000-0000-00000000e404')
 $$, '23505', null, 'a second bulk row for the same SKU is refused BY THE INDEX — the race is closed');
+
+-- The index PREDICATE is load-bearing: UNIT rows must keep stacking under one
+-- SKU (the whole No.1/No.2 flow). Dropping `where tracking='bulk'` from the
+-- index would leave every other assert green while 23505ing U2's second unit.
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('00000000-0000-0000-0000-00000000e405','สว่านไทเทน',
+   '00000000-0000-0000-0000-00000000e402','00000000-0000-0000-0000-00000000e401');
+insert into public.equipment_items
+  (name, category_id, owner_id, tracking, status, created_by, equipment_catalog_item_id)
+values ('สว่านไทเทน No.1', '00000000-0000-0000-0000-00000000e402',
+        '00000000-0000-0000-0000-00000000e403', 'unit', 'available',
+        '00000000-0000-0000-0000-00000000e401', '00000000-0000-0000-0000-00000000e405');
+
+select lives_ok($$
+  insert into public.equipment_items
+    (name, category_id, owner_id, tracking, status, created_by, equipment_catalog_item_id)
+  values ('สว่านไทเทน No.2', '00000000-0000-0000-0000-00000000e402',
+          '00000000-0000-0000-0000-00000000e403', 'unit', 'available',
+          '00000000-0000-0000-0000-00000000e401', '00000000-0000-0000-0000-00000000e405')
+$$, 'a SECOND UNIT row under one SKU still lands — the index bites bulk only');
 
 select * from finish();
 rollback;

@@ -91,7 +91,9 @@ beforeEach(() => {
   state.updateError = null;
   state.updateErrorTable = null;
   state.rpcError = null;
-  state.skuBefore = { name: "เครื่องตบดิน" };
+  // Default fixture: the OLD category differs from CAT_ID, so the conditional
+  // mirror fires; cases that need "no category change" override this.
+  state.skuBefore = { name: "เครื่องตบดิน", category_id: "old-cat" };
   state.instanceRows = [];
 });
 
@@ -163,9 +165,23 @@ describe("updateEquipmentCatalogItem", () => {
         payload: { name: "เครื่องตบดิน", category_id: CAT_ID, brand: null, model: "MT-90" },
       },
       // Spec 385 U4 — instances mirror the SKU category (the /equipment chips
-      // group by it); unconditional, a no-op when unchanged.
+      // group by it), fired ONLY because the category CHANGED here.
       { table: "equipment_items", id: SKU_ID, payload: { category_id: CAT_ID } },
     ]);
+  });
+
+  it("an UNCHANGED category fires no mirror — a per-item recategorise survives unrelated SKU saves", async () => {
+    state.skuBefore = { name: "เครื่องตบดิน", category_id: CAT_ID };
+
+    await updateEquipmentCatalogItem({
+      id: SKU_ID,
+      name: "เครื่องตบดิน",
+      categoryId: CAT_ID,
+      brand: "MARTON",
+      model: "",
+    });
+
+    expect(state.updates.filter((u) => u.table === "equipment_items")).toEqual([]);
   });
 
   // Spec 385 U4 — the rename-reconciliation policy: derived names follow,
@@ -214,7 +230,8 @@ describe("updateEquipmentCatalogItem", () => {
   });
 
   it("a failed instance SYNC is NOT silent — the catalog saved, the message names what is left", async () => {
-    state.skuBefore = { name: "เครื่องตบดิน" };
+    // A CHANGED category (the beforeEach default: old-cat → CAT_ID) makes the
+    // mirror fire — without a change nothing syncs and nothing can fail.
     state.instanceRows = [{ id: "u1", name: "เครื่องตบดิน No.1" }];
     // ONLY the mirror updates fail — the catalog update must succeed, or this
     // case exercises the catalog-failure arm instead (mutation-exposed).
