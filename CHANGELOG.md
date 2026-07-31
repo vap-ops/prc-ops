@@ -1,3 +1,9 @@
+# [0.294.0](https://github.com/vap-ops/prc-ops/compare/v0.293.2...v0.294.0) (2026-07-31)
+
+### Features
+
+- **385:** equipment_catalog_items — ทะเบียน as SKU catalog + 39-SKU seed ([#894](https://github.com/vap-ops/prc-ops/issues/894)) ([fcc1b3b](https://github.com/vap-ops/prc-ops/commit/fcc1b3b13bda177d8f986bb51beab66f6dd9abce))
+
 ## [0.293.2](https://github.com/vap-ops/prc-ops/compare/v0.293.1...v0.293.2) (2026-07-31)
 
 ### Bug Fixes
