@@ -77,7 +77,7 @@ alter table public.equipment_items
   add column equipment_catalog_item_id uuid references public.equipment_catalog_items(id);
 
 comment on column public.equipment_items.equipment_catalog_item_id is
-  'Spec 385: the SKU this unit instantiates. Nullable during transition; the pick-from-catalog add flow (U2) sets it.';
+  'Spec 385: the SKU this unit instantiates. NOT NULL since U4 (mig 075891) — every instance is catalog-born via the U2 pick flow.';
 
 -- the catalog→instances lookup U2/U3 live on (sibling FKs all carry one)
 create index equipment_items_catalog_item_idx

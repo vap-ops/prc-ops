@@ -13,7 +13,15 @@ const state = vi.hoisted(() => ({
   rpcs: [] as { fn: string; args: Record<string, unknown> }[],
   insertError: null as unknown,
   updateError: null as unknown,
+  // Scope updateError to ONE table — the sync-failure case must fail the MIRROR
+  // update while the catalog update succeeds, or it passes through the
+  // catalog-failure arm instead (mutation-exposed, 2026-07-31).
+  updateErrorTable: null as string | null,
   rpcError: null as unknown,
+  // Spec 385 U4 — the update action reads the SKU (old name) and the instance
+  // rows (cascade candidates) before writing.
+  skuBefore: null as Record<string, unknown> | null,
+  instanceRows: [] as { id: string; name: string }[],
 }));
 
 vi.mock("server-only", () => ({}));
@@ -33,11 +41,30 @@ vi.mock("@/lib/db/server", () => ({
           state.inserts.push({ table, payload });
           return Promise.resolve({ error: state.insertError });
         },
+        select(_cols: string) {
+          return {
+            eq(_col: string, _v: string) {
+              const listResult = { data: state.instanceRows, error: null };
+              return {
+                single: async () =>
+                  state.skuBefore
+                    ? { data: state.skuBefore, error: null }
+                    : { data: null, error: { code: "PGRST116" } },
+                then(onFulfilled: (v: unknown) => unknown) {
+                  return Promise.resolve(listResult).then(onFulfilled);
+                },
+              };
+            },
+          };
+        },
         update(payload: Record<string, unknown>) {
           return {
             eq(_col: string, id: string) {
               state.updates.push({ table, payload, id });
-              return Promise.resolve({ error: state.updateError });
+              const applies =
+                state.updateError !== null &&
+                (state.updateErrorTable === null || state.updateErrorTable === table);
+              return Promise.resolve({ error: applies ? state.updateError : null });
             },
           };
         },
@@ -62,7 +89,12 @@ beforeEach(() => {
   state.rpcs = [];
   state.insertError = null;
   state.updateError = null;
+  state.updateErrorTable = null;
   state.rpcError = null;
+  // Default fixture: the OLD category differs from CAT_ID, so the conditional
+  // mirror fires; cases that need "no category change" override this.
+  state.skuBefore = { name: "เครื่องตบดิน", category_id: "old-cat" };
+  state.instanceRows = [];
 });
 
 describe("createEquipmentCatalogItem", () => {
@@ -116,7 +148,7 @@ describe("createEquipmentCatalogItem", () => {
 });
 
 describe("updateEquipmentCatalogItem", () => {
-  it("updates name/category/brand/model on the row — blank brand/model become null", async () => {
+  it("updates name/category/brand/model on the row — blank brand/model become null — and mirrors category to instances", async () => {
     const result = await updateEquipmentCatalogItem({
       id: SKU_ID,
       name: " เครื่องตบดิน ",
@@ -132,7 +164,90 @@ describe("updateEquipmentCatalogItem", () => {
         id: SKU_ID,
         payload: { name: "เครื่องตบดิน", category_id: CAT_ID, brand: null, model: "MT-90" },
       },
+      // Spec 385 U4 — instances mirror the SKU category (the /equipment chips
+      // group by it), fired ONLY because the category CHANGED here.
+      { table: "equipment_items", id: SKU_ID, payload: { category_id: CAT_ID } },
     ]);
+  });
+
+  it("an UNCHANGED category fires no mirror — a per-item recategorise survives unrelated SKU saves", async () => {
+    state.skuBefore = { name: "เครื่องตบดิน", category_id: CAT_ID };
+
+    await updateEquipmentCatalogItem({
+      id: SKU_ID,
+      name: "เครื่องตบดิน",
+      categoryId: CAT_ID,
+      brand: "MARTON",
+      model: "",
+    });
+
+    expect(state.updates.filter((u) => u.table === "equipment_items")).toEqual([]);
+  });
+
+  // Spec 385 U4 — the rename-reconciliation policy: derived names follow,
+  // hand-edited names are never clobbered.
+  it("a RENAME cascades to instances still carrying the derived name — hand-edits spared", async () => {
+    state.skuBefore = { name: "เครื่องตบดิน" };
+    state.instanceRows = [
+      { id: "u1", name: "เครื่องตบดิน No.1" },
+      { id: "u2", name: "เครื่องตบดิน No.2" },
+      { id: "u3", name: "ตัวโปรดของช่างอวย" },
+    ];
+
+    const result = await updateEquipmentCatalogItem({
+      id: SKU_ID,
+      name: "เครื่องตบดิน MARTON",
+      categoryId: CAT_ID,
+      brand: "",
+      model: "",
+    });
+
+    expect(result).toEqual({ ok: true });
+    const renames = state.updates.filter((u) => u.table === "equipment_items" && u.payload.name);
+    expect(renames).toEqual([
+      { table: "equipment_items", id: "u1", payload: { name: "เครื่องตบดิน MARTON No.1" } },
+      { table: "equipment_items", id: "u2", payload: { name: "เครื่องตบดิน MARTON No.2" } },
+    ]);
+  });
+
+  it("a BULK instance carrying the exact old name follows the rename", async () => {
+    state.skuBefore = { name: "สายยางวัดระดับน้ำ" };
+    state.instanceRows = [{ id: "b1", name: "สายยางวัดระดับน้ำ" }];
+
+    await updateEquipmentCatalogItem({
+      id: SKU_ID,
+      name: "สายยางใส",
+      categoryId: CAT_ID,
+      brand: "",
+      model: "",
+    });
+
+    expect(
+      state.updates.some(
+        (u) => u.table === "equipment_items" && u.id === "b1" && u.payload.name === "สายยางใส",
+      ),
+    ).toBe(true);
+  });
+
+  it("a failed instance SYNC is NOT silent — the catalog saved, the message names what is left", async () => {
+    // A CHANGED category (the beforeEach default: old-cat → CAT_ID) makes the
+    // mirror fire — without a change nothing syncs and nothing can fail.
+    state.instanceRows = [{ id: "u1", name: "เครื่องตบดิน No.1" }];
+    // ONLY the mirror updates fail — the catalog update must succeed, or this
+    // case exercises the catalog-failure arm instead (mutation-exposed).
+    state.updateError = { code: "57014" };
+    state.updateErrorTable = "equipment_items";
+
+    const result = await updateEquipmentCatalogItem({
+      id: SKU_ID,
+      name: "เครื่องตบดิน",
+      categoryId: CAT_ID,
+      brand: "",
+      model: "",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("ปรับรายการเครื่องตามไม่ครบ");
   });
 
   it("maps a rename collision 23505 to the named message", async () => {

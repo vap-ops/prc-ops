@@ -341,6 +341,12 @@ export async function createEquipmentCatalogItem(input: {
   return { ok: true };
 }
 
+// Spec 385 U4 — the reconciliation policy (spec §4 U4): instances MIRROR the
+// SKU. On recategorise, every instance's category_id follows (the chips on
+// /equipment group by it — an unsynced mirror strands units in the old group).
+// On rename, only names still carrying the DERIVED shape cascade — `<old> No.n`
+// for unit rows, the exact old name for bulk — so a hand-edited name is never
+// clobbered; the physical stencil may lag, but QR resolution is by id.
 export async function updateEquipmentCatalogItem(input: {
   id: string;
   name: string;
@@ -360,6 +366,18 @@ export async function updateEquipmentCatalogItem(input: {
   if (brand.length > 80 || model.length > 80) return { ok: false, error: GENERIC_ERROR };
 
   const supabase = await createServerSupabase();
+
+  // The OLD name drives the cascade's pattern match and the OLD category gates
+  // the mirror — read before writing. A failed read must not silently skip the
+  // sync (the same silent-success class the count/rate reads refuse).
+  const { data: before, error: beforeError } = await supabase
+    .from("equipment_catalog_items")
+    .select("name, category_id")
+    .eq("id", input.id)
+    .single();
+  const oldName = before?.name ?? null;
+  const oldCategoryId = before?.category_id ?? null;
+
   const { error } = await supabase
     .from("equipment_catalog_items")
     .update({
@@ -374,8 +392,58 @@ export async function updateEquipmentCatalogItem(input: {
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  let syncFailed = beforeError !== null;
+
+  // Category mirror — ONLY when the SKU's category actually changed. An
+  // unconditional mirror would silently revert a curator's per-item
+  // recategorise on every unrelated SKU save (review find, 2026-07-31); the
+  // per-item control stays legal, the SKU change wins only when it happens.
+  if (oldCategoryId !== null && oldCategoryId !== input.categoryId) {
+    const { error: catSyncError } = await supabase
+      .from("equipment_items")
+      .update({ category_id: input.categoryId })
+      .eq("equipment_catalog_item_id", input.id);
+    if (catSyncError) syncFailed = true;
+  }
+
+  // Name cascade — pattern-matched per row.
+  if (oldName !== null && oldName !== name) {
+    const { data: units, error: readError } = await supabase
+      .from("equipment_items")
+      .select("id, name")
+      .eq("equipment_catalog_item_id", input.id);
+    if (readError) syncFailed = true;
+    const derived = new RegExp(`^${oldName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( No\\.\\d+)?$`);
+    for (const unit of units ?? []) {
+      const match = unit.name.match(derived);
+      if (!match) continue; // hand-edited — never clobber
+      const candidate = `${name}${match[1] ?? ""}`;
+      // The instance name cap is 120 and the No-suffix rides on top of the SKU
+      // name — a near-cap rename must not blow the cascade with a raw 23514.
+      if (candidate.length > 120) {
+        syncFailed = true;
+        continue;
+      }
+      const { error: renameError } = await supabase
+        .from("equipment_items")
+        .update({ name: candidate })
+        .eq("id", unit.id);
+      if (renameError) syncFailed = true;
+    }
+  }
+
   revalidatePath("/equipment/catalog");
   revalidatePath("/equipment");
+  if (syncFailed) {
+    // The catalog row DID save. A retry cannot resume the cascade (the old name
+    // is gone from the SKU, so leftover instances no longer match the derived
+    // pattern) — the copy points at the manual fix instead of inviting a no-op.
+    return {
+      ok: false,
+      error:
+        "บันทึกทะเบียนแล้ว แต่ปรับรายการเครื่องตามไม่ครบ — แก้ชื่อ/หมวดเครื่องที่เหลือเองที่หน้าอุปกรณ์",
+    };
+  }
   return { ok: true };
 }
 
@@ -696,7 +764,9 @@ export async function importEquipmentCsv(
   csvText: string,
   options: { dryRun?: boolean } = {},
 ): Promise<ImportEquipmentResult> {
-  const ctx = await requireRole(BACK_OFFICE_ROLES);
+  // Gate only — created_by is no longer written here (the insert arm is
+  // retired, spec 385 U4; updates never touch created_by).
+  await requireRole(BACK_OFFICE_ROLES);
   const supabase = await createServerSupabase();
 
   const [{ data: cats }, { data: owners }, { data: items }] = await Promise.all([
@@ -729,7 +799,7 @@ export async function importEquipmentCsv(
   }
 
   const errors: string[] = [];
-  let inserts = 0;
+  const inserts = 0;
   let updates = 0;
 
   for (const row of parsed.rows) {
@@ -750,14 +820,19 @@ export async function importEquipmentCsv(
     };
 
     if (row.kind === "insert") {
-      const { error } = await supabase
-        .from("equipment_items")
-        .insert({ ...shared, created_by: ctx.id });
-      if (error) errors.push(`เพิ่ม "${row.name}" ไม่สำเร็จ`);
-      else inserts += 1;
+      // Spec 385 U4 — unreachable: the parser refuses blank ids, and the NOT
+      // NULL SKU FK (mig 075891) would 23502 a file-born row anyway. Kept as a
+      // loud refusal rather than dead insert code.
+      errors.push(`เพิ่ม "${row.name}" ไม่ได้ — เพิ่มเครื่องใหม่ผ่านทะเบียน`);
     } else {
       const { error } = await supabase.from("equipment_items").update(shared).eq("id", row.id!);
-      if (error) errors.push(`แก้ไข "${row.name}" ไม่สำเร็จ`);
+      if (error && (error as { code?: string }).code === "23505") {
+        // The U4 bulk one-row index: a file row flipping tracking to bulk for a
+        // SKU that already owns its bulk row — name the rule, not a retry.
+        errors.push(
+          `แก้ไข "${row.name}" ไม่สำเร็จ — กลุ่มนี้มีแถวจำนวนมากอยู่แล้ว (1 แถวต่อทะเบียน)`,
+        );
+      } else if (error) errors.push(`แก้ไข "${row.name}" ไม่สำเร็จ`);
       else updates += 1;
     }
   }

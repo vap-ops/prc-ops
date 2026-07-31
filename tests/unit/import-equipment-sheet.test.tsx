@@ -54,15 +54,20 @@ describe("import sheet — commit is gated on a clean preview", () => {
   });
 
   it("enables นำเข้า only after a clean preview, and previews with dryRun", async () => {
-    importEquipmentCsv.mockResolvedValue({ ok: true, inserts: 3, updates: 61, errors: [] });
+    // Spec 385 U4: the insert arm is retired — the preview line reports EDITS
+    // only, and never advertises an "add" capability the file no longer has.
+    importEquipmentCsv.mockResolvedValue({ ok: true, inserts: 0, updates: 61, errors: [] });
     render(<ImportEquipmentSheet />);
     await open();
     await paste("header");
     await userEvent.click(screen.getByRole("button", { name: "ตรวจสอบ" }));
 
     await waitFor(() => {
-      expect(screen.getByText(/เพิ่ม 3 รายการ/)).toBeInTheDocument();
+      expect(screen.getByText(/แก้ไข 61 รายการ/)).toBeInTheDocument();
     });
+    // The PREVIEW line specifically — the static hint legitimately says
+    // เพิ่มเครื่องใหม่ผ่านทะเบียน, so a bare /เพิ่ม/ would match the teaching copy.
+    expect(screen.queryByText(/เพิ่ม \d+ รายการ/)).toBeNull();
     expect(screen.getByRole("button", { name: "นำเข้า" })).toBeEnabled();
     // The preview must NOT have written: dryRun true on the first call.
     expect(importEquipmentCsv).toHaveBeenCalledWith(expect.any(String), { dryRun: true });

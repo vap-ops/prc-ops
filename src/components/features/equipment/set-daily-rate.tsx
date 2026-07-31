@@ -33,6 +33,15 @@ export function SetDailyRate({
   const [error, setError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
 
+  function openSheet() {
+    // Spec 385 U4 (the U3b twin's review find, shared defect): resync from the
+    // CURRENT rate on open — a sheet seeded at mount time silently reverts
+    // another actor's change after a router.refresh.
+    setValue(currentRate === null ? "" : String(currentRate));
+    setError(null);
+    setOpen(true);
+  }
+
   function close() {
     setError(null);
     setValue(currentRate === null ? "" : String(currentRate));
@@ -61,7 +70,7 @@ export function SetDailyRate({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openSheet}
         // Spec 362 U1 — the third control in the row's action cluster, so it takes
         // the same 44px floor as ย้าย / แก้ไข rather than staying a 12px text link.
         className="text-action focus-visible:ring-action text-meta inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md font-medium focus:outline-none focus-visible:ring-2"

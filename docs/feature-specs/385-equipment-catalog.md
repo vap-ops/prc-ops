@@ -146,13 +146,28 @@ at purchase time, never through a merged category list.
   only. pgTAP `385b-equipment-catalog-rate.test.sql` (9 asserts incl. both
   role arms + the audit-trail equality); the U3a source pin now allows exactly
   the admin seam's two mentions of the walled column.
-- **U4 — tighten**: backfill any straggler instances, `equipment_catalog_item_id`
-  → NOT NULL, decide `equipment_items.category_id` retirement, the bulk
-  partial-unique index (from U2's review), the importer ruling, and **the
-  rename-reconciliation policy** (U3a review find: renaming a SKU leaves
-  existing units stencilled `<old> No.<n>` while new units mint
-  `<new> No.<n+1>` — numbering stays unique, family identity does not; decide
-  cascade-rename vs leave-and-note).
+- **U4 ✅ (2026-07-31) — tighten.** Mig `20260813075891`:
+  `equipment_catalog_item_id` **NOT NULL** (0 instance rows live — the spec's
+  own "only when every instance is catalog-born" condition held vacuously) +
+  the **bulk partial-unique index** `(equipment_catalog_item_id) where
+tracking='bulk'` (the U2 app-code rule now survives a race at the DB level).
+  Rulings taken:
+  - **Importer INSERT arm RETIRED** at the parser — blank id refuses with
+    "เพิ่มเครื่องใหม่ผ่านทะเบียน"; the file remains the bulk EDITOR (export →
+    edit → import round trip). Zero prod inserts had ever used it.
+  - **`equipment_items.category_id` NOT retired — it is a MIRROR.**
+    Recategorising a SKU now syncs every instance's `category_id` (the
+    /equipment chips group by it); true retirement would refactor every reader
+    for no user-visible gain.
+  - **Rename-reconciliation: derived names CASCADE, hand-edits are never
+    clobbered** — only `<old> No.n` (unit) and the exact old name (bulk)
+    follow; a failed sync is a named error, not silence. The physical stencil
+    may lag a rename; QR resolution is by id, unaffected.
+  - 9 pgTAP fixture files gained a fixture SKU + the FK (an FK-less instance is
+    an impossible state now; negatives carry a REAL SKU so 23502/23503 cannot
+    mask their intended 23514).
+  - ⚑ folded in: the item-grain `set-daily-rate` control gained U3b's
+    resync-on-open fix (shared stale-sheet defect).
 
 ## 5. Verification
 

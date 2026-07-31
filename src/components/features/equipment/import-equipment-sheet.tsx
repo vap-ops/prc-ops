@@ -73,11 +73,13 @@ export function ImportEquipmentSheet() {
           ดาวน์โหลด CSV ก่อน แล้วกรอกข้อมูลที่ว่างไว้ จากนั้นวางทั้งตาราง (รวมหัวตาราง)
           ลงในช่องด้านล่าง
         </p>
-        {/* States the two refusals up front so the operator does not discover
-            them only after assembling a file offline. */}
+        {/* Spec 385 U4 — the INSERT arm is retired: this file EDITS existing
+            rows only. States the refusals up front so the operator does not
+            discover them only after assembling a file offline. */}
         <p className="text-ink-secondary mt-1 text-xs">
-          เว้น &quot;รหัสอ้างอิง&quot; ว่างไว้ = เพิ่มรายการใหม่ · ใส่รหัสเดิม = แก้ไขรายการนั้น ·
-          หมวดหมู่และเจ้าของต้องมีอยู่ในระบบแล้ว · ช่องราคายังนำเข้าไม่ได้
+          ไฟล์นี้ใช้แก้ไขรายการเดิมเท่านั้น (ทุกแถวต้องมีรหัสอ้างอิง) ·
+          เพิ่มเครื่องใหม่ผ่านทะเบียนบนหน้าอุปกรณ์ · หมวดหมู่และเจ้าของต้องมีอยู่ในระบบแล้ว ·
+          ช่องราคายังนำเข้าไม่ได้
         </p>
 
         <textarea
@@ -95,15 +97,13 @@ export function ImportEquipmentSheet() {
 
         {preview && preview.errors.length === 0 && (
           <p className="text-ink mt-3 text-sm font-medium">
-            พร้อมนำเข้า: เพิ่ม {preview.inserts} รายการ · แก้ไข {preview.updates} รายการ
+            พร้อมนำเข้า: แก้ไข {preview.updates} รายการ
           </p>
         )}
 
         {done && (
           <p className="text-ink mt-3 text-sm font-medium">
-            {done.ok
-              ? `นำเข้าสำเร็จ: เพิ่ม ${done.inserts} รายการ · แก้ไข ${done.updates} รายการ`
-              : `นำเข้าไม่สำเร็จ`}
+            {done.ok ? `นำเข้าสำเร็จ: แก้ไข ${done.updates} รายการ` : `นำเข้าไม่สำเร็จ`}
           </p>
         )}
 

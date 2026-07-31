@@ -59,25 +59,28 @@ insert into public.equipment_categories (id, name, created_by) values
 -- U unpriced (the unpriced guard), R priced 300 (the complete-WP guard), S priced
 -- 700 (the double-open guard), D priced 100 (site_admin gate + the append-only
 -- seed). daily_rate is seeded directly (privileged runner, pre-set-role).
-insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by) values
+-- Spec 385 U4: every instance carries its SKU (NOT NULL) - fixture SKU.
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('ca7a0104-0104-0104-0104-ca7aca7a0104', 'fixture-sku-0104', 'cae00104-0104-0104-0104-cae0cae00104', '11111111-1111-1111-1111-111111110104');
+insert into public.equipment_items (id, category_id, owner_id, name, daily_rate, created_by, equipment_catalog_item_id) values
   ('17e00104-0104-0104-0104-17e017e00104', 'cae00104-0104-0104-0104-cae0cae00104',
    '0a0a0104-0104-0104-0104-0a0a0a0a0104', 'เครื่องผสมปูน P', 800,
-   '11111111-1111-1111-1111-111111110104'),
+   '11111111-1111-1111-1111-111111110104', 'ca7a0104-0104-0104-0104-ca7aca7a0104'),
   ('17e20104-0104-0104-0104-17e217e20104', 'cae00104-0104-0104-0104-cae0cae00104',
    '0a0a0104-0104-0104-0104-0a0a0a0a0104', 'นั่งร้าน Q', 500,
-   '11111111-1111-1111-1111-111111110104'),
+   '11111111-1111-1111-1111-111111110104', 'ca7a0104-0104-0104-0104-ca7aca7a0104'),
   ('17e10104-0104-0104-0104-17e117e10104', 'cae00104-0104-0104-0104-cae0cae00104',
    '0a0a0104-0104-0104-0104-0a0a0a0a0104', 'สว่าน U (ยังไม่ตั้งราคา)', null,
-   '11111111-1111-1111-1111-111111110104'),
+   '11111111-1111-1111-1111-111111110104', 'ca7a0104-0104-0104-0104-ca7aca7a0104'),
   ('17e30104-0104-0104-0104-17e317e30104', 'cae00104-0104-0104-0104-cae0cae00104',
    '0a0a0104-0104-0104-0104-0a0a0a0a0104', 'ปั๊ม R', 300,
-   '11111111-1111-1111-1111-111111110104'),
+   '11111111-1111-1111-1111-111111110104', 'ca7a0104-0104-0104-0104-ca7aca7a0104'),
   ('17e50104-0104-0104-0104-17e517e50104', 'cae00104-0104-0104-0104-cae0cae00104',
    '0a0a0104-0104-0104-0104-0a0a0a0a0104', 'เครื่องตัด S', 700,
-   '11111111-1111-1111-1111-111111110104'),
+   '11111111-1111-1111-1111-111111110104', 'ca7a0104-0104-0104-0104-ca7aca7a0104'),
   ('17ed0104-0104-0104-0104-17ed17ed0104', 'cae00104-0104-0104-0104-cae0cae00104',
    '0a0a0104-0104-0104-0104-0a0a0a0a0104', 'รอก D', 100,
-   '11111111-1111-1111-1111-111111110104');
+   '11111111-1111-1111-1111-111111110104', 'ca7a0104-0104-0104-0104-ca7aca7a0104');
 
 -- ============================================================================
 -- A. Catalog.

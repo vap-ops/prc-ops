@@ -33,10 +33,13 @@ insert into public.suppliers (id, name, created_by) values
 insert into public.equipment_categories (id, name, created_by) values
   ('c0000001-0000-4000-8000-000000000146', 'Generators',
    '11111111-1111-1111-1111-111111110146');
-insert into public.equipment_items (id, category_id, owner_id, name, tracking, created_by) values
+-- Spec 385 U4: every instance carries its SKU (NOT NULL) - fixture SKU.
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('ca7a0146-0146-4146-8146-ca7aca7a0146', 'fixture-sku-0146', 'c0000001-0000-4000-8000-000000000146', '11111111-1111-1111-1111-111111110146');
+insert into public.equipment_items (id, category_id, owner_id, name, tracking, created_by, equipment_catalog_item_id) values
   ('d0000001-0000-4000-8000-000000000146',
    'c0000001-0000-4000-8000-000000000146', 'b0000001-0000-4000-8000-000000000146',
-   'Generator 5kVA #1', 'unit', '11111111-1111-1111-1111-111111110146');
+   'Generator 5kVA #1', 'unit', '11111111-1111-1111-1111-111111110146', 'ca7a0146-0146-4146-8146-ca7aca7a0146');
 
 -- ============================================================================
 -- A. Catalog + posture.
@@ -69,9 +72,10 @@ select throws_ok(
              '11111111-1111-1111-1111-111111110146') $$,
   '23514', null, 'ends_on before starts_on is rejected');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, tracking, daily_rate, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, tracking, daily_rate, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000146', 'b0000001-0000-4000-8000-000000000146',
-             'bad rate', 'unit', -1, '11111111-1111-1111-1111-111111110146') $$,
+             'bad rate', 'unit', -1, '11111111-1111-1111-1111-111111110146',
+             'ca7a0146-0146-4146-8146-ca7aca7a0146') $$,
   '23514', null, 'a negative daily_rate is rejected');
 
 grant insert on _tap_buf to authenticated, anon;

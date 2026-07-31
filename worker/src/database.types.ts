@@ -2518,7 +2518,7 @@ export type Database = {
           created_by: string
           daily_rate: number | null
           description: string | null
-          equipment_catalog_item_id: string | null
+          equipment_catalog_item_id: string
           id: string
           image_path: string | null
           model: string | null
@@ -2542,7 +2542,7 @@ export type Database = {
           created_by: string
           daily_rate?: number | null
           description?: string | null
-          equipment_catalog_item_id?: string | null
+          equipment_catalog_item_id: string
           id?: string
           image_path?: string | null
           model?: string | null
@@ -2566,7 +2566,7 @@ export type Database = {
           created_by?: string
           daily_rate?: number | null
           description?: string | null
-          equipment_catalog_item_id?: string | null
+          equipment_catalog_item_id?: string
           id?: string
           image_path?: string | null
           model?: string | null

@@ -48,26 +48,36 @@ select ok((select relrowsecurity from pg_class where oid = 'public.equipment_cat
 
 -- ============================================================================
 -- B. CHECK invariants (run as table owner — RLS bypassed, the CHECK fires).
+-- Spec 385 U4: every negative carries a REAL fixture SKU — NOT NULL (23502) and
+-- the FK (23503) both fire before a CHECK, so a missing/invalid
+-- equipment_catalog_item_id would mask the 23514 each case exists to pin.
 -- ============================================================================
+insert into public.equipment_catalog_items (id, name, category_id, created_by) values
+  ('ca7a0141-0141-4141-8141-ca7aca7a0141', 'fixture-sku-0141',
+   'c0000001-0000-4000-8000-000000000141', '11111111-1111-1111-1111-111111110141');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, tracking, quantity, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, tracking, quantity, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'bad', 'unit', 5, '11111111-1111-1111-1111-111111110141') $$,
+             'bad', 'unit', 5, '11111111-1111-1111-1111-111111110141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   '23514', null, 'a unit item cannot carry a quantity');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, tracking, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, tracking, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'bad', 'bulk', '11111111-1111-1111-1111-111111110141') $$,
+             'bad', 'bulk', '11111111-1111-1111-1111-111111110141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   '23514', null, 'a bulk item must have a quantity');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, tracking, quantity, asset_tag, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, tracking, quantity, asset_tag, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'bad', 'bulk', 10, 'TAG-1', '11111111-1111-1111-1111-111111110141') $$,
+             'bad', 'bulk', 10, 'TAG-1', '11111111-1111-1111-1111-111111110141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   '23514', null, 'a bulk item cannot carry an asset tag');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             '   ', '11111111-1111-1111-1111-111111110141') $$,
+             '   ', '11111111-1111-1111-1111-111111110141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   '23514', null, 'a blank name is rejected');
 
 grant insert on _tap_buf to authenticated, anon;
@@ -90,9 +100,10 @@ select lives_ok(
   $$ select id, name, status from public.equipment_items limit 1 $$,
   'staff can read the non-money columns');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'SA item', '22222222-2222-2222-2222-222222220141') $$,
+             'SA item', '22222222-2222-2222-2222-222222220141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   '42501', null, 'site_admin cannot insert an equipment item (back-office only)');
 
 -- ============================================================================
@@ -101,15 +112,17 @@ select throws_ok(
 set local "request.jwt.claims" = '{"sub": "11111111-1111-1111-1111-111111110141"}';
 
 select lives_ok(
-  $$ insert into public.equipment_items (id, category_id, owner_id, name, tracking, created_by)
+  $$ insert into public.equipment_items (id, category_id, owner_id, name, tracking, created_by, equipment_catalog_item_id)
      values ('d0000001-0000-4000-8000-000000000141',
              'c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'Generator 5kVA #1', 'unit', '11111111-1111-1111-1111-111111110141') $$,
+             'Generator 5kVA #1', 'unit', '11111111-1111-1111-1111-111111110141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   'project_manager inserts a serialized item');
 select throws_ok(
-  $$ insert into public.equipment_items (category_id, owner_id, name, created_by)
+  $$ insert into public.equipment_items (category_id, owner_id, name, created_by, equipment_catalog_item_id)
      values ('c0000001-0000-4000-8000-000000000141', 'b0000001-0000-4000-8000-000000000141',
-             'spoofed', '22222222-2222-2222-2222-222222220141') $$,
+             'spoofed', '22222222-2222-2222-2222-222222220141',
+             'ca7a0141-0141-4141-8141-ca7aca7a0141') $$,
   '42501', null, 'created_by must equal the caller (pin)');
 select throws_ok(
   $$ delete from public.equipment_items where id = 'd0000001-0000-4000-8000-000000000141' $$,
