@@ -1,3 +1,9 @@
+# [0.304.0](https://github.com/vap-ops/prc-ops/compare/v0.303.1...v0.304.0) (2026-07-31)
+
+### Features
+
+- **sa:** camera FAB picker gains type-to-find (spec 384 U3) ([3b09403](https://github.com/vap-ops/prc-ops/commit/3b094037591ba178e855f2b5b416f60a315d2fb2))
+
 ## [0.303.1](https://github.com/vap-ops/prc-ops/compare/v0.303.0...v0.303.1) (2026-07-31)
 
 ### Bug Fixes
