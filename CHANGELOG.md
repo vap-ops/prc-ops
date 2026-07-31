@@ -1,3 +1,9 @@
+# [0.303.0](https://github.com/vap-ops/prc-ops/compare/v0.302.0...v0.303.0) (2026-07-31)
+
+### Features
+
+- **385:** U4 — tighten the SKU model (spec 385 complete) ([#908](https://github.com/vap-ops/prc-ops/issues/908)) ([0b16cc3](https://github.com/vap-ops/prc-ops/commit/0b16cc3d2dae0e004810ad23c741e83f9a62ae6b))
+
 # [0.302.0](https://github.com/vap-ops/prc-ops/compare/v0.301.0...v0.302.0) (2026-07-31)
 
 ### Features
