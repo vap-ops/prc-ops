@@ -1,3 +1,9 @@
+# [0.299.0](https://github.com/vap-ops/prc-ops/compare/v0.298.0...v0.299.0) (2026-07-31)
+
+### Features
+
+- **notifications:** spec 387 delivery-health signal + 429 honest copy ([#903](https://github.com/vap-ops/prc-ops/issues/903)) ([ea6ace2](https://github.com/vap-ops/prc-ops/commit/ea6ace2d91420e40e232e12efb2f3c11f070888e))
+
 # [0.298.0](https://github.com/vap-ops/prc-ops/compare/v0.297.1...v0.298.0) (2026-07-31)
 
 ### Features
