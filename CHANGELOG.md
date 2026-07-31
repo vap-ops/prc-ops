@@ -1,3 +1,9 @@
+# [0.298.0](https://github.com/vap-ops/prc-ops/compare/v0.297.1...v0.298.0) (2026-07-31)
+
+### Features
+
+- **expenses:** edit + delete an office expense (feedback 41cd07d9) ([#902](https://github.com/vap-ops/prc-ops/issues/902)) ([c0ea554](https://github.com/vap-ops/prc-ops/commit/c0ea554319c88a28b1d99459dd8c6091c5f16542))
+
 ## [0.297.1](https://github.com/vap-ops/prc-ops/compare/v0.297.0...v0.297.1) (2026-07-31)
 
 ### Bug Fixes
