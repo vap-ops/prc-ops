@@ -70,10 +70,23 @@ begin
   -- created_by is NOT NULL and FKs to public.users, and a migration has no auth
   -- context — inherit the existing registry curator rather than invent an id.
   -- Read unconditionally: the suppliers mirror below needs it on BOTH paths.
+  --
+  -- Replay note (Sandbox Sync red 2026-07-30→31): prod has owner rows since
+  -- 2026-06-27, but this file also replays against databases where it has never
+  -- applied and equipment_owners is EMPTY — the sandbox mirror, a full_reset,
+  -- any schema-only preview branch. A raise here aborts `db push` and wedges
+  -- every later migration, so the derivation falls back instead: oldest user,
+  -- else forgo the seed. Prod's ledger never re-runs this file; on any DB that
+  -- has owner rows the behaviour is unchanged.
   select created_by into v_creator from public.equipment_owners
    order by created_at limit 1;
   if v_creator is null then
-    raise exception 'no existing equipment_owners row to inherit created_by from';
+    select id into v_creator from public.users
+     order by created_at limit 1;
+  end if;
+  if v_creator is null then
+    raise notice 'equipment_owner_pri_default: no users yet on this database - skipping PRI seed; the default owner can be added once a user exists';
+    return;
   end if;
 
   -- Idempotent by name: this migration must be safe to replay on a fresh
