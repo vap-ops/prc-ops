@@ -13,6 +13,10 @@ const state = vi.hoisted(() => ({
   rpcs: [] as { fn: string; args: Record<string, unknown> }[],
   insertError: null as unknown,
   updateError: null as unknown,
+  // Scope updateError to ONE table — the sync-failure case must fail the MIRROR
+  // update while the catalog update succeeds, or it passes through the
+  // catalog-failure arm instead (mutation-exposed, 2026-07-31).
+  updateErrorTable: null as string | null,
   rpcError: null as unknown,
   // Spec 385 U4 — the update action reads the SKU (old name) and the instance
   // rows (cascade candidates) before writing.
@@ -57,7 +61,10 @@ vi.mock("@/lib/db/server", () => ({
           return {
             eq(_col: string, id: string) {
               state.updates.push({ table, payload, id });
-              return Promise.resolve({ error: state.updateError });
+              const applies =
+                state.updateError !== null &&
+                (state.updateErrorTable === null || state.updateErrorTable === table);
+              return Promise.resolve({ error: applies ? state.updateError : null });
             },
           };
         },
@@ -82,6 +89,7 @@ beforeEach(() => {
   state.rpcs = [];
   state.insertError = null;
   state.updateError = null;
+  state.updateErrorTable = null;
   state.rpcError = null;
   state.skuBefore = { name: "เครื่องตบดิน" };
   state.instanceRows = [];
@@ -205,14 +213,13 @@ describe("updateEquipmentCatalogItem", () => {
     ).toBe(true);
   });
 
-  it("a failed instance sync is NOT silent — the catalog saved, the message says what is left", async () => {
+  it("a failed instance SYNC is NOT silent — the catalog saved, the message names what is left", async () => {
     state.skuBefore = { name: "เครื่องตบดิน" };
     state.instanceRows = [{ id: "u1", name: "เครื่องตบดิน No.1" }];
-    // The catalog update succeeds; the mirror updates fail (updateError applies
-    // to every .update() — the FIRST call is the catalog one, so flip the error
-    // ON after it via a one-shot: simplest is to make ALL updates fail and
-    // assert the catalog-failure arm did NOT swallow it as a dup.
+    // ONLY the mirror updates fail — the catalog update must succeed, or this
+    // case exercises the catalog-failure arm instead (mutation-exposed).
     state.updateError = { code: "57014" };
+    state.updateErrorTable = "equipment_items";
 
     const result = await updateEquipmentCatalogItem({
       id: SKU_ID,
@@ -223,6 +230,7 @@ describe("updateEquipmentCatalogItem", () => {
     });
 
     expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("ปรับรายการเครื่องตามไม่ครบ");
   });
 
   it("maps a rename collision 23505 to the named message", async () => {
