@@ -1,3 +1,9 @@
+# [0.302.0](https://github.com/vap-ops/prc-ops/compare/v0.301.0...v0.302.0) (2026-07-31)
+
+### Features
+
+- **notifications:** spec 386 U5 reachability roster on /settings/roles ([#907](https://github.com/vap-ops/prc-ops/issues/907)) ([d1f2124](https://github.com/vap-ops/prc-ops/commit/d1f2124672dcc417c51b6a115b91c44c96609a10))
+
 # [0.301.0](https://github.com/vap-ops/prc-ops/compare/v0.300.1...v0.301.0) (2026-07-31)
 
 ### Features
