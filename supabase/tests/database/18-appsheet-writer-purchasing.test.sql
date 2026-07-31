@@ -201,7 +201,7 @@ select enum_has_labels(
     'stock_receipt_correction',
     -- Spec 381: per-item equipment edit history.
     'equipment_item_updated',
-    -- Feedback 41cd07d9: edit/delete an office expense (mig 075888).
+    -- Feedback 41cd07d9: edit/delete an office expense (mig 075889).
     'office_expense_update', 'office_expense_delete'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'

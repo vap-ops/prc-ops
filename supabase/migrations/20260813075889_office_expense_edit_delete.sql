@@ -13,10 +13,10 @@
 --            own_money maps to the row's SUBMITTER — never auth.uid(), which
 --            would silently steal the target when finance edits (the record
 --            RPC may use auth.uid() only because recorder == submitter there).
--- Delete also clears the row's money_event_reviews entries (polymorphic
--- source_table/source_id — no FK does it) and audits a full snapshot; the
--- attachment rows go via FK cascade (storage bytes are left for the bucket
--- lifecycle — same posture as other deletes).
+-- Delete audits a full snapshot; attachment rows go via FK cascade (storage
+-- bytes are left for the bucket lifecycle — house posture). Review entries
+-- SURVIVE the delete: flags FK them append-only, and the queue reader unions
+-- from office_expenses so an orphaned review renders nowhere.
 -- The stale trigger's WHEN gains project_id + category_id: both change which
 -- review lens the row appears under, so a verified review must re-verify.
 
@@ -62,7 +62,11 @@ begin
   end if;
 
   -- authz first: outsiders get 42501 regardless of row state.
-  if not (v_row.submitted_by = auth.uid()
+  -- Submitter arm ALSO requires a still-office role (record's 9-role set):
+  -- a user demoted to visitor must not keep rewrite rights on old money rows.
+  if not ((v_row.submitted_by = auth.uid()
+             and coalesce(v_role in ('super_admin','procurement','procurement_manager','accounting',
+                                     'project_manager','project_director','site_owner','site_admin','auditor'), false))
           or coalesce(v_role in ('super_admin','accounting'), false)) then
     raise exception 'update_office_expense: not permitted' using errcode = '42501';
   end if;
@@ -121,7 +125,11 @@ begin
             'old_amount', v_row.amount, 'new_amount', p_amount,
             'old_source', v_row.payment_source, 'new_source', p_payment_source,
             'old_project', v_row.project_id, 'new_project', p_project_id,
-            'old_expense_date', v_row.expense_date, 'new_expense_date', p_expense_date));
+            'old_expense_date', v_row.expense_date, 'new_expense_date', p_expense_date,
+            'old_category', v_row.category_id, 'new_category', p_category_id,
+            -- The one field this RPC re-derives — the only trace of a
+            -- money-destination change.
+            'old_reimburse_to', v_row.reimburse_to_user_id, 'new_reimburse_to', v_reimburse));
 end;
 $function$;
 
@@ -140,7 +148,11 @@ begin
     raise exception 'delete_office_expense: expense not found' using errcode = 'P0001';
   end if;
 
-  if not (v_row.submitted_by = auth.uid()
+  -- Submitter arm ALSO requires a still-office role (record's 9-role set):
+  -- a user demoted to visitor must not keep rewrite rights on old money rows.
+  if not ((v_row.submitted_by = auth.uid()
+             and coalesce(v_role in ('super_admin','procurement','procurement_manager','accounting',
+                                     'project_manager','project_director','site_owner','site_admin','auditor'), false))
           or coalesce(v_role in ('super_admin','accounting'), false)) then
     raise exception 'delete_office_expense: not permitted' using errcode = '42501';
   end if;
@@ -149,11 +161,12 @@ begin
     raise exception 'delete_office_expense: already reimbursed — locked' using errcode = 'P0001';
   end if;
 
-  -- Polymorphic review entries have no FK to cascade — clear them or the
-  -- review queue keeps a dangling row pointing at nothing.
-  delete from public.money_event_reviews
-   where source_table = 'office_expenses' and source_id = p_expense_id;
-
+  -- Review entries are deliberately LEFT in place: money_review_flags FK
+  -- them append-only (no cascade, by design — 075838), so deleting a flagged
+  -- review raises 23503 and would make exactly the reviewed-then-deleted
+  -- expense undeletable. Orphaned reviews are harmless — the queue reader
+  -- (list_money_events_for_review) unions FROM office_expenses, so a review
+  -- whose source row is gone never renders anywhere.
   delete from public.office_expenses where id = p_expense_id;
 
   insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)

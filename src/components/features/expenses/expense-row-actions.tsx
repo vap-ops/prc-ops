@@ -91,6 +91,23 @@ export function ExpenseRowActions({
   // A reimbursed row is server-locked — no affordance at all.
   if (row.reimbursedAt) return null;
 
+  // Seed the fields from the CURRENT row at open time — the component stays
+  // mounted across router.refresh(), so once-only useState init would show
+  // abandoned edits on reopen and silently revert a concurrent finance edit
+  // (the record form dodges this by unmounting; this sheet cannot).
+  const openSheet = () => {
+    setCategoryId(row.categoryId ?? "");
+    setDescription(row.description);
+    setAmount(String(row.amount));
+    setExpenseDate(row.expenseDate);
+    setPaymentSource(row.paymentSource as PaymentSource);
+    setCompanyCardId(row.companyCardId ?? "");
+    setProjectId(row.projectId ?? "");
+    setError(null);
+    setConfirmingDelete(false);
+    setOpen(true);
+  };
+
   const close = () => {
     setOpen(false);
     setConfirmingDelete(false);
@@ -98,9 +115,13 @@ export function ExpenseRowActions({
   };
 
   const submit = () => {
+    // Empty รายละเอียด falls back to the category label — the record form's own
+    // pattern; the RPC (and the table CHECK) require 1+ chars, so an empty
+    // send would brick behind a generic error.
+    const categoryLabel = categories.find((c) => c.id === categoryId)?.label ?? "";
     const validated = validateOfficeExpense({
       categoryId,
-      description,
+      description: description.trim() || categoryLabel,
       amount: Number(amount),
       expenseDate,
       paymentSource,
@@ -138,7 +159,7 @@ export function ExpenseRowActions({
 
   return (
     <>
-      <button type="button" className={CHIP_BUTTON} onClick={() => setOpen(true)}>
+      <button type="button" className={CHIP_BUTTON} onClick={openSheet}>
         {EXPENSE_EDIT_LABEL}
       </button>
       <BottomSheet open={open} title={EXPENSE_EDIT_HEADING} onClose={close}>
@@ -151,6 +172,11 @@ export function ExpenseRowActions({
               onChange={(e) => setCategoryId(e.target.value)}
               disabled={busy}
             >
+              {/* A since-deactivated category stays visible (and resendable is
+                  refused server-side) rather than rendering a blank select. */}
+              {categoryId && !categories.some((c) => c.id === categoryId) && (
+                <option value={categoryId}>{row.categoryLabel ?? "หมวดเดิม"}</option>
+              )}
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
@@ -224,6 +250,11 @@ export function ExpenseRowActions({
                 disabled={busy}
               >
                 <option value="">—</option>
+                {/* A row paid on ANOTHER holder's card (finance-edited, or the
+                    viewer lost the card): keep it selectable, never blank. */}
+                {companyCardId && !cards.some((c) => c.id === companyCardId) && (
+                  <option value={companyCardId}>{row.cardLabel ?? "บัตรเดิม"}</option>
+                )}
                 {cards.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.label}

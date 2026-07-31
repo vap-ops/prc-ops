@@ -100,7 +100,7 @@ export async function addExpenseReceipt(input: AddExpenseReceiptInput): Promise<
 }
 
 // Feedback 41cd07d9 — edit a mis-keyed expense (wrong date/project/amount) or
-// delete it. Gates live in the DEFINER RPCs (mig 075888): submitter-until-
+// delete it. Gates live in the DEFINER RPCs (mig 075889): submitter-until-
 // reimbursed OR finance; a reimbursed row is locked (P0001) for everyone.
 export interface UpdateOfficeExpenseInput extends OfficeExpenseInput {
   expenseId: string;
