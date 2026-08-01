@@ -11,8 +11,10 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { NotificationPreferencesForm } from "@/components/features/notifications/preferences-form";
+import { TelegramLinkControl } from "@/components/features/notifications/telegram-link-control";
 import { TestNotificationButton } from "@/components/features/notifications/test-notification-button";
 import { createClient } from "@/lib/db/server";
+import { clientEnv } from "@/lib/env";
 import {
   NOTIFICATION_CATALOG,
   toToggleEntry,
@@ -29,7 +31,6 @@ import {
   NOTIF_READINESS_CARD_HEADING,
   NOTIF_SETTINGS_INTRO,
   NOTIF_SETTINGS_LABEL,
-  NOTIF_TELEGRAM_ROW,
 } from "@/lib/i18n/labels";
 import { GROUP_CARD } from "@/app/settings/section-card";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
@@ -104,7 +105,10 @@ export default async function NotificationSettingsPage() {
             ) : (
               <p className="text-ink-secondary text-meta">{NOTIF_OA_UNKNOWN_ROW}</p>
             )}
-            {readiness.telegramLinked ? <ReadyRow ok label={NOTIF_TELEGRAM_ROW} /> : null}
+            <TelegramLinkControl
+              linked={readiness.telegramLinked}
+              botConfigured={Boolean(clientEnv.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME)}
+            />
             <TestNotificationButton />
           </div>
         </div>
