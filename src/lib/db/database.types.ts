@@ -10732,6 +10732,20 @@ export type Database = {
           wp_id: string
         }[]
       }
+      get_my_attendance: {
+        Args: never
+        Returns: {
+          in_at: string
+          in_method: string
+          ot_hours: number
+          out_at: string
+          out_auto: boolean
+          out_method: string
+          project_name: string
+          session: string
+          work_date: string
+        }[]
+      }
       get_my_crew_assignments: {
         Args: never
         Returns: {
