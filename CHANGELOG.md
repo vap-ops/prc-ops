@@ -1,3 +1,9 @@
+# [0.307.0](https://github.com/vap-ops/prc-ops/compare/v0.306.0...v0.307.0) (2026-08-01)
+
+### Features
+
+- **386:** U2 — the Telegram bind webhook ([#914](https://github.com/vap-ops/prc-ops/issues/914)) ([2a5d6b8](https://github.com/vap-ops/prc-ops/commit/2a5d6b8db5b609d652a2a5b21822584952ccc9a7))
+
 # [0.306.0](https://github.com/vap-ops/prc-ops/compare/v0.305.0...v0.306.0) (2026-08-01)
 
 ### Features
