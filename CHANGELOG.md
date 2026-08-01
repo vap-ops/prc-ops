@@ -1,3 +1,9 @@
+# [0.309.0](https://github.com/vap-ops/prc-ops/compare/v0.308.0...v0.309.0) (2026-08-01)
+
+### Features
+
+- **technician:** ประวัติ becomes a month grid (spec 388 U4) ([cded362](https://github.com/vap-ops/prc-ops/commit/cded36276104525b0ab9cc4a8d76281ddff1553c))
+
 # [0.308.0](https://github.com/vap-ops/prc-ops/compare/v0.307.0...v0.308.0) (2026-08-01)
 
 ### Features
