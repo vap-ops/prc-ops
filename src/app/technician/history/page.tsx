@@ -31,23 +31,33 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
-import { WorkerAttendanceList } from "@/components/features/portal/worker-attendance-list";
-import { buildAttendanceSessions } from "@/lib/attendance/attendance-sessions";
+import { WorkerAttendanceMonth } from "@/components/features/portal/worker-attendance-month";
+import { buildAttendanceMonthView } from "@/lib/attendance/attendance-sessions";
+import { resolveMonthAnchor } from "@/lib/attendance/attendance-month";
+import { addMonthsIso } from "@/lib/work-packages/calendar-grid";
 import { bangkokTodayIso } from "@/lib/dates";
 import { ATTENDANCE_OWN_LABEL } from "@/lib/i18n/labels";
 import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 
 export const metadata = { title: ATTENDANCE_OWN_LABEL };
 
-export default async function TechnicianHistoryPage() {
+export default async function TechnicianHistoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ m?: string | string[] }>;
+}) {
   const { role } = await requireRole(["technician"]);
   const supabase = await createClient();
 
+  // ?m=YYYY-MM → a safe YYYY-MM-01 anchor, reusing spec 374's resolver rather
+  // than re-deriving it: an unclamped year reaches the grid as an expanded-year
+  // ISO string and renders a mislabeled century.
+  const { m } = await searchParams;
+  const monthAnchor = resolveMonthAnchor(m, bangkokTodayIso());
+
   const { data: attendanceRows } = await supabase.rpc("get_my_attendance");
-  const built = buildAttendanceSessions({
-    rows: attendanceRows ?? [],
-    todayIso: bangkokTodayIso(),
-  });
+  const view = buildAttendanceMonthView({ rows: attendanceRows ?? [], monthAnchor });
+  const monthHref = (anchor: string) => `/technician/history?m=${anchor.slice(0, 7)}`;
 
   return (
     <PageShell>
@@ -73,7 +83,11 @@ export default async function TechnicianHistoryPage() {
             are not a ช่าง". The read self-scopes to the CALLER's worker row, so
             an assumed role legitimately has none. Renders null in normal use. */}
         <ViewAsEmptyNote />
-        <WorkerAttendanceList built={built} />
+        <WorkerAttendanceMonth
+          view={view}
+          prevHref={monthHref(addMonthsIso(monthAnchor, -1))}
+          nextHref={monthHref(addMonthsIso(monthAnchor, 1))}
+        />
       </section>
     </PageShell>
   );
