@@ -16,7 +16,12 @@ import {
   buildAttendanceMonthView,
   type AttendanceSessionInput,
 } from "@/lib/attendance/attendance-sessions";
-import { ATTENDANCE_LATE_LABEL, ATTENDANCE_MANUAL_NOTE } from "@/lib/i18n/labels";
+import {
+  ATTENDANCE_LATE_LABEL,
+  ATTENDANCE_MANUAL_NOTE,
+  ATTENDANCE_ON_TIME_LABEL,
+  ATTENDANCE_OT_SESSION_LABEL,
+} from "@/lib/i18n/labels";
 
 const JULY = "2026-07-01";
 
@@ -122,6 +127,31 @@ describe("WorkerAttendanceMonth", () => {
   it("marks a day carrying OT", () => {
     renderMonth([row({ work_date: "2026-07-15", session: "ot", ot_hours: 3 })]);
     expect(screen.getByRole("button", { name: /15/ })).toHaveAttribute("data-ot", "true");
+  });
+
+  // The dots encode late/OT by COLOUR alone. Without this the accessible name of
+  // a day cell is a bare "24" — no month, and no hint of what happened on it.
+  it("names a day cell with its date AND its state, not just the number", () => {
+    renderMonth([
+      row({ work_date: "2026-07-15", in_at: "2026-07-15T01:31:00+00:00" }), // late
+      row({ work_date: "2026-07-15", session: "ot", ot_hours: 2 }),
+    ]);
+    const day = screen.getByRole("button", { name: /15 ก\.ค\. 2569/ });
+    const name = day.getAttribute("aria-label") ?? "";
+    expect(name).toContain(ATTENDANCE_LATE_LABEL);
+    expect(name).toContain(ATTENDANCE_OT_SESSION_LABEL);
+  });
+
+  // The live-data catch: a manual-only day must not be ANNOUNCED as on time
+  // either. `none` contributes no verdict word at all.
+  it("announces no verdict for a manual-only day", () => {
+    renderMonth([
+      row({ work_date: "2026-07-15", in_at: "2026-07-15T01:00:00+00:00", in_method: "manual" }),
+    ]);
+    const name =
+      screen.getByRole("button", { name: /15 ก\.ค\. 2569/ }).getAttribute("aria-label") ?? "";
+    expect(name).not.toContain(ATTENDANCE_ON_TIME_LABEL);
+    expect(name).not.toContain(ATTENDANCE_LATE_LABEL);
   });
 
   it("shows a month with no record as an empty state, not a bare grid", () => {

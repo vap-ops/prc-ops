@@ -26,8 +26,13 @@ import Link from "next/link";
 import { CARD } from "@/lib/ui/classes";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { THAI_WEEKDAYS } from "@/lib/work-packages/calendar-grid";
-import { formatThaiDate } from "@/lib/i18n/labels";
-import { ATTENDANCE_OWN_EMPTY_LABEL } from "@/lib/i18n/labels";
+import {
+  ATTENDANCE_LATE_LABEL,
+  ATTENDANCE_ON_TIME_LABEL,
+  ATTENDANCE_OT_SESSION_LABEL,
+  ATTENDANCE_OWN_EMPTY_LABEL,
+  formatThaiDate,
+} from "@/lib/i18n/labels";
 import { AttendanceRows, AttendanceSummaryCard } from "./worker-attendance-list";
 import type { AttendanceMonthView } from "@/lib/attendance/attendance-sessions";
 
@@ -100,12 +105,27 @@ export function WorkerAttendanceMonth({
               );
             }
             const isSelected = cell.iso === selected;
+            // The dots carry the verdict and `hasOt` by COLOUR alone, so the
+            // state must also reach the accessible name — otherwise a screen
+            // reader gets a bare "24" and neither the date nor what happened.
+            // ⚠️ `none` contributes NO word: a day whose only regular session was
+            // entered manually has no verifiable arrival, and naming it ตรงเวลา
+            // would assert punctuality the app cannot stand behind.
+            const stateWords = [
+              state.verdict === "late"
+                ? ATTENDANCE_LATE_LABEL
+                : state.verdict === "on_time"
+                  ? ATTENDANCE_ON_TIME_LABEL
+                  : null,
+              state.hasOt ? ATTENDANCE_OT_SESSION_LABEL : null,
+            ].filter(Boolean);
             return (
               <button
                 key={cell.iso}
                 type="button"
                 onClick={() => setSelected(cell.iso)}
                 aria-pressed={isSelected}
+                aria-label={`${formatThaiDate(cell.iso)} · ${stateWords.join(" · ")}`}
                 data-late={String(state.late)}
                 data-ot={String(state.hasOt)}
                 className={`rounded-control flex flex-col items-center gap-0.5 border py-1.5 text-sm tabular-nums ${
@@ -114,9 +134,16 @@ export function WorkerAttendanceMonth({
               >
                 <span>{cell.day}</span>
                 <span className="flex h-1.5 items-center gap-0.5">
+                  {/* Neutral for an unjudged day — a green dot on a
+                      manually-entered day would claim punctuality nobody
+                      verified. */}
                   <span
                     className={`block h-1.5 w-1.5 rounded-full ${
-                      state.late ? "bg-danger" : "bg-done"
+                      state.verdict === "late"
+                        ? "bg-danger"
+                        : state.verdict === "on_time"
+                          ? "bg-done"
+                          : "bg-ink-muted"
                     }`}
                   />
                   {state.hasOt ? <span className="bg-attn block h-1.5 w-1.5 rounded-full" /> : null}

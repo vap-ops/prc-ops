@@ -86,6 +86,43 @@ describe("buildAttendanceMonthView — the day state the grid paints with", () =
     expect(v.days["2026-07-15"]?.hasOt).toBe(true);
   });
 
+  // Found LIVE, not by fixtures: every session on 24–27 July is manual, and the
+  // first cut of the day flag was binary (late ? late : on_time), so those days
+  // rendered a green dot and announced "ตรงเวลา" to a screen reader — asserting
+  // punctuality nobody verified. `none` is a real third state.
+  it("leaves a manual-only day UNJUDGED rather than calling it on time", () => {
+    const v = buildAttendanceMonthView({
+      rows: [row({ in_at: "2026-07-15T01:00:00+00:00", in_method: "manual" })],
+      monthAnchor: JULY,
+    });
+    expect(v.days["2026-07-15"]?.verdict).toBe("none");
+    expect(v.days["2026-07-15"]?.late).toBe(false);
+  });
+
+  it("judges a day on time only off a regular QR session", () => {
+    const v = buildAttendanceMonthView({ rows: [row()], monthAnchor: JULY });
+    expect(v.days["2026-07-15"]?.verdict).toBe("on_time");
+  });
+
+  it("lets late win over on time when a day carries both", () => {
+    const v = buildAttendanceMonthView({
+      rows: [
+        row({ work_date: "2026-07-15", in_at: "2026-07-15T01:00:00+00:00" }), // on time
+        row({ work_date: "2026-07-15", session: "regular", in_at: "2026-07-15T01:31:00+00:00" }),
+      ],
+      monthAnchor: JULY,
+    });
+    expect(v.days["2026-07-15"]?.verdict).toBe("late");
+  });
+
+  it("an OT-only day is unjudged — there is no OT start rule", () => {
+    const v = buildAttendanceMonthView({
+      rows: [row({ session: "ot", in_at: "2026-07-15T13:00:00+00:00", ot_hours: 2 })],
+      monthAnchor: JULY,
+    });
+    expect(v.days["2026-07-15"]?.verdict).toBe("none");
+  });
+
   it("a day with no rows has no entry at all (the grid paints it blank)", () => {
     const v = buildAttendanceMonthView({ rows: [row()], monthAnchor: JULY });
     expect(v.days["2026-07-16"]).toBeUndefined();

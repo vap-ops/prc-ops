@@ -187,6 +187,16 @@ export interface AttendanceDayState {
   late: boolean;
   /** At least one non-regular session. */
   hasOt: boolean;
+  /**
+   * The DAY's verdict, and `none` is a real answer — not a synonym for
+   * "on time". A day whose only regular session was entered manually has no
+   * verifiable arrival at all, so painting it green (or naming it ตรงเวลา to a
+   * screen reader) would assert punctuality the app cannot stand behind, which
+   * is the mirror of the accusation D7 exists to prevent. Found live: every
+   * session on 24–27 July is manual, and the first cut of this rendered them
+   * all as on-time.
+   */
+  verdict: AttendanceVerdict;
 }
 
 export interface AttendanceMonthView {
@@ -210,12 +220,20 @@ export function buildAttendanceMonthView(opts: {
 
   const days: Record<string, AttendanceDayState> = {};
   for (const r of rows) {
-    const day = (days[r.workDate] ??= { sessions: [], late: false, hasOt: false });
+    const day = (days[r.workDate] ??= {
+      sessions: [],
+      late: false,
+      hasOt: false,
+      verdict: "none",
+    });
     day.sessions.push(r);
     // `late` is the VERDICT's, not the clock's — so a manual row or an OT
     // session can never colour a day late, exactly as the row view refuses to.
     if (r.verdict === "late") day.late = true;
     if (r.session !== "regular") day.hasOt = true;
+    // Late wins over on-time; anything else leaves the day unjudged.
+    if (r.verdict === "late") day.verdict = "late";
+    else if (r.verdict === "on_time" && day.verdict !== "late") day.verdict = "on_time";
   }
 
   return {
