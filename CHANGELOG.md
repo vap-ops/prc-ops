@@ -1,3 +1,9 @@
+# [0.306.0](https://github.com/vap-ops/prc-ops/compare/v0.305.0...v0.306.0) (2026-08-01)
+
+### Features
+
+- **386:** U3 — self-serve Telegram bind/unlink on /settings/notifications ([#913](https://github.com/vap-ops/prc-ops/issues/913)) ([db39122](https://github.com/vap-ops/prc-ops/commit/db39122dbfefcdbf2c68d73274bbbc3cd8c7e090))
+
 # [0.305.0](https://github.com/vap-ops/prc-ops/compare/v0.304.0...v0.305.0) (2026-08-01)
 
 ### Features
