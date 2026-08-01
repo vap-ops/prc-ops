@@ -1,13 +1,15 @@
-// Writing failing test first.
+// Spec 388 U2 (D3) — /technician/history is the ช่าง's ATTENDANCE record.
 //
-// Spec 376 U3 (D3) — the ประวัติ route. /technician was one unbroken scroll page;
-// the money half (รายการรอรับ, wage history, bank) now lives at
-// /technician/history behind the new ประวัติ tab. Source-scan pins in the style of
-// technician-home.test.ts: the route must gate to the technician role ONLY, read
-// on the RLS session client (never admin — every read here is the caller's own
-// row), render the extracted WorkerHistorySections, and mount the chrome that
-// makes it reachable (the tab bar is a technician's only way between the two
-// routes, and the desktop strip is rule 2's counterpart).
+// Spec 376 U3 had made it the money half; that tab then recorded 0 route views
+// ALL-TIME, and two of its three sections were empty by construction
+// (wage_payments 0 rows all-time, pending bank 0). So the money moved to
+// หน้าหลัก and this route took the one subject with real rows — 189 muster scans
+// across 29 workers in 30 days, which no surface had ever shown a ช่าง.
+//
+// Source-scan pins in the style of technician-home.test.ts: the route must gate
+// to technician ONLY, read on the RLS session client (never admin), read through
+// the DEFINER RPC rather than the table, render the attendance list, carry none
+// of the money half, and mount the chrome that makes it reachable.
 //
 // Counted over comment-STRIPPED source: a doc comment naming a symbol otherwise
 // satisfies a toContain pin with the real call deleted (the
@@ -33,20 +35,33 @@ describe("/technician/history (spec 376 U3)", () => {
     expect(page).not.toContain("createAdminClient");
   });
 
-  // ≥2 = the import PLUS a real render. A bare toContain is satisfied by the
-  // import line alone, so deleting the JSX would keep it green.
-  it("renders the extracted WorkerHistorySections", () => {
-    expect(page.split("WorkerHistorySections").length - 1).toBeGreaterThanOrEqual(2);
+  // Exact use count, not a ≥2 floor: 2 = the import PLUS one render. A floor
+  // stays green with the JSX deleted once a symbol has two real uses.
+  it("renders the attendance list (spec 388 U2)", () => {
+    expect(page.split("WorkerAttendanceList").length - 1).toBe(2);
   });
 
-  // The reads the money half needs, each already RLS-self-scoped on the
-  // workers.user_id binding — copied from the หน้าหลัก page, not re-invented.
-  it("loads the wage payments, receipts, pending-bank and the pay-exempt flag", () => {
-    expect(page).toContain("get_my_worker_profile");
-    expect(page).toContain("get_my_wage_payments");
-    expect(page).toContain("stock_issues");
-    expect(page).toContain("worker_bank_change_requests");
-    expect(page).toContain("bankExempt");
+  // ⚠️ The load-bearing read. muster_attendance's ONLY select policy keys on
+  // can_see_project, which falls to `else false` for technician — so a plain
+  // table read here returns zero rows for every ช่าง, always. Reverting to one
+  // would look perfectly reasonable and render a permanently empty page.
+  it("reads through the self-scoped DEFINER RPC, never the table directly", () => {
+    expect(page).toContain('rpc("get_my_attendance")');
+    expect(page).not.toContain('from("muster_attendance")');
+  });
+
+  // Spec 388 U2 (D4/D5) — the money half moved to หน้าหลัก. Bare literals, not
+  // quote-wrapped: a revert to a differently-quoted call would slip a
+  // quote-wrapped absence pin.
+  it("carries none of the money half any more", () => {
+    expect(page).not.toContain("get_my_wage_payments");
+    expect(page).not.toContain("stock_issues");
+    expect(page).not.toContain("worker_bank_change_requests");
+    expect(page).not.toContain("WorkerHistorySections");
+  });
+
+  it("uses the SSOT'd page title rather than a loose literal", () => {
+    expect(page.split("ATTENDANCE_OWN_LABEL").length - 1).toBeGreaterThanOrEqual(3);
   });
 
   // A technician's ONLY way from ประวัติ back to หน้าหลัก is the bar (phone) /
@@ -70,6 +85,5 @@ describe("/technician/history (spec 376 U3)", () => {
   // would stay green with the JSX deleted once the symbol had two real uses.
   it("mounts ViewAsEmptyNote, like the other three identity-scoped routes", () => {
     expect(page.split("ViewAsEmptyNote").length - 1).toBe(2);
-    expect(page).toContain("ยังไม่มีข้อมูลช่างของคุณ");
   });
 });

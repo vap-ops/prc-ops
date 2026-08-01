@@ -35,6 +35,9 @@ import {
   getOwnRegistrationDocuments,
 } from "@/lib/register/own-registration";
 import { WorkerPortalSections } from "@/components/features/portal/worker-portal-sections";
+import { WorkerHistorySections } from "@/components/features/portal/worker-history-sections";
+import { PortalReceipts, type PortalReceipt } from "@/components/features/portal/portal-receipts";
+import { SECTION_HEADING } from "@/lib/ui/classes";
 import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
 import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { type PortalConsent } from "@/components/features/portal/portal-self-edit";
@@ -73,6 +76,13 @@ export default async function TechnicianHomePage() {
     // (self-scoped; null for non-workers). Batched here to avoid an extra hop.
     { data: workerId },
     { data: assignedWork },
+    // Spec 388 U2 (D4/D5) — the reads that came back from /technician/history
+    // when that route became attendance. Each is already RLS-self-scoped on the
+    // workers.user_id binding; moved verbatim, not re-invented.
+    { data: workerPayments },
+    { data: receiptRows },
+    { data: pendingBankRows },
+    { data: ownWorkerRow },
   ] = await Promise.all([
     supabase
       .from("contractor_consents")
@@ -81,9 +91,31 @@ export default async function TechnicianHomePage() {
     supabase.rpc("current_user_worker_id"),
     // Spec 350 U2 — the caller's most-recent muster team's assigned WPs + progress.
     supabase.rpc("get_my_assigned_work"),
+    supabase.rpc("get_my_wage_payments"),
+    supabase
+      .from("stock_issues")
+      .select(
+        "id, qty, unit, catalog_items ( base_item, spec_attrs ), work_packages ( code, name )",
+      )
+      .is("received_at", null)
+      .order("issued_at", { ascending: false }),
+    supabase.from("worker_bank_change_requests").select("id").eq("status", "pending").limit(1),
+    // Spec 328 U3 — is this ช่าง contractor-tied (pay-exempt)? Tied ⇒ the bank
+    // section is hidden (the firm pays them, PRC holds no bank).
+    // get_my_worker_profile doesn't return contractor_id, hence the extra read.
+    supabase.from("workers").select("contractor_id").eq("user_id", uid).maybeSingle(),
   ]);
 
   const assignedWorkView = buildAssignedWorkView(assignedWork ?? []);
+  const bankExempt = ownWorkerRow?.contractor_id != null;
+  const receipts: PortalReceipt[] = (receiptRows ?? []).map((r) => ({
+    id: r.id,
+    baseItem: r.catalog_items?.base_item ?? "",
+    specAttrs: r.catalog_items?.spec_attrs ?? null,
+    unit: r.unit,
+    qty: Number(r.qty),
+    wpLabel: r.work_packages ? `${r.work_packages.code} ${r.work_packages.name}` : "",
+  }));
 
   // Spec 306 U3a — present the QR on their home so they can show it at the morning
   // talk instead of carrying a printed badge. Payload = the caller's workers.id
@@ -115,6 +147,17 @@ export default async function TechnicianHomePage() {
         {/* Spec 376 U3 — the daily physical artifact leads the page. */}
         <WorkerBadgeQr svg={badgeSvg} />
 
+        {/* Spec 388 U2 (D5) — รายการรอรับ, lifted out of the ประวัติ tab. It is
+            the ONLY write a ช่าง owns anywhere in the app, and it sat behind a
+            money-labelled tab with 0 route views all-time, which is the best
+            available explanation for zero technician writes in 30 days. It
+            belongs directly under the QR, above the assigned work, because it is
+            the one thing on this page that asks the ช่าง to DO something. */}
+        <section>
+          <h2 className={SECTION_HEADING}>รายการรอรับ</h2>
+          <PortalReceipts receipts={receipts} />
+        </section>
+
         <AssignedWorkCard view={assignedWorkView} />
 
         {registration ? (
@@ -138,6 +181,24 @@ export default async function TechnicianHomePage() {
         {wp ? (
           <div>
             <WorkerPortalSections wp={wp} consents={(workerConsentRows ?? []) as PortalConsent[]} />
+          </div>
+        ) : null}
+
+        {/* Spec 388 U2 (D4) — the money block returns from /technician/history,
+            which is now attendance. It sits with identity rather than at the top:
+            a ช่าง opens this page for the QR and the receipts, not for their bank.
+            The wage list inside renders only when non-empty (wage_payments is 0
+            rows all-time), so today this is the bank card alone — and that is the
+            page /settings/my-info has always pointed at by name. */}
+        {wp ? (
+          <div>
+            <WorkerHistorySections
+              uid={uid}
+              wp={wp}
+              payments={workerPayments ?? []}
+              hasPendingBank={(pendingBankRows?.length ?? 0) > 0}
+              bankExempt={bankExempt}
+            />
           </div>
         ) : null}
       </section>
