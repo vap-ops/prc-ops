@@ -1458,6 +1458,24 @@ export const NOTIF_TELEGRAM_BIND_HINT =
 // button is offered. Mirrors the U5 roster's not-configured line.
 export const NOTIF_TELEGRAM_NOT_CONFIGURED = "ยังไม่ได้ตั้งค่าบอท Telegram — แจ้งผู้ดูแลระบบ";
 export const NOTIF_TELEGRAM_BIND_ERROR = "เริ่มการเชื่อมไม่สำเร็จ กรุณาลองใหม่";
+
+// Spec 386 U2 — what the BOT says back inside Telegram. This is the only copy in
+// the app that is read outside the app, so it carries its own weight: naming the
+// account is the user's ONLY proof they bound the right identity on a shared or
+// borrowed phone (§8 D4).
+export const TG_BOT_LINKED = "เชื่อมบัญชีสำเร็จ — {name} จะได้รับการแจ้งเตือนทางนี้";
+// display_name is coalesce(full_name, line_display_name) and BOTH can be null;
+// interpolating that prints "— null" in the one message that must look reliable.
+export const TG_BOT_LINKED_NO_NAME =
+  "เชื่อมบัญชีสำเร็จ จะได้รับการแจ้งเตือนทางนี้ (บัญชีของท่านยังไม่ได้ตั้งชื่อในระบบ)";
+// Retryable, and says HOW — an expired token is the common, recoverable case.
+export const TG_BOT_EXPIRED = "ลิงก์หมดอายุ กลับไปที่แอป PRC Ops แล้วกดเชื่อม Telegram อีกครั้ง";
+// PERMANENT: this chat already backs a different user, so no amount of retrying
+// helps. Must not say ลองใหม่ — the honest-copy class.
+export const TG_BOT_ALREADY_LINKED =
+  "แชทนี้ผูกกับบัญชีอื่นอยู่แล้ว ให้บัญชีนั้นกดยกเลิกการเชื่อมก่อน หรือแจ้งผู้ดูแลระบบ";
+// Anything that is not a valid /start — never an error, just a nudge.
+export const TG_BOT_PROMPT = "กดปุ่มเชื่อม Telegram ในแอป PRC Ops ก่อน แล้วระบบจะพากลับมาที่นี่";
 export const NOTIF_TELEGRAM_UNLINK_ERROR = "ยกเลิกการเชื่อมไม่สำเร็จ กรุณาลองใหม่";
 // Spec 386 U3 — the test push now covers both channels, so "no channel at all"
 // is its own state and must not be reported as a LINE problem.

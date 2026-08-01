@@ -6,10 +6,10 @@
 // checklist §8) — rows stay `pending` and the 24 h expiry pass protects
 // against a backlog flood at first activation.
 
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { serverEnv } from "@/lib/env.server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
+import { secretMatches } from "@/lib/notifications/secret-compare";
 import { composeNotification, type ComposeContext } from "@/lib/notifications/compose-notification";
 import { parseNotificationPayload } from "@/lib/notifications/payload";
 import { resolveRecipients } from "@/lib/notifications/resolve-recipients";
@@ -33,16 +33,6 @@ import { pushTelegramMessage } from "@/lib/notifications/telegram-push";
 // First-activation backlog: up to 50 rows × several sequential LINE pushes
 // each — needs more than the default function duration.
 export const maxDuration = 60;
-
-// Constant-time secret check; hashing both sides normalizes length so
-// timingSafeEqual is applicable.
-function secretMatches(provided: string | null, expected: string): boolean {
-  const a = createHash("sha256")
-    .update(provided ?? "")
-    .digest();
-  const b = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(a, b);
-}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const token = serverEnv.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
