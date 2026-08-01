@@ -1,12 +1,12 @@
 # Spec 386 — Telegram self-serve binding (เชื่อม Telegram ด้วยตัวเอง)
 
-- **Status:** design LOCKED on the two operator forks (in-chat 2026-07-31) — **new dedicated bot** · nudge audience = **office users**. U1 buildable now; U2 blocked on the bot token.
+- **Status:** design LOCKED on the two operator forks (in-chat 2026-07-31) — **new dedicated bot** · nudge audience = **office users**. **U1 shipped** ([#900](https://github.com/vap-ops/prc-ops/pull/900), mig `075888`) · **U5 shipped** ([#907](https://github.com/vap-ops/prc-ops/pull/907)). **U2/U3/U4 blocked on U0** — the three `TELEGRAM_*` env vars are confirmed absent from Vercel prod as of 2026-08-01 (§8.1). Rollout plan: §8.
 - **Owner lane:** `tgbind` (see `../LANES.md`).
 - **Reverses:** [spec 318](318-notification-onboarding-settings.md) §5, which put "Telegram self-serve linking (stays operator-set `telegram_chat_id`)" explicitly out of scope. Read 318 first — its per-user `notification_preferences` model (§3.3) is the contract this channel must respect, and its readiness surface (§3.2/§3.4) is where this one lands.
 - **Depends on:** ADR 0037 outbox · the Telegram push wrapper `src/lib/notifications/telegram-push.ts` (live since 2026-06-26) · spec 318 `NotificationReadiness`.
 - **Related:** [386 is the channel half of what PR #896 routed](https://github.com/vap-ops/prc-ops/pull/896) — that PR made `procurement_manager` a `pr_created` recipient, and the routing is inert until a channel delivers.
 
-## 1. Problem — measured live 2026-07-31, re-measure before quoting
+## 1. Problem — measured live 2026-07-31, §1.2 re-measured 2026-08-01, re-measure before quoting
 
 ### 1.1 The channel that was supposed to be the fallback has never run
 
@@ -26,13 +26,15 @@ Nine days of `LINE 429 {"message":"You have reached your monthly limit."}` (firs
 
 | Tier                                                                                                             | users | OA friend | NOT friend | never probed |
 | ---------------------------------------------------------------------------------------------------------------- | ----- | --------- | ---------- | ------------ |
-| **Office** (super_admin, project_director, project_manager, procurement_manager, procurement, accounting, legal) | 16    | **1**     | 6          | 9            |
+| **Office** (super_admin, project_director, project_manager, procurement_manager, procurement, accounting, legal) | 17    | **1**     | 6          | 10           |
 | technician                                                                                                       | 13    | **11**    | 1          | 1            |
-| site_admin                                                                                                       | 6     | 1         | 2          | 3            |
+| site_admin                                                                                                       | 5     | 1         | 2          | 2            |
 
-All 14 OA friends org-wide are 11 technicians + 1 accounting + 1 site_admin + 1 visitor. **Zero** among super_admin, project_director, project_manager, procurement_manager, procurement, legal.
+_(Re-measured live 2026-08-01; the 07-31 draft read office 16 / never-probed 9 and site_admin 6 / never-probed 3. Org total is 40 either way — visitor 4, client 1. Do not inherit these; re-run the query.)_
 
-⭐ **This is the finding that sets the audience.** For the office tier Telegram is not a fallback behind LINE — it is the only channel with a path to working. For technicians LINE already works and a Telegram nag would be noise. (`line_oa_friend` is login-fresh; `null` = never probed since spec 318 U1, so "never probed" is _unknown_, not _unreachable_ — the honest read is 1 confirmed reachable out of 16, not 15 confirmed unreachable.)
+All 14 OA friends org-wide are 11 technicians + 1 accounting + 1 site_admin + 1 visitor — unchanged on the re-measure. **Zero** among super_admin, project_director, project_manager, procurement_manager, procurement, legal.
+
+⭐ **This is the finding that sets the audience.** For the office tier Telegram is not a fallback behind LINE — it is the only channel with a path to working. For technicians LINE already works and a Telegram nag would be noise. (`line_oa_friend` is login-fresh; `null` = never probed since spec 318 U1, so "never probed" is _unknown_, not _unreachable_ — the honest read is 1 confirmed reachable out of 17, not 16 confirmed unreachable.)
 
 ### 1.3 Binding is operator-only, so the fallback rescues almost nobody
 
@@ -169,7 +171,7 @@ Four states, and the third is the load-bearing one:
 | **`unknown`** | **`line_oa_friend is null` — never probed, NOT unreachable** |
 | `none`        | confirmed non-friend, unbound                                |
 
-`line_oa_friend` refreshes only at LINE login (spec 318 U1), so **15 of 40 users sit at null right now**. Rendering those as a failure would send the operator chasing people who may already be fine, so `unknown` is its own arm and is styled **neutrally**, never as a warning.
+`line_oa_friend` refreshes only at LINE login (spec 318 U1), so **16 of 40 users sit at null right now** (re-measured 2026-08-01; 15 at U5's ship). Rendering those as a failure would send the operator chasing people who may already be fine, so `unknown` is its own arm and is styled **neutrally**, never as a warning.
 
 ⚠️ **The roster measures BINDING, not delivery.** While `TELEGRAM_BOT_TOKEN` is unset the drain skips Telegram entirely, so a green chip would imply a message that never left the building. The page reads `serverEnv.TELEGRAM_BOT_TOKEN` and renders an explicit "the bot is not configured" line until U0 lands.
 
@@ -182,7 +184,10 @@ Group chats and channels (private chats only) · Telegram as a _reply_ surface (
 ## 6. Acceptance — a fill rate, not a green suite
 
 ```sql
--- before: 1 of 40. Office tier: 0.
+-- before: 1 of 40. Office tier: 1 of 17 -- and that 1 is the operator's own
+-- hand-set row, so the office tier has ZERO self-served bindings. Both counts
+-- must move. (Re-measured live 2026-08-01; the 07-31 draft said office 0,
+-- which was wrong: the single bound user is super_admin, i.e. office tier.)
 select count(telegram_chat_id) linked, count(*) total from users;
 select count(telegram_chat_id) filter (where role::text in
   ('super_admin','project_director','project_manager','procurement_manager',
@@ -208,4 +213,95 @@ A row whose recipients include a Telegram-linked user must stop being `failed` w
 - **PDPA:** `docs/policies/privacy-policy.md` already says the app stores a "Telegram id if the user opts into Telegram notifications" and lists Telegram as a processor — the policy is written _ahead_ of the code, so no policy change is owed. What is owed is the collection-point notice in U3 and the one-tap unlink in U1/U3, both specified above.
 - **Consumed tokens are never pruned.** `telegram_link_tokens` keeps its consumed rows as the binding trail; at this volume that is a rounding error, but it is a retention surface, so if a prune ever ships it belongs beside the existing `notification_outbox` retention pass, not as its own cron.
 - **A bound chat is a device, not a person.** Unlink exists for the leaver/lost-phone case; there is no admin-side unbind in this spec (super_admin can already UPDATE `users`).
+
+## 8. Rollout & onboarding
+
+U1 (token store + RPCs) and U5 (the roster) have shipped. The channel still delivers nothing, and **1 of 40 users is bound** — re-verified live 2026-08-01. This section is how the remaining distance gets closed, and it is deliberately light: the audience is 17 people.
+
+### 8.1 The four phases
+
+| Phase           | Who      | Effort      | What                                                                          | Done when                                                                      |
+| --------------- | -------- | ----------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **P0 ACTIVATE** | operator | ~10 min     | BotFather → 3 Vercel env vars → one `setWebhook` call (§3.1)                  | An outbox row's `last_error` **can** start `Telegram` (today zero ever have)   |
+| **P1 BUILD**    | CC       | ~1 session  | U2 webhook · U3 settings row · U4 nudge                                       | The three PRs are merged; U2 is a danger-path operator merge                   |
+| **P2 APPLY**    | 17 users | ~2 min each | nudge → tap `เชื่อม Telegram` → `START` in Telegram → the bot names them back | §6's `linked` count moves off 1                                                |
+| **P3 CHASE**    | operator | weekly      | Work the `none` bucket on `/settings/roles` (U5)                              | `none` is empty or explained; `unknown` is left alone until those users log in |
+
+**P0 is the only hard blocker, and it is confirmed outstanding.** Verified in the Vercel UI 2026-08-01: project `prc-ops` → Settings → Environment Variables holds **9 variables** (`LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ID`, `LINE_MESSAGING_CHANNEL_ACCESS_TOKEN`, `NOTIFICATION_DRAIN_SECRET`, `NEXT_PUBLIC_APP_URL` ×2, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) and the **Shared** tab reads _"No shared variables linked"_. None of the three `TELEGRAM_*` variables exists at either level. This is §1.1's outbox inference confirmed by direct observation.
+
+⚠️ **P1 does not wait on P0.** U3 and U4 are code-only and can ship first — binding will write real rows and the fill rate will really move. What will not happen is delivery. Do not read a moving fill rate as proof the channel works (§3.1).
+
+### 8.2 Design decisions
+
+**D1 — No onboarding wizard.** 17 people, two taps. A wizard is a surface nobody opens: spec 339 U1 put a correct detector on `/settings` and measured **70 views against 810 on `/sa`**. The right weight is the in-app nudge (U4) + the settings row (U3) + one handout. Anything more is a surface to maintain and a place for copy to go stale.
+
+**D2 — The real drop-off is one step _before_ binding.** Everything in §3 assumes the user already has Telegram. Thailand is a LINE country; friending an OA needs zero install, whereas Telegram needs the app, a phone number and an SMS code. **We cannot measure this** — nothing on our side can tell an office user who has Telegram from one who does not, and the roster's `none` bucket cannot distinguish "has not bound yet" from "has never had the app". So the instructions **fork on it in step 1** — a whole install-and-signup block that most readers skip in one line, and that the rest of them cannot proceed without. It is first because it is the step that actually loses people; the binding half is the easy part.
+
+**D3 — Instruction placement, ranked.** ① The in-app U4 banner and the U3 helper line — zero distribution cost, always current, and they render where the user already is. ② The handout, operator-sent, whose only real job is D2's install step; the binding half is a courtesy. ③ **Not** a `/help` page — that is D1's wizard wearing a different hat.
+
+**D4 — The bot naming the account back is the proof step, not decoration.** On a shared or borrowed phone, `START` binds whichever Telegram account is signed in on that device — which need not be the person holding it. The reply `เชื่อมบัญชีสำเร็จ — <ชื่อ>` is the **only** signal that tells the user they bound the right identity, and it is the reason §3.3 step 4 returns `display_name` from the RPC rather than a bare `ok`. Keep it.
+
+### 8.3 The handout — U3's copy acceptance, **not yet sendable**
+
+⛔ **Do not send this to anyone yet.** It describes buttons that do not exist. Per the prose gate-check rule, every label below is a factual claim about an affordance on screen; today most of them are claims about U3's _intended_ output. It ships here as **U3's copy acceptance criteria** — U3 renders exactly these strings, then the handout is prod-verified, then it goes out.
+
+Gate-checked against the live tree at `origin/main` `efb4b177` (2026-08-01):
+
+| Handout string               | Status today                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `ตั้งค่า → การแจ้งเตือน`     | ✅ live — `NOTIF_SETTINGS_LABEL`                                                  |
+| ปุ่ม `เชื่อม Telegram`       | ❌ **owed by U3** — no such label exists                                          |
+| `✓ เชื่อม Telegram แล้ว`     | ✅ live as `NOTIF_TELEGRAM_ROW` — but renders **only when already linked** (§1.3) |
+| `ส่งข้อความทดสอบ`            | ⚠️ **the live label is `ส่งข้อความทดสอบเข้า LINE`** — see below                   |
+| `ยกเลิกการเชื่อม`            | ❌ **owed by U3** — no such label exists                                          |
+| `เชื่อมบัญชีสำเร็จ — <ชื่อ>` | ❌ **owed by U2** (§3.3 step 4)                                                   |
+
+⚠️ **The test button is a real defect the handout exposes, and it widens U3 by one line.** `NOTIF_TEST_BUTTON` is `ส่งข้อความทดสอบเข้า LINE` and `sendTestNotification` has only a LINE arm — so a Telegram-bound office user who follows step 3 today presses a button that pushes to LINE, where they are not an OA friend, and gets a failure. §3.4 already asks U3 for the Telegram arm; it must **also rename the label channel-neutral** (and `NOTIF_TEST_SENT`, which says `เปิด LINE`). Either U3 does that, or the handout's step 3 is wrong on the day it is sent.
+
+---
+
+> **เชื่อม Telegram เพื่อรับแจ้งเตือนจากระบบ PRC Ops**
+>
+> ตอนนี้ทีมออฟฟิศส่วนใหญ่ยังไม่ได้เพิ่มเพื่อน LINE OA ของบริษัท
+> ระบบจึงส่งแจ้งเตือนไปไม่ถึง ขอให้เชื่อม Telegram แทน ใช้เวลาราว 2 นาที
+>
+> **── ขั้นที่ 1 · ถ้ายังไม่มี Telegram (มีแล้วข้ามไปขั้นที่ 2)**
+>
+> 1. เปิด App Store (iPhone) หรือ Play Store (Android) ค้นหาคำว่า Telegram
+> 2. ติดตั้ง เปิดแอป แล้วกด Start Messaging
+> 3. ใส่เบอร์มือถือของท่าน รอรหัสทาง SMS แล้วใส่รหัส
+> 4. ใส่ชื่อ-นามสกุล กด Next เป็นอันเสร็จ
+>
+> **── ขั้นที่ 2 · เชื่อมกับระบบ**
+>
+> 1. เปิดแอป PRC Ops
+> 2. ไปที่ ตั้งค่า → การแจ้งเตือน
+> 3. กดปุ่ม เชื่อม Telegram
+> 4. แอป Telegram จะเปิดขึ้นเอง กดปุ่ม START ที่ด้านล่างจอ
+> 5. บอทจะตอบกลับว่า "เชื่อมบัญชีสำเร็จ — <ชื่อของท่าน>"
+>    ⚠️ ถ้าชื่อที่ขึ้นไม่ใช่ของท่าน แปลว่าเชื่อมผิดบัญชี กรุณาแจ้งกลับ
+>
+> **── ขั้นที่ 3 · ตรวจสอบว่าใช้ได้จริง**
+>
+> กลับมาที่ ตั้งค่า → การแจ้งเตือน จะเห็น ✓ เชื่อม Telegram แล้ว
+> กด ส่งข้อความทดสอบ แล้วดูว่าข้อความเข้า Telegram หรือไม่
+>
+> **── หมายเหตุ**
+>
+> - ระบบเก็บเฉพาะรหัสห้องแชท (chat id) ไว้ส่งแจ้งเตือนเท่านั้น ไม่เห็นข้อความอื่นของท่าน
+> - ยกเลิกได้ตลอดเวลาที่ ตั้งค่า → การแจ้งเตือน → ยกเลิกการเชื่อม
+> - ลิงก์เชื่อมมีอายุ 15 นาที ถ้าหมดอายุ ให้กด เชื่อม Telegram ใหม่อีกครั้ง
+
+---
+
+The หมายเหตุ block is not filler — it is the §7 PDPA obligation discharged at the point of collection (what is stored, that it is revocable, and how), stated in the same place the user acts.
+
+### 8.4 Running both asks in one announcement
+
+The same 16 office users are also LINE-OA non-friends, and **that** onboarding is one tap with no install — `NOTIF_ADD_FRIEND_LABEL` already ships and works today. Adding one sentence pointing at it costs nothing and gives the office tier two channels instead of one. It does not change this spec's audience or scope; it is a note for whoever writes the announcement.
+
+### 8.5 Acceptance
+
+§6 is unchanged and remains the measure: `linked` must move off **1**. If it does not after U3+U4 are live, the next unit is **placement, not more copy** — and D1 is what says so in advance, so that conclusion cannot be argued away after the fact.
+
 - ⚠️ **`line_oa_friend = null` for 16 users is unknown, not unreachable.** Every count in §1.2 should be re-run before it is quoted anywhere; the flag refreshes at each login.
