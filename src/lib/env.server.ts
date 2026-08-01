@@ -36,6 +36,13 @@ const serverSchema = z.object({
   // tier precisely because LINE cannot reach it). OPTIONAL like the LINE token:
   // the drain simply skips Telegram pushes when it's absent.
   TELEGRAM_BOT_TOKEN: optionalNonEmpty,
+  // Spec 386 U2 — the shared secret Telegram stamps on every webhook delivery as
+  // X-Telegram-Bot-Api-Secret-Token (set once via setWebhook). It is the
+  // webhook's ONLY authentication: nothing in the update body is trustworthy,
+  // since anyone can POST JSON claiming any chat id. OPTIONAL like the tokens
+  // above, and the route answers 503 (never 200) while it is unset, so a deploy
+  // that is missing it rejects rather than accepts.
+  TELEGRAM_WEBHOOK_SECRET: optionalNonEmpty,
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
