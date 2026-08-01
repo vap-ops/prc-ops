@@ -1,3 +1,9 @@
+# [0.305.0](https://github.com/vap-ops/prc-ops/compare/v0.304.0...v0.305.0) (2026-08-01)
+
+### Features
+
+- **technician:** spec 388 + U1 get_my_attendance() — ช่าง nav two tabs, ประวัติ becomes attendance ([#912](https://github.com/vap-ops/prc-ops/issues/912)) ([0df9a05](https://github.com/vap-ops/prc-ops/commit/0df9a05dfe05048aa783573f8aee267964df64c4)), closes [#856](https://github.com/vap-ops/prc-ops/issues/856)
+
 # [0.304.0](https://github.com/vap-ops/prc-ops/compare/v0.303.1...v0.304.0) (2026-07-31)
 
 ### Features
