@@ -82,16 +82,30 @@ describe("/technician home after the ประวัติ split (spec 376 U3)",
   // The money half moved to /technician/history — with its READS, not just its
   // JSX. A page that still fetches wage/receipt/bank data is doing the work of a
   // route it no longer renders.
-  it("no longer loads the money half's data", () => {
-    expect(page).not.toContain("get_my_wage_payments");
-    expect(page).not.toContain("stock_issues");
-    expect(page).not.toContain("worker_bank_change_requests");
-    expect(page).not.toContain("bankExempt");
+  // Spec 388 U2 (D4/D5) — the money half came BACK from /technician/history when
+  // that route became attendance. This inverts the spec-376 pins that used to
+  // live here, deliberately: the bank belongs on the page /settings/my-info has
+  // always pointed at by name ("…ได้ที่ หน้าหลักช่าง"), which spec 376 U3 had
+  // left aimed at a page with no bank on it.
+  it("loads the money half's data again", () => {
+    expect(page).toContain("get_my_wage_payments");
+    expect(page).toContain("stock_issues");
+    expect(page).toContain("worker_bank_change_requests");
+    expect(page).toContain("bankExempt");
   });
 
-  it("keeps the identity half (the slimmed WorkerPortalSections)", () => {
+  it("hosts BOTH halves: identity and the money block", () => {
     expect(page.split("WorkerPortalSections").length - 1).toBeGreaterThanOrEqual(2);
-    // …and does not host the money half's component instead.
-    expect(page).not.toContain("WorkerHistorySections");
+    expect(page.split("WorkerHistorySections").length - 1).toBe(2);
+  });
+
+  // D5: รายการรอรับ is the only write a ช่าง owns. It must sit ABOVE the assigned
+  // work — the ordering is the unit's point, not decoration, so pin the
+  // positions rather than mere presence.
+  it("puts the receipts above the assigned-work card", () => {
+    expect(page.split("PortalReceipts").length - 1).toBe(2);
+    expect(page.indexOf("<PortalReceipts")).toBeLessThan(page.indexOf("<AssignedWorkCard"));
+    // …and below the QR badge, which is the one thing they open the app for.
+    expect(page.indexOf("<WorkerBadgeQr")).toBeLessThan(page.indexOf("<PortalReceipts"));
   });
 });

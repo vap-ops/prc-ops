@@ -154,6 +154,27 @@ export const MUSTER_LABEL = "เช็คชื่อ";
 // เช็คชื่อ is the ACT of checking in (the cockpit), ประวัติการเช็คชื่อ is the
 // RECORD of it (this report) — the UI-term rule wants both named once, not fused.
 export const ATTENDANCE_AUDIT_LABEL = "ประวัติการเช็คชื่อ";
+// Spec 388 U2 — the ช่าง's OWN attendance record, a third distinct sense beside
+// MUSTER_LABEL (the act) and ATTENDANCE_AUDIT_LABEL (the office's report over
+// everyone). This one is first-person and worker-facing: it answers "what does
+// the company have recorded for ME". Named here because the page title, the
+// หน้าหลัก row that links to it and its tests all use it.
+export const ATTENDANCE_OWN_LABEL = "ประวัติการเข้างาน";
+// The verdict pair. Rendered ONLY on a QR-scanned regular session — a manual row
+// carries the SA's tap time, not the worker's arrival, so it gets
+// ATTENDANCE_MANUAL_NOTE instead and no verdict at all (spec 388 D7).
+export const ATTENDANCE_ON_TIME_LABEL = "ตรงเวลา";
+export const ATTENDANCE_LATE_LABEL = "สาย";
+export const ATTENDANCE_MANUAL_NOTE = "บันทึกโดยหัวหน้า";
+// out_auto: the day was closed by the system, not by the worker checking out.
+// Saying so is the honest-copy rule — an auto-close is not a departure.
+export const ATTENDANCE_AUTO_CLOSED_NOTE = "ปิดอัตโนมัติ";
+export const ATTENDANCE_OPEN_SESSION_LABEL = "ยังไม่เช็คออก";
+export const ATTENDANCE_OT_SESSION_LABEL = "ล่วงเวลา";
+export const ATTENDANCE_OWN_EMPTY_LABEL = "ยังไม่มีประวัติการเข้างานใน 30 วันล่าสุด";
+// The summary reuses the row vocabulary above deliberately — one term per
+// concept (the UI-term SSOT rule). Only "days recorded" is summary-only.
+export const ATTENDANCE_SUMMARY_DAYS_LABEL = "วันที่บันทึก";
 // Spec 334 U1 — the ปิดวันแล้ว banner is now a 2-surface string: the muster cockpit
 // (muster-cockpit.tsx) and the /team วันนี้ hero (MusterTodayCard), so it is SSOT'd
 // here per the UI-term rule. The card's other strings are single-surface → local.
