@@ -52,10 +52,15 @@ export async function saveNotificationPreference(
   return { ok: true };
 }
 
-// Spec 318 U4 — send a plain test push to the caller's OWN LINE so they can
-// confirm notifications reach them (the spec-212 sample-push precedent, text not
-// Flex). Reads the caller's own line_user_id via the admin client (not
-// self-readable under RLS); every honest failure gets its own Thai message.
+// Spec 318 U4 / 386 U3 — send a plain test push to EVERY channel the caller has
+// bound, so they can confirm notifications reach them (the spec-212 sample-push
+// precedent, text not Flex). Every honest failure gets its own Thai message.
+//
+// ⚠️ This comment used to say "the caller's OWN LINE ... via the admin client".
+// Both halves were wrong-or-stale: the read has always used the RLS-scoped
+// client (the "users read self" policy covers it, see below), and 386 U3 made
+// the push multi-channel. Corrected rather than left — a doc comment that names
+// one channel is exactly what made the LINE-only button look intentional.
 export async function sendTestNotification(): Promise<NotificationSettingResult> {
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
