@@ -27,6 +27,7 @@
 
 import { formatThaiTime } from "@/lib/i18n/labels";
 import { bangkokDateOf } from "@/lib/dates";
+import { monthGrid, type MonthGrid } from "@/lib/work-packages/calendar-grid";
 
 /** 08:00 Asia/Bangkok, as minutes since Bangkok midnight. */
 export const WORK_START_MINUTES = 8 * 60;
@@ -125,15 +126,9 @@ function windowStart(todayIso: string): string {
   return start.toISOString().slice(0, 10);
 }
 
-export function buildAttendanceSessions(opts: {
-  rows: ReadonlyArray<AttendanceSessionInput>;
-  todayIso: string;
-}): AttendanceSessions {
-  const from = windowStart(opts.todayIso);
-  // ISO dates compare correctly as strings; both sides are YYYY-MM-DD.
-  const inWindow = opts.rows.filter((r) => r.work_date >= from);
-
-  const rows: AttendanceSessionRow[] = inWindow.map((r) => ({
+/** One RPC row → one rendered session. Shared by the list and the month grid. */
+function toSessionRow(r: AttendanceSessionInput): AttendanceSessionRow {
+  return {
     workDate: r.work_date,
     session: r.session,
     inTime: r.in_at ? formatThaiTime(r.in_at) : null,
@@ -144,18 +139,106 @@ export function buildAttendanceSessions(opts: {
     otHours: r.ot_hours,
     projectName: r.project_name,
     verdict: verdictFor(r),
-  }));
+  };
+}
+
+/** Shared so the list's totals and the month's totals can never drift apart. */
+function summarise(rows: ReadonlyArray<AttendanceSessionRow>): AttendanceSessionsSummary {
+  return {
+    // Distinct DAYS, so a date carrying both a regular and an OT session counts
+    // once — the ช่าง worked one day, not two.
+    daysRecorded: new Set(rows.map((r) => r.workDate)).size,
+    onTime: rows.filter((r) => r.verdict === "on_time").length,
+    late: rows.filter((r) => r.verdict === "late").length,
+    otSessions: rows.filter((r) => r.session !== "regular").length,
+    otHoursTotal: rows.reduce((sum, r) => sum + r.otHours, 0),
+  };
+}
+
+export function buildAttendanceSessions(opts: {
+  rows: ReadonlyArray<AttendanceSessionInput>;
+  todayIso: string;
+}): AttendanceSessions {
+  const from = windowStart(opts.todayIso);
+  // ISO dates compare correctly as strings; both sides are YYYY-MM-DD.
+  const rows = opts.rows.filter((r) => r.work_date >= from).map(toSessionRow);
+  return { rows, summary: summarise(rows) };
+}
+
+// ---------------------------------------------------------------------------
+// Spec 388 U4 — the MONTH GRID view.
+//
+// Live density is 1.43 sessions per worked day (OT is common: 59 of 195 rows),
+// so a steady month is ~37 rows per ช่าง — 5–6 phone screens as a list, which is
+// the infinite-scroll shape spec 384 had to undo on the SA home. The grid shows
+// a month at a glance; the sessions stay one tap down, where the honesty rules
+// (no verdict on a manual row, none on OT, ปิดอัตโนมัติ) still apply.
+//
+// ⚠️ Deliberately NOT spec 374's buildAttendanceMonth: that one MERGES a date's
+// sessions into a single cell (earliest in, latest out, OT summed), which drops
+// the verdict and the OT split this surface exists to show. Here the day KEEPS
+// its sessions and the builder derives only the two flags the grid paints with.
+// ---------------------------------------------------------------------------
+
+export interface AttendanceDayState {
+  /** Every session recorded that day, in the RPC's order. */
+  sessions: AttendanceSessionRow[];
+  /** At least one REGULAR, QR-scanned session was late (D6/D7). */
+  late: boolean;
+  /** At least one non-regular session. */
+  hasOt: boolean;
+  /**
+   * The DAY's verdict, and `none` is a real answer — not a synonym for
+   * "on time". A day whose only regular session was entered manually has no
+   * verifiable arrival at all, so painting it green (or naming it ตรงเวลา to a
+   * screen reader) would assert punctuality the app cannot stand behind, which
+   * is the mirror of the accusation D7 exists to prevent. Found live: every
+   * session on 24–27 July is manual, and the first cut of this rendered them
+   * all as on-time.
+   */
+  verdict: AttendanceVerdict;
+}
+
+export interface AttendanceMonthView {
+  grid: MonthGrid;
+  /** iso date → state. A day with no rows has NO entry; the grid paints blank. */
+  days: Record<string, AttendanceDayState>;
+  summary: AttendanceSessionsSummary;
+}
+
+function sameMonth(dateIso: string, anchorIso: string): boolean {
+  return dateIso.slice(0, 7) === anchorIso.slice(0, 7);
+}
+
+export function buildAttendanceMonthView(opts: {
+  rows: ReadonlyArray<AttendanceSessionInput>;
+  /** First day of the rendered month, YYYY-MM-01. */
+  monthAnchor: string;
+}): AttendanceMonthView {
+  const inMonth = opts.rows.filter((r) => sameMonth(r.work_date, opts.monthAnchor));
+  const rows = inMonth.map(toSessionRow);
+
+  const days: Record<string, AttendanceDayState> = {};
+  for (const r of rows) {
+    const day = (days[r.workDate] ??= {
+      sessions: [],
+      late: false,
+      hasOt: false,
+      verdict: "none",
+    });
+    day.sessions.push(r);
+    // `late` is the VERDICT's, not the clock's — so a manual row or an OT
+    // session can never colour a day late, exactly as the row view refuses to.
+    if (r.verdict === "late") day.late = true;
+    if (r.session !== "regular") day.hasOt = true;
+    // Late wins over on-time; anything else leaves the day unjudged.
+    if (r.verdict === "late") day.verdict = "late";
+    else if (r.verdict === "on_time" && day.verdict !== "late") day.verdict = "on_time";
+  }
 
   return {
-    rows,
-    summary: {
-      // Distinct DAYS, so a date carrying both a regular and an OT session
-      // counts once — the ช่าง worked one day, not two.
-      daysRecorded: new Set(rows.map((r) => r.workDate)).size,
-      onTime: rows.filter((r) => r.verdict === "on_time").length,
-      late: rows.filter((r) => r.verdict === "late").length,
-      otSessions: rows.filter((r) => r.session !== "regular").length,
-      otHoursTotal: rows.reduce((sum, r) => sum + r.otHours, 0),
-    },
+    grid: monthGrid(opts.monthAnchor),
+    days,
+    summary: summarise(rows),
   };
 }

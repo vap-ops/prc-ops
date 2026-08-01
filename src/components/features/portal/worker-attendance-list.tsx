@@ -63,80 +63,93 @@ function VerdictChip({ verdict }: { verdict: AttendanceSessionRow["verdict"] }) 
   );
 }
 
-export function WorkerAttendanceList({ built }: { built: AttendanceSessions }) {
-  const { rows, summary } = built;
-
+/**
+ * Spec 388 U4 — exported so the month grid renders the SAME summary as the list
+ * did. Two copies of "days · on time · late · OT" would drift the first time one
+ * of them learned a new rule.
+ */
+export function AttendanceSummaryCard({ summary }: { summary: AttendanceSessions["summary"] }) {
   return (
-    <>
-      <div data-testid="attendance-summary" className={`${CARD} mb-4`}>
-        <div className="flex items-center justify-around">
-          <SummaryCell
-            testId="summary-days"
-            label={ATTENDANCE_SUMMARY_DAYS_LABEL}
-            value={summary.daysRecorded}
-          />
-          <SummaryCell
-            testId="summary-on-time"
-            label={ATTENDANCE_ON_TIME_LABEL}
-            value={summary.onTime}
-          />
-          <SummaryCell testId="summary-late" label={ATTENDANCE_LATE_LABEL} value={summary.late} />
-          <SummaryCell
-            testId="summary-ot"
-            label={ATTENDANCE_OT_SESSION_LABEL}
-            value={summary.otSessions}
-          />
-        </div>
+    <div data-testid="attendance-summary" className={`${CARD} mb-4`}>
+      <div className="flex items-center justify-around">
+        <SummaryCell
+          testId="summary-days"
+          label={ATTENDANCE_SUMMARY_DAYS_LABEL}
+          value={summary.daysRecorded}
+        />
+        <SummaryCell
+          testId="summary-on-time"
+          label={ATTENDANCE_ON_TIME_LABEL}
+          value={summary.onTime}
+        />
+        <SummaryCell testId="summary-late" label={ATTENDANCE_LATE_LABEL} value={summary.late} />
+        <SummaryCell
+          testId="summary-ot"
+          label={ATTENDANCE_OT_SESSION_LABEL}
+          value={summary.otSessions}
+        />
       </div>
+    </div>
+  );
+}
 
-      {rows.length === 0 ? (
-        <EmptyNotice>{ATTENDANCE_OWN_EMPTY_LABEL}</EmptyNotice>
-      ) : (
-        <ul data-testid="attendance-rows" className="flex flex-col gap-3">
-          {rows.map((r) => (
-            <li key={`${r.workDate}-${r.session}`} className={CARD}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-ink text-sm font-semibold">{formatThaiDate(r.workDate)}</p>
-                <div className="flex items-center gap-2">
-                  {r.session !== "regular" ? (
-                    <span className={`${CHIP} border-edge text-ink-secondary`}>
-                      {ATTENDANCE_OT_SESSION_LABEL}
-                    </span>
-                  ) : null}
-                  <VerdictChip verdict={r.verdict} />
-                </div>
-              </div>
+/**
+ * Spec 388 U4 — the session rows, exported so the month grid can render exactly
+ * one day's worth without re-implementing the row (and its three honesty rules).
+ * `testId` lets a caller distinguish the day-detail list from a full list.
+ */
+export function AttendanceRows({
+  rows,
+  testId = "attendance-rows",
+}: {
+  rows: ReadonlyArray<AttendanceSessionRow>;
+  testId?: string;
+}) {
+  if (rows.length === 0) return <EmptyNotice>{ATTENDANCE_OWN_EMPTY_LABEL}</EmptyNotice>;
+  return (
+    <ul data-testid={testId} className="flex flex-col gap-3">
+      {rows.map((r) => (
+        <li key={`${r.workDate}-${r.session}`} className={CARD}>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-ink text-sm font-semibold">{formatThaiDate(r.workDate)}</p>
+            <div className="flex items-center gap-2">
+              {r.session !== "regular" ? (
+                <span className={`${CHIP} border-edge text-ink-secondary`}>
+                  {ATTENDANCE_OT_SESSION_LABEL}
+                </span>
+              ) : null}
+              <VerdictChip verdict={r.verdict} />
+            </div>
+          </div>
 
-              <div className="text-ink-secondary mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                <span className="text-ink tabular-nums">{r.inTime ?? "—"}</span>
-                <span aria-hidden>→</span>
-                {r.outTime ? (
-                  <span className="text-ink tabular-nums">
-                    {r.outTime}
-                    {r.outNextDay ? " (+1)" : ""}
-                  </span>
-                ) : (
-                  <span>{ATTENDANCE_OPEN_SESSION_LABEL}</span>
-                )}
-                {r.otHours > 0 ? <span>{`${r.otHours} ชม.`}</span> : null}
-              </div>
+          <div className="text-ink-secondary mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            <span className="text-ink tabular-nums">{r.inTime ?? "—"}</span>
+            <span aria-hidden>→</span>
+            {r.outTime ? (
+              <span className="text-ink tabular-nums">
+                {r.outTime}
+                {r.outNextDay ? " (+1)" : ""}
+              </span>
+            ) : (
+              <span>{ATTENDANCE_OPEN_SESSION_LABEL}</span>
+            )}
+            {r.otHours > 0 ? <span>{`${r.otHours} ชม.`}</span> : null}
+          </div>
 
-              {/* The two honesty notes. Neither is decoration: each says the
+          {/* The two honesty notes. Neither is decoration: each says the
                   record is weaker than it looks. */}
-              {r.inMethod !== null && r.inMethod !== "qr" ? (
-                <p className="text-ink-secondary mt-1 text-xs">{ATTENDANCE_MANUAL_NOTE}</p>
-              ) : null}
-              {r.outAuto ? (
-                <p className="text-ink-secondary mt-1 text-xs">{ATTENDANCE_AUTO_CLOSED_NOTE}</p>
-              ) : null}
+          {r.inMethod !== null && r.inMethod !== "qr" ? (
+            <p className="text-ink-secondary mt-1 text-xs">{ATTENDANCE_MANUAL_NOTE}</p>
+          ) : null}
+          {r.outAuto ? (
+            <p className="text-ink-secondary mt-1 text-xs">{ATTENDANCE_AUTO_CLOSED_NOTE}</p>
+          ) : null}
 
-              {r.projectName ? (
-                <p className="text-ink-secondary mt-1 text-xs">{r.projectName}</p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
+          {r.projectName ? (
+            <p className="text-ink-secondary mt-1 text-xs">{r.projectName}</p>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }

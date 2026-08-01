@@ -9,7 +9,10 @@
 
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { WorkerAttendanceList } from "@/components/features/portal/worker-attendance-list";
+import {
+  AttendanceRows,
+  AttendanceSummaryCard,
+} from "@/components/features/portal/worker-attendance-list";
 import {
   buildAttendanceSessions,
   type AttendanceSessionInput,
@@ -39,9 +42,17 @@ function row(over: Partial<AttendanceSessionInput> = {}): AttendanceSessionInput
   };
 }
 
+// Spec 388 U4 split the single WorkerAttendanceList into a summary card and a
+// rows list so the month grid can reuse both (the grid renders the summary for
+// the month and the rows for ONE tapped day). These tests keep exercising the
+// pair together, which is how the list surface composed them.
 function renderRows(rows: AttendanceSessionInput[]) {
+  const built = buildAttendanceSessions({ rows, todayIso: TODAY });
   return render(
-    <WorkerAttendanceList built={buildAttendanceSessions({ rows, todayIso: TODAY })} />,
+    <>
+      <AttendanceSummaryCard summary={built.summary} />
+      <AttendanceRows rows={built.rows} />
+    </>,
   );
 }
 

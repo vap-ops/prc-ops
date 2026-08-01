@@ -37,8 +37,18 @@ describe("/technician/history (spec 376 U3)", () => {
 
   // Exact use count, not a ≥2 floor: 2 = the import PLUS one render. A floor
   // stays green with the JSX deleted once a symbol has two real uses.
-  it("renders the attendance list (spec 388 U2)", () => {
-    expect(page.split("WorkerAttendanceList").length - 1).toBe(2);
+  it("renders the attendance month grid (spec 388 U4)", () => {
+    expect(page.split("WorkerAttendanceMonth").length - 1).toBe(2);
+  });
+
+  // U4: month navigation is a real link, so the anchor must come from the
+  // shared resolver — an unclamped ?m= reaches the grid as an expanded-year ISO
+  // string and renders a mislabeled century (spec 374's lesson, reused).
+  it("resolves ?m= through the shared month resolver and offers both directions", () => {
+    expect(page).toContain("resolveMonthAnchor");
+    expect(page.split("addMonthsIso").length - 1).toBeGreaterThanOrEqual(3);
+    expect(page).toContain("prevHref");
+    expect(page).toContain("nextHref");
   });
 
   // ⚠️ The load-bearing read. muster_attendance's ONLY select policy keys on
