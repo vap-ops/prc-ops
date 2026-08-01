@@ -1,3 +1,10 @@
+# [0.308.0](https://github.com/vap-ops/prc-ops/compare/v0.307.0...v0.308.0) (2026-08-01)
+
+### Features
+
+- **technician:** per-session attendance view model + late rule (spec 388 U2) ([6ce1228](https://github.com/vap-ops/prc-ops/commit/6ce122870e53c53f2d4b1b0689c765993a332068))
+- **technician:** ประวัติ becomes the ช่าง's attendance record (spec 388 U2) ([4463178](https://github.com/vap-ops/prc-ops/commit/4463178bd1f9382542f676bc7936d2b1f6004e53))
+
 # [0.307.0](https://github.com/vap-ops/prc-ops/compare/v0.306.0...v0.307.0) (2026-08-01)
 
 ### Features
