@@ -1427,14 +1427,42 @@ export const NOTIF_SETTINGS_INTRO =
   "เปิด/ปิดการแจ้งเตือนแต่ละเรื่องได้ตามต้องการ การแจ้งเตือนความปลอดภัยหน้างานปิดไม่ได้";
 export const NOTIF_LOCKED_HINT = "การแจ้งเตือนความปลอดภัย — ปิดไม่ได้";
 export const NOTIF_TEST_MESSAGE = "🔔 ทดสอบการแจ้งเตือนจาก PRC Ops — คุณจะได้รับแจ้งเตือนแบบนี้";
-export const NOTIF_TEST_BUTTON = "ส่งข้อความทดสอบเข้า LINE";
-export const NOTIF_TEST_SENT = "ส่งแล้ว — เปิด LINE เพื่อดูข้อความทดสอบ";
+// Spec 386 U3 — these two used to name LINE ("…เข้า LINE" / "เปิด LINE เพื่อดู…").
+// sendTestNotification now pushes to EVERY channel the caller has bound, so a
+// Telegram-bound office user pressing a LINE-labelled button was being sent to
+// the one channel that structurally cannot reach them (§1.2). Channel-neutral.
+export const NOTIF_TEST_BUTTON = "ส่งข้อความทดสอบ";
+export const NOTIF_TEST_SENT = "ส่งแล้ว — เปิดแอปที่เชื่อมไว้เพื่อดูข้อความทดสอบ";
 export const NOTIF_READINESS_CARD_HEADING = "สถานะการรับแจ้งเตือน";
 export const NOTIF_LINE_LINKED_ROW = "เชื่อมบัญชี LINE แล้ว";
 export const NOTIF_OA_FRIEND_ROW = "เพิ่มเพื่อน LINE ของบริษัทแล้ว";
 export const NOTIF_OA_NONFRIEND_ROW = "ยังไม่ได้เพิ่มเพื่อน LINE ของบริษัท";
 export const NOTIF_OA_UNKNOWN_ROW = "จะตรวจสอบเมื่อเข้าสู่ระบบด้วย LINE ครั้งถัดไป";
 export const NOTIF_TELEGRAM_ROW = "เชื่อม Telegram แล้ว";
+
+// Spec 386 U3 — the self-serve Telegram bind row. Before this, /settings/notifications
+// rendered NOTIF_TELEGRAM_ROW only to the already-linked, so 39 of 40 users saw
+// no status, no affordance and no explanation (§1.3).
+export const NOTIF_TELEGRAM_UNLINKED_ROW = "ยังไม่ได้เชื่อม Telegram";
+export const NOTIF_TELEGRAM_BIND_BUTTON = "เชื่อม Telegram";
+export const NOTIF_TELEGRAM_BIND_PENDING = "กำลังเปิด Telegram…";
+export const NOTIF_TELEGRAM_UNLINK_BUTTON = "ยกเลิกการเชื่อม";
+export const NOTIF_TELEGRAM_UNLINK_PENDING = "กำลังยกเลิก…";
+// The PDPA notice at the point of collection (§7): say what is stored, before
+// the tap that stores it — not in a policy page nobody opens.
+export const NOTIF_TELEGRAM_PRIVACY_HINT =
+  "ระบบเก็บเฉพาะรหัสห้องแชท (chat id) ไว้ส่งแจ้งเตือนเท่านั้น ไม่เห็นข้อความอื่นของท่าน ยกเลิกได้ตลอดเวลา";
+export const NOTIF_TELEGRAM_BIND_HINT =
+  "กดแล้วแอป Telegram จะเปิดขึ้น กดปุ่ม START แล้วบอทจะตอบกลับพร้อมชื่อของท่าน";
+// Honest copy: while the bot is unconfigured, binding cannot work at all — so no
+// button is offered. Mirrors the U5 roster's not-configured line.
+export const NOTIF_TELEGRAM_NOT_CONFIGURED = "ยังไม่ได้ตั้งค่าบอท Telegram — แจ้งผู้ดูแลระบบ";
+export const NOTIF_TELEGRAM_BIND_ERROR = "เริ่มการเชื่อมไม่สำเร็จ กรุณาลองใหม่";
+export const NOTIF_TELEGRAM_UNLINK_ERROR = "ยกเลิกการเชื่อมไม่สำเร็จ กรุณาลองใหม่";
+// Spec 386 U3 — the test push now covers both channels, so "no channel at all"
+// is its own state and must not be reported as a LINE problem.
+export const NOTIF_TEST_NO_CHANNEL_ERROR =
+  "ยังไม่มีช่องทางรับแจ้งเตือน — เชื่อม Telegram ด้านบน หรือเข้าสู่ระบบด้วย LINE";
 export const NOTIF_TEST_NONFRIEND_ERROR =
   "ส่งไม่สำเร็จ — ยังไม่ได้เพิ่มเพื่อน LINE ของบริษัท กดปุ่มเพิ่มเพื่อนด้านบนก่อน";
 // Spec 387 U1 — a LINE 429 is the monthly-quota refusal: it CANNOT succeed on a

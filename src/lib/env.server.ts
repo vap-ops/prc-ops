@@ -30,9 +30,11 @@ const serverSchema = z.object({
   // not crash boot.
   LINE_MESSAGING_CHANNEL_ACCESS_TOKEN: optionalNonEmpty,
   NOTIFICATION_DRAIN_SECRET: optionalNonEmpty,
-  // Telegram Bot token — the notification drain's SECOND delivery channel
-  // (super-admins with a telegram_chat_id). OPTIONAL like the LINE token: the
-  // drain simply skips Telegram pushes when it's absent.
+  // Telegram Bot token — the notification drain's SECOND delivery channel, for
+  // ANY recipient holding a telegram_chat_id (the drain applies no role filter;
+  // the old "super-admins" wording here was stale, and spec 386 binds the OFFICE
+  // tier precisely because LINE cannot reach it). OPTIONAL like the LINE token:
+  // the drain simply skips Telegram pushes when it's absent.
   TELEGRAM_BOT_TOKEN: optionalNonEmpty,
 });
 

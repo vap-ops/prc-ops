@@ -24,6 +24,11 @@ const clientSchema = z.object({
   // package.json (+ commit SHA) and inlines it so client telemetry can stamp
   // each event with the exact bundle. Optional: unset in dev/test.
   NEXT_PUBLIC_APP_VERSION: z.string().optional(),
+  // Spec 386 U3 — the Telegram bot's public @username, used to build the
+  // t.me/<bot>?start=<token> bind deep link. OPTIONAL: unset in dev/test and in
+  // any deploy made before the operator's U0 step, and the settings row renders
+  // its not-configured copy rather than a button that cannot work.
+  NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: z.string().optional(),
 });
 
 export type ClientEnv = z.infer<typeof clientSchema>;
@@ -49,4 +54,5 @@ export const clientEnv = parseClientEnv({
   NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
   NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
   NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
+  NEXT_PUBLIC_TELEGRAM_BOT_USERNAME: process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME,
 });
