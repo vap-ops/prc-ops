@@ -69,12 +69,13 @@ select ok(
   'authenticated may NOT DELETE work_categories (deactivate-not-delete)');
 select col_is_unique('public', 'work_categories', 'code', 'code is unique (stable key)');
 
--- B. Seed (reconciled BuildAll BOQ work axis: 9 top + 43 subs = 52) ----------
+-- B. Seed (reconciled BuildAll BOQ work axis: 9 top + 43 subs, + spec 389's
+-- W10 งานอื่นๆ / W11 งานระบบความปลอดภัย = 54) --------------------------------
 select is(
-  (select count(*)::int from public.work_categories), 52, 'seeded 52 work-categories (9 top + 43 subs)');
+  (select count(*)::int from public.work_categories), 54, 'seeded 54 work-categories (11 top + 43 subs)');
 select is(
-  (select count(*)::int from public.work_categories where char_length(code)=3), 9,
-  'seeded 9 top categories (W01–W09, 3-char code)');
+  (select count(*)::int from public.work_categories where char_length(code)=3), 11,
+  'seeded 11 top categories (W01–W11, 3-char code)');
 select is(
   (select count(*)::int from public.work_categories where char_length(code)=5), 43,
   'seeded 43 subsections (5-char code)');

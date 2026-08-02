@@ -1,7 +1,9 @@
 # Spec 389 — WP catalogue + reference stars (แคตตาล็อกงานมาตรฐาน + รูปตัวอย่าง)
 
-**Status:** Draft — units not started
-**Origin:** Operator, 2026-08-03: _"We are having 2 new projects"_ → the Vol.4/Vol.5 recode
+**Status:** U1 (schema, mig `20260813075893`) + U2 (seed, 455 rows live) shipped; U3 executed
+2026-08-03 as a rollback-rehearsed data op (both projects: 455 WPs, catalogue+category fill
+455/455, 11 project*categories each). ▶ U4 mapping surface · U5 stars UI.
+**Origin:** Operator, 2026-08-03: *"We are having 2 new projects"_ → the Vol.4/Vol.5 recode
 session on the โพธิ์ทอง WP sheet, then: _"we gotta have to find a way to refer to the old WPs
 from โพธิ์ทอง … for the sake of referring to the old information, like sample images"_, refined
 to: _"PD can map new WP against previous project's WP. Then PD can pick the images and
@@ -9,7 +11,7 @@ information that they want referenced"_, and finally the multi-project correctio
 design: _"we will continue to make this sort of building for multiple times, there will be times
 we find better images from various projects, not just one. … How about giving stars to good
 images, then PD can refer to the starred ones?"_ Project scale note, verbatim: _"this is 16m
-size"_.
+size"\_.
 
 ## 1. The problem
 
@@ -37,7 +39,7 @@ instance points at its work-type exactly as an `equipment_items` row points at i
   NOT reuse the name; the new table is a different shape doing a different job (identity, not
   phase-seeding), and this paragraph is the required acknowledgement.
 - **`boq_template` / `boq_line` (spec 236, live, 0 rows) is the ESTIMATE grain** — a priced
-  document (material_rate/labor_rate per line), firm-wide reusable as a _document_. It is not a
+  document (material*rate/labor_rate per line), firm-wide reusable as a \_document*. It is not a
   per-work-type identity: lines belong to one template document, carry money, and have no
   tree/code identity. S10-U6 ("WP seeding from a `boq_template`") stays untouched; when it
   arrives it seeds WPs _from a priced estimate_, and those WPs can carry `wp_catalog_item_id`
@@ -210,3 +212,16 @@ U1+U2); U5 is only USEFUL after U4 maps โพธิ์ทอง (the photos all
   split · WP-474 name · whether Vol.5 rows get sorted by code.
 - The 26 โพธิ์ทอง WPs dropped by Vol.4: PD decides map-or-leave in U4; leaving them unmapped
   keeps their photos out of every reference gallery (deliberate).
+- **Recorded decisions / owed items from the U1 review (2026-08-03):**
+  - The reader is DELIBERATELY world-readable to authenticated (visitor included) — paths +
+    project names only, never bytes; pinned in pgTAP. U5's signed-URL mint must stay bound to
+    exactly the paths the RPC returned.
+  - **U4's re-map RPC owes star handling:** stars are keyed to the catalogue item at star time;
+    re-mapping a WP to a different item strands its stars on the old item (and `unstar` by
+    photo would delete both). U4 must move or retire the WP's stars on re-pick.
+  - **W10/W11 have no client identity** (`work-categories/identity.ts` letter/colour SSOT tops
+    out at W09, and the trade picker filters them out) — 23 of 455 codes ride O/SIS, so the
+    chips render bare on the new projects until a follow-up extends the SSOT + tokens. Deferred
+    out of U1–U3 (shared-SSOT + design-token surface, its own small unit).
+  - The seed script is upsert-only: a code dropped from a later sheet revision keeps its
+    `is_active` row; retirement is a manual curation step, stated in the script header.
