@@ -1,3 +1,9 @@
+# [0.310.0](https://github.com/vap-ops/prc-ops/compare/v0.309.0...v0.310.0) (2026-08-02)
+
+### Features
+
+- spec 389 U1+U2 — WP catalogue schema + Vol.5 seed (mig 075893) ([#918](https://github.com/vap-ops/prc-ops/issues/918)) ([e13920a](https://github.com/vap-ops/prc-ops/commit/e13920a94a56b67e3d0a29450da449e384adafd9))
+
 # [0.309.0](https://github.com/vap-ops/prc-ops/compare/v0.308.0...v0.309.0) (2026-08-01)
 
 ### Features
