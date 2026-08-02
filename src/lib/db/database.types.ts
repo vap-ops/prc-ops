@@ -8396,6 +8396,7 @@ export type Database = {
       work_categories: {
         Row: {
           code: string
+          code_prefix: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -8408,6 +8409,7 @@ export type Database = {
         }
         Insert: {
           code: string
+          code_prefix?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -8420,6 +8422,7 @@ export type Database = {
         }
         Update: {
           code?: string
+          code_prefix?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -8598,6 +8601,7 @@ export type Database = {
           rework_round: number
           status: Database["public"]["Enums"]["work_package_status"]
           updated_at: string
+          wp_catalog_item_id: string | null
         }
         Insert: {
           category_id?: string | null
@@ -8619,6 +8623,7 @@ export type Database = {
           rework_round?: number
           status?: Database["public"]["Enums"]["work_package_status"]
           updated_at?: string
+          wp_catalog_item_id?: string | null
         }
         Update: {
           category_id?: string | null
@@ -8640,6 +8645,7 @@ export type Database = {
           rework_round?: number
           status?: Database["public"]["Enums"]["work_package_status"]
           updated_at?: string
+          wp_catalog_item_id?: string | null
         }
         Relationships: [
           {
@@ -8689,6 +8695,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_packages_wp_catalog_item_id_fkey"
+            columns: ["wp_catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "wp_catalog_items"
             referencedColumns: ["id"]
           },
         ]
@@ -9466,6 +9479,112 @@ export type Database = {
             columns: ["work_package_id"]
             isOneToOne: true
             referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wp_catalog_items: {
+        Row: {
+          code: string
+          code_prefix: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_group: boolean
+          name: string
+          parent_id: string | null
+          source_note: string | null
+          updated_at: string
+          work_category_id: string | null
+        }
+        Insert: {
+          code: string
+          code_prefix: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_group?: boolean
+          name: string
+          parent_id?: string | null
+          source_note?: string | null
+          updated_at?: string
+          work_category_id?: string | null
+        }
+        Update: {
+          code?: string
+          code_prefix?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_group?: boolean
+          name?: string
+          parent_id?: string | null
+          source_note?: string | null
+          updated_at?: string
+          work_category_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_catalog_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "wp_catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_catalog_items_work_category_id_fkey"
+            columns: ["work_category_id"]
+            isOneToOne: false
+            referencedRelation: "work_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wp_catalog_reference_photos: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          photo_log_id: string
+          starred_by: string
+          wp_catalog_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          photo_log_id: string
+          starred_by: string
+          wp_catalog_item_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          photo_log_id?: string
+          starred_by?: string
+          wp_catalog_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_catalog_reference_photos_photo_log_id_fkey"
+            columns: ["photo_log_id"]
+            isOneToOne: false
+            referencedRelation: "photo_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_catalog_reference_photos_starred_by_fkey"
+            columns: ["starred_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_catalog_reference_photos_wp_catalog_item_id_fkey"
+            columns: ["wp_catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "wp_catalog_items"
             referencedColumns: ["id"]
           },
         ]
@@ -10828,6 +10947,17 @@ export type Database = {
           set_at: string
         }[]
       }
+      get_wp_reference_photos: {
+        Args: { p_wp_catalog_item_id: string }
+        Returns: {
+          note: string
+          phase: Database["public"]["Enums"]["photo_phase"]
+          photo_log_id: string
+          project_name: string
+          starred_at: string
+          storage_path: string
+        }[]
+      }
       gl_reconciliation: {
         Args: never
         Returns: {
@@ -11851,6 +11981,10 @@ export type Database = {
         }
         Returns: string
       }
+      star_reference_photo: {
+        Args: { p_note?: string; p_photo_log_id: string }
+        Returns: string
+      }
       start_staff_registration: {
         Args: {
           p_declared_role_hint?: string
@@ -12022,6 +12156,10 @@ export type Database = {
         Returns: boolean
       }
       unlink_telegram: { Args: never; Returns: undefined }
+      unstar_reference_photo: {
+        Args: { p_photo_log_id: string }
+        Returns: undefined
+      }
       unwaive_purchase_docs: {
         Args: { p_purchase_request: string }
         Returns: undefined
