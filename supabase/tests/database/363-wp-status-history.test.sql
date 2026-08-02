@@ -64,20 +64,29 @@ insert into public.project_members (project_id, user_id, added_by)
 values (pg_temp.id('proj_a'), pg_temp.id('sa_member'), pg_temp.id('super'));
 
 -- Two transitions on wp_a, one on wp_b (the cross-project control).
-insert into public.audit_log (actor_id, action, target_table, target_id, payload)
+-- created_at is EXPLICIT and distinct: inside one transaction every default
+-- now() is frozen to the same instant, so the RPC's `order by created_at asc`
+-- had NO deterministic order between wp_a's two rows — this file flipped red on
+-- a tie 2026-08-03 after being green by physical-order luck. (A real-world
+-- same-transaction tie keeps the ambiguity; RPC-level tiebreak noted for the
+-- 363 owner, out of scope here.)
+insert into public.audit_log (actor_id, action, target_table, target_id, created_at, payload)
 values
   (pg_temp.id('sa_member'), 'update', 'work_packages', pg_temp.id('wp_a'),
+   now() - interval '2 minutes',
    '{"event":"wp_status_transition","from_status":"not_started","to_status":"in_progress","is_group":false,"rework_round":0}'::jsonb),
   (pg_temp.id('sa_member'), 'update', 'work_packages', pg_temp.id('wp_a'),
+   now() - interval '1 minute',
    '{"event":"wp_status_transition","from_status":"in_progress","to_status":"pending_approval","is_group":false,"rework_round":0}'::jsonb),
   (pg_temp.id('super'), 'update', 'work_packages', pg_temp.id('wp_b'),
+   now() - interval '1 minute',
    '{"event":"wp_status_transition","from_status":"not_started","to_status":"in_progress","is_group":false,"rework_round":0}'::jsonb),
   -- A non-transition event on the same WP: the RPC must not return it.
   (pg_temp.id('sa_member'), 'update', 'work_packages', pg_temp.id('wp_a'),
-   '{"event":"wp_deleted"}'::jsonb),
+   now(), '{"event":"wp_deleted"}'::jsonb),
   -- An ALLOWLISTED event: the positive control for the direct-read assert below.
   (pg_temp.id('sa_member'), 'update', 'work_packages', pg_temp.id('wp_a'),
-   '{"event":"wp_evidence_resubmitted"}'::jsonb);
+   now(), '{"event":"wp_evidence_resubmitted"}'::jsonb);
 
 -- ---------------------------------------------------------------- existence
 select has_function('public', 'wp_status_history', array['uuid'],

@@ -9,6 +9,9 @@ import { join } from "node:path";
 const FEATURES_DIR = join(process.cwd(), "src", "components", "features");
 
 const ALLOWED_DOMAINS = [
+  // Spec 389 U4: the WP catalogue mapping surface (PD pairs legacy WPs with
+  // their firm-wide work-type; U5 adds the reference-star components here).
+  "wp-catalog",
   // Spec 345 U2: the accounting money-event review queue components.
   "accounting",
   "purchasing",
