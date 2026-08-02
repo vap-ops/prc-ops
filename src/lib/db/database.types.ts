@@ -11081,6 +11081,10 @@ export type Database = {
         }
         Returns: string
       }
+      map_wp_to_catalog: {
+        Args: { p_work_package_id: string; p_wp_catalog_item_id?: string }
+        Returns: Json
+      }
       mark_client_billing_invoiced: { Args: { p_id: string }; Returns: string }
       mark_expense_reimbursed: {
         Args: { p_expense_id: string }
