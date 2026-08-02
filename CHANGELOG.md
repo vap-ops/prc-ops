@@ -1,3 +1,9 @@
+# [0.311.0](https://github.com/vap-ops/prc-ops/compare/v0.310.0...v0.311.0) (2026-08-02)
+
+### Features
+
+- spec 389 U4 — PD catalog-mapping surface + map_wp_to_catalog RPC (mig 075894) ([#919](https://github.com/vap-ops/prc-ops/issues/919)) ([8e880f4](https://github.com/vap-ops/prc-ops/commit/8e880f4e8e28a77ee4a34dfc4a21f09315993d32))
+
 # [0.310.0](https://github.com/vap-ops/prc-ops/compare/v0.309.0...v0.310.0) (2026-08-02)
 
 ### Features
