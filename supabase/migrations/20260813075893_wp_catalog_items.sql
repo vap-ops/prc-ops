@@ -43,6 +43,11 @@ from (values
 ) as m(code, prefix)
 where work_categories.code = m.code;
 
+-- a duplicate prefix would silently bind the importer's prefix→category map to
+-- the last-seen row — make the collision impossible
+create unique index work_categories_code_prefix_uniq
+  on public.work_categories (code_prefix) where code_prefix is not null;
+
 -- ---------------------------------------------------------------------------
 -- 2. wp_catalog_items
 -- ---------------------------------------------------------------------------
@@ -62,9 +67,32 @@ create table public.wp_catalog_items (
     check (not (is_group and parent_id is not null))
 );
 
+comment on table public.wp_catalog_items is
+  'Firm-wide work-type catalogue (spec 389) — one row per Vol.5 code, 2-level (group → leaf). The cross-project identity that work_packages.wp_catalog_item_id points at; reference-photo stars hang off it. NOT the retired wp_templates (identity, not phase-seeding) and NOT boq_template (that is the priced-estimate grain). Seeded by scripts/import-wp-catalog.ts (service-role, upsert by code — retirement of dropped codes is manual via is_active).';
+
 create trigger wp_catalog_items_set_updated_at
   before update on public.wp_catalog_items
   for each row execute function public.set_updated_at();
+
+-- the CHECK above stops a group having a parent; this stops a leaf hanging off
+-- a leaf (the importer orders writes correctly, but a service-role write is not
+-- the importer)
+create or replace function public.wp_catalog_items_parent_guard()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.parent_id is not null
+     and not coalesce((select is_group from public.wp_catalog_items where id = new.parent_id), false) then
+    raise exception 'wp_catalog_items: parent must be a group row' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger wp_catalog_items_parent_guard
+  before insert or update on public.wp_catalog_items
+  for each row execute function public.wp_catalog_items_parent_guard();
 
 create index wp_catalog_items_parent_idx on public.wp_catalog_items (parent_id);
 
@@ -104,6 +132,9 @@ create table public.wp_catalog_reference_photos (
   constraint wp_catalog_reference_photos_pair_uniq
     unique (wp_catalog_item_id, photo_log_id)
 );
+
+comment on table public.wp_catalog_reference_photos is
+  'PD-curated reference stars (spec 389 D2) at (photo, catalogue-item) grain — a starred photo surfaces as ตัวอย่างงาน on every project''s WP of that work-type. Writes only via star/unstar_reference_photo (PD + super_admin). Curation, not history: un-star is a hard delete; the photo row is untouched.';
 
 create index wp_catalog_reference_photos_item_idx
   on public.wp_catalog_reference_photos (wp_catalog_item_id);
@@ -194,6 +225,15 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- 6. the cross-project reader
+--
+-- DELIBERATELY WIDE (recorded decision, pinned in pgTAP): any authenticated
+-- caller — including visitor — can read the starred set. The catalogue and the
+-- star table are already world-readable to authenticated (firm-wide library
+-- posture), so this reveals storage PATHS + project names of curated reference
+-- photos only; photo BYTES still require the server-side signed-URL mint, which
+-- U5 binds to exactly the paths this RPC returned. Narrowing to can_see_wp()
+-- would break the intended consumer (technician — can_see_project is false
+-- outright for that role).
 -- ---------------------------------------------------------------------------
 create or replace function public.get_wp_reference_photos(
   p_wp_catalog_item_id uuid
@@ -203,13 +243,15 @@ create or replace function public.get_wp_reference_photos(
   phase public.photo_phase,
   project_name text,
   note text,
+  starred_by uuid,
   starred_at timestamptz
 )
 language sql
+stable
 security definer
 set search_path = public
 as $$
-  select p.id, p.storage_path, p.phase, pr.name, s.note, s.created_at
+  select p.id, p.storage_path, p.phase, pr.name, s.note, s.starred_by, s.created_at
   from public.wp_catalog_reference_photos s
   join public.photo_logs p on p.id = s.photo_log_id
   join public.work_packages w on w.id = p.work_package_id

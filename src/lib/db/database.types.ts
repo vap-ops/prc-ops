@@ -10955,6 +10955,7 @@ export type Database = {
           photo_log_id: string
           project_name: string
           starred_at: string
+          starred_by: string
           storage_path: string
         }[]
       }

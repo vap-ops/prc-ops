@@ -10,6 +10,13 @@
 // Refusals (whole file, never partial): duplicate code · blank code/name ·
 // unknown prefix (no work_categories.code_prefix match, 'X' → W10 placeholder
 // per spec D6) · sub_of that is not a group row in the same file.
+//
+// Notes (review 2026-08-03): UPSERT-ONLY — a code dropped from a later sheet
+// revision keeps its is_active row; retirement is manual curation. Validation
+// is all-or-nothing but the two writes (groups, then leaves) are separate
+// statements — a mid-write failure leaves groups written; harmless because a
+// re-run is idempotent by code. The sheet's OldID lands in source_note
+// ("เดิม: WP-xxx") — the U4 name bridge relies on that text, not a column.
 
 import { existsSync, readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";

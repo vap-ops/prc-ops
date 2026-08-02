@@ -17,7 +17,7 @@
 --     (an information_schema.role_routine_grants count reads safe either way).
 
 begin;
-select plan(36);
+select plan(40);
 
 -- ---------------------------------------------------------------------------
 -- A. Structure: tables, column, category seeds, RLS, grants, unique code
@@ -106,11 +106,19 @@ select is(has_function_privilege('authenticated', 'public.get_wp_reference_photo
 -- ---------------------------------------------------------------------------
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000389a1', 'ref-pd@t.local', '{}'::jsonb),
-  ('00000000-0000-0000-0000-0000000389a2', 'ref-tech@t.local', '{}'::jsonb);
+  ('00000000-0000-0000-0000-0000000389a2', 'ref-tech@t.local', '{}'::jsonb),
+  ('00000000-0000-0000-0000-0000000389a3', 'ref-su@t.local', '{}'::jsonb),
+  ('00000000-0000-0000-0000-0000000389a4', 'ref-pm@t.local', '{}'::jsonb),
+  ('00000000-0000-0000-0000-0000000389a5', 'ref-visitor@t.local', '{}'::jsonb);
 update public.users set role = 'project_director'
   where id = '00000000-0000-0000-0000-0000000389a1';
 update public.users set role = 'technician'
   where id = '00000000-0000-0000-0000-0000000389a2';
+update public.users set role = 'super_admin'
+  where id = '00000000-0000-0000-0000-0000000389a3';
+update public.users set role = 'project_manager'
+  where id = '00000000-0000-0000-0000-0000000389a4';
+-- a5 stays the signup default (visitor)
 
 insert into public.projects (id, code, name) values
   ('00000000-0000-0000-0000-0000000389b0', 'PRJ-389', 'โครงการทดสอบ 389');
@@ -226,6 +234,40 @@ select is(
 select is(
   (select project_name from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892')),
   'โครงการทดสอบ 389', 'the source project name rides along for the chip');
+
+-- ---------------------------------------------------------------------------
+-- E. Both gate directions + the recorded reader-wideness decision + the
+--    star-then-remove case (the one path that exercises the reader's filters).
+-- ---------------------------------------------------------------------------
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000389a3"}';
+select lives_ok(
+  $$ select public.star_reference_photo('00000000-0000-0000-0000-0000000389d2', null) $$,
+  'super_admin (the second allowed role) can star');
+
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000389a4"}';
+select throws_ok(
+  $$ select public.star_reference_photo('00000000-0000-0000-0000-0000000389d2', null) $$,
+  '42501', null, 'project_manager cannot star — a widening must red here first');
+
+-- the DELIBERATE decision (migration §6 header): the reader is world-readable
+-- to authenticated, visitor included — paths + project names, never bytes.
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000389a5"}';
+select is(
+  (select count(*)::int from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892')),
+  2, 'RECORDED DECISION: a visitor can read the starred set (d1 + d2)');
+
+-- star-then-remove: tombstone d1 AFTER it was starred — the reader must drop
+-- exactly it while the untouched star (d2) survives.
+reset role;
+insert into public.photo_logs (id, work_package_id, phase, storage_path, uploaded_by, superseded_by) values
+  ('00000000-0000-0000-0000-0000000389d6', '00000000-0000-0000-0000-0000000389c1',
+   'after', null, '00000000-0000-0000-0000-0000000389a1',
+   '00000000-0000-0000-0000-0000000389d1');
+
+select is(
+  (select array_agg(photo_log_id) from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892')),
+  array['00000000-0000-0000-0000-0000000389d2'::uuid],
+  'a starred photo removed by tombstone drops out of the reader; the other star survives');
 
 select * from finish();
 rollback;
