@@ -47,6 +47,9 @@ async function callStarRpc(
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  // the review page carries the toggle; the WP detail carries the ตัวอย่างงาน
+  // section reading the same star set — refresh both
+  revalidatePath(`/review/work-packages/${workPackageId}`);
   revalidatePath(`/projects/${projectId}/work-packages/${workPackageId}`);
   return { ok: true };
 }

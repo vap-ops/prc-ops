@@ -23,8 +23,10 @@ interface PhaseGalleryProps {
    *  หลังแก้ไข sections to show the defect reason that opened that round. */
   note?: string | null;
   /** Spec 389 U5 — the PD-tier reference-star toggle. Absent (the default) on
-   *  every other surface: the WP-detail page passes it only for PD-tier roles
-   *  on a catalogue-mapped WP. */
+   *  every other surface: the REVIEW page passes it, only for PD-tier roles on
+   *  a catalogue-mapped WP (the WP-detail page renders galleries for read-only
+   *  viewers and the capture zone for site staff — neither is a PD curation
+   *  surface; narrowing recorded in spec §7). */
   starring?:
     | {
         projectId: string;

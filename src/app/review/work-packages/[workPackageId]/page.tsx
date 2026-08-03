@@ -150,6 +150,10 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     const { data: starRows } = await supabase
       .from("wp_catalog_reference_photos")
       .select("photo_log_id")
+      // scoped to the WP's CURRENT item: after a re-map, a stale star on the
+      // old item must not render as "starred" here (un-star would then delete
+      // another item's curation — the §7 star-stranding hazard)
+      .eq("wp_catalog_item_id", wp.wp_catalog_item_id as string)
       .in(
         "photo_log_id",
         allPhotos.map((p) => p.id),

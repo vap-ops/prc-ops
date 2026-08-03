@@ -26,6 +26,9 @@ describe("review page — starring wiring", () => {
 
   it("passes starring to all three PhaseGallery mounts", () => {
     expect(count(reviewPage, "starring={starring}")).toBe(3);
+    // the ternary itself — deleting the canStar gate must red here, not just lint
+    expect(count(reviewPage, "canStar")).toBe(3);
+    expect(count(reviewPage, "starring = canStar")).toBe(1);
   });
 });
 

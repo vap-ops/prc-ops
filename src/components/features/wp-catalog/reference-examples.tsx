@@ -4,9 +4,18 @@
 // project's WP of that work-type). Read-only by design — the source-project
 // chip names where the photo came from; it is never a link into that project
 // (spec D3: the cross-project read is narrow by construction).
+//
+// Deliberately NO photoId/groupPhotoIds on the lightbox: markup (spec 51) is
+// scoped to the SOURCE project's members — a cross-project viewer would get a
+// compose panel whose save can only 403 (the honest-copy class). null = markup
+// off is the documented contract.
+//
+// The note renders when present; today no surface passes p_note to the star
+// RPC, so notes arrive with a later star-note UI (deferred, spec §7).
 
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
+import { REFERENCE_EXAMPLES_LABEL } from "@/lib/i18n/labels";
 
 export interface ReferenceExampleRow {
   photoLogId: string;
@@ -19,11 +28,10 @@ export interface ReferenceExampleRow {
 export function ReferenceExamples({ rows }: { rows: ReadonlyArray<ReferenceExampleRow> }) {
   if (rows.length === 0) return null;
   const fullUrls = rows.map((r) => r.fullUrl);
-  const photoIds = rows.map((r) => r.photoLogId);
   return (
-    <section aria-label="ตัวอย่างงาน">
+    <section aria-label={REFERENCE_EXAMPLES_LABEL}>
       <h3 className="text-ink mb-1.5 text-base font-bold">
-        ตัวอย่างงาน
+        {REFERENCE_EXAMPLES_LABEL}
         <span className="text-ink-secondary ml-1.5 text-sm font-normal">{rows.length} รูป</span>
       </h3>
       <p className="text-ink-secondary mb-2 text-sm">
@@ -34,17 +42,17 @@ export function ReferenceExamples({ rows }: { rows: ReadonlyArray<ReferenceExamp
           <li key={r.photoLogId} className={PHOTO_STRIP_TILE}>
             <ZoomablePhoto
               src={r.thumbUrl}
+              fallbackSrc={r.fullUrl}
               group={fullUrls}
-              groupPhotoIds={photoIds}
-              groupUploaderNames={rows.map(() => null)}
               groupIndex={i}
-              photoId={r.photoLogId}
               uploaderName={null}
             />
             <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pt-4 pb-1 text-[11px] font-medium text-white">
               <span className="block break-words">{r.projectName}</span>
               {r.note ? (
-                <span className="block font-normal break-words opacity-90">{r.note}</span>
+                <span className="line-clamp-2 block font-normal break-words opacity-90">
+                  {r.note}
+                </span>
               ) : null}
             </span>
           </li>

@@ -1,6 +1,7 @@
-// Spec 389 U5 — the PD-tier star toggle on WP-detail photo tiles, and the
+// Spec 389 U5 — the PD-tier star toggle on REVIEW-page photo tiles, and the
 // PhaseGallery contract: star buttons render ONLY when the starring prop is
-// provided — every other PhaseGallery surface (review page) stays untouched.
+// provided — every other PhaseGallery surface (the WP-detail read-only
+// galleries) stays untouched.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";

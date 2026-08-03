@@ -29,14 +29,25 @@ export async function ReferencePhotoSection({
     p_wp_catalog_item_id: wpCatalogItemId,
   });
   // a read failure renders nothing rather than a broken section — the WP page
-  // must not fail on its reference garnish
-  if (error || !data || data.length === 0) return null;
+  // must not fail on its reference garnish. Logged, because a silent null here
+  // is indistinguishable from "nothing starred" — the exact state §6's
+  // acceptance metric reads.
+  if (error) {
+    console.error("[reference-photos] rpc failed", { code: error.code });
+    return null;
+  }
+  if (!data || data.length === 0) return null;
+
+  // cap the mint fan-out: one signed-URL call per photo, and this section
+  // renders on EVERY WP detail (the tab panel stays mounted) — newest 12 stars
+  // are the reference set, not the whole archive
+  const capped = data.slice(0, 12);
 
   const urls = await mintPhotoThumbnails(
-    data.map((r) => ({ id: r.photo_log_id, storage_path: r.storage_path })),
+    capped.map((r) => ({ id: r.photo_log_id, storage_path: r.storage_path })),
   );
 
-  const rows: ReferenceExampleRow[] = data.flatMap((r) => {
+  const rows: ReferenceExampleRow[] = capped.flatMap((r) => {
     const u = urls.get(r.photo_log_id);
     return u
       ? [
