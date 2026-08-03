@@ -60,7 +60,7 @@ describe("/technician home (spec 264 G3)", () => {
 // DAILY half with a tab bar, and the QR badge leads because it is the artifact a
 // ช่าง is actually asked for at the morning talk (the e-card led before, and it is
 // read-once identity).
-describe("/technician home after the ประวัติ split (spec 376 U3)", () => {
+describe("/technician home after the ประวัติ split was reversed (spec 376 U3 → 388 U2/U3)", () => {
   const page = stripComments(read("technician", "page.tsx"));
 
   // ≥2 = the import PLUS a real mount; a bare toContain is satisfied by the
@@ -107,5 +107,36 @@ describe("/technician home after the ประวัติ split (spec 376 U3)",
     expect(page.indexOf("<PortalReceipts")).toBeLessThan(page.indexOf("<AssignedWorkCard"));
     // …and below the QR badge, which is the one thing they open the app for.
     expect(page.indexOf("<WorkerBadgeQr")).toBeLessThan(page.indexOf("<PortalReceipts"));
+  });
+
+  // Writing failing test first.
+  //
+  // Spec 388 U3 (D1) — the ประวัติการเข้างาน row. `nav-law-strip-superset` pins
+  // that it EXISTS (the tab removal deletes the page's only other door); these
+  // two pin that it exists WHERE AND HOW it has to, which that count cannot see.
+  const ROW = 'href="/technician/history"';
+
+  it("puts the attendance row below the assigned work and above identity", () => {
+    // Spec §4 fixes it at slot 4, and the page comment argues the position is
+    // the point: it answers a question, so it sits under the two blocks that
+    // ASK for something and above the identity block nobody opens the app for.
+    // Unpinned, a later edit could drop it under two identity blocks at the
+    // page bottom — off-screen on a phone, suite green, sole door hidden.
+    const row = page.indexOf(ROW);
+    expect(row).toBeGreaterThan(page.indexOf("<AssignedWorkCard"));
+    expect(row).toBeLessThan(page.indexOf("<EmployeeCard"));
+  });
+
+  it("renders the attendance row unconditionally", () => {
+    // A source COUNT cannot tell "always rendered" from "rendered inside a
+    // branch", and four blocks on this very page are already `{x ? ( … ) : null}`
+    // (registration, approved-status, wp ×2). Wrapping the row in one of those
+    // keeps every count at 1 while a ช่าง whose registration or worker profile
+    // read comes back null loses the ONLY affordance to a page the bar no longer
+    // names — exactly the deletion these pins exist to prevent. So assert the
+    // span from the preceding sibling to the row carries no conditional opener.
+    const span = page.slice(page.indexOf("<AssignedWorkCard"), page.indexOf(ROW));
+    expect(span).not.toContain("?");
+    expect(span).not.toContain("&&");
   });
 });

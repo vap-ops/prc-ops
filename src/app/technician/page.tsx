@@ -1,13 +1,14 @@
 // Spec 264 G3 / ADR 0072 §8 + spec 266 U7 (C) — the /technician home is a ช่าง's
 // OWN portal (a ช่าง logs in as role `technician`).
 //
-// Spec 376 U3 (D3): this is now the DAILY half of a three-tab surface, not one
-// long scroll. The QR badge leads — it is the physical artifact a ช่าง is asked
-// for at the morning talk, where the e-employee card that used to lead is
-// read-once identity — then the assigned work, then identity: e-card, ID-card
-// renewal, and the slimmed WorkerPortalSections (contact + consents). The money
-// half (รายการรอรับ, wage history, bank) moved to the ประวัติ tab
-// (/technician/history) with its reads; nothing was dropped, only re-homed.
+// Spec 376 U3 (D3) split this page into a daily half and a ประวัติ tab. Specs 388
+// U2–U4 then reversed most of that split on evidence — the tab had never been
+// opened — and 388 U3 (D1) removes it from the bar entirely, leaving a TWO-tab
+// role (หน้าหลัก + ตั้งค่า). So this page is once again a ช่าง's whole app, but
+// ordered by what they came for rather than by what existed first:
+//   QR badge → รายการรอรับ (their only write) → assigned work →
+//   ประวัติการเข้างาน (a row; this page is that route's only door now) → identity
+//   (e-card, ID-card renewal, contact + consents, bank, wage list when non-empty).
 //
 // Data reads on the RLS SESSION client (never admin): the G1 own-row policy scopes
 // staff_registrations/attachments/storage to auth.uid(); the worker reads
@@ -15,6 +16,8 @@
 // No 'use client' — a plain Server Component (the interactive bits are
 // already-'use client' children).
 
+import Link from "next/link";
+import { CalendarDays, ChevronRight } from "lucide-react";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
@@ -37,7 +40,8 @@ import {
 import { WorkerPortalSections } from "@/components/features/portal/worker-portal-sections";
 import { WorkerHistorySections } from "@/components/features/portal/worker-history-sections";
 import { PortalReceipts, type PortalReceipt } from "@/components/features/portal/portal-receipts";
-import { SECTION_HEADING } from "@/lib/ui/classes";
+import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
+import { ATTENDANCE_OWN_LABEL } from "@/lib/i18n/labels";
 import { WorkerIdCardUpdate } from "@/components/features/portal/worker-id-card-update";
 import { ViewAsEmptyNote } from "@/components/features/chrome/view-as-empty-note";
 import { type PortalConsent } from "@/components/features/portal/portal-self-edit";
@@ -159,6 +163,25 @@ export default async function TechnicianHomePage() {
         </section>
 
         <AssignedWorkCard view={assignedWorkView} />
+
+        {/* Spec 388 U3 (D1) — ประวัติการเข้างาน's ONLY door. It was a tab until this
+            unit; the bar is now หน้าหลัก + ตั้งค่า, so without this row the page is
+            unreachable by any tap a ช่าง can make. Placed below the two things
+            that ask for action (receipts, assigned work) and above identity: it
+            answers a question, it does not request anything. */}
+        <Link
+          href="/technician/history"
+          className={`${CARD} focus-visible:ring-action flex items-center gap-3 focus:outline-none focus-visible:ring-2`}
+        >
+          <CalendarDays aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="text-ink text-body block font-semibold">{ATTENDANCE_OWN_LABEL}</span>
+            <span className="text-ink-secondary text-meta block">
+              เวลาเข้า-ออกงานของคุณ ย้อนหลังรายเดือน
+            </span>
+          </span>
+          <ChevronRight aria-hidden className="text-ink-muted h-5 w-5 shrink-0" />
+        </Link>
 
         {registration ? (
           <EmployeeCard

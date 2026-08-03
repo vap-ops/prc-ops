@@ -103,7 +103,13 @@ describe("spec 313 U5 — no role is stranded on a promoted (chip-less) hub", ()
 // Pinned as an EXACT set over ROLE_GROUP_ORDER (enum-guarded), not a hand-listed
 // membership check: giving technician that door — or shipping a second door-less
 // role — must red HERE and force the doc + the chip decision to be revisited.
-describe("spec 376 U3 — the roles whose nav world has no /settings door", () => {
+//
+// ⭐ Spec 388 U3 (D2) IS that revisit, and the guard did its job: it went red the
+// moment SETTINGS_TAB entered TECHNICIAN_TABS. The exact set is now EMPTY, which
+// is strictly stronger than the old one-element pin — it reds on any FUTURE
+// door-less nav role too, where the old form would have gone quietly green as
+// long as the newcomer replaced technician in the list.
+describe("spec 388 U3 — every nav-rendering role has a /settings door", () => {
   const SETTINGS_HREF = "/settings";
 
   // "Nav world" = renders a bottom bar and/or a hub strip. NOT the same as
@@ -120,36 +126,50 @@ describe("spec 376 U3 — the roles whose nav world has no /settings door", () =
   // /settings/company-docs — so an equality check here would go green if
   // technician were handed a /settings/my-info item while the property this
   // describe pins ("no way into the settings hub from the ช่าง's nav") stayed false.
+  // ⭐ Spec 388 U3: this used to be `tabs.some(…) || hubNav.some(…)`, and the ||
+  // is a hole the size of one surface. The bar is `sm:hidden`; the strip is
+  // desktop-only. A role holding the door on ONE of them has no door on the
+  // other device, and the || reads that as covered — proven by mutation while
+  // building this unit: ripping SETTINGS_TAB out of TECHNICIAN_TABS left the
+  // exact-set pin below GREEN, because the strip still satisfied it. Since the
+  // describe's NAME claims every nav-rendering role HAS a door, the predicate
+  // must mean it per surface, or the name is the lie (honest-copy, applied to a
+  // test). A role that renders only ONE surface is judged on that one.
   const hasSettingsDoor = (role: string) => {
     const reachesHub = (href: string) =>
       href === SETTINGS_HREF || href.startsWith(`${SETTINGS_HREF}/`);
-    return (
-      (tabsForRole(role) ?? []).some((t) => reachesHub(t.href)) ||
-      (hubNavForRole(role) ?? []).some((i) => reachesHub(i.href))
-    );
+    const tabs = tabsForRole(role);
+    const strip = hubNavForRole(role);
+    const onTabs = tabs === null || tabs.some((t) => reachesHub(t.href));
+    const onStrip = strip === null || strip.some((i) => reachesHub(i.href));
+    return onTabs && onStrip;
   };
 
   it("has a meaningful nav-rendering role set (guards against the filter emptying)", () => {
     expect(rolesWithNav.length).toBeGreaterThanOrEqual(9);
   });
 
-  it("technician is the ONLY nav-rendering role without one", () => {
-    expect(rolesWithNav.filter((role) => !hasSettingsDoor(role))).toEqual(["technician"]);
+  it("no nav-rendering role is left without one", () => {
+    expect(rolesWithNav.filter((role) => !hasSettingsDoor(role))).toEqual([]);
   });
 
-  it("a technician's only door to /settings is therefore off-nav", () => {
+  it("technician's door is on BOTH surfaces, not just the phone bar", () => {
     // The positive half of the same fact — asserted separately so the exact-set
     // test above cannot be satisfied by technician simply losing its nav world.
-    expect(tabsForRole("technician")).not.toBeNull();
-    expect(hubNavForRole("technician")).not.toBeNull();
-    expect(hasSettingsDoor("technician")).toBe(false);
+    // Both surfaces because the bar is sm:hidden: a bar-only door would leave a
+    // ช่าง on a laptop exactly where D2 found them.
+    expect((tabsForRole("technician") ?? []).map((t) => t.href)).toContain("/settings");
+    expect((hubNavForRole("technician") ?? []).map((i) => i.href)).toContain("/settings");
+    expect(hasSettingsDoor("technician")).toBe(true);
   });
 
-  it("and that off-nav door is /profile's back chip", () => {
-    // Without this the describe pins only the ABSENCE, so re-pointing the chip —
-    // the very fix this note argues against — would leave every assertion above
-    // green while the capability it protects is gone. nav-back-affordance pins
-    // that /profile renders a DetailHeader, never where its chip goes.
+  it("and /profile's back chip still lands in that same hub", () => {
+    // /profile left the ช่าง's bar in U3 and is now a settings leaf like it is
+    // for every other role, so its chip must keep naming /settings — the tab
+    // that replaced it claims /profile through SETTINGS_TAB.match, and a chip
+    // pointing anywhere else would split one route across two parents.
+    // nav-back-affordance pins that /profile renders a DetailHeader, never
+    // where its chip goes.
     // Comment-stripped: a doc comment quoting the href would otherwise stand in
     // for the deleted attribute (the proven fake-coverage trap).
     const src = readFileSync(
@@ -161,5 +181,52 @@ describe("spec 376 U3 — the roles whose nav world has no /settings door", () =
       .filter((l) => !/^\s*\/\//.test(l))
       .join("\n");
     expect(code.split(`backHref="${SETTINGS_HREF}"`).length - 1).toBe(1);
+  });
+});
+
+// Writing failing test first.
+//
+// Spec 388 U3 — the re-homing half, and the reason it must ship in the SAME PR
+// as the tab removal.
+//
+// Dropping ประวัติ from TECHNICIAN_TABS/TECHNICIAN_HUB_NAV deletes the ONLY
+// affordance that reaches /technician/history: the role has no other bar, no
+// other strip, and the page is not linked from anywhere else in the app. A tab
+// removal on its own is therefore a capability DELETION dressed as a
+// simplification — the page would still resolve, still pass every route test,
+// and be unreachable by any tap a ช่าง can make.
+//
+// Two source pins, both comment-stripped (a doc comment naming the href would
+// otherwise stand in for the deleted attribute — the proven fake-coverage trap)
+// and both counted, not `toContain`: an import line or a stray mention must not
+// satisfy them, and a scan that matches NOTHING is an abort, not a pass.
+describe("spec 388 U3 — /technician/history keeps a door after leaving the bar", () => {
+  const codeOf = (...segments: string[]) =>
+    readFileSync(join(process.cwd(), "src", "app", ...segments), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .split("\n")
+      .filter((l) => !/^\s*\/\//.test(l))
+      .join("\n");
+
+  it("the home page carries exactly one row linking to it", () => {
+    const code = codeOf("technician", "page.tsx");
+    expect(code.split('href="/technician/history"').length - 1).toBe(1);
+  });
+
+  it("the row is labelled from the shared constant, not a literal", () => {
+    // ATTENDANCE_OWN_LABEL already names this page (it is the route's own
+    // metadata title), so the row and the destination cannot drift apart.
+    // EXACT, not a ≥2 floor: 2 = the import PLUS the one render. A floor counts
+    // the import as one of its two, so import + any stray mention satisfies it —
+    // which is the very trap the preamble above claims these pins avoid.
+    const code = codeOf("technician", "page.tsx");
+    expect(code.split("ATTENDANCE_OWN_LABEL").length - 1).toBe(2);
+  });
+
+  it("and the page chips back to the home it is now reached from", () => {
+    // It stops being a tab destination in this unit, so without a chip it is a
+    // one-way trip on desktop, where the bottom bar is sm:hidden.
+    const code = codeOf("technician", "history", "page.tsx");
+    expect(code.split('backHref="/technician"').length - 1).toBe(1);
   });
 });

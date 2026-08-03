@@ -24,7 +24,7 @@ const stripComments = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const page = stripComments(readFileSync(join(APP, "technician", "history", "page.tsx"), "utf8"));
 
-describe("/technician/history (spec 376 U3)", () => {
+describe("/technician/history (spec 376 U3 → 388 U3)", () => {
   it("gates to the technician role only, like its หน้าหลัก sibling", () => {
     expect(page).toContain('requireRole(["technician"])');
   });
@@ -74,15 +74,27 @@ describe("/technician/history (spec 376 U3)", () => {
     expect(page.split("ATTENDANCE_OWN_LABEL").length - 1).toBeGreaterThanOrEqual(3);
   });
 
-  // A technician's ONLY way from ประวัติ back to หน้าหลัก is the bar (phone) /
-  // strip (desktop) — the route is a tab destination, so it carries no back chip.
-  it("mounts the technician chrome (bottom bar + desktop strip)", () => {
+  // Writing failing test first.
+  //
+  // Spec 388 U3: the route stops being a tab destination, so the affordances
+  // invert. The bar stays (the /profile precedent — a drill-down may keep it),
+  // but the desktop strip GOES: a page rendering DetailHeader renders no HubNav
+  // anywhere in this app, and on desktop the bar is sm:hidden, which makes the
+  // chip the only way out. Both halves asserted, because dropping the strip
+  // WITHOUT adding the chip is precisely the stranding this pins against.
+  it("keeps the bottom bar but trades the desktop strip for a back chip", () => {
     expect(page.split("BottomTabBar").length - 1).toBeGreaterThanOrEqual(2);
-    expect(page.split("HubNav").length - 1).toBeGreaterThanOrEqual(2);
+    expect(page).not.toContain("HubNav");
+    expect(page.split('backHref="/technician"').length - 1).toBe(1);
   });
 
-  it("keeps the ช่าง's logout affordance (the /technician header pattern)", () => {
-    expect(page).toContain("LogoutButton");
+  // The logout affordance goes with the tab, and this is a REMOVAL, so it is
+  // pinned rather than left to drift: /technician (this page's only parent, one
+  // chip away) and /profile both carry LogoutButton, and no page in the app puts
+  // one inside a DetailHeader. Re-adding it here would give one role a third
+  // logout on a drill-down.
+  it("carries no logout of its own — its parent has one", () => {
+    expect(page).not.toContain("LogoutButton");
   });
 
   // Spec 274 U2 convention — the note that makes an identity-scoped page's

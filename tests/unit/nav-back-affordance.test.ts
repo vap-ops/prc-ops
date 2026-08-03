@@ -45,6 +45,14 @@ const stripComments = (src: string) =>
 // (EXCLUDED below).
 const STATIC_DETAIL = [
   "profile",
+  // Spec 388 U3 (§7): ประวัติการเข้างาน was a TAB destination under spec 376 U3 and
+  // carried no chip, correctly — the bar and strip moved a ช่าง between it and
+  // หน้าหลัก. U3 takes the tab away (the role's bar is now หน้าหลัก + ตั้งค่า) and
+  // re-homes the page as a row on /technician, which makes it a single-parent
+  // drill-down: chip → /technician, and NOT in STATIC_MULTI_PARENT, since that
+  // row is its one arrival surface. It also leaves HUB_STRIP_ROUTES below —
+  // a page with a DetailHeader renders no HubNav (the app-wide convention).
+  "technician/history",
   "workers",
   "equipment",
   // Spec 385 U3a: the ทะเบียน (SKU catalog) — reached from the ข้อมูลหลัก hub,
@@ -263,10 +271,6 @@ const NON_DETAIL_ROUTES = [
   // hubNavForRole both serve `technician` now — so both routes appear in
   // HUB_STRIP_ROUTES below too (it is no longer a /portal-style exception).
   "technician",
-  // Spec 376 U3 (D3): ประวัติ, the ช่าง's money record (รายการรอรับ + wage history
-  // + bank, split off the home page). A TAB destination reached from the bar /
-  // strip, so it carries no back chip — same bucket as its หน้าหลัก sibling.
-  "technician/history",
   // Spec 313 U5: the department role-homes. Each is where roleHome() lands its
   // role, so the old back chip to /settings claimed a parent that role never
   // came from. Promoted to hub chrome (AppHeader + HubNav, no back chip); both
@@ -498,13 +502,14 @@ describe("desktop hub-strip coverage (spec 153)", () => {
     // chip is gone).
     "accounting/review",
     "legal",
-    // Spec 376 U3 (D3): the technician's two tab destinations. Both were
-    // chip-less already; U3 gave the role a bar AND a strip (TECHNICIAN_TABS /
-    // TECHNICIAN_HUB_NAV), so on desktop — where the bar is sm:hidden — the strip
-    // is the only way between them. That makes the coverage assert load-bearing
-    // here, unlike /portal (still strip-less, still the documented exception).
+    // Spec 376 U3 (D3) → 388 U3 (D1): the technician's home renders the strip.
+    // On desktop the bar is sm:hidden, so the strip is the role's only chrome —
+    // which is exactly why the ตั้งค่า item had to land on BOTH surfaces, not
+    // just the bar (pinned in nav-law-strip-superset).
+    // ⚠️ /technician/history is deliberately NOT here any more: 388 U3 turned it
+    // into a drill-down with a DetailHeader, and a page carrying that header
+    // renders no HubNav. Its way back is the chip, pinned in STATIC_DETAIL.
     "technician",
-    "technician/history",
   ].map((r) => `${r}/page.tsx`);
 
   it.each(HUB_STRIP_ROUTES)("hub route %s renders HubNav", (route) => {
