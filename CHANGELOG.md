@@ -1,3 +1,9 @@
+# [0.316.0](https://github.com/vap-ops/prc-ops/compare/v0.315.0...v0.316.0) (2026-08-03)
+
+### Features
+
+- W10/W11 work-category visual identity ([2d81df9](https://github.com/vap-ops/prc-ops/commit/2d81df9574af2702db4d532e082ac0697c4a8f20))
+
 # [0.315.0](https://github.com/vap-ops/prc-ops/compare/v0.314.0...v0.315.0) (2026-08-03)
 
 ### Features
