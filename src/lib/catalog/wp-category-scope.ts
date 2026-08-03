@@ -14,7 +14,7 @@ import { resolveScopedCategories, type ScopedMaterialCategory } from "./scoped-c
 export interface WpCategoryScope {
   /** The project-category's name — the header badge. Null when unbound/missing. */
   workCategoryName: string | null;
-  /** The reconciled GLOBAL work-category code (W01–W09 letter chip); null when
+  /** The reconciled GLOBAL work-category code (W01–W11 letter chip); null when
    *  the project-category isn't reconciled. */
   workCategoryCode: string | null;
   /** Relation R rows for the scoped pickers; empty → show-all fallback (D8). */

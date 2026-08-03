@@ -117,7 +117,7 @@ export type ManagedWorker = {
   // never — and derive_muster_labor SKIPS a worker with a null here, so an
   // unconfirmed ช่าง generates no labor_logs however many days he is mustered.
   cost_confirmed_at: string | null;
-  // Spec 332: the worker's trade tags (สายงาน) — assignment axis, W01–W09.
+  // Spec 332: the worker's trade tags (สายงาน) — assignment axis, W01–W11.
   trades: WorkerTrade[];
   // DC edit matrix: payee fields, editable from the row's edit sheet. Money/PII —
   // reach this gated page via the admin client. bank_* is null for a portal-bound
@@ -1123,7 +1123,7 @@ export function WorkerRosterManager({
   // Spec 272: page-derived UI gates (super_admin grades; PM_ROLES assign HT).
   canGrade?: boolean;
   canAssignHt?: boolean;
-  // Spec 332: PM_ROLES edit trades; the W01–W09 options the sheet offers.
+  // Spec 332: PM_ROLES edit trades; the W01–W11 options the sheet offers.
   canSetTrades?: boolean;
   tradeOptions?: TradeOption[];
   // Spec 369 U1: gross standard rate per level (the cost-confirm preview).

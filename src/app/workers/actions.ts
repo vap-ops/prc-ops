@@ -308,7 +308,7 @@ export async function confirmWorkerCost(input: {
   return { ok: true };
 }
 
-// Spec 332 U2: set a worker's trades (สายงาน) — full-replace against W01–W09.
+// Spec 332 U2: set a worker's trades (สายงาน) — full-replace against W01–W11.
 // The set_worker_trades DEFINER RPC re-gates PM/PD/super and validates the
 // categories/primary; this action validates shape and maps the RPC's raised
 // message to a Thai string (never surfaces a raw Postgres error).

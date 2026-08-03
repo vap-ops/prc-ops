@@ -1,8 +1,14 @@
 // Spec 277 U1 — work-category VISUAL IDENTITY SSOT (letter · color · icon),
 // parallel to status-colors.ts + status-icons.ts. One identity per GLOBAL
-// work-category (W01–W09, spec 226). The maps are Record<WorkCategoryTopCode, …>
+// work-category (W01–W11, spec 226). The maps are Record<WorkCategoryTopCode, …>
 // so adding a top category is a TYPE error here — exactly the place to give it a
 // letter/icon/colour (mirrors the status SSOTs' exhaustiveness).
+//
+// Spec 389 added W10 (งานอื่นๆ, prefix O) and W11 (งานระบบความปลอดภัย, prefix SIS).
+// Until they were listed here the resolver returned null for both, so the 26
+// catalogue items riding those categories rendered BARE chips and the /workers
+// trade picker silently omitted them — the type error this file is designed to
+// raise never fired, because the codes arrive as runtime strings from the DB.
 //
 // Colour lives as a globals.css token (--color-cat-w0x) consumed via the
 // bg-cat-w0x / text-cat-w0x utility — NOT a raw Tailwind hue (design-doctrine).
@@ -15,6 +21,8 @@ import {
   Frame,
   Hammer,
   PaintRoller,
+  Shapes,
+  ShieldCheck,
   Signpost,
   Sofa,
   TreePine,
@@ -22,7 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 
-// The 9 firm-wide top categories. Subsections are 5-char codes (W0203) whose
+// The 11 firm-wide top categories. Subsections are 5-char codes (W0203) whose
 // parent is the first 3 chars (spec 226 grain); they inherit the parent identity.
 export const WORK_CATEGORY_TOP_CODES = [
   "W01",
@@ -34,6 +42,8 @@ export const WORK_CATEGORY_TOP_CODES = [
   "W07",
   "W08",
   "W09",
+  "W10",
+  "W11",
 ] as const;
 
 export type WorkCategoryTopCode = (typeof WORK_CATEGORY_TOP_CODES)[number];
@@ -50,6 +60,8 @@ const LETTER: Record<WorkCategoryTopCode, string> = {
   W07: "G", // siGnage
   W08: "X", // eXternal & site
   W09: "F", // Furniture / fixtures
+  W10: "M", // Miscellaneous — "O" for Others is in the OCR-confusable set
+  W11: "Y", // safetY & security — "S" is taken by Structural
 };
 
 // All verified present in lucide-react.
@@ -63,6 +75,8 @@ const ICON: Record<WorkCategoryTopCode, LucideIcon> = {
   W07: Signpost,
   W08: TreePine,
   W09: Sofa,
+  W10: Shapes,
+  W11: ShieldCheck,
 };
 
 // Literal utility strings (Tailwind-scannable) → --color-cat-w0x tokens.
@@ -76,6 +90,8 @@ const TILE_CLASS: Record<WorkCategoryTopCode, string> = {
   W07: "bg-cat-w07",
   W08: "bg-cat-w08",
   W09: "bg-cat-w09",
+  W10: "bg-cat-w10",
+  W11: "bg-cat-w11",
 };
 
 const ACCENT_CLASS: Record<WorkCategoryTopCode, string> = {
@@ -88,12 +104,14 @@ const ACCENT_CLASS: Record<WorkCategoryTopCode, string> = {
   W07: "text-cat-w07",
   W08: "text-cat-w08",
   W09: "text-cat-w09",
+  W10: "text-cat-w10",
+  W11: "text-cat-w11",
 };
 
 export interface WorkCategoryIdentity {
-  /** The resolved top code (W01–W09), even when a subsection code was passed. */
+  /** The resolved top code (W01–W11), even when a subsection code was passed. */
   code: WorkCategoryTopCode;
-  /** Single recognition letter (P S A W E C G X F). */
+  /** Single recognition letter (P S A W E C G X F M Y). */
   letter: string;
   /** lucide glyph for the category. */
   icon: LucideIcon;

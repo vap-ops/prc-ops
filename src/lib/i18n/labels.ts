@@ -50,7 +50,7 @@ export const PAY_TYPE_LABEL: Record<Enums["pay_type"], string> = {
   daily: "รายวัน",
 };
 
-// Spec 332 — worker trades (สายงาน): the assignment axis, tags on W01–W09.
+// Spec 332 — worker trades (สายงาน): the assignment axis, tags on W01–W11.
 // One home for the roster sheet's trade labels + the message-keyed error map
 // (never let a raw set_worker_trades Postgres error reach the user).
 export const TRADE_LABEL = "สายงาน";

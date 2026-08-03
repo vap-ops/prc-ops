@@ -7,7 +7,7 @@ import { workCategoryIdentity } from "@/lib/work-categories/identity";
 
 export type WorkerTrade = {
   categoryId: string;
-  /** work_categories.code — a top-level W01–W09. */
+  /** work_categories.code — a top-level W01–W11. */
   code: string;
   nameTh: string;
   isPrimary: boolean;
