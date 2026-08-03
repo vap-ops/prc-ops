@@ -90,7 +90,7 @@ export default async function WorkersPage({
     admin
       .from("worker_trades")
       .select("worker_id, work_category_id, is_primary, work_categories(code, name_th)"),
-    // The top-9 global work-categories (W01–W09) = the trade options the sheet
+    // The 11 global work-categories (W01–W11) = the trade options the sheet
     // offers. isWorkCategoryTopCode keeps it top-level (5-char subsections excluded).
     supabase
       .from("work_categories")

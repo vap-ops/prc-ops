@@ -125,7 +125,7 @@
   --color-danger-edge: oklch(0.8 0.1 20); /* ≈ #fca5a5 red-300 */
   --color-danger-ink: oklch(0.4 0.13 25); /* ≈ #7f1d1d red-900 */
 
-  /* --- Category identity (spec 277) — the 9 global work-categories -- */
+  /* --- Category identity (spec 277) — the 11 global work-categories - */
   /* Theme-INVARIANT brand hues (a category's colour is its identity, so */
   /* it does not flip with light/dark like the semantic tokens above).   */
   /* Self-contained tiles carry white ink; each hue is kept dark enough  */
@@ -141,6 +141,16 @@
   --color-cat-w07: oklch(0.55 0.19 358); /* pink   — G ป้าย */
   --color-cat-w08: oklch(0.52 0.13 150); /* green  — X ภายนอก/ผังบริเวณ */
   --color-cat-w09: oklch(0.5 0.2 300); /* purple — F ครุภัณฑ์/เพิ่มเติม */
+  /* Spec 389 added W10/W11. The 9 hues above already crowd the wheel, so   */
+  /* these two take its only genuinely free arcs: ~330 (between purple 300  */
+  /* and pink 358) and a LOW-CHROMA warm neutral. W10 อื่นๆ is a catch-all,  */
+  /* so it is deliberately the quietest identity in the set — chroma 0.05    */
+  /* keeps it a warm taupe that cannot be read as danger-red (chroma 0.22)   */
+  /* despite the neighbouring hue, and warm-vs-cool separates it from the    */
+  /* slate W01. W11 is safety/security: NOT red, which is reserved for       */
+  /* status, so magenta carries it.                                          */
+  --color-cat-w10: oklch(0.5 0.05 40); /* taupe   — M อื่นๆ */
+  --color-cat-w11: oklch(0.52 0.17 330); /* magenta — Y ระบบความปลอดภัย */
 
   /* --- Radii ------------------------------------------------------ */
   --radius-card: 1rem; /* 16px → rounded-card (worklist rows, panels) */

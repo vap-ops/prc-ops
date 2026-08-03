@@ -15,7 +15,7 @@ export function WorkCategoryBadge({
 }: {
   name: string | null;
   /**
-   * Spec 277 — the reconciled GLOBAL work-category code (W01–W09) when the WP's
+   * Spec 277 — the reconciled GLOBAL work-category code (W01–W11) when the WP's
    * project-category maps to one. Given → the letter·color·icon chip; absent /
    * unknown → the plain name pill or unset nudge below.
    */
