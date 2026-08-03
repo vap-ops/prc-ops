@@ -1,0 +1,35 @@
+{
+  "_doc": [
+    "Spec 389 D7 — Vol.5 grouping overrides.",
+    "",
+    "Vol.4 is PD's document and is NEVER edited (operator, 2026-08-03). Vol.5 is",
+    "the source of truth for grouping + codes. Where our grouping deliberately",
+    "differs from Vol.4's SubOf column, the difference is recorded HERE, keyed by",
+    "the Vol.4 WP id, and the rebuild applies it after reading Vol.4.",
+    "",
+    "Without this file a rebuild would silently revert every decision below to",
+    "Vol.4's raw SubOf — the reason it lives in the repo and not in a session.",
+    "",
+    "Codes are derived, never stored here: the rebuild numbers each group's",
+    "children by Vol.4 ROW ORDER, so a re-parent also moves the row into its new",
+    "group's sequence at the position PD placed it."
+  ],
+  "sub_of": {
+    "WP-308": {
+      "to": "WP-420",
+      "reason": "งานติดตั้งเต้นท์ทำงาน — Vol.4 carries it twice: WP-420 as a new category (blue) and WP-308 as a leaf under WP-263 เตรียมพื้นที่. That left WP-420 childless. Operator chose option B (2026-08-03): เต้นท์ keeps its own group, so the leaf re-parents to WP-420 → WP-03-01."
+    },
+    "WP-479": {
+      "to": "WP-277",
+      "reason": "งานติดตั้งเพลทเสาไฟส่องสว่างภายนอกอาคาร พื้นลานด้านหน้า บล็อคที่ 1 — SubOf said WP-264 โครงเหล็กอาคาร (S) while the row carries prefix EX, is named พื้นลานด้านหน้า, and sits at Vol.4 row 227 BETWEEN two WP-277 พื้นลานด้านหน้า rows. Position + prefix + name all say WP-277; the SubOf is a fill-down error."
+    },
+    "WP-480": {
+      "to": "WP-277",
+      "reason": "…พื้นลานด้านหน้า บล็อคที่ 4 — same fill-down error; Vol.4 row 250 sits between two WP-277 rows."
+    },
+    "WP-478": {
+      "to": "WP-279",
+      "reason": "…พื้นลานด้านหลังอาคาร — same fill-down error; Vol.4 row 276 sits between two WP-279 พื้นลานด้านหลัง rows."
+    }
+  }
+}
