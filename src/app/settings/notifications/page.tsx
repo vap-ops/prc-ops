@@ -10,6 +10,7 @@ import { BellRing, Check, X } from "lucide-react";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PageShell } from "@/components/features/chrome/page-shell";
+import { NotificationChannelForm } from "@/components/features/notifications/channel-preferences-form";
 import { NotificationPreferencesForm } from "@/components/features/notifications/preferences-form";
 import { TelegramLinkControl } from "@/components/features/notifications/telegram-link-control";
 import { TestNotificationButton } from "@/components/features/notifications/test-notification-button";
@@ -21,6 +22,7 @@ import {
   type NotificationEventType,
 } from "@/lib/notifications/notification-catalog";
 import { readinessFromUserRow, OA_ADD_FRIEND_URL } from "@/lib/notifications/readiness";
+import type { NotificationChannel } from "@/lib/notifications/channel-preference-filter";
 import type { UserRole } from "@/lib/auth/role-home";
 import {
   NOTIF_ADD_FRIEND_LABEL,
@@ -65,6 +67,16 @@ export default async function NotificationSettingsPage() {
     .select("event_type, enabled")
     .eq("enabled", false);
   const mutedEvents = (prefRows ?? []).map((r) => r.event_type as NotificationEventType);
+
+  // Spec 390 — the caller's explicit channel switches (own-rows RLS). Same
+  // convention: absence of a row = ON, so only enabled=false rows are read.
+  // The error is NOT discarded: falling back to [] would render a channel the
+  // user switched OFF as ON, and hand the client floor a false disabled-set.
+  const { data: channelRows, error: channelReadError } = await supabase
+    .from("notification_channel_preferences")
+    .select("channel, enabled")
+    .eq("enabled", false);
+  const disabledChannels = (channelRows ?? []).map((r) => r.channel as NotificationChannel);
 
   const friendKnown = readiness.friendFlag !== null;
   const isFriend = readiness.friendFlag === true;
@@ -112,6 +124,18 @@ export default async function NotificationSettingsPage() {
             <TestNotificationButton />
           </div>
         </div>
+
+        {/* Spec 390 — channel choice sits ABOVE the per-event list: it is the
+            coarser decision, and the duplicate-delivery complaint that produced
+            this unit is answered here, not in the 12-row list below. */}
+        <NotificationChannelForm
+          lineBound={readiness.lineLinked}
+          lineFriendFlag={readiness.friendFlag}
+          telegramBound={readiness.telegramLinked}
+          disabledChannels={disabledChannels}
+          botConfigured={Boolean(clientEnv.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME)}
+          readFailed={Boolean(channelReadError)}
+        />
 
         <p className="text-ink-secondary text-meta">{NOTIF_SETTINGS_INTRO}</p>
 

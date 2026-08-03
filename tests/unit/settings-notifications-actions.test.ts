@@ -27,6 +27,7 @@ vi.mock("@/lib/notifications/line-push", () => ({
 vi.mock("@/lib/env.server", () => ({ serverEnv: envMock }));
 
 import {
+  saveNotificationChannelPreference,
   saveNotificationPreference,
   sendTestNotification,
 } from "@/app/settings/notifications/actions";
@@ -44,6 +45,48 @@ beforeEach(() => {
   });
   pushLineMessageMock.mockReset().mockResolvedValue({ ok: true });
   envMock.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN = "line-token";
+});
+
+// Spec 390 — the per-channel action. The SQLSTATE mapping below had NO coverage
+// when it was written: the form test feeds the Thai string through a MOCKED
+// action, so deleting the 22023 branch left every test green while a permanent
+// refusal silently degraded to "กรุณาลองใหม่" — the honest-copy defect the
+// branch exists to prevent (spec 387 U1's class).
+describe("saveNotificationChannelPreference", () => {
+  it("passes the channel and enabled flag straight to the RPC", async () => {
+    const r = await saveNotificationChannelPreference("line", false);
+    expect(r).toEqual({ ok: true });
+    expect(rpcMock).toHaveBeenCalledWith("set_notification_channel_preference", {
+      p_channel: "line",
+      p_enabled: false,
+    });
+  });
+
+  it("maps the floor's 22023 to a PERMANENT reason, never a retry", async () => {
+    rpcMock.mockResolvedValue({
+      error: { code: "22023", message: "no reachable notification channel would remain" },
+    });
+    const r = await saveNotificationChannelPreference("telegram", false);
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.error).toContain("ปิดไม่ได้");
+    expect(r.error).not.toContain("ลองใหม่");
+  });
+
+  it("still offers a retry for a genuinely transient failure", async () => {
+    rpcMock.mockResolvedValue({ error: { code: "08006", message: "connection failure" } });
+    const r = await saveNotificationChannelPreference("line", false);
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error("unreachable");
+    expect(r.error).toContain("ลองใหม่");
+  });
+
+  it("refuses when signed out, without calling the RPC", async () => {
+    getActionUserMock.mockResolvedValue(null);
+    const r = await saveNotificationChannelPreference("line", false);
+    expect(r).toEqual({ ok: false, error: "ยังไม่ได้เข้าสู่ระบบ" });
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("saveNotificationPreference", () => {

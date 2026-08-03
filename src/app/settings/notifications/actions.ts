@@ -14,7 +14,10 @@ import {
   LOCKED_NOTIFICATION_EVENTS,
   type NotificationEventType,
 } from "@/lib/notifications/notification-catalog";
+import type { NotificationChannel } from "@/lib/notifications/channel-preference-filter";
 import {
+  NOTIF_CHANNEL_LAST_ONE_HINT,
+  NOTIF_CHANNEL_SAVE_ERROR,
   NOTIF_TEST_MESSAGE,
   NOTIF_TEST_NO_CHANNEL_ERROR,
   NOTIF_TEST_NONFRIEND_ERROR,
@@ -47,6 +50,40 @@ export async function saveNotificationPreference(
     p_enabled: enabled,
   });
   if (error) return { ok: false, error: "บันทึกการตั้งค่าไม่สำเร็จ" };
+
+  revalidatePath("/settings/notifications");
+  return { ok: true };
+}
+
+// Spec 390 — set the caller's own per-CHANNEL switch. Same shape as the mute
+// above: absence of a row = ON, the DEFINER RPC re-gates on auth.uid(), and the
+// RPC — not this action — is the authority on the floor (it raises 22023 when
+// the disable would leave no channel that could actually deliver).
+//
+// No client-side floor check here on purpose. The UI already greys out a switch
+// it knows is locked, using the SAME pure predicate; duplicating the rule a
+// third time in the action is how the three drift. What this does own is
+// turning the RPC's SQLSTATE into honest Thai.
+export async function saveNotificationChannelPreference(
+  channel: NotificationChannel,
+  enabled: boolean,
+): Promise<NotificationSettingResult> {
+  const auth = await getActionUser();
+  if (!auth) return { ok: false, error: NOT_SIGNED_IN };
+
+  const { error } = await auth.supabase.rpc("set_notification_channel_preference", {
+    p_channel: channel,
+    p_enabled: enabled,
+  });
+  if (error) {
+    // 22023 is the floor refusing — a permanent, explainable "no", not a
+    // transient failure. Telling the user to retry would be the honest-copy
+    // defect (spec 387 U1): the button cannot succeed until something changes.
+    if (error.code === "22023") {
+      return { ok: false, error: NOTIF_CHANNEL_LAST_ONE_HINT };
+    }
+    return { ok: false, error: NOTIF_CHANNEL_SAVE_ERROR };
+  }
 
   revalidatePath("/settings/notifications");
   return { ok: true };
