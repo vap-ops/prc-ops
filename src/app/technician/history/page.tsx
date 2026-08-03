@@ -17,10 +17,13 @@
 // can_see_project — which falls to `else false` for technician. A plain table
 // read here returns zero rows, always.
 //
-// Still a TAB destination, so NO back chip: the bar (phone) and the HubNav strip
-// (desktop) are how a ช่าง moves between หน้าหลัก and ประวัติ. U3 removes the tab
-// and adds the chip in the SAME unit — doing it here would leave a tab whose
-// destination carries a back chip, the exact defect U3 exists to remove.
+// Spec 388 U3 (D1): this stopped being a TAB destination. The role's bar and
+// strip are now หน้าหลัก + ตั้งค่า, and this page is reached by one row on
+// /technician — a single parent, so a hardcoded chip, not safeBackHref. The
+// bespoke header and the HubNav strip go with the tab: a page carrying a
+// DetailHeader renders no strip anywhere in this app, and the chip is what
+// replaces it on desktop, where the bottom bar is sm:hidden. The bar stays (the
+// /profile precedent) so หน้าหลัก and ตั้งค่า remain one tap away on a phone.
 //
 // No 'use client' — a plain Server Component; the list is pure render.
 
@@ -28,9 +31,8 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { LogoutButton } from "@/components/auth/logout-button";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
+import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { WorkerAttendanceMonth } from "@/components/features/portal/worker-attendance-month";
 import { buildAttendanceMonthView } from "@/lib/attendance/attendance-sessions";
 import { resolveMonthAnchor } from "@/lib/attendance/attendance-month";
@@ -62,20 +64,11 @@ export default async function TechnicianHistoryPage({
   return (
     <PageShell>
       <BottomTabBar role={role} />
-      <header className="border-edge bg-card sticky top-0 z-20 border-b px-5 py-4">
-        <div className={`mx-auto flex ${PAGE_MAX_W} items-center justify-between gap-3`}>
-          <h1 className="text-title text-ink min-w-0 truncate font-bold tracking-tight">
-            {ATTENDANCE_OWN_LABEL}
-          </h1>
-          <LogoutButton />
-        </div>
-      </header>
-      <HubNav
-        maxWidthClass={PAGE_MAX_W}
-        items={hubNavForRole(role) ?? []}
-        currentHref="/technician/history"
-        role={role}
-      />
+      <DetailHeader backHref="/technician" backLabel="กลับไปหน้าหลัก">
+        <h1 className="text-title text-ink min-w-0 truncate font-bold tracking-tight">
+          {ATTENDANCE_OWN_LABEL}
+        </h1>
+      </DetailHeader>
 
       <section className={`mx-auto flex flex-col gap-4 ${PAGE_MAX_W} px-5 pt-6 pb-28`}>
         {/* Spec 274 U2 — without it a super_admin viewing-as-technician reads

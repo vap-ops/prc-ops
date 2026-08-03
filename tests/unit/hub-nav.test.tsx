@@ -139,15 +139,15 @@ describe("canonical nav sets", () => {
 
   // Writing failing test first.
   //
-  // Spec 376 U3 (D3): the technician strip. Mirrors TECHNICIAN_TABS one-for-one
+  // Spec 388 U3 (D1): the technician strip goes 3 → 2 with the bar it mirrors
   // (nav law rule 2 — the phone bar is sm:hidden, so a tab missing from the strip
-  // is unreachable on desktop). Three items, no superset: a ช่าง's whole app is
-  // these three surfaces.
+  // is unreachable on desktop). ประวัติ leaves because the page is re-homed as a
+  // row on /technician; โปรไฟล์ leaves because it is a /settings leaf, and the
+  // ตั้งค่า item that replaces it is the door into the hub that holds it.
   it("pins the technician set's destinations and order", () => {
     expect(TECHNICIAN_HUB_NAV).toEqual([
       { label: "หน้าหลัก", href: "/technician" },
-      { label: "ประวัติ", href: "/technician/history" },
-      { label: "โปรไฟล์", href: "/profile" },
+      { label: "ตั้งค่า", href: "/settings" },
     ]);
   });
 

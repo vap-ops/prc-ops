@@ -107,15 +107,25 @@ describe("BottomTabBar", () => {
       ["ทรัพยากร", "/procurement/resources"],
       ["ตั้งค่า", "/settings"],
     ]);
-    // Spec 376 U3 (D3): the ช่าง's own three-tab set — the role rendered NO bar
-    // at all before this (one long scroll page). ประวัติ (not เงิน — operator's
-    // call) is the new /technician/history route; โปรไฟล์ points at the universal
-    // /profile, which every authed role can already open.
+    // Writing failing test first.
+    //
+    // Spec 388 U3 (D1): 3 → 2. Spec 376 U3 gave the role its first bar; two days
+    // of telemetry then said ประวัติ had NEVER been opened, and โปรไฟล์ is a
+    // /settings leaf by its own back chip. So the ประวัติ tab goes (the page is
+    // re-homed as a row on /technician — pinned in nav-law-strip-superset) and
+    // SETTINGS_TAB takes its place, which is also D2: a ช่าง finally gets a
+    // settings door. โปรไฟล์ keeps lighting a tab with NO new match entry —
+    // SETTINGS_TAB.match already carries /profile, shared with every other role.
     expect(TECHNICIAN_TABS.map((t) => [t.label, t.href])).toEqual([
       ["หน้าหลัก", "/technician"],
-      ["ประวัติ", "/technician/history"],
-      ["โปรไฟล์", "/profile"],
+      ["ตั้งค่า", "/settings"],
     ]);
+    // D1 leans on the settings tab's `match` carrying /profile — that is what
+    // keeps โปรไฟล์ lighting a tab after it left the bar. Asserted here (not just
+    // read in the source) because a technician-shaped copy of SETTINGS_TAB
+    // without the match would pass the label/href pin above and silently unlight
+    // /profile for this role alone.
+    expect(TECHNICIAN_TABS[1]?.match).toContain("/profile");
     // Spec 376 U5 (D2): the site owner's bar — the COORDINATOR_TABS shape, and a
     // SEPARATE array on purpose (members coincide, meanings differ: "the see-all
     // oversight role's bar" vs "the owner of ONE site's bar"), so a future
@@ -602,20 +612,29 @@ describe("BottomTabBar — SA โครงการ tab direct-resolve (spec 376
 // 14d, spec §1). Three tabs now: the daily home, the new ประวัติ money route,
 // and the universal profile. The ประวัติ href lives UNDER /technician, so the
 // longest-prefix rule is what keeps exactly one tab lit on it.
-describe("BottomTabBar — technician 3-tab set (spec 376 U3)", () => {
-  it("maps the technician role to TECHNICIAN_TABS (was null)", () => {
+// Writing failing test first.
+//
+// Spec 388 U3 (D1): the 3-tab set of spec 376 U3 becomes two. What matters
+// behaviourally is not the count but that NOTHING went dark: every route the
+// retired tabs used to light must still light exactly one tab, or the role gets
+// a bar that says "you are nowhere" on a page it can reach.
+describe("BottomTabBar — technician 2-tab set (spec 388 U3)", () => {
+  it("maps the technician role to TECHNICIAN_TABS", () => {
     expect(tabsForRole("technician")).toBe(TECHNICIAN_TABS);
   });
 
-  it("renders all three tabs as links to their roots", () => {
+  it("renders both tabs as links to their roots", () => {
     mockUsePathname.mockReturnValue("/technician");
     render(<BottomTabBar role="technician" />);
     expect(screen.getByRole("link", { name: /หน้าหลัก/ })).toHaveAttribute("href", "/technician");
-    expect(screen.getByRole("link", { name: /ประวัติ/ })).toHaveAttribute(
-      "href",
-      "/technician/history",
-    );
-    expect(screen.getByRole("link", { name: /โปรไฟล์/ })).toHaveAttribute("href", "/profile");
+    expect(screen.getByRole("link", { name: /ตั้งค่า/ })).toHaveAttribute("href", "/settings");
+  });
+
+  it("no longer renders ประวัติ or โปรไฟล์ tabs", () => {
+    mockUsePathname.mockReturnValue("/technician");
+    render(<BottomTabBar role="technician" />);
+    expect(screen.queryByRole("link", { name: /ประวัติ/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /โปรไฟล์/ })).toBeNull();
   });
 
   it("lights หน้าหลัก on /technician", () => {
@@ -626,19 +645,34 @@ describe("BottomTabBar — technician 3-tab set (spec 376 U3)", () => {
     expect(active[0]?.textContent).toContain("หน้าหลัก");
   });
 
-  it("lights ประวัติ (not หน้าหลัก) on /technician/history — longest prefix wins", () => {
+  it("lights หน้าหลัก on /technician/history — the drill-down keeps its section", () => {
+    // The row that reaches it lives on หน้าหลัก, so the tab that stays lit is the
+    // section the page belongs to. Under the 3-tab set ประวัติ won this by
+    // longest prefix; with that tab gone the /technician prefix must take it,
+    // rather than the bar going blank on a page a ช่าง can still open.
     mockUsePathname.mockReturnValue("/technician/history");
     const { container } = render(<BottomTabBar role="technician" />);
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("ประวัติ");
+    expect(active[0]?.textContent).toContain("หน้าหลัก");
   });
 
-  it("lights โปรไฟล์ on /profile", () => {
+  it("lights ตั้งค่า on /profile — D1's whole premise, asserted behaviourally", () => {
+    // โปรไฟล์ left the bar; SETTINGS_TAB.match carries /profile, so the route
+    // still belongs to a visible section. If this ever went dark, a ช่าง on
+    // /profile would see a bar claiming they are on neither of their two tabs.
     mockUsePathname.mockReturnValue("/profile");
     const { container } = render(<BottomTabBar role="technician" />);
     const active = activeTabs(container);
     expect(active).toHaveLength(1);
-    expect(active[0]?.textContent).toContain("โปรไฟล์");
+    expect(active[0]?.textContent).toContain("ตั้งค่า");
+  });
+
+  it("lights ตั้งค่า on /settings — the new door (D2)", () => {
+    mockUsePathname.mockReturnValue("/settings");
+    const { container } = render(<BottomTabBar role="technician" />);
+    const active = activeTabs(container);
+    expect(active).toHaveLength(1);
+    expect(active[0]?.textContent).toContain("ตั้งค่า");
   });
 });

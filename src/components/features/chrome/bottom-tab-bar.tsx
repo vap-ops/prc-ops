@@ -32,11 +32,10 @@ import {
   Settings,
   ListChecks,
   ShoppingCart,
-  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { PROFILE_LABEL, TEAM_HUB_LABEL } from "@/lib/i18n/labels";
+import { TEAM_HUB_LABEL } from "@/lib/i18n/labels";
 
 export interface TabItem {
   label: string;
@@ -257,24 +256,32 @@ export const LEGAL_TABS: ReadonlyArray<TabItem> = [
   SETTINGS_TAB,
 ];
 
-// Spec 376 U3 (D3): the ช่าง's own bar. `technician` fell through to null here,
-// so the role's whole app was ONE unbroken scroll page with no chrome at all
-// (13 views / 14d — spec 376 §1: the portal had no pull). Three tabs, which is
-// the ช่าง's entire surface area:
-//   หน้าหลัก  /technician         — the daily home (QR badge first)
-//   ประวัติ    /technician/history — the money half this unit split out
-//   โปรไฟล์    /profile            — the universal profile route, open to every
-//                                   authed role (no gate to widen)
-// The ประวัติ href lives UNDER /technician, so longest-prefix (below) is what
-// keeps exactly one tab lit on it — no `match` needed on either side.
-// The label is inline (the house bar pattern — spec 313 D2), and it is NOT the
-// same term as the WP-detail ประวัติ tab: that one is a work timeline, this one is
-// a ช่าง's own pay/receipt record. Accepted D4 exception (spec 376 §2 D3) —
-// labels.ts single-sources โปรไฟล์ (PROFILE_LABEL) and that constant IS used.
+// Spec 376 U3 (D3) gave `technician` its first bar — the role fell through to
+// null here, so its whole app was ONE unbroken scroll page with no chrome at all
+// (13 views / 14d). Spec 388 U3 (D1) takes that bar from three tabs to two, on
+// two days of telemetry the earlier unit did not have:
+//   หน้าหลัก  /technician  — the daily home (QR badge first)
+//   ตั้งค่า    /settings    — SETTINGS_TAB, the shared door
+//
+// ประวัติ leaves because the page it named was opened ZERO times all-time, and
+// because a ช่าง's whole reason to look at it (their own check-in record, spec
+// 388 U2) is better served by a row on the one page they DO open. That row is
+// now its only door, pinned in nav-law-strip-superset — dropping this tab
+// without it would delete the page from the app for every tap a ช่าง can make.
+//
+// โปรไฟล์ leaves because it was never a peer of the other two: its own back chip
+// has always said /settings, so it is a settings LEAF, and SETTINGS_TAB.match
+// already carries "/profile" (shared with every other role) — so it keeps
+// lighting a tab here with no new match entry, and /settings renders a /profile
+// row at the top of its account group.
+//
+// D2: this is also the first /settings door the role has ever had. It grants
+// nothing — /settings carries no role gate — it makes an existing capability
+// visible, which is what nav-law-strip-superset's exact-set pin was written to
+// force a decision about.
 export const TECHNICIAN_TABS: ReadonlyArray<TabItem> = [
   { label: "หน้าหลัก", href: "/technician", icon: Home },
-  { label: "ประวัติ", href: "/technician/history", icon: Clock },
-  { label: PROFILE_LABEL, href: "/profile", icon: UserRound },
+  SETTINGS_TAB,
 ];
 
 // Exported for the nav-law rule 2 invariant test (spec 313 U3): the strip must
@@ -296,7 +303,7 @@ export function tabsForRole(role: string): ReadonlyArray<TabItem> | null {
   if (role === "accounting") return ACCOUNTING_TABS;
   // Spec 284 U5 / ADR 0080: the Legal department tab set.
   if (role === "legal") return LEGAL_TABS;
-  // Spec 376 U3 (D3): the ช่าง's three-tab set — the role rendered no bar before.
+  // Spec 388 U3 (D1): the ช่าง's two-tab set (was three under spec 376 U3).
   if (role === "technician") return TECHNICIAN_TABS;
   return null;
 }

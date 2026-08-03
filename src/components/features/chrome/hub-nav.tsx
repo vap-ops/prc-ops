@@ -6,7 +6,7 @@ import {
   PendingApprovalsBadge,
   PendingPurchaseDecisionsBadge,
 } from "@/components/features/dashboard/pending-approvals-badge";
-import { PROFILE_LABEL, TEAM_HUB_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
+import { TEAM_HUB_LABEL, WORKER_ROSTER_LABEL } from "@/lib/i18n/labels";
 
 // Shared hub nav strip (spec 18). One consistent item set per role
 // surface — the PM pages all show the same four destinations, /sa shows
@@ -130,15 +130,16 @@ export const LEGAL_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "ตั้งค่า", href: "/settings" },
 ];
 
-// Spec 376 U3 (D3): the ช่าง's desktop strip — mirrors TECHNICIAN_TABS
-// one-for-one (nav law rule 2: the phone bar is sm:hidden, so a tab whose href
-// is missing here is unreachable from the chrome on desktop). No superset item:
-// these three surfaces ARE a ช่าง's whole app. Labels match the bar exactly —
-// the ประวัติ / โปรไฟล์ pair reads the same on both surfaces.
+// Spec 376 U3 (D3) → 388 U3 (D1): the ช่าง's desktop strip — mirrors
+// TECHNICIAN_TABS one-for-one (nav law rule 2: the phone bar is sm:hidden, so a
+// tab whose href is missing here is unreachable from the chrome on desktop).
+// It shrinks WITH the bar, and rule 2 is why the ตั้งค่า door has to appear on
+// both: a bar-only settings door leaves a ช่าง on a laptop exactly where D2
+// found them. ประวัติ's page keeps its way in through a row on หน้าหลัก and its
+// way out through a back chip, so it needs no strip item.
 export const TECHNICIAN_HUB_NAV: ReadonlyArray<HubNavItem> = [
   { label: "หน้าหลัก", href: "/technician" },
-  { label: "ประวัติ", href: "/technician/history" },
-  { label: PROFILE_LABEL, href: "/profile" },
+  { label: "ตั้งค่า", href: "/settings" },
 ];
 
 // Spec 153: the single role→strip selector — mirrors bottom-tab-bar's tabsForRole
@@ -159,7 +160,7 @@ export function hubNavForRole(role: string): ReadonlyArray<HubNavItem> | null {
   if (role === "accounting") return ACCOUNTING_HUB_NAV;
   // Spec 284 U5 / ADR 0080: the Legal department strip.
   if (role === "legal") return LEGAL_HUB_NAV;
-  // Spec 376 U3 (D3): the ช่าง's strip — desktop parity for the new bar.
+  // Spec 388 U3 (D1): the ช่าง's two-item strip — desktop parity for the bar.
   if (role === "technician") return TECHNICIAN_HUB_NAV;
   return null;
 }
