@@ -113,11 +113,24 @@ uploaded_by, created_at, captured_at_client, rework_round, answers_photo_id` —
   facts, not per-project picks. Out of scope here except the home being established.
 - **D6 — Vol.5 is the seed, with its defects surfaced not silently fixed.** The seed script
   refuses duplicate codes and unknown prefixes, naming the rows. Known open sheet items the
-  operator owns: the `X-01 งานเพิ่มเติม` placeholder prefix, `PR-02 (WP-420)` empty twin group,
-  `WP-264`'s mixed S/EX children, the `WP-474` copy-paste name. Import proceeds with the sheet
-  as-is (placeholder `X` → W10 until re-coded); fixes land in the sheet and the seed re-runs
-  (idempotent by code — the SCRIPT upserts `wp_catalog_items`; this does not touch the
-  `wp-import/parse.ts` contract, which refuses existing codes and stays unchanged).
+  operator owns: `WP-25`'s mixed S/EX children and the `WP-10-08` copy-paste name (both fixed
+  in Vol.5, never in Vol.4 — see D7). Import proceeds with the sheet as-is (placeholder `X` →
+  W10 until re-coded); fixes land in Vol.5 and the seed re-runs (idempotent by code — the
+  SCRIPT upserts `wp_catalog_items`; this does not touch the `wp-import/parse.ts` contract,
+  which refuses existing codes and stays unchanged).
+- **D7 — SHEET OWNERSHIP (operator, 2026-08-03): `Vol.4` is PD's document. NEVER WRITE TO IT.**
+  Verbatim: _"Vol4 is made by PD, we don't want to tamper with it. we rebuilt in vol5 already,
+  that one we can use to communicate."_ `Vol.5` is ours — the working + communication artifact
+  **and the source of truth for grouping and codes**. A grouping change (e.g. the 2026-08-03
+  เต้นท์ทำงาน re-parent, `WP-02-10` → `WP-03-01`) is applied in **Vol.5 + the DB**; Vol.4 stays
+  read-only reference for names, prefixes and OldID. A rebuild reads Vol.4 for names only and
+  must never write back.
+  **Vol.5 columns C–G are frozen to VALUES** (operator decision, same day) so the sheet states
+  exactly what the app holds — a live-formula Vol.5 drifts from the DB and silently omits any
+  WP that PD later adds. PD's own edits are picked up by an **on-demand drift check**: re-read
+  Vol.4, diff against Vol.5 by OldID, report adds / renames / removals for the operator to
+  accept. (Sheets adjusts refs on row insert and yields `#REF!` on delete — the failure mode is
+  omission and DB-disagreement, not mislabelling.)
 
 ## 4. Schema (U1, additive, single migration)
 
@@ -208,8 +221,12 @@ U1+U2); U5 is only USEFUL after U4 maps โพธิ์ทอง (the photos all
 - Curator surface (add/retire codes without a sheet re-import): later unit, after the first
   real "new WP mid-project" case.
 - S10-U6 (WP seeding from a priced `boq_template`): untouched; composes with this (D-prior-art).
-- 🔔 Operator owns (sheet, not code): X-01 prefix decision · PR-02/WP-420 twin · WP-264 S/EX
-  split · WP-474 name · whether Vol.5 rows get sorted by code.
+- 🔔 Operator owns (Vol.5, never Vol.4 — D7): `WP-25`'s mixed S/EX children · the `WP-10-08`
+  copy-paste name. ✅ CLOSED: the เต้นท์ทำงาน twin (now `WP-03-01` under its own group) and the
+  code scheme (sequence codes, Vol.4 row order).
+- ⚑ **Owed: freeze Vol.5 C–G to values** (decided 2026-08-03, not yet applied — the in-app
+  Chrome window was hidden and unresizable, so paste-values-only could not be driven). Three
+  keystrokes in a working browser: select `C1:G456` → Ctrl+C → Ctrl+Shift+V.
 - The 26 โพธิ์ทอง WPs dropped by Vol.4: PD decides map-or-leave in U4; leaving them unmapped
   keeps their photos out of every reference gallery (deliberate).
 - **Recorded decisions / owed items from the U1 review (2026-08-03):**
