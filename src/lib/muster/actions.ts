@@ -36,6 +36,23 @@ function scanErrorToThai(message: string): string {
   if (message.includes("mustered elsewhere") || message.includes("concurrent")) {
     return "ช่างคนนี้อยู่ในทีมอื่นแล้ววันนี้";
   }
+  // Spec 306 §5 — muster_scan_out now REFUSES an already-out worker instead of
+  // overwriting their real departure (and, for an ot session, re-pricing it).
+  //
+  // ⚠️ This arm must stay ABOVE the `no attendance` one below. That arm answers
+  // ยังไม่ได้เช็คชื่อ — "this worker never checked IN" — which is the opposite claim,
+  // and the RPC's message for this refusal is
+  // `muster_scan_out: already checked out at HH:MM`. The two do not overlap
+  // today, but the mapper is ordered substring matching and a reword could make
+  // them, so the position is deliberate. The wording is pinned in pgTAP.
+  //
+  // The time comes back in the message because "nothing happened" is not an
+  // answer: the SA needs to know the worker already went out, and when, to tell
+  // a duplicate tap apart from a genuinely wrong record.
+  if (message.includes("already checked out")) {
+    const at = message.split("already checked out at")[1]?.trim();
+    return at ? `ช่างคนนี้ออกงานแล้วเมื่อ ${at} น.` : "ช่างคนนี้ออกงานแล้ว";
+  }
   // Spec 351 — an OT scan-in without the worker's regular session on this team.
   if (message.includes("no regular session")) return "ต้องเช็คชื่อเข้างานปกติในทีมนี้ก่อนทำ OT";
   if (message.includes("no attendance")) return "ยังไม่ได้เช็คชื่อเข้าของช่างคนนี้";
