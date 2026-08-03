@@ -262,4 +262,31 @@ describe("design doctrine (Field-First)", () => {
     const match = classes.match(/BUTTON_CAPTURE\s*=\s*"([^"]+)"/);
     expect(match![1]).toMatch(/\bh-(?:1[1-9]|2\d)\b/);
   });
+
+  // An absolutely-positioned toggle knob MUST pin its horizontal origin. With
+  // `left: auto` the knob falls back to its STATIC position, and a <button> is
+  // text-align:center, so that resolves to the track's CENTRE — measured live at
+  // `left: 22px` on a 44px track, putting the knob at 24–44px when off (jammed
+  // against the right edge) and 42–62px when on (18px OUTSIDE the pill). It
+  // shipped that way on every switch of /settings/notifications and the operator
+  // spotted it, because nothing here can catch it: jsdom has no layout engine,
+  // so RTL cannot measure a rect, and the classes look perfectly reasonable.
+  // Hence a source guard — the honest instrument for a defect only real layout
+  // can expose.
+  it("every role=switch knob pins an explicit left- origin, never the static position", () => {
+    const offenders: string[] = [];
+    for (const file of walkSrc(SRC).filter((f) => f.endsWith(".tsx"))) {
+      const src = readFileSync(file, "utf8");
+      if (!src.includes('role="switch"')) continue;
+      // the knob is the absolutely-positioned span inside the switch button
+      for (const m of src.matchAll(/className=\{?`?[^`"]*\babsolute\b[^`"]*`?\}?/g)) {
+        const cls = m[0];
+        if (!/\btranslate-x-/.test(cls)) continue; // only the sliding knob
+        if (!/\bleft-/.test(cls)) offenders.push(`${relative(SRC, file)} :: ${cls.slice(0, 80)}`);
+      }
+    }
+    expect(offenders, `switch knob(s) with no explicit left-*: ${offenders.join(" | ")}`).toEqual(
+      [],
+    );
+  });
 });

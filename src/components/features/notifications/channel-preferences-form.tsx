@@ -170,10 +170,15 @@ export function NotificationChannelForm({
                       on ? "bg-fill" : "bg-edge-strong"
                     } ${locked ? "opacity-60" : ""}`}
                   >
+                    {/* left-0.5 is load-bearing — see the note in
+                        preferences-form.tsx. An absolute knob with `left: auto`
+                        resolves to its static position, which a text-align:center
+                        <button> puts at the track's centre, so the knob rendered
+                        outside the pill when on. */}
                     <span
                       aria-hidden
-                      className={`bg-card absolute top-0.5 h-5 w-5 rounded-full transition-transform ${
-                        on ? "translate-x-5" : "translate-x-0.5"
+                      className={`bg-card absolute top-0.5 left-0.5 h-5 w-5 rounded-full transition-transform ${
+                        on ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
