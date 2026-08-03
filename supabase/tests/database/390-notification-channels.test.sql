@@ -8,7 +8,7 @@
 -- RPC simply refuses everything, and null-is-reachable is pinned separately
 -- because it is the arm a later `= true` refactor silently inverts.
 begin;
-select plan(23);
+select plan(32);
 
 -- posture
 select has_table('public', 'notification_channel_preferences', 'table exists');
@@ -47,6 +47,21 @@ select ok(
   ),
   'anon cannot execute the RPC'
 );
+-- The predicate takes an ARBITRARY user id, so its grants are the only thing
+-- stopping a signed-in user from probing anyone else's binding state. Nothing
+-- else in the suite pins this.
+select ok(
+  not has_function_privilege('anon', 'public.reachable_notification_channels(uuid)', 'EXECUTE'),
+  'anon cannot execute the reachability predicate'
+);
+select ok(
+  not has_function_privilege('authenticated', 'public.reachable_notification_channels(uuid)', 'EXECUTE'),
+  'authenticated cannot execute the reachability predicate (it would leak others'' bindings)'
+);
+select ok(
+  not has_function_privilege('service_role', 'public.reachable_notification_channels(uuid)', 'EXECUTE'),
+  'service_role cannot execute it either — only the DEFINER callers, as owner'
+);
 -- string_agg rather than results_eq over the labels: enumlabel is `name`, and
 -- comparing its cast against a text[] literal raises 42P22 (no determinable
 -- collation) inside pgTAP's results_eq.
@@ -64,7 +79,9 @@ values
   ('00000000-0000-4390-a000-000000000002', 'spec390b@test.local'),
   ('00000000-0000-4390-a000-000000000003', 'spec390c@test.local'),
   ('00000000-0000-4390-a000-000000000004', 'spec390d@test.local'),
-  ('00000000-0000-4390-a000-000000000005', 'spec390e@test.local')
+  ('00000000-0000-4390-a000-000000000005', 'spec390e@test.local'),
+  ('00000000-0000-4390-a000-000000000006', 'spec390f@test.local'),
+  ('00000000-0000-4390-a000-000000000007', 'spec390g@test.local')
 on conflict (id) do nothing;
 
 insert into public.users (id, role, line_user_id, telegram_chat_id, line_oa_friend)
@@ -73,7 +90,12 @@ values
   ('00000000-0000-4390-a000-000000000002', 'site_admin', 'Uspec390b', '390000002', false),
   ('00000000-0000-4390-a000-000000000003', 'site_admin', 'Uspec390c', '390000003', null),
   ('00000000-0000-4390-a000-000000000004', 'site_admin', 'Uspec390d', '390000004', true),
-  ('00000000-0000-4390-a000-000000000005', 'site_admin', 'Uspec390e', '390000005', true)
+  ('00000000-0000-4390-a000-000000000005', 'site_admin', 'Uspec390e', '390000005', true),
+  -- F: LINE bound but verified unreachable, NO Telegram → reachable set is EMPTY.
+  ('00000000-0000-4390-a000-000000000006', 'site_admin', 'Uspec390f', null, false),
+  -- G: same emptiness, but Telegram still bound and LINE already switched off —
+  -- the state the unlink close must NOT touch (nothing reachable to restore).
+  ('00000000-0000-4390-a000-000000000007', 'site_admin', 'Uspec390g', '390000007', false)
 on conflict (id) do update set
   role = 'site_admin',
   line_user_id = excluded.line_user_id,
@@ -85,7 +107,13 @@ on conflict (id) do update set
 insert into public.notification_channel_preferences (user_id, channel, enabled)
 values
   ('00000000-0000-4390-a000-000000000004', 'line', false),
-  ('00000000-0000-4390-a000-000000000005', 'telegram', false);
+  ('00000000-0000-4390-a000-000000000005', 'telegram', false),
+  ('00000000-0000-4390-a000-000000000007', 'line', false);
+
+-- D also holds an unconsumed link token, so the replaced unlink_telegram cannot
+-- silently drop the token cleanup it inherited from 20260813075888.
+insert into public.telegram_link_tokens (token, user_id, expires_at)
+values (repeat('A', 43), '00000000-0000-4390-a000-000000000004', now() + interval '15 minutes');
 
 -- assertions run while role=authenticated → the runner's _tap_buf collector
 -- needs explicit grants (memory pgtap-tapbuf-grant-role-switch / PR #400)
@@ -161,6 +189,9 @@ select results_eq(
   array[0],
   'unlink cleared D''s channel rows rather than stranding them at zero'
 );
+-- (the two "inherited behaviour" pins for this unlink run after reset role —
+-- telegram_link_tokens has RLS with zero grants, so `authenticated` cannot read
+-- it at all, by 386 U1's design)
 
 -- === E: unlink must NOT over-delete when a reachable channel remains. ===
 set local request.jwt.claims to '{"sub":"00000000-0000-4390-a000-000000000005","role":"authenticated"}';
@@ -176,6 +207,44 @@ select results_eq(
   'E keeps its stated Telegram preference — LINE still reaches them, so nothing was stranded'
 );
 
+-- === F: nothing reachable at all. The floor must STAND DOWN, not refuse. ===
+-- `not exists` over an empty relation is TRUE, so the first cut refused every
+-- disable for these users — telling them a channel that already delivers
+-- nothing could not be switched off. Live this is 11 people.
+set local request.jwt.claims to '{"sub":"00000000-0000-4390-a000-000000000006","role":"authenticated"}';
+
+select lives_ok(
+  $$select public.set_notification_channel_preference('line', false)$$,
+  'F may record a preference when NOTHING is reachable — there is nothing left to protect'
+);
+
+-- === G: the unlink close must not fire when it would restore nothing. ===
+-- G's LINE is bound, verified unreachable, and already switched off. Unlinking
+-- Telegram leaves zero deliverable either way, so deleting the rows would
+-- silently flip their stated LINE choice back ON while restoring no delivery —
+-- the mirrored bug the close claims to avoid.
+set local request.jwt.claims to '{"sub":"00000000-0000-4390-a000-000000000007","role":"authenticated"}';
+
+select lives_ok(
+  $$select public.unlink_telegram()$$,
+  'G may unlink Telegram'
+);
+select results_eq(
+  $$select enabled from public.notification_channel_preferences
+    where user_id = '00000000-0000-4390-a000-000000000007' and channel = 'line'$$,
+  array[false],
+  'G keeps its stated LINE preference — the close heals a back door, it does not discard choices'
+);
+
+-- === the unauthenticated arm of the setter ===
+set local request.jwt.claims to '{"role":"authenticated"}';
+select throws_ok(
+  $$select public.set_notification_channel_preference('line', false)$$,
+  '42501',
+  'not authenticated',
+  'a session with no subject cannot write a channel preference'
+);
+
 -- === read isolation ===
 set local request.jwt.claims to '{"sub":"00000000-0000-4390-a000-000000000003","role":"authenticated"}';
 select results_eq(
@@ -186,6 +255,24 @@ select results_eq(
 );
 
 reset role;
+
+-- The spec-390 close was bolted onto a create-or-replace of an EXISTING
+-- function; without these two, dropping either inherited behaviour ships green.
+-- Read as the owner: telegram_link_tokens is reachable only through DEFINER RPCs
+-- (RLS on, zero policies, zero grants — 386 U1).
+select results_eq(
+  $$select count(*)::int from public.users
+    where id = '00000000-0000-4390-a000-000000000004'
+      and telegram_chat_id is null and telegram_linked_at is null$$,
+  array[1],
+  'unlink still clears BOTH telegram columns (inherited from 075888)'
+);
+select results_eq(
+  $$select count(*)::int from public.telegram_link_tokens
+    where user_id = '00000000-0000-4390-a000-000000000004' and consumed_at is null$$,
+  array[0],
+  'unlink still deletes unconsumed link tokens (inherited from 075888)'
+);
 
 select * from finish();
 rollback;

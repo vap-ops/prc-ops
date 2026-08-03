@@ -1,6 +1,6 @@
 # 390 — Per-channel notification switches (เลือกช่องทางการแจ้งเตือน)
 
-**Status:** draft · **Owner:** CC · **Created:** 2026-08-03
+**Status:** U1 shipped (migrations `20260813075895` + `20260813075896`, applied) · U2 open · **Owner:** CC · **Created:** 2026-08-03
 
 Operator, 2026-08-03: _"I get noti on line and telegram at the same time, where can I set them up, I want to be able to switch them on/off"_.
 
@@ -100,7 +100,7 @@ Migration `20260813075895` (live head at claim: `20260813075894`):
 3. `set_notification_channel_preference(p_channel, p_enabled)` — DEFINER, `search_path = public, pg_temp`, self-scoped on `auth.uid()`, upsert; raises `42501` unauthenticated and `22023` when the disable would breach the §2.2 **reachability** floor (LINE counts only when `line_oa_friend is not false`). `revoke all … from public, anon` + `grant execute … to authenticated` (the house pattern — `revoke … from public`, not anon-only).
 4. `create or replace function public.unlink_telegram()` — behaviour otherwise unchanged, plus the §2.2 back-door close. Verified live before replacing: **one zero-arg overload**, plain `SECURITY DEFINER` function, body = auth guard + the two-column update + a delete of unconsumed tokens. `create or replace` is the right instrument; a second function would leave the old one reachable.
 
-pgTAP `supabase/tests/database/390-notification-channels.sql`:
+pgTAP `supabase/tests/database/390-notification-channels.test.sql`:
 
 - table exists, RLS enabled, no insert/update/delete grant to `authenticated`;
 - `has_function_privilege('anon', …, 'EXECUTE')` is **false** for the setter (the house form — [363](363-wp-detail-sa-nav.md) U2a's lesson: `role_routine_grants` has no PUBLIC arm and cannot fail on the real hazard);
@@ -108,7 +108,15 @@ pgTAP `supabase/tests/database/390-notification-channels.sql`:
 - the **floor fires**: the same user disabling the second channel raises `22023`, _paired with a positive control_ — the first disable in the same transaction SUCCEEDS, so a green result cannot mean "the RPC refuses everything";
 - the **reachability arm fires**: a user bound to both but carrying `line_oa_friend = false` is refused when disabling **Telegram**, while an otherwise-identical user with `line_oa_friend = true` is allowed. Two fixtures differing in exactly one column — otherwise the assert cannot distinguish the reachability floor from the boundness floor it replaced, which is the whole finding;
 - `line_oa_friend is null` behaves as **reachable** (the same disable succeeds) — pinned, because "null is not a failure" is the rule most likely to be silently inverted by a later `= true` refactor;
-- unlinking with the remaining channel disabled clears the preference rows.
+- unlinking with the remaining channel disabled clears the preference rows, and — the sibling arm — unlinking when **nothing is reachable** does NOT (see below);
+- the replaced `unlink_telegram` still clears **both** telegram columns and still deletes unconsumed link tokens. Without these, the `create or replace` could silently drop behaviour it inherited from `075888` and the whole suite stays green;
+- the predicate is executable by **nobody** — `anon`, `authenticated` and `service_role` all pinned false. It takes an arbitrary user id, so its grants are the only thing stopping a signed-in user from probing someone else's bindings.
+
+⭐ **A fresh-eyes pass found three defects in `075895`, all the same blind spot: the floor reasoned about the SHAPE of the reachable set and never about it being EMPTY.** Corrected in `20260813075896` (a follow-up, not an edit — `075895` was already applied, and editing an applied migration then re-pushing silently no-ops):
+
+1. `not exists (… enabled …)` is **true over an empty relation**, so a user with nothing reachable was refused _every_ disable — told "no reachable notification channel would remain" about a channel that already delivers nothing. Live that is **11 users**. The floor now stands down when there is nothing to protect.
+2. The same emptiness made the unlink close fire on a state it does not reason about: a bound-but-unreachable LINE that the user had switched OFF got its row deleted on unlink, restoring **zero** deliverability while flipping their stated choice back ON — the mirrored bug the close claims to avoid.
+3. Check-then-write was not serialised, so two concurrent calls (two fast taps, one per channel) could each pass the floor and both commit, producing exactly the zero-channel state the function exists to prevent. Both writers now take the caller's `users` row `for update` — the lock `unlink_telegram` already held implicitly.
 
 Fixture users are seeded inside the transaction and rolled back. **No assertion touches a global count** of any app-written table.
 
@@ -131,11 +139,13 @@ Not splittable from each other: the UI alone is a switch that lies (says off, st
 1. `select channel, enabled, count(*) from public.notification_channel_preferences group by 1,2` — empty means the switches were built and nobody used them; a week of zero across four dual-bound users says the page is not where they looked.
 2. Duplicates stop **while LINE is healthy**. Re-run the §1.2 outbox query first, scoped to the quota roll — a quiet channel is not a fixed one, and the raw 4-day count still carries 17 pre-roll failures.
 3. The four dual-bound users, by role, are the population — re-measure it at ship time rather than inheriting the table in §1.1 ([375](375-sa-home-movement-sort.md)'s rule: a number that crosses into a new document gets re-run). Re-measure `line_oa_friend` with it: the reachability floor is only as good as that distribution, and it moves at every LINE login.
-4. **Nobody ends up at zero.** `select u.id from users u where <no reachable enabled channel>` must return **empty** after real use. A non-empty result means the floor has a hole, and it is the one failure of this feature that is silent from the user's side — they simply stop hearing from the app.
+4. **Nobody ends up at zero — with one expected arm.** `select u.id from users u where <no reachable enabled channel>` should be watched after real use. ⚠️ It is **not** a pure hole-detector, and reading it as one would contradict §2.2's own correction. There is a legitimate way to land in that set with no RPC involved: disable Telegram while LINE is reachable (allowed), later unfriend the OA, then log in — `auth/line/callback` writes `line_oa_friend = false` and nothing self-heals. That arm is the stale-flag limit §2.2 states, not a floor defect. So: **non-empty ⇒ investigate**, and separate the users who got there through a switch from those the flag moved underneath them. The users the floor genuinely failed are the ones whose _last_ action was a disable.
 
 ## 5. Out of scope
 
 - Per-event × per-channel routing (§2).
 - A quiet-hours / digest mode.
+- **Healing the stale-flag arm** (§4.4). When `auth/line/callback` flips `line_oa_friend` to false it could notice that the user is now at zero and clear their channel rows, the way `unlink_telegram` does. Deliberately not folded in: it is a write in `src/app/auth/**`, its own danger path, and it wants its own thought about telling the user rather than silently re-enabling a channel behind their back.
+- **A re-bind restoring a stale preference.** If a user disables Telegram, unlinks, and later re-binds, the `telegram = false` row survives and the channel comes back switched OFF. That is their last stated preference and U2 renders it, so it is visible rather than silent — but it is the one place "absence of a row = ON" and "your last stated choice" disagree, and it deserves a look if anyone reports "I re-linked and still get nothing".
 - **Teaching the DRAIN about `line_oa_friend`.** The floor consults it; `drain/route.ts:515-517` still maps `lineTargets` on `line_user_id` alone, so the 10 verified non-friends keep collecting 403s. Harmless (a 403 is one failed push, and `anySuccess` covers a user who has another channel) but wasteful, and it silently inflates the failure counters [387](387-notification-delivery-health.md) keys on. Deliberately not folded in here: it changes delivery for users who never touched a switch, which is a different unit with a different acceptance.
 - Fixing what `sent` means in `notification_outbox` — [387](387-notification-delivery-health.md) §6 already owes that its own spec, and this change does not make the collapse worse.
