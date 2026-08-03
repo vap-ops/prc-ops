@@ -1,3 +1,9 @@
+# [0.315.0](https://github.com/vap-ops/prc-ops/compare/v0.314.0...v0.315.0) (2026-08-03)
+
+### Features
+
+- spec 390 U2 — per-channel notification switches (drain + settings) ([#928](https://github.com/vap-ops/prc-ops/issues/928)) ([8da702c](https://github.com/vap-ops/prc-ops/commit/8da702c062b7f6b57966dfb57c7c63e3f1f806a9))
+
 # [0.314.0](https://github.com/vap-ops/prc-ops/compare/v0.313.0...v0.314.0) (2026-08-03)
 
 ### Features
