@@ -60,7 +60,7 @@ export interface WorklistRowItem {
   /** Demoted deliverable label, or null in flat / ungrouped mode. */
   deliverableLabel: string | null;
   /**
-   * Spec 277 — the reconciled GLOBAL work-category code (W01–W09) for the
+   * Spec 277 — the reconciled GLOBAL work-category code (W01–W11) for the
    * colored icon + letter-code (WP-12 → E-12). Optional so surfaces that don't
    * yet thread it render the plain code (graceful degrade).
    */

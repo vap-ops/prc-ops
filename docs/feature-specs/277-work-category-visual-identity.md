@@ -3,6 +3,26 @@
 **Status:** U1 in progress (2026-07-07). Design approved by operator (letter scheme
 `P S A W E C G X F`, fixed brand colors + icons, Typhoon τ=0.85).
 
+**Extended 2026-08-03 — the scheme now covers ELEVEN categories, not nine.** Spec 389
+added `W10` งานอื่นๆ (prefix `O`) and `W11` งานระบบความปลอดภัย (prefix `SIS`) to
+`work_categories`, and the identity SSOT was not extended with them — so
+`workCategoryIdentity()` returned null for both and the 26 catalogue items riding those
+categories rendered bare: no letter tile, no colour, no icon, and the raw `WP-` code
+instead of a letter code. Letters are `M` (Miscellaneous — `O` for Others is in the
+banned OCR-confusable set `I/O/L/1/0`) and `Y` (safetY — `S` is taken by Structural),
+both following the established "distinctive letter from the English gloss" convention
+(siGnage→G, eXternal→X). Colours take the wheel's only free arcs: `--color-cat-w10` a
+deliberately quiet low-chroma taupe (a catch-all should not shout) and `--color-cat-w11`
+magenta at hue ~330, between purple 300 and pink 358 — **not** red, which is reserved for
+status. Both verified ≥4.5:1 against white ink (6.10:1 and 6.04:1).
+
+⚠️ **The exhaustive `Record<WorkCategoryTopCode, …>` maps did NOT catch this.** They make
+adding a top code a _compile_ error only for code that names the union; the codes
+themselves arrive as runtime strings from the database, so a category can exist in
+`work_categories` with no identity here and nothing fails — it just renders blank. **When
+a new top-level `work_categories` row is seeded, extending this SSOT is part of that
+migration's unit, not a follow-up.**
+
 ## Why
 
 The firm has 9 global work-categories (`work_categories`, `W01`–`W09`, spec 226). Today

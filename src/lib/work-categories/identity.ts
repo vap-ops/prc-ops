@@ -111,7 +111,7 @@ const ACCENT_CLASS: Record<WorkCategoryTopCode, string> = {
 export interface WorkCategoryIdentity {
   /** The resolved top code (W01–W11), even when a subsection code was passed. */
   code: WorkCategoryTopCode;
-  /** Single recognition letter (P S A W E C G X F). */
+  /** Single recognition letter (P S A W E C G X F M Y). */
   letter: string;
   /** lucide glyph for the category. */
   icon: LucideIcon;
