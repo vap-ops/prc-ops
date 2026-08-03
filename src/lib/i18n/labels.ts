@@ -1446,7 +1446,11 @@ export const NOTIF_ADD_FRIEND_LABEL = "เพิ่มเพื่อน";
 
 // Spec 318 U4 — /settings/notifications page.
 export const NOTIF_SETTINGS_LABEL = "การแจ้งเตือน";
-export const NOTIF_SETTINGS_HINT = "เลือกเรื่องที่อยากรับแจ้งเตือนทาง LINE";
+// Spec 390 — was "…ทาง LINE". Telegram became a real channel in 386 and this
+// unit lets a user choose between them, so a LINE-only hint on the door to that
+// very page is the honest-copy class (same defect 386 U3 fixed on the test
+// button). Channel-neutral.
+export const NOTIF_SETTINGS_HINT = "เลือกช่องทางและเรื่องที่อยากรับแจ้งเตือน";
 export const NOTIF_SETTINGS_INTRO =
   "เปิด/ปิดการแจ้งเตือนแต่ละเรื่องได้ตามต้องการ การแจ้งเตือนความปลอดภัยหน้างานปิดไม่ได้";
 export const NOTIF_LOCKED_HINT = "การแจ้งเตือนความปลอดภัย — ปิดไม่ได้";
@@ -1463,6 +1467,25 @@ export const NOTIF_OA_FRIEND_ROW = "เพิ่มเพื่อน LINE ข�
 export const NOTIF_OA_NONFRIEND_ROW = "ยังไม่ได้เพิ่มเพื่อน LINE ของบริษัท";
 export const NOTIF_OA_UNKNOWN_ROW = "จะตรวจสอบเมื่อเข้าสู่ระบบด้วย LINE ครั้งถัดไป";
 export const NOTIF_TELEGRAM_ROW = "เชื่อม Telegram แล้ว";
+
+// Spec 390 — the per-CHANNEL switches. Before this the drain pushed every
+// notification to BOTH bound channels, so a dual-bound user got everything
+// twice and had no control at all.
+export const NOTIF_CHANNEL_GROUP_HEADING = "ช่องทางการแจ้งเตือน";
+export const NOTIF_CHANNEL_GROUP_HINT =
+  "เลือกได้ว่าจะรับทางไหน ถ้าเปิดทั้งสองช่องทาง ท่านจะได้รับข้อความซ้ำสองครั้ง";
+export const NOTIF_CHANNEL_LINE = "LINE";
+export const NOTIF_CHANNEL_TELEGRAM = "Telegram";
+// Each refusal names its OWN reason. "Your only channel" and "LINE cannot reach
+// you" are different problems with different fixes, and the page already renders
+// the add-friend CTA for the second.
+export const NOTIF_CHANNEL_LAST_ONE_HINT = "ช่องทางเดียวที่ติดต่อท่านได้ — ปิดไม่ได้";
+export const NOTIF_CHANNEL_LINE_UNREACHABLE_HINT =
+  "ยังไม่ได้เพิ่มเพื่อน LINE ของบริษัท จึงส่งทาง LINE ไม่ได้";
+export const NOTIF_CHANNEL_SAVE_ERROR = "บันทึกช่องทางไม่สำเร็จ กรุณาลองใหม่";
+// Shown when the user has bound nothing at all: there is no switch to render,
+// and saying so is better than an empty card.
+export const NOTIF_CHANNEL_NONE_BOUND = "ยังไม่ได้เชื่อมช่องทางใดเลย";
 
 // Spec 386 U3 — the self-serve Telegram bind row. Before this, /settings/notifications
 // rendered NOTIF_TELEGRAM_ROW only to the already-linked, so 39 of 40 users saw

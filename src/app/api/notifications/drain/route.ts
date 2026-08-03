@@ -27,6 +27,7 @@ import {
   rowOutcomeAfterPushes,
 } from "@/lib/notifications/drain-policy";
 import { filterMutedRecipients, mutedKey } from "@/lib/notifications/preference-filter";
+import { channelKey, filterChannelTargets } from "@/lib/notifications/channel-preference-filter";
 import { pushLineMessage } from "@/lib/notifications/line-push";
 import { pushTelegramMessage } from "@/lib/notifications/telegram-push";
 
@@ -239,6 +240,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.warn("[notifications/drain] preference query hit the 1000-row cap");
   }
   const mutedKeys = new Set((mutedRows ?? []).map((r) => mutedKey(r.user_id, r.event_type)));
+
+  // Spec 390 — per-CHANNEL switches. Until now this route fanned every row out
+  // to BOTH channels off the same recipient list, so a user bound to LINE and
+  // Telegram received everything twice. Same convention as the mute above:
+  // enabled=false rows only, absence = ON. NOT scoped to the batch's event
+  // types, because this preference is per-user, not per-event — the whole table
+  // is at most two rows per user.
+  const { data: channelOffRows, error: channelError } = await admin
+    .from("notification_channel_preferences")
+    .select("user_id, channel")
+    .eq("enabled", false);
+  if (channelError) {
+    console.error("[notifications/drain] channel preference fetch failed", channelError.message);
+    return NextResponse.json({ error: "enrichment_failed" }, { status: 500 });
+  }
+  // Same 1000-row cap failure mode as the two queries above. Silent truncation
+  // here would UN-mute a channel, i.e. resurrect the duplicate this spec exists
+  // to remove.
+  if ((channelOffRows ?? []).length >= 1000) {
+    console.warn("[notifications/drain] channel preference query hit the 1000-row cap");
+  }
+  const channelOffKeys = new Set(
+    (channelOffRows ?? []).map((r) => channelKey(r.user_id, r.channel)),
+  );
 
   const wpCodeById = new Map<string, string>();
   const wpProjectById = new Map<string, string>();
@@ -512,11 +537,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Spec 318 U3 — apply per-user mutes before contact mapping. A muted
       // recipient is an intentional drop; locked events bypass the filter.
       const deliverable = filterMutedRecipients(recipients, row.event_type, mutedKeys);
-      const lineTargets = deliverable
+      // Spec 390 — apply the per-channel switch on top of the per-event mute.
+      // Deliberately NOT exempting locked events the way filterMutedRecipients
+      // does: the DB floor guarantees the user keeps a channel that could
+      // deliver, so exempting would only bring the duplicate back.
+      const lineTargets = filterChannelTargets(deliverable, "line", channelOffKeys)
         .map((id) => lineIdByUser.get(id))
         .filter((lineId): lineId is string => lineId !== undefined);
       const telegramTargets = telegramToken
-        ? deliverable
+        ? filterChannelTargets(deliverable, "telegram", channelOffKeys)
             .map((id) => telegramChatByUser.get(id))
             .filter((chatId): chatId is string => chatId !== undefined)
         : [];
