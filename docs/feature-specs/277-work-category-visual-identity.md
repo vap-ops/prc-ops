@@ -64,7 +64,7 @@ Grounding (research 2026-07-07):
 | W10  | **M**  | `cat-w10` taupe   | `Shapes`      | อื่นๆ                |
 | W11  | **Y**  | `cat-w11` magenta | `ShieldCheck` | ระบบความปลอดภัย      |
 
-W10/W11 were seeded by spec 389 and given their identity on 2026-08-03 (U1b) — see the
+W10/W11 were seeded by spec 389 and given their identity on 2026-08-03 (U1c) — see the
 status note at the top of this file for why the type system did not catch the gap.
 
 Letters chosen from the English gloss, none in the OCR-confusable set (no I/O/L/1/0);

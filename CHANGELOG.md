@@ -1,3 +1,9 @@
+# [0.314.0](https://github.com/vap-ops/prc-ops/compare/v0.313.0...v0.314.0) (2026-08-03)
+
+### Features
+
+- spec 390 U1 — per-channel notification switches (schema) ([#926](https://github.com/vap-ops/prc-ops/issues/926)) ([fcffd4e](https://github.com/vap-ops/prc-ops/commit/fcffd4eb15624f02c4444d17ad2a4bed7c223fe0))
+
 # [0.313.0](https://github.com/vap-ops/prc-ops/compare/v0.312.0...v0.313.0) (2026-08-03)
 
 ### Features
