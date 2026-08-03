@@ -96,10 +96,18 @@ export function NotificationPreferencesForm({
                       on ? "bg-fill" : "bg-edge-strong"
                     } ${entry.locked ? "opacity-60" : ""}`}
                   >
+                    {/* left-0.5 is load-bearing, not decoration. Without an
+                        explicit `left`, this absolutely-positioned knob falls
+                        back to its STATIC position — and a <button> is
+                        text-align:center, so that resolves to the track's
+                        CENTRE (left: 22px on a 44px track). The knob then sat
+                        at 24–44px when off (jammed right) and 42–62px when on
+                        (18px outside the pill). Pin the origin, then translate
+                        by 20px: 2→22 off, 22→42 on, a symmetric 2px inset. */}
                     <span
                       aria-hidden
-                      className={`bg-card absolute top-0.5 h-5 w-5 rounded-full transition-transform ${
-                        on ? "translate-x-5" : "translate-x-0.5"
+                      className={`bg-card absolute top-0.5 left-0.5 h-5 w-5 rounded-full transition-transform ${
+                        on ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
