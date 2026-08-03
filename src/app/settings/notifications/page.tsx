@@ -70,7 +70,9 @@ export default async function NotificationSettingsPage() {
 
   // Spec 390 — the caller's explicit channel switches (own-rows RLS). Same
   // convention: absence of a row = ON, so only enabled=false rows are read.
-  const { data: channelRows } = await supabase
+  // The error is NOT discarded: falling back to [] would render a channel the
+  // user switched OFF as ON, and hand the client floor a false disabled-set.
+  const { data: channelRows, error: channelReadError } = await supabase
     .from("notification_channel_preferences")
     .select("channel, enabled")
     .eq("enabled", false);
@@ -131,6 +133,8 @@ export default async function NotificationSettingsPage() {
           lineFriendFlag={readiness.friendFlag}
           telegramBound={readiness.telegramLinked}
           disabledChannels={disabledChannels}
+          botConfigured={Boolean(clientEnv.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME)}
+          readFailed={Boolean(channelReadError)}
         />
 
         <p className="text-ink-secondary text-meta">{NOTIF_SETTINGS_INTRO}</p>

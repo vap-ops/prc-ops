@@ -1486,6 +1486,9 @@ export const NOTIF_CHANNEL_SAVE_ERROR = "บันทึกช่องทาง
 // Shown when the user has bound nothing at all: there is no switch to render,
 // and saying so is better than an empty card.
 export const NOTIF_CHANNEL_NONE_BOUND = "ยังไม่ได้เชื่อมช่องทางใดเลย";
+// A failed read must not render as "everything is on" — that would show a
+// channel the user turned OFF as ON, and feed the client floor a false state.
+export const NOTIF_CHANNEL_READ_ERROR = "อ่านการตั้งค่าช่องทางไม่สำเร็จ กรุณารีเฟรชหน้านี้";
 
 // Spec 386 U3 — the self-serve Telegram bind row. Before this, /settings/notifications
 // rendered NOTIF_TELEGRAM_ROW only to the already-linked, so 39 of 40 users saw

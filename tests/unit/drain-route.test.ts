@@ -10,12 +10,19 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Spec 390 — the Telegram token used to be a hard `undefined` here, which meant
+// the route's whole Telegram arm was unreachable in tests: the channel filter on
+// that arm could be deleted with the entire suite still green. Hoisted + mutable
+// so a test can turn the bot on; the getter is read per request inside POST.
+const envState = vi.hoisted(() => ({ telegramToken: undefined as string | undefined }));
+
 vi.mock("@/lib/env.server", () => ({
   serverEnv: {
     LINE_MESSAGING_CHANNEL_ACCESS_TOKEN: "line-token",
     NOTIFICATION_DRAIN_SECRET: "drain-secret",
-    // Telegram intentionally unset — exercise the LINE-only path.
-    TELEGRAM_BOT_TOKEN: undefined,
+    get TELEGRAM_BOT_TOKEN() {
+      return envState.telegramToken;
+    },
   },
 }));
 
@@ -50,12 +57,13 @@ let rowUpdates: Array<{ id: unknown; values: Record<string, unknown> }> = [];
 let usersInCalls: Array<{ cols: string; ids: unknown[] }> = [];
 
 const pushLineMessageMock = vi.fn();
+const pushTelegramMessageMock = vi.fn();
 
 vi.mock("@/lib/notifications/line-push", () => ({
   pushLineMessage: (args: unknown) => pushLineMessageMock(args),
 }));
 vi.mock("@/lib/notifications/telegram-push", () => ({
-  pushTelegramMessage: vi.fn(),
+  pushTelegramMessage: (args: unknown) => pushTelegramMessageMock(args),
 }));
 
 // Admin (service-role) client mock. Only two tables are touched by this batch:
@@ -172,7 +180,15 @@ vi.mock("@/lib/db/admin", () => ({
       if (table === "notification_channel_preferences") {
         return {
           select: () => ({
-            eq: async () => ({ data: channelOffRows, error: null }),
+            // Args are CHECKED, not ignored: an arg-blind mock would serve the
+            // enabled=false fixtures even if the route flipped to .eq("enabled",
+            // true), so the test would assert nothing about the real call.
+            eq: async (col: string, value: unknown) => {
+              if (col !== "enabled" || value !== false) {
+                throw new Error(`unexpected channel-preference filter ${col}=${String(value)}`);
+              }
+              return { data: channelOffRows, error: null };
+            },
           }),
         };
       }
@@ -200,6 +216,7 @@ beforeEach(() => {
   rowUpdates = [];
   mutedPrefRows = [];
   channelOffRows = [];
+  envState.telegramToken = undefined; // default: LINE-only path, as before
   pmPoolUsers = [];
   candidateUsers = [];
   wpTableRows = [];
@@ -242,6 +259,7 @@ beforeEach(() => {
     if (text.includes("BOOM")) throw new Error("kaboom");
     return { ok: true };
   });
+  pushTelegramMessageMock.mockReset().mockResolvedValue({ ok: true });
 });
 
 describe("POST /api/notifications/drain — one poisoned row never stalls the batch", () => {
@@ -357,6 +375,47 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     await POST(drainRequest());
 
     expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  // The TELEGRAM arm needs its own cases: with the bot token unset (this file's
+  // default) that whole branch is unreachable, so the filter on it could be
+  // deleted with the suite green — half the wiring unpinned. Found by review.
+  it("a Telegram switch set to off drops the Telegram push but keeps LINE", async () => {
+    envState.telegramToken = "tg-token";
+    superUsers = [{ id: SUPER_ID, line_user_id: "Lsuper", telegram_chat_id: "tg-chat" }];
+    channelOffRows = [{ user_id: SUPER_ID, channel: "telegram" }];
+    outboxRows = [feedbackRow()];
+
+    await POST(drainRequest());
+
+    expect(pushTelegramMessageMock).not.toHaveBeenCalled();
+    expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("both channels bound and neither switched off = the duplicate this spec exists to allow, deliberately", async () => {
+    envState.telegramToken = "tg-token";
+    superUsers = [{ id: SUPER_ID, line_user_id: "Lsuper", telegram_chat_id: "tg-chat" }];
+    channelOffRows = [];
+    outboxRows = [feedbackRow()];
+
+    await POST(drainRequest());
+
+    // Default is still BOTH — the switches are opt-out, so shipping this
+    // changed nobody's delivery until they touch one.
+    expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+    expect(pushTelegramMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a LINE switch off still lets the Telegram push through", async () => {
+    envState.telegramToken = "tg-token";
+    superUsers = [{ id: SUPER_ID, line_user_id: "Lsuper", telegram_chat_id: "tg-chat" }];
+    channelOffRows = [{ user_id: SUPER_ID, channel: "line" }];
+    outboxRows = [feedbackRow()];
+
+    await POST(drainRequest());
+
+    expect(pushLineMessageMock).not.toHaveBeenCalled();
+    expect(pushTelegramMessageMock).toHaveBeenCalledTimes(1);
   });
 
   // Spec 318 U5 — the per-row project→PM glue: scoped delivery + the

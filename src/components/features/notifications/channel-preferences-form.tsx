@@ -28,7 +28,9 @@ import {
   NOTIF_CHANNEL_LINE,
   NOTIF_CHANNEL_LINE_UNREACHABLE_HINT,
   NOTIF_CHANNEL_NONE_BOUND,
+  NOTIF_CHANNEL_READ_ERROR,
   NOTIF_CHANNEL_TELEGRAM,
+  NOTIF_TELEGRAM_NOT_CONFIGURED,
 } from "@/lib/i18n/labels";
 import { GROUP_CARD } from "@/app/settings/section-card";
 import { INLINE_ERROR } from "@/lib/ui/classes";
@@ -43,11 +45,22 @@ export function NotificationChannelForm({
   lineFriendFlag,
   telegramBound,
   disabledChannels,
+  botConfigured = true,
+  readFailed = false,
 }: {
   lineBound: boolean;
   lineFriendFlag: boolean | null;
   telegramBound: boolean;
   disabledChannels: readonly NotificationChannel[];
+  /**
+   * TELEGRAM_BOT_TOKEN present. The RPC's floor CANNOT see this — it is env, not
+   * data — so this deliberately does NOT feed the floor (diverging the client
+   * predicate from the RPC is worse than an honest hint). It only labels the row,
+   * so a user is never told a channel will reach them when the bot is unset.
+   */
+  botConfigured?: boolean;
+  /** The preference read failed — see the note in the body. */
+  readFailed?: boolean;
 }) {
   const [disabled, setDisabled] = useState<Set<NotificationChannel>>(new Set(disabledChannels));
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +112,14 @@ export function NotificationChannelForm({
   return (
     <div className="flex flex-col gap-2">
       <h2 className="text-meta text-ink-secondary font-semibold">{NOTIF_CHANNEL_GROUP_HEADING}</h2>
-      {boundChannels.length === 0 ? (
+      {/* A failed read would otherwise render every switch ON — including one
+          the user had turned OFF — and hand the client floor a false
+          disabled-set. Say so instead of showing a confident wrong state. */}
+      {readFailed ? (
+        <div role="alert" className={INLINE_ERROR}>
+          {NOTIF_CHANNEL_READ_ERROR}
+        </div>
+      ) : boundChannels.length === 0 ? (
         <div className={`${GROUP_CARD} border px-4 py-3`}>
           <p className="text-ink-secondary text-meta">{NOTIF_CHANNEL_NONE_BOUND}</p>
         </div>
@@ -119,11 +139,20 @@ export function NotificationChannelForm({
               // never blocked.
               const locked = on && !canSetChannel(bindingOf(disabled), channel, false);
               const lineUnreachable = channel === "line" && lineFriendFlag === false;
-              const hint = locked
-                ? NOTIF_CHANNEL_LAST_ONE_HINT
-                : lineUnreachable
-                  ? NOTIF_CHANNEL_LINE_UNREACHABLE_HINT
-                  : null;
+              const telegramUnconfigured = channel === "telegram" && !botConfigured;
+              // Precedence: an UNREACHABLE channel's own reason wins over the
+              // floor's. Reachable state — LINE bound as a verified non-friend,
+              // Telegram bound but switched off — locks LINE, and calling it
+              // "the only channel that can reach you" is simply false: LINE 403s
+              // them. Showing the floor's reason there would hide both the truth
+              // and its fix (add the OA friend, or re-enable Telegram).
+              const hint = lineUnreachable
+                ? NOTIF_CHANNEL_LINE_UNREACHABLE_HINT
+                : telegramUnconfigured
+                  ? NOTIF_TELEGRAM_NOT_CONFIGURED
+                  : locked
+                    ? NOTIF_CHANNEL_LAST_ONE_HINT
+                    : null;
               return (
                 <div key={channel} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex min-w-0 flex-1 flex-col">

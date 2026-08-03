@@ -113,7 +113,9 @@ describe("filterChannelTargets", () => {
 });
 
 describe("NOTIFICATION_CHANNELS", () => {
-  it("is exactly the live enum, in order", () => {
+  // The DB enum itself is pinned in pgTAP (390-notification-channels.test.sql);
+  // this only fixes the TS constant's members and order.
+  it("lists exactly line and telegram, in that order", () => {
     expect(NOTIFICATION_CHANNELS).toEqual(["line", "telegram"]);
   });
 });

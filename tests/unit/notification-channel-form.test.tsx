@@ -18,6 +18,7 @@ import {
   NOTIF_CHANNEL_LAST_ONE_HINT,
   NOTIF_CHANNEL_LINE_UNREACHABLE_HINT,
   NOTIF_CHANNEL_NONE_BOUND,
+  NOTIF_TELEGRAM_NOT_CONFIGURED,
 } from "@/lib/i18n/labels";
 
 beforeEach(() => saveMock.mockReset().mockResolvedValue({ ok: true }));
@@ -107,6 +108,35 @@ describe("NotificationChannelForm", () => {
     expect(line.getAttribute("aria-disabled")).toBe("false");
     fireEvent.click(line);
     await waitFor(() => expect(saveMock).toHaveBeenCalledWith("line", true));
+  });
+
+  // Review finding: precedence used to put the FLOOR's reason first, so a bound
+  // LINE that is a verified non-friend, with Telegram switched off, rendered
+  // "the only channel that can reach you" — false, LINE 403s them — hiding both
+  // the truth and its fix.
+  it("an unreachable LINE shows ITS OWN reason even when the floor also locks it", () => {
+    render(
+      <NotificationChannelForm
+        {...dualBound}
+        lineFriendFlag={false}
+        disabledChannels={["telegram"]}
+      />,
+    );
+    const line = screen.getByRole("switch", { name: "LINE" });
+    expect(line.getAttribute("aria-disabled")).toBe("true"); // the floor does lock it
+    expect(screen.getByText(NOTIF_CHANNEL_LINE_UNREACHABLE_HINT)).toBeTruthy();
+    expect(screen.queryByText(NOTIF_CHANNEL_LAST_ONE_HINT)).toBeNull();
+  });
+
+  it("says the bot is unconfigured rather than implying Telegram will arrive", () => {
+    render(<NotificationChannelForm {...dualBound} botConfigured={false} />);
+    expect(screen.getByText(NOTIF_TELEGRAM_NOT_CONFIGURED)).toBeTruthy();
+  });
+
+  it("a failed preference read says so instead of rendering everything as ON", () => {
+    render(<NotificationChannelForm {...dualBound} disabledChannels={["line"]} readFailed />);
+    expect(screen.queryAllByRole("switch")).toHaveLength(0);
+    expect(screen.getByRole("alert").textContent).toContain("อ่านการตั้งค่าช่องทางไม่สำเร็จ");
   });
 
   it("rolls the switch back and shows the reason when the action refuses", async () => {
