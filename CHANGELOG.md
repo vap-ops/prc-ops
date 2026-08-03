@@ -1,3 +1,9 @@
+# [0.313.0](https://github.com/vap-ops/prc-ops/compare/v0.312.0...v0.313.0) (2026-08-03)
+
+### Features
+
+- spec 389 U5 — reference stars + ตัวอย่างงาน section ([#921](https://github.com/vap-ops/prc-ops/issues/921)) ([fdd83a6](https://github.com/vap-ops/prc-ops/commit/fdd83a64c9afa43d8bb44cbc05dd563b02b3f24a))
+
 # [0.312.0](https://github.com/vap-ops/prc-ops/compare/v0.311.0...v0.312.0) (2026-08-03)
 
 ### Features
