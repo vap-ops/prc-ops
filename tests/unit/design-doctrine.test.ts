@@ -274,17 +274,31 @@ describe("design doctrine (Field-First)", () => {
   // Hence a source guard — the honest instrument for a defect only real layout
   // can expose.
   it("every role=switch knob pins an explicit left- origin, never the static position", () => {
+    // ⚠️ The first version of this guard was VACUOUS and a mutation caught it:
+    // the className is a template literal whose ${...} holds quoted strings, and
+    // a `[^`"]*` window stopped at the first quote — so the matched text never
+    // contained `translate-x-` and every knob was skipped. Match the WHOLE
+    // template block instead. Comments are stripped first: the explanatory note
+    // beside the fix contains the literal `left-0.5`, so an un-stripped scan
+    // would be satisfied by the comment describing the bug.
     const offenders: string[] = [];
+    let knobsSeen = 0;
     for (const file of walkSrc(SRC).filter((f) => f.endsWith(".tsx"))) {
-      const src = readFileSync(file, "utf8");
-      if (!src.includes('role="switch"')) continue;
-      // the knob is the absolutely-positioned span inside the switch button
-      for (const m of src.matchAll(/className=\{?`?[^`"]*\babsolute\b[^`"]*`?\}?/g)) {
-        const cls = m[0];
-        if (!/\btranslate-x-/.test(cls)) continue; // only the sliding knob
-        if (!/\bleft-/.test(cls)) offenders.push(`${relative(SRC, file)} :: ${cls.slice(0, 80)}`);
+      const raw = readFileSync(file, "utf8");
+      if (!raw.includes('role="switch"')) continue;
+      const src = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      for (const m of src.matchAll(/className=\{`([\s\S]*?)`\}/g)) {
+        const cls = m[1] ?? "";
+        if (!/\babsolute\b/.test(cls) || !/\btranslate-x-/.test(cls)) continue;
+        knobsSeen += 1;
+        if (!/\bleft-/.test(cls)) {
+          offenders.push(`${relative(SRC, file)} :: ${cls.replace(/\s+/g, " ").slice(0, 90)}`);
+        }
       }
     }
+    // A scan that matched nothing is an ABORT, not a pass — the failure mode
+    // this very assertion shipped with the first time.
+    expect(knobsSeen, "the knob scan matched NOTHING — the guard is vacuous").toBeGreaterThan(0);
     expect(offenders, `switch knob(s) with no explicit left-*: ${offenders.join(" | ")}`).toEqual(
       [],
     );
