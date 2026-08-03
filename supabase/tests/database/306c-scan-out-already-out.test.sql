@@ -11,8 +11,12 @@ select plan(17);
 --
 --   ① out_at    — the real departure overwritten with the re-scan moment.
 --   ② ot_hours  — an `ot` session is RE-PRICED from now() − in_at, so OT
---                 INFLATES on every extra scan. OT is ×1.5 into labour
---                 derivation, which makes this a money bug, not a data nit.
+--                 INFLATES on every extra scan. ⚠️ Display-only TODAY:
+--                 derive_muster_labor does not read ot_hours and there is no
+--                 ×1.5 anywhere (OT costing is deferred to 306 U5b). An earlier
+--                 draft of this file called it a money bug — it is not, yet. It
+--                 is a false number on the worker's own attendance screen that
+--                 turns into wrong money the day U5b prices it.
 --   ③ out_auto  — flips to false, silently converting an auto-closed day into
 --                 a recorded departure and erasing the ปิดอัตโนมัติ signal that
 --                 spec 388 U2 renders to the worker themselves.
@@ -133,7 +137,7 @@ set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-306c-306c-306c-700000000306"}';
 select throws_ok(
   $$ select public.muster_scan_out((select id from _ids where k = 'team'),
-       'e2000000-306c-306c-306c-e20000000306', 'qr') $$,
+       'e2000000-306c-306c-306c-e20000000306', 'manual') $$,
   'P0001',
   null,
   'a SECOND scan-out on the same session is refused');
@@ -146,11 +150,17 @@ select is(
   (select v from _ts where k = 'regular_out'),
   'out_at is byte-identical after the refusal — the real departure survived');
 
-select ok(
-  (select out_auto from public.muster_attendance
+-- out_method, the FOURTH value the unguarded update rewrote. The second scan
+-- above passed a DIFFERENT method on purpose ('manual' vs the original 'qr') —
+-- an assertion that both are 'qr' would pass with or without the guard, which is
+-- what the first draft of this file did with out_auto here (the unguarded body
+-- writes out_auto = false on the second scan too, so it could not fail).
+select is(
+  (select out_method::text from public.muster_attendance
     where worker_id = 'e2000000-306c-306c-306c-e20000000306'
-      and work_date = current_date and session = 'regular') = false,
-  'a genuinely scanned-out row keeps out_auto false');
+      and work_date = current_date and session = 'regular'),
+  'qr',
+  'out_method still records how they ACTUALLY left, not the refused re-scan');
 
 -- ============================================================================
 -- C. ② ot_hours — the money half. An OT re-scan would RE-PRICE the span.
@@ -279,11 +289,13 @@ select throws_like(
        'e2000000-306c-306c-306c-e20000000306', 'qr') $$,
   '%already checked out%',
   'the message says already checked out (the substring the Thai copy keys on)');
-select throws_ok(
+-- Match the MESSAGE, not just the errcode: both refusals raise P0001, so an
+-- errcode-only assertion proves nothing about WHICH arm fired — which is the
+-- entire point of this case.
+select throws_like(
   $$ select public.muster_scan_out((select id from _ids where k = 'team'),
        'e9999999-306c-306c-306c-e90000000306', 'qr') $$,
-  'P0001',
-  null,
+  '%no attendance%',
   'an unknown worker still reports the no-attendance refusal, not the new one');
 reset role;
 
@@ -292,13 +304,24 @@ reset role;
 --    function SOURCE because two concurrent transactions cannot be driven from
 --    one pgTAP session: this is the one property the behavioural tests above
 --    structurally cannot reach.
+--
+--    ⚠️ COMMENTS STRIPPED FIRST. pg_get_functiondef returns the body INCLUDING
+--    its comments, and this function's comments explain the `for update` and the
+--    `out_at is not null` guard by name — so a bare ilike is satisfied by the
+--    prose alone. Deleting the real clause and keeping the comment would leave
+--    both assertions green and the TOCTOU wide open: documenting the hazard
+--    would have stood in for fixing it. Anchored to the statement they belong to
+--    as well, so a `for update` somewhere else in the body cannot answer for the
+--    one on the attendance read.
 -- ============================================================================
 select ok(
-  pg_get_functiondef('public.muster_scan_out'::regproc) ilike '%for update%',
+  regexp_replace(pg_get_functiondef('public.muster_scan_out'::regproc), '--[^\n]*', '', 'g')
+    ilike '%and session = p_session%for update%',
   'the attendance row is locked FOR UPDATE, so the guard cannot be raced');
 
 select ok(
-  pg_get_functiondef('public.muster_scan_out'::regproc) ilike '%out_at is not null%',
+  regexp_replace(pg_get_functiondef('public.muster_scan_out'::regproc), '--[^\n]*', '', 'g')
+    ilike '%v_att.out_at is not null%',
   'and the refusal keys on out_at, not on a proxy the caller controls');
 
 select * from finish();

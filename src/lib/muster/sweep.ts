@@ -54,8 +54,11 @@ export type SweepOutcomeKind =
   // ---- Spec 359 U4, the resolved directions ----------------------------------
   /** Regular session closed by this scan. */
   | "checked_out"
-  /** Their check-out already happened. NO write — `muster_scan_out` would
-   *  overwrite `out_at` with now(), replacing a real time with this scan's. */
+  /** Their check-out already happened. NO write — a second one would replace a
+   *  real departure with this scan's time. Spec 306 §5: `muster_scan_out` now
+   *  REFUSES that itself, so this classification is the fast path rather than
+   *  the only defence; a stale board reaches the same outcome via the server's
+   *  refusal (see `markAlreadyClosed`). */
   | "already_out"
   /** No session on today's board, so there is nothing to close or extend. */
   | "not_checked_in"
@@ -224,8 +227,14 @@ export function classifyScan(
 
 // Spec 359 U4 — check-out, OT-in and OT-out. Each writes against the worker's own
 // team, and each refuses rather than repeat a write that would DESTROY a value:
-// `muster_scan_out` overwrites `out_at` with now() (no already-out guard), and a
-// closed OT carries the `ot_hours` its span priced and can never be reopened.
+// a second check-out replaces `out_at` with now(), and a closed OT carries the
+// `ot_hours` its span priced and can never be reopened.
+//
+// ⚠️ Spec 306 §5 (2026-08-03): `muster_scan_out` now carries its own already-out
+// guard, so this is no longer the LAST line of defence — it is the one that
+// keeps a pointless round-trip and a scary chip off the SA's screen. Both routes
+// land on the same outcome; do not "simplify" either away on the grounds that
+// the other exists.
 function classifyResolved(
   ctx: SweepContext,
   workerId: string,
@@ -375,6 +384,32 @@ export function markUndone(state: SweepState, seq: number): SweepState {
       e.seq === seq ? { ...e, outcome: "undone" as const, detail: null } : e,
     ),
     addedIds: state.addedIds.filter((id) => id !== target.workerId),
+  };
+}
+
+/**
+ * Spec 306 §5 — re-kind an entry whose write the SERVER refused as already
+ * closed. Deliberately NOT `failed`, for the same reason `undone` is not: the
+ * red refusal chip and the error cue would tell the SA there is something to
+ * deal with, when the state she wanted is the state that exists.
+ *
+ * `classifyScan` already answers `already_out` / `ot_already_closed` without
+ * writing — but only when the board is FRESH. It refreshes on sheet close, so
+ * during a sweep (and right after a partial close-day cure) it is stale by
+ * construction, and the refusal arrives from the server instead. This keeps both
+ * routes landing on the same outcome, which is what the taxonomy promises.
+ */
+export function markAlreadyClosed(
+  state: SweepState,
+  workerId: string,
+  kind: Extract<SweepOutcomeKind, "already_out" | "ot_already_closed">,
+): SweepState {
+  const idx = state.entries.findIndex((e) => e.workerId === workerId);
+  if (idx === -1) return state;
+  return {
+    ...state,
+    entries: state.entries.map((e, i) => (i === idx ? { ...e, outcome: kind, detail: null } : e)),
+    addedIds: state.addedIds.filter((id) => id !== workerId),
   };
 }
 

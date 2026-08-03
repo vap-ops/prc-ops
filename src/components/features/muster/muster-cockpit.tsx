@@ -29,6 +29,7 @@ import {
   EMPTY_SWEEP,
   classifyScan,
   isCoolingDown,
+  markAlreadyClosed,
   markFailed,
   markMoved,
   markUndone,
@@ -345,6 +346,20 @@ export function MusterCockpit({
         revalidate,
       });
       if (res.ok) return;
+      // Spec 306 §5 — muster_scan_out now REFUSES a duplicate check-out instead
+      // of overwriting the real one. That refusal is benign here: the board this
+      // sweep classified against refreshes only on sheet close, so a session
+      // closed in another tab (or by this SA's own earlier partial cure) still
+      // reads open, and the server is the first to know. Route it to the same
+      // outcome `classifyScan` would have produced on a fresh board, rather than
+      // a red chip and an error sound for a state that is already correct.
+      if (!res.ok && res.reason === "already_out") {
+        const kind = action.session === "ot" ? "ot_already_closed" : "already_out";
+        addedRef.current.delete(workerId);
+        if (gen === sweepGenRef.current) setSweep((s) => markAlreadyClosed(s, workerId, kind));
+        playScanCue(kind);
+        return;
+      }
       playScanCue("failed");
       if (gen !== sweepGenRef.current) {
         // The sweep that issued this write is over. Its tally is gone, so the
@@ -532,10 +547,15 @@ export function MusterCockpit({
       if (!cure.ok) {
         // A PARTIAL cure is the dangerous state: some OT sessions did close, and
         // the board does not know yet. `run` only refreshes on success, so without
-        // this the confirm would still list them — and a second tap would re-run
-        // `muster_scan_out` over rows that are already out, overwriting their real
-        // out time with now() (the RPC has no already-out guard). Refresh first,
-        // then report: the retry must see a truthful list.
+        // this the confirm would still list them, and the retry would work from a
+        // list that lies. Refresh first, then report.
+        //
+        // ⚠️ Spec 306 §5 (2026-08-03): `muster_scan_out` now REFUSES an already-out
+        // row instead of overwriting it, so a stale retry no longer destroys the
+        // real out time — and `closeOpenOt` treats that refusal as success for
+        // that session, because the cure's postcondition is "no OT left open".
+        // The refresh still matters (the SA must see a truthful list), but it is
+        // no longer the only thing standing between a re-tap and data loss.
         router.refresh();
         return cure;
       }

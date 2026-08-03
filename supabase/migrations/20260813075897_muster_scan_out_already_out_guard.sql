@@ -10,8 +10,17 @@
 --
 --   ① out_at    the real departure, overwritten with the moment of the re-scan.
 --   ② ot_hours  an `ot` session is RE-PRICED from now() − in_at, so overtime
---               INFLATES on every extra scan. OT is ×1.5 into labour
---               derivation, which makes this a money bug.
+--               INFLATES on every extra scan.
+--               ⚠️ NOT a money bug TODAY, and an earlier draft of this header
+--               said it was. Checked live: derive_muster_labor does not read
+--               ot_hours and carries no ×1.5 — OT costing is deferred to spec
+--               306 U5b (see 20260813075848). Every current consumer is
+--               DISPLAY: attendance-month, attendance-sessions,
+--               attendance-audit, load-muster, get_my_attendance. So an
+--               inflated value is a lie on a worker's own screen now, and
+--               becomes wrong MONEY the day U5b starts pricing it — which is
+--               worse, because by then the inflation is historical and
+--               unattributable.
 --   ③ out_auto  flipped to false, converting an auto-closed day into a recorded
 --               departure and erasing the ปิดอัตโนมัติ signal — which spec 388 U2
 --               now renders to the WORKER, on their own attendance screen.
