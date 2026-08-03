@@ -1,3 +1,13 @@
+# [0.317.0](https://github.com/vap-ops/prc-ops/compare/v0.316.1...v0.317.0) (2026-08-03)
+
+### Bug Fixes
+
+- **nav:** address spec 388 U3 review findings ([422f67b](https://github.com/vap-ops/prc-ops/commit/422f67bc657b6c9f04a1b9f298758a700edde16e))
+
+### Features
+
+- **technician:** the bar goes 3 tabs to 2 (spec 388 U3) ([78e478a](https://github.com/vap-ops/prc-ops/commit/78e478a8ac404a86505af20603bd6581bc7a007f))
+
 ## [0.316.1](https://github.com/vap-ops/prc-ops/compare/v0.316.0...v0.316.1) (2026-08-03)
 
 ### Bug Fixes
