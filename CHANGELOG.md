@@ -1,3 +1,9 @@
+## [0.316.1](https://github.com/vap-ops/prc-ops/compare/v0.316.0...v0.316.1) (2026-08-03)
+
+### Bug Fixes
+
+- notification switch knob rendered outside its track ([fd6b5f3](https://github.com/vap-ops/prc-ops/commit/fd6b5f347daf425d3f70f7b9e62a1fb42948092b))
+
 # [0.316.0](https://github.com/vap-ops/prc-ops/compare/v0.315.0...v0.316.0) (2026-08-03)
 
 ### Features
