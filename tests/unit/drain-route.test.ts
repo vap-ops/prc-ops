@@ -34,6 +34,8 @@ let outboxRows: OutboxRow[] = [];
 let superUsers: PoolUser[] = [];
 // Spec 318 U3 — enabled=false preference rows served to the drain's mute fetch.
 let mutedPrefRows: Array<{ user_id: string; event_type: string }> = [];
+// Spec 390 — enabled=false CHANNEL rows served to the drain's channel fetch.
+let channelOffRows: Array<{ user_id: string; channel: "line" | "telegram" }> = [];
 // Spec 318 U5 — project-scoped PM fanout fixtures.
 type PoolUserWithRole = PoolUser & { role: string };
 let pmPoolUsers: PoolUserWithRole[] = [];
@@ -165,6 +167,15 @@ vi.mock("@/lib/db/admin", () => ({
           }),
         };
       }
+      // Spec 390 — per-CHANNEL switches (enabled=false rows). NOT scoped by
+      // event type: the preference is per-user, so this terminates at .eq().
+      if (table === "notification_channel_preferences") {
+        return {
+          select: () => ({
+            eq: async () => ({ data: channelOffRows, error: null }),
+          }),
+        };
+      }
       throw new Error(`unexpected table ${table}`);
     },
   }),
@@ -188,6 +199,7 @@ function drainRequest(): NextRequest {
 beforeEach(() => {
   rowUpdates = [];
   mutedPrefRows = [];
+  channelOffRows = [];
   pmPoolUsers = [];
   candidateUsers = [];
   wpTableRows = [];
@@ -281,6 +293,70 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     expect(pushLineMessageMock).not.toHaveBeenCalled();
     const byId = new Map(rowUpdates.map((u) => [u.id, u.values]));
     expect(byId.get(OK_ID)).toMatchObject({ status: "sent" });
+  });
+
+  // Spec 390 — the per-CHANNEL switch, applied at the drain.
+  //
+  // These exist because a mutation proved the wiring had NO behavioural
+  // coverage: deleting `filterChannelTargets` from the LINE arm left every
+  // other test in the suite green, so the duplicate this unit removes could
+  // come straight back unnoticed.
+  function feedbackRow() {
+    return {
+      id: OK_ID,
+      event_type: "feedback_submitted",
+      work_package_id: null,
+      purchase_request_id: null,
+      payload: {
+        feedback_type: "feature" as const,
+        role_snapshot: "project_manager",
+        feedback_title: "OK",
+      },
+      attempts: 0,
+    };
+  }
+
+  it("a LINE switch set to off drops the LINE push for that user", async () => {
+    channelOffRows = [{ user_id: SUPER_ID, channel: "line" }];
+    outboxRows = [feedbackRow()];
+
+    const response = await POST(drainRequest());
+
+    expect(pushLineMessageMock).not.toHaveBeenCalled();
+    // recipientCount reaches 0, so the row is consumed rather than retried —
+    // an intentional drop, exactly like a mute.
+    expect(await response.json()).toMatchObject({ processed: 1, failed: 0 });
+    const byId = new Map(rowUpdates.map((u) => [u.id, u.values]));
+    expect(byId.get(OK_ID)).toMatchObject({ status: "sent" });
+  });
+
+  it("a switch off for the OTHER channel leaves the LINE push alone", async () => {
+    // Guards the mirror-image mistake: keying the filter on the wrong channel
+    // would silence a user who only ever turned Telegram off.
+    channelOffRows = [{ user_id: SUPER_ID, channel: "telegram" }];
+    outboxRows = [feedbackRow()];
+
+    await POST(drainRequest());
+
+    expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a switch belonging to a DIFFERENT user does not suppress delivery", async () => {
+    channelOffRows = [{ user_id: BOOM_ID, channel: "line" }];
+    outboxRows = [feedbackRow()];
+
+    await POST(drainRequest());
+
+    expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("no channel rows at all = everyone still receives — absence of a row is ON", async () => {
+    channelOffRows = [];
+    outboxRows = [feedbackRow()];
+
+    await POST(drainRequest());
+
+    expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
   });
 
   // Spec 318 U5 — the per-row project→PM glue: scoped delivery + the
