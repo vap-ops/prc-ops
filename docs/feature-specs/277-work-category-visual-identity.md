@@ -50,17 +50,22 @@ Grounding (research 2026-07-07):
 
 ## The identity (firm-wide, fixed)
 
-| Code | Letter | Color token      | lucide icon   | หมวดงาน (name_th)    |
-| ---- | :----: | ---------------- | ------------- | -------------------- |
-| W01  | **P**  | `cat-w01` slate  | `Hammer`      | เตรียมการ & รื้อถอน  |
-| W02  | **S**  | `cat-w02` indigo | `Frame`       | โครงสร้าง            |
-| W03  | **A**  | `cat-w03` teal   | `PaintRoller` | สถาปัตยกรรม          |
-| W04  | **W**  | `cat-w04` blue   | `Droplets`    | ประปา & สุขาภิบาล    |
-| W05  | **E**  | `cat-w05` gold   | `Zap`         | ไฟฟ้า & สื่อสาร      |
-| W06  | **C**  | `cat-w06` cyan   | `Wind`        | ปรับ/ระบายอากาศ      |
-| W07  | **G**  | `cat-w07` pink   | `Signpost`    | ป้าย                 |
-| W08  | **X**  | `cat-w08` green  | `TreePine`    | ภายนอก & ผังบริเวณ   |
-| W09  | **F**  | `cat-w09` purple | `Sofa`        | ครุภัณฑ์ & เพิ่มเติม |
+| Code | Letter | Color token       | lucide icon   | หมวดงาน (name_th)    |
+| ---- | :----: | ----------------- | ------------- | -------------------- |
+| W01  | **P**  | `cat-w01` slate   | `Hammer`      | เตรียมการ & รื้อถอน  |
+| W02  | **S**  | `cat-w02` indigo  | `Frame`       | โครงสร้าง            |
+| W03  | **A**  | `cat-w03` teal    | `PaintRoller` | สถาปัตยกรรม          |
+| W04  | **W**  | `cat-w04` blue    | `Droplets`    | ประปา & สุขาภิบาล    |
+| W05  | **E**  | `cat-w05` gold    | `Zap`         | ไฟฟ้า & สื่อสาร      |
+| W06  | **C**  | `cat-w06` cyan    | `Wind`        | ปรับ/ระบายอากาศ      |
+| W07  | **G**  | `cat-w07` pink    | `Signpost`    | ป้าย                 |
+| W08  | **X**  | `cat-w08` green   | `TreePine`    | ภายนอก & ผังบริเวณ   |
+| W09  | **F**  | `cat-w09` purple  | `Sofa`        | ครุภัณฑ์ & เพิ่มเติม |
+| W10  | **M**  | `cat-w10` taupe   | `Shapes`      | อื่นๆ                |
+| W11  | **Y**  | `cat-w11` magenta | `ShieldCheck` | ระบบความปลอดภัย      |
+
+W10/W11 were seeded by spec 389 and given their identity on 2026-08-03 (U1b) — see the
+status note at the top of this file for why the type system did not catch the gap.
 
 Letters chosen from the English gloss, none in the OCR-confusable set (no I/O/L/1/0);
 HVAC = **C** (not V) so it can't be misread as **W** (Water). Colors are theme-invariant
