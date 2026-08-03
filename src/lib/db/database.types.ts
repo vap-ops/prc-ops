@@ -4091,6 +4091,35 @@ export type Database = {
           },
         ]
       }
+      notification_channel_preferences: {
+        Row: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          enabled: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_channel_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_outbox: {
         Row: {
           attempts: number
@@ -11329,6 +11358,10 @@ export type Database = {
           vat: number
         }[]
       }
+      reachable_notification_channels: {
+        Args: { p_user: string }
+        Returns: Database["public"]["Enums"]["notification_channel"][]
+      }
       reap_stale_reports: {
         Args: { p_max_age_minutes?: number }
         Returns: number
@@ -11799,6 +11832,13 @@ export type Database = {
       }
       set_muster_team_wps: {
         Args: { p_team: string; p_wp_ids: string[] }
+        Returns: undefined
+      }
+      set_notification_channel_preference: {
+        Args: {
+          p_channel: Database["public"]["Enums"]["notification_channel"]
+          p_enabled: boolean
+        }
         Returns: undefined
       }
       set_notification_preference: {
@@ -12756,6 +12796,7 @@ export type Database = {
       money_review_verified_via: "reviewer" | "agent"
       muster_method: "qr" | "manual"
       muster_session: "regular" | "ot"
+      notification_channel: "line" | "telegram"
       notification_event_type:
         | "wp_pending_approval"
         | "wp_decision"
@@ -13234,6 +13275,7 @@ export const Constants = {
       money_review_verified_via: ["reviewer", "agent"],
       muster_method: ["qr", "manual"],
       muster_session: ["regular", "ot"],
+      notification_channel: ["line", "telegram"],
       notification_event_type: [
         "wp_pending_approval",
         "wp_decision",

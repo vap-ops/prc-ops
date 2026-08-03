@@ -31,5 +31,12 @@
       "to": "WP-279",
       "reason": "…พื้นลานด้านหลังอาคาร — same fill-down error; Vol.4 row 276 sits between two WP-279 พื้นลานด้านหลัง rows."
     }
+  },
+  "name": {
+    "WP-474": {
+      "to": "งานติดตั้งลูกปูนหนุนเหล็กชุดบ่อบำบัด",
+      "from": "งานติดตั้งลูกปูนหนุนเหล็กตอม่ออาคาร",
+      "reason": "Copy-paste from WP-473 (the ตอม่ออาคาร row in the ฐานราก group), which still carries that name verbatim. This row lives in ชุดบ่อบำบัด, between งานวางเหล็กเสริม คลส. ชุดบ่อบำบัด and งานเข้าแบบชุดบ่อบำบัด — it is the ลูกปูน under THAT rebar. All 21 ลูกปูน rows name the element they support (คานคอนกรีตอาคาร / ฐานรากอาคาร / ตอม่ออาคาร / Drop Panel / ฐานราก Tower / ไวร์เมช<พื้น> …), so the element here is ชุดบ่อบำบัด."
+    }
   }
 }
