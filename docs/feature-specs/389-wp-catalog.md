@@ -225,3 +225,12 @@ U1+U2); U5 is only USEFUL after U4 maps โพธิ์ทอง (the photos all
     out of U1–U3 (shared-SSOT + design-token surface, its own small unit).
   - The seed script is upsert-only: a code dropped from a later sheet revision keeps its
     `is_active` row; retirement is a manual curation step, stated in the script header.
+  - **U5 shipped the ⭐ on the REVIEW page only (recorded narrowing, 2026-08-03):** the WP
+    detail page renders the capture zone for site staff and plain galleries for read-only
+    viewers (`procurement` tier) — neither is a PD curation surface; PD reviews photos on
+    `/review/work-packages/[id]`, so the toggle lives there. §6's star acceptance measures
+    the review surface. The star-note writer (p_note) has no UI yet — notes render when a
+    later unit adds one.
+  - **Reference tiles are markup-free by design:** photo markup (spec 51) is
+    source-project-scoped RLS; enabling it on cross-project reference tiles would offer a
+    compose panel whose save can only fail. Pinned by test.

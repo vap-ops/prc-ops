@@ -86,6 +86,7 @@ import { WpDetailTabs, type WpDetailTab } from "@/components/features/work-packa
 import type { PurchaseRequestCatalogItem } from "@/components/features/purchasing/purchase-request-form";
 import type { WpIssueRow, WpStockRow } from "@/components/features/store/wp-issue-stock";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
+import { ReferencePhotoSection } from "@/components/features/wp-catalog/reference-photo-section";
 import {
   canCaptureAfterFix,
   canDeleteWpPhotos,
@@ -693,12 +694,16 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
     {
       key: "photos",
       label: "รูปถ่าย",
+      // Spec 389 U5 — ตัวอย่างงาน: PD-starred reference photos of this WP's
+      // work-type from ALL projects, above the WP's own photos. Renders
+      // nothing when the WP is unmapped or nothing is starred.
       panel: readOnly ? (
         // Spec 171: procurement views the photos read-only — the PM-side gallery,
         // not the capture zone (which owns the thumb-anchored shutter bar).
         // Spec 216: lifecycle phases first, then one หลังแก้ไข section per rework
         // round (each with the defect reason that opened it) — only when reworked.
         <div className="flex flex-col gap-5">
+          <ReferencePhotoSection wpCatalogItemId={wp.wp_catalog_item_id} />
           {PHASES.filter(({ phase }) => phase !== "after_fix").map(({ phase, label }) => (
             <PhaseGallery
               key={phase}
@@ -745,24 +750,27 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             : null}
         </div>
       ) : (
-        <PhotoCaptureZone
-          projectId={wp.project_id}
-          workPackageId={wp.id}
-          userId={ctx.id}
-          phases={phaseData}
-          currentPhase={currentPhase}
-          showAfterFixCapture={showAfterFixCapture}
-          showAfterFixHistory={showAfterFixHistory}
-          currentReworkRound={wp.rework_round}
-          defectPairs={defectPairSlots}
-          removedTrace={removedTrace}
-          canDelete={canDeleteWpPhotos({
-            status: wp.status,
-            latestDecision: latestDecision?.decision ?? null,
-            // Spec 291 amendment: answering the ask re-freezes the set.
-            revisionAnswered: latestDecision ? answeredDecisionIds.has(latestDecision.id) : false,
-          })}
-        />
+        <div className="flex flex-col gap-5">
+          <ReferencePhotoSection wpCatalogItemId={wp.wp_catalog_item_id} />
+          <PhotoCaptureZone
+            projectId={wp.project_id}
+            workPackageId={wp.id}
+            userId={ctx.id}
+            phases={phaseData}
+            currentPhase={currentPhase}
+            showAfterFixCapture={showAfterFixCapture}
+            showAfterFixHistory={showAfterFixHistory}
+            currentReworkRound={wp.rework_round}
+            defectPairs={defectPairSlots}
+            removedTrace={removedTrace}
+            canDelete={canDeleteWpPhotos({
+              status: wp.status,
+              latestDecision: latestDecision?.decision ?? null,
+              // Spec 291 amendment: answering the ask re-freezes the set.
+              revisionAnswered: latestDecision ? answeredDecisionIds.has(latestDecision.id) : false,
+            })}
+          />
+        </div>
       ),
     },
     // Spec 363 U4 merge — คำขอซื้อ, เบิกของ and ค่าใช้จ่ายหน้างาน are DELETED here.

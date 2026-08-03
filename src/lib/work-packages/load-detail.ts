@@ -43,6 +43,8 @@ type WpRow = Pick<
   | "category_id"
   // Spec 216: the current rework cycle — the หลังแก้ไข tile captures into it.
   | "rework_round"
+  // Spec 389 U5: the work-type identity — feeds the ตัวอย่างงาน section.
+  | "wp_catalog_item_id"
 >;
 type ContractorRow = Pick<
   Tbl["contractors"]["Row"],
@@ -120,7 +122,7 @@ export async function loadWorkPackageDetail(
   const { data: wp } = await supabase
     .from("work_packages")
     .select(
-      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end, deliverable_id, category_id, rework_round",
+      "id, code, name, status, project_id, description, contractor_id, notes, priority, planned_start, planned_end, deliverable_id, category_id, rework_round, wp_catalog_item_id",
     )
     .eq("id", workPackageId)
     .maybeSingle();

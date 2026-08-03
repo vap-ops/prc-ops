@@ -77,7 +77,9 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const { data: wp } = await supabase
     .from("work_packages")
     // Spec 301 U1: + category_id for the letter-code chip reconcile.
-    .select("id, code, name, status, project_id, rework_round, category_id")
+    // Spec 389 U5: + wp_catalog_item_id — starring is only offered on a
+    // catalogue-mapped WP (the star RPC refuses an unmapped one with 22023).
+    .select("id, code, name, status, project_id, rework_round, category_id, wp_catalog_item_id")
     .eq("id", workPackageId)
     .maybeSingle();
 
@@ -136,6 +138,31 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     ...photosByPhase.defect,
   ];
   const signedUrls = await mintSignedUrlsForPhotos(allPhotos);
+
+  // Spec 389 U5 — the reference-star toggle: PD tier only (matches the RPC's
+  // gate exactly — affordance == action == RPC), and only on a mapped WP.
+  // The star table is authenticated-readable, so the starred set is a plain read.
+  const canStar =
+    (ctx.role === "project_director" || ctx.role === "super_admin") &&
+    wp.wp_catalog_item_id !== null;
+  let starredPhotoIds: string[] = [];
+  if (canStar && allPhotos.length > 0) {
+    const { data: starRows } = await supabase
+      .from("wp_catalog_reference_photos")
+      .select("photo_log_id")
+      // scoped to the WP's CURRENT item: after a re-map, a stale star on the
+      // old item must not render as "starred" here (un-star would then delete
+      // another item's curation — the §7 star-stranding hazard)
+      .eq("wp_catalog_item_id", wp.wp_catalog_item_id as string)
+      .in(
+        "photo_log_id",
+        allPhotos.map((p) => p.id),
+      );
+    starredPhotoIds = (starRows ?? []).map((r) => r.photo_log_id);
+  }
+  const starring = canStar
+    ? { projectId: wp.project_id, workPackageId: wp.id, starredPhotoIds }
+    : undefined;
 
   // Spec 372 U4b — what `รูปไม่ตรงกับงาน` can point at. Built from the CURRENT photos
   // this page already loaded (getCurrentPhotosForWorkPackage has done the ADR 0009
@@ -356,6 +383,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 photos={photosByPhase[phase]}
                 signedUrls={signedUrls}
                 uploaderNames={displayNames}
+                starring={starring}
               />
             ))}
             {/* Spec 248 — PRIOR rounds' defect evidence (history context).
@@ -374,6 +402,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                   photos={photos}
                   signedUrls={signedUrls}
                   uploaderNames={displayNames}
+                  starring={starring}
                   note={reworkReasons.get(round) ?? null}
                 />
               ))}
@@ -393,6 +422,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                     photos={photos}
                     signedUrls={signedUrls}
                     uploaderNames={displayNames}
+                    starring={starring}
                     note={reworkReasons.get(round) ?? null}
                   />
                 ))

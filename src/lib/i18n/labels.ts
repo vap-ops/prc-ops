@@ -72,6 +72,9 @@ export const TRADE_ERROR_BY_MESSAGE: Record<string, string> = {
 // portals, and coming-soon (S11, session investigation 2026-07-15).
 export const MY_INFO_LABEL = "ข้อมูลของฉัน";
 export const PROFILE_LABEL = "โปรไฟล์";
+// Spec 389 U5 — the cross-project reference-photo section + the star toggle
+// both name the concept.
+export const REFERENCE_EXAMPLES_LABEL = "ตัวอย่างงาน";
 
 // Spec 321 U7 — approved-tier profile-change copy, single-sourced so every
 // audience shows one uniform waiting banner + success toast + approver subtitle

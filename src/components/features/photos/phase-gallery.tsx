@@ -7,6 +7,7 @@
 import { Check } from "lucide-react";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
+import { ReferenceStarButton } from "@/components/features/wp-catalog/reference-star-button";
 import { latestCreatedAt } from "@/lib/photos/phases";
 import type { PhotoLogRow } from "@/lib/photos/current-photos";
 import { formatThaiTime } from "@/lib/i18n/labels";
@@ -21,6 +22,18 @@ interface PhaseGalleryProps {
   /** Spec 216: an optional sub-line under the label — used by the per-round
    *  หลังแก้ไข sections to show the defect reason that opened that round. */
   note?: string | null;
+  /** Spec 389 U5 — the PD-tier reference-star toggle. Absent (the default) on
+   *  every other surface: the REVIEW page passes it, only for PD-tier roles on
+   *  a catalogue-mapped WP (the WP-detail page renders galleries for read-only
+   *  viewers and the capture zone for site staff — neither is a PD curation
+   *  surface; narrowing recorded in spec §7). */
+  starring?:
+    | {
+        projectId: string;
+        workPackageId: string;
+        starredPhotoIds: ReadonlyArray<string>;
+      }
+    | undefined;
 }
 
 export function PhaseGallery({
@@ -29,6 +42,7 @@ export function PhaseGallery({
   signedUrls,
   uploaderNames,
   note,
+  starring,
 }: PhaseGalleryProps) {
   const hasPhotos = photos.length > 0;
   const latest = latestCreatedAt(photos);
@@ -92,6 +106,14 @@ export function PhaseGallery({
                 const uploaderName = uploaderNames.get(p.uploaded_by) ?? null;
                 return (
                   <li key={p.id} className={PHOTO_STRIP_TILE}>
+                    {starring && url ? (
+                      <ReferenceStarButton
+                        projectId={starring.projectId}
+                        workPackageId={starring.workPackageId}
+                        photoId={p.id}
+                        starred={starring.starredPhotoIds.includes(p.id)}
+                      />
+                    ) : null}
                     {url ? (
                       <ZoomablePhoto
                         src={url}
