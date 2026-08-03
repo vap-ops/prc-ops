@@ -607,12 +607,9 @@ describe("BottomTabBar — SA โครงการ tab direct-resolve (spec 376
 
 // Writing failing test first.
 //
-// Spec 376 U3 (D3) — the technician arm. `tabsForRole("technician")` returned
-// null, so a ช่าง navigated one long scroll page with no bar at all (13 views /
-// 14d, spec §1). Three tabs now: the daily home, the new ประวัติ money route,
-// and the universal profile. The ประวัติ href lives UNDER /technician, so the
-// longest-prefix rule is what keeps exactly one tab lit on it.
-// Writing failing test first.
+// Spec 376 U3 (D3) gave the technician arm its first bar — `tabsForRole` had
+// returned null, so a ช่าง navigated one long scroll page with no chrome at all
+// (13 views / 14d, 376 §1).
 //
 // Spec 388 U3 (D1): the 3-tab set of spec 376 U3 becomes two. What matters
 // behaviourally is not the count but that NOTHING went dark: every route the

@@ -126,13 +126,23 @@ describe("spec 388 U3 — every nav-rendering role has a /settings door", () => 
   // /settings/company-docs — so an equality check here would go green if
   // technician were handed a /settings/my-info item while the property this
   // describe pins ("no way into the settings hub from the ช่าง's nav") stayed false.
+  // ⭐ Spec 388 U3: this used to be `tabs.some(…) || hubNav.some(…)`, and the ||
+  // is a hole the size of one surface. The bar is `sm:hidden`; the strip is
+  // desktop-only. A role holding the door on ONE of them has no door on the
+  // other device, and the || reads that as covered — proven by mutation while
+  // building this unit: ripping SETTINGS_TAB out of TECHNICIAN_TABS left the
+  // exact-set pin below GREEN, because the strip still satisfied it. Since the
+  // describe's NAME claims every nav-rendering role HAS a door, the predicate
+  // must mean it per surface, or the name is the lie (honest-copy, applied to a
+  // test). A role that renders only ONE surface is judged on that one.
   const hasSettingsDoor = (role: string) => {
     const reachesHub = (href: string) =>
       href === SETTINGS_HREF || href.startsWith(`${SETTINGS_HREF}/`);
-    return (
-      (tabsForRole(role) ?? []).some((t) => reachesHub(t.href)) ||
-      (hubNavForRole(role) ?? []).some((i) => reachesHub(i.href))
-    );
+    const tabs = tabsForRole(role);
+    const strip = hubNavForRole(role);
+    const onTabs = tabs === null || tabs.some((t) => reachesHub(t.href));
+    const onStrip = strip === null || strip.some((i) => reachesHub(i.href));
+    return onTabs && onStrip;
   };
 
   it("has a meaningful nav-rendering role set (guards against the filter emptying)", () => {
@@ -206,8 +216,11 @@ describe("spec 388 U3 — /technician/history keeps a door after leaving the bar
   it("the row is labelled from the shared constant, not a literal", () => {
     // ATTENDANCE_OWN_LABEL already names this page (it is the route's own
     // metadata title), so the row and the destination cannot drift apart.
+    // EXACT, not a ≥2 floor: 2 = the import PLUS the one render. A floor counts
+    // the import as one of its two, so import + any stray mention satisfies it —
+    // which is the very trap the preamble above claims these pins avoid.
     const code = codeOf("technician", "page.tsx");
-    expect(code.split("ATTENDANCE_OWN_LABEL").length - 1).toBeGreaterThanOrEqual(2);
+    expect(code.split("ATTENDANCE_OWN_LABEL").length - 1).toBe(2);
   });
 
   it("and the page chips back to the home it is now reached from", () => {
