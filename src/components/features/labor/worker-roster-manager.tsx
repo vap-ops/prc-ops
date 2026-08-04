@@ -573,7 +573,11 @@ function WorkerRow({
     // same press, and half-saving a record the user is about to correct is worse than
     // asking them to press again.
     const typedTaxId = taxId.trim();
-    if (typedTaxId !== "" && typedTaxId !== (worker.tax_id ?? "").trim()) {
+    if (typedTaxId !== "") {
+      // Excluding SELF is the whole rule, and it is the same rule the unique index
+      // applies: a row never conflicts with itself. Comparing against the row's own
+      // stored value instead would be an unreachable second guard — and it would
+      // miss an own value that is stored untrimmed.
       const owner = roster.find(
         (w) => w.id !== worker.id && (w.tax_id ?? "").trim() === typedTaxId,
       );
