@@ -13,15 +13,13 @@ const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock("@/lib/db/server", () => ({ createClient: async () => ({ rpc }) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
+import { createWorker, updateWorker, setWorkerDayRate } from "@/app/workers/actions";
 import {
-  createWorker,
-  updateWorker,
-  setWorkerDayRate,
   GENERIC_ERROR,
   SESSION_LOST_ERROR,
   INVALID_NAME_ERROR,
   INVALID_RATE_ERROR,
-} from "@/app/workers/actions";
+} from "@/app/workers/error-copy";
 
 const WORKER_ID = "11111111-1111-4111-8111-111111111111";
 

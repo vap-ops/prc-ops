@@ -14,6 +14,12 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
 import { WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
 import { TRADE_ERROR_BY_MESSAGE, TRADE_SAVE_GENERIC_ERROR } from "@/lib/i18n/labels";
+import {
+  GENERIC_ERROR,
+  INVALID_NAME_ERROR,
+  INVALID_RATE_ERROR,
+  workerRpcError,
+} from "./error-copy";
 
 type PayType = Database["public"]["Enums"]["pay_type"];
 type EmploymentType = Database["public"]["Enums"]["employment_type"];
@@ -24,25 +30,9 @@ type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 type WorkerType = "own" | "dc";
 
 // Spec 313 U2b (D4): these toasts fire from /workers, the ช่าง roster — the
-// people-hub term (TEAM_HUB_LABEL) now names only /team.
-// "ลองใหม่" is reserved for a genuine transient — an actionable cause names itself
-// instead (feedback e6b48386: a session lost mid-deploy read identically to bad data).
-export const GENERIC_ERROR = "บันทึกช่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-export const INVALID_NAME_ERROR = "กรุณากรอกชื่อช่างให้ถูกต้อง";
-export const INVALID_RATE_ERROR = "กรุณากรอกค่าแรงต่อวันเป็นตัวเลข (เช่น 400)";
-// The DEFINER RPCs raise 42501 when the caller's role can't be resolved — which is
-// what an expired/half-refreshed session looks like (not a permanent denial: the UI
-// only offers these actions to back-office roles, so a real 42501 here means the
-// session, not the person, lost authority). Tell the user to re-auth, not to retry.
-export const SESSION_LOST_ERROR = "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วบันทึกอีกครั้ง";
-// Map a worker-RPC error to user copy — ONLY for the back-office-gated actions
-// (create/update/day-rate). For those the UI audience == the RPC's is_back_office
-// gate, so a 42501 means the session lost its role, not that the person lacks it →
-// the re-auth line. The narrower-gated actions (level/HT/assign) keep GENERIC, since
-// there a 42501 can be a genuine denial. Everything else stays the transient "ลองใหม่".
-function rpcError(error: { code?: string } | null): string {
-  return error?.code === "42501" ? SESSION_LOST_ERROR : GENERIC_ERROR;
-}
+// people-hub term (TEAM_HUB_LABEL) now names only /team. The error strings +
+// mapper live in ./error-copy — a "use server" file may only export async
+// functions, so the constants can't be defined here (feedback e6b48386).
 // Spec 369 U1: the confirm is its own action with its own failure — a generic
 // "บันทึกช่างไม่สำเร็จ" would read as the edit-sheet save having failed.
 const CONFIRM_COST_ERROR = "ยืนยันค่าแรงไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
@@ -142,7 +132,7 @@ export async function createWorker(
     ...(input.gender !== undefined ? { p_gender: input.gender } : {}),
     ...payeeRpcParams(input.workerType, input),
   });
-  if (error || !workerId) return { ok: false, error: rpcError(error) };
+  if (error || !workerId) return { ok: false, error: workerRpcError(error) };
 
   // Optional initial project assignment (the worker exists either way — a failed
   // assign is soft: it can be set from the row's edit sheet).
@@ -234,7 +224,7 @@ export async function updateWorker(input: {
     ...(input.bankAccountName !== undefined ? { p_bank_account_name: input.bankAccountName } : {}),
     ...(input.contractorId !== undefined ? { p_contractor: input.contractorId } : {}),
   });
-  if (error) return { ok: false, error: rpcError(error) };
+  if (error) return { ok: false, error: workerRpcError(error) };
 
   revalidatePath("/workers");
   return { ok: true };
@@ -253,7 +243,7 @@ export async function setWorkerDayRate(input: {
     p_id: input.id,
     p_rate: input.dayRate,
   });
-  if (error) return { ok: false, error: rpcError(error) };
+  if (error) return { ok: false, error: workerRpcError(error) };
 
   revalidatePath("/workers");
   return { ok: true };
