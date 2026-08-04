@@ -47,6 +47,8 @@ import {
   TRADE_PRIMARY_CLEAR_LABEL,
   TRADE_PRIMARY_LABEL,
   TRADES_EMPTY_LABEL,
+  WORKER_BOUND_OWNER_UNKNOWN,
+  workerBoundOwnerLabel,
 } from "@/lib/i18n/labels";
 import { Search } from "lucide-react";
 import Link from "next/link";
@@ -111,6 +113,11 @@ export type ManagedWorker = {
   employment_type: EmploymentType;
   // ADR 0062 U4a: is this worker bound to a portal LINE login (workers.user_id)?
   portalBound: boolean;
+  // Spec 396 U2: WHOSE account it is. `portalBound` alone says a binding exists
+  // but not whose, which is how a real employee's record was renamed into
+  // someone else's on 2026-08-04. null = bound but the display name is unknown
+  // (the ownership fact still renders — the name is the detail, not the signal).
+  boundUserName: string | null;
   // Spec 200: the worker's current project (one at a time), or null if unassigned.
   project_id: string | null;
   // Spec 272 U1 / ADR 0060: skill grade (null = ยังไม่ประเมิน; super_admin sets).
@@ -704,6 +711,10 @@ function WorkerRow({
   // would stamp a meaningless daily standard. The door is daily + ทีม PRC only.
   const confirmable = worker.pay_type === "daily" && worker.contractor_id === null;
 
+  // Spec 396 U2: stable per-row id so the ชื่อ input can aria-describedby the
+  // ownership line that sits beside it.
+  const ownerHintId = `owner-hint-${worker.id}`;
+
   // Instant action, not save-coupled (the promoteToHt pattern): this writes MONEY
   // and stamps cost_confirmed_at, so it is a deliberate press of its own rather
   // than a side effect of บันทึก. The sheet stays open; refresh re-renders the row.
@@ -862,8 +873,29 @@ function WorkerRow({
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
               className={FIELD_STACKED}
+              // The ownership line is a sibling of this input, so a screen reader
+              // would otherwise announce only "ชื่อ" — and a non-sighted editor is
+              // exactly who most needs to know whose record this is.
+              {...(worker.portalBound ? { "aria-describedby": ownerHintId } : {})}
             />
           </label>
+          {/* Spec 396 U2 — say WHOSE record this is, at the field where the
+              mistake is made. Deliberately here rather than in the portal card
+              further down the sheet: the 2026-08-04 rename happened in this
+              input, and nobody scrolls to the bottom to find out who owns the
+              row. States a fact; never warns — ten of the eleven real renames
+              on bound workers were legitimate normalisations.
+              text-ink-secondary, NOT ink-muted: this is copy a person must READ
+              to avoid editing the wrong human's record. ink-muted is reserved
+              for dividers/placeholder/disabled (globals.css:87) and the
+              UX-audit G2 ratchet enforces it — it caught this line. */}
+          {worker.portalBound ? (
+            <p id={ownerHintId} className="text-ink-secondary mt-1 text-xs">
+              {worker.boundUserName
+                ? workerBoundOwnerLabel(worker.boundUserName)
+                : WORKER_BOUND_OWNER_UNKNOWN}
+            </p>
+          ) : null}
           <label className="text-ink-secondary mt-2 block text-sm">
             ค่าแรงต่อวัน (บาท)
             <input

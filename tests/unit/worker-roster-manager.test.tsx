@@ -64,6 +64,7 @@ const WORKERS: ManagedWorker[] = [
     note: "หัวหน้าทีม",
     employment_type: "permanent",
     portalBound: false,
+    boundUserName: null,
     project_id: null,
     // Spec 272 U1: skill grade joins the roster row model.
     level: null,
@@ -339,6 +340,7 @@ describe("WorkerRosterManager DC edit matrix", () => {
     name: "ช่างรายวัน",
     pay_type: "daily",
     portalBound: false,
+    boundUserName: null,
     employment_type: "permanent",
     phone: null,
     tax_id: null,

@@ -54,6 +54,7 @@ const BASE: ManagedWorker = {
   note: null,
   employment_type: "permanent",
   portalBound: false,
+  boundUserName: null,
   project_id: null,
   level: null,
   cost_confirmed_at: null,
