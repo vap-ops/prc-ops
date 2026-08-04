@@ -44,6 +44,10 @@ export interface ReportInputWorkPackage {
 export interface ReportInput {
   project: ReportInputProject;
   workPackages: ReportInputWorkPackage[];
+  /** Spec 394 D7 — one passage the PD writes at generation time, printed once
+   *  after the project header and before the first section. Blank or absent
+   *  prints NOTHING: no placeholder, no empty heading. */
+  coverNote?: string;
   /** Spec 61 photos=none: keep photo-less WPs as text rows instead of
    * skipping them — the listing IS the report. */
   includeEmptyWorkPackages?: boolean;
@@ -104,6 +108,16 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
   if (input.project.siteAddress) doc.text(`ที่ตั้ง: ${input.project.siteAddress}`);
   doc.text(`Generated: ${formatGeneratedDate(input.project.generatedAt)}`);
   doc.moveDown(1);
+
+  // Spec 394 D7 — the cover note, often the first thing a client reads. Sits
+  // between the header and the first section, and renders nothing at all when
+  // blank (trim here as well as at parse: this builder is also reachable from
+  // the worker-parity path, which does not go through parseReportParams).
+  const coverNote = input.coverNote?.trim();
+  if (coverNote) {
+    doc.fontSize(11).text(coverNote, { align: "left" });
+    doc.moveDown(1);
+  }
 
   // Per-WP sections. Legacy rule: skip WPs with no photos so we never
   // emit an empty section heading — unless the caller asked for the

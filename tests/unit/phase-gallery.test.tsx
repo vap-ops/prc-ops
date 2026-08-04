@@ -32,6 +32,53 @@ const uploaderNames = new Map([
   ["u2", "สมหญิง รักงาน"],
 ]);
 
+// Spec 394 U2 — the report toggle is a SECOND, independent prop beside
+// `starring`. Independence is load-bearing: a project_manager gets the report
+// toggle and no star, and an UNMAPPED work package gets the report toggle
+// while showing no star at all.
+describe("PhaseGallery report selection (spec 394 U2)", () => {
+  it("renders no report toggle when the prop is absent (every other surface)", () => {
+    render(
+      <PhaseGallery
+        label="หลังทำงาน"
+        photos={photos}
+        signedUrls={signedUrls}
+        uploaderNames={uploaderNames}
+      />,
+    );
+    expect(screen.queryByLabelText(/รายงานลูกค้า/)).toBeNull();
+  });
+
+  it("renders one toggle per photo when the prop is present, WITHOUT any star", () => {
+    render(
+      <PhaseGallery
+        label="หลังทำงาน"
+        photos={photos}
+        signedUrls={signedUrls}
+        uploaderNames={uploaderNames}
+        reportSelection={{ workPackageId: "wp1", selectedPhotoIds: ["p1"] }}
+      />,
+    );
+    expect(screen.getAllByLabelText(/รายงานลูกค้า/)).toHaveLength(2);
+    // starring was NOT passed — the two props are independent
+    expect(screen.queryByLabelText(/ตัวอย่างงาน/)).toBeNull();
+  });
+
+  it("reflects which photos are already selected", () => {
+    render(
+      <PhaseGallery
+        label="หลังทำงาน"
+        photos={photos}
+        signedUrls={signedUrls}
+        uploaderNames={uploaderNames}
+        reportSelection={{ workPackageId: "wp1", selectedPhotoIds: ["p1"] }}
+      />,
+    );
+    expect(screen.getByLabelText("เอาออกจากรายงานลูกค้า")).toBeTruthy();
+    expect(screen.getByLabelText("เลือกใช้ในรายงานลูกค้า")).toBeTruthy();
+  });
+});
+
 describe("PhaseGallery uploader attribution (feedback a6037564)", () => {
   it("shows each photo's uploader name on the grid thumbnail (at a glance)", () => {
     render(

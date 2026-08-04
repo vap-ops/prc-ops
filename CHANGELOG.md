@@ -1,3 +1,9 @@
+# [0.322.0](https://github.com/vap-ops/prc-ops/compare/v0.321.1...v0.322.0) (2026-08-04)
+
+### Features
+
+- pick, arrange and print the client's photos (spec 394 U2+U3) ([#950](https://github.com/vap-ops/prc-ops/issues/950)) ([a6918fe](https://github.com/vap-ops/prc-ops/commit/a6918fec3770d759c209d4df0989ec84a7adc81b)), closes [#946](https://github.com/vap-ops/prc-ops/issues/946)
+
 ## [0.321.1](https://github.com/vap-ops/prc-ops/compare/v0.321.0...v0.321.1) (2026-08-04)
 
 ### Bug Fixes
