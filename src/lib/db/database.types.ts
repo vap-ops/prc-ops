@@ -5020,6 +5020,134 @@ export type Database = {
           },
         ]
       }
+      project_zone_maps: {
+        Row: {
+          background_path: string | null
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          project_id: string
+          sheet_code: string | null
+          sheet_rev: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          background_path?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          project_id: string
+          sheet_code?: string | null
+          sheet_rev?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          background_path?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          project_id?: string
+          sheet_code?: string | null
+          sheet_rev?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_zone_maps_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_zone_maps_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_zones: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          geometry: Json
+          id: string
+          map_id: string
+          name: string
+          parent_zone_id: string | null
+          project_id: string
+          shape: Database["public"]["Enums"]["zone_shape"]
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          geometry: Json
+          id?: string
+          map_id: string
+          name: string
+          parent_zone_id?: string | null
+          project_id: string
+          shape: Database["public"]["Enums"]["zone_shape"]
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          geometry?: Json
+          id?: string
+          map_id?: string
+          name?: string
+          parent_zone_id?: string | null
+          project_id?: string
+          shape?: Database["public"]["Enums"]["zone_shape"]
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_zones_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_zones_map_fk"
+            columns: ["map_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "project_zone_maps"
+            referencedColumns: ["id", "project_id"]
+          },
+          {
+            foreignKeyName: "project_zones_parent_zone_id_fkey"
+            columns: ["parent_zone_id"]
+            isOneToOne: false
+            referencedRelation: "project_zones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_zones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           budget_amount_thb: number | null
@@ -8684,6 +8812,7 @@ export type Database = {
           status: Database["public"]["Enums"]["work_package_status"]
           updated_at: string
           wp_catalog_item_id: string | null
+          zone_id: string | null
         }
         Insert: {
           category_id?: string | null
@@ -8706,6 +8835,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["work_package_status"]
           updated_at?: string
           wp_catalog_item_id?: string | null
+          zone_id?: string | null
         }
         Update: {
           category_id?: string | null
@@ -8728,6 +8858,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["work_package_status"]
           updated_at?: string
           wp_catalog_item_id?: string | null
+          zone_id?: string | null
         }
         Relationships: [
           {
@@ -8784,6 +8915,13 @@ export type Database = {
             columns: ["wp_catalog_item_id"]
             isOneToOne: false
             referencedRelation: "wp_catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_packages_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "project_zones"
             referencedColumns: ["id"]
           },
         ]
@@ -10431,6 +10569,10 @@ export type Database = {
       }
       client_has_full_access: { Args: { p_project: string }; Returns: boolean }
       client_has_live_access: { Args: { p_project: string }; Returns: boolean }
+      clone_project_zones: {
+        Args: { p_source_project_id: string; p_target_project_id: string }
+        Returns: number
+      }
       clone_work_packages: {
         Args: { p_dst_project_id: string; p_src_project_id: string }
         Returns: number
@@ -10840,6 +10982,7 @@ export type Database = {
         Args: { p_expense_id: string }
         Returns: undefined
       }
+      delete_project_zone: { Args: { p_zone_id: string }; Returns: undefined }
       delete_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       delete_work_package: {
         Args: { p_work_package_id: string }
@@ -11809,6 +11952,17 @@ export type Database = {
           worker_id: string
         }[]
       }
+      save_project_zone_map: {
+        Args: {
+          p_background_path?: string
+          p_map_id: string
+          p_name: string
+          p_project_id: string
+          p_sheet_code?: string
+          p_sheet_rev?: string
+        }
+        Returns: string
+      }
       save_wp_brief_draft: {
         Args: {
           p_display_config: Json
@@ -12079,6 +12233,10 @@ export type Database = {
       }
       set_wp_labor_budget: {
         Args: { p_budget: number; p_wp: string }
+        Returns: undefined
+      }
+      set_wp_zone: {
+        Args: { p_work_package_id: string; p_zone_id: string }
         Returns: undefined
       }
       settle_project: {
@@ -12642,6 +12800,19 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_project_zone: {
+        Args: {
+          p_code: string
+          p_geometry: Json
+          p_map_id: string
+          p_name: string
+          p_parent_zone_id?: string
+          p_shape: Database["public"]["Enums"]["zone_shape"]
+          p_sort_order?: number
+          p_zone_id: string
+        }
+        Returns: string
+      }
       upsert_shop_item: {
         Args: {
           p_description?: string
@@ -12696,6 +12867,13 @@ export type Database = {
           from_status: string
           to_status: string
         }[]
+      }
+      zone_geometry_ok: {
+        Args: {
+          p_geometry: Json
+          p_shape: Database["public"]["Enums"]["zone_shape"]
+        }
+        Returns: boolean
       }
     }
     Enums: {
@@ -13035,6 +13213,7 @@ export type Database = {
       worker_bank_capture_status: "pending_pm" | "on_file"
       worker_gender: "male" | "female"
       worker_level: "senior" | "mid" | "junior" | "apprentice"
+      zone_shape: "rect" | "rounded_rect" | "ellipse" | "polygon"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -13528,6 +13707,7 @@ export const Constants = {
       worker_bank_capture_status: ["pending_pm", "on_file"],
       worker_gender: ["male", "female"],
       worker_level: ["senior", "mid", "junior", "apprentice"],
+      zone_shape: ["rect", "rounded_rect", "ellipse", "polygon"],
     },
   },
 } as const
