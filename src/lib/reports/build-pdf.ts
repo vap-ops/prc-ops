@@ -4,6 +4,12 @@
 // with its current After photos; empty WPs skipped; empty project →
 // header-only PDF. Sarabun is embedded from the base64 module — PDFKit's
 // Helvetica garbles Thai (spec 13).
+//
+// ⚠️ The WP heading DIVERGES from the worker since spec 394 D8: here the
+// Thai work name leads and the code is demoted, while worker/src/report.ts
+// still prints `code — name`. Deliberate — ADR 0040 freezes the worker, and
+// it only builds a report when this fast path dies before claiming. Do not
+// "restore parity" by editing the worker; retire it instead (ADR 0040).
 
 import "server-only";
 import PDFDocument from "pdfkit";
@@ -56,6 +62,20 @@ export function formatGeneratedDate(date: Date): string {
   return DATE_FORMATTER.format(date);
 }
 
+// Spec 394 D8 — the client meets the work, not our catalogue letters. The
+// code stays on the page (PD and the client refer to the same item by it in
+// conversation) but drops to a smaller second line, with the status label
+// beside it rather than in the title.
+export function workPackageHeadingLines(wp: { code: string; name: string; statusLabel?: string }): {
+  title: string;
+  subtitle: string;
+} {
+  return {
+    title: wp.name,
+    subtitle: wp.statusLabel ? `${wp.code} · ${wp.statusLabel}` : wp.code,
+  };
+}
+
 function streamToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -92,19 +112,30 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
     const photoCount = wp.photoGroups.reduce((n, g) => n + g.photos.length, 0);
     if (photoCount === 0 && !input.includeEmptyWorkPackages) continue;
 
-    const heading = wp.statusLabel
-      ? `${wp.code} — ${wp.name} (${wp.statusLabel})`
-      : `${wp.code} — ${wp.name}`;
+    const { title, subtitle } = workPackageHeadingLines(wp);
 
     if (input.includeEmptyWorkPackages && photoCount === 0) {
-      // Text listing: compact rows, no page per WP.
-      doc.fontSize(12).text(heading);
+      // Text listing: no page per WP, but a row is two lines since spec 394
+      // D8 — so measure both and break FIRST when they don't both fit.
+      // Without this PDFKit flows them independently and a page can open on
+      // a bare code with its work name left behind (โพธิ์ทอง lists hundreds
+      // of rows, so the boundary is hit on every listing report).
+      doc.fontSize(12);
+      const titleHeight = doc.heightOfString(title);
+      doc.fontSize(9);
+      const subtitleHeight = doc.heightOfString(subtitle);
+      const bottom = doc.page.height - doc.page.margins.bottom;
+      if (doc.y + titleHeight + subtitleHeight > bottom) doc.addPage();
+
+      doc.fontSize(12).text(title);
+      doc.fontSize(9).text(subtitle);
       doc.moveDown(0.5);
       continue;
     }
 
     doc.addPage();
-    doc.fontSize(16).text(heading);
+    doc.fontSize(16).text(title);
+    doc.fontSize(10).text(subtitle);
     doc.moveDown(0.5);
     doc.fontSize(10).text(`Photos: ${photoCount}`);
     doc.moveDown(0.5);

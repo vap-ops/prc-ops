@@ -11040,3 +11040,44 @@ The UX-audit's only S0, closed. Full record in the PR body; the mechanism lesson
 - **Client crashes carry no Next digest.** A name-only recurrence key (`err-retry:TypeError`) lets one retry deny retry to every later unrelated crash app-wide. Route scoping + TTL make the honest variant fire only for "THIS error class on THIS route, retried recently".
 - **The recurred exits are hard `<a>` loads with justified lint exceptions** — the ChunkLoadError/stale-bundle class breaks the client router, and the recurred state is by definition "soft recovery already failed".
 - **The honest-copy exact ledger fired its first real shrink** (228→226 / 106→104): both boundaries now read labels.ts. The renumber-in-the-same-PR flow works.
+
+## 2026-08-04 — Spec 394 U0: the client report leads with the work name (lane report394)
+
+**What:** decision D8 only. `build-pdf.ts` printed `${wp.code} — ${wp.name}`, so a client opening
+the report met `S-07` before they met the work. The section title is now the Thai work-package
+name; the catalogue code drops to a smaller second line (16pt → 10pt in a photo section, 12pt →
+9pt in the spec-61 text listing) with the status label beside the code instead of inside the
+title. The code stays on the page on purpose — it is how PD and the client refer to the same item
+in conversation. Changes **every** report mode, not just the `selected` one U2/U3 will add: the
+naming was wrong for all of them. Code-only, no schema, no PD effort.
+
+- **The seam is a pure helper, and it had to be.** PDFKit subsets the embedded Sarabun face, so
+  the heading text exists in the PDF only as glyph ids — no assertion over the output bytes can
+  read it. `workPackageHeadingLines()` is what the wording pins hang on; the render branches are
+  held by a comment-stripped source scan with counted occurrences plus a bare-literal absence pin
+  for the retired form.
+- **Gate 4 was the real artifact, not the suite.** Generated a PDF through `buildReportPdf`, then
+  read it back by inflating its content streams and decoding the ToUnicode CMap: 20pt
+  `PRC-26-0002 — ทีเอฟเอ็ม โพธิ์ทอง`, then 16pt `งานเทพื้นคอนกรีตโรงเรือน` over 10pt
+  `S-07 · กำลังดำเนินการ`, and the listing row 12pt `งานเดินท่อร้อยสายไฟ` over 9pt
+  `E-11 · ยังไม่เริ่ม`. ⚠️ Headless Chrome cannot screenshot a PDF (blank frame, both headless
+  modes) and no rasteriser is installed on this box — decode the streams instead of trusting a
+  screenshot that renders nothing.
+- **Four mutations, each red with a non-zero run:** title reverts to code-first; the subtitle line
+  dropped from the listing branch alone; dropped from the photo-section branch alone; the status
+  label moved back into the title. The one-branch-at-a-time pair is the point — a whole-heading
+  mutation cannot tell "both branches covered" from "one branch covered".
+- ⚠️ **`worker/src/report.ts` still prints the code-first heading.** Deliberate: ADR 0040 keeps the
+  Railway worker byte-untouched (its watch path redeploys on any edit, and it is danger-path), and
+  it only builds a report when the in-app fast path dies before claiming. So a fallback-built PDF
+  reads code-first. Recorded rather than fixed — the divergence is now stated in `build-pdf.ts`'s
+  own header, where the next maintainer deciding whether the files must stay in step will look.
+- ⭐ **The review's best catch, and the reason a positive control is not optional.** Splitting the
+  heading into two independently-flowed `text()` calls let PDFKit page-break BETWEEN a work name
+  and its code — a client page opening on a bare `S-042 · ยังไม่เริ่ม`. I added the keep-together
+  measure, then tried to prove it: **my first two fixtures showed zero orphans WITH THE GUARD
+  REMOVED**, which would have shipped as "verified" and proved nothing. Cause: 380 identical rows
+  have a constant height, so every page breaks at the same phase and the boundary never lands
+  inside a row. Only a fixture with **varying row heights** (every 5th title two lines) reproduced
+  it — **8 of 18 pages orphaned unguarded, 0 of 19 guarded.** A uniform fixture is structurally
+  blind to a phase-dependent layout bug; if the control does not fail, the experiment has not run.
