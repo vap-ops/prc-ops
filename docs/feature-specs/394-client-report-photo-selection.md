@@ -394,6 +394,28 @@ unnecessary workload to pd"_ should account for the PD having already started ha
 
 ### Answered
 
+⛔ **`defect` photos are NOT selectable — operator ruling 2026-08-04.** §5 said "every phase is
+selectable (before/during/after)" and the implementation offered the toggle on the defect galleries
+too, which meant a PD could put a photo of **broken work** into the client's finished-work report.
+The ruling withholds it. Enforced in three layers, because a button is an affordance and not an
+enforcement point: the review page passes no `reportSelection` to a defect gallery, the server
+action refuses a defect photo before calling the RPC, and the PDF resolver iterates
+`REPORT_SELECTABLE_PHASES` so a row written before the ruling still cannot print. The generate
+guard and the live count are filtered to the same set, so the number the PD sees is what the
+document will hold.
+
+⚠️ **`unselect` stays open at the API, but withholding the toggle also removes the only UI path to
+remove a defect selection** (the arrange strip has move-up/down, no ✕). Measured before shipping:
+`report_selected_photos` holds **2 rows, both `during`, zero `defect`** — so nothing is stranded
+today, and after this change no defect row can be created through any path. Recorded rather than
+solved: building a selected-state-only toggle for a state that cannot occur is machinery for a
+ghost. **If a defect row ever appears (a direct DB write), it is removable only by SQL** — that is
+the trade, stated so the next reader meets it as a decision.
+
+ⓘ This also closes the inconsistency the U2+U3 review found: prior-round defect photos used to
+carry a toggle while the current round's (rendered only in `DefectFixPairs`) did not. Now no defect
+photo carries one, anywhere.
+
 ⛔ **The PROJECT header stays code-first — operator ruling 2026-08-04, do not re-raise.** U0
 shipped D8 for the work-package heading and the obvious next question was whether
 `${project.code} — ${project.name}` deserves the same treatment. It does not: D8's harm is that a

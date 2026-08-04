@@ -56,8 +56,12 @@ function makeSupabase(selectedCount: number) {
         };
       }
       if (table === "report_selected_photos") {
+        // .select(...).eq(project).in(phases) — the phase filter matters: the
+        // guard must count only what the resolver can actually print.
         return {
-          select: () => ({ eq: () => Promise.resolve({ count: selectedCount, data: [] }) }),
+          select: () => ({
+            eq: () => ({ in: () => Promise.resolve({ count: selectedCount, data: [] }) }),
+          }),
         };
       }
       throw new Error(`unexpected table ${table}`);
