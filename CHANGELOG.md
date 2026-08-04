@@ -1,3 +1,9 @@
+## [0.318.2](https://github.com/vap-ops/prc-ops/compare/v0.318.1...v0.318.2) (2026-08-04)
+
+### Bug Fixes
+
+- **ui:** G12 tap-floor sweep — 9 sub-44px controls meet the 44px floor ([6d0a5b2](https://github.com/vap-ops/prc-ops/commit/6d0a5b2db372853d3369c1d3dc99b7d531e5b864))
+
 ## [0.318.1](https://github.com/vap-ops/prc-ops/compare/v0.318.0...v0.318.1) (2026-08-04)
 
 ### Bug Fixes
