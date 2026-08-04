@@ -53,6 +53,10 @@ describe("workPackageHeadingLines (spec 394 D8)", () => {
     // print the name and then the demoted code, so dropping either line reds.
     expect(src.split("text(title)").length - 1).toBe(2);
     expect(src.split("text(subtitle)").length - 1).toBe(2);
+    // …and in that ORDER, adjacently. A count alone cannot see a swap, and a
+    // swap is the whole defect D8 exists to prevent: the code back on top.
+    const ordered = src.match(/\.text\(title\);\s*\n\s*doc\.fontSize\(\d+\)\.text\(subtitle\);/g);
+    expect(ordered?.length).toBe(2);
     expect(src).not.toContain("${wp.code} — ${wp.name}");
   });
 });
