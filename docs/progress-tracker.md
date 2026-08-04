@@ -11252,3 +11252,42 @@ not mix.
   exclusion must cover the WHOLE `photo_phase` domain, so a new enum value reds until someone
   classifies it. The doc comment said "must be added here deliberately"; prose cannot enforce that,
   the test can.
+
+## 2026-08-04 — Spec 392 U1: zone maps, the axis that crosses the WP tree (lane zones)
+
+Migration `20260813075905`. `project_zone_maps` + `project_zones` + `work_packages.zone_id` + the
+`zone_shape` enum + five DEFINER RPCs (`save_project_zone_map`, `upsert_project_zone`,
+`delete_project_zone`, `set_wp_zone`, `clone_project_zones`) + pgTAP `392-project-zone-maps` (35
+assertions). Specs shipped separately in #935.
+
+- **A zone cannot be a parent work package, so it is a second axis.** `wp_hierarchy_guard` caps the
+  tree at depth 2 and a WP carries exactly one work-category, while a zone spans concrete, steel and
+  paint at once. Grouping by trade and grouping by area therefore cannot share a column — the shape
+  ADR 0080 already chose for the org chart.
+- **Geometry is `[0,1]` fractions of the map box**, the convention `validate-markup.ts` uses for
+  photo strokes. That is what lets the background photograph be swapped, or a whole map be cloned
+  onto a differently-photographed site, without moving a zone. The CHECK (via the IMMUTABLE
+  `zone_geometry_ok`) is the authority; the client validator only mirrors it, and each form rejects
+  the other's keys so a shape change cannot leave geometry the renderer cannot draw.
+- **Gate-check finding that corrected the spec: `can_see_project` is FALSE for `technician` on every
+  arm.** Spec 392 §5 claimed "the field roles that already open a WP can see its zone" — false for
+  ช่าง, whose WP surfaces come through DEFINER RPCs rather than table RLS. The pgTAP now PINS that
+  invisibility rather than assuming it away, so U3 cannot ship a zone chip that renders nothing for
+  them.
+- **`work_packages` SELECT is a table grant but UPDATE is column-granted**, and the update list
+  excludes every structural column (`status`, `is_group`, `parent_id`, `rework_round`). `zone_id`
+  joins that set: readable at once, writable only through `set_wp_zone`. Verified live after the
+  push — no UPDATE grant exists on the new column.
+- **The FK alone would accept another project's zone**, so `set_wp_zone` compares the WP's project
+  with the zone's and raises `22023`. Same reasoning puts the parent-zone check on the map rather
+  than the project.
+- **Cloning copies geometry, codes, names and nesting but NOT `background_path`** — that photograph
+  belongs to the site it was taken on. The parent re-point is a second pass keyed on `(map_id,
+code)`, because a child can be inserted before its parent exists on the new map.
+- Every count in the pgTAP is scoped to its own seeded rows. This lane started on the day #954
+  cleared a repo-wide queue jam caused by exactly one global `count(*)`, read through
+  `can_see_project`'s blanket arm.
+
+**Open question, deliberately not built:** `upsert_project_zone` blocks a self-parent (CHECK) and an
+off-map parent, but nothing blocks a two-node cycle (A→B, B→A). The v1 editor renders flat so no
+reader can loop today; a recursive reader would need the guard first.
