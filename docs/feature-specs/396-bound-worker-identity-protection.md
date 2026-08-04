@@ -95,6 +95,36 @@ immediately.
 - **U4 — surface the pending identity queue.** 4 `identity_change_requests` sit
   `pending` with no worklist pointing at them. Small, and it closes the other half
   of the asymmetry.
+  ⭐ **Refined on measurement (2026-08-04, built).** "No worklist" was not quite
+  right, and the correction changed the whole unit: `/contacts/bank-changes`
+  already renders these rows correctly and `decide_identity_change` is gated fine.
+  What was missing is the **DOOR**. The dashboard's only link to that page is an
+  `AwarenessCard`, which returns `null` at `count <= 0`, and its count summed
+  contractor + worker bank changes **only**. Live: contractor 0, worker 0, identity
+  4, staff_bank 0 ⇒ the card never rendered ⇒ **`/dashboard` served ZERO links to
+  the queue** (measured directly: rendering the page with the new card removed
+  returns 0 occurrences of `href="/contacts/bank-changes"`). Route telemetry
+  agreed — 6 views in 30 days, the last on **2026-07-14, the day before the oldest
+  of these four requests was filed**.
+  ⭐ **Why a SEPARATE card and not a bigger number.** The four kinds split by
+  audience in the live RLS: contractor/worker bank → `PM_ROLES` (the existing
+  card's `isManager` gate); identity/staff_bank → `STAFF_APPROVAL_ROLES` (the same
+  trio the page gates `canSeeTrioKinds` on). One card cannot be gated correctly for
+  both, and folding identity rows under a label reading `การเปลี่ยนบัญชี…` would
+  make that label untrue. Shipped as its own card on `isStaffApprover`, labelled in
+  the destination's own badge words (`ข้อมูลตัวตน` / `พนักงาน`).
+  ⚠️ **Owed, found while building — `procurement_manager` is a decider with no
+  door.** They are in `STAFF_APPROVAL_ROLES` and may reach `/contacts/bank-changes`
+  (its route gate is `[...PM_ROLES, "procurement_manager"]`), but **not** in
+  `DASHBOARD_VIEW_ROLES`, so `/dashboard` is not their surface and this card cannot
+  reach them. Their 536 all-time `/dashboard` events are the redirect artifact, not
+  visits. A `/procurement` door is its own unit.
+  ⚠️ **Owed — the ภาพรวม nav badge still excludes these kinds.**
+  `loadTotalPendingApprovals` sums WP + contractor bank + worker bank, so the badge
+  can read 0 while this card shows work. Not folded in here: that sum is PM-tier
+  while these two kinds are `STAFF_APPROVAL_ROLES`, so it needs its own gate-parity
+  pass. The stale "the dashboard shows the breakdown that sums to THIS number"
+  comment in `pending-approvals-badge.tsx` has been corrected in place.
 
 ⚠️ **U1 before U2/U3.** U1 is independent, cheap, and makes every later mistake
 recoverable; U2 and U3 only reduce the rate.
