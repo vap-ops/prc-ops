@@ -78,7 +78,7 @@ export function GroupingImportForm({ projectId }: { projectId: string }) {
           type="button"
           disabled={pending || !canApply}
           onClick={() => setConfirming(true)}
-          className="bg-done text-card rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-40"
+          className="bg-done-strong text-card rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-40"
         >
           นำเข้าจริง
         </button>

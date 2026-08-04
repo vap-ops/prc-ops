@@ -579,10 +579,26 @@ describe("design doctrine (Field-First)", () => {
     };
     const CAT_TOKENS = [...light.keys()].filter((t) => /^cat-w\d\d$/.test(t));
     const CLAIMS: Claim[] = [
-      // NOTE: edge-strong carries NO ratio claim in either theme — it is BELOW
-      // the 1.4.11 floor (2.77 light / 2.92 dark) and its comments now say so;
-      // the value raise is UX-audit gap G2's lane. When G2 lands, restore the
-      // "≥3:1" comments and re-add both entries here.
+      // G2 landed: edge-strong meets the 1.4.11 floor in both themes again
+      // (light 0.65 = 3.23:1, dark 0.53 = 3.32:1) and the claims are back.
+      {
+        label: "edge-strong on card ≥3:1 (WCAG 1.4.11)",
+        theme: "light",
+        fg: "edge-strong",
+        bg: "card",
+        min: 3,
+        strict: true,
+        commentToken: "edge-strong",
+      },
+      {
+        label: "dark edge-strong on card ≥3:1",
+        theme: "dark",
+        fg: "edge-strong",
+        bg: "card",
+        min: 3,
+        strict: true,
+        commentToken: "edge-strong",
+      },
       {
         label: "ink on card ~16:1",
         theme: "light",
@@ -685,6 +701,8 @@ describe("design doctrine (Field-First)", () => {
       { fg: "attn-ink", bg: "attn-soft" },
       { fg: "done-ink", bg: "done-soft" },
       { fg: "danger-ink", bg: "danger-soft" },
+      // G9: white ink on the danger FILL (badges) — was 3.22:1 in dark.
+      { fg: "on-fill", bg: "danger" },
     ];
     it("every readable ink pair holds WCAG AA 4.5:1 in both themes (comment-independent)", () => {
       const failures: string[] = [];
