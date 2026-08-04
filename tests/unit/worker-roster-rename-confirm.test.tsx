@@ -62,6 +62,7 @@ const BOUND: ManagedWorker = {
   bank_account_number: null,
   bank_account_name: null,
   gender: null,
+  payoutState: null,
   trades: [],
 };
 

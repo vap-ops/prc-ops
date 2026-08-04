@@ -1594,6 +1594,19 @@ export function notifHealthBody(failed: number, terminal: number, windowDays: nu
 }
 
 // Spec 320 — temporary payout nominee (PM-managed bridge for bankless workers).
+// Spec 395 U2 — the roster badge for a payout account that is not the worker's own
+// and has no consented นominee record yet.
+// ⚠️ Says บัญชีตัวแทน because that is what the DESTINATION calls it
+// (PAYOUT_NOMINEE_TITLE below) — a badge naming a concept the target page does not
+// use sends the reader hunting for a control that appears not to exist.
+// ⚠️ "ยังไม่ได้บันทึก" (not recorded yet), never "ผิด"/"ไม่ถูกต้อง": the operator's rule
+// is that a family member's account is NORMAL here, so this invites a record; it
+// never reports a fault.
+export const PAYOUT_ACCOUNT_UNRECORDED_BADGE = "ยังไม่ได้บันทึกบัญชีตัวแทน";
+export const PAYOUT_ACCOUNT_UNRECORDED_HINT =
+  "บัญชีนี้อาจไม่ใช่ของช่างเอง — ถ้าใช่บัญชีคนอื่น บันทึกเป็นบัญชีตัวแทนไว้ได้";
+export const PAYOUT_ACCOUNT_RECORD_CTA = "บันทึกบัญชีตัวแทน";
+
 export const PAYOUT_NOMINEE_TITLE = "บัญชีตัวแทนรับเงิน (ชั่วคราว)";
 export const PAYOUT_NOMINEE_ADD = "เพิ่มบัญชีตัวแทน";
 export const PAYOUT_NOMINEE_CLEAR = "ล้างบัญชีตัวแทน";

@@ -40,12 +40,16 @@ import {
   type WorkerTrade,
 } from "@/lib/workers/trades";
 import { isNormalisingRename } from "@/lib/workers/thai-name";
+import type { PayoutAccountState } from "@/lib/workers/payout-account";
 // Spec 396 U3 reuses U2's ownership copy verbatim — the question and the fact
 // must never drift apart (UI-term SSOT: a term in 2+ places lives in labels.ts).
 import {
   ATTENDANCE_CALENDAR_LABEL,
   CONFIRM_COST_LABEL,
   PAY_TYPE_LABEL,
+  PAYOUT_ACCOUNT_RECORD_CTA,
+  PAYOUT_ACCOUNT_UNRECORDED_BADGE,
+  PAYOUT_ACCOUNT_UNRECORDED_HINT,
   TRADE_LABEL,
   TRADE_PRIMARY_CLEAR_LABEL,
   TRADE_PRIMARY_LABEL,
@@ -142,6 +146,13 @@ export type ManagedWorker = {
   bank_account_name: string | null;
   // Spec 357 U-F: เพศ (null = ยังไม่ระบุ).
   gender: WorkerGender | null;
+  // Spec 395 U2: is this worker's wage landing in the worker's OWN account?
+  // `unrecorded` = the account is shared with another worker and/or its holder name
+  // differs, with no consented `worker_payout_nominee` row — i.e. NOT WRITTEN DOWN
+  // YET, never "wrong" (a family member's account is normal here, per the operator).
+  // `null` = the viewer is outside PAYOUT_NOMINEE_ROLES, so the page never computed
+  // it: the gate is at the SOURCE, and the state simply does not reach this bundle.
+  payoutState: PayoutAccountState | null;
 };
 
 // Spec 200: a project the assigner can put a worker on. Spec 272 U2: its current
@@ -852,6 +863,17 @@ function WorkerRow({
                 · หัวหน้าช่าง {htCodes.join(", ")}
               </span>
             ) : null}
+            {/* Spec 395 U2: the payout account is not this worker's own and nobody
+                has recorded who it belongs to. An INVITATION, not a fault — a family
+                member's account is normal here; what is missing is the record.
+                ⚠️ `text-action`, never `text-ink-muted`: that token is
+                dividers/placeholder/disabled only (globals.css), and this is a line
+                the reader is meant to act on. */}
+            {worker.payoutState === "unrecorded" ? (
+              <span className="text-action ml-1.5 text-xs font-medium">
+                · {PAYOUT_ACCOUNT_UNRECORDED_BADGE}
+              </span>
+            ) : null}
             {!optimisticActive ? (
               <span className="text-ink-muted ml-1.5 text-xs">(ปิดใช้งาน)</span>
             ) : null}
@@ -1082,6 +1104,27 @@ function WorkerRow({
               className={FIELD_STACKED}
             />
           </label>
+          {/* Spec 395 U2 — sits ABOVE the bank block on purpose, and outside the
+              portalBound split so it renders for BOTH arms. Of the 8 live cases, 2 are
+              portal-bound: their bank fields cannot be edited at all, so "correct the
+              account" is not an available answer for them. Recording a บัญชีตัวแทน is
+              the one route that resolves every case.
+              ⚠️ The CTA DEEP-LINKS with ?worker=. It must: the nominee picker lists
+              only workers with NO bank of their own ("เลือกช่างที่ยังไม่มีบัญชีธนาคารของตัวเอง"),
+              and every worker this badge fires on HAS one — so without the parameter
+              none of them can be selected through the normal flow at all. */}
+          {worker.payoutState === "unrecorded" ? (
+            <div className="border-attn-edge bg-attn-soft rounded-control mt-3 border p-3">
+              <p className="text-attn-ink text-sm font-medium">{PAYOUT_ACCOUNT_UNRECORDED_BADGE}</p>
+              <p className="text-ink-secondary mt-1 text-sm">{PAYOUT_ACCOUNT_UNRECORDED_HINT}</p>
+              <Link
+                href={`/settings/payout-nominees/edit?worker=${worker.id}`}
+                className="text-action mt-2 inline-block min-h-11 text-sm font-medium underline"
+              >
+                {PAYOUT_ACCOUNT_RECORD_CTA}
+              </Link>
+            </div>
+          ) : null}
           {/* Bank: editable ONLY for an unbound worker. Once the ช่าง binds a portal
               login they own their bank via the request → PM-approval flow, so a
               back-office edit here would bypass that trail — show a notice instead.
