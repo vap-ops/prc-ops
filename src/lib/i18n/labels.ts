@@ -1603,6 +1603,38 @@ export const PAYOUT_NOMINEE_CONSENT_REQUIRED = "กรุณาแนบรู�
 export const PAYOUT_NOMINEE_PROMPTPAY_HINT =
   "ถ้าช่างมีพร้อมเพย์ ให้ลงทะเบียนบัญชีตัวเองแทนการใช้บัญชีตัวแทน";
 
+// Spec 395 U2 — the roster signal for a payout account that is not the worker's own
+// and has no consented nominee record yet.
+//
+// ⚠️ Says บัญชีตัวแทน because that is what the DESTINATION calls it
+// (PAYOUT_NOMINEE_TITLE above) — a badge naming a concept the target page does not use
+// sends the reader hunting for a control that appears not to exist.
+// ⚠️ "ยังไม่ได้บันทึก" (not recorded yet), never ผิด/ไม่ถูกต้อง: the operator's rule is that
+// a family member's account is NORMAL here, so this invites a record, never reports a
+// fault.
+export const PAYOUT_ACCOUNT_UNRECORDED_BADGE = "ยังไม่ได้บันทึกบัญชีตัวแทน";
+
+// The owner's row states the SHARING, not a missing record — see the owner hint below.
+export const PAYOUT_ACCOUNT_SHARED_BADGE = "ใช้บัญชีร่วมกับช่างคนอื่น";
+
+// The THIRD-PARTY case: this worker is paid into someone else's account.
+export const PAYOUT_ACCOUNT_THIRD_PARTY_HINT =
+  "บัญชีนี้อาจไม่ใช่ของช่างเอง ถ้าเป็นบัญชีของคนอื่น สามารถบันทึกเป็นบัญชีตัวแทนได้";
+
+// ⚠️ The OWNER case, and it is a different fact needing a different remedy: on a shared
+// account the holder is frequently one of the workers themselves (live 2026-08-05: 2 of
+// the 3 shared groups contain their own owner). Telling that person to record a บัญชีตัวแทน
+// would have them invent a nominee for their OWN account — the work belongs to the other
+// rows on that account, so this states the fact and offers no CTA.
+export const PAYOUT_ACCOUNT_OWNER_SHARED_HINT =
+  "บัญชีนี้เป็นของช่างคนนี้ แต่มีช่างคนอื่นรับเงินเข้าบัญชีเดียวกัน — ให้บันทึกที่รายชื่อของคนนั้น";
+
+// ⚠️ Names the consent document up front. The form REQUIRES a photographed หนังสือยินยอม
+// (set_worker_payout_nominee raises P0001 without one), and spec §8 Q1 names that upload
+// as the leading suspect for why the feature has 0 rows all-time. A CTA that reads as one
+// tap and dead-ends at an unobtainable artifact is worse than one that says the price.
+export const PAYOUT_ACCOUNT_RECORD_CTA = "บันทึกบัญชีตัวแทน (ต้องแนบหนังสือยินยอม)";
+
 // Spec 329 — company documents library (เอกสารบริษัท).
 export const COMPANY_DOCS_LABEL = "เอกสารบริษัท";
 export const COMPANY_DOCS_HINT = "หนังสือรับรอง · ภ.พ.20 · โปรไฟล์บริษัท";

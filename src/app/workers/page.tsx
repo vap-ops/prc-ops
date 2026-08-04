@@ -10,7 +10,11 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import Link from "next/link";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { PM_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
+import { PAYOUT_NOMINEE_ROLES, PM_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
+import { loadPayoutAccountAudit } from "@/lib/workers/payout-account-audit";
+import type { ManagedWorker as ManagedWorkerRow } from "@/components/features/labor/worker-roster-manager";
+
+type PayoutAccountBadge = NonNullable<ManagedWorkerRow["payoutAccount"]>;
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
@@ -205,6 +209,33 @@ export default async function WorkersPage({
     }),
   ) as LevelRates;
 
+  // Spec 395 U2 — is each wage landing in that worker's OWN account? Gated at the
+  // SOURCE rather than by a `can…` prop: WORKER_ROSTER_ROLES includes project_manager,
+  // who is NOT in PAYOUT_NOMINEE_ROLES and so cannot open the control the badge invites
+  // them to use. Not computing it means the state never reaches their bundle at all,
+  // which is a stronger guarantee than a render-time check. (Telemetry 2026-08-04:
+  // project_manager has 0 /workers views in 30d, so this excludes nobody in practice.)
+  // ⚠️ DEGRADE, NEVER THROW. `loadPayoutAccountAudit` throws by design — for a worklist
+  // reader an empty result is a lie ("nothing left to record"). On THIS page it is a
+  // secondary signal on the critical path, and the roster is the only place ช่าง records
+  // are managed at all (procurement: 686 views/30d), so letting it 500 would trade a
+  // whole working page for a badge. Same rule the sibling read here already follows.
+  const payoutByWorker = await (async () => {
+    if (!PAYOUT_NOMINEE_ROLES.includes(ctx.role)) return new Map<string, PayoutAccountBadge>();
+    try {
+      const rows = await loadPayoutAccountAudit(supabase);
+      return new Map<string, PayoutAccountBadge>(
+        rows.map((a) => [
+          a.workerId,
+          { state: a.state, isShared: a.isShared, nameMatches: a.nameMatches },
+        ]),
+      );
+    } catch (e) {
+      console.error("workers page: payout-account audit failed, badges omitted", e);
+      return new Map<string, PayoutAccountBadge>();
+    }
+  })();
+
   const workers: ManagedWorker[] = (workerRows ?? []).map(
     ({ user_id, bank_name, bank_account_number, bank_account_name, ...w }) => {
       const portalBound = user_id !== null;
@@ -217,6 +248,10 @@ export default async function WorkersPage({
         bank_name: portalBound ? null : bank_name,
         bank_account_number: portalBound ? null : bank_account_number,
         bank_account_name: portalBound ? null : bank_account_name,
+        // null covers three things on purpose: the viewer may not be entitled to the
+        // state, the worker may be inactive (the audit is active-only, so an inactive
+        // row has no entry), or the read may have failed. All three mean "no badge".
+        payoutAccount: payoutByWorker.get(w.id) ?? null,
       };
     },
   );

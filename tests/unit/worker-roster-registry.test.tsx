@@ -63,6 +63,7 @@ function worker(over: Partial<ManagedWorker> & { id: string; name: string }): Ma
     bank_account_number: null,
     bank_account_name: null,
     gender: null,
+    payoutAccount: null,
     ...over,
   };
 }

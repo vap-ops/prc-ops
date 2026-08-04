@@ -65,6 +65,7 @@ const BASE: ManagedWorker = {
   bank_account_number: null,
   bank_account_name: null,
   gender: null,
+  payoutAccount: null,
 };
 
 function openEdit() {

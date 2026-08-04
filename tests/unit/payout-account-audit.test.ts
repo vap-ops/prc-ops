@@ -131,6 +131,28 @@ describe("loadPayoutAccountAudit", () => {
     expect(new Map(out.map((a) => [a.workerId, a])).get("w1")?.state).toBe("unrecorded");
   });
 
+  // ⚠️ The nominee number is stored separator-stripped by the RPC; the worker's is stored
+  // as typed. Without normalising both sides a recorded nominee would never clear the
+  // badge, and nothing on screen would explain why.
+  it("matches coverage across separator formatting on either side", async () => {
+    const { client } = adminReturning({
+      data: [
+        {
+          id: "w9",
+          name: "นายสายฟ้า บุญเกิด",
+          bank_account_number: "014-1623197-29",
+          bank_account_name: "ด.ช.อนันตชัย ทีฆายุทธสกุล",
+        },
+      ],
+      error: null,
+    });
+    mockCreateClient.mockReturnValue(client);
+    mockListActiveNominees.mockResolvedValue([{ workerId: "w9", accountNumber: "014162319729" }]);
+
+    const out = await loadPayoutAccountAudit(SERVER);
+    expect(out[0]?.state).toBe("nominee");
+  });
+
   // Same failure class as the admin read: a silent [] would report every consented
   // worker as unrecorded, and nothing would say why.
   it("throws when the nominee RPC fails rather than treating it as 'no nominees'", async () => {
