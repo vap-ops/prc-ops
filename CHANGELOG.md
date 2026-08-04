@@ -1,3 +1,9 @@
+# [0.325.0](https://github.com/vap-ops/prc-ops/compare/v0.324.0...v0.325.0) (2026-08-04)
+
+### Features
+
+- **zones:** zone maps as an axis that crosses the work package tree ([#957](https://github.com/vap-ops/prc-ops/issues/957)) ([dda4b07](https://github.com/vap-ops/prc-ops/commit/dda4b07dc8f2fc3305a5cc81b42ca92a9b317225))
+
 # [0.324.0](https://github.com/vap-ops/prc-ops/compare/v0.323.2...v0.324.0) (2026-08-04)
 
 ### Bug Fixes
