@@ -563,6 +563,99 @@ describe("WorkerRosterManager duplicate เลขผู้เสียภาษ�
   });
 });
 
+// #945 follow-up — the EDIT sheet writes tax_id too (DC edit matrix), so it can
+// collide exactly the same way. It got the honest server copy but not the name or
+// the door, because the row component held no roster list. Parity, with the one
+// difference the edit case forces: a row's OWN unchanged เลขบัตร is not a collision.
+describe("WorkerRosterManager duplicate เลขผู้เสียภาษี — edit sheet", () => {
+  const HOLDER: ManagedWorker = {
+    ...WORKERS[0]!,
+    id: "w-holder",
+    name: "พิมพ์ใจ วงษ์อ่อน",
+    pay_type: "daily",
+    tax_id: "1160400054920",
+  };
+  const OTHER: ManagedWorker = {
+    ...WORKERS[0]!,
+    id: "w-other",
+    name: "สมชาย ใจดี",
+    pay_type: "daily",
+    tax_id: "3461300175126",
+  };
+
+  /** Open the edit sheet of the LAST rendered row and type a เลขบัตร into it. */
+  function editRowTaxId(rowName: string, taxId: string) {
+    fireEvent.click(screen.getByRole("button", { name: `แก้ไข ${rowName}` }));
+    const fields = screen.getAllByLabelText("เลขผู้เสียภาษี");
+    fireEvent.change(fields[fields.length - 1]!, { target: { value: taxId } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+  }
+
+  it("refuses before the round trip and NAMES the ช่าง already holding that เลขบัตร", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+
+    const refusal = await screen.findByRole("alert");
+    expect(refusal).toHaveTextContent("พิมพ์ใจ วงษ์อ่อน");
+    expect(refusal).not.toHaveTextContent("ลองใหม่อีกครั้ง");
+    // Nothing is written — not the tax id, and not the other fields riding the same
+    // save, so the user never half-saves a record they are about to correct.
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockSetRate).not.toHaveBeenCalled();
+    expect(mockFriction).toHaveBeenCalledWith(
+      "validation_error",
+      expect.objectContaining({ where: "workers_edit", reason: "duplicate_tax_id" }),
+    );
+  });
+
+  // The edit case's own trap: the row already OWNS that number, and the unique index
+  // does not fire against itself.
+  it("saves normally when the row's own เลขบัตร is untouched", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: `แก้ไข ${HOLDER.name}` }));
+    const notes = screen.getAllByLabelText("หมายเหตุ");
+    fireEvent.change(notes[notes.length - 1]!, { target: { value: "แก้โน้ตเฉยๆ" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    expect(mockFriction).not.toHaveBeenCalled();
+  });
+
+  it("ดูช่างคนเดิม closes the edit sheet and puts the holder's row on screen", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+
+    fireEvent.click(await screen.findByRole("button", { name: "ดูช่างคนเดิม" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "บันทึก" })).toBeNull());
+    expect(screen.getByText(/พิมพ์ใจ วงษ์อ่อน/)).toBeInTheDocument();
+    expect(screen.queryByText("สมชาย ใจดี")).not.toBeInTheDocument();
+  });
+
+  // openEditor() re-seeds every field and clears `error` precisely because this
+  // state survives the sheet's unmount — the door has to be on that list too, or a
+  // reopened sheet shows a stale ดูช่างคนเดิม over a freshly re-seeded field.
+  it("retires the door when the sheet is closed and reopened", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+    expect(await screen.findByRole("button", { name: "ดูช่างคนเดิม" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    fireEvent.click(screen.getByRole("button", { name: `แก้ไข ${OTHER.name}` }));
+    expect(screen.queryByRole("button", { name: "ดูช่างคนเดิม" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("retires the refusal and its door as soon as the เลขบัตร is edited again", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+    expect(await screen.findByRole("button", { name: "ดูช่างคนเดิม" })).toBeInTheDocument();
+
+    const fields = screen.getAllByLabelText("เลขผู้เสียภาษี");
+    fireEvent.change(fields[fields.length - 1]!, { target: { value: "116040005492" } });
+    expect(screen.queryByRole("button", { name: "ดูช่างคนเดิม" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
 // Fresh-eyes 357 U-F: the edit omit-path — a stored-gender worker whose chips
 // are untouched must NOT resend gender (the update carries only changed fields).
 it("editing another field leaves gender out when the chips are untouched", async () => {
