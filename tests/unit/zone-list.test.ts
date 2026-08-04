@@ -78,6 +78,21 @@ describe("buildZoneList", () => {
     expect(rows[0]?.depth).toBe(0);
   });
 
+  it("sorts an orphan AMONG the top-level zones, not after them", () => {
+    // Mutation-found: the previous orphan test could not see this. Dropping the
+    // `!byId.has(parent)` clause still produced the right rows, because the
+    // cycle-survivor sweep picks orphans up — but it appends them, so a zone
+    // whose parent is merely RLS-invisible would sink below every other zone.
+    const rows = buildZoneList(
+      [
+        zone({ id: "root", code: "B", sortOrder: 1 }),
+        zone({ id: "orphan", code: "A", sortOrder: 0, parentZoneId: "gone" }),
+      ],
+      {},
+    );
+    expect(rows.map((r) => r.id)).toEqual(["orphan", "root"]);
+  });
+
   it("does not loop on a parent cycle — U1 leaves that state reachable", () => {
     // The migration blocks a self-parent but NOT a two-node cycle (recorded as
     // an open question in the tracker). A reader that recursed would hang the
