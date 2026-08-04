@@ -130,7 +130,7 @@ export function WpSchedulePanel({
                   aria-label={`เอา ${p.code} ออก`}
                   onClick={() => removeDep(p.id)}
                   disabled={pending}
-                  className="text-ink-muted hover:text-danger inline-flex h-5 w-5 items-center justify-center rounded-full disabled:opacity-50"
+                  className="text-ink-secondary hover:text-danger inline-flex min-h-11 min-w-11 items-center justify-center rounded-full disabled:opacity-50"
                 >
                   <X aria-hidden className="h-3.5 w-3.5" />
                 </button>

@@ -303,4 +303,302 @@ describe("design doctrine (Field-First)", () => {
       [],
     );
   });
+
+  // ================================================================
+  // Widened tap-floor pin (UX-audit 2026-08, gap G12 / finding F-010).
+  // The original pin above bans exactly ONE literal (`min-h-9`) — its name
+  // promises a 44px floor, its reach was one string, and a live 20×20px
+  // remove-control (`h-5 w-5`, wp-schedule-panel) passed it. This scan reads
+  // every <button> opening tag (comment-stripped; the tag regex tolerates `=>`
+  // inside inline handlers — a naive [^>]* stops at the arrow and truncates
+  // the tag BEFORE className, which is exactly how the first draft of this
+  // guard missed the F-010 control) and flags any sub-44px height class.
+  // The allowlist below is a RATCHET: every entry is a justified freeze of an
+  // existing control — shrink it, never grow it. A NEW sub-44 button must
+  // either meet the floor (min-h-11) or earn a justified line here.
+  it("no <button> carries a sub-44px height class outside the ratchet allowlist", () => {
+    const SUB44 = /\b(?:min-)?h-(?:5|6|7|8|9|10)\b/;
+    // file (relative to src, forward slashes) -> max allowed sub-44 buttons.
+    const TAP_RATCHET: Record<string, number> = {
+      // role="switch" tracks — 24×44px target: passes WCAG 2.5.8 AA (24px);
+      // the house 44px floor for switches is an open design question (G12).
+      "components/features/notifications/channel-preferences-form.tsx": 1,
+      "components/features/notifications/preferences-form.tsx": 1,
+      // always-dark photo overlay chrome — h-10 (40px), isolated corner/edge
+      // targets with no adjacent controls (2.5.8 spacing exception).
+      "components/features/photos/photo-lightbox-overlay.tsx": 3,
+      // in-field search submit (h-8) — compact-in-input pattern; frozen.
+      "components/features/projects/projects-filter-bar.tsx": 1,
+      // h-9/h-10 office-surface buttons frozen pending their own fix lane.
+      "app/projects/[projectId]/edit-deliverable-sheet.tsx": 1,
+      "components/features/feedback/feedback-drafts.tsx": 2,
+      "components/features/feedback/feedback-status-control.tsx": 1,
+      "components/features/wp-catalog/reference-star-button.tsx": 1,
+    };
+    const offenders: string[] = [];
+    let buttonsSeen = 0;
+    const counts = new Map<string, number>();
+    for (const f of sources.filter((s) => s.rel.endsWith(".tsx"))) {
+      const rel = f.rel.replace(/\\/g, "/");
+      const src = f.text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      // [^>] already spans newlines; the `=>` alternative keeps an inline
+      // arrow handler from terminating the tag match early (the miss that hid
+      // the F-010 control from this guard's first draft).
+      for (const m of src.matchAll(/<button\b(?:=>|[^>])*?>/g)) {
+        buttonsSeen += 1;
+        const sub = m[0].match(SUB44);
+        if (!sub) continue;
+        counts.set(rel, (counts.get(rel) ?? 0) + 1);
+        if ((counts.get(rel) ?? 0) > (TAP_RATCHET[rel] ?? 0)) {
+          offenders.push(`${rel} :: ${sub[0]}`);
+        }
+      }
+    }
+    // Vacuity aborts: a broken tag regex reads as "no offenders".
+    expect(buttonsSeen, "the <button> scan matched almost nothing — vacuous").toBeGreaterThan(200);
+    expect(
+      offenders,
+      `sub-44px <button>(s) beyond the ratchet allowlist (fix: min-h-11, a 44px hit-slop ` +
+        `wrapper, or a justified TAP_RATCHET line): ${offenders.join(" | ")}`,
+    ).toEqual([]);
+    // The ratchet must SHRINK: rows whose real count fell should be lowered so
+    // the slack cannot be re-spent by a new offender in the same file.
+    for (const [rel, max] of Object.entries(TAP_RATCHET)) {
+      expect(
+        counts.get(rel) ?? 0,
+        `${rel}: TAP_RATCHET allows ${max} but only ${counts.get(rel) ?? 0} remain — lower the entry`,
+      ).toBe(max);
+    }
+  });
+
+  // ================================================================
+  // ink-muted usage ratchet (UX-audit 2026-08, gap G2 / finding F-015).
+  // globals.css:87 says ink-muted is "dividers / placeholder / disabled ONLY",
+  // yet 500+ sites use it — dozens of them on empty-state teaching copy that
+  // renders at 2.77:1 in the default light theme, below AA, on an app read in
+  // sunlight. A per-site allowlist is unmaintainable at this scale, so this is
+  // a CEILING ratchet: the totals may fall, never rise. The G2 sweep lane
+  // (move sentence copy to text-ink-secondary, 8.11:1) lowers these numbers —
+  // re-measure and tighten the ceilings when it lands. A new surface reaching
+  // for text-ink-muted on real copy pushes the count over and lands here:
+  // use text-ink-secondary for anything a user must READ.
+  it("text-ink-muted usage never grows (ceiling ratchet)", () => {
+    let total = 0;
+    const files = new Set<string>();
+    for (const f of sources) {
+      const src = f.text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      const n = src.split("text-ink-muted").length - 1;
+      if (n > 0) {
+        total += n;
+        files.add(f.rel);
+      }
+    }
+    expect(total, "text-ink-muted occurrence scan matched nothing — vacuous").toBeGreaterThan(0);
+    expect(
+      total,
+      `text-ink-muted occurrences grew past the ratchet ceiling — use text-ink-secondary for readable copy (ink-muted is dividers/placeholder/disabled ONLY, globals.css:87)`,
+    ).toBeLessThanOrEqual(501); // measured 2026-08-04 (post F-010 fix) — lower after the G2 sweep, never raise
+    expect(
+      files.size,
+      `the number of files using text-ink-muted grew — a NEW surface adopted a token reserved for dividers/placeholder/disabled`,
+    ).toBeLessThanOrEqual(229); // measured 2026-08-04 — lower after the G2 sweep, never raise
+  });
+
+  // ================================================================
+  // Token-contrast claims pin (UX-audit 2026-08, gap G2 / finding F-014;
+  // consistency-machine gap §6 row 1). globals.css annotates tokens with
+  // contrast-ratio claims ("~16:1 on card", "WCAG 1.4.11 ≥3:1") that NOTHING
+  // verified — and the light edge-strong comment claimed ≥3:1 while the value
+  // delivered 2.77:1, i.e. the comment out-ran the value and every reader
+  // (human or model) inherited a false compliance claim. This pin computes the
+  // real WCAG ratio (OKLCH → linear sRGB → relative luminance) for EVERY claim
+  // the file makes, so a comment can never again promise a ratio the token
+  // does not deliver. The instrument self-controls first (action token vs its
+  // own ≈#1d4ed8 comment) — a wrong conversion aborts instead of mis-judging.
+  // "~N:1" claims allow ≈7% approximation slack (the file's hex comments are
+  // themselves approximations); "≥N:1" claims are strict WCAG floors.
+  describe("token contrast claims (globals.css comments must not out-run values)", () => {
+    const css = readFileSync(join(SRC, "app", "globals.css"), "utf8");
+
+    // --- OKLCH → linear sRGB → WCAG contrast (control-checked below) ---
+    type Rgb = [number, number, number];
+    function oklchToLinearSrgb(L: number, C: number, Hdeg: number): Rgb {
+      const h = (Hdeg * Math.PI) / 180;
+      const a = C * Math.cos(h);
+      const b = C * Math.sin(h);
+      const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+      const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+      const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+      const l = l_ ** 3;
+      const m = m_ ** 3;
+      const s = s_ ** 3;
+      const clamp = (x: number) => Math.min(1, Math.max(0, x));
+      return [
+        clamp(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+        clamp(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+        clamp(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+      ];
+    }
+    const relLum = ([r, g, b]: Rgb) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    const contrast = (c1: Rgb, c2: Rgb) => {
+      const l1 = relLum(c1);
+      const l2 = relLum(c2);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+    const toGamma = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
+
+    // --- token parsing: light = the PRC OPS @theme block, dark = .dark ---
+    function parseTokens(block: string): Map<string, Rgb> {
+      const out = new Map<string, Rgb>();
+      for (const m of block.matchAll(
+        /--color-([a-z0-9-]+):\s*oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/g,
+      )) {
+        out.set(m[1]!, oklchToLinearSrgb(Number(m[2]), Number(m[3]), Number(m[4])));
+      }
+      return out;
+    }
+    // The FIELD-FIRST @theme block (not `@theme inline`, which aliases shadcn vars).
+    const themeStart = css.indexOf("@theme {");
+    const darkStart = css.indexOf(".dark {");
+    expect(themeStart, "PRC OPS @theme block not found").toBeGreaterThan(-1);
+    expect(darkStart, ".dark block not found").toBeGreaterThan(-1);
+    const light = parseTokens(css.slice(themeStart, darkStart));
+    const dark = new Map([...light, ...parseTokens(css.slice(darkStart))]);
+    const WHITE: Rgb = [1, 1, 1];
+
+    it("the conversion instrument matches the file's own ≈hex comment (control)", () => {
+      // action: oklch(0.49 0.21 264) ≈ #1d4ed8 per its comment. A broken
+      // conversion mis-judges every claim below — abort on drift > 4/255/channel.
+      const action = light.get("action");
+      expect(action, "action token missing").toBeDefined();
+      const gamma = action!.map((c) => Math.round(toGamma(c) * 255));
+      const expected = [0x1d, 0x4e, 0xd8];
+      for (let i = 0; i < 3; i++) {
+        expect(
+          Math.abs(gamma[i]! - expected[i]!),
+          `conversion control drifted on channel ${i}: got ${gamma[i]}, css comment says ${expected[i]}`,
+        ).toBeLessThanOrEqual(4);
+      }
+    });
+
+    // Every ratio claim written in globals.css, as {fg, bg, min, strict}.
+    // fg/bg name a token or "white". strict=true for "≥N:1" (a WCAG floor),
+    // false for "~N:1" (an approximation — 7% slack).
+    type Claim = {
+      label: string;
+      theme: "light" | "dark";
+      fg: string;
+      bg: string;
+      min: number;
+      strict: boolean;
+    };
+    const CAT_TOKENS = [...light.keys()].filter((t) => /^cat-w\d\d$/.test(t));
+    const CLAIMS: Claim[] = [
+      // NOTE: edge-strong carries NO ratio claim in either theme — it is BELOW
+      // the 1.4.11 floor (2.77 light / 2.92 dark) and its comments now say so;
+      // the value raise is UX-audit gap G2's lane. When G2 lands, restore the
+      // "≥3:1" comments and re-add both entries here.
+      { label: "ink on card ~16:1", theme: "light", fg: "ink", bg: "card", min: 16, strict: false },
+      {
+        label: "ink-secondary on card ~7.4:1",
+        theme: "light",
+        fg: "ink-secondary",
+        bg: "card",
+        min: 7.4,
+        strict: false,
+      },
+      {
+        label: "on-brand on brand ~17:1",
+        theme: "light",
+        fg: "on-brand",
+        bg: "brand",
+        min: 17,
+        strict: false,
+      },
+      {
+        label: "attn-ink on attn-soft ~7:1",
+        theme: "light",
+        fg: "attn-ink",
+        bg: "attn-soft",
+        min: 7,
+        strict: false,
+      },
+      {
+        label: "on-attn on attn ~9:1",
+        theme: "light",
+        fg: "on-attn",
+        bg: "attn",
+        min: 9,
+        strict: false,
+      },
+      {
+        label: "white on done-strong ~5.4:1",
+        theme: "light",
+        fg: "white",
+        bg: "done-strong",
+        min: 5.4,
+        strict: false,
+      },
+      // The category block claims ≥4.5:1 white text over every cat hue.
+      ...CAT_TOKENS.map((t) => ({
+        label: `white on ${t} ≥4.5:1`,
+        theme: "light" as const,
+        fg: "white",
+        bg: t,
+        min: 4.5,
+        strict: true,
+      })),
+      {
+        label: "dark ink on card ~16:1",
+        theme: "dark",
+        fg: "ink",
+        bg: "card",
+        min: 16,
+        strict: false,
+      },
+      {
+        label: "dark ink-secondary on card ~7:1",
+        theme: "dark",
+        fg: "ink-secondary",
+        bg: "card",
+        min: 7,
+        strict: false,
+      },
+    ];
+
+    it("every claimed ratio is actually delivered by the token values", () => {
+      expect(CAT_TOKENS.length, "cat token scan matched nothing — vacuous").toBeGreaterThan(0);
+      const failures: string[] = [];
+      for (const c of CLAIMS) {
+        const tokens = c.theme === "light" ? light : dark;
+        const fg = c.fg === "white" ? WHITE : tokens.get(c.fg);
+        const bg = c.bg === "white" ? WHITE : tokens.get(c.bg);
+        if (!fg || !bg) {
+          failures.push(`${c.label}: token missing (${c.fg} / ${c.bg})`);
+          continue;
+        }
+        const actual = contrast(fg, bg);
+        const floor = c.strict ? c.min : c.min * 0.93;
+        if (actual < floor) {
+          failures.push(
+            `${c.label} [${c.theme}]: comment claims ${c.min}:1 but the value delivers ${actual.toFixed(2)}:1 — fix the VALUE or correct the COMMENT (never leave a claim the token does not meet)`,
+          );
+        }
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
+
+    it("every ratio-claim comment in globals.css has an entry in CLAIMS (completeness)", () => {
+      // A new "~N:1" / "≥N:1" comment without a CLAIMS entry would be an
+      // unverified promise — the exact hole this pin closes. The cat block's
+      // single "≥4.5:1" comment covers all cat-w* tokens (one string, many
+      // entries), so compare claim STRINGS against non-cat entries + 1.
+      const claimStrings = [...css.matchAll(/[~≥]\s*\d+(?:\.\d+)?:1/g)].map((m) => m[0]);
+      const nonCatEntries = CLAIMS.filter((c) => !/^white on cat-/.test(c.label)).length;
+      expect(
+        claimStrings.length,
+        `globals.css carries ${claimStrings.length} ratio-claim comment(s) (${claimStrings.join(", ")}) but CLAIMS covers ${nonCatEntries} + the 1 cat-block claim — add the new claim to CLAIMS in this file`,
+      ).toBe(nonCatEntries + 1);
+    });
+  });
 });

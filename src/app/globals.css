@@ -79,7 +79,10 @@
   --color-edge: oklch(0.92 0.003 247); /* ≈ #e3e5e9 card hairline */
   --color-edge-strong: oklch(
     0.69 0.008 256
-  ); /* ≈ #9aa0aa field/control border — WCAG 1.4.11 ≥3:1 */
+  ); /* ≈ #9aa0aa field/control border — ⚠ BELOW the WCAG 1.4.11 non-text floor
+       in light (computes 2.77 to 1 on card); the value raise is owed by UX-audit
+       gap G2 — do not re-add a ratio claim here without meeting it (the
+       design-doctrine contrast pin verifies every claimed ratio) */
 
   /* --- Ink (spec 20 floors) --------------------------------------- */
   --color-ink: oklch(0.2 0.006 264); /* ≈ #15161a  ~16:1 on card */
@@ -104,7 +107,7 @@
   --color-attn-soft: oklch(0.985 0.03 90); /* ≈ #fff7e6 amber-50 — band/chip ground */
   --color-attn-edge: oklch(0.85 0.13 85); /* ≈ #fcd34d amber-300 */
   --color-attn-ink: oklch(0.39 0.08 60); /* ≈ #6b3a06 amber-900 — text on amber-soft ~7:1 */
-  --color-on-attn: oklch(0.18 0.02 60); /* ≈ #1a1205 near-black ink ON amber fill ~10:1 */
+  --color-on-attn: oklch(0.18 0.02 60); /* ≈ #1a1205 near-black ink ON amber fill ~9:1 */
 
   /* --- Waiting / review (sky — distinct from action-blue) --------- */
   --color-wait: oklch(0.5 0.13 245); /* ≈ #0369a1 sky-800 — review spine/band */
@@ -221,7 +224,11 @@
   --color-card: oklch(0.215 0.009 264);
   --color-sunk: oklch(0.26 0.009 264);
   --color-edge: oklch(0.31 0.009 264);
-  --color-edge-strong: oklch(0.5 0.012 256); /* control border ≥3:1 on card */
+  --color-edge-strong: oklch(
+    0.5 0.012 256
+  ); /* control border — ⚠ marginally below
+       the WCAG 1.4.11 floor on the dark card too (computes 2.92 to 1); raise owed
+       with UX-audit gap G2 */
 
   /* --- Ink (floors held vs the dark card) ------------------------- */
   --color-ink: oklch(0.95 0.004 264); /* ~16:1 on card */
