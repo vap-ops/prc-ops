@@ -588,17 +588,27 @@ describe("design doctrine (Field-First)", () => {
       expect(failures, failures.join("\n")).toEqual([]);
     });
 
-    it("every ratio-claim comment in globals.css has an entry in CLAIMS (completeness)", () => {
+    it("every ratio-claim comment in globals.css has a matching entry in CLAIMS (completeness)", () => {
       // A new "~N:1" / "≥N:1" comment without a CLAIMS entry would be an
-      // unverified promise — the exact hole this pin closes. The cat block's
-      // single "≥4.5:1" comment covers all cat-w* tokens (one string, many
-      // entries), so compare claim STRINGS against non-cat entries + 1.
-      const claimStrings = [...css.matchAll(/[~≥]\s*\d+(?:\.\d+)?:1/g)].map((m) => m[0]);
-      const nonCatEntries = CLAIMS.filter((c) => !/^white on cat-/.test(c.label)).length;
+      // unverified promise — the exact hole this pin closes. Compared as a
+      // MULTISET OF CLAIMED NUMBERS, not a bare count, so editing a comment's
+      // value (say ~9:1 → ~12:1) without updating CLAIMS also reds — a
+      // count-only check let exactly that drift through in this guard's own
+      // first draft. The cat block's single "≥4.5:1" comment covers all cat-w*
+      // tokens (one string, many entries), so it contributes one 4.5.
+      const claimed = [...css.matchAll(/[~≥]\s*(\d+(?:\.\d+)?):1/g)]
+        .map((m) => Number(m[1]))
+        .sort((a, b) => a - b);
+      const expected = [
+        ...CLAIMS.filter((c) => !/^white on cat-/.test(c.label)).map((c) => c.min),
+        4.5,
+      ].sort((a, b) => a - b);
       expect(
-        claimStrings.length,
-        `globals.css carries ${claimStrings.length} ratio-claim comment(s) (${claimStrings.join(", ")}) but CLAIMS covers ${nonCatEntries} + the 1 cat-block claim — add the new claim to CLAIMS in this file`,
-      ).toBe(nonCatEntries + 1);
+        claimed,
+        `the ratio numbers claimed in globals.css comments (${claimed.join(", ")}) do not match ` +
+          `the CLAIMS table mins (${expected.join(", ")}) — a comment was added or edited without ` +
+          `updating CLAIMS in this file (or vice versa)`,
+      ).toEqual(expected);
     });
   });
 });
