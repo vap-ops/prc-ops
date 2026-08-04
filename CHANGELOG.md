@@ -1,3 +1,22 @@
+## [0.321.1](https://github.com/vap-ops/prc-ops/compare/v0.321.0...v0.321.1) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** clear the duplicate door when the edit sheet reopens ([e5352fa](https://github.com/vap-ops/prc-ops/commit/e5352faf2e0cce2964f2d81a57c7408a06733db9))
+- **workers:** edit-sheet parity for the duplicate national-ID refusal ([93a9fbe](https://github.com/vap-ops/prc-ops/commit/93a9fbed346399c123a58523f739cef547a3ca19)), closes [#945](https://github.com/vap-ops/prc-ops/issues/945)
+
+# [0.321.0](https://github.com/vap-ops/prc-ops/compare/v0.320.0...v0.321.0) (2026-08-04)
+
+### Features
+
+- **workers:** record the previous value in worker_change audit (spec 396 U1) ([#946](https://github.com/vap-ops/prc-ops/issues/946)) ([3a42891](https://github.com/vap-ops/prc-ops/commit/3a4289186ccbac0655265ee69977f37e684b0288))
+
+# [0.320.0](https://github.com/vap-ops/prc-ops/compare/v0.319.1...v0.320.0) (2026-08-04)
+
+### Features
+
+- the client-report photo selection store (spec 394 U1) ([#947](https://github.com/vap-ops/prc-ops/issues/947)) ([2025451](https://github.com/vap-ops/prc-ops/commit/20254512b5adc6da031f792377dff9cbd355526a))
+
 ## [0.319.1](https://github.com/vap-ops/prc-ops/compare/v0.319.0...v0.319.1) (2026-08-04)
 
 ### Bug Fixes
