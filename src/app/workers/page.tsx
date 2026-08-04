@@ -147,6 +147,34 @@ export default async function WorkersPage({
     .filter((c) => isWorkCategoryTopCode(c.code))
     .map((c) => ({ id: c.id, code: c.code, nameTh: c.name_th }));
 
+  // Spec 396 U2: resolve WHOSE account each bound worker row belongs to. Until
+  // now the client got a bare `portalBound` boolean and could not say, which is
+  // how a real employee's record was renamed into another person's identity on
+  // 2026-08-04 (spec 396 §1). Operator decision 2026-08-04: showing the holder's
+  // name to this already-gated audience is approved.
+  //
+  // Only the bound ids are queried, and only the display name crosses the
+  // boundary — never the user id (an unnecessary identifier in a client bundle).
+  // The read goes through the admin client because public.users is RLS-scoped;
+  // the page has already passed requireRole(WORKER_ROSTER_ROLES) above.
+  const boundUserIds = [
+    ...new Set((workerRows ?? []).map((w) => w.user_id).filter((id): id is string => id !== null)),
+  ];
+  const boundNameByUserId = new Map<string, string>();
+  if (boundUserIds.length > 0) {
+    const { data: boundUsers } = await admin
+      .from("users")
+      .select("id, full_name, line_display_name")
+      .in("id", boundUserIds);
+    for (const u of boundUsers ?? []) {
+      // full_name is the registered identity; the LINE display name is the
+      // fallback for an account that never completed one. Blank-safe so an
+      // empty string never renders as a nameless "เป็นของ ".
+      const label = u.full_name?.trim() || u.line_display_name?.trim() || "";
+      if (label) boundNameByUserId.set(u.id, label);
+    }
+  }
+
   // Spec 369 U1: the GROSS standard rate per level — the number the confirm will
   // stamp. Same derivation as /settings/labor-rates (shared grossRate); a level
   // missing from the seed previews as null, which BLOCKS its confirm in the sheet
@@ -176,6 +204,8 @@ export default async function WorkersPage({
       return {
         ...w,
         portalBound,
+        // Spec 396 U2: the holder's name, never their id.
+        boundUserName: user_id === null ? null : (boundNameByUserId.get(user_id) ?? null),
         trades: tradesByWorker.get(w.id) ?? [],
         bank_name: portalBound ? null : bank_name,
         bank_account_number: portalBound ? null : bank_account_number,

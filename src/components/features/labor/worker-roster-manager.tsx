@@ -111,6 +111,11 @@ export type ManagedWorker = {
   employment_type: EmploymentType;
   // ADR 0062 U4a: is this worker bound to a portal LINE login (workers.user_id)?
   portalBound: boolean;
+  // Spec 396 U2: WHOSE account it is. `portalBound` alone says a binding exists
+  // but not whose, which is how a real employee's record was renamed into
+  // someone else's on 2026-08-04. null = bound but the display name is unknown
+  // (the ownership fact still renders — the name is the detail, not the signal).
+  boundUserName: string | null;
   // Spec 200: the worker's current project (one at a time), or null if unassigned.
   project_id: string | null;
   // Spec 272 U1 / ADR 0060: skill grade (null = ยังไม่ประเมิน; super_admin sets).
@@ -825,6 +830,19 @@ function WorkerRow({
               className={FIELD_STACKED}
             />
           </label>
+          {/* Spec 396 U2 — say WHOSE record this is, at the field where the
+              mistake is made. Deliberately here rather than in the portal card
+              further down the sheet: the 2026-08-04 rename happened in this
+              input, and nobody scrolls to the bottom to find out who owns the
+              row. States a fact; never warns — ten of the eleven real renames
+              on bound workers were legitimate normalisations. */}
+          {worker.portalBound ? (
+            <p className="text-ink-muted mt-1 text-xs">
+              {worker.boundUserName
+                ? `รายการนี้เป็นของ ${worker.boundUserName} · ผูกบัญชีเข้าแอปแล้ว`
+                : "รายการนี้ผูกบัญชีเข้าแอปแล้ว"}
+            </p>
+          ) : null}
           <label className="text-ink-secondary mt-2 block text-sm">
             ค่าแรงต่อวัน (บาท)
             <input
