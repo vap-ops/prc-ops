@@ -1,3 +1,9 @@
+## [0.317.1](https://github.com/vap-ops/prc-ops/compare/v0.317.0...v0.317.1) (2026-08-04)
+
+### Bug Fixes
+
+- **muster:** refuse a scan-out on a worker who is already out (spec 306 §5) ([#932](https://github.com/vap-ops/prc-ops/issues/932)) ([23a9be9](https://github.com/vap-ops/prc-ops/commit/23a9be9830f1aa8e3d701a83634e9e7ee3eae0fd))
+
 # [0.317.0](https://github.com/vap-ops/prc-ops/compare/v0.316.1...v0.317.0) (2026-08-03)
 
 ### Bug Fixes
