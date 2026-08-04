@@ -11010,7 +11010,10 @@ export type Database = {
         }[]
       }
       get_wp_reference_photos: {
-        Args: { p_wp_catalog_item_id: string }
+        Args: {
+          p_exclude_work_package_id?: string
+          p_wp_catalog_item_id: string
+        }
         Returns: {
           note: string
           phase: Database["public"]["Enums"]["photo_phase"]

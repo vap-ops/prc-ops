@@ -69,3 +69,67 @@ export async function unstarReferencePhoto(
 ): Promise<StarResult> {
   return callStarRpc(projectId, workPackageId, photoId, false);
 }
+
+// Spec 391 D5 — HIDE is a different act from un-star, and deliberately a
+// separate pair of functions rather than a flag on the ones above.
+//
+// Un-star removes a choice a human made. Hide suppresses a photo nobody chose:
+// since 391 the ตัวอย่างงาน set fills itself, so most of what a PD sees there
+// was never starred and there is no star to remove. They also live in different
+// tables — `wp_catalog_reference_photos.starred_by` is NOT NULL, so a hide-only
+// row has nothing to put there, and `unstar_reference_photo` deletes by photo id
+// with no guard, so sharing a table would let un-starring silently delete a hide.
+const HIDE_GENERIC_ERROR = "ซ่อนรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+const HIDE_INVALID_ERROR = "ซ่อนรูปไม่ได้: ไม่พบรูปนี้";
+
+async function callHideRpc(
+  projectId: string,
+  workPackageId: string,
+  photoId: string,
+  hide: boolean,
+): Promise<StarResult> {
+  await requireRole(["project_director", "super_admin"]);
+
+  if (![projectId, workPackageId, photoId].every((v) => UUID_REGEX.test(v))) {
+    return { ok: false, error: HIDE_GENERIC_ERROR };
+  }
+
+  const supabase = await createClient();
+  const { error } = hide
+    ? await supabase.rpc("hide_reference_photo", { p_photo_log_id: photoId })
+    : await supabase.rpc("unhide_reference_photo", { p_photo_log_id: photoId });
+
+  if (error) {
+    console.error("[star-actions] hide rpc failed", { photoId, hide, code: error.code });
+    // Permanent refusals get honest copy — never "try again" on a call that
+    // cannot succeed. FORBIDDEN_ERROR is reused verbatim: the DB gate is the
+    // same PD-tier one, so the answer to the user is the same fact.
+    if (error.code === "42501") return { ok: false, error: FORBIDDEN_ERROR };
+    if (error.code === "22023") return { ok: false, error: HIDE_INVALID_ERROR };
+    return { ok: false, error: HIDE_GENERIC_ERROR };
+  }
+
+  // A hide changes what OTHER work packages of this type show, not this one —
+  // the derived arm already excludes the WP being viewed. Revalidating this WP
+  // still matters for the toggle's own state; the cross-project effect lands on
+  // the next render of those pages, which is the honest bound of a server action.
+  revalidatePath(`/review/work-packages/${workPackageId}`);
+  revalidatePath(`/projects/${projectId}/work-packages/${workPackageId}`);
+  return { ok: true };
+}
+
+export async function hideReferencePhoto(
+  projectId: string,
+  workPackageId: string,
+  photoId: string,
+): Promise<StarResult> {
+  return callHideRpc(projectId, workPackageId, photoId, true);
+}
+
+export async function unhideReferencePhoto(
+  projectId: string,
+  workPackageId: string,
+  photoId: string,
+): Promise<StarResult> {
+  return callHideRpc(projectId, workPackageId, photoId, false);
+}

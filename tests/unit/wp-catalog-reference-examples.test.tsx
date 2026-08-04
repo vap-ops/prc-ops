@@ -16,6 +16,10 @@ const rows = [
     fullUrl: "https://signed/p1-full.jpg",
     projectName: "TFM โพธิ์ทอง ลพบุรี",
     note: "มุมนี้ถูกต้อง",
+    // Spec 391 D7 — a deliberate PD pick, mixed with an automatic one below.
+    // The mixed set is the NORMAL case since 391, so it is what the fixture
+    // models.
+    starred: true,
   },
   {
     photoLogId: "p2",
@@ -23,6 +27,7 @@ const rows = [
     fullUrl: "https://signed/p2-full.jpg",
     projectName: "TFM นายาว เพชรบูรณ์",
     note: null,
+    starred: false,
   },
 ];
 
@@ -58,5 +63,37 @@ describe("ReferenceExamples", () => {
     ).replace(/\/\/[^\n]*/g, "");
     expect(src).not.toContain("photoId={");
     expect(src).not.toContain("groupPhotoIds");
+  });
+});
+
+// Writing failing test first.
+//
+// Spec 391 D7/D8 — the strip is no longer "what a PD starred". It fills itself,
+// so the subtitle must not credit a human for a machine's pick (the same lie D1
+// refuses to write into the table by backfilling stars), and the ⭐ has to mark
+// the ones a PD really did choose — otherwise starring a photo the derived arm
+// was ALREADY showing is an action with no visible result.
+describe("ReferenceExamples — automatic vs curated (spec 391)", () => {
+  const mixed = rows; // one starred, one derived — the normal case since 391
+  const allStarred = rows.map((r) => ({ ...r, starred: true }));
+
+  it("marks ONLY the starred tile", () => {
+    render(<ReferenceExamples rows={mixed} />);
+    const marks = screen.getAllByText("ผู้อำนวยการโครงการเลือกรูปนี้เป็นตัวอย่าง");
+    // one sr-only label per starred tile — 1 of the 2 rows
+    expect(marks).toHaveLength(1);
+  });
+
+  it("does not claim the PD chose them when the set is mixed", () => {
+    render(<ReferenceExamples rows={mixed} />);
+    expect(screen.getByText(/ตัวอย่างงานประเภทเดียวกันที่ทำเสร็จแล้ว/)).toBeInTheDocument();
+    expect(screen.queryByText(/^รูปที่ผู้อำนวยการโครงการปักดาวไว้/)).not.toBeInTheDocument();
+  });
+
+  it("but DOES credit the PD when every tile really is theirs", () => {
+    // The honest inverse: understating human curation would be its own small
+    // lie, and it is what makes the mixed-case wording meaningful.
+    render(<ReferenceExamples rows={allStarred} />);
+    expect(screen.getByText(/^รูปที่ผู้อำนวยการโครงการปักดาวไว้/)).toBeInTheDocument();
   });
 });

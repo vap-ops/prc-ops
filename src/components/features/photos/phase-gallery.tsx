@@ -32,6 +32,9 @@ interface PhaseGalleryProps {
         projectId: string;
         workPackageId: string;
         starredPhotoIds: ReadonlyArray<string>;
+        /** Spec 391 D5 — photos suppressed as examples. Separate list, not a
+         *  variant of the starred one: the two are independent states. */
+        hiddenPhotoIds: ReadonlyArray<string>;
       }
     | undefined;
 }
@@ -112,6 +115,7 @@ export function PhaseGallery({
                         workPackageId={starring.workPackageId}
                         photoId={p.id}
                         starred={starring.starredPhotoIds.includes(p.id)}
+                        hidden={starring.hiddenPhotoIds.includes(p.id)}
                       />
                     ) : null}
                     {url ? (

@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(26);
 
 -- ============================================================================
 -- Spec 391 U1 — ตัวอย่างงาน fills itself.
@@ -263,6 +263,44 @@ select ok(
 select ok(
   has_function_privilege('authenticated', 'public.hide_reference_photo(uuid)', 'execute'),
   'authenticated CAN (positive control for the grant)');
+
+-- unhide was entirely uncovered in the first draft, though §4 promised "anon
+-- cannot execute EITHER writer". A body that deletes nothing, or one grantable
+-- by anon, would have shipped green.
+select ok(
+  not has_function_privilege('anon', 'public.unhide_reference_photo(uuid)', 'execute'),
+  'anon cannot execute unhide_reference_photo');
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "71000000-0391-0391-0391-710000000391"}';
+select throws_ok(
+  $$ select public.unhide_reference_photo('f9000000-0391-0391-0391-f90000000391') $$,
+  '42501',
+  null,
+  'a visitor cannot UNhide either — the gate is on both directions');
+reset role;
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0391-0391-0391-700000000391"}';
+select public.unhide_reference_photo('f9000000-0391-0391-0391-f90000000391');
+reset role;
+
+select ok(
+  exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+           where photo_log_id = 'f9000000-0391-0391-0391-f90000000391'),
+  'unhide RESTORES the photo — not just a no-op that returns cleanly');
+
+-- U2 — the table's read posture. `/review` reads it directly to render the
+-- toggle's state, and a zero-grant table returns ZERO ROWS to the RLS client
+-- rather than erroring: the control would have shown "not hidden" for every
+-- photo, and the bug would have looked like a failed write.
+select ok(
+  has_table_privilege('authenticated', 'public.wp_catalog_hidden_reference_photos', 'select'),
+  'authenticated can READ the hidden table (the toggle needs its own state)');
+select ok(
+  not has_table_privilege('authenticated', 'public.wp_catalog_hidden_reference_photos', 'insert')
+    and not has_table_privilege('authenticated', 'public.wp_catalog_hidden_reference_photos', 'delete'),
+  'but cannot write it directly — the PD gate lives in the DEFINER pair, not in a policy');
 
 -- The reader's own posture must be UNCHANGED by this unit — 389 U5 chose it
 -- deliberately and `389-wp-catalog.test.sql:96` pins it. Re-asserted here so a

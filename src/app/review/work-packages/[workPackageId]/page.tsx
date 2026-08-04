@@ -160,8 +160,23 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
       );
     starredPhotoIds = (starRows ?? []).map((r) => r.photo_log_id);
   }
+  // Spec 391 D5 — hidden photos. NOT scoped to the catalogue item: the hide
+  // table is keyed by photo alone, because a photo belongs to one WP and
+  // therefore one item, so there is no item column to fall out of step after a
+  // re-map (the star-stranding hazard above has no twin here).
+  let hiddenPhotoIds: string[] = [];
+  if (canStar && allPhotos.length > 0) {
+    const { data: hiddenRows } = await supabase
+      .from("wp_catalog_hidden_reference_photos")
+      .select("photo_log_id")
+      .in(
+        "photo_log_id",
+        allPhotos.map((p) => p.id),
+      );
+    hiddenPhotoIds = (hiddenRows ?? []).map((r) => r.photo_log_id);
+  }
   const starring = canStar
-    ? { projectId: wp.project_id, workPackageId: wp.id, starredPhotoIds }
+    ? { projectId: wp.project_id, workPackageId: wp.id, starredPhotoIds, hiddenPhotoIds }
     : undefined;
 
   // Spec 372 U4b — what `รูปไม่ตรงกับงาน` can point at. Built from the CURRENT photos

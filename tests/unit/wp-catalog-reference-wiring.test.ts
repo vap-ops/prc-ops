@@ -27,8 +27,24 @@ describe("review page — starring wiring", () => {
   it("passes starring to all three PhaseGallery mounts", () => {
     expect(count(reviewPage, "starring={starring}")).toBe(3);
     // the ternary itself — deleting the canStar gate must red here, not just lint
-    expect(count(reviewPage, "canStar")).toBe(3);
+    // Spec 391 U2: 3 → 4. The hidden-photo read is a SECOND query behind the
+    // SAME gate, so a non-PD triggers neither. Counting is what caught the
+    // change; the two structural assertions below are what make the count mean
+    // something rather than being a number someone bumps.
+    expect(count(reviewPage, "canStar")).toBe(4);
     expect(count(reviewPage, "starring = canStar")).toBe(1);
+  });
+
+  // Writing failing test first.
+  //
+  // Spec 391 U2 — the hidden set is read from its own table and threaded on the
+  // same prop. Both halves matter: reading it UNGATED would fire an extra query
+  // for every reviewer, and threading only the starred half would leave the hide
+  // control rendering "not hidden" forever with no test noticing.
+  it("reads the hidden set behind the same gate and threads it", () => {
+    expect(count(reviewPage, "wp_catalog_hidden_reference_photos")).toBe(1);
+    expect(count(reviewPage, "if (canStar && allPhotos.length > 0)")).toBe(2);
+    expect(count(reviewPage, "hiddenPhotoIds")).toBe(3);
   });
 });
 
