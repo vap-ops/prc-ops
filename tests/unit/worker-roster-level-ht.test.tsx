@@ -67,7 +67,7 @@ const DAILY: ManagedWorker = {
   bank_account_number: null,
   bank_account_name: null,
   gender: null,
-  payoutState: null,
+  payoutAccount: null,
 };
 
 const P1: AssignableProject = {

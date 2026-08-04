@@ -78,7 +78,7 @@ const WORKERS: ManagedWorker[] = [
     bank_account_number: null,
     bank_account_name: null,
     gender: null,
-    payoutState: null,
+    payoutAccount: null,
   },
 ];
 
@@ -349,7 +349,7 @@ describe("WorkerRosterManager DC edit matrix", () => {
     bank_account_number: null,
     bank_account_name: null,
     gender: null,
-    payoutState: null,
+    payoutAccount: null,
   };
 
   it("forwards pay/employment/phone/tax/bank edits via updateWorker (unbound worker)", async () => {

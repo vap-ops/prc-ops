@@ -47,9 +47,11 @@ import {
   ATTENDANCE_CALENDAR_LABEL,
   CONFIRM_COST_LABEL,
   PAY_TYPE_LABEL,
+  PAYOUT_ACCOUNT_OWNER_SHARED_HINT,
   PAYOUT_ACCOUNT_RECORD_CTA,
+  PAYOUT_ACCOUNT_SHARED_BADGE,
+  PAYOUT_ACCOUNT_THIRD_PARTY_HINT,
   PAYOUT_ACCOUNT_UNRECORDED_BADGE,
-  PAYOUT_ACCOUNT_UNRECORDED_HINT,
   TRADE_LABEL,
   TRADE_PRIMARY_CLEAR_LABEL,
   TRADE_PRIMARY_LABEL,
@@ -152,7 +154,19 @@ export type ManagedWorker = {
   // YET, never "wrong" (a family member's account is normal here, per the operator).
   // `null` = the viewer is outside PAYOUT_NOMINEE_ROLES, so the page never computed
   // it: the gate is at the SOURCE, and the state simply does not reach this bundle.
-  payoutState: PayoutAccountState | null;
+  //
+  // ⚠️ `nameMatches` is carried because it selects the REMEDY, not just the wording.
+  // On a shared account the holder is often one of the workers themselves (live
+  // 2026-08-05: 2 of the 3 shared groups contain their own owner). That person needs
+  // no บัญชีตัวแทน — inviting them to record one would have them invent a nominee for
+  // their own account. The work belongs to the OTHER rows on that account.
+  // Invariant from the classifier: `unrecorded && nameMatches` implies `isShared`,
+  // because a lone account whose name matches is classified `own`.
+  payoutAccount: {
+    state: PayoutAccountState;
+    isShared: boolean;
+    nameMatches: boolean;
+  } | null;
 };
 
 // Spec 200: a project the assigner can put a worker on. Spec 272 U2: its current
@@ -869,9 +883,12 @@ function WorkerRow({
                 ⚠️ `text-action`, never `text-ink-muted`: that token is
                 dividers/placeholder/disabled only (globals.css), and this is a line
                 the reader is meant to act on. */}
-            {worker.payoutState === "unrecorded" ? (
+            {worker.payoutAccount?.state === "unrecorded" ? (
               <span className="text-action ml-1.5 text-xs font-medium">
-                · {PAYOUT_ACCOUNT_UNRECORDED_BADGE}
+                ·{" "}
+                {worker.payoutAccount.nameMatches
+                  ? PAYOUT_ACCOUNT_SHARED_BADGE
+                  : PAYOUT_ACCOUNT_UNRECORDED_BADGE}
               </span>
             ) : null}
             {!optimisticActive ? (
@@ -1113,16 +1130,29 @@ function WorkerRow({
               only workers with NO bank of their own ("เลือกช่างที่ยังไม่มีบัญชีธนาคารของตัวเอง"),
               and every worker this badge fires on HAS one — so without the parameter
               none of them can be selected through the normal flow at all. */}
-          {worker.payoutState === "unrecorded" ? (
+          {worker.payoutAccount?.state === "unrecorded" ? (
             <div className="border-attn-edge bg-attn-soft rounded-control mt-3 border p-3">
-              <p className="text-attn-ink text-sm font-medium">{PAYOUT_ACCOUNT_UNRECORDED_BADGE}</p>
-              <p className="text-ink-secondary mt-1 text-sm">{PAYOUT_ACCOUNT_UNRECORDED_HINT}</p>
-              <Link
-                href={`/settings/payout-nominees/edit?worker=${worker.id}`}
-                className="text-action mt-2 inline-block min-h-11 text-sm font-medium underline"
-              >
-                {PAYOUT_ACCOUNT_RECORD_CTA}
-              </Link>
+              <p className="text-attn-ink text-sm font-medium">
+                {worker.payoutAccount.nameMatches
+                  ? PAYOUT_ACCOUNT_SHARED_BADGE
+                  : PAYOUT_ACCOUNT_UNRECORDED_BADGE}
+              </p>
+              <p className="text-ink-secondary mt-1 text-sm">
+                {worker.payoutAccount.nameMatches
+                  ? PAYOUT_ACCOUNT_OWNER_SHARED_HINT
+                  : PAYOUT_ACCOUNT_THIRD_PARTY_HINT}
+              </p>
+              {/* ⚠️ No CTA on the OWNER's row: the account IS theirs, so there is no
+                  nominee to record and a link would invite fabricated data. The action
+                  belongs to the OTHER rows sharing this account. */}
+              {worker.payoutAccount.nameMatches ? null : (
+                <Link
+                  href={`/settings/payout-nominees/edit?worker=${worker.id}`}
+                  className="text-action mt-2 inline-flex min-h-11 items-center text-sm font-medium underline"
+                >
+                  {PAYOUT_ACCOUNT_RECORD_CTA}
+                </Link>
+              )}
             </div>
           ) : null}
           {/* Bank: editable ONLY for an unbound worker. Once the ช่าง binds a portal

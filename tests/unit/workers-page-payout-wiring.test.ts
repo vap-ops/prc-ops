@@ -44,8 +44,22 @@ describe("/workers computes the payout-account state", () => {
     expect(PAGE.slice(gateIdx, callIdx)).not.toContain("WORKER_ROSTER_ROLES");
   });
 
-  it("threads the state onto each roster row", () => {
-    expect(occurrences(PAGE, "payoutState")).toBeGreaterThanOrEqual(2);
-    expect(PAGE).toContain("payoutState: payoutStateByWorker.get(w.id) ?? null");
+  it("threads the assessment onto each roster row", () => {
+    expect(PAGE).toContain("payoutAccount: payoutByWorker.get(w.id) ?? null");
+    // ⚠️ `nameMatches` must survive the trip: it selects the REMEDY, not just the
+    // wording. Without it the account's own holder — present in 2 of the 3 live shared
+    // groups — is told to record a นominee for their own account.
+    expect(PAGE).toContain("nameMatches: a.nameMatches");
+  });
+
+  // ⚠️ This reader THROWS by design (an empty worklist is a lie). On the roster's
+  // critical path that would trade the only ช่าง-management page in the app for a
+  // secondary badge, so the failure must degrade to "no badges" instead.
+  it("degrades to no badges rather than taking the roster down", () => {
+    expect(PAGE).toContain("catch");
+    const call = PAGE.indexOf("loadPayoutAccountAudit(supabase)");
+    const tryIdx = PAGE.lastIndexOf("try {", call);
+    expect(tryIdx).toBeGreaterThan(-1);
+    expect(PAGE.slice(tryIdx, call)).not.toContain("}");
   });
 });

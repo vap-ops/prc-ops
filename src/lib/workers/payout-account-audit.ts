@@ -65,10 +65,18 @@ export async function loadPayoutAccountAudit(
   // while the worker row has since moved to a different third-party account Y
   // describes an arrangement nobody is being paid under, and counting it would
   // silence this flag permanently: the exact failure the detector exists to prevent.
-  const accountByWorker = new Map(workers.map((w) => [w.workerId, (w.accountNumber ?? "").trim()]));
+  // ⚠️ Both sides are separator-stripped, and asymmetry here would be invisible and
+  // permanent: `set_worker_payout_nominee` stores the payee number through
+  // `regexp_replace(…, '[\s-]', '', 'g')`, while `workers.bank_account_number` is stored
+  // as typed. Comparing a normalised value against a raw one would leave a worker whose
+  // bank number carries dashes badged FOREVER, with the record already made and no way
+  // to tell why the badge will not clear. (All 42 live numbers are digits-only today, so
+  // this costs nothing now and removes a trap later.)
+  const digits = (s: string | null | undefined) => (s ?? "").replace(/[\s-]/gu, "");
+  const accountByWorker = new Map(workers.map((w) => [w.workerId, digits(w.accountNumber)]));
   const covered = new Set(
     nominees
-      .filter((n) => (n.accountNumber ?? "").trim() === accountByWorker.get(n.workerId))
+      .filter((n) => digits(n.accountNumber) === accountByWorker.get(n.workerId))
       .map((n) => n.workerId),
   );
 

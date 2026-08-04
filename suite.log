@@ -1,0 +1,20 @@
+﻿
+> prc-ops@0.328.0 test D:\claude\projects\prc-ops\prc-ops-shareacct
+> vitest run
+
+
+ RUN  v4.1.10 D:/claude/projects/prc-ops/prc-ops-shareacct
+
+node.exe : Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+At C:\Program Files\nodejs\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Not implemented...vas npm package:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+ Test Files  863 passed (863)
+      Tests  7053 passed (7053)
+   Start at  00:34:36
+   Duration  499.36s (transform 29.01s, setup 159.92s, import 295.30s, tests 210.07s, environment 2445.79s)
+
