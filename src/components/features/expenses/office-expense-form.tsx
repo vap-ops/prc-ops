@@ -114,7 +114,7 @@ function HeldFilePicker({
             }}
             disabled={disabled}
             aria-label="เอาไฟล์ออก"
-            className="text-ink-muted hover:text-ink -mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md"
+            className="text-ink-secondary hover:text-ink -mr-1 inline-flex size-11 shrink-0 items-center justify-center rounded-md"
           >
             <X aria-hidden className="size-4" />
           </button>

@@ -23,7 +23,7 @@ import {
 const CHIP =
   "inline-flex w-fit items-center rounded-control bg-sunk px-2 py-0.5 text-meta text-ink-secondary";
 const ROW_BTN =
-  "inline-flex min-h-8 items-center justify-center rounded-control border border-edge bg-card px-2 text-meta text-ink-secondary transition-colors hover:bg-sunk disabled:opacity-50";
+  "inline-flex min-h-11 items-center justify-center rounded-control border border-edge bg-card px-2 text-meta text-ink-secondary transition-colors hover:bg-sunk disabled:opacity-50";
 
 export function DailyPlanSuggestions({
   projectId,
