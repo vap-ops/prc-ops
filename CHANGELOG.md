@@ -1,3 +1,13 @@
+# [0.329.0](https://github.com/vap-ops/prc-ops/compare/v0.328.0...v0.329.0) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** review pass on the payout badge (spec 395 U2) ([c5c2dcc](https://github.com/vap-ops/prc-ops/commit/c5c2dccff9dd54d46fccac90205d05cf8c9ca8d6))
+
+### Features
+
+- **workers:** badge a payout account that is not the worker's own (spec 395 U2) ([69dc58b](https://github.com/vap-ops/prc-ops/commit/69dc58b3f1cbef9b1462b653fbef8d72b129cf81))
+
 # [0.328.0](https://github.com/vap-ops/prc-ops/compare/v0.327.1...v0.328.0) (2026-08-04)
 
 ### Features
