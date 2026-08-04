@@ -1,8 +1,10 @@
 # Spec 394 — เลือกรูปเข้ารายงานลูกค้า (per-photo selection for the client report)
 
 **Status:** DESIGN APPROVED 2026-08-04 (operator, incl. a rendered mockup of the two toggles
-and the zero-state). Not yet built. **U1 is a migration and the schema lane is currently held
-by lane `refauto` (spec 391)** — see §9.
+and the zero-state), then **AMENDED the same day by the omotenashi ruling** — see §2, which
+reverses D4 and adds D6–D8 (ordering · cover note · client-readable naming). Not yet built.
+**U0 (D8) can ship immediately; U1 is a migration and the schema lane is currently held by lane
+`refauto` (spec 391)** — see §9.
 
 **Operator ask (2026-08-04, verbatim):**
 
@@ -66,8 +68,34 @@ evidence against adding a caption field here (§8).
 | D1  | Selection is **curated per PROJECT** — a standing set built while reviewing. Every later report uses whatever is marked at that moment. | Per-report frozen lists (puts a large selection task in front of every generation); one hero photo per WP (cannot show a before/after pair). |
 | D2  | Both picks live on **`/review`, side by side** — one review pass, two independent toggles.                                              | A separate curation page (a second pass over the same photos).                                                                               |
 | D3  | A **4th report mode `เฉพาะที่เลือก`**; the existing three are untouched.                                                                | "Marked set silently wins when non-empty" — the same button would produce very different documents from invisible state.                     |
-| D4  | **No ordering.** The report keeps its existing per-WP order; marking decides only _which_.                                              | PD-arranged sequence (drag ordering on a phone, plus undefined behaviour when a photo is unmarked or superseded).                            |
+| D4  | ~~No ordering.~~ **REVERSED 2026-08-04 — see D6.**                                                                                      | —                                                                                                                                            |
 | D5  | Gate is **`PM_ROLES`** — PM selects too, not only PD.                                                                                   | PD-only (would make every report a two-person handoff).                                                                                      |
+
+### The omotenashi amendment (operator, 2026-08-04)
+
+> adding workload is ok, as long as it's omotenashi
+
+This reverses D4 and adds D6–D8. The reading: **the client is the guest, and the report is the
+guest-facing artifact**, so PD effort spent making it read as considered is justified — an
+accurate but unordered dump of photos is not hospitality. Omotenashi is _considered detail_, not
+more features, so this deliberately does not add everything that was on the table.
+
+⭐ **It also draws the line against the earlier _"we don't want to add unnecessary workload to
+pd"_ (spec 391).** Both statements survive together because the surfaces differ: the catalogue
+reference set is **internal** (its audience is the next project's team — auto-fill serves them
+fine, which is 391's whole case), while the client report is **guest-facing** and worth PD's
+time. Do not carry "minimise PD work" from 391 onto this surface, or the reverse.
+
+| #   | Decision                                                                                                                                      | Why                                                                                                                                                                                                                                                                                                                                  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D6  | **PD arranges the selected photos within each work package**, and the report follows that order. Section order across WPs stays `code` order. | Sequence is how a document reads. Within a WP it also puts a before next to its after, which the phase-grouped modes structurally cannot. Sections stay in code order because spec 389's codes are **build order** — so the report already walks the project chronologically, and re-ordering sections would break that for no gain. |
+| D7  | **A cover note per report** — one free-text passage PD writes at generation time.                                                             | Often the first thing a client reads. Cheapest of the options (one field, no per-photo work) and it carries the narrative once instead of many times.                                                                                                                                                                                |
+| D8  | **The PDF leads with the Thai work name; the internal code is demoted.**                                                                      | `build-pdf.ts:95` currently prints `${wp.code} — ${wp.name}`, so a client meets `S-07` before they meet the work. The client never agreed to our catalogue letters. **Costs no PD effort at all** — the section already carries both fields.                                                                                         |
+
+⛔ **Per-photo captions were offered and declined.** Recorded so a later reader does not "fix"
+the omission: the cover note carries the narrative, and a caption on every photo is per-item
+labour with fast-diminishing returns. The ⭐ table's own `note` column is still unused after 20
+real stars, which is the same signal one layer down.
 
 ---
 
@@ -76,10 +104,23 @@ evidence against adding a caption field here (§8).
 ```sql
 create table public.report_selected_photos (
   photo_log_id  uuid primary key references public.photo_logs(id) on delete cascade,
+  work_package_id uuid not null references public.work_packages(id) on delete cascade,
+  position      integer not null,
   selected_by   uuid not null references public.users(id),
-  created_at    timestamptz not null default now()
+  created_at    timestamptz not null default now(),
+  unique (work_package_id, position) deferrable initially deferred
 );
 ```
+
+**`position` and `work_package_id` are D6's cost.** Ordering is scoped **within a work package**
+(D6), so the sequence needs a partition to be ordered inside, and reordering must be able to
+shuffle several rows in one transaction — hence `deferrable initially deferred`, or every swap
+would trip the unique index mid-update.
+
+⚠️ **`work_package_id` is the one denormalisation this spec accepts, and only because it is
+immutable.** A photo's WP never changes: `photo_logs` is append-only (`photo_logs_block_update`),
+so `work_package_id` cannot drift the way a stored `project_id` could. It is still derivable, but
+partitioning the unique index requires it in the row. The project stays derived, as in §3.3.
 
 **Why its own table, keyed by photo.** Three constraints force this shape:
 
@@ -107,11 +148,23 @@ starring works.
 ## 4. RPCs
 
 ```
-select_report_photo(p_photo_log_id uuid)   returns jsonb
-unselect_report_photo(p_photo_log_id uuid) returns jsonb
+select_report_photo(p_photo_log_id uuid)                       returns jsonb
+unselect_report_photo(p_photo_log_id uuid)                     returns jsonb
+reorder_report_photos(p_work_package_id uuid, p_photo_ids uuid[]) returns jsonb
 ```
 
-Both `SECURITY DEFINER`, `set search_path = public`.
+All `SECURITY DEFINER`, `set search_path = public`.
+
+**`select_report_photo` appends** — new rows take `max(position) + 1` within the WP, so the
+first-selected photo leads until PD says otherwise. **`unselect_report_photo` closes the gap**
+rather than leaving a hole, so positions stay dense and the next append is predictable.
+
+**`reorder_report_photos` takes the whole WP's list at once**, not a move-one-step call. Two
+reasons: a single statement cannot leave a half-applied order, and the client sends what it
+displays, so the server never has to reconstruct intent from a delta. It refuses with `22023` if
+the array is not exactly the WP's current selected set — a stale client that has missed a
+concurrent unselect must re-read rather than silently resurrect or drop a photo. It takes
+`for update` on the WP's rows so two arranging sessions serialise.
 
 **Gate: `PM_ROLES` = `project_manager` + `super_admin` + `project_director`** — that constant
 already contains exactly the three roles D5 asks for, so **no new `*_ROLES` export is created**.
@@ -134,7 +187,7 @@ rather than re-invented:
 | Photo superseded, or tombstoned (`storage_path is null`) | `22023`  | permanent                        |
 
 Re-selecting an already-selected photo is a **no-op returning `changed:false`**, not an error
-(the star RPCs' idempotence contract). Both RPCs write an `audit_log` row.
+(the star RPCs' idempotence contract). All three RPCs write an `audit_log` row.
 
 ---
 
@@ -172,21 +225,50 @@ matching shape means the second toggle adds a query, not a pattern.
 - Error handling mirrors the star exactly: inline `role="alert"`, permanent refusals get honest
   copy.
 
+### Arranging (D6) — no second surface
+
+Ordering is **within a work package**, and `/review/work-packages/[workPackageId]` already shows
+exactly that WP's photos. So arranging lives on the page PD is already on: below the gallery, a
+compact ordered strip of just the selected photos with move-up / move-down controls, sending the
+whole WP list to `reorder_report_photos`.
+
+⭐ **Deliberately not drag-and-drop.** This is a gloved hand on a phone; a drag target that must
+be grabbed precisely and held is the wrong control for the audience, and `[touch-action]` on a
+horizontally scrolling strip is a known trap in this repo. Two large buttons per row are duller
+and they work. Each control needs a discrete `aria-label` naming the photo's position
+(`เลื่อนขึ้น รูปที่ 2`), because position is otherwise conveyed only visually.
+
+**If nothing is selected for this WP the strip renders nothing at all** — not an empty frame with
+disabled arrows.
+
 ---
 
 ## 6. Report wiring
 
 `ReportPhotosMode` gains `"selected"`. `parseReportParams` accepts it and still falls back to the
 existing default for anything unknown — the 2 historical rows and every legacy caller are
-untouched by construction.
+untouched by construction. `ReportParams` also gains an optional `coverNote` (D7); it lives in the
+existing `reports.params` jsonb, so **the cover note needs no schema change** — and being stored
+on the report rather than the project gives it the right lifetime, frozen with the document that
+was actually sent.
 
 In `run-report-job`, `"selected"` takes a different source: the project's selected photos rather
-than a phase list. WP grouping is unchanged; photos carry their phase label (as `all_phases`
-does), since a selected set can span phases. WPs with nothing selected are omitted
-(`includeEmptyWorkPackages` stays false).
+than a phase list, **ordered by `position` within each WP**. Unlike the other modes it emits
+**one unlabelled group per WP**, not one group per phase — phase grouping would re-separate the
+before/after pair that D6 exists to put side by side. WPs with nothing selected are omitted
+(`includeEmptyWorkPackages` stays false). Section order across WPs remains `code` order (D6).
+
+**D7 — cover note.** Rendered once, after the project header and before the first section. Absent
+or blank prints nothing; no placeholder, no empty heading.
+
+**D8 — client-readable naming.** `build-pdf.ts:95` becomes name-first with the code demoted
+(smaller, secondary) rather than `${wp.code} — ${wp.name}`. The code stays on the page — it is how
+PD and the client refer to the same item in conversation — but it stops being the first thing
+read. This changes **every** report mode, not just `selected`, which is intended: the naming was
+wrong for all of them.
 
 The generate form gains a 4th option showing the live count, **disabled at zero** with
-`ยังไม่ได้เลือกรูป`.
+`ยังไม่ได้เลือกรูป`, plus the cover-note field.
 
 ---
 
@@ -199,17 +281,27 @@ The generate form gains a 4th option showing the live count, **disabled at zero*
   direct call), `generateReport` **refuses before inserting a row**. It must NOT silently fall
   back to `after` — that hands someone a document they did not ask for — and must not queue a
   job that produces an empty PDF.
-- **Photo deleted:** `on delete cascade` removes the selection.
+- **Photo deleted:** `on delete cascade` removes the selection. The remaining positions in that
+  WP are left with a gap — reads sort by `position`, they do not require density, and a cascade
+  cannot renumber siblings. `unselect_report_photo` closes gaps because it can; the cascade
+  cannot, and correctness must not depend on it.
 - **WP unmapped or re-mapped:** irrelevant here. Report selection is project-scoped and has no
   catalogue dependency — unlike starring, which spec 391 moves stars for.
+- **Reorder with a stale list (D6):** `reorder_report_photos` refuses (`22023`) unless the array
+  is exactly the WP's current selected set. A client that missed a concurrent unselect re-reads
+  instead of resurrecting a photo or silently dropping one.
+- **Cover note on a re-generated report (D7):** it belongs to the report row, so an old PDF keeps
+  the note it was sent with. Editing the field before a new generation does not rewrite history.
 
 ---
 
 ## 8. Deliberately out of scope
 
-- **No `note`/caption column.** The ⭐ table has one and it is unused after 20 real stars. Add it
-  when someone asks for a caption, not before.
-- **No ordering column** (D4). Additive later; nothing here forecloses it.
+- **No per-photo caption.** Offered under the omotenashi amendment and **declined** — see §2. The
+  cover note carries the narrative; the ⭐ table's own `note` is still unused after 20 real stars.
+- **No cross-WP section ordering.** Sections stay in `code` order, which is spec 389's build
+  order (D6).
+- **No drag-and-drop reordering** — move-up/move-down instead, for a gloved hand on a phone (§5).
 - **No client-facing surface change.** `/client/[projectId]` is untouched; this spec only changes
   what the generated PDF contains.
 - **No bulk "select all in this WP".** Ship the single toggle first and see whether the tap count
@@ -224,26 +316,42 @@ user can see; U3 alone would add a report mode that can never be enabled because
 selected. Either half on its own is an affordance that promises something not built. U1 is
 separable because it is invisible.
 
-| Unit      | Scope                                                                                                                          | Merge posture                                                                                                                                                                                                                   |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **U1**    | Migration: table + RLS + the two DEFINER RPCs + pgTAP.                                                                         | **Danger path** (migration) ⇒ operator merge or grant self-merge on green. **Blocked on the schema lane** — held by `refauto`; live head `20260813075900`, `main` at `075896`. Claim = live head + 1, re-queried at build time. |
-| **U2+U3** | `ReportSelectButton` + the `reportSelection` prop + the 4th report mode + `run-report-job` branch + the disabled-at-zero form. | Code-only ⇒ auto-merges on green.                                                                                                                                                                                               |
+| Unit      | Scope                                                                                                                                                                               | Merge posture                                                                                                                                                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **U0**    | **D8 only** — `build-pdf.ts` leads with the Thai work name, demotes the code. Nothing else.                                                                                         | Code-only ⇒ auto-merges. **Independent of everything below and of the schema lane** — ship it first.                                                                                                                            |
+| **U1**    | Migration: table (incl. `position`, `work_package_id`) + RLS + the three DEFINER RPCs + pgTAP.                                                                                      | **Danger path** (migration) ⇒ operator merge or grant self-merge on green. **Blocked on the schema lane** — held by `refauto`; live head `20260813075900`, `main` at `075896`. Claim = live head + 1, re-queried at build time. |
+| **U2+U3** | `ReportSelectButton` + the `reportSelection` prop + the arrange strip (D6) + the 4th report mode + `run-report-job` branch + the cover-note field (D7) + the disabled-at-zero form. | Code-only ⇒ auto-merges on green.                                                                                                                                                                                               |
+
+⭐ **U0 is separated on purpose.** D8 costs no PD effort, needs no schema, touches one render
+line, and improves **every existing report mode** — so it should not wait behind a blocked schema
+lane. It is also the only part of this spec that can ship today.
 
 ### Verification
 
-**U1 (pgTAP).** Both RPCs refuse a `site_admin` with `42501` **and** a positive control that a
-`project_manager` succeeds in the same transaction — the pair is what distinguishes "the gate
+**U0.** A `build-pdf` unit test pinning name-before-code, plus one generated PDF read back by eye.
+Cheap, and it is a client-visible wording change — the class this repo pins by test precisely
+because nothing else catches copy drift.
+
+**U1 (pgTAP).** All three RPCs refuse a `site_admin` with `42501` **and** a positive control that
+a `project_manager` succeeds in the same transaction — the pair is what distinguishes "the gate
 works" from "the RPC refuses everyone". `22023` on a superseded photo. No INSERT/DELETE grant to
 `authenticated`. Re-select is idempotent (`changed:false`, no second row). Cascade on photo
-delete. `plan(N)` must equal the emitted count.
+delete. **Ordering-specific:** append lands at `max(position)+1`; unselect closes the gap;
+`reorder_report_photos` refuses a list that is not exactly the current set; a full reversal
+commits without tripping the unique index (**the deferrable constraint's positive control** — a
+non-deferred index would fail here, so this assert is what proves the `deferrable` clause is
+load-bearing). `plan(N)` must equal the emitted count.
 
-**U2+U3 (vitest).** `parseReportParams` round-trips `"selected"` and still defaults on garbage;
-the pure selected-set builder; RTL on the toggle (both states, the disabled/absent cases for a
-PM and for an unmapped WP); the option disabled at zero. Mutation-check each new assertion.
+**U2+U3 (vitest).** `parseReportParams` round-trips `"selected"` **and `coverNote`**, and still
+defaults on garbage; the pure selected-set builder **ordered by position**; RTL on the toggle
+(both states, the disabled/absent cases for a PM and for an unmapped WP); the arrange strip
+(move-up/down reorders, the strip is absent at zero selected, each control's `aria-label` names
+its position); the option disabled at zero. Mutation-check each new assertion.
 
-**Real-flow (gate 4).** Select photos on `/review` as a real PD, generate with `เฉพาะที่เลือก`,
-download the PDF, confirm it holds **exactly** those photos and no others — then unselect one and
-confirm it leaves. A green suite is not evidence the PDF changed.
+**Real-flow (gate 4).** Select photos on `/review` as a real PD, **reorder them**, write a cover
+note, generate with `เฉพาะที่เลือก`, download the PDF, confirm it holds **exactly** those photos
+**in that order**, the cover note is present, and the sections read name-first — then unselect one
+and confirm it leaves. A green suite is not evidence the PDF changed.
 
 **Acceptance is a fill rate, not a suite.** After a week of real use,
 `select count(*) from report_selected_photos` and the share of `reports.params->>'photos' =
