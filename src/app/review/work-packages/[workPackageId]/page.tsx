@@ -39,6 +39,7 @@ import { PhaseProgressBar } from "@/components/features/work-packages/phase-prog
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
 import { approvalDecisionIcon, workPackageStatusIcon } from "@/lib/status-icons";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
+import { ReportArrangeStrip } from "@/components/features/reports/report-arrange-strip";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -178,6 +179,26 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
   const starring = canStar
     ? { projectId: wp.project_id, workPackageId: wp.id, starredPhotoIds, hiddenPhotoIds }
     : undefined;
+
+  // Spec 394 U2 — the client-report toggle. NO extra role test: this page is
+  // already gated on PM_ROLES (line 74), which is exactly the RPC's gate, so
+  // affordance == action == RPC by construction. Unlike starring there is no
+  // catalogue precondition — an unmapped WP is still reportable.
+  // `position` is quoted in SQL but plain here; PostgREST returns the column.
+  const { data: selectedRows } = await supabase
+    .from("report_selected_photos")
+    .select("photo_log_id, position")
+    .eq("work_package_id", wp.id)
+    .order("position");
+  const selectedPhotoIds = (selectedRows ?? []).map((r) => r.photo_log_id);
+  const reportSelection = { workPackageId: wp.id, selectedPhotoIds };
+  // D6's strip shows only the SELECTED photos, in their arranged order, and
+  // only ones whose signed URL minted — the row still arranges without a
+  // thumbnail, so a failed mint must not drop it from the list.
+  const arrangePhotos = selectedPhotoIds.map((id) => ({
+    photoId: id,
+    url: signedUrls.get(id),
+  }));
 
   // Spec 372 U4b — what `รูปไม่ตรงกับงาน` can point at. Built from the CURRENT photos
   // this page already loaded (getCurrentPhotosForWorkPackage has done the ADR 0009
@@ -399,6 +420,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 signedUrls={signedUrls}
                 uploaderNames={displayNames}
                 starring={starring}
+                reportSelection={reportSelection}
               />
             ))}
             {/* Spec 248 — PRIOR rounds' defect evidence (history context).
@@ -418,6 +440,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                   signedUrls={signedUrls}
                   uploaderNames={displayNames}
                   starring={starring}
+                  reportSelection={reportSelection}
                   note={reworkReasons.get(round) ?? null}
                 />
               ))}
@@ -438,10 +461,15 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                     signedUrls={signedUrls}
                     uploaderNames={displayNames}
                     starring={starring}
+                    reportSelection={reportSelection}
                     note={reworkReasons.get(round) ?? null}
                   />
                 ))
               : null}
+            {/* Spec 394 D6 — arranging lives on the page PD is already on, and
+                renders NOTHING when nothing is selected. It sits under the
+                galleries because you pick first and order second. */}
+            <ReportArrangeStrip workPackageId={wp.id} photos={arrangePhotos} />
           </div>
         </section>
 

@@ -20,21 +20,35 @@ interface RadioChipProps {
   checked: boolean;
   onSelect: () => void;
   className?: string;
+  /** Spec 394 U3 — an option that exists but cannot be chosen yet. Disabling
+   *  beats hiding: a hidden option teaches nobody that the mode exists. The
+   *  NATIVE disabled attribute is what carries this to assistive tech, so the
+   *  label must also say why (the caller supplies that in `label`). */
+  disabled?: boolean;
 }
 
-export function RadioChip({ name, label, checked, onSelect, className }: RadioChipProps) {
+export function RadioChip({ name, label, checked, onSelect, className, disabled }: RadioChipProps) {
   return (
     <label
       // shrink-0 + whitespace-nowrap live in the BASE class (feedback bc6df601 /
       // #235): a chip in an overflow-x-auto strip that can shrink wraps its label
       // and stacks the strip vertically — no call site may opt out of the guard.
-      className={`rounded-control has-[input:focus-visible]:ring-action inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center border px-3 text-sm whitespace-nowrap transition-colors active:translate-y-px has-[input:focus-visible]:ring-2 ${
+      className={`rounded-control has-[input:focus-visible]:ring-action inline-flex min-h-11 shrink-0 items-center justify-center border px-3 text-sm whitespace-nowrap transition-colors has-[input:focus-visible]:ring-2 ${
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer active:translate-y-px"
+      } ${
         checked
           ? "border-fill bg-fill text-on-fill font-semibold"
-          : "border-edge-strong bg-card text-ink-secondary hover:bg-page active:bg-sunk font-medium"
-      } ${className ?? ""}`}
+          : "border-edge-strong bg-card text-ink-secondary font-medium"
+      } ${!checked && !disabled ? "hover:bg-page active:bg-sunk" : ""} ${className ?? ""}`}
     >
-      <input type="radio" name={name} checked={checked} onChange={onSelect} className="sr-only" />
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        onChange={onSelect}
+        disabled={disabled ?? false}
+        className="sr-only"
+      />
       {label}
     </label>
   );

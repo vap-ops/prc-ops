@@ -68,6 +68,15 @@ export default async function ProjectReportsPage({ params }: PageProps) {
   const statuses: ReportStatus[] = reports.map((r) => r.status);
   const canGenerate = canGenerateReport(statuses);
 
+  // Spec 394 U3 — the live count behind the เฉพาะที่เลือก option. Counted
+  // across the project's own work packages: the selection table is keyed by WP
+  // and derives its project through that join, so an inner join on the project
+  // is what scopes it (a bare count would total every project's selections).
+  const { count: selectedPhotoCount } = await supabase
+    .from("report_selected_photos")
+    .select("photo_log_id, work_packages!inner(project_id)", { count: "exact", head: true })
+    .eq("work_packages.project_id", project.id);
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -88,7 +97,11 @@ export default async function ProjectReportsPage({ params }: PageProps) {
             เลือกเนื้อหาที่ต้องการ แล้วกดสร้างรายงาน PDF — รายงานจะเข้าคิวทันที
             โดยปกติเสร็จภายในไม่กี่วินาที
           </p>
-          <GenerateReportButton projectId={project.id} initiallyDisabled={!canGenerate} />
+          <GenerateReportButton
+            projectId={project.id}
+            initiallyDisabled={!canGenerate}
+            selectedPhotoCount={selectedPhotoCount ?? 0}
+          />
         </section>
 
         <section>
