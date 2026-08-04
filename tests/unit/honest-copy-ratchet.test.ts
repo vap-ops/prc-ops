@@ -73,6 +73,18 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
         `RETRYABLE? If yes, raise this number with a justification line; if no, a permanent ` +
         `refusal must name the cause and the next step instead — never "try again" (house ` +
         `honest-copy rule). SHRANK: lower this number in the same PR.`,
+      // 228 → 229, /workers duplicate-เลขบัตร fix (field incident 2026-08-04).
+      // JUSTIFICATION (the ratchet demands one): the one new occurrence is
+      // ADD_WORKER_NETWORK_ERROR, reached ONLY from the add sheet's new `catch`
+      // — a thrown server-action call, i.e. dead transport / offline, exactly
+      // the transient this copy is reserved for. The PERMANENT refusal the same
+      // PR introduces goes the other way: 23505 on workers_tax_id_unique now
+      // answers "เลขบัตรประชาชนนี้มีอยู่แล้วในระบบ …" and the client pre-check
+      // NAMES the ช่าง holding that number and offers ดูช่างคนเดิม — cause plus
+      // next step, no retry. That case used to fall through to GENERIC_ERROR's
+      // "ลองใหม่", so this +1 buys an honest transient in place of a dishonest
+      // permanent one.
+      //
       // 226 → 228, spec 391 U2: the hide/unhide pair's GENERIC arm.
       // JUSTIFICATION (the ratchet demands one): both new occurrences are
       // "ซ่อนรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" — the action's fallback and the
@@ -83,7 +95,7 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       // "เฉพาะผู้อำนวยการโครงการเท่านั้นที่ปักดาวได้" and 22023 answers
       // "ซ่อนรูปไม่ได้: ไม่พบรูปนี้" — each naming the cause instead of inviting
       // a retry that cannot succeed.
-    ).toBe(228); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2 (justified above)
+    ).toBe(229); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2 and +1 by the /workers duplicate fix (both justified above)
   });
 
   it("the number of files carrying retry copy matches the ledger exactly", () => {

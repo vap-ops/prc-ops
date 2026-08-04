@@ -179,7 +179,7 @@ function AddWorkerForm({
   const [busy, setBusy] = useState(false);
   // The ช่าง the typed เลขบัตร already belongs to — held separately from `error`
   // because it earns an affordance (ดูช่างคนเดิม), not just a sentence.
-  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
+  const [duplicate, setDuplicate] = useState<{ name: string } | null>(null);
 
   // Daily ช่าง are paid in-app (day_rate × days) and carry a payee; monthly ช่าง
   // are paid off-app, so the rate + bank/tax fields only apply when รายวัน.
@@ -210,7 +210,7 @@ function AddWorkerForm({
     if (isDaily && typedTaxId !== "") {
       const owner = roster.find((w) => (w.tax_id ?? "").trim() === typedTaxId);
       if (owner) {
-        setDuplicate({ id: owner.id, name: owner.name });
+        setDuplicate({ name: owner.name });
         setError(duplicateTaxIdOwnerError(owner.name));
         // This refusal was invisible in the field — no server log, no telemetry, and
         // a generic message the user read as "the app is broken".
@@ -350,7 +350,16 @@ function AddWorkerForm({
             เลขผู้เสียภาษี
             <input
               value={taxId}
-              onChange={(e) => setTaxId(e.target.value)}
+              onChange={(e) => {
+                setTaxId(e.target.value);
+                // Retire the refusal WITH the number that caused it — otherwise the
+                // sentence and its ดูช่างคนเดิม button keep naming a ช่าง who has
+                // nothing to do with what is now in the field.
+                if (duplicate) {
+                  setDuplicate(null);
+                  setError(null);
+                }
+              }}
               maxLength={50}
               className={FIELD_STACKED}
             />

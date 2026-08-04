@@ -524,6 +524,20 @@ describe("WorkerRosterManager duplicate เลขผู้เสียภาษ�
     expect(screen.queryByText("ช่างอื่น")).not.toBeInTheDocument();
   });
 
+  // Self-review: the refusal names a person, so it must not outlive the number that
+  // produced it — a stale ดูช่างคนเดิม would send the user to someone unrelated.
+  it("retires the refusal and its door as soon as the เลขบัตร is edited", async () => {
+    render(<WorkerRosterManager workers={[EXISTING]} contractors={[]} />);
+    fillDailyAdd("1160400054920");
+    expect(await screen.findByRole("button", { name: "ดูช่างคนเดิม" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("เลขผู้เสียภาษี"), {
+      target: { value: "116040005492" },
+    });
+    expect(screen.queryByRole("button", { name: "ดูช่างคนเดิม" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("still maps a server-side duplicate refusal (the race the pre-check cannot see)", async () => {
     mockCreate.mockResolvedValueOnce({ ok: false, error: "เลขบัตรประชาชนนี้มีอยู่แล้วในระบบ" });
     render(<WorkerRosterManager workers={[]} contractors={[]} />);
