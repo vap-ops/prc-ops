@@ -108,7 +108,19 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       // "เฉพาะผู้อำนวยการโครงการเท่านั้นที่ปักดาวได้" and 22023 answers
       // "ซ่อนรูปไม่ได้: ไม่พบรูปนี้" — each naming the cause instead of inviting
       // a retry that cannot succeed.
-    ).toBe(232); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2, +1 by the /workers duplicate fix, +3 by spec 394 U2 (all justified above)
+      //
+      // 232 → 236, spec 392 U2a (the zone map's write paths).
+      // JUSTIFICATION (the ratchet demands one): all four new occurrences live
+      // in one file, `projects/[projectId]/zones/actions.ts`, and every one of
+      // them is the LAST arm — reached only when the RPC failed with something
+      // other than a refusal it knows, i.e. transport / unknown. Each known
+      // refusal deliberately goes the other way, naming cause and next step
+      // with no retry: 42501 → "เฉพาะผู้จัดการโครงการเท่านั้นที่แก้ผังโซนได้",
+      // 23505 → "รหัสโซนนี้มีอยู่แล้วในผังนี้ กรุณาใช้รหัสอื่น" (the fix IS the
+      // next step), 22023 → "ข้อมูลโซนไม่ถูกต้อง" / "ไม่พบโซนนี้". A manager
+      // who lacks the role, or reuses a code, is never told to try again —
+      // which is the only thing this ratchet exists to prevent.
+    ).toBe(236); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2, +1 by the /workers duplicate fix, +3 by spec 394 U2, +4 by spec 392 U2a (all justified above)
   });
 
   it("the number of files carrying retry copy matches the ledger exactly", () => {
@@ -116,6 +128,6 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       files.size,
       `the retry-copy file set changed — a NEW file added retry copy (read the honest-copy ` +
         `rule at the top of this test first), or a file dropped it (lower this number).`,
-    ).toBe(108); // +3 2026-08-04 spec 394 U2: report-selection-actions.ts, report-select-button.tsx, report-arrange-strip.tsx — each carrying exactly one transient fallback, justified above. // +1 2026-08-04 (feedback e6b48386): src/app/workers/error-copy.ts. GENERIC_ERROR's "ลองใหม่" is the deliberately-transient fallback — the same PR routes 42501 (lost session) and bad input to NON-retry copy, so this is the genuinely-retryable arm. Moved out of workers/actions.ts (a "use server" file can't export constants), which still carries CONFIRM_COST_ERROR, so it stays in the set → net +1 file.
+    ).toBe(109); // +1 2026-08-04 spec 392 U2a: src/app/projects/[projectId]/zones/actions.ts — one file, four transient last-arm fallbacks, justified above; its three KNOWN refusals (42501 / 23505 / 22023) all use non-retry copy. // +3 2026-08-04 spec 394 U2: report-selection-actions.ts, report-select-button.tsx, report-arrange-strip.tsx — each carrying exactly one transient fallback, justified above. // +1 2026-08-04 (feedback e6b48386): src/app/workers/error-copy.ts. GENERIC_ERROR's "ลองใหม่" is the deliberately-transient fallback — the same PR routes 42501 (lost session) and bad input to NON-retry copy, so this is the genuinely-retryable arm. Moved out of workers/actions.ts (a "use server" file can't export constants), which still carries CONFIRM_COST_ERROR, so it stays in the set → net +1 file.
   });
 });

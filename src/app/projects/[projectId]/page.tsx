@@ -9,6 +9,7 @@ import {
   ClipboardList,
   FileText,
   Forklift,
+  Map,
   ScanLine,
   Settings,
   Users,
@@ -32,6 +33,7 @@ import {
   reportsHref,
   scheduleHref,
   supplyPlanHref,
+  zonesHref,
 } from "@/lib/nav/project-paths";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { PROJECT_LANDING_ROLES } from "@/lib/nav/projects-landing";
@@ -46,6 +48,7 @@ import {
   PROJECT_COSTS_LABEL,
   PROJECT_TEAM_LABEL,
   PROJECT_STATUS_LABEL,
+  ZONE_MAP_LABEL,
 } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/db/server";
@@ -230,6 +233,21 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
                 className={ICON_CHIP_MUTED}
               >
                 <CalendarDays aria-hidden className="h-5 w-5" />
+              </Link>
+            ) : null}
+            {/* Spec 392 U2a: ผังโซน — the project's areas. Manager tier only,
+                because PM_ROLES is exactly `is_manager`'s live membership and
+                every zone write RPC gates on that; a wider door would be
+                affordance-then-refuse. This is the page's ONLY door today, so
+                U3's work-package zone chip must thread ?from when it adds the
+                second one. */}
+            {isPmRole ? (
+              <Link
+                href={zonesHref(project.id)}
+                aria-label={ZONE_MAP_LABEL}
+                className={ICON_CHIP_MUTED}
+              >
+                <Map aria-hidden className="h-5 w-5" />
               </Link>
             ) : null}
             {/* Spec 176/181: the supply plan — PM tier + procurement (PM's stead,
