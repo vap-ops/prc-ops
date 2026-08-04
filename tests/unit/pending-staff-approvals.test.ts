@@ -65,10 +65,11 @@ describe("getPendingStaffApprovalCount", () => {
     await getPendingStaffApprovalCount(client);
 
     for (const table of [IDENTITY, STAFF_BANK]) {
-      expect(calls[table], `${table} was never read`).toBeDefined();
-      expect(calls[table].eq).toEqual({ col: "status", val: "pending" });
-      expect(calls[table].selectArgs[0]).toBe("id");
-      expect(calls[table].selectArgs[1]).toMatchObject({ count: "exact", head: true });
+      const call = calls[table];
+      if (!call) throw new Error(`${table} was never read`);
+      expect(call.eq).toEqual({ col: "status", val: "pending" });
+      expect(call.selectArgs[0]).toBe("id");
+      expect(call.selectArgs[1]).toMatchObject({ count: "exact", head: true });
     }
   });
 
