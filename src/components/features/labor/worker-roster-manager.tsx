@@ -447,6 +447,8 @@ function WorkerRow({
   contractorName,
   firms,
   projects,
+  roster,
+  onShowExisting,
   canGrade = false,
   canAssignHt = false,
   canSetTrades = false,
@@ -457,6 +459,11 @@ function WorkerRow({
 }: {
   worker: ManagedWorker;
   contractorName: string | null;
+  // #945 parity: the edit sheet writes tax_id too, so it can hit
+  // `workers_tax_id_unique` exactly like the add sheet. The whole roster is already
+  // in this component's props, so the collision is knowable before the round trip.
+  roster: ReadonlyArray<{ id: string; name: string; tax_id: string | null }>;
+  onShowExisting: (name: string) => void;
   /** Spec 328 firm move — ACTIVE firms the edit sheet may assign/move to. */
   firms: { id: string; name: string }[];
   projects: AssignableProject[];
@@ -507,6 +514,9 @@ function WorkerRow({
   const [bankAccountNumber, setBankAccountNumber] = useState(worker.bank_account_number ?? "");
   const [bankAccountName, setBankAccountName] = useState(worker.bank_account_name ?? "");
   const [error, setError] = useState<string | null>(null);
+  // #945 parity: the other ช่าง the typed เลขบัตร belongs to — it earns a door
+  // (ดูช่างคนเดิม), not just a sentence.
+  const [duplicate, setDuplicate] = useState<{ name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [htBusy, setHtBusy] = useState(false);
   // Spec 369 U1: the cost-confirm has its own in-flight flag — it is an instant
@@ -553,8 +563,29 @@ function WorkerRow({
   const [isToggling, startToggle] = useTransition();
 
   async function save() {
-    setBusy(true);
     setError(null);
+    setDuplicate(null);
+
+    // #945 parity — refuse a เลขบัตร that belongs to SOMEONE ELSE before spending the
+    // round trip, and name them. Self is excluded: the unique index does not fire a
+    // row against itself, so an untouched (or re-typed identical) own value is fine.
+    // The refusal stops the WHOLE save, not just the tax id: the other edits ride the
+    // same press, and half-saving a record the user is about to correct is worse than
+    // asking them to press again.
+    const typedTaxId = taxId.trim();
+    if (typedTaxId !== "" && typedTaxId !== (worker.tax_id ?? "").trim()) {
+      const owner = roster.find(
+        (w) => w.id !== worker.id && (w.tax_id ?? "").trim() === typedTaxId,
+      );
+      if (owner) {
+        setDuplicate({ name: owner.name });
+        setError(duplicateTaxIdOwnerError(owner.name));
+        trackFriction("validation_error", { where: "workers_edit", reason: "duplicate_tax_id" });
+        return;
+      }
+    }
+
+    setBusy(true);
     // Spec 330 U1 lesson: a thrown action must not leave busy=true (the save
     // button is disabled={busy} — a wedge locks the sheet). finally always resets.
     try {
@@ -943,7 +974,15 @@ function WorkerRow({
             เลขผู้เสียภาษี
             <input
               value={taxId}
-              onChange={(e) => setTaxId(e.target.value)}
+              onChange={(e) => {
+                setTaxId(e.target.value);
+                // A refusal that NAMES a person must die with the value that caused
+                // it, or the door points at someone unrelated (#945).
+                if (duplicate) {
+                  setDuplicate(null);
+                  setError(null);
+                }
+              }}
               maxLength={50}
               className={FIELD_STACKED}
             />
@@ -1109,7 +1148,22 @@ function WorkerRow({
               </div>
             </fieldset>
           ) : null}
-          {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+          {error ? (
+            <p className="text-danger mt-2 text-sm" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {/* Parity with the add sheet (#945): a permanent refusal hands over the row
+              it is talking about instead of describing it. */}
+          {duplicate ? (
+            <button
+              type="button"
+              onClick={() => onShowExisting(duplicate.name)}
+              className={`mt-2 w-full ${BUTTON_SECONDARY_COMPACT}`}
+            >
+              ดูช่างคนเดิม
+            </button>
+          ) : null}
           <div className="mt-3 flex gap-2">
             <button
               type="button"
@@ -1351,6 +1405,10 @@ export function WorkerRosterManager({
                     }
                     firms={activeFirms}
                     projects={projects}
+                    // The WHOLE roster, never the searched subset — a stale filter
+                    // must not hide a collision the DB will still refuse.
+                    roster={workers}
+                    onShowExisting={showExistingWorker}
                     canGrade={canGrade}
                     canAssignHt={canAssignHt}
                     canSetTrades={canSetTrades}
