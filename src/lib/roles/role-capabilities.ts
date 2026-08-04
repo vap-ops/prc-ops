@@ -33,6 +33,7 @@ import {
   PAYROLL_ROLES,
   PAYROLL_VIEW_ROLES,
   PM_ROLES,
+  PAYOUT_NOMINEE_ROLES,
   PO_DETAIL_VIEW_ROLES,
   PROCUREMENT_MANAGER_ROLES,
   PROJECT_TEAM_STAFF_ROLES,
@@ -372,6 +373,15 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     setName: "MONEY_VIEW_ROLES",
     roles: MONEY_VIEW_ROLES,
     labelTh: "ดูตัวเลขการเงินโครงการ",
+    domain: "money",
+  },
+  // Spec 395 §6 — mirrors the four *_payout_nominee DEFINER RPCs. Wider than
+  // STAFF_APPROVAL_ROLES by exactly plain `procurement`.
+  {
+    key: "payout-nominee",
+    setName: "PAYOUT_NOMINEE_ROLES",
+    roles: PAYOUT_NOMINEE_ROLES,
+    labelTh: "บันทึกบัญชีรับเงินแทน (ผู้รับเงินแทนช่าง)",
     domain: "money",
   },
   {
