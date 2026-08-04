@@ -71,8 +71,14 @@ select col_is_unique('public', 'work_categories', 'code', 'code is unique (stabl
 
 -- B. Seed (reconciled BuildAll BOQ work axis: 9 top + 43 subs, + spec 389's
 -- W10 งานอื่นๆ / W11 งานระบบความปลอดภัย = 54) --------------------------------
-select is(
-  (select count(*)::int from public.work_categories), 54, 'seeded 54 work-categories (11 top + 43 subs)');
+-- ⚠️ `>=`, NOT `=`: this table is app/operator-writable (spec 277 is actively adding
+-- categories), so an exact global count asserts today's production total and reds the
+-- moment anyone seeds a row — on the MERGE ref, where no PR check can see it (#954).
+-- Deletion is still caught: DELETE is revoked above, and a missing seed row drops the
+-- count below 54.
+select ok(
+  (select count(*)::int from public.work_categories) >= 54,
+  'the 54 seeded work-categories are present (11 top + 43 subs; the axis may grow)');
 select is(
   (select count(*)::int from public.work_categories where char_length(code)=3), 11,
   'seeded 11 top categories (W01–W11, 3-char code)');
