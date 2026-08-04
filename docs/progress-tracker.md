@@ -11415,3 +11415,42 @@ only the first. U2b needs either a unique index or a map switcher.
   wrong the day U3 writes one — fix it there. ③ **Account numbers are grouped on the trimmed
   string only**, so a formatting variant would split a group; all 42 stored numbers are
   digits-only today (§8 Q7).
+
+## 2026-08-05 — Spec 395 U2: badge the payout account on the roster (lane shareacct)
+
+- **The signal, where the work happens.** U1 made the gap countable; U2 puts it on `/workers`
+  — a row chip plus an edit-sheet block with a deep-linked CTA. Verified live: **43 rows, 6
+  third-party badges + 2 owner badges**, and `project_manager` (who can open the page but not
+  the nominee control) sees **0 of 43**.
+- ⭐ **ONE STATE, TWO FACTS, TWO REMEDIES — and fresh-eyes caught that I had shipped one.** On a
+  shared account the holder is frequently one of the workers themselves: live, **2 of the 3
+  shared groups contain their own owner** (ปาณิศา on `1130967980`, นางแก้ว on `020087576927`).
+  The first draft badged all 8 `unrecorded` rows identically with "ยังไม่ได้บันทึกบัญชีตัวแทน" and
+  offered every one of them the nominee form — telling the account's OWNER to record a
+  บัญชีตัวแทน for their own account, i.e. to invent data. Now the owner's row states the
+  sharing (`ใช้บัญชีร่วมกับช่างคนอื่น`) and offers **no CTA**, because the work belongs to the other
+  rows on that account. **Generalises: before rendering one state as one message, ask whether
+  the population behind it contains people whose correct action differs.**
+- ⭐ **The copy came from the DESTINATION, checked before writing.** The nominee page is titled
+  `บัญชีตัวแทนรับเงิน (ชั่วคราว)`, so the badge says `บัญชีตัวแทน` — a badge naming a concept the
+  target page does not use sends the reader hunting for a control that appears not to exist.
+- ⚠️ **The CTA must deep-link, and that is structural, not cosmetic.** The nominee ADD picker
+  lists only workers with **no bank of their own** (`listBanklessWorkers`) — every worker this
+  badge fires on HAS one, so without `?worker=<uuid>` none of them can be selected through the
+  normal flow at all. Pinned as an EXACT href, not a prefix.
+- ⚠️ **The CTA names its price.** `set_worker_payout_nominee` raises without an uploaded
+  หนังสือยินยอม, and §8 Q1 names that upload as the leading suspect for 0 rows all-time — so the
+  CTA reads `บันทึกบัญชีตัวแทน (ต้องแนบหนังสือยินยอม)` rather than implying one tap.
+- ⚠️ **DEGRADE, NEVER THROW on the roster.** U1's reader throws by design (for a worklist, an
+  empty result is a lie). Putting it on `/workers` unguarded would have traded the only
+  ช่าง-management page in the app — procurement's 686 views/30d — for a secondary badge on any
+  transient read error. Now wrapped: the badges vanish, the roster stands.
+- ⚠️ **Coverage now normalises separators on BOTH sides.** The RPC stores the payee number
+  separator-stripped while `workers.bank_account_number` is stored as typed, so an asymmetric
+  compare would leave a worker badged FOREVER after the record was correctly made, with nothing
+  on screen explaining why. All 42 live numbers are digits-only, so this costs nothing today.
+- **Verification.** RED-first; **11 mutants, all killed** — and mutant 5 initially SURVIVED,
+  which was the harness telling the truth: the row chip and the sheet block share an identical
+  opener, so `String.replace` had been mutating line 886 three times while claiming to test the
+  sheet block at 1133. Re-anchored on a unique string, both die. lint 0 · typecheck 0 · live SSR
+  probes per role.

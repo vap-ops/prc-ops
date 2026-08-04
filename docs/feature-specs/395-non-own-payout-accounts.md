@@ -158,6 +158,31 @@ roster.
   list — `ด.ช.` appears in live data. ⚠️ State and test the `active` filter.
 - **U2 — surface it where the work happens.** A badge on the `/workers` roster row
   and edit sheet. `unrecorded` reads as an invitation, never an error.
+  ⭐ **Refined on measurement (2026-08-05, built). `unrecorded` is ONE state covering
+  TWO facts that need DIFFERENT remedies.** On a shared account the holder is often one
+  of the workers themselves — live, **2 of the 3 shared groups contain their own owner**
+  (ปาณิศา on `1130967980`, นางแก้ว on `020087576927`). Badging them "ยังไม่ได้บันทึกบัญชีตัวแทน"
+  and offering the nominee form would invite them to invent a nominee for their OWN
+  account. So the owner's row states the sharing (`ใช้บัญชีร่วมกับช่างคนอื่น`) and gets **no
+  CTA** — the work belongs to the other rows on that account. Live split: **6 third-party
+  badges + 2 owner badges** across 43 rows.
+  ⚠️ **The CTA MUST deep-link `?worker=<uuid>`, structurally.** The nominee ADD picker
+  lists only workers with **no bank of their own** (`listBanklessWorkers`, "เลือกช่างที่ยัง
+  ไม่มีบัญชีธนาคารของตัวเอง") — every worker this badge fires on HAS one, so without the
+  parameter none of them is reachable through the normal flow. The deep-linked form has
+  no bankless guard and `set_worker_payout_nominee` has no bankless precondition, so the
+  route works; it is only the picker that excludes them. **U3 should fix the picker.**
+  ⚠️ **The CTA names the consent document** (`ต้องแนบหนังสือยินยอม`): the RPC raises without
+  an uploaded หนังสือยินยอม, and §8 Q1 names that upload as the leading suspect for 0 rows.
+  An invitation that dead-ends at an unobtainable artifact is worse than one that states
+  its price.
+  ⚠️ **Gated at the SOURCE on `PAYOUT_NOMINEE_ROLES`, not on page access.**
+  `WORKER_ROSTER_ROLES` includes `project_manager`, who cannot open the nominee control;
+  not computing the state means it never reaches their bundle. Verified live: pm sees
+  0 badges of 43 rows, procurement and super_admin see 8.
+  ⚠️ **The reader is wrapped on this page.** It throws by design (an empty worklist is a
+  lie), but `/workers` is the only ช่าง-management surface in the app — a transient read
+  error must cost the badges, never the roster.
 - **U3 — route new entries to the right place.** On the `/workers` edit sheet,
   beside the bank fields: "บัญชีนี้เป็นของใคร" → own / someone else. _Someone else_
   opens the existing spec-320 flow. No new RPC — reuse `set_worker_payout_nominee`.
