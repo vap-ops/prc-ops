@@ -1,3 +1,9 @@
+## [0.317.2](https://github.com/vap-ops/prc-ops/compare/v0.317.1...v0.317.2) (2026-08-04)
+
+### Bug Fixes
+
+- **company-docs:** sanitize non-ASCII filenames to a valid storage key ([9fce307](https://github.com/vap-ops/prc-ops/commit/9fce307777627f58eae750e9c495367165251576))
+
 ## [0.317.1](https://github.com/vap-ops/prc-ops/compare/v0.317.0...v0.317.1) (2026-08-04)
 
 ### Bug Fixes
