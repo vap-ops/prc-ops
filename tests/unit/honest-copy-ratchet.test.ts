@@ -73,7 +73,7 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
         `RETRYABLE? If yes, raise this number with a justification line; if no, a permanent ` +
         `refusal must name the cause and the next step instead — never "try again" (house ` +
         `honest-copy rule). SHRANK: lower this number in the same PR.`,
-    ).toBe(228); // measured 2026-08-04
+    ).toBe(226); // measured 2026-08-04; lowered same day by the G1 boundary unit (both boundaries now read copy from labels.ts)
   });
 
   it("the number of files carrying retry copy matches the ledger exactly", () => {
@@ -81,6 +81,6 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       files.size,
       `the retry-copy file set changed — a NEW file added retry copy (read the honest-copy ` +
         `rule at the top of this test first), or a file dropped it (lower this number).`,
-    ).toBe(106); // measured 2026-08-04
+    ).toBe(104); // measured 2026-08-04; lowered same day by the G1 boundary unit (error.tsx + global-error.tsx left the set)
   });
 });
