@@ -16,6 +16,7 @@ import { createClient } from "@/lib/db/server";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 import { isReportSelectablePhase } from "./selected-photos";
 
 const GENERIC_ERROR = "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
@@ -25,8 +26,16 @@ const INVALID_ERROR = "เลือกรูปนี้ไม่ได้: ร�
 // unlike the other two it is ACTIONABLE — so it says what to do.
 const STALE_LIST_ERROR = "รายการรูปเปลี่ยนไปแล้ว กรุณารีเฟรชหน้านี้แล้วจัดลำดับใหม่";
 // Operator ruling 2026-08-04. Names the cause and stops — no retry, because
-// retrying cannot make a defect photo eligible.
-const DEFECT_PHASE_ERROR = "รูปจุดบกพร่องใช้ในรายงานลูกค้าไม่ได้";
+// retrying cannot make an ineligible photo eligible.
+//
+// ⚠️ Phrased from the PHASE'S OWN LABEL, not hardcoded to จุดบกพร่อง: the guard
+// refuses anything outside REPORT_SELECTABLE_PHASES, so a future `photo_phase`
+// value would otherwise be refused with a message naming the wrong reason —
+// a false diagnosis, which is exactly what honest copy exists to prevent.
+function unselectablePhaseError(phase: string): string {
+  const label = PHOTO_PHASE_LABEL[phase as keyof typeof PHOTO_PHASE_LABEL] ?? phase;
+  return `รูป${label}ใช้ในรายงานลูกค้าไม่ได้`;
+}
 
 export interface ReportSelectionResult {
   ok: boolean;
@@ -61,15 +70,19 @@ async function callSelectionRpc(
   // exists (written before this ruling, or by a direct call), refusing to remove
   // it would strand it in the report with no way out.
   if (select) {
-    const { data: photo } = await supabase
+    const { data: photo, error: phaseError } = await supabase
       .from("photo_logs")
       .select("phase")
       .eq("id", photoId)
       .maybeSingle();
-    // Unknown photo falls through to the RPC, which owns that refusal (22023) —
-    // this guard answers exactly one question and does not duplicate another's.
+    // Fail CLOSED on a read error. `data: null` means "not found" AND "the read
+    // failed" — indistinguishable — so ignoring the error would let a transient
+    // 5xx wave a defect photo straight through the guard.
+    if (phaseError) return { ok: false, error: GENERIC_ERROR };
+    // A genuinely unknown photo falls through to the RPC, which owns that
+    // refusal (22023) — this guard answers one question, not another's.
     if (photo && !isReportSelectablePhase(photo.phase)) {
-      return { ok: false, error: DEFECT_PHASE_ERROR };
+      return { ok: false, error: unselectablePhaseError(photo.phase) };
     }
   }
 

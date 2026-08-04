@@ -10,17 +10,28 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { REPORT_SELECTABLE_PHASES, isReportSelectablePhase } from "@/lib/reports/selected-photos";
+import { PHOTO_PHASE_LABEL } from "@/lib/i18n/labels";
 
 describe("REPORT_SELECTABLE_PHASES (operator ruling)", () => {
   it("excludes defect and admits every other phase", () => {
-    // The complete photo_phase domain — a NEW enum value must land here
-    // deliberately rather than defaulting into a client's report.
     expect([...REPORT_SELECTABLE_PHASES].sort()).toEqual(
       ["after", "after_fix", "before", "during"].sort(),
     );
     expect(isReportSelectablePhase("defect")).toBe(false);
     expect(isReportSelectablePhase("after")).toBe(true);
     expect(isReportSelectablePhase("after_fix")).toBe(true);
+  });
+
+  // ⚠️ The doc comment says a new enum value "must land here deliberately" —
+  // prose cannot enforce that. THIS does: the selectable set plus the one
+  // deliberate exclusion must cover the WHOLE photo_phase domain, so adding a
+  // value to the enum reds here until someone decides which side it belongs on.
+  // Without it, a new phase would be silently unselectable AND refused with a
+  // message naming จุดบกพร่อง as the reason.
+  it("partitions the COMPLETE photo_phase domain — no phase is unclassified", () => {
+    const DELIBERATELY_EXCLUDED = ["defect"];
+    const wholeDomain = Object.keys(PHOTO_PHASE_LABEL).sort();
+    expect([...REPORT_SELECTABLE_PHASES, ...DELIBERATELY_EXCLUDED].sort()).toEqual(wholeDomain);
   });
 });
 
@@ -34,10 +45,14 @@ describe("the PDF resolver cannot emit a defect photo (read path)", () => {
     .join("\n");
 
   it("resolves paths from the selectable phases only, never a hardcoded list with defect", () => {
-    expect(SRC).toContain("REPORT_SELECTABLE_PHASES");
-    // the previous hardcoded tuple included "defect" — it must be gone, so a
-    // row that predates the ruling still cannot print
-    expect(SRC).not.toContain('"after_fix", "defect"');
+    // Pin the USE, not the import line — `toContain` alone is satisfied by the
+    // import and survives deleting the loop.
+    expect(SRC).toContain("for (const phase of REPORT_SELECTABLE_PHASES)");
+    // And pin the literal BARE, not in one particular tuple formatting: the
+    // earlier `'"after_fix", "defect"'` pin passed on a reorder or a prettier
+    // reflow. Comments are stripped above, so the surviving explanatory comment
+    // mentioning defect does not satisfy this.
+    expect(SRC).not.toContain('"defect"');
   });
 });
 
@@ -55,12 +70,14 @@ describe("the review page withholds the toggle on defect galleries (affordance)"
     .filter((l) => !l.trimStart().startsWith("//") && !l.trimStart().startsWith("*"))
     .join("\n");
 
-  it("passes reportSelection to fewer galleries than starring — the defect one is skipped", () => {
-    const starring = PAGE.split("starring={starring}").length - 1;
-    const selection = PAGE.split("reportSelection={reportSelection}").length - 1;
-    expect(starring).toBeGreaterThan(0);
-    // exactly one gallery (the prior-round defect one) loses it
-    expect(selection).toBe(starring - 1);
+  // ⚠️ ABSOLUTE counts, not `selection === starring - 1`. That relative form
+  // reds for an unrelated reason the first time a gallery legitimately carries
+  // one prop and not the other, and stays GREEN if someone re-adds the prop to
+  // the defect block while dropping `starring` elsewhere — it constrains the
+  // difference, not either fact.
+  it("three galleries offer starring; exactly two offer the report toggle", () => {
+    expect(PAGE.split("starring={starring}").length - 1).toBe(3);
+    expect(PAGE.split("reportSelection={reportSelection}").length - 1).toBe(2);
   });
 
   it("the defect-round gallery block carries no reportSelection", () => {
