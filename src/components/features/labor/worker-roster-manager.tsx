@@ -40,6 +40,8 @@ import {
   type WorkerTrade,
 } from "@/lib/workers/trades";
 import { isNormalisingRename } from "@/lib/workers/thai-name";
+// Spec 396 U3 reuses U2's ownership copy verbatim — the question and the fact
+// must never drift apart (UI-term SSOT: a term in 2+ places lives in labels.ts).
 import {
   ATTENDANCE_CALENDAR_LABEL,
   CONFIRM_COST_LABEL,
@@ -566,6 +568,10 @@ function WorkerRow({
     // survives the unmount, so a reopened sheet would offer ดูช่างคนเดิม for a ช่าง
     // who has nothing to do with the freshly re-seeded number.
     setDuplicate(null);
+    // Spec 396 U3: same reasoning — an abandoned rename question must not
+    // survive the unmount and greet the next open, where it would ask about a
+    // name the freshly re-seeded field no longer holds.
+    setPendingRename(null);
     setEditing(true);
   }
   const [optimisticActive, setOptimisticActive] = useOptimistic(
@@ -574,7 +580,7 @@ function WorkerRow({
   );
   const [isToggling, startToggle] = useTransition();
 
-  async function save() {
+  async function save({ confirmed = false }: { confirmed?: boolean } = {}) {
     setError(null);
     setDuplicate(null);
 
@@ -596,6 +602,10 @@ function WorkerRow({
       if (owner) {
         setDuplicate({ name: owner.name });
         setError(duplicateTaxIdOwnerError(owner.name));
+        // Spec 396 U3: drop any open rename question — the save is refused, and
+        // leaving it up would mount TWO role="alert" nodes (this refusal and a
+        // stale question) side by side, which reads as one confused message.
+        setPendingRename(null);
         trackFriction("validation_error", { where: "workers_edit", reason: "duplicate_tax_id" });
         return;
       }
@@ -610,17 +620,29 @@ function WorkerRow({
     // fires on routine work is dismissed by muscle memory before it ever meets
     // the one that matters. Unbound rows never ask at all — the hazard is
     // specific to a record another person owns.
+    //
+    // ⚠️ Consent arrives as an ARGUMENT from the prompt's own button, never as
+    // shared state. An earlier draft gated on `pendingRename === typedName`, so
+    // pressing บันทึก twice satisfied the confirm without anyone reading it
+    // (press 1 stored the pending name, press 2 matched it) — the exact
+    // muscle-memory bypass this unit exists to prevent. Only the button inside
+    // the prompt can pass `confirmed`.
+    //
+    // A blank name is left out: update_worker nullifs an empty p_name and
+    // coalesce-keeps the stored one, so blanking is a no-op, not a rename.
     const typedName = name.trim();
     if (
+      !confirmed &&
       worker.portalBound &&
       typedName !== "" &&
       typedName !== worker.name &&
-      !isNormalisingRename(worker.name, typedName) &&
-      pendingRename !== typedName
+      !isNormalisingRename(worker.name, typedName)
     ) {
       setPendingRename(typedName);
       return;
     }
+    // Past the gate: no stale question may outlive the write it belonged to.
+    setPendingRename(null);
 
     setBusy(true);
     // Spec 330 U1 lesson: a thrown action must not leave busy=true (the save
@@ -1240,29 +1262,41 @@ function WorkerRow({
               this path only opens when the person appears to change. */}
           {pendingRename !== null ? (
             <div role="alert" className="border-attn bg-attn-soft mt-3 rounded-lg border p-3">
-              <p className="text-ink text-sm font-semibold">
+              <p className="text-attn-ink text-sm font-semibold">
                 {worker.boundUserName
-                  ? `รายการนี้เป็นของ ${worker.boundUserName}`
-                  : "รายการนี้เป็นของผู้ใช้ที่ผูกบัญชีแล้ว"}
+                  ? workerBoundOwnerLabel(worker.boundUserName)
+                  : WORKER_BOUND_OWNER_UNKNOWN}
               </p>
-              <p className="text-ink-secondary mt-1 text-sm">
-                กำลังจะเปลี่ยนชื่อจาก “{worker.name}” เป็น “{pendingRename}” — ใช่คนเดียวกันหรือไม่
+              <p className="text-attn-ink mt-1 text-sm">
+                กำลังจะเปลี่ยนชื่อจาก “{worker.name}” เป็น “{pendingRename}”
               </p>
+              <p className="text-attn-ink mt-1 text-sm font-semibold">เป็นคนเดียวกันหรือไม่</p>
+              {/* Symmetric answers: a yes/no question whose only "no" is a
+                  cancel invites the wrong press. Both buttons answer the
+                  question that was actually asked. */}
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
+                  // autoFocus so the question is where the keyboard and the
+                  // screen reader already are — the panel opens in response to
+                  // a press, and role="alert" announces but never moves focus.
+                  autoFocus
                   disabled={busy}
-                  onClick={() => void save()}
+                  onClick={() => void save({ confirmed: true })}
                   className={BUTTON_PRIMARY_COMPACT}
                 >
-                  ยืนยันเปลี่ยนชื่อ
+                  ใช่ เปลี่ยนชื่อ
                 </button>
                 <button
                   type="button"
+                  // Also busy-gated: without it, pressing this while the
+                  // confirmed write is in flight hides the panel and the
+                  // operator reads "declined" while the rename lands.
+                  disabled={busy}
                   onClick={() => setPendingRename(null)}
                   className={BUTTON_SECONDARY_COMPACT}
                 >
-                  ไม่ใช่
+                  ไม่ใช่ คนละคน
                 </button>
               </div>
             </div>

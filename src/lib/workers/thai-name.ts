@@ -54,5 +54,13 @@ export function normaliseThaiPersonName(name: string): string {
  * record — which is a thing that has actually happened here, once.
  */
 export function isNormalisingRename(oldName: string, newName: string): boolean {
-  return normaliseThaiPersonName(oldName) === normaliseThaiPersonName(newName);
+  const before = normaliseThaiPersonName(oldName);
+  const after = normaliseThaiPersonName(newName);
+  // ⚠️ An EMPTY normalisation is not a match, it is an absence of evidence.
+  // `นาย` and `นางสาว` both reduce to "" — without this, a placeholder row whose
+  // stored name is a bare honorific would rename silently to any other bare
+  // honorific. Empty means "I cannot tell", and this function's whole job is to
+  // authorise silence, so it must never authorise it on nothing.
+  if (before === "" || after === "") return false;
+  return before === after;
 }

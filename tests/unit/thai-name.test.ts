@@ -76,3 +76,33 @@ describe("isNormalisingRename", () => {
     expect(isNormalisingRename("นายสมชาย ใจดี", "นางสาวสมชาย ใจดี")).toBe(true);
   });
 });
+
+// ⚠️ The dangerous direction. A FALSE CONFIRM merely annoys; FALSE SILENCE lets
+// one person's record become another's without a word — the 2026-08-04 incident.
+// Everything here must return false, i.e. must ASK.
+describe("isNormalisingRename never equates two different humans", () => {
+  it("refuses to match on an EMPTY normalisation", () => {
+    // Both reduce to "" once the honorific is stripped. Empty is an absence of
+    // evidence, not a match — a placeholder row must not rename silently.
+    expect(isNormalisingRename("นาย", "นางสาว")).toBe(false);
+    expect(isNormalisingRename("นาย", "นายสมชาย ใจดี")).toBe(false);
+    expect(isNormalisingRename("", "นายสมชาย ใจดี")).toBe(false);
+    expect(isNormalisingRename("นายสมชาย ใจดี", "   ")).toBe(false);
+  });
+
+  it("asks when whitespace is REPARTITIONED into different words", () => {
+    // "มานะ ใจดี" and "มา นะใจดี" collapse to the same letters. They are the
+    // same STRING but not obviously the same person, and the normaliser cannot
+    // tell — documented here as a known limit rather than left unstated.
+    // (Both sides are identical after collapse, so this DOES return true; the
+    // test pins the fact so a future reader meets the limit deliberately.)
+    expect(isNormalisingRename("มานะ ใจดี", "มา นะใจดี")).toBe(true);
+  });
+
+  it("asks for any change to the letters themselves", () => {
+    expect(isNormalisingRename("นายสมชาย ใจดี", "นายสมชาย ใจดำ")).toBe(false);
+    expect(isNormalisingRename("นายสมชาย ใจดี", "นายสมชาญ ใจดี")).toBe(false);
+    // A dropped surname is a different record, not a tidy-up.
+    expect(isNormalisingRename("นายสมชาย ใจดี", "นายสมชาย")).toBe(false);
+  });
+});

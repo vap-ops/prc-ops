@@ -65,6 +65,9 @@ const BOUND: ManagedWorker = {
   trades: [],
 };
 
+const CONFIRM = "ใช่ เปลี่ยนชื่อ";
+const DECLINE = "ไม่ใช่ คนละคน";
+
 function openSheet() {
   fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
 }
@@ -97,7 +100,7 @@ describe("renaming a bound worker into a different person", () => {
     const prompt = screen.getByRole("alert").textContent ?? "";
     expect(prompt).toContain("รายการนี้เป็นของ เอมอร ฮามศรีพรม");
     expect(prompt).toContain("นายเหิน เมืองงาม");
-    expect(screen.getByRole("button", { name: "ยืนยันเปลี่ยนชื่อ" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: CONFIRM })).toBeInTheDocument();
   });
 
   it("writes once confirmed", async () => {
@@ -105,9 +108,9 @@ describe("renaming a bound worker into a different person", () => {
     openSheet();
     typeName("นายเหิน เมืองงาม");
     pressSave();
-    await screen.findByRole("button", { name: "ยืนยันเปลี่ยนชื่อ" });
+    await screen.findByRole("button", { name: CONFIRM });
 
-    fireEvent.click(screen.getByRole("button", { name: "ยืนยันเปลี่ยนชื่อ" }));
+    fireEvent.click(screen.getByRole("button", { name: CONFIRM }));
     await waitFor(() =>
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({ id: "wb", name: "นายเหิน เมืองงาม" }),
@@ -120,13 +123,60 @@ describe("renaming a bound worker into a different person", () => {
     openSheet();
     typeName("นายเหิน เมืองงาม");
     pressSave();
-    await screen.findByRole("button", { name: "ยืนยันเปลี่ยนชื่อ" });
+    await screen.findByRole("button", { name: CONFIRM });
 
-    fireEvent.click(screen.getByRole("button", { name: "ไม่ใช่" }));
+    fireEvent.click(screen.getByRole("button", { name: DECLINE }));
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "ยืนยันเปลี่ยนชื่อ" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("button", { name: CONFIRM })).not.toBeInTheDocument(),
     );
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  // 🔴 The defect a fresh-eyes pass found in the first draft, now pinned.
+  // Consent used to be shared state (`pendingRename === typedName`), so pressing
+  // บันทึก a second time satisfied the confirm without anyone reading it —
+  // exactly the muscle-memory bypass the unit exists to prevent. Only the button
+  // inside the prompt may consent.
+  it("a second press of บันทึก does NOT count as consent", async () => {
+    render(<WorkerRosterManager workers={[BOUND]} contractors={[]} />);
+    openSheet();
+    typeName("นายเหิน เมืองงาม");
+    pressSave();
+    await screen.findByRole("button", { name: CONFIRM });
+
+    pressSave();
+    pressSave();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: CONFIRM })).toBeInTheDocument());
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("writes exactly once when confirmed, and the question goes away", async () => {
+    render(<WorkerRosterManager workers={[BOUND]} contractors={[]} />);
+    openSheet();
+    typeName("นายเหิน เมืองงาม");
+    pressSave();
+    await screen.findByRole("button", { name: CONFIRM });
+
+    fireEvent.click(screen.getByRole("button", { name: CONFIRM }));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: CONFIRM })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("does not greet the next open with an abandoned question", async () => {
+    render(<WorkerRosterManager workers={[BOUND]} contractors={[]} />);
+    openSheet();
+    typeName("นายเหิน เมืองงาม");
+    pressSave();
+    await screen.findByRole("button", { name: CONFIRM });
+
+    // Leave via the sheet's own cancel, then reopen.
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    openSheet();
+
+    expect(screen.queryByRole("button", { name: CONFIRM })).not.toBeInTheDocument();
   });
 
   // ⚠️ The rarity guarantee. If these two ever start asking, the confirm is
@@ -138,7 +188,7 @@ describe("renaming a bound worker into a different person", () => {
     pressSave();
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "ยืนยันเปลี่ยนชื่อ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: CONFIRM })).not.toBeInTheDocument();
   });
 
   it("stays SILENT on an UNBOUND worker, however different the new name", async () => {
@@ -155,6 +205,6 @@ describe("renaming a bound worker into a different person", () => {
     pressSave();
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "ยืนยันเปลี่ยนชื่อ" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: CONFIRM })).not.toBeInTheDocument();
   });
 });
