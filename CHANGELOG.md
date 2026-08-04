@@ -1,3 +1,9 @@
+## [0.323.1](https://github.com/vap-ops/prc-ops/compare/v0.323.0...v0.323.1) (2026-08-04)
+
+### Bug Fixes
+
+- defect photos are not selectable for a client report (operator ruling) ([#953](https://github.com/vap-ops/prc-ops/issues/953)) ([fc2e9fa](https://github.com/vap-ops/prc-ops/commit/fc2e9fa773a6b97c0b2075ca2aefacaa8ace0825))
+
 # [0.323.0](https://github.com/vap-ops/prc-ops/compare/v0.322.0...v0.323.0) (2026-08-04)
 
 ### Bug Fixes
