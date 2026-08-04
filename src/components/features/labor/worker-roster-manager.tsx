@@ -573,9 +573,14 @@ function WorkerRow({
     // #945 parity — refuse a เลขบัตร that belongs to SOMEONE ELSE before spending the
     // round trip, and name them. Self is excluded: the unique index does not fire a
     // row against itself, so an untouched (or re-typed identical) own value is fine.
-    // The refusal stops the WHOLE save, not just the tax id: the other edits ride the
-    // same press, and half-saving a record the user is about to correct is worse than
-    // asking them to press again.
+    // The refusal stops the WHOLE save, not just the tax id: the other edits (name,
+    // rate, project, level, trades) ride the same press, and half-saving a record the
+    // user is about to correct is worse than asking them to press again.
+    // ⚖️ OPERATOR RULING 2026-08-04, asked and answered explicitly ("keep the whole-save
+    // abort") — this is a DECISION, not an implementation accident. Before "fixing" it
+    // so the siblings still apply, get a new ruling. The pin is in
+    // worker-roster-manager.test.tsx: the duplicate case asserts BOTH updateWorker and
+    // setWorkerDayRate go uncalled.
     const typedTaxId = taxId.trim();
     if (typedTaxId !== "") {
       // Excluding SELF is the whole rule, and it is the same rule the unique index
