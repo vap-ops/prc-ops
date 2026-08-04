@@ -1,5 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
+import { trackFriction } from "@/lib/telemetry/friction";
+import { errorMessageForTelemetry } from "@/lib/telemetry/session";
+
 // Root-layout error boundary (spec 15 item G). error.tsx covers segment
 // errors but NOT a throw inside the root layout itself — without this
 // file those still reach Next.js's built-in English page. Next.js
@@ -7,7 +11,28 @@
 // <html>/<body>; the root layout (and its font variables / globals.css)
 // is not mounted when this renders, hence the inline styles and the
 // system-font fallback.
-export default function GlobalError({ reset }: { error: Error; reset: () => void }) {
+//
+// F-027 telemetry is emitted here too — best-effort only: a root-layout
+// crash usually means the TelemetryProvider never mounted, so the friction
+// sink is null and the call no-ops. When the crash happens AFTER a healthy
+// mount, the module-level sink survives and the event lands. The recurrence
+// split (error.tsx) is deliberately NOT duplicated here — this surface must
+// stay dependency-light because nothing above it is guaranteed alive.
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    trackFriction("js_error", {
+      where: "global_error_boundary",
+      message: errorMessageForTelemetry(error),
+      digest: error.digest ?? null,
+      route: typeof window !== "undefined" ? window.location.pathname : null,
+    });
+  }, [error]);
   return (
     <html lang="th">
       <body
