@@ -14,6 +14,10 @@ const ALLOWED_DOMAINS = [
   "wp-catalog",
   // Spec 345 U2: the accounting money-event review queue components.
   "accounting",
+  // Spec 394 U2: the client-report photo selection surface (the per-photo
+  // toggle + the D6 arrange strip). Distinct from wp-catalog's star: that one
+  // declares a firm-wide exemplar, this one curates ONE client's report.
+  "reports",
   "purchasing",
   "work-packages",
   // Spec 330: the per-project team map (ทีมงานโครงการ) feature components.

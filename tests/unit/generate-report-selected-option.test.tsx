@@ -26,8 +26,9 @@ describe("GenerateReportButton — เฉพาะที่เลือก (spec
     render(
       <GenerateReportButton projectId={PROJECT} initiallyDisabled={false} selectedPhotoCount={7} />,
     );
-    expect(screen.getByText(/เฉพาะที่เลือก/)).toBeInTheDocument();
-    expect(screen.getByText(/7/)).toBeInTheDocument();
+    // The count must be IN the option's own label — `getByText(/7/)` alone
+    // matches any 7 anywhere on the page and survives rendering it elsewhere.
+    expect(screen.getByText("เฉพาะที่เลือก (7 รูป)")).toBeInTheDocument();
   });
 
   it("at ZERO the option is present but DISABLED, and says why", () => {

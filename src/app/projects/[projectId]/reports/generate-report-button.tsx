@@ -64,9 +64,10 @@ export function GenerateReportButton({
       try {
         // Spec 394 D7 — omit the key when blank rather than sending "".
         const note = coverNote.trim();
+        const chosen: ReportParams = { ...params, photos: effectivePhotos };
         const result = await generateReport({
           projectId,
-          params: note ? { ...params, coverNote: note } : params,
+          params: note ? { ...chosen, coverNote: note } : chosen,
         });
         if (!result.ok) {
           setReason(result.reason);
@@ -80,6 +81,17 @@ export function GenerateReportButton({
   }
 
   const disabled = pending || (reason !== null && initiallyDisabled);
+
+  // The reports list refreshes, so `selectedPhotoCount` can drop to zero (a PD
+  // unselects elsewhere) while "selected" is the chosen mode. Derive ONE
+  // effective mode and use it for both the chips and the payload, so the user
+  // never sits in a state they cannot leave and the form never sends a mode the
+  // server is about to refuse. This is visible, not a silent fallback: the
+  // default chip becomes the checked one on screen.
+  const effectivePhotos: ReportPhotosMode =
+    params.photos === "selected" && selectedPhotoCount === 0
+      ? DEFAULT_REPORT_PARAMS.photos
+      : params.photos;
 
   return (
     <div className="flex flex-col gap-3">
@@ -106,7 +118,7 @@ export function GenerateReportButton({
                 key={opt.value}
                 name="report-photos"
                 label={opt.label}
-                checked={params.photos === opt.value}
+                checked={effectivePhotos === opt.value}
                 onSelect={() => setParams((p) => ({ ...p, photos: opt.value }))}
               />
             ))}
@@ -122,7 +134,12 @@ export function GenerateReportButton({
                   ? `เฉพาะที่เลือก (${selectedPhotoCount} รูป)`
                   : "เฉพาะที่เลือก — ยังไม่ได้เลือกรูป"
               }
-              checked={params.photos === "selected"}
+              // Never `checked` while disabled: the reports list refreshes, so
+              // the count can drop to zero (another PD unselects) while this
+              // chip is the chosen one — leaving a state the user cannot leave
+              // except by picking a different chip, whose submit then bounces
+              // off the server guard.
+              checked={effectivePhotos === "selected"}
               disabled={selectedPhotoCount === 0}
               onSelect={() => setParams((p) => ({ ...p, photos: "selected" }))}
             />

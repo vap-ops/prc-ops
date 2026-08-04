@@ -62,9 +62,17 @@ describe("run-report-job selected-photos wiring (spec 394 U3)", () => {
     expect(note).toBeGreaterThan(build);
   });
 
-  it("keeps photo-less work packages OUT of a selected report", () => {
-    // includeEmptyWorkPackages is the spec-61 text-listing switch and must stay
-    // false here: a WP with nothing selected is omitted, not listed empty.
-    expect(SRC).toContain('includeEmptyWorkPackages: params.photos === "none"');
+  // ⚠️ The first version of this asserted `includeEmptyWorkPackages: params.photos
+  // === "none"` — a line that PREDATES this unit and survives deleting the whole
+  // selected branch. It read like coverage and was worth nothing (review catch).
+  // What actually needs pinning is the §7 rule the branch introduced.
+  it("FAILS a selected report that resolves to no photos, rather than emitting an empty PDF", () => {
+    const guard = SRC.indexOf('params.photos === "selected" && sections.every');
+    const build = SRC.indexOf("buildReportPdf({");
+    expect(guard).toBeGreaterThan(-1);
+    // the throw must precede the build, or the empty PDF is already made
+    expect(guard).toBeLessThan(build);
+    const arm = SRC.slice(guard, build);
+    expect(arm).toContain("throw new Error");
   });
 });

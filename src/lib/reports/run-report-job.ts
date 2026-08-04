@@ -145,6 +145,22 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
     });
   }
 
+  // Spec 394 §7 — a `selected` report that resolves to NO photos must FAIL, not
+  // deliver a header-only PDF marked complete. Two live routes reach this and
+  // neither is caught by the action's pre-insert guard:
+  //   • scope narrowing — the guard counts selections across the whole project,
+  //     while the job narrows work packages to `complete` when scope=complete
+  //     (the DEFAULT). A PD curating on /review, where WPs are pending_review,
+  //     passes the guard and would get an empty document.
+  //   • every selected photo superseded between picking and generating.
+  // Throwing marks the row `failed` with a reason (worker parity), which is the
+  // honest outcome: the document the PD asked for cannot be built.
+  if (params.photos === "selected" && sections.every((s) => s.photoGroups.length === 0)) {
+    throw new Error(
+      "selected-photo report resolved to no photos — none of the selected photos belong to a work package in this report's scope, or all of them have been superseded",
+    );
+  }
+
   const pdf = await buildReportPdf({
     project: {
       code: project.code,

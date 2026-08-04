@@ -190,11 +190,20 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
     .select("photo_log_id, position")
     .eq("work_package_id", wp.id)
     .order("position");
-  const selectedPhotoIds = (selectedRows ?? []).map((r) => r.photo_log_id);
+  // ⚠️ Filtered against the CURRENT photos (ADR 0009 anti-join, already applied
+  // by getCurrentPhotosForWorkPackage). A selection row survives its photo being
+  // superseded — §7 leaves it in place deliberately, because the photo may be
+  // replaced by a corrected upload — but the row must not render as a selected
+  // toggle on a photo that is no longer here, nor as an unidentifiable grey
+  // square in the arrange strip that the PD cannot map to anything or remove.
+  const currentPhotoIds = new Set(allPhotos.map((p) => p.id));
+  const selectedPhotoIds = (selectedRows ?? [])
+    .map((r) => r.photo_log_id)
+    .filter((id) => currentPhotoIds.has(id));
   const reportSelection = { workPackageId: wp.id, selectedPhotoIds };
-  // D6's strip shows only the SELECTED photos, in their arranged order, and
-  // only ones whose signed URL minted — the row still arranges without a
-  // thumbnail, so a failed mint must not drop it from the list.
+  // D6's strip shows only the SELECTED photos, in their arranged order. A photo
+  // whose signed URL failed to mint still arranges — losing the thumbnail must
+  // not drop the row and silently change the order the PD sees.
   const arrangePhotos = selectedPhotoIds.map((id) => ({
     photoId: id,
     url: signedUrls.get(id),

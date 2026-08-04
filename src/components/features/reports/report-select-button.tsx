@@ -44,10 +44,11 @@ export function ReportSelectButton({
         aria-label={selected ? "เอาออกจากรายงานลูกค้า" : "เลือกใช้ในรายงานลูกค้า"}
         disabled={pending}
         onClick={toggle}
-        // right-12 — the star occupies 4→44px from the right, so this sits at
-        // 48→88px with a 4px gap. h-11 (44px), not the star's grandfathered
-        // h-10: a new control on a gloved-hand field surface does not inherit
-        // that debt.
+        // right-12 (48px) + w-11 (44px) ⇒ this occupies 48→92px from the right,
+        // clear of the star's 4→44px. h-11, not the star's grandfathered h-10:
+        // a new control on a gloved-hand field surface does not inherit that
+        // debt. On a 112px tile the two top controls then span x 20→108 — no
+        // overlap, but the tile is fully clad; a THIRD top control does not fit.
         className="absolute top-1 right-12 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         <FileText
@@ -56,9 +57,12 @@ export function ReportSelectButton({
         />
       </button>
       {error ? (
-        // bottom-8, NOT the star's top-11: that slot already carries the star's
-        // own banner and the hide button sits under it. Two overlapping alerts
-        // would each hide half of the other's text.
+        // bottom-8 rather than the star's top-11, so the two banners do not
+        // start in the same place. ⚠️ They still OVERLAP on a 112px tile (the
+        // star's spans y≈44→92, this one y≈32→80) — reaching that needs a star
+        // failure and a select failure on the SAME tile at the same moment, so
+        // it is accepted rather than solved; do not read this offset as a
+        // guarantee of separation.
         // pointer-events-none for the same reason as the star's — a refusal on
         // one control must not make its neighbour unclickable.
         <span
