@@ -824,6 +824,14 @@ export const TRADE_MISMATCH_HINT = "หัวหน้าทีมยังไ�
 // ORDERING_TEMPLATES_LABEL — the project's plan vs the template that seeds it.
 export const SUPPLY_PLAN_LABEL = "แผนจัดหา";
 
+// Spec 392 — the project's zone map (ผังโซน) and one zone on it (โซน). One term
+// everywhere each appears: the zones page title/heading, the project header
+// chip's aria-label, the zone list, and (U3) the chip on a work package.
+// ผังโซน is the MAP; โซน is a single area drawn on it — a WP belongs to the
+// second, never the first.
+export const ZONE_MAP_LABEL = "ผังโซน";
+export const ZONE_LABEL = "โซน";
+
 // Feedback 26425c1e/17cba555 — the procurement worklist product-name search.
 export const PRODUCT_SEARCH_LABEL = "ค้นหาสินค้า";
 

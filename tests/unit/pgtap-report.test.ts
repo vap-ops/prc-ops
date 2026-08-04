@@ -195,28 +195,31 @@ describe("loadKnownRed", () => {
 
 // Guard the SHIPPED allowlist: a typo'd entry would silently fail to tolerate the
 // real red (so CI would fail) or quarantine a file that does not exist. Every
-// allowlisted name must correspond to a real test file, and the two current
-// pre-existing reds must be present with their pinned budgets.
+// allowlisted name must correspond to a real test file — and the list is now EMPTY,
+// which is the stronger ratchet: the last entry (221-catalog's exact seed count) was
+// FIXED rather than re-pinned, so any new entry has to justify itself here.
 describe("shipped known-red manifest", () => {
   const MANIFEST = "supabase/tests/known-red.json";
   const TESTS_DIR = "supabase/tests/database";
 
   it("lists only files that actually exist under supabase/tests/database", () => {
     const listed = loadKnownRed(MANIFEST);
-    expect(listed.size).toBeGreaterThan(0);
+    // No non-empty precondition here: the list is EMPTY by design now, and the
+    // loader's own parsing is proved above against temp fixtures, so requiring a
+    // non-vacuous loop would only force the allowlist to stay populated.
     const onDisk = new Set(readdirSync(TESTS_DIR).filter((f) => f.endsWith(".test.sql")));
     for (const file of listed.keys()) {
       expect(onDisk.has(file), `${file} is allowlisted but not on disk`).toBe(true);
     }
   });
 
-  it("pins the current pre-existing red with its budget", () => {
+  it("keeps the allowlist EMPTY — a pre-existing red is fixed, not pinned", () => {
     const listed = loadKnownRed(MANIFEST);
-    // Spec 324 U7: 200-store un-pinned — its 1500↔on-hand drift was explained
-    // (capitalized PO charges) and the tie is now modeled + green. Only the
-    // 221-catalog seed-count drift remains.
-    expect(listed.get("200-store-inventory-reconciliation.test.sql")).toBeUndefined();
-    expect(listed.get("221-catalog-categories.test.sql")).toBe(1);
-    expect(listed.size).toBe(1);
+    // Spec 324 U7 un-pinned 200-store; the count sweep (#955) fixed the last entry,
+    // 221-catalog's exact seeded-category count — an exact global count of an
+    // operator-curated table, the same shape that jammed the merge queue in #954.
+    // Adding an entry here is a deliberate act that must be argued in review: pinning
+    // a red hides it on the merge ref, where no PR check can see it.
+    expect([...listed.keys()]).toEqual([]);
   });
 });

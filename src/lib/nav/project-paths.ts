@@ -41,6 +41,14 @@ export function supplyPlanHref(projectId: string): string {
   return `/projects/${projectId}/supply-plan`;
 }
 
+// Spec 392 U2a: the project's zone map (ผังโซน) — where a manager draws the
+// areas a work package can belong to. Reached from the project header chip
+// today; U3 adds a second door from the work-package zone chip, which is why
+// the page threads `?from` rather than hardcoding its back target.
+export function zonesHref(projectId: string): string {
+  return `/projects/${projectId}/zones`;
+}
+
 // Spec 197 U1: the on-site store (คลัง) is a per-project destination now — a
 // sub-route reached from the project-detail chip row, not a global /settings
 // picker. The URL names what is shown (this project's store), per the spec-82

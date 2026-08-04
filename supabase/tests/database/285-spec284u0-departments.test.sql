@@ -11,8 +11,18 @@ select has_table('public', 'departments', 'departments table exists');
 select has_column('public', 'users', 'department_id', 'users.department_id column exists');
 
 -- ---- seed ------------------------------------------------------------------
-select is((select count(*)::int from public.departments), 8, '8 departments seeded');
-select is((select count(*)::int from public.departments where is_active), 6, '6 active departments seeded');
+-- Scoped to the seeded KEYS (20260813075500), not a global count: departments are
+-- label-only open data the operator may add to (ADR 0080), and an exact total would
+-- red on the MERGE ref the day they do — where no PR check can see it (#954).
+select is(
+  (select count(*)::int from public.departments
+    where key in ('executive','pmo','procurement','accounting','site','legal','hr','subcon_mgmt')),
+  8, '8 departments seeded');
+select is(
+  (select count(*)::int from public.departments
+    where is_active
+      and key in ('executive','pmo','procurement','accounting','site','legal')),
+  6, '6 active departments seeded');
 select is((select is_active from public.departments where key = 'legal'), true, 'legal seeded, active');
 
 -- ---- label-only invariant (ADR 0080 dec 3): NO policy keys off department_id
