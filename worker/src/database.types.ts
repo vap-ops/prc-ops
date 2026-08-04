@@ -9512,6 +9512,39 @@ export type Database = {
           },
         ]
       }
+      wp_catalog_hidden_reference_photos: {
+        Row: {
+          created_at: string
+          hidden_by: string
+          photo_log_id: string
+        }
+        Insert: {
+          created_at?: string
+          hidden_by: string
+          photo_log_id: string
+        }
+        Update: {
+          created_at?: string
+          hidden_by?: string
+          photo_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_catalog_hidden_reference_photos_hidden_by_fkey"
+            columns: ["hidden_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_catalog_hidden_reference_photos_photo_log_id_fkey"
+            columns: ["photo_log_id"]
+            isOneToOne: true
+            referencedRelation: "photo_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wp_catalog_items: {
         Row: {
           code: string
@@ -11018,6 +11051,10 @@ export type Database = {
         Args: { p_project: string; p_user_id: string; p_valid_until: string }
         Returns: undefined
       }
+      hide_reference_photo: {
+        Args: { p_photo_log_id: string }
+        Returns: undefined
+      }
       import_wp_grouping: {
         Args: { p_project_id: string; p_rows: Json }
         Returns: Json
@@ -12199,6 +12236,10 @@ export type Database = {
       swap_deliverable_order: {
         Args: { p_a: string; p_b: string }
         Returns: boolean
+      }
+      unhide_reference_photo: {
+        Args: { p_photo_log_id: string }
+        Returns: undefined
       }
       unlink_telegram: { Args: never; Returns: undefined }
       unstar_reference_photo: {
