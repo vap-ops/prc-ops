@@ -19,7 +19,19 @@ import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 
 const APP = join(process.cwd(), "src", "app");
 
-/** Nearest-boundary check: the route's own dir or any ancestor under src/app. */
+/**
+ * Nearest-boundary check: the route's own dir or any ancestor under src/app
+ * (Next.js applies the closest loading.tsx above the segment; /accounting/review
+ * correctly inherits src/app/accounting/loading.tsx). Declared limits, both
+ * fine TODAY and to revisit if the app's conventions change: ① a future root
+ * src/app/loading.tsx would satisfy every home — that is a REAL boundary (a
+ * root skeleton genuinely ends the dead-frame class), not a vacuity, but it
+ * would also mask a deleted per-home skeleton, so prefer per-segment files;
+ * ② URL segments are mapped 1:1 to filesystem dirs — the app has NO route
+ * groups today (verified 2026-08-04: zero `(group)` dirs under src/app); a
+ * grouped home would need this walk taught about groups; ③ only .tsx is
+ * checked (the codebase is 100% tsx).
+ */
 function hasLoadingBoundary(route: string): boolean {
   const segments = route.split("/").filter(Boolean);
   for (let depth = segments.length; depth >= 0; depth--) {

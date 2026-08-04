@@ -62,21 +62,25 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
     expect(total).toBeGreaterThan(100);
   });
 
-  it("retry-copy occurrences never grow past the ceiling", () => {
+  // EXACT counts, not ceilings — a `<=` ceiling turns every removal into
+  // silently re-spendable budget for a later wrong "try again" (review catch).
+  // Lower them in the same PR when copy is removed; raise them only with a
+  // written retryability justification.
+  it("retry-copy occurrences match the ledger exactly", () => {
     expect(
       total,
-      `retry copy ("ลองใหม่"/"ลองอีกครั้ง") grew past the ratchet ceiling. Is this failure ` +
-        `genuinely RETRYABLE? If yes: raise the ceiling in this file with a justification ` +
-        `line. If no: a permanent refusal must name the cause and the next step instead — ` +
-        `never "try again" (house honest-copy rule).`,
-    ).toBeLessThanOrEqual(228); // measured 2026-08-04 — lower opportunistically, raise only with justification
+      `retry copy ("ลองใหม่"/"ลองอีกครั้ง") count changed. GREW: is this failure genuinely ` +
+        `RETRYABLE? If yes, raise this number with a justification line; if no, a permanent ` +
+        `refusal must name the cause and the next step instead — never "try again" (house ` +
+        `honest-copy rule). SHRANK: lower this number in the same PR.`,
+    ).toBe(228); // measured 2026-08-04
   });
 
-  it("the number of files carrying retry copy never grows past the ceiling", () => {
+  it("the number of files carrying retry copy matches the ledger exactly", () => {
     expect(
       files.size,
-      `a NEW file added retry copy — read the honest-copy rule at the top of this test ` +
-        `before raising the ceiling.`,
-    ).toBeLessThanOrEqual(106); // measured 2026-08-04 — lower opportunistically, raise only with justification
+      `the retry-copy file set changed — a NEW file added retry copy (read the honest-copy ` +
+        `rule at the top of this test first), or a file dropped it (lower this number).`,
+    ).toBe(106); // measured 2026-08-04
   });
 });

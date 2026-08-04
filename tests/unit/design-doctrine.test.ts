@@ -308,67 +308,122 @@ describe("design doctrine (Field-First)", () => {
   // Widened tap-floor pin (UX-audit 2026-08, gap G12 / finding F-010).
   // The original pin above bans exactly ONE literal (`min-h-9`) — its name
   // promises a 44px floor, its reach was one string, and a live 20×20px
-  // remove-control (`h-5 w-5`, wp-schedule-panel) passed it. This scan reads
-  // every <button> opening tag (comment-stripped; the tag regex tolerates `=>`
-  // inside inline handlers — a naive [^>]* stops at the arrow and truncates
-  // the tag BEFORE className, which is exactly how the first draft of this
-  // guard missed the F-010 control) and flags any sub-44px height class.
-  // The allowlist below is a RATCHET: every entry is a justified freeze of an
-  // existing control — shrink it, never grow it. A NEW sub-44 button must
-  // either meet the floor (min-h-11) or earn a justified line here.
-  it("no <button> carries a sub-44px height class outside the ratchet allowlist", () => {
-    const SUB44 = /\b(?:min-)?h-(?:5|6|7|8|9|10)\b/;
-    // file (relative to src, forward slashes) -> max allowed sub-44 buttons.
-    const TAP_RATCHET: Record<string, number> = {
+  // remove-control (`h-5 w-5`, wp-schedule-panel) passed it.
+  //
+  // Instrument history, because this guard's own drafts kept repeating the
+  // defect it hunts: draft 1 used `[^>]*` and truncated every tag at the `=>`
+  // of an inline handler (missing the F-010 control); draft 2 tolerated `=>`
+  // but still truncated at a bare `>`/`>=` comparison inside an attribute
+  // expression (8 tags measured cut off before className); draft 3 (this one)
+  // walks each tag with a brace+quote-aware scanner, so the tag text —
+  // including template classNames inside braces — is scanned whole. It also
+  // scans `size-*` (a review caught five live 32px `size-8` buttons the
+  // h-only regex ignored — same class as F-010) and shared button-class
+  // constants (`const *BTN* = "..."`), which never appear inside a tag.
+  //
+  // DECLARED residual blind spots (do not mistake this pin for proof of
+  // absence): arbitrary values (`h-[36px]`), padding-derived heights, class
+  // constants not named *BTN*/*BUTTON*, and non-<button> interactive elements.
+  //
+  // TAP_RATCHET is an EXACT per-file list of the matched sub-44 class strings
+  // — not a count, so an allowlisted `h-10` cannot be silently swapped for a
+  // new `h-6` in the same file, and fixing a frozen control REDs until its
+  // entry is removed (the ledger stays true in both directions). Every entry
+  // is a justified freeze: shrink it, never grow it. A NEW sub-44 button must
+  // meet the floor (min-h-11), use a real 44px hit-slop, or earn a line here.
+  it("no <button> carries a sub-44px height/size class outside the ratchet allowlist", () => {
+    const SUB44 = /\b(?:min-)?(?:h|size)-(?:10|[1-9])(?![.\d])\b/g;
+    // file (relative to src, forward slashes) -> EXACT sorted matched strings.
+    const TAP_RATCHET: Record<string, string[]> = {
+      // reorder-arrow pair (h-8, disabled-heavy) — office surface; ⚑ owed to
+      // the G12 sweep lane.
+      "app/projects/[projectId]/deliverable-reorder-controls.tsx": ["h-8"],
+      // edit pencil (h-9) — office surface; ⚑ owed.
+      "app/projects/[projectId]/edit-deliverable-sheet.tsx": ["h-9"],
+      // clear-search circle inside the WP-list input — 32px AND text-ink-muted
+      // on an interactive control; ⚑ owed (F-010 sibling, #1 route).
+      "app/projects/[projectId]/work-package-list.tsx": ["size-8"],
+      // receipt remove (32px, ink-muted); ⚑ owed.
+      "components/features/expenses/office-expense-form.tsx": ["size-8"],
+      // operator feedback-draft admin buttons (h-9, desktop); frozen.
+      "components/features/feedback/feedback-drafts.tsx": ["h-9", "h-9"],
+      // 20px photo-attach remove badge over a thumbnail corner — F-010's twin
+      // on a FIELD surface; ⚑ owed FIRST in the G12 sweep (badge-over-image
+      // needs a hit-slop design, not a blind min-h-11).
+      "components/features/feedback/feedback-form.tsx": ["size-5"],
+      "components/features/feedback/feedback-status-control.tsx": ["h-9"],
       // role="switch" tracks — 24×44px target: passes WCAG 2.5.8 AA (24px);
       // the house 44px floor for switches is an open design question (G12).
-      "components/features/notifications/channel-preferences-form.tsx": 1,
-      "components/features/notifications/preferences-form.tsx": 1,
+      "components/features/notifications/channel-preferences-form.tsx": ["h-6"],
+      "components/features/notifications/preferences-form.tsx": ["h-6"],
       // always-dark photo overlay chrome — h-10 (40px), isolated corner/edge
       // targets with no adjacent controls (2.5.8 spacing exception).
-      "components/features/photos/photo-lightbox-overlay.tsx": 3,
+      "components/features/photos/photo-lightbox-overlay.tsx": ["h-10", "h-10", "h-10"],
       // in-field search submit (h-8) — compact-in-input pattern; frozen.
-      "components/features/projects/projects-filter-bar.tsx": 1,
-      // h-9/h-10 office-surface buttons frozen pending their own fix lane.
-      "app/projects/[projectId]/edit-deliverable-sheet.tsx": 1,
-      "components/features/feedback/feedback-drafts.tsx": 2,
-      "components/features/feedback/feedback-status-control.tsx": 1,
-      "components/features/wp-catalog/reference-star-button.tsx": 1,
+      "components/features/projects/projects-filter-bar.tsx": ["h-8"],
+      // PO-sheet zoom pair (ZOOM_BTN const) + line-remove, all 32px; ⚑ owed.
+      "components/features/purchasing/create-purchase-order-sheet.tsx": ["size-8", "size-8"],
+      "components/features/purchasing/po-charges-section.tsx": ["size-8"],
+      // SA daily-plan suggestion rows (min-h-8) — FIELD surface; ⚑ owed.
+      "components/features/sa/daily-plan-suggestions.tsx": ["min-h-8"],
+      // PD reference star (h-10, tablet); frozen.
+      "components/features/wp-catalog/reference-star-button.tsx": ["h-10"],
     };
-    const offenders: string[] = [];
+    /** Every <button> opening tag, walked brace+quote-aware to its real `>`. */
+    function buttonTags(src: string): string[] {
+      const tags: string[] = [];
+      let from = 0;
+      for (;;) {
+        const i = src.indexOf("<button", from);
+        if (i === -1) break;
+        let j = i + 7;
+        let depth = 0;
+        let quote: string | null = null;
+        while (j < src.length) {
+          const c = src[j];
+          if (quote) {
+            if (c === "\\") j++;
+            else if (c === quote) quote = null;
+          } else if (c === '"' || c === "'" || c === "`") quote = c;
+          else if (c === "{") depth++;
+          else if (c === "}") depth--;
+          else if (c === ">" && depth === 0) break;
+          j++;
+        }
+        tags.push(src.slice(i, j + 1));
+        from = j + 1;
+      }
+      return tags;
+    }
     let buttonsSeen = 0;
-    const counts = new Map<string, number>();
+    const found = new Map<string, string[]>();
     for (const f of sources.filter((s) => s.rel.endsWith(".tsx"))) {
       const rel = f.rel.replace(/\\/g, "/");
       const src = f.text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-      // [^>] already spans newlines; the `=>` alternative keeps an inline
-      // arrow handler from terminating the tag match early (the miss that hid
-      // the F-010 control from this guard's first draft).
-      for (const m of src.matchAll(/<button\b(?:=>|[^>])*?>/g)) {
+      const matches: string[] = [];
+      for (const tag of buttonTags(src)) {
         buttonsSeen += 1;
-        const sub = m[0].match(SUB44);
-        if (!sub) continue;
-        counts.set(rel, (counts.get(rel) ?? 0) + 1);
-        if ((counts.get(rel) ?? 0) > (TAP_RATCHET[rel] ?? 0)) {
-          offenders.push(`${rel} :: ${sub[0]}`);
-        }
+        for (const s of tag.matchAll(SUB44)) matches.push(s[0]);
       }
+      // Shared button-class constants never appear inside a tag — scan the
+      // definitions (a review found the live 32px ZOOM_BTN this way).
+      for (const m of src.matchAll(
+        /\b(?:const|let)\s+\w*(?:BTN|BUTTON|Btn|Button)\w*\s*=\s*\n?\s*["'`]([^"'`]*)["'`]/g,
+      )) {
+        for (const s of m[1]!.matchAll(SUB44)) matches.push(s[0]);
+      }
+      if (matches.length > 0) found.set(rel, matches.sort());
     }
-    // Vacuity aborts: a broken tag regex reads as "no offenders".
-    expect(buttonsSeen, "the <button> scan matched almost nothing — vacuous").toBeGreaterThan(200);
+    // Vacuity abort: 632 real tags measured 2026-08-04 — a scanner losing a
+    // third of the corpus must fail here, not read green.
+    expect(buttonsSeen, "the <button> scan lost most of the corpus — vacuous").toBeGreaterThan(500);
+    const report = (m: Map<string, string[]>) =>
+      [...m.entries()].map(([k, v]) => `${k} :: ${v.join(",")}`).sort();
     expect(
-      offenders,
-      `sub-44px <button>(s) beyond the ratchet allowlist (fix: min-h-11, a 44px hit-slop ` +
-        `wrapper, or a justified TAP_RATCHET line): ${offenders.join(" | ")}`,
-    ).toEqual([]);
-    // The ratchet must SHRINK: rows whose real count fell should be lowered so
-    // the slack cannot be re-spent by a new offender in the same file.
-    for (const [rel, max] of Object.entries(TAP_RATCHET)) {
-      expect(
-        counts.get(rel) ?? 0,
-        `${rel}: TAP_RATCHET allows ${max} but only ${counts.get(rel) ?? 0} remain — lower the entry`,
-      ).toBe(max);
-    }
+      report(found),
+      `sub-44px <button> classes drifted from TAP_RATCHET — a NEW sub-44 control needs ` +
+        `min-h-11 / a real 44px hit-slop / a justified entry; a FIXED one needs its entry removed`,
+    ).toEqual(report(new Map(Object.entries(TAP_RATCHET))));
   });
 
   // ================================================================
@@ -393,15 +448,21 @@ describe("design doctrine (Field-First)", () => {
         files.add(f.rel);
       }
     }
-    expect(total, "text-ink-muted occurrence scan matched nothing — vacuous").toBeGreaterThan(0);
+    // EXACT counts, not ceilings — a `<=` ceiling turns every removal into
+    // silently re-spendable budget (review catch). Removing a use is GOOD:
+    // lower the numbers in the same PR; the pair is a live ledger, and the G2
+    // sweep lane will walk them down. Never raise for readable copy.
     expect(
       total,
-      `text-ink-muted occurrences grew past the ratchet ceiling — use text-ink-secondary for readable copy (ink-muted is dividers/placeholder/disabled ONLY, globals.css:87)`,
-    ).toBeLessThanOrEqual(501); // measured 2026-08-04 (post F-010 fix) — lower after the G2 sweep, never raise
+      `text-ink-muted occurrences changed — grew: use text-ink-secondary for readable copy ` +
+        `(ink-muted is dividers/placeholder/disabled ONLY, globals.css:87); shrank: lower this ` +
+        `number in the same PR`,
+    ).toBe(501); // measured 2026-08-04 (post F-010 fix)
     expect(
       files.size,
-      `the number of files using text-ink-muted grew — a NEW surface adopted a token reserved for dividers/placeholder/disabled`,
-    ).toBeLessThanOrEqual(229); // measured 2026-08-04 — lower after the G2 sweep, never raise
+      `the number of files using text-ink-muted changed — a NEW surface adopted a reserved ` +
+        `token, or a file dropped it (then lower this number)`,
+    ).toBe(229); // measured 2026-08-04
   });
 
   // ================================================================
@@ -458,32 +519,55 @@ describe("design doctrine (Field-First)", () => {
       return out;
     }
     // The FIELD-FIRST @theme block (not `@theme inline`, which aliases shadcn vars).
+    // Parsed at collection; the STRUCTURE assertions live in the first it()
+    // below so a missing block fails as a named test, not a collection error.
     const themeStart = css.indexOf("@theme {");
     const darkStart = css.indexOf(".dark {");
-    expect(themeStart, "PRC OPS @theme block not found").toBeGreaterThan(-1);
-    expect(darkStart, ".dark block not found").toBeGreaterThan(-1);
-    const light = parseTokens(css.slice(themeStart, darkStart));
-    const dark = new Map([...light, ...parseTokens(css.slice(darkStart))]);
+    const light =
+      themeStart > -1 && darkStart > -1
+        ? parseTokens(css.slice(themeStart, darkStart))
+        : new Map<string, Rgb>();
+    const dark =
+      darkStart > -1
+        ? new Map([...light, ...parseTokens(css.slice(darkStart))])
+        : new Map<string, Rgb>();
     const WHITE: Rgb = [1, 1, 1];
 
-    it("the conversion instrument matches the file's own ≈hex comment (control)", () => {
-      // action: oklch(0.49 0.21 264) ≈ #1d4ed8 per its comment. A broken
-      // conversion mis-judges every claim below — abort on drift > 4/255/channel.
-      const action = light.get("action");
-      expect(action, "action token missing").toBeDefined();
-      const gamma = action!.map((c) => Math.round(toGamma(c) * 255));
-      const expected = [0x1d, 0x4e, 0xd8];
-      for (let i = 0; i < 3; i++) {
-        expect(
-          Math.abs(gamma[i]! - expected[i]!),
-          `conversion control drifted on channel ${i}: got ${gamma[i]}, css comment says ${expected[i]}`,
-        ).toBeLessThanOrEqual(4);
+    it("the theme blocks parse and the conversion instrument matches the file's own ≈hex comments (control)", () => {
+      expect(themeStart, "PRC OPS @theme block not found").toBeGreaterThan(-1);
+      expect(darkStart, ".dark block not found").toBeGreaterThan(-1);
+      expect(light.size, "light token parse matched nothing — vacuous").toBeGreaterThan(20);
+      // Control 1 — in-gamut: action oklch(0.49 0.21 264) ≈ #1d4ed8 per its
+      // comment. A broken conversion mis-judges every claim below.
+      // Control 2 — CLIPPING branch: done-strong's linear R goes negative and
+      // is clamped; the clamp is a per-channel clip, NOT CSS Color 4 chroma
+      // mapping, so its tolerance vs the ≈#047857 comment is wider (8/255).
+      // 13 tokens clip today (incl. four strict-≥4.5 cat hues) — this control
+      // is what keeps the clamp branch itself instrument-checked.
+      const controls: Array<[string, number[], number]> = [
+        ["action", [0x1d, 0x4e, 0xd8], 4],
+        ["done-strong", [0x04, 0x78, 0x57], 8],
+      ];
+      for (const [name, expected, tol] of controls) {
+        const tok = light.get(name);
+        expect(tok, `${name} token missing`).toBeDefined();
+        const gamma = tok!.map((c) => Math.round(toGamma(c) * 255));
+        for (let i = 0; i < 3; i++) {
+          expect(
+            Math.abs(gamma[i]! - expected[i]!),
+            `conversion control (${name}) drifted on channel ${i}: got ${gamma[i]}, css comment says ${expected[i]}`,
+          ).toBeLessThanOrEqual(tol);
+        }
       }
     });
 
     // Every ratio claim written in globals.css, as {fg, bg, min, strict}.
     // fg/bg name a token or "white". strict=true for "≥N:1" (a WCAG floor),
-    // false for "~N:1" (an approximation — 7% slack).
+    // false for "~N:1" (an approximation — 7% slack). commentToken = the
+    // token whose comment CARRIES the claim (the completeness pin below binds
+    // each harvested comment to its token, so a claim cannot migrate to a
+    // different token's comment undetected — review catch on the number-only
+    // multiset); "cat" = the category block comment shared by all cat-w*.
     type Claim = {
       label: string;
       theme: "light" | "dark";
@@ -491,6 +575,7 @@ describe("design doctrine (Field-First)", () => {
       bg: string;
       min: number;
       strict: boolean;
+      commentToken: string;
     };
     const CAT_TOKENS = [...light.keys()].filter((t) => /^cat-w\d\d$/.test(t));
     const CLAIMS: Claim[] = [
@@ -498,7 +583,15 @@ describe("design doctrine (Field-First)", () => {
       // the 1.4.11 floor (2.77 light / 2.92 dark) and its comments now say so;
       // the value raise is UX-audit gap G2's lane. When G2 lands, restore the
       // "≥3:1" comments and re-add both entries here.
-      { label: "ink on card ~16:1", theme: "light", fg: "ink", bg: "card", min: 16, strict: false },
+      {
+        label: "ink on card ~16:1",
+        theme: "light",
+        fg: "ink",
+        bg: "card",
+        min: 16,
+        strict: false,
+        commentToken: "ink",
+      },
       {
         label: "ink-secondary on card ~7.4:1",
         theme: "light",
@@ -506,6 +599,7 @@ describe("design doctrine (Field-First)", () => {
         bg: "card",
         min: 7.4,
         strict: false,
+        commentToken: "ink-secondary",
       },
       {
         label: "on-brand on brand ~17:1",
@@ -514,6 +608,7 @@ describe("design doctrine (Field-First)", () => {
         bg: "brand",
         min: 17,
         strict: false,
+        commentToken: "brand",
       },
       {
         label: "attn-ink on attn-soft ~7:1",
@@ -522,6 +617,7 @@ describe("design doctrine (Field-First)", () => {
         bg: "attn-soft",
         min: 7,
         strict: false,
+        commentToken: "attn-ink",
       },
       {
         label: "on-attn on attn ~9:1",
@@ -530,6 +626,7 @@ describe("design doctrine (Field-First)", () => {
         bg: "attn",
         min: 9,
         strict: false,
+        commentToken: "on-attn",
       },
       {
         label: "white on done-strong ~5.4:1",
@@ -538,6 +635,7 @@ describe("design doctrine (Field-First)", () => {
         bg: "done-strong",
         min: 5.4,
         strict: false,
+        commentToken: "done-strong",
       },
       // The category block claims ≥4.5:1 white text over every cat hue.
       ...CAT_TOKENS.map((t) => ({
@@ -547,6 +645,7 @@ describe("design doctrine (Field-First)", () => {
         bg: t,
         min: 4.5,
         strict: true,
+        commentToken: "cat",
       })),
       {
         label: "dark ink on card ~16:1",
@@ -555,6 +654,7 @@ describe("design doctrine (Field-First)", () => {
         bg: "card",
         min: 16,
         strict: false,
+        commentToken: "ink",
       },
       {
         label: "dark ink-secondary on card ~7:1",
@@ -563,8 +663,50 @@ describe("design doctrine (Field-First)", () => {
         bg: "card",
         min: 7,
         strict: false,
+        commentToken: "ink-secondary",
       },
     ];
+
+    // Independent AA floors for every READABLE ink pair, in BOTH themes —
+    // deliberately NOT derived from the comments. The claims pin above only
+    // verifies claims that EXIST, so deleting a comment was the cheapest way
+    // past it (review catch: this diff's own edge-strong comment corrections
+    // were the first exercise of that escape hatch). These floors hold no
+    // matter what the comments say. edge-strong (non-text, 1.4.11's 3:1) is
+    // deliberately absent: it FAILS today (2.77/2.92) and its raise is gap
+    // G2's lane — add it here when G2 lands. ink-muted has no floor BY RULE:
+    // it must never carry readable copy (the usage ratchet above owns that).
+    const AA_FLOORS: Array<{ fg: string; bg: string }> = [
+      { fg: "ink", bg: "card" },
+      { fg: "ink-secondary", bg: "card" },
+      { fg: "on-brand", bg: "brand" },
+      { fg: "on-fill", bg: "fill" },
+      { fg: "on-attn", bg: "attn" },
+      { fg: "attn-ink", bg: "attn-soft" },
+      { fg: "done-ink", bg: "done-soft" },
+      { fg: "danger-ink", bg: "danger-soft" },
+    ];
+    it("every readable ink pair holds WCAG AA 4.5:1 in both themes (comment-independent)", () => {
+      const failures: string[] = [];
+      for (const theme of ["light", "dark"] as const) {
+        const tokens = theme === "light" ? light : dark;
+        for (const { fg, bg } of AA_FLOORS) {
+          const f = tokens.get(fg);
+          const g = tokens.get(bg);
+          if (!f || !g) {
+            failures.push(`${theme}: token missing (${fg} / ${bg})`);
+            continue;
+          }
+          const actual = contrast(f, g);
+          if (actual < 4.5) failures.push(`${theme} ${fg} on ${bg}: ${actual.toFixed(2)}:1 < 4.5`);
+        }
+      }
+      for (const t of CAT_TOKENS) {
+        const actual = contrast(WHITE, light.get(t)!);
+        if (actual < 4.5) failures.push(`white on ${t}: ${actual.toFixed(2)}:1 < 4.5`);
+      }
+      expect(failures, failures.join("\n")).toEqual([]);
+    });
 
     it("every claimed ratio is actually delivered by the token values", () => {
       expect(CAT_TOKENS.length, "cat token scan matched nothing — vacuous").toBeGreaterThan(0);
@@ -588,27 +730,41 @@ describe("design doctrine (Field-First)", () => {
       expect(failures, failures.join("\n")).toEqual([]);
     });
 
-    it("every ratio-claim comment in globals.css has a matching entry in CLAIMS (completeness)", () => {
-      // A new "~N:1" / "≥N:1" comment without a CLAIMS entry would be an
-      // unverified promise — the exact hole this pin closes. Compared as a
-      // MULTISET OF CLAIMED NUMBERS, not a bare count, so editing a comment's
-      // value (say ~9:1 → ~12:1) without updating CLAIMS also reds — a
-      // count-only check let exactly that drift through in this guard's own
-      // first draft. The cat block's single "≥4.5:1" comment covers all cat-w*
-      // tokens (one string, many entries), so it contributes one 4.5.
-      const claimed = [...css.matchAll(/[~≥]\s*(\d+(?:\.\d+)?):1/g)]
-        .map((m) => Number(m[1]))
-        .sort((a, b) => a - b);
+    it("every ratio-claim comment in globals.css has a matching CLAIMS entry (token-bound completeness)", () => {
+      // A new ratio comment without a CLAIMS entry would be an unverified
+      // promise — the exact hole this pin closes. Compared as a multiset of
+      // TOKEN=NUMBER pairs: a bare count let a value edit drift (draft 1), and
+      // a number-only multiset let a claim MIGRATE between tokens with
+      // duplicate numbers (review catch on draft 2). Each harvested claim is
+      // bound to the nearest PRECEDING --color- definition — except the
+      // category block, whose shared comment precedes its tokens (bound "cat"
+      // when --color-cat-w01 follows within 500 chars). The harvest also
+      // catches BARE "N:1" (not only ~/≥) so a rewording cannot slip a claim
+      // past it; prose that must mention a ratio without claiming one writes
+      // "N to 1" (see the edge-strong comments).
+      const claimed: string[] = [];
+      for (const m of css.matchAll(/(?:[~≥]\s*)?(\d+(?:\.\d+)?):1/g)) {
+        const idx = m.index!;
+        const after = css.slice(idx, idx + 500);
+        let token: string;
+        if (after.includes("--color-cat-w01")) token = "cat";
+        else {
+          const before = css.slice(0, idx);
+          const defs = [...before.matchAll(/--color-([a-z0-9-]+)\s*:/g)];
+          token = defs.length > 0 ? defs[defs.length - 1]![1]! : "NONE";
+        }
+        claimed.push(`${token}=${m[1]}`);
+      }
       const expected = [
-        ...CLAIMS.filter((c) => !/^white on cat-/.test(c.label)).map((c) => c.min),
-        4.5,
-      ].sort((a, b) => a - b);
+        ...CLAIMS.filter((c) => c.commentToken !== "cat").map((c) => `${c.commentToken}=${c.min}`),
+        "cat=4.5",
+      ];
       expect(
-        claimed,
-        `the ratio numbers claimed in globals.css comments (${claimed.join(", ")}) do not match ` +
-          `the CLAIMS table mins (${expected.join(", ")}) — a comment was added or edited without ` +
-          `updating CLAIMS in this file (or vice versa)`,
-      ).toEqual(expected);
+        claimed.sort(),
+        `globals.css ratio comments (token=min: ${claimed.join(", ")}) do not match the CLAIMS ` +
+          `table — a comment was added, edited, or moved to a different token without updating ` +
+          `CLAIMS in this file (or vice versa)`,
+      ).toEqual(expected.sort());
     });
   });
 });
