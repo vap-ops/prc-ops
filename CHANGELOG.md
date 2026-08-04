@@ -1,3 +1,9 @@
+# [0.321.0](https://github.com/vap-ops/prc-ops/compare/v0.320.0...v0.321.0) (2026-08-04)
+
+### Features
+
+- **workers:** record the previous value in worker_change audit (spec 396 U1) ([#946](https://github.com/vap-ops/prc-ops/issues/946)) ([3a42891](https://github.com/vap-ops/prc-ops/commit/3a4289186ccbac0655265ee69977f37e684b0288))
+
 # [0.320.0](https://github.com/vap-ops/prc-ops/compare/v0.319.1...v0.320.0) (2026-08-04)
 
 ### Features
