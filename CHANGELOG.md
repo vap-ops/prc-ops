@@ -1,3 +1,9 @@
+## [0.327.1](https://github.com/vap-ops/prc-ops/compare/v0.327.0...v0.327.1) (2026-08-04)
+
+### Bug Fixes
+
+- **pgtap:** stop asserting global counts of app-writable tables ([#955](https://github.com/vap-ops/prc-ops/issues/955)) ([4c777ab](https://github.com/vap-ops/prc-ops/commit/4c777ab2aefeb97917c3bddbef69c9f8591cb6b0)), closes [#954](https://github.com/vap-ops/prc-ops/issues/954)
+
 # [0.327.0](https://github.com/vap-ops/prc-ops/compare/v0.326.0...v0.327.0) (2026-08-04)
 
 ### Bug Fixes
