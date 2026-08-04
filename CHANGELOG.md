@@ -1,3 +1,13 @@
+# [0.323.0](https://github.com/vap-ops/prc-ops/compare/v0.322.0...v0.323.0) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** review pass on the bound-owner line (spec 396 U2) ([18586c7](https://github.com/vap-ops/prc-ops/commit/18586c750ff09f4943d39c5ba7e32ed06eae1201))
+
+### Features
+
+- **workers:** name the bound account holder on the edit sheet (spec 396 U2) ([efe83c3](https://github.com/vap-ops/prc-ops/commit/efe83c3b439fe496746bd2120e65f4e30ed11463))
+
 # [0.322.0](https://github.com/vap-ops/prc-ops/compare/v0.321.1...v0.322.0) (2026-08-04)
 
 ### Features
