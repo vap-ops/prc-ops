@@ -89,6 +89,23 @@ describe("getPendingStaffApprovalCount", () => {
     expect(await getPendingStaffApprovalCount(flipped.client)).toBe(2);
   });
 
+  // A REJECTED query is the case that matters most: this reader runs inside the
+  // dashboard page's own Promise.all, so a rejection that escapes here takes the
+  // whole dashboard render down — turning a transient blip into a blank page.
+  it("absorbs a rejected query without zeroing the other kind", async () => {
+    const client = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () =>
+            table === STAFF_BANK
+              ? Promise.reject(new Error("socket hang up"))
+              : Promise.resolve({ count: 4, error: null }),
+        }),
+      }),
+    } as unknown as SupabaseClient<Database>;
+    await expect(getPendingStaffApprovalCount(client)).resolves.toBe(4);
+  });
+
   it("returns 0 when both reads error", async () => {
     const { client } = fakeSupabase({
       [IDENTITY]: { count: 4, error: new Error("down") },

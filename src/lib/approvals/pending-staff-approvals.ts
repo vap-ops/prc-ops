@@ -18,9 +18,11 @@
 //     rows to that number would make the label untrue.
 //
 // RLS scopes both reads to the caller, so the count is honest per role and a non-approver
-// can never be shown work they cannot open. Best-effort PER KIND: one table erroring
+// can never be shown work they cannot open. Best-effort PER KIND: one table failing
 // contributes 0 without zeroing the other, so a blip on the quiet table cannot hide the
-// requests that are actually waiting.
+// requests that are actually waiting — and each query absorbs a REJECTION as well as a
+// returned `error`, because these run inside the dashboard's own Promise.all, where one
+// rejected query would take the whole page render down with it.
 
 import "server-only";
 
@@ -35,14 +37,18 @@ export async function getPendingStaffApprovalCount(
   supabase: SupabaseClient<Database>,
 ): Promise<number> {
   const [identity, staffBank] = await Promise.all([
-    supabase
-      .from("identity_change_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
-    supabase
-      .from("staff_bank_change_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
+    Promise.resolve(
+      supabase
+        .from("identity_change_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+    ).then(settled, () => 0),
+    Promise.resolve(
+      supabase
+        .from("staff_bank_change_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+    ).then(settled, () => 0),
   ]);
-  return settled(identity) + settled(staffBank);
+  return identity + staffBank;
 }

@@ -68,7 +68,12 @@ export default async function DashboardPage() {
   // Spec 396 U4: the trio kinds (identity + staff bank) are a DIFFERENT audience from
   // the bank card above — live RLS grants them to STAFF_APPROVAL_ROLES, which excludes
   // project_manager and includes procurement_manager. Same set the queue page gates
-  // `canSeeTrioKinds` on, so the card and the page it opens agree exactly.
+  // its trio rows on (`canSeeTrioKinds`), so the COUNT here always equals the rows that
+  // page will show this viewer. Its ROUTE gate is wider ([...PM_ROLES,
+  // procurement_manager]) — that is why the card, not the route, carries this predicate.
+  // ⚠️ procurement_manager satisfies this and still gets no card: DASHBOARD_VIEW_ROLES
+  // excludes them, so /dashboard is not their surface. They are a real decider with no
+  // door — a /procurement card is owed as its own unit.
   const isApprover = isStaffApprover(ctx.role);
   // Spec 252: money display = PM tier ∨ accounting (read-only). The approvals /
   // bank-change work-queue cards stay PM-tier (isManager) — work queues, not
@@ -259,11 +264,15 @@ export default async function DashboardPage() {
             that one: the audiences differ (isStaffApprover vs isManager, mirroring
             the live RLS arms) and "บัญชี" would be a false label for an identity row.
             Without this the queue had no door at all on a day with zero bank
-            changes, which is how four requests reached 20 days old unseen. */}
+            changes, which is how four requests reached 20 days old unseen.
+            The label names BOTH kinds using the destination's own badge words
+            (ข้อมูลตัวตน / พนักงาน, bank-changes/page.tsx) — a card reading only
+            "พนักงาน" would sit above four rows every one of which badges
+            ข้อมูลตัวตน. */}
         {isApprover ? (
           <AwarenessCard
             count={pendingStaffApprovals}
-            label="การเปลี่ยนข้อมูลพนักงานรอการอนุมัติ"
+            label="การเปลี่ยนข้อมูลตัวตน/บัญชีพนักงานรอการอนุมัติ"
             href="/contacts/bank-changes"
             icon={IdCard}
           />

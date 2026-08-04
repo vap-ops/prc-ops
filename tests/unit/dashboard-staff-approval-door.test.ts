@@ -35,7 +35,10 @@ const PAGE = read("src/app/dashboard/page.tsx");
 
 const occurrences = (src: string, needle: string) => src.split(needle).length - 1;
 
-const STAFF_LABEL = "การเปลี่ยนข้อมูลพนักงานรอการอนุมัติ";
+// Names BOTH kinds in the destination's own badge vocabulary (bank-changes/page.tsx
+// badges identity rows "ข้อมูลตัวตน" and staff-bank rows "พนักงาน"). A card saying only
+// "พนักงาน" would head a list whose every live row badges ข้อมูลตัวตน.
+const STAFF_LABEL = "การเปลี่ยนข้อมูลตัวตน/บัญชีพนักงานรอการอนุมัติ";
 const BANK_LABEL = "การเปลี่ยนบัญชีรอการอนุมัติ";
 const QUEUE_HREF = "/contacts/bank-changes";
 
@@ -65,7 +68,11 @@ describe("/dashboard opens a door to the staff-approval queue", () => {
 
   it("renders a SECOND awareness card pointing at the queue", () => {
     expect(occurrences(PAGE, QUEUE_HREF)).toBe(2);
-    expect(occurrences(PAGE, "<AwarenessCard")).toBe(2);
+    // >=2, not ==2: this test owns "the staff card exists", not "the dashboard has
+    // exactly two awareness cards". A future unrelated third queue card is a
+    // legitimate edit and must not red this file. The label + gate-position
+    // assertions are what pin THIS card.
+    expect(occurrences(PAGE, "<AwarenessCard")).toBeGreaterThanOrEqual(2);
     expect(PAGE).toContain(STAFF_LABEL);
   });
 

@@ -180,7 +180,14 @@ async function loadTotalPendingApprovals(): Promise<number> {
 // Spec 183 → 188: the ภาพรวม (home) nav item carries the pending count for the
 // tabless approval types (WP review + bank changes) — the ones whose only home is
 // the dashboard inbox. PR is NOT here (spec 188): it lives on the คำขอซื้อ tab
-// badge. The dashboard shows the breakdown that sums to THIS number.
+// badge.
+// ⚠️ Spec 396 U4 broke the old "the dashboard shows the breakdown that sums to THIS
+// number" invariant: the dashboard now also carries a staff-approval card (identity +
+// staff bank) that this total does NOT include, so the badge can read 0 while that
+// card shows work. Deliberate for now — this sum is PM-tier while those two kinds are
+// STAFF_APPROVAL_ROLES, so adding the term needs its own gate-parity pass rather than
+// a one-line addition. Owed: either add a loadPendingStaffApprovals() term under the
+// right gate, or split the badge.
 export function PendingApprovalsBadge({ position = "overlay" }: { position?: BadgePosition } = {}) {
   return <SelfCountBadge load={loadTotalPendingApprovals} position={position} label="รออนุมัติ" />;
 }
