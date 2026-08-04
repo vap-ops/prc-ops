@@ -88,7 +88,7 @@ export function NewProjectSheet({
               disabled={submitting}
               className="border-edge-strong bg-card text-ink h-11 font-mono"
             />
-            <p className="text-ink-muted text-xs">แนะนำอัตโนมัติ แก้ไขได้</p>
+            <p className="text-ink-secondary text-xs">แนะนำอัตโนมัติ แก้ไขได้</p>
           </div>
 
           <div className="flex flex-col gap-1.5">

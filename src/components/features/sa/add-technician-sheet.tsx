@@ -405,7 +405,7 @@ export function AddTechnicianSheet({
                         </p>
                       </>
                     ) : (
-                      <p className="text-ink-muted text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
+                      <p className="text-ink-secondary text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
                     )}
                   </div>
                 ) : null}
@@ -490,7 +490,9 @@ export function AddTechnicianSheet({
                         className={FIELD_STACKED}
                       />
                     </label>
-                    {photo ? <p className="text-ink-muted text-meta">แนบรูปสมุดบัญชีแล้ว</p> : null}
+                    {photo ? (
+                      <p className="text-ink-secondary text-meta">แนบรูปสมุดบัญชีแล้ว</p>
+                    ) : null}
                     {error ? (
                       <p role="alert" className="text-danger text-sm">
                         {error}
@@ -565,7 +567,7 @@ export function AddTechnicianSheet({
                         </div>
                       </>
                     ) : (
-                      <p className="text-ink-muted text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
+                      <p className="text-ink-secondary text-sm">ยังไม่มีโครงการสำหรับสร้าง QR</p>
                     )}
                   </div>
                 ) : null}

@@ -193,7 +193,7 @@ export function EquipmentScanClient({
             </button>
           )
         ) : (
-          <p className="text-ink-muted text-meta mt-2">
+          <p className="text-ink-secondary text-meta mt-2">
             อุปกรณ์นี้ไม่รองรับกล้อง — ใช้ค้นหาด้านล่าง
           </p>
         )}

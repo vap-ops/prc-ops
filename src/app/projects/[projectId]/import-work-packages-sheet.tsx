@@ -71,7 +71,7 @@ export function ImportWorkPackagesSheet({ projectId }: { projectId: string }) {
                 "WP-001\tงานหาพิกัดและระดับพื้น\nWP-002\tงานทำไฟฟ้าชั่วคราว\n\n(หรือ CSV: code,name,description)"
               }
             />
-            <p className="text-ink-muted text-xs">
+            <p className="text-ink-secondary text-xs">
               คัดลอกช่องรหัสและชื่องานจาก Google Sheet มาวางได้เลย (ไม่ต้องมีหัวตาราง) หรือใช้ CSV
               ที่ขึ้นต้นด้วย code,name,description • รหัสที่ซ้ำหรือมีอยู่แล้วจะถูกแจ้งเตือน
             </p>

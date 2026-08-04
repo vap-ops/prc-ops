@@ -285,7 +285,7 @@ export function MusterAddSheet({
             </button>
           ))
         ) : (
-          <span className="text-ink-muted text-meta">ช่างทุกคนเข้าทีมแล้ว</span>
+          <span className="text-ink-secondary text-meta">ช่างทุกคนเข้าทีมแล้ว</span>
         )}
       </div>
     </div>

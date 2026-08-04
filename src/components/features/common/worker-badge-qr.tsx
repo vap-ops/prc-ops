@@ -16,7 +16,7 @@ export function WorkerBadgeQr({ svg }: { svg: string }) {
         className="rounded bg-white p-2"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
-      <p className="text-meta text-ink-muted text-center">
+      <p className="text-meta text-ink-secondary text-center">
         ให้เจ้าหน้าที่สแกนเพื่อเช็คชื่อเข้างานหรือยืนยันตัวตน
       </p>
     </section>

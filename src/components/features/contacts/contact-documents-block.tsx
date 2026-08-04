@@ -56,7 +56,7 @@ export function ContactDocumentsBlock({
   return (
     <section className={CARD}>
       <p className="text-ink text-sm font-semibold">เอกสาร</p>
-      <p className="text-ink-muted mt-0.5 text-xs">เฉพาะผู้จัดการเห็นเอกสารนี้</p>
+      <p className="text-ink-secondary mt-0.5 text-xs">เฉพาะผู้จัดการเห็นเอกสารนี้</p>
       <div className="mt-3 flex flex-col gap-4">
         <DocRow kind={kind} id={id} purpose="id_card" currentUrl={idCardUrl} />
         <DocRow kind={kind} id={id} purpose="bank_book" currentUrl={bankBookUrl} />

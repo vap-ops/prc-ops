@@ -104,7 +104,7 @@ export function WorkerIdCardUpdate({
   return (
     <div className={CARD}>
       <p className="text-ink text-sm font-semibold">{STAFF_DOC_LABELS.id_card}</p>
-      <p className="text-ink-muted mt-0.5 text-xs">
+      <p className="text-ink-secondary mt-0.5 text-xs">
         บัตรหมดอายุหรือทำบัตรใหม่ อัปโหลดรูปบัตรใบใหม่ได้ที่นี่ (รูปเดิมยังถูกเก็บไว้)
       </p>
       <div className="mt-3 flex flex-col gap-2">

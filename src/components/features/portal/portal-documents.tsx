@@ -37,7 +37,7 @@ export function PortalDocuments({
   return (
     <div className={CARD}>
       <p className="text-ink text-sm font-semibold">เอกสารของฉัน</p>
-      <p className="text-ink-muted mt-0.5 text-xs">
+      <p className="text-ink-secondary mt-0.5 text-xs">
         อัปโหลดเอกสารของท่าน เฉพาะบริษัทและท่านเท่านั้นที่เห็น
       </p>
       <div className="mt-3 flex flex-col gap-4">

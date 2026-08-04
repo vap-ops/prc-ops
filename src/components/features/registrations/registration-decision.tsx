@@ -296,7 +296,7 @@ export function RegistrationDecision({
                 </option>
               ))}
             </select>
-            <p className="text-ink-muted text-xs">
+            <p className="text-ink-secondary text-xs">
               สมาชิกทีมผู้รับเหมาจะเป็นช่างเสมอ และไม่ต้องมีบัญชีธนาคาร
               (ผู้รับเหมาเป็นผู้จ่ายค่าแรง)
             </p>

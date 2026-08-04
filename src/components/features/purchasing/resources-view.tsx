@@ -93,7 +93,7 @@ export function ResourcesBody({
             PROJECT grain — two WPs planning the same item read the same pool,
             and an in-transit truck earmarked for one WP reads กำลังมา on every
             WP planning that item. Only APPROVED plans count. */}
-        <p className="text-ink-muted text-meta">
+        <p className="text-ink-secondary text-meta">
           สต็อกและของกำลังมานับที่ระดับโครงการ · เฉพาะแผนจัดหาที่อนุมัติแล้ว ·
           นับเป็นจำนวนรายการวัสดุ
         </p>
@@ -199,8 +199,8 @@ export function ResourcesBody({
       {/* แรงงาน — D6: deferred HONESTLY (roster empty, muster adoption pending).
           Dashed slot, no fake data, no hidden slot. */}
       <section className="flex flex-col gap-2">
-        <h3 className="text-body text-ink-secondary font-semibold">แรงงาน</h3>
-        <p className="border-edge text-ink-muted text-meta rounded-card border border-dashed px-4 py-3">
+        <h3 className="text-body text-ink-muted font-semibold">แรงงาน</h3>
+        <p className="border-edge text-ink-secondary text-meta rounded-card border border-dashed px-4 py-3">
           รอข้อมูลทีมช่าง (เฟสถัดไป)
         </p>
       </section>

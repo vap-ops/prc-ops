@@ -831,7 +831,7 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
                       {group.items.length}
                     </span>
                     {group.overdue > 0 ? (
-                      <span className="bg-danger text-on-fill text-meta inline-flex h-5 items-center rounded-full px-2 font-bold">
+                      <span className="bg-danger text-on-danger text-meta inline-flex h-5 items-center rounded-full px-2 font-bold">
                         {DELIVERY_OVERDUE_FLAG} {group.overdue}
                       </span>
                     ) : null}

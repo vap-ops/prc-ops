@@ -246,7 +246,7 @@ export function FeedbackForm() {
         ) : null}
       </div>
 
-      <p className="text-ink-muted text-xs">
+      <p className="text-ink-secondary text-xs">
         ระบบจะแนบบทบาท เวอร์ชันแอป และอุปกรณ์ของคุณให้อัตโนมัติ เพื่อให้ทีมแก้ไขได้เร็วขึ้น
       </p>
 

@@ -514,7 +514,7 @@ export function CatalogItemForm({
             </div>
             <p
               id="ci-code-hint"
-              className={codeValid ? "text-ink-muted text-meta" : "text-danger text-meta"}
+              className={codeValid ? "text-ink-secondary text-meta" : "text-danger text-meta"}
             >
               {codePrefix === ""
                 ? "รหัส 6 หลัก — 2 หลักแรกมาจากหมวดหมู่อัตโนมัติ · พิมพ์เฉพาะเลขลำดับท้าย"
@@ -537,7 +537,7 @@ export function CatalogItemForm({
               className={FIELD}
               placeholder="เช่น เหล็กเส้น rebar"
             />
-            <p className="text-ink-muted text-meta">
+            <p className="text-ink-secondary text-meta">
               คั่นหลายคำด้วยช่องว่าง — ช่วยให้ค้นเจอง่ายขึ้น
             </p>
           </div>
@@ -564,7 +564,7 @@ export function CatalogItemForm({
           {secondaryChoices.length > 0 ? (
             <fieldset className="flex flex-col gap-2">
               <legend className={LABEL}>ปรากฏในหมวดอื่นด้วย (ถ้ามี)</legend>
-              <p className="text-ink-muted text-meta">
+              <p className="text-ink-secondary text-meta">
                 หมวดหลักคือบ้านของวัสดุ · เลือกหมวดอื่นเพื่อให้ค้นเจอจากหลายที่
               </p>
               <div className="flex flex-col gap-1.5">

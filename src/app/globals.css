@@ -78,11 +78,12 @@
   --color-sunk: oklch(0.968 0.002 247); /* ≈ #f1f3f5 inset rows / sub-panels */
   --color-edge: oklch(0.92 0.003 247); /* ≈ #e3e5e9 card hairline */
   --color-edge-strong: oklch(
-    0.69 0.008 256
-  ); /* ≈ #9aa0aa field/control border — ⚠ BELOW the WCAG 1.4.11 non-text floor
-       in light (computes 2.77 to 1 on card); the value raise is owed by UX-audit
-       gap G2 — do not re-add a ratio claim here without meeting it (the
-       design-doctrine contrast pin verifies every claimed ratio) */
+    0.63 0.008 256
+  ); /* ≈ #868c96 field/control border — WCAG 1.4.11 ≥3:1 on EVERY ground it
+       sits on (card 3.50 / page 3.13 / sunk 3.19, "to 1"; raised from 0.69 by
+       UX-audit gap G2 — the first raise cleared only the card and controls
+       live on bg-page too). The design-doctrine contrast pin verifies the
+       card claim; the page/sunk margins are why 0.63, not 0.65. */
 
   /* --- Ink (spec 20 floors) --------------------------------------- */
   --color-ink: oklch(0.2 0.006 264); /* ≈ #15161a  ~16:1 on card */
@@ -123,6 +124,9 @@
 
   /* --- Danger ----------------------------------------------------- */
   --color-danger: oklch(0.58 0.22 27); /* ≈ #dc2626 red-600 */
+  --color-on-danger: oklch(
+    1 0 0
+  ); /* white ink ON the danger fill (dark flips to near-black — the on-attn pattern) */
   --color-danger-strong: oklch(0.51 0.21 28); /* ≈ #b91c1c red-700 — destructive hover/press */
   --color-danger-soft: oklch(0.97 0.015 17); /* ≈ #fef2f2 red-50 */
   --color-danger-edge: oklch(0.8 0.1 20); /* ≈ #fca5a5 red-300 */
@@ -225,10 +229,9 @@
   --color-sunk: oklch(0.26 0.009 264);
   --color-edge: oklch(0.31 0.009 264);
   --color-edge-strong: oklch(
-    0.5 0.012 256
-  ); /* control border — ⚠ marginally below
-       the WCAG 1.4.11 floor on the dark card too (computes 2.92 to 1); raise owed
-       with UX-audit gap G2 */
+    0.55 0.012 256
+  ); /* control border ≥3:1 on every ground (card 3.61 / page 3.94 / sunk 3.20,
+       "to 1"; raised from 0.50 by UX-audit gap G2) */
 
   /* --- Ink (floors held vs the dark card) ------------------------- */
   --color-ink: oklch(0.95 0.004 264); /* ~16:1 on card */
@@ -268,8 +271,20 @@
   --color-done-ink: oklch(0.85 0.11 165);
 
   /* --- Danger red ------------------------------------------------- */
+  /* G9 (UX-audit, take two): danger serves TWO jobs and one lightness cannot
+     do both — as INK (text-danger, ~157 sites) it needs to be LIGHT on the
+     dark card (0.66 = 5.13 to 1); as a FILL under light ink it needed to be
+     dark. Darkening it here (first attempt: 0.56) silently broke every
+     text-danger. So the fill keeps 0.66 and the BADGE ink flips instead:
+     on-danger below is near-black in dark (5.53 to 1 on this fill), white in
+     light — the on-attn pattern. Ratios written "to 1" on purpose (a bare
+     ratio is a CLAIM the design-doctrine completeness pin harvests); pinned
+     by AA_FLOORS. */
   --color-danger: oklch(0.66 0.2 27);
-  --color-danger-strong: oklch(0.6 0.2 27);
+  --color-danger-strong: oklch(
+    0.62 0.2 27
+  ); /* press shade — 0.60 put the near-black hover ink at 4.34 to 1; 0.62 clears AA while staying darker than the base */
+  --color-on-danger: oklch(0.18 0.02 27); /* near-black ink ON the danger fill */
   --color-danger-soft: oklch(0.28 0.06 20);
   --color-danger-edge: oklch(0.5 0.12 22);
   --color-danger-ink: oklch(0.85 0.12 22);

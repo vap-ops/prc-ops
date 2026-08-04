@@ -21,7 +21,7 @@ export function DismissOnboardingButton({ projectId }: { projectId: string }) {
           if (result.ok) router.refresh();
         })
       }
-      className="text-ink-muted hover:text-ink shrink-0 text-xs font-medium underline-offset-2 hover:underline disabled:opacity-50"
+      className="text-ink-secondary hover:text-ink shrink-0 text-xs font-medium underline-offset-2 hover:underline disabled:opacity-50"
     >
       {pending ? "กำลังซ่อน…" : "ซ่อนเช็กลิสต์"}
     </button>

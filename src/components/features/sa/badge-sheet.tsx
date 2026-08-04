@@ -29,7 +29,7 @@ export function BadgeSheet({ groups }: { groups: BadgeSheetGroup[] }) {
         >
           พิมพ์บัตร
         </button>
-        <p className="text-ink-muted text-meta mt-2">
+        <p className="text-ink-secondary text-meta mt-2">
           พิมพ์แล้วเคลือบพลาสติก ให้ช่างพกไว้สแกนเช็คชื่อตอนเช้า
         </p>
       </div>

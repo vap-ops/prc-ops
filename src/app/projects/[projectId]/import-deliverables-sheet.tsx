@@ -64,7 +64,7 @@ export function ImportDeliverablesSheet({ projectId }: { projectId: string }) {
               className="rounded-control border-edge-strong bg-card text-ink shadow-input placeholder:text-ink-muted focus-visible:ring-action w-full min-w-0 border px-3 py-2 font-mono text-sm focus:outline-none focus-visible:ring-2"
               placeholder={"D01\tงานเตรียมพื้นที่\nD05\tงานโครงสร้าง\n\n(หรือ CSV: code,name)"}
             />
-            <p className="text-ink-muted text-xs">
+            <p className="text-ink-secondary text-xs">
               คัดลอกช่องรหัสและชื่องวดจากชีตมาวางได้เลย (ไม่ต้องมีหัวตาราง) •
               รหัสที่ซ้ำหรือมีอยู่แล้วจะถูกแจ้งเตือน
             </p>

@@ -260,7 +260,7 @@ export default async function DashboardPage() {
                 {totalBudget > 0 ? (
                   <SpendBar status={budgetStatus(totalBudget, totalSpend)} />
                 ) : null}
-                <p className="text-ink-muted text-meta">
+                <p className="text-ink-secondary text-meta">
                   ใช้ไปทั้งหมด รวมของที่พักในคลังโครงการ · ค่าวัสดุนับเฉพาะรายการที่บันทึกราคา
                 </p>
               </div>
@@ -387,7 +387,7 @@ function SpendByCategoryCard({ rows, total }: { rows: WorkCategorySpend[]; total
           );
         })}
       </ul>
-      <p className="text-ink-muted text-meta">
+      <p className="text-ink-secondary text-meta">
         แบ่งยอดใช้จริงรวมตามหมวดงาน · วัสดุในคลังที่ยังไม่เบิกนับรวมใน{WORK_CATEGORY_UNSET_LABEL}
       </p>
     </div>
