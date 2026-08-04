@@ -1,3 +1,9 @@
+# [0.320.0](https://github.com/vap-ops/prc-ops/compare/v0.319.1...v0.320.0) (2026-08-04)
+
+### Features
+
+- the client-report photo selection store (spec 394 U1) ([#947](https://github.com/vap-ops/prc-ops/issues/947)) ([2025451](https://github.com/vap-ops/prc-ops/commit/20254512b5adc6da031f792377dff9cbd355526a))
+
 ## [0.319.1](https://github.com/vap-ops/prc-ops/compare/v0.319.0...v0.319.1) (2026-08-04)
 
 ### Bug Fixes
