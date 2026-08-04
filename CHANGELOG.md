@@ -1,3 +1,10 @@
+## [0.319.1](https://github.com/vap-ops/prc-ops/compare/v0.319.0...v0.319.1) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** honest refusal + row pointer when a national ID is already on the roster ([101fdd0](https://github.com/vap-ops/prc-ops/commit/101fdd06dd77665d983c88ceff5bce6194982009))
+- **workers:** retire the duplicate refusal with the number that caused it ([6ae84bf](https://github.com/vap-ops/prc-ops/commit/6ae84bf178efe01e1c87bbc1dfcaa32913658b35))
+
 # [0.319.0](https://github.com/vap-ops/prc-ops/compare/v0.318.2...v0.319.0) (2026-08-04)
 
 ### Bug Fixes
