@@ -63,9 +63,14 @@ export default function ErrorBoundary({
   reset: () => void;
 }) {
   const key = retryKey(error);
-  // useState initializer: read once per boundary mount, never during render
-  // of a re-render cycle (sessionStorage is stable for the mount's lifetime).
-  const [recurred] = useState(() => readAttempts(key) > 0);
+  // Recurrence is LIVE STATE seeded from sessionStorage, not a one-shot read:
+  // when reset()'s re-render attempt throws again BEFORE commit, React can
+  // restore this same fallback instance without remounting it — a mount-time
+  // read would stay false forever and the honest variant would never appear.
+  // setAttempts covers the same-instance path; the sessionStorage seed covers
+  // the remount/next-navigation path. Both must exist.
+  const [attempts, setAttempts] = useState(() => readAttempts(key));
+  const recurred = attempts > 0;
   const code = error.digest ?? error.name;
 
   useEffect(() => {
@@ -82,9 +87,11 @@ export default function ErrorBoundary({
     try {
       sessionStorage.setItem(key, String(readAttempts(key) + 1));
     } catch {
-      // A failed write only means the NEXT occurrence cannot know a retry
-      // happened — one extra optimistic retry, never a blocked one.
+      // A failed write only means a REMOUNTED boundary cannot know a retry
+      // happened — the in-instance state below still records it; never block
+      // the reset.
     }
+    setAttempts((a) => a + 1);
     reset();
   }
 

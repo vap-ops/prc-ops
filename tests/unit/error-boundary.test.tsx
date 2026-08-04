@@ -54,17 +54,30 @@ describe("app error boundary (UX-audit G1)", () => {
   it("first occurrence: retry is primary and pressing it calls reset()", () => {
     const reset = vi.fn();
     render(<ErrorBoundary error={makeError("d1")} reset={reset} />);
+    // the recurred-state alert is NOT shown on first occurrence (contrasting
+    // control — asserted BEFORE the click; the click itself flips the
+    // same-instance state by design, covered by its own test below)
+    expect(screen.queryByRole("alert")).toBeNull();
     const retry = screen.getByRole("button", { name: "ลองใหม่" });
     fireEvent.click(retry);
     expect(reset).toHaveBeenCalledTimes(1);
-    // and the recurred-state alert is NOT shown (contrasting control)
-    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("pressing retry durably records the attempt for this digest", () => {
     render(<ErrorBoundary error={makeError("d2")} reset={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
     expect(sessionStorage.getItem("err-retry:d2")).toBe("1");
+  });
+
+  it("a failed reset on the SAME instance flips to the honest variant (no remount needed)", () => {
+    // Next/React can restore this exact fallback instance when the reset
+    // attempt throws before commit — a mount-time-only read would keep the
+    // retry promise forever. In-instance state must flip by itself.
+    render(<ErrorBoundary error={makeError("d5")} reset={() => {}} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "ลองใหม่" })).toBeNull();
   });
 
   it("recurred after retry: honest copy replaces the retry promise (F-012)", () => {
