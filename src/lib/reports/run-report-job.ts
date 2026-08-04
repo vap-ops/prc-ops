@@ -14,7 +14,7 @@ import { PHOTOS_BUCKET, REPORTS_BUCKET } from "@/lib/storage/buckets";
 import { PHOTO_PHASE_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { buildReportPdf, type ReportInputWorkPackage, type ReportPhotoGroup } from "./build-pdf";
 import { parseReportParams } from "./params";
-import { buildSelectedPhotoOrder } from "./selected-photos";
+import { buildSelectedPhotoOrder, REPORT_SELECTABLE_PHASES } from "./selected-photos";
 
 type ReportRow = Tables<"reports">;
 
@@ -101,8 +101,12 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
         // dropped tombstones, so a selection whose photo was superseded after
         // it was picked simply does not resurrect (§7).
         const current = await getCurrentPhotosForWorkPackage(supabase, wp.id);
+        // Operator ruling 2026-08-04 — `defect` is NOT in this set, so a
+        // selection row that predates the ruling (or one written by a direct
+        // call) still cannot print a photo of broken work into a client's
+        // document. The read path is the last place that can be certain.
         const pathById = new Map<string, string>();
-        for (const phase of ["before", "during", "after", "after_fix", "defect"] as const) {
+        for (const phase of REPORT_SELECTABLE_PHASES) {
           for (const photo of current[phase]) {
             if (photo.storage_path !== null) pathById.set(photo.id, photo.storage_path);
           }

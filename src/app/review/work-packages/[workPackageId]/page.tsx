@@ -449,7 +449,11 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                   signedUrls={signedUrls}
                   uploaderNames={displayNames}
                   starring={starring}
-                  reportSelection={reportSelection}
+                  /* Operator ruling 2026-08-04 — NO reportSelection here. These
+                     are จุดบกพร่อง photos: evidence of BROKEN work, which never
+                     belongs in the client's finished-work report. Withheld at
+                     the affordance, refused again in the action, and excluded
+                     from the PDF resolver (REPORT_SELECTABLE_PHASES). */
                   note={reworkReasons.get(round) ?? null}
                 />
               ))}

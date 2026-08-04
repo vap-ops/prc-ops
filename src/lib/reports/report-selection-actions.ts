@@ -16,6 +16,7 @@ import { createClient } from "@/lib/db/server";
 import { requireRole } from "@/lib/auth/require-role";
 import { PM_ROLES } from "@/lib/auth/role-home";
 import { UUID_REGEX } from "@/lib/validate/uuid";
+import { isReportSelectablePhase } from "./selected-photos";
 
 const GENERIC_ERROR = "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 const FORBIDDEN_ERROR = "เฉพาะผู้จัดการโครงการเท่านั้นที่เลือกรูปเข้ารายงานได้";
@@ -23,6 +24,9 @@ const INVALID_ERROR = "เลือกรูปนี้ไม่ได้: ร�
 // The stale-list case is the one a PD actually meets while arranging, and
 // unlike the other two it is ACTIONABLE — so it says what to do.
 const STALE_LIST_ERROR = "รายการรูปเปลี่ยนไปแล้ว กรุณารีเฟรชหน้านี้แล้วจัดลำดับใหม่";
+// Operator ruling 2026-08-04. Names the cause and stops — no retry, because
+// retrying cannot make a defect photo eligible.
+const DEFECT_PHASE_ERROR = "รูปจุดบกพร่องใช้ในรายงานลูกค้าไม่ได้";
 
 export interface ReportSelectionResult {
   ok: boolean;
@@ -47,6 +51,28 @@ async function callSelectionRpc(
   }
 
   const supabase = await createClient();
+
+  // Operator ruling 2026-08-04 — a `defect` photo is evidence of BROKEN work and
+  // never belongs in the client's finished-work report. The review page already
+  // withholds the button on those galleries, but a button is an affordance, not
+  // an enforcement point: a stale page or a direct call has to be refused here.
+  //
+  // Guarded on SELECT only. UNSELECT stays open on purpose — if a row somehow
+  // exists (written before this ruling, or by a direct call), refusing to remove
+  // it would strand it in the report with no way out.
+  if (select) {
+    const { data: photo } = await supabase
+      .from("photo_logs")
+      .select("phase")
+      .eq("id", photoId)
+      .maybeSingle();
+    // Unknown photo falls through to the RPC, which owns that refusal (22023) —
+    // this guard answers exactly one question and does not duplicate another's.
+    if (photo && !isReportSelectablePhase(photo.phase)) {
+      return { ok: false, error: DEFECT_PHASE_ERROR };
+    }
+  }
+
   const { error } = select
     ? await supabase.rpc("select_report_photo", { p_photo_log_id: photoId })
     : await supabase.rpc("unselect_report_photo", { p_photo_log_id: photoId });
