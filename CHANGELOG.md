@@ -1,3 +1,9 @@
+# [0.328.0](https://github.com/vap-ops/prc-ops/compare/v0.327.1...v0.328.0) (2026-08-04)
+
+### Features
+
+- **workers:** detect payout accounts that are not the worker's own (spec 395 U1) ([#959](https://github.com/vap-ops/prc-ops/issues/959)) ([9051227](https://github.com/vap-ops/prc-ops/commit/90512271a706cec4ee3d03069fc5e8ecef0d6d74))
+
 ## [0.327.1](https://github.com/vap-ops/prc-ops/compare/v0.327.0...v0.327.1) (2026-08-04)
 
 ### Bug Fixes
