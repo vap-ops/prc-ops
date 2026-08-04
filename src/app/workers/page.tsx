@@ -26,6 +26,7 @@ import {
 import { grossRate } from "@/lib/labor/gross-rate";
 import { WORKER_LEVEL_ORDER } from "@/lib/nova/dials";
 import type { WorkerTrade } from "@/lib/workers/trades";
+import { boundUserIdsOf, mapBoundOwnerNames } from "@/lib/workers/bound-owner";
 import { isWorkCategoryTopCode } from "@/lib/work-categories/identity";
 
 export const metadata = { title: WORKER_ROSTER_LABEL };
@@ -153,26 +154,32 @@ export default async function WorkersPage({
   // 2026-08-04 (spec 396 §1). Operator decision 2026-08-04: showing the holder's
   // name to this already-gated audience is approved.
   //
-  // Only the bound ids are queried, and only the display name crosses the
-  // boundary — never the user id (an unnecessary identifier in a client bundle).
-  // The read goes through the admin client because public.users is RLS-scoped;
-  // the page has already passed requireRole(WORKER_ROSTER_ROLES) above.
-  const boundUserIds = [
-    ...new Set((workerRows ?? []).map((w) => w.user_id).filter((id): id is string => id !== null)),
-  ];
-  const boundNameByUserId = new Map<string, string>();
+  // Only the bound ids are queried, and only the NAME crosses the boundary —
+  // never the user id (an unnecessary identifier in a client bundle). The read
+  // goes through the admin client because public.users is RLS-scoped; the page
+  // has already passed requireRole(WORKER_ROSTER_ROLES) above. The resolution
+  // RULES live in @/lib/workers/bound-owner so they are unit-testable — this is
+  // a Server Component the suite cannot render, and the decisions (which field
+  // counts as a name, what a lookup miss means) are the part worth pinning.
+  //
+  // Perf: one extra round trip after the Promise.all, not an N+1. It could be an
+  // embed on the workers select instead — deliberately not, to keep this unit
+  // small and because changing that select string risks the concat-`.select`
+  // guard. Revisit if the roster grows an order of magnitude.
+  const boundUserIds = boundUserIdsOf(workerRows ?? []);
+  let boundNameByUserId = new Map<string, string>();
   if (boundUserIds.length > 0) {
-    const { data: boundUsers } = await admin
+    const { data: boundUsers, error: boundUsersError } = await admin
       .from("users")
       .select("id, full_name, line_display_name")
       .in("id", boundUserIds);
-    for (const u of boundUsers ?? []) {
-      // full_name is the registered identity; the LINE display name is the
-      // fallback for an account that never completed one. Blank-safe so an
-      // empty string never renders as a nameless "เป็นของ ".
-      const label = u.full_name?.trim() || u.line_display_name?.trim() || "";
-      if (label) boundNameByUserId.set(u.id, label);
+    // Degrade, never throw: a failed read must not take the roster down. But it
+    // must not be SILENT either — otherwise every bound row quietly falls back to
+    // the nameless form and nobody learns the signal stopped.
+    if (boundUsersError) {
+      console.error("workers: bound-owner name read failed", boundUsersError);
     }
+    boundNameByUserId = mapBoundOwnerNames(boundUsers ?? []);
   }
 
   // Spec 369 U1: the GROSS standard rate per level — the number the confirm will

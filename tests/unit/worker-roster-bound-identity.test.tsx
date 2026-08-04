@@ -82,8 +82,27 @@ describe("WorkerRosterManager — spec 396 U2, naming the bound account holder",
     openEditSheet();
 
     // The whole point of the unit: the person's name, on screen, at the field
-    // where a rename happens.
-    expect(screen.getByText(/เอมอร ฮามศรีพรม/)).toBeInTheDocument();
+    // where a rename happens. Pinned as the EXACT string — a copy change should
+    // require a deliberate test edit, and it is the wording that carries the
+    // "states a fact, never accuses" decision.
+    expect(screen.getByText("รายการนี้เป็นของ เอมอร ฮามศรีพรม")).toBeInTheDocument();
+  });
+
+  it("wires the ownership line to the name input for screen readers", () => {
+    render(
+      <WorkerRosterManager
+        workers={[{ ...BASE, id: "wb", portalBound: true, boundUserName: "เอมอร ฮามศรีพรม" }]}
+        contractors={[]}
+      />,
+    );
+    openEditSheet();
+
+    // Sighted editors see the line under the field; without this, a screen
+    // reader announces only "ชื่อ" — and that reader is who most needs the cue.
+    const hint = screen.getByText("รายการนี้เป็นของ เอมอร ฮามศรีพรม");
+    const nameInput = screen.getByDisplayValue("ช่างหนึ่ง");
+    expect(nameInput).toHaveAttribute("aria-describedby", hint.id);
+    expect(hint.id).not.toBe("");
   });
 
   it("still states the record is owned when the holder's name is unknown", () => {
@@ -96,8 +115,10 @@ describe("WorkerRosterManager — spec 396 U2, naming the bound account holder",
     openEditSheet();
 
     // A missing display name must not silently hide the ownership FACT — that
-    // is the signal, the name is the detail.
-    expect(screen.getByText(/ผูกบัญชีเข้าแอปแล้ว/)).toBeInTheDocument();
+    // is the signal, the name is the detail. (Reached whenever the holder has no
+    // registered full_name, which on live data is common: a LINE handle is
+    // deliberately NOT used as a stand-in — see bound-owner.test.ts.)
+    expect(screen.getByText("รายการนี้เป็นของผู้ใช้ที่ผูกบัญชีแล้ว")).toBeInTheDocument();
   });
 
   it("says nothing about ownership on an unbound worker", () => {
@@ -109,21 +130,8 @@ describe("WorkerRosterManager — spec 396 U2, naming the bound account holder",
     );
     openEditSheet();
 
-    expect(screen.queryByText(/ผูกบัญชีเข้าแอปแล้ว/)).not.toBeInTheDocument();
-  });
-
-  it("does not accuse — no warning words in the ownership line", () => {
-    render(
-      <WorkerRosterManager
-        workers={[{ ...BASE, id: "wb", portalBound: true, boundUserName: "เอมอร ฮามศรีพรม" }]}
-        contractors={[]}
-      />,
-    );
-    openEditSheet();
-
-    const line = screen.getByText(/เอมอร ฮามศรีพรม/).textContent ?? "";
-    for (const word of ["ระวัง", "ห้าม", "ผิด", "เตือน", "อันตราย"]) {
-      expect(line).not.toContain(word);
-    }
+    expect(screen.queryByText(/เป็นของ/)).not.toBeInTheDocument();
+    // …and no dangling aria pointer to an element that does not exist.
+    expect(screen.getByDisplayValue("ช่างหนึ่ง")).not.toHaveAttribute("aria-describedby");
   });
 });

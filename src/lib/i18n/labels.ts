@@ -29,6 +29,22 @@ export const WORKER_TEAM_LABEL = "ทีมช่าง";
 // the company roster surface is รายชื่อช่าง; the WP daily labor log is แรงงาน.
 export const TEAM_HUB_LABEL = "ทีมงาน";
 export const WORKER_ROSTER_LABEL = "รายชื่อช่าง";
+
+/**
+ * Spec 396 U2 — who a portal-bound worker record belongs to, shown at the ชื่อ
+ * field on the roster edit sheet.
+ *
+ * ⚠️ States a FACT; it must never warn or accuse. Ten of the eleven back-office
+ * renames of bound workers measured on 2026-08-04 were legitimate name
+ * normalisations — only the eleventh replaced a person. Copy that scolds would
+ * be wrong ten times out of eleven and would train the reader to dismiss it.
+ *
+ * Deliberately says nothing about the portal itself: the same sheet already
+ * carries "เชื่อมบัญชีพอร์ทัลแล้ว" lower down (WorkerInviteBlock), and this line
+ * answers a different question — whose record is this.
+ */
+export const workerBoundOwnerLabel = (name: string) => `รายการนี้เป็นของ ${name}`;
+export const WORKER_BOUND_OWNER_UNKNOWN = "รายการนี้เป็นของผู้ใช้ที่ผูกบัญชีแล้ว";
 export const LABOR_TAB_LABEL = "แรงงาน";
 
 // Spec 374 — the per-worker attendance calendar (roster door + payroll door +
