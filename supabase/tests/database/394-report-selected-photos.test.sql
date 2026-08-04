@@ -318,8 +318,16 @@ select results_eq(
 --    the pair is what distinguishes "the policy works" from "the policy is
 --    gone" or "the policy denies everyone".
 -- ============================================================================
+-- ⚠️ Every count in section E is scoped to the two SEEDED work packages. A bare
+-- `count(*)` here is a global count of a table the app writes to: the PD arm below
+-- sees EVERY project through can_see_project's blanket arm, so the first real
+-- selection made in production turns this file red on the MERGE ref — where a PR-ref
+-- pgTAP run cannot see it (it short-circuits, ADR 0083 §4) and every queued PR from
+-- every lane silently ejects. That is exactly what happened 2026-08-04 11:38Z.
 select is(
-  (select count(*)::int from public.report_selected_photos),
+  (select count(*)::int from public.report_selected_photos
+     where work_package_id in ('d1000000-0394-0394-0394-d10000000394',
+                               'd2000000-0394-0394-0394-d20000000394')),
   4,
   'the project''s own project_manager reads its selections (3 on WP1 + 1 on WP2)');
 reset role;
@@ -333,7 +341,9 @@ select lives_ok(
   $$ select public.unselect_report_photo('f9000000-0394-0394-0394-f90000000394') $$,
   'a project_director who is NOT a project member may still curate — can_see_project''s blanket arm');
 select is(
-  (select count(*)::int from public.report_selected_photos),
+  (select count(*)::int from public.report_selected_photos
+     where work_package_id in ('d1000000-0394-0394-0394-d10000000394',
+                               'd2000000-0394-0394-0394-d20000000394')),
   3,
   'and reads the selections back through the same blanket arm');
 reset role;
@@ -341,7 +351,9 @@ reset role;
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "71000000-0394-0394-0394-710000000394"}';
 select is(
-  (select count(*)::int from public.report_selected_photos),
+  (select count(*)::int from public.report_selected_photos
+     where work_package_id in ('d1000000-0394-0394-0394-d10000000394',
+                               'd2000000-0394-0394-0394-d20000000394')),
   0,
   'a site_admin ON THE SAME PROJECT reads none of them');
 reset role;
@@ -349,7 +361,9 @@ reset role;
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "72000000-0394-0394-0394-720000000394"}';
 select is(
-  (select count(*)::int from public.report_selected_photos),
+  (select count(*)::int from public.report_selected_photos
+     where work_package_id in ('d1000000-0394-0394-0394-d10000000394',
+                               'd2000000-0394-0394-0394-d20000000394')),
   0,
   'a project_manager who cannot see the project reads none of them');
 reset role;
