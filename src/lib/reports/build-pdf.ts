@@ -56,6 +56,20 @@ export function formatGeneratedDate(date: Date): string {
   return DATE_FORMATTER.format(date);
 }
 
+// Spec 394 D8 — the client meets the work, not our catalogue letters. The
+// code stays on the page (PD and the client refer to the same item by it in
+// conversation) but drops to a smaller second line, with the status label
+// beside it rather than in the title.
+export function workPackageHeadingLines(wp: { code: string; name: string; statusLabel?: string }): {
+  title: string;
+  subtitle: string;
+} {
+  return {
+    title: wp.name,
+    subtitle: wp.statusLabel ? `${wp.code} · ${wp.statusLabel}` : wp.code,
+  };
+}
+
 function streamToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -92,19 +106,19 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
     const photoCount = wp.photoGroups.reduce((n, g) => n + g.photos.length, 0);
     if (photoCount === 0 && !input.includeEmptyWorkPackages) continue;
 
-    const heading = wp.statusLabel
-      ? `${wp.code} — ${wp.name} (${wp.statusLabel})`
-      : `${wp.code} — ${wp.name}`;
+    const { title, subtitle } = workPackageHeadingLines(wp);
 
     if (input.includeEmptyWorkPackages && photoCount === 0) {
       // Text listing: compact rows, no page per WP.
-      doc.fontSize(12).text(heading);
+      doc.fontSize(12).text(title);
+      doc.fontSize(9).text(subtitle);
       doc.moveDown(0.5);
       continue;
     }
 
     doc.addPage();
-    doc.fontSize(16).text(heading);
+    doc.fontSize(16).text(title);
+    doc.fontSize(10).text(subtitle);
     doc.moveDown(0.5);
     doc.fontSize(10).text(`Photos: ${photoCount}`);
     doc.moveDown(0.5);
