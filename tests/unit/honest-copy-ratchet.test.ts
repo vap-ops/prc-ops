@@ -73,7 +73,17 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
         `RETRYABLE? If yes, raise this number with a justification line; if no, a permanent ` +
         `refusal must name the cause and the next step instead — never "try again" (house ` +
         `honest-copy rule). SHRANK: lower this number in the same PR.`,
-    ).toBe(226); // measured 2026-08-04; lowered same day by the G1 boundary unit (both boundaries now read copy from labels.ts)
+      // 226 → 228, spec 391 U2: the hide/unhide pair's GENERIC arm.
+      // JUSTIFICATION (the ratchet demands one): both new occurrences are
+      // "ซ่อนรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" — the action's fallback and the
+      // component's — and they are reached ONLY when the RPC fails with
+      // something other than a known refusal, i.e. network/transport/unknown.
+      // That is genuinely retryable. The two PERMANENT refusals this pair can
+      // raise do NOT use retry copy: 42501 answers
+      // "เฉพาะผู้อำนวยการโครงการเท่านั้นที่ปักดาวได้" and 22023 answers
+      // "ซ่อนรูปไม่ได้: ไม่พบรูปนี้" — each naming the cause instead of inviting
+      // a retry that cannot succeed.
+    ).toBe(228); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2 (justified above)
   });
 
   it("the number of files carrying retry copy matches the ledger exactly", () => {

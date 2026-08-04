@@ -82,7 +82,11 @@ export function ReferenceStarButton({
         aria-label={hidden ? "ใช้เป็นตัวอย่างได้อีกครั้ง" : "ไม่ใช้รูปนี้เป็นตัวอย่าง"}
         disabled={pending}
         onClick={toggleHidden}
-        className="absolute top-12 right-1 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        // h-11/w-11 (44px), NOT the star's grandfathered h-10. The tap ratchet
+        // allowlists this file for ONE sub-44 control and caught the second
+        // immediately. A new control on a gloved-hand field surface should not
+        // inherit that debt just because its neighbour predates the rule.
+        className="absolute top-12 right-1 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         <EyeOff aria-hidden className={hidden ? "text-attn-edge h-5 w-5" : "h-5 w-5 text-white"} />
       </button>
