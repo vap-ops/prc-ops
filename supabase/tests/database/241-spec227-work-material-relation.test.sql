@@ -76,9 +76,11 @@ select col_type_is('public', 'work_category_material_categories', 'kind_filter',
   'kind_filter is a catalog_item_kind enum');
 
 -- B. Seed (BOQ-derived, W-top grain) ----------------------------------------- (11)
-select is(
-  (select count(*)::int from public.work_category_material_categories), 19,
-  'seeded 19 work->material pairs');
+-- `>=`, NOT `=` — an exact global count of an operator-writable table asserts today's
+-- production total and reds on the MERGE ref the moment a pair is added (#954).
+select ok(
+  (select count(*)::int from public.work_category_material_categories) >= 19,
+  'the 19 seeded work->material pairs are present (the mapping may grow)');
 select is(
   (select count(distinct work_category_id)::int from public.work_category_material_categories), 8,
   'seed spans 8 of 9 top work-categories (W07 signage intentionally unmapped)');

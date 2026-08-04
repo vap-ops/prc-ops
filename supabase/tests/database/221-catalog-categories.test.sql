@@ -37,8 +37,13 @@ select ok(
   'anon may NOT SELECT catalog_categories');
 
 -- B. Seed + backfill --------------------------------------------------------
-select is(
-  (select count(*)::int from public.catalog_categories), 14, 'seeded 13 enum categories + 1 user category (spec 239 fasteners, code 14)');
+-- `>=`, NOT `=`. This assertion is WHY this file sat in known-red.json since
+-- 2026-07-09: the catalog is operator-curated, so an exact global count asserts a
+-- production total that drifts (14 seeded, 15 live today). Deletion is still caught —
+-- a missing seed row drops the count below 14.
+select ok(
+  (select count(*)::int from public.catalog_categories) >= 14,
+  'the seeded 13 enum categories + 1 user category are present (the catalog may grow)');
 select is(
   (select code from public.catalog_categories where legacy_category='steel_fixing'),
   '01', 'steel_fixing seeded as code 01');
