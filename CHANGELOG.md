@@ -1,3 +1,13 @@
+# [0.319.0](https://github.com/vap-ops/prc-ops/compare/v0.318.2...v0.319.0) (2026-08-04)
+
+### Bug Fixes
+
+- keep a report listing row together, and pin the demotion itself ([63ba6e8](https://github.com/vap-ops/prc-ops/commit/63ba6e8453a347fed9e7a02ba9277d52f5565f68))
+
+### Features
+
+- lead the report PDF with the Thai work name (spec 394 U0, D8) ([47995e5](https://github.com/vap-ops/prc-ops/commit/47995e5bf774635eaa8de6a1e38c94dfab8825d1))
+
 ## [0.318.2](https://github.com/vap-ops/prc-ops/compare/v0.318.1...v0.318.2) (2026-08-04)
 
 ### Bug Fixes
