@@ -10,16 +10,25 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreate, mockUpdate, mockSetRate, mockAssign, mockRefresh, mockToastError } = vi.hoisted(
-  () => ({
-    mockCreate: vi.fn(),
-    mockUpdate: vi.fn(),
-    mockSetRate: vi.fn(),
-    mockAssign: vi.fn(),
-    mockRefresh: vi.fn(),
-    mockToastError: vi.fn(),
-  }),
-);
+const {
+  mockCreate,
+  mockUpdate,
+  mockSetRate,
+  mockAssign,
+  mockRefresh,
+  mockToastError,
+  mockFriction,
+} = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockSetRate: vi.fn(),
+  mockAssign: vi.fn(),
+  mockRefresh: vi.fn(),
+  mockToastError: vi.fn(),
+  mockFriction: vi.fn(),
+}));
+
+vi.mock("@/lib/telemetry/friction", () => ({ trackFriction: mockFriction }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/workers/actions", () => ({
@@ -55,6 +64,7 @@ const WORKERS: ManagedWorker[] = [
     note: "หัวหน้าทีม",
     employment_type: "permanent",
     portalBound: false,
+    boundUserName: null,
     project_id: null,
     // Spec 272 U1: skill grade joins the roster row model.
     level: null,
@@ -83,6 +93,7 @@ beforeEach(() => {
   mockAssign.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
   mockToastError.mockReset();
+  mockFriction.mockReset();
 });
 
 describe("WorkerRosterManager notes", () => {
@@ -329,6 +340,7 @@ describe("WorkerRosterManager DC edit matrix", () => {
     name: "ช่างรายวัน",
     pay_type: "daily",
     portalBound: false,
+    boundUserName: null,
     employment_type: "permanent",
     phone: null,
     tax_id: null,
@@ -441,6 +453,208 @@ describe("WorkerRosterManager gender (spec 357 U-F)", () => {
         expect.objectContaining({ id: "w1", gender: "female" }),
       ),
     );
+  });
+});
+
+// Field incident 2026-08-04 (/workers 14:35 BKK) — a procurement user re-added a
+// ช่าง who was ALREADY on the roster: `workers_tax_id_unique` refused the insert
+// with 23505 (proved live) and the sheet showed "บันทึกช่างไม่สำเร็จ กรุณาลองใหม่
+// อีกครั้ง". Three defects in one place: the copy asked for a retry that can never
+// succeed, it named neither the cause nor the person collided with, and a thrown
+// transport left the button stuck at กำลังบันทึก… forever (no try/finally).
+//
+// The roster page already ships every worker's tax_id to this client component (the
+// edit sheet prefills it), so the collision is knowable BEFORE the round trip.
+describe("WorkerRosterManager duplicate เลขผู้เสียภาษี", () => {
+  const EXISTING: ManagedWorker = {
+    ...WORKERS[0]!,
+    id: "w-dup",
+    name: "พิมพ์ใจ วงษ์อ่อน",
+    pay_type: "daily",
+    tax_id: "1160400054920",
+  };
+
+  /** Fill the add sheet as a daily ช่าง carrying `taxId`. */
+  function fillDailyAdd(taxId: string) {
+    openAddSheet();
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "พิมพ์ใจ วงษ์อ่อน" } });
+    fireEvent.click(screen.getByRole("radio", { name: "รายวัน" }));
+    fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "400" } });
+    fireEvent.change(screen.getByLabelText("เลขผู้เสียภาษี"), { target: { value: taxId } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายชื่อ" }));
+  }
+
+  it("refuses before the round trip and NAMES the ช่าง already holding that เลขบัตร", async () => {
+    render(<WorkerRosterManager workers={[EXISTING]} contractors={[]} />);
+    fillDailyAdd("1160400054920");
+
+    // Scoped to the refusal itself — the roster row behind the sheet carries the
+    // same name, and a bare text query would pass on that alone.
+    const refusal = await screen.findByRole("alert");
+    expect(refusal).toHaveTextContent("พิมพ์ใจ วงษ์อ่อน");
+    // The refusal is permanent — it must not invite a retry, and it must not spend
+    // a round trip to learn what the client already knows.
+    expect(refusal).not.toHaveTextContent("ลองใหม่อีกครั้ง");
+    expect(mockCreate).not.toHaveBeenCalled();
+    // Diagnosability: the refusal is the thing nobody could see in the field.
+    expect(mockFriction).toHaveBeenCalledWith(
+      "validation_error",
+      expect.objectContaining({ where: "workers_add", reason: "duplicate_tax_id" }),
+    );
+  });
+
+  it("leaves an unseen เลขบัตร alone (the guard fires on a real collision only)", async () => {
+    render(<WorkerRosterManager workers={[EXISTING]} contractors={[]} />);
+    fillDailyAdd("1160400054921");
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+  });
+
+  it("ดูช่างคนเดิม closes the sheet and puts that worker's row on screen", async () => {
+    render(
+      <WorkerRosterManager
+        workers={[EXISTING, { ...WORKERS[0]!, id: "w-other", name: "ช่างอื่น" }]}
+        contractors={[]}
+      />,
+    );
+    fillDailyAdd("1160400054920");
+
+    fireEvent.click(await screen.findByRole("button", { name: "ดูช่างคนเดิม" }));
+    // The sheet is gone (its add button is back to being the only door)…
+    await waitFor(() => expect(screen.queryByLabelText("เลขผู้เสียภาษี")).not.toBeInTheDocument());
+    // …and the roster below is filtered down to the person collided with.
+    expect(screen.getByText(/พิมพ์ใจ วงษ์อ่อน/)).toBeInTheDocument();
+    expect(screen.queryByText("ช่างอื่น")).not.toBeInTheDocument();
+  });
+
+  // Self-review: the refusal names a person, so it must not outlive the number that
+  // produced it — a stale ดูช่างคนเดิม would send the user to someone unrelated.
+  it("retires the refusal and its door as soon as the เลขบัตร is edited", async () => {
+    render(<WorkerRosterManager workers={[EXISTING]} contractors={[]} />);
+    fillDailyAdd("1160400054920");
+    expect(await screen.findByRole("button", { name: "ดูช่างคนเดิม" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("เลขผู้เสียภาษี"), {
+      target: { value: "116040005492" },
+    });
+    expect(screen.queryByRole("button", { name: "ดูช่างคนเดิม" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("still maps a server-side duplicate refusal (the race the pre-check cannot see)", async () => {
+    mockCreate.mockResolvedValueOnce({ ok: false, error: "เลขบัตรประชาชนนี้มีอยู่แล้วในระบบ" });
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    fillDailyAdd("1160400054920");
+    expect(await screen.findByText(/เลขบัตรประชาชนนี้มีอยู่แล้วในระบบ/)).toBeInTheDocument();
+  });
+
+  it("never sticks at กำลังบันทึก… when the action throws", async () => {
+    mockCreate.mockReset().mockRejectedValue(new Error("Failed to fetch"));
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    fillDailyAdd("1160400054920");
+
+    // The transport failure is reported…
+    expect(await screen.findByText(/เชื่อมต่อไม่สำเร็จ/)).toBeInTheDocument();
+    // …the button is usable again (busy cleared in a finally)…
+    const button = screen.getByRole("button", { name: "เพิ่มรายชื่อ" });
+    expect(button).toBeEnabled();
+    // …and the throw stays observable, exactly as the unhandled rejection was.
+    expect(mockFriction).toHaveBeenCalledWith(
+      "js_error",
+      expect.objectContaining({ where: "workers_add" }),
+    );
+  });
+});
+
+// #945 follow-up — the EDIT sheet writes tax_id too (DC edit matrix), so it can
+// collide exactly the same way. It got the honest server copy but not the name or
+// the door, because the row component held no roster list. Parity, with the one
+// difference the edit case forces: a row's OWN unchanged เลขบัตร is not a collision.
+describe("WorkerRosterManager duplicate เลขผู้เสียภาษี — edit sheet", () => {
+  const HOLDER: ManagedWorker = {
+    ...WORKERS[0]!,
+    id: "w-holder",
+    name: "พิมพ์ใจ วงษ์อ่อน",
+    pay_type: "daily",
+    tax_id: "1160400054920",
+  };
+  const OTHER: ManagedWorker = {
+    ...WORKERS[0]!,
+    id: "w-other",
+    name: "สมชาย ใจดี",
+    pay_type: "daily",
+    tax_id: "3461300175126",
+  };
+
+  /** Open the edit sheet of the LAST rendered row and type a เลขบัตร into it. */
+  function editRowTaxId(rowName: string, taxId: string) {
+    fireEvent.click(screen.getByRole("button", { name: `แก้ไข ${rowName}` }));
+    const fields = screen.getAllByLabelText("เลขผู้เสียภาษี");
+    fireEvent.change(fields[fields.length - 1]!, { target: { value: taxId } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+  }
+
+  it("refuses before the round trip and NAMES the ช่าง already holding that เลขบัตร", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+
+    const refusal = await screen.findByRole("alert");
+    expect(refusal).toHaveTextContent("พิมพ์ใจ วงษ์อ่อน");
+    expect(refusal).not.toHaveTextContent("ลองใหม่อีกครั้ง");
+    // Nothing is written — not the tax id, and not the other fields riding the same
+    // save, so the user never half-saves a record they are about to correct.
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockSetRate).not.toHaveBeenCalled();
+    expect(mockFriction).toHaveBeenCalledWith(
+      "validation_error",
+      expect.objectContaining({ where: "workers_edit", reason: "duplicate_tax_id" }),
+    );
+  });
+
+  // The edit case's own trap: the row already OWNS that number, and the unique index
+  // does not fire against itself.
+  it("saves normally when the row's own เลขบัตร is untouched", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: `แก้ไข ${HOLDER.name}` }));
+    const notes = screen.getAllByLabelText("หมายเหตุ");
+    fireEvent.change(notes[notes.length - 1]!, { target: { value: "แก้โน้ตเฉยๆ" } });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    expect(mockFriction).not.toHaveBeenCalled();
+  });
+
+  it("ดูช่างคนเดิม closes the edit sheet and puts the holder's row on screen", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+
+    fireEvent.click(await screen.findByRole("button", { name: "ดูช่างคนเดิม" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "บันทึก" })).toBeNull());
+    expect(screen.getByText(/พิมพ์ใจ วงษ์อ่อน/)).toBeInTheDocument();
+    expect(screen.queryByText("สมชาย ใจดี")).not.toBeInTheDocument();
+  });
+
+  // openEditor() re-seeds every field and clears `error` precisely because this
+  // state survives the sheet's unmount — the door has to be on that list too, or a
+  // reopened sheet shows a stale ดูช่างคนเดิม over a freshly re-seeded field.
+  it("retires the door when the sheet is closed and reopened", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+    expect(await screen.findByRole("button", { name: "ดูช่างคนเดิม" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    fireEvent.click(screen.getByRole("button", { name: `แก้ไข ${OTHER.name}` }));
+    expect(screen.queryByRole("button", { name: "ดูช่างคนเดิม" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("retires the refusal and its door as soon as the เลขบัตร is edited again", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+    expect(await screen.findByRole("button", { name: "ดูช่างคนเดิม" })).toBeInTheDocument();
+
+    const fields = screen.getAllByLabelText("เลขผู้เสียภาษี");
+    fireEvent.change(fields[fields.length - 1]!, { target: { value: "116040005492" } });
+    expect(screen.queryByRole("button", { name: "ดูช่างคนเดิม" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

@@ -6,19 +6,30 @@
 // (42501).
 
 import { useState, useTransition } from "react";
-import { Star } from "lucide-react";
-import { starReferencePhoto, unstarReferencePhoto } from "@/lib/wp-catalog/star-actions";
+import { EyeOff, Star } from "lucide-react";
+import {
+  hideReferencePhoto,
+  starReferencePhoto,
+  unhideReferencePhoto,
+  unstarReferencePhoto,
+} from "@/lib/wp-catalog/star-actions";
 
 export function ReferenceStarButton({
   projectId,
   workPackageId,
   photoId,
   starred,
+  hidden,
 }: {
   projectId: string;
   workPackageId: string;
   photoId: string;
   starred: boolean;
+  /** Spec 391 D5 — suppressed as an example everywhere. Independent of `starred`:
+   *  a photo can be neither, either, or both, and hiding wins. Shown as its own
+   *  control rather than a third star state, because they answer different
+   *  questions — "is this the best example" vs "never use this one". */
+  hidden: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +41,16 @@ export function ReferenceStarButton({
         ? await unstarReferencePhoto(projectId, workPackageId, photoId)
         : await starReferencePhoto(projectId, workPackageId, photoId);
       if (!res.ok) setError(res.error ?? "บันทึกดาวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    });
+  };
+
+  const toggleHidden = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = hidden
+        ? await unhideReferencePhoto(projectId, workPackageId, photoId)
+        : await hideReferencePhoto(projectId, workPackageId, photoId);
+      if (!res.ok) setError(res.error ?? "ซ่อนรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     });
   };
 
@@ -47,10 +68,37 @@ export function ReferenceStarButton({
           className={starred ? "fill-attn-edge text-attn-edge h-5 w-5" : "h-5 w-5 text-white"}
         />
       </button>
+      {/* Spec 391 D5 — ไม่ใช้เป็นตัวอย่าง. Sits BELOW the star, same 40px target
+          (a gloved hand on a phone). It is the only control that answers a bad
+          automatic pick: since 391 most of what appears in ตัวอย่างงาน was never
+          starred, so there is no star to remove.
+
+          No aria-pressed: the LABEL already carries the state, and together they
+          contradict — a screen reader would announce "pressed, use as example
+          again", the state and the action pointing opposite ways. The star
+          beside it switches its label the same way. */}
+      <button
+        type="button"
+        aria-label={hidden ? "ใช้เป็นตัวอย่างได้อีกครั้ง" : "ไม่ใช้รูปนี้เป็นตัวอย่าง"}
+        disabled={pending}
+        onClick={toggleHidden}
+        // h-11/w-11 (44px), NOT the star's grandfathered h-10. The tap ratchet
+        // allowlists this file for ONE sub-44 control and caught the second
+        // immediately. A new control on a gloved-hand field surface should not
+        // inherit that debt just because its neighbour predates the rule.
+        className="absolute top-12 right-1 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      >
+        <EyeOff aria-hidden className={hidden ? "text-attn-edge h-5 w-5" : "h-5 w-5 text-white"} />
+      </button>
       {error ? (
+        // Spec 391 U2b — `pointer-events-none`. The banner starts at top-11 (44px)
+        // and can run three lines; the hide button now occupies 48–88px. Without
+        // this it paints over that button (it is later in DOM order at the same
+        // z-index) and a failed STAR call would make ไม่ใช้เป็นตัวอย่าง unclickable
+        // until a re-render — a refusal on one control disabling the other.
         <span
           role="alert"
-          className="absolute inset-x-0 top-11 z-10 line-clamp-3 bg-black/70 px-1 py-0.5 text-[10px] break-words text-white"
+          className="pointer-events-none absolute inset-x-0 top-11 z-10 line-clamp-3 bg-black/70 px-1 py-0.5 text-[10px] break-words text-white"
         >
           {error}
         </span>

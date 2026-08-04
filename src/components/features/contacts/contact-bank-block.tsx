@@ -48,7 +48,7 @@ export function ContactBankBlock({
   return (
     <section className={CARD}>
       <p className="text-ink text-sm font-semibold">ข้อมูลธนาคาร</p>
-      <p className="text-ink-muted mt-0.5 text-xs">เฉพาะผู้จัดการเห็นข้อมูลนี้</p>
+      <p className="text-ink-secondary mt-0.5 text-xs">เฉพาะผู้จัดการเห็นข้อมูลนี้</p>
       <p className="text-ink-secondary mt-2 text-sm">ชื่อธนาคาร</p>
       <BankSelect
         value={bankName}

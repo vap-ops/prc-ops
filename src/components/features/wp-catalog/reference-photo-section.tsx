@@ -7,8 +7,19 @@
 // returned (spec D3: the mint stays bound to the RPC's output — this section
 // never widens the readable set).
 //
-// Renders NOTHING when the WP is unmapped or nothing is starred — an empty
-// reference section is noise, not information.
+// Renders NOTHING when the WP is unmapped or there is nothing to show — an
+// empty reference section is noise, not information.
+//
+// Spec 391: the set is no longer "what a PD starred". The RPC now falls back to
+// DERIVED examples — `after`/`after_fix` photos of COMPLETE WPs mapped to the
+// same catalogue item — so the section fills itself and the PD's star becomes a
+// promotion rather than the only way in.
+//
+// ⚠️ `workPackageId` is REQUIRED, not a nicety. Without it the RPC cannot
+// exclude the WP being viewed, and a completed WP is its own newest candidate:
+// measured on live data before U1b, all 144 complete mapped WPs were served
+// their OWN photos (403 of 403), duplicated directly above the same photos in
+// the gallery below. Passing it is what makes this section cross-project.
 
 import { createClient } from "@/lib/db/server";
 import { mintPhotoThumbnails } from "@/lib/photos/mint-thumbnails";
@@ -19,14 +30,19 @@ import {
 
 export async function ReferencePhotoSection({
   wpCatalogItemId,
+  workPackageId,
 }: {
   wpCatalogItemId: string | null;
+  /** The WP being viewed — excluded from the derived arm so it is never its own
+   *  example. See the header note; this is a correctness argument, not a filter. */
+  workPackageId: string;
 }) {
   if (!wpCatalogItemId) return null;
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_wp_reference_photos", {
     p_wp_catalog_item_id: wpCatalogItemId,
+    p_exclude_work_package_id: workPackageId,
   });
   // a read failure renders nothing rather than a broken section — the WP page
   // must not fail on its reference garnish. Logged, because a silent null here
@@ -38,16 +54,15 @@ export async function ReferencePhotoSection({
   }
   if (!data || data.length === 0) return null;
 
-  // cap the mint fan-out: one signed-URL call per photo, and this section
-  // renders on EVERY WP detail (the tab panel stays mounted) — newest 12 stars
-  // are the reference set, not the whole archive
-  const capped = data.slice(0, 12);
-
+  // No slice: the RPC hard-caps at 4 (spec 391 D3). The old `slice(0, 12)` and
+  // its "newest 12 stars" comment were both dead the moment the cap moved into
+  // the reader — a client-side cap that can never bind reads as a second policy
+  // and invites someone to "fix" the mismatch in the wrong place.
   const urls = await mintPhotoThumbnails(
-    capped.map((r) => ({ id: r.photo_log_id, storage_path: r.storage_path })),
+    data.map((r) => ({ id: r.photo_log_id, storage_path: r.storage_path })),
   );
 
-  const rows: ReferenceExampleRow[] = capped.flatMap((r) => {
+  const rows: ReferenceExampleRow[] = data.flatMap((r) => {
     const u = urls.get(r.photo_log_id);
     return u
       ? [
@@ -57,6 +72,9 @@ export async function ReferencePhotoSection({
             fullUrl: u.fullUrl,
             projectName: r.project_name,
             note: r.note,
+            // D7 — the derived arm reports these NULL, so a non-null starred_by
+            // IS the marker. No second query.
+            starred: r.starred_by !== null,
           },
         ]
       : [];

@@ -29,6 +29,8 @@ import {
   updateWorker,
   type WorkerActionResult,
 } from "@/app/workers/actions";
+import { ADD_WORKER_NETWORK_ERROR, duplicateTaxIdOwnerError } from "@/app/workers/error-copy";
+import { trackFriction } from "@/lib/telemetry/friction";
 import type { Database } from "@/lib/db/database.types";
 import { WORKER_LEVEL_LABEL, WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
 import { CategoryChip } from "@/components/features/work-packages/category-chip";
@@ -45,6 +47,8 @@ import {
   TRADE_PRIMARY_CLEAR_LABEL,
   TRADE_PRIMARY_LABEL,
   TRADES_EMPTY_LABEL,
+  WORKER_BOUND_OWNER_UNKNOWN,
+  workerBoundOwnerLabel,
 } from "@/lib/i18n/labels";
 import { Search } from "lucide-react";
 import Link from "next/link";
@@ -109,6 +113,11 @@ export type ManagedWorker = {
   employment_type: EmploymentType;
   // ADR 0062 U4a: is this worker bound to a portal LINE login (workers.user_id)?
   portalBound: boolean;
+  // Spec 396 U2: WHOSE account it is. `portalBound` alone says a binding exists
+  // but not whose, which is how a real employee's record was renamed into
+  // someone else's on 2026-08-04. null = bound but the display name is unknown
+  // (the ownership fact still renders — the name is the detail, not the signal).
+  boundUserName: string | null;
   // Spec 200: the worker's current project (one at a time), or null if unassigned.
   project_id: string | null;
   // Spec 272 U1 / ADR 0060: skill grade (null = ยังไม่ประเมิน; super_admin sets).
@@ -143,9 +152,18 @@ export type AssignableProject = {
 
 function AddWorkerForm({
   projects,
+  roster,
+  onShowExisting,
   onDone,
 }: {
   projects: AssignableProject[];
+  // Field incident 2026-08-04: `workers.tax_id` is UNIQUE, so re-adding a ช่าง who is
+  // already on the roster is refused by the DB (23505) — and the roster this form
+  // sits above already carries every tax_id, so the collision is knowable here,
+  // before the round trip, with the colliding person NAMED.
+  roster: ReadonlyArray<{ id: string; name: string; tax_id: string | null }>;
+  // Point at the row instead of describing it: filter the roster down to that ช่าง.
+  onShowExisting: (name: string) => void;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -166,6 +184,9 @@ function AddWorkerForm({
   const [bankAccountName, setBankAccountName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The ช่าง the typed เลขบัตร already belongs to — held separately from `error`
+  // because it earns an affordance (ดูช่างคนเดิม), not just a sentence.
+  const [duplicate, setDuplicate] = useState<{ name: string } | null>(null);
 
   // Daily ช่าง are paid in-app (day_rate × days) and carry a payee; monthly ช่าง
   // are paid off-app, so the rate + bank/tax fields only apply when รายวัน.
@@ -185,33 +206,65 @@ function AddWorkerForm({
     // Monthly ช่าง have no in-app rate → 0; daily parses (invalid → -1, which the
     // action rejects with the generic error).
     const dayRate = isDaily ? (Number.isFinite(parsedRate) ? parsedRate : -1) : 0;
-    setBusy(true);
     setError(null);
-    const result = await createWorker({
-      name,
-      // Seam: การจ่าย maps to createWorker's monthly/daily vocabulary (→ pay_type at
-      // the RPC boundary); สถานะ passes straight through as employment_type.
-      workerType: isDaily ? "dc" : "own",
-      employmentType,
-      dayRate,
-      note,
-      ...(gender !== "" ? { gender } : {}),
-      ...(project ? { projectId: project } : {}),
-      ...(isDaily ? { phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
-    });
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setDuplicate(null);
+
+    // Pre-check the one refusal the DB will make permanently. Only daily ช่าง send a
+    // tax id at all (the payee block is gated on รายวัน), and the roster row's value
+    // is stored btrim'd by the RPC — so a trimmed exact compare is the same key the
+    // unique index uses.
+    const typedTaxId = taxId.trim();
+    if (isDaily && typedTaxId !== "") {
+      const owner = roster.find((w) => (w.tax_id ?? "").trim() === typedTaxId);
+      if (owner) {
+        setDuplicate({ name: owner.name });
+        setError(duplicateTaxIdOwnerError(owner.name));
+        // This refusal was invisible in the field — no server log, no telemetry, and
+        // a generic message the user read as "the app is broken".
+        trackFriction("validation_error", { where: "workers_add", reason: "duplicate_tax_id" });
+        return;
+      }
     }
-    setName("");
-    setRate("");
-    setNote("");
-    setProject("");
-    setGender("");
-    resetPayee();
-    onDone();
-    router.refresh();
+
+    setBusy(true);
+    try {
+      const result = await createWorker({
+        name,
+        // Seam: การจ่าย maps to createWorker's monthly/daily vocabulary (→ pay_type at
+        // the RPC boundary); สถานะ passes straight through as employment_type.
+        workerType: isDaily ? "dc" : "own",
+        employmentType,
+        dayRate,
+        note,
+        ...(gender !== "" ? { gender } : {}),
+        ...(project ? { projectId: project } : {}),
+        ...(isDaily ? { phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setName("");
+      setRate("");
+      setNote("");
+      setProject("");
+      setGender("");
+      resetPayee();
+      onDone();
+      router.refresh();
+    } catch (err) {
+      // The button is invoked as `void submit()`, so a transport throw used to skip
+      // setBusy(false) entirely and leave it disabled at กำลังบันทึก… with no message
+      // — literally "I cannot press it" (the 2026-07-27 SA incident, same shape).
+      // Re-report what the unhandled rejection used to give telemetry for free.
+      trackFriction("js_error", {
+        where: "workers_add",
+        message: err instanceof Error ? err.message : String(err),
+      });
+      setError(ADD_WORKER_NETWORK_ERROR);
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Spec 313 U2b (D4): this form lives on /workers, whose heading U2 renamed to
@@ -304,7 +357,16 @@ function AddWorkerForm({
             เลขผู้เสียภาษี
             <input
               value={taxId}
-              onChange={(e) => setTaxId(e.target.value)}
+              onChange={(e) => {
+                setTaxId(e.target.value);
+                // Retire the refusal WITH the number that caused it — otherwise the
+                // sentence and its ดูช่างคนเดิม button keep naming a ช่าง who has
+                // nothing to do with what is now in the field.
+                if (duplicate) {
+                  setDuplicate(null);
+                  setError(null);
+                }
+              }}
               maxLength={50}
               className={FIELD_STACKED}
             />
@@ -359,7 +421,22 @@ function AddWorkerForm({
           ))}
         </select>
       </label>
-      {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+      {error ? (
+        <p className="text-danger mt-2 text-sm" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {/* A permanent refusal must leave the user somewhere to GO: the ช่าง already
+          exists, so hand over the row rather than a description of it. */}
+      {duplicate ? (
+        <button
+          type="button"
+          onClick={() => onShowExisting(duplicate.name)}
+          className={`mt-2 w-full ${BUTTON_SECONDARY_COMPACT}`}
+        >
+          ดูช่างคนเดิม
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={busy || name.trim().length === 0 || (isDaily && rate.trim().length === 0)}
@@ -377,6 +454,8 @@ function WorkerRow({
   contractorName,
   firms,
   projects,
+  roster,
+  onShowExisting,
   canGrade = false,
   canAssignHt = false,
   canSetTrades = false,
@@ -387,6 +466,11 @@ function WorkerRow({
 }: {
   worker: ManagedWorker;
   contractorName: string | null;
+  // #945 parity: the edit sheet writes tax_id too, so it can hit
+  // `workers_tax_id_unique` exactly like the add sheet. The whole roster is already
+  // in this component's props, so the collision is knowable before the round trip.
+  roster: ReadonlyArray<{ id: string; name: string; tax_id: string | null }>;
+  onShowExisting: (name: string) => void;
   /** Spec 328 firm move — ACTIVE firms the edit sheet may assign/move to. */
   firms: { id: string; name: string }[];
   projects: AssignableProject[];
@@ -437,6 +521,9 @@ function WorkerRow({
   const [bankAccountNumber, setBankAccountNumber] = useState(worker.bank_account_number ?? "");
   const [bankAccountName, setBankAccountName] = useState(worker.bank_account_name ?? "");
   const [error, setError] = useState<string | null>(null);
+  // #945 parity: the other ช่าง the typed เลขบัตร belongs to — it earns a door
+  // (ดูช่างคนเดิม), not just a sentence.
+  const [duplicate, setDuplicate] = useState<{ name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [htBusy, setHtBusy] = useState(false);
   // Spec 369 U1: the cost-confirm has its own in-flight flag — it is an instant
@@ -474,6 +561,10 @@ function WorkerRow({
     setBankAccountNumber(worker.bank_account_number ?? "");
     setBankAccountName(worker.bank_account_name ?? "");
     setError(null);
+    // …and the duplicate DOOR, for the same reason the fields are re-seeded: it
+    // survives the unmount, so a reopened sheet would offer ดูช่างคนเดิม for a ช่าง
+    // who has nothing to do with the freshly re-seeded number.
+    setDuplicate(null);
     setEditing(true);
   }
   const [optimisticActive, setOptimisticActive] = useOptimistic(
@@ -483,8 +574,33 @@ function WorkerRow({
   const [isToggling, startToggle] = useTransition();
 
   async function save() {
-    setBusy(true);
     setError(null);
+    setDuplicate(null);
+
+    // #945 parity — refuse a เลขบัตร that belongs to SOMEONE ELSE before spending the
+    // round trip, and name them. Self is excluded: the unique index does not fire a
+    // row against itself, so an untouched (or re-typed identical) own value is fine.
+    // The refusal stops the WHOLE save, not just the tax id: the other edits ride the
+    // same press, and half-saving a record the user is about to correct is worse than
+    // asking them to press again.
+    const typedTaxId = taxId.trim();
+    if (typedTaxId !== "") {
+      // Excluding SELF is the whole rule, and it is the same rule the unique index
+      // applies: a row never conflicts with itself. Comparing against the row's own
+      // stored value instead would be an unreachable second guard — and it would
+      // miss an own value that is stored untrimmed.
+      const owner = roster.find(
+        (w) => w.id !== worker.id && (w.tax_id ?? "").trim() === typedTaxId,
+      );
+      if (owner) {
+        setDuplicate({ name: owner.name });
+        setError(duplicateTaxIdOwnerError(owner.name));
+        trackFriction("validation_error", { where: "workers_edit", reason: "duplicate_tax_id" });
+        return;
+      }
+    }
+
+    setBusy(true);
     // Spec 330 U1 lesson: a thrown action must not leave busy=true (the save
     // button is disabled={busy} — a wedge locks the sheet). finally always resets.
     try {
@@ -594,6 +710,10 @@ function WorkerRow({
   // off-app (their roster rate is forced 0 by design) — a confirm on either class
   // would stamp a meaningless daily standard. The door is daily + ทีม PRC only.
   const confirmable = worker.pay_type === "daily" && worker.contractor_id === null;
+
+  // Spec 396 U2: stable per-row id so the ชื่อ input can aria-describedby the
+  // ownership line that sits beside it.
+  const ownerHintId = `owner-hint-${worker.id}`;
 
   // Instant action, not save-coupled (the promoteToHt pattern): this writes MONEY
   // and stamps cost_confirmed_at, so it is a deliberate press of its own rather
@@ -753,8 +873,29 @@ function WorkerRow({
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
               className={FIELD_STACKED}
+              // The ownership line is a sibling of this input, so a screen reader
+              // would otherwise announce only "ชื่อ" — and a non-sighted editor is
+              // exactly who most needs to know whose record this is.
+              {...(worker.portalBound ? { "aria-describedby": ownerHintId } : {})}
             />
           </label>
+          {/* Spec 396 U2 — say WHOSE record this is, at the field where the
+              mistake is made. Deliberately here rather than in the portal card
+              further down the sheet: the 2026-08-04 rename happened in this
+              input, and nobody scrolls to the bottom to find out who owns the
+              row. States a fact; never warns — ten of the eleven real renames
+              on bound workers were legitimate normalisations.
+              text-ink-secondary, NOT ink-muted: this is copy a person must READ
+              to avoid editing the wrong human's record. ink-muted is reserved
+              for dividers/placeholder/disabled (globals.css:87) and the
+              UX-audit G2 ratchet enforces it — it caught this line. */}
+          {worker.portalBound ? (
+            <p id={ownerHintId} className="text-ink-secondary mt-1 text-xs">
+              {worker.boundUserName
+                ? workerBoundOwnerLabel(worker.boundUserName)
+                : WORKER_BOUND_OWNER_UNKNOWN}
+            </p>
+          ) : null}
           <label className="text-ink-secondary mt-2 block text-sm">
             ค่าแรงต่อวัน (บาท)
             <input
@@ -849,7 +990,7 @@ function WorkerRow({
                 </select>
               </label>
               {contractorPick !== "" && contractorPick !== (worker.contractor_id ?? "") ? (
-                <p className="text-ink-muted mt-1 text-xs">
+                <p className="text-ink-secondary mt-1 text-xs">
                   ช่างในทีมผู้รับเหมาไม่รับค่าแรงจาก PRC (ผู้รับเหมาเป็นผู้จ่าย) —
                   การบันทึกวันทำงานหยุดทันที ส่วนวันที่บันทึกไว้แล้วยังจ่ายตามเดิม
                   และเปลี่ยนกลับเป็นทีม PRC ไม่ได้จากหน้านี้
@@ -873,7 +1014,15 @@ function WorkerRow({
             เลขผู้เสียภาษี
             <input
               value={taxId}
-              onChange={(e) => setTaxId(e.target.value)}
+              onChange={(e) => {
+                setTaxId(e.target.value);
+                // A refusal that NAMES a person must die with the value that caused
+                // it, or the door points at someone unrelated (#945).
+                if (duplicate) {
+                  setDuplicate(null);
+                  setError(null);
+                }
+              }}
               maxLength={50}
               className={FIELD_STACKED}
             />
@@ -885,7 +1034,7 @@ function WorkerRow({
           {worker.portalBound ? (
             <div className="mt-2">
               <p className="text-ink-secondary text-sm">ธนาคาร</p>
-              <p className="text-ink-muted mt-1 text-sm">รออนุมัติจากคำขอของช่าง</p>
+              <p className="text-ink-secondary mt-1 text-sm">รออนุมัติจากคำขอของช่าง</p>
             </div>
           ) : (
             <>
@@ -1039,7 +1188,22 @@ function WorkerRow({
               </div>
             </fieldset>
           ) : null}
-          {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+          {error ? (
+            <p className="text-danger mt-2 text-sm" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {/* Parity with the add sheet (#945): a permanent refusal hands over the row
+              it is talking about instead of describing it. */}
+          {duplicate ? (
+            <button
+              type="button"
+              onClick={() => onShowExisting(duplicate.name)}
+              className={`mt-2 w-full ${BUTTON_SECONDARY_COMPACT}`}
+            >
+              ดูช่างคนเดิม
+            </button>
+          ) : null}
           <div className="mt-3 flex gap-2">
             <button
               type="button"
@@ -1066,7 +1230,7 @@ function WorkerRow({
               {isHtOfCurrentProject ? (
                 <p className="text-ink-secondary text-xs font-medium">หัวหน้าช่างของโครงการนี้</p>
               ) : !worker.project_id ? (
-                <p className="text-ink-muted text-xs">กำหนดโครงการก่อนจึงตั้งหัวหน้าช่างได้</p>
+                <p className="text-ink-secondary text-xs">กำหนดโครงการก่อนจึงตั้งหัวหน้าช่างได้</p>
               ) : currentProject && committedActive ? (
                 // currentProject gates the button (not just project_id): a PM's
                 // RLS-scoped projects list may omit a non-member project — no
@@ -1186,9 +1350,23 @@ export function WorkerRosterManager({
     </div>
   );
 
+  // Field incident 2026-08-04: on a duplicate-เลขบัตร refusal the form hands back the
+  // colliding ช่าง's name; searching for it is what actually puts their row on screen.
+  // A live search overrides the การจ่าย chip (see `sections` above), so a stuck filter
+  // cannot swallow the row we just promised.
+  function showExistingWorker(name: string) {
+    setQuery(name);
+    setAdding(false);
+  }
+
   const addSheet = (
     <BottomSheet open={adding} title="เพิ่มช่างใหม่" onClose={() => setAdding(false)}>
-      <AddWorkerForm projects={projects} onDone={() => setAdding(false)} />
+      <AddWorkerForm
+        projects={projects}
+        roster={workers}
+        onShowExisting={showExistingWorker}
+        onDone={() => setAdding(false)}
+      />
     </BottomSheet>
   );
 
@@ -1267,6 +1445,10 @@ export function WorkerRosterManager({
                     }
                     firms={activeFirms}
                     projects={projects}
+                    // The WHOLE roster, never the searched subset — a stale filter
+                    // must not hide a collision the DB will still refuse.
+                    roster={workers}
+                    onShowExisting={showExistingWorker}
                     canGrade={canGrade}
                     canAssignHt={canAssignHt}
                     canSetTrades={canSetTrades}

@@ -4,6 +4,12 @@
 // with its current After photos; empty WPs skipped; empty project →
 // header-only PDF. Sarabun is embedded from the base64 module — PDFKit's
 // Helvetica garbles Thai (spec 13).
+//
+// ⚠️ The WP heading DIVERGES from the worker since spec 394 D8: here the
+// Thai work name leads and the code is demoted, while worker/src/report.ts
+// still prints `code — name`. Deliberate — ADR 0040 freezes the worker, and
+// it only builds a report when this fast path dies before claiming. Do not
+// "restore parity" by editing the worker; retire it instead (ADR 0040).
 
 import "server-only";
 import PDFDocument from "pdfkit";
@@ -38,6 +44,10 @@ export interface ReportInputWorkPackage {
 export interface ReportInput {
   project: ReportInputProject;
   workPackages: ReportInputWorkPackage[];
+  /** Spec 394 D7 — one passage the PD writes at generation time, printed once
+   *  after the project header and before the first section. Blank or absent
+   *  prints NOTHING: no placeholder, no empty heading. */
+  coverNote?: string;
   /** Spec 61 photos=none: keep photo-less WPs as text rows instead of
    * skipping them — the listing IS the report. */
   includeEmptyWorkPackages?: boolean;
@@ -54,6 +64,20 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 
 export function formatGeneratedDate(date: Date): string {
   return DATE_FORMATTER.format(date);
+}
+
+// Spec 394 D8 — the client meets the work, not our catalogue letters. The
+// code stays on the page (PD and the client refer to the same item by it in
+// conversation) but drops to a smaller second line, with the status label
+// beside it rather than in the title.
+export function workPackageHeadingLines(wp: { code: string; name: string; statusLabel?: string }): {
+  title: string;
+  subtitle: string;
+} {
+  return {
+    title: wp.name,
+    subtitle: wp.statusLabel ? `${wp.code} · ${wp.statusLabel}` : wp.code,
+  };
 }
 
 function streamToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
@@ -85,6 +109,16 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
   doc.text(`Generated: ${formatGeneratedDate(input.project.generatedAt)}`);
   doc.moveDown(1);
 
+  // Spec 394 D7 — the cover note, often the first thing a client reads. Sits
+  // between the header and the first section, and renders nothing at all when
+  // blank (trim here as well as at parse: this builder is also reachable from
+  // the worker-parity path, which does not go through parseReportParams).
+  const coverNote = input.coverNote?.trim();
+  if (coverNote) {
+    doc.fontSize(11).text(coverNote, { align: "left" });
+    doc.moveDown(1);
+  }
+
   // Per-WP sections. Legacy rule: skip WPs with no photos so we never
   // emit an empty section heading — unless the caller asked for the
   // text listing (spec 61 photos=none).
@@ -92,19 +126,30 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
     const photoCount = wp.photoGroups.reduce((n, g) => n + g.photos.length, 0);
     if (photoCount === 0 && !input.includeEmptyWorkPackages) continue;
 
-    const heading = wp.statusLabel
-      ? `${wp.code} — ${wp.name} (${wp.statusLabel})`
-      : `${wp.code} — ${wp.name}`;
+    const { title, subtitle } = workPackageHeadingLines(wp);
 
     if (input.includeEmptyWorkPackages && photoCount === 0) {
-      // Text listing: compact rows, no page per WP.
-      doc.fontSize(12).text(heading);
+      // Text listing: no page per WP, but a row is two lines since spec 394
+      // D8 — so measure both and break FIRST when they don't both fit.
+      // Without this PDFKit flows them independently and a page can open on
+      // a bare code with its work name left behind (โพธิ์ทอง lists hundreds
+      // of rows, so the boundary is hit on every listing report).
+      doc.fontSize(12);
+      const titleHeight = doc.heightOfString(title);
+      doc.fontSize(9);
+      const subtitleHeight = doc.heightOfString(subtitle);
+      const bottom = doc.page.height - doc.page.margins.bottom;
+      if (doc.y + titleHeight + subtitleHeight > bottom) doc.addPage();
+
+      doc.fontSize(12).text(title);
+      doc.fontSize(9).text(subtitle);
       doc.moveDown(0.5);
       continue;
     }
 
     doc.addPage();
-    doc.fontSize(16).text(heading);
+    doc.fontSize(16).text(title);
+    doc.fontSize(10).text(subtitle);
     doc.moveDown(0.5);
     doc.fontSize(10).text(`Photos: ${photoCount}`);
     doc.moveDown(0.5);

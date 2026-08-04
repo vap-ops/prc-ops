@@ -8,6 +8,7 @@ import { Check } from "lucide-react";
 import { ZoomablePhoto } from "@/components/features/photos/photo-lightbox";
 import { PhotoStrip, PHOTO_STRIP_TILE } from "@/components/features/photos/photo-strip";
 import { ReferenceStarButton } from "@/components/features/wp-catalog/reference-star-button";
+import { ReportSelectButton } from "@/components/features/reports/report-select-button";
 import { latestCreatedAt } from "@/lib/photos/phases";
 import type { PhotoLogRow } from "@/lib/photos/current-photos";
 import { formatThaiTime } from "@/lib/i18n/labels";
@@ -32,6 +33,21 @@ interface PhaseGalleryProps {
         projectId: string;
         workPackageId: string;
         starredPhotoIds: ReadonlyArray<string>;
+        /** Spec 391 D5 — photos suppressed as examples. Separate list, not a
+         *  variant of the starred one: the two are independent states. */
+        hiddenPhotoIds: ReadonlyArray<string>;
+      }
+    | undefined;
+  /** Spec 394 U2 — the client-report toggle. A SECOND, INDEPENDENT prop beside
+   *  `starring`, never a combined one: the gates differ (PM_ROLES here, PD tier
+   *  there) and so do the preconditions — a project_manager sees this and no
+   *  star, and an UNMAPPED work package shows this toggle while showing no star
+   *  at all (60 of โพธิ์ทอง's WPs today). One combined condition would have to
+   *  re-derive both cases. */
+  reportSelection?:
+    | {
+        workPackageId: string;
+        selectedPhotoIds: ReadonlyArray<string>;
       }
     | undefined;
 }
@@ -43,6 +59,7 @@ export function PhaseGallery({
   uploaderNames,
   note,
   starring,
+  reportSelection,
 }: PhaseGalleryProps) {
   const hasPhotos = photos.length > 0;
   const latest = latestCreatedAt(photos);
@@ -112,6 +129,14 @@ export function PhaseGallery({
                         workPackageId={starring.workPackageId}
                         photoId={p.id}
                         starred={starring.starredPhotoIds.includes(p.id)}
+                        hidden={starring.hiddenPhotoIds.includes(p.id)}
+                      />
+                    ) : null}
+                    {reportSelection && url ? (
+                      <ReportSelectButton
+                        workPackageId={reportSelection.workPackageId}
+                        photoId={p.id}
+                        selected={reportSelection.selectedPhotoIds.includes(p.id)}
                       />
                     ) : null}
                     {url ? (

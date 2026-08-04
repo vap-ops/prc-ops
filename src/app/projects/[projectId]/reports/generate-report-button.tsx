@@ -33,12 +33,20 @@ const PHOTO_OPTIONS: ReadonlyArray<{ value: ReportPhotosMode; label: string }> =
 interface GenerateReportButtonProps {
   projectId: string;
   initiallyDisabled: boolean;
+  /** Spec 394 U3 — how many photos this project's PD has picked for the client
+   *  report. Drives the 4th option's live count, and disables it at zero. */
+  selectedPhotoCount: number;
 }
 
-export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateReportButtonProps) {
+export function GenerateReportButton({
+  projectId,
+  initiallyDisabled,
+  selectedPhotoCount,
+}: GenerateReportButtonProps) {
   const router = useRouter();
   const [pending, startSubmit] = useTransition();
   const [params, setParams] = useState<ReportParams>(DEFAULT_REPORT_PARAMS);
+  const [coverNote, setCoverNote] = useState("");
   const [reason, setReason] = useState<string | null>(
     initiallyDisabled ? "มีรายงานของโครงการนี้กำลังสร้างอยู่แล้ว" : null,
   );
@@ -54,7 +62,13 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
       // timeout on a photo-heavy project rejects here; the reaper/sweeper
       // recover server-side, so degrade softly instead of error.tsx.
       try {
-        const result = await generateReport({ projectId, params });
+        // Spec 394 D7 — omit the key when blank rather than sending "".
+        const note = coverNote.trim();
+        const chosen: ReportParams = { ...params, photos: effectivePhotos };
+        const result = await generateReport({
+          projectId,
+          params: note ? { ...chosen, coverNote: note } : chosen,
+        });
         if (!result.ok) {
           setReason(result.reason);
           return;
@@ -67,6 +81,17 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
   }
 
   const disabled = pending || (reason !== null && initiallyDisabled);
+
+  // The reports list refreshes, so `selectedPhotoCount` can drop to zero (a PD
+  // unselects elsewhere) while "selected" is the chosen mode. Derive ONE
+  // effective mode and use it for both the chips and the payload, so the user
+  // never sits in a state they cannot leave and the form never sends a mode the
+  // server is about to refuse. This is visible, not a silent fallback: the
+  // default chip becomes the checked one on screen.
+  const effectivePhotos: ReportPhotosMode =
+    params.photos === "selected" && selectedPhotoCount === 0
+      ? DEFAULT_REPORT_PARAMS.photos
+      : params.photos;
 
   return (
     <div className="flex flex-col gap-3">
@@ -93,12 +118,49 @@ export function GenerateReportButton({ projectId, initiallyDisabled }: GenerateR
                 key={opt.value}
                 name="report-photos"
                 label={opt.label}
-                checked={params.photos === opt.value}
+                checked={effectivePhotos === opt.value}
                 onSelect={() => setParams((p) => ({ ...p, photos: opt.value }))}
               />
             ))}
+            {/* Spec 394 U3 — the 4th mode. Rendered even at zero, DISABLED:
+                hiding it means a PD who has never picked a photo can never
+                learn the mode exists. The label carries the reason, because
+                the disabled attribute alone announces "unavailable" without
+                saying why. */}
+            <RadioChip
+              name="report-photos"
+              label={
+                selectedPhotoCount > 0
+                  ? `เฉพาะที่เลือก (${selectedPhotoCount} รูป)`
+                  : "เฉพาะที่เลือก — ยังไม่ได้เลือกรูป"
+              }
+              // Never `checked` while disabled: the reports list refreshes, so
+              // the count can drop to zero (another PD unselects) while this
+              // chip is the chosen one — leaving a state the user cannot leave
+              // except by picking a different chip, whose submit then bounces
+              // off the server guard.
+              checked={effectivePhotos === "selected"}
+              disabled={selectedPhotoCount === 0}
+              onSelect={() => setParams((p) => ({ ...p, photos: "selected" }))}
+            />
           </div>
         </fieldset>
+        {/* Spec 394 D7 — often the first thing a client reads. One field, no
+            per-photo labour; it rides the report's params jsonb so it is frozen
+            with the document that was actually sent. */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="report-cover-note" className="text-ink text-sm font-medium">
+            คำนำถึงลูกค้า (ไม่บังคับ)
+          </label>
+          <textarea
+            id="report-cover-note"
+            value={coverNote}
+            onChange={(e) => setCoverNote(e.target.value)}
+            disabled={pending}
+            rows={3}
+            className="rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          />
+        </div>
       </div>
 
       <button

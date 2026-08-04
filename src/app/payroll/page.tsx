@@ -284,7 +284,7 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                             revalidate="/payroll"
                           />
                         ) : (
-                          <p className="text-ink-muted text-xs">ยังไม่บันทึกการจ่าย</p>
+                          <p className="text-ink-secondary text-xs">ยังไม่บันทึกการจ่าย</p>
                         )}
                       </div>
                     ) : null}

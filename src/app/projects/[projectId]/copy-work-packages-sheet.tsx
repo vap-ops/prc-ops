@@ -83,7 +83,7 @@ export function CopyWorkPackagesSheet({
                 </option>
               ))}
             </select>
-            <p className="text-ink-muted text-xs">
+            <p className="text-ink-secondary text-xs">
               คัดลอกเฉพาะรหัส/ชื่อ/รายละเอียดงาน รหัสที่มีอยู่แล้วจะถูกข้าม
             </p>
           </div>

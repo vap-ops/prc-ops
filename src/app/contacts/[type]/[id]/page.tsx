@@ -264,7 +264,7 @@ export default async function ContactDetailPage({
               ))}
             </dl>
           ) : (
-            <p className="text-ink-muted mt-2 text-sm">
+            <p className="text-ink-secondary mt-2 text-sm">
               ยังไม่มีข้อมูลเพิ่มเติม — แก้ไขได้ที่หน้ารายการ
             </p>
           )}
@@ -285,7 +285,7 @@ export default async function ContactDetailPage({
                 </li>
               ))}
             </ul>
-            <p className="text-ink-muted mt-2 text-xs">
+            <p className="text-ink-secondary mt-2 text-xs">
               ยอดสั่งซื้อที่บันทึกราคาแล้ว (บางรายการยังไม่ได้ระบุราคา)
             </p>
           </section>

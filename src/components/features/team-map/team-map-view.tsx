@@ -601,7 +601,7 @@ export function TeamMapView({
             />
           ))}
           {map.management.length === 0 ? (
-            <p className="text-ink-muted text-xs">ยังไม่มีผู้บริหารในทีม</p>
+            <p className="text-ink-secondary text-xs">ยังไม่มีผู้บริหารในทีม</p>
           ) : null}
         </div>
       </section>
@@ -635,7 +635,7 @@ export function TeamMapView({
             />
           ))}
           {map.site.length === 0 ? (
-            <p className="text-ink-muted text-xs">ยังไม่มีทีมหน้างาน</p>
+            <p className="text-ink-secondary text-xs">ยังไม่มีทีมหน้างาน</p>
           ) : null}
         </div>
       </section>
@@ -746,13 +746,13 @@ export function TeamMapView({
                 </button>
               ))}
               {assignments.tray.length === 0 ? (
-                <span className="text-ink-muted text-xs">
+                <span className="text-ink-secondary text-xs">
                   ไม่มีงานค้างมอบ{day === "today" ? "วันนี้" : "พรุ่งนี้"}
                 </span>
               ) : null}
             </div>
             {assignments.individual.length > 0 ? (
-              <p className="text-ink-muted mt-1.5 text-xs">
+              <p className="text-ink-secondary mt-1.5 text-xs">
                 มีอีก {assignments.individual.length} งานที่จัดคนไว้แบบอื่น — ดูที่แผนงาน
               </p>
             ) : null}
@@ -785,7 +785,7 @@ export function TeamMapView({
             />
           ))}
           {map.teams.length === 0 ? (
-            <p className="text-ink-muted text-xs">ยังไม่มีช่างในโครงการ</p>
+            <p className="text-ink-secondary text-xs">ยังไม่มีช่างในโครงการ</p>
           ) : null}
         </div>
       </section>
@@ -821,7 +821,7 @@ export function TeamMapView({
                 ถอดออกจากทีมโครงการ
               </button>
             ) : (
-              <p className="text-ink-muted text-xs">
+              <p className="text-ink-secondary text-xs">
                 หัวหน้าโครงการกำหนดในหน้าตั้งค่าโครงการ (ไม่ได้อยู่ในรายชื่อทีม)
               </p>
             )}
@@ -848,7 +848,7 @@ export function TeamMapView({
             </button>
           ))}
           {sortedAddable.length === 0 ? (
-            <p className="text-ink-muted text-xs">ไม่มีพนักงานที่เพิ่มได้แล้ว</p>
+            <p className="text-ink-secondary text-xs">ไม่มีพนักงานที่เพิ่มได้แล้ว</p>
           ) : null}
           {error ? <p className={INLINE_ERROR}>{error}</p> : null}
         </div>
@@ -905,7 +905,7 @@ export function TeamMapView({
             >
               ยุบทีม
             </button>
-            <p className="text-ink-muted text-xs">
+            <p className="text-ink-secondary text-xs">
               ยุบทีมแล้วสมาชิกจะกลับไปอยู่ในกลุ่ม “ยังไม่จัดทีม” — ประวัติทีมยังคงอยู่
             </p>
             {error ? <p className={INLINE_ERROR}>{error}</p> : null}
@@ -1025,7 +1025,7 @@ export function TeamMapView({
                 ))}
               </>
             ) : (
-              <p className="text-ink-muted text-xs">ยังไม่มีทีมอื่นให้ย้ายไป</p>
+              <p className="text-ink-secondary text-xs">ยังไม่มีทีมอื่นให้ย้ายไป</p>
             )}
             <Link className={SHEET_ACTION} href="/workers">
               แก้ไขสายงานที่รายชื่อช่าง

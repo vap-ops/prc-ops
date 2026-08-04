@@ -60,7 +60,9 @@ export function StaffContactForm({
   return (
     <div className={bare ? "" : CARD}>
       {bare ? null : <p className="text-ink text-sm font-semibold">ข้อมูลติดต่อ</p>}
-      <p className={`text-ink-muted text-xs ${bare ? "mb-3" : "mt-0.5"}`}>เว้นว่าง = คงค่าเดิม</p>
+      <p className={`text-ink-secondary text-xs ${bare ? "mb-3" : "mt-0.5"}`}>
+        เว้นว่าง = คงค่าเดิม
+      </p>
       <label className="text-ink-secondary mt-3 block text-sm">
         เบอร์โทร
         <input

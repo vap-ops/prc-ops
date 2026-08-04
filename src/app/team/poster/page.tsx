@@ -91,7 +91,7 @@ export default async function SubconPosterPage({
             <p className="text-sm text-black">{SUBCON_NO_BANK_HINT}</p>
           </div>
         ) : (
-          <p className="text-ink-muted text-sm">ไม่พบทีมหรือโครงการที่ระบุ</p>
+          <p className="text-ink-secondary text-sm">ไม่พบทีมหรือโครงการที่ระบุ</p>
         )}
       </section>
     </PageShell>

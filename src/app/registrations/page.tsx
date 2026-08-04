@@ -94,7 +94,7 @@ export default async function StaffRegistrationQueuePage({
         >
           {AWAITING_BANK_TITLE}
           {awaitingBank > 0 ? (
-            <span className="bg-danger text-on-fill text-meta rounded-full px-2 py-0.5 font-bold tabular-nums">
+            <span className="bg-danger text-on-danger text-meta rounded-full px-2 py-0.5 font-bold tabular-nums">
               {awaitingBank}
             </span>
           ) : null}

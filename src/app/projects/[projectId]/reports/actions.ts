@@ -26,6 +26,7 @@ import { createClient as createAdminClient } from "@/lib/db/admin";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
 import { buildReportFileName } from "@/lib/reports/file-name";
 import { parseReportParams } from "@/lib/reports/params";
+import { REPORT_SELECTABLE_PHASES } from "@/lib/reports/selected-photos";
 import { runReportJob } from "@/lib/reports/run-report-job";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
@@ -105,12 +106,39 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
   // the row always stores a canonical shape.
   const params = parseReportParams(input.params);
 
+  // Spec 394 §7 — "selected" with nothing selected REFUSES here, before any
+  // row is written. It must NOT silently fall back to `after` (that hands the
+  // client a document nobody asked for) and must not queue a job that builds
+  // an empty PDF. The form disables the option; this is the backstop for a
+  // stale form or a direct call. Scoped to the mode that needs it — a project
+  // with no selections still generates every other kind of report.
+  if (params.photos === "selected") {
+    // Counted over REPORT_SELECTABLE_PHASES only — the same set the resolver
+    // uses. A guard that counts rows the job discards passes on a project whose
+    // selections are ALL unusable, and the job then fails with a message naming
+    // causes that are not the real one.
+    const { count } = await supabase
+      .from("report_selected_photos")
+      .select("photo_log_id, work_packages!inner(project_id), photo_logs!inner(phase)", {
+        count: "exact",
+        head: true,
+      })
+      .eq("work_packages.project_id", project.id)
+      .in("photo_logs.phase", [...REPORT_SELECTABLE_PHASES]);
+    if (!count) {
+      return { ok: false, reason: "ยังไม่ได้เลือกรูปสำหรับรายงานนี้ กรุณาเลือกรูปก่อน" };
+    }
+  }
+
   const { error: insertError } = await supabase.from("reports").insert({
     project_id: project.id,
     requested_by: user.id,
     // Literal spread keeps the Json type happy (interfaces carry no
-    // index signature) while storing the canonical shape.
-    params: { scope: params.scope, photos: params.photos },
+    // index signature) while storing the canonical shape. Spec 394 D7: the
+    // cover note is stored only when there is one — an absent key, never "".
+    params: params.coverNote
+      ? { scope: params.scope, photos: params.photos, coverNote: params.coverNote }
+      : { scope: params.scope, photos: params.photos },
   });
   if (insertError) {
     return { ok: false, reason: "ส่งรายงานเข้าคิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };

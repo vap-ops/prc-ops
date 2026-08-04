@@ -29,6 +29,22 @@ export const WORKER_TEAM_LABEL = "ทีมช่าง";
 // the company roster surface is รายชื่อช่าง; the WP daily labor log is แรงงาน.
 export const TEAM_HUB_LABEL = "ทีมงาน";
 export const WORKER_ROSTER_LABEL = "รายชื่อช่าง";
+
+/**
+ * Spec 396 U2 — who a portal-bound worker record belongs to, shown at the ชื่อ
+ * field on the roster edit sheet.
+ *
+ * ⚠️ States a FACT; it must never warn or accuse. Ten of the eleven back-office
+ * renames of bound workers measured on 2026-08-04 were legitimate name
+ * normalisations — only the eleventh replaced a person. Copy that scolds would
+ * be wrong ten times out of eleven and would train the reader to dismiss it.
+ *
+ * Deliberately says nothing about the portal itself: the same sheet already
+ * carries "เชื่อมบัญชีพอร์ทัลแล้ว" lower down (WorkerInviteBlock), and this line
+ * answers a different question — whose record is this.
+ */
+export const workerBoundOwnerLabel = (name: string) => `รายการนี้เป็นของ ${name}`;
+export const WORKER_BOUND_OWNER_UNKNOWN = "รายการนี้เป็นของผู้ใช้ที่ผูกบัญชีแล้ว";
 export const LABOR_TAB_LABEL = "แรงงาน";
 
 // Spec 374 — the per-worker attendance calendar (roster door + payroll door +
@@ -1685,3 +1701,20 @@ export function reviewStuckChip(days: number): string {
  *  (เบิกจากคลังหน้างาน) is the /sa custody pair's ACTION heading (spec 375 U3); this
  *  one names the PLACE the two hub doors lead into. */
 export const STORE_CLUSTER_HEADING = "คลังหน้างาน";
+
+/* --- App-wide error boundary (UX-audit gap G1, F-012) ------------------------
+ * Shared by src/app/error.tsx and global-error.tsx (the 2+-places SSOT rule).
+ * Honest-copy split: the FIRST occurrence of a crash is genuinely retryable and
+ * says so; a crash that RECURRED after the user already pressed retry must stop
+ * promising retry — the recurred body deliberately avoids the word ลองใหม่
+ * (house rule: a permanent refusal never says "try again"; the recurred copy
+ * names real next steps instead). */
+export const ERROR_BOUNDARY_TITLE = "เกิดข้อผิดพลาด";
+export const ERROR_BOUNDARY_BODY = "มีบางอย่างผิดพลาด กรุณาลองใหม่อีกครั้ง";
+export const ERROR_BOUNDARY_RETRY = "ลองใหม่";
+export const ERROR_BOUNDARY_RECURRED_TITLE = "เกิดข้อผิดพลาดซ้ำ";
+export const ERROR_BOUNDARY_RECURRED_BODY =
+  "ระบบยังขัดข้องหลังลองซ้ำ — ปัญหานี้ต้องได้รับการแก้ไขจากทีมงาน กลับหน้าหลักเพื่อทำงานต่อ หรือแจ้งปัญหาพร้อมรหัสด้านล่าง";
+export const ERROR_BOUNDARY_HOME = "กลับหน้าหลัก";
+export const ERROR_BOUNDARY_REPORT = "แจ้งปัญหา";
+export const ERROR_BOUNDARY_CODE_PREFIX = "รหัสข้อผิดพลาด";

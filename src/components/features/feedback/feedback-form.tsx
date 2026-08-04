@@ -213,14 +213,24 @@ export function FeedbackForm() {
                   alt={`รูปแนบ ${i + 1}`}
                   className="rounded-control border-edge size-16 border object-cover"
                 />
+                {/* G12/F-010 sweep: the tap target is a transparent 44px circle
+                    centred on the 20px badge, NOT a 44px badge — a blind
+                    min-h-11 here would swallow most of a 64px thumbnail. The
+                    -18px offsets keep the visible dot exactly where it was
+                    (badge centre sits 4px in from the corner: 4 − 44/2 = −18).
+                    Adjacent remove buttons sit 72px apart (64px thumb + gap-2),
+                    so the slop circles never overlap each other; what they
+                    overlap is neighbouring image, which is not interactive. */}
                 <button
                   type="button"
                   disabled={pending}
                   onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))}
                   aria-label={`ลบรูปแนบ ${i + 1}`}
-                  className="bg-fill text-on-fill absolute -top-1.5 -right-1.5 inline-flex size-5 items-center justify-center rounded-full"
+                  className="absolute -top-[18px] -right-[18px] inline-flex size-11 items-center justify-center rounded-full"
                 >
-                  <X aria-hidden className="size-3" />
+                  <span className="bg-fill text-on-fill inline-flex size-5 items-center justify-center rounded-full">
+                    <X aria-hidden className="size-3" />
+                  </span>
                 </button>
               </div>
             ))}
@@ -246,7 +256,7 @@ export function FeedbackForm() {
         ) : null}
       </div>
 
-      <p className="text-ink-muted text-xs">
+      <p className="text-ink-secondary text-xs">
         ระบบจะแนบบทบาท เวอร์ชันแอป และอุปกรณ์ของคุณให้อัตโนมัติ เพื่อให้ทีมแก้ไขได้เร็วขึ้น
       </p>
 

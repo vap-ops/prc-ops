@@ -109,7 +109,7 @@ export default async function PeriodsPage() {
           <div className={`${CARD} mb-6 flex items-center justify-between gap-3`}>
             <div className="min-w-0">
               <p className="text-ink text-sm font-medium">{formatThaiDate(thisMonth)}</p>
-              <p className="text-ink-muted text-xs">ยังไม่เปิดงวดเดือนนี้</p>
+              <p className="text-ink-secondary text-xs">ยังไม่เปิดงวดเดือนนี้</p>
             </div>
             <ConfirmActionButton
               idleLabel="เปิดงวดเดือนนี้"

@@ -49,7 +49,7 @@ export function ProjectPrimarySiteAdmins({
     <section className="rounded-card border-edge bg-card shadow-card flex flex-col gap-3 border p-5">
       <div className="flex flex-col gap-0.5">
         <h2 className="text-ink text-base font-semibold">{`${PRIMARY_SITE_LABEL}ของช่างผู้ดูแล`}</h2>
-        <p className="text-ink-muted text-xs">
+        <p className="text-ink-secondary text-xs">
           ตั้งโครงการนี้เป็นไซต์หลักให้ช่างผู้ดูแล — หน้าเครื่องมือและแผนของเขาจะเปิดมาที่ไซต์นี้
         </p>
       </div>

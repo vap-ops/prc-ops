@@ -56,7 +56,7 @@ export function WorkerConsents({ consents }: { consents: PortalConsent[] }) {
 
   return (
     <div className={CARD}>
-      <p className="text-ink-muted text-xs">
+      <p className="text-ink-secondary text-xs">
         เพื่อประมวลผลการจ้างงานและการจ่ายเงิน บริษัทจำเป็นต้องเก็บข้อมูลและเอกสารของท่าน
         โปรดให้ความยินยอมด้านล่าง
       </p>

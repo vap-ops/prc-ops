@@ -80,7 +80,7 @@ export function ProjectCostsView({ rows, families, rental }: ProjectCostsViewPro
           >
             {REWORK_LINE_LABEL}
           </p>
-          <span className="text-ink-muted text-meta shrink-0">งบ ฿0</span>
+          <span className="text-ink-secondary text-meta shrink-0">งบ ฿0</span>
         </div>
         <p
           className={`text-lg font-bold tabular-nums ${families.rework > 0 ? "text-attn-ink" : "text-ink"}`}
@@ -103,7 +103,7 @@ export function ProjectCostsView({ rows, families, rental }: ProjectCostsViewPro
             ไม่รวมในยอดข้างต้น
           </p>
         ) : null}
-        <p className="text-ink-muted text-meta mt-1">
+        <p className="text-ink-secondary text-meta mt-1">
           ค่าวัสดุนับเฉพาะรายการที่บันทึกราคา · ค่าเช่านับจากยอดปิดบิลจริง
         </p>
       </div>
@@ -114,7 +114,7 @@ export function ProjectCostsView({ rows, families, rental }: ProjectCostsViewPro
       <section>
         <h2 className={SECTION_HEADING}>ต้นทุนแยกตามงาน</h2>
         {families.rework > 0 ? (
-          <p className="text-ink-muted text-meta mb-3">
+          <p className="text-ink-secondary text-meta mb-3">
             ค่าวัสดุรายงานแสดงยอดรวม (ยังไม่หักของเสีย/แก้ไข ซึ่งแยกตามสาเหตุที่ระดับโครงการ)
           </p>
         ) : null}

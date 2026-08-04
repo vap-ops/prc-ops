@@ -703,7 +703,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         // Spec 216: lifecycle phases first, then one หลังแก้ไข section per rework
         // round (each with the defect reason that opened it) — only when reworked.
         <div className="flex flex-col gap-5">
-          <ReferencePhotoSection wpCatalogItemId={wp.wp_catalog_item_id} />
+          <ReferencePhotoSection wpCatalogItemId={wp.wp_catalog_item_id} workPackageId={wp.id} />
           {PHASES.filter(({ phase }) => phase !== "after_fix").map(({ phase, label }) => (
             <PhaseGallery
               key={phase}
@@ -751,7 +751,7 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
         </div>
       ) : (
         <div className="flex flex-col gap-5">
-          <ReferencePhotoSection wpCatalogItemId={wp.wp_catalog_item_id} />
+          <ReferencePhotoSection wpCatalogItemId={wp.wp_catalog_item_id} workPackageId={wp.id} />
           <PhotoCaptureZone
             projectId={wp.project_id}
             workPackageId={wp.id}

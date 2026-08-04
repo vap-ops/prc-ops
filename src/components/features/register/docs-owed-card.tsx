@@ -44,7 +44,7 @@ export function DocsOwedCard({
   return (
     <div className={CARD}>
       <p className="text-ink text-base font-semibold">เอกสารที่ต้องส่งเพิ่ม</p>
-      <p className="text-ink-muted mt-1 text-sm">
+      <p className="text-ink-secondary mt-1 text-sm">
         บัญชีของท่านได้รับอนุมัติและใช้งานได้แล้ว แต่ยังขาดเอกสารด้านล่าง กรุณาส่งให้ครบเมื่อสะดวก
       </p>
       <Link

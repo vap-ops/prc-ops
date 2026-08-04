@@ -23,6 +23,9 @@ export interface ReferenceExampleRow {
   fullUrl: string;
   projectName: string;
   note: string | null;
+  /** Spec 391 D7 — a PD starred this one deliberately; the rest arrived
+   *  automatically. Drives the ⭐ marker AND the subtitle wording below. */
+  starred: boolean;
 }
 
 export function ReferenceExamples({ rows }: { rows: ReadonlyArray<ReferenceExampleRow> }) {
@@ -34,8 +37,26 @@ export function ReferenceExamples({ rows }: { rows: ReadonlyArray<ReferenceExamp
         {REFERENCE_EXAMPLES_LABEL}
         <span className="text-ink-secondary ml-1.5 text-sm font-normal">{rows.length} รูป</span>
       </h3>
+      {/* Spec 391 D8 — the old copy said "รูปที่ผู้อำนวยการโครงการปักดาวไว้"
+          ("photos the project director starred"). Since 391 the set is mostly
+          AUTOMATIC, so that sentence would credit a human for a machine's pick —
+          the same lie D1 refuses to write into the table by backfilling stars.
+          The wording now follows what is actually on screen: it only claims a
+          PD chose them when a PD actually did.
+
+          ⚠️ And it deliberately does NOT say ทำเสร็จแล้ว ("finished"). A draft did.
+          The DERIVED half requires `status = 'complete'`, but the STARRED half
+          does not — spec 389 U5 shipped "a star surfaces cross-project" with no
+          status condition, and the ⭐ lives on /review, a pending_approval
+          surface, so a starred photo is by definition not finished work at the
+          time it is chosen. Claiming otherwise is the same lie class this copy
+          exists to remove, relocated from WHO CHOSE it to WHAT STATE it is in.
+          Adding the filter instead was tried and reverted (075902): it silently
+          changed another spec's contract and red five of its assertions. */}
       <p className="text-ink-secondary mb-2 text-sm">
-        รูปที่ผู้อำนวยการโครงการปักดาวไว้เป็นตัวอย่างของงานประเภทนี้ จากทุกโครงการ
+        {rows.every((r) => r.starred)
+          ? "รูปที่ผู้อำนวยการโครงการปักดาวไว้เป็นตัวอย่างของงานประเภทนี้ จากทุกโครงการ"
+          : "ตัวอย่างงานประเภทเดียวกัน จากทุกโครงการ — ⭐ คือรูปที่ผู้อำนวยการโครงการเลือกไว้เอง"}
       </p>
       <PhotoStrip>
         {rows.map((r, i) => (
@@ -47,6 +68,20 @@ export function ReferenceExamples({ rows }: { rows: ReadonlyArray<ReferenceExamp
               groupIndex={i}
               uploaderName={null}
             />
+            {/* D7 — the ⭐ marks a deliberate human pick. Without it, starring a
+                photo that the derived arm was ALREADY showing is an action with
+                no visible result, and the PD cannot tell their curation apart
+                from the default. Decorative to a screen reader would be wrong,
+                so it carries a label. */}
+            {r.starred ? (
+              <span
+                className="pointer-events-none absolute top-1 right-1 text-[13px] leading-none drop-shadow"
+                title="ผู้อำนวยการโครงการเลือกรูปนี้เป็นตัวอย่าง"
+              >
+                <span aria-hidden>⭐</span>
+                <span className="sr-only">ผู้อำนวยการโครงการเลือกรูปนี้เป็นตัวอย่าง</span>
+              </span>
+            ) : null}
             <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 pt-4 pb-1 text-[11px] font-medium text-white">
               <span className="block break-words">{r.projectName}</span>
               {r.note ? (

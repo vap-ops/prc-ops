@@ -39,7 +39,7 @@ export function ProcurementHomeTiles({
           <div className="text-2xl leading-none font-extrabold tabular-nums">
             {baht(monthTrend.currentMonth)}
           </div>
-          <div className="text-meta text-ink-muted mt-1 font-medium">
+          <div className="text-meta text-ink-secondary mt-1 font-medium">
             {monthTrend.pctChange === null
               ? "ไม่มีข้อมูลเดือนก่อนเทียบ"
               : `${monthTrend.pctChange > 0 ? "+" : ""}${monthTrend.pctChange}% จากเดือนก่อน`}
@@ -58,7 +58,7 @@ export function ProcurementHomeTiles({
           <div className="text-3xl leading-none font-extrabold tabular-nums">
             {pendingPoSummary.count}
           </div>
-          <div className="text-meta text-ink-muted mt-1 font-medium">
+          <div className="text-meta text-ink-secondary mt-1 font-medium">
             {pendingPoSummary.worstAgingDays !== null
               ? `รอนานสุด ${pendingPoSummary.worstAgingDays} วัน`
               : "ไม่มีใบสั่งซื้อค้างส่ง"}

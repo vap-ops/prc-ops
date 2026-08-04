@@ -113,7 +113,7 @@ const FIELD_DATE =
 const FIELD_PRICE =
   "rounded-control border-edge-strong bg-card text-ink focus-visible:ring-action h-11 w-28 min-w-0 border px-3 text-right text-sm shadow-xs focus:outline-none focus-visible:ring-2";
 const ZOOM_BTN =
-  "border-edge-strong bg-card text-ink hover:bg-sunk focus-visible:ring-action inline-flex size-8 items-center justify-center rounded-md border text-base leading-none font-medium focus:outline-none focus-visible:ring-2 disabled:opacity-50";
+  "border-edge-strong bg-card text-ink hover:bg-sunk focus-visible:ring-action inline-flex size-11 items-center justify-center rounded-md border text-base leading-none font-medium focus:outline-none focus-visible:ring-2 disabled:opacity-50";
 
 export function CreatePurchaseOrderSheet({
   open,
@@ -569,7 +569,9 @@ export function CreatePurchaseOrderSheet({
         <div className={docFile ? (docTab === "form" ? "" : "hidden lg:block") : ""}>
           <div className="flex flex-col gap-3">
             {!docFile ? attachButton : null}
-            <p className="text-ink-muted text-meta">รวม {lines.length} รายการเป็นใบสั่งซื้อเดียว</p>
+            <p className="text-ink-secondary text-meta">
+              รวม {lines.length} รายการเป็นใบสั่งซื้อเดียว
+            </p>
 
             <label htmlFor="po-supplier" className="text-ink text-xs font-medium">
               ผู้ขาย
@@ -816,7 +818,7 @@ export function CreatePurchaseOrderSheet({
                       onClick={() => removeChargeRow(ch.id)}
                       disabled={pending}
                       aria-label="นำค่าใช้จ่ายนี้ออก"
-                      className="text-ink-muted hover:text-danger focus-visible:ring-action ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2"
+                      className="text-ink-secondary hover:text-danger focus-visible:ring-action ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2"
                     >
                       <X aria-hidden className="size-4" />
                     </button>
@@ -900,7 +902,7 @@ export function CreatePurchaseOrderSheet({
             </div>
 
             {!ready && !pending ? (
-              <p className="text-ink-muted text-meta text-right">
+              <p className="text-ink-secondary text-meta text-right">
                 เลือกผู้ขายและระบุวันที่ก่อนสร้าง
               </p>
             ) : null}

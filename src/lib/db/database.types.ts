@@ -6136,6 +6136,59 @@ export type Database = {
           },
         ]
       }
+      report_selected_photos: {
+        Row: {
+          created_at: string
+          photo_log_id: string
+          position: number
+          selected_by: string
+          work_package_id: string
+        }
+        Insert: {
+          created_at?: string
+          photo_log_id: string
+          position: number
+          selected_by: string
+          work_package_id: string
+        }
+        Update: {
+          created_at?: string
+          photo_log_id?: string
+          position?: number
+          selected_by?: string
+          work_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_selected_photos_photo_log_id_fkey"
+            columns: ["photo_log_id"]
+            isOneToOne: true
+            referencedRelation: "photo_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_selected_photos_selected_by_fkey"
+            columns: ["selected_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_selected_photos_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_package_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_selected_photos_work_package_id_fkey"
+            columns: ["work_package_id"]
+            isOneToOne: false
+            referencedRelation: "work_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           created_at: string
@@ -9512,6 +9565,39 @@ export type Database = {
           },
         ]
       }
+      wp_catalog_hidden_reference_photos: {
+        Row: {
+          created_at: string
+          hidden_by: string
+          photo_log_id: string
+        }
+        Insert: {
+          created_at?: string
+          hidden_by: string
+          photo_log_id: string
+        }
+        Update: {
+          created_at?: string
+          hidden_by?: string
+          photo_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wp_catalog_hidden_reference_photos_hidden_by_fkey"
+            columns: ["hidden_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wp_catalog_hidden_reference_photos_photo_log_id_fkey"
+            columns: ["photo_log_id"]
+            isOneToOne: true
+            referencedRelation: "photo_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wp_catalog_items: {
         Row: {
           code: string
@@ -10977,7 +11063,10 @@ export type Database = {
         }[]
       }
       get_wp_reference_photos: {
-        Args: { p_wp_catalog_item_id: string }
+        Args: {
+          p_exclude_work_package_id: string
+          p_wp_catalog_item_id: string
+        }
         Returns: {
           note: string
           phase: Database["public"]["Enums"]["photo_phase"]
@@ -11016,6 +11105,10 @@ export type Database = {
       }
       grant_client_access: {
         Args: { p_project: string; p_user_id: string; p_valid_until: string }
+        Returns: undefined
+      }
+      hide_reference_photo: {
+        Args: { p_photo_log_id: string }
         Returns: undefined
       }
       import_wp_grouping: {
@@ -11626,6 +11719,10 @@ export type Database = {
         Args: { p_ids: string[]; p_project_id: string }
         Returns: undefined
       }
+      reorder_report_photos: {
+        Args: { p_photo_ids: string[]; p_work_package_id: string }
+        Returns: Json
+      }
       report_site_issue: {
         Args: {
           p_issue_type?: Database["public"]["Enums"]["site_issue_type"]
@@ -11725,6 +11822,7 @@ export type Database = {
         }
         Returns: string
       }
+      select_report_photo: { Args: { p_photo_log_id: string }; Returns: Json }
       send_back_staff_registration: {
         Args: { p_id: string; p_note: string }
         Returns: undefined
@@ -12200,7 +12298,12 @@ export type Database = {
         Args: { p_a: string; p_b: string }
         Returns: boolean
       }
+      unhide_reference_photo: {
+        Args: { p_photo_log_id: string }
+        Returns: undefined
+      }
       unlink_telegram: { Args: never; Returns: undefined }
+      unselect_report_photo: { Args: { p_photo_log_id: string }; Returns: Json }
       unstar_reference_photo: {
         Args: { p_photo_log_id: string }
         Returns: undefined

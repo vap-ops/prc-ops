@@ -11018,3 +11018,237 @@ permitted` arm answers ไม่มีสิทธิ์เช็คชื่อ
 - ⚠️ **Two regressions the guard itself introduced, both found by the review, both fixed here.** ① `closeOpenOt` (the ปิดวัน OT cure) returned on the first RPC error, so after a PARTIAL cure the retry would fail on the sessions that already closed — leaving the day open, on the one action the 07-24 incident exists to protect. An already-closed session now counts as cured (the postcondition is "no OT left open"), while `closed` still reports what the call actually did. ② A stale-board duplicate in the QR sweep landed as `markFailed` + the error cue — a red chip for a state that is already correct. `musterScan` now returns `reason: "already_out"` at the seam that still holds the raw SQLSTATE message, and the cockpit routes it to the same `already_out` / `ot_already_closed` outcome `classifyScan` produces on a fresh board. **Both are the "half that removes a signal" class: the guard was right, but two callers were reading every error as a failure.**
 - ⚠️ **Three comments now asserted the opposite of reality** (`sweep.ts` ×2, `muster-cockpit.tsx` ×1 — all three said the RPC has no already-out guard). Left alone they re-teach the retired design to the next author and to `spec-fact-checker`, which reads comments as claims. Updated to say both layers now hold the rule and neither should be "simplified" away because the other exists.
 - ⚠️ **A source-scan assertion was satisfied by its own explanatory COMMENT.** `pg_get_functiondef` returns the body INCLUDING comments, and the migration's comments name `for update` and the `out_at is not null` guard — so deleting the real clause and keeping the prose would have left both assertions green with the TOCTOU wide open. Now comment-stripped (`regexp_replace(..., '--[^\n]*', '', 'g')`) and anchored to the statement they belong to. **Documenting the hazard had become a way of satisfying the check for it — the same trap already recorded for TS source scans, now proven to apply to SQL.**
+
+## 2026-08-04 — UX-audit guards unit (lane uxguards)
+
+**What:** the UX-audit 2026-08 findings→guards conversion (report `UXUI-GAP-ANALYSIS.md` §4/§6, beside LANES.md): five Class-B "decided rule with no failing test" rules got their tests, plus the two one-liner classes the guards forced green.
+
+- **Token-contrast claims pin** (`design-doctrine.test.ts`): computes the real WCAG ratio (OKLCH→linear sRGB, instrument self-controlled against the file's own ≈hex comment) for EVERY ratio a `globals.css` comment claims, with a completeness assert so a new claim without a table entry reds. RED-first caught three lies: light `edge-strong` claimed ≥3:1 at 2.77:1 (F-014), **dark `edge-strong` claimed ≥3:1 at 2.92:1 — a widening of F-014 the audit had scoped light-only**, and `on-attn` claimed ~10:1 at 8.83:1. Comments corrected (value raises stay gap G2's lane, said in place).
+- **Widened tap-floor pin** (same file): every `<button>` opening tag scanned for the sub-44px height family — the old pin tested the single literal `min-h-9` (its name promised a floor; its reach was one string). ⭐ **First draft repeated F-010's own blindness: `[^>]*` stops at the `=>` of an inline handler and truncates the tag BEFORE className** — the fixed regex tolerates arrows, and the measurement went 3 hits → 12. One confirmed bug fixed (`wp-schedule-panel` 20×20px remove chip → `min-h-11 min-w-11` + `text-ink-secondary`, F-010/G12); 11 buttons frozen in an exact-count ratchet allowlist (shrink-only, justified per row).
+- **`text-ink-muted` ceiling ratchet**: report said 37 sites / 25 files; **fact-check measured 502 / 229** — a per-site allowlist is unmaintainable at that scale, so the guard is a ceiling pair (501 occurrences / 229 files, measured post-fix) that the G2 sweep will drive down. New surfaces reaching for muted ink on readable copy land on the rule.
+- **Honest-copy ratchet** (NEW `honest-copy-ratchet.test.ts`): retry copy (`ลองใหม่`/`ลองอีกครั้ง`) ceiling 228 occurrences / 106 files, comment-stripped line-based. ~15 per-surface pins existed; nothing watched the whole tree, and growth is now a deliberate review moment with the rule stated at the failure site.
+- **Role-home loading guard** (NEW `role-home-loading.test.ts`): every `roleHome()` route over the complete `user_role` domain (via `USER_ROLE_LABEL`, so an enum add trips exhaustiveness first) must sit under a `loading.tsx` boundary (nearest-ancestor walk — `/accounting/review` correctly inherits). ⭐ **The derivation exposed more than the audit's G8: `/legal`, `/client`, `/technician`, `/coming-soon` also had NO boundary**, not just `/procurement` — traffic-keyed sampling vs enum derivation. All five + `/expenses` (the report's named sibling) got the one-line `<PageSkeleton />`.
+
+**Evidence:** all guards RED-first with the failure observed and named; instrument control (OKLCH→hex) within 1–2 sRGB steps of the file's own comments and agreeing with the audit verifier's independent numbers; live probe: WP detail 200 as dev-preview with the schedule panel rendering and zero console errors (the fixed chip itself is UNREACHABLE with live data — `work_package_dependencies` is 0 rows all-time, declared, guard + suite are its pins).
+
+## 2026-08-04 — G1: honest error boundary + crash telemetry (lane g1boundary, PR #936)
+
+The UX-audit's only S0, closed. Full record in the PR body; the mechanism lessons:
+
+- **The reviewer refuted my recurrence design and the source settled it:** Next's `ErrorBoundaryHandler.reset` clears state → the fallback UNMOUNTS → a re-throw REMOUNTS it fresh — so recurrence is a mount-time sessionStorage read (digest-or-name + ROUTE key, 5-min TTL, `src/lib/errors/boundary-retry.ts`), and the test that proves it drives the REAL unmount/remount cycle through a faithful replica boundary with a throwing child. My first design put recurrence in component state the real cycle discards; my second theory ("same instance survives") was also wrong. Read the framework source before theorizing about its semantics.
+- **`js_error` through the friction bridge was eating the wrong budget** — the shared 50/session friction pool instead of the dedicated 25/session error cap, so a crash-retry loop starved rage_tap/upload_fail for the session. Split + pinned by a budget test that drives both caps and the shared-budget property.
+- **Client crashes carry no Next digest.** A name-only recurrence key (`err-retry:TypeError`) lets one retry deny retry to every later unrelated crash app-wide. Route scoping + TTL make the honest variant fire only for "THIS error class on THIS route, retried recently".
+- **The recurred exits are hard `<a>` loads with justified lint exceptions** — the ChunkLoadError/stale-bundle class breaks the client router, and the recurred state is by definition "soft recovery already failed".
+- **The honest-copy exact ledger fired its first real shrink** (228→226 / 106→104): both boundaries now read labels.ts. The renumber-in-the-same-PR flow works.
+
+## 2026-08-04 — Spec 394 U0: the client report leads with the work name (lane report394)
+
+**What:** decision D8 only. `build-pdf.ts` printed `${wp.code} — ${wp.name}`, so a client opening
+the report met `S-07` before they met the work. The section title is now the Thai work-package
+name; the catalogue code drops to a smaller second line (16pt → 10pt in a photo section, 12pt →
+9pt in the spec-61 text listing) with the status label beside the code instead of inside the
+title. The code stays on the page on purpose — it is how PD and the client refer to the same item
+in conversation. Changes **every** report mode, not just the `selected` one U2/U3 will add: the
+naming was wrong for all of them. Code-only, no schema, no PD effort.
+
+- **The seam is a pure helper, and it had to be.** PDFKit subsets the embedded Sarabun face, so
+  the heading text exists in the PDF only as glyph ids — no assertion over the output bytes can
+  read it. `workPackageHeadingLines()` is what the wording pins hang on; the render branches are
+  held by a comment-stripped source scan with counted occurrences plus a bare-literal absence pin
+  for the retired form.
+- **Gate 4 was the real artifact, not the suite.** Generated a PDF through `buildReportPdf`, then
+  read it back by inflating its content streams and decoding the ToUnicode CMap: 20pt
+  `PRC-26-0002 — ทีเอฟเอ็ม โพธิ์ทอง`, then 16pt `งานเทพื้นคอนกรีตโรงเรือน` over 10pt
+  `S-07 · กำลังดำเนินการ`, and the listing row 12pt `งานเดินท่อร้อยสายไฟ` over 9pt
+  `E-11 · ยังไม่เริ่ม`. ⚠️ Headless Chrome cannot screenshot a PDF (blank frame, both headless
+  modes) and no rasteriser is installed on this box — decode the streams instead of trusting a
+  screenshot that renders nothing.
+- **Four mutations, each red with a non-zero run:** title reverts to code-first; the subtitle line
+  dropped from the listing branch alone; dropped from the photo-section branch alone; the status
+  label moved back into the title. The one-branch-at-a-time pair is the point — a whole-heading
+  mutation cannot tell "both branches covered" from "one branch covered".
+- ⚠️ **`worker/src/report.ts` still prints the code-first heading.** Deliberate: ADR 0040 keeps the
+  Railway worker byte-untouched (its watch path redeploys on any edit, and it is danger-path), and
+  it only builds a report when the in-app fast path dies before claiming. So a fallback-built PDF
+  reads code-first. Recorded rather than fixed — the divergence is now stated in `build-pdf.ts`'s
+  own header, where the next maintainer deciding whether the files must stay in step will look.
+- ⭐ **The review's best catch, and the reason a positive control is not optional.** Splitting the
+  heading into two independently-flowed `text()` calls let PDFKit page-break BETWEEN a work name
+  and its code — a client page opening on a bare `S-042 · ยังไม่เริ่ม`. I added the keep-together
+  measure, then tried to prove it: **my first two fixtures showed zero orphans WITH THE GUARD
+  REMOVED**, which would have shipped as "verified" and proved nothing. Cause: 380 identical rows
+  have a constant height, so every page breaks at the same phase and the boundary never lands
+  inside a row. Only a fixture with **varying row heights** (every 5th title two lines) reproduced
+  it — **8 of 18 pages orphaned unguarded, 0 of 19 guarded.** A uniform fixture is structurally
+  blind to a phase-dependent layout bug; if the control does not fail, the experiment has not run.
+
+## 2026-08-04 — Spec 394 U1: the client-report selection store (lane rptsel)
+
+**What:** `report_selected_photos` + RLS + `select_report_photo` / `unselect_report_photo` /
+`reorder_report_photos` (all SECURITY DEFINER) + a 43-assertion pgTAP file. Schema only — the
+toggle and the report mode are U2+U3, which ship together because either half alone is an
+affordance promising something unbuilt.
+
+- **Gate-checked live before writing a line**, and two findings changed the design. ①
+  `audit_action` has **no** value for this act, but the house pattern is `action='other'` +
+  `payload->>'event'` (641 + 323 + 28 + 27 live rows), so the unit adds **no enum value** and
+  trips no enum guard — and the `audit_log` read policy already admits every role these RPCs
+  allow. ② `photo_logs_path_supersede_well_formed` is
+  `CHECK ((storage_path IS NULL) = (superseded_by IS NOT NULL))`, so **a tombstone and a supersede
+  pointer are the same row** — there is no path-less photo that supersedes nothing. My first
+  fixture assumed there was and errored the whole file with 23514.
+- **The photo-side cascade is untestable, and the test says so.** `photo_logs_block_write` raises
+  P0001 on DELETE as well as UPDATE, so no photo row can ever be removed outside break-glass.
+  Both FKs are pinned in the catalog instead: the WP one is reachable (a project hard-delete),
+  the photo one is defensive. Better an honest catalog assert than a behavioural test that cannot
+  run.
+- **Every refusal has a positive control in the same transaction**, because a green refusal is
+  otherwise equally consistent with "the RPC refuses everyone". The project-scoped gate has its
+  own control: a **second `project_manager` who is not a member** of the project is refused while
+  the project's own PM succeeds.
+- **Gate 4 was a live round-trip as a real project_manager, rollback-wrapped:** append →
+  `{changed:true,position:1}`, `{position:2}`, re-select → `{changed:false,position:1}`, reversal
+  → `{changed:true,count:2}`, read-back **through RLS** in the new order, unselect → the gap
+  closes to position 1, four audit rows. pgTAP alone would not have proved the policy admits a
+  real member.
+- ⚠️ **`position` is a Postgres col_name_keyword** — legal as a column, but every read must quote
+  it or the parser goes looking for `position(x in y)`.
+- 🚨 **A migration number was taken out from under me, and `db:push` reported success.** I queried
+  the head (`075902`, equal to main's newest file) and took `075903`; lane `grade` applied
+  `075903` to the shared DB while I was building. `db:push` then said **"Remote database is up to
+  date" and applied nothing** — the version row already existed, so a push can silently no-op on
+  a number another lane consumed. Renumbered to `075904`. ⛔ The CLI's suggested
+  `migration repair --status reverted 20260813075903` would rewrite the other lane's history on
+  the shared DB; applied with `db query -f` + `repair --status applied` instead. ⚠️ `origin/main`
+  still carries no `075903` file, so **live is one migration ahead of every branch and `db:types`
+  is unsafe** — deliberately not run; this unit needs no types.
+- **The fresh-eyes pass found a real race and four assertions that could not fail.** ① The
+  idempotency check sat BEFORE the `for update`, so two overlapping taps on the same photo both
+  saw no row and the loser got a raw **23505** — outside the spec's refusal vocabulary, so the UI
+  would call a correct state a retryable failure. The comment promised exactly the protection that
+  was missing; the lock now precedes the check. ② The reorder audit row filed a work-package id
+  under `target_table='report_selected_photos'` — one target_table carrying two entity types, so a
+  reader joining `target_id` to a photo drops every reorder. Now filed under `work_packages`, the
+  shape `map_wp_to_catalog` already uses. ③ Four test gaps, each named by the mutation that would
+  have stayed green: `position`'s per-WP partitioning was never exercised; the cross-WP reorder
+  list was longer than the current set so the count arm refused it and the membership sweep was
+  never reached; the renumber shifted one row into a slot the delete had already vacated, which
+  cannot violate uniqueness even without `deferrable`; and **`project_director` — the spec's
+  primary actor — had no coverage at all**, so narrowing `can_see_project` for PD would have
+  refused every PD selection with the suite green.
+- ⭐ **"Was the committed file ever executed?" is a real question when a migration is hand-applied.**
+  Because the number collision forced `db query -f` + `repair --status applied` instead of
+  `db push`, pgTAP was certifying LIVE objects that no reviewer could prove came from the file in
+  the diff. After the review fixes the objects were dropped (verified empty first) and the exact
+  committed file was re-run end-to-end — so the live schema is what this file produces, not a
+  hand-patched variant.
+
+## 2026-08-04 — Spec 394 U2+U3: picking, arranging and printing the client's photos (lane rptsel2)
+
+**What:** the toggle, the arrange strip and the 4th report mode, in ONE PR because either half
+alone is an affordance promising something unbuilt (spec §9). `ReportSelectButton` on every review
+photo, a `เฉพาะที่เลือก` mode that reads the selection in the PD's arranged order, and a cover
+note that rides the existing `params` jsonb.
+
+- **The order lives in a PURE function on purpose.** `buildSelectedPhotoOrder` is where D6's whole
+  claim is testable; `run-report-job` is I/O end to end and has no harness, so it gets a source pin
+  and nothing more. A source pin proves a symbol is wired, never that it is correct — keeping the
+  decision out of the I/O is what makes that split honest.
+- **The report branch emits ONE unlabelled group per WP**, not one per phase. Phase grouping would
+  re-separate the before/after pair D6 exists to put side by side.
+- **`reportSelection` is a second, INDEPENDENT prop beside `starring`.** Not tidiness: the gates
+  differ (PM_ROLES vs PD tier) and so do the preconditions — a `project_manager` sees the report
+  toggle and no star, and an unmapped WP shows the toggle while showing no star at all. One
+  combined condition would have to re-derive both cases.
+- **The 4th option renders at zero, DISABLED, with the reason in its label.** Hiding it means a PD
+  who has never picked a photo can never learn the mode exists. `RadioChip` gained an optional
+  `disabled` prop for it — the native attribute is what carries the state to assistive tech.
+- **Server-side, `selected` at zero REFUSES before inserting a row.** Falling back to `after` would
+  hand the client a document nobody asked for; queueing would build an empty PDF. The guard is
+  scoped to that mode so every other report still generates from a project with no selections.
+- **Gate 4 was the live RPCs against prod rows** as a real PM, then cleaned to zero: append →
+  `position 1`, `2`; a **superseded photo refused 22023** on real data; re-select → `changed:false`;
+  a reorder naming a non-member photo refused; a true reversal committed and read back reversed
+  through RLS; unselect closed the gap; unselect again → `changed:false`. Server-rendered HTML then
+  showed 2 selected + 10 unselected toggles, the strip, and exactly the boundary controls
+  (`เลื่อนลง รูปที่ 1`, `เลื่อนขึ้น รูปที่ 2`) — the first row cannot move up, the last cannot move
+  down.
+- **The honest-copy ratchet fired and was renumbered in the same PR** (229→232 / 105→108). All
+  three new occurrences are transient fallbacks reached only on an unknown SQLSTATE; every
+  permanent refusal names its cause instead, and the reorder's stale-list refusal says **refresh**
+  rather than retry — retrying the same stale list can never succeed.
+- 🔴 **The review caught a header-only PDF that every gate would have passed.** The action's
+  zero-guard counts selections across the whole PROJECT, while the job narrows work packages to
+  `status='complete'` when `scope='complete'` — **the default**. So a PD curating on `/review`
+  (where WPs are `pending_review`) sees `เฉพาะที่เลือก (5 รูป)` enabled, leaves the default scope,
+  generates, and gets a **header-only PDF marked complete and downloadable** — precisely the empty
+  document §7 forbids. The same hole has a second door: every selected photo superseded between
+  picking and generating. Fixed at the one point that closes both — a `selected` job that resolves
+  zero photo groups now THROWS, so the row is marked `failed` with a reason instead of delivering
+  an empty document. ⭐ The lesson generalises: **a pre-insert guard and the job that consumes its
+  answer must agree on the SAME scope, or the guard is measuring a different population than the
+  one the work will run over.**
+- **A selection read must respect the anti-join.** A selection row survives its photo being
+  superseded (§7 leaves it deliberately), so an unfiltered read rendered a selected toggle on a
+  photo that is no longer current and an unidentifiable grey square in the arrange strip that the
+  PD could neither identify nor remove. Now intersected with the page's current photos.
+- ⚠️ **Three things deliberately NOT built, recorded so the next reader meets them as choices:**
+  ① the **Railway worker ignores `reports.params` entirely** and always builds "complete WPs +
+  after photos" — so if the fast path dies before claiming, a `selected` report comes back as every
+  after-photo of every complete WP. Inherited from spec 61 (`none`/`all_phases`/`scope=all` have
+  the same exposure), made more visible by this mode, and unfixable without touching the frozen
+  worker (ADR 0040). ② The **current** rework round's `defect` photos carry no toggle while PRIOR
+  rounds do — the current round renders only in `DefectFixPairs`. Not a missing feature so much as
+  an inconsistency a later reader will read as a bug. ③ The reports-page **count** is not
+  anti-joined, so it can over-report vs what the PDF can contain; with the throw above that now
+  costs a failed report rather than an empty one.
+- ❓ **Open for the operator:** `defect` photos are selectable (the toggle renders on those
+  galleries), so a PD can put a photo of broken work into a client report. Spec §5 names
+  "before/during/after" explicitly. Intentional latitude, or should the toggle be withheld on
+  defect photos?
+
+## 2026-08-04 — Spec 394 follow-up: defect photos are not selectable (lane nodefect)
+
+**Operator ruling, answering the question above: withhold the toggle on `defect` photos.** A defect
+photo is evidence of BROKEN work; the client report is the finished-work document, and the two must
+not mix.
+
+- **Three layers, because a button is an affordance and not an enforcement point.** The review page
+  passes no `reportSelection` to a defect gallery; the server action reads the photo's phase and
+  refuses before calling the RPC; and the PDF resolver iterates `REPORT_SELECTABLE_PHASES` instead
+  of a hardcoded tuple that included `defect`, so a row written before the ruling — or by a direct
+  call — still cannot print. Each layer was mutation-checked ALONE: restoring the prop reds 2
+  assertions, deleting the action guard reds 1, re-adding `defect` to the phase set reds 2.
+- **`REPORT_SELECTABLE_PHASES` is the SSOT** and lists phases positively, so a NEW `photo_phase`
+  enum value stays OUT of a client's document until someone adds it deliberately. The default of
+  "not listed" is the safe one.
+- **Unselect stays open on purpose.** Refusing to remove a defect row would strand a pre-ruling
+  selection in the report with no way out — the guard is on the write that creates the problem, not
+  on the one that fixes it.
+- ⭐ **The test nearly failed on its own documentation.** The JSX comment explaining _why_
+  `reportSelection` is absent mentions it by name, so a source scan asserting its absence read the
+  comment and failed on a correct file — the guard-satisfied-by-its-own-documentation trap, in
+  reverse. Block comments are now stripped before the scan. Same class as the honest-copy ratchet's
+  note, and worth remembering: **strip comments before ANY raw-text assertion, in both directions.**
+- ⓘ Closes the inconsistency the U2+U3 review found — prior-round defect photos used to carry a
+  toggle while the current round's did not. Now none do.
+- 🔴 **The review caught the doctrine §2 trap in my own change: withholding the toggle also removed
+  the only way to UNSELECT a defect photo.** The arrange strip has move-up/down and no ✕, and the
+  galleries were the sole toggle surface — so "unselect stays open" was true of the API and false
+  of the product. One query decided how much of that was live: `report_selected_photos` holds **2
+  rows, both `during`, zero `defect`**, and after this change no defect row can be created through
+  any path. Recorded rather than solved — a selected-state-only toggle would be machinery for a
+  state that cannot occur — but stated in the spec so it is a decision, not an oversight.
+- **Two consistency fixes the review forced, both real regardless of the above:** the generate
+  guard and the reports-page count now filter to `REPORT_SELECTABLE_PHASES`, so they count what the
+  PDF can actually contain (an all-defect project would otherwise have passed the guard, queued,
+  and failed with a message naming causes that were not the real one); and the phase read now
+  **fails CLOSED** — `data: null` means both "not found" and "read failed", so ignoring the error
+  would let a transient 5xx wave a defect photo through.
+- **The refusal message is built from the phase's own label, not hardcoded to จุดบกพร่อง.** The
+  guard refuses anything outside the selectable set, so a future `photo_phase` would have been
+  refused with a message naming the wrong reason — a false diagnosis, which is what honest copy
+  exists to prevent. Backed by a partition test: the selectable set plus the one deliberate
+  exclusion must cover the WHOLE `photo_phase` domain, so a new enum value reds until someone
+  classifies it. The doc comment said "must be added here deliberately"; prose cannot enforce that,
+  the test can.

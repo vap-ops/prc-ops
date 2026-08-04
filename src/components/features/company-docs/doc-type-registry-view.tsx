@@ -150,7 +150,7 @@ export function DocTypeRegistryView({
                     <button
                       type="button"
                       onClick={() => void toggleActive(t)}
-                      className="text-ink-muted text-meta underline"
+                      className="text-ink-secondary text-meta underline"
                     >
                       {t.is_active ? "ปิดใช้งาน" : "เปิดใช้งาน"}
                     </button>
@@ -158,7 +158,7 @@ export function DocTypeRegistryView({
                 </li>
               ))}
               {own.length === 0 ? (
-                <li className="text-ink-muted text-meta px-1">ยังไม่มีประเภทในหมวดนี้</li>
+                <li className="text-ink-secondary text-meta px-1">ยังไม่มีประเภทในหมวดนี้</li>
               ) : null}
             </ul>
           </section>

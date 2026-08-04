@@ -104,7 +104,7 @@ function ItemRow({ item }: { item: ShopItem }) {
       <div className="flex items-center justify-between gap-3">
         <span className="text-ink min-w-0 truncate text-sm font-semibold">{item.name}</span>
         <span
-          className={`shrink-0 text-xs font-semibold ${item.active ? "text-done-strong" : "text-ink-muted"}`}
+          className={`shrink-0 text-xs font-semibold ${item.active ? "text-done-strong" : "text-ink-secondary"}`}
         >
           {item.active ? "เปิดขาย" : "ปิดอยู่"}
         </span>

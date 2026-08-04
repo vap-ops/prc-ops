@@ -103,10 +103,10 @@ export function WorkerAttendanceCalendar({
           มาทำงาน {fmtDays(summary.daysScanned)} วัน
           {summary.otHoursTotal > 0 ? ` · OT รวม ${fmtDays(summary.otHoursTotal)} ชม.` : ""}
         </p>
-        <p className="text-ink-secondary mt-1 text-sm">
+        <p className="text-ink-muted mt-1 text-sm">
           ประมาณการค่าแรง{" "}
           {summary.estimatedGross === null ? "—" : bahtWithSymbol(summary.estimatedGross)}
-          <span className="text-ink-muted text-xs"> (จำนวนวัน × ค่าแรง/วัน)</span>
+          <span className="text-ink-secondary text-xs"> (จำนวนวัน × ค่าแรง/วัน)</span>
         </p>
         <p className="text-ink-secondary mt-1 text-sm">
           บันทึกค่าแรงแล้ว {fmtDays(summary.paidDaysTotal)} วัน

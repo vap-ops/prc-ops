@@ -1,3 +1,102 @@
+## [0.323.2](https://github.com/vap-ops/prc-ops/compare/v0.323.1...v0.323.2) (2026-08-04)
+
+### Bug Fixes
+
+- **pgtap:** scope 394 selection counts to the seeded work packages ([#954](https://github.com/vap-ops/prc-ops/issues/954)) ([e2d8df4](https://github.com/vap-ops/prc-ops/commit/e2d8df4c57f5a177e90e94b21775437e94e0e635))
+
+## [0.323.1](https://github.com/vap-ops/prc-ops/compare/v0.323.0...v0.323.1) (2026-08-04)
+
+### Bug Fixes
+
+- defect photos are not selectable for a client report (operator ruling) ([#953](https://github.com/vap-ops/prc-ops/issues/953)) ([fc2e9fa](https://github.com/vap-ops/prc-ops/commit/fc2e9fa773a6b97c0b2075ca2aefacaa8ace0825))
+
+# [0.323.0](https://github.com/vap-ops/prc-ops/compare/v0.322.0...v0.323.0) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** review pass on the bound-owner line (spec 396 U2) ([18586c7](https://github.com/vap-ops/prc-ops/commit/18586c750ff09f4943d39c5ba7e32ed06eae1201))
+
+### Features
+
+- **workers:** name the bound account holder on the edit sheet (spec 396 U2) ([efe83c3](https://github.com/vap-ops/prc-ops/commit/efe83c3b439fe496746bd2120e65f4e30ed11463))
+
+# [0.322.0](https://github.com/vap-ops/prc-ops/compare/v0.321.1...v0.322.0) (2026-08-04)
+
+### Features
+
+- pick, arrange and print the client's photos (spec 394 U2+U3) ([#950](https://github.com/vap-ops/prc-ops/issues/950)) ([a6918fe](https://github.com/vap-ops/prc-ops/commit/a6918fec3770d759c209d4df0989ec84a7adc81b)), closes [#946](https://github.com/vap-ops/prc-ops/issues/946)
+
+## [0.321.1](https://github.com/vap-ops/prc-ops/compare/v0.321.0...v0.321.1) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** clear the duplicate door when the edit sheet reopens ([e5352fa](https://github.com/vap-ops/prc-ops/commit/e5352faf2e0cce2964f2d81a57c7408a06733db9))
+- **workers:** edit-sheet parity for the duplicate national-ID refusal ([93a9fbe](https://github.com/vap-ops/prc-ops/commit/93a9fbed346399c123a58523f739cef547a3ca19)), closes [#945](https://github.com/vap-ops/prc-ops/issues/945)
+
+# [0.321.0](https://github.com/vap-ops/prc-ops/compare/v0.320.0...v0.321.0) (2026-08-04)
+
+### Features
+
+- **workers:** record the previous value in worker_change audit (spec 396 U1) ([#946](https://github.com/vap-ops/prc-ops/issues/946)) ([3a42891](https://github.com/vap-ops/prc-ops/commit/3a4289186ccbac0655265ee69977f37e684b0288))
+
+# [0.320.0](https://github.com/vap-ops/prc-ops/compare/v0.319.1...v0.320.0) (2026-08-04)
+
+### Features
+
+- the client-report photo selection store (spec 394 U1) ([#947](https://github.com/vap-ops/prc-ops/issues/947)) ([2025451](https://github.com/vap-ops/prc-ops/commit/20254512b5adc6da031f792377dff9cbd355526a))
+
+## [0.319.1](https://github.com/vap-ops/prc-ops/compare/v0.319.0...v0.319.1) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** honest refusal + row pointer when a national ID is already on the roster ([101fdd0](https://github.com/vap-ops/prc-ops/commit/101fdd06dd77665d983c88ceff5bce6194982009))
+- **workers:** retire the duplicate refusal with the number that caused it ([6ae84bf](https://github.com/vap-ops/prc-ops/commit/6ae84bf178efe01e1c87bbc1dfcaa32913658b35))
+
+# [0.319.0](https://github.com/vap-ops/prc-ops/compare/v0.318.2...v0.319.0) (2026-08-04)
+
+### Bug Fixes
+
+- keep a report listing row together, and pin the demotion itself ([63ba6e8](https://github.com/vap-ops/prc-ops/commit/63ba6e8453a347fed9e7a02ba9277d52f5565f68))
+
+### Features
+
+- lead the report PDF with the Thai work name (spec 394 U0, D8) ([47995e5](https://github.com/vap-ops/prc-ops/commit/47995e5bf774635eaa8de6a1e38c94dfab8825d1))
+
+## [0.318.2](https://github.com/vap-ops/prc-ops/compare/v0.318.1...v0.318.2) (2026-08-04)
+
+### Bug Fixes
+
+- **ui:** G12 tap-floor sweep — 9 sub-44px controls meet the 44px floor ([6d0a5b2](https://github.com/vap-ops/prc-ops/commit/6d0a5b2db372853d3369c1d3dc99b7d531e5b864))
+
+## [0.318.1](https://github.com/vap-ops/prc-ops/compare/v0.318.0...v0.318.1) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** honest error copy for the roster save/edit actions ([94d1515](https://github.com/vap-ops/prc-ops/commit/94d15155024e1e27dbff7dde081df640e0c1a3d1))
+- **workers:** move error copy out of the "use server" module ([2d947a2](https://github.com/vap-ops/prc-ops/commit/2d947a25f7dbf3e26e271a193218ef50c3d0ee98))
+
+# [0.318.0](https://github.com/vap-ops/prc-ops/compare/v0.317.4...v0.318.0) (2026-08-04)
+
+### Features
+
+- **catalog:** ตัวอย่างงาน fills itself (spec 391) ([#938](https://github.com/vap-ops/prc-ops/issues/938)) ([6640ef7](https://github.com/vap-ops/prc-ops/commit/6640ef72b14b4b07eaaa1e9d2d791c95fb7670c7)), closes [#934](https://github.com/vap-ops/prc-ops/issues/934) [#936](https://github.com/vap-ops/prc-ops/issues/936)
+
+## [0.317.4](https://github.com/vap-ops/prc-ops/compare/v0.317.3...v0.317.4) (2026-08-04)
+
+### Bug Fixes
+
+- contrast floors for edge-strong, dark danger, and the done commit button (UX-audit G2+G9+G15) ([2850905](https://github.com/vap-ops/prc-ops/commit/28509050cbdcf5e4fdf62d7331b026ebc741d741)), closes [#934](https://github.com/vap-ops/prc-ops/issues/934)
+- move sentence copy off ink-muted app-wide (UX-audit G2 sweep) ([73720b3](https://github.com/vap-ops/prc-ops/commit/73720b3187106916f1d201c39b4ce298fb55f989))
+- on-danger ink split + all-grounds edge-strong + sweep misfire reverts (G2 review) ([3c47be3](https://github.com/vap-ops/prc-ops/commit/3c47be3ea60adaac08b09387cada2933bc43a6ec))
+
+## [0.317.3](https://github.com/vap-ops/prc-ops/compare/v0.317.2...v0.317.3) (2026-08-04)
+
+### Bug Fixes
+
+- harden the G1 boundary per fresh-eyes review (all mechanisms source-verified) ([28ed524](https://github.com/vap-ops/prc-ops/commit/28ed5249e455eb49fadb6803d124e03443fffcab))
+- honest error boundary + crash telemetry (UX-audit G1, F-012+F-027) ([9c193ca](https://github.com/vap-ops/prc-ops/commit/9c193ca0ef522037db782a85b1d3319ecc3785c3))
+- recurrence flips on the SAME boundary instance, not only on remount ([0369eb9](https://github.com/vap-ops/prc-ops/commit/0369eb96ffbf7c557fe9577ba84a0ee33c22e058))
+
 ## [0.317.2](https://github.com/vap-ops/prc-ops/compare/v0.317.1...v0.317.2) (2026-08-04)
 
 ### Bug Fixes

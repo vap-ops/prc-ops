@@ -39,6 +39,7 @@ import { PhaseProgressBar } from "@/components/features/work-packages/phase-prog
 import { approvalDecisionPillClasses, workPackageStatusPillClasses } from "@/lib/status-colors";
 import { approvalDecisionIcon, workPackageStatusIcon } from "@/lib/status-icons";
 import { PhaseGallery } from "@/components/features/photos/phase-gallery";
+import { ReportArrangeStrip } from "@/components/features/reports/report-arrange-strip";
 import { LaborLogZone } from "@/components/features/labor/labor-log-zone";
 import { fetchLaborZoneData } from "@/lib/labor/fetch-zone-data";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -160,9 +161,53 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
       );
     starredPhotoIds = (starRows ?? []).map((r) => r.photo_log_id);
   }
+  // Spec 391 D5 — hidden photos. NOT scoped to the catalogue item: the hide
+  // table is keyed by photo alone, because a photo belongs to one WP and
+  // therefore one item, so there is no item column to fall out of step after a
+  // re-map (the star-stranding hazard above has no twin here).
+  let hiddenPhotoIds: string[] = [];
+  if (canStar && allPhotos.length > 0) {
+    const { data: hiddenRows } = await supabase
+      .from("wp_catalog_hidden_reference_photos")
+      .select("photo_log_id")
+      .in(
+        "photo_log_id",
+        allPhotos.map((p) => p.id),
+      );
+    hiddenPhotoIds = (hiddenRows ?? []).map((r) => r.photo_log_id);
+  }
   const starring = canStar
-    ? { projectId: wp.project_id, workPackageId: wp.id, starredPhotoIds }
+    ? { projectId: wp.project_id, workPackageId: wp.id, starredPhotoIds, hiddenPhotoIds }
     : undefined;
+
+  // Spec 394 U2 — the client-report toggle. NO extra role test: this page is
+  // already gated on PM_ROLES (line 74), which is exactly the RPC's gate, so
+  // affordance == action == RPC by construction. Unlike starring there is no
+  // catalogue precondition — an unmapped WP is still reportable.
+  // `position` is quoted in SQL but plain here; PostgREST returns the column.
+  const { data: selectedRows } = await supabase
+    .from("report_selected_photos")
+    .select("photo_log_id, position")
+    .eq("work_package_id", wp.id)
+    .order("position");
+  // ⚠️ Filtered against the CURRENT photos (ADR 0009 anti-join, already applied
+  // by getCurrentPhotosForWorkPackage). A selection row survives its photo being
+  // superseded — §7 leaves it in place deliberately, because the photo may be
+  // replaced by a corrected upload — but the row must not render as a selected
+  // toggle on a photo that is no longer here, nor as an unidentifiable grey
+  // square in the arrange strip that the PD cannot map to anything or remove.
+  const currentPhotoIds = new Set(allPhotos.map((p) => p.id));
+  const selectedPhotoIds = (selectedRows ?? [])
+    .map((r) => r.photo_log_id)
+    .filter((id) => currentPhotoIds.has(id));
+  const reportSelection = { workPackageId: wp.id, selectedPhotoIds };
+  // D6's strip shows only the SELECTED photos, in their arranged order. A photo
+  // whose signed URL failed to mint still arranges — losing the thumbnail must
+  // not drop the row and silently change the order the PD sees.
+  const arrangePhotos = selectedPhotoIds.map((id) => ({
+    photoId: id,
+    url: signedUrls.get(id),
+  }));
 
   // Spec 372 U4b — what `รูปไม่ตรงกับงาน` can point at. Built from the CURRENT photos
   // this page already loaded (getCurrentPhotosForWorkPackage has done the ADR 0009
@@ -384,6 +429,7 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                 signedUrls={signedUrls}
                 uploaderNames={displayNames}
                 starring={starring}
+                reportSelection={reportSelection}
               />
             ))}
             {/* Spec 248 — PRIOR rounds' defect evidence (history context).
@@ -403,6 +449,11 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                   signedUrls={signedUrls}
                   uploaderNames={displayNames}
                   starring={starring}
+                  /* Operator ruling 2026-08-04 — NO reportSelection here. These
+                     are จุดบกพร่อง photos: evidence of BROKEN work, which never
+                     belongs in the client's finished-work report. Withheld at
+                     the affordance, refused again in the action, and excluded
+                     from the PDF resolver (REPORT_SELECTABLE_PHASES). */
                   note={reworkReasons.get(round) ?? null}
                 />
               ))}
@@ -423,10 +474,15 @@ export default async function WorkPackageReviewScreen({ params }: PageProps) {
                     signedUrls={signedUrls}
                     uploaderNames={displayNames}
                     starring={starring}
+                    reportSelection={reportSelection}
                     note={reworkReasons.get(round) ?? null}
                   />
                 ))
               : null}
+            {/* Spec 394 D6 — arranging lives on the page PD is already on, and
+                renders NOTHING when nothing is selected. It sits under the
+                galleries because you pick first and order second. */}
+            <ReportArrangeStrip workPackageId={wp.id} photos={arrangePhotos} />
           </div>
         </section>
 

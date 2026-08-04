@@ -291,7 +291,7 @@ export function SettingsForm(props: SettingsFormProps) {
           className="border-edge-strong bg-card text-ink h-11"
           placeholder="วางลิงก์จากแอป Google Maps (ปุ่มแชร์)"
         />
-        <p className="text-ink-muted text-xs">
+        <p className="text-ink-secondary text-xs">
           เปิดหมุดตำแหน่งหน้างานแบบแม่นยำ — วางลิงก์ที่ได้จากปุ่มแชร์ใน Google Maps
         </p>
       </div>
@@ -307,7 +307,7 @@ export function SettingsForm(props: SettingsFormProps) {
           disabled
           className="border-edge-strong bg-page text-ink-muted h-11"
         />
-        <p className="text-ink-muted text-xs">แก้ไขไม่ได้ (ตั้งครั้งเดียวตอนนำเข้าข้อมูล)</p>
+        <p className="text-ink-secondary text-xs">แก้ไขไม่ได้ (ตั้งครั้งเดียวตอนนำเข้าข้อมูล)</p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -412,10 +412,10 @@ export function SettingsForm(props: SettingsFormProps) {
             })}
           </ul>
         ) : (
-          <p className="text-ink-muted text-xs">ยังไม่มีสมาชิกในทีม</p>
+          <p className="text-ink-secondary text-xs">ยังไม่มีสมาชิกในทีม</p>
         )}
         {members.length <= 1 ? (
-          <p className="text-ink-muted text-xs">
+          <p className="text-ink-secondary text-xs">
             ต้องมีสมาชิกอย่างน้อย 1 คน — เพิ่มสมาชิกก่อนจึงจะนำคนสุดท้ายออกได้
           </p>
         ) : null}
