@@ -11081,3 +11081,64 @@ naming was wrong for all of them. Code-only, no schema, no PD effort.
   inside a row. Only a fixture with **varying row heights** (every 5th title two lines) reproduced
   it — **8 of 18 pages orphaned unguarded, 0 of 19 guarded.** A uniform fixture is structurally
   blind to a phase-dependent layout bug; if the control does not fail, the experiment has not run.
+
+## 2026-08-04 — Spec 394 U1: the client-report selection store (lane rptsel)
+
+**What:** `report_selected_photos` + RLS + `select_report_photo` / `unselect_report_photo` /
+`reorder_report_photos` (all SECURITY DEFINER) + a 43-assertion pgTAP file. Schema only — the
+toggle and the report mode are U2+U3, which ship together because either half alone is an
+affordance promising something unbuilt.
+
+- **Gate-checked live before writing a line**, and two findings changed the design. ①
+  `audit_action` has **no** value for this act, but the house pattern is `action='other'` +
+  `payload->>'event'` (641 + 323 + 28 + 27 live rows), so the unit adds **no enum value** and
+  trips no enum guard — and the `audit_log` read policy already admits every role these RPCs
+  allow. ② `photo_logs_path_supersede_well_formed` is
+  `CHECK ((storage_path IS NULL) = (superseded_by IS NOT NULL))`, so **a tombstone and a supersede
+  pointer are the same row** — there is no path-less photo that supersedes nothing. My first
+  fixture assumed there was and errored the whole file with 23514.
+- **The photo-side cascade is untestable, and the test says so.** `photo_logs_block_write` raises
+  P0001 on DELETE as well as UPDATE, so no photo row can ever be removed outside break-glass.
+  Both FKs are pinned in the catalog instead: the WP one is reachable (a project hard-delete),
+  the photo one is defensive. Better an honest catalog assert than a behavioural test that cannot
+  run.
+- **Every refusal has a positive control in the same transaction**, because a green refusal is
+  otherwise equally consistent with "the RPC refuses everyone". The project-scoped gate has its
+  own control: a **second `project_manager` who is not a member** of the project is refused while
+  the project's own PM succeeds.
+- **Gate 4 was a live round-trip as a real project_manager, rollback-wrapped:** append →
+  `{changed:true,position:1}`, `{position:2}`, re-select → `{changed:false,position:1}`, reversal
+  → `{changed:true,count:2}`, read-back **through RLS** in the new order, unselect → the gap
+  closes to position 1, four audit rows. pgTAP alone would not have proved the policy admits a
+  real member.
+- ⚠️ **`position` is a Postgres col_name_keyword** — legal as a column, but every read must quote
+  it or the parser goes looking for `position(x in y)`.
+- 🚨 **A migration number was taken out from under me, and `db:push` reported success.** I queried
+  the head (`075902`, equal to main's newest file) and took `075903`; lane `grade` applied
+  `075903` to the shared DB while I was building. `db:push` then said **"Remote database is up to
+  date" and applied nothing** — the version row already existed, so a push can silently no-op on
+  a number another lane consumed. Renumbered to `075904`. ⛔ The CLI's suggested
+  `migration repair --status reverted 20260813075903` would rewrite the other lane's history on
+  the shared DB; applied with `db query -f` + `repair --status applied` instead. ⚠️ `origin/main`
+  still carries no `075903` file, so **live is one migration ahead of every branch and `db:types`
+  is unsafe** — deliberately not run; this unit needs no types.
+- **The fresh-eyes pass found a real race and four assertions that could not fail.** ① The
+  idempotency check sat BEFORE the `for update`, so two overlapping taps on the same photo both
+  saw no row and the loser got a raw **23505** — outside the spec's refusal vocabulary, so the UI
+  would call a correct state a retryable failure. The comment promised exactly the protection that
+  was missing; the lock now precedes the check. ② The reorder audit row filed a work-package id
+  under `target_table='report_selected_photos'` — one target_table carrying two entity types, so a
+  reader joining `target_id` to a photo drops every reorder. Now filed under `work_packages`, the
+  shape `map_wp_to_catalog` already uses. ③ Four test gaps, each named by the mutation that would
+  have stayed green: `position`'s per-WP partitioning was never exercised; the cross-WP reorder
+  list was longer than the current set so the count arm refused it and the membership sweep was
+  never reached; the renumber shifted one row into a slot the delete had already vacated, which
+  cannot violate uniqueness even without `deferrable`; and **`project_director` — the spec's
+  primary actor — had no coverage at all**, so narrowing `can_see_project` for PD would have
+  refused every PD selection with the suite green.
+- ⭐ **"Was the committed file ever executed?" is a real question when a migration is hand-applied.**
+  Because the number collision forced `db query -f` + `repair --status applied` instead of
+  `db push`, pgTAP was certifying LIVE objects that no reviewer could prove came from the file in
+  the diff. After the review fixes the objects were dropped (verified empty first) and the exact
+  committed file was re-run end-to-end — so the live schema is what this file produces, not a
+  hand-patched variant.

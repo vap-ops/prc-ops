@@ -391,3 +391,13 @@ unnecessary workload to pd"_ should account for the PD having already started ha
 2. When a report has already been generated and PD then changes the selection, should anything
    flag that the delivered PDF no longer matches the current set? Assumed no — reports are a
    point-in-time artifact.
+
+### Answered
+
+⛔ **The PROJECT header stays code-first — operator ruling 2026-08-04, do not re-raise.** U0
+shipped D8 for the work-package heading and the obvious next question was whether
+`${project.code} — ${project.name}` deserves the same treatment. It does not: D8's harm is that a
+client meets our internal catalogue shorthand before they meet the work, and a **project code is
+contract-shared with the client** — they already use it to refer to the job. Recorded here rather
+than in a session note because a later reader will otherwise "finish the job" D8 deliberately
+stopped short of.
