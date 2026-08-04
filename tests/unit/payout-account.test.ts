@@ -48,6 +48,15 @@ describe("assessPayoutAccounts — the concentration case (live: 014162319729)",
     }
   });
 
+  // ⚠️ `isShared` exists so U2's badge copy never has to restate the number and get
+  // the off-by-one wrong ("แชร์กับ 3 คน" for a group of 3 would be one too many).
+  it("exposes isShared so the badge need not re-derive it from the count", () => {
+    const r = byId(assessPayoutAccounts(ROWS, NO_NOMINEES));
+    for (const id of ["w1", "w2", "w3"]) {
+      expect(r.get(id)?.isShared, id).toBe(true);
+    }
+  });
+
   it("classifies all three as unrecorded", () => {
     const r = byId(assessPayoutAccounts(ROWS, NO_NOMINEES));
     for (const id of ["w1", "w2", "w3"]) {
@@ -86,21 +95,27 @@ describe("assessPayoutAccounts — whitespace variance is the same person", () =
 });
 
 describe("assessPayoutAccounts — a lone account", () => {
+  // ⚠️ A SYNTHETIC account number on purpose. The live roster's 1130967980 carries TWO
+  // workers, so using it here would assert `own` for a person the live detector calls
+  // `unrecorded` — a fixture that quietly contradicts production.
   it("is own when the name matches and nothing else uses it", () => {
-    const rows = [worker("s", "นางสาวปาณิศา บุญเรือง", "1130967980", "ปาณิศา บุญเรือง")];
+    const rows = [worker("s", "นางสาวปาณิศา บุญเรือง", "9000000001", "ปาณิศา บุญเรือง")];
     const a = assessPayoutAccounts(rows, NO_NOMINEES)[0];
     expect(a?.state).toBe("own");
     expect(a?.accountWorkerCount).toBe(1);
+    expect(a?.isShared).toBe(false);
     expect(a?.nameMatches).toBe(true);
   });
 
-  // Live: 044162319729 — one worker, name does not match, account NOT shared.
+  // Shape of the live 044162319729 row: one worker, name mismatch, account NOT shared.
+  // (The worker name here is synthetic; only the shape is taken from production.)
   // This is the whole reason name mismatch stays a signal even when nothing is shared.
   it("is unrecorded on a name mismatch alone", () => {
     const rows = [worker("n", "นายสมชาย ใจดี", "044162319729", "ด.ช.อนันตชัย ทีฆายุทธสกุล")];
     const a = assessPayoutAccounts(rows, NO_NOMINEES)[0];
     expect(a?.state).toBe("unrecorded");
     expect(a?.accountWorkerCount).toBe(1);
+    expect(a?.isShared).toBe(false);
     expect(a?.nameMatches).toBe(false);
   });
 

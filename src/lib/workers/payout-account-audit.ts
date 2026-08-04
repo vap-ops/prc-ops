@@ -45,6 +45,13 @@ export async function loadPayoutAccountAudit(
     throw new Error(`payout account audit read failed: ${error.message}`);
   }
 
+  // ⚠️ OWED, and deliberately not fixed from here: `listActivePayoutNominees` discards
+  // its own `error` and returns [] (spec 320's module, two shipped pages depend on that
+  // shape). A REJECTED call propagates through the Promise.all above and is pinned by
+  // test; a returned PostgREST error would instead read as "no nominees", marking every
+  // consented worker `unrecorded`. Harmless while the table has 0 rows — becomes wrong
+  // the day U3 writes the first one, so fix it there rather than widening this unit.
+
   const workers = (data ?? []).map((r) => ({
     workerId: r.id,
     name: r.name,
@@ -52,5 +59,18 @@ export async function loadPayoutAccountAudit(
     accountName: r.bank_account_name,
   }));
 
-  return assessPayoutAccounts(workers, new Set(nominees.map((n) => n.workerId)));
+  // ⚠️ A nominee record consents to ONE account, and payroll pays whatever currently
+  // sits in `workers.bank_account_number`. So EXISTENCE of a nominee row is not the
+  // question — coverage of the account on file is. A nominee recorded for account X
+  // while the worker row has since moved to a different third-party account Y
+  // describes an arrangement nobody is being paid under, and counting it would
+  // silence this flag permanently: the exact failure the detector exists to prevent.
+  const accountByWorker = new Map(workers.map((w) => [w.workerId, (w.accountNumber ?? "").trim()]));
+  const covered = new Set(
+    nominees
+      .filter((n) => (n.accountNumber ?? "").trim() === accountByWorker.get(n.workerId))
+      .map((n) => n.workerId),
+  );
+
+  return assessPayoutAccounts(workers, covered);
 }

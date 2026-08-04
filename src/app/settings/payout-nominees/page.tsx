@@ -10,6 +10,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { ClearNomineeButton } from "@/components/features/payroll/clear-nominee-button";
 import { requireRole } from "@/lib/auth/require-role";
+import { PAYOUT_NOMINEE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { PAYOUT_NOMINEE_ADD, PAYOUT_NOMINEE_EMPTY, PAYOUT_NOMINEE_TITLE } from "@/lib/i18n/labels";
 import {
@@ -29,12 +30,9 @@ function maskAccount(acct: string): string {
 export default async function PayoutNomineesPage() {
   // Spec 320 U3 — widened from PM-only to the procurement + leadership set (the
   // set_/clear_/get_/list DEFINER RPCs re-gate to the same roles; SSOT there).
-  const ctx = await requireRole([
-    "procurement_manager",
-    "project_director",
-    "super_admin",
-    "procurement",
-  ]);
+  // Spec 395 §6: that list used to be restated inline here AND on the edit page —
+  // two copies free to drift from each other and from the RPCs. One constant now.
+  const ctx = await requireRole(PAYOUT_NOMINEE_ROLES);
   const supabase = await createClient();
   const nominees = await listActivePayoutNominees(supabase);
   const refs = await fetchNomineeWorkerRefs(nominees.map((n) => n.workerId));

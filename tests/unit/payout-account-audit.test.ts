@@ -55,11 +55,13 @@ const LIVE_ROWS = [
     bank_account_number: "014162319729",
     bank_account_name: "ด.ช.อนันตชัย ทีฆายุทธสกุล",
   },
-  // A clean own-account row.
+  // A clean own-account row. ⚠️ SYNTHETIC account number: the live 1130967980 carries
+  // TWO workers, so reusing it here would assert `own` for someone the live detector
+  // calls `unrecorded`.
   {
     id: "w4",
     name: "นางสาวปาณิศา บุญเรือง",
-    bank_account_number: "1130967980",
+    bank_account_number: "9000000001",
     bank_account_name: "ปาณิศา บุญเรือง",
   },
 ];
@@ -81,7 +83,9 @@ describe("loadPayoutAccountAudit", () => {
     expect(selectFn).toHaveBeenCalledWith("id, name, bank_account_number, bank_account_name");
     // ⚠️ The active filter is the one that keeps spec 396's deactivated mis-edit row
     // out of the shared-account count. Without it, account 020203221364 reads as
-    // shared forever and permanently flags a record that is already correct.
+    // shared forever off the back of an UNREPAIRED artefact — that row still carries
+    // the original employee's phone and employee id, and restoring it needs her own
+    // answers, so spec 396 owns the repair and U1 simply scopes past it.
     expect(eqFn).toHaveBeenCalledWith("active", true);
   });
 
@@ -101,7 +105,7 @@ describe("loadPayoutAccountAudit", () => {
   it("takes the nominee ids from the DEFINER RPC, not from the admin read", async () => {
     const { client } = adminReturning({ data: LIVE_ROWS, error: null });
     mockCreateClient.mockReturnValue(client);
-    mockListActiveNominees.mockResolvedValue([{ workerId: "w1" }]);
+    mockListActiveNominees.mockResolvedValue([{ workerId: "w1", accountNumber: "014162319729" }]);
 
     const out = await loadPayoutAccountAudit(SERVER);
     const byId = new Map(out.map((a) => [a.workerId, a]));
@@ -110,6 +114,31 @@ describe("loadPayoutAccountAudit", () => {
     expect(byId.get("w1")?.state).toBe("nominee");
     // its neighbours on the same account are untouched
     expect(byId.get("w2")?.state).toBe("unrecorded");
+  });
+
+  // ⚠️ A nominee record consents to ONE account. Payroll pays whatever sits in
+  // `workers.bank_account_number` — so a nominee recorded for account X while the
+  // worker row has since moved to a different third-party account Y describes an
+  // arrangement that is no longer the one being paid. Treating mere EXISTENCE as
+  // consent would silence the flag permanently, which is the failure this whole
+  // detector exists to prevent.
+  it("does not count a nominee recorded for a DIFFERENT account than the one on file", async () => {
+    const { client } = adminReturning({ data: LIVE_ROWS, error: null });
+    mockCreateClient.mockReturnValue(client);
+    mockListActiveNominees.mockResolvedValue([{ workerId: "w1", accountNumber: "999999999999" }]);
+
+    const out = await loadPayoutAccountAudit(SERVER);
+    expect(new Map(out.map((a) => [a.workerId, a])).get("w1")?.state).toBe("unrecorded");
+  });
+
+  // Same failure class as the admin read: a silent [] would report every consented
+  // worker as unrecorded, and nothing would say why.
+  it("throws when the nominee RPC fails rather than treating it as 'no nominees'", async () => {
+    const { client } = adminReturning({ data: LIVE_ROWS, error: null });
+    mockCreateClient.mockReturnValue(client);
+    mockListActiveNominees.mockRejectedValue(new Error("rpc denied"));
+
+    await expect(loadPayoutAccountAudit(SERVER)).rejects.toThrow(/rpc denied/i);
   });
 
   // The detector's whole job is to make a gap countable. A read error that silently
