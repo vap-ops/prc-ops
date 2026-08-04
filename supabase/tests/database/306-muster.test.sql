@@ -1,5 +1,5 @@
 begin;
-select plan(68);
+select plan(69);
 
 -- ============================================================================
 -- Spec 306 U2 — morning-talk scan muster: schema + DEFINER RPCs.
@@ -457,11 +457,47 @@ select ok(
 
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0306-0306-0306-700000000306"}';
-select lives_ok(
+-- Spec 306 §5 (2026-08-03) — INVERTED, deliberately. This assertion was born in
+-- the RPC's own creation commit (#484) and read `lives_ok(… 'last scan wins')`,
+-- which described what the function happened to do rather than a decision taken
+-- against a competing option: no spec text argued for it, and every later author
+-- treated it as a hazard — three client sites (muster-cockpit's partial-cure
+-- re-tap, sweep.ts twice, actions.ts) hand-code a workaround whose comments name
+-- the missing guard.
+--
+-- "Last scan wins" and "a stray second scan destroys a good record" are the SAME
+-- operation; you cannot keep one without the other. What tipped it: the damage
+-- is SILENT and it is now shown to the person it is about — spec 388 U2 puts a
+-- worker's own out time and OT hours on their own screen. An `ot` re-scan
+-- re-prices from now() − in_at (53 closed OT sessions live), and a re-scan
+-- launders `out_auto` so an auto-closed day claims a departure nobody recorded
+-- (7 rows). ⚠️ NOT a money bug today — derive_muster_labor does not read
+-- ot_hours and there is no ×1.5 (deferred to 306 U5b); it becomes one when U5b
+-- starts pricing values this guard is what keeps honest.
+--
+-- ⚠️ THE COST, stated in full because half of it has no escape hatch:
+--   • OPEN day  — correcting a premature check-out means `muster_undo_scan` +
+--     re-scan in + re-scan out. Audited, heavier, and it loses the original
+--     in_at.
+--   • CLOSED day — there is now NO path at all. `muster_undo_scan` refuses on a
+--     closed day (075880), and this guard closes the other door. Note what was
+--     actually lost, though: re-scanning could only ever stamp now(), never an
+--     arbitrary correct time, so the capability was "re-stamp the departure to
+--     the current moment", not "fix a wrong one".
+-- A targeted set-out-time RPC (audited, closure-aware) is the follow-up this
+-- trade-off earns.
+select throws_ok(
   $$ select public.muster_scan_out((select id from _ids where k = 'team2'),
        'e3000000-0306-0306-0306-e30000000306', 'manual') $$,
-  're-scanning out is allowed (last scan wins)');
+  'P0001',
+  null,
+  're-scanning out is REFUSED — a stray second tap must not overwrite a real departure');
 reset role;
+-- The refusal must not have cost worker 3 the out it legitimately recorded above.
+select ok(
+  (select out_at is not null and out_method = 'qr' and out_auto = false
+     from public.muster_attendance where id = (select id from _ids where k = 'att3')),
+  'and worker 3 keeps the qr scan-out it already had');
 
 -- ============================================================================
 -- I. close_muster_day — auto-out + closure + idempotent re-close.

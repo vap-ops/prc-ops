@@ -20,7 +20,14 @@ type MusterSession = Database["public"]["Enums"]["muster_session"];
 
 const GENERIC = "เช็คชื่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
-export type MusterResult = { ok: true; id: string } | { ok: false; error: string };
+export type MusterResult =
+  | { ok: true; id: string }
+  // Spec 306 §5 — `reason` lets a caller tell a BENIGN refusal from a real one
+  // without substring-matching Thai copy in a component. `already_out` means the
+  // session was closed before this call: the write did not happen, but the state
+  // the caller wanted is the state that exists, so a red chip and an error sound
+  // would misdescribe it. Everything else stays an ordinary failure.
+  | { ok: false; error: string; reason?: "already_out" };
 export type MusterVoidResult = { ok: true } | { ok: false; error: string };
 
 function scanErrorToThai(message: string): string {
@@ -35,6 +42,23 @@ function scanErrorToThai(message: string): string {
   }
   if (message.includes("mustered elsewhere") || message.includes("concurrent")) {
     return "ช่างคนนี้อยู่ในทีมอื่นแล้ววันนี้";
+  }
+  // Spec 306 §5 — muster_scan_out now REFUSES an already-out worker instead of
+  // overwriting their real departure (and, for an ot session, re-pricing it).
+  //
+  // ⚠️ This arm must stay ABOVE the `no attendance` one below. That arm answers
+  // ยังไม่ได้เช็คชื่อ — "this worker never checked IN" — which is the opposite claim,
+  // and the RPC's message for this refusal is
+  // `muster_scan_out: already checked out at HH:MM`. The two do not overlap
+  // today, but the mapper is ordered substring matching and a reword could make
+  // them, so the position is deliberate. The wording is pinned in pgTAP.
+  //
+  // The time comes back in the message because "nothing happened" is not an
+  // answer: the SA needs to know the worker already went out, and when, to tell
+  // a duplicate tap apart from a genuinely wrong record.
+  if (message.includes("already checked out")) {
+    const at = message.split("already checked out at")[1]?.trim();
+    return at ? `ช่างคนนี้ออกงานแล้วเมื่อ ${at} น.` : "ช่างคนนี้ออกงานแล้ว";
   }
   // Spec 351 — an OT scan-in without the worker's regular session on this team.
   if (message.includes("no regular session")) return "ต้องเช็คชื่อเข้างานปกติในทีมนี้ก่อนทำ OT";
@@ -162,7 +186,16 @@ export async function musterScan(input: {
       p_session: input.session,
     },
   );
-  if (error) return { ok: false, error: scanErrorToThai(error.message) };
+  if (error) {
+    // Spec 306 §5 — flag the benign refusal at the seam that still has the RAW
+    // SQLSTATE message, so no caller has to match Thai copy to recognise it.
+    const alreadyOut = error.message.includes("already checked out");
+    return {
+      ok: false,
+      error: scanErrorToThai(error.message),
+      ...(alreadyOut ? { reason: "already_out" as const } : {}),
+    };
+  }
   revalidatePath(input.revalidate);
   return { ok: true, id: data as string };
 }
@@ -207,11 +240,26 @@ export async function closeOpenOt(input: {
       p_method: "manual" satisfies MusterMethod,
       p_session: "ot" satisfies MusterSession,
     });
-    if (error) {
+    // Spec 306 §5 — an ALREADY-CLOSED session is not a failure of this cure.
+    //
+    // The cure's postcondition is "no OT is left open", and a session someone
+    // else (or this SA's own earlier partial run) already closed satisfies it.
+    // The session list comes from the CLIENT's board, which refreshes only on
+    // sheet close, so a stale `true` here is the NORMAL state after a partial
+    // cure — and before muster_scan_out learned to refuse, this call silently
+    // succeeded. Treating the refusal as an error would make the retry after a
+    // partial cure fail on the sessions that already worked, and ปิดวัน is the
+    // one action the 07-24 incident exists to protect: closing is recoverable,
+    // NOT closing is not.
+    //
+    // It is NOT counted as `closed` — that number reports what this call did,
+    // and a caller comparing it against the list it sent must be able to see
+    // the difference.
+    if (error && !error.message.includes("already checked out")) {
       revalidatePath(input.revalidate);
       return { ok: false, error: scanErrorToThai(error.message) };
     }
-    closed += 1;
+    if (!error) closed += 1;
   }
   revalidatePath(input.revalidate);
   return { ok: true, closed };

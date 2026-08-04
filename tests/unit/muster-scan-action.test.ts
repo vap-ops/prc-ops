@@ -140,12 +140,10 @@ describe("closeOpenOt — the close-day cure", () => {
   });
 
   it("reports failure when ANY single OT refuses — a partial cure must not read as done", async () => {
-    rpc
-      .mockResolvedValueOnce({ data: "ok", error: null })
-      .mockResolvedValueOnce({
-        data: null,
-        error: { message: "muster_scan_out: role not permitted" },
-      });
+    rpc.mockResolvedValueOnce({ data: "ok", error: null }).mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: role not permitted" },
+    });
     const r = await closeOpenOt({
       sessions: [
         { teamId: T1, workerId: W_1 },
@@ -172,5 +170,158 @@ describe("closeOpenOt — the close-day cure", () => {
     });
     expect(r.ok).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+// Writing failing test first.
+//
+// Spec 306 §5 — muster_scan_out refuses an already-out worker instead of
+// overwriting their real departure. The refusal must reach the SA as its own
+// sentence: "nothing happened" is indistinguishable from a dead button, and the
+// GENERIC fallback ("กรุณาลองใหม่อีกครั้ง") would be an honest-copy violation —
+// it invites a retry that can never succeed.
+//
+// The mapping is exercised through the REAL action with only the DB mocked, so
+// this pins the copy where it actually lives (a test that mocked the action
+// itself would pin nothing).
+describe("musterScan — the already-out refusal (spec 306 §5)", () => {
+  const args = {
+    teamId: TEAM,
+    workerId: WORKER,
+    mode: "out",
+    method: "qr",
+    session: "regular",
+    revalidate: "/projects/x/muster",
+  } as const;
+
+  it("carries the departure time the RPC reported", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: already checked out at 17:02" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r).toEqual({
+      ok: false,
+      error: "ช่างคนนี้ออกงานแล้วเมื่อ 17:02 น.",
+      reason: "already_out",
+    });
+  });
+
+  it("still answers honestly if the message ever loses its time", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: already checked out at" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r).toEqual({ ok: false, error: "ช่างคนนี้ออกงานแล้ว", reason: "already_out" });
+  });
+
+  it("never degrades to the generic retry copy", async () => {
+    // The specific failure this guards: a reworded RPC message falling through
+    // to GENERIC, which tells the SA to try again at the one thing that is now
+    // permanently refused.
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: already checked out at 08:15" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).not.toContain("ลองใหม่");
+  });
+
+  // CONTRASTING CONTROL — the arm sits above `no attendance`, which answers the
+  // OPPOSITE claim (never checked in). Ordered substring matching means a new
+  // arm can silently swallow a later one; this proves it did not.
+  it("does not swallow the never-checked-in refusal below it", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: no attendance for this worker on the team's date" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r).toEqual({ ok: false, error: "ยังไม่ได้เช็คชื่อเข้าของช่างคนนี้" });
+  });
+});
+
+// Writing failing test first.
+//
+// Spec 306 §5 — the two BENIGN-REFUSAL consequences of the new server guard.
+// Both are regressions the guard itself introduced: a call that used to succeed
+// silently now returns an error, and two callers were reading every error as a
+// failure.
+const T_A = "aaaaaaaa-0000-0000-0000-0000000000a1";
+const T_B = "aaaaaaaa-0000-0000-0000-0000000000b1";
+const W_A = "bbbbbbbb-0000-0000-0000-0000000000a1";
+const W_B = "bbbbbbbb-0000-0000-0000-0000000000b1";
+
+describe("the already-out refusal is routed as benign, not as a failure", () => {
+  const args = {
+    teamId: TEAM,
+    workerId: WORKER,
+    mode: "out",
+    method: "qr",
+    session: "regular",
+    revalidate: "/projects/x/muster",
+  } as const;
+
+  it("musterScan flags it with reason:'already_out' at the raw-message seam", async () => {
+    // The flag is set where the SQLSTATE message still exists, so no component
+    // has to match Thai copy to recognise it.
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: already checked out at 17:02" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("already_out");
+  });
+
+  it("and does NOT flag an ordinary refusal", async () => {
+    // Contrasting control: without this, `reason` could be set unconditionally
+    // and every failure would render as benign — the inverse bug, and a worse
+    // one, since a real refusal would then be silent.
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: role not permitted" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBeUndefined();
+  });
+
+  it("closeOpenOt counts an already-closed session as cured, not as a failure", async () => {
+    // The cure's postcondition is "no OT is left open", and a session someone
+    // else already closed satisfies it. Before the guard this call succeeded
+    // silently; treating the refusal as an error would make the retry after a
+    // PARTIAL cure fail on the sessions that already worked — and ปิดวัน is the
+    // action the 07-24 incident exists to protect.
+    rpc.mockResolvedValueOnce({ data: "ok", error: null }).mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: already checked out at 19:40" },
+    });
+    const r = await closeOpenOt({
+      sessions: [
+        { teamId: T_A, workerId: W_A },
+        { teamId: T_B, workerId: W_B },
+      ],
+      revalidate: "/projects/x/muster",
+    });
+    // ok — but `closed` reports what THIS call actually did, so a caller
+    // comparing it against the list it sent can still see the difference.
+    expect(r).toEqual({ ok: true, closed: 1 });
+  });
+
+  it("but a genuine refusal mid-cure still fails the whole cure", async () => {
+    rpc.mockResolvedValueOnce({ data: "ok", error: null }).mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: role not permitted" },
+    });
+    const r = await closeOpenOt({
+      sessions: [
+        { teamId: T_A, workerId: W_A },
+        { teamId: T_B, workerId: W_B },
+      ],
+      revalidate: "/projects/x/muster",
+    });
+    expect(r.ok).toBe(false);
   });
 });
