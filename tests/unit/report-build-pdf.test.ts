@@ -67,6 +67,25 @@ describe("workPackageHeadingLines (spec 394 D8)", () => {
     expect(src).not.toContain("${wp.code} — ${wp.name}");
   });
 
+  // Spec 394 D7 — the cover note. Source-pinned rather than asserted on the
+  // PDF bytes for the same reason as the heading: PDFKit subsets Sarabun, so
+  // the text exists only as glyph ids.
+  it("prints the cover note once, after the header and BEFORE the first section", () => {
+    const src = readFileSync(new URL("../../src/lib/reports/build-pdf.ts", import.meta.url), "utf8")
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("//") && !line.trimStart().startsWith("*"))
+      .join("\n");
+    expect(src.split("coverNote").length - 1).toBeGreaterThanOrEqual(2);
+    // Order is the claim: the note must sit between the generated-date line
+    // and the per-WP loop, or it lands inside or after the first section.
+    const generated = src.indexOf("formatGeneratedDate(input.project.generatedAt)");
+    const note = src.indexOf("input.coverNote");
+    const loop = src.indexOf("for (const wp of input.workPackages)");
+    expect(generated).toBeGreaterThan(-1);
+    expect(note).toBeGreaterThan(generated);
+    expect(note).toBeLessThan(loop);
+  });
+
   it("keeps a text-listing row together, so a page never opens on an orphan code", () => {
     const src = readFileSync(new URL("../../src/lib/reports/build-pdf.ts", import.meta.url), "utf8")
       .split("\n")
@@ -103,6 +122,25 @@ describe("buildReportPdf (in-app port, spec 39; photo groups since spec 61)", ()
       workPackages: [],
     });
     expect(pdf.subarray(0, 4).toString("latin1")).toBe("%PDF");
+  });
+
+  it("spec 394 D7: a cover note renders, and a blank one changes nothing", async () => {
+    const base = {
+      project: { code: "PRC-TEST-004", name: "มีคำนำ", generatedAt: new Date(0) },
+      workPackages: [
+        { code: "WP-1", name: "งานเทพื้น", photoGroups: [{ label: null, photos: [TINY_PNG] }] },
+      ],
+    };
+    const withNote = await buildReportPdf({ ...base, coverNote: "เรียน ลูกค้า" });
+    const without = await buildReportPdf(base);
+    const blank = await buildReportPdf({ ...base, coverNote: "   " });
+
+    expect(withNote.subarray(0, 4).toString("latin1")).toBe("%PDF");
+    // A note adds content; a blank one must add none — "no placeholder, no
+    // empty heading" is the decided behaviour, and equal length is the only
+    // observable proof available when the glyphs are subset.
+    expect(withNote.length).toBeGreaterThan(without.length);
+    expect(blank.length).toBe(without.length);
   });
 
   it("spec 61: text listing keeps photo-less WPs; labelled groups render", async () => {
