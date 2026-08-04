@@ -29,6 +29,8 @@ import {
   updateWorker,
   type WorkerActionResult,
 } from "@/app/workers/actions";
+import { ADD_WORKER_NETWORK_ERROR, duplicateTaxIdOwnerError } from "@/app/workers/error-copy";
+import { trackFriction } from "@/lib/telemetry/friction";
 import type { Database } from "@/lib/db/database.types";
 import { WORKER_LEVEL_LABEL, WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
 import { CategoryChip } from "@/components/features/work-packages/category-chip";
@@ -143,9 +145,18 @@ export type AssignableProject = {
 
 function AddWorkerForm({
   projects,
+  roster,
+  onShowExisting,
   onDone,
 }: {
   projects: AssignableProject[];
+  // Field incident 2026-08-04: `workers.tax_id` is UNIQUE, so re-adding a ช่าง who is
+  // already on the roster is refused by the DB (23505) — and the roster this form
+  // sits above already carries every tax_id, so the collision is knowable here,
+  // before the round trip, with the colliding person NAMED.
+  roster: ReadonlyArray<{ id: string; name: string; tax_id: string | null }>;
+  // Point at the row instead of describing it: filter the roster down to that ช่าง.
+  onShowExisting: (name: string) => void;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -166,6 +177,9 @@ function AddWorkerForm({
   const [bankAccountName, setBankAccountName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The ช่าง the typed เลขบัตร already belongs to — held separately from `error`
+  // because it earns an affordance (ดูช่างคนเดิม), not just a sentence.
+  const [duplicate, setDuplicate] = useState<{ name: string } | null>(null);
 
   // Daily ช่าง are paid in-app (day_rate × days) and carry a payee; monthly ช่าง
   // are paid off-app, so the rate + bank/tax fields only apply when รายวัน.
@@ -185,33 +199,65 @@ function AddWorkerForm({
     // Monthly ช่าง have no in-app rate → 0; daily parses (invalid → -1, which the
     // action rejects with the generic error).
     const dayRate = isDaily ? (Number.isFinite(parsedRate) ? parsedRate : -1) : 0;
-    setBusy(true);
     setError(null);
-    const result = await createWorker({
-      name,
-      // Seam: การจ่าย maps to createWorker's monthly/daily vocabulary (→ pay_type at
-      // the RPC boundary); สถานะ passes straight through as employment_type.
-      workerType: isDaily ? "dc" : "own",
-      employmentType,
-      dayRate,
-      note,
-      ...(gender !== "" ? { gender } : {}),
-      ...(project ? { projectId: project } : {}),
-      ...(isDaily ? { phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
-    });
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setDuplicate(null);
+
+    // Pre-check the one refusal the DB will make permanently. Only daily ช่าง send a
+    // tax id at all (the payee block is gated on รายวัน), and the roster row's value
+    // is stored btrim'd by the RPC — so a trimmed exact compare is the same key the
+    // unique index uses.
+    const typedTaxId = taxId.trim();
+    if (isDaily && typedTaxId !== "") {
+      const owner = roster.find((w) => (w.tax_id ?? "").trim() === typedTaxId);
+      if (owner) {
+        setDuplicate({ name: owner.name });
+        setError(duplicateTaxIdOwnerError(owner.name));
+        // This refusal was invisible in the field — no server log, no telemetry, and
+        // a generic message the user read as "the app is broken".
+        trackFriction("validation_error", { where: "workers_add", reason: "duplicate_tax_id" });
+        return;
+      }
     }
-    setName("");
-    setRate("");
-    setNote("");
-    setProject("");
-    setGender("");
-    resetPayee();
-    onDone();
-    router.refresh();
+
+    setBusy(true);
+    try {
+      const result = await createWorker({
+        name,
+        // Seam: การจ่าย maps to createWorker's monthly/daily vocabulary (→ pay_type at
+        // the RPC boundary); สถานะ passes straight through as employment_type.
+        workerType: isDaily ? "dc" : "own",
+        employmentType,
+        dayRate,
+        note,
+        ...(gender !== "" ? { gender } : {}),
+        ...(project ? { projectId: project } : {}),
+        ...(isDaily ? { phone, taxId, bankName, bankAccountNumber, bankAccountName } : {}),
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setName("");
+      setRate("");
+      setNote("");
+      setProject("");
+      setGender("");
+      resetPayee();
+      onDone();
+      router.refresh();
+    } catch (err) {
+      // The button is invoked as `void submit()`, so a transport throw used to skip
+      // setBusy(false) entirely and leave it disabled at กำลังบันทึก… with no message
+      // — literally "I cannot press it" (the 2026-07-27 SA incident, same shape).
+      // Re-report what the unhandled rejection used to give telemetry for free.
+      trackFriction("js_error", {
+        where: "workers_add",
+        message: err instanceof Error ? err.message : String(err),
+      });
+      setError(ADD_WORKER_NETWORK_ERROR);
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Spec 313 U2b (D4): this form lives on /workers, whose heading U2 renamed to
@@ -304,7 +350,16 @@ function AddWorkerForm({
             เลขผู้เสียภาษี
             <input
               value={taxId}
-              onChange={(e) => setTaxId(e.target.value)}
+              onChange={(e) => {
+                setTaxId(e.target.value);
+                // Retire the refusal WITH the number that caused it — otherwise the
+                // sentence and its ดูช่างคนเดิม button keep naming a ช่าง who has
+                // nothing to do with what is now in the field.
+                if (duplicate) {
+                  setDuplicate(null);
+                  setError(null);
+                }
+              }}
               maxLength={50}
               className={FIELD_STACKED}
             />
@@ -359,7 +414,22 @@ function AddWorkerForm({
           ))}
         </select>
       </label>
-      {error ? <p className="text-danger mt-2 text-sm">{error}</p> : null}
+      {error ? (
+        <p className="text-danger mt-2 text-sm" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {/* A permanent refusal must leave the user somewhere to GO: the ช่าง already
+          exists, so hand over the row rather than a description of it. */}
+      {duplicate ? (
+        <button
+          type="button"
+          onClick={() => onShowExisting(duplicate.name)}
+          className={`mt-2 w-full ${BUTTON_SECONDARY_COMPACT}`}
+        >
+          ดูช่างคนเดิม
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={busy || name.trim().length === 0 || (isDaily && rate.trim().length === 0)}
@@ -1186,9 +1256,23 @@ export function WorkerRosterManager({
     </div>
   );
 
+  // Field incident 2026-08-04: on a duplicate-เลขบัตร refusal the form hands back the
+  // colliding ช่าง's name; searching for it is what actually puts their row on screen.
+  // A live search overrides the การจ่าย chip (see `sections` above), so a stuck filter
+  // cannot swallow the row we just promised.
+  function showExistingWorker(name: string) {
+    setQuery(name);
+    setAdding(false);
+  }
+
   const addSheet = (
     <BottomSheet open={adding} title="เพิ่มช่างใหม่" onClose={() => setAdding(false)}>
-      <AddWorkerForm projects={projects} onDone={() => setAdding(false)} />
+      <AddWorkerForm
+        projects={projects}
+        roster={workers}
+        onShowExisting={showExistingWorker}
+        onDone={() => setAdding(false)}
+      />
     </BottomSheet>
   );
 

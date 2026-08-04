@@ -19,6 +19,8 @@ import {
   SESSION_LOST_ERROR,
   INVALID_NAME_ERROR,
   INVALID_RATE_ERROR,
+  DUPLICATE_TAX_ID_ERROR,
+  DUPLICATE_GENERIC_ERROR,
 } from "@/app/workers/error-copy";
 
 const WORKER_ID = "11111111-1111-4111-8111-111111111111";
@@ -86,6 +88,55 @@ describe("createWorker — honest error copy", () => {
     expect(await updateWorker({ id: WORKER_ID, note: "x" })).toEqual({
       ok: false,
       error: SESSION_LOST_ERROR,
+    });
+  });
+
+  // Field incident 2026-08-04 (/workers, 14:35 BKK): a procurement user re-added a
+  // ช่าง who was already on the roster and got the generic retry. The refusal came
+  // from `workers_tax_id_unique` (23505, proved live) — a PERMANENT refusal that
+  // "ลองใหม่อีกครั้ง" invites her to repeat forever, and which named neither the
+  // cause nor the person she had collided with.
+  it("maps a duplicate เลขบัตรประชาชน (23505 on workers_tax_id_unique) to a permanent refusal", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "workers_tax_id_unique"',
+        details: "Key (tax_id)=(1160400054920) already exists.",
+      },
+    });
+    const r = await createWorker({ ...BASE, taxId: "1160400054920" });
+    expect(r).toEqual({ ok: false, error: DUPLICATE_TAX_ID_ERROR });
+    // Honest copy: retrying can never succeed, so it must not ask for a retry.
+    expect(DUPLICATE_TAX_ID_ERROR).not.toContain("ลองใหม่");
+    expect(DUPLICATE_TAX_ID_ERROR).not.toBe(GENERIC_ERROR);
+  });
+
+  it("maps any other unique violation to duplicate copy — never the retry", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "workers_employee_id_unique"',
+      },
+    });
+    const r = await createWorker(BASE);
+    expect(r).toEqual({ ok: false, error: DUPLICATE_GENERIC_ERROR });
+    expect(DUPLICATE_GENERIC_ERROR).not.toContain("ลองใหม่");
+  });
+
+  // The edit sheet writes tax_id too (DC edit matrix), so it can collide the same way.
+  it("maps the duplicate เลขบัตรประชาชน in updateWorker as well", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "workers_tax_id_unique"',
+      },
+    });
+    expect(await updateWorker({ id: WORKER_ID, taxId: "1160400054920" })).toEqual({
+      ok: false,
+      error: DUPLICATE_TAX_ID_ERROR,
     });
   });
 
