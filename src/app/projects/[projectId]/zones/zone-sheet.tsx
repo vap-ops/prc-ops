@@ -8,7 +8,7 @@
 // Mirrors AddCategorySheet (spec 207 U3).
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import { BottomSheet } from "@/components/features/common/bottom-sheet";
 import { BUTTON_PRIMARY, INLINE_ERROR } from "@/lib/ui/classes";
@@ -29,10 +29,17 @@ export interface ZoneSheetProps {
   /** Present = rename an existing zone; absent = add a new one. */
   zone?: { id: string; code: string; name: string };
   trigger: React.ReactNode;
+  /** The trigger's own classes — the row-level แก้ไข is a text link, not a
+      primary button, so it doesn't compete with เพิ่มโซน on the same screen. */
+  triggerClassName?: string;
 }
 
-export function ZoneSheet({ projectId, mapId, zone, trigger }: ZoneSheetProps) {
+export function ZoneSheet({ projectId, mapId, zone, trigger, triggerClassName }: ZoneSheetProps) {
   const router = useRouter();
+  // Self-review catch: every row renders its OWN sheet, so hardcoded input ids
+  // repeated across rows — and a <label htmlFor> then focuses the FIRST row's
+  // input whichever row you opened. useId scopes them per instance.
+  const fieldId = useId();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState(zone?.code ?? "");
   const [name, setName] = useState(zone?.name ?? "");
@@ -73,18 +80,22 @@ export function ZoneSheet({ projectId, mapId, zone, trigger }: ZoneSheetProps) {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={BUTTON_PRIMARY}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={triggerClassName ?? BUTTON_PRIMARY}
+      >
         {trigger}
       </button>
 
       <BottomSheet open={open} title={title} onClose={() => setOpen(false)}>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="zone-code" className={LABEL}>
+            <label htmlFor={`${fieldId}-code`} className={LABEL}>
               รหัสโซน
             </label>
             <Input
-              id="zone-code"
+              id={`${fieldId}-code`}
               value={code}
               maxLength={ZONE_CODE_MAX}
               onChange={(e) => setCode(e.target.value)}
@@ -95,11 +106,11 @@ export function ZoneSheet({ projectId, mapId, zone, trigger }: ZoneSheetProps) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="zone-name" className={LABEL}>
+            <label htmlFor={`${fieldId}-name`} className={LABEL}>
               ชื่อโซน
             </label>
             <Input
-              id="zone-name"
+              id={`${fieldId}-name`}
               value={name}
               maxLength={ZONE_NAME_MAX}
               onChange={(e) => setName(e.target.value)}

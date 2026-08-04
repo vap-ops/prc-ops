@@ -144,6 +144,7 @@ export default async function ZonesPage({ params, searchParams }: PageProps) {
                       mapId={map.id}
                       zone={{ id: row.id, code: row.code, name: row.name }}
                       trigger="แก้ไข"
+                      triggerClassName="text-ink-secondary focus-visible:ring-action text-meta shrink-0 rounded px-2 py-1 font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
                     />
                     <DeleteZoneButton
                       projectId={project.id}
