@@ -195,23 +195,46 @@ field-role RLS session. No new role, no enum change.
 
 ## 7. Related, deliberately NOT in this spec
 
-Worker `นายเหิน เมืองงาม` has **two records**, and record B (`PRC-26-0036`) is bound
-to the user account `aemon` — a `site_admin`, a different person — carrying aemon's
-bank account. Operator decision 2026-08-04: **keep record A**, its 07-25 attendance
-is real, the ธ.ก.ส. account on B is aemon's.
+🚨 **An earlier revision of this section was WRONG in every particular. It is kept
+corrected rather than deleted, because the way it was wrong is the finding.**
 
-⚠️ The fact-check also reports that B's account number is **shared with a worker row
-named `นางสาวเอมอร ฮามศรีพรม`** — i.e. aemon appears to have her own worker record
-too. **Confirm before acting**; it changes what "retire B" means.
+It claimed worker `นายเหิน เมืองงาม` had two records, that record B (`PRC-26-0036`)
+was **mis-bound** to the `site_admin` account `aemon`, and that repairing it needed
+an unbind capability the codebase lacks. The audit log refutes all of it:
 
-That repair needs a capability this codebase does not have: **there is no in-app way
-to unbind a worker from a user.** `create_worker` accepts `p_user`; `update_worker`
-does not; a schema-wide search for unbind/unlink/detach paths returns only
-`unlink_telegram()` and `wp_reject_group_binding()`, neither of which touches
-`workers.user_id`. Exactly three functions write that column —
-`claim_worker_invite`, `decide_identity_change`, `decide_worker_bank_change` — and
-all three are bind/apply paths. **A mis-link is currently unfixable from the UI and
-will recur.** Its own spec.
+- **2026-08-02 01:23Z** — aemon submitted a staff registration **for herself**
+  (`full_name = เอมอร ฮามศรีพรม`, phone `0832569095`).
+- **2026-08-02 06:32Z** — approved, creating her worker record with employee id
+  `PRC-26-0036`, bound to her own account, carrying her own bank. The audit payload
+  says `source: staff_registration`. **The binding was correct.**
+- **2026-08-04 05:34–06:16Z** — procurement, hunting for `เหิน`, edited _that_ row:
+  project move, rate `0 → 515.46`, **renamed it to `นายเหิน เมืองงาม`**, gender
+  `male`, pay type daily/temporary, then deactivated it. It still carries aemon's
+  phone and employee id today.
+
+So there are **two people with one record each**, not two records for one person;
+nothing was ever mis-bound; and **no unbind capability is required**. Retiring B —
+the action the earlier revision implied — would have erased a current employee's
+record and her employee id.
+
+⚠️ **Correction of fact:** only **one** function writes `workers.user_id` —
+`claim_worker_invite` — plus `create_worker`'s insert. `decide_identity_change`
+updates `users.full_name`, and `decide_worker_bank_change` merely joins on the
+column; neither writes it. (The earlier claim of "three writers" came from a
+fact-check whose pattern matched any body mentioning both `workers` and `user_id`.
+⭐ A fact-checker's finding is itself a claim.)
+
+⭐ **The real gap the episode exposes, and the subject of its own spec: back-office
+can silently overwrite the IDENTITY of a worker record belonging to a registered,
+portal-bound person.** When the worker changes their own name it routes through
+`identity_change_requests` → `decide_identity_change` approval; when back-office
+renames that same bound worker, `update_worker` simply does it — no confirmation, no
+signal on the edit sheet that the row belongs to someone's account, and only a
+generic `worker_change` audit row.
+
+⭐ **Note what held:** the bank lock (`รออนุมัติจากคำขอของช่าง`, §2) is the sole
+reason เหิน's bank details did not land on aemon's record. The protection exists for
+money and stops at the identity — which is exactly the asymmetry to close.
 
 ## 8. Open questions
 
