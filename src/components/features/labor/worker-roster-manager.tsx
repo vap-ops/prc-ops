@@ -554,6 +554,10 @@ function WorkerRow({
     setBankAccountNumber(worker.bank_account_number ?? "");
     setBankAccountName(worker.bank_account_name ?? "");
     setError(null);
+    // …and the duplicate DOOR, for the same reason the fields are re-seeded: it
+    // survives the unmount, so a reopened sheet would offer ดูช่างคนเดิม for a ช่าง
+    // who has nothing to do with the freshly re-seeded number.
+    setDuplicate(null);
     setEditing(true);
   }
   const [optimisticActive, setOptimisticActive] = useOptimistic(

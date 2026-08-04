@@ -630,6 +630,20 @@ describe("WorkerRosterManager duplicate เลขผู้เสียภาษ�
     expect(screen.queryByText("สมชาย ใจดี")).not.toBeInTheDocument();
   });
 
+  // openEditor() re-seeds every field and clears `error` precisely because this
+  // state survives the sheet's unmount — the door has to be on that list too, or a
+  // reopened sheet shows a stale ดูช่างคนเดิม over a freshly re-seeded field.
+  it("retires the door when the sheet is closed and reopened", async () => {
+    render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
+    editRowTaxId(OTHER.name, "1160400054920");
+    expect(await screen.findByRole("button", { name: "ดูช่างคนเดิม" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "ยกเลิก" }));
+    fireEvent.click(screen.getByRole("button", { name: `แก้ไข ${OTHER.name}` }));
+    expect(screen.queryByRole("button", { name: "ดูช่างคนเดิม" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("retires the refusal and its door as soon as the เลขบัตร is edited again", async () => {
     render(<WorkerRosterManager workers={[HOLDER, OTHER]} contractors={[]} />);
     editRowTaxId(OTHER.name, "1160400054920");
