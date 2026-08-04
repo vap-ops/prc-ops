@@ -111,19 +111,28 @@ begin
       using errcode = '22023';
   end if;
 
+  -- Serialise on the WP row itself, not on the selection rows: the FIRST
+  -- selection in a WP has no rows to lock, which is exactly when two
+  -- concurrent appends would both compute position 1.
+  --
+  -- ⚠️ The lock is taken BEFORE the idempotency check, not after. A double tap
+  -- on a slow link is two overlapping requests for the SAME photo: with the
+  -- check outside the lock both see no row, both insert, and the loser gets a
+  -- raw 23505 on the primary key — a SQLSTATE outside this spec's refusal
+  -- vocabulary, so the UI would report a retryable failure for a state that is
+  -- already correct. Under the lock the second caller reads the first's
+  -- committed row and returns changed:false, which is what the comment below
+  -- actually promises.
+  perform 1 from public.work_packages where id = v_wp for update;
+
   -- Idempotent, matching the star RPCs' contract: re-selecting is a no-op, not
-  -- an error, so a double tap on a slow link cannot fail.
+  -- an error.
   if exists (select 1 from public.report_selected_photos where photo_log_id = p_photo_log_id) then
     return jsonb_build_object(
       'changed', false,
       'position', (select r."position" from public.report_selected_photos r
                     where r.photo_log_id = p_photo_log_id));
   end if;
-
-  -- Serialise on the WP row itself, not on the selection rows: the FIRST
-  -- selection in a WP has no rows to lock, which is exactly when two
-  -- concurrent appends would both compute position 1.
-  perform 1 from public.work_packages where id = v_wp for update;
 
   select coalesce(max(r."position"), 0) + 1 into v_pos
   from public.report_selected_photos r where r.work_package_id = v_wp;
@@ -276,8 +285,14 @@ begin
     from (select id, ord from unnest(p_photo_ids) with ordinality as u(id, ord)) t
    where r.photo_log_id = t.id;
 
+  -- ⚠️ This row targets the WORK PACKAGE, not a photo — reordering is an act on
+  -- the WP's whole list. So it is filed under `work_packages` (the house shape,
+  -- as in map_wp_to_catalog's `wp_catalog_mapped`) rather than under
+  -- `report_selected_photos` with a WP id in `target_id`: one target_table
+  -- carrying two different entity types is the mixed reference this repo bans,
+  -- and it would silently break any reader joining target_id to a photo.
   insert into public.audit_log (actor_id, actor_role, action, target_table, target_id, payload)
-  values (v_actor, v_role, 'other', 'report_selected_photos', p_work_package_id,
+  values (v_actor, v_role, 'other', 'work_packages', p_work_package_id,
     jsonb_build_object('event', 'report_photos_reordered',
                        'work_package_id', p_work_package_id,
                        'count', v_given,

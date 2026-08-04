@@ -1,5 +1,5 @@
 begin;
-select plan(43);
+select plan(47);
 
 -- ============================================================================
 -- Spec 394 U1 — เลือกรูปเข้ารายงานลูกค้า: the per-photo selection store.
@@ -35,10 +35,17 @@ grant usage  on sequence _tap_buf_ord_seq to authenticated, anon;
 insert into auth.users (id, email, raw_user_meta_data) values
   ('70000000-0394-0394-0394-700000000394', 'pm@s394.local',      '{}'::jsonb),
   ('71000000-0394-0394-0394-710000000394', 'sa@s394.local',      '{}'::jsonb),
-  ('72000000-0394-0394-0394-720000000394', 'pmout@s394.local',   '{}'::jsonb);
-update public.users set role = 'project_manager' where id = '70000000-0394-0394-0394-700000000394';
-update public.users set role = 'site_admin'      where id = '71000000-0394-0394-0394-710000000394';
-update public.users set role = 'project_manager' where id = '72000000-0394-0394-0394-720000000394';
+  ('72000000-0394-0394-0394-720000000394', 'pmout@s394.local',   '{}'::jsonb),
+  ('73000000-0394-0394-0394-730000000394', 'pd@s394.local',      '{}'::jsonb);
+update public.users set role = 'project_manager'  where id = '70000000-0394-0394-0394-700000000394';
+update public.users set role = 'site_admin'       where id = '71000000-0394-0394-0394-710000000394';
+update public.users set role = 'project_manager'  where id = '72000000-0394-0394-0394-720000000394';
+-- The PD is deliberately NOT a project_members row: `can_see_project` admits
+-- project_director on a BLANKET arm, and nothing else in this file proves that
+-- arm exists. Without this actor, narrowing can_see_project for PD later would
+-- refuse every PD selection with the whole suite still green — and PD is the
+-- spec's primary actor (D5 gives the PM the same power "too").
+update public.users set role = 'project_director' where id = '73000000-0394-0394-0394-730000000394';
 
 insert into public.projects (id, code, name) values
   ('a1000000-0394-0394-0394-a10000000394', 'TAP-394', 'โครงการทดสอบเลือกรูป');
@@ -70,6 +77,9 @@ insert into public.photo_logs (id, work_package_id, phase, storage_path, uploade
    'before', 'p/394/b1.jpg', '70000000-0394-0394-0394-700000000394'),
   ('f5000000-0394-0394-0394-f50000000394', 'd1000000-0394-0394-0394-d10000000394',
    'after', 'p/394/a3.jpg', '70000000-0394-0394-0394-700000000394'),
+  -- a FOURTH selectable photo on WP1, so removing the second shifts TWO rows
+  ('f7000000-0394-0394-0394-f70000000394', 'd1000000-0394-0394-0394-d10000000394',
+   'after', 'p/394/a4.jpg', '70000000-0394-0394-0394-700000000394'),
   -- a photo on the OTHER work package, for the reorder cross-WP control
   ('f9000000-0394-0394-0394-f90000000394', 'd2000000-0394-0394-0394-d20000000394',
    'after', 'p/394/c1.jpg', '70000000-0394-0394-0394-700000000394');
@@ -114,13 +124,17 @@ select ok(
   not has_table_privilege('anon', 'public.report_selected_photos', 'SELECT'),
   'anon may not read the table at all');
 
+-- pronamespace-filtered: a same-named function in any other schema would
+-- otherwise skew both the count and the bool_and.
 select ok(
   (select bool_and(prosecdef) from pg_proc
-    where proname in ('select_report_photo', 'unselect_report_photo', 'reorder_report_photos')),
+    where pronamespace = 'public'::regnamespace
+      and proname in ('select_report_photo', 'unselect_report_photo', 'reorder_report_photos')),
   'all three RPCs are SECURITY DEFINER');
 select is(
   (select count(*)::int from pg_proc
-    where proname in ('select_report_photo', 'unselect_report_photo', 'reorder_report_photos')),
+    where pronamespace = 'public'::regnamespace
+      and proname in ('select_report_photo', 'unselect_report_photo', 'reorder_report_photos')),
   3,
   'all three RPCs exist, and exactly once each (an overload would strand the caller)');
 
@@ -218,8 +232,26 @@ select is(
   '3',
   'every phase is selectable — a before photo can sit beside its after');
 
--- Remove the MIDDLE one: the gap must close, or the next append collides with
--- a position that already exists.
+select is(
+  (public.select_report_photo('f7000000-0394-0394-0394-f70000000394'))->>'position',
+  '4',
+  'a fourth photo appends at 4');
+
+-- D6's whole point is that `position` is scoped WITHIN a work package. Without
+-- an actual second WP holding a selection, dropping the `work_package_id`
+-- filter from either the max() or the renumber leaves the suite green, and
+-- WP2's first photo would land at position 5 — an order derived from a
+-- different work package.
+select is(
+  (public.select_report_photo('f9000000-0394-0394-0394-f90000000394'))->>'position',
+  '1',
+  'position is PER work package — WP2''s first selection is 1 while WP1 already holds 4');
+
+-- Remove the SECOND of four: the gap must close, or the next append collides
+-- with a position that already exists. Two rows shift (3→2, 4→3), which is the
+-- deferrable index's second consumer — removing the LAST-but-one would shift
+-- exactly one row into a slot the delete already vacated, and that cannot
+-- violate uniqueness even without the clause.
 select lives_ok(
   $$ select public.unselect_report_photo('f2000000-0394-0394-0394-f20000000394') $$,
   'the project_manager can unselect');
@@ -227,8 +259,9 @@ select results_eq(
   $$ select photo_log_id, "position" from public.report_selected_photos
       where work_package_id = 'd1000000-0394-0394-0394-d10000000394' order by "position" $$,
   $$ values ('f1000000-0394-0394-0394-f10000000394'::uuid, 1),
-            ('f3000000-0394-0394-0394-f30000000394'::uuid, 2) $$,
-  'unselecting closes the gap — positions stay dense');
+            ('f3000000-0394-0394-0394-f30000000394'::uuid, 2),
+            ('f7000000-0394-0394-0394-f70000000394'::uuid, 3) $$,
+  'unselecting closes the gap for EVERY row after it — positions stay dense');
 
 select is(
   (public.unselect_report_photo('f2000000-0394-0394-0394-f20000000394'))->>'changed',
@@ -243,17 +276,22 @@ select throws_ok(
        array['f1000000-0394-0394-0394-f10000000394']::uuid[]) $$,
   '22023', null,
   'a list MISSING a currently-selected photo is refused — a stale client must re-read');
+-- ⚠️ SAME LENGTH as WP1's current selection (3) and all-distinct, so neither
+-- the count arm nor the distinct arm can refuse it — only the cross-WP
+-- membership sweep can. An over-long list would be refused by the count check
+-- first, leaving the sweep deletable with the suite still green.
 select throws_ok(
   $$ select public.reorder_report_photos('d1000000-0394-0394-0394-d10000000394',
        array['f1000000-0394-0394-0394-f10000000394',
              'f3000000-0394-0394-0394-f30000000394',
              'f9000000-0394-0394-0394-f90000000394']::uuid[]) $$,
   '22023', null,
-  'a list carrying a photo from another WP is refused');
+  'a list swapping in a photo SELECTED UNDER ANOTHER WP is refused (only the membership sweep can catch this)');
 select throws_ok(
   $$ select public.reorder_report_photos('d1000000-0394-0394-0394-d10000000394',
        array['f1000000-0394-0394-0394-f10000000394',
-             'f1000000-0394-0394-0394-f10000000394']::uuid[]) $$,
+             'f1000000-0394-0394-0394-f10000000394',
+             'f3000000-0394-0394-0394-f30000000394']::uuid[]) $$,
   '22023', null,
   'a list with a duplicate is refused');
 
@@ -262,14 +300,16 @@ select throws_ok(
 -- commit, so this assert is what proves the `deferrable` clause is load-bearing.
 select lives_ok(
   $$ select public.reorder_report_photos('d1000000-0394-0394-0394-d10000000394',
-       array['f3000000-0394-0394-0394-f30000000394',
+       array['f7000000-0394-0394-0394-f70000000394',
+             'f3000000-0394-0394-0394-f30000000394',
              'f1000000-0394-0394-0394-f10000000394']::uuid[]) $$,
   'a FULL REVERSAL commits — the deferrable unique index is doing its job');
 select results_eq(
   $$ select photo_log_id, "position" from public.report_selected_photos
       where work_package_id = 'd1000000-0394-0394-0394-d10000000394' order by "position" $$,
-  $$ values ('f3000000-0394-0394-0394-f30000000394'::uuid, 1),
-            ('f1000000-0394-0394-0394-f10000000394'::uuid, 2) $$,
+  $$ values ('f7000000-0394-0394-0394-f70000000394'::uuid, 1),
+            ('f3000000-0394-0394-0394-f30000000394'::uuid, 2),
+            ('f1000000-0394-0394-0394-f10000000394'::uuid, 3) $$,
   'and the order is exactly what was sent');
 
 -- ============================================================================
@@ -280,8 +320,22 @@ select results_eq(
 -- ============================================================================
 select is(
   (select count(*)::int from public.report_selected_photos),
-  2,
-  'the project''s own project_manager reads its selections');
+  4,
+  'the project''s own project_manager reads its selections (3 on WP1 + 1 on WP2)');
+reset role;
+
+-- The blanket arm: a project_director with NO project_members row must still
+-- both write and read. Nothing else in this file exercises PD, and PD is the
+-- spec's primary actor.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "73000000-0394-0394-0394-730000000394"}';
+select lives_ok(
+  $$ select public.unselect_report_photo('f9000000-0394-0394-0394-f90000000394') $$,
+  'a project_director who is NOT a project member may still curate — can_see_project''s blanket arm');
+select is(
+  (select count(*)::int from public.report_selected_photos),
+  3,
+  'and reads the selections back through the same blanket arm');
 reset role;
 
 set local role authenticated;
@@ -314,11 +368,15 @@ select ok(
            where target_table = 'report_selected_photos'
              and payload->>'event' = 'report_photo_unselected'),
   'unselecting writes an audit row');
+-- Reordering is an act on the WORK PACKAGE's whole list, so its audit row is
+-- filed under `work_packages` — one target_table must not carry two entity
+-- types, or a reader joining target_id to a photo silently drops these.
 select ok(
   exists (select 1 from public.audit_log
-           where target_table = 'report_selected_photos'
+           where target_table = 'work_packages'
+             and target_id = 'd1000000-0394-0394-0394-d10000000394'
              and payload->>'event' = 'report_photos_reordered'),
-  'reordering writes an audit row');
+  'reordering writes an audit row against the work package');
 select ok(
   (select actor_role from public.audit_log
     where target_table = 'report_selected_photos'
