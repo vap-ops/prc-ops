@@ -93,11 +93,20 @@ select is(
 
 select is(has_function_privilege('anon', 'public.star_reference_photo(uuid, text)', 'EXECUTE'),
   false, 'anon (and therefore PUBLIC) cannot execute star_reference_photo');
-select is(has_function_privilege('anon', 'public.get_wp_reference_photos(uuid)', 'EXECUTE'),
+-- Spec 391 U1b widened this to (uuid, uuid): the reader takes the VIEWING work
+-- package so it can exclude it, after live data showed all 144 complete mapped
+-- WPs being served their OWN photos as their examples (403 of 403). The 1-arg
+-- form was DROPPED rather than left beside it — an overload would have kept the
+-- shipped caller bound to the old body.
+-- ⚠️ U2b then made the argument REQUIRED (no default): with one, omitting it was
+-- silent and a future caller would reintroduce the bug with a green suite. Every
+-- call in this file therefore passes an exclusion id — a dummy uuid that matches
+-- no WP, which is the old 1-arg semantics stated explicitly.
+select is(has_function_privilege('anon', 'public.get_wp_reference_photos(uuid, uuid)', 'EXECUTE'),
   false, 'anon (and therefore PUBLIC) cannot execute get_wp_reference_photos');
 select is(has_function_privilege('authenticated', 'public.star_reference_photo(uuid, text)', 'EXECUTE'),
   true, 'authenticated may execute star_reference_photo (gate is inside, 42501)');
-select is(has_function_privilege('authenticated', 'public.get_wp_reference_photos(uuid)', 'EXECUTE'),
+select is(has_function_privilege('authenticated', 'public.get_wp_reference_photos(uuid, uuid)', 'EXECUTE'),
   true, 'authenticated may execute get_wp_reference_photos');
 
 -- ---------------------------------------------------------------------------
@@ -223,16 +232,16 @@ select throws_ok(
   '42501', null, 'a technician cannot unstar');
 
 select is(
-  (select count(*)::int from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892')),
+  (select count(*)::int from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892', '00000000-0000-0000-0000-0000000000ff')),
   1, 'POSITIVE CONTROL: the reader returns the starred photo across the RLS wall');
 
 select is(
-  (select photo_log_id from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892')),
+  (select photo_log_id from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892', '00000000-0000-0000-0000-0000000000ff')),
   '00000000-0000-0000-0000-0000000389d1'::uuid,
   'only the STARRED photo comes back — the unstarred current photo (p2) does not');
 
 select is(
-  (select project_name from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892')),
+  (select project_name from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892', '00000000-0000-0000-0000-0000000000ff')),
   'โครงการทดสอบ 389', 'the source project name rides along for the chip');
 
 -- ---------------------------------------------------------------------------
@@ -253,7 +262,7 @@ select throws_ok(
 -- to authenticated, visitor included — paths + project names, never bytes.
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000389a5"}';
 select is(
-  (select count(*)::int from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892')),
+  (select count(*)::int from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892', '00000000-0000-0000-0000-0000000000ff')),
   2, 'RECORDED DECISION: a visitor can read the starred set (d1 + d2)');
 
 -- star-then-remove: tombstone d1 AFTER it was starred — the reader must drop
@@ -265,7 +274,7 @@ insert into public.photo_logs (id, work_package_id, phase, storage_path, uploade
    '00000000-0000-0000-0000-0000000389d1');
 
 select is(
-  (select array_agg(photo_log_id) from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892')),
+  (select array_agg(photo_log_id) from public.get_wp_reference_photos('00000000-0000-0000-0000-000000003892', '00000000-0000-0000-0000-0000000000ff')),
   array['00000000-0000-0000-0000-0000000389d2'::uuid],
   'a starred photo removed by tombstone drops out of the reader; the other star survives');
 
