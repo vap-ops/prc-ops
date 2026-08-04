@@ -2,7 +2,7 @@
 
 **Status:** draft
 **Author:** CC session 2026-08-04
-**Related:** spec 320 (payout nominee), ADR 0061 (worker ecosystem / financial inclusion), ADR 0079 (self-governance), spec 172/ADR 0062 (procurement owns ช่าง onboarding)
+**Related:** spec 320 (payout nominee), spec 315 / ADR 0062 (worker bank-change requests), ADR 0061 (worker ecosystem / financial inclusion), ADR 0079 (self-governance)
 
 ---
 
@@ -13,68 +13,99 @@ encourage every ช่าง to hold their own account (ADR 0061's financial-inc
 goal). Today nothing surfaces this, and the practice has quietly routed around the
 one mechanism built for it.
 
-**Measured live 2026-08-04** (roster was 37 rows at scan time and is growing during
-the working day — dada is onboarding; **re-measure before building, do not inherit
-these numbers**):
+⚠️ **Every number below is a SNAPSHOT and is already known to move within hours.**
+The roster was 35 rows at the start of the session, 37 at the first scan, 38 at the
+second, and **39 at the fact-check** — dada is onboarding live. During the
+fact-check itself one mismatch row (`สุรินทร์ นาคพันธุ์`) was corrected by a human
+between two queries five minutes apart. **Re-measure at build time; do not inherit.**
 
-| Class                                        | Count |
-| -------------------------------------------- | ----- |
-| Account name matches the worker (normalised) | 27    |
-| **Name does NOT match**                      | **8** |
-| Bank number present, account name blank      | 2     |
-| `worker_payout_nominee` rows, all-time       | **0** |
+**Latest measurement (fact-check pass, 2026-08-04):**
 
-The 8 are not one problem. Classified by hand:
+| Class                                        | Count   |
+| -------------------------------------------- | ------- |
+| Workers total / active                       | 39 / 38 |
+| Bank account number present                  | 37      |
+| Account name matches the worker (normalised) | 30      |
+| **Name does NOT match**                      | **7**   |
+| Bank number present, account name blank      | **0**   |
+| `worker_payout_nominee` rows, all-time       | **0**   |
 
-| Class                                              | Rows  | Example                                                            |
-| -------------------------------------------------- | ----- | ------------------------------------------------------------------ |
-| ⚠️ **One holder collecting for several workers**   | **4** | โนรี / พิเชษฐ์ / สายฟ้า / อนันตชัย → all → `อนันตชัย ทีฆายุทธสกุล` |
-| Same person, Thai spelling or prefix variance only | 2     | `สุรินทร์ นาคพันธุ์` vs `นางสุรินทร์ นาคพันธ์`                     |
-| Family (shared surname)                            | 1     | `นายแดง บุญวัง` → `นางแก้ว บุญวัง`                                 |
-| Unrelated third party                              | 1     | `เอกพัฒน์ อ่อนสา` → `น.ส.ปาณิศา บุญเรือง`                          |
+⭐ **The finding is concentration, and the honest number is 3, not 4.**
+Three workers — พิเชษฐ์, โนรี, สายฟ้า — share **one account number**
+(`014162319729`). A fourth row, อนันตชัย's own, names the same holder but carries
+`044162319729` — a different number, almost certainly a transcription slip of the
+same passbook, but the database says different.
 
-Plus a data-integrity case found the same day and handled separately (§7): worker
-`นายเหิน เมืองงาม` record B carries a colleague's account.
+⚠️ **That distinction is load-bearing and it constrains §3:** the shared-account
+detector returns a group of **3**. The 4th is reachable only by the name detector
+this spec deliberately demotes to advisory. Do not write §1's headline as 4 and
+then build a detector that finds 3.
 
-⭐ **The concentration is the finding, not the count.** Three workers' wages land in
-a fourth worker's account, and three of those four rows carry the prefix **ด.ช.
-(เด็กชาย — a minor)**. This may be entirely legitimate — a หัวหน้าช่าง collecting for
-his crew is normal practice — but it is invisible today, and it is precisely the
-concentration the firm would want to see and eventually unwind.
+Remaining mismatches: one family case (`นายแดง บุญวัง` → `นางแก้ว บุญวัง`), one
+unrelated third party (`เอกพัฒน์ อ่อนสา` → `น.ส.ปาณิศา บุญเรือง`), and the
+`นายเหิน เมืองงาม` case (§7) — which **is one of the mismatch rows, not a separate
+case beside them**. His record is `active = false`, so an active-only detector drops
+him silently.
 
-## 2. What already exists — and why it is empty
+⚠️ **U1 must state whether it filters on `workers.active`.** An inactive row can
+still hold a wrong account, and retired workers accumulate.
+
+The `ด.ช.` (เด็กชาย — a minor) honorific appears on **four** account-name rows, all
+naming the same holder. Possibly legitimate — a หัวหน้าชุด collecting for his crew is
+normal practice — but it is invisible today, and it is exactly the concentration the
+firm would want to see and eventually unwind.
+
+## 2. What already exists
 
 **Spec 320 already built this model.** `worker_payout_nominee` carries
 `payee_name`, `payee_relationship`, `payee_bank_name`, `payee_account_name`,
-`payee_account_number`, a **required** `consent_doc_path`, `set_by`/`set_at`,
-`cleared_by`/`cleared_at`, `active`. Four DEFINER RPCs exist
-(`set_` / `get_` / `list_active_` / `clear_worker_payout_nominee`), the table is
-zero-grant bank PII, and `PAYOUT_NOMINEE_STALE_DAYS = 45` already exists as
-display-only reclaim pressure — i.e. the "encourage them to get their own account"
-nudge is **already designed and shipped**.
+`payee_account_number`, `consent_doc_path`, `set_by`/`set_at`,
+`cleared_by`/`cleared_at`, `active` — all NOT NULL except the two `cleared_*`.
+Four DEFINER RPCs exist (`set_` / `get_` / `list_active_` /
+`clear_worker_payout_nominee`). The table is zero-grant bank PII. `clear_` only
+flips `active = false`, so **0 rows genuinely means never inserted.**
 
-It has never been used once.
+⭐ **`consent_doc_path` is a harder prerequisite than "NOT NULL".**
+`set_worker_payout_nominee` verifies the path sits under
+`nominee-consent/<worker_id>/` in the `contact-docs` bucket **and that the object
+actually exists in `storage.objects`**. Recording a nominee therefore requires a
+completed upload first — an upload-must-precede constraint, not a nullable-column
+technicality.
 
-**Two candidate causes, both verified against the live system:**
+⚠️ **`PAYOUT_NOMINEE_STALE_DAYS = 45` IS ALREADY WIRED TO A SURFACE.**
+`src/app/settings/payout-nominees/page.tsx` imports it and renders a highlighted age
+chip (`บนบัญชีตัวแทน N วัน`, `bg-attn-soft`) on every row past the threshold. The
+reclaim nudge is designed, built **and surfaced**. An earlier draft of this spec
+proposed building it; that was wrong and the unit was removed.
 
-1. ❌ **Not the gate.** All four RPCs gate on
+### Why is it empty? — a HYPOTHESIS, not a diagnosis
+
+Nothing has been measured that distinguishes these. Treat as open (§8).
+
+1. ❌ **Not the gate.** All four RPCs carry the identical **inline** literal
    `('procurement_manager','project_director','super_admin','procurement')` —
-   verified live. dada can already set a nominee today.
-   ⚠️ `src/lib/payroll/payout-nominee.ts` says "procurement_manager-gated". That
-   comment is **stale**; the live gate is wider. Fix it in whichever unit touches
-   the file.
-2. ✅ **Placement.** The bank fields sit on the `/workers` edit sheet where
-   onboarding actually happens; the nominee lives on a separate page under
+   verified in `pg_get_functiondef` for each. `current_user_role()` is a role
+   _lookup_, not a role-set helper, so there is no indirection that could widen or
+   narrow this. **dada could have recorded a nominee today.**
+2. **Placement (argued from architecture, not evidence).** The bank fields sit on
+   the `/workers` edit sheet where onboarding happens; the nominee control lives at
    `/settings/payout-nominees`. The person typing the account never passes the
-   nominee control, so the third-party account goes into `workers.bank_*` — which
-   silently asserts the account is the worker's own, and bypasses the consent doc,
-   the audit trail and the 45-day nudge.
-3. ⚠️ **Suspected secondary friction:** `consent_doc_path` is `NOT NULL`, so
-   recording a nominee requires uploading a consent document. Unconfirmed —
-   **ask the team before designing around it** (§8).
+   nominee control.
+3. **Consent-upload friction.** Given the storage-object check above, this is now
+   the stronger candidate. Ask the team.
 
-**So this spec is mostly not new machinery. It is: detect what already went to the
-wrong place, route new entries to the right place, and migrate the existing 8.**
+⚠️ **`/workers` is NOT the only path into `workers.bank_*`.** The table
+`worker_bank_change_requests` and its RPC `decide_worker_bank_change(p_id, p_approve)`
+(spec 315 / ADR 0062) also write all three bank columns — the ช่าง's own self-service
+request, approved by back-office — and that path equally bypasses the nominee. Its
+gate is different again: `is_manager(role) or role = 'procurement_manager'`.
+**Any unit that claims to route third-party accounts to the right place must cover
+both doors or it is incomplete.**
+
+⚠️ **The "procurement_manager-gated" comment is stale in FOUR places**, not one:
+`src/lib/payroll/payout-nominee.ts` lines 3–8, 76 and 105–108, plus
+`src/app/settings/payout-nominees/page.tsx:3`. Fix them all in whichever unit
+touches the file.
 
 ## 3. The signal
 
@@ -82,25 +113,26 @@ wrong place, route new entries to the right place, and migrate the existing 8.**
 
 > the number of DISTINCT workers sharing one `bank_account_number`
 
-Objective, immune to Thai spelling variance, and it catches the concentration case
-immediately. This is the one with real audit and financial-inclusion weight.
+Objective and immune to Thai spelling variance. **It returns 3 for the concentration
+case, not 4** (§1) — say so in the UI rather than quietly disagreeing with the
+number in this document.
 
 **Secondary detector — normalised name mismatch (advisory only):**
 
 Strip honorifics (`นาย|นาง|นางสาว|น.ส.|ด.ช.|ด.ญ.`) and whitespace, then compare.
 
-⚠️ **Do NOT make name mismatch the primary flag.** 2 of the 8 measured mismatches
-are pure spelling variance for the same person — a name-based flag would nag those
-two forever while saying nothing about concentration. Name mismatch is a hint that
-a nominee record is _probably missing_, never a defect claim in itself.
+⚠️ **Do NOT make name mismatch the primary flag.** Spelling variance for the same
+person is common in this data and a human corrected one such row mid-verification.
+Name mismatch hints that a nominee record is _probably missing_; it is never a defect
+claim in itself.
 
 ⚠️ **A non-matching account holder is NORMAL at this firm** (operator, 2026-08-04:
-some technicians use a family member's account temporarily). Copy must never call
-it an error. The ask is _record it and encourage_, not _forbid_.
+some technicians use a family member's account temporarily). Copy must never call it
+an error. The ask is _record it and encourage_, not _forbid_.
 
 ## 4. Design
 
-Three states per worker, derived — no new column on `workers`:
+Three states per worker, derived — **no new column on `workers`**:
 
 | State        | Derivation                                                                                |
 | ------------ | ----------------------------------------------------------------------------------------- |
@@ -108,64 +140,89 @@ Three states per worker, derived — no new column on `workers`:
 | `nominee`    | an active `worker_payout_nominee` row exists — the recorded, consented case               |
 | `unrecorded` | account is shared with another worker, and/or the name does not match, and no nominee row |
 
-`unrecorded` is the worklist. The goal is to drive it to zero — every genuine
-third-party account becomes a `nominee` row, and every worker who can open their
-own account moves to `own`.
+⚠️ **This reader cannot run in an RLS session.** `workers.bank_*` are zero-grant
+(only `postgres`/`service_role` hold SELECT), and the shared-account count is
+inherently cross-worker, so it is not expressible under row-level scoping at all.
+It must go through the admin-client / DEFINER seam, as `payout-nominee.ts` already
+does. `list_active_payout_nominees()` returns `worker_id`, so one call covers the
+roster.
+
+`unrecorded` is the worklist; drive it to zero.
 
 ## 5. Units
 
-- **U1 — the detector (no schema).** A server reader returning, per worker:
-  `sharedWithCount`, `nameMatches`, `hasActiveNominee` → the derived state.
-  Pure function + exhaustive tests over the real shapes (spelling variance, shared
-  account, blank account name). ⚠️ Pin the Thai honorific list; a `ด.ช.` prefix
-  appears in live data and must normalise away.
+- **U1 — the detector (no schema).** Pure classifier + an admin-seam reader
+  returning per worker: `sharedWithCount`, `nameMatches`, `hasActiveNominee` → the
+  derived state. Exhaustive tests over the real shapes (spelling variance, shared
+  account, near-miss account number, inactive worker). ⚠️ Pin the Thai honorific
+  list — `ด.ช.` appears in live data. ⚠️ State and test the `active` filter.
 - **U2 — surface it where the work happens.** A badge on the `/workers` roster row
-  and the edit sheet. `unrecorded` reads as an invitation, never an error.
-- **U3 — the nominee control moves to the point of entry.** On the `/workers` edit
-  sheet, beside the bank fields: "บัญชีนี้เป็นของใคร" → own / someone else. Choosing
-  _someone else_ opens the existing spec-320 nominee flow. No new RPC — reuse
-  `set_worker_payout_nominee`.
-- **U4 — migrate the existing 8.** Not a script. A review list the procurement team
-  works through, per worker: confirm own / record a nominee / correct a typo. The
-  two spelling-variance rows are corrections, not nominees.
-- **U5 — the reclaim nudge.** `PAYOUT_NOMINEE_STALE_DAYS = 45` already exists and is
-  unwired to any surface. Give it one: a soft worklist of nominees older than 45
-  days, to prompt "can this ช่าง open their own account yet?"
+  and edit sheet. `unrecorded` reads as an invitation, never an error.
+- **U3 — route new entries to the right place.** On the `/workers` edit sheet,
+  beside the bank fields: "บัญชีนี้เป็นของใคร" → own / someone else. _Someone else_
+  opens the existing spec-320 flow. No new RPC — reuse `set_worker_payout_nominee`.
+  ⚠️ **Must also cover the `worker_bank_change_requests` approval path** (§2), or
+  third-party accounts keep arriving through the door this unit didn't close.
+- **U4 — work the existing mismatches by hand.** A review list, per worker: confirm
+  own / record a nominee / correct a typo. The spelling-variance rows are
+  **corrections, not nominees** — and the `044…`/`014…` near-miss pair in §1 is very
+  likely one such correction.
 
-⚠️ **U1 before U2 before U3.** Shipping a badge whose control does not exist yet
-strands the reader with a flag and no way to resolve it. U4 needs U3 to exist.
+⚠️ **U1 → U2 → U3 order is load-bearing.** A badge whose control does not exist
+strands the reader with a flag and no way to resolve it. U4 needs U3.
+
+❌ **No unit for the 45-day nudge.** It already ships (§2).
 
 ## 6. Gates
 
-- Read + write: `('procurement_manager','project_director','super_admin','procurement')`
-  — the live nominee-RPC gate. **Do not restate the list**; call the same gate the
-  RPCs use, or the two drift (this repo has hit that exact failure before).
-- Bank columns are zero-grant PII: reads go through the DEFINER RPCs / admin-client
-  seam, never a field-role RLS session. Follow `payout-nominee.ts`'s existing shape.
-- No new role, no enum change.
+Read + write:
+`('procurement_manager','project_director','super_admin','procurement')` — the live
+nominee-RPC membership.
+
+⚠️ **No shared constant for this set exists today, and the instruction "don't
+restate the list" is currently unfollowable.** `STAFF_APPROVAL_ROLES` is the same
+set minus plain `procurement`; `BACK_OFFICE_ROLES` / `WORKER_ROSTER_ROLES` /
+`PAYROLL_ROLES` all additionally include `project_manager`. Worse, the two shipped
+nominee pages (`/settings/payout-nominees/page.tsx` and `.../edit/page.tsx`) already
+pass the four literals inline to `requireRole`.
+
+⇒ **U1 creates `PAYOUT_NOMINEE_ROLES = [...STAFF_APPROVAL_ROLES, "procurement"]` in
+`role-home.ts` and migrates both existing pages onto it.** Budget it; it is real
+work this spec previously hand-waved.
+
+Bank columns are zero-grant PII: reads go through the DEFINER / admin seam, never a
+field-role RLS session. No new role, no enum change.
 
 ## 7. Related, deliberately NOT in this spec
 
-**Worker `นายเหิน เมืองงาม` is broken in a different way** and is being repaired
-separately: two records exist, and record B (`PRC-26-0036`) is bound to the user
-account `aemon` (a `site_admin`, a different person), carrying aemon's bank account.
-Operator decision 2026-08-04: **keep record A**, its 07-25 attendance is real, the
-ธ.ก.ส. account on B is aemon's.
+Worker `นายเหิน เมืองงาม` has **two records**, and record B (`PRC-26-0036`) is bound
+to the user account `aemon` — a `site_admin`, a different person — carrying aemon's
+bank account. Operator decision 2026-08-04: **keep record A**, its 07-25 attendance
+is real, the ธ.ก.ส. account on B is aemon's.
+
+⚠️ The fact-check also reports that B's account number is **shared with a worker row
+named `นางสาวเอมอร ฮามศรีพรม`** — i.e. aemon appears to have her own worker record
+too. **Confirm before acting**; it changes what "retire B" means.
 
 That repair needs a capability this codebase does not have: **there is no in-app way
 to unbind a worker from a user.** `create_worker` accepts `p_user`; `update_worker`
-does not; no unbind RPC exists. So a mis-link is currently unfixable from the UI and
-will recur. That belongs in its own spec.
+does not; a schema-wide search for unbind/unlink/detach paths returns only
+`unlink_telegram()` and `wp_reject_group_binding()`, neither of which touches
+`workers.user_id`. Exactly three functions write that column —
+`claim_worker_invite`, `decide_identity_change`, `decide_worker_bank_change` — and
+all three are bind/apply paths. **A mis-link is currently unfixable from the UI and
+will recur.** Its own spec.
 
 ## 8. Open questions
 
-1. Is the `consent_doc_path` NOT NULL requirement the real adoption blocker? Ask the
-   team before designing around it — if yes, the question is whether a nominee may
-   be recorded provisionally with the document owed.
+1. **Why is the nominee feature unused — placement or the consent upload?** The
+   storage-object check (§2) makes friction the stronger candidate. Ask the team
+   before designing around either. If it is the upload, the real question is whether
+   a nominee may be recorded provisionally with the document owed.
 2. Is `อนันตชัย ทีฆายุทธสกุล` collecting for his crew by arrangement? If so these are
-   four legitimate nominee rows, not four problems — but the relationship should be
-   `หัวหน้าชุด`, not family.
-3. The `ด.ช.` prefix on three account names suggests an account in a minor's name.
-   Confirm with the team; it may just be a stale passbook.
-4. 2 workers have a bank number but a blank account name — decide whether that is
-   `unrecorded` or its own "incomplete" state.
+   legitimate nominee rows with relationship `หัวหน้าชุด`, not problems.
+3. Are `014162319729` and `044162319729` the same passbook mistyped? If yes it is a
+   correction and the concentration is genuinely 4 workers on one account.
+4. The `ด.ช.` prefix suggests an account in a minor's name. Confirm with the team; it
+   may just be a stale passbook.
+5. Does the detector include inactive workers? (§1)
