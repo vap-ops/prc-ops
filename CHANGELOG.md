@@ -1,3 +1,11 @@
+## [0.317.3](https://github.com/vap-ops/prc-ops/compare/v0.317.2...v0.317.3) (2026-08-04)
+
+### Bug Fixes
+
+- harden the G1 boundary per fresh-eyes review (all mechanisms source-verified) ([28ed524](https://github.com/vap-ops/prc-ops/commit/28ed5249e455eb49fadb6803d124e03443fffcab))
+- honest error boundary + crash telemetry (UX-audit G1, F-012+F-027) ([9c193ca](https://github.com/vap-ops/prc-ops/commit/9c193ca0ef522037db782a85b1d3319ecc3785c3))
+- recurrence flips on the SAME boundary instance, not only on remount ([0369eb9](https://github.com/vap-ops/prc-ops/commit/0369eb96ffbf7c557fe9577ba84a0ee33c22e058))
+
 ## [0.317.2](https://github.com/vap-ops/prc-ops/compare/v0.317.1...v0.317.2) (2026-08-04)
 
 ### Bug Fixes
