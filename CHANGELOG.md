@@ -1,3 +1,9 @@
+## [0.323.2](https://github.com/vap-ops/prc-ops/compare/v0.323.1...v0.323.2) (2026-08-04)
+
+### Bug Fixes
+
+- **pgtap:** scope 394 selection counts to the seeded work packages ([#954](https://github.com/vap-ops/prc-ops/issues/954)) ([e2d8df4](https://github.com/vap-ops/prc-ops/commit/e2d8df4c57f5a177e90e94b21775437e94e0e635))
+
 ## [0.323.1](https://github.com/vap-ops/prc-ops/compare/v0.323.0...v0.323.1) (2026-08-04)
 
 ### Bug Fixes
