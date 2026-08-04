@@ -86,7 +86,15 @@ describe("ReferenceExamples — automatic vs curated (spec 391)", () => {
 
   it("does not claim the PD chose them when the set is mixed", () => {
     render(<ReferenceExamples rows={mixed} />);
-    expect(screen.getByText(/ตัวอย่างงานประเภทเดียวกันที่ทำเสร็จแล้ว/)).toBeInTheDocument();
+    expect(screen.getByText(/ตัวอย่างงานประเภทเดียวกัน/)).toBeInTheDocument();
+    // …and does NOT claim they are finished work. The starred arm carries no
+    // status condition (spec 389's contract) and the ⭐ is applied on a
+    // pending_approval review surface, so a starred tile is by definition not
+    // finished when it is chosen. Pinned as an ABSENCE, because a later author
+    // reaching for a more descriptive sentence reaches for exactly this word —
+    // a draft of this very component did, and 075902 had to undo the migration
+    // written to make it true.
+    expect(screen.queryByText(/ทำเสร็จแล้ว/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^รูปที่ผู้อำนวยการโครงการปักดาวไว้/)).not.toBeInTheDocument();
   });
 

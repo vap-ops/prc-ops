@@ -43,8 +43,17 @@ describe("review page — starring wiring", () => {
   // control rendering "not hidden" forever with no test noticing.
   it("reads the hidden set behind the same gate and threads it", () => {
     expect(count(reviewPage, "wp_catalog_hidden_reference_photos")).toBe(1);
-    expect(count(reviewPage, "if (canStar && allPhotos.length > 0)")).toBe(2);
     expect(count(reviewPage, "hiddenPhotoIds")).toBe(3);
+    // Pin the ASSIGNMENT's shape, not just the identifier count. Replacing the
+    // body with `hiddenPhotoIds = []` leaves every count above unchanged — green
+    // suite, toggle permanently reading "not hidden", migration 075900 rendered
+    // pointless, and the failure looks like a broken write.
+    expect(reviewPage).toContain("hiddenPhotoIds = (hiddenRows ?? []).map((r) => r.photo_log_id)");
+    // …and that the read is gated. Matched on the two tokens rather than the
+    // formatted line: pinning `if (canStar && allPhotos.length > 0)` verbatim
+    // would red on a Prettier reflow, i.e. a formatting test wearing an
+    // authorization test's name.
+    expect(count(reviewPage, "canStar &&")).toBe(2);
   });
 });
 
@@ -52,5 +61,34 @@ describe("WP detail page — reference section wiring", () => {
   it("renders the ตัวอย่างงาน section in BOTH photo branches (read-only and capture)", () => {
     expect(count(wpDetailPage, "<ReferencePhotoSection")).toBe(2);
     expect(count(wpDetailPage, "wpCatalogItemId={wp.wp_catalog_item_id}")).toBe(2);
+  });
+
+  // Writing failing test first.
+  //
+  // ⭐ Spec 391 U1b — the argument that makes the section CROSS-project, and the
+  // one thing the whole fix rests on. It had no application-side guard at all:
+  // the reviewer pointed out that `workPackageId={wp.parent_id}`,
+  // `{wp.wp_catalog_item_id ?? ""}` or `{params.projectId}` all typecheck (TS
+  // only knows it is a string), pass every pgTAP, and silently restore the
+  // 403-of-403 self-reference this unit was written to end.
+  //
+  // The DB half is closed too — 075901 made the parameter REQUIRED, so omitting
+  // it is now a hard 42883 rather than a silent full set. These two pins cover
+  // passing the WRONG id, which no database constraint can catch.
+  it("passes the VIEWING work package to both mounts, and threads it to the RPC", () => {
+    // The WHOLE call site, not the prop alone: `workPackageId={wp.id}` appears
+    // 17 times on this page for other components, so counting the bare prop
+    // would have passed with the section still un-fixed. (My first version did
+    // exactly that — it expected 2 and found 17.)
+    expect(
+      count(
+        wpDetailPage,
+        "<ReferencePhotoSection wpCatalogItemId={wp.wp_catalog_item_id} workPackageId={wp.id} />",
+      ),
+    ).toBe(2);
+    const section = strip(
+      readFileSync("src/components/features/wp-catalog/reference-photo-section.tsx", "utf8"),
+    );
+    expect(section).toContain("p_exclude_work_package_id: workPackageId");
   });
 });

@@ -53,11 +53,17 @@ gallery answers a different question than an example does.
   this" when nobody did, and it makes `starred_by` a lie.
 
 - **D2 — candidates are `after` + `after_fix` photos of WPs that are `complete`,
-  mapped, non-group, and not superseded.** Group WPs are excluded explicitly:
-  they roll up to `complete` mechanically when their children do (9 of the 194
-  complete WPs), so a group's completion is an arithmetic fact, not a judgement
-  about work. `during` and `before` are excluded — they answer "what happened",
-  not "what does done look like".
+  mapped, and not superseded.** `during` and `before` are excluded — they answer
+  "what happened", not "what does done look like".
+  ⚠️ **The `non-group` clause this decision asked for was NOT built.** The reason
+  it was wanted is sound (a group rolls up to `complete` mechanically, so its
+  completion is arithmetic rather than a judgement), but
+  `wp_reject_group_binding()` already raises `23514` on any photo bound to a
+  group, so no group WP can own a photo at all. The predicate would have been
+  UNREACHABLE, and an unreachable clause asserts a hazard that is not there —
+  spec 340's lesson, which cost three migrations. The trigger is pinned in 391's
+  pgTAP instead, so relaxing it reds this unit and whoever relaxes it learns the
+  filter is now needed.
 
 - **D2a — the rework-round filter is kept, and it is INERT TODAY. Say so.**
   Candidates are taken at the WP's highest `rework_round`. ⚠️ **Every one of the
@@ -121,8 +127,13 @@ gallery answers a different question than an example does.
 
 ## 3. The reader, stated precisely
 
-`get_wp_reference_photos(p_wp_catalog_item_id uuid)` — **same signature**, body
-replaced:
+⚠️ **As BUILT (this section originally specified a single argument — see §7.6/7.9):**
+
+`get_wp_reference_photos(p_wp_catalog_item_id uuid, p_exclude_work_package_id uuid)`
+— the second argument is **required**, and it is what makes the section
+cross-project. Without it a completed WP is its own newest candidate and fills
+every slot with its own photos. It has no default on purpose: with one, omitting
+it was silent, and a future caller would reintroduce that bug with a green suite.
 
 1. **Starred** — rows in `wp_catalog_reference_photos` for this item whose photo
    is not hidden, newest first.
@@ -173,9 +184,15 @@ Sequential: U1 → U2.
 1. **ตัวอย่างงาน stops being empty where an example exists**: 0 → **144 of 455**
    catalog items, i.e. **432 of 1,075** mapped leaf WP pages. Not "the section is
    solved" — 311 items have no complete WP yet.
-2. **`wp_catalog_hidden_reference_photos` should stay near zero.** A burst of
-   hides means D2 is selecting badly and the _filter_, not the affordance, needs
-   work. That table is the feedback channel this design has.
+2. ~~**`wp_catalog_hidden_reference_photos` should stay near zero.**~~
+   ⚠️ **RETRACTED — unmeasurable, for the same reason §7.1 gives about the star
+   table.** `unhide_reference_photo` HARD-DELETES and neither writer touches
+   `audit_log`, so a PD who hides thirty bad picks and later tidies up leaves a
+   count of zero — indistinguishable from "D2 is selecting perfectly". This spec
+   created the table _to be_ the feedback channel and then shipped the erasing
+   half of it, which is §7.1's own finding re-committed one unit later. Either
+   audit the hide/unhide pair or find the signal elsewhere; until then the row
+   count is not evidence of anything.
 3. **Re-read the per-item distribution before trusting the cap.** Median 3 is
    today's number and it moves as WPs complete. If it passes 4, the cap is
    hiding the common case rather than the tail.
@@ -218,3 +235,44 @@ Sequential: U1 → U2.
    posture, run `has_function_privilege` and grep the pgTAP for an existing
    assertion about it** — the answer was one query and one grep away, and the
    wrong version reached the operator as a decision to make.
+
+6. ⭐ **U1's fix carried the same bug in the other arm, and the shipped UI could
+   only ever create the case that triggers it.** U1b excluded the viewing WP from
+   the DERIVED arm and exempted the STARRED one, reasoning that a PD's deliberate
+   choice should be honoured. The call graph refutes that: the ⭐ renders only on
+   `/review/work-packages/[id]`, and `star_reference_photo` derives the item from
+   the photo's OWN work package — so **every star the application can create is a
+   self-reference**. Four stars would fill the cap, the derived arm would return
+   nothing, and a curated WP would show its own photos above its own gallery with
+   the subtitle crediting the PD for it. **Rule: when you exempt something from a
+   fix, ask which cases the UI can actually produce — not which cases are
+   conceivable.** Fixed in 075902; the exclusion is symmetric.
+7. ⚠️ **A hardening that changes another spec's contract is not a hardening.**
+   075901 also added `w.status = 'complete'` to the starred arm, to make the
+   subtitle's ทำเสร็จแล้ว claim true. It red FIVE assertions in
+   `389-wp-catalog.test.sql`, which deliberately pin "a star surfaces
+   cross-project" with no status condition — and it would have meant a PD stars a
+   photo and sees nothing until approval lands. Reverted in 075902; the false
+   claim was removed from the COPY instead, which is the end that was actually
+   wrong. The underlying question ("should a star only count once approved?") is
+   real and belongs to 389's owner, with its five assertions updated in the same
+   breath.
+8. ⚠️ **`has_table_privilege` answers a question about GRANT and says nothing
+   about RLS.** The posture test for the hidden table passed while the migration's
+   `create policy` could be deleted wholesale — the exact regression 075900 exists
+   to prevent (a zero-grant table returns ZERO ROWS to the RLS client rather than
+   erroring, so the toggle reads "not hidden" for every photo and a hide looks
+   like a failed write). A posture assertion must READ AS THE ROLE. And once the
+   grant was narrowed to one column, `has_table_privilege` went false — so the
+   column-level pin is `has_column_privilege`, and the row-count probe must name
+   the granted column, since `count(*)` needs no column and passes under a grant
+   that exposes nothing.
+9. ⚠️ **The argument that makes the whole feature work had no application-side
+   guard.** Nothing pinned `workPackageId={wp.id}` at the call sites or
+   `p_exclude_work_package_id` in the reader — TypeScript only knows it is a
+   string, so `{wp.parent_id}` or `{params.projectId}` would compile, pass every
+   pgTAP, and silently restore the 403-of-403 self-reference. Two source pins
+   added; the DB half is closed by making the parameter REQUIRED (075901), so
+   omitting it is a hard 42883 instead of a silent full set. ⭐ **And the first
+   version of that pin counted the bare prop, which appears 17 times on the page
+   for other components — it expected 2 and found 17. Pin the whole call site.**

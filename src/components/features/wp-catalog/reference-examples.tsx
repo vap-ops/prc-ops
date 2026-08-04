@@ -42,11 +42,21 @@ export function ReferenceExamples({ rows }: { rows: ReadonlyArray<ReferenceExamp
           AUTOMATIC, so that sentence would credit a human for a machine's pick —
           the same lie D1 refuses to write into the table by backfilling stars.
           The wording now follows what is actually on screen: it only claims a
-          PD chose them when a PD actually did. */}
+          PD chose them when a PD actually did.
+
+          ⚠️ And it deliberately does NOT say ทำเสร็จแล้ว ("finished"). A draft did.
+          The DERIVED half requires `status = 'complete'`, but the STARRED half
+          does not — spec 389 U5 shipped "a star surfaces cross-project" with no
+          status condition, and the ⭐ lives on /review, a pending_approval
+          surface, so a starred photo is by definition not finished work at the
+          time it is chosen. Claiming otherwise is the same lie class this copy
+          exists to remove, relocated from WHO CHOSE it to WHAT STATE it is in.
+          Adding the filter instead was tried and reverted (075902): it silently
+          changed another spec's contract and red five of its assertions. */}
       <p className="text-ink-secondary mb-2 text-sm">
         {rows.every((r) => r.starred)
           ? "รูปที่ผู้อำนวยการโครงการปักดาวไว้เป็นตัวอย่างของงานประเภทนี้ จากทุกโครงการ"
-          : "ตัวอย่างงานประเภทเดียวกันที่ทำเสร็จแล้ว จากทุกโครงการ — ⭐ คือรูปที่ผู้อำนวยการโครงการเลือกไว้เอง"}
+          : "ตัวอย่างงานประเภทเดียวกัน จากทุกโครงการ — ⭐ คือรูปที่ผู้อำนวยการโครงการเลือกไว้เอง"}
       </p>
       <PhotoStrip>
         {rows.map((r, i) => (

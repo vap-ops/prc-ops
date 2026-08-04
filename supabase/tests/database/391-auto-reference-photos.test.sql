@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(32);
 
 -- ============================================================================
 -- Spec 391 U1 — ตัวอย่างงาน fills itself.
@@ -80,7 +80,7 @@ insert into public.photo_logs (id, work_package_id, phase, storage_path, uploade
 -- A. The DERIVED arm — the whole point of the spec.
 -- ============================================================================
 select is(
-  (select count(*)::int from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')),
+  (select count(*)::int from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')),
   3,
   'derives the 3 eligible photos of the complete leaf WP (2 after + 1 after_fix)');
 
@@ -113,17 +113,17 @@ select is(
 -- POSITIVE CONTROL, stated as its own assertion: an empty result would satisfy
 -- every exclusion test below, so prove a real photo comes back by identity.
 select ok(
-  exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
            where photo_log_id = 'f4000000-0391-0391-0391-f40000000391'),
   'the after_fix photo is among them (positive control — the arm really returns rows)');
 
 select ok(
-  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
                where photo_log_id = 'f3000000-0391-0391-0391-f30000000391'),
   'a `during` photo is NOT an example — it shows what happened, not what done looks like');
 
 select ok(
-  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
                where photo_log_id = 'f5000000-0391-0391-0391-f50000000391'),
   'a photo from a pending_approval WP is NOT derived — only confirmed work');
 
@@ -143,7 +143,7 @@ select throws_ok(
   'a group WP cannot own a photo at all — which is WHY the derived arm needs no is_group filter');
 
 select is(
-  (select photo_log_id from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391') limit 1),
+  (select photo_log_id from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000') limit 1),
   'f4000000-0391-0391-0391-f40000000391'::uuid,
   'newest first');
 
@@ -151,7 +151,7 @@ select is(
 -- explicitly starred ones (D7) without a second query.
 select ok(
   (select bool_and(starred_by is null)
-     from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')),
+     from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')),
   'derived rows report starred_by NULL, so the UI can tell them from real stars');
 
 -- ============================================================================
@@ -168,7 +168,7 @@ values ('f7000000-0391-0391-0391-f70000000391', 'd1000000-0391-0391-0391-d100000
         'f1000000-0391-0391-0391-f10000000391');
 
 select ok(
-  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
                where photo_log_id = 'f1000000-0391-0391-0391-f10000000391'),
   'a SUPERSEDED photo drops out of the derived arm');
 
@@ -182,7 +182,7 @@ insert into public.photo_logs (id, work_package_id, phase, storage_path, uploade
    'after', 'p/391/a5.jpg', '70000000-0391-0391-0391-700000000391', now() - interval '5 minutes', 0);
 
 select is(
-  (select count(*)::int from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')),
+  (select count(*)::int from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')),
   4,
   'the cap holds at 4 with 5 candidates');
 
@@ -206,7 +206,7 @@ select lives_ok(
 reset role;
 
 select ok(
-  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
                where photo_log_id = 'f9000000-0391-0391-0391-f90000000391'),
   'the hidden photo leaves the derived arm');
 
@@ -219,12 +219,12 @@ select public.star_reference_photo('f2000000-0391-0391-0391-f20000000391', 'ต�
 reset role;
 
 select is(
-  (select photo_log_id from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391') limit 1),
+  (select photo_log_id from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000') limit 1),
   'f2000000-0391-0391-0391-f20000000391'::uuid,
   'a starred photo pins to the FRONT, ahead of newer derived ones');
 
 select is(
-  (select count(*)::int from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  (select count(*)::int from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
     where photo_log_id = 'f2000000-0391-0391-0391-f20000000391'),
   1,
   'and it appears ONCE — starring a photo that was already derived must not double it');
@@ -235,7 +235,7 @@ select public.hide_reference_photo('f2000000-0391-0391-0391-f20000000391');
 reset role;
 
 select ok(
-  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
                where photo_log_id = 'f2000000-0391-0391-0391-f20000000391'),
   'hiding beats starring — a hidden photo is gone from the starred arm too');
 
@@ -248,7 +248,7 @@ select public.unstar_reference_photo('f2000000-0391-0391-0391-f20000000391');
 reset role;
 
 select ok(
-  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  not exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
                where photo_log_id = 'f2000000-0391-0391-0391-f20000000391'),
   'un-starring a HIDDEN photo leaves it hidden — the shared-table defect, pinned');
 
@@ -286,7 +286,7 @@ select public.unhide_reference_photo('f9000000-0391-0391-0391-f90000000391');
 reset role;
 
 select ok(
-  exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')
+  exists (select 1 from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391', '00000000-0000-0000-0000-000000000000')
            where photo_log_id = 'f9000000-0391-0391-0391-f90000000391'),
   'unhide RESTORES the photo — not just a no-op that returns cleanly');
 
@@ -294,9 +294,18 @@ select ok(
 -- toggle's state, and a zero-grant table returns ZERO ROWS to the RLS client
 -- rather than erroring: the control would have shown "not hidden" for every
 -- photo, and the bug would have looked like a failed write.
+-- COLUMN privilege, not table. 075901 narrowed the grant to `photo_log_id` — the
+-- one column /review selects — so `hidden_by` and `created_at` (who suppressed
+-- what, and when) stay closed. `has_table_privilege(..., 'select')` is FALSE for
+-- a column-only grant, which is how the narrowing caught this assertion.
 select ok(
-  has_table_privilege('authenticated', 'public.wp_catalog_hidden_reference_photos', 'select'),
-  'authenticated can READ the hidden table (the toggle needs its own state)');
+  has_column_privilege(
+    'authenticated', 'public.wp_catalog_hidden_reference_photos', 'photo_log_id', 'select'),
+  'authenticated can read photo_log_id (the toggle needs its own state)');
+select ok(
+  not has_column_privilege(
+    'authenticated', 'public.wp_catalog_hidden_reference_photos', 'hidden_by', 'select'),
+  'but NOT hidden_by — who suppressed a photo is not firm-wide reading');
 select ok(
   not has_table_privilege('authenticated', 'public.wp_catalog_hidden_reference_photos', 'insert')
     and not has_table_privilege('authenticated', 'public.wp_catalog_hidden_reference_photos', 'delete'),
@@ -311,6 +320,92 @@ select ok(
 select ok(
   not has_function_privilege('anon', 'public.get_wp_reference_photos(uuid, uuid)', 'execute'),
   'the reader stays un-executable by anon — this unit changes the body, not the posture');
+
+-- ============================================================================
+-- H. U2b — the STARRED arm had the same self-reference bug, and the shipped UI
+--    can only ever create the case that triggers it.
+--
+--    The ⭐ renders only on /review/work-packages/[id], and star_reference_photo
+--    derives the item from the photo's OWN WP — so every star the app can create
+--    is a self-reference. Left pinned at tier 0, four stars would fill the cap
+--    and the section would become 100% the viewing WP's own photos, above the
+--    identical gallery, with the subtitle crediting the PD for it.
+-- ============================================================================
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0391-0391-0391-700000000391"}';
+-- f8, not f1: section B superseded f1 with a tombstone, and star_reference_photo
+-- refuses a superseded photo (22023). Using it here errored the whole file.
+select public.star_reference_photo('f8000000-0391-0391-0391-f80000000391', null);
+reset role;
+
+select ok(
+  not exists (select 1 from public.get_wp_reference_photos(
+                'c1000000-0391-0391-0391-c10000000391', 'd1000000-0391-0391-0391-d10000000391')
+               where photo_log_id = 'f8000000-0391-0391-0391-f80000000391'),
+  'a STARRED photo is excluded on its own WP too — parity with the derived arm');
+
+select ok(
+  exists (select 1 from public.get_wp_reference_photos(
+            'c1000000-0391-0391-0391-c10000000391', 'd2000000-0391-0391-0391-d20000000391')
+           where photo_log_id = 'f8000000-0391-0391-0391-f80000000391'),
+  '…and still ranks first on every OTHER WP of the type — the star is not lost');
+
+-- The section's subtitle claims ทำเสร็จแล้ว. /review is a pending_approval
+-- surface, so a star is always applied BEFORE the WP is finished; without a
+-- status filter on the starred arm that claim was false for any WP that never
+-- completed. The star now activates on completion.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0391-0391-0391-700000000391"}';
+select public.star_reference_photo('f5000000-0391-0391-0391-f50000000391', null);
+reset role;
+
+-- RECORDED DECISION, asserted in the direction it actually holds. A star on a
+-- not-yet-complete WP DOES render — spec 389 U5 shipped the starred arm with no
+-- status condition, and the ⭐ lives on /review, a pending_approval surface, so
+-- every star is applied before completion.
+--
+-- 075901 added `w.status = 'complete'` here to make the subtitle's ทำเสร็จแล้ว
+-- claim true; it red FIVE of spec 389's assertions and was reverted in 075902.
+-- The claim was removed from the COPY instead. This assertion is what stops the
+-- next author re-adding the filter without meeting 389's contract first.
+select ok(
+  exists (select 1 from public.get_wp_reference_photos(
+            'c1000000-0391-0391-0391-c10000000391', 'd1000000-0391-0391-0391-d10000000391')
+           where photo_log_id = 'f5000000-0391-0391-0391-f50000000391'),
+  'a star on a not-yet-complete WP DOES render — 389s contract; the copy must not claim finished');
+
+-- ============================================================================
+-- I. The exclusion argument is REQUIRED. With a default, omitting it was silent
+--    — PostgREST resolves the 1-arg call and returns the un-excluded set, so a
+--    future caller reintroduces the 403-of-403 bug with a green suite. Without
+--    one, the same mistake is a hard 42883 / PGRST202.
+-- ============================================================================
+select throws_ok(
+  $$ select * from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391') $$,
+  '42883',
+  null,
+  'calling the reader WITHOUT the exclusion is an error, not a silent full set');
+
+-- ============================================================================
+-- J. The hidden table's RLS POLICY, not just its grant.
+--
+--    ⚠️ has_table_privilege answers a question about GRANT and says nothing about
+--    RLS. Deleting the policy in 075900 while leaving the grant kept every other
+--    assertion green — and regressed /review to the exact bug that migration
+--    exists to fix: zero rows to the RLS client, every tile reading "not hidden",
+--    a hide that springs back. So read it AS the role.
+-- ============================================================================
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0391-0391-0391-710000000391"}';
+select is(
+  -- count(photo_log_id), not count(*): `count(*)` needs no column and so would
+  -- pass even under a grant that exposed nothing readable. Naming the granted
+  -- column exercises the grant AND the policy together, which is the pair this
+  -- assertion exists for.
+  (select count(photo_log_id)::int from public.wp_catalog_hidden_reference_photos),
+  1,
+  'an authenticated caller can actually READ the hidden rows (policy, not just grant)');
+reset role;
 
 select * from finish();
 rollback;
