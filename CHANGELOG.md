@@ -1,3 +1,10 @@
+## [0.321.1](https://github.com/vap-ops/prc-ops/compare/v0.321.0...v0.321.1) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** clear the duplicate door when the edit sheet reopens ([e5352fa](https://github.com/vap-ops/prc-ops/commit/e5352faf2e0cce2964f2d81a57c7408a06733db9))
+- **workers:** edit-sheet parity for the duplicate national-ID refusal ([93a9fbe](https://github.com/vap-ops/prc-ops/commit/93a9fbed346399c123a58523f739cef547a3ca19)), closes [#945](https://github.com/vap-ops/prc-ops/issues/945)
+
 # [0.321.0](https://github.com/vap-ops/prc-ops/compare/v0.320.0...v0.321.0) (2026-08-04)
 
 ### Features
