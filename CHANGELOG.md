@@ -1,3 +1,13 @@
+# [0.326.0](https://github.com/vap-ops/prc-ops/compare/v0.325.0...v0.326.0) (2026-08-04)
+
+### Bug Fixes
+
+- **dashboard:** review pass on the staff-approval door (spec 396 U4) ([6af5cfd](https://github.com/vap-ops/prc-ops/commit/6af5cfd1dd0d2585dc01af505dcb0542619452c9))
+
+### Features
+
+- **dashboard:** open a door to the staff-approval queue (spec 396 U4) ([0ae65a2](https://github.com/vap-ops/prc-ops/commit/0ae65a2561647a3f8803b71cd04fc2a9ca06046b))
+
 # [0.325.0](https://github.com/vap-ops/prc-ops/compare/v0.324.0...v0.325.0) (2026-08-04)
 
 ### Features
