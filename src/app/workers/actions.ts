@@ -14,6 +14,12 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 import { validateNotes } from "@/lib/notes/validate";
 import { WORKER_LEVEL_ORDER, type WorkerLevel } from "@/lib/nova/dials";
 import { TRADE_ERROR_BY_MESSAGE, TRADE_SAVE_GENERIC_ERROR } from "@/lib/i18n/labels";
+import {
+  GENERIC_ERROR,
+  INVALID_NAME_ERROR,
+  INVALID_RATE_ERROR,
+  workerRpcError,
+} from "./error-copy";
 
 type PayType = Database["public"]["Enums"]["pay_type"];
 type EmploymentType = Database["public"]["Enums"]["employment_type"];
@@ -24,8 +30,9 @@ type WorkerGender = Database["public"]["Enums"]["worker_gender"];
 type WorkerType = "own" | "dc";
 
 // Spec 313 U2b (D4): these toasts fire from /workers, the ช่าง roster — the
-// people-hub term (TEAM_HUB_LABEL) now names only /team.
-const GENERIC_ERROR = "บันทึกช่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+// people-hub term (TEAM_HUB_LABEL) now names only /team. The error strings +
+// mapper live in ./error-copy — a "use server" file may only export async
+// functions, so the constants can't be defined here (feedback e6b48386).
 // Spec 369 U1: the confirm is its own action with its own failure — a generic
 // "บันทึกช่างไม่สำเร็จ" would read as the edit-sheet save having failed.
 const CONFIRM_COST_ERROR = "ยืนยันค่าแรงไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
@@ -102,9 +109,8 @@ export async function createWorker(
     gender?: WorkerGender;
   } & WorkerPayeeInput,
 ): Promise<WorkerActionResult> {
-  if (!validName(input.name) || !validRate(input.dayRate)) {
-    return { ok: false, error: GENERIC_ERROR };
-  }
+  if (!validName(input.name)) return { ok: false, error: INVALID_NAME_ERROR };
+  if (!validRate(input.dayRate)) return { ok: false, error: INVALID_RATE_ERROR };
   if (input.gender !== undefined && !GENDERS.includes(input.gender)) {
     return { ok: false, error: GENERIC_ERROR };
   }
@@ -126,7 +132,7 @@ export async function createWorker(
     ...(input.gender !== undefined ? { p_gender: input.gender } : {}),
     ...payeeRpcParams(input.workerType, input),
   });
-  if (error || !workerId) return { ok: false, error: GENERIC_ERROR };
+  if (error || !workerId) return { ok: false, error: workerRpcError(error) };
 
   // Optional initial project assignment (the worker exists either way — a failed
   // assign is soft: it can be set from the row's edit sheet).
@@ -218,7 +224,7 @@ export async function updateWorker(input: {
     ...(input.bankAccountName !== undefined ? { p_bank_account_name: input.bankAccountName } : {}),
     ...(input.contractorId !== undefined ? { p_contractor: input.contractorId } : {}),
   });
-  if (error) return { ok: false, error: GENERIC_ERROR };
+  if (error) return { ok: false, error: workerRpcError(error) };
 
   revalidatePath("/workers");
   return { ok: true };
@@ -237,7 +243,7 @@ export async function setWorkerDayRate(input: {
     p_id: input.id,
     p_rate: input.dayRate,
   });
-  if (error) return { ok: false, error: GENERIC_ERROR };
+  if (error) return { ok: false, error: workerRpcError(error) };
 
   revalidatePath("/workers");
   return { ok: true };
@@ -277,6 +283,8 @@ export async function setWorkerLevel(input: {
     p_worker: input.id,
     p_level: input.level,
   });
+  // set_worker_level's gate is super-admin only (narrower than back-office), so a
+  // 42501 here can be a genuine denial, not a lost session — keep the plain retry.
   if (error) return { ok: false, error: GENERIC_ERROR };
 
   revalidatePath("/workers");
@@ -358,6 +366,8 @@ export async function assignProjectHt(input: {
     p_project: input.projectId,
     p_worker: input.workerId,
   });
+  // assign_project_ht's gate is pm/pd/super (narrower than back-office) — a 42501
+  // may be a real denial, so keep the plain retry rather than a session hint.
   if (error) return { ok: false, error: GENERIC_ERROR };
 
   revalidatePath("/workers");
@@ -382,6 +392,7 @@ export async function assignWorkerToProject(input: {
     // Omit p_project to unassign (the RPC's default null clears project_id).
     ...(projectId !== null ? { p_project: projectId } : {}),
   });
+  // assign_worker_to_project's gate is narrower than back-office — keep plain retry.
   if (error) return { ok: false, error: GENERIC_ERROR };
 
   revalidatePath("/workers");

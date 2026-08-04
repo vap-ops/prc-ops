@@ -91,6 +91,6 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       files.size,
       `the retry-copy file set changed — a NEW file added retry copy (read the honest-copy ` +
         `rule at the top of this test first), or a file dropped it (lower this number).`,
-    ).toBe(104); // measured 2026-08-04; lowered same day by the G1 boundary unit (error.tsx + global-error.tsx left the set)
+    ).toBe(105); // +1 2026-08-04 (feedback e6b48386): src/app/workers/error-copy.ts. GENERIC_ERROR's "ลองใหม่" is the deliberately-transient fallback — the same PR routes 42501 (lost session) and bad input to NON-retry copy, so this is the genuinely-retryable arm. Moved out of workers/actions.ts (a "use server" file can't export constants), which still carries CONFIRM_COST_ERROR, so it stays in the set → net +1 file.
   });
 });
