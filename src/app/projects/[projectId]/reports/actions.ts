@@ -172,8 +172,7 @@ export interface GetReportDownloadUrlInput {
 }
 
 export type GetReportDownloadUrlResult =
-  | { ok: true; url: string; fileName: string }
-  | { ok: false; reason: string };
+  { ok: true; url: string; fileName: string } | { ok: false; reason: string };
 
 export async function getReportDownloadUrl(
   input: GetReportDownloadUrlInput,

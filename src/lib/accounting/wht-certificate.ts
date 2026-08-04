@@ -21,8 +21,7 @@ export interface WhtCertificateInput {
 }
 
 export type ValidateWhtResult =
-  | { ok: true; value: { whtAmount: number } }
-  | { ok: false; error: string };
+  { ok: true; value: { whtAmount: number } } | { ok: false; error: string };
 
 const TAX_ID_13 = /^\d{13}$/;
 

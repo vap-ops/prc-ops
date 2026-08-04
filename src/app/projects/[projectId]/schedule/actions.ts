@@ -34,8 +34,7 @@ export interface SchedulePhotoEntry {
 }
 
 export type SchedulePhotosResult =
-  | { ok: true; days: Record<string, SchedulePhotoEntry[]> }
-  | { ok: false; error: string };
+  { ok: true; days: Record<string, SchedulePhotoEntry[]> } | { ok: false; error: string };
 
 export async function getSchedulePhotos(
   projectId: string,

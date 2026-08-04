@@ -22,8 +22,7 @@ export interface ValidatedOfficeExpense extends OfficeExpenseInput {
 }
 
 export type ValidateResult =
-  | { ok: true; value: ValidatedOfficeExpense }
-  | { ok: false; error: string };
+  { ok: true; value: ValidatedOfficeExpense } | { ok: false; error: string };
 
 export function validateOfficeExpense(input: OfficeExpenseInput): ValidateResult {
   if (!UUID_REGEX.test(input.categoryId)) {

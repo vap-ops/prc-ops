@@ -141,8 +141,7 @@ export interface DecidePurchaseRequestInput {
 }
 
 export type DecidePurchaseRequestResult =
-  | { ok: true; status: PurchaseDecision }
-  | { ok: false; error: string };
+  { ok: true; status: PurchaseDecision } | { ok: false; error: string };
 
 export async function decidePurchaseRequest(
   input: DecidePurchaseRequestInput,

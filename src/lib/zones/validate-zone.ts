@@ -36,8 +36,7 @@ export interface PolygonGeometry {
 export type ZoneGeometry = BoxGeometry | PolygonGeometry;
 
 export type ValidateResult<K extends string, V> =
-  | ({ ok: true } & Record<K, V>)
-  | { ok: false; error: string };
+  ({ ok: true } & Record<K, V>) | { ok: false; error: string };
 
 function isFraction(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;

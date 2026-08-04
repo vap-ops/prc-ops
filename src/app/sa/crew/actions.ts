@@ -21,8 +21,7 @@ const GENERIC = "เพิ่มช่างไม่สำเร็จ กร�
 // follow-up read comes back empty; the confirmation degrades to the name alone
 // rather than failing an add that already committed.
 export type AddProjectWorkerResult =
-  | { ok: true; employeeId: string | null }
-  | { ok: false; error: string };
+  { ok: true; employeeId: string | null } | { ok: false; error: string };
 
 function rpcErrorToThai(message: string): string {
   if (message.includes("invalid Thai national-ID")) return "เลขบัตรประชาชนไม่ถูกต้อง (13 หลัก)";

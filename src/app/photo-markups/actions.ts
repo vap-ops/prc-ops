@@ -30,8 +30,7 @@ export interface PhotoMarkupRow {
 }
 
 export type ListPhotoMarkupsResult =
-  | { ok: true; markups: PhotoMarkupRow[] }
-  | { ok: false; error: string };
+  { ok: true; markups: PhotoMarkupRow[] } | { ok: false; error: string };
 
 export async function listPhotoMarkups(input: {
   photoLogId: string;

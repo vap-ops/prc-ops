@@ -412,15 +412,13 @@ export default async function ProjectStorePage({ params }: PageProps) {
           <StoreCountManager
             projects={[{ id: project.id, code: project.code, name: project.name }]}
             selectedProjectId={project.id}
-            onHand={onHand.map(
-              (r): CountStockRow => ({
-                catalogItemId: r.catalogItemId,
-                baseItem: r.baseItem,
-                specAttrs: r.specAttrs,
-                unit: r.unit,
-                qtyOnHand: r.qtyOnHand,
-              }),
-            )}
+            onHand={onHand.map((r): CountStockRow => ({
+              catalogItemId: r.catalogItemId,
+              baseItem: r.baseItem,
+              specAttrs: r.specAttrs,
+              unit: r.unit,
+              qtyOnHand: r.qtyOnHand,
+            }))}
             hidePicker
             collapsible
           />

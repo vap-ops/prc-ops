@@ -99,8 +99,7 @@ export type CreateFromCatalogSource =
   | { kind: "new"; name: string; categoryId: string; tracking: string };
 
 export type CreateFromCatalogResult =
-  | { ok: true; rateWarning?: boolean }
-  | { ok: false; error: string };
+  { ok: true; rateWarning?: boolean } | { ok: false; error: string };
 
 const SKU_COLUMNS = "id, name, category_id, brand, model, default_tracking, is_active";
 

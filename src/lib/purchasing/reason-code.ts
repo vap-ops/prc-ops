@@ -10,11 +10,7 @@
 // and is pinned by the unit test + the pgTAP enum_has_labels assertion.
 
 export type PurchaseReasonCode =
-  | "unplanned_miss"
-  | "rework"
-  | "breakage"
-  | "scope_change"
-  | "unforeseeable";
+  "unplanned_miss" | "rework" | "breakage" | "scope_change" | "unforeseeable";
 
 export const PURCHASE_REASON_CODES: ReadonlyArray<PurchaseReasonCode> = [
   "unplanned_miss",

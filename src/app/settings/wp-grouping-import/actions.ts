@@ -25,8 +25,7 @@ export type GroupingDryRun = {
 };
 
 export type GroupingApplyResult =
-  | { ok: true; summary: Record<string, number> }
-  | { ok: false; message: string };
+  { ok: true; summary: Record<string, number> } | { ok: false; message: string };
 
 async function loadExisting(projectId: string) {
   const supabase = await createClient();

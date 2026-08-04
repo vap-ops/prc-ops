@@ -27,8 +27,7 @@ type WagePaymentMethod = Database["public"]["Enums"]["wage_payment_method"];
 const GENERIC_ERROR = "บันทึกทีมงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 export type LogLaborDaysResult =
-  | { ok: true; failed: { workerId: string; message: string }[] }
-  | { ok: false; error: string };
+  { ok: true; failed: { workerId: string; message: string }[] } | { ok: false; error: string };
 
 export type CorrectLaborLogResult = { ok: true } | { ok: false; error: string };
 

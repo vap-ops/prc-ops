@@ -24,8 +24,7 @@ export interface BillingBreakdown {
 }
 
 export type ComputeBillingResult =
-  | { ok: true; value: BillingBreakdown }
-  | { ok: false; error: string };
+  { ok: true; value: BillingBreakdown } | { ok: false; error: string };
 
 function rateOk(r: number): boolean {
   return Number.isFinite(r) && r >= 0 && r <= 100;

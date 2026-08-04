@@ -282,10 +282,7 @@ export function staleCutoffFromNow(days: number = STALE_ACTION_DAYS): string {
  * compile error rather than a row that renders into no group at all.
  */
 export type SaActionGroupKey =
-  | `revision:${ApprovalRevisionReason}`
-  | "revision"
-  | "rejected"
-  | "rework";
+  `revision:${ApprovalRevisionReason}` | "revision" | "rejected" | "rework";
 
 export interface SaActionGroup {
   key: SaActionGroupKey;

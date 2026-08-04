@@ -1,7 +1,5 @@
 export type AvatarResult =
-  | { kind: "uploaded"; url: string }
-  | { kind: "line"; url: string }
-  | { kind: "initials" };
+  { kind: "uploaded"; url: string } | { kind: "line"; url: string } | { kind: "initials" };
 
 interface ResolveAvatarInput {
   uploadedUrl?: string | null;
