@@ -335,22 +335,8 @@ describe("design doctrine (Field-First)", () => {
     const SUB44 = /\b(?:min-)?(?:h|size)-(?:10|[1-9])(?![.\d])\b/g;
     // file (relative to src, forward slashes) -> EXACT sorted matched strings.
     const TAP_RATCHET: Record<string, string[]> = {
-      // reorder-arrow pair (h-8, disabled-heavy) — office surface; ⚑ owed to
-      // the G12 sweep lane.
-      "app/projects/[projectId]/deliverable-reorder-controls.tsx": ["h-8"],
-      // edit pencil (h-9) — office surface; ⚑ owed.
-      "app/projects/[projectId]/edit-deliverable-sheet.tsx": ["h-9"],
-      // clear-search circle inside the WP-list input — 32px AND text-ink-muted
-      // on an interactive control; ⚑ owed (F-010 sibling, #1 route).
-      "app/projects/[projectId]/work-package-list.tsx": ["size-8"],
-      // receipt remove (32px, ink-muted); ⚑ owed.
-      "components/features/expenses/office-expense-form.tsx": ["size-8"],
       // operator feedback-draft admin buttons (h-9, desktop); frozen.
       "components/features/feedback/feedback-drafts.tsx": ["h-9", "h-9"],
-      // 20px photo-attach remove badge over a thumbnail corner — F-010's twin
-      // on a FIELD surface; ⚑ owed FIRST in the G12 sweep (badge-over-image
-      // needs a hit-slop design, not a blind min-h-11).
-      "components/features/feedback/feedback-form.tsx": ["size-5"],
       "components/features/feedback/feedback-status-control.tsx": ["h-9"],
       // role="switch" tracks — 24×44px target: passes WCAG 2.5.8 AA (24px);
       // the house 44px floor for switches is an open design question (G12).
@@ -361,11 +347,6 @@ describe("design doctrine (Field-First)", () => {
       "components/features/photos/photo-lightbox-overlay.tsx": ["h-10", "h-10", "h-10"],
       // in-field search submit (h-8) — compact-in-input pattern; frozen.
       "components/features/projects/projects-filter-bar.tsx": ["h-8"],
-      // PO-sheet zoom pair (ZOOM_BTN const) + line-remove, all 32px; ⚑ owed.
-      "components/features/purchasing/create-purchase-order-sheet.tsx": ["size-8", "size-8"],
-      "components/features/purchasing/po-charges-section.tsx": ["size-8"],
-      // SA daily-plan suggestion rows (min-h-8) — FIELD surface; ⚑ owed.
-      "components/features/sa/daily-plan-suggestions.tsx": ["min-h-8"],
       // PD reference star (h-10, tablet); frozen.
       "components/features/wp-catalog/reference-star-button.tsx": ["h-10"],
     };
@@ -457,12 +438,12 @@ describe("design doctrine (Field-First)", () => {
       `text-ink-muted occurrences changed — grew: use text-ink-secondary for readable copy ` +
         `(ink-muted is dividers/placeholder/disabled ONLY, globals.css:87); shrank: lower this ` +
         `number in the same PR`,
-    ).toBe(408); // measured 2026-08-04: G2 sweep (−103) + 10 review-flagged misfires reverted (placeholders/disabled/icons/expression-children that should stay muted)
+    ).toBe(404); // measured 2026-08-04: was 408 after the G2 sweep; the G12 sweep took 4 more — the clear-search, receipt-remove, PO line-remove and PO-charge-remove BUTTONS. An interactive control may never wear the disabled-reserved token (F-010's second defect).
     expect(
       files.size,
       `the number of files using text-ink-muted changed — a NEW surface adopted a reserved ` +
         `token, or a file dropped it (then lower this number)`,
-    ).toBe(207); // measured 2026-08-04 after the G2 sweep + the 10 misfire reverts (2 files re-entered the set)
+    ).toBe(206); // measured 2026-08-04: was 207; po-charges-section.tsx dropped its LAST use in the G12 sweep (its only ink-muted was the remove button) and left the set. The other 3 swept files each retain a legitimate muted use (a decorative icon / a placeholder).
   });
 
   // ================================================================

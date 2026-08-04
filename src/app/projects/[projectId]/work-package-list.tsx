@@ -196,7 +196,7 @@ export function WorkPackageList({
             type="button"
             onClick={() => setQuery("")}
             aria-label="ล้างคำค้น"
-            className="text-ink-muted hover:text-ink focus-visible:ring-action absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2"
+            className="text-ink-secondary hover:text-ink focus-visible:ring-action absolute top-1/2 right-0 flex size-11 -translate-y-1/2 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2"
           >
             <X aria-hidden className="size-5" />
           </button>
