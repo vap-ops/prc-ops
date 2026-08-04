@@ -10,16 +10,25 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreate, mockUpdate, mockSetRate, mockAssign, mockRefresh, mockToastError } = vi.hoisted(
-  () => ({
-    mockCreate: vi.fn(),
-    mockUpdate: vi.fn(),
-    mockSetRate: vi.fn(),
-    mockAssign: vi.fn(),
-    mockRefresh: vi.fn(),
-    mockToastError: vi.fn(),
-  }),
-);
+const {
+  mockCreate,
+  mockUpdate,
+  mockSetRate,
+  mockAssign,
+  mockRefresh,
+  mockToastError,
+  mockFriction,
+} = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockSetRate: vi.fn(),
+  mockAssign: vi.fn(),
+  mockRefresh: vi.fn(),
+  mockToastError: vi.fn(),
+  mockFriction: vi.fn(),
+}));
+
+vi.mock("@/lib/telemetry/friction", () => ({ trackFriction: mockFriction }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 vi.mock("@/app/workers/actions", () => ({
@@ -83,6 +92,7 @@ beforeEach(() => {
   mockAssign.mockReset().mockResolvedValue({ ok: true });
   mockRefresh.mockReset();
   mockToastError.mockReset();
+  mockFriction.mockReset();
 });
 
 describe("WorkerRosterManager notes", () => {
@@ -440,6 +450,101 @@ describe("WorkerRosterManager gender (spec 357 U-F)", () => {
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({ id: "w1", gender: "female" }),
       ),
+    );
+  });
+});
+
+// Field incident 2026-08-04 (/workers 14:35 BKK) — a procurement user re-added a
+// ช่าง who was ALREADY on the roster: `workers_tax_id_unique` refused the insert
+// with 23505 (proved live) and the sheet showed "บันทึกช่างไม่สำเร็จ กรุณาลองใหม่
+// อีกครั้ง". Three defects in one place: the copy asked for a retry that can never
+// succeed, it named neither the cause nor the person collided with, and a thrown
+// transport left the button stuck at กำลังบันทึก… forever (no try/finally).
+//
+// The roster page already ships every worker's tax_id to this client component (the
+// edit sheet prefills it), so the collision is knowable BEFORE the round trip.
+describe("WorkerRosterManager duplicate เลขผู้เสียภาษี", () => {
+  const EXISTING: ManagedWorker = {
+    ...WORKERS[0]!,
+    id: "w-dup",
+    name: "พิมพ์ใจ วงษ์อ่อน",
+    pay_type: "daily",
+    tax_id: "1160400054920",
+  };
+
+  /** Fill the add sheet as a daily ช่าง carrying `taxId`. */
+  function fillDailyAdd(taxId: string) {
+    openAddSheet();
+    fireEvent.change(screen.getByLabelText("ชื่อ"), { target: { value: "พิมพ์ใจ วงษ์อ่อน" } });
+    fireEvent.click(screen.getByRole("radio", { name: "รายวัน" }));
+    fireEvent.change(screen.getByLabelText("ค่าแรงต่อวัน (บาท)"), { target: { value: "400" } });
+    fireEvent.change(screen.getByLabelText("เลขผู้เสียภาษี"), { target: { value: taxId } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายชื่อ" }));
+  }
+
+  it("refuses before the round trip and NAMES the ช่าง already holding that เลขบัตร", async () => {
+    render(<WorkerRosterManager workers={[EXISTING]} contractors={[]} />);
+    fillDailyAdd("1160400054920");
+
+    // Scoped to the refusal itself — the roster row behind the sheet carries the
+    // same name, and a bare text query would pass on that alone.
+    const refusal = await screen.findByRole("alert");
+    expect(refusal).toHaveTextContent("พิมพ์ใจ วงษ์อ่อน");
+    // The refusal is permanent — it must not invite a retry, and it must not spend
+    // a round trip to learn what the client already knows.
+    expect(refusal).not.toHaveTextContent("ลองใหม่อีกครั้ง");
+    expect(mockCreate).not.toHaveBeenCalled();
+    // Diagnosability: the refusal is the thing nobody could see in the field.
+    expect(mockFriction).toHaveBeenCalledWith(
+      "validation_error",
+      expect.objectContaining({ where: "workers_add", reason: "duplicate_tax_id" }),
+    );
+  });
+
+  it("leaves an unseen เลขบัตร alone (the guard fires on a real collision only)", async () => {
+    render(<WorkerRosterManager workers={[EXISTING]} contractors={[]} />);
+    fillDailyAdd("1160400054921");
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+  });
+
+  it("ดูช่างคนเดิม closes the sheet and puts that worker's row on screen", async () => {
+    render(
+      <WorkerRosterManager
+        workers={[EXISTING, { ...WORKERS[0]!, id: "w-other", name: "ช่างอื่น" }]}
+        contractors={[]}
+      />,
+    );
+    fillDailyAdd("1160400054920");
+
+    fireEvent.click(await screen.findByRole("button", { name: "ดูช่างคนเดิม" }));
+    // The sheet is gone (its add button is back to being the only door)…
+    await waitFor(() => expect(screen.queryByLabelText("เลขผู้เสียภาษี")).not.toBeInTheDocument());
+    // …and the roster below is filtered down to the person collided with.
+    expect(screen.getByText(/พิมพ์ใจ วงษ์อ่อน/)).toBeInTheDocument();
+    expect(screen.queryByText("ช่างอื่น")).not.toBeInTheDocument();
+  });
+
+  it("still maps a server-side duplicate refusal (the race the pre-check cannot see)", async () => {
+    mockCreate.mockResolvedValueOnce({ ok: false, error: "เลขบัตรประชาชนนี้มีอยู่แล้วในระบบ" });
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    fillDailyAdd("1160400054920");
+    expect(await screen.findByText(/เลขบัตรประชาชนนี้มีอยู่แล้วในระบบ/)).toBeInTheDocument();
+  });
+
+  it("never sticks at กำลังบันทึก… when the action throws", async () => {
+    mockCreate.mockReset().mockRejectedValue(new Error("Failed to fetch"));
+    render(<WorkerRosterManager workers={[]} contractors={[]} />);
+    fillDailyAdd("1160400054920");
+
+    // The transport failure is reported…
+    expect(await screen.findByText(/เชื่อมต่อไม่สำเร็จ/)).toBeInTheDocument();
+    // …the button is usable again (busy cleared in a finally)…
+    const button = screen.getByRole("button", { name: "เพิ่มรายชื่อ" });
+    expect(button).toBeEnabled();
+    // …and the throw stays observable, exactly as the unhandled rejection was.
+    expect(mockFriction).toHaveBeenCalledWith(
+      "js_error",
+      expect.objectContaining({ where: "workers_add" }),
     );
   });
 });
