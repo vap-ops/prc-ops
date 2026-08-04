@@ -1,3 +1,14 @@
+# [0.327.0](https://github.com/vap-ops/prc-ops/compare/v0.326.0...v0.327.0) (2026-08-04)
+
+### Bug Fixes
+
+- **zones:** scope the sheet field ids and calm the row edit trigger ([0d86b39](https://github.com/vap-ops/prc-ops/commit/0d86b39c329d0f5914b06939fcf6bf3bfc10141b))
+
+### Features
+
+- **zones:** the zones route, its list and its write paths ([38daca2](https://github.com/vap-ops/prc-ops/commit/38daca2dc1ba44b77b5d24d8ce9d65057461c96d))
+- **zones:** zone geometry mirror + the accessible zone list builder ([e630d6a](https://github.com/vap-ops/prc-ops/commit/e630d6ac3331bcd120e5d94a307c4534748100d8))
+
 # [0.326.0](https://github.com/vap-ops/prc-ops/compare/v0.325.0...v0.326.0) (2026-08-04)
 
 ### Bug Fixes
