@@ -246,7 +246,7 @@ export function ScopedCatalogItemPicker({
           type="button"
           onClick={() => setOpen(true)}
           disabled={disabled}
-          className="rounded-control border-edge-strong bg-card text-ink-secondary hover:bg-page focus-visible:ring-action flex h-11 w-full items-center gap-2 border px-3 text-left text-sm shadow-xs focus:outline-none focus-visible:ring-2"
+          className="rounded-control border-edge-strong bg-card text-ink-muted hover:bg-page focus-visible:ring-action flex h-11 w-full items-center gap-2 border px-3 text-left text-sm shadow-xs focus:outline-none focus-visible:ring-2"
         >
           <Search aria-hidden className="text-ink-secondary size-5 shrink-0" />
           {triggerLabel ?? "เลือกวัสดุจากแคตตาล็อก"}

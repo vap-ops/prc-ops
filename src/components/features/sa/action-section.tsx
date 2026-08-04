@@ -65,7 +65,7 @@ const TONE = {
   red: {
     bar: "border-l-danger",
     ground: "bg-danger-soft border-danger-edge",
-    chip: "bg-danger text-on-fill",
+    chip: "bg-danger text-on-danger",
   },
 } as const;
 
@@ -140,7 +140,7 @@ export function SaActionSection({
         ต้องแก้ไข
         {/* The TOTAL, not what is on screen: a count that shrank as she collapsed
             her own work away would be the one number here that cannot be trusted. */}
-        <span className="bg-danger text-on-fill ml-0.5 rounded-full px-2 py-0.5 text-[0.625rem] font-extrabold">
+        <span className="bg-danger text-on-danger ml-0.5 rounded-full px-2 py-0.5 text-[0.625rem] font-extrabold">
           {items.length}
         </span>
       </h2>
@@ -271,7 +271,7 @@ function ActionRow({ item, backHref }: { item: SaActionItem; backHref: string })
           {item.projectCode ? ` · ${item.projectCode} ${item.projectName}` : ""}
         </p>
         {item.reason ? (
-          <p className="text-body text-ink-secondary mt-1.5 break-words">
+          <p className="text-body text-ink-muted mt-1.5 break-words">
             <span className="text-ink-secondary">
               {item.kind === "rework" ? "ข้อบกพร่อง: " : "หมายเหตุ: "}
             </span>

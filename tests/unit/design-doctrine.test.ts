@@ -428,15 +428,15 @@ describe("design doctrine (Field-First)", () => {
 
   // ================================================================
   // ink-muted usage ratchet (UX-audit 2026-08, gap G2 / finding F-015).
-  // globals.css:87 says ink-muted is "dividers / placeholder / disabled ONLY",
-  // yet 500+ sites use it — dozens of them on empty-state teaching copy that
-  // renders at 2.77:1 in the default light theme, below AA, on an app read in
-  // sunlight. A per-site allowlist is unmaintainable at this scale, so this is
-  // a CEILING ratchet: the totals may fall, never rise. The G2 sweep lane
-  // (move sentence copy to text-ink-secondary, 8.11:1) lowers these numbers —
-  // re-measure and tighten the ceilings when it lands. A new surface reaching
-  // for text-ink-muted on real copy pushes the count over and lands here:
-  // use text-ink-secondary for anything a user must READ.
+  // globals.css:87 says ink-muted is "dividers / placeholder / disabled ONLY".
+  // The G2 sweep (2026-08-04) moved every classified SENTENCE-COPY use to
+  // text-ink-secondary; what remains on this ledger is the legitimate muted
+  // surface (dividers, placeholders, disabled states, short glyphs) plus
+  // whatever the sentence classifier could not see (expression children,
+  // label constants). A per-site allowlist is unmaintainable at this scale,
+  // so the ledger is an EXACT count pair: a new surface reaching for
+  // text-ink-muted on readable copy pushes it over and lands here — use
+  // text-ink-secondary for anything a user must READ.
   it("text-ink-muted usage never grows (ceiling ratchet)", () => {
     let total = 0;
     const files = new Set<string>();
@@ -457,12 +457,12 @@ describe("design doctrine (Field-First)", () => {
       `text-ink-muted occurrences changed — grew: use text-ink-secondary for readable copy ` +
         `(ink-muted is dividers/placeholder/disabled ONLY, globals.css:87); shrank: lower this ` +
         `number in the same PR`,
-    ).toBe(398); // measured 2026-08-04 after the G2 sentence-copy sweep (103 sites → ink-secondary; wp-catalog deliberately deferred to the refauto lane's domain)
+    ).toBe(408); // measured 2026-08-04: G2 sweep (−103) + 10 review-flagged misfires reverted (placeholders/disabled/icons/expression-children that should stay muted)
     expect(
       files.size,
       `the number of files using text-ink-muted changed — a NEW surface adopted a reserved ` +
         `token, or a file dropped it (then lower this number)`,
-    ).toBe(205); // measured 2026-08-04 after the G2 sweep (24 files dropped their last readable-copy use)
+    ).toBe(207); // measured 2026-08-04 after the G2 sweep + the 10 misfire reverts (2 files re-entered the set)
   });
 
   // ================================================================
@@ -689,9 +689,9 @@ describe("design doctrine (Field-First)", () => {
     // past it (review catch: this diff's own edge-strong comment corrections
     // were the first exercise of that escape hatch). These floors hold no
     // matter what the comments say. edge-strong (non-text, 1.4.11's 3:1) is
-    // deliberately absent: it FAILS today (2.77/2.92) and its raise is gap
-    // G2's lane — add it here when G2 lands. ink-muted has no floor BY RULE:
-    // it must never carry readable copy (the usage ratchet above owns that).
+    // covered by its CLAIMS entries since G2 raised it (0.63 light / 0.55
+    // dark — clearing card, page AND sunk grounds). ink-muted has no floor BY
+    // RULE: it must never carry readable copy (the usage ratchet owns that).
     const AA_FLOORS: Array<{ fg: string; bg: string }> = [
       { fg: "ink", bg: "card" },
       { fg: "ink-secondary", bg: "card" },
@@ -701,8 +701,15 @@ describe("design doctrine (Field-First)", () => {
       { fg: "attn-ink", bg: "attn-soft" },
       { fg: "done-ink", bg: "done-soft" },
       { fg: "danger-ink", bg: "danger-soft" },
-      // G9: white ink on the danger FILL (badges) — was 3.22:1 in dark.
-      { fg: "on-fill", bg: "danger" },
+      // G9 take two: the danger fill's ink is its OWN token (white in light,
+      // near-black in dark — the on-attn shape), because one danger lightness
+      // cannot serve both the fill-under-ink and the 157-site text-danger use.
+      { fg: "on-danger", bg: "danger" },
+      { fg: "on-danger", bg: "danger-strong" },
+      // ...and text-danger itself on the card — the pair the first G9 attempt
+      // silently broke (review catch: tuning the token as a fill regressed
+      // its far more common use as ink).
+      { fg: "danger", bg: "card" },
     ];
     it("every readable ink pair holds WCAG AA 4.5:1 in both themes (comment-independent)", () => {
       const failures: string[] = [];

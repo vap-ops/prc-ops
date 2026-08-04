@@ -429,7 +429,7 @@ export function WpIssueStock({
                 </span>
                 {i.receiverName ? (
                   <span className="text-meta mt-0.5 block">
-                    <span className={i.receivedAt ? "text-action" : "text-ink-secondary"}>
+                    <span className={i.receivedAt ? "text-action" : "text-ink-muted"}>
                       {i.receivedAt ? "รับแล้ว" : "รอรับ"}
                     </span>
                     <span className="text-ink-secondary"> · {i.receiverName}</span>

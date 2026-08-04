@@ -652,7 +652,7 @@ function WorkerRow({
       <div className="min-w-40 flex-1">
         <div>
           <p
-            className={`text-body ${optimisticActive ? "text-ink" : "text-ink-secondary"} font-semibold`}
+            className={`text-body ${optimisticActive ? "text-ink" : "text-ink-muted"} font-semibold`}
           >
             {worker.name}
             {/* Spec 266 U3: สถานะ badge (ประจำ/ชั่วคราว) for daily-paid ช่าง (a

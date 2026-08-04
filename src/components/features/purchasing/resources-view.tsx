@@ -199,7 +199,7 @@ export function ResourcesBody({
       {/* แรงงาน — D6: deferred HONESTLY (roster empty, muster adoption pending).
           Dashed slot, no fake data, no hidden slot. */}
       <section className="flex flex-col gap-2">
-        <h3 className="text-body text-ink-secondary font-semibold">แรงงาน</h3>
+        <h3 className="text-body text-ink-muted font-semibold">แรงงาน</h3>
         <p className="border-edge text-ink-secondary text-meta rounded-card border border-dashed px-4 py-3">
           รอข้อมูลทีมช่าง (เฟสถัดไป)
         </p>

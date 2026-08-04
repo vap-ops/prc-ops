@@ -61,7 +61,7 @@ export interface PurchaseRequestCatalogItem {
 const PRIORITY_SELECTED_CLASS: Record<PurchasePriority, string> = {
   normal: "border-fill bg-fill text-on-fill",
   urgent: "border-attn bg-attn text-on-attn",
-  critical: "border-danger bg-danger text-on-fill",
+  critical: "border-danger bg-danger text-on-danger",
 };
 
 export interface PurchaseRequestFormWorkPackage {

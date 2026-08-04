@@ -71,7 +71,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            className="bg-danger text-on-fill hover:bg-danger-strong focus-visible:ring-danger inline-flex min-h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            className="bg-danger text-on-danger hover:bg-danger-strong focus-visible:ring-danger inline-flex min-h-11 items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           >
             {confirmLabel}
           </button>

@@ -115,7 +115,7 @@ function Row({
             {row.receiverName ? (
               <>
                 {" · "}
-                <span className={row.receivedAt ? "text-action" : "text-ink-secondary"}>
+                <span className={row.receivedAt ? "text-action" : "text-ink-muted"}>
                   {row.receivedAt ? "รับแล้ว" : "รอรับ"}
                 </span>
                 {` ${row.receiverName}`}
