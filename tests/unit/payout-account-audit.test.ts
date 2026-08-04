@@ -1,0 +1,124 @@
+// Writing failing test first.
+//
+// Spec 395 U1 — the admin seam behind the payout-account detector.
+//
+// Why a seam at all, verified live 2026-08-04:
+//   has_column_privilege('authenticated','public.workers','bank_account_number','SELECT') = FALSE
+//   has_column_privilege('authenticated','public.workers','bank_account_name','SELECT')   = FALSE
+// The bank columns are zero-grant PII, and the shared-account count is inherently
+// cross-worker, so this is not expressible under row-level scoping at all — exactly
+// as spec §4 states. It must go through the admin client, like payout-nominee.ts.
+//
+// These tests pin the SEAM (which columns, which filter, where the nominee ids come
+// from). The classification rules themselves live in payout-account.test.ts.
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { mockCreateClient, mockListActiveNominees } = vi.hoisted(() => ({
+  mockCreateClient: vi.fn(),
+  mockListActiveNominees: vi.fn(),
+}));
+
+vi.mock("@/lib/db/admin", () => ({ createClient: mockCreateClient }));
+vi.mock("@/lib/payroll/payout-nominee", () => ({
+  listActivePayoutNominees: mockListActiveNominees,
+}));
+
+import { loadPayoutAccountAudit } from "@/lib/workers/payout-account-audit";
+
+function adminReturning(result: { data: unknown; error: unknown }) {
+  const eqFn = vi.fn().mockResolvedValue(result);
+  const selectFn = vi.fn().mockReturnValue({ eq: eqFn });
+  const fromFn = vi.fn().mockReturnValue({ select: selectFn });
+  return { client: { from: fromFn }, fromFn, selectFn, eqFn };
+}
+
+const SERVER = {} as never;
+
+const LIVE_ROWS = [
+  // The concentration account — three workers, one minor's account.
+  {
+    id: "w1",
+    name: "นางสาว โนรี ทิพย์โภชน์",
+    bank_account_number: "014162319729",
+    bank_account_name: "ด.ช.อนันตชัย  ฑีฆายุทธสกุล",
+  },
+  {
+    id: "w2",
+    name: "นาย พิเชษฐ์ พันธุพัฒน์",
+    bank_account_number: "014162319729",
+    bank_account_name: "ด.ช.อนันตชัย  ฑีฆายุทธสกุล",
+  },
+  {
+    id: "w3",
+    name: "นายสายฟ้า บุญเกิด",
+    bank_account_number: "014162319729",
+    bank_account_name: "ด.ช.อนันตชัย ทีฆายุทธสกุล",
+  },
+  // A clean own-account row.
+  {
+    id: "w4",
+    name: "นางสาวปาณิศา บุญเรือง",
+    bank_account_number: "1130967980",
+    bank_account_name: "ปาณิศา บุญเรือง",
+  },
+];
+
+describe("loadPayoutAccountAudit", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListActiveNominees.mockResolvedValue([]);
+  });
+
+  it("reads the bank columns through the ADMIN client, active workers only", async () => {
+    const { client, fromFn, selectFn, eqFn } = adminReturning({ data: LIVE_ROWS, error: null });
+    mockCreateClient.mockReturnValue(client);
+
+    await loadPayoutAccountAudit(SERVER);
+
+    expect(mockCreateClient).toHaveBeenCalled();
+    expect(fromFn).toHaveBeenCalledWith("workers");
+    expect(selectFn).toHaveBeenCalledWith("id, name, bank_account_number, bank_account_name");
+    // ⚠️ The active filter is the one that keeps spec 396's deactivated mis-edit row
+    // out of the shared-account count. Without it, account 020203221364 reads as
+    // shared forever and permanently flags a record that is already correct.
+    expect(eqFn).toHaveBeenCalledWith("active", true);
+  });
+
+  it("classifies the live shapes end to end", async () => {
+    const { client } = adminReturning({ data: LIVE_ROWS, error: null });
+    mockCreateClient.mockReturnValue(client);
+
+    const out = await loadPayoutAccountAudit(SERVER);
+    const byId = new Map(out.map((a) => [a.workerId, a]));
+
+    expect(byId.get("w1")?.accountWorkerCount).toBe(3);
+    expect(byId.get("w1")?.state).toBe("unrecorded");
+    expect(byId.get("w4")?.state).toBe("own");
+    expect(byId.get("w4")?.accountWorkerCount).toBe(1);
+  });
+
+  it("takes the nominee ids from the DEFINER RPC, not from the admin read", async () => {
+    const { client } = adminReturning({ data: LIVE_ROWS, error: null });
+    mockCreateClient.mockReturnValue(client);
+    mockListActiveNominees.mockResolvedValue([{ workerId: "w1" }]);
+
+    const out = await loadPayoutAccountAudit(SERVER);
+    const byId = new Map(out.map((a) => [a.workerId, a]));
+
+    expect(mockListActiveNominees).toHaveBeenCalledWith(SERVER);
+    expect(byId.get("w1")?.state).toBe("nominee");
+    // its neighbours on the same account are untouched
+    expect(byId.get("w2")?.state).toBe("unrecorded");
+  });
+
+  // The detector's whole job is to make a gap countable. A read error that silently
+  // returned [] would report "nothing to record" — the most dangerous possible lie
+  // for this feature, and indistinguishable from success.
+  it("throws on a read error rather than reporting an empty worklist", async () => {
+    const { client } = adminReturning({ data: null, error: { message: "boom" } });
+    mockCreateClient.mockReturnValue(client);
+
+    await expect(loadPayoutAccountAudit(SERVER)).rejects.toThrow(/boom|payout account/i);
+  });
+});
