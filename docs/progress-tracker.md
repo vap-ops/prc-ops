@@ -11070,4 +11070,14 @@ naming was wrong for all of them. Code-only, no schema, no PD effort.
 - ⚠️ **`worker/src/report.ts` still prints the code-first heading.** Deliberate: ADR 0040 keeps the
   Railway worker byte-untouched (its watch path redeploys on any edit, and it is danger-path), and
   it only builds a report when the in-app fast path dies before claiming. So a fallback-built PDF
-  reads code-first. Recorded rather than fixed.
+  reads code-first. Recorded rather than fixed — the divergence is now stated in `build-pdf.ts`'s
+  own header, where the next maintainer deciding whether the files must stay in step will look.
+- ⭐ **The review's best catch, and the reason a positive control is not optional.** Splitting the
+  heading into two independently-flowed `text()` calls let PDFKit page-break BETWEEN a work name
+  and its code — a client page opening on a bare `S-042 · ยังไม่เริ่ม`. I added the keep-together
+  measure, then tried to prove it: **my first two fixtures showed zero orphans WITH THE GUARD
+  REMOVED**, which would have shipped as "verified" and proved nothing. Cause: 380 identical rows
+  have a constant height, so every page breaks at the same phase and the boundary never lands
+  inside a row. Only a fixture with **varying row heights** (every 5th title two lines) reproduced
+  it — **8 of 18 pages orphaned unguarded, 0 of 19 guarded.** A uniform fixture is structurally
+  blind to a phase-dependent layout bug; if the control does not fail, the experiment has not run.
