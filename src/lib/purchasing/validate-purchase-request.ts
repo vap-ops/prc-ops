@@ -54,8 +54,7 @@ export type ValidatedPurchaseRequestInput = {
 };
 
 export type ValidateCreatePurchaseRequestResult =
-  | { ok: true; value: ValidatedPurchaseRequestInput }
-  | { ok: false; error: string };
+  { ok: true; value: ValidatedPurchaseRequestInput } | { ok: false; error: string };
 
 export function validateCreatePurchaseRequest(input: {
   // Spec 195 P1: scope. Both optional individually, but at least one is

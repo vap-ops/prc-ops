@@ -22,11 +22,7 @@ import {
 export type NotificationEventType = Database["public"]["Enums"]["notification_event_type"];
 
 export type NotificationCategory =
-  | "my_work"
-  | "approvals"
-  | "my_requests"
-  | "system"
-  | "serious_issues";
+  "my_work" | "approvals" | "my_requests" | "system" | "serious_issues";
 
 export const NOTIFICATION_CATEGORY_ORDER: readonly NotificationCategory[] = [
   "my_work",

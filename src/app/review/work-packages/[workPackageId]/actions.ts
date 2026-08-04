@@ -62,8 +62,7 @@ export interface RecordDecisionInput {
 }
 
 export type RecordDecisionResult =
-  | { ok: true; transitioned: boolean }
-  | { ok: false; error: string };
+  { ok: true; transitioned: boolean } | { ok: false; error: string };
 
 export async function recordDecision(input: RecordDecisionInput): Promise<RecordDecisionResult> {
   if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };

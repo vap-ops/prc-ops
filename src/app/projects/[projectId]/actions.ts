@@ -269,8 +269,7 @@ export async function copyWorkPackages(
 // parser (ADR 0014); valid rows are created via create_work_package (U4). Gate
 // mirrors the other project writes.
 export type ImportWorkPackagesResult =
-  | { ok: true; inserted: number }
-  | { ok: false; error: string };
+  { ok: true; inserted: number } | { ok: false; error: string };
 
 export async function importWorkPackagesCsv(
   projectId: string,
@@ -396,8 +395,7 @@ export async function createDeliverable(
 // header auto-detect; the description column is ignored for งวด); valid rows are
 // created via create_deliverable (U1). Gate mirrors the other project writes.
 export type ImportDeliverablesResult =
-  | { ok: true; inserted: number }
-  | { ok: false; error: string };
+  { ok: true; inserted: number } | { ok: false; error: string };
 
 export async function importDeliverables(
   projectId: string,
@@ -662,8 +660,7 @@ export async function deleteDeliverable(
 // deleted. Loops the spec-155 set_work_package_deliverable RPC with a NULL
 // deliverable (= ungroup). Gate mirrors the other project writes.
 export type RemoveFromDeliverableResult =
-  | { ok: true; count: number }
-  | { ok: false; error: string };
+  { ok: true; count: number } | { ok: false; error: string };
 
 export async function removeWorkPackagesFromDeliverable(
   projectId: string,

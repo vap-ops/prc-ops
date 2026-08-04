@@ -60,8 +60,7 @@ export interface WpThingIssue {
 }
 
 export type WpThingRow =
-  | ({ kind: "request" } & WpThingRequest)
-  | ({ kind: "issue" } & WpThingIssue);
+  ({ kind: "request" } & WpThingRequest) | ({ kind: "issue" } & WpThingIssue);
 
 export interface WpThingGroup {
   key: WpThingGroupKey;

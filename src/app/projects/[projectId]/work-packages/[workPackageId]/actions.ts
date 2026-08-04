@@ -100,8 +100,7 @@ export interface AddPhotoInput {
 }
 
 export type AddPhotoResult =
-  | { ok: true; photoId: string; transitioned: boolean }
-  | { ok: false; error: string };
+  { ok: true; photoId: string; transitioned: boolean } | { ok: false; error: string };
 
 export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
   if (!isValidUuid(input.workPackageId)) return { ok: false, error: "รหัสรายการงานไม่ถูกต้อง" };

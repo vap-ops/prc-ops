@@ -20,8 +20,7 @@ export interface ValidatedEquipmentItem {
 }
 
 export type ValidateEquipmentItemResult =
-  | { ok: true; value: ValidatedEquipmentItem }
-  | { ok: false; error: string };
+  { ok: true; value: ValidatedEquipmentItem } | { ok: false; error: string };
 
 export function validateEquipmentItem(input: {
   name: string;

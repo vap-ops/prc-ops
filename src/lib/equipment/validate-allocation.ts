@@ -23,8 +23,7 @@ export interface AllocationInput {
 }
 
 export type ValidateAllocationResult =
-  | { ok: true; value: AllocationInput }
-  | { ok: false; error: string };
+  { ok: true; value: AllocationInput } | { ok: false; error: string };
 
 export function validateAllocation(input: {
   startsOn: string;

@@ -43,13 +43,7 @@ import { validateAttachmentLink } from "@/lib/purchasing/validate-attachment";
 import { BUTTON_SECONDARY_MUTED, FIELD_INPUT, INLINE_ALERT_TEXT } from "@/lib/ui/classes";
 
 type ItemStatus =
-  | "preparing"
-  | "staged"
-  | "uploading"
-  | "saving"
-  | "upload-error"
-  | "insert-error"
-  | "done";
+  "preparing" | "staged" | "uploading" | "saving" | "upload-error" | "insert-error" | "done";
 
 interface StagedItem {
   // Spec 121: 'pdf' joins 'image' as a stored-bytes file kind (links carry a url).

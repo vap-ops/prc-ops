@@ -7,11 +7,9 @@ export const DELIVERABLE_CODE_MAX = 50;
 export const DELIVERABLE_NAME_MAX = 200;
 
 export type ValidateDeliverableCodeResult =
-  | { ok: true; code: string }
-  | { ok: false; error: string };
+  { ok: true; code: string } | { ok: false; error: string };
 export type ValidateDeliverableNameResult =
-  | { ok: true; name: string }
-  | { ok: false; error: string };
+  { ok: true; name: string } | { ok: false; error: string };
 
 export function validateDeliverableCode(raw: string): ValidateDeliverableCodeResult {
   const code = raw.trim();

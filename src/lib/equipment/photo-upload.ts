@@ -12,8 +12,7 @@ import { diagnoseStorageFailure } from "@/lib/photos/upload-queue";
 import { trackFriction } from "@/lib/telemetry/friction";
 
 export type UploadConditionPhotosResult =
-  | { ok: true; paths: string[] }
-  | { ok: false; error: string };
+  { ok: true; paths: string[] } | { ok: false; error: string };
 
 export async function uploadConditionPhotos(
   files: readonly File[],

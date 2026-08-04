@@ -25,8 +25,7 @@ export interface ValidatedSitePurchase {
 }
 
 export type ValidateSitePurchaseResult =
-  | { ok: true; value: ValidatedSitePurchase }
-  | { ok: false; error: string };
+  { ok: true; value: ValidatedSitePurchase } | { ok: false; error: string };
 
 export function validateSitePurchase(input: {
   workPackageId: string;

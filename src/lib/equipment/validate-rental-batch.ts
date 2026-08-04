@@ -23,8 +23,7 @@ export interface RentalBatchInput {
 }
 
 export type ValidateRentalBatchResult =
-  | { ok: true; value: RentalBatchInput }
-  | { ok: false; error: string };
+  { ok: true; value: RentalBatchInput } | { ok: false; error: string };
 
 export function validateRentalBatch(input: {
   monthlyRate: number;

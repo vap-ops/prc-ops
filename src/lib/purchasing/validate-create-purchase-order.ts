@@ -21,8 +21,7 @@ export interface ValidatedCreatePurchaseOrder {
 }
 
 export type ValidateCreatePurchaseOrderResult =
-  | { ok: true; value: ValidatedCreatePurchaseOrder }
-  | { ok: false; error: string };
+  { ok: true; value: ValidatedCreatePurchaseOrder } | { ok: false; error: string };
 
 export function validateCreatePurchaseOrder(input: {
   supplierId: string;

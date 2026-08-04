@@ -14,11 +14,7 @@ type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_statu
 // stage — at least one member shipped (on_route), none delivered yet — so the PO no
 // longer jumps ordered → received with the shipment invisible.
 export type PurchaseOrderStatus =
-  | "open"
-  | "ordered"
-  | "in_transit"
-  | "partially_received"
-  | "received";
+  "open" | "ordered" | "in_transit" | "partially_received" | "received";
 
 // A member is delivered (received) only at status 'delivered'. It counts as
 // "ordered" once the buy is placed and while in transit (purchased / on_route /

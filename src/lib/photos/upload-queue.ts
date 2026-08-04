@@ -96,8 +96,7 @@ export interface QueueStore {
 }
 
 export type UploadBytesResult =
-  | { ok: true }
-  | { ok: false; alreadyExists: boolean; message: string };
+  { ok: true } | { ok: false; alreadyExists: boolean; message: string };
 
 export interface ProcessDeps {
   uploadBytes(item: QueuedUpload): Promise<UploadBytesResult>;
@@ -199,24 +198,14 @@ export function classifyStorageUploadError(error: {
 // only to bucket network-vs-authz and is never returned or stored.
 // The coarse classes diagnoseStorageFailure produces from a storage error.
 export type StorageFailureReason =
-  | "http_5xx"
-  | "http_4xx"
-  | "authz"
-  | "size"
-  | "rate_limited"
-  | "network"
-  | "unknown";
+  "http_5xx" | "http_4xx" | "authz" | "size" | "rate_limited" | "network" | "unknown";
 
 // The full upload_fail reason vocabulary across every pipeline stage: the storage
 // classes above, plus the insert/queue-stage classes emitted by the capture engine.
 // (trackFriction context is untyped, so this documents the vocabulary for a future
 // typed consumer rather than enforcing it.)
 export type UploadFailureReason =
-  | StorageFailureReason
-  | "pairing"
-  | "after_fix_closed"
-  | "insert_rejected"
-  | "exception";
+  StorageFailureReason | "pairing" | "after_fix_closed" | "insert_rejected" | "exception";
 
 export interface UploadFailureDiagnosis {
   reason: StorageFailureReason;

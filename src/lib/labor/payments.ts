@@ -89,8 +89,7 @@ function currentPayments(payments: ReadonlyArray<WagePaymentRow>): WagePaymentRo
 // the shared-worker decision). The all-projects view keeps full reconciliation,
 // where the roll-up and the payment cover the same scope.
 export type PayrollReconciliation =
-  | { scoped: true }
-  | { scoped: false; report: AnnotatedPayrollReport };
+  { scoped: true } | { scoped: false; report: AnnotatedPayrollReport };
 
 export function reconcilePayroll(
   report: PayrollReport,

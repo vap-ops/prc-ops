@@ -22,14 +22,7 @@ import { bangkokDateOf } from "@/lib/dates";
 
 /** Every event kind the rail can render. `plan` is reserved for spec 363 D3 and renders nothing yet. */
 export type WpTimelineKind =
-  | "photos"
-  | "decision"
-  | "request"
-  | "issue"
-  | "return"
-  | "rework"
-  | "status"
-  | "plan";
+  "photos" | "decision" | "request" | "issue" | "return" | "rework" | "status" | "plan";
 
 /** The four filter chips: ทั้งหมด is the absence of a filter, so it is not a value here. */
 export type WpTimelineFilter = "photos" | "review" | "materials" | "status";
@@ -182,52 +175,44 @@ function photoRows(input: WpTimelineInput): WpTimelineRow[] {
 export function buildWpTimeline(input: WpTimelineInput): WpTimelineDay[] {
   const rows: WpTimelineRow[] = [
     ...photoRows(input),
-    ...input.approvals.map(
-      (a): WpTimelineRow => ({
-        kind: "decision",
-        key: `decision:${a.id}`,
-        at: a.decided_at,
-        actor: nameOf(input.names, a.decided_by),
-        decision: a.decision,
-        reason: a.revision_reason,
-        comment: a.comment,
-      }),
-    ),
-    ...input.requests.map(
-      (r): WpTimelineRow => ({
-        kind: "request",
-        key: `request:${r.id}`,
-        at: r.requested_at,
-        actor: nameOf(input.names, r.requested_by),
-        prNumber: r.pr_number,
-        item: r.item_description,
-        qty: r.quantity,
-        unit: r.unit,
-        status: r.status,
-      }),
-    ),
-    ...input.issues.map(
-      (i): WpTimelineRow => ({
-        kind: "issue",
-        key: `issue:${i.id}`,
-        at: i.issued_at,
-        actor: nameOf(input.names, i.issued_by),
-        item: i.item,
-        qty: i.qty,
-        unit: i.unit,
-      }),
-    ),
-    ...input.returns.map(
-      (r): WpTimelineRow => ({
-        kind: "return",
-        key: `return:${r.id}`,
-        at: r.returned_at,
-        actor: nameOf(input.names, r.returned_by),
-        item: r.item,
-        qty: r.qty,
-        unit: r.unit,
-      }),
-    ),
+    ...input.approvals.map((a): WpTimelineRow => ({
+      kind: "decision",
+      key: `decision:${a.id}`,
+      at: a.decided_at,
+      actor: nameOf(input.names, a.decided_by),
+      decision: a.decision,
+      reason: a.revision_reason,
+      comment: a.comment,
+    })),
+    ...input.requests.map((r): WpTimelineRow => ({
+      kind: "request",
+      key: `request:${r.id}`,
+      at: r.requested_at,
+      actor: nameOf(input.names, r.requested_by),
+      prNumber: r.pr_number,
+      item: r.item_description,
+      qty: r.quantity,
+      unit: r.unit,
+      status: r.status,
+    })),
+    ...input.issues.map((i): WpTimelineRow => ({
+      kind: "issue",
+      key: `issue:${i.id}`,
+      at: i.issued_at,
+      actor: nameOf(input.names, i.issued_by),
+      item: i.item,
+      qty: i.qty,
+      unit: i.unit,
+    })),
+    ...input.returns.map((r): WpTimelineRow => ({
+      kind: "return",
+      key: `return:${r.id}`,
+      at: r.returned_at,
+      actor: nameOf(input.names, r.returned_by),
+      item: r.item,
+      qty: r.qty,
+      unit: r.unit,
+    })),
     // ⚠️ U2a retires the rework row for a REOPEN when the real status row covers
     // it. `reopen_work_package_for_defect` writes its own wp_reopened_for_defect
     // row AND trips the work_packages_transition_audit trigger (complete→rework)
@@ -245,27 +230,23 @@ export function buildWpTimeline(input: WpTimelineInput): WpTimelineDay[] {
           e.event !== "wp_reopened_for_defect" ||
           !input.statuses.some((t) => t.at === e.created_at),
       )
-      .map(
-        (e): WpTimelineRow => ({
-          kind: "rework",
-          key: `rework:${e.id}`,
-          at: e.created_at,
-          actor: nameOf(input.names, e.actor_id),
-          event: e.event,
-        }),
-      ),
-    ...input.statuses.map(
-      (t, i): WpTimelineRow => ({
-        kind: "status",
-        // audit_log rows carry no natural key here, and two transitions can share
-        // a timestamp to the second, so the index keeps the React key unique.
-        key: `status:${t.at}:${i}`,
-        at: t.at,
-        actor: nameOf(input.names, t.actor_id),
-        from: t.from_status,
-        to: t.to_status,
-      }),
-    ),
+      .map((e): WpTimelineRow => ({
+        kind: "rework",
+        key: `rework:${e.id}`,
+        at: e.created_at,
+        actor: nameOf(input.names, e.actor_id),
+        event: e.event,
+      })),
+    ...input.statuses.map((t, i): WpTimelineRow => ({
+      kind: "status",
+      // audit_log rows carry no natural key here, and two transitions can share
+      // a timestamp to the second, so the index keeps the React key unique.
+      key: `status:${t.at}:${i}`,
+      at: t.at,
+      actor: nameOf(input.names, t.actor_id),
+      from: t.from_status,
+      to: t.to_status,
+    })),
   ];
 
   const days = new Map<string, WpTimelineRow[]>();

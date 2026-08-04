@@ -4,9 +4,7 @@
 // unexpired login_handoffs row honored. Everything else is invalid.
 
 export type CallbackFlow =
-  | { kind: "browser" }
-  | { kind: "handoff"; rowId: string }
-  | { kind: "invalid" };
+  { kind: "browser" } | { kind: "handoff"; rowId: string } | { kind: "invalid" };
 
 export function resolveCallbackFlow(args: {
   stateParam: string | null;

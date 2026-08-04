@@ -26,8 +26,7 @@ export interface EquipmentHistoryEntry {
 }
 
 export type EquipmentHistoryResult =
-  | { ok: true; entries: EquipmentHistoryEntry[] }
-  | { ok: false; error: string };
+  { ok: true; entries: EquipmentHistoryEntry[] } | { ok: false; error: string };
 
 export async function loadEquipmentHistory(itemId: string): Promise<EquipmentHistoryResult> {
   const supabase = await createServerSupabase();

@@ -19,8 +19,7 @@ export type ValidatedPhotoMarkup = {
 };
 
 export type ValidatePhotoMarkupResult =
-  | { ok: true; value: ValidatedPhotoMarkup }
-  | { ok: false; error: string };
+  { ok: true; value: ValidatedPhotoMarkup } | { ok: false; error: string };
 
 function isNormalizedCoordinate(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
