@@ -4,6 +4,12 @@
 // with its current After photos; empty WPs skipped; empty project →
 // header-only PDF. Sarabun is embedded from the base64 module — PDFKit's
 // Helvetica garbles Thai (spec 13).
+//
+// ⚠️ The WP heading DIVERGES from the worker since spec 394 D8: here the
+// Thai work name leads and the code is demoted, while worker/src/report.ts
+// still prints `code — name`. Deliberate — ADR 0040 freezes the worker, and
+// it only builds a report when this fast path dies before claiming. Do not
+// "restore parity" by editing the worker; retire it instead (ADR 0040).
 
 import "server-only";
 import PDFDocument from "pdfkit";
@@ -109,7 +115,18 @@ export async function buildReportPdf(input: ReportInput): Promise<Buffer> {
     const { title, subtitle } = workPackageHeadingLines(wp);
 
     if (input.includeEmptyWorkPackages && photoCount === 0) {
-      // Text listing: compact rows, no page per WP.
+      // Text listing: no page per WP, but a row is two lines since spec 394
+      // D8 — so measure both and break FIRST when they don't both fit.
+      // Without this PDFKit flows them independently and a page can open on
+      // a bare code with its work name left behind (โพธิ์ทอง lists hundreds
+      // of rows, so the boundary is hit on every listing report).
+      doc.fontSize(12);
+      const titleHeight = doc.heightOfString(title);
+      doc.fontSize(9);
+      const subtitleHeight = doc.heightOfString(subtitle);
+      const bottom = doc.page.height - doc.page.margins.bottom;
+      if (doc.y + titleHeight + subtitleHeight > bottom) doc.addPage();
+
       doc.fontSize(12).text(title);
       doc.fontSize(9).text(subtitle);
       doc.moveDown(0.5);
