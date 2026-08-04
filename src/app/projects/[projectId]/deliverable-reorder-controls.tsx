@@ -12,7 +12,7 @@ import { ChevronUp, ChevronDown } from "lucide-react";
 import { swapDeliverableOrder } from "./actions";
 
 const BTN =
-  "text-ink-secondary hover:bg-sunk hover:text-ink rounded-control focus-visible:ring-action inline-flex h-8 w-8 shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-30";
+  "text-ink-secondary hover:bg-sunk hover:text-ink rounded-control focus-visible:ring-action inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-30";
 
 export function DeliverableReorderControls({
   projectId,

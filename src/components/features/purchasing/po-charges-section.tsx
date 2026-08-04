@@ -146,7 +146,7 @@ export function PoChargesSection({
                     }}
                     disabled={voidPending}
                     aria-label={`ลบ${PO_CHARGE_TYPE_LABEL[c.charge_type]} ${baht(c.amount)}`}
-                    className="text-ink-muted hover:text-danger focus-visible:ring-action inline-flex size-8 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 disabled:opacity-50"
+                    className="text-ink-secondary hover:text-danger focus-visible:ring-action inline-flex size-11 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 disabled:opacity-50"
                   >
                     <Trash2 aria-hidden className="size-4" />
                   </button>

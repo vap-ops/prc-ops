@@ -59,7 +59,7 @@ export function EditDeliverableSheet({
         type="button"
         aria-label={`แก้ไขงวด ${code}`}
         onClick={() => setOpen(true)}
-        className="text-ink-secondary hover:bg-sunk hover:text-ink rounded-control focus-visible:ring-action inline-flex h-9 w-9 shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2"
+        className="text-ink-secondary hover:bg-sunk hover:text-ink rounded-control focus-visible:ring-action inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2"
       >
         <Pencil aria-hidden className="size-4" />
       </button>
