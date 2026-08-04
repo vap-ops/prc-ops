@@ -135,7 +135,7 @@ export function ScheduleMonthView({
         <span className="flex items-center gap-1.5">
           <span className="bg-attn inline-block h-1.5 w-1.5 rounded-full" /> มีงานครบกำหนด
         </span>
-        <span className="text-ink-muted">แตะวันเพื่อดูรายละเอียด</span>
+        <span className="text-ink-secondary">แตะวันเพื่อดูรายละเอียด</span>
       </div>
     </div>
   );

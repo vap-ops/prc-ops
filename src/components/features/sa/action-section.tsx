@@ -272,7 +272,7 @@ function ActionRow({ item, backHref }: { item: SaActionItem; backHref: string })
         </p>
         {item.reason ? (
           <p className="text-body text-ink-secondary mt-1.5 break-words">
-            <span className="text-ink-muted">
+            <span className="text-ink-secondary">
               {item.kind === "rework" ? "ข้อบกพร่อง: " : "หมายเหตุ: "}
             </span>
             {item.reason}

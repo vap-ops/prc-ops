@@ -62,7 +62,7 @@ export function ClientGrantExisting({
   return (
     <section className={`${CARD} mb-4`}>
       <p className="text-ink text-sm font-semibold">เพิ่มลูกค้าให้ดูโครงการ</p>
-      <p className="text-ink-muted mt-0.5 text-xs">
+      <p className="text-ink-secondary mt-0.5 text-xs">
         เลือกผู้ใช้ที่เข้าสู่ระบบแล้ว ให้เป็นลูกค้าดูความคืบหน้าโครงการนี้ (อ่านอย่างเดียว)
       </p>
 

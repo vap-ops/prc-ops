@@ -66,7 +66,7 @@ export function ContactConsentBlock({
   return (
     <section className={CARD}>
       <p className="text-ink text-sm font-semibold">ความยินยอม (PDPA)</p>
-      <p className="text-ink-muted mt-0.5 text-xs">บันทึกเมื่อได้รับเอกสารยินยอมที่ลงนามแล้ว</p>
+      <p className="text-ink-secondary mt-0.5 text-xs">บันทึกเมื่อได้รับเอกสารยินยอมที่ลงนามแล้ว</p>
       <ul className="mt-3 flex flex-col gap-3">
         {KINDS.map((kind) => {
           const cur = active(kind);
@@ -79,7 +79,7 @@ export function ContactConsentBlock({
                     ยินยอมแล้ว · {formatThaiDate(cur.consented_at)}
                   </p>
                 ) : (
-                  <p className="text-ink-muted text-xs">ยังไม่มีความยินยอม</p>
+                  <p className="text-ink-secondary text-xs">ยังไม่มีความยินยอม</p>
                 )}
               </div>
               {cur ? (

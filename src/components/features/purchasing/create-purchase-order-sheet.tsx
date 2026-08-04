@@ -569,7 +569,9 @@ export function CreatePurchaseOrderSheet({
         <div className={docFile ? (docTab === "form" ? "" : "hidden lg:block") : ""}>
           <div className="flex flex-col gap-3">
             {!docFile ? attachButton : null}
-            <p className="text-ink-muted text-meta">รวม {lines.length} รายการเป็นใบสั่งซื้อเดียว</p>
+            <p className="text-ink-secondary text-meta">
+              รวม {lines.length} รายการเป็นใบสั่งซื้อเดียว
+            </p>
 
             <label htmlFor="po-supplier" className="text-ink text-xs font-medium">
               ผู้ขาย
@@ -900,7 +902,7 @@ export function CreatePurchaseOrderSheet({
             </div>
 
             {!ready && !pending ? (
-              <p className="text-ink-muted text-meta text-right">
+              <p className="text-ink-secondary text-meta text-right">
                 เลือกผู้ขายและระบุวันที่ก่อนสร้าง
               </p>
             ) : null}

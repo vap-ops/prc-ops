@@ -126,7 +126,9 @@ export default async function ContractDetailPage({
             ))}
           </ul>
         )}
-        <p className="text-ink-muted mb-6 text-xs">การแนบไฟล์จะเปิดใช้พร้อมที่เก็บเอกสารกฎหมาย</p>
+        <p className="text-ink-secondary mb-6 text-xs">
+          การแนบไฟล์จะเปิดใช้พร้อมที่เก็บเอกสารกฎหมาย
+        </p>
 
         {contract.status !== "void" ? (
           <>

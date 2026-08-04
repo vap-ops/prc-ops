@@ -90,7 +90,7 @@ export function PurchaseRequestDecision({ requestId }: PurchaseRequestDecisionPr
           type="button"
           onClick={() => handleDecide("rejected")}
           disabled={!canReject}
-          className="bg-danger text-on-fill hover:bg-danger-strong focus-visible:ring-danger disabled:bg-edge disabled:text-ink-muted inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+          className="bg-danger text-on-fill hover:bg-danger-strong focus-visible:ring-danger disabled:bg-edge disabled:text-ink-secondary inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
         >
           {submitting && pendingDecision === "rejected" ? "กำลังบันทึก…" : "ไม่อนุมัติ"}
         </button>

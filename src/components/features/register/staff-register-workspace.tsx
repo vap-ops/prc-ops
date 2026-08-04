@@ -157,7 +157,7 @@ export async function StaffRegisterWorkspace({
           <div className={`${CARD_LAYOUT} border-action bg-action-soft`}>
             <p className="text-ink-secondary text-sm">สมัครเข้าโครงการ</p>
             <p className="text-ink mt-0.5 text-base font-semibold">{site}</p>
-            <p className="text-ink-muted mt-1 text-xs">
+            <p className="text-ink-secondary mt-1 text-xs">
               หากไม่ใช่โครงการที่ท่านทำงาน กรุณาสแกน QR ให้ถูกต้องก่อนสมัคร
             </p>
           </div>

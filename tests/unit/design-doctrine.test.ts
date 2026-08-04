@@ -457,12 +457,12 @@ describe("design doctrine (Field-First)", () => {
       `text-ink-muted occurrences changed — grew: use text-ink-secondary for readable copy ` +
         `(ink-muted is dividers/placeholder/disabled ONLY, globals.css:87); shrank: lower this ` +
         `number in the same PR`,
-    ).toBe(501); // measured 2026-08-04 (post F-010 fix)
+    ).toBe(398); // measured 2026-08-04 after the G2 sentence-copy sweep (103 sites → ink-secondary; wp-catalog deliberately deferred to the refauto lane's domain)
     expect(
       files.size,
       `the number of files using text-ink-muted changed — a NEW surface adopted a reserved ` +
         `token, or a file dropped it (then lower this number)`,
-    ).toBe(229); // measured 2026-08-04
+    ).toBe(205); // measured 2026-08-04 after the G2 sweep (24 files dropped their last readable-copy use)
   });
 
   // ================================================================

@@ -225,7 +225,7 @@ function SkuRow({
           {sku.brand ? ` · ${sku.brand}` : ""}
           {sku.model ? ` ${sku.model}` : ""}
         </span>
-        <span className="text-ink-muted text-meta block">
+        <span className="text-ink-secondary text-meta block">
           {instanceCount > 0
             ? `${instanceCount.toLocaleString("th-TH")} เครื่องในระบบ`
             : "ยังไม่มีเครื่องในระบบ"}

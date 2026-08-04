@@ -59,7 +59,7 @@ export function RentalManager({
     <section aria-label="รายการเช่า">
       <h2 className={SECTION_HEADING}>รายการเช่า</h2>
       {rentals.length === 0 ? (
-        <p className="text-ink-muted text-sm">ยังไม่มีการเช่าที่บันทึกไว้</p>
+        <p className="text-ink-secondary text-sm">ยังไม่มีการเช่าที่บันทึกไว้</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {rentals.map((card) => (

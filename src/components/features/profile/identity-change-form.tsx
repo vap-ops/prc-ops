@@ -65,7 +65,7 @@ export function IdentityChangeForm({
       <p className="text-ink text-sm font-semibold">
         {dobOnly ? "ขอแก้ไขวันเกิด" : "ขอแก้ไขข้อมูลตัวตน"}
       </p>
-      <p className="text-ink-muted mt-0.5 text-xs">
+      <p className="text-ink-secondary mt-0.5 text-xs">
         {dobOnly
           ? "วันเกิดต้องผ่านการอนุมัติก่อนมีผล"
           : "ชื่อ เลขบัตร และวันเกิด ต้องผ่านการอนุมัติก่อนมีผล — กรอกเฉพาะรายการที่ต้องการแก้"}

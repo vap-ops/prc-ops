@@ -106,7 +106,7 @@ export function ClientInviteBlock({
   return (
     <section className={`${CARD} mb-4`}>
       <p className="text-ink text-sm font-semibold">เข้าถึงสำหรับลูกค้า</p>
-      <p className="text-ink-muted mt-0.5 text-xs">
+      <p className="text-ink-secondary mt-0.5 text-xs">
         สร้างลิงก์ให้ลูกค้าติดตามความคืบหน้าโครงการแบบอ่านอย่างเดียว (เข้าด้วย LINE ·
         ลิงก์ใช้ได้ครั้งเดียว · หมดอายุใน 14 วัน)
       </p>

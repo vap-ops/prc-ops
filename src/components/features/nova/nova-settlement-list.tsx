@@ -117,7 +117,7 @@ function Row({ p }: { p: SettlementProject }) {
       {/* The one action that applies. */}
       <div className="mt-3 flex items-center gap-3">
         {!isClosed ? (
-          <p className="text-ink-muted text-xs">ยังไม่ปิดโครงการ — ปิดโครงการก่อนจึงสรุปได้</p>
+          <p className="text-ink-secondary text-xs">ยังไม่ปิดโครงการ — ปิดโครงการก่อนจึงสรุปได้</p>
         ) : !p.settlement ? (
           <button
             type="button"

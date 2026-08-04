@@ -85,7 +85,7 @@ export default async function SaCrewBadgesPage({ searchParams }: BadgesPageProps
         {sheetGroups.length > 0 ? (
           <BadgeSheet groups={sheetGroups} />
         ) : (
-          <p className="text-ink-muted text-sm">ยังไม่มีช่างในโครงการของคุณ</p>
+          <p className="text-ink-secondary text-sm">ยังไม่มีช่างในโครงการของคุณ</p>
         )}
       </section>
     </PageShell>

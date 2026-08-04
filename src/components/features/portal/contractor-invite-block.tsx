@@ -61,7 +61,7 @@ export function ContractorInviteBlock({
         <p className="text-done-strong mt-1 text-sm font-medium">เชื่อมบัญชีพอร์ทัลแล้ว</p>
       ) : (
         <>
-          <p className="text-ink-muted mt-0.5 text-xs">
+          <p className="text-ink-secondary mt-0.5 text-xs">
             สร้างลิงก์ให้ผู้รับเหมาเข้าใช้พอร์ทัลด้วย LINE (ใช้ได้ครั้งเดียว · หมดอายุใน 14 วัน)
           </p>
           {url ? (

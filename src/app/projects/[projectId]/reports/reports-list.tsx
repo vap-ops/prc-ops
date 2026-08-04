@@ -140,7 +140,7 @@ function DownloadButton({ reportId }: { reportId: string }) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="rounded-control border-edge-strong bg-card text-ink hover:bg-sunk focus-visible:ring-action disabled:border-edge-strong disabled:bg-sunk disabled:text-ink-muted inline-flex h-11 w-fit items-center justify-center border px-3 text-xs font-medium shadow-xs transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
+        className="rounded-control border-edge-strong bg-card text-ink hover:bg-sunk focus-visible:ring-action disabled:border-edge-strong disabled:bg-sunk disabled:text-ink-secondary inline-flex h-11 w-fit items-center justify-center border px-3 text-xs font-medium shadow-xs transition-colors focus:outline-none focus-visible:ring-2 disabled:cursor-not-allowed"
       >
         {pending ? "กำลังเตรียมไฟล์…" : "ดาวน์โหลด PDF"}
       </button>

@@ -669,7 +669,7 @@ export function ScheduleGantt({
             <span className="flex items-center gap-1.5">
               <span className="text-danger font-extrabold">●</span> ช้ากว่าแผน
             </span>
-            <span className="text-ink-muted">แตะแถบเพื่อดูสายงาน แล้วเปิดรายละเอียด</span>
+            <span className="text-ink-secondary">แตะแถบเพื่อดูสายงาน แล้วเปิดรายละเอียด</span>
           </div>
         </>
       )}

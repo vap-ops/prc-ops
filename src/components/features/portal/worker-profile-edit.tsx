@@ -68,7 +68,7 @@ export function WorkerProfileEdit({
 
   return (
     <div className={bare ? "" : CARD}>
-      <p className="text-ink-muted mb-3 text-xs">เว้นว่าง = คงค่าเดิม</p>
+      <p className="text-ink-secondary mb-3 text-xs">เว้นว่าง = คงค่าเดิม</p>
       <label className="text-ink-secondary block text-sm">
         เบอร์โทร
         <input

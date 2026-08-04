@@ -354,7 +354,7 @@ export function StaffRegistrationForm({
           </div>
         </>
       ) : (
-        <p className="text-ink-muted mt-3 text-xs">
+        <p className="text-ink-secondary mt-3 text-xs">
           กด &quot;เริ่มสมัคร&quot; เพื่อรับรหัสพนักงาน
           จากนั้นจะสามารถอัปโหลดเอกสารและให้ความยินยอมได้ในหน้าเดียวกันนี้
         </p>
@@ -395,7 +395,7 @@ function StaffDocuments({
   return (
     <div>
       <p className="text-ink text-sm font-semibold">เอกสาร</p>
-      <p className="text-ink-muted mt-0.5 text-xs">
+      <p className="text-ink-secondary mt-0.5 text-xs">
         อัปโหลดเอกสารของท่าน เฉพาะบริษัทและท่านเท่านั้นที่เห็น
       </p>
       <div className="mt-3 flex flex-col gap-4">
@@ -580,7 +580,7 @@ export function StaffBankFields({
         บัญชีธนาคาร
         <span className="text-attn-ink ml-1.5 text-xs font-normal">(จำเป็นสำหรับการอนุมัติ)</span>
       </p>
-      <p className="text-ink-muted mt-0.5 text-xs">
+      <p className="text-ink-secondary mt-0.5 text-xs">
         สำหรับการจ่ายค่าจ้าง เฉพาะบริษัทและท่านเท่านั้นที่เห็น
       </p>
       <p className="text-ink-secondary mt-2 text-sm">ธนาคาร</p>
@@ -622,7 +622,7 @@ export function StaffBankFields({
       {saved ? (
         <p className="text-done-strong mt-1.5 text-xs">✓ บันทึกบัญชีธนาคารแล้ว</p>
       ) : (
-        <p className="text-ink-muted mt-1.5 text-xs">
+        <p className="text-ink-secondary mt-1.5 text-xs">
           ยังไม่ได้บันทึก — กด “บันทึกบัญชีธนาคาร” เพื่อบันทึก
         </p>
       )}
@@ -684,7 +684,7 @@ function StaffConsentCheckbox({
           ✓ บันทึกความยินยอมแล้ว · {formatThaiDate(consentedAt)}
         </p>
       ) : (
-        <p className="text-ink-muted mt-1.5 text-xs">ยังไม่ได้ให้ความยินยอม</p>
+        <p className="text-ink-secondary mt-1.5 text-xs">ยังไม่ได้ให้ความยินยอม</p>
       )}
       {error ? (
         <p role="alert" className={`mt-1.5 ${INLINE_ALERT_TEXT}`}>
@@ -695,7 +695,7 @@ function StaffConsentCheckbox({
           is still required vanished the moment consent was ticked, i.e. exactly
           one step from done with an id_card still owed. */}
       {!floorMet ? (
-        <p className="text-ink-muted mt-2 text-xs">
+        <p className="text-ink-secondary mt-2 text-xs">
           {bankExempt
             ? "ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ"
             : "ต้องกรอกชื่อ-นามสกุล อัปโหลดบัตรประชาชน อัปโหลดสมุดบัญชีธนาคาร กรอกบัญชีธนาคาร และให้ความยินยอมนี้ ก่อนที่จะได้รับการอนุมัติ"}

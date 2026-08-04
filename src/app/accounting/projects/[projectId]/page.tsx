@@ -258,7 +258,7 @@ export default async function FinanceProjectDrillPage({
         {/* Headline tiles */}
         <div className="grid grid-cols-2 gap-3">
           <div className={CARD}>
-            <p className="text-ink-muted text-xs">วางบิลแล้ว (สุทธิ)</p>
+            <p className="text-ink-secondary text-xs">วางบิลแล้ว (สุทธิ)</p>
             <p className="text-ink text-lg font-bold tabular-nums">{baht(funnel.tiles.billed)}</p>
           </div>
           <div className={CARD}>
@@ -276,7 +276,7 @@ export default async function FinanceProjectDrillPage({
             </p>
           </div>
           <div className={CARD}>
-            <p className="text-ink-muted text-xs">เงินรับล่วงหน้า (ยังไม่ตัดบิล)</p>
+            <p className="text-ink-secondary text-xs">เงินรับล่วงหน้า (ยังไม่ตัดบิล)</p>
             <p className="text-ink text-lg font-bold tabular-nums">{baht(funnel.tiles.advances)}</p>
           </div>
         </div>
@@ -323,7 +323,7 @@ export default async function FinanceProjectDrillPage({
             <div className={CARD}>
               <p className="text-ink mb-1 text-sm font-semibold">ใบเสนอราคา</p>
               {funnel.quotations.length === 0 ? (
-                <p className="text-ink-muted text-xs">ยังไม่มีใบเสนอราคา</p>
+                <p className="text-ink-secondary text-xs">ยังไม่มีใบเสนอราคา</p>
               ) : (
                 <ul className="flex flex-col gap-1.5">
                   {funnel.quotations.map((q) => (
@@ -344,7 +344,7 @@ export default async function FinanceProjectDrillPage({
             <div className={CARD}>
               <p className="text-ink mb-1 text-sm font-semibold">PO จากลูกค้า</p>
               {funnel.clientPos.length === 0 ? (
-                <p className="text-ink-muted text-xs">ยังไม่มี PO จากลูกค้า</p>
+                <p className="text-ink-secondary text-xs">ยังไม่มี PO จากลูกค้า</p>
               ) : (
                 <ul className="flex flex-col gap-1.5">
                   {funnel.clientPos.map((p) => (
@@ -373,7 +373,7 @@ export default async function FinanceProjectDrillPage({
                 ) : null}
               </div>
               {!funnel.contract ? (
-                <p className="text-ink-muted text-xs">
+                <p className="text-ink-secondary text-xs">
                   ยังไม่มีสัญญา — เงินรับ/วางบิลยังบันทึกได้ตามปกติ
                 </p>
               ) : (
@@ -425,7 +425,7 @@ export default async function FinanceProjectDrillPage({
         <div>
           <h2 className={SECTION_HEADING}>งวดวางบิล</h2>
           {funnel.billings.length === 0 ? (
-            <p className="text-ink-muted text-sm">ยังไม่มีงวดวางบิล — สร้างได้ที่หน้า งวดงาน</p>
+            <p className="text-ink-secondary text-sm">ยังไม่มีงวดวางบิล — สร้างได้ที่หน้า งวดงาน</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {funnel.billings.map((b) => (
@@ -522,7 +522,7 @@ export default async function FinanceProjectDrillPage({
                 </span>
               </div>
               {materialSplit.awaitingPriceCount > 0 ? (
-                <p className="text-ink-muted mt-1 text-xs">
+                <p className="text-ink-secondary mt-1 text-xs">
                   รอราคา {materialSplit.awaitingPriceCount} รายการ (ยังไม่รวมในตัวเลข)
                 </p>
               ) : null}
@@ -534,7 +534,7 @@ export default async function FinanceProjectDrillPage({
         <div>
           <h2 className={SECTION_HEADING}>กำไร-ขาดทุนรายงาน (WP)</h2>
           {profitRows.length === 0 ? (
-            <p className="text-ink-muted text-sm">ยังไม่มีงานในโครงการ</p>
+            <p className="text-ink-secondary text-sm">ยังไม่มีงานในโครงการ</p>
           ) : (
             <div className="border-edge bg-card shadow-card rounded-card [touch-action:pan-x_pinch-zoom] overflow-x-auto border">
               <table className="w-full min-w-max text-xs">

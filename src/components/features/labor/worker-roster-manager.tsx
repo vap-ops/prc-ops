@@ -652,7 +652,7 @@ function WorkerRow({
       <div className="min-w-40 flex-1">
         <div>
           <p
-            className={`text-body ${optimisticActive ? "text-ink" : "text-ink-muted"} font-semibold`}
+            className={`text-body ${optimisticActive ? "text-ink" : "text-ink-secondary"} font-semibold`}
           >
             {worker.name}
             {/* Spec 266 U3: สถานะ badge (ประจำ/ชั่วคราว) for daily-paid ช่าง (a
@@ -849,7 +849,7 @@ function WorkerRow({
                 </select>
               </label>
               {contractorPick !== "" && contractorPick !== (worker.contractor_id ?? "") ? (
-                <p className="text-ink-muted mt-1 text-xs">
+                <p className="text-ink-secondary mt-1 text-xs">
                   ช่างในทีมผู้รับเหมาไม่รับค่าแรงจาก PRC (ผู้รับเหมาเป็นผู้จ่าย) —
                   การบันทึกวันทำงานหยุดทันที ส่วนวันที่บันทึกไว้แล้วยังจ่ายตามเดิม
                   และเปลี่ยนกลับเป็นทีม PRC ไม่ได้จากหน้านี้
@@ -885,7 +885,7 @@ function WorkerRow({
           {worker.portalBound ? (
             <div className="mt-2">
               <p className="text-ink-secondary text-sm">ธนาคาร</p>
-              <p className="text-ink-muted mt-1 text-sm">รออนุมัติจากคำขอของช่าง</p>
+              <p className="text-ink-secondary mt-1 text-sm">รออนุมัติจากคำขอของช่าง</p>
             </div>
           ) : (
             <>
@@ -1066,7 +1066,7 @@ function WorkerRow({
               {isHtOfCurrentProject ? (
                 <p className="text-ink-secondary text-xs font-medium">หัวหน้าช่างของโครงการนี้</p>
               ) : !worker.project_id ? (
-                <p className="text-ink-muted text-xs">กำหนดโครงการก่อนจึงตั้งหัวหน้าช่างได้</p>
+                <p className="text-ink-secondary text-xs">กำหนดโครงการก่อนจึงตั้งหัวหน้าช่างได้</p>
               ) : currentProject && committedActive ? (
                 // currentProject gates the button (not just project_id): a PM's
                 // RLS-scoped projects list may omit a non-member project — no

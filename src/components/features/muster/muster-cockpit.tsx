@@ -661,7 +661,9 @@ export function MusterCockpit({
       )}
 
       {board.teams.length === 0 ? (
-        <p className="text-ink-muted text-sm">ยังไม่มีทีมวันนี้ — เลือกหัวหน้าทีมเพื่อเปิดทีมแรก</p>
+        <p className="text-ink-secondary text-sm">
+          ยังไม่มีทีมวันนี้ — เลือกหัวหน้าทีมเพื่อเปิดทีมแรก
+        </p>
       ) : (
         board.teams.map((team) => (
           <TeamCard
@@ -1232,7 +1234,7 @@ function TeamCard({
         {/* Spec 357 U-D: adding members lives in the header QR-door sheet (scan
             OR tap). The OT hint stays — OT is opened/closed per member above. */}
         {session === "ot" ? (
-          <p className="text-ink-muted text-meta">
+          <p className="text-ink-secondary text-meta">
             แตะ OT เข้า / OT ออก ที่ชื่อช่างเพื่อบันทึกช่วง OT
           </p>
         ) : null}

@@ -163,7 +163,7 @@ export default async function BankChangeQueuePage() {
               >
                 <div className="flex items-center gap-2">
                   <p className="text-ink text-base font-semibold break-words">{it.name}</p>
-                  <span className="text-ink-muted bg-sunk shrink-0 rounded-full px-2 py-0.5 text-xs">
+                  <span className="text-ink-secondary bg-sunk shrink-0 rounded-full px-2 py-0.5 text-xs">
                     {it.kind === "identity"
                       ? "ข้อมูลตัวตน"
                       : it.kind === "staff-bank"
