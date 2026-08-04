@@ -1,3 +1,10 @@
+## [0.318.1](https://github.com/vap-ops/prc-ops/compare/v0.318.0...v0.318.1) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** honest error copy for the roster save/edit actions ([94d1515](https://github.com/vap-ops/prc-ops/commit/94d15155024e1e27dbff7dde081df640e0c1a3d1))
+- **workers:** move error copy out of the "use server" module ([2d947a2](https://github.com/vap-ops/prc-ops/commit/2d947a25f7dbf3e26e271a193218ef50c3d0ee98))
+
 # [0.318.0](https://github.com/vap-ops/prc-ops/compare/v0.317.4...v0.318.0) (2026-08-04)
 
 ### Features
