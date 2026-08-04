@@ -14,6 +14,7 @@ import { PHOTOS_BUCKET, REPORTS_BUCKET } from "@/lib/storage/buckets";
 import { PHOTO_PHASE_LABEL, WORK_PACKAGE_STATUS_LABEL } from "@/lib/i18n/labels";
 import { buildReportPdf, type ReportInputWorkPackage, type ReportPhotoGroup } from "./build-pdf";
 import { parseReportParams } from "./params";
+import { buildSelectedPhotoOrder } from "./selected-photos";
 
 type ReportRow = Tables<"reports">;
 
@@ -68,10 +69,53 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
   const { data: wps, error: wpsErr } = await wpQuery;
   if (wpsErr) throw new Error(`fetch work packages: ${wpsErr.message}`);
 
+  // Spec 394 U3 — `เฉพาะที่เลือก` takes a different source: the photos a PD/PM
+  // picked for THIS client, in the order they arranged them, rather than a
+  // phase rule. Fetched once for the whole project (the table has no
+  // project_id — it is derived through the WP, which is why this filters by
+  // the WP ids the report already resolved).
+  const selectedByWorkPackage = new Map<string, string[]>();
+  if (params.photos === "selected") {
+    const wpIds = (wps ?? []).map((w) => w.id);
+    if (wpIds.length > 0) {
+      const { data: selectedRows, error: selectedErr } = await supabase
+        .from("report_selected_photos")
+        .select("work_package_id, photo_log_id, position")
+        .in("work_package_id", wpIds);
+      if (selectedErr) throw new Error(`fetch selected photos: ${selectedErr.message}`);
+      for (const section of buildSelectedPhotoOrder(wps ?? [], selectedRows ?? [])) {
+        selectedByWorkPackage.set(section.workPackageId, section.photoIds);
+      }
+    }
+  }
+
   const sections: ReportInputWorkPackage[] = [];
   for (const wp of wps ?? []) {
     const photoGroups: ReportPhotoGroup[] = [];
-    if (params.photos !== "none") {
+    if (params.photos === "selected") {
+      // ONE unlabelled group per WP, deliberately — phase grouping would
+      // re-separate the before/after pair that D6 exists to put side by side.
+      const orderedIds = selectedByWorkPackage.get(wp.id) ?? [];
+      if (orderedIds.length > 0) {
+        // The current-photos helper has already done the ADR 0009 anti-join and
+        // dropped tombstones, so a selection whose photo was superseded after
+        // it was picked simply does not resurrect (§7).
+        const current = await getCurrentPhotosForWorkPackage(supabase, wp.id);
+        const pathById = new Map<string, string>();
+        for (const phase of ["before", "during", "after", "after_fix", "defect"] as const) {
+          for (const photo of current[phase]) {
+            if (photo.storage_path !== null) pathById.set(photo.id, photo.storage_path);
+          }
+        }
+        const buffers: Buffer[] = [];
+        for (const photoId of orderedIds) {
+          const path = pathById.get(photoId);
+          if (path === undefined) continue;
+          buffers.push(await downloadPhoto(supabase, path));
+        }
+        if (buffers.length > 0) photoGroups.push({ label: null, photos: buffers });
+      }
+    } else if (params.photos !== "none") {
       const photos = await getCurrentPhotosForWorkPackage(supabase, wp.id);
       const phases =
         params.photos === "after" ? (["after"] as const) : (["before", "during", "after"] as const);
@@ -101,6 +145,22 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
     });
   }
 
+  // Spec 394 §7 — a `selected` report that resolves to NO photos must FAIL, not
+  // deliver a header-only PDF marked complete. Two live routes reach this and
+  // neither is caught by the action's pre-insert guard:
+  //   • scope narrowing — the guard counts selections across the whole project,
+  //     while the job narrows work packages to `complete` when scope=complete
+  //     (the DEFAULT). A PD curating on /review, where WPs are pending_review,
+  //     passes the guard and would get an empty document.
+  //   • every selected photo superseded between picking and generating.
+  // Throwing marks the row `failed` with a reason (worker parity), which is the
+  // honest outcome: the document the PD asked for cannot be built.
+  if (params.photos === "selected" && sections.every((s) => s.photoGroups.length === 0)) {
+    throw new Error(
+      "selected-photo report resolved to no photos — none of the selected photos belong to a work package in this report's scope, or all of them have been superseded",
+    );
+  }
+
   const pdf = await buildReportPdf({
     project: {
       code: project.code,
@@ -113,6 +173,8 @@ async function processJob(supabase: SupabaseClient<Database>, job: ReportRow): P
     },
     workPackages: sections,
     includeEmptyWorkPackages: params.photos === "none",
+    // Spec 394 D7 — omit the key when unset (exactOptionalPropertyTypes).
+    ...(params.coverNote ? { coverNote: params.coverNote } : {}),
   });
 
   const storagePath = `${project.id}/${job.id}.pdf`;

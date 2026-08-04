@@ -11142,3 +11142,67 @@ affordance promising something unbuilt.
   the diff. After the review fixes the objects were dropped (verified empty first) and the exact
   committed file was re-run end-to-end — so the live schema is what this file produces, not a
   hand-patched variant.
+
+## 2026-08-04 — Spec 394 U2+U3: picking, arranging and printing the client's photos (lane rptsel2)
+
+**What:** the toggle, the arrange strip and the 4th report mode, in ONE PR because either half
+alone is an affordance promising something unbuilt (spec §9). `ReportSelectButton` on every review
+photo, a `เฉพาะที่เลือก` mode that reads the selection in the PD's arranged order, and a cover
+note that rides the existing `params` jsonb.
+
+- **The order lives in a PURE function on purpose.** `buildSelectedPhotoOrder` is where D6's whole
+  claim is testable; `run-report-job` is I/O end to end and has no harness, so it gets a source pin
+  and nothing more. A source pin proves a symbol is wired, never that it is correct — keeping the
+  decision out of the I/O is what makes that split honest.
+- **The report branch emits ONE unlabelled group per WP**, not one per phase. Phase grouping would
+  re-separate the before/after pair D6 exists to put side by side.
+- **`reportSelection` is a second, INDEPENDENT prop beside `starring`.** Not tidiness: the gates
+  differ (PM_ROLES vs PD tier) and so do the preconditions — a `project_manager` sees the report
+  toggle and no star, and an unmapped WP shows the toggle while showing no star at all. One
+  combined condition would have to re-derive both cases.
+- **The 4th option renders at zero, DISABLED, with the reason in its label.** Hiding it means a PD
+  who has never picked a photo can never learn the mode exists. `RadioChip` gained an optional
+  `disabled` prop for it — the native attribute is what carries the state to assistive tech.
+- **Server-side, `selected` at zero REFUSES before inserting a row.** Falling back to `after` would
+  hand the client a document nobody asked for; queueing would build an empty PDF. The guard is
+  scoped to that mode so every other report still generates from a project with no selections.
+- **Gate 4 was the live RPCs against prod rows** as a real PM, then cleaned to zero: append →
+  `position 1`, `2`; a **superseded photo refused 22023** on real data; re-select → `changed:false`;
+  a reorder naming a non-member photo refused; a true reversal committed and read back reversed
+  through RLS; unselect closed the gap; unselect again → `changed:false`. Server-rendered HTML then
+  showed 2 selected + 10 unselected toggles, the strip, and exactly the boundary controls
+  (`เลื่อนลง รูปที่ 1`, `เลื่อนขึ้น รูปที่ 2`) — the first row cannot move up, the last cannot move
+  down.
+- **The honest-copy ratchet fired and was renumbered in the same PR** (229→232 / 105→108). All
+  three new occurrences are transient fallbacks reached only on an unknown SQLSTATE; every
+  permanent refusal names its cause instead, and the reorder's stale-list refusal says **refresh**
+  rather than retry — retrying the same stale list can never succeed.
+- 🔴 **The review caught a header-only PDF that every gate would have passed.** The action's
+  zero-guard counts selections across the whole PROJECT, while the job narrows work packages to
+  `status='complete'` when `scope='complete'` — **the default**. So a PD curating on `/review`
+  (where WPs are `pending_review`) sees `เฉพาะที่เลือก (5 รูป)` enabled, leaves the default scope,
+  generates, and gets a **header-only PDF marked complete and downloadable** — precisely the empty
+  document §7 forbids. The same hole has a second door: every selected photo superseded between
+  picking and generating. Fixed at the one point that closes both — a `selected` job that resolves
+  zero photo groups now THROWS, so the row is marked `failed` with a reason instead of delivering
+  an empty document. ⭐ The lesson generalises: **a pre-insert guard and the job that consumes its
+  answer must agree on the SAME scope, or the guard is measuring a different population than the
+  one the work will run over.**
+- **A selection read must respect the anti-join.** A selection row survives its photo being
+  superseded (§7 leaves it deliberately), so an unfiltered read rendered a selected toggle on a
+  photo that is no longer current and an unidentifiable grey square in the arrange strip that the
+  PD could neither identify nor remove. Now intersected with the page's current photos.
+- ⚠️ **Three things deliberately NOT built, recorded so the next reader meets them as choices:**
+  ① the **Railway worker ignores `reports.params` entirely** and always builds "complete WPs +
+  after photos" — so if the fast path dies before claiming, a `selected` report comes back as every
+  after-photo of every complete WP. Inherited from spec 61 (`none`/`all_phases`/`scope=all` have
+  the same exposure), made more visible by this mode, and unfixable without touching the frozen
+  worker (ADR 0040). ② The **current** rework round's `defect` photos carry no toggle while PRIOR
+  rounds do — the current round renders only in `DefectFixPairs`. Not a missing feature so much as
+  an inconsistency a later reader will read as a bug. ③ The reports-page **count** is not
+  anti-joined, so it can over-report vs what the PDF can contain; with the throw above that now
+  costs a failed report rather than an empty one.
+- ❓ **Open for the operator:** `defect` photos are selectable (the toggle renders on those
+  galleries), so a PD can put a photo of broken work into a client report. Spec §5 names
+  "before/during/after" explicitly. Intentional latitude, or should the toggle be withheld on
+  defect photos?

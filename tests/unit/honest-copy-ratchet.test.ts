@@ -73,6 +73,19 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
         `RETRYABLE? If yes, raise this number with a justification line; if no, a permanent ` +
         `refusal must name the cause and the next step instead — never "try again" (house ` +
         `honest-copy rule). SHRANK: lower this number in the same PR.`,
+      // 229 → 232, spec 394 U2 (client-report photo selection).
+      // JUSTIFICATION (the ratchet demands one): three new occurrences, one per
+      // new surface — the action's GENERIC_ERROR plus the two components'
+      // fallbacks (ReportSelectButton, ReportArrangeStrip). Each is reached
+      // ONLY when the RPC fails with a code that is NOT a known refusal, i.e.
+      // network / transport / unknown — genuinely retryable. Every PERMANENT
+      // refusal in the same PR deliberately avoids retry copy: 42501 answers
+      // "เฉพาะผู้จัดการโครงการเท่านั้นที่เลือกรูปเข้ารายงานได้", 22023 on a
+      // select answers "เลือกรูปนี้ไม่ได้: รูปถูกแทนที่หรือถูกลบไปแล้ว", and
+      // 22023 on a REORDER answers with the one actionable next step there is —
+      // "รายการรูปเปลี่ยนไปแล้ว กรุณารีเฟรชหน้านี้แล้วจัดลำดับใหม่" (refresh,
+      // not retry: retrying the same stale list can never succeed).
+      //
       // 228 → 229, /workers duplicate-เลขบัตร fix (field incident 2026-08-04).
       // JUSTIFICATION (the ratchet demands one): the one new occurrence is
       // ADD_WORKER_NETWORK_ERROR, reached ONLY from the add sheet's new `catch`
@@ -95,7 +108,7 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       // "เฉพาะผู้อำนวยการโครงการเท่านั้นที่ปักดาวได้" and 22023 answers
       // "ซ่อนรูปไม่ได้: ไม่พบรูปนี้" — each naming the cause instead of inviting
       // a retry that cannot succeed.
-    ).toBe(229); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2 and +1 by the /workers duplicate fix (both justified above)
+    ).toBe(232); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2, +1 by the /workers duplicate fix, +3 by spec 394 U2 (all justified above)
   });
 
   it("the number of files carrying retry copy matches the ledger exactly", () => {
@@ -103,6 +116,6 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       files.size,
       `the retry-copy file set changed — a NEW file added retry copy (read the honest-copy ` +
         `rule at the top of this test first), or a file dropped it (lower this number).`,
-    ).toBe(105); // +1 2026-08-04 (feedback e6b48386): src/app/workers/error-copy.ts. GENERIC_ERROR's "ลองใหม่" is the deliberately-transient fallback — the same PR routes 42501 (lost session) and bad input to NON-retry copy, so this is the genuinely-retryable arm. Moved out of workers/actions.ts (a "use server" file can't export constants), which still carries CONFIRM_COST_ERROR, so it stays in the set → net +1 file.
+    ).toBe(108); // +3 2026-08-04 spec 394 U2: report-selection-actions.ts, report-select-button.tsx, report-arrange-strip.tsx — each carrying exactly one transient fallback, justified above. // +1 2026-08-04 (feedback e6b48386): src/app/workers/error-copy.ts. GENERIC_ERROR's "ลองใหม่" is the deliberately-transient fallback — the same PR routes 42501 (lost session) and bad input to NON-retry copy, so this is the genuinely-retryable arm. Moved out of workers/actions.ts (a "use server" file can't export constants), which still carries CONFIRM_COST_ERROR, so it stays in the set → net +1 file.
   });
 });
