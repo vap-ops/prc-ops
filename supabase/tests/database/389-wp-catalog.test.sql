@@ -93,11 +93,17 @@ select is(
 
 select is(has_function_privilege('anon', 'public.star_reference_photo(uuid, text)', 'EXECUTE'),
   false, 'anon (and therefore PUBLIC) cannot execute star_reference_photo');
-select is(has_function_privilege('anon', 'public.get_wp_reference_photos(uuid)', 'EXECUTE'),
+-- Spec 391 U1b widened this to (uuid, uuid): the reader now takes the VIEWING
+-- work package so it can exclude it, after live data showed all 144 complete
+-- mapped WPs being served their OWN photos as their examples (403 of 403). The
+-- 1-arg form was DROPPED rather than left beside it — an overload would have
+-- kept the shipped caller bound to the old body. A 1-arg call still resolves
+-- here through the DEFAULT, so this assertion moves rather than relaxes.
+select is(has_function_privilege('anon', 'public.get_wp_reference_photos(uuid, uuid)', 'EXECUTE'),
   false, 'anon (and therefore PUBLIC) cannot execute get_wp_reference_photos');
 select is(has_function_privilege('authenticated', 'public.star_reference_photo(uuid, text)', 'EXECUTE'),
   true, 'authenticated may execute star_reference_photo (gate is inside, 42501)');
-select is(has_function_privilege('authenticated', 'public.get_wp_reference_photos(uuid)', 'EXECUTE'),
+select is(has_function_privilege('authenticated', 'public.get_wp_reference_photos(uuid, uuid)', 'EXECUTE'),
   true, 'authenticated may execute get_wp_reference_photos');
 
 -- ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(21);
 
 -- ============================================================================
 -- Spec 391 U1 — ตัวอย่างงาน fills itself.
@@ -83,6 +83,32 @@ select is(
   (select count(*)::int from public.get_wp_reference_photos('c1000000-0391-0391-0391-c10000000391')),
   3,
   'derives the 3 eligible photos of the complete leaf WP (2 after + 1 after_fix)');
+
+-- ⭐ U1b — THE BUG THIS UNIT SHIPPED AND HAD TO FIX, now pinned.
+--
+-- The reader knew only the catalog ITEM, so a completed WP was served its OWN
+-- photos as its own ตัวอย่างงาน — measured on live data: 144 of 144 complete
+-- mapped WPs, 403 of 403 photos, rendered directly above the same photos in the
+-- WP's own gallery, with zero cross-project content anywhere. The whole point of
+-- the section is the OTHER project's work.
+--
+-- Note what an item-only assertion cannot see: every test above passes with the
+-- bug present, because they never ask WHOSE photos came back. That is exactly
+-- the gap the U1 review flagged — "now returns 4" proved rows come back, not
+-- which 4.
+select is(
+  (select count(*)::int from public.get_wp_reference_photos(
+     'c1000000-0391-0391-0391-c10000000391', 'd1000000-0391-0391-0391-d10000000391')),
+  0,
+  'a WP is never its OWN example — excluding it leaves nothing here, since it is the only source');
+
+-- …and the exclusion is SCOPED, not a blanket off-switch: naming a different WP
+-- must not suppress the real candidates.
+select is(
+  (select count(*)::int from public.get_wp_reference_photos(
+     'c1000000-0391-0391-0391-c10000000391', 'd2000000-0391-0391-0391-d20000000391')),
+  3,
+  'excluding a DIFFERENT WP leaves all 3 — the filter targets one WP, not the arm');
 
 -- POSITIVE CONTROL, stated as its own assertion: an empty result would satisfy
 -- every exclusion test below, so prove a real photo comes back by identity.
@@ -241,8 +267,11 @@ select ok(
 -- The reader's own posture must be UNCHANGED by this unit — 389 U5 chose it
 -- deliberately and `389-wp-catalog.test.sql:96` pins it. Re-asserted here so a
 -- careless body replacement that also touched grants fails in BOTH files.
+-- (uuid, uuid) since U1b. `has_function_privilege` needs an EXACT signature and
+-- raises 42883 otherwise — which is how this assertion caught the drop, and why
+-- a literal-signature pin is worth keeping rather than softening.
 select ok(
-  not has_function_privilege('anon', 'public.get_wp_reference_photos(uuid)', 'execute'),
+  not has_function_privilege('anon', 'public.get_wp_reference_photos(uuid, uuid)', 'execute'),
   'the reader stays un-executable by anon — this unit changes the body, not the posture');
 
 select * from finish();
