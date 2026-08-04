@@ -1,3 +1,13 @@
+# [0.324.0](https://github.com/vap-ops/prc-ops/compare/v0.323.2...v0.324.0) (2026-08-04)
+
+### Bug Fixes
+
+- **workers:** consent must come from the prompt, not shared state (spec 396 U3 review) ([ca27a91](https://github.com/vap-ops/prc-ops/commit/ca27a9105a8fcec790c2539cbd665d128327ce4b))
+
+### Features
+
+- **workers:** ask before renaming a bound worker into a different person (spec 396 U3) ([63d493c](https://github.com/vap-ops/prc-ops/commit/63d493c6e1bec75db2bb83d9ab817b960fea8145))
+
 ## [0.323.2](https://github.com/vap-ops/prc-ops/compare/v0.323.1...v0.323.2) (2026-08-04)
 
 ### Bug Fixes
