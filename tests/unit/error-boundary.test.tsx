@@ -3,17 +3,20 @@
 // F-027 — a React-boundary-caught render crash NEVER reaches window.onerror
 // (React swallows it), so telemetry-provider's listener structurally cannot
 // see it: crashes were invisible in interaction_events and the S0's blast
-// radius was unmeasurable. The boundary itself must emit js_error.
+// radius was unmeasurable. The boundary itself must emit js_error — once per
+// mount (StrictMode double-invokes effects; the counts must stay comparable
+// with the window.onerror path).
 //
-// F-012 — the boundary said "ลองใหม่" for EVERY crash, and the button re-runs
-// the crash. Honest-copy split: a FIRST occurrence is genuinely retryable
-// (transient state) and keeps the retry primary; a crash that RECURRED after
-// the user already pressed retry must stop promising retry and name real next
-// steps (home, report) — the house honest-copy rule at the widest surface.
-// Recurrence is tracked in sessionStorage keyed by error.digest, and per the
-// spec-339 lesson the counter is written BEFORE reset() and a throwing
-// sessionStorage must never block the reset itself.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+// F-012 — the boundary said "ลองใหม่" for EVERY crash and the button re-runs
+// the crash. Honest-copy split: a FIRST occurrence is genuinely retryable and
+// keeps the retry primary; a crash that RECURRED after the user already
+// pressed retry stops promising retry and names real next steps. The
+// mechanism (verified against next/dist/client/components/error-boundary.js):
+// reset() clears the boundary's error state → the fallback UNMOUNTS; a
+// re-throw REMOUNTS it fresh — so recurrence lives in sessionStorage
+// (digest-or-name + ROUTE key, TTL-expired) and a mount-time read suffices.
+// The replica harness below reproduces exactly that unmount/remount cycle.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 
@@ -31,70 +34,114 @@ function makeError(digest?: string): BoundaryError {
   return e;
 }
 
+/** Current route key suffix — boundary keys are route-scoped. */
+const route = () => window.location.pathname;
+const keyFor = (idOrName: string) => `err-retry:${idOrName}:${route()}`;
+
+// A faithful replica of Next's ErrorBoundaryHandler (error-boundary.js):
+// getDerivedStateFromError stores the error; reset() clears it, which
+// re-renders CHILDREN (unmounting the fallback); a re-throw re-derives the
+// error and REMOUNTS the fallback. This is the cycle the real app runs.
+class ReplicaBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: BoundaryError | null }
+> {
+  override state: { error: BoundaryError | null } = { error: null };
+  static getDerivedStateFromError(error: BoundaryError) {
+    return { error };
+  }
+  reset = () => this.setState({ error: null });
+  override render() {
+    if (this.state.error) return <ErrorBoundary error={this.state.error} reset={this.reset} />;
+    return this.props.children;
+  }
+}
+
+function AlwaysThrows(): React.ReactElement {
+  throw makeError();
+}
+
 describe("app error boundary (UX-audit G1)", () => {
   beforeEach(() => {
     cleanup();
     trackFriction.mockClear();
     sessionStorage.clear();
+    window.history.pushState({}, "", "/");
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it("emits a js_error friction event with message, digest and route (F-027)", () => {
+  it("emits ONE js_error friction event with message and digest (F-027)", () => {
     render(<ErrorBoundary error={makeError("d123")} reset={() => {}} />);
     expect(trackFriction).toHaveBeenCalledTimes(1);
     const [type, ctx] = trackFriction.mock.calls[0]!;
     expect(type).toBe("js_error");
-    expect(ctx).toMatchObject({
-      where: "error_boundary",
-      digest: "d123",
-    });
+    expect(ctx).toMatchObject({ where: "error_boundary", digest: "d123", recurred: false });
     expect(String(ctx.message)).toContain("TypeError");
-    expect(ctx).toHaveProperty("route");
   });
 
-  it("first occurrence: retry is primary and pressing it calls reset()", () => {
+  it("first occurrence: no alert, retry is primary, pressing it calls reset()", () => {
     const reset = vi.fn();
     render(<ErrorBoundary error={makeError("d1")} reset={reset} />);
-    // the recurred-state alert is NOT shown on first occurrence (contrasting
-    // control — asserted BEFORE the click; the click itself flips the
-    // same-instance state by design, covered by its own test below)
     expect(screen.queryByRole("alert")).toBeNull();
-    const retry = screen.getByRole("button", { name: "ลองใหม่" });
-    fireEvent.click(retry);
+    fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
     expect(reset).toHaveBeenCalledTimes(1);
   });
 
-  it("pressing retry durably records the attempt for this digest", () => {
+  it("pressing retry durably records a timestamped attempt for digest+route", () => {
     render(<ErrorBoundary error={makeError("d2")} reset={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
-    expect(sessionStorage.getItem("err-retry:d2")).toBe("1");
+    const raw = sessionStorage.getItem(keyFor("d2"));
+    expect(Number(raw)).toBeGreaterThan(0);
   });
 
-  it("a failed reset on the SAME instance flips to the honest variant (no remount needed)", () => {
-    // Next/React can restore this exact fallback instance when the reset
-    // attempt throws before commit — a mount-time-only read would keep the
-    // retry promise forever. In-instance state must flip by itself.
-    render(<ErrorBoundary error={makeError("d5")} reset={() => {}} />);
-    expect(screen.queryByRole("alert")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
-    expect(screen.getByRole("alert")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "ลองใหม่" })).toBeNull();
+  it("REAL cycle: retry against a still-broken child remounts into the honest variant", () => {
+    // React logs caught errors; keep the output readable.
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      render(
+        <ReplicaBoundary>
+          <AlwaysThrows />
+        </ReplicaBoundary>,
+      );
+      // first catch: retryable variant
+      expect(screen.queryByRole("alert")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "ลองใหม่" }));
+      // reset cleared the error → children re-threw → fallback REMOUNTED and
+      // re-read sessionStorage → honest variant, no retry promise.
+      const alert = screen.getByRole("alert");
+      expect(alert.textContent).not.toContain("กรุณาลองใหม่อีกครั้ง");
+      expect(screen.queryByRole("button", { name: "ลองใหม่" })).toBeNull();
+      expect(screen.getByRole("link", { name: /กลับหน้าหลัก/ })).toHaveAttribute("href", "/");
+      expect(screen.getByRole("link", { name: /แจ้งปัญหา/ })).toHaveAttribute("href", "/feedback");
+    } finally {
+      spy.mockRestore();
+    }
   });
 
-  it("recurred after retry: honest copy replaces the retry promise (F-012)", () => {
-    sessionStorage.setItem("err-retry:d3", "1");
+  it("recurred (seeded): honest copy, exits, digest shown, telemetry marks it (F-012)", () => {
+    sessionStorage.setItem(keyFor("d3"), String(Date.now()));
     render(<ErrorBoundary error={makeError("d3")} reset={() => {}} />);
-    // the one failure surface a screen reader must announce
-    const alert = screen.getByRole("alert");
-    // no "try again" promise in the recurred message
-    expect(alert.textContent).not.toContain("กรุณาลองใหม่อีกครั้ง");
-    // real next steps: home (a full <a> navigation, not router state in a
-    // broken tree) and report
-    expect(screen.getByRole("link", { name: /กลับหน้าหลัก/ })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: /แจ้งปัญหา/ })).toHaveAttribute("href", "/feedback");
-    // the error digest is shown so a report can name it
+    expect(screen.getByRole("alert")).toBeTruthy();
     expect(screen.getByText(/d3/)).toBeTruthy();
-    // telemetry marks the recurrence
     expect(trackFriction.mock.calls[0]![1]).toMatchObject({ recurred: true });
+  });
+
+  it("the key is ROUTE-scoped: a retry elsewhere does not deny retry here", () => {
+    // a retry recorded on another route, same error name
+    sessionStorage.setItem("err-retry:TypeError:/other-route", String(Date.now()));
+    window.history.pushState({}, "", "/this-route");
+    render(<ErrorBoundary error={makeError()} reset={() => {}} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "ลองใหม่" })).toBeTruthy();
+  });
+
+  it("a recorded retry EXPIRES: an old attempt gets its retry back (TTL)", () => {
+    sessionStorage.setItem(keyFor("d6"), String(Date.now() - 10 * 60_000));
+    render(<ErrorBoundary error={makeError("d6")} reset={() => {}} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "ลองใหม่" })).toBeTruthy();
   });
 
   it("a throwing sessionStorage never blocks reset (spec-339 class)", () => {
@@ -109,11 +156,5 @@ describe("app error boundary (UX-audit G1)", () => {
     } finally {
       spy.mockRestore();
     }
-  });
-
-  it("an error with NO digest still classifies (falls back to the error name)", () => {
-    sessionStorage.setItem("err-retry:TypeError", "1");
-    render(<ErrorBoundary error={makeError()} reset={() => {}} />);
-    expect(screen.getByRole("alert")).toBeTruthy();
   });
 });

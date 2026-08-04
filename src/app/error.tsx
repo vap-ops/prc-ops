@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { PageShell } from "@/components/features/chrome/page-shell";
+import { boundaryRetryKey, hasRecentRetry, recordRetry } from "@/lib/errors/boundary-retry";
 import { trackFriction } from "@/lib/telemetry/friction";
 import { errorMessageForTelemetry } from "@/lib/telemetry/session";
 import {
@@ -26,34 +26,25 @@ import {
 //   telemetry provider's listener) structurally never sees a render crash;
 //   the boundary itself emits the js_error friction event, or crashes stay
 //   invisible in interaction_events and their blast radius unmeasurable.
+//   Emitted ONCE per mount (ref-guarded: StrictMode dev double-invokes
+//   effects, and the friction-map counts must stay comparable with the
+//   window.onerror path, which does not double).
 // ② F-012 — honest-copy split. A FIRST crash is genuinely retryable
 //   (transient state) and keeps ลองใหม่ primary. A crash that RECURRED after
 //   the user already pressed retry stops promising retry and names real next
-//   steps (home — a full <a> navigation, not router state inside a broken
-//   tree — and a feedback report carrying the digest). Recurrence is tracked
-//   in sessionStorage keyed by error.digest; per the spec-339 lesson the
-//   attempt is recorded BEFORE reset() and a throwing sessionStorage must
-//   never block the reset itself.
-
-const RETRY_KEY_PREFIX = "err-retry:";
+//   steps. Mechanism (verified against next/dist/client/components/
+//   error-boundary.js): reset() clears the boundary's error state, which
+//   UNMOUNTS this fallback in that commit; if the children throw again the
+//   fallback REMOUNTS fresh — so recurrence lives in sessionStorage
+//   (boundary-retry.ts: digest-or-name + route key, TTL-expired), recorded
+//   BEFORE reset(), and a mount-time read is sufficient AND necessary.
+// ③ The recurred variant's exits are HARD <a> navigations on purpose: the
+//   stale-bundle crash class (ChunkLoadError — a known live failure mode on
+//   this fleet) breaks the client router itself, and the recurred state is
+//   precisely "soft recovery already failed once". A full document load is
+//   the escape hatch that cannot depend on the broken bundle.
 
 type BoundaryError = Error & { digest?: string };
-
-function retryKey(error: BoundaryError): string {
-  // digest is stable per crash site; a digest-less error falls back to its
-  // name — coarser, but a coarse recurrence key only ever DELAYS the honest
-  // variant by grouping distinct errors, never shows it spuriously for the
-  // same repeated one.
-  return `${RETRY_KEY_PREFIX}${error.digest ?? error.name}`;
-}
-
-function readAttempts(key: string): number {
-  try {
-    return Number(sessionStorage.getItem(key) ?? "0") || 0;
-  } catch {
-    return 0;
-  }
-}
 
 export default function ErrorBoundary({
   error,
@@ -62,36 +53,39 @@ export default function ErrorBoundary({
   error: BoundaryError;
   reset: () => void;
 }) {
-  const key = retryKey(error);
-  // Recurrence is LIVE STATE seeded from sessionStorage, not a one-shot read:
-  // when reset()'s re-render attempt throws again BEFORE commit, React can
-  // restore this same fallback instance without remounting it — a mount-time
-  // read would stay false forever and the honest variant would never appear.
-  // setAttempts covers the same-instance path; the sessionStorage seed covers
-  // the remount/next-navigation path. Both must exist.
-  const [attempts, setAttempts] = useState(() => readAttempts(key));
-  const recurred = attempts > 0;
+  const key = boundaryRetryKey(error);
+  // Mount-time read is correct here: a failed reset REMOUNTS this component
+  // (see header ②), so every appearance of the fallback re-reads the store.
+  const [recurred] = useState(() => hasRecentRetry(key));
+  // Shown so a feedback report can name the incident. A client crash has no
+  // Next digest — the error name is a coarse fallback; the telemetry row
+  // (message + route + timestamp) is what support correlates on.
   const code = error.digest ?? error.name;
 
+  const emitted = useRef(false);
   useEffect(() => {
+    if (emitted.current) return;
+    emitted.current = true;
+    // route is deliberately NOT duplicated in context — the tracker stamps
+    // the current route on every event it emits.
     trackFriction("js_error", {
       where: "error_boundary",
       message: errorMessageForTelemetry(error),
       digest: error.digest ?? null,
-      route: typeof window !== "undefined" ? window.location.pathname : null,
       recurred,
     });
   }, [error, recurred]);
 
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    // On the recurred variant the retry button (the old focus target) no
+    // longer exists — land keyboard/screen-reader focus on the heading so
+    // the new state is where the user already is.
+    if (recurred) headingRef.current?.focus();
+  }, [recurred]);
+
   function onRetry() {
-    try {
-      sessionStorage.setItem(key, String(readAttempts(key) + 1));
-    } catch {
-      // A failed write only means a REMOUNTED boundary cannot know a retry
-      // happened — the in-instance state below still records it; never block
-      // the reset.
-    }
-    setAttempts((a) => a + 1);
+    recordRetry(key);
     reset();
   }
 
@@ -99,27 +93,30 @@ export default function ErrorBoundary({
     return (
       <PageShell variant="card">
         <div className="max-w-md space-y-6 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">{ERROR_BOUNDARY_RECURRED_TITLE}</h1>
+          <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold tracking-tight">
+            {ERROR_BOUNDARY_RECURRED_TITLE}
+          </h1>
           <p role="alert" className="text-ink-secondary text-sm">
             {ERROR_BOUNDARY_RECURRED_BODY}
           </p>
           <div className="flex flex-col items-center gap-3 pt-2">
-            {/* Link, not a bare <a> (house lint): the boundary itself renders
-                fine, so client navigation works — routing away discards the
-                crashed segment. The crashed ROUTE stays crashed; home is a
-                different segment. */}
-            <Link
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages --
+                header ③: the stale-bundle crash class breaks the client
+                router; the escape hatch must be a full document load. */}
+            <a
               href="/"
               className="bg-fill text-on-fill hover:bg-fill-press focus-visible:ring-action inline-flex min-h-11 items-center justify-center rounded-md px-5 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none"
             >
               {ERROR_BOUNDARY_HOME}
-            </Link>
-            <Link
+            </a>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages --
+                same stale-bundle rationale as the home link above. */}
+            <a
               href="/feedback"
               className="border-edge-strong text-ink hover:bg-sunk focus-visible:ring-action inline-flex min-h-11 items-center justify-center rounded-md border px-5 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 motion-reduce:transition-none"
             >
               {ERROR_BOUNDARY_REPORT}
-            </Link>
+            </a>
           </div>
           <p className="text-ink-secondary text-xs">
             {ERROR_BOUNDARY_CODE_PREFIX}: {code}

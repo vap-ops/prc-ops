@@ -83,8 +83,18 @@ export class UsageTracker {
   // aggregate context (route/kind/type), never content — PDPA-minimized (spec 244 D5).
   trackFriction(type: FrictionEventType, context?: Record<string, unknown>): void {
     if (!this.started) return;
-    if (this.frictionCount >= MAX_FRICTION_PER_SESSION) return;
-    this.frictionCount++;
+    if (type === "js_error") {
+      // A js_error arriving through the bridge (the error boundary, catch
+      // blocks) budgets against the DEDICATED error cap, exactly like the
+      // window.onerror path above — a crash loop must not starve rage_tap /
+      // upload_fail / form_abandon out of the shared friction pool for the
+      // rest of the session (UX-audit G1 review catch).
+      if (this.errorCount >= MAX_ERRORS_PER_SESSION) return;
+      this.errorCount++;
+    } else {
+      if (this.frictionCount >= MAX_FRICTION_PER_SESSION) return;
+      this.frictionCount++;
+    }
     this.emit(type, undefined, context);
   }
 
