@@ -642,6 +642,25 @@ export function isStaffApprover(role: UserRole): boolean {
 }
 
 /**
+ * Spec 395 §6 — who may read and write payout-nominee records.
+ *
+ * EXACTLY the live membership of the four `*_payout_nominee` DEFINER RPCs. It could
+ * not be borrowed from an existing set: `STAFF_APPROVAL_ROLES` is this set minus plain
+ * `procurement`, while `BACK_OFFICE_ROLES` / `WORKER_ROSTER_ROLES` / `PAYROLL_ROLES`
+ * all additionally include `project_manager`.
+ *
+ * ⚠️ Keep this equal to the RPC gate. A page gate WIDER than the RPC ships the
+ * affordance-then-refuse defect (the user sees the control and the database refuses
+ * the click — spec 187's `recordWagePayment`); a page gate NARROWER hides work from
+ * someone the database would have accepted. Before either set moves, read the live
+ * function bodies, not this comment.
+ */
+export const PAYOUT_NOMINEE_ROLES: ReadonlyArray<UserRole> = [
+  ...STAFF_APPROVAL_ROLES,
+  "procurement",
+];
+
+/**
  * Spec 264 G4 / ADR 0072 §4 — the UI-facing role-selector option list at
  * approval: the roles that genuinely make sense to self-onboard-and-approve.
  * The approver picks one of these; its value is passed as `p_role` to

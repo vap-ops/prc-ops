@@ -249,3 +249,28 @@ money and stops at the identity — which is exactly the asymmetry to close.
 4. The `ด.ช.` prefix suggests an account in a minor's name. Confirm with the team; it
    may just be a stale passbook.
 5. Does the detector include inactive workers? (§1)
+   ⭐ **ANSWERED by U1 (2026-08-04): no — the count is over the ACTIVE roster**, and
+   spec 396's incident is the reason. Account `020203221364` looks shared, but its
+   second row is `นายเหิน เมืองงาม` — the **unrepaired** deactivated mis-edit that
+   overwrote a real employee's record (it still carries her phone and employee id;
+   restoring it needs her own answers). Counting it would report a live shared account
+   that does not exist. Active-only takes the live shared-account count from 4 to 3.
+   ⚠️ **The blind spot this leaves, stated rather than hidden:** payroll's payee read
+   (`fetchWorkerBanks`) is **not** active-filtered, so a deactivated worker with
+   unsettled wages can still be paid into a shared account and U1 will not see them.
+   Closing that needs a decision about terminated-but-owed workers — it is not a code
+   detail. **Still open.**
+
+6. **Does a nominee record consent to the WORKER, or to one ACCOUNT?** U1 implements
+   the latter: a nominee whose `payee_account_number` differs from the account
+   currently on `workers.bank_account_number` does **not** count as recorded, because
+   payroll pays the account on file and a stale nominee would silence the flag
+   permanently. §4's table says only "an active row exists" — U1's reading is
+   deliberately narrower. Confirm it matches how the team actually uses the record.
+
+7. **Formatting variants of an account number.** U1 groups on the TRIMMED string only,
+   so `014-1623197-29` and `014162319729` would be two groups and the sharing would go
+   undetected. Measured 2026-08-04: **all 42 stored numbers are digits-only**, so there
+   is nothing to normalise today. Revisit with evidence if hand-entry ever introduces
+   separators — note this is a FORMATTING question, distinct from the `044…`/`014…`
+   near-miss in Q3, which stays a human correction (U4).

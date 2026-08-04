@@ -11375,3 +11375,43 @@ on main.
 renders in the empty state — but `save_project_zone_map` with a null id always INSERTS, so two
 managers pressing it simultaneously on an empty project would produce two maps, and the page renders
 only the first. U2b needs either a unique index or a map switcher.
+
+## 2026-08-04 — Spec 395 U1: the shared-account detector (lane shareacct)
+
+- **The unit as specced, plus the §6 work the spec explicitly budgeted.** A pure classifier
+  (`own` / `nominee` / `unrecorded`) and the admin-seam reader behind it — the bank columns
+  are zero-grant (`has_column_privilege('authenticated', …, 'bank_account_number','SELECT')`
+  = **false**, verified live), and the shared-account count is inherently cross-worker, so
+  the question is not expressible under RLS at all. Plus `PAYOUT_NOMINEE_ROLES` in
+  `role-home.ts` with both shipped `/settings/payout-nominees` pages migrated off their
+  inline four-literal copies — §6 assigns that to U1 in as many words ("Budget it; it is
+  real work this spec previously hand-waved") and the first draft of this unit missed it
+  until fresh-eyes read the spec back.
+- ⭐ **Two decisions came from live rows, not from the spec.** ① **Whitespace collapse is
+  load-bearing:** holder `นางแก้ว··บุญวัง` (double space) against worker `นางแก้ว บุญวัง` is
+  the SAME person, and honorific-stripping alone calls it a mismatch — that account drops
+  from 2 mismatches to 1 once whitespace is collapsed. Reuses `normaliseThaiPersonName`
+  from spec 396 U3, whose own comment says it was written for this detector. ② **The count
+  is over the ACTIVE roster,** because account `020203221364` looks shared while its second
+  row is the unrepaired deactivated mis-edit `นายเหิน เมืองงาม`. Active-only takes the live
+  shared-account count from **4 to 3**.
+- **Verified against production, not fixtures.** Running the real classifier over the live
+  active roster: **41 active / 40 banked → 32 `own`, 8 `unrecorded`** (7 across three shared
+  accounts of sizes 3+2+2, plus the one name-mismatch-only `044162319729`). That matches the
+  independently-derived SQL exactly, and `8` is the number U2/U3 must drive to zero.
+- ⚠️ **A nominee consents to an ACCOUNT, not to a worker.** A nominee row whose
+  `payee_account_number` differs from the account currently on file does NOT count as
+  recorded — payroll pays the account on file, so treating mere existence as consent would
+  silence the flag permanently. §4's table says only "an active row exists"; this reading is
+  deliberately narrower and is logged as §8 Q6 for the operator to confirm.
+- ⚠️ **Three things deliberately NOT done, recorded so the next reader meets them as
+  choices:** ① **payroll's payee read is not active-filtered** (`fetchWorkerBanks` joins
+  `workers` by id), so a terminated worker with unsettled wages can still be paid into a
+  shared account and this detector will not see them — §8 Q5, needs a decision about
+  terminated-but-owed workers, not a code change. ② **`listActivePayoutNominees` discards
+  its own `error` and returns `[]`** (spec 320's module, two shipped pages depend on that
+  shape); a rejection propagates and is pinned by test, but a returned PostgREST error would
+  read as "no nominees" and mark every consented worker `unrecorded`. Harmless at 0 rows,
+  wrong the day U3 writes one — fix it there. ③ **Account numbers are grouped on the trimmed
+  string only**, so a formatting variant would split a group; all 42 stored numbers are
+  digits-only today (§8 Q7).

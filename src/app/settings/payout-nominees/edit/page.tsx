@@ -9,6 +9,7 @@ import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PayoutNomineeForm } from "@/components/features/payroll/payout-nominee-form";
 import { requireRole } from "@/lib/auth/require-role";
+import { PAYOUT_NOMINEE_ROLES } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { PAYOUT_NOMINEE_ADD, PAYOUT_NOMINEE_TITLE } from "@/lib/i18n/labels";
 import {
@@ -28,12 +29,8 @@ export default async function EditPayoutNomineePage({
   searchParams: Promise<{ worker?: string }>;
 }) {
   // Spec 320 U3 — widened from PM-only to the procurement + leadership set (RPCs re-gate).
-  const ctx = await requireRole([
-    "procurement_manager",
-    "project_director",
-    "super_admin",
-    "procurement",
-  ]);
+  // Spec 395 §6 — one constant, shared with the list page and matching the RPC gate.
+  const ctx = await requireRole(PAYOUT_NOMINEE_ROLES);
   const sp = await searchParams;
   const workerId = typeof sp.worker === "string" && UUID_REGEX.test(sp.worker) ? sp.worker : null;
 
