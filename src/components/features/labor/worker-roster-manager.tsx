@@ -39,6 +39,7 @@ import {
   tradeSelectionChanged,
   type WorkerTrade,
 } from "@/lib/workers/trades";
+import { isNormalisingRename } from "@/lib/workers/thai-name";
 import {
   ATTENDANCE_CALENDAR_LABEL,
   CONFIRM_COST_LABEL,
@@ -600,6 +601,27 @@ function WorkerRow({
       }
     }
 
+    // Spec 396 U3 — renaming a record that belongs to someone with their own
+    // login, into a DIFFERENT person, asks once before it writes.
+    //
+    // ⚠️ Deliberately narrow. Of the 11 real renames of bound workers on
+    // 2026-08-04, ten were a bulk honorific pass; only the eleventh replaced a
+    // human. isNormalisingRename keeps those ten silent, because a question that
+    // fires on routine work is dismissed by muscle memory before it ever meets
+    // the one that matters. Unbound rows never ask at all — the hazard is
+    // specific to a record another person owns.
+    const typedName = name.trim();
+    if (
+      worker.portalBound &&
+      typedName !== "" &&
+      typedName !== worker.name &&
+      !isNormalisingRename(worker.name, typedName) &&
+      pendingRename !== typedName
+    ) {
+      setPendingRename(typedName);
+      return;
+    }
+
     setBusy(true);
     // Spec 330 U1 lesson: a thrown action must not leave busy=true (the save
     // button is disabled={busy} — a wedge locks the sheet). finally always resets.
@@ -714,6 +736,12 @@ function WorkerRow({
   // Spec 396 U2: stable per-row id so the ชื่อ input can aria-describedby the
   // ownership line that sits beside it.
   const ownerHintId = `owner-hint-${worker.id}`;
+
+  // Spec 396 U3: the name this save is waiting to be confirmed for. Holds the
+  // TRIMMED value rather than a bare boolean, so editing the field again after
+  // the question appears re-arms it instead of letting a stale yes carry a
+  // different name through.
+  const [pendingRename, setPendingRename] = useState<string | null>(null);
 
   // Instant action, not save-coupled (the promoteToHt pattern): this writes MONEY
   // and stamps cost_confirmed_at, so it is a deliberate press of its own rather
@@ -1203,6 +1231,41 @@ function WorkerRow({
             >
               ดูช่างคนเดิม
             </button>
+          ) : null}
+          {/* Spec 396 U3 — the one question, asked where the save is pressed.
+              It names the account holder and both names, because "are you sure?"
+              is exactly the prompt people click through; the answerable version
+              states who owns the record and what it is about to become. It does
+              NOT accuse — renaming a bound worker is usually correct work, and
+              this path only opens when the person appears to change. */}
+          {pendingRename !== null ? (
+            <div role="alert" className="border-attn bg-attn-soft mt-3 rounded-lg border p-3">
+              <p className="text-ink text-sm font-semibold">
+                {worker.boundUserName
+                  ? `รายการนี้เป็นของ ${worker.boundUserName}`
+                  : "รายการนี้เป็นของผู้ใช้ที่ผูกบัญชีแล้ว"}
+              </p>
+              <p className="text-ink-secondary mt-1 text-sm">
+                กำลังจะเปลี่ยนชื่อจาก “{worker.name}” เป็น “{pendingRename}” — ใช่คนเดียวกันหรือไม่
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void save()}
+                  className={BUTTON_PRIMARY_COMPACT}
+                >
+                  ยืนยันเปลี่ยนชื่อ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingRename(null)}
+                  className={BUTTON_SECONDARY_COMPACT}
+                >
+                  ไม่ใช่
+                </button>
+              </div>
+            </div>
           ) : null}
           <div className="mt-3 flex gap-2">
             <button
