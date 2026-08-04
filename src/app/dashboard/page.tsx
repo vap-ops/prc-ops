@@ -12,7 +12,12 @@ import Link from "next/link";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { PM_ROLES, DASHBOARD_VIEW_ROLES, MONEY_VIEW_ROLES } from "@/lib/auth/role-home";
+import {
+  PM_ROLES,
+  DASHBOARD_VIEW_ROLES,
+  MONEY_VIEW_ROLES,
+  isStaffApprover,
+} from "@/lib/auth/role-home";
 import { withBackFrom } from "@/lib/nav/back-href";
 import { createClient as createServerSupabase } from "@/lib/db/server";
 import { NotificationReadinessBanner } from "@/components/features/notifications/readiness-banner";
@@ -25,7 +30,8 @@ import { AwarenessCard } from "@/components/features/dashboard/awareness-card";
 import { getPendingApprovalsSummary } from "@/lib/approvals/pending-summary";
 import { getPendingBankChangeCount } from "@/lib/approvals/pending-bank-changes";
 import { getPendingWorkerBankChangeCount } from "@/lib/approvals/pending-worker-bank-changes";
-import { Landmark } from "lucide-react";
+import { getPendingStaffApprovalCount } from "@/lib/approvals/pending-staff-approvals";
+import { IdCard, Landmark } from "lucide-react";
 import { rollupProgress } from "@/lib/dashboard/overview";
 import {
   spendBreakdown,
@@ -59,6 +65,16 @@ interface ProjectVM {
 export default async function DashboardPage() {
   const ctx = await requireRole(DASHBOARD_VIEW_ROLES);
   const isManager = PM_ROLES.includes(ctx.role);
+  // Spec 396 U4: the trio kinds (identity + staff bank) are a DIFFERENT audience from
+  // the bank card above — live RLS grants them to STAFF_APPROVAL_ROLES, which excludes
+  // project_manager and includes procurement_manager. Same set the queue page gates
+  // its trio rows on (`canSeeTrioKinds`), so the COUNT here always equals the rows that
+  // page will show this viewer. Its ROUTE gate is wider ([...PM_ROLES,
+  // procurement_manager]) — that is why the card, not the route, carries this predicate.
+  // ⚠️ procurement_manager satisfies this and still gets no card: DASHBOARD_VIEW_ROLES
+  // excludes them, so /dashboard is not their surface. They are a real decider with no
+  // door — a /procurement card is owed as its own unit.
+  const isApprover = isStaffApprover(ctx.role);
   // Spec 252: money display = PM tier ∨ accounting (read-only). The approvals /
   // bank-change work-queue cards stay PM-tier (isManager) — work queues, not
   // finance reading.
@@ -83,23 +99,25 @@ export default async function DashboardPage() {
   // review + the merged contractor+worker bank-change queue (one combined count). PR
   // is NOT here; it owns the คำขอซื้อ tab + badge.
   // (+ spec 318 U2 readiness — an independent self-read, rides the wave.)
-  const [pendingSummary, pendingBankChanges, projectsRes, readiness] = await Promise.all([
-    isManager
-      ? getPendingApprovalsSummary(supabase)
-      : Promise.resolve({ count: 0, awaitingSite: 0, oldest: null }),
-    isManager
-      ? Promise.all([
-          getPendingBankChangeCount(supabase),
-          getPendingWorkerBankChangeCount(supabase),
-        ]).then(([contractor, worker]) => contractor + worker)
-      : Promise.resolve(0),
-    listDb
-      .from("projects")
-      .select("id, name, code, status")
-      .in("status", LIVE_STATUSES)
-      .order("name", { ascending: true }),
-    loadNotificationReadiness(supabase),
-  ]);
+  const [pendingSummary, pendingBankChanges, pendingStaffApprovals, projectsRes, readiness] =
+    await Promise.all([
+      isManager
+        ? getPendingApprovalsSummary(supabase)
+        : Promise.resolve({ count: 0, awaitingSite: 0, oldest: null }),
+      isManager
+        ? Promise.all([
+            getPendingBankChangeCount(supabase),
+            getPendingWorkerBankChangeCount(supabase),
+          ]).then(([contractor, worker]) => contractor + worker)
+        : Promise.resolve(0),
+      isApprover ? getPendingStaffApprovalCount(supabase) : Promise.resolve(0),
+      listDb
+        .from("projects")
+        .select("id, name, code, status")
+        .in("status", LIVE_STATUSES)
+        .order("name", { ascending: true }),
+      loadNotificationReadiness(supabase),
+    ]);
   const projects = projectsRes.data ?? [];
   const projectIds = projects.map((p) => p.id);
 
@@ -239,6 +257,24 @@ export default async function DashboardPage() {
             label="การเปลี่ยนบัญชีรอการอนุมัติ"
             href="/contacts/bank-changes"
             icon={Landmark}
+          />
+        ) : null}
+        {/* Spec 396 U4: the SAME queue's other two kinds — identity + staff bank —
+            which the card above never counted. Its own card, not a bigger number on
+            that one: the audiences differ (isStaffApprover vs isManager, mirroring
+            the live RLS arms) and "บัญชี" would be a false label for an identity row.
+            Without this the queue had no door at all on a day with zero bank
+            changes, which is how four requests reached 20 days old unseen.
+            The label names BOTH kinds using the destination's own badge words
+            (ข้อมูลตัวตน / พนักงาน, bank-changes/page.tsx) — a card reading only
+            "พนักงาน" would sit above four rows every one of which badges
+            ข้อมูลตัวตน. */}
+        {isApprover ? (
+          <AwarenessCard
+            count={pendingStaffApprovals}
+            label="การเปลี่ยนข้อมูลตัวตน/บัญชีพนักงานรอการอนุมัติ"
+            href="/contacts/bank-changes"
+            icon={IdCard}
           />
         ) : null}
         {/* Spec 201: the open-feedback triage count moved OFF this dashboard to

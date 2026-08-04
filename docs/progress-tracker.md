@@ -11292,6 +11292,53 @@ code)`, because a child can be inserted before its parent exists on the new map.
 off-map parent, but nothing blocks a two-node cycle (A→B, B→A). The v1 editor renders flat so no
 reader can loop today; a recursive reader would need the guard first.
 
+## 2026-08-04 — Spec 396 U4: a door to the staff-approval queue (lane identdoor)
+
+- **The unit's premise was wrong in a way that changed the fix.** §5 said the four pending
+  `identity_change_requests` had "no worklist pointing at them". They have one:
+  `/contacts/bank-changes` renders them correctly and `decide_identity_change` is gated fine.
+  What did not exist was the **door**. The dashboard's only link to that page is an
+  `AwarenessCard`, which returns `null` at `count <= 0`, and its count summed contractor +
+  worker bank changes ONLY. Live: contractor 0, worker 0, identity 4, staff_bank 0 ⇒ the card
+  never rendered ⇒ `/dashboard` served **zero** links to the queue. Measured, not inferred:
+  rendering the real page with the new card removed returns 0 occurrences of
+  `href="/contacts/bank-changes"`, and 1 with it. Route telemetry agreed — 6 views in 30 days,
+  last on **2026-07-14, the day before the oldest of the four requests was filed**. Zero of
+  these requests have ever been decided, all-time.
+- ⭐ **A SEPARATE card, not a bigger number — the live RLS is what settles it.** The four kinds
+  split by audience: contractor/worker bank → `project_manager, super_admin, project_director`
+  (`PM_ROLES`, the existing card's `isManager` gate); identity/staff_bank →
+  `procurement_manager, project_director, super_admin` (`STAFF_APPROVAL_ROLES`, the set the
+  page gates `canSeeTrioKinds` on). One card cannot be gated correctly for both, and folding
+  identity rows under `การเปลี่ยนบัญชีรอการอนุมัติ` would make that label untrue. The generalisable
+  form: **before merging two counts into one control, check whether they have the same
+  audience — a shared destination does not imply a shared gate.**
+- ⭐ **The label had to be checked against the DESTINATION's vocabulary, not invented.** The
+  first draft read `การเปลี่ยนข้อมูลพนักงาน…`; the queue page badges identity rows `ข้อมูลตัวตน` and
+  staff-bank rows `พนักงาน`, so that card would have sat above four rows every one of which
+  badges `ข้อมูลตัวตน`, claiming a kind with zero live rows. Fresh-eyes caught it. Now
+  `การเปลี่ยนข้อมูลตัวตน/บัญชีพนักงานรอการอนุมัติ`, naming both kinds in the page's own words.
+- ⚠️ **`Promise.all` does not deliver the resilience its comment claims.** Per-kind `settled()`
+  absorbs a returned `error` but NOT a rejected query — and this reader runs inside the
+  dashboard page's own `Promise.all`, so one rejection would have taken the whole dashboard
+  render down, turning a transient blip into a blank page. Now `.then(settled, () => 0)` per
+  query, with a rejection test. **A "best-effort" claim covers only the failure mode you
+  actually handled; name which one.**
+- **Verification.** 7 mutants, all killed, each with a proved landing site and a non-zero run
+  count (filter, sum, rejection handler, gate swap, card deletion, count folding, wrong label).
+  Live SSR probes as dev-preview against prod data: `project_manager` → 0 doors,
+  `project_director` → 1 door + count 4, `super_admin` → 1 door + count 4; the bank card
+  correctly absent at 0 throughout — a positive/negative control pair in one probe.
+- ⚠️ **Two things deliberately NOT built.** ① **`procurement_manager` is a decider with no
+  door** — in `STAFF_APPROVAL_ROLES` and able to reach `/contacts/bank-changes`, but not in
+  `DASHBOARD_VIEW_ROLES`, so this card cannot reach them (their 536 all-time `/dashboard`
+  events are the redirect artifact, not visits). A `/procurement` door is its own unit.
+  ② **The ภาพรวม nav badge still excludes these kinds** — `loadTotalPendingApprovals` sums WP +
+  contractor + worker bank, so the badge can read 0 while this card shows work. That sum is
+  PM-tier while these kinds are `STAFF_APPROVAL_ROLES`, so adding a term needs its own
+  gate-parity pass; the stale "the dashboard shows the breakdown that sums to THIS number"
+  comment has been corrected in place rather than left to mislead.
+
 ## 2026-08-04 — Spec 392 U2a: the zones route, its list and its write paths (lane zones)
 
 `/projects/[projectId]/zones` + `zone-list.ts` + `validate-zone.ts` + the three server actions + a
