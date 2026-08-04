@@ -11338,3 +11338,40 @@ reader can loop today; a recursive reader would need the guard first.
   PM-tier while these kinds are `STAFF_APPROVAL_ROLES`, so adding a term needs its own
   gate-parity pass; the stale "the dashboard shows the breakdown that sums to THIS number"
   comment has been corrected in place rather than left to mislead.
+
+## 2026-08-04 — Spec 392 U2a: the zones route, its list and its write paths (lane zones)
+
+`/projects/[projectId]/zones` + `zone-list.ts` + `validate-zone.ts` + the three server actions + a
+manager-gated `ผังโซน` chip on the project header. Code and tests only; U1's migration was already
+on main.
+
+- **U2 was split: U2a = route + list + actions (no new dependency), U2b = the konva canvas.** The
+  split is adding-only — U2a removes no signal — and it keeps the dependency add away from the
+  routing and gating work.
+- **The list is the accessible path, not a preview of the canvas.** A canvas is opaque to a screen
+  reader and a keyboard, so add / rename / delete / the per-zone count all have to work here.
+  Everything U2b lets a manager do by dragging must stay doable from the list.
+- **Gate is `PM_ROLES`, which is exactly `is_manager`'s live membership**, so the page gate and the
+  five RPC gates cannot drift apart. Each known refusal names its cause and next step; only the
+  unknown-error arm invites a retry (the honest-copy ledger entry, +4 occurrences / +1 file).
+- **The delete copy is verified against behaviour, not intent.** It promises the work packages
+  return to "no zone" rather than disappearing; the browser pass deleted a zone holding a real WP
+  and confirmed the WP survived with `zone_id` null and its name unchanged.
+- **A mutation that stayed GREEN was the finding.** Dropping the "unresolvable parent degrades to
+  top level" clause still produced the right rows, because the cycle-survivor sweep picks orphans
+  up too — what actually changes is ORDERING, so a zone whose parent is merely RLS-invisible would
+  sink below every other zone. The test now pins the ordering and reds on the same mutation.
+- **Two guard trips, both in the guard-trip map:** a hand-rolled second `<main>` (PageShell owns the
+  page's only one) and a `text-ink-muted` spent on readable copy.
+- **Self-review caught two defects the suite cannot see:** every row rendered its own sheet with
+  HARDCODED input ids, so a label's `htmlFor` focused the first row's input whichever row was
+  opened; and the row edit button rendered as a primary CTA beside a text-link delete.
+- ⚠️ **Browser verification used the sanctioned floor** — the Browser pane is not displayed, so
+  hydration never runs and clicks reach nothing. Signed in as dev-preview, SSR-probed the render,
+  drove the real RPCs as that user (duplicate code → `23505`, out-of-bounds rect → `23514`), then
+  cleaned up: 0 maps / 0 zones / 0 zoned WPs left in prod.
+
+**Open, carried from U1:** a manager can create exactly one map because the create button only
+renders in the empty state — but `save_project_zone_map` with a null id always INSERTS, so two
+managers pressing it simultaneously on an empty project would produce two maps, and the page renders
+only the first. U2b needs either a unique index or a map switcher.
