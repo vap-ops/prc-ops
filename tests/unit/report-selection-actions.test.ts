@@ -6,11 +6,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requireRole = vi.fn();
 const rpc = vi.fn();
+// The phase the mocked photo_logs read answers with — the defect ruling is
+// enforced on it, so each test sets the phase it is about.
+let photoPhase = "after";
 vi.mock("@/lib/auth/require-role", () => ({
   requireRole: (...args: unknown[]) => requireRole(...args) as unknown,
 }));
 vi.mock("@/lib/db/server", () => ({
-  createClient: () => Promise.resolve({ rpc }),
+  createClient: () =>
+    Promise.resolve({
+      rpc,
+      from: () => ({
+        select: () => ({
+          eq: () => ({ maybeSingle: () => Promise.resolve({ data: { phase: photoPhase } }) }),
+        }),
+      }),
+    }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -27,6 +38,7 @@ const PH2 = "44444444-4444-4444-4444-444444444444";
 beforeEach(() => {
   requireRole.mockReset().mockResolvedValue({ id: "u", role: "project_manager" });
   rpc.mockReset().mockResolvedValue({ data: { changed: true }, error: null });
+  photoPhase = "after";
 });
 
 describe("report-selection-actions", () => {
@@ -48,6 +60,33 @@ describe("report-selection-actions", () => {
       p_work_package_id: W,
       p_photo_ids: [PH2, PH],
     });
+  });
+
+  // Operator ruling 2026-08-04: a defect photo is evidence of BROKEN work and
+  // never belongs in the client's finished-work report. The button is withheld
+  // on those galleries, but the button is not the enforcement point — a stale
+  // page or a direct call must be refused here too.
+  it("refuses a DEFECT photo without touching the RPC, and says why", async () => {
+    photoPhase = "defect";
+    const res = await selectReportPhoto(W, PH);
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain("จุดบกพร่อง");
+    // a permanent refusal — never invite a retry that cannot succeed
+    expect(res.error).not.toContain("ลองใหม่");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("still admits a หลังแก้ไข photo — only `defect` is withheld", async () => {
+    photoPhase = "after_fix";
+    const res = await selectReportPhoto(W, PH);
+    expect(res.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("select_report_photo", { p_photo_log_id: PH });
+  });
+
+  it("UNSELECTING a defect photo is still allowed — the ruling must not strand a pre-ruling row", async () => {
+    photoPhase = "defect";
+    const res = await unselectReportPhoto(W, PH);
+    expect(res.ok).toBe(true);
   });
 
   it("refuses malformed uuids WITHOUT touching the RPC", async () => {

@@ -11206,3 +11206,49 @@ note that rides the existing `params` jsonb.
   galleries), so a PD can put a photo of broken work into a client report. Spec §5 names
   "before/during/after" explicitly. Intentional latitude, or should the toggle be withheld on
   defect photos?
+
+## 2026-08-04 — Spec 394 follow-up: defect photos are not selectable (lane nodefect)
+
+**Operator ruling, answering the question above: withhold the toggle on `defect` photos.** A defect
+photo is evidence of BROKEN work; the client report is the finished-work document, and the two must
+not mix.
+
+- **Three layers, because a button is an affordance and not an enforcement point.** The review page
+  passes no `reportSelection` to a defect gallery; the server action reads the photo's phase and
+  refuses before calling the RPC; and the PDF resolver iterates `REPORT_SELECTABLE_PHASES` instead
+  of a hardcoded tuple that included `defect`, so a row written before the ruling — or by a direct
+  call — still cannot print. Each layer was mutation-checked ALONE: restoring the prop reds 2
+  assertions, deleting the action guard reds 1, re-adding `defect` to the phase set reds 2.
+- **`REPORT_SELECTABLE_PHASES` is the SSOT** and lists phases positively, so a NEW `photo_phase`
+  enum value stays OUT of a client's document until someone adds it deliberately. The default of
+  "not listed" is the safe one.
+- **Unselect stays open on purpose.** Refusing to remove a defect row would strand a pre-ruling
+  selection in the report with no way out — the guard is on the write that creates the problem, not
+  on the one that fixes it.
+- ⭐ **The test nearly failed on its own documentation.** The JSX comment explaining _why_
+  `reportSelection` is absent mentions it by name, so a source scan asserting its absence read the
+  comment and failed on a correct file — the guard-satisfied-by-its-own-documentation trap, in
+  reverse. Block comments are now stripped before the scan. Same class as the honest-copy ratchet's
+  note, and worth remembering: **strip comments before ANY raw-text assertion, in both directions.**
+- ⓘ Closes the inconsistency the U2+U3 review found — prior-round defect photos used to carry a
+  toggle while the current round's did not. Now none do.
+- 🔴 **The review caught the doctrine §2 trap in my own change: withholding the toggle also removed
+  the only way to UNSELECT a defect photo.** The arrange strip has move-up/down and no ✕, and the
+  galleries were the sole toggle surface — so "unselect stays open" was true of the API and false
+  of the product. One query decided how much of that was live: `report_selected_photos` holds **2
+  rows, both `during`, zero `defect`**, and after this change no defect row can be created through
+  any path. Recorded rather than solved — a selected-state-only toggle would be machinery for a
+  state that cannot occur — but stated in the spec so it is a decision, not an oversight.
+- **Two consistency fixes the review forced, both real regardless of the above:** the generate
+  guard and the reports-page count now filter to `REPORT_SELECTABLE_PHASES`, so they count what the
+  PDF can actually contain (an all-defect project would otherwise have passed the guard, queued,
+  and failed with a message naming causes that were not the real one); and the phase read now
+  **fails CLOSED** — `data: null` means both "not found" and "read failed", so ignoring the error
+  would let a transient 5xx wave a defect photo through.
+- **The refusal message is built from the phase's own label, not hardcoded to จุดบกพร่อง.** The
+  guard refuses anything outside the selectable set, so a future `photo_phase` would have been
+  refused with a message naming the wrong reason — a false diagnosis, which is what honest copy
+  exists to prevent. Backed by a partition test: the selectable set plus the one deliberate
+  exclusion must cover the WHOLE `photo_phase` domain, so a new enum value reds until someone
+  classifies it. The doc comment said "must be added here deliberately"; prose cannot enforce that,
+  the test can.

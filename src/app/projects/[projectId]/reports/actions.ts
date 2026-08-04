@@ -26,6 +26,7 @@ import { createClient as createAdminClient } from "@/lib/db/admin";
 import { canGenerateReport, type ReportStatus } from "@/lib/reports/predicates";
 import { buildReportFileName } from "@/lib/reports/file-name";
 import { parseReportParams } from "@/lib/reports/params";
+import { REPORT_SELECTABLE_PHASES } from "@/lib/reports/selected-photos";
 import { runReportJob } from "@/lib/reports/run-report-job";
 import { getActionUser, NOT_SIGNED_IN } from "@/lib/auth/action-gate";
 import { PM_ROLES } from "@/lib/auth/role-home";
@@ -112,10 +113,18 @@ export async function generateReport(input: GenerateReportInput): Promise<Genera
   // stale form or a direct call. Scoped to the mode that needs it — a project
   // with no selections still generates every other kind of report.
   if (params.photos === "selected") {
+    // Counted over REPORT_SELECTABLE_PHASES only — the same set the resolver
+    // uses. A guard that counts rows the job discards passes on a project whose
+    // selections are ALL unusable, and the job then fails with a message naming
+    // causes that are not the real one.
     const { count } = await supabase
       .from("report_selected_photos")
-      .select("photo_log_id, work_packages!inner(project_id)", { count: "exact", head: true })
-      .eq("work_packages.project_id", project.id);
+      .select("photo_log_id, work_packages!inner(project_id), photo_logs!inner(phase)", {
+        count: "exact",
+        head: true,
+      })
+      .eq("work_packages.project_id", project.id)
+      .in("photo_logs.phase", [...REPORT_SELECTABLE_PHASES]);
     if (!count) {
       return { ok: false, reason: "ยังไม่ได้เลือกรูปสำหรับรายงานนี้ กรุณาเลือกรูปก่อน" };
     }
