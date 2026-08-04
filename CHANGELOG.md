@@ -1,3 +1,11 @@
+## [0.317.4](https://github.com/vap-ops/prc-ops/compare/v0.317.3...v0.317.4) (2026-08-04)
+
+### Bug Fixes
+
+- contrast floors for edge-strong, dark danger, and the done commit button (UX-audit G2+G9+G15) ([2850905](https://github.com/vap-ops/prc-ops/commit/28509050cbdcf5e4fdf62d7331b026ebc741d741)), closes [#934](https://github.com/vap-ops/prc-ops/issues/934)
+- move sentence copy off ink-muted app-wide (UX-audit G2 sweep) ([73720b3](https://github.com/vap-ops/prc-ops/commit/73720b3187106916f1d201c39b4ce298fb55f989))
+- on-danger ink split + all-grounds edge-strong + sweep misfire reverts (G2 review) ([3c47be3](https://github.com/vap-ops/prc-ops/commit/3c47be3ea60adaac08b09387cada2933bc43a6ec))
+
 ## [0.317.3](https://github.com/vap-ops/prc-ops/compare/v0.317.2...v0.317.3) (2026-08-04)
 
 ### Bug Fixes
