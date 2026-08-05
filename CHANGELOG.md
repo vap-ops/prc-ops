@@ -1,3 +1,15 @@
+# [0.335.0](https://github.com/vap-ops/prc-ops/compare/v0.334.0...v0.335.0) (2026-08-05)
+
+### Bug Fixes
+
+- **muster:** address the U5 fresh-eyes review ([749a54d](https://github.com/vap-ops/prc-ops/commit/749a54db3c8562197feaf2f50034691d899648b5))
+
+### Features
+
+- **muster:** openMusterTeam accepts the office kind (spec 397 U5 slice 1) ([4a781e9](https://github.com/vap-ops/prc-ops/commit/4a781e914d548829138a222c2692c407348ea460))
+- **muster:** the office team board shaper + loader (spec 397 U5 slice 2) ([b853dc7](https://github.com/vap-ops/prc-ops/commit/b853dc7020285e8e8b8b95e3469fa8e3bd5d56fd))
+- **muster:** the office team surface + its door (spec 397 U5 slice 3) ([cbfb363](https://github.com/vap-ops/prc-ops/commit/cbfb363e0f7b605e03df5107f5310fe9deb1acb8))
+
 # [0.334.0](https://github.com/vap-ops/prc-ops/compare/v0.333.0...v0.334.0) (2026-08-05)
 
 ### Features
