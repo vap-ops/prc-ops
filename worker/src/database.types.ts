@@ -11845,6 +11845,10 @@ export type Database = {
         Returns: string
       }
       rename_crew: { Args: { p_crew: string; p_name: string }; Returns: string }
+      reopen_muster_day: {
+        Args: { p_date: string; p_project: string; p_reason: string }
+        Returns: undefined
+      }
       reopen_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       reopen_work_package_for_defect: {
         Args: {

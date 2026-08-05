@@ -88,8 +88,15 @@ function undoErrorToThai(message: string): string {
   // can_see_project INTO the lookup so an invisible check-in reads as an absent
   // one, and this copy must not contradict that by implying it exists.
   if (message.includes("no check-in to undo")) return "ไม่พบการเช็คชื่อนี้ — อาจถูกยกเลิกไปแล้ว";
+  // Spec 397 U3 gave this refusal a way out — reopen_muster_day — so "ยกเลิกไม่ได้"
+  // is no longer true and the old copy sent the SA to a manager for nothing.
+  // ⚠️ It deliberately does NOT name the surface: the reopen form lives on
+  // /team/attendance, which `site_admin` (the main cockpit user) cannot open —
+  // it is not in ATTENDANCE_AUDIT_ROLES — so naming it would repeat the
+  // affordance-that-is-not-there defect one layer down. It states the
+  // PRECONDITION, which is true for every reader; who can lift it is §9 Q7.
   if (message.includes("already closed"))
-    return "ปิดวันแล้ว — ยกเลิกไม่ได้ ต้องแจ้งผู้จัดการให้แก้ไข";
+    return "ปิดวันแล้ว — ต้องเปิดวันนั้นอีกครั้งก่อนจึงจะยกเลิกรายการได้";
   if (message.includes("wages are already booked")) {
     return "บันทึกค่าแรงของรายการนี้แล้ว — ต้องแจ้งผู้จัดการให้แก้ไข";
   }
