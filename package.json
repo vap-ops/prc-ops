@@ -27,7 +27,8 @@
     "db:test": "tsx scripts/run-pgtap.ts",
     "import:wp": "tsx --env-file=.env.local scripts/import-wp.ts",
     "import:wp-catalog": "tsx --env-file=.env.local scripts/import-wp-catalog.ts",
-    "seed:sandbox": "tsx scripts/seed-sandbox.ts"
+    "seed:sandbox": "tsx scripts/seed-sandbox.ts",
+    "backfill:photo-thumbs": "tsx --env-file=.env.local scripts/backfill-photo-thumbs.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.3",

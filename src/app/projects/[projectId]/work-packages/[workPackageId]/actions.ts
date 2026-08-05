@@ -43,6 +43,7 @@ import {
   type PhotoExt,
 } from "@/lib/photos/path";
 import { buildTombstoneRow } from "@/lib/photos/tombstone";
+import { schedulePhotoThumb } from "@/lib/photos/schedule-thumb";
 import {
   canCaptureAfterFix,
   isPhotoWpDeletable,
@@ -267,6 +268,12 @@ export async function addPhoto(input: AddPhotoInput): Promise<AddPhotoResult> {
       transitioned = true;
     }
   }
+
+  // Spec 398 U2 — the photo row is landed, so schedule its stored thumbnail. Runs
+  // AFTER the response (never blocks the SA's upload) and cannot fail this action.
+  // Placed after the insert/replay branch on purpose: a replay whose row already
+  // existed also lands here, which is correct — the generator is idempotent.
+  schedulePhotoThumb(storagePath);
 
   revalidatePath(workPackageHref(wp.project_id, wp.id));
   return { ok: true, photoId: input.photoId, transitioned };
