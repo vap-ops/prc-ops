@@ -25,9 +25,13 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { attendanceBackLabel, safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { EmptyNotice } from "@/components/features/common/notices";
+import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
-import { ATTENDANCE_AUDIT_ALL_PROJECT_ROLES, ATTENDANCE_AUDIT_ROLES } from "@/lib/auth/role-home";
+import {
+  ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
+  ATTENDANCE_AUDIT_ROLES,
+  MUSTER_REOPEN_ROLES,
+} from "@/lib/auth/role-home";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -65,6 +69,9 @@ interface AttendanceAuditPageProps {
     end?: string | string[];
     project?: string | string[];
     from?: string | string[];
+    /** Spec 397 U3 — the reopen form's outcome, carried back by its redirect. */
+    reopened?: string | string[];
+    reopenError?: string | string[];
     // U3 — expand ONE worker's per-session rows.
     worker?: string | string[];
   }>;
@@ -72,7 +79,7 @@ interface AttendanceAuditPageProps {
 
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
-  const { start, end, project, from, worker } = await searchParams;
+  const { start, end, project, from, worker, reopened, reopenError } = await searchParams;
   const todayIso = bangkokTodayIso();
   const range = attendanceRange({ start, end, project }, todayIso);
   // Mid-shift open check-outs are expected (no auto-out cron), so the chip wording
@@ -205,6 +212,22 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
           </button>
         </form>
 
+        {/* Spec 397 U3 — the reopen form redirects back here with its outcome.
+            A refusal is stated in the words the action chose (it distinguishes a
+            permanent 42501 from "wages are booked", which is actionable), and
+            success says what is now true rather than just "done": the day is open
+            and it must be closed again before wages recompute. */}
+        {typeof reopenError === "string" && reopenError.length > 0 && (
+          <div className="mb-4">
+            <ErrorNotice>{reopenError}</ErrorNotice>
+          </div>
+        )}
+        {reopened === "1" && (
+          <p className="border-edge bg-sunk text-ink rounded-card mb-4 border px-4 py-3 text-sm">
+            เปิดวันนี้อีกครั้งแล้ว — แก้ไขการเช็คชื่อได้ และต้องปิดวันใหม่เมื่อแก้เสร็จ
+          </p>
+        )}
+
         {rows.length === 0 ? (
           <EmptyNotice>ไม่มีบันทึกการเช็คชื่อในช่วงนี้</EmptyNotice>
         ) : (
@@ -291,7 +314,17 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                         DAY header, not the session (it is a project-day fact). */}
                     {isOpen && (
                       <div className="border-edge mt-3 border-t pt-3">
-                        <AttendanceDrill days={detailDays} todayIso={todayIso} />
+                        {/* Spec 397 U3 — the reopen control rides the day header.
+                            canReopen mirrors reopen_muster_day's own allowlist, so
+                            the button can never promise what the RPC refuses;
+                            drillHref(openWorkerId) is the URL the form returns to,
+                            so the outcome lands on the SAME open drill. */}
+                        <AttendanceDrill
+                          days={detailDays}
+                          todayIso={todayIso}
+                          canReopen={MUSTER_REOPEN_ROLES.includes(ctx.role)}
+                          backHref={drillHref(r.workerId)}
+                        />
                       </div>
                     )}
                   </li>

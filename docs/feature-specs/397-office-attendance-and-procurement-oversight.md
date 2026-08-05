@@ -86,6 +86,16 @@ kind. The lead is the site owner's worker row and is **nullable** — zero
 `site_owner` users exist today, and a team that cannot open until an appointment
 lands is a team nobody can check into.
 
+**5.3a What U3 actually unblocks (gate-checked at build time, and it narrowed
+the unit).** `muster_scan_in` carries **no closure guard** — the SA can already
+add rows to a closed day — so ADDING was never blocked. `muster_undo_scan` is the
+one that refuses (`P0001`), and `close_muster_day` is idempotent and re-derives.
+So reopen is the real blocker and the loop is reopen → fix → close again. U3
+therefore widens only `muster_undo_scan` to `procurement`, not the other four
+write RPCs: procurement has no cockpit door, so that privilege would be dead
+weight. Giving procurement a scanning surface is a separate unit if it is ever
+wanted.
+
 **5.3 Correcting a closed day needs a reopen, and the reopen is the danger.**
 There is no un-close path by design. The unit adds `reopen_muster_day(project,
 date, reason)` — audited, reason mandatory — which deletes the closure row and, when
@@ -143,6 +153,13 @@ U3 is independent of both and carries its own risk.
   separation of powers ADR 0075 wants; confirm before building.
 - **Q3 — the 2026-08-04 hole.** 4 check-ins against 21/23 either side, day closed.
   Fix it as the first real use of U3, or leave it as-is and record the reason?
+- **Q6 — `procurement` cannot read its own audit trail.** `audit_log`'s SELECT
+  policy is an event allowlist: privileged internal roles, plus site_admin /
+  procurement / procurement_manager for `wp_reopened_for_defect` and
+  `wp_evidence_resubmitted` **only**. So the role that reopens a day writes an
+  audit row it can never see, and no surface shows reopen history to anyone.
+  Found while writing U3's pgTAP (the asserts read 0 until they ran as the
+  owner). Surface it, widen the allowlist, or leave it to the DB? Not U3's call.
 - **Q4 — the CSV export writes no `audit_log` row.** `/team/attendance/export` lets
   any audit role bulk-download every worker's cross-project attendance (names,
   scan times, who recorded each one) with no record that they did. Pre-existing for

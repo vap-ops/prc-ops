@@ -11607,3 +11607,53 @@ only the first. U2b needs either a unique index or a map switcher.
 - 4/4 mutants killed (fallback · key derivation · call site · ASCII guard). Full suite
   **870 files / 7109 tests exit 0** through git bash — the 10 `ship-pr-*` reds under
   PowerShell are the documented PATH quirk, not the change.
+
+## 2026-08-05 — Spec 397 U3: a way back from a closed muster day (lane attend)
+
+- **`reopen_muster_day(project, date, reason)`** (migration `20260813075907`) +
+  `muster_undo_scan` widened to `procurement` + the reopen affordance on the audit
+  report's closed-day header. Gate = the three closer roles PLUS procurement
+  (`MUSTER_REOPEN_ROLES`, registered in the capability registry in the same edit).
+- ⭐ **The gate-check that NARROWED the unit: `muster_scan_in` has no closure
+  guard.** The SA can already add rows to a closed day, so ADDING was never
+  blocked — `muster_undo_scan` is the one that refuses, and `close_muster_day` is
+  idempotent and re-derives. Reopen is the real blocker, the loop is reopen → fix
+  → close again, and the other four write RPCs stay untouched: procurement has no
+  cockpit door, so widening them would have been dead privilege.
+- 🚨 **Scope had to mirror the U1 inner arm, not `close_muster_day`.**
+  `can_see_project` falls to `else false` for plain `procurement`, so gating the
+  reopen on membership would have admitted them at the door and refused them at
+  every project. Every other role keeps the membership check; the same fold went
+  into `muster_undo_scan`'s lookup, because there the predicate is inside the row
+  lookup — leaving it would have answered "no check-in to undo" for a row that
+  exists (an existence oracle turned into a lie).
+- ⚠️ **The money guard is built now for a rule that cannot fire yet:**
+  `labor_logs` is 0 rows all-time, so no day has booked wages. It refuses a reopen
+  whose wages are CURRENT (anti-join, so a retracted day is not frozen forever) —
+  the guard exists because spec 368 U2 turns this on.
+- ✅ **Real-flow on the operator's own case, rolled back:** as the real
+  `procurement` user against 2026-08-04 — undo refused (`the day is already
+closed`) → reopen ok → undo now works (4 rows → 3) → audit row reads
+  `ตรวจสอบพบว่าวันนี้ลงเวลาแค่ 4 คน · by procurement`. Plus live SSR probes: the
+  form renders on the closed day (required reason, hidden project + date) and is
+  absent on an open one.
+- ⚠️ **Three INSTRUMENT traps, each of which reads exactly like a finding.**
+  ① the `_tap_buf` grant — a role-switching pgTAP file dies at assertion one with
+  42501 and reports `not ok` with zero assertions; ② `audit_log`'s SELECT policy
+  is an event allowlist, so a correctly-written row reads as ABSENT unless the
+  assert runs as the owner (`set local role postgres`; a bare `reset role` was not
+  enough under the runner); ③ **`now()` is constant inside a transaction**, so
+  `order by created_at desc limit 1` picked another actor's row — the audit asserts
+  are scoped by `actor_id` instead. A fourth in the live probe: reading
+  `muster_attendance` after the role switch returns nothing (RLS), so the target
+  must be resolved as owner BEFORE switching.
+- ⚠️ **The honest-copy ratchet caught a real defect in my own copy**: the action's
+  generic said "กรุณาลองใหม่" while one of its two arms is a SHAPE failure that can
+  never succeed on a retry. Both arms now name the cause and the next step; the
+  ceiling was not raised.
+- ⓘ `db:types` WAS regenerated here (the new RPC must be callable): live was
+  `main` + this lane's own two migrations only, so nothing foreign came with it —
+  the diff is 4 lines in each of the two type files.
+- Gates: RED-first on both sides (pgTAP `42883 function does not exist`; vitest
+  ENOENT on the action) · lint 0 · typecheck 0 · pgTAP **354 files / 7388
+  assertions exit 0** (30 new) · live probes above.

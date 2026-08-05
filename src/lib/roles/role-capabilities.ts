@@ -24,6 +24,7 @@ import {
   EQUIPMENT_MOVE_ROLES,
   ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
+  MUSTER_REOPEN_ROLES,
   EXTERNAL_ROLES,
   LEGAL_ROLES,
   MONEY_REVIEW_ROLES,
@@ -345,6 +346,17 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     labelTh: "ดูประวัติการเช็คชื่อได้ทุกโครงการ (ไม่จำกัดโครงการที่สังกัด)",
     domain: "team",
     hidden: true,
+  },
+  {
+    // Spec 397 U3 — undoing the FINALITY of a muster day. A real capability, not
+    // a tier: it is the only way past close_muster_day, it demands a reason, and
+    // it is audited. Filed under "team" beside the report it is reached from,
+    // though the roles are the muster WRITE set + procurement, not the readers.
+    key: "muster-day-reopen",
+    setName: "MUSTER_REOPEN_ROLES",
+    roles: MUSTER_REOPEN_ROLES,
+    labelTh: "เปิดวันที่ปิดแล้วอีกครั้งเพื่อแก้ไขการเช็คชื่อ (ต้องระบุเหตุผล)",
+    domain: "team",
   },
   // money
   {

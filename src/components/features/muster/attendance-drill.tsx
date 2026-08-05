@@ -5,12 +5,14 @@
 // contradicted the summary chip and was invisible on touch. Presentational only:
 // no data fetching, no client hooks, no 'use client'.
 
+import { reopenMusterDayFromForm } from "@/app/team/attendance/actions";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import {
   dayClosureLabel,
   openSessionLabel,
   type AttendanceDetailDay,
 } from "@/lib/muster/attendance-audit";
+import { BUTTON_SECONDARY, FIELD_INPUT } from "@/lib/ui/classes";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
@@ -19,9 +21,19 @@ function formatNumber(n: number): string {
 export function AttendanceDrill({
   days,
   todayIso,
+  canReopen = false,
+  backHref = "/team/attendance",
 }: {
   days: AttendanceDetailDay[];
   todayIso: string;
+  /**
+   * Spec 397 U3 — whether to offer the reopen form. Resolved by the page from
+   * MUSTER_REOPEN_ROLES, which mirrors the RPC's own allowlist; withholding it
+   * withholds the CONTROL only, never the closure FACT above it.
+   */
+  canReopen?: boolean;
+  /** Where the form returns to — the caller's current URL, outcome appended. */
+  backHref?: string;
 }) {
   return (
     <ul className="flex flex-col gap-3">
@@ -62,6 +74,42 @@ export function AttendanceDrill({
               </li>
             ))}
           </ul>
+
+          {/* Spec 397 U3 — the way back from a closed day. On the DAY, because
+              closure is a project-day fact; only when the day IS closed (there is
+              nothing to reopen otherwise) and only for a role the RPC admits.
+              Plain POST form + redirect: this page carries no client JS, and the
+              control must work on the in-app browser where hydration does not run.
+              The helper line states the loop — reopening alone leaves the day
+              underived, which the summary already flags as ยังไม่ได้ปิด. */}
+          {canReopen && day.dayClosed && (
+            <form
+              action={reopenMusterDayFromForm}
+              aria-label={`เปิดวัน ${formatThaiDate(day.workDate)} อีกครั้ง`}
+              className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end"
+            >
+              <input type="hidden" name="projectId" value={day.projectId} />
+              <input type="hidden" name="workDate" value={day.workDate} />
+              <input type="hidden" name="returnTo" value={backHref} />
+              <label className="text-ink-secondary flex min-w-0 flex-1 flex-col text-[11px]">
+                เหตุผลที่เปิดอีกครั้ง
+                <input
+                  type="text"
+                  name="reason"
+                  required
+                  maxLength={200}
+                  placeholder="เช่น ลงเวลาไม่ครบ 19 คน"
+                  className={`${FIELD_INPUT} mt-1 max-w-full`}
+                />
+              </label>
+              <button type="submit" className={`${BUTTON_SECONDARY} shrink-0`}>
+                เปิดวันอีกครั้ง
+              </button>
+              <p className="text-ink-secondary basis-full text-[11px]">
+                แก้ไขแล้วต้องปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่
+              </p>
+            </form>
+          )}
         </li>
       ))}
     </ul>
