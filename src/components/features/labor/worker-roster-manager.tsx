@@ -53,6 +53,7 @@ import {
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE,
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT,
   PAYOUT_ACCOUNT_RECORD_CTA,
+  PAYOUT_ACCOUNT_REVIEW_EMPTY,
   PAYOUT_ACCOUNT_REVIEW_FILTER,
   PAYOUT_ACCOUNT_REVIEW_FILTER_ALL,
   PAYOUT_ACCOUNT_SHARED_WITH_NOBODY,
@@ -1173,7 +1174,7 @@ function WorkerRow({
                   thing the app never showed. §5's three outcomes (confirm own / record a
                   nominee / correct a typo) are indistinguishable without it. */}
               <p className="text-ink-secondary mt-1 text-sm">
-                {worker.payoutAccount.sharedWith.length > 0
+                {worker.payoutAccount.isShared && worker.payoutAccount.sharedWith.length > 0
                   ? `${PAYOUT_ACCOUNT_SHARED_WITH_PREFIX} ${worker.payoutAccount.sharedWith.join(", ")}`
                   : PAYOUT_ACCOUNT_SHARED_WITH_NOBODY}
               </p>
@@ -1611,7 +1612,17 @@ export function WorkerRosterManager({
   // would mean you cannot review accounts while keeping a pay-type filter — and picking
   // one would silently clear the other.
   const flaggedCount = searched.filter((w) => w.payoutAccount?.state === "unrecorded").length;
-  const queried = reviewOnly
+  // ⚠️ THREE conditions, each closing a blank-page path found in review:
+  //  · `!searching` — a live search overrides this filter exactly as it overrides the
+  //    การจ่าย chip below. Without it `showExistingWorker` (the 2026-08-04 duplicate-เลขบัตร
+  //    fix, which sets the query to put the colliding ช่าง on screen) silently shows
+  //    nothing whenever that worker is not himself flagged.
+  //  · `flaggedCount > 0` — the COMPLETION path. Fix the last of the 8, `router.refresh()`
+  //    lands, the count hits 0 and the chip row unmounts; a latched `reviewOnly` would
+  //    leave the reviewer staring at an empty roster with no control to undo it.
+  // Derived rather than stored, so it can never latch into a state the UI cannot show.
+  const reviewActive = reviewOnly && !searching && flaggedCount > 0;
+  const queried = reviewActive
     ? searched.filter((w) => w.payoutAccount?.state === "unrecorded")
     : searched;
 
@@ -1623,8 +1634,12 @@ export function WorkerRosterManager({
   const present = GROUPS.filter((g) => countIn(g.key) > 0);
   // A live search overrides the chip and searches the whole roster (the
   // /catalog rule): a stuck filter would make a search look like an absence.
-  const sections =
-    !searching && selectedPay !== ALL ? present.filter((g) => g.key === selectedPay) : present;
+  // ⚠️ Falls back to `present` when the selected การจ่าย group holds nothing in the
+  // current view. Without it, narrowing to a group that the search — or now the review
+  // filter — has emptied yields `sections = []`, i.e. a blank page with no message and
+  // no chip appearing checked, because `present` no longer contains `selectedPay`.
+  const payChosen = !searching && selectedPay !== ALL && present.some((g) => g.key === selectedPay);
+  const sections = payChosen ? present.filter((g) => g.key === selectedPay) : present;
 
   const addDoor = (
     <div className="flex items-center justify-end">
@@ -1692,7 +1707,7 @@ export function WorkerRosterManager({
         <div
           className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1"
           role="radiogroup"
-          aria-label={PAYOUT_ACCOUNT_REVIEW_FILTER}
+          aria-label="กรองตามบัญชี"
         >
           <RadioChip
             name="worker-payout-review"
@@ -1731,8 +1746,17 @@ export function WorkerRosterManager({
         ))}
       </div>
 
-      {searching && queried.length === 0 ? (
-        <p className="text-ink-secondary text-body">ไม่พบช่างที่ค้นหา</p>
+      {/* ⚠️ Names the RIGHT cause. With the review filter on, "ไม่พบช่างที่ค้นหา" would be
+          false whenever the search DID match somebody the filter then hid — the honest-copy
+          rule: a message must not report a cause that is not the one that emptied the list. */}
+      {queried.length === 0 ? (
+        <p className="text-ink-secondary text-body">
+          {reviewActive && searched.length > 0
+            ? PAYOUT_ACCOUNT_REVIEW_EMPTY
+            : searching
+              ? "ไม่พบช่างที่ค้นหา"
+              : "ยังไม่มีช่างในทะเบียน"}
+        </p>
       ) : null}
 
       <div className="flex flex-col gap-6">

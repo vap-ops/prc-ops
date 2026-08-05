@@ -197,6 +197,89 @@ describe("WorkerRosterManager — spec 395 U4, working the flagged accounts", ()
     expect(within(sheet()).getByText(PAYOUT_ACCOUNT_SHARED_WITH_NOBODY)).toBeInTheDocument();
   });
 
+  // ⚠️ EVERY test below covers a 🔴 found in review. The unit shipped with zero filter-
+  // INTERACTION coverage, and all four blank-page paths lived in exactly that gap.
+
+  // The 2026-08-04 duplicate-เลขบัตร fix hands back the colliding ช่าง's name and searches
+  // for it to put their row on screen. With a latched review filter and that worker not
+  // flagged, the row never appears and the refusal points at nobody.
+  it("lets a live search override the filter, as the การจ่าย chip already does", () => {
+    render(
+      <WorkerRosterManager
+        workers={[flagged({ id: "a", name: "ต้องตรวจ" }), { ...BASE, id: "b", name: "ปกติดี" }]}
+        contractors={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: `${PAYOUT_ACCOUNT_REVIEW_FILTER} (1)` }));
+    expect(screen.queryByText("ปกติดี")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("ค้นหาช่าง"), { target: { value: "ปกติดี" } });
+    expect(screen.getByText("ปกติดี")).toBeInTheDocument();
+  });
+
+  // The COMPLETION path: the reviewer fixes the last flagged worker, the list refreshes,
+  // and a latched filter would leave them on an empty roster with no control to undo it.
+  it("releases the filter when the last flagged worker is resolved", () => {
+    const { rerender } = render(
+      <WorkerRosterManager workers={[flagged({ id: "a", name: "ต้องตรวจ" })]} contractors={[]} />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: `${PAYOUT_ACCOUNT_REVIEW_FILTER} (1)` }));
+
+    rerender(
+      <WorkerRosterManager
+        workers={[{ ...BASE, id: "a", name: "ต้องตรวจ", payoutAccount: null }]}
+        contractors={[]}
+      />,
+    );
+    // The roster is visible again, not blank.
+    expect(screen.getByText("ต้องตรวจ")).toBeInTheDocument();
+  });
+
+  // Wrong-cause copy: the search DID match; the review filter is what hid the row.
+  it("names the review filter, not the search, when the filter is what emptied the list", () => {
+    render(
+      <WorkerRosterManager
+        workers={[flagged({ id: "a", name: "ต้องตรวจ" }), { ...BASE, id: "b", name: "ปกติดี" }]}
+        contractors={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: `${PAYOUT_ACCOUNT_REVIEW_FILTER} (1)` }));
+    expect(screen.queryByText("ไม่พบช่างที่ค้นหา")).toBeNull();
+  });
+
+  // ⚠️ A predicate mutated to `payoutAccount != null` survived the whole file, because
+  // every unflagged fixture used `null`. `own` and `nominee` must NOT count.
+  it("counts only unrecorded — own and nominee rows are not work", () => {
+    render(
+      <WorkerRosterManager
+        workers={[
+          flagged({ id: "a", name: "ก" }),
+          {
+            ...BASE,
+            id: "b",
+            name: "ข",
+            payoutAccount: { state: "own", isShared: false, nameMatches: true, sharedWith: [] },
+          },
+          {
+            ...BASE,
+            id: "c",
+            name: "ค",
+            payoutAccount: {
+              state: "nominee",
+              isShared: true,
+              nameMatches: false,
+              sharedWith: ["ง"],
+            },
+          },
+        ]}
+        contractors={[]}
+      />,
+    );
+    expect(
+      screen.getByRole("radio", { name: `${PAYOUT_ACCOUNT_REVIEW_FILTER} (1)` }),
+    ).toBeInTheDocument();
+  });
+
   it("shows no review filter at all when nothing is flagged", () => {
     render(<WorkerRosterManager workers={[BASE]} contractors={[]} />);
     expect(

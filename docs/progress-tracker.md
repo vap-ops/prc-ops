@@ -11491,3 +11491,38 @@ only the first. U2b needs either a unique index or a map switcher.
   — whose ACCOUNT) shares two syllables with the ownership line but makes no ownership claim
   about the RECORD. Re-pinned to `/รายการนี้เป็นของ/` plus the UNKNOWN label — stronger (it
   cannot pass on a reworded ownership line) and narrower (it does not veto unrelated copy).
+
+## 2026-08-05 — Spec 395 U4: work the flagged accounts, on the roster (lane payfix)
+
+- 🚨 **THE MEASUREMENT THAT CHANGED THE UNIT: `/settings/payout-nominees` has ZERO
+  route_views ALL-TIME.** Nobody has ever opened it. §8 Q1 named consent-upload friction as
+  the leading suspect for `worker_payout_nominee` having 0 rows — **that hypothesis is
+  refuted**; the page has simply never been visited. (Instrumentation is fine:
+  `/settings/roles` 596, `/settings/company-docs` 191, `/settings/my-info` 122 in 30d.)
+- ⇒ **§5 asks for "a review list"; building it as another settings page would have put the
+  worklist on a route with zero lifetime traffic** — the exact failure spec 396 U4 existed to
+  fix ("a correct detector on a page nobody opens is not a shipped feature"). It ships on
+  `/workers` instead: 686 views / 30d from procurement, already carrying U2's badges and U3's
+  routes, and the place the corrections are actually made. **Deliberate deviation from the
+  spec's literal wording, recorded here and in §5.**
+- **Two things the roster was missing.** ① a counted filter (`บัญชีต้องตรวจสอบ (8)`) so the
+  reviewer sees the flagged rows instead of scanning 43 — its OWN radiogroup, because the
+  existing chips filter by การจ่าย and folding them together would mean you cannot review
+  accounts while keeping a pay filter. ② **`sharedWith` — the names of the other workers on
+  the same account**, which is the fact that tells §5's three outcomes apart and which the
+  app displayed nowhere: three other technicians on one account reads "third party, record a
+  บัญชีตัวแทน"; nobody else on it reads "the name or number is off" (the `044…`/`014…`
+  near-miss). Excludes the subject — a list containing yourself makes every group look one
+  larger.
+- ⚠️ **Two labels collided and both were real UI problems, not test artifacts.** The review
+  row's "ทั้งหมด" duplicated the การจ่าย row's, leaving the reader unable to tell which axis
+  they had cleared → renamed `ทุกบัญชี`. And the empty-account copy first read "อาจเป็นการ
+  พิมพ์**ผิด**", which the roster's own honest-copy guard bans — rightly, since ผิด reads as a
+  fault by the ช่าง → "คลาดเคลื่อน".
+- **Verification.** RED-first; **7 mutants, all killed** after two survivors were closed:
+  ⭐ one exposed a genuine gap (the axis test asserted on the wrong chip — a mutation
+  renaming only the "ทุกบัญชี" chip into the pay group left the two review options in
+  DIFFERENT groups, so neither could clear the other, and the test never looked); ⭐ the other
+  was a **harness** error (M7 ran the RTL file, but the `sharedWith` page-pin lives in the
+  wiring test — the mutant was never measured against its own assertion). Live: the chip
+  renders `บัญชีต้องตรวจสอบ (8)` on 43 rows. lint 0 · typecheck 0.

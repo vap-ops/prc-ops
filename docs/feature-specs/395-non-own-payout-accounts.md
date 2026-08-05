@@ -192,6 +192,25 @@ roster.
   own / record a nominee / correct a typo. The spelling-variance rows are
   **corrections, not nominees** — and the `044…`/`014…` near-miss pair in §1 is very
   likely one such correction.
+  🚨 **BUILT ON `/workers`, NOT AS A NEW SETTINGS PAGE (2026-08-05), and the measurement
+  is the reason: `/settings/payout-nominees` has ZERO route_views ALL-TIME.** Nobody has
+  ever opened it — which also **refutes §8 Q1's leading hypothesis**: the consent upload
+  is not why this feature has 0 rows; the page has never been visited. Instrumentation is
+  fine (`/settings/roles` 596, `/settings/company-docs` 191, `/settings/my-info` 122 in
+  30d). A review list built there would be a worklist nobody opens — the failure spec 396
+  U4 exists to fix. `/workers` gets **686 views / 30d** from procurement and already
+  carries U2's badges and U3's routes.
+  ▶ **What shipped:** ① a counted filter chip (`บัญชีต้องตรวจสอบ (N)`) narrowing the roster
+  to the flagged rows — its OWN radiogroup, since the existing chips are a การจ่าย axis and
+  merging them would make the two filters exclusive. ② **`sharedWith` — the names of the
+  OTHER workers on the same account**, in the sheet. That is the fact that tells this
+  section's three outcomes apart and the app showed it nowhere: several others reads
+  "third party, record a บัญชีตัวแทน"; nobody else reads "the name or the number is off".
+  It excludes the subject (a list containing you inflates every group by one).
+  ⚠️ **No new persisted state.** "Confirm own" is not a stored flag — §4 forbids the
+  column, and it would rot. The three outcomes route to surfaces that already exist: a
+  correction goes through the `/workers` edit sheet, a nominee through U3's deep link, and
+  a genuinely-own account simply stops being flagged once its holder name is corrected.
 
 ⚠️ **U1 → U2 → U3 order is load-bearing.** A badge whose control does not exist
 strands the reader with a flag and no way to resolve it. U4 needs U3.
