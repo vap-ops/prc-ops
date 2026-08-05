@@ -1,3 +1,9 @@
+# [0.331.0](https://github.com/vap-ops/prc-ops/compare/v0.330.0...v0.331.0) (2026-08-05)
+
+### Features
+
+- **attendance:** procurement can audit attendance, and has a door to it (spec 397 U1+U2) ([#970](https://github.com/vap-ops/prc-ops/issues/970)) ([b1cf359](https://github.com/vap-ops/prc-ops/commit/b1cf35966779113d7bab11f53fd52ac7c0698b4d))
+
 # [0.330.0](https://github.com/vap-ops/prc-ops/compare/v0.329.0...v0.330.0) (2026-08-05)
 
 ### Features
