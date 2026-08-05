@@ -2,8 +2,8 @@
 //
 // UX-audit G8 follow-up, recorded by lane portalsr on #980 and MEASURED here
 // before being built: page-skeleton.tsx hand-rolled `<main class="bg-page
-// min-h-screen overflow-x-clip">`, and 38 of the app's 39 loading.tsx files
-// delegate to it — so 38 loading boundaries rendered a <main> that is not a
+// min-h-screen overflow-x-clip">`, and 44 of the app's 45 loading.tsx files
+// delegate to it — so 44 loading boundaries rendered a <main> that is not a
 // scroller under a body the root layout locks (h-full overflow-hidden, spec 64).
 //
 // The defect is real, not merely a convention breach. Measured in a real browser
@@ -32,9 +32,20 @@
 // variant here.
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PageSkeleton } from "@/components/features/chrome/page-skeleton";
+
+const SKELETON_SRC = join(
+  process.cwd(),
+  "src",
+  "components",
+  "features",
+  "chrome",
+  "page-skeleton.tsx",
+);
 
 function mainOf(ui: React.ReactElement): HTMLElement {
   const { container } = render(ui);
@@ -56,6 +67,28 @@ function shellClassName(): string {
 }
 
 describe("PageSkeleton renders the page scroller (UX-audit G8 follow-up)", () => {
+  it("delegates to the PageShell COMPONENT, not to a lookalike <main>", () => {
+    // Every className assertion below reads PageShell's own output, so all of
+    // them pass against a hand-rolled <main> carrying the same class string —
+    // they pin the CONTRACT, not the delegation (fresh-eyes finding). This is the
+    // pin that separates the two, and it is the cheap half of the pair: the
+    // repo-wide "only page-shell.tsx contains a <main>" scan in
+    // design-doctrine.test.ts is the other.
+    // Comments stripped first — the component's own header quotes the markup it
+    // used to render, so documenting the hazard would otherwise BE the hazard
+    // (this assertion caught exactly that on its first run).
+    const source = readFileSync(SKELETON_SRC, "utf8")
+      .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("//"))
+      .join("\n");
+
+    expect(source).toMatch(/<PageShell\b/);
+    expect(source, "the skeleton must not hand-roll a <main> (ui-conventions §5)").not.toMatch(
+      /<main[\s>]/,
+    );
+  });
+
   it("renders PageShell's <main>, byte-for-byte the shell's own classes", () => {
     expect(mainOf(<PageSkeleton />).className).toBe(shellClassName());
   });
@@ -63,7 +96,11 @@ describe("PageSkeleton renders the page scroller (UX-audit G8 follow-up)", () =>
   it("carries the scroller contract and has dropped min-h-screen", () => {
     // Named separately from the equality pin above so a failure says WHICH half
     // of the contract broke. min-h-screen is the specific defect: it makes the
-    // <main> taller than a locked body instead of scrolling inside it.
+    // <main> taller than a locked body instead of scrolling inside it. Stated
+    // honestly: because the string under test is PageShell's own output, the
+    // negative arm bites the reachable regression — a `className="min-h-screen"`
+    // passed INTO the shell (mutation-proved) — not a hand-rolled wrapper, which
+    // the delegation pin above is what catches.
     const className = mainOf(<PageSkeleton />).className;
 
     expect(className).toContain("h-full");
@@ -76,14 +113,16 @@ describe("PageSkeleton renders the page scroller (UX-audit G8 follow-up)", () =>
   });
 
   it("still announces itself and still paints the frame it is announcing", () => {
-    // The shell swap must be an ADDITION-free change: the sr-only line that all
-    // 38 delegating boundaries inherit, and the pulse blocks a sighted user
-    // reads as "this page is coming", both survive.
+    // The shell swap must cost nothing: the sr-only line that all 44 delegating
+    // boundaries inherit, and the pulsing blocks a sighted user reads as "this
+    // page is coming", both survive. Counts are EXACT — a floor lets a
+    // placeholder row be deleted under a pin whose stated job is the frame.
     const { container } = render(<PageSkeleton />);
 
     const announcement = container.querySelector(".sr-only");
     expect(announcement?.textContent?.trim()).toBe("กำลังโหลด…");
     expect(container.querySelectorAll("main header").length).toBe(1);
-    expect(container.querySelectorAll("main .bg-sunk").length).toBeGreaterThanOrEqual(7);
+    expect(container.querySelectorAll("main .bg-sunk").length).toBe(8);
+    expect(container.querySelectorAll("main .animate-pulse").length).toBe(8);
   });
 });

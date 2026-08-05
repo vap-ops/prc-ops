@@ -107,8 +107,14 @@ A unit test pins every new constant's exact value so drift is a test failure.
 - `ConfirmActionButton` merge of the cancel/ship/attachment-remove trio.
 - `ProjectListSection` shared between `/sa` and `/pm/projects` (the hub-merge
   design question owns this).
-- PageSkeleton → PageShell/PAGE_MAX_W (changes transient loading-state width —
-  needs operator sign-off as a visual change).
+- PageSkeleton → ~~PageShell~~/PAGE_MAX_W. **The PageShell half shipped 2026-08-06,
+  and it was not the visual refactor this entry anticipated — it was a measured
+  defect**: the hand-rolled `min-h-screen` `<main>` is not a scroller under the
+  spec-64 locked body, so at phone landscape the skeleton's own last row was clipped
+  with zero user-scrollable ancestors (see `docs/ui-conventions.md` §8). Width is
+  untouched — the skeleton keeps `max-w-3xl`. **The PAGE_MAX_W half is still open and
+  still needs operator sign-off**, because that one genuinely changes the transient
+  loading-state width on md+ screens.
 - `parseRequestsSearchParams` extraction + tests; `requireSessionProfile`
   for the coming-soon/profile pair; serverEnv test-mock dedup; e2e
   proxy-protection parametrization; Pick<Row> prop types; test-gap additions

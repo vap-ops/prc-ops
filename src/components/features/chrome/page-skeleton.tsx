@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // Skeleton's theme-token default (the screens hardcode the light palette).
 //
 // It renders PageShell, like every other route (spec 63/64, ui-conventions §5)
-// — 38 of the app's 39 loading.tsx files delegate here, so this one line is 38
+// — 44 of the app's 45 loading.tsx files delegate here, so this one line is 44
 // boundaries' scroller. It used to hand-roll `<main class="bg-page min-h-screen
 // overflow-x-clip">`, which is not a scroller: the root layout locks the body
 // (h-full overflow-hidden), so a min-h-screen <main> grows PAST the viewport and

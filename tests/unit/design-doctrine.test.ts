@@ -211,10 +211,19 @@ describe("design doctrine (Field-First)", () => {
   // viewport-scroll-guard.tsx, zones/page.tsx) — documenting the hazard must not
   // trip the guard against it. The toEqual is also the non-vacuity control: a
   // pattern that matched nothing would fail against the expected single entry.
+  //
+  // The stripper is deliberately narrow — JSX comment blocks `{/* … */}` plus
+  // whole-line `//` — and NOT a general `/* … */` sweep, which a fresh-eyes pass
+  // caught eating real code: `accept="image/*"` opens a pseudo-comment that runs
+  // to the next real `*/`, silently deleting spans of 332 files (16 lines of
+  // report-defect-control.tsx among them) and taking any <main> inside them out of
+  // the guard's sight. This form errs the safe way instead: a <main> written inside
+  // a JSDoc block would TRIP the guard (loud, one-line fix) rather than hide from
+  // it. Declared limit: a trailing inline `//` comment is not stripped.
   it("every page scroller clips horizontal overflow (no left-right page scroll)", () => {
     const withoutComments = (text: string) =>
       text
-        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
         .split("\n")
         .filter((line) => !line.trimStart().startsWith("//"))
         .join("\n");
@@ -225,7 +234,12 @@ describe("design doctrine (Field-First)", () => {
         "the locked body silently clips whatever does not fit, unreachably",
     ).toEqual([join("components", "features", "chrome", "page-shell.tsx")]);
     for (const f of mains) {
-      expect(f.text, `${f.rel} <main> must clip horizontal overflow`).toMatch(
+      // Read the STRIPPED text: page-shell.tsx's own header comment carries the
+      // literal `overflow-x-clip`, so asserting over the raw file stays green with
+      // the utility deleted from SHELL_BASE — i.e. the half this test is NAMED for
+      // was dead. (page-shell.test.tsx pins the class string too; this is the
+      // repo-wide half, and it now bites.)
+      expect(withoutComments(f.text), `${f.rel} <main> must clip horizontal overflow`).toMatch(
         /overflow-x-clip|overflow-hidden/,
       );
     }

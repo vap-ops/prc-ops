@@ -1,6 +1,7 @@
 // Writing failing test first.
 //
-// UX-audit 2026-08 G8 follow-up. The G8 guard (role-home-loading) asserts every
+// UX-audit 2026-08 G8 follow-up. The G8 guard (nav-loading-boundaries, named
+// role-home-loading when this was written) asserts every
 // role home HAS a loading boundary and that it paints something. It says nothing
 // about what a screen reader is offered, and /portal is the one place that
 // differed: every other loading.tsx delegates to page-skeleton.tsx — whose first
@@ -11,7 +12,7 @@
 // region is reliably read only on a full page load, where the reader walks the
 // document top-down before the fallback is replaced. On a client-side navigation
 // the fallback is a DOM swap, and readers announce inserted nodes only inside a
-// live region — so this unit buys PARITY with the other 38 boundaries, not a
+// live region — so this unit buys PARITY with the other 44 boundaries, not a
 // guaranteed spoken announcement. Making it truly audible means a persistent
 // live region in the layout (one already exists for toasts) and would change
 // every boundary; recorded as a follow-up, deliberately not done here.
