@@ -14,6 +14,7 @@ import { mintSignedUrls } from "@/lib/storage/signed-urls";
 import { pickNextPending } from "@/lib/accounting/review-chain";
 import type { MoneySourceTable } from "@/lib/accounting/review-queue-view";
 import type { ReviewQueueRow } from "@/components/features/accounting/review-queue-list";
+import type { PurchaseDocWaiverView } from "@/components/features/accounting/purchase-doc-waiver-panel";
 
 export interface ReviewVoucherFlag {
   id: string;
@@ -48,6 +49,10 @@ export interface ReviewVoucherData {
   // source (null = no pending remains; flagged rows are NOT in this tab — the
   // chain walks pending only, the flag flow is its own path).
   nextPendingId: string | null;
+  // Spec 380 U6 — the accounting doc waiver, purchase requests only (the table
+  // keys on purchase_request_id). null = not waived, which is also what every
+  // other money source gets.
+  waiver: PurchaseDocWaiverView | null;
 }
 
 // The three sources that carry documents today (spec 345 §1.1); U6 adds wage +
@@ -230,5 +235,35 @@ export async function loadReviewVoucher(
       }
     : null;
 
-  return { event, review, flags, docs, journal, nextPendingId };
+  // Spec 380 U6 — the waiver. Unlike the sealed reads above this table is NOT
+  // sealed: `authenticated` holds SELECT and its RLS policy admits money
+  // reviewers directly (mig 075877), so it reads on the AUTHED client and the
+  // row stays subject to the caller's own RLS. Only purchase requests carry one.
+  let waiver: PurchaseDocWaiverView | null = null;
+  if (sourceTable === "purchase_requests") {
+    const { data: w } = await supabase
+      .from("purchase_doc_waivers")
+      .select("reason, note, created_at, created_by")
+      .eq("purchase_request_id", sourceId)
+      .maybeSingle();
+    if (w) {
+      let createdByName: string | null = null;
+      if (w.created_by) {
+        const { data: u } = await admin
+          .from("users")
+          .select("full_name")
+          .eq("id", w.created_by)
+          .maybeSingle();
+        createdByName = u?.full_name ?? null;
+      }
+      waiver = {
+        reason: w.reason,
+        note: w.note,
+        createdAt: w.created_at,
+        createdByName,
+      };
+    }
+  }
+
+  return { event, review, flags, docs, journal, nextPendingId, waiver };
 }

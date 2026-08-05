@@ -464,6 +464,31 @@ export const DOC_MISSING_LABEL = "ไม่มีเอกสาร";
 export const DOC_CHIP_SITE_PAPER = "ใบส่งของ/ใบเสร็จ";
 export const DOC_CHIP_VENDOR_DOC = "เอกสารร้านค้า";
 export const DOC_WAIVED_LABEL = "ยกเว้นโดยบัญชี";
+// Spec 380 U6 — the accounting waiver (§2 ladder rung 5, decision ③). Waiving
+// is the recorded dead end: the order is discharged and, for a VAT vendor, the
+// input VAT is forfeited to cost. The panel says that where the decision is made.
+export const DOC_WAIVER_REASON_LABEL: Record<Enums["purchase_doc_waiver_reason"], string> = {
+  vendor_refused: "ผู้ขายไม่ยอมออกเอกสาร",
+  docs_unobtainable: "ขอเอกสารไม่ได้แล้ว",
+  other: "อื่น ๆ",
+};
+export const DOC_WAIVER_ACTION = "ยกเว้นเอกสาร";
+export const DOC_WAIVER_UNDO_ACTION = "ยกเลิกการยกเว้น";
+export const DOC_WAIVER_REASON_FIELD = "เหตุผลที่ยกเว้น";
+export const DOC_WAIVER_NOTE_FIELD = "หมายเหตุ";
+export const DOC_WAIVER_CONSEQUENCE =
+  "การยกเว้นจะปิดรายการนี้จากรายการตามเอกสาร และถ้าเป็นร้านจด VAT จะถือว่าสละสิทธิ์ภาษีซื้อ";
+export const DOC_WAIVER_NOTE_REQUIRED = "กรุณาระบุหมายเหตุเมื่อเลือกเหตุผล อื่น ๆ";
+export const DOC_WAIVER_NOTE_REQUIRED_HINT = "จำเป็นสำหรับเหตุผล อื่น ๆ";
+export const DOC_WAIVER_SECTION_HEADING = "การยกเว้นเอกสาร";
+export const DOC_WAIVER_NONE = "ยังไม่ได้ยกเว้น";
+// Spec 380 U6 — the review voucher lists attachments on the PURCHASE REQUEST,
+// but coverage is the class-aware accounting-document test and also counts
+// PO-level documents. These two lines name the mismatch on the rare rows where
+// the list and the queue chip disagree, instead of letting them contradict.
+export const DOC_NOT_ACCOUNTING_DOC =
+  "เอกสารที่แนบยังไม่ใช่เอกสารบัญชีที่ใช้ได้กับร้านนี้ — ยังต้องตามเอกสารเพิ่ม";
+export const DOC_ON_PURCHASE_ORDER = "เอกสารบัญชีของรายการนี้แนบอยู่ที่ใบสั่งซื้อ";
 export const DOC_COMPLETE_LABEL = "เอกสารครบ";
 export const DOC_CHASE_EMPTY_LABEL = "ไม่มีรายการรอเอกสาร";
 // Spec 380 U5 — the doc_type picker options (RD ladder, spec §2).
