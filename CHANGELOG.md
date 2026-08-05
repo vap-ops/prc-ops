@@ -1,3 +1,9 @@
+# [0.330.0](https://github.com/vap-ops/prc-ops/compare/v0.329.0...v0.330.0) (2026-08-05)
+
+### Features
+
+- **workers:** route a new third-party account to the nominee record (spec 395 U3) ([#966](https://github.com/vap-ops/prc-ops/issues/966)) ([8ade022](https://github.com/vap-ops/prc-ops/commit/8ade0220408a66642ab5aab0f538cf04b0ee7b8c))
+
 # [0.329.0](https://github.com/vap-ops/prc-ops/compare/v0.328.0...v0.329.0) (2026-08-04)
 
 ### Bug Fixes
