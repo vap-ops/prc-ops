@@ -62,6 +62,7 @@ describe("listNomineeCandidates", () => {
         accountWorkerCount: 2,
         isShared: true,
         nameMatches: false,
+        sharedWith: [],
       },
     ]);
     expect(out).toEqual([
@@ -95,6 +96,7 @@ describe("listNomineeCandidates", () => {
         accountWorkerCount: 2,
         isShared: true,
         nameMatches: false,
+        sharedWith: [],
       },
     ]);
     expect(out).toEqual([]);
@@ -105,13 +107,21 @@ describe("listNomineeCandidates", () => {
     mockCreateClient.mockReturnValue(client);
 
     const out = await listNomineeCandidates([
-      { workerId: "a", state: "own", accountWorkerCount: 1, isShared: false, nameMatches: true },
+      {
+        workerId: "a",
+        state: "own",
+        accountWorkerCount: 1,
+        isShared: false,
+        nameMatches: true,
+        sharedWith: [],
+      },
       {
         workerId: "b",
         state: "nominee",
         accountWorkerCount: 2,
         isShared: true,
         nameMatches: false,
+        sharedWith: [],
       },
     ]);
     expect(out).toEqual([]);
@@ -137,6 +147,7 @@ describe("listNomineeCandidates", () => {
         accountWorkerCount: 2,
         isShared: true,
         nameMatches: true,
+        sharedWith: [],
       },
       {
         workerId: "third",
@@ -144,6 +155,7 @@ describe("listNomineeCandidates", () => {
         accountWorkerCount: 2,
         isShared: true,
         nameMatches: false,
+        sharedWith: [],
       },
     ]);
     expect(out.map((c) => c.id)).toEqual(["third"]);
@@ -164,6 +176,7 @@ describe("listNomineeCandidates", () => {
         accountWorkerCount: 1,
         isShared: false,
         nameMatches: false,
+        sharedWith: [],
       },
       {
         workerId: "w2",
@@ -171,6 +184,7 @@ describe("listNomineeCandidates", () => {
         accountWorkerCount: 2,
         isShared: true,
         nameMatches: false,
+        sharedWith: [],
       },
     ]);
     expect(out.map((c) => c.name)).toEqual(["กไก่", "ขไก่", "คควาย"]);
