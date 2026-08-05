@@ -97,13 +97,16 @@ describe("the review voucher wires the waiver panel", () => {
 // chip follows the count — so the page must name which is which, or it silently
 // contradicts the chip that sent the accountant to it.
 describe("the voucher reconciles its document list with the accounting count", () => {
+  // Count occurrences, never toContain: each label appears exactly twice (the
+  // import AND the render), so a bare toContain survives deleting the render —
+  // mutation-proved, the mutant landed on the import line and stayed green.
   it("explains an attachment that is not a valid accounting document", () => {
-    expect(PAGE).toContain("DOC_NOT_ACCOUNTING_DOC");
+    expect(occurrences(PAGE, "DOC_NOT_ACCOUNTING_DOC")).toBe(2);
     expect(PAGE).toContain("docs.length > 0 && event.docCount === 0");
   });
 
   it("says so when the accounting document lives on the purchase order", () => {
-    expect(PAGE).toContain("DOC_ON_PURCHASE_ORDER");
+    expect(occurrences(PAGE, "DOC_ON_PURCHASE_ORDER")).toBe(2);
     expect(PAGE).toContain("docs.length === 0 && event.docCount > 0");
   });
 });
