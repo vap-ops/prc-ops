@@ -1444,7 +1444,7 @@ export const MONTH_FILTER_THIS = "เดือนนี้";
 export const MONTH_FILTER_APPLY = "ดู";
 export const EXPENSE_EXPORT_CSV_LABEL = "ดาวน์โหลด CSV";
 // Spec 373 §5 — the hard validate-before-pay gate (operator 2026-07-29):
-// คืนเงินแล้ว requires the expense's review = ตรวจแล้ว, at the button, the
+// Marking reimbursed (บันทึกคืนเงิน) requires the expense's review = ตรวจแล้ว, at the button, the
 // action AND the DEFINER RPC.
 export const REIMBURSE_NEEDS_REVIEW = "ต้องตรวจก่อนคืนเงิน";
 // Spec 373 §6 — the verify assembly line (chain doors, not bulk rubber-stamps).
@@ -1472,7 +1472,9 @@ export const EXPENSE_LOCKED_REIMBURSED = "รายการนี้คืน�
 export const REIMBURSE_QUEUE_HEADING = "รายการรอคืนเงิน";
 export const REIMBURSE_QUEUE_EMPTY = "ไม่มีรายการรอคืนเงิน";
 export const REIMBURSE_TOTAL_PREFIX = "รวม";
-export const REIMBURSE_MARK_LABEL = "คืนเงินแล้ว";
+// Feedback 3570ccbe: action-phrased — the old "คืนเงินแล้ว" read as a state claim.
+// The confirm dialog below still carries the state assertion the tap records.
+export const REIMBURSE_MARK_LABEL = "บันทึกคืนเงิน";
 export const REIMBURSE_MARK_PENDING = "กำลังบันทึก…";
 export const REIMBURSE_MARK_CONFIRM = "ยืนยันว่าคืนเงินรายการนี้แล้ว?";
 

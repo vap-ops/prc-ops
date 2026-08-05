@@ -22,7 +22,7 @@ Live on 2026-07-29:
 | reimbursements still open (`reimbursed_at is null`, target set) | **19 / 19**                      |
 
 The two backlogs are the same rows: nothing has been validated, and nothing has been
-paid back. The reimburse queue — the only place money moves (`คืนเงินแล้ว`) — shows
+paid back. The reimburse queue — the only place money moves (`บันทึกคืนเงิน`) — shows
 **no receipt state, no review state, and no link to the voucher**, so the natural flow
 is pay-without-validating, the inverse of what the operator asked for.
 
@@ -98,7 +98,7 @@ Each reimburse-queue row gains the receipt chip and the review-status chip (the
 in both scopes, so the call is not conditional on `scope=all`) and links to the
 voucher. **Soft signal only at first ship — superseded 2026-07-29:** the
 operator decided the HARD gate
-(§5), so `คืนเงินแล้ว` now requires review = verified at all three layers
+(§5), so `บันทึกคืนเงิน` now requires review = verified at all three layers
 (button · action · RPC, mig `20260813075871`).
 
 **Amendment (build-time find, U2):** the queue's group names hit the same `users`
