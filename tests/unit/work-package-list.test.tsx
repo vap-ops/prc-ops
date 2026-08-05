@@ -32,6 +32,7 @@ const WPS: WorkPackageListItem[] = [
     isGroup: false,
     parentId: null,
     categoryCode: null,
+    zoneId: null,
   },
 ];
 
@@ -45,6 +46,7 @@ function groupedFixture(): WorkPackageListItem[] {
     priorityRank: 2,
     isCritical: false,
     categoryCode: null,
+    zoneId: null,
   };
   return [
     {
@@ -127,6 +129,7 @@ const DEFECT_FIXTURE: WorkPackageListItem[] = [
     isGroup: false,
     parentId: null,
     categoryCode: null,
+    zoneId: null,
   },
 ];
 

@@ -11961,3 +11961,104 @@ unit SPLIT, because only half of it is code.
 - 🔔 **Two operator questions recorded in spec §4 U6**, both consequences of the §3 SSOT
   rather than deviations: one PO document discharges every order under that PO (most of
   the 269), and the PO half classes by the REQUEST's supplier, not the ORDER's.
+
+## 2026-08-05 — Spec 392 U3a: the zone read surfaces (lane zones)
+
+**Unit:** U3a — the zone chip on the work-package detail, the zone × หมวดงาน
+rollup on the project page, and the zone filter on the work list. **CODE +
+TESTS ONLY, NO SCHEMA** — the schema lane is held by lane `attend`, so U3b (the
+ช่าง's own zone, which is a return-type change to `get_my_assigned_work`) is
+deliberately not in this unit.
+
+- ⭐ **The gate is the DATA, not a role list.** `project_zones` SELECT is
+  `procurement/procurement_manager OR can_see_project`, and `can_see_project` is
+  live-FALSE for `technician` on every arm (read live, U1's gate-check). So the
+  WP detail fetches the zone as a PostgREST **embed on the read it already
+  runs** — a reader the policy withholds it from gets `null` and the chip
+  renders nothing. A role-list gate would have been a second copy of the policy,
+  free to drift from it; this one cannot.
+- ⭐ **The chip's LINK is a second, narrower gate.** `/projects/:id/zones` is
+  `requireRole(PM_ROLES)`, which REDIRECTS anyone else to their role home — so a
+  `site_admin` who can read the zone still cannot open the map. For them the
+  chip states the zone and offers no door, rather than a link that ejects them
+  off the page they are standing on. That is the affordance-then-refuse defect
+  the U1 gate-check warned U3 about.
+- ⚠️ **The zones route is MULTI-PARENT from this unit on** (the project header
+  chip from U2a, plus this one), so the chip threads `?from` and the route is
+  registered in `MULTI_PARENT_DETAILS`. Its back LABEL needs no resolution —
+  "ย้อนกลับ" names no destination, so a second parent cannot make it lie (unlike
+  spec 397 U2's ทีมงาน/จัดซื้อ chip).
+- ⭐ **The rollup REPORTS THE REMAINDER.** `work_packages.zone_id` is permanently
+  nullable and 1,307 live rows carry no zone, so a grid of only the mapped work
+  reads as full coverage. `ยังไม่ระบุโซน` is a row in the table, not a footnote —
+  and it is exactly the fill rate spec 392 §8 accepts on. Only LEAF WPs count; a
+  `is_group` row would add its own children a second time.
+- ⚠️ **Adding a filter to a surface that already has filters means testing the
+  COMBINATIONS** (the spec 395 U4 lesson — four blank-page bugs, including the
+  completion path). Three real defects were designed out rather than found:
+  the งาน-lens OPTION list now derives from the UNFILTERED roster (deriving it
+  from the filtered one makes the option vanish while `lens` still holds
+  "group" — a selected lens with no control); the `workPackages.length === 0`
+  early return stays keyed on the UNFILTERED list, so an empty zone cannot
+  delete the filter row that is the way back out; and an empty zone gets its own
+  sentence naming the ZONE, because every lens renders silently empty.
+- ⓘ The chip renders on the **งาน** detail as well as the งานย่อย one: `zone_id`
+  is a column on every `work_packages` row, so a zone set on a group would
+  otherwise be write-only.
+- ⚑ **Open question, not implemented:** nothing writes `work_packages.zone_id`
+  from the UI yet — `set_wp_zone` exists (U1) and U4 owns the assignment review
+  screen. While `project_zones` stays at 0 rows all three surfaces render
+  nothing at all, which is expected and is the acceptance measurement. ⚠️ The
+  state AFTER a PM draws the first map is different and worth naming: every zone
+  is empty, so the grid's own cells read `—` (not `0%`, which would claim the
+  work is un-started rather than absent) and `ยังไม่ระบุโซน` holds 100% of the
+  project until U4 lands.
+
+**Fresh-eyes review — the findings that changed the code.** Two CI reds it
+caught had already been fixed by the time it reported (a shared `CELL` constant
+setting a colour its call sites override, which the `ui-class-contracts`
+contract forbids because the winner is decided by generated-stylesheet order;
+and the new `components/features/zones/` folder missing from the domain
+allowlist). What survived:
+
+- 🚨 **The empty-zone test was VACUOUS and the unit's own note claimed the
+  defect was designed out.** It asserted only that the PROJECT-level sentence
+  was absent — and with the whole branch deleted the action lens renders its
+  band chips over an empty roster and names nothing, so it passed either way.
+  The sentence itself is now pinned, mutation-checked.
+- 🚨 **The empty-zone notice sat inside the `!isSearching` branch**, so a search
+  typed inside an empty zone blamed the QUERY for an emptiness the ZONE caused —
+  and clearing the query flipped the message, which is the tell. Hoisted above
+  the search branch.
+- 🚨 **`ยังไม่ระบุโซน` is not a zone.** The single empty-state sentence told a
+  reader who had just placed the last งานย่อย that "there is no งานย่อย in this
+  zone" — the wrong fact about the wrong thing, and it hid the one fact they
+  were checking for. That bucket now gets its own sentence.
+- 🚨 **The chip was a ~22px tap target.** Its pill geometry was borrowed from
+  `WorkCategoryBadge`, a non-interactive `<span>`; as a `<Link>` on a
+  gloved-hand PWA that is a miss, into the very badge sitting `gap-1.5` away.
+  The 44px floor now lives on the anchor, the pill keeps its size. ⚠️ The
+  design-doctrine tap ratchet scans `<button>` tags only and declares
+  non-`<button>` interactive elements a blind spot — nothing else would have
+  caught it.
+- ⚑ **A parent zone's row counts only its OWN directly-placed work, while the
+  grid INDENTS its children under it** — an indented `อาคาร A — 0 — 0%` above a
+  full `A1` would read as "อาคาร A is not started". Not silently changed:
+  aggregating a subtree would also have to change the zone list's counts, and
+  `zone-sheet.tsx` exposes no parent picker so nesting is RPC-only today. The
+  grid now says so out loud, **but only when a zone actually has a child**, and
+  whether a parent SHOULD aggregate is recorded as U4's decision.
+- ⚠️ **A source pin that asserted a made-up identifier** (`not.toContain
+("canSeeZones")` — that name has never existed, so `canReadZones` or an inline
+  `PM_ROLES.includes(…)` sailed through). Replaced with a structural check on
+  the render line itself.
+- Also: work placed in a zone the reader cannot see is now dropped BEFORE the
+  columns are chosen (a category whose only work sits in hidden zones survived
+  as an all-zero column); `depth` is no longer threaded into the filter chips,
+  which are a flat scroller and cannot indent; and the "the map, the list and
+  this page cannot disagree" comment was overstated — `/zones` renders one map
+  at a time while this loader reads every zone of the project, which is the same
+  gap as U2b's owed map switcher.
+- ⭐ **22 mutants, 22 kills** across two rounds. The harness gates on a dirty
+  target (exit 1, not a printed warning), refuses an ambiguous anchor, prints
+  its landing line, and aborts on a zero-ran filter.

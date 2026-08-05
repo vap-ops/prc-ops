@@ -51,6 +51,9 @@ import {
   ZONE_MAP_LABEL,
 } from "@/lib/i18n/labels";
 import { requireRole } from "@/lib/auth/require-role";
+import { ZoneRollupGrid } from "@/components/features/zones/zone-rollup-grid";
+import { buildZoneRollup } from "@/lib/zones/zone-rollup";
+import { buildZoneList } from "@/lib/zones/zone-list";
 import { createClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import { NoAccessNotice } from "./no-access-notice";
@@ -185,10 +188,41 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
     workPackages,
     deliverables,
     categoryCodeById,
+    categories,
+    zones,
     criticalIds,
     onboarding,
     sourceProjects,
   } = await loadProjectDetail(supabase, project, isPmRole);
+
+  // Spec 392 U3a — the zone × หมวดงาน rollup (spec 392 §5), the surface that
+  // answers "track work per zone". `zones` is empty both for a project nobody
+  // has drawn yet (every project today) and for a reader `project_zones` RLS
+  // withholds them from, and the grid renders nothing in either case — so the
+  // gate is the DATA, not a role list that could drift from the policy.
+  const zoneRollup = buildZoneRollup({
+    zones,
+    categories: (categories ?? []).map((c) => ({
+      id: c.id,
+      code: categoryCodeById.get(c.id) ?? null,
+      name: c.name,
+      sortOrder: c.sort_order,
+    })),
+    workPackages: (workPackages ?? []).map((wp) => ({
+      zoneId: wp.zone_id,
+      categoryId: wp.category_id,
+      status: wp.status,
+      isGroup: wp.is_group,
+    })),
+  });
+  // The filter chips follow the zone list's own ORDER — one ordering across the
+  // map, the list and this page. Not its indent: a horizontal chip row has no
+  // way to show nesting, so `depth` is deliberately not carried.
+  const zoneFilterOptions = buildZoneList(zones, {}).map((z) => ({
+    id: z.id,
+    code: z.code,
+    name: z.name,
+  }));
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
   // Spec 174: a pasted Google-Maps link (exact pin) wins; spec 173 falls back to an
   // address-derived search URL when no link is set; null when neither exists.
@@ -358,6 +392,11 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
             carry these destinations in the header. After the daily actions (muster /
             แผนพรุ่งนี้), above the งาน list. */}
         {canSeeStore ? <StoreCluster projectId={project.id} /> : null}
+        {/* Spec 392 U3a — zones × หมวดงาน, above the งาน list it summarises.
+            Renders null while the project has no zones, which is every project
+            today: an empty frame on the app's highest-traffic mobile route
+            would cost every reader space to say nothing. */}
+        <ZoneRollupGrid rollup={zoneRollup} />
         {/* Spec 145: a closed project shows a lock banner instead of seeding
             controls. Warranty defect-rework stays available on each WP page. */}
         {!projectOpen && (
@@ -431,7 +470,10 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
             parentId: wp.parent_id,
             // Spec 277 — reconciled global work-category code for the row's chip.
             categoryCode: wp.category_id ? (categoryCodeById.get(wp.category_id) ?? null) : null,
+            // Spec 392 U3a — the zone axis, for the list's own zone filter.
+            zoneId: wp.zone_id,
           }))}
+          zones={zoneFilterOptions}
           deliverables={(deliverables ?? []).map((d) => ({
             id: d.id,
             code: d.code,

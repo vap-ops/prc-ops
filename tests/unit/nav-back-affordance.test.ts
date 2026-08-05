@@ -390,6 +390,14 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // Spec 374 U1: the per-worker attendance calendar — reached from the
     // /workers roster rows AND the /payroll worker rows.
     "workers/[workerId]/attendance/page.tsx",
+    // Spec 392 U3a: the zone map became multi-parent the moment the work-package
+    // zone chip started linking to it — the project header chip (U2a) is no
+    // longer its only door. Its back chip already resolves ?from; listing it
+    // here is what stops a later edit reverting to a hardcoded project href and
+    // ejecting a reader out of the งาน they came from. (Its back LABEL needs no
+    // resolution: "ย้อนกลับ" names no destination, so a second parent cannot
+    // make it lie — unlike team/attendance below.)
+    "projects/[projectId]/zones/page.tsx",
   ];
 
   // ≥2 occurrences = the IMPORT plus a real call — same hardening as the
