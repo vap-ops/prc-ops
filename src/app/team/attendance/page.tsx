@@ -94,6 +94,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // exposure: the RPC already returns them every project's attendance), while
   // project_manager keeps the SESSION read so RLS scopes options to exactly its
   // memberships — matching the rows the RPC will actually return for it.
+  //
+  // Spec 397 U1 note: `procurement` joined the cross-project tier for the RPC arm,
+  // NOT because it needs this bypass — the live `projects` SELECT policy already
+  // reads `current_user_role() = any('{procurement,procurement_manager}') or
+  // can_see_project(id)`, so a session read would return every project for it too.
+  // The tier branch is therefore a no-op for that role today; if `projects` RLS is
+  // ever narrowed, this comment is the reason the picker would not notice.
   const seesAllProjects = ATTENDANCE_AUDIT_ALL_PROJECT_ROLES.includes(ctx.role);
   const projectReader = seesAllProjects ? createAdminClient() : supabase;
   const { data: projectOptions } = await projectReader

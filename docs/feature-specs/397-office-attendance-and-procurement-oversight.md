@@ -138,3 +138,16 @@ U3 is independent of both and carries its own risk.
   separation of powers ADR 0075 wants; confirm before building.
 - **Q3 — the 2026-08-04 hole.** 4 check-ins against 21/23 either side, day closed.
   Fix it as the first real use of U3, or leave it as-is and record the reason?
+- **Q4 — the CSV export writes no `audit_log` row.** `/team/attendance/export` lets
+  any audit role bulk-download every worker's cross-project attendance (names,
+  scan times, who recorded each one) with no record that they did. Pre-existing for
+  the other seven roles, so U1 is not a regression — but procurement is explicitly
+  the OVERSIGHT tier, which is the role class where an unlogged bulk export of
+  other people's movements is most worth a deliberate decision. Log it, or accept?
+  (Raised by the U1 fresh-eyes review, not built — out of U1's scope.)
+- **Q5 — the inner (cross-project) arm is pinned for only 2 of its 7 members.**
+  `358-attendance-audit.test.sql` asserts real cross-project reach for `accounting`
+  and (U1) `procurement`; the other five are covered only by the outer `lives_ok`.
+  Dropping any of them from the inner list would leave the suite green while their
+  report renders empty — the exact silent failure U1's own mutation test exposed.
+  A loop over the tier would close it. Pre-existing hole; not U1's to fix.
