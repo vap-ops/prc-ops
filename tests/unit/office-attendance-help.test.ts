@@ -30,8 +30,13 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  PM_TABS,
+  PROCUREMENT_MANAGER_TABS,
+  SA_TABS,
+} from "@/components/features/chrome/bottom-tab-bar";
 import { SA_SURFACE_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
-import { OFFICE_TEAM_LABEL, USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { OFFICE_TEAM_LABEL, TEAM_HUB_LABEL, USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { HELP_CARDS, OFFICE_ATTENDANCE_HELP } from "@/lib/sa/help-content";
 
 function strip(src: string): string {
@@ -75,11 +80,13 @@ describe("spec 397 U6 — every step names a control /team/office actually rende
     ["บันทึกเข้างาน", 1],
     ["ออกงาน", 2],
     ["เอาออก", 1],
-  ] as const)("%s is named by %i step(s) and exists in the page source", (affordance, inSteps) => {
-    expect(OFFICE_ATTENDANCE_HELP.steps.filter((s) => s.includes(affordance))).toHaveLength(
-      inSteps,
-    );
-    expect(page).toContain(affordance);
+  ] as const)("%s is named by %i step(s) and renders as a CONTROL on the page", (a, inSteps) => {
+    expect(OFFICE_ATTENDANCE_HELP.steps.filter((s) => s.includes(a))).toHaveLength(inSteps);
+    // In BUTTON POSITION, not merely present: `OUTCOME_COPY.opened` contains
+    // "เปิดทีมสำนักงาน" and `.out` contains "ออกงาน", so a bare `toContain` over the
+    // page stays green with either button renamed — the banner copy alone satisfies
+    // it. Matching `>label<` pins the rendered control instead of the sentence.
+    expect(page).toMatch(new RegExp(`>\\s*(?:\\{[^}]*\\})?${a}\\s*<`));
   });
 
   it("distinguishes เอาออก from ออกงาน — the mistake path is not the exit path", () => {
@@ -102,9 +109,38 @@ describe("spec 397 U6 — the card promises no scanner, because there is none", 
 
   it("and the premise holds: the add control is a select, not a scanner", () => {
     // A positive control for the assertion above — without it, "no scan" would
-    // read as satisfied on a page that had grown one.
+    // read as satisfied on a page that had grown one. (`not.toContain("Scan")` was
+    // here first and was vacuous: a scanner would arrive as a component import, not
+    // that word, so the select count is the line doing the work.)
     expect(count(page, "<select")).toBe(1);
-    expect(page).not.toContain("Scan");
+  });
+});
+
+describe("spec 397 U6 — step 1's door is real too, and it lives off this page", () => {
+  // The other steps are pinned against `/team/office`'s own source. Step 1 names
+  // chrome the page cannot vouch for, so it is pinned against the nav SSOTs — the
+  // idiom sa-help-honesty.test.ts already uses for the `manage` card.
+  it("the ทีมงาน tab exists for the roles whose chrome the step describes", () => {
+    for (const tabs of [SA_TABS, PM_TABS]) {
+      expect(tabs.map((t) => [t.label, t.href])).toContainEqual([TEAM_HUB_LABEL, "/team"]);
+    }
+    expect(OFFICE_ATTENDANCE_HELP.steps[0]).toContain(`“${TEAM_HUB_LABEL}”`);
+  });
+
+  it("the ทีมสำนักงาน door exists on /team, under that exact label", () => {
+    const team = strip(readFileSync("src/app/team/page.tsx", "utf8"));
+    expect(count(team, 'withBackFrom("/team/office", "/team")')).toBe(1);
+    expect(count(team, "OFFICE_TEAM_LABEL")).toBeGreaterThanOrEqual(2);
+    expect(OFFICE_ATTENDANCE_HELP.steps[0]).toContain(`“${OFFICE_TEAM_LABEL}”`);
+  });
+
+  it("procurement_manager's missing tab is a RECORDED gap, not an accident", () => {
+    // It is in SA_SURFACE_ROLES (so it is served this card and may open the page)
+    // yet its tab set carries no /team at all — step 1 is unfollowable for it and
+    // the surface has no door. Pinned so the gap cannot be silently "fixed" in one
+    // direction only; the decision is spec §9 Q15.
+    expect(SA_SURFACE_ROLES).toContain("procurement_manager");
+    expect(PROCUREMENT_MANAGER_TABS.map((t) => t.href)).not.toContain("/team");
   });
 });
 
@@ -121,13 +157,22 @@ describe("spec 397 U6 — nobody is told to take a step their role cannot take",
     expect(rosterCapableViewers).toEqual(["procurement_manager", "super_admin"]);
   });
 
-  it("the card asks the roster-capable roles by NAME instead of linking the reader there", () => {
+  it("the SHARED card prescribes no actor — one sentence cannot be true for both readers", () => {
+    // The same card reaches site_admin (who cannot open the roster page) and
+    // super_admin (who can, and whose own screen offers the link). An "ask someone
+    // else" tip would contradict the link rendered twenty lines below it; a "go add
+    // them" tip would send site_admin to a redirect. So the card states the
+    // mechanism and defers the actor to the page, which knows the reader.
     const tip = OFFICE_ATTENDANCE_HELP.tip ?? "";
-    expect(tip).toContain(USER_ROLE_LABEL.project_manager);
-    expect(tip).toContain(USER_ROLE_LABEL.procurement);
-    // The card is read by site_admin far more than by anyone else; sending them
-    // to a route that redirects them is the U3 🔴 #2 defect.
+    expect(tip).not.toContain(USER_ROLE_LABEL.project_manager);
+    expect(tip).not.toContain(USER_ROLE_LABEL.procurement);
     expect(prose).not.toContain("/workers");
+    expect(tip).toContain(OFFICE_TEAM_LABEL);
+  });
+
+  it("the PAGE carries the actor split, naming both roster-capable departments", () => {
+    expect(count(page, "USER_ROLE_LABEL.project_manager")).toBe(1);
+    expect(count(page, "USER_ROLE_LABEL.procurement")).toBe(1);
   });
 
   it("and it names the choice that makes the row wage-free", () => {
@@ -141,7 +186,14 @@ describe("spec 397 U6 — nobody is told to take a step their role cannot take",
 describe("spec 397 U6 — /team/office renders the guide where the task is", () => {
   it("renders the card once, from the shared content SSOT", () => {
     expect(count(page, "OFFICE_ATTENDANCE_HELP")).toBe(2); // the import + one render
-    expect(count(page, "<HelpCard card={OFFICE_ATTENDANCE_HELP} />")).toBe(1);
+    expect(count(page, "<HelpCard card={OFFICE_ATTENDANCE_HELP}")).toBe(1);
+  });
+
+  it("opens the guide on the day's FIRST screen, and only there", () => {
+    // A bare <details> is collapsed, so "the guide is on the page" is not the same
+    // claim as "the first-timer reads it" — the reviewer caught the comment
+    // asserting a state-dependent collapse the component could not express.
+    expect(count(page, "open={teamId === null}")).toBe(1);
   });
 
   it("renders it BEFORE the open/not-open split, so a first-timer sees step 1", () => {

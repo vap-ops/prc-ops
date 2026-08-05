@@ -141,11 +141,12 @@ export default async function OfficeTeamPage({
         {/* Spec 397 U6 — the teaching half, rendered OUTSIDE the open/not-open
             split: the state a first-timer is in every morning is the one where
             today's team is not open yet, so a guide inside either arm would miss
-            half its readers. Collapsed once the day is running (native <details>,
-            zero JS — this page hydrates nothing). Same card object the คู่มือ hub
-            renders, because `/sa/help` sees ~4 views a month and this page is
-            where the task is. */}
-        <HelpCard card={OFFICE_ATTENDANCE_HELP} />
+            half its readers. OPEN until today's team exists and collapsed after —
+            a bare <details> is shut, so parking the guide here without that would
+            teach nobody. Native <details>, zero JS: this page hydrates nothing.
+            Same card object the คู่มือ hub renders, because `/sa/help` sees ~4
+            views a month and this page is where the task is. */}
+        <HelpCard card={OFFICE_ATTENDANCE_HELP} open={teamId === null} />
 
         {teamId === null ? (
           <div className={CARD}>

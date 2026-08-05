@@ -4,12 +4,7 @@
 // app terms (ui-term-consistency). The "add-crew" card is spec 299 U2 — it documents
 // spec 298's onboarding front door and lands after that shipped.
 
-import {
-  OFFICE_TEAM_LABEL,
-  ROSTER_TILE_LABEL,
-  TEAM_HUB_LABEL,
-  USER_ROLE_LABEL,
-} from "@/lib/i18n/labels";
+import { OFFICE_TEAM_LABEL, ROSTER_TILE_LABEL, TEAM_HUB_LABEL } from "@/lib/i18n/labels";
 
 export interface HelpCard {
   /** Stable anchor id for a future per-screen "?" deep-link (/sa/help#<id>). */
@@ -47,11 +42,15 @@ export const OFFICE_ATTENDANCE_HELP: HelpCard = {
     // has their real crew check-in refused for the rest of the day.
     "เลือกผิดคน ให้กด “เอาออก” — “ออกงาน” เป็นการบันทึกเวลา ไม่ได้ยกเลิกรายการ",
   ],
+  // The tip states the MECHANISM and stops there. It must not say who to ask:
+  // this one card is read by site_admin (who cannot open the roster page) and by
+  // super_admin (who can, and whose own screen offers them a link to it), so any
+  // fixed instruction contradicts one of them. The role-aware half lives on
+  // /team/office, which knows the reader.
   tip:
     `${OFFICE_TEAM_LABEL}ไม่คิดค่าแรง และไม่ขึ้นในกระดานเช็คชื่อของทีมช่าง — ` +
-    `ถ้ายังไม่มีชื่อให้เลือก แปลว่ายังไม่ได้เพิ่มคนของสำนักงานเข้าโครงการนี้ ` +
-    `ให้แจ้ง${USER_ROLE_LABEL.project_manager}หรือ${USER_ROLE_LABEL.procurement}เพิ่มให้ ` +
-    "โดยเลือก การจ่าย = รายเดือน (ระบบจะตั้งค่าแรงเป็น 0 ให้เอง)",
+    "จะมีชื่อให้เลือกก็ต่อเมื่อคนของสำนักงานถูกเพิ่มเข้าโครงการแบบ การจ่าย = รายเดือน " +
+    `(ระบบตั้งค่าแรงเป็น 0 ให้เอง) ถ้ายังไม่มีชื่อ หน้า${OFFICE_TEAM_LABEL}จะบอกว่าต้องทำอะไรต่อ`,
 };
 
 export const HELP_CARDS: HelpCard[] = [
