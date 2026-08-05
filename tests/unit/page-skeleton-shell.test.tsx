@@ -37,6 +37,7 @@ import { join } from "node:path";
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PageSkeleton } from "@/components/features/chrome/page-skeleton";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 const SKELETON_SRC = join(
   process.cwd(),
@@ -110,6 +111,32 @@ describe("PageSkeleton renders the page scroller (UX-audit G8 follow-up)", () =>
       "a min-h-screen <main> under body{overflow:hidden} clips its own overflow " +
         "with no way for a user to scroll to it (measured: phone landscape)",
     ).not.toContain("min-h-screen");
+  });
+
+  it("mirrors the page width — both containers carry PAGE_MAX_W, not a private one", () => {
+    // Writing failing test first (2026-08-06, operator sign-off on the
+    // 65-consolidation queue entry). The skeleton stands in for a real page, so a
+    // width it does not share is a horizontal JUMP at the fallback→content swap.
+    // Measured on ONE route with both states in the same DOM (/dashboard, real
+    // root layout): at 1280×800 the fallback's containers are 768px and the real
+    // page's are 1240 — a 472px jump; at 900 it is 768 vs 860. Below `md` both
+    // clamp to the viewport (335 at 375px), so this is a desktop/tablet defect
+    // only. `max-w-3xl` appears in exactly TWO places in all of src/ and both are
+    // this file — the skeleton was the last width outlier in the app.
+    //
+    // The expected value is read off PAGE_MAX_W itself, never re-typed, so the
+    // skeleton cannot drift when spec 41's token changes.
+    const { container } = render(<PageSkeleton />);
+
+    const containers = [...container.querySelectorAll("main .mx-auto")];
+    expect(containers.length, "the skeleton's two centred containers").toBe(2);
+    for (const el of containers) {
+      expect(el.className, `${el.className} must carry PAGE_MAX_W`).toContain(PAGE_MAX_W);
+    }
+    expect(
+      container.innerHTML,
+      "max-w-3xl was the skeleton's private width — spec 41 has exactly one",
+    ).not.toContain("max-w-3xl");
   });
 
   it("still announces itself and still paints the frame it is announcing", () => {

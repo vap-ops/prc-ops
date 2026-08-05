@@ -107,14 +107,16 @@ A unit test pins every new constant's exact value so drift is a test failure.
 - `ConfirmActionButton` merge of the cancel/ship/attachment-remove trio.
 - `ProjectListSection` shared between `/sa` and `/pm/projects` (the hub-merge
   design question owns this).
-- PageSkeleton → ~~PageShell~~/PAGE_MAX_W. **The PageShell half shipped 2026-08-06,
-  and it was not the visual refactor this entry anticipated — it was a measured
-  defect**: the hand-rolled `min-h-screen` `<main>` is not a scroller under the
-  spec-64 locked body, so at phone landscape the skeleton's own last row was clipped
-  with zero user-scrollable ancestors (see `docs/ui-conventions.md` §8). Width is
-  untouched — the skeleton keeps `max-w-3xl`. **The PAGE_MAX_W half is still open and
-  still needs operator sign-off**, because that one genuinely changes the transient
-  loading-state width on md+ screens.
+- ~~PageSkeleton → PageShell/PAGE_MAX_W~~ **DONE 2026-08-06, both halves.** The
+  PageShell half was not the visual refactor this entry anticipated — it was a
+  measured defect: the hand-rolled `min-h-screen` `<main>` is not a scroller under
+  the spec-64 locked body, so at phone landscape the skeleton's own last row was
+  clipped with zero user-scrollable ancestors. The PAGE_MAX_W half is the one this
+  entry actually reserved, and the **operator signed it off the same day**; measured
+  first, so the sign-off was informed rather than assumed — the fallback was 768px
+  against the real page's 1240 at 1280×800 (768 vs 860 at 900), i.e. the queue entry
+  described the change as a width shift when it was really a width MISMATCH being
+  removed. Below `md` nothing moves. Both halves in `docs/ui-conventions.md` §8.
 - `parseRequestsSearchParams` extraction + tests; `requireSessionProfile`
   for the coming-soon/profile pair; serverEnv test-mock dedup; e2e
   proxy-protection parametrization; Pick<Row> prop types; test-gap additions

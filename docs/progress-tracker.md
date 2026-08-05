@@ -12378,3 +12378,40 @@ lands after #980 is now due: uxg8's `nav-loading-boundaries.test.ts` sweep asser
 something", justified by a `/portal` exception that no longer exists — it should assert the
 announcement across all boundaries. ③ `PageSkeleton` still hand-rolls a `<main>` under the
 spec-64 locked body; that is lane `pageshell`'s unit, untouched here beyond one line.
+
+_(Both ② and ③ above were closed the same day by #982, which landed just before this entry — the
+sweep now asserts the announcement plus the scroller contract on all 45 boundaries, and the
+skeleton renders `PageShell`. Left as written: this is a dated log, not a live claim.)_
+
+## 2026-08-06 — The skeleton adopts `PAGE_MAX_W`: the fallback stops jumping (lane skelwidth)
+
+**Operator sign-off, and it closes the `65-consolidation-pass` queue entry.** That entry had
+reserved `PageSkeleton → PageShell/PAGE_MAX_W` as "changes transient loading-state width — needs
+operator sign-off as a visual change". #982 shipped the PageShell half (a measured defect, not a
+visual change) and deliberately left the width alone; the operator cleared the width half today.
+
+**Measured before building, and it reframes the entry.** The queue described a width SHIFT; the
+live app has a width MISMATCH. On `/dashboard` at 1280×800, with the fallback and the resolved
+page both present in one DOM (the streamed fallback is still in the document, so the two states
+can be measured against each other rather than remembered):
+
+| viewport | fallback container | real page container | jump                              |
+| -------- | ------------------ | ------------------- | --------------------------------- |
+| 1280×800 | **768px**          | **1240px**          | 472px                             |
+| 900×800  | **768px**          | **860px**           | 92px                              |
+| 375×812  | 335px              | 335px               | none — both clamp to the viewport |
+
+So it is a desktop/tablet defect and a phone never saw it. `max-w-3xl` appeared in exactly TWO
+places in all of `src/` and both were this component: the skeleton was the app's last width
+outlier, every real surface already going through `PAGE_MAX_W` (`AppHeader`/`HubNav` accept only
+`typeof PAGE_MAX_W`, so a page cannot drift). `src/app/portal/loading.tsx` — the bespoke boundary
+— already imported the token, the same "the bespoke one is the compliant one" shape #980 found.
+
+**Built.** Both centred containers interpolate `PAGE_MAX_W`. Re-measured after: fallback 1240 /
+1280 against the page's 1240 / 1280 at 1280 wide, and 860 vs 860 at 900 — matched at both, with
+`max-w-3xl` absent from the rendered document.
+
+**Pinned.** `page-skeleton-shell.test.tsx` asserts both `.mx-auto` containers contain the string
+`PAGE_MAX_W` itself exports — read off the constant, never re-typed, so a spec-41 token change
+drags the skeleton with it — plus the absence of the retired `max-w-3xl` literal, and an exact
+container count so a container cannot be deleted under the pin.

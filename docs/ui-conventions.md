@@ -277,11 +277,15 @@ with comments stripped so `page-shell.tsx` stays the only file containing a
 which asserts every one of the 45 `loading.tsx` files renders an announcement AND a
 `h-full overflow-y-auto` `<main>`.
 
-The width is deliberately NOT changed: the skeleton keeps `max-w-3xl`, and
-`PAGE_MAX_W` adoption stays on the `65-consolidation-pass` queue as an operator
-sign-off. `variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and
-`text-ink` — the skeleton renders no visible text, and matching the variant the real
-page uses is what makes the fallback-to-content swap shift the least.
+**The skeleton also carries `PAGE_MAX_W`** (operator sign-off 2026-08-06, retiring the
+`65-consolidation-pass` queue entry). A fallback that stands in for a page and does not
+share its width IS a horizontal jump at the swap: measured on `/dashboard` with both
+states in one DOM, the fallback was **768px against the page's 1240 at 1280×800**, and
+768 vs 860 at 900px wide; below `md` both clamp to the viewport, so a phone never saw
+it. `max-w-3xl` now appears nowhere in `src/` — spec 41 has exactly one width again.
+`variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and `text-ink` —
+the skeleton renders no visible text, and matching the variant the real page uses is
+what makes the fallback-to-content swap shift the least.
 
 One deliberate exception to the SHARED SKELETON — not to the shell:
 `src/app/portal/loading.tsx` keeps its own frame because it mirrors the portal's
