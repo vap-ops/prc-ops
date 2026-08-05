@@ -193,16 +193,53 @@ describe("design doctrine (Field-First)", () => {
   // bug class, feedback 887ab7d8). The page scroller is the ONLY place an
   // over-wide child can drag the whole page sideways, so the defense lives
   // there: every <main> in src must clip horizontal overflow, and <main> may
-  // exist ONLY in the two shell primitives (so no route hand-rolls a scroller
-  // that bypasses the guard — ui-conventions §5).
+  // exist ONLY in PageShell (so no route hand-rolls a scroller that bypasses
+  // the guard — ui-conventions §5).
+  //
+  // Narrowed to ONE file 2026-08-06: page-skeleton.tsx was the second entry and
+  // it was a defect, not an exception. Its hand-rolled `min-h-screen` <main> did
+  // clip overflow-x, so this guard was green — but the body is locked (spec 64),
+  // so that <main> was not a scroller at all: measured in a real browser at phone
+  // landscape 812x375, the skeleton's own content overflowed by 58px with ZERO
+  // user-scrollable ancestors, and 38 loading.tsx boundaries delegate to it.
+  //
+  // Two hardenings came with the narrowing: the pattern matches ANY <main>
+  // element rather than only `<main className`, since a hand-rolled scroller with
+  // a spread or no class at all is exactly the shape that would slip past; and
+  // comments are stripped first, because every other mention of <main> in src is
+  // prose ABOUT this lock (layout.tsx, keyboard-viewport-fit.tsx,
+  // viewport-scroll-guard.tsx, zones/page.tsx) — documenting the hazard must not
+  // trip the guard against it. The toEqual is also the non-vacuity control: a
+  // pattern that matched nothing would fail against the expected single entry.
+  //
+  // The stripper is deliberately narrow — JSX comment blocks `{/* … */}` plus
+  // whole-line `//` — and NOT a general `/* … */` sweep, which a fresh-eyes pass
+  // caught eating real code: `accept="image/*"` opens a pseudo-comment that runs
+  // to the next real `*/`, silently deleting spans of 332 files (16 lines of
+  // report-defect-control.tsx among them) and taking any <main> inside them out of
+  // the guard's sight. This form errs the safe way instead: a <main> written inside
+  // a JSDoc block would TRIP the guard (loud, one-line fix) rather than hide from
+  // it. Declared limit: a trailing inline `//` comment is not stripped.
   it("every page scroller clips horizontal overflow (no left-right page scroll)", () => {
-    const mains = sources.filter((f) => /<main\s+className/.test(f.text));
-    expect(mains.map((f) => f.rel).sort()).toEqual([
-      join("components", "features", "chrome", "page-shell.tsx"),
-      join("components", "features", "chrome", "page-skeleton.tsx"),
-    ]);
+    const withoutComments = (text: string) =>
+      text
+        .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
+        .split("\n")
+        .filter((line) => !line.trimStart().startsWith("//"))
+        .join("\n");
+    const mains = sources.filter((f) => /<main[\s>]/.test(withoutComments(f.text)));
+    expect(
+      mains.map((f) => f.rel).sort(),
+      "PageShell owns the app's only <main> (spec 63/64) — a hand-rolled one under " +
+        "the locked body silently clips whatever does not fit, unreachably",
+    ).toEqual([join("components", "features", "chrome", "page-shell.tsx")]);
     for (const f of mains) {
-      expect(f.text, `${f.rel} <main> must clip horizontal overflow`).toMatch(
+      // Read the STRIPPED text: page-shell.tsx's own header comment carries the
+      // literal `overflow-x-clip`, so asserting over the raw file stays green with
+      // the utility deleted from SHELL_BASE — i.e. the half this test is NAMED for
+      // was dead. (page-shell.test.tsx pins the class string too; this is the
+      // repo-wide half, and it now bites.)
+      expect(withoutComments(f.text), `${f.rel} <main> must clip horizontal overflow`).toMatch(
         /overflow-x-clip|overflow-hidden/,
       );
     }

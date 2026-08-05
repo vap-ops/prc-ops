@@ -211,20 +211,32 @@ describe("tab + hub-nav destination loading coverage (UX-audit G8)", () => {
       // A boundary that renders nothing is indistinguishable from having none.
       expect(container.querySelectorAll("*").length).toBeGreaterThan(0);
 
-      // …and it must also say so to a screen reader. This assertion was
-      // deliberately weakened to "paints something" because /portal shipped a
-      // hand-rolled skeleton with no sr-only line and failed a correct file —
-      // that reason is gone: #980 gave /portal the line and the live-region
-      // follow-up made every boundary render the shared <LoadingAnnouncement />.
-      // Asserted HERE rather than only in a source scan because this is the one
-      // harness that actually renders all of them.
-      const announcement = container.querySelector(".sr-only");
+      // Tightened 2026-08-06 by two lanes at once, and both halves are kept. The
+      // property used to stop at "paints something", justified by "/portal ships a
+      // legitimate hand-rolled skeleton with no sr-only line" — #980 gave /portal
+      // the announcement and #982 gave PageSkeleton the shell, so BOTH halves of
+      // that exemption are gone and the weakest boundary in the app holds the full
+      // contract. The rule is still "uses PageSkeleton" nowhere: a bespoke skeleton
+      // is allowed, it just may not be silent and may not hand-roll a scroller.
+      //
+      // Asserted HERE, not only in the source scan in
+      // route-loading-announcement.test.tsx, because this is the one harness that
+      // actually RENDERS all 45 — and read off ROUTE_LOADING_MESSAGE rather than a
+      // re-typed literal, which is the drift the live-region unit consolidated
+      // (the wording used to be typed into each boundary).
       expect(
-        announcement?.textContent,
-        `${file} paints a skeleton but announces nothing — a non-sighted user is ` +
-          `offered no signal that the page is loading (render <PageSkeleton /> or ` +
-          `<LoadingAnnouncement />)`,
+        container.querySelector(".sr-only")?.textContent?.trim(),
+        `${file} paints a frame with nothing for a screen reader`,
       ).toBe(ROUTE_LOADING_MESSAGE);
+      const main = container.querySelector("main");
+      expect(main, `${file} renders no <main> — every route renders PageShell`).not.toBeNull();
+      // The spec-64 body lock (h-full overflow-hidden) makes PageShell's <main> the
+      // only scroller; a hand-rolled min-h-screen <main> renders fine and clips
+      // whatever does not fit, with no gesture able to reach it.
+      expect(main?.className, `${file} <main> is not the page scroller`).toContain("h-full");
+      expect(main?.className, `${file} <main> is not the page scroller`).toContain(
+        "overflow-y-auto",
+      );
     },
   );
 });

@@ -257,11 +257,36 @@ Every route group has a `loading.tsx` rendering
 mirrors the page anatomy (zinc-50 main, white header strip, `h-16
 rounded-lg` row placeholders).
 
-One deliberate exception: `src/app/portal/loading.tsx` keeps its own skeleton,
-because it renders `PageShell` (§5 — the page scroller) and mirrors the portal's
-sticky header, while `PageSkeleton` hand-rolls its own `<main>`. Swapping the
-shared component in there would drop the spec-64 body-lock contract, so the
-exception stays.
+**A loading boundary is a route, so it renders `PageShell` like every other route**
+(§5). `PageSkeleton` used to hand-roll `<main class="bg-page min-h-screen
+overflow-x-clip">`, which is not a scroller — the body is locked, so that `<main>`
+grows past the viewport and the overflow is clipped with no gesture able to reach
+it. Measured in a real browser 2026-08-06, phone landscape 812×375: the skeleton's
+own content is 433px tall, its last row was cut at y=409, and the row had **zero
+user-scrollable ancestors**; the same wrapper with taller content put 29 of 40 rows
+permanently out of reach, while identical content inside `PageShell` scrolled.
+jsdom has no layout engine, so no unit test can see this class. Three pins carry it
+instead: the class contract + the delegation in
+[page-skeleton-shell.test.tsx](../tests/unit/page-skeleton-shell.test.tsx); the
+repo-wide scan in
+[design-doctrine.test.ts](../tests/unit/design-doctrine.test.ts) ("every page
+scroller clips horizontal overflow"), which reads every `.ts`/`.tsx` under `src/`
+with comments stripped so `page-shell.tsx` stays the only file containing a
+`<main>`; and the per-boundary render sweep in
+[nav-loading-boundaries.test.ts](../tests/unit/nav-loading-boundaries.test.ts),
+which asserts every one of the 45 `loading.tsx` files renders an announcement AND a
+`h-full overflow-y-auto` `<main>`.
+
+The width is deliberately NOT changed: the skeleton keeps `max-w-3xl`, and
+`PAGE_MAX_W` adoption stays on the `65-consolidation-pass` queue as an operator
+sign-off. `variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and
+`text-ink` — the skeleton renders no visible text, and matching the variant the real
+page uses is what makes the fallback-to-content swap shift the least.
+
+One deliberate exception to the SHARED SKELETON — not to the shell:
+`src/app/portal/loading.tsx` keeps its own frame because it mirrors the portal's
+sticky header and card sizes, and it renders `PageShell` itself. It announces
+exactly as the shared skeleton does; see below.
 
 ### Announcing the wait
 
