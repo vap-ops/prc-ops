@@ -169,6 +169,20 @@ U3 is independent of both and carries its own risk.
 - **Q1 — office people in `workers` surfaces.** A rate-0 office row appears in the
   roster, the badge sheet, `/workers`, and the payout-account audit (spec 395).
   Filter them out by `kind`/`employment_type`, or accept the noise?
+- **Q11 — U5 shipped NARROWER than §6 said, deliberately.** §6 asks for a card on
+  `/team` **and the SA cockpit**, and for **scanning office/visitor badges**. U5
+  ships the `/team` card and a `<select>` + manual check-in; the cockpit card and
+  the badge scanner are not built. The cockpit is a client component whose board is
+  crew-only by construction (U4), so an office section there is its own unit; and
+  `method: 'manual'` is the truth today — claiming `qr` without a scan would put a
+  lie in the audit report. Build the scanner, or accept manual as the office flow?
+- **Q12 — the office picker is scoped by `day_rate = 0`, which is a proxy.** That
+  is the spec's own wage-free mechanism (§5.1), and it is what stops a ช่าง being
+  mis-tapped into the office team — which costs them their crew check-in for the
+  day and, once the day closes, their wage. But it is a money column standing in
+  for a role. If office people ever need a non-zero rate, this filter hides them.
+  A `kind`/`employment_type` axis on `workers` would be the honest key (it is Q1's
+  mirror image, and Q1 is still open).
 - **Q9 — an office team can still be bound to a WP, and that IS a wage path.**
   `set_muster_team_wps` accepts any `muster_teams` row (no kind check) and
   `derive_muster_labor` joins attendance to teams without one, so binding a WP to

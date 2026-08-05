@@ -41,7 +41,10 @@ describe("spec 397 U5 — the office-team door on /team", () => {
   });
 
   it("renders its own label, not a hand-typed duplicate of the page title", () => {
-    expect(count(team, "OFFICE_TEAM_LABEL")).toBe(2); // the import + one render
+    // The import + the row's label + the subtitle, which COMPOSES the term rather
+    // than retyping it (เช็คชื่อ{OFFICE_TEAM_LABEL}). The bare-literal absence below
+    // is what caught the subtitle when it was hand-typed.
+    expect(count(team, "OFFICE_TEAM_LABEL")).toBe(3);
     expect(team).not.toContain("ทีมสำนักงาน"); // the literal belongs in labels.ts
   });
 });

@@ -246,7 +246,10 @@ export default async function TeamPage() {
             <span className="text-body text-ink min-w-0 flex-1 font-medium">
               {OFFICE_TEAM_LABEL}
             </span>
-            <span className="text-ink-secondary shrink-0 text-xs">เช็คชื่อทีมออฟฟิศ</span>
+            {/* Composed from the constant, not retyped: fixing the ออฟฟิศ/สำนักงาน
+                mismatch put the bare literal back into this file, which the SSOT
+                pin in office-team-door.test.ts correctly refused. */}
+            <span className="text-ink-secondary shrink-0 text-xs">เช็คชื่อ{OFFICE_TEAM_LABEL}</span>
           </Link>
         ) : null}
 

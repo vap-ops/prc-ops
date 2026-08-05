@@ -38,14 +38,30 @@ import {
 } from "@/lib/ui/classes";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
-import { addOfficeMember, checkOutOfficeMember, openOfficeTeam } from "./actions";
+import {
+  addOfficeMember,
+  checkOutOfficeMember,
+  openOfficeTeam,
+  removeOfficeMember,
+} from "./actions";
 
 export const metadata = { title: OFFICE_TEAM_LABEL };
 
+// The page owns EVERY string; the action returns a code (see actions.ts — the
+// first cut put the Thai in the URL and rendered it, which is in-app spoofing).
+// No "ลองใหม่" in any failure arm: `denied` and `alreadyin` can never succeed on a
+// retry, and `failed` is of unknown retryability, so each names the cause instead.
 const OUTCOME_COPY: Record<string, string> = {
   opened: "เปิดทีมสำนักงานของวันนี้แล้ว",
   added: "บันทึกเวลาเข้างานแล้ว",
   out: "บันทึกเวลาออกงานแล้ว",
+  removed: "เอารายการออกแล้ว",
+};
+
+const FAILURE_COPY: Record<string, string> = {
+  denied: "บัญชีนี้ไม่มีสิทธิ์จัดการทีมสำนักงาน",
+  alreadyin: "คนนี้เช็คชื่อในทีมอื่นแล้ววันนี้ ต้องเอาออกจากทีมนั้นก่อน",
+  failed: "ทำรายการไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมชื่อและเวลา",
 };
 
 function time(iso: string | null): string {
@@ -60,10 +76,10 @@ function time(iso: string | null): string {
 export default async function OfficeTeamPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string | string[]; o?: string | string[]; m?: string | string[] }>;
+  searchParams: Promise<{ from?: string | string[]; o?: string | string[] }>;
 }) {
   const ctx = await requireRole(SA_SURFACE_ROLES);
-  const { from, o, m } = await searchParams;
+  const { from, o } = await searchParams;
   const backHref = safeBackHref(from, "/team");
   const today = bangkokTodayIso();
 
@@ -92,7 +108,7 @@ export default async function OfficeTeamPage({
   const board = await loadOfficeBoard(supabase, project.id, today);
   const teamId = board.teamId;
   const outcome = typeof o === "string" ? o : null;
-  const failure = outcome === "failed" && typeof m === "string" ? m : null;
+  const failure = outcome ? (FAILURE_COPY[outcome] ?? null) : null;
 
   return (
     <PageShell>
@@ -107,7 +123,7 @@ export default async function OfficeTeamPage({
         </p>
 
         {failure && <ErrorNotice>{failure}</ErrorNotice>}
-        {outcome && outcome !== "failed" && OUTCOME_COPY[outcome] && (
+        {outcome && OUTCOME_COPY[outcome] && (
           <p className="border-edge bg-sunk text-ink rounded-card border px-4 py-3 text-sm">
             {OUTCOME_COPY[outcome]}
           </p>
@@ -117,7 +133,8 @@ export default async function OfficeTeamPage({
           <div className={CARD}>
             <h2 className={SECTION_HEADING}>ยังไม่ได้เปิด{OFFICE_TEAM_LABEL}วันนี้</h2>
             <p className="text-ink-secondary mt-1 text-sm">
-              เปิดแล้วจึงจะบันทึกเวลาเข้า–ออกของทีมสำนักงานได้ ทีมนี้ไม่นับรวมกับทีมช่าง
+              เปิดแล้วจึงจะบันทึกเวลาเข้า–ออกของทีมสำนักงานได้
+              ทีมนี้ไม่ขึ้นในกระดานเช็คชื่อของทีมช่าง
             </p>
             <form action={openOfficeTeam} className="mt-3">
               <input type="hidden" name="projectId" value={project.id} />
@@ -163,6 +180,21 @@ export default async function OfficeTeamPage({
                         </button>
                       </form>
                     )}
+                    {/* The escape hatch, and it is not optional: a wrong person
+                        added here has their real crew check-in refused all day,
+                        and if the day is closed they lose that day's wage
+                        (the office team binds no WP, so derive books nothing).
+                        Checking out only stamps a time — it does not undo the
+                        mistake — and the cockpit's undo cannot see office rows. */}
+                    <form action={removeOfficeMember} className="shrink-0">
+                      <input type="hidden" name="workerId" value={mem.workerId} />
+                      <button
+                        type="submit"
+                        className="text-ink-secondary hover:text-ink focus-visible:ring-action inline-flex min-h-11 items-center rounded px-2 text-xs underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+                      >
+                        เอาออก
+                      </button>
+                    </form>
                   </li>
                 ))}
               </ul>
@@ -170,9 +202,19 @@ export default async function OfficeTeamPage({
 
             <div className={CARD}>
               <h2 className={SECTION_HEADING}>เพิ่มคนเข้าทีมสำนักงาน</h2>
-              {board.addable.length === 0 ? (
+              {/* Two DIFFERENT states, and the same sentence would be false for
+                  one of them: before U6 creates the office worker rows the roster
+                  is simply empty, and saying "everyone has checked in" beside
+                  "nobody has checked in" is a self-contradiction the reader
+                  cannot resolve. */}
+              {board.rosterSize === 0 ? (
                 <p className="text-ink-secondary mt-1 text-sm">
-                  ทุกคนในโครงการนี้เช็คชื่อแล้ววันนี้
+                  ยังไม่มีรายชื่อทีมสำนักงานในโครงการนี้ — ต้องเพิ่มรายชื่อ (ค่าแรง 0) ที่ /workers
+                  ก่อน
+                </p>
+              ) : board.addable.length === 0 ? (
+                <p className="text-ink-secondary mt-1 text-sm">
+                  ทุกคนในทีมสำนักงานเช็คชื่อแล้ววันนี้
                 </p>
               ) : (
                 <form action={addOfficeMember} className="mt-2 flex flex-col gap-2 sm:flex-row">

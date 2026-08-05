@@ -25,8 +25,14 @@ export interface OfficeBoard {
   /** null until someone opens today's office team. */
   teamId: string | null;
   members: OfficeMember[];
-  /** Active workers who may still be added today. */
+  /** Office-class workers who may still be added today. */
   addable: { id: string; name: string }[];
+  /**
+   * How many office-class people exist on this project at all. Distinguishes "the
+   * roster is empty" from "everyone is already in" — two states whose copy must
+   * not be the same sentence, and before U6's data op the first is the live one.
+   */
+  rosterSize: number;
   /** Checked in today at all — what the card leads with. */
   presentCount: number;
   /** Still without a check-out. */
@@ -63,6 +69,7 @@ export function shapeOfficeBoard(raw: {
     teamId: raw.team?.id ?? null,
     members,
     addable: addable.map((w) => ({ id: w.id, name: w.name })),
+    rosterSize: raw.workers.length,
     presentCount: members.length,
     stillInCount: members.filter((m) => m.outAt === null).length,
   };
@@ -94,11 +101,19 @@ export async function loadOfficeBoard(
           .eq("team_id", team.id)
           .eq("session", "regular")
       : Promise.resolve({ data: [] }),
+    // ⚠️ OFFICE-CLASS ONLY (day_rate = 0), not every active worker on the project.
+    // The review caught what an unscoped picker costs: a mis-tapped ช่าง has their
+    // real crew check-in refused for the rest of the day (one team per worker per
+    // day), and if the day is then closed `derive_muster_labor` books NOTHING for
+    // them — the office team binds no work package — so they silently lose that
+    // day's wage. `day_rate = 0` IS the office mechanism (§5.1: a rate-0 row is
+    // wage-free by construction), so it is the honest discriminator here too.
     supabase
       .from("workers")
       .select("id, name")
       .eq("project_id", projectId)
       .eq("active", true)
+      .eq("day_rate", 0)
       .order("name"),
     // Everyone mustered today on this project, so the add list never offers
     // someone the scan RPC will refuse.
