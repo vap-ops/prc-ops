@@ -27,6 +27,7 @@ import { tabsForRole } from "@/components/features/chrome/bottom-tab-bar";
 import { hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { ROUTE_LOADING_MESSAGE } from "@/lib/ui/route-announcement";
 
 const APP = join(process.cwd(), "src", "app");
 
@@ -210,17 +211,23 @@ describe("tab + hub-nav destination loading coverage (UX-audit G8)", () => {
       // A boundary that renders nothing is indistinguishable from having none.
       expect(container.querySelectorAll("*").length).toBeGreaterThan(0);
 
-      // Tightened 2026-08-06. The property used to stop at "paints something",
-      // justified by "/portal ships a legitimate hand-rolled skeleton with no
-      // sr-only line" — #980 gave /portal the announcement and this branch gave
-      // PageSkeleton the shell, so BOTH halves of that exemption are now gone and
-      // the weakest boundary in the app holds the full contract. The rule is still
-      // "uses PageSkeleton" nowhere: a bespoke skeleton is allowed, it just may not
-      // be silent and may not hand-roll a scroller.
+      // Tightened 2026-08-06 by two lanes at once, and both halves are kept. The
+      // property used to stop at "paints something", justified by "/portal ships a
+      // legitimate hand-rolled skeleton with no sr-only line" — #980 gave /portal
+      // the announcement and #982 gave PageSkeleton the shell, so BOTH halves of
+      // that exemption are gone and the weakest boundary in the app holds the full
+      // contract. The rule is still "uses PageSkeleton" nowhere: a bespoke skeleton
+      // is allowed, it just may not be silent and may not hand-roll a scroller.
+      //
+      // Asserted HERE, not only in the source scan in
+      // route-loading-announcement.test.tsx, because this is the one harness that
+      // actually RENDERS all 45 — and read off ROUTE_LOADING_MESSAGE rather than a
+      // re-typed literal, which is the drift the live-region unit consolidated
+      // (the wording used to be typed into each boundary).
       expect(
         container.querySelector(".sr-only")?.textContent?.trim(),
         `${file} paints a frame with nothing for a screen reader`,
-      ).toBe("กำลังโหลด…");
+      ).toBe(ROUTE_LOADING_MESSAGE);
       const main = container.querySelector("main");
       expect(main, `${file} renders no <main> — every route renders PageShell`).not.toBeNull();
       // The spec-64 body lock (h-full overflow-hidden) makes PageShell's <main> the

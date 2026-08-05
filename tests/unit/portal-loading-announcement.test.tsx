@@ -8,14 +8,15 @@
 // child is an sr-only `กำลังโหลด…` — while src/app/portal/loading.tsx was the
 // single bespoke skeleton and carried no announcement at all.
 //
-// SCOPE, stated honestly (review finding): an sr-only <p> that is NOT a live
-// region is reliably read only on a full page load, where the reader walks the
-// document top-down before the fallback is replaced. On a client-side navigation
-// the fallback is a DOM swap, and readers announce inserted nodes only inside a
-// live region — so this unit buys PARITY with the other 44 boundaries, not a
-// guaranteed spoken announcement. Making it truly audible means a persistent
-// live region in the layout (one already exists for toasts) and would change
-// every boundary; recorded as a follow-up, deliberately not done here.
+// SCOPE, as of the follow-up: #980's own review recorded that an sr-only <p>
+// which is NOT a live region is reliably read only on a full page load — on a
+// client-side navigation the fallback is a DOM swap, and readers announce
+// inserted nodes only inside a live region. That follow-up has now landed: both
+// surfaces render the shared <LoadingAnnouncement /> leaf, which keeps the
+// static line for the pre-hydration window AND writes to the ONE persistent
+// region in the root layout, which is what actually gets announced. The parity
+// pinned here is therefore two-part — same wording (below) and same live-region
+// wiring (the last describe) — so upgrading one surface without the other reds.
 //
 // The shared component is deliberately NOT swapped in. The ORIGINAL reason was
 // structural — page-skeleton.tsx hand-rolled its own <main> under a locked body
@@ -32,6 +33,8 @@ import { describe, expect, it } from "vitest";
 
 import PortalLoading from "@/app/portal/loading";
 import { PageSkeleton } from "@/components/features/chrome/page-skeleton";
+import { RouteAnnouncer } from "@/components/features/chrome/route-announcer";
+import { ROUTE_LOADING_MESSAGE } from "@/lib/ui/route-announcement";
 
 interface Announcement {
   text: string;
@@ -118,5 +121,57 @@ describe("/portal loading boundary announces itself (UX-audit G8 follow-up)", ()
 
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThanOrEqual(4);
     expect(screen.queryByText(sharedAnnouncement().text)).not.toBeNull();
+  });
+});
+
+describe("both boundaries drive the ONE persistent live region", () => {
+  // The audibility half. The static line above is only read on a full load; a
+  // client-side navigation is a DOM swap, so the announcement has to reach a
+  // region that was ALREADY in the document. Driven per surface rather than
+  // once, because the failure mode this replaces is exactly one surface being
+  // upgraded and the other left behind.
+  const surfaces: [name: string, render: () => React.ReactElement][] = [
+    ["PageSkeleton (the 38 delegating boundaries)", () => <PageSkeleton />],
+    ["src/app/portal/loading.tsx (the bespoke one)", () => <PortalLoading />],
+  ];
+
+  it.each(surfaces)("%s writes to the layout region while mounted", (_name, ui) => {
+    const { unmount } = render(
+      <>
+        <RouteAnnouncer />
+        {ui()}
+      </>,
+    );
+
+    const region = screen.getByRole("status");
+    expect(
+      region.textContent,
+      "this boundary renders its sr-only line but never reaches the persistent " +
+        "region, so a client-side navigation into it is silent",
+    ).toBe(ROUTE_LOADING_MESSAGE);
+
+    unmount();
+  });
+
+  it.each(surfaces)("%s falls silent once the real page replaces it", (_name, ui) => {
+    render(<RouteAnnouncer />);
+    const region = screen.getByRole("status");
+
+    const boundary = render(ui());
+    expect(region.textContent).toBe(ROUTE_LOADING_MESSAGE);
+
+    boundary.unmount();
+    expect(
+      region.textContent,
+      "the region still says กำลังโหลด… after the boundary unmounted — the next " +
+        "navigation cannot re-announce, and the reader is told the page is still loading",
+    ).toBe("");
+  });
+
+  it("says the same words through the region as it paints in the document", () => {
+    // Two channels, one string. If the shared leaf's static <p> and its store
+    // message ever diverge, a full load and a client navigation describe the
+    // same state differently.
+    expect(sharedAnnouncement().text).toBe(ROUTE_LOADING_MESSAGE);
   });
 });

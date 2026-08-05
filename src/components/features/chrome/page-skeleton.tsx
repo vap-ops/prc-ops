@@ -1,3 +1,4 @@
+import { LoadingAnnouncement } from "@/components/features/chrome/loading-announcement";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -21,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function PageSkeleton() {
   return (
     <PageShell variant="app">
-      <p className="sr-only">กำลังโหลด…</p>
+      <LoadingAnnouncement />
       <header className="border-edge bg-card border-b px-5 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div className="space-y-2">

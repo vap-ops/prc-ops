@@ -255,7 +255,7 @@ bg-red-50 px-3 py-2 text-xs text-red-900`. Message text ends with
 Every route group has a `loading.tsx` rendering
 [page-skeleton.tsx](../src/components/features/chrome/page-skeleton.tsx) — it
 mirrors the page anatomy (zinc-50 main, white header strip, `h-16
-rounded-lg` row placeholders) with an sr-only `กำลังโหลด…`.
+rounded-lg` row placeholders).
 
 **A loading boundary is a route, so it renders `PageShell` like every other route**
 (§5). `PageSkeleton` used to hand-roll `<main class="bg-page min-h-screen
@@ -285,17 +285,79 @@ page uses is what makes the fallback-to-content swap shift the least.
 
 One deliberate exception to the SHARED SKELETON — not to the shell:
 `src/app/portal/loading.tsx` keeps its own frame because it mirrors the portal's
-sticky header and card sizes, and it renders `PageShell` itself. It carries the
-same sr-only `กำลังโหลด…`, pinned against the string `PageSkeleton` renders by
-[portal-loading-announcement.test.tsx](../tests/unit/portal-loading-announcement.test.tsx).
-The announcement is the part that is not optional — but be precise about what it
-buys: an sr-only node that is not a live region is read on a full page load, and
-a client-side navigation swaps the fallback in where readers announce only inside
-a live region. So a boundary without the line is strictly worse than its
-siblings; a boundary with it is consistent, not guaranteed audible. Making these
-truly audible means a persistent live region in the layout (the toast provider
-already keeps one) applied to every boundary at once — open, deliberately not
-done per-file.
+sticky header and card sizes, and it renders `PageShell` itself. It announces
+exactly as the shared skeleton does; see below.
+
+### Announcing the wait
+
+Every boundary — shared or bespoke — renders
+[`<LoadingAnnouncement />`](../src/components/features/chrome/loading-announcement.tsx),
+and nothing else announces loading. The leaf has two parts, and the live region
+is the one that does the work:
+
+- **the live region carries both navigation paths.** Once the leaf's effect has
+  run it writes to
+  [`<RouteAnnouncer />`](../src/components/features/chrome/route-announcer.tsx),
+  a single `role="status" aria-live="polite" aria-atomic="true"` region mounted
+  once in `src/app/layout.tsx`, beside `{children}` — on a client-side
+  navigation _and_ on a full load whose fallback is still up after hydration.
+  This is the part that makes a boundary audible; a `loading.tsx` fallback is
+  otherwise just a DOM swap, and readers announce inserted nodes only inside a
+  live region that was already present.
+- **the static sr-only `กำลังโหลด…` is the pre-hydration fallback.** It is in
+  the streamed HTML, so it covers the window before the effect can run (and a
+  JS-disabled read). Do not over-claim it: readers announce the title and focus
+  on load, not the whole body, so that node is reached only if the user happens
+  to be traversing the document during the wait.
+
+Three rules, all pinned by
+[route-loading-announcement.test.tsx](../tests/unit/route-loading-announcement.test.tsx)
+and, for the two surfaces together, by
+[portal-loading-announcement.test.tsx](../tests/unit/portal-loading-announcement.test.tsx):
+
+1. **The region is never declared by a boundary.** A live region inserted
+   already containing its text is not announced — readers speak _mutations_ of a
+   region that was already there. A repo-wide scan fails any `loading.tsx` (or
+   `PageSkeleton`) containing `aria-live` / `role="status"` / `role="alert"`.
+2. **It is polite, never assertive.** Waiting is not an emergency and must not
+   interrupt a reader mid-sentence; `role="alert"` is reserved for real events
+   (the same call as the update chip, §6). It covers the **pending window**
+   only.
+
+   ⚠️ **Arrival is NOT announced today — do not assume the framework has it.**
+   Next.js does mount a persistent announcer of its own
+   (`client/components/app-router-announcer`, a shadow-DOM
+   `role="alert" aria-live="assertive"` node), and reading that source suggests
+   it speaks `document.title` on every route change. Measured on a live server,
+   it does not: across four client-side navigations it stayed **empty** on three
+   whose title had provably changed, and on the fourth announced
+   `สวัสดี คุณ…` — the SA home's `<h1>`, neither the destination nor the current
+   page. It samples the title when the router tree changes, before Next swaps
+   it, then falls through to `querySelector("h1")`. Announcing the destination
+   is an open follow-up with its own decision to make (what to say, and when).
+
+3. **Each announcement gets a fresh node identity** (`key={seq}`). Every boundary
+   says the same words, and React unmounts one fallback and mounts the next in a
+   single commit — so without a new key the region re-renders identical text and
+   **no DOM mutation occurs at all**, which no reader can announce. What the key
+   guarantees, and what was measured (unit test plus a live `MutationObserver`),
+   is the mutation. Whether a given reader then _speaks_ a consecutive update
+   whose text is byte-identical to the last one is reader-dependent and was not
+   measured — several suppress it. Closing that residual risk would mean letting
+   the region pass through empty between announcements (e.g. publishing the next
+   message in a `queueMicrotask` so the clear commits first); recorded, not
+   built.
+
+Also pinned: **every boundary must render an announcement** — `<PageSkeleton />`
+or `<LoadingAnnouncement />` — so a new bespoke `loading.tsx` cannot ship mute
+the way `/portal` did. The negative rule alone permitted no shape at all.
+
+The route-boundary wording lives in `ROUTE_LOADING_MESSAGE`
+([route-announcement.ts](../src/lib/ui/route-announcement.ts)), not in the
+boundaries — it used to be typed into both of them. Note this is not a
+repo-wide consolidation: `กำลังโหลด…` is still typed inline in a few
+_in-component_ busy states (equipment history sheet, photo lightbox), which are
+a different thing from a route boundary and are out of scope here.
 
 ## 9. Server vs client components
 

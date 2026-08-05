@@ -12276,3 +12276,105 @@ its inline height was a no-op (`min-h-screen` won), so a keyboard open across a 
 navigation now caps the FALLBACK's main and leaves the real one uncapped until the next viewport
 event. Transient, pre-existing mechanism, no measured symptom — named here rather than fixed
 blind. ④ `.install.log` is tracked on `main` from an earlier lane, same class as ① and not mine.
+
+## 2026-08-06 — Route transitions are actually announced (lane a11ylive)
+
+**The follow-up [#980](https://github.com/vap-ops/prc-ops/pull/980) recorded against itself.**
+That unit gave `src/app/portal/loading.tsx` the same sr-only `กำลังโหลด…` the other 38
+boundaries inherit from `PageSkeleton`, then corrected its own claim mid-unit: a plain sr-only
+`<p>` is **not a live region**. A Next.js `loading.tsx` fallback is a DOM swap during a
+client-side navigation, and screen readers announce inserted nodes only inside a live region —
+so the line is reliably read only on a full page load, where the reader walks the document
+top-down before the fallback is replaced. #980 bought **parity across boundaries, not
+audibility**, and `docs/ui-conventions.md` §8 named this as the open follow-up.
+
+**Shape: one persistent region, written to by the boundaries.** `<RouteAnnouncer />` — a
+`role="status" aria-live="polite" aria-atomic="true"` sr-only region — is mounted once in
+`src/app/layout.tsx` beside `{children}`, so it is in the document **before** any navigation
+starts. `PageSkeleton` and the portal skeleton each render one shared client leaf,
+`<LoadingAnnouncement />`, which keeps the static line for the full-load path and writes to the
+region (via a module-level store) for the client-navigation path. All 39 boundaries upgrade in
+one edit, and the 6 more arriving in [#979](https://github.com/vap-ops/prc-ops/pull/979)
+inherit it for free.
+
+**Decision recorded: a DEDICATED region, not the toast provider's.** The obvious reuse is
+`features/common/toast-provider.tsx`, which already keeps a persistent polite region. Rejected
+on three properties read off that file, not guessed: ① its region's children **are** the toast
+items that render the visible pills, so a silent announcement would need a new axis on
+`ToastItem`; ② `MAX_STACK = 3` drops the **oldest**, so frequent navigation announcements would
+evict a rare and important success/error toast — the frequent thing evicting the important one;
+③ toasts auto-dismiss on a 4s timer, while a loading announcement must clear exactly when the
+boundary unmounts. Different lifetimes, different priorities, different region.
+
+**⭐ A source-read gate-check that the browser then REFUTED — and the refutation is the more
+useful finding.** Reading `node_modules/next/dist/client/components/app-router-announcer.js`
+says Next mounts a persistent announcer of its own (shadow-DOM `role="alert"` /
+`aria-live="assertive"`) and speaks `document.title` on every router-tree change. I wrote
+"arrival is already handled by the framework, so ours is polite to yield to it" into the code
+comments, the docs, LANES and this tracker. **Driven on a live dev server it is false.** Across
+four real client-side navigations the framework's announcer stayed **empty** on three whose
+`document.title` had provably changed (`โครงการ —`, `รายชื่อช่าง —`), and on the fourth
+announced **`สวัสดี คุณDev Preview (CC)`** — the SA home's `<h1>` greeting, neither the
+destination nor the page being left. Mechanism: its effect samples `document.title` at
+tree-change time, before Next has swapped the title, then falls through to
+`querySelector("h1")`.
+
+Consequences, all applied: ① **arrival is an OPEN gap**, recorded not built — announcing the
+destination needs its own decision (what to say, when) and is a framework-behaviour question,
+not a mechanical add; ② **polite is still right, for the house reason** — waiting is not an
+emergency and `role="alert"` is reserved for real events (the same call as the update chip) —
+with "the framework's assertive message outranks ours" demoted to a secondary, conditional
+note; ③ the four places carrying the wrong rationale were corrected rather than left. This is
+the doctrine rule in its cheapest form: **a source read is a claim about a file, not about the
+running app** — the file was read correctly and still produced a false statement about
+behaviour.
+
+The real gap this unit closes is therefore the **pending window** — the seconds a heavy route
+(`/team`: 12 awaited reads, 368 views/14d) spends showing a skeleton.
+
+**⭐ A surviving mutant found a test that could not see the bug it was written for.** Deleting
+`key={seq}` from the region left the repeat-announcement test **green**. Not dead code and not a
+vacuous assertion — the test separated the two announcements with an empty render, so React tore
+the `<span>` down and rebuilt it for free. The real sequence batches: React unmounts one
+Suspense fallback and mounts the next in a **single commit**, so the region goes straight from
+`กำลังโหลด…` to an identical `กำลังโหลด…`, React reuses the element, writes the same text, and
+**no DOM mutation ever reaches the live region** — every navigation after the first is silent.
+Driving both store writes inside one `act()` reproduces it and the mutant now dies. The lesson is
+the house one, in a new place: an `act()` boundary flushes a commit, and a defect that only
+exists _within_ one commit is invisible to a test that splits them.
+
+**Guards.** `tests/unit/route-loading-announcement.test.tsx` pins the store (ref-counting across
+nested boundaries, idempotent release, fresh identity per announcement, cached snapshot
+reference, and an always-empty **server** snapshot so module state cannot leak between requests),
+the region (polite/atomic/sr-only, empty at rest, the same element surviving a whole
+announce/release cycle), and the mount (exactly one usage in `layout.tsx`, at the same nesting
+depth as `{children}`). Plus a repo-wide scan: **no `loading.tsx` may declare a live region of
+its own** — a region inserted together with its text is the silent-failure case, and the scan
+asserts it matched >35 files so a zero-match cannot read as clean.
+`tests/unit/portal-loading-announcement.test.tsx` now drives **both** surfaces through the
+region, so upgrading one without the other reds.
+
+**Gates.** RED first (import failure, then per-assertion reds via mutation) · **13/13 mutants
+killed**, including two RELOCATION mutants rather than deletions — moving the region out of the
+layout into `PageSkeleton`, and adding a per-boundary `role="status"` — because "the affordance
+is missing" is a weaker claim than "the affordance is in the wrong place".
+
+**Real-flow verification (Gate 4).** The in-app Browser pane is hidden on this box, so the page
+never composites and hydration never runs — every client-side claim is unmeasurable there.
+Driven instead through **real installed Chrome via Playwright** (`channel: "chrome"`; the
+worktree's Playwright wants a browser build absent from the cache) against the live dev server
+and the real DB, signed in as `dev-preview`. ① Served HTML of `/login` (no auth, no JS) carries
+`<div role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>` — present and
+**empty**, which is the half that makes it announceable. ② After a real client-side navigation
+`/sa → /projects`, `el === window.__watched` is **true** — the same element survived. ③ A
+`MutationObserver` on that element recorded exactly two `childList` records — `+กำลังโหลด…` then
+`−กำลังโหลด…` — which is precisely the event a screen reader reacts to, and the region returned
+to empty so the next navigation can re-announce.
+
+**Open questions.** ⓪ Arrival is not announced (above) — its own unit. ① `docs/uxui-agent-bundle*.md` carry a frozen copy of the old §8 text; they
+are one-shot handoff pastes for an external designer with no generator, so they were left as
+snapshots (like `progress-archive.md`) rather than edited. ② The debt LANES recorded for whoever
+lands after #980 is now due: uxg8's `nav-loading-boundaries.test.ts` sweep asserts only "paints
+something", justified by a `/portal` exception that no longer exists — it should assert the
+announcement across all boundaries. ③ `PageSkeleton` still hand-rolls a `<main>` under the
+spec-64 locked body; that is lane `pageshell`'s unit, untouched here beyond one line.
