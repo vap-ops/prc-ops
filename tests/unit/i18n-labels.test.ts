@@ -9,6 +9,7 @@ import {
   PURCHASE_REQUEST_PRIORITY_LABEL,
   PURCHASE_REQUEST_STATUS_LABEL,
   USER_ROLE_LABEL,
+  DOC_WAIVER_REASON_LABEL,
   WORK_PACKAGE_STATUS_LABEL,
   WORKER_LABEL,
   WORKER_TEAM_LABEL,
@@ -47,6 +48,11 @@ const MAPS = [
     APPROVAL_REVISION_REASON_LABEL,
   ],
   ["user_role", Constants.public.Enums.user_role, USER_ROLE_LABEL],
+  [
+    "purchase_doc_waiver_reason",
+    Constants.public.Enums.purchase_doc_waiver_reason,
+    DOC_WAIVER_REASON_LABEL,
+  ],
 ] as const;
 
 describe("Thai label maps", () => {

@@ -16,6 +16,8 @@ import {
   MONEY_REVIEW_LABEL,
   REVIEW_CHAIN_DONE,
   REVIEW_NEXT_CTA,
+  DOC_NOT_ACCOUNTING_DOC,
+  DOC_ON_PURCHASE_ORDER,
   DOC_WAIVED_LABEL,
   DOC_WAIVER_NONE,
   DOC_WAIVER_REASON_LABEL,
@@ -140,6 +142,20 @@ export default async function ReviewVoucherPage({ params, searchParams }: Vouche
             ))}
           </ul>
         )}
+        {/* Spec 380 U6 — this list is every attachment on the PURCHASE REQUEST,
+            while doc_count is now the ACCOUNTING-document test (§3): class-aware
+            and including PO-level documents. The two can therefore disagree in
+            both directions, and the queue chip is driven by the count. Say which
+            is which here, or the voucher silently contradicts the chip that sent
+            the accountant to it. */}
+        {event.sourceTable === "purchase_requests" && docs.length > 0 && event.docCount === 0 ? (
+          <p className="text-attn-ink bg-attn-soft mb-4 rounded-md px-3 py-2 text-sm">
+            {DOC_NOT_ACCOUNTING_DOC}
+          </p>
+        ) : null}
+        {event.sourceTable === "purchase_requests" && docs.length === 0 && event.docCount > 0 ? (
+          <p className="text-muted-foreground mb-4 text-sm">{DOC_ON_PURCHASE_ORDER}</p>
+        ) : null}
         {event.sourceTable === "purchase_requests" ? (
           <p className="mb-4 text-sm">
             <Link

@@ -15,19 +15,18 @@ import {
   type MoneySourceTable,
 } from "@/lib/accounting/review-queue-view";
 import { DOC_WAIVER_NOTE_REQUIRED } from "@/lib/i18n/labels";
-import type { Database } from "@/lib/db/database.types";
+import { Constants, type Database } from "@/lib/db/database.types";
 
 type MoneyFlagTypeDb = Database["public"]["Enums"]["money_flag_type"];
 type PurchaseDocWaiverReason = Database["public"]["Enums"]["purchase_doc_waiver_reason"];
 
-// The complete enum domain. Listing it here (rather than trusting the caller)
-// keeps an unknown reason out of an audited money decision; a new enum value
-// fails its typecheck here instead of reaching the RPC.
-const WAIVER_REASONS: readonly PurchaseDocWaiverReason[] = [
-  "vendor_refused",
-  "docs_unobtainable",
-  "other",
-];
+// The complete enum domain, taken from the GENERATED constants rather than
+// hand-listed: `readonly T[]` accepts any SUBSET, so a hand-list silently omits
+// the next enum value — and because DOC_WAIVER_REASON_LABEL is a Record over the
+// enum, that value would be offered in the picker and then refused here with a
+// generic error (affordance-then-refuse, naming nothing).
+const WAIVER_REASONS: readonly PurchaseDocWaiverReason[] =
+  Constants.public.Enums.purchase_doc_waiver_reason;
 
 export type ReviewActionResult = { ok: true } | { ok: false; error: string };
 

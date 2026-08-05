@@ -53,8 +53,11 @@ $$;
 
 -- A new function is PUBLIC-EXECUTE by default here; take that back explicitly
 -- rather than relying on the absence of a grant (house 336/372 pattern).
-revoke all on function public.purchase_doc_satisfying_types(boolean) from public, anon;
-grant execute on function public.purchase_doc_satisfying_types(boolean) to authenticated;
+-- No grant follows on purpose: the ONLY caller is the SECURITY DEFINER function
+-- below, which runs as the owner. Granting `authenticated` would publish a new
+-- callable RPC on the PostgREST surface for zero benefit, and would read to the
+-- next person as "users call this", which they do not.
+revoke all on function public.purchase_doc_satisfying_types(boolean) from public, anon, authenticated;
 
 comment on function public.purchase_doc_satisfying_types(boolean) is
   'Spec 380 §2 — doc_type values that discharge an order of the given supplier class. '
@@ -119,6 +122,15 @@ begin
                 and ((a.doc_type is null and a.purpose::text in ('invoice', 'payment'))
                   or (a.doc_type is not null
                       and a.doc_type = any(public.purchase_doc_satisfying_types(s.is_vat_registered)))))
+          -- Two deliberate calls in this PO half, both matching docCoverage() in
+          -- doc-chase.ts (the §3 SSOT) rather than diverging from it:
+          --   1. no per-line narrowing — ONE document on a purchase order
+          --      discharges every purchase request under it. That fan-out is
+          --      most of the 269 orders that leave the tab.
+          --   2. the class comes from the PURCHASE REQUEST's supplier (`s`), not
+          --      the order's. A request with no supplier_id classes `unknown`
+          --      (full ladder) even when its order's supplier is VAT-registered.
+          -- Both are flagged to the operator in the spec's open questions.
           + (select count(*)::int from public.purchase_order_attachments_current oa
               where oa.purchase_order_id = pr.purchase_order_id
                 and ((oa.doc_type is null and oa.purpose::text = 'source_document')

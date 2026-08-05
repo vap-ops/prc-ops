@@ -19,6 +19,7 @@ import {
   DOC_WAIVER_ACTION,
   DOC_WAIVER_CONSEQUENCE,
   DOC_WAIVER_NOTE_FIELD,
+  DOC_WAIVER_NOTE_REQUIRED_HINT,
   DOC_WAIVER_REASON_FIELD,
   DOC_WAIVER_REASON_LABEL,
   DOC_WAIVER_UNDO_ACTION,
@@ -103,8 +104,14 @@ export function PurchaseDocWaiverPanel({ purchaseRequestId, waiver, waive, unwai
               ))}
             </select>
           </label>
+          {/* The note is mandatory for `other` (the RPC raises P0001 and the
+              action refuses in place). That is knowable the moment the reason is
+              picked, so say it here rather than after a rejected submit. */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">{DOC_WAIVER_NOTE_FIELD}</span>
+            <span className="text-muted-foreground">
+              {DOC_WAIVER_NOTE_FIELD}
+              {reason === "other" ? ` — ${DOC_WAIVER_NOTE_REQUIRED_HINT}` : ""}
+            </span>
             <input className={FIELD_INPUT} value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
           <div>

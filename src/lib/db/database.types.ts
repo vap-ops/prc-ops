@@ -11582,6 +11582,10 @@ export type Database = {
       }
       publish_feedback_draft: { Args: { p_draft_id: string }; Returns: string }
       publish_wp_brief: { Args: { p_work_package_id: string }; Returns: string }
+      purchase_doc_satisfying_types: {
+        Args: { p_is_vat: boolean }
+        Returns: Database["public"]["Enums"]["purchase_doc_type"][]
+      }
       purchase_report: {
         Args: {
           p_bucket: string

@@ -36,9 +36,30 @@ describe("the review voucher wires the waiver panel", () => {
     expect(occurrences(PAGE, "PurchaseDocWaiverPanel")).toBeGreaterThanOrEqual(2);
   });
 
-  it("passes BOTH directions — a waive with no unwaive would strand the state", () => {
-    expect(occurrences(PAGE, "waivePurchaseDocsAction")).toBeGreaterThanOrEqual(2);
-    expect(occurrences(PAGE, "unwaivePurchaseDocsAction")).toBeGreaterThanOrEqual(2);
+  // ⚠️ "unwaivePurchaseDocsAction" CONTAINS "waivePurchaseDocsAction", so counting
+  // the waive symbol also counts every unwaive mention — a count pin passes with
+  // the waive import AND its prop both deleted. Worse, the two are structurally
+  // assignable (a 1-param fn fits a 3-param slot), so swapping the props
+  // typechecks and every mocked component test still passes, while ยกเว้นเอกสาร
+  // would call unwaive_purchase_docs and no order could ever be waived.
+  // Pin the exact BINDINGS, not the symbol counts.
+  // ⚠️ The prop names collide as substrings too — `unwaive={X}` CONTAINS
+  // `waive={X}` — so a plain toContain/not.toContain pair is unusable in BOTH
+  // directions (the negative fires on the legitimate unwaive binding, and the
+  // positive would accept `unwaive={waivePurchaseDocsAction}`). Anchor the waive
+  // prop with a `(?<!un)` boundary. This bit me writing the fix for it.
+  it("binds each direction to its own action", () => {
+    expect(PAGE).toMatch(/(?<!un)waive=\{waivePurchaseDocsAction\}/);
+    expect(PAGE).toMatch(/unwaive=\{unwaivePurchaseDocsAction\}/);
+    expect(PAGE).not.toMatch(/(?<!un)waive=\{unwaivePurchaseDocsAction\}/);
+    expect(PAGE).not.toMatch(/unwaive=\{waivePurchaseDocsAction\}/);
+  });
+
+  // Unpinned, this mutates to waiver={null} and typechecks: the recorded reason
+  // and actor never render and ยกเลิกการยกเว้น never appears, so a waived order
+  // is stuck out of the tab with no way back.
+  it("passes the loaded waiver, so the recorded state and its reverse can render", () => {
+    expect(PAGE).toContain("waiver={waiver}");
   });
 
   // Anchor on the RENDER site, never the first match — the first
@@ -67,6 +88,23 @@ describe("the review voucher wires the waiver panel", () => {
     const guard = PAGE.lastIndexOf('event.sourceTable === "purchase_requests"', use);
     expect(gate).toBeGreaterThan(guard);
     expect(use).toBeGreaterThan(gate);
+  });
+});
+
+// Spec 380 U6 — the voucher's document LIST is every attachment on the purchase
+// request; doc_count is now the class-aware accounting-document test and also
+// counts PO-level documents. They can disagree in BOTH directions, and the queue
+// chip follows the count — so the page must name which is which, or it silently
+// contradicts the chip that sent the accountant to it.
+describe("the voucher reconciles its document list with the accounting count", () => {
+  it("explains an attachment that is not a valid accounting document", () => {
+    expect(PAGE).toContain("DOC_NOT_ACCOUNTING_DOC");
+    expect(PAGE).toContain("docs.length > 0 && event.docCount === 0");
+  });
+
+  it("says so when the accounting document lives on the purchase order", () => {
+    expect(PAGE).toContain("DOC_ON_PURCHASE_ORDER");
+    expect(PAGE).toContain("docs.length === 0 && event.docCount > 0");
   });
 });
 

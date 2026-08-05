@@ -30,6 +30,7 @@ import {
   unwaivePurchaseDocsAction,
 } from "@/app/accounting/review/[source]/[id]/actions";
 import { MONEY_REVIEW_ROLES } from "@/lib/auth/role-home";
+import { Constants } from "@/lib/db/database.types";
 
 const PR = "11111111-1111-4111-8111-111111111111";
 
@@ -75,6 +76,19 @@ describe("waivePurchaseDocsAction (spec 380 U6)", () => {
     const r = await waivePurchaseDocsAction(PR, "not_a_reason", "x");
     expect(r.ok).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  // A hand-listed `readonly T[]` type-checks with any SUBSET, so it would
+  // silently omit the next enum value — which the picker WOULD offer (its labels
+  // are a Record over the enum) and this action would then refuse with a generic
+  // error. Accept exactly the generated domain, no more and no less.
+  it("accepts exactly the enum's own domain", async () => {
+    for (const reason of Constants.public.Enums.purchase_doc_waiver_reason) {
+      rpc.mockClear();
+      const r = await waivePurchaseDocsAction(PR, reason, "note");
+      expect(r.ok, `reason ${reason} must be accepted`).toBe(true);
+      expect(rpc).toHaveBeenCalled();
+    }
   });
 
   it("surfaces a refusal instead of reporting success", async () => {

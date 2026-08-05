@@ -235,11 +235,13 @@ export async function loadReviewVoucher(
       }
     : null;
 
-  // Spec 380 U6 — the waiver, on the admin client like the rest of the sealed
-  // reads above. Only purchase requests can carry one.
+  // Spec 380 U6 — the waiver. Unlike the sealed reads above this table is NOT
+  // sealed: `authenticated` holds SELECT and its RLS policy admits money
+  // reviewers directly (mig 075877), so it reads on the AUTHED client and the
+  // row stays subject to the caller's own RLS. Only purchase requests carry one.
   let waiver: PurchaseDocWaiverView | null = null;
   if (sourceTable === "purchase_requests") {
-    const { data: w } = await admin
+    const { data: w } = await supabase
       .from("purchase_doc_waivers")
       .select("reason, note, created_at, created_by")
       .eq("purchase_request_id", sourceId)
