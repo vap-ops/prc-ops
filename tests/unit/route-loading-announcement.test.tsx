@@ -184,28 +184,41 @@ describe("<RouteAnnouncer> — the persistent region", () => {
   });
 
   it("replaces the inner node on a REPEAT announcement so identical text speaks twice", () => {
+    // The two store writes MUST share one commit. React unmounts a Suspense
+    // fallback and mounts the next one in the same pass, so the release and the
+    // next begin are batched and the region re-renders exactly once, going
+    // straight from "กำลังโหลด…" to "กำลังโหลด…". Split across two act() calls
+    // the region empties in between, React tears the node down and rebuilds it
+    // for free, and the test passes with or without the key — which is what a
+    // surviving mutant proved the first time this was written.
     render(<RouteAnnouncer />);
     const region = screen.getByRole("status");
 
-    let release: (() => void) | undefined;
+    let release = (() => {}) as () => void;
     act(() => {
       release = beginRouteLoading();
     });
     const firstNode = region.firstElementChild;
-    act(() => release?.());
+
     act(() => {
-      release = beginRouteLoading();
+      release(); // boundary A leaves…
+      release = beginRouteLoading(); // …and boundary B arrives, same commit
     });
     const secondNode = region.firstElementChild;
-    act(() => release?.());
 
+    expect(region.textContent, "the batched swap left the region silent").toBe(
+      ROUTE_LOADING_MESSAGE,
+    );
     expect(firstNode).not.toBeNull();
     expect(secondNode).not.toBeNull();
     expect(
       secondNode,
-      "the second navigation re-used the same text node, so the region never " +
-        "mutated and a screen reader stays silent from the 2nd navigation on",
+      "the second navigation re-used the same element and wrote the same text, so " +
+        "no DOM mutation reached the live region — the reader stays silent from " +
+        "the 2nd navigation on",
     ).not.toBe(firstNode);
+
+    act(() => release());
   });
 });
 
