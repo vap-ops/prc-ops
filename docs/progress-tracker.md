@@ -12169,3 +12169,110 @@ neither PO fan-out nor class derivation): ① one PO document discharges every r
 PO; ② the PO half classes by the _request's_ supplier, not the _order's_. New, recorded not
 built: no surface displays or filters `doc_type`, and `QuoteDocAttach`/`purchase_quotes` remain
 untyped, so the two quotation paths now describe themselves differently.
+
+## 2026-08-06 — `PageSkeleton` renders `PageShell`: 38 loading boundaries get a scroller (lane pageshell)
+
+**The finding, inherited.** Lane `portalsr` recorded it on #980 and deliberately did not build
+it: `page-skeleton.tsx` hand-rolled `<main class="bg-page min-h-screen overflow-x-clip">`, while
+the root layout locks the body (`h-full overflow-hidden`, spec 64), `PageShell` is THE page
+scroller, and `page-shell.tsx:8` states the spec-63 rule verbatim — hand-rolling a `<main>` is a
+review reject. 44 of the app's 45 `loading.tsx` files delegate to `PageSkeleton`, so all 44
+inherited the deviation; `src/app/portal/loading.tsx` was the only structurally correct one.
+(38 of 39 when this lane started; #979 landed 6 more delegating boundaries mid-unit, which is
+why the branch carries a `merge origin/main` and why the sweeps below were re-run after it.)
+
+**Measured before refactoring, because a convention breach is not yet a defect.** The doctrine's
+"a new static guard's first run contains its own false positives" applies to a rule-derived
+finding too, and jsdom has no layout engine — the entire suite is structurally blind to this
+class, so the instrument had to be a real browser (dev server, real root layout):
+
+- **Phone landscape 812×375, the CURRENT skeleton, unmodified: it already misbehaves.** Its own
+  content is **433px** tall in a 375px viewport, the last placeholder row is cut at **y=409**,
+  and the row has **zero user-scrollable ancestors** (`main` overflow-y `visible`; `body`
+  overflow-y `hidden`, which blocks user scrolling while still permitting scripted scroll — so a
+  naive `scrollTo` probe reads "reachable" and lies). Small, but real and unreachable.
+- **The mechanism, isolated at 375×812** with content taller than the viewport in the same
+  hand-rolled wrapper: **29 of 40 rows below the fold, 0 user-scrollable ancestors.**
+- **Positive control** — identical content inside `PageShell`: **exactly 1** user-scrollable
+  ancestor (the shell's `<main>`). Without this the two runs above prove nothing; with it, the
+  difference is attributable to the wrapper and nothing else.
+
+**Built.** `PageSkeleton` renders `<PageShell variant="app">`. All 44 boundaries are the bare
+`return <PageSkeleton />` form (swept, not assumed — re-swept after merging #979), and only ONE
+`layout.tsx` exists in the app (the root, which renders no `PageShell`) — so there is no
+nested-`<main>` risk anywhere. The width is deliberately unchanged (`max-w-3xl` kept), so the
+`65-consolidation-pass` queue entry that reserved this swap for operator sign-off is half
+retired and half still open: `PAGE_MAX_W` adoption is the half that changes what a user sees on
+md+ screens, and it stays queued. `variant="app"` does bring `pb-20 sm:pb-0` and `text-ink`; the
+skeleton renders no visible text, and matching the variant the REAL page uses is what makes the
+fallback-to-content swap shift the least.
+Re-measured after the change at 812×375: `main` is the scroller (`clientHeight` 375,
+`scrollHeight` 433), 1 user-scrollable ancestor, and the row previously cut at 409 sits at 351
+after a 58px scroll — exactly the clipped amount. Real boundaries verified from streamed HTML,
+not only the component: `/dashboard` and `/projects` both flush the fallback as
+`<main class="h-full overflow-x-clip overflow-y-auto …"><p class="sr-only">กำลังโหลด…</p>`, with
+the old wrapper string absent.
+
+**Pinned, in three places and deliberately not four.** ① `page-skeleton-shell.test.tsx` — the
+skeleton's `<main>` className equals the string `PageShell` itself renders (read off the
+component, so the two cannot drift), the scroller half is named separately so a failure says
+which half broke, the announcement + frame survive at EXACT counts, and a source pin that the
+component renders `<PageShell>` and contains no `<main>`. That last one exists because every
+className assertion reads PageShell's own output and would therefore pass against a hand-rolled
+`<main>` carrying the same string — the contract and the delegation are different claims.
+② `design-doctrine.test.ts` already owned the repo-wide `<main>` allowlist, so the scan was NOT
+forked into a bespoke variant; the existing guard was **narrowed from two files to one** — it had
+listed `page-skeleton.tsx` as a legal second home, i.e. the house guard was green over this very
+defect — and hardened while narrowing. ③ `nav-loading-boundaries.test.ts`'s per-boundary render
+sweep now asserts the announcement AND the `h-full overflow-y-auto` `<main>` on all 45 files,
+which retires the #980 semantic debt: its "paints something" weakness was justified by portal
+having no sr-only line, and both halves of that justification are now gone.
+
+**Surfaces that NAMED the old behaviour, re-justified.** `docs/ui-conventions.md` §8 and the
+comment block in `tests/unit/portal-loading-announcement.test.tsx` both justified portal's
+bespoke skeleton with "PageSkeleton hand-rolls its own `<main>`" — that half of the reason is now
+gone. Both restated: portal keeps its own frame because it mirrors the portal's sticky header and
+card sizes, and the shell contract is a floor BOTH surfaces hold. No assertion was weakened.
+`docs/feature-specs/65-consolidation-pass.md`'s deferred-queue entry updated the same way.
+
+**The fresh-eyes pass found six real defects in my own diff, all fixed.** ① Three run logs
+(`lint.log`, `suite.log`, `tc.log`) were swept into the commit by a `git add -A`, and `suite.log`
+recorded a PRE-fix RED run — a failing-suite artifact shipped as repo content. ② The guard's
+comment stripper was a general `/* … */` sweep, which `accept="image/*"` turns into a
+pseudo-comment running to the next real `*/`: it silently deleted spans of **332 files** (16
+lines of `report-defect-control.tsx` among them), so a hand-rolled `<main>` inside a swallowed
+span would have been invisible to the very hardening the comment claimed. Narrowed to JSX `{/* …
+*/}` blocks plus whole-line `//`, which errs the safe way — a `<main>` inside a JSDoc now TRIPS
+the guard instead of hiding from it. ③ The `overflow-x-clip|overflow-hidden` half of that same
+guard read the UNSTRIPPED text, and `page-shell.tsx`'s own header comment contains the literal —
+so deleting the utility from `SHELL_BASE` kept the assertion the test is NAMED for green. ④ The
+`.bg-sunk` count was a `>= 7` floor against a real 8, so a placeholder row could be deleted under
+a pin whose stated job is the frame; now exact, and `animate-pulse` is counted too since the
+comment claimed the pulse blocks. ⑤ `ui-conventions` §8 credited the repo-wide scan to the wrong
+file. ⑥ The `65-consolidation-pass` queue entry reserving this swap for operator sign-off was
+neither honoured nor retired. My own new delegation pin then caught a seventh on its first run —
+the component's header comment quotes the old markup, so documenting the hazard was the hazard.
+
+**Gates.** RED-first (3 of 5 assertions red on the first run; the two non-vacuity controls green
+by design) · lint 0 · typecheck 0 · full vitest **891 files / 7338 tests exit 0** · `pnpm build` 0
+· **10 mutants killed** — revert to the hand-rolled `<main>`; `variant` app→card; a
+`className="min-h-screen"` passed into the shell; the sr-only line deleted; a classless `<main>`
+added to a real `loading.tsx`; a hand-rolled `<main>` carrying the EXACT shell class string (the
+lookalike); a deleted placeholder row; `overflow-x-clip` dropped from `SHELL_BASE`; a bespoke
+boundary gone silent; a bespoke boundary hand-rolling a `min-h-screen` `<main>` — **plus 3
+control runs that had to behave the other way**: the classless `<main>` SURVIVES if the matcher
+is reverted to the old `/<main\s+className/` (so the hardening is what catches it), a comment
+mentioning `<main>` does NOT trip the guard, and it DOES once comment-stripping is removed.
+⚠️ One mutation run was an INSTRUMENT failure before it was a result: MSYS path-mangling ate the
+leading `//` of a comment passed as an argv string, so a `/ documenting…` line reached the file
+and the guard "failed" for a reason that had nothing to do with the guard. Read the mutated file,
+not just the count.
+
+**Recorded, not built.** ① `ui-conventions` §5 links `../src/components/features/page-shell.tsx`;
+the file is at `features/chrome/`. ② An sr-only node that is not a live region is still parity,
+not audibility (unchanged from #980). ③ `keyboard-viewport-fit.tsx` takes
+`document.querySelector("main")` and only runs on `visualViewport` events: under the old skeleton
+its inline height was a no-op (`min-h-screen` won), so a keyboard open across a client-side
+navigation now caps the FALLBACK's main and leaves the real one uncapped until the next viewport
+event. Transient, pre-existing mechanism, no measured symptom — named here rather than fixed
+blind. ④ `.install.log` is tracked on `main` from an earlier lane, same class as ① and not mine.

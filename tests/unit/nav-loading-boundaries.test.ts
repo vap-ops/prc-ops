@@ -207,11 +207,29 @@ describe("tab + hub-nav destination loading coverage (UX-audit G8)", () => {
       );
       expect(typeof mod.default).toBe("function");
       const { container } = render((mod.default as () => ReactElement)());
-      // The property is "paints something", NOT "uses PageSkeleton": /portal ships a
-      // legitimate hand-rolled skeleton with no sr-only line, so an earlier version
-      // of this assertion (`toContain("กำลังโหลด")`) failed a correct file. A boundary
-      // that renders nothing is what is indistinguishable from having none.
+      // A boundary that renders nothing is indistinguishable from having none.
       expect(container.querySelectorAll("*").length).toBeGreaterThan(0);
+
+      // Tightened 2026-08-06. The property used to stop at "paints something",
+      // justified by "/portal ships a legitimate hand-rolled skeleton with no
+      // sr-only line" — #980 gave /portal the announcement and this branch gave
+      // PageSkeleton the shell, so BOTH halves of that exemption are now gone and
+      // the weakest boundary in the app holds the full contract. The rule is still
+      // "uses PageSkeleton" nowhere: a bespoke skeleton is allowed, it just may not
+      // be silent and may not hand-roll a scroller.
+      expect(
+        container.querySelector(".sr-only")?.textContent?.trim(),
+        `${file} paints a frame with nothing for a screen reader`,
+      ).toBe("กำลังโหลด…");
+      const main = container.querySelector("main");
+      expect(main, `${file} renders no <main> — every route renders PageShell`).not.toBeNull();
+      // The spec-64 body lock (h-full overflow-hidden) makes PageShell's <main> the
+      // only scroller; a hand-rolled min-h-screen <main> renders fine and clips
+      // whatever does not fit, with no gesture able to reach it.
+      expect(main?.className, `${file} <main> is not the page scroller`).toContain("h-full");
+      expect(main?.className, `${file} <main> is not the page scroller`).toContain(
+        "overflow-y-auto",
+      );
     },
   );
 });
