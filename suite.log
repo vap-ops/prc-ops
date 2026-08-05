@@ -1,0 +1,11 @@
+
+> prc-ops@0.339.0 test D:\claude\projects\prc-ops\prc-ops-pageshell
+> vitest run
+
+
+ RUN  v4.1.10 D:/claude/projects/prc-ops/prc-ops-pageshell
+
+ ❯ tests/unit/design-doctrine.test.ts (21 tests | 1 failed) 253ms
+     × every page scroller clips horizontal overflow (no left-right page scroll) 14ms
+ ❯ tests/unit/claude-hooks-bash-guards.test.ts (25 tests | 1 failed) 35912ms
+     × blocks the sneaky read shapes: dot-source, redirect-read, rg, case variant 6058ms

@@ -12169,3 +12169,61 @@ neither PO fan-out nor class derivation): ① one PO document discharges every r
 PO; ② the PO half classes by the _request's_ supplier, not the _order's_. New, recorded not
 built: no surface displays or filters `doc_type`, and `QuoteDocAttach`/`purchase_quotes` remain
 untyped, so the two quotation paths now describe themselves differently.
+
+## 2026-08-06 — `PageSkeleton` renders `PageShell`: 38 loading boundaries get a scroller (lane pageshell)
+
+**The finding, inherited.** Lane `portalsr` recorded it on #980 and deliberately did not build
+it: `page-skeleton.tsx` hand-rolled `<main class="bg-page min-h-screen overflow-x-clip">`, while
+the root layout locks the body (`h-full overflow-hidden`, spec 64), `PageShell` is THE page
+scroller, and `page-shell.tsx:8` states the spec-63 rule verbatim — hand-rolling a `<main>` is a
+review reject. 38 of the app's 39 `loading.tsx` files delegate to `PageSkeleton`, so all 38
+inherited the deviation; `src/app/portal/loading.tsx` was the only structurally correct one.
+
+**Measured before refactoring, because a convention breach is not yet a defect.** The doctrine's
+"a new static guard's first run contains its own false positives" applies to a rule-derived
+finding too, and jsdom has no layout engine — the entire suite is structurally blind to this
+class, so the instrument had to be a real browser (dev server, real root layout):
+
+- **Phone landscape 812×375, the CURRENT skeleton, unmodified: it already misbehaves.** Its own
+  content is **433px** tall in a 375px viewport, the last placeholder row is cut at **y=409**,
+  and the row has **zero user-scrollable ancestors** (`main` overflow-y `visible`; `body`
+  overflow-y `hidden`, which blocks user scrolling while still permitting scripted scroll — so a
+  naive `scrollTo` probe reads "reachable" and lies). Small, but real and unreachable.
+- **The mechanism, isolated at 375×812** with content taller than the viewport in the same
+  hand-rolled wrapper: **29 of 40 rows below the fold, 0 user-scrollable ancestors.**
+- **Positive control** — identical content inside `PageShell`: **exactly 1** user-scrollable
+  ancestor (the shell's `<main>`). Without this the two runs above prove nothing; with it, the
+  difference is attributable to the wrapper and nothing else.
+
+**Built.** `PageSkeleton` renders `<PageShell variant="app">`. All 38 boundaries are the bare
+`return <PageSkeleton />` form (swept, not assumed), and only ONE `layout.tsx` exists in the app
+(the root, which renders no `PageShell`) — so there is no nested-`<main>` risk anywhere.
+Re-measured after the change at 812×375: `main` is the scroller (`clientHeight` 375,
+`scrollHeight` 433), 1 user-scrollable ancestor, and the row previously cut at 409 sits at 351
+after a 58px scroll — exactly the clipped amount. Real boundaries verified from streamed HTML,
+not only the component: `/dashboard` and `/projects` both flush the fallback as
+`<main class="h-full overflow-x-clip overflow-y-auto …"><p class="sr-only">กำลังโหลด…</p>`, with
+the old wrapper string absent.
+
+**Pinned.** `tests/unit/page-skeleton-shell.test.tsx`: the skeleton's `<main>` className equals
+the string `PageShell` itself renders (read off the component, so the two cannot drift), the
+scroller half is named separately (`h-full` + `overflow-y-auto`, and `min-h-screen` absent) so a
+failure says which half broke, and the announcement + frame are pinned as surviving. Plus a
+repo-wide guard so the next skeleton cannot hand-roll a `<main>` again: every `src/**/*.tsx`
+except `page-shell.tsx` must contain no `<main` once comments are stripped — the guard has a
+population floor and a positive control (`page-shell.tsx` itself must still match) so a
+zero-match scan cannot read as a pass, and comments are stripped because every other `<main>` in
+`src/` today is prose ABOUT the spec-64 lock (documenting the hazard must not trip the guard
+against it).
+
+**Surfaces that NAMED the old behaviour, re-justified.** `docs/ui-conventions.md` §8 and the
+comment block in `tests/unit/portal-loading-announcement.test.tsx` both justified portal's
+bespoke skeleton with "PageSkeleton hand-rolls its own `<main>`" — that half of the reason is now
+gone. Both restated: portal keeps its own frame because it mirrors the portal's sticky header and
+card sizes, and the shell contract is a floor BOTH surfaces hold. No assertion was weakened.
+
+**Recorded, not built.** ① The `#980` semantic debt stands: `nav-loading-boundaries.test.ts` (in
+open PR #979) asserts only "paints something" per boundary, and its own comment justifies that
+weakness with portal's missing sr-only line — a reason #980 already removed. ② `ui-conventions`
+§5 links `../src/components/features/page-shell.tsx`; the file is at `features/chrome/`. ③ An
+sr-only node that is not a live region is still parity, not audibility (unchanged from #980).

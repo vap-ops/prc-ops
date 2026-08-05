@@ -16,13 +16,15 @@
 // live region in the layout (one already exists for toasts) and would change
 // every boundary; recorded as a follow-up, deliberately not done here.
 //
-// The shared component is deliberately NOT swapped in: page-skeleton.tsx
-// hand-rolls its own <main>, but the root layout locks the body (h-full
-// overflow-hidden, spec 64) and PageShell is THE page scroller — portal's
-// bespoke skeleton renders PageShell and mirrors the real page's sticky header,
-// so it is the structurally correct one. That rationale is pinned below (a bare
-// <main> in place of PageShell must fail), because it is the reason a future
-// reader must not "simplify" this file into the shared component.
+// The shared component is deliberately NOT swapped in. The ORIGINAL reason was
+// structural — page-skeleton.tsx hand-rolled its own <main> under a locked body
+// while this file renders PageShell — and that half is now GONE: PageSkeleton
+// renders PageShell too (measured defect, see page-skeleton-shell.test.tsx). The
+// reason that survives is narrower and worth stating plainly: this frame mirrors
+// the portal's own sticky header and card sizes, which the shared skeleton does
+// not. The shell contract is still pinned below (a bare <main> in place of
+// PageShell must fail) — it is now a floor both surfaces hold, not this file's
+// justification for existing.
 
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -95,10 +97,9 @@ describe("/portal loading boundary announces itself (UX-audit G8 follow-up)", ()
 
   it("keeps the announcement inside PageShell — the real scroller, not a hand-rolled main", () => {
     // The spec-64 body lock (h-full overflow-hidden) makes PageShell's <main>
-    // the only scrolling element. This is the whole reason the bespoke skeleton
-    // survives instead of delegating to PageSkeleton, which hand-rolls a
-    // min-h-screen <main> with no overflow-y-auto — so pin the shell's own
-    // contract, not merely "some <main> exists".
+    // the only scrolling element, so pin the shell's own contract rather than
+    // merely "some <main> exists" — a hand-rolled min-h-screen <main> renders
+    // fine and clips whatever does not fit, unreachably.
     const { container } = render(<PortalLoading />);
 
     const main = container.querySelector("main");
