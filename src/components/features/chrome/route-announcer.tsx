@@ -53,9 +53,14 @@ function useArrivalAnnouncements(): void {
 
     const report = () => {
       const name = pageNameFromTitle(document.title);
-      // "" is the node-swap gap or a page that set no title — say nothing, and
-      // do not treat it as the new baseline, or the real title that lands 1–6ms
-      // later would look like a repeat and stay silent.
+      // "" is the node-swap gap, or a page that set no title. Say nothing — and
+      // crucially do not let it BECOME the baseline. Every navigation passes
+      // through that gap, so a poisoned baseline makes the very next title look
+      // like a change even when it is the same page: a router.refresh(), which
+      // replaces the node with identical text, would announce an arrival the
+      // user never made. (Dropping this `name === ""` test leaves the announce
+      // path correct — announceArrival("") is itself a no-op — which is exactly
+      // why the baseline is the half that matters.)
       if (name === "" || name === lastAnnounced.current) return;
       lastAnnounced.current = name;
       announceArrival(name);

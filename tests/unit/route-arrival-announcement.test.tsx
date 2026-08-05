@@ -274,6 +274,31 @@ describe("<RouteAnnouncer> watches the document title for arrivals", () => {
     expect(screen.getByRole("status").textContent).toBe("");
   });
 
+  it("stays silent when the node is REPLACED with the same page's title", async () => {
+    // The case above cannot see the real mechanism: assigning document.title
+    // edits the existing text node, while Next removes the node and adds a new
+    // one — so the watcher passes through an empty title in between. A
+    // router.refresh() replaces the node with IDENTICAL text, and if that empty
+    // moment is allowed to become the baseline, the re-add reads as a change and
+    // announces an arrival the user never made. (A mutation proved the plain
+    // assignment above cannot catch it.)
+    render(<RouteAnnouncer />);
+    await act(async () => {});
+
+    await act(async () => {
+      document.head.querySelector("title")?.remove();
+      const t = document.createElement("title");
+      t.textContent = "หน้าหลัก" + APP_TITLE_SUFFIX;
+      document.head.appendChild(t);
+    });
+
+    expect(
+      screen.getByRole("status").textContent,
+      "announced an arrival for the page the user is already on — the title node " +
+        "was replaced with the same text and the empty gap was treated as a change",
+    ).toBe("");
+  });
+
   it("stays silent for a page that set no title", async () => {
     render(<RouteAnnouncer />);
     await act(async () => {});
