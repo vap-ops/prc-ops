@@ -6,6 +6,7 @@
 // visibility — is pure and unit-tested here; the pages are thin composition.
 
 import type { LucideIcon } from "lucide-react";
+import type { UserRole } from "@/lib/auth/role-home";
 import {
   BarChart3,
   ClipboardList,
@@ -333,6 +334,19 @@ export function procurementDoorHref(door: ProcurementDoor, activeProjectId: stri
  * deliberate order (queue → arriving → orders → catalog). Composed CROSS
  * section rows, so its icon uniqueness gets its own pin (a same-glyph addition
  * would render duplicate icons and pass the per-section pins). */
+/**
+ * Who reaches the Procurement Home hub — the procurement tier only (spec 323 §4;
+ * PURCHASING_ROLES is too wide, its site_admin / PM / PD members have their own
+ * homes). Declared HERE rather than in the page module (spec 397 U2) so it can be
+ * read without dragging `@/lib/db/server` and `next/headers` in; `hub-body.tsx`
+ * re-exports it for the two pages that gate on it.
+ */
+export const PROCUREMENT_HOME_ROLES: readonly UserRole[] = [
+  "procurement",
+  "procurement_manager",
+  "super_admin",
+];
+
 export const QUICK_DOORS: readonly ProcurementDoor[] = (
   ["requests", "incoming", "orders", "catalog"] as const
 ).map((key) => PROCUREMENT_STR_SECTIONS.flatMap((s) => s.doors).find((d) => d.key === key)!);

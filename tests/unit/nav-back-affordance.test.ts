@@ -220,9 +220,11 @@ const STATIC_DETAIL = [
   // Spec 328 U2: the printable per-firm subcon onboarding poster drills down
   // from /team's เพิ่มช่างใหม่ sheet (back chip → /team, print-first like badges).
   "team/poster",
-  // Spec 358: the attendance AUDIT report (ประวัติการเช็คชื่อ) — a MULTI-PARENT
-  // drill (the /team tile and the /accounting register list both reach it), so
-  // its chip resolves via safeBackHref(?from, "/team"), never a hardcoded href.
+  // Spec 358 → 397 U2: the attendance AUDIT report (ประวัติการเช็คชื่อ) — a
+  // MULTI-PARENT drill reached from THREE surfaces (the /team tile, the
+  // /accounting register list, and the /procurement dashboard card), so its chip
+  // resolves via safeBackHref(?from, "/team"), never a hardcoded href — and its
+  // LABEL resolves via attendanceBackLabel, pinned in attendance-audit-door.test.
   "team/attendance",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
@@ -450,6 +452,15 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // out of /team on the way back.
     "registrations/page.tsx",
     "payroll/page.tsx",
+    // Spec 397 U2: the attendance AUDIT report gained a THIRD parent — the
+    // /procurement dashboard card (that tier runs the attendance double-check and
+    // never visits /team). It was already multi-parent (/team + /accounting) and
+    // already resolved ?from; listing it here is what keeps a future edit from
+    // reverting the chip to a hardcoded /team and ejecting procurement out of
+    // their own surface. Its LABEL resolves too — attendanceBackLabel, pinned in
+    // attendance-audit-door.test.ts, because a chip that goes to /procurement
+    // while announcing "ทีมงาน" is the same defect one layer up.
+    "team/attendance/page.tsx",
   ];
 
   // ≥2 occurrences = the IMPORT plus a real call. A bare `toContain` here was

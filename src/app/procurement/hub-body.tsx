@@ -28,11 +28,13 @@ import { TimeView } from "./time-view";
 // members have their own homes and would land on dead-end door tiles).
 // super_admin is kept for admin + preview visibility. Shared by /procurement
 // and /procurement/[section] (both gate on it).
-export const PROCUREMENT_HOME_ROLES: readonly UserRole[] = [
-  "procurement",
-  "procurement_manager",
-  "super_admin",
-];
+//
+// Spec 397 U2 moved the DECLARATION into `@/lib/purchasing/procurement-home` (a
+// leaf with no server-only / DB imports) and re-exports it here, so a test or a
+// Client Component can read the membership without pulling this module's RSC
+// import graph — `@/lib/db/server` and `next/headers` — along with it. Existing
+// callers keep importing it from here.
+export { PROCUREMENT_HOME_ROLES } from "@/lib/purchasing/procurement-home";
 
 interface ProcurementHubBodyProps {
   role: UserRole;

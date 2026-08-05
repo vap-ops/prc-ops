@@ -8,7 +8,7 @@
 // Reads are COUNTS/dates only — no ฿ column is ever selected.
 
 import Link from "next/link";
-import { FolderKanban, UserPlus } from "lucide-react";
+import { CalendarCheck, FolderKanban, UserPlus } from "lucide-react";
 
 import { ProcurementAllDoors } from "@/components/features/purchasing/procurement-all-doors";
 import { ProcurementDoorChips } from "@/components/features/purchasing/procurement-door-chips";
@@ -17,12 +17,13 @@ import { projectHref } from "@/lib/nav/project-paths";
 import { ICON_CHIP_MUTED } from "@/lib/ui/classes";
 
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
-import { STAFF_APPROVAL_ROLES, type UserRole } from "@/lib/auth/role-home";
+import { ATTENDANCE_AUDIT_ROLES, STAFF_APPROVAL_ROLES, type UserRole } from "@/lib/auth/role-home";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
 import {
   ALL_PROJECTS_OPTION_LABEL,
   ARRIVALS_TODAY_LABEL,
+  ATTENDANCE_AUDIT_LABEL,
   DOC_MISSING_LABEL,
   LATE_RISK_LABEL,
 } from "@/lib/i18n/labels";
@@ -242,6 +243,27 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
         activeProjectId={selectedProjectId}
         from="/procurement"
       />
+
+      {/* Spec 397 U2 — the attendance-audit door. U1 gave this tier the
+          permission; without a door here it changes nothing, because this
+          audience never leaves /procurement (procurement_manager has held the
+          permission since spec 358 with ZERO /team views in 30 days). Gated on
+          the audit set rather than assumed: if the two role sets ever diverge,
+          the door disappears instead of promising a page that 42501s. It threads
+          ?from so the report's back chip returns HERE and says so — /procurement
+          is the third parent of a multi-parent page (see attendanceBackLabel).
+          No count badge: a history report has nothing actionable to nag with. */}
+      {ATTENDANCE_AUDIT_ROLES.includes(role) ? (
+        <Link
+          href={withBackFrom("/team/attendance", "/procurement")}
+          className="rounded-card border-edge bg-card shadow-card focus-visible:ring-action hover:bg-sunk flex min-h-11 items-center gap-3 border px-4 py-3 focus:outline-none focus-visible:ring-2"
+        >
+          <CalendarCheck aria-hidden className="text-action size-5 shrink-0" />
+          <span className="text-body text-ink min-w-0 flex-1 font-medium">
+            {ATTENDANCE_AUDIT_LABEL}
+          </span>
+        </Link>
+      ) : null}
 
       {/* Re-homed คำขอสมัคร approval nudge (approvers only) — the section
           pages' arm retired with the grids (U6c); this is the render site. */}
