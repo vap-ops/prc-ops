@@ -15,6 +15,7 @@ import {
   WORK_CATEGORY_UNSET_LABEL,
   ZONE_LABEL,
   ZONE_PROGRESS_LABEL,
+  ZONE_ROLLUP_OWN_ONLY_NOTE,
   ZONE_UNSET_LABEL,
 } from "@/lib/i18n/labels";
 import type { RollupRow, ZoneRollup } from "@/lib/zones/zone-rollup";
@@ -50,8 +51,14 @@ function Row({ row, isRemainder }: { row: RollupRow; isRemainder: boolean }) {
           {count}
         </td>
       ))}
-      <td className={`${CELL} text-ink font-semibold`}>{row.total}</td>
-      <td className={`${CELL} text-ink font-semibold`}>{row.percent}%</td>
+      {/* An empty zone has nothing to report, and "0%" is not that — it reads
+          as "no progress" on work that does not exist. Until the assignment
+          screen lands (U4) every drawn zone is empty, so this is the state the
+          first PM to draw a map actually meets. */}
+      <td className={`${CELL} text-ink font-semibold`}>{row.total === 0 ? "—" : row.total}</td>
+      <td className={`${CELL} text-ink font-semibold`}>
+        {row.total === 0 ? "—" : `${row.percent}%`}
+      </td>
     </tr>
   );
 }
@@ -59,9 +66,23 @@ function Row({ row, isRemainder }: { row: RollupRow; isRemainder: boolean }) {
 export function ZoneRollupGrid({ rollup }: { rollup: ZoneRollup }) {
   if (rollup.rows.length === 0) return null;
 
+  // A child row is INDENTED under its parent, which is a claim about position
+  // in the tree — but a parent's numbers are its OWN directly-placed work, not
+  // its subtree's, exactly as the zone list's counts already are. Left silent,
+  // an indented `อาคาร A — 0 — 0%` above a full `A1` would read as "อาคาร A is
+  // not started". Said out loud only when nesting actually exists, so the flat
+  // case (every project today, and the only one the editor can produce) carries
+  // no extra copy. ⚑ Whether a parent SHOULD aggregate its children is a real
+  // question and belongs with the assignment screen (U4) — recorded, not
+  // invented here, because changing it would also change the zone list.
+  const hasNesting = rollup.rows.some((row) => row.depth > 0);
+
   return (
     <section className="mb-4">
       <h2 className="text-section text-ink mb-2 font-semibold">{ZONE_PROGRESS_LABEL}</h2>
+      {hasNesting ? (
+        <p className="text-meta text-ink-secondary mb-2">{ZONE_ROLLUP_OWN_ONLY_NOTE}</p>
+      ) : null}
       {/* The pan-x + pinch-zoom pair is mandatory beside overflow-x-auto
           (ui-class-contracts): a bare scroller hijacks vertical page scroll on
           touch, and pan-x alone silently kills pinch-zoom. */}

@@ -82,9 +82,19 @@ describe("spec 392 U3a — the project-page rollup", () => {
   it("builds and renders the grid, gated on the data rather than on a role", () => {
     expect(count(projectPage, "buildZoneRollup")).toBe(2); // import + call
     expect(count(projectPage, "ZoneRollupGrid")).toBe(2); // import + render
-    // No role predicate stands between the reader and the grid: `zones` is
-    // empty for anyone RLS withholds them from, and the component returns null.
-    expect(projectPage).not.toContain("canSeeZones");
+
+    // No role predicate may stand between the reader and the grid: `zones` is
+    // empty for anyone RLS withholds them from, and the component returns null,
+    // so a page-level gate would be a SECOND copy of the policy free to drift.
+    //
+    // Asserted STRUCTURALLY, over the render line itself. A named-identifier
+    // check (`not.toContain("canSeeZones")`) asserts nothing — that identifier
+    // has never existed, and any of `canReadZones`, `zonesVisible` or an inline
+    // `PM_ROLES.includes(ctx.role) &&` would sail straight through it.
+    const renderLine =
+      projectPage.split("\n").find((l) => l.includes("<ZoneRollupGrid")) ?? "MISSING";
+    expect(renderLine).not.toBe("MISSING");
+    expect(renderLine).not.toMatch(/\.includes\(|\?|&&/);
   });
 
   it("feeds the work-list its zone axis and its filter options", () => {
@@ -94,7 +104,13 @@ describe("spec 392 U3a — the project-page rollup", () => {
     expect(count(projectPage, "zoneId: wp.zone_id")).toBe(2);
     expect(count(projectPage, "zones={zoneFilterOptions}")).toBe(1);
     // Both the grid rows and the filter chips order through buildZoneList, so
-    // the map, the list and this page cannot disagree about which zone is where.
+    // they cannot disagree with each other or with the zones page about which
+    // zone sits where. ⚠️ NOT a claim that they show the same SET as that page:
+    // `/zones` renders one map at a time (`mapRows[0]`) while this loader reads
+    // every zone of the project, so a second map — unreachable from the UI
+    // today, and the unique index on (map_id, code) is per map — would show
+    // both sheets' zones here, codes possibly repeating. Owed with U2b's
+    // map switcher.
     expect(count(projectPage, "buildZoneList(zones, {})")).toBe(1);
   });
 });

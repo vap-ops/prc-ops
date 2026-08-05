@@ -20,13 +20,18 @@ import {
   WorkPackageList,
   type WorkPackageListItem,
 } from "@/app/projects/[projectId]/work-package-list";
-import { ZONE_FILTER_ALL_LABEL, ZONE_UNSET_LABEL } from "@/lib/i18n/labels";
+import {
+  WP_LEAF_LABEL,
+  ZONE_FILTER_ALL_LABEL,
+  ZONE_LABEL,
+  ZONE_UNSET_LABEL,
+} from "@/lib/i18n/labels";
 
 const PROJECT_ID = "proj-1";
 
 const ZONES = [
-  { id: "z1", code: "A", name: "พื้นลานด้านซ้าย", depth: 0 },
-  { id: "z2", code: "B", name: "ห้องถังน้ำดี", depth: 0 },
+  { id: "z1", code: "A", name: "พื้นลานด้านซ้าย" },
+  { id: "z2", code: "B", name: "ห้องถังน้ำดี" },
 ];
 
 const base = {
@@ -177,21 +182,57 @@ describe("WorkPackageList — zone filter", () => {
     expect(screen.queryByText("งานรั้ว")).toBeNull();
   });
 
-  it("says the ZONE is empty, not the project — and keeps the way out", () => {
+  const withEmptyZone = () =>
     render(
       <WorkPackageList
         projectId={PROJECT_ID}
         role="site_admin"
         workPackages={ROSTER}
         deliverables={[]}
-        zones={[...ZONES, { id: "z3", code: "C", name: "บ่อบำบัด", depth: 0 }]}
+        zones={[...ZONES, { id: "z3", code: "C", name: "บ่อบำบัด" }]}
       />,
     );
+
+  it("says the ZONE is empty, not the project — and keeps the way out", () => {
+    withEmptyZone();
     pickZone(/บ่อบำบัด/);
+    // The SENTENCE, not merely the absence of the project-level one: asserting
+    // only that "ยังไม่มีรายการงาน" is gone passes with the whole branch deleted,
+    // because the action lens renders its band chips over an empty roster and
+    // names nothing. That is the fake-coverage class, one layer over.
+    expect(screen.getByText(`ไม่มี${WP_LEAF_LABEL}ใน${ZONE_LABEL}นี้`)).toBeInTheDocument();
     expect(screen.queryByText("ยังไม่มีรายการงาน")).toBeNull();
     // The control that produced the empty state must still be on screen, or the
     // reader is stranded with no way back to the full list.
     expect(within(zoneFilter()).getByRole("radio", { name: ZONE_FILTER_ALL_LABEL })).toBeVisible();
+  });
+
+  it("blames the ZONE, not the query, when a search runs inside an empty zone", () => {
+    // Otherwise the reader is told "nothing matches your search" about an
+    // emptiness the zone caused — and clearing the query flips the message,
+    // which is the tell that the first one was wrong.
+    withEmptyZone();
+    pickZone(/บ่อบำบัด/);
+    fireEvent.change(screen.getByRole("textbox", { name: /ค้นหา/ }), { target: { value: "งาน" } });
+    expect(screen.getByText(`ไม่มี${WP_LEAF_LABEL}ใน${ZONE_LABEL}นี้`)).toBeInTheDocument();
+    expect(screen.queryByText(`ไม่พบ${WP_LEAF_LABEL}ที่ตรงกับคำค้น`)).toBeNull();
+  });
+
+  it("tells a reader whose unzoned bucket is empty that everything is PLACED", () => {
+    // `ยังไม่ระบุโซน` is not a zone, so "there is no งานย่อย in this zone" states
+    // the wrong fact about the wrong thing — and hides the one fact they were
+    // checking for (spec 392 §8's fill rate is exactly this bucket reaching 0).
+    render(
+      <WorkPackageList
+        projectId={PROJECT_ID}
+        role="site_admin"
+        workPackages={ROSTER.filter((wp) => wp.id !== "loose")}
+        deliverables={[]}
+        zones={ZONES}
+      />,
+    );
+    pickZone(ZONE_UNSET_LABEL);
+    expect(screen.getByText(`${WP_LEAF_LABEL}ทุกรายการระบุ${ZONE_LABEL}แล้ว`)).toBeInTheDocument();
   });
 
   it("still reports a genuinely empty project as empty", () => {

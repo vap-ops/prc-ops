@@ -60,15 +60,20 @@ export function WpZoneChip({
   if (!href) return <span className={SHELL}>{body}</span>;
 
   return (
+    // The 44px floor is on the ANCHOR, not on the pill. SHELL's geometry came
+    // from WorkCategoryBadge, which is a non-interactive <span>; borrowing it
+    // for a link would have shipped a ~22px tap target on a gloved-hand PWA,
+    // sitting a gap-1.5 away from that very badge. The design-doctrine tap
+    // ratchet scans <button> tags only, so nothing would have caught it.
     <Link
       href={href}
       // The visible text names a zone; only the label says that following this
       // reaches the map. A door whose accessible name is just its subject reads
       // as a label to a screen reader.
       aria-label={`${ZONE_MAP_LABEL} — ${zone.code} ${zone.name}`}
-      className={`${SHELL} focus-visible:ring-action hover:brightness-[0.98] focus:outline-none focus-visible:ring-2`}
+      className="focus-visible:ring-action inline-flex min-h-11 max-w-full items-center rounded-full focus:outline-none focus-visible:ring-2"
     >
-      {body}
+      <span className={`${SHELL} hover:brightness-[0.98]`}>{body}</span>
     </Link>
   );
 }

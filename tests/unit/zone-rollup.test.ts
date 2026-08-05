@@ -141,6 +141,24 @@ describe("buildZoneRollup", () => {
     expect(result.rows[0]?.cells).toEqual([1, 2]);
   });
 
+  it("drops work placed in a zone this reader cannot see — including its column", () => {
+    // A zone_id pointing at a row RLS withheld is NOT unzoned: counting it in
+    // the remainder would overstate how much of the project is unplaced. And
+    // the drop has to happen BEFORE the columns are chosen, or a category whose
+    // only work sits in hidden zones survives as an all-zero column.
+    const result = buildZoneRollup({
+      zones: [zone({ id: "z1", code: "A" })],
+      categories: CATS,
+      workPackages: [
+        wp({ zoneId: "z1", categoryId: "c1" }),
+        wp({ zoneId: "hidden", categoryId: "c2" }),
+      ],
+    });
+    expect(result.columns.map((c) => c.id)).toEqual(["c1"]);
+    expect(result.rows[0]?.total).toBe(1);
+    expect(result.unzoned).toBeNull();
+  });
+
   it("orders and indents zones exactly as the zone list does — one ordering, two surfaces", () => {
     const result = buildZoneRollup({
       zones: [

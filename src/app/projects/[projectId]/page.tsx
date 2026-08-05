@@ -215,13 +215,13 @@ export default async function ProjectWorkPackagesPage({ params, searchParams }: 
       isGroup: wp.is_group,
     })),
   });
-  // The filter chips follow the zone list's own order and indent — one
-  // ordering across the map, the list and this page.
+  // The filter chips follow the zone list's own ORDER — one ordering across the
+  // map, the list and this page. Not its indent: a horizontal chip row has no
+  // way to show nesting, so `depth` is deliberately not carried.
   const zoneFilterOptions = buildZoneList(zones, {}).map((z) => ({
     id: z.id,
     code: z.code,
     name: z.name,
-    depth: z.depth,
   }));
   const typeLabel = project.project_type ? PROJECT_TYPE_LABEL[project.project_type] : null;
   // Spec 174: a pasted Google-Maps link (exact pin) wins; spec 173 falls back to an

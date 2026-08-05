@@ -89,12 +89,15 @@ export interface WorkPackageListItem {
   zoneId: string | null;
 }
 
-/** Spec 392 U3a — one filterable zone, in the zone list's own order and indent. */
+/**
+ * Spec 392 U3a — one filterable zone, in the zone list's own ORDER. No `depth`:
+ * the chips are a flat horizontal scroller and cannot indent, so carrying the
+ * field would be a claim the surface never makes.
+ */
 export interface WorkPackageListZone {
   id: string;
   code: string;
   name: string;
-  depth: number;
 }
 
 type Lens = "group" | "action" | "deliverable";
@@ -216,6 +219,17 @@ export function WorkPackageList({
     { value: "deliverable", label: "ตามงวดงาน" },
   ];
 
+  // Spec 392 U3a — is the CHOSEN ZONE empty (as distinct from the project
+  // being empty, which returned above)? The two need different sentences: the
+  // unzoned bucket is not a zone, so telling a reader who has just placed the
+  // last งานย่อย that "there is no งานย่อย in this zone" states the wrong fact
+  // about the wrong thing. The one they wanted is that everything is placed.
+  const zoneIsEmpty = zoneFilter !== null && leaves.length === 0 && roster.sections.length === 0;
+  const zoneEmptyMessage =
+    zoneFilter === UNZONED
+      ? `${WP_LEAF_LABEL}ทุกรายการระบุ${ZONE_LABEL}แล้ว`
+      : `ไม่มี${WP_LEAF_LABEL}ใน${ZONE_LABEL}นี้`;
+
   // Spec 392 U3a: its OWN radiogroup, never merged into the lens toggle — a
   // lens is "how do I read this list" and a zone is "which part of the site",
   // two independent choices, and folding them together would make each one
@@ -286,7 +300,16 @@ export function WorkPackageList({
         ) : null}
       </div>
 
-      {isSearching ? (
+      {zoneIsEmpty ? (
+        /* Spec 392 U3a — the chosen zone holds nothing. This sits ABOVE the
+           search branch on purpose: with a query typed as well, the searching
+           branch would blame the QUERY ("ไม่พบ…ที่ตรงกับคำค้น") for an emptiness
+           the ZONE caused, and clearing the query would flip the message.
+           Every lens below renders silently empty on an empty roster, so
+           without this the reader gets a page that looks broken. The filter row
+           above stays mounted, which is the way back out. */
+        <EmptyNotice>{zoneEmptyMessage}</EmptyNotice>
+      ) : isSearching ? (
         // Search active: flat, priority-ranked hit list across every lens.
         <div className="flex flex-col gap-2.5">
           {searchResults.length === 0 ? (
@@ -334,16 +357,7 @@ export function WorkPackageList({
             })}
           </div>
 
-          {/* Spec 392 U3a — a zone with nothing in it. Every lens below renders
-              silently empty on an empty roster, so without this the reader gets
-              a page that looks broken; and the sentence has to name the ZONE,
-              not the project, or it contradicts the list they just saw. The
-              filter row above stays mounted, which is the way back out. */}
-          {leaves.length === 0 && roster.sections.length === 0 ? (
-            <EmptyNotice>
-              ไม่มี{WP_LEAF_LABEL}ใน{ZONE_LABEL}นี้
-            </EmptyNotice>
-          ) : lens === "group" ? (
+          {lens === "group" ? (
             <GroupLens
               projectId={projectId}
               sections={roster.sections}

@@ -849,6 +849,11 @@ export const ZONE_LABEL = "โซน";
 export const ZONE_PROGRESS_LABEL = "ความคืบหน้าตามโซน";
 export const ZONE_UNSET_LABEL = "ยังไม่ระบุโซน";
 export const ZONE_FILTER_ALL_LABEL = "ทุกโซน";
+// Shown only when a zone actually has a child zone: the rollup indents a child
+// under its parent (true about the tree) while a parent's numbers count only
+// the work placed on the parent itself. Without the sentence the indent reads
+// as "this row summarises the ones below it", which it does not.
+export const ZONE_ROLLUP_OWN_ONLY_NOTE = "แต่ละแถวนับเฉพาะงานที่ระบุโซนนั้นโดยตรง";
 
 // Feedback 26425c1e/17cba555 — the procurement worklist product-name search.
 export const PRODUCT_SEARCH_LABEL = "ค้นหาสินค้า";

@@ -92,10 +92,17 @@ export function buildZoneRollup(args: {
   const bucketOf = (wp: RollupWorkPackage): string | null =>
     wp.categoryId !== null && knownCategoryIds.has(wp.categoryId) ? wp.categoryId : null;
 
+  // A zone_id pointing at a zone this reader cannot see is not "unzoned" — it
+  // is work whose placement is hidden, and reporting it as unplaced would
+  // overstate the remainder. Such rows leave the grid entirely, and they must
+  // leave before the columns are chosen: derived from every leaf, a category
+  // whose only work sits in hidden zones would survive as an all-zero column.
+  const counted = leaves.filter((leaf) => leaf.zoneId === null || zoneIds.has(leaf.zoneId));
+
   // Columns are the buckets that actually carry counted work, in the project's
   // own category order with the uncategorised bucket last. A phone cannot
   // scroll twenty empty columns, and an all-zero column states nothing.
-  const usedBuckets = new Set(leaves.map(bucketOf));
+  const usedBuckets = new Set(counted.map(bucketOf));
   const columns: RollupColumn[] = [
     ...[...categories]
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -115,12 +122,7 @@ export function buildZoneRollup(args: {
     return created;
   };
 
-  for (const leaf of leaves) {
-    // A zone_id pointing at a zone this reader cannot see is not "unzoned" — it
-    // is work whose placement is hidden, and reporting it as unplaced would
-    // overstate the remainder. It is dropped from the grid entirely; the row it
-    // belongs to is one the reader has no business seeing either.
-    if (leaf.zoneId !== null && !zoneIds.has(leaf.zoneId)) continue;
+  for (const leaf of counted) {
     const target = bucketFor(leaf.zoneId);
     const col = columnIndex.get(bucketOf(leaf));
     if (col !== undefined) target.cells[col] = (target.cells[col] ?? 0) + 1;

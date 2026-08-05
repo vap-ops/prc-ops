@@ -49,6 +49,16 @@ describe("WpZoneChip", () => {
     );
   });
 
+  it("gives the LINK the 44px tap floor, not just the pill", () => {
+    // The pill's geometry was borrowed from WorkCategoryBadge, a
+    // non-interactive <span> — ~22px tall. On a gloved-hand PWA that is a miss,
+    // and the badge it would be missed into sits a gap-1.5 away in the same
+    // row. The design-doctrine tap ratchet scans <button> tags only, so this is
+    // the only thing standing between that and production.
+    render(<WpZoneChip zone={{ code: "A1", name: "พื้นลานด้านซ้าย" }} href="/projects/p1/zones" />);
+    expect(screen.getByRole("link").className).toContain("min-h-11");
+  });
+
   it("names the destination for a screen reader — the chip's text alone reads as a label, not a door", () => {
     render(<WpZoneChip zone={{ code: "A1", name: "พื้นลานด้านซ้าย" }} href="/projects/p1/zones" />);
     expect(screen.getByRole("link").getAttribute("aria-label")).toContain("ผังโซน");
