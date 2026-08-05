@@ -11683,3 +11683,89 @@ closed`) → reopen ok → undo now works (4 rows → 3) → audit row reads
 - Gates: RED-first on both sides (pgTAP `42883 function does not exist`; vitest
   ENOENT on the action) · lint 0 · typecheck 0 · pgTAP **354 files / 7389
   assertions exit 0** (31 new) · live probes above.
+
+## 2026-08-05 — Spec 397 U4: the office muster team (lane attend)
+
+- **A team KIND, not a naming convention.** `muster_team_kind` (`crew` | `office`),
+  `muster_teams.kind` NOT NULL default `crew` — **all 44 live teams backfilled as
+  crew, none mislabelled** — a partial unique index for one office team per
+  project × date, and `open_muster_team` gains `p_kind`.
+- 🚨 **`lead_worker_id` was NOT NULL at the TABLE level.** My gate-check read the
+  FK and the indexes and never checked nullability, so the first office insert
+  died `23502` — no RPC logic could have talked around it. Dropping the constraint
+  outright would let a CREW team exist with no lead, and the cockpit board GROUPS
+  by lead, so the rule moved from "always" to per-kind:
+  `CHECK (kind = 'office' OR lead_worker_id IS NOT NULL)` — strictly STRONGER than
+  the old NOT NULL for crew rows, and the only thing that permits a leadless
+  office row. ⭐ **A column's nullability is part of its contract; reading the FK
+  and the index is not reading the column.**
+- ⚠️ **The 3-arg `open_muster_team` is DROPPED, not left beside the 4-arg one** —
+  two overloads make PostgREST resolve by argument NAMES, so an existing 3-name
+  call would go ambiguous instead of picking up the default. Verified live: a
+  3-arg call still opens a CREW team. **The drop takes the old ACL with it**, so
+  the `revoke … from public, anon` is mandatory — a new function is born
+  EXECUTE-able by anon, and `306-muster.test.sql` (which pins that revoke) had to
+  move to the new signature or 42883 took the whole file down.
+- ⚠️ **The migration was already hand-applied when the NOT NULL surfaced** (live
+  carried U3's `…907`, which is not on this branch, so `db:push` refused with
+  drift and the documented `db query -f` escape was used). Rather than patch live,
+  I proved the new objects EMPTY, **reset the schema to its true pre-state** —
+  including restoring the original 3-arg function from its captured definition —
+  and replayed the corrected file end to end, so the committed file is
+  byte-for-byte what ran. Registered with `migration repair --status applied`
+  (never `--status reverted`, which rewrites another lane's history).
+- ⭐ **Two of my own asserts were wrong, and one was VACUOUS.** Calling the RPC
+  inside `where id = fn(...)` runs the insert but reads against the statement's own
+  snapshot, so the new row is invisible and the assert saw NULL — which the
+  leadless case would then have "passed" trivially (NULL is NULL). The call is its
+  own statement now, and idempotency compares the returned ids.
+- ⓘ **Reader classification, decided once and pinned:** board + prior-suggestion
+  rows + the /team วันนี้ card filter `kind = 'crew'`; the by-lead read needs no
+  filter (`eq(lead_worker_id)` never matches null); **`loadUnclosedPriorDays` is
+  deliberately NOT filtered** — closure is a project-DAY fact, so an office-only
+  day still needs closing and a filter there would hide it.
+- ⓘ Making the lead nullable widened the generated type for every reader; the
+  crew paths NARROW with `flatMap` (unreachable given the CHECK) rather than cast.
+- ✅ **Live end-to-end as the site_admin who actually opens teams there** (32 of
+  them), rolled back: office team opened leadless → opening again returns the SAME
+  team → a legacy 3-arg call still yields `crew` → the office worker scanned in →
+  a leadless CREW is refused `P0001` → the board reads 1 crew · 1 office excluded
+  → no leadless crew row exists. ⚠️ The first attempt used the wrong principal (a
+  site_admin who is not a member of that project) and got a correct `42501` — pick
+  the account that does the work, not the first row.
+- 🚨 **The fresh-eyes review found a 🔴 the whole unit turned on: the two upsert
+  arbiters OVERLAPPED.** The pre-existing `UNIQUE (project, date, lead)` is a FULL
+  index, so it covers office rows too — with an office team carrying a lead L, a
+  CREW upsert on the same `(project, date, L)` conflicts against the OFFICE row,
+  updates nothing, and returns the **office team's id**. The SA would then scan
+  the whole lineup into a team the cockpit filters out, and both the board and the
+  วันนี้ card would show the day as empty. Fixed by making the crew constraint
+  PARTIAL too (`where kind = 'crew'`), so the two kinds live in disjoint
+  namespaces and each arbiter can only match its own. ⭐ **Adding a discriminator
+  column to a table with an existing unique constraint means re-reading that
+  constraint: a full index silently spans the new partition.**
+- ⚠️ **Also from the review, all fixed:** `p_kind` was defaulted but not guarded
+  against an explicit `null` (PostgREST forwards one, and every `=` comparison
+  then yields NULL — the honest P0001 would be skipped and a CREW team created for
+  a caller who asked for office) ⇒ `coalesce` once into `v_kind` · the office
+  upsert's `do update … coalesce(excluded.lead, t.lead)` was described as a no-op
+  but would silently REASSIGN the office lead, unaudited ⇒ genuinely inert now,
+  appointment belongs to U5 · `muster_scan_in` resolves its "already in another
+  team" message through an **INNER** join on the other team's lead, so a leadless
+  office team fell through to the cross-project privacy fallback and told the SA
+  the worker was "mustered elsewhere" — false, and unfindable, for someone
+  standing on the same site ⇒ LEFT join + its own message + a mapper arm + a test ·
+  the CHECK had no table-level pin (the RPC refusal left it deletable) · the index
+  pin was three loose `ilike`s that a unique index on `(kind)` alone would satisfy.
+- ⚠️ **The migration had been hand-applied TWICE by then** (drift: live carries
+  U3's `…907`, absent from this branch). Each time: prove the objects empty, reset
+  to the true pre-state — restoring the original constraint, the 3-arg function
+  AND the original `muster_scan_in` from their captured live definitions — then
+  replay the committed file whole. The file is byte-for-byte what ran.
+- ⚑ **Two review findings recorded, NOT built (spec §9):** `set_muster_team_wps`
+  has no kind check, so binding a WP to the office team is still a wage path that
+  only rate-0 and zero-WPs keep shut (Q9) · the unclosed-day banner's `N ทีม`
+  counts the office team while the วันนี้ card does not (Q10, U5's to reconcile).
+- Gates: RED-first on both sides · lint 0 · typecheck 0 · vitest **872 files /
+  7124 tests exit 0** (pre-review-fix) · pgTAP **354 files / 7385 assertions exit
+  0** (27 new).

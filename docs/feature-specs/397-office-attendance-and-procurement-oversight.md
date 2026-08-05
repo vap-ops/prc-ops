@@ -96,6 +96,27 @@ write RPCs: procurement has no cockpit door, so that privilege would be dead
 weight. Giving procurement a scanning surface is a separate unit if it is ever
 wanted.
 
+⚠️ **Built, and it cost two corrections worth recording.** ① `lead_worker_id` was
+`NOT NULL` **at the table level**, so no amount of RPC logic could have allowed a
+leadless office team — the first insert died `23502`. Dropping that constraint
+outright would let a CREW team exist with no lead, and the cockpit board GROUPS by
+lead, so the rule moved from "always" to per-kind:
+`CHECK (kind = 'office' OR lead_worker_id IS NOT NULL)`, strictly stronger than
+the old NOT NULL for crew rows. ② The 3-arg `open_muster_team` is **dropped**, not
+left beside the 4-arg one — two overloads make PostgREST resolve by argument
+NAMES, so an existing 3-name call would go ambiguous instead of defaulting. The
+drop also takes the old ACL, so the `revoke … from public, anon` is mandatory: a
+new function is born executable by anon.
+
+**5.2a Which readers exclude the office team, decided once.** `loadMusterBoard`
+(groups by lead — a leadless team renders headless) and the prior-day rows that
+seed crew suggestions filter `kind = 'crew'`; so does the `/team` hub's วันนี้
+card, because that card is the crew's and U5 owns the office surface. The
+prior-team-BY-LEAD read needs no filter (`eq(lead_worker_id)` never matches null),
+and **`loadUnclosedPriorDays` is deliberately NOT filtered** — closure is a
+project-DAY fact, so an office-only day still needs closing and filtering there
+would hide it. All five classifications are pinned in `office-team-kind.test.ts`.
+
 **5.3 Correcting a closed day needs a reopen, and the reopen is the danger.**
 There is no un-close path by design. The unit adds `reopen_muster_day(project,
 date, reason)` — audited, reason mandatory — which deletes the closure row and, when
@@ -148,6 +169,21 @@ U3 is independent of both and carries its own risk.
 - **Q1 — office people in `workers` surfaces.** A rate-0 office row appears in the
   roster, the badge sheet, `/workers`, and the payout-account audit (spec 395).
   Filter them out by `kind`/`employment_type`, or accept the noise?
+- **Q9 — an office team can still be bound to a WP, and that IS a wage path.**
+  `set_muster_team_wps` accepts any `muster_teams` row (no kind check) and
+  `derive_muster_labor` joins attendance to teams without one, so binding a WP to
+  the office team would book a wage for any office attendee who later gains a
+  confirmed rate. §8 says "no wage path for office staff", and today TWO accidents
+  hold it shut — rate 0, and zero WPs on that team — neither of them a constraint.
+  Guard `set_muster_team_wps` with `kind <> 'office'`, or accept it? Found by the
+  U4 review; deliberately not built, because it changes another RPC's contract.
+- **Q10 — the unclosed-day banner counts teams, including the office one.**
+  `loadUnclosedPriorDays` is (correctly) unfiltered — closure is a project-day
+  fact — and its `teamCount` renders as `N ทีม`. So an office-only day will read
+  "1 ทีม" while the crew-filtered วันนี้ card reads `not_started` and the board is
+  empty: one surface nags to close a day another says never happened. Unreachable
+  until U5 creates office teams; U5 should decide whether that count means crews
+  or teams.
 - **Q2 — who may reopen a closed day?** U3 assumes the same set that may close it
   plus `procurement`. `site_admin` closing and `procurement` reopening is the
   separation of powers ADR 0075 wants; confirm before building.

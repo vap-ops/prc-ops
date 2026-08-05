@@ -201,12 +201,24 @@ export async function loadMusterBoard(
   projectId: string,
   date: string,
 ): Promise<MusterBoard> {
-  const { data: teams } = await supabase
+  // Spec 397 U4 — CREW only. This board groups by lead_worker_id, and an office
+  // team is deliberately leadless, so an unfiltered read would render a headless
+  // group where the หัวหน้าชุด belongs. The office team has its own surface (U5).
+  const { data: rawTeams } = await supabase
     .from("muster_teams")
     .select("id, lead_worker_id")
     .eq("project_id", projectId)
-    .eq("work_date", date);
-  const teamIds = (teams ?? []).map((t) => t.id);
+    .eq("work_date", date)
+    .eq("kind", "crew");
+  // Spec 397 U4 made `lead_worker_id` nullable for the office kind, so the
+  // generated type widened for every read. A crew team ALWAYS has a lead —
+  // `muster_teams_crew_has_lead` enforces it in the database — so this narrows
+  // rather than casts: the filter is unreachable for crew rows, and if the CHECK
+  // is ever weakened the board drops the headless row instead of rendering it.
+  const teams = (rawTeams ?? []).flatMap((t) =>
+    t.lead_worker_id === null ? [] : [{ id: t.id, lead_worker_id: t.lead_worker_id }],
+  );
+  const teamIds = teams.map((t) => t.id);
 
   const [attendanceRes, teamWpsRes, workersRes, leafRes, parentRes, closureRes] = await Promise.all(
     [
@@ -268,7 +280,10 @@ export async function loadMusterBoard(
   // Spec 357 U-B — each lead's latest PRIOR muster team → its WP set (the
   // picker's carry-over seed). One limit-1 query per lead (a board has a
   // handful of teams; PostgREST has no distinct-on), then one wps fetch.
-  const leads = [...new Set((teams ?? []).map((t) => t.lead_worker_id))];
+  // Spec 397 U4 — no kind filter needed below: this reads the prior team OF A
+  // LEAD, and an office team is leadless, so `eq(lead_worker_id, …)` can never
+  // match one. Left unfiltered deliberately, pinned in office-team-kind.test.ts.
+  const leads = [...new Set(teams.map((t) => t.lead_worker_id))];
   const priorTeams = await Promise.all(
     leads.map(async (lead) => {
       const { data } = await supabase
@@ -283,7 +298,12 @@ export async function loadMusterBoard(
       return data;
     }),
   );
-  const priorList = priorTeams.filter((t): t is NonNullable<typeof t> => t !== null);
+  // Narrow the lead here too — this list is keyed BY lead downstream. These rows
+  // were fetched with `eq("lead_worker_id", lead)` on a non-null lead, so the
+  // null arm is unreachable; it exists because the column's type widened in U4.
+  const priorList = priorTeams.flatMap((t) =>
+    t === null || t.lead_worker_id === null ? [] : [{ id: t.id, lead_worker_id: t.lead_worker_id }],
+  );
   const priorWpsRes = priorList.length
     ? await supabase
         .from("muster_team_wps")
@@ -333,12 +353,24 @@ export async function loadMusterBoard(
   // silently mislabel them ครั้งแรก. Rows are three small columns and only exist
   // for days a team was actually opened, so the read stays modest; if a project
   // ever accumulates years of muster this is the query to revisit.
+  // Spec 397 U4 — CREW only: these prior rows seed the crew suggestions, and an
+  // office attendee must never be suggested into a ช่าง crew.
   const { data: priorTeamRows } = await supabase
     .from("muster_teams")
     .select("id, lead_worker_id, work_date")
     .eq("project_id", projectId)
-    .lt("work_date", date);
-  const priorTeamById = new Map((priorTeamRows ?? []).map((t) => [t.id, t]));
+    .lt("work_date", date)
+    .eq("kind", "crew");
+  // Same narrowing as the day's board above, and for the same reason: crew rows
+  // always carry a lead (`muster_teams_crew_has_lead`), but the generated type
+  // widened when the office kind made the column nullable.
+  const priorTeamById = new Map(
+    (priorTeamRows ?? []).flatMap((t) =>
+      t.lead_worker_id === null
+        ? []
+        : [[t.id, { id: t.id, lead_worker_id: t.lead_worker_id, work_date: t.work_date }] as const],
+    ),
+  );
   const priorAttendanceRes = priorTeamById.size
     ? await supabase
         .from("muster_attendance")
