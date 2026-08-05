@@ -53,7 +53,6 @@ import {
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE,
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT,
   PAYOUT_ACCOUNT_RECORD_CTA,
-  PAYOUT_ACCOUNT_REVIEW_EMPTY,
   PAYOUT_ACCOUNT_REVIEW_FILTER,
   PAYOUT_ACCOUNT_REVIEW_FILTER_ALL,
   PAYOUT_ACCOUNT_SHARED_WITH_NOBODY,
@@ -1749,13 +1748,14 @@ export function WorkerRosterManager({
       {/* ⚠️ Names the RIGHT cause. With the review filter on, "ไม่พบช่างที่ค้นหา" would be
           false whenever the search DID match somebody the filter then hid — the honest-copy
           rule: a message must not report a cause that is not the one that emptied the list. */}
+      {/* ⚠️ There is deliberately NO "the review filter emptied this" arm: `reviewActive`
+          already requires `flaggedCount > 0`, so an active filter always yields at least
+          one row and that branch is unreachable. A mutation proved it — the arm survived
+          every test because nothing can reach it. An unreachable message asserts a hazard
+          that does not exist (spec 340's lesson), so it is gone rather than pinned. */}
       {queried.length === 0 ? (
         <p className="text-ink-secondary text-body">
-          {reviewActive && searched.length > 0
-            ? PAYOUT_ACCOUNT_REVIEW_EMPTY
-            : searching
-              ? "ไม่พบช่างที่ค้นหา"
-              : "ยังไม่มีช่างในทะเบียน"}
+          {searching ? "ไม่พบช่างที่ค้นหา" : "ยังไม่มีช่างในทะเบียน"}
         </p>
       ) : null}
 

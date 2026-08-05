@@ -203,18 +203,28 @@ describe("WorkerRosterManager — spec 395 U4, working the flagged accounts", ()
   // The 2026-08-04 duplicate-เลขบัตร fix hands back the colliding ช่าง's name and searches
   // for it to put their row on screen. With a latched review filter and that worker not
   // flagged, the row never appears and the refusal points at nobody.
+  // ⚠️ The search term must match BOTH a flagged and an unflagged worker. A term matching
+  // only the unflagged one drives `flaggedCount` to 0, which switches the filter off via a
+  // DIFFERENT clause — so the mutant that removes `!searching` survives and the test proves
+  // nothing. (Found by exactly that surviving mutant.)
   it("lets a live search override the filter, as the การจ่าย chip already does", () => {
     render(
       <WorkerRosterManager
-        workers={[flagged({ id: "a", name: "ต้องตรวจ" }), { ...BASE, id: "b", name: "ปกติดี" }]}
+        workers={[
+          flagged({ id: "a", name: "สมชาย ต้องตรวจ" }),
+          { ...BASE, id: "b", name: "สมชาย ปกติดี" },
+        ]}
         contractors={[]}
       />,
     );
     fireEvent.click(screen.getByRole("radio", { name: `${PAYOUT_ACCOUNT_REVIEW_FILTER} (1)` }));
-    expect(screen.queryByText("ปกติดี")).not.toBeInTheDocument();
+    expect(screen.queryByText("สมชาย ปกติดี")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("ค้นหาช่าง"), { target: { value: "ปกติดี" } });
-    expect(screen.getByText("ปกติดี")).toBeInTheDocument();
+    // "สมชาย" matches both, so flaggedCount stays 1 — only `!searching` can let the
+    // unflagged row back in.
+    fireEvent.change(screen.getByLabelText("ค้นหาช่าง"), { target: { value: "สมชาย" } });
+    expect(screen.getByText("สมชาย ปกติดี")).toBeInTheDocument();
+    expect(screen.getByText("สมชาย ต้องตรวจ")).toBeInTheDocument();
   });
 
   // The COMPLETION path: the reviewer fixes the last flagged worker, the list refreshes,

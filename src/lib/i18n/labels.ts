@@ -1675,7 +1675,6 @@ export const PAYOUT_NOMINEE_REASON_NOT_OWN = "บัญชีอาจไม่�
 // ⚠️ Counts WORKERS, not accounts — 8 flagged workers sit on 4 accounts — so the noun is
 // ช่าง. `accountWorkerCount`'s own comment warns about exactly this confusion.
 export const PAYOUT_ACCOUNT_REVIEW_FILTER = "ช่างที่ต้องตรวจบัญชี";
-export const PAYOUT_ACCOUNT_REVIEW_EMPTY = "ไม่มีช่างที่ต้องตรวจบัญชีในรายการนี้";
 // ⚠️ Says บัญชี, not a bare "ทั้งหมด": the การจ่าย chips directly below already open with
 // "ทั้งหมด (N)", and two adjacent rows both starting that way is ambiguous on screen —
 // the reader cannot tell which axis they just cleared. Naming the axis fixes it for the
