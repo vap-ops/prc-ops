@@ -11561,3 +11561,49 @@ only the first. U2b needs either a unique index or a map switcher.
 - ⓘ The card is deliberately NOT in `PROCUREMENT_STR_SECTIONS`: that grid is the
   purchasing spine, and attendance oversight is not a purchasing door (the
   คำขอสมัคร nudge sits outside it for the same reason). Recorded in the spec.
+
+## 2026-08-05 — Spec 398: self-hosted photo thumbnails (lane thumbs)
+
+- **Trigger was a dashboard badge, not a bug report.** The Supabase org read
+  `EXCEEDING USAGE LIMITS`: **Storage Image Transformations 689 / 100 (689%)**, overage 589,
+  cycle 19 Jul – 19 Aug. Every other metric comfortable (egress 5%, storage 2%, MAU <1%).
+  Cause: `mint-thumbnails.ts` minted a `transform:{320,320,contain}` URL **per photo**, and
+  that API meters **distinct origin images per cycle** — 2,768 objects, 2,268 uploaded in
+  July alone. The included 100 does not grow with the plan.
+- ⭐ **PROVED IT WAS NOT ACTUALLY RESTRICTED BEFORE TREATING IT AS AN OUTAGE.** Signed the app's
+  exact URL shape at an **unusual 317×317 on the OLDEST object in the bucket** — uncacheable by
+  construction — and got `HTTP 200`, 20 KB from a 1.2 MB original, with a plain signed URL as
+  the positive control. The transformer was serving fresh renders at 689% of quota. The real
+  risk was never a visible break: `mintPhotoThumbnails` swallows a thumb error and **drops the
+  photo**, so a restriction would surface as silently blank strips.
+- ⭐ **THE DESIGN SIMPLIFIER WAS ONE LIVE QUERY: the `photos` bucket already allows
+  `image/webp`.** So thumbnails are stored objects at `thumbs/<path>.webp` in the SAME bucket —
+  no new bucket, no migration, no schema lane (which lane `attend` held), and the existing
+  Storage RLS covers them unchanged.
+- **A miss falls back to FULL SIZE, deliberately not to the transform.** Keeping transform as
+  the fallback leaves the meter armed to blow again silently. And never to nothing: both
+  callers drop a row with no URL (`schedule/actions.ts` `if (!url) continue`,
+  `reference-photo-section.tsx` flatMap), so the fallback is load-bearing, not a nicety.
+- 🚨 **THE FULL SUITE CAUGHT A REAL DEFECT NO UNIT TEST WOULD HAVE.** `after()` throws
+  "called outside a request scope" when its caller is not a request, and it was **propagating
+  out of `addPhoto`** — 7 existing `defect-photo-addphoto` tests went red. In production that
+  means an insert that **already landed** reporting failure, and the ADR 0039 offline queue
+  retrying it **forever**. Fix guards the _scheduling call_, not merely the callback; the 7
+  tests then passed **with their file untouched**, which is what proved the defect was mine.
+  ⭐ Generalises: when you add a best-effort side effect to a critical write path, the call
+  that REGISTERS it can throw too.
+- **Backfill against prod:** `created 2735 · exists 0 · failed 14` ⇒ 2,740 thumbnails, 14 MB,
+  avg 14.7 KB. Coverage **2,740 / 2,754 `photo_logs` objects = 99.49%**. A stored thumb serves
+  **5,102 B** against a 567,693 B original — smaller than the transform's own 9,918 B output.
+- ⛔ **HEIC cannot be thumbnailed on this stack and is still arriving** (10 objects, newest
+  2026-07-31): the prebuilt libheif in `sharp` has no HEVC decoder. `unlimited: true` clears a
+  different (`iloc`) limit — tried, still failed, **reverted rather than left in buying
+  nothing**. Those photos serve at full size. Owed decision in spec §5: fix the upload path
+  that bypasses the client canvas re-encode, or drop `heic` from the bucket's allowed types
+  (which can reject a real field upload, so it is the operator's call).
+- **Gate 4 was the rendered page, not the tests:** a real WP-detail render under a real session
+  carried **8** `object/sign/photos/thumbs/` URLs and **zero** `render/image/` URLs, and
+  fetching one of those exact URLs returned `HTTP 200 image/webp 16,220 B`.
+- 4/4 mutants killed (fallback · key derivation · call site · ASCII guard). Full suite
+  **870 files / 7109 tests exit 0** through git bash — the 10 `ship-pr-*` reds under
+  PowerShell are the documented PATH quirk, not the change.
