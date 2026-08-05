@@ -46,11 +46,17 @@ describe("the review voucher wires the waiver panel", () => {
   // there would pass with the panel rendered anywhere at all.
   const panelUse = () => PAGE.lastIndexOf("<PurchaseDocWaiverPanel");
 
+  // Mutation-proved: a bare lastIndexOf(guard, panel) SURVIVES deleting this
+  // guard, because the page already tests the same source ABOVE (the "full
+  // purchase document" link) and the scan silently finds THAT one. The window
+  // is therefore anchored to the read-only marker that ends the review section,
+  // so only a guard belonging to the waiver section can satisfy it.
   it("renders it only for purchase_requests", () => {
     const use = panelUse();
-    expect(use).toBeGreaterThan(-1);
-    const guard = PAGE.lastIndexOf('event.sourceTable === "purchase_requests"', use);
-    expect(guard).toBeGreaterThan(-1);
+    const anchor = PAGE.indexOf("ดูอย่างเดียว");
+    expect(anchor).toBeGreaterThan(-1);
+    expect(use).toBeGreaterThan(anchor);
+    expect(PAGE.slice(anchor, use)).toContain('event.sourceTable === "purchase_requests"');
   });
 
   it("keeps the panel inside the MONEY_REVIEW_ROLES branch, not the read-only one", () => {
