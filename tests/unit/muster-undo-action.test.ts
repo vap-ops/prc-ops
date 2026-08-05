@@ -109,10 +109,18 @@ describe("undoMusterScan — the four new refusals get their own Thai", () => {
     expect(e).toContain("ยกเลิก");
   });
 
-  it("says a closed day cannot be retracted, and who to ask", async () => {
+  // Spec 397 U3 changed this refusal's TRUTH: reopen_muster_day now exists, so
+  // "ยกเลิกไม่ได้ ต้องแจ้งผู้จัดการ" named a dead end that is no longer one. The
+  // copy states the PRECONDITION instead — and deliberately does not name the
+  // surface, because site_admin (the main cockpit user) cannot open the page the
+  // reopen form lives on (§9 Q8). So: no "ผู้จัดการ" hand-off, and no claim that
+  // the retraction is impossible.
+  it("says a closed day must be reopened first — not that it is impossible", async () => {
     const e = await errorFor("muster_undo_scan: the day is already closed");
     expect(e).toContain("ปิดวัน");
-    expect(e).toContain("ผู้จัดการ");
+    expect(e).toContain("เปิดวันนั้นอีกครั้ง");
+    expect(e).not.toContain("ยกเลิกไม่ได้");
+    expect(e).not.toContain("ผู้จัดการ");
   });
 
   it("says the wage is already booked, and who to ask", async () => {
