@@ -11561,3 +11561,51 @@ only the first. U2b needs either a unique index or a map switcher.
 - ⓘ The card is deliberately NOT in `PROCUREMENT_STR_SECTIONS`: that grid is the
   purchasing spine, and attendance oversight is not a purchasing door (the
   คำขอสมัคร nudge sits outside it for the same reason). Recorded in the spec.
+
+## 2026-08-05 — Spec 392 U3a: the zone read surfaces (lane zones)
+
+**Unit:** U3a — the zone chip on the work-package detail, the zone × หมวดงาน
+rollup on the project page, and the zone filter on the work list. **CODE +
+TESTS ONLY, NO SCHEMA** — the schema lane is held by lane `attend`, so U3b (the
+ช่าง's own zone, which is a return-type change to `get_my_assigned_work`) is
+deliberately not in this unit.
+
+- ⭐ **The gate is the DATA, not a role list.** `project_zones` SELECT is
+  `procurement/procurement_manager OR can_see_project`, and `can_see_project` is
+  live-FALSE for `technician` on every arm (read live, U1's gate-check). So the
+  WP detail fetches the zone as a PostgREST **embed on the read it already
+  runs** — a reader the policy withholds it from gets `null` and the chip
+  renders nothing. A role-list gate would have been a second copy of the policy,
+  free to drift from it; this one cannot.
+- ⭐ **The chip's LINK is a second, narrower gate.** `/projects/:id/zones` is
+  `requireRole(PM_ROLES)`, which REDIRECTS anyone else to their role home — so a
+  `site_admin` who can read the zone still cannot open the map. For them the
+  chip states the zone and offers no door, rather than a link that ejects them
+  off the page they are standing on. That is the affordance-then-refuse defect
+  the U1 gate-check warned U3 about.
+- ⚠️ **The zones route is MULTI-PARENT from this unit on** (the project header
+  chip from U2a, plus this one), so the chip threads `?from` and the route is
+  registered in `MULTI_PARENT_DETAILS`. Its back LABEL needs no resolution —
+  "ย้อนกลับ" names no destination, so a second parent cannot make it lie (unlike
+  spec 397 U2's ทีมงาน/จัดซื้อ chip).
+- ⭐ **The rollup REPORTS THE REMAINDER.** `work_packages.zone_id` is permanently
+  nullable and 1,307 live rows carry no zone, so a grid of only the mapped work
+  reads as full coverage. `ยังไม่ระบุโซน` is a row in the table, not a footnote —
+  and it is exactly the fill rate spec 392 §8 accepts on. Only LEAF WPs count; a
+  `is_group` row would add its own children a second time.
+- ⚠️ **Adding a filter to a surface that already has filters means testing the
+  COMBINATIONS** (the spec 395 U4 lesson — four blank-page bugs, including the
+  completion path). Three real defects were designed out rather than found:
+  the งาน-lens OPTION list now derives from the UNFILTERED roster (deriving it
+  from the filtered one makes the option vanish while `lens` still holds
+  "group" — a selected lens with no control); the `workPackages.length === 0`
+  early return stays keyed on the UNFILTERED list, so an empty zone cannot
+  delete the filter row that is the way back out; and an empty zone gets its own
+  sentence naming the ZONE, because every lens renders silently empty.
+- ⓘ The chip renders on the **งาน** detail as well as the งานย่อย one: `zone_id`
+  is a column on every `work_packages` row, so a zone set on a group would
+  otherwise be write-only.
+- ⚑ **Open question, not implemented:** nothing writes `work_packages.zone_id`
+  from the UI yet — `set_wp_zone` exists (U1) and U4 owns the assignment review
+  screen. Until then every one of these surfaces renders its empty state, which
+  is expected and is the acceptance measurement, not a bug.

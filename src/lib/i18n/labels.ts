@@ -840,6 +840,16 @@ export const SUPPLY_PLAN_LABEL = "แผนจัดหา";
 export const ZONE_MAP_LABEL = "ผังโซน";
 export const ZONE_LABEL = "โซน";
 
+// Spec 392 U3a — the read surfaces.
+// ZONE_UNSET_LABEL names the same fact in two places (the rollup's remainder
+// row and the work-list's filter chip), which is exactly the 2+-sites rule that
+// puts a term here. It is deliberately a NEUTRAL statement, not a warning:
+// zone_id is permanently nullable (a WP spanning the whole site never gets one),
+// so "not placed yet" must never read as an error.
+export const ZONE_PROGRESS_LABEL = "ความคืบหน้าตามโซน";
+export const ZONE_UNSET_LABEL = "ยังไม่ระบุโซน";
+export const ZONE_FILTER_ALL_LABEL = "ทุกโซน";
+
 // Feedback 26425c1e/17cba555 — the procurement worklist product-name search.
 export const PRODUCT_SEARCH_LABEL = "ค้นหาสินค้า";
 
