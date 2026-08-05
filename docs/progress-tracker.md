@@ -11607,5 +11607,58 @@ deliberately not in this unit.
   otherwise be write-only.
 - ⚑ **Open question, not implemented:** nothing writes `work_packages.zone_id`
   from the UI yet — `set_wp_zone` exists (U1) and U4 owns the assignment review
-  screen. Until then every one of these surfaces renders its empty state, which
-  is expected and is the acceptance measurement, not a bug.
+  screen. While `project_zones` stays at 0 rows all three surfaces render
+  nothing at all, which is expected and is the acceptance measurement. ⚠️ The
+  state AFTER a PM draws the first map is different and worth naming: every zone
+  is empty, so the grid's own cells read `—` (not `0%`, which would claim the
+  work is un-started rather than absent) and `ยังไม่ระบุโซน` holds 100% of the
+  project until U4 lands.
+
+**Fresh-eyes review — the findings that changed the code.** Two CI reds it
+caught had already been fixed by the time it reported (a shared `CELL` constant
+setting a colour its call sites override, which the `ui-class-contracts`
+contract forbids because the winner is decided by generated-stylesheet order;
+and the new `components/features/zones/` folder missing from the domain
+allowlist). What survived:
+
+- 🚨 **The empty-zone test was VACUOUS and the unit's own note claimed the
+  defect was designed out.** It asserted only that the PROJECT-level sentence
+  was absent — and with the whole branch deleted the action lens renders its
+  band chips over an empty roster and names nothing, so it passed either way.
+  The sentence itself is now pinned, mutation-checked.
+- 🚨 **The empty-zone notice sat inside the `!isSearching` branch**, so a search
+  typed inside an empty zone blamed the QUERY for an emptiness the ZONE caused —
+  and clearing the query flipped the message, which is the tell. Hoisted above
+  the search branch.
+- 🚨 **`ยังไม่ระบุโซน` is not a zone.** The single empty-state sentence told a
+  reader who had just placed the last งานย่อย that "there is no งานย่อย in this
+  zone" — the wrong fact about the wrong thing, and it hid the one fact they
+  were checking for. That bucket now gets its own sentence.
+- 🚨 **The chip was a ~22px tap target.** Its pill geometry was borrowed from
+  `WorkCategoryBadge`, a non-interactive `<span>`; as a `<Link>` on a
+  gloved-hand PWA that is a miss, into the very badge sitting `gap-1.5` away.
+  The 44px floor now lives on the anchor, the pill keeps its size. ⚠️ The
+  design-doctrine tap ratchet scans `<button>` tags only and declares
+  non-`<button>` interactive elements a blind spot — nothing else would have
+  caught it.
+- ⚑ **A parent zone's row counts only its OWN directly-placed work, while the
+  grid INDENTS its children under it** — an indented `อาคาร A — 0 — 0%` above a
+  full `A1` would read as "อาคาร A is not started". Not silently changed:
+  aggregating a subtree would also have to change the zone list's counts, and
+  `zone-sheet.tsx` exposes no parent picker so nesting is RPC-only today. The
+  grid now says so out loud, **but only when a zone actually has a child**, and
+  whether a parent SHOULD aggregate is recorded as U4's decision.
+- ⚠️ **A source pin that asserted a made-up identifier** (`not.toContain
+("canSeeZones")` — that name has never existed, so `canReadZones` or an inline
+  `PM_ROLES.includes(…)` sailed through). Replaced with a structural check on
+  the render line itself.
+- Also: work placed in a zone the reader cannot see is now dropped BEFORE the
+  columns are chosen (a category whose only work sits in hidden zones survived
+  as an all-zero column); `depth` is no longer threaded into the filter chips,
+  which are a flat scroller and cannot indent; and the "the map, the list and
+  this page cannot disagree" comment was overstated — `/zones` renders one map
+  at a time while this loader reads every zone of the project, which is the same
+  gap as U2b's owed map switcher.
+- ⭐ **22 mutants, 22 kills** across two rounds. The harness gates on a dirty
+  target (exit 1, not a printed warning), refuses an ambiguous anchor, prints
+  its landing line, and aborts on a zero-ran filter.
