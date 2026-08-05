@@ -285,8 +285,15 @@ describe("<RouteAnnouncer> watches the document title for arrivals", () => {
     render(<RouteAnnouncer />);
     await act(async () => {});
 
+    // The remove and the add MUST be separate flushes. MutationObserver
+    // batches into one microtask, so doing both inside a single act() means the
+    // callback only ever sees the finished state and the empty moment never
+    // happens — a mutation proved that version could not catch this either. The
+    // real thing is two events ~27ms apart.
     await act(async () => {
       document.head.querySelector("title")?.remove();
+    });
+    await act(async () => {
       const t = document.createElement("title");
       t.textContent = "หน้าหลัก" + APP_TITLE_SUFFIX;
       document.head.appendChild(t);
