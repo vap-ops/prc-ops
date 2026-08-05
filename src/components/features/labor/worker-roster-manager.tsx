@@ -555,6 +555,11 @@ function WorkerRow({
   // Spec 395 U3 — transient ROUTING only, never written. §4 forbids a new column on
   // `workers`, and that is the right call: U1 re-derives the truth from the account
   // itself, so this answer cannot rot into a stale "someone said this was fine".
+  //
+  // ⓘ This initial value is NOT observable: `openEditor()` re-seeds it on every open,
+  // including the first, so the sheet always starts at "ของช่างเอง" regardless. A
+  // mutation flipping it to `true` therefore survives — an EQUIVALENT mutant, not a
+  // coverage hole. The behaviour that matters is pinned on the re-seed instead.
   const [bankOwnerIsOther, setBankOwnerIsOther] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // #945 parity: the other ช่าง the typed เลขบัตร belongs to — it earns a door

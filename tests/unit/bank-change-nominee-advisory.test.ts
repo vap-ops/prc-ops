@@ -65,6 +65,16 @@ describe("requestedAccountNameDiffers", () => {
     expect(requestedAccountNameDiffers(item({ accountName: "นาย" }))).toBe(true);
   });
 
+  // ⚠️ The case that actually needs the empty-guard, found by a SURVIVING mutant: with a
+  // real worker name, `person !== holder` already flags a blank holder, so deleting the
+  // guard changed nothing and every test stayed green. The guard only bites when BOTH
+  // sides normalise to empty — a placeholder worker name against a bare-honorific holder,
+  // where "they match" would be the most dangerous possible reading.
+  it("flags when BOTH names normalise away — matching on nothing is not matching", () => {
+    expect(requestedAccountNameDiffers(item({ name: "นาย", accountName: "นาง" }))).toBe(true);
+    expect(requestedAccountNameDiffers(item({ name: "นาย", accountName: "นาย" }))).toBe(true);
+  });
+
   // A contractor's holder is the FIRM. Comparing it to a person's name would fire on
   // essentially every contractor request and teach the approver to ignore the notice.
   it("never fires on a contractor request, whose holder is a company", () => {
