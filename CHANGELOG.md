@@ -1,3 +1,10 @@
+## [0.340.2](https://github.com/vap-ops/prc-ops/compare/v0.340.1...v0.340.2) (2026-08-05)
+
+### Bug Fixes
+
+- **chrome:** PageSkeleton renders PageShell so 38 loading boundaries scroll ([a9521f0](https://github.com/vap-ops/prc-ops/commit/a9521f0bd528b081b66108884b0b44b66359374f))
+- **tests:** close six fresh-eyes findings in this lane's own guards ([ab91ee4](https://github.com/vap-ops/prc-ops/commit/ab91ee4f68df18ae3e25e2ca2d16d2a3d6e60d0f))
+
 ## [0.340.1](https://github.com/vap-ops/prc-ops/compare/v0.340.0...v0.340.1) (2026-08-05)
 
 ### Bug Fixes
