@@ -1635,6 +1635,41 @@ export const PAYOUT_ACCOUNT_OWNER_SHARED_HINT =
 // tap and dead-ends at an unobtainable artifact is worse than one that says the price.
 export const PAYOUT_ACCOUNT_RECORD_CTA = "บันทึกบัญชีตัวแทน (ต้องแนบหนังสือยินยอม)";
 
+// Spec 395 U3 — asked beside the bank fields, where a third-party account is actually
+// typed. U1 detects and U2 badges, but both act on what is ALREADY stored; §2 argues
+// that the person entering the account never passes the nominee control, which is a
+// leading reason `worker_payout_nominee` has 0 rows all-time.
+//
+// ⚠️ The answer is NOT persisted — §4 forbids a new column on `workers`. It routes the
+// user and records nothing, so a wrong or skipped answer costs nothing and can never
+// become a stale "someone said this was fine" flag; the detector re-derives the truth
+// from the account itself.
+export const PAYOUT_ACCOUNT_OWNER_QUESTION = "บัญชีนี้เป็นของใคร";
+export const PAYOUT_ACCOUNT_OWNER_SELF = "ของช่างเอง";
+export const PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE = "ของคนอื่น";
+// ⚠️ Says the money still goes to this account: the nominee record is CONSENT and
+// documentation, not a redirect. Payroll pays `workers.bank_*` either way, and copy
+// implying otherwise would be false.
+export const PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT =
+  "เงินยังโอนเข้าบัญชีนี้ตามปกติ — บันทึกบัญชีตัวแทนไว้เพื่อให้มีหลักฐานความยินยอม";
+
+// Spec 395 U3 — the SECOND door: a ช่าง's own bank-change request, approved by
+// back-office (`decide_worker_bank_change`). §2: a unit that routes third-party
+// accounts must cover both doors. Advisory only — it never blocks an approval.
+// ⓘ Measured 2026-08-05: that table holds ONE row all-time, so this is a thin guard on
+// a near-dormant path; U1's detector badges whatever arrives through it regardless.
+// Spec 395 U3 — the picker's population widened from "no account" to "no account OR an
+// account that is not theirs", so its caption had to stop promising the narrower set.
+// The old copy ("เลือกช่างที่ยังไม่มีบัญชีธนาคารของตัวเอง") described exactly the population
+// that EXCLUDED every worker spec 395 is about.
+export const PAYOUT_NOMINEE_PICKER_CAPTION = "เลือกช่างที่ต้องบันทึกบัญชีตัวแทน";
+export const PAYOUT_NOMINEE_PICKER_EMPTY = "ไม่มีช่างที่ต้องบันทึกบัญชีตัวแทนตอนนี้";
+export const PAYOUT_NOMINEE_REASON_NO_ACCOUNT = "ยังไม่มีบัญชีของตัวเอง";
+export const PAYOUT_NOMINEE_REASON_NOT_OWN = "บัญชีอาจไม่ใช่ของตัวเอง";
+
+export const PAYOUT_ACCOUNT_REQUEST_NAME_DIFFERS =
+  "ชื่อบัญชีไม่ตรงกับชื่อช่าง — ถ้าอนุมัติแล้วเป็นบัญชีของคนอื่น ให้บันทึกบัญชีตัวแทนด้วย";
+
 // Spec 329 — company documents library (เอกสารบริษัท).
 export const COMPANY_DOCS_LABEL = "เอกสารบริษัท";
 export const COMPANY_DOCS_HINT = "หนังสือรับรอง · ภ.พ.20 · โปรไฟล์บริษัท";

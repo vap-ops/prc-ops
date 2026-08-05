@@ -15,7 +15,7 @@ import "server-only";
 // on who may see nominee rows.
 
 import { createClient as createAdminClient } from "@/lib/db/admin";
-import { listActivePayoutNominees } from "@/lib/payroll/payout-nominee";
+import { listActivePayoutNominees, listBanklessWorkers } from "@/lib/payroll/payout-nominee";
 import { assessPayoutAccounts, type PayoutAccountAssessment } from "@/lib/workers/payout-account";
 
 type ServerClient = Awaited<ReturnType<typeof import("@/lib/db/server").createClient>>;
@@ -81,4 +81,75 @@ export async function loadPayoutAccountAudit(
   );
 
   return assessPayoutAccounts(workers, covered);
+}
+
+/** Why this worker is worth offering a nominee record for. */
+export type NomineeCandidateReason = "no-account" | "not-own-account";
+
+export interface NomineeCandidate {
+  id: string;
+  name: string;
+  code: string | null;
+  reason: NomineeCandidateReason;
+}
+
+/**
+ * The population the nominee picker may offer.
+ *
+ * ⚠️ THE BUG THIS CLOSES: the picker listed ONLY bankless workers ("เลือกช่างที่ยังไม่มี
+ * บัญชีธนาคารของตัวเอง"), and every worker spec 395 is about HAS an account — it simply is
+ * not theirs. So none of the 8 live cases was selectable through the normal flow at all;
+ * U2's badge could reach them only by deep-linking `?worker=`, which works but is not a
+ * route a human discovers.
+ *
+ * Two reasons a nominee makes sense, unioned:
+ *   `no-account`      — spec 320's original case: nothing of their own to pay into.
+ *   `not-own-account` — spec 395's case: an account that belongs to someone else.
+ *
+ * ⚠️ Contractor-tied workers are excluded from BOTH arms (spec 328 U3): a pay-exempt
+ * subcon member is permanently bankless BY DESIGN — the firm pays the subcontractor, so
+ * routing a nominee payout for one would move money PRC never owes. Measured 2026-08-05,
+ * all 8 live `unrecorded` workers are firm-paid, so this excludes none of them today;
+ * the rule is what matters, not the count.
+ *
+ * Takes the assessments as an argument rather than re-reading them: the caller usually
+ * has them already, and it keeps this function pure enough to test without a live DB.
+ */
+export async function listNomineeCandidates(
+  supabase: ServerClient,
+  assessments: ReadonlyArray<PayoutAccountAssessment>,
+): Promise<NomineeCandidate[]> {
+  const notOwnIds = assessments.filter((a) => a.state === "unrecorded").map((a) => a.workerId);
+
+  const [bankless, notOwnRows] = await Promise.all([
+    listBanklessWorkers(),
+    (async () => {
+      // No ids ⇒ no query. A bare `.in("id", [])` is a pointless round trip.
+      if (notOwnIds.length === 0) return [];
+      const admin = createAdminClient();
+      const { data, error } = await admin
+        .from("workers")
+        .select("id, name, employee_id, contractor_id")
+        .in("id", notOwnIds);
+      if (error) throw new Error(`nominee candidates: ${error.message}`);
+      return data ?? [];
+    })(),
+  ]);
+
+  const candidates: NomineeCandidate[] = [
+    ...bankless.map((w) => ({ ...w, reason: "no-account" as const })),
+    ...notOwnRows
+      .filter((r) => r.contractor_id === null)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        code: r.employee_id,
+        reason: "not-own-account" as const,
+      })),
+  ];
+
+  // One list sorted by name, NOT two blocks: the picker is a "find this person" surface,
+  // and grouping by reason would make a worker's position depend on a classification the
+  // reader is not thinking about.
+  return candidates.sort((a, b) => a.name.localeCompare(b.name, "th"));
 }

@@ -47,7 +47,11 @@ import {
   ATTENDANCE_CALENDAR_LABEL,
   CONFIRM_COST_LABEL,
   PAY_TYPE_LABEL,
+  PAYOUT_ACCOUNT_OWNER_QUESTION,
+  PAYOUT_ACCOUNT_OWNER_SELF,
   PAYOUT_ACCOUNT_OWNER_SHARED_HINT,
+  PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE,
+  PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT,
   PAYOUT_ACCOUNT_RECORD_CTA,
   PAYOUT_ACCOUNT_SHARED_BADGE,
   PAYOUT_ACCOUNT_THIRD_PARTY_HINT,
@@ -548,6 +552,10 @@ function WorkerRow({
   const [bankName, setBankName] = useState(worker.bank_name ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState(worker.bank_account_number ?? "");
   const [bankAccountName, setBankAccountName] = useState(worker.bank_account_name ?? "");
+  // Spec 395 U3 — transient ROUTING only, never written. §4 forbids a new column on
+  // `workers`, and that is the right call: U1 re-derives the truth from the account
+  // itself, so this answer cannot rot into a stale "someone said this was fine".
+  const [bankOwnerIsOther, setBankOwnerIsOther] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // #945 parity: the other ช่าง the typed เลขบัตร belongs to — it earns a door
   // (ดูช่างคนเดิม), not just a sentence.
@@ -588,6 +596,11 @@ function WorkerRow({
     setBankName(worker.bank_name ?? "");
     setBankAccountNumber(worker.bank_account_number ?? "");
     setBankAccountName(worker.bank_account_name ?? "");
+    // Spec 395 U3: the owner question is transient, so it re-seeds with the fields.
+    // Without this an abandoned "ของคนอื่น" would still be selected next time this row
+    // is opened, showing a nominee prompt nobody asked for — the same survives-the-
+    // unmount hazard the re-seed above exists for.
+    setBankOwnerIsOther(false);
     setError(null);
     // …and the duplicate DOOR, for the same reason the fields are re-seeded: it
     // survives the unmount, so a reopened sheet would offer ดูช่างคนเดิม for a ช่าง
@@ -1166,6 +1179,49 @@ function WorkerRow({
             </div>
           ) : (
             <>
+              {/* Spec 395 U3 — asked HERE, beside the fields where a third-party
+                  account is actually typed. U1 detects and U2 badges, but both act on
+                  what is already stored; the person entering the account never passes
+                  the nominee control at /settings/payout-nominees, which §2 argues is a
+                  leading reason that table has 0 rows all-time.
+                  ⚠️ NOT PERSISTED (§4 forbids a new column). It routes and records
+                  nothing — the detector re-derives the truth from the account itself, so
+                  a wrong or skipped answer costs nothing and cannot become a stale
+                  "someone said this was fine" flag.
+                  ⚠️ Not shown for a portal-bound worker: their bank is owned through the
+                  request → approval flow, so there is nothing to route and the question
+                  would be noise. */}
+              <p className="text-ink-secondary mt-3 text-sm">{PAYOUT_ACCOUNT_OWNER_QUESTION}</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {/* ⚠️ Per-INSTANCE group name (spec 392 U2a): a hardcoded one makes every
+                    row's radios a single group, so answering on one sheet silently
+                    clears another. */}
+                <RadioChip
+                  name={`payout-owner-${worker.id}`}
+                  label={PAYOUT_ACCOUNT_OWNER_SELF}
+                  checked={!bankOwnerIsOther}
+                  onSelect={() => setBankOwnerIsOther(false)}
+                />
+                <RadioChip
+                  name={`payout-owner-${worker.id}`}
+                  label={PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE}
+                  checked={bankOwnerIsOther}
+                  onSelect={() => setBankOwnerIsOther(true)}
+                />
+              </div>
+              {bankOwnerIsOther ? (
+                <div className="border-attn-edge bg-attn-soft rounded-control mt-2 border p-3">
+                  <p className="text-ink-secondary text-sm">
+                    {PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT}
+                  </p>
+                  <Link
+                    href={`/settings/payout-nominees/edit?worker=${worker.id}`}
+                    className="text-action mt-2 inline-flex min-h-11 items-center text-sm font-medium underline"
+                  >
+                    {PAYOUT_ACCOUNT_RECORD_CTA}
+                  </Link>
+                </div>
+              ) : null}
               <p className="text-ink-secondary mt-2 text-sm">ธนาคาร</p>
               <BankSelect value={bankName} onChange={setBankName} />
               <label className="text-ink-secondary mt-2 block text-sm">

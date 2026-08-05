@@ -21,6 +21,7 @@ import { PM_ROLES, STAFF_APPROVAL_ROLES } from "@/lib/auth/role-home";
 import { createClient as createAdminSupabase } from "@/lib/db/admin";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import {
+  requestedAccountNameDiffers,
   buildBankChangeQueue,
   buildIdentityChangeQueue,
   buildStaffBankChangeQueue,
@@ -28,7 +29,11 @@ import {
 } from "@/lib/approvals/bank-change-queue";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { CONTACT_DOCS_BUCKET } from "@/lib/storage/buckets";
-import { formatThaiDate, formatThaiDateTime } from "@/lib/i18n/labels";
+import {
+  formatThaiDate,
+  formatThaiDateTime,
+  PAYOUT_ACCOUNT_REQUEST_NAME_DIFFERS,
+} from "@/lib/i18n/labels";
 
 export const metadata = { title: "การเปลี่ยนข้อมูลรอการอนุมัติ" };
 
@@ -211,6 +216,16 @@ export default async function BankChangeQueuePage() {
                         <dd className="font-mono">{it.accountNo ?? "—"}</dd>
                       </div>
                     </dl>
+                    {/* Spec 395 U3 — the SECOND door. Approving this writes all three
+                        `workers.bank_*` columns, which bypasses the nominee record just
+                        as a back-office edit does (§2). ADVISORY ONLY: it never blocks
+                        the approval — a family member's account is normal here, and the
+                        approver knows whose account it is. */}
+                    {requestedAccountNameDiffers(it) ? (
+                      <p className="text-ink-secondary mt-2 text-sm">
+                        {PAYOUT_ACCOUNT_REQUEST_NAME_DIFFERS}
+                      </p>
+                    ) : null}
                     {it.bookBankPath ? (
                       photoUrlByPath.get(it.bookBankPath) ? (
                         // eslint-disable-next-line @next/next/no-img-element
