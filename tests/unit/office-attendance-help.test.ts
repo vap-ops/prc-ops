@@ -65,13 +65,22 @@ describe("spec 397 U6 — every step names a control /team/office actually rende
   // The card walks the whole loop: open the day, check someone in, check them
   // out, undo a mistake. Each literal is asserted on BOTH sides — the prose and
   // the page — so a rename on either side reds instead of orphaning the other.
-  it.each(["เปิดทีมสำนักงาน", "บันทึกเข้างาน", "ออกงาน", "เอาออก"])(
-    "the step naming %s matches a control in the page source",
-    (affordance) => {
-      expect(steps).toContain(affordance);
-      expect(page).toContain(affordance);
-    },
-  );
+  //
+  // Counted PER STEP, not over the joined string: ออกงาน appears in two steps (the
+  // check-out step and the undo step's contrast), so a join-wide `toContain` stays
+  // green when the check-out step alone drifts to a button that does not exist.
+  // A mutation renaming it to “เลิกงาน” survived exactly that way.
+  it.each([
+    ["เปิดทีมสำนักงาน", 1],
+    ["บันทึกเข้างาน", 1],
+    ["ออกงาน", 2],
+    ["เอาออก", 1],
+  ] as const)("%s is named by %i step(s) and exists in the page source", (affordance, inSteps) => {
+    expect(OFFICE_ATTENDANCE_HELP.steps.filter((s) => s.includes(affordance))).toHaveLength(
+      inSteps,
+    );
+    expect(page).toContain(affordance);
+  });
 
   it("distinguishes เอาออก from ออกงาน — the mistake path is not the exit path", () => {
     // Checking out only stamps a time. A wrong person added here loses their crew
