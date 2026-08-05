@@ -27,6 +27,7 @@ import { tabsForRole } from "@/components/features/chrome/bottom-tab-bar";
 import { hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { ROUTE_LOADING_MESSAGE } from "@/lib/ui/route-announcement";
 
 const APP = join(process.cwd(), "src", "app");
 
@@ -207,11 +208,23 @@ describe("tab + hub-nav destination loading coverage (UX-audit G8)", () => {
       );
       expect(typeof mod.default).toBe("function");
       const { container } = render((mod.default as () => ReactElement)());
-      // The property is "paints something", NOT "uses PageSkeleton": /portal ships a
-      // legitimate hand-rolled skeleton with no sr-only line, so an earlier version
-      // of this assertion (`toContain("กำลังโหลด")`) failed a correct file. A boundary
-      // that renders nothing is what is indistinguishable from having none.
+      // A boundary that renders nothing is indistinguishable from having none.
       expect(container.querySelectorAll("*").length).toBeGreaterThan(0);
+
+      // …and it must also say so to a screen reader. This assertion was
+      // deliberately weakened to "paints something" because /portal shipped a
+      // hand-rolled skeleton with no sr-only line and failed a correct file —
+      // that reason is gone: #980 gave /portal the line and the live-region
+      // follow-up made every boundary render the shared <LoadingAnnouncement />.
+      // Asserted HERE rather than only in a source scan because this is the one
+      // harness that actually renders all of them.
+      const announcement = container.querySelector(".sr-only");
+      expect(
+        announcement?.textContent,
+        `${file} paints a skeleton but announces nothing — a non-sighted user is ` +
+          `offered no signal that the page is loading (render <PageSkeleton /> or ` +
+          `<LoadingAnnouncement />)`,
+      ).toBe(ROUTE_LOADING_MESSAGE);
     },
   );
 });
