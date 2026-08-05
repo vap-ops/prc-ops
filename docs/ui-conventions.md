@@ -253,9 +253,25 @@ bg-red-50 px-3 py-2 text-xs text-red-900`. Message text ends with
 ## 8. Loading
 
 Every route group has a `loading.tsx` rendering
-[page-skeleton.tsx](../src/components/features/page-skeleton.tsx) — it
+[page-skeleton.tsx](../src/components/features/chrome/page-skeleton.tsx) — it
 mirrors the page anatomy (zinc-50 main, white header strip, `h-16
 rounded-lg` row placeholders) with an sr-only `กำลังโหลด…`.
+
+One deliberate exception: `src/app/portal/loading.tsx` keeps its own skeleton,
+because it renders `PageShell` (§5 — the page scroller) and mirrors the portal's
+sticky header, while `PageSkeleton` hand-rolls its own `<main>`. Swapping the
+shared component in there would drop the spec-64 body-lock contract, so the
+exception stays — but it carries the same sr-only `กำลังโหลด…`, pinned against
+the string `PageSkeleton` renders by
+[portal-loading-announcement.test.tsx](../tests/unit/portal-loading-announcement.test.tsx).
+The announcement is the part that is not optional — but be precise about what it
+buys: an sr-only node that is not a live region is read on a full page load, and
+a client-side navigation swaps the fallback in where readers announce only inside
+a live region. So a boundary without the line is strictly worse than its
+siblings; a boundary with it is consistent, not guaranteed audible. Making these
+truly audible means a persistent live region in the layout (the toast provider
+already keeps one) applied to every boundary at once — open, deliberately not
+done per-file.
 
 ## 9. Server vs client components
 
