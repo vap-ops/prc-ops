@@ -116,11 +116,23 @@ describe("WorkerRosterManager — spec 395 U4, working the flagged accounts", ()
   // ⚠️ Its OWN radiogroup. The existing chips filter by การจ่าย — a different axis — and
   // folding this in would mean you cannot review accounts *and* keep a pay-type filter,
   // and would silently clear the other selection.
-  it("is a separate axis from the การจ่าย chips", () => {
+  // ⚠️ Asserts BOTH review chips, not just one. A mutation renaming only the "ทุกบัญชี"
+  // chip into the pay group survived a check that looked at "บัญชีต้องตรวจสอบ" alone —
+  // and that half-migrated state is the actually-broken one: the two review options
+  // would sit in different groups, so neither could turn the other off.
+  it("is a separate axis from the การจ่าย chips — both of its chips", () => {
     render(<WorkerRosterManager workers={[flagged()]} contractors={[]} />);
-    const review = screen.getByRole("radio", { name: `${PAYOUT_ACCOUNT_REVIEW_FILTER} (1)` });
+    const reviewOn = screen.getByRole("radio", { name: `${PAYOUT_ACCOUNT_REVIEW_FILTER} (1)` });
+    const reviewOff = screen.getByRole("radio", {
+      name: `${PAYOUT_ACCOUNT_REVIEW_FILTER_ALL} (1)`,
+    });
     const payAll = screen.getByRole("radio", { name: /^ทั้งหมด/ });
-    expect(review.getAttribute("name")).not.toBe(payAll.getAttribute("name"));
+
+    const group = reviewOn.getAttribute("name");
+    // The two review options must be ONE group, or selecting either cannot clear the other.
+    expect(reviewOff.getAttribute("name")).toBe(group);
+    // …and that group must not be the pay-type one.
+    expect(group).not.toBe(payAll.getAttribute("name"));
   });
 
   // ⚠️ Two adjacent chip rows both opening with "ทั้งหมด (N)" is ambiguous on screen —
