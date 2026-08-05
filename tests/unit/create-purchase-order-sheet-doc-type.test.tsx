@@ -128,9 +128,10 @@ describe("CreatePurchaseOrderSheet doc_type (spec 380 U5, default flipped in U7)
     // composition: hardcode the string back and a rename of the constant moves
     // only this expectation, reddening it.
     setup();
+    // A STRING `name` is a full-string accessible-name match in RTL (only a
+    // RegExp would be a substring test), which is exactly what this pin needs.
     const attach = screen.getByRole("button", {
       name: `แนบ${DOC_TYPE_LABEL.quotation} / ใบแจ้งหนี้ (ไม่บังคับ)`,
-      exact: true,
     });
     expect(attach).toBeInTheDocument();
 
