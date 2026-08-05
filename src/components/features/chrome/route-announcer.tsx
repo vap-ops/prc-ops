@@ -17,13 +17,55 @@
 // message outranks this one, which is the right priority. Do not read that as
 // "arrival is covered" — measured live, it is not; see route-announcement.ts.
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import {
+  announceArrival,
   getRouteAnnouncement,
   getServerRouteAnnouncement,
+  pageNameFromTitle,
   subscribeRouteAnnouncement,
 } from "@/lib/ui/route-announcement";
+
+/**
+ * Watches the document title and reports each new destination.
+ *
+ * It observes `document.head` rather than the `<title>` node, because Next
+ * REPLACES that node on every navigation instead of editing its text (measured:
+ * `title-node-removed` then `title-node-added` ~1–6ms later, with
+ * `document.title` empty in between). A watcher bound to the original node
+ * would go deaf after the first navigation — and that empty gap is exactly what
+ * the framework's own announcer samples, which is why it speaks the wrong
+ * thing. `pageNameFromTitle` maps the gap to "" so it is never announced.
+ *
+ * Lives inside the region component on purpose: this is already the one thing
+ * mounted once in the root layout, so folding it in adds no second mount point
+ * to keep pinned and no second client component to the bundle.
+ */
+function useArrivalAnnouncements(): void {
+  // The title present at mount is the page the user loaded directly. Screen
+  // readers announce a full page load themselves, so it is the baseline to
+  // compare against, never something to speak.
+  const lastAnnounced = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastAnnounced.current = pageNameFromTitle(document.title);
+
+    const report = () => {
+      const name = pageNameFromTitle(document.title);
+      // "" is the node-swap gap or a page that set no title — say nothing, and
+      // do not treat it as the new baseline, or the real title that lands 1–6ms
+      // later would look like a repeat and stay silent.
+      if (name === "" || name === lastAnnounced.current) return;
+      lastAnnounced.current = name;
+      announceArrival(name);
+    };
+
+    const observer = new MutationObserver(report);
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, []);
+}
 
 export function RouteAnnouncer() {
   const { message, seq } = useSyncExternalStore(
@@ -31,6 +73,7 @@ export function RouteAnnouncer() {
     getRouteAnnouncement,
     getServerRouteAnnouncement,
   );
+  useArrivalAnnouncements();
 
   return (
     <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">

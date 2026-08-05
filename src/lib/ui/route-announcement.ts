@@ -26,8 +26,55 @@
 // the title is swapped, then falls through to querySelector("h1"). So arrival
 // is an OPEN gap, recorded rather than assumed handled; do not read this file's
 // silence on arrival as "the framework has it covered".
+//
+// ── ARRIVAL (added after #983, measured before it was designed) ──────────────
+// Instrumented on a live dev server, one client-side navigation:
+//
+//   +1073ms  title-node-REMOVED   ""                    ← head briefly has NO title
+//   +1074ms  pathname-changed     /projects
+//   +1094ms  loading-region       "กำลังโหลด…"
+//   +1100ms  title-node-ADDED     "โครงการ — PRC Ops"
+//   +1736ms  loading-region       ""                    ← content actually arrives
+//
+// Three facts from that, each load-bearing below:
+//   ① Next REPLACES the <title> NODE rather than mutating its text, so
+//      document.title is empty for ~1–6ms per navigation. That gap is what the
+//      framework's announcer samples in — the root cause of it speaking the
+//      wrong thing, measured rather than inferred.
+//   ② The <h1> is NOT a usable fallback: on 4 of 5 sampled pages it reads
+//      "สวัสดี คุณ<ชื่อ>", the greeting — announcing it reads the user their own
+//      name on arrival. We never fall back to it; a page with no title of its
+//      own stays SILENT.
+//   ③ The title is correct 640–930ms BEFORE the content arrives, so arrival must
+//      DEFER while a loading boundary is open — otherwise the user is told they
+//      have landed on a page that is still a skeleton.
 
 export const ROUTE_LOADING_MESSAGE = "กำลังโหลด…";
+
+/**
+ * The root layout's metadata template is `%s — PRC Ops`, so every routed page's
+ * document.title carries this suffix. Repeating the app's name on every
+ * navigation is pure noise to someone listening.
+ */
+export const APP_TITLE_SUFFIX = " — PRC Ops";
+
+/** What the title reads when a page sets none of its own (the template default). */
+const APP_TITLE_DEFAULT = "PRC Ops";
+
+/**
+ * The destination name to announce, or "" for silence.
+ *
+ * Silence — never a best guess — for the two cases that produce a misleading
+ * announcement: the empty title inside Next's node-swap gap, and a page that
+ * set no title (measured on /contacts: title "PRC Ops", no <h1> at all).
+ */
+export function pageNameFromTitle(title: string): string {
+  const trimmed = title.trim();
+  if (trimmed === "" || trimmed === APP_TITLE_DEFAULT) return "";
+  return trimmed.endsWith(APP_TITLE_SUFFIX)
+    ? trimmed.slice(0, -APP_TITLE_SUFFIX.length).trim()
+    : trimmed;
+}
 
 export interface RouteAnnouncement {
   /** What the region should say; "" means the region is silent. */
@@ -54,6 +101,14 @@ const SERVER_SNAPSHOT: RouteAnnouncement = SILENT;
 let snapshot: RouteAnnouncement = SILENT;
 let depth = 0;
 let seq = 0;
+
+/**
+ * A destination that resolved while a loading boundary was still open, waiting
+ * for that boundary to close. Holds only the LAST one: a redirect chain, or a
+ * second tap mid-wait, can change the title more than once behind one skeleton,
+ * and the user arrives exactly once.
+ */
+let pendingArrival = "";
 
 const listeners = new Set<() => void>();
 
@@ -92,8 +147,50 @@ export function beginRouteLoading(): () => void {
     if (released) return;
     released = true;
     depth -= 1;
-    if (depth === 0) publish({ message: "", seq });
+    if (depth !== 0) return;
+
+    // The wait is over. If a destination resolved behind this skeleton, THIS is
+    // the honest moment to name it — the title has been correct for most of a
+    // second, but the page has only just appeared. Consume it either way, so a
+    // stale destination cannot replay on some later, unrelated wait.
+    const arrived = pendingArrival;
+    pendingArrival = "";
+    seq += 1;
+    publish({ message: arrived, seq });
   };
+}
+
+/**
+ * Announce that the user has ARRIVED at `pageName` (already stripped — see
+ * `pageNameFromTitle`).
+ *
+ * Deferred while a loading boundary is open: measured, the title is correct
+ * 640–930ms BEFORE the content renders, so announcing on the title alone tells
+ * the user they have landed on a page that is still a skeleton.
+ *
+ * Unlike the loading message this is left standing rather than cleared — there
+ * is nothing to "finish", and a reader that queries the region later still gets
+ * a truthful answer to "where am I".
+ *
+ * `""` is a NON-announcement and is ignored outright — you cannot announce
+ * nothing. It reaches here from the ~1–6ms window where Next has removed the
+ * title node, and from a page that set no title of its own; in both cases the
+ * region must keep whatever it last truthfully said rather than blanking. (To
+ * clear the region, open and close a loading boundary — that is the only thing
+ * that legitimately empties it.)
+ */
+export function announceArrival(pageName: string): void {
+  if (pageName === "") return;
+
+  if (depth > 0) {
+    pendingArrival = pageName;
+    return;
+  }
+
+  // A fresh seq even when the words repeat: navigating back and forth lands on
+  // the same name, and the region only speaks on a DOM mutation.
+  seq += 1;
+  publish({ message: pageName, seq });
 }
 
 export function subscribeRouteAnnouncement(listener: () => void): () => void {
