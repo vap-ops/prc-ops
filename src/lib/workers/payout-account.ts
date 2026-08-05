@@ -45,6 +45,19 @@ export interface PayoutAccountAssessment {
   /** `accountWorkerCount > 1`, precomputed so badge copy never re-derives it wrongly. */
   isShared: boolean;
   nameMatches: boolean;
+  /**
+   * Spec 395 U4 — the OTHER active workers paid into this same account, by name,
+   * **excluding the subject**.
+   *
+   * ⚠️ This is the fact that tells §5's three outcomes apart, and the app showed it
+   * nowhere: several other technicians on one account reads "third party, record a
+   * บัญชีตัวแทน"; an empty list on a flagged row reads "the name or the number is off"
+   * — the `044…`/`014…` near-miss being the likely example. Without it a reviewer
+   * cannot choose between recording a nominee and fixing a typo.
+   *
+   * Names, never ids: the reader needs to recognise people.
+   */
+  sharedWith: readonly string[];
 }
 
 /** Same-account grouping key. Trimmed only — see the fuzzy-matching warning below. */
@@ -98,8 +111,14 @@ export function assessPayoutAccounts(
   // Revisit with evidence rather than pre-emptively; stripping separators is formatting,
   // which is a different question from the near-miss judgement above.
   const countByAccount = new Map<string, number>();
+  // Names per account, in roster order, so the sheet lists them the way the reader sees
+  // them elsewhere rather than in an arbitrary Map order.
+  const namesByAccount = new Map<string, { workerId: string; name: string }[]>();
   for (const b of banked) {
     countByAccount.set(b.key, (countByAccount.get(b.key) ?? 0) + 1);
+    const list = namesByAccount.get(b.key) ?? [];
+    list.push({ workerId: b.worker.workerId, name: b.worker.name });
+    namesByAccount.set(b.key, list);
   }
 
   return banked.map(({ worker: w, key }) => {
@@ -124,6 +143,11 @@ export function assessPayoutAccounts(
       accountWorkerCount,
       isShared: accountWorkerCount > 1,
       nameMatches,
+      // ⚠️ EXCLUDES the subject. A list containing yourself reads as "you share this
+      // account with yourself" and would make every group look one larger than it is.
+      sharedWith: (namesByAccount.get(key) ?? [])
+        .filter((o) => o.workerId !== w.workerId)
+        .map((o) => o.name),
     };
   });
 }

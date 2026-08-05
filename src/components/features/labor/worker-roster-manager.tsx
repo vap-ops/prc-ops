@@ -53,6 +53,10 @@ import {
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE,
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT,
   PAYOUT_ACCOUNT_RECORD_CTA,
+  PAYOUT_ACCOUNT_REVIEW_FILTER,
+  PAYOUT_ACCOUNT_REVIEW_FILTER_ALL,
+  PAYOUT_ACCOUNT_SHARED_WITH_NOBODY,
+  PAYOUT_ACCOUNT_SHARED_WITH_PREFIX,
   PAYOUT_ACCOUNT_SHARED_BADGE,
   PAYOUT_ACCOUNT_THIRD_PARTY_HINT,
   PAYOUT_ACCOUNT_UNRECORDED_BADGE,
@@ -170,6 +174,11 @@ export type ManagedWorker = {
     state: PayoutAccountState;
     isShared: boolean;
     nameMatches: boolean;
+    // Spec 395 U4: the OTHER active workers paid into this same account, by name. This
+    // is the fact that decides the row — several others reads "third party, record a
+    // บัญชีตัวแทน"; an empty list on a flagged row reads "the name or number is off".
+    // Names only, never ids: the reviewer needs to recognise people, not join tables.
+    sharedWith: readonly string[];
   } | null;
 };
 
@@ -1160,6 +1169,14 @@ function WorkerRow({
                   ? PAYOUT_ACCOUNT_OWNER_SHARED_HINT
                   : PAYOUT_ACCOUNT_THIRD_PARTY_HINT}
               </p>
+              {/* Spec 395 U4 — the fact that tells a third party from a typo, and the one
+                  thing the app never showed. §5's three outcomes (confirm own / record a
+                  nominee / correct a typo) are indistinguishable without it. */}
+              <p className="text-ink-secondary mt-1 text-sm">
+                {worker.payoutAccount.sharedWith.length > 0
+                  ? `${PAYOUT_ACCOUNT_SHARED_WITH_PREFIX} ${worker.payoutAccount.sharedWith.join(", ")}`
+                  : PAYOUT_ACCOUNT_SHARED_WITH_NOBODY}
+              </p>
               {/* ⚠️ No CTA on the OWNER's row: the account IS theirs, so there is no
                   nominee to record and a link would invite fabricated data. The action
                   belongs to the OTHER rows sharing this account. */}
@@ -1548,6 +1565,9 @@ export function WorkerRosterManager({
 }) {
   const [query, setQuery] = useState("");
   const [selectedPay, setSelectedPay] = useState<PayType | typeof ALL>(ALL);
+  // Spec 395 U4: narrow to the accounts needing review. Off by default — the roster's
+  // job is the roster; this is a worklist you opt into.
+  const [reviewOnly, setReviewOnly] = useState(false);
   const [adding, setAdding] = useState(false);
 
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
@@ -1576,13 +1596,24 @@ export function WorkerRosterManager({
   // they do (by code AND by Thai name — nobody remembers "W03").
   const q = query.trim().toLowerCase();
   const searching = q !== "";
-  const queried = !searching
+  const searched = !searching
     ? workers
     : workers.filter((w) =>
         `${w.name} ${w.phone ?? ""} ${w.trades.map((t) => `${t.code} ${t.nameTh}`).join(" ")}`
           .toLowerCase()
           .includes(q),
       );
+
+  // Spec 395 U4 — the review worklist, sited here rather than on a new settings page:
+  // `/settings/payout-nominees` has ZERO route_views all-time while this page gets 686 in
+  // 30 days, and a worklist nobody opens is not a shipped feature (spec 396 U4).
+  // ⚠️ Its OWN axis, deliberately: the chips below filter by การจ่าย, and folding this in
+  // would mean you cannot review accounts while keeping a pay-type filter — and picking
+  // one would silently clear the other.
+  const flaggedCount = searched.filter((w) => w.payoutAccount?.state === "unrecorded").length;
+  const queried = reviewOnly
+    ? searched.filter((w) => w.payoutAccount?.state === "unrecorded")
+    : searched;
 
   const GROUPS = [
     { key: "monthly", label: "ช่างรายเดือน" },
@@ -1653,6 +1684,30 @@ export function WorkerRosterManager({
           autoComplete="off"
         />
       </div>
+
+      {/* Spec 395 U4 — a SEPARATE radiogroup from การจ่าย below (different axis), and
+          rendered only when something is actually flagged: an always-on "(0)" chip is
+          noise on the 35 of 43 rows that are fine. */}
+      {flaggedCount > 0 ? (
+        <div
+          className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1"
+          role="radiogroup"
+          aria-label={PAYOUT_ACCOUNT_REVIEW_FILTER}
+        >
+          <RadioChip
+            name="worker-payout-review"
+            label={`${PAYOUT_ACCOUNT_REVIEW_FILTER_ALL} (${searched.length})`}
+            checked={!reviewOnly}
+            onSelect={() => setReviewOnly(false)}
+          />
+          <RadioChip
+            name="worker-payout-review"
+            label={`${PAYOUT_ACCOUNT_REVIEW_FILTER} (${flaggedCount})`}
+            checked={reviewOnly}
+            onSelect={() => setReviewOnly(true)}
+          />
+        </div>
+      ) : null}
 
       <div
         className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1"

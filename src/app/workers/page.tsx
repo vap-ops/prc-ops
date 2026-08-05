@@ -227,7 +227,13 @@ export default async function WorkersPage({
       return new Map<string, PayoutAccountBadge>(
         rows.map((a) => [
           a.workerId,
-          { state: a.state, isShared: a.isShared, nameMatches: a.nameMatches },
+          {
+            state: a.state,
+            isShared: a.isShared,
+            nameMatches: a.nameMatches,
+            // Spec 395 U4: the names that let a reviewer tell a third party from a typo.
+            sharedWith: a.sharedWith,
+          },
         ]),
       );
     } catch (e) {

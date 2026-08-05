@@ -57,6 +57,15 @@ describe("assessPayoutAccounts — the concentration case (live: 014162319729)",
     }
   });
 
+  // ⚠️ Spec 395 U4 — the fact that decides the row. Names of the OTHER workers on this
+  // account, never including the subject: a list that contains you reads as "you share
+  // with yourself" and inflates every count by one.
+  it("names the OTHER workers on the account, excluding the subject", () => {
+    const r = byId(assessPayoutAccounts(ROWS, NO_NOMINEES));
+    expect(r.get("w1")?.sharedWith).toEqual(["นาย พิเชษฐ์ พันธุพัฒน์", "นายสายฟ้า บุญเกิด"]);
+    expect(r.get("w3")?.sharedWith).toEqual(["นางสาว โนรี ทิพย์โภชน์", "นาย พิเชษฐ์ พันธุพัฒน์"]);
+  });
+
   it("classifies all three as unrecorded", () => {
     const r = byId(assessPayoutAccounts(ROWS, NO_NOMINEES));
     for (const id of ["w1", "w2", "w3"]) {
