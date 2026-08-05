@@ -4,7 +4,12 @@
 // app terms (ui-term-consistency). The "add-crew" card is spec 299 U2 — it documents
 // spec 298's onboarding front door and lands after that shipped.
 
-import { ROSTER_TILE_LABEL } from "@/lib/i18n/labels";
+import {
+  OFFICE_TEAM_LABEL,
+  ROSTER_TILE_LABEL,
+  TEAM_HUB_LABEL,
+  USER_ROLE_LABEL,
+} from "@/lib/i18n/labels";
 
 export interface HelpCard {
   /** Stable anchor id for a future per-screen "?" deep-link (/sa/help#<id>). */
@@ -16,6 +21,38 @@ export interface HelpCard {
   /** Optional closing note (e.g. a money-governance reminder). */
   tip?: string;
 }
+
+// Spec 397 U6 — the teaching half of the office-attendance ask. Exported by NAME
+// as well as through HELP_CARDS because /team/office renders this one card inline:
+// `/sa/help` drew 4 route views from 3 users in 30 days against 512 for `/team`,
+// so a guide that lived only in the คู่มือ hub would be written for nobody. One
+// content source, two renders.
+//
+// Every step names a control `/team/office` actually renders (page.tsx), and none
+// of them mentions scanning: U5 ships a `<select>` and records `method: 'manual'`
+// (§9 Q11). The tip does NOT send the reader to /workers — this card's primary
+// audience is `site_admin`, who is in SA_SURFACE_ROLES (so they open this page)
+// but NOT in WORKER_ROSTER_ROLES (so /workers redirects them). Naming a step the
+// reader's role cannot take is the defect U3's review caught and U5 shipped again.
+export const OFFICE_ATTENDANCE_HELP: HelpCard = {
+  id: "office-attendance",
+  title: `เช็คชื่อ${OFFICE_TEAM_LABEL}`,
+  whenToUse: `ต้นวัน เพื่อบันทึกว่าวันนี้${OFFICE_TEAM_LABEL}ใครมาทำงาน — คนละทีมกับช่าง`,
+  steps: [
+    `เปิดแท็บ “${TEAM_HUB_LABEL}” แล้วแตะ “${OFFICE_TEAM_LABEL}”`,
+    `ครั้งแรกของวัน: กด “เปิด${OFFICE_TEAM_LABEL}” — วันละครั้งพอ`,
+    "เลือกชื่อจากรายการ แล้วกด “บันทึกเข้างาน” ทีละคน",
+    "ตอนกลับ กด “ออกงาน” ที่ชื่อของคนนั้น",
+    // ออกงาน stamps a time; it does not undo the row. A wrong person added here
+    // has their real crew check-in refused for the rest of the day.
+    "เลือกผิดคน ให้กด “เอาออก” — “ออกงาน” เป็นการบันทึกเวลา ไม่ได้ยกเลิกรายการ",
+  ],
+  tip:
+    `${OFFICE_TEAM_LABEL}ไม่คิดค่าแรง และไม่ขึ้นในกระดานเช็คชื่อของทีมช่าง — ` +
+    `ถ้ายังไม่มีชื่อให้เลือก แปลว่ายังไม่ได้เพิ่มคนของสำนักงานเข้าโครงการนี้ ` +
+    `ให้แจ้ง${USER_ROLE_LABEL.project_manager}หรือ${USER_ROLE_LABEL.procurement}เพิ่มให้ ` +
+    "โดยเลือก การจ่าย = รายเดือน (ระบบจะตั้งค่าแรงเป็น 0 ให้เอง)",
+};
 
 export const HELP_CARDS: HelpCard[] = [
   {
@@ -61,6 +98,9 @@ export const HELP_CARDS: HelpCard[] = [
     // there is no absent control anywhere in src.
     tip: "เช็คชื่อทุกเช้า ช่วยให้คิดค่าแรงและวางแผนงานได้ถูกต้อง — ส่วนค่าแรง ให้กด ทั้งหมดมาทำ ที่แถบ ทีมงานวันนี้ หน้าหลัก หรือกด มาทำ ทีละคนที่ แผนวันนี้",
   },
+  // Spec 397 U6 — beside the crew muster card: same activity, same time of day,
+  // different team. Defined above so /team/office can render it on its own.
+  OFFICE_ATTENDANCE_HELP,
   {
     id: "add-crew",
     title: "เพิ่มช่างใหม่",
