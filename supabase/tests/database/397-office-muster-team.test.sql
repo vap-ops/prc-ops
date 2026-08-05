@@ -1,5 +1,5 @@
 begin;
-select plan(22);
+select plan(27);
 
 -- ============================================================================
 -- Spec 397 U4 — the office muster team.
@@ -71,13 +71,40 @@ select is(
 -- ============================================================================
 -- B. One office team per project-day (the partial unique index)
 -- ============================================================================
+-- Pinned by NAME and by COLUMNS: three loose ilike fragments would have been
+-- satisfied by a unique index on (kind) alone, which dedupes nothing useful.
+select is(
+  (select indexdef from pg_indexes
+    where schemaname = 'public' and indexname = 'muster_teams_one_office_per_day'),
+  'CREATE UNIQUE INDEX muster_teams_one_office_per_day ON public.muster_teams '
+  || 'USING btree (project_id, work_date) WHERE (kind = ''office''::muster_team_kind)',
+  'one office team per project-day, by name and by columns');
+
+-- ⚠️ The crew constraint had to become PARTIAL too. While it was a FULL unique
+-- index it also covered office rows, so a CREW upsert on (project, date, lead)
+-- could conflict against an OFFICE row carrying that lead, update nothing and
+-- return the OFFICE team's id — the SA would then scan the lineup into a team the
+-- cockpit filters out. Disjoint namespaces are what stop that.
+select is(
+  (select indexdef from pg_indexes
+    where schemaname = 'public' and indexname = 'muster_teams_one_crew_per_lead_per_day'),
+  'CREATE UNIQUE INDEX muster_teams_one_crew_per_lead_per_day ON public.muster_teams '
+  || 'USING btree (project_id, work_date, lead_worker_id) WHERE (kind = ''crew''::muster_team_kind)',
+  'the crew uniqueness is partial too — the two arbiters cannot overlap');
 select ok(
-  exists (
-    select 1 from pg_indexes
-     where schemaname = 'public' and tablename = 'muster_teams'
-       and indexdef ilike '%unique%' and indexdef ilike '%kind%' and indexdef ilike '%office%'
-  ),
-  'a partial unique index covers the office team');
+  not exists (
+    select 1 from pg_constraint
+     where conname = 'muster_teams_project_id_work_date_lead_worker_id_key'),
+  'the old FULL unique constraint is gone (it was the overlap)');
+
+-- The table-level guarantee the readers' narrowing relies on. The RPC refusal
+-- below proves the FUNCTION refuses a leadless crew; this proves the DATABASE
+-- does, which is what load-muster.ts cites when it narrows the nullable lead.
+select throws_ok(
+  $$insert into public.muster_teams (project_id, work_date, lead_worker_id, kind, created_by)
+    values ('a1000000-0397-4444-4444-000000000001', '2026-07-09', null, 'crew',
+            '70000000-0397-4444-4444-000000000009')$$,
+  '23514', null, 'a leadless CREW row is refused by the CHECK, not just by the RPC');
 
 insert into public.muster_teams (project_id, work_date, lead_worker_id, kind, created_by) values
   ('a1000000-0397-4444-4444-000000000001', '2026-07-01', null, 'office',
@@ -87,14 +114,29 @@ select throws_ok(
     values ('a1000000-0397-4444-4444-000000000001', '2026-07-01', null, 'office',
             '70000000-0397-4444-4444-000000000009')$$,
   '23505', null, 'a SECOND office team on the same project-day is refused');
--- …while two LEADLESS crew teams are not the index's business (the pre-existing
--- UNIQUE cannot dedupe them either — NULLs are distinct — but crew teams always
--- carry a lead, which open_muster_team enforces).
+-- The index is per project-DAY, so another date is a different office team.
 select lives_ok(
   $$insert into public.muster_teams (project_id, work_date, lead_worker_id, kind, created_by)
     values ('a1000000-0397-4444-4444-000000000001', '2026-07-02', null, 'office',
             '70000000-0397-4444-4444-000000000009')$$,
   'a different DATE gets its own office team');
+
+-- The cross-kind case the review caught: an office team CARRYING a lead must not
+-- collide with that lead's crew team on the same day. Under the old full unique
+-- index this insert raised 23505 and the crew upsert returned the office row.
+insert into public.muster_teams (project_id, work_date, lead_worker_id, kind, created_by) values
+  ('a1000000-0397-4444-4444-000000000001', '2026-07-08',
+   'e1000000-0397-4444-4444-000000000001', 'office', '70000000-0397-4444-4444-000000000009');
+select lives_ok(
+  $$insert into public.muster_teams (project_id, work_date, lead_worker_id, kind, created_by)
+    values ('a1000000-0397-4444-4444-000000000001', '2026-07-08',
+            'e1000000-0397-4444-4444-000000000001', 'crew',
+            '70000000-0397-4444-4444-000000000009')$$,
+  'a crew team and an office team may share a lead on one day — disjoint namespaces');
+select is(
+  (select count(*)::int from public.muster_teams
+    where project_id = 'a1000000-0397-4444-4444-000000000001' and work_date = '2026-07-08'),
+  2, '…and they are TWO distinct teams, not one row masquerading as both');
 
 -- ============================================================================
 -- C. open_muster_team takes the kind

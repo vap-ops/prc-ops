@@ -31,6 +31,14 @@ export type MusterResult =
 export type MusterVoidResult = { ok: true } | { ok: false; error: string };
 
 function scanErrorToThai(message: string): string {
+  // Spec 397 U4 — the office team has NO lead, so it cannot be named the way a
+  // crew is ("อยู่ในทีมของ <หัวหน้า>"). Without this arm the RPC's own office
+  // message falls through to the generic and the SA is told the worker is "in
+  // another team" with nothing to go on. ⚠️ Must stay ABOVE the `already in team
+  // of` arm: this mapper is ordered substring matching.
+  if (message.includes("already in the office team")) {
+    return "คนนี้เช็คชื่อในทีมสำนักงานแล้ววันนี้";
+  }
   // The worker is already mustered on another team today (scan-in) — the RPC
   // reveals the other lead's name only inside the caller's visibility.
   if (message.includes("already in team of")) {

@@ -159,6 +159,21 @@ U3 is independent of both and carries its own risk.
 - **Q1 — office people in `workers` surfaces.** A rate-0 office row appears in the
   roster, the badge sheet, `/workers`, and the payout-account audit (spec 395).
   Filter them out by `kind`/`employment_type`, or accept the noise?
+- **Q9 — an office team can still be bound to a WP, and that IS a wage path.**
+  `set_muster_team_wps` accepts any `muster_teams` row (no kind check) and
+  `derive_muster_labor` joins attendance to teams without one, so binding a WP to
+  the office team would book a wage for any office attendee who later gains a
+  confirmed rate. §8 says "no wage path for office staff", and today TWO accidents
+  hold it shut — rate 0, and zero WPs on that team — neither of them a constraint.
+  Guard `set_muster_team_wps` with `kind <> 'office'`, or accept it? Found by the
+  U4 review; deliberately not built, because it changes another RPC's contract.
+- **Q10 — the unclosed-day banner counts teams, including the office one.**
+  `loadUnclosedPriorDays` is (correctly) unfiltered — closure is a project-day
+  fact — and its `teamCount` renders as `N ทีม`. So an office-only day will read
+  "1 ทีม" while the crew-filtered วันนี้ card reads `not_started` and the board is
+  empty: one surface nags to close a day another says never happened. Unreachable
+  until U5 creates office teams; U5 should decide whether that count means crews
+  or teams.
 - **Q2 — who may reopen a closed day?** U3 assumes the same set that may close it
   plus `procurement`. `site_admin` closing and `procurement` reopening is the
   separation of powers ADR 0075 wants; confirm before building.

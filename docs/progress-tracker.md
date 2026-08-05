@@ -11657,5 +11657,39 @@ only the first. U2b needs either a unique index or a map switcher.
   → no leadless crew row exists. ⚠️ The first attempt used the wrong principal (a
   site_admin who is not a member of that project) and got a correct `42501` — pick
   the account that does the work, not the first row.
+- 🚨 **The fresh-eyes review found a 🔴 the whole unit turned on: the two upsert
+  arbiters OVERLAPPED.** The pre-existing `UNIQUE (project, date, lead)` is a FULL
+  index, so it covers office rows too — with an office team carrying a lead L, a
+  CREW upsert on the same `(project, date, L)` conflicts against the OFFICE row,
+  updates nothing, and returns the **office team's id**. The SA would then scan
+  the whole lineup into a team the cockpit filters out, and both the board and the
+  วันนี้ card would show the day as empty. Fixed by making the crew constraint
+  PARTIAL too (`where kind = 'crew'`), so the two kinds live in disjoint
+  namespaces and each arbiter can only match its own. ⭐ **Adding a discriminator
+  column to a table with an existing unique constraint means re-reading that
+  constraint: a full index silently spans the new partition.**
+- ⚠️ **Also from the review, all fixed:** `p_kind` was defaulted but not guarded
+  against an explicit `null` (PostgREST forwards one, and every `=` comparison
+  then yields NULL — the honest P0001 would be skipped and a CREW team created for
+  a caller who asked for office) ⇒ `coalesce` once into `v_kind` · the office
+  upsert's `do update … coalesce(excluded.lead, t.lead)` was described as a no-op
+  but would silently REASSIGN the office lead, unaudited ⇒ genuinely inert now,
+  appointment belongs to U5 · `muster_scan_in` resolves its "already in another
+  team" message through an **INNER** join on the other team's lead, so a leadless
+  office team fell through to the cross-project privacy fallback and told the SA
+  the worker was "mustered elsewhere" — false, and unfindable, for someone
+  standing on the same site ⇒ LEFT join + its own message + a mapper arm + a test ·
+  the CHECK had no table-level pin (the RPC refusal left it deletable) · the index
+  pin was three loose `ilike`s that a unique index on `(kind)` alone would satisfy.
+- ⚠️ **The migration had been hand-applied TWICE by then** (drift: live carries
+  U3's `…907`, absent from this branch). Each time: prove the objects empty, reset
+  to the true pre-state — restoring the original constraint, the 3-arg function
+  AND the original `muster_scan_in` from their captured live definitions — then
+  replay the committed file whole. The file is byte-for-byte what ran.
+- ⚑ **Two review findings recorded, NOT built (spec §9):** `set_muster_team_wps`
+  has no kind check, so binding a WP to the office team is still a wage path that
+  only rate-0 and zero-WPs keep shut (Q9) · the unclosed-day banner's `N ทีม`
+  counts the office team while the วันนี้ card does not (Q10, U5's to reconcile).
 - Gates: RED-first on both sides · lint 0 · typecheck 0 · vitest **872 files /
-  7124 tests exit 0** · pgTAP **354 files / 7380 assertions exit 0** (22 new).
+  7124 tests exit 0** (pre-review-fix) · pgTAP **354 files / 7385 assertions exit
+  0** (27 new).
