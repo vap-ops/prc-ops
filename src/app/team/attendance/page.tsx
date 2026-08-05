@@ -23,7 +23,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { AttendanceDrill } from "@/components/features/muster/attendance-drill";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
-import { safeBackHref } from "@/lib/nav/back-href";
+import { attendanceBackLabel, safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
@@ -79,9 +79,11 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   const rangeIncludesToday = range.to >= todayIso;
   // Multi-parent chip: resolve the href FIRST, then label it for where it actually
   // goes. A fixed "ทีมงาน" label is the aria-label a screen reader hears, so on an
-  // /accounting referral it would announce the wrong destination.
+  // /accounting referral it would announce the wrong destination. Spec 397 U2 made
+  // /procurement a third parent and moved the naming into attendanceBackLabel, so
+  // adding a parent is a one-line change beside safeBackHref, not a wider ternary.
   const backHref = safeBackHref(from, "/team");
-  const backLabel = backHref.startsWith("/accounting") ? "บัญชี" : "ทีมงาน";
+  const backLabel = attendanceBackLabel(backHref);
 
   const supabase = await createServerClient();
   const rows = await loadAttendanceSummary(supabase, range);

@@ -1,3 +1,5 @@
+import { TEAM_HUB_LABEL } from "@/lib/i18n/labels";
+
 // Referrer-aware back chip (sitemap review, 2026-06-26).
 //
 // A detail page (DetailHeader) renders a single "up" back chip with a hardcoded
@@ -56,4 +58,33 @@ export function withBackFrom(href: string, fromPath: string): string {
   const hash = hashIndex === -1 ? "" : href.slice(hashIndex);
   const sep = base.includes("?") ? "&" : "?";
   return `${base}${sep}from=${encodeURIComponent(fromPath)}${hash}`;
+}
+
+// Spec 358 → 397 U2 — the attendance report's back-chip LABEL.
+//
+// The chip is icon-only, so this string is what a screen reader announces: it is
+// a factual claim about where back goes. It began as a two-arm ternary on the
+// page (accounting → บัญชี, else ทีมงาน), which was true while /team and
+// /accounting were the only parents. Spec 397 U2 adds /procurement as a third,
+// and an unlabelled third parent does not fail anything — it just announces the
+// wrong destination. So the resolution moved here, beside safeBackHref, where a
+// future parent is a one-line addition with a test rather than a growing ternary.
+//
+// Order matters only in that each prefix is checked against the RESOLVED href
+// (safeBackHref's output), never the raw ?from — a forged referrer has already
+// been collapsed to the fallback by then.
+const ATTENDANCE_BACK_LABELS: ReadonlyArray<readonly [prefix: string, label: string]> = [
+  ["/accounting", "บัญชี"],
+  ["/procurement", "จัดซื้อ"],
+];
+
+/**
+ * Name the attendance report's back destination. Falls back to the hierarchical
+ * parent's own name (ทีมงาน) for any href nobody has labelled — which is also
+ * exactly where `safeBackHref` sends a direct load or a forged `?from`, so the
+ * label can never contradict the link.
+ */
+export function attendanceBackLabel(backHref: string): string {
+  const match = ATTENDANCE_BACK_LABELS.find(([prefix]) => backHref.startsWith(prefix));
+  return match ? match[1] : TEAM_HUB_LABEL;
 }
