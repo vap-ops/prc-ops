@@ -43,6 +43,7 @@ import {
   WorkerRosterManager,
   type ManagedWorker,
 } from "@/components/features/labor/worker-roster-manager";
+import { WORKER_BOUND_OWNER_UNKNOWN } from "@/lib/i18n/labels";
 
 const BASE: ManagedWorker = {
   id: "w1",
@@ -131,7 +132,14 @@ describe("WorkerRosterManager — spec 396 U2, naming the bound account holder",
     );
     openEditSheet();
 
-    expect(screen.queryByText(/เป็นของ/)).not.toBeInTheDocument();
+    // ⚠️ Pinned to the OWNERSHIP LINE, not to the substring "เป็นของ". The loose regex
+    // caught any copy containing those characters, and spec 395 U3 added a distinct
+    // question beside the bank fields ("บัญชีนี้เป็นของใคร" — whose ACCOUNT is this)
+    // which is not an ownership claim about the RECORD at all. Naming the actual label
+    // is both stronger (it cannot pass on a reworded ownership line) and narrower (it
+    // does not veto unrelated copy that happens to share two syllables).
+    expect(screen.queryByText(/รายการนี้เป็นของ/)).not.toBeInTheDocument();
+    expect(screen.queryByText(WORKER_BOUND_OWNER_UNKNOWN)).not.toBeInTheDocument();
     // …and no dangling aria pointer to an element that does not exist.
     expect(screen.getByDisplayValue("ช่างหนึ่ง")).not.toHaveAttribute("aria-describedby");
   });
