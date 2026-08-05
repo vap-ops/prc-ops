@@ -317,7 +317,7 @@ describe("team map — crew manage (spec 330 U3b)", () => {
     const user = userEvent.setup();
     renderView();
     await user.click(
-      within(screen.getByRole("region", { name: /ทีมช่าง/ })).getByRole("button", {
+      within(screen.getByRole("region", { name: "ทีมภายใน" })).getByRole("button", {
         name: /ตั้งทีมใหม่/,
       }),
     );
@@ -327,5 +327,29 @@ describe("team map — crew manage (spec 330 U3b)", () => {
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({ projectId: PROJECT, name: "ทีมใหม่" }),
     );
+  });
+
+  it("a firm with zero members renders one QR-only door, no manual-add button", () => {
+    const EMPTY_FIRM_MAP: ProjectTeamMap = {
+      ...MAP,
+      teams: [
+        ...MAP.teams,
+        { kind: "firm", id: "f-empty", name: "บริษัทว่างเปล่า", members: [], count: 0 },
+      ],
+    };
+    render(
+      <TeamMapView
+        projectId={PROJECT}
+        map={EMPTY_FIRM_MAP}
+        addableStaff={[]}
+        currentUserId="u-pm"
+      />,
+    );
+    const card = screen.getByTestId("team-card-f-empty");
+    expect(within(card).getByRole("link", { name: /แชร์ QR สมัคร/ })).toHaveAttribute(
+      "href",
+      `/team/poster?contractor=f-empty&project=${PROJECT}`,
+    );
+    expect(within(card).queryByRole("button", { name: /เพิ่มในระบบเอง/ })).not.toBeInTheDocument();
   });
 });

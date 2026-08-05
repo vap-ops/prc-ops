@@ -94,7 +94,7 @@ describe("team map — map-look (spec 330 U5)", () => {
   it("ตั้งทีมใหม่ is a visible ทีมช่าง header action, NOT inside the add sheet", async () => {
     const user = userEvent.setup();
     renderView();
-    const crewTier = screen.getByRole("region", { name: /ทีมช่าง/ });
+    const crewTier = screen.getByRole("region", { name: /ทีมภายใน/ });
     const btn = within(crewTier).getByRole("button", { name: /ตั้งทีมใหม่/ });
     await user.click(btn);
     // Direct: one tap opens the createCrew sheet with its name field.
@@ -168,7 +168,7 @@ describe("team map — map-look (spec 330 U5)", () => {
   it("header actions stay disambiguated from the per-card controls", () => {
     renderView();
     // The master toggle and per-card toggles/manage buttons must still resolve.
-    const crewTier = screen.getByRole("region", { name: /ทีมช่าง/ });
+    const crewTier = screen.getByRole("region", { name: /ทีมภายใน/ });
     expect(within(crewTier).getByRole("button", { name: /แสดงทั้งหมด/ })).toBeInTheDocument();
     const card = screen.getByTestId("team-card-cr-lead");
     expect(within(card).getByRole("button", { name: /^แสดง$/ })).toBeInTheDocument();

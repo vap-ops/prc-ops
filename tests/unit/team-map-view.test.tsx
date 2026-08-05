@@ -105,8 +105,10 @@ describe("TeamMapView (spec 330 U1)", () => {
     expect(screen.getByRole("region", { name: "สนับสนุน" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "ผู้บริหารโครงการ" })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "หน้างาน" })).not.toBeInTheDocument();
-    // Tier sum: total workers + team count, visible while collapsed.
-    expect(screen.getByText(/รวม 3 คน/)).toBeInTheDocument();
+    // Spec 365: the ทีมช่าง tier split into ทีมภายใน/ทีมภายนอก — the combined
+    // "รวม N คน" total is gone; the ทีมภายใน header now shows its own team
+    // count instead, visible while collapsed.
+    expect(screen.getByText(/ทีมภายใน · จ้างรายวันโดย PRC · 1 ทีม/)).toBeInTheDocument();
     expect(screen.getByText("ทีมปูน")).toBeInTheDocument();
     // Collapsed: member chips hidden, per-card count shown. The LEAD alone is
     // visible on the collapsed lead line (spec 338 U2 — deliberate supersede

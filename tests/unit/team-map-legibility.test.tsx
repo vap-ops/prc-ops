@@ -129,7 +129,7 @@ describe("team map legibility — U1 button hierarchy (spec 338)", () => {
   it("ตั้งทีมใหม่ (tier header) and สร้างทีม (create sheet) are primary bg-action", async () => {
     const user = userEvent.setup();
     renderView();
-    const crewTier = screen.getByRole("region", { name: /ทีมช่าง/ });
+    const crewTier = screen.getByRole("region", { name: /ทีมภายใน/ });
     const newTeam = within(crewTier).getByRole("button", { name: /ตั้งทีมใหม่/ });
     expect(newTeam.className).toContain("bg-action");
     await user.click(newTeam);

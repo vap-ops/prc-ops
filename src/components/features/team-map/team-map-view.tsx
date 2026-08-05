@@ -18,7 +18,6 @@ import {
   CircleHelp,
   ClipboardList,
   Eye,
-  Inbox,
   Info,
   KeyRound,
   MapPin,
@@ -33,11 +32,7 @@ import {
   removeProjectMember,
   setPrimaryProjectFor,
 } from "@/app/projects/[projectId]/settings/actions";
-import {
-  addDailyPlanItem,
-  applyPlanSuggestions,
-  setDailyPlanItemCrew,
-} from "@/app/sa/plan/actions";
+import { addDailyPlanItem, setDailyPlanItemCrew } from "@/app/sa/plan/actions";
 import {
   buildDayAssignments,
   type DayPlanWpItem,
@@ -69,7 +64,7 @@ import { INLINE_ERROR } from "@/lib/ui/classes";
 import { evaluateMemberRemoval } from "@/lib/projects/member-removal";
 import { useToast } from "@/lib/ui/use-toast";
 import { leadTradesOf } from "@/lib/team-map/trade-hint";
-import { TIER_ACTION_BASE, TIER_ACTION, SHEET_ACTION } from "./action-classes";
+import { TIER_ACTION, SHEET_ACTION } from "./action-classes";
 
 export interface AddableStaff {
   id: string;
@@ -209,9 +204,7 @@ function TeamCard({
   tradesByWorker,
   planChips,
   onPlanChip,
-  placing,
-  placingCategoryCode,
-  onPlaceHere,
+  projectId,
 }: {
   team: TeamMapTeamCard;
   expanded: boolean;
@@ -221,15 +214,11 @@ function TeamCard({
   tradesByWorker?: Record<string, WorkerTrade[]>;
   planChips?: TeamDayAssignment[];
   onPlanChip?: (entry: TeamDayAssignment) => void;
-  placing?: boolean;
-  placingCategoryCode?: string | null;
-  onPlaceHere?: () => void;
+  /** Spec 365 — only read for a zero-member firm card's QR door. */
+  projectId?: string;
 }) {
   const tradesFor = (workerId: string) => tradesByWorker?.[workerId] ?? [];
   const lead = team.members.find((m) => m.isTeamLead);
-  const placingMismatch = placing
-    ? tradeMismatchCode(placingCategoryCode, leadTradesOf(team, tradesByWorker))
-    : null;
   const Icon = team.kind === "firm" ? Building2 : team.kind === "unassigned" ? CircleHelp : Users;
   // Spec 338 U1: the ผู้รับเหมา word moves into the header badge — the subtitle
   // stops repeating it and the card border reads stronger than a crew's.
@@ -275,26 +264,15 @@ function TeamCard({
           {expanded ? "ซ่อน" : "แสดง"}
         </button>
       </div>
-      {/* U6 placing mode: while a WP is picked up, CREW cards (and only crew
-          cards — the parent passes onPlaceHere for kind:"crew" alone) offer an
-          explicit drop target. A SIBLING row, never wrapping the header. */}
-      {placing && onPlaceHere ? (
-        <>
-          <button
-            type="button"
-            className="border-edge-strong text-action flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-xs font-medium"
-            onClick={onPlaceHere}
-          >
-            <MapPin aria-hidden className="size-3.5" /> วางที่ทีมนี้
-          </button>
-          {/* Advisory ONLY — the drop above never disables: a wrong hint costs
-              a glance, a wrong block costs a work assignment (spec 338 U3). */}
-          {placingMismatch ? (
-            <p className="text-ink-muted flex items-center gap-1.5 text-xs">
-              <CategoryChip code={placingMismatch} /> {TRADE_MISMATCH_HINT}
-            </p>
-          ) : null}
-        </>
+      {/* Spec 365 — a firm with zero current workers gets a QR-only join door
+          instead of showing nothing. Renders regardless of expand state. */}
+      {team.kind === "firm" && team.count === 0 && projectId ? (
+        <Link
+          href={`/team/poster?contractor=${team.id}&project=${projectId}`}
+          className={`${TIER_ACTION} justify-center`}
+        >
+          <Building2 aria-hidden className="size-3.5" /> แชร์ QR สมัคร
+        </Link>
       ) : null}
       {/* U6: the team's plan-of-day WPs — derived worker-overlap chips. */}
       {planChips && planChips.length > 0 ? (
@@ -416,10 +394,13 @@ export function TeamMapView({
   const [confirmSelfRemove, setConfirmSelfRemove] = useState<TeamMapStaffNode | null>(null);
   const [confirmDissolve, setConfirmDissolve] = useState<TeamMapTeamCard | null>(null);
   const [crewName, setCrewName] = useState("");
-  // U6: selected board + the picked-up WP. Both days are pre-loaded so the
-  // toggle is instant; `placing` holds the tray/moved item awaiting a team.
-  const [day, setDay] = useState<"today" | "tomorrow">("today");
-  const [placing, setPlacing] = useState<DayPlanWpItem | null>(null);
+  // U6: selected board for เพิ่มงานเข้าแผน/the assigned plan-chip sheet. Both
+  // days are pre-loaded. The day toggle and the tap-tap placing UI moved out
+  // of this component with the tray (spec 365 Task 5); `setPlacing` survives
+  // only because the plan-chip sheet's ย้ายไปทีมอื่น still primes it — Task 8
+  // rebuilds the drop-target list that consumes it.
+  const [day] = useState<"today" | "tomorrow">("today");
+  const [, setPlacing] = useState<DayPlanWpItem | null>(null);
 
   const allExpanded = map.teams.length > 0 && map.teams.every((t) => expanded.has(t.id));
   const teamHref = `/projects/${projectId}/team`;
@@ -434,56 +415,16 @@ export function TeamMapView({
   // contractor uuid) and never the pool (id is the string "unassigned").
   const otherCrews = (currentId: string) =>
     map.teams.filter((t) => t.kind === "crew" && t.id !== currentId);
+  // Spec 365 — ทีมช่าง splits into ทีมภายใน (crews + the unassigned pool, which
+  // is not contractor-tied) and ทีมภายนอก (subcontractor firms).
+  const crewCards = map.teams.filter((t) => t.kind === "crew");
+  const firmCards = map.teams.filter((t) => t.kind === "firm");
+  const unassignedCard = map.teams.find((t) => t.kind === "unassigned") ?? null;
   // Pay-exempt is a property of the WORKER, read off the chip. The card's
   // `kind` cannot answer it: a contractor-tied worker sitting in a crew makes
   // the card read "crew" (spec 328 §2.4).
   const chipIsPayExempt = chipSheet !== null && chipSheet.chip.contractorId !== null;
   const chipInCrew = chipSheet !== null && chipSheet.team.kind === "crew";
-
-  // U6: expand a team into the plan RPC's worker-set shape. Crews are
-  // contractor-free by mig 075818; the filter is belt-and-braces so a
-  // pay-exempt worker can never enter the plan→labor money chain (§2.4).
-  function teamGrainCrew(team: TeamMapTeamCard) {
-    const members = team.members.filter((m) => m.contractorId === null);
-    return {
-      workerIds: members.map((m) => m.workerId),
-      lead: members.find((m) => m.isTeamLead)?.workerId ?? null,
-    };
-  }
-
-  function placeOnTeam(team: TeamMapTeamCard) {
-    if (!placing || !planDate) return;
-    const item = placing;
-    setPlacing(null);
-    // NOT run(): placement fires with NO sheet open, and run() surfaces
-    // failures only through the sheet-inline error — a rejected write would be
-    // silent on a payroll-adjacent path (fresh-eyes). Toast both outcomes.
-    setBusy(true);
-    void (async () => {
-      try {
-        // applyPlanSuggestions = idempotent add + full-replace set-crew in one
-        // action — a tray item is already on the board, a move is replaced.
-        const r = await applyPlanSuggestions(projectId, planDate, [
-          { wp: item.workPackageId, crew: teamGrainCrew(team) },
-        ]);
-        if (!r.ok) {
-          toast.error(r.error ?? "มอบงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-          return;
-        }
-        toast.success("มอบงานแล้ว");
-        router.refresh();
-      } catch {
-        toast.error("มอบงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-      } finally {
-        setBusy(false);
-      }
-    })();
-  }
-
-  function switchDay(next: "today" | "tomorrow") {
-    setDay(next);
-    setPlacing(null);
-  }
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -599,16 +540,16 @@ export function TeamMapView({
         <div className="border-edge-strong h-3 border-l" />
       </div>
 
-      <section aria-label="ทีมช่าง" className={TIER_BOX}>
+      <section aria-label="ทีมภายใน" className={TIER_BOX}>
         <div className="mb-2 flex items-center gap-2">
           <Users aria-hidden className="text-ink-secondary size-4 shrink-0" />
           <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
-            ทีมช่าง · รวม {map.crewTotal} คน · {map.teamCount} ทีม
+            ทีมภายใน · จ้างรายวันโดย PRC · {crewCards.length} ทีม
           </p>
           <button
             type="button"
             className={INFO_BTN}
-            aria-label="คำอธิบายบทบาททีมช่าง"
+            aria-label="คำอธิบายบทบาททีมภายใน"
             onClick={() => openSheet({ type: "info", tier: "crew" })}
           >
             <Info aria-hidden className="size-4" />
@@ -620,7 +561,7 @@ export function TeamMapView({
           >
             <Users aria-hidden className="size-3.5" /> ตั้งทีมใหม่
           </button>
-          {map.teams.length > 0 ? (
+          {crewCards.length > 0 ? (
             <button
               type="button"
               className={TOGGLE}
@@ -632,85 +573,8 @@ export function TeamMapView({
             </button>
           ) : null}
         </div>
-        {/* ── U6: the day's plan — tray of unassigned WPs + date toggle ── */}
-        {dayPlans && assignments ? (
-          <div
-            data-testid="wp-tray"
-            className="border-edge-strong mb-2 rounded-lg border border-dashed p-2"
-          >
-            <div className="mb-1.5 flex items-center gap-2">
-              <Inbox aria-hidden className="text-ink-secondary size-4 shrink-0" />
-              <span className="text-ink-secondary min-w-0 flex-1 truncate text-xs font-medium">
-                งานที่ยังไม่มอบทีม
-              </span>
-              <div className="flex gap-1" role="group" aria-label="เลือกวัน">
-                <button
-                  type="button"
-                  aria-pressed={day === "today"}
-                  className={`${TIER_ACTION_BASE} ${day === "today" ? "text-action" : "text-ink-secondary"}`}
-                  onClick={() => switchDay("today")}
-                >
-                  วันนี้
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={day === "tomorrow"}
-                  className={`${TIER_ACTION_BASE} ${day === "tomorrow" ? "text-action" : "text-ink-secondary"}`}
-                  onClick={() => switchDay("tomorrow")}
-                >
-                  พรุ่งนี้
-                </button>
-              </div>
-              <button
-                type="button"
-                className={TIER_ACTION}
-                onClick={() => openSheet({ type: "addPlanWp" })}
-              >
-                เพิ่มงานเข้าแผน
-              </button>
-            </div>
-            {placing ? (
-              <p className="text-action mb-1.5 text-xs">
-                กำลังมอบ {placing.code} — แตะทีมที่จะรับงาน
-                <button
-                  type="button"
-                  className="text-ink-secondary ml-2 underline"
-                  onClick={() => setPlacing(null)}
-                >
-                  ยกเลิก
-                </button>
-              </p>
-            ) : null}
-            <div className="flex flex-wrap gap-1.5">
-              {assignments.tray.map((item) => (
-                <button
-                  key={item.itemId}
-                  type="button"
-                  className={`bg-card text-ink inline-flex min-h-11 items-center gap-1 rounded-lg border px-2.5 text-xs ${
-                    placing?.itemId === item.itemId ? "border-edge-strong" : "border-edge"
-                  }`}
-                  onClick={() => setPlacing((cur) => (cur?.itemId === item.itemId ? null : item))}
-                >
-                  <MapPin aria-hidden className="text-ink-secondary size-3" />
-                  <span className="font-medium">{item.code}</span>
-                  <span className="text-ink-secondary max-w-32 truncate">{item.name}</span>
-                </button>
-              ))}
-              {assignments.tray.length === 0 ? (
-                <span className="text-ink-muted text-xs">
-                  ไม่มีงานค้างมอบ{day === "today" ? "วันนี้" : "พรุ่งนี้"}
-                </span>
-              ) : null}
-            </div>
-            {assignments.individual.length > 0 ? (
-              <p className="text-ink-muted mt-1.5 text-xs">
-                มีอีก {assignments.individual.length} งานที่จัดคนไว้แบบอื่น — ดูที่แผนงาน
-              </p>
-            ) : null}
-          </div>
-        ) : null}
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-          {map.teams.map((t) => (
+          {crewCards.map((t) => (
             <TeamCard
               key={t.id}
               team={t}
@@ -726,17 +590,74 @@ export function TeamMapView({
                       openSheet({ type: "planChip", entry, team: t }),
                   }
                 : {})}
-              {...(placing && t.kind === "crew"
+            />
+          ))}
+          {unassignedCard ? (
+            <TeamCard
+              key={unassignedCard.id}
+              team={unassignedCard}
+              expanded={expanded.has(unassignedCard.id)}
+              onToggle={() => toggle(unassignedCard.id)}
+              onManage={() => {}}
+              onChip={(chip) => openSheet({ type: "chip", chip, team: unassignedCard })}
+              {...(tradesByWorker ? { tradesByWorker } : {})}
+              {...(assignments
                 ? {
-                    placing: true,
-                    placingCategoryCode: placing.categoryCode ?? null,
-                    onPlaceHere: () => placeOnTeam(t),
+                    planChips: assignments.byTeam.get(unassignedCard.id) ?? [],
+                    onPlanChip: (entry: TeamDayAssignment) =>
+                      openSheet({ type: "planChip", entry, team: unassignedCard }),
                   }
                 : {})}
             />
+          ) : null}
+          {crewCards.length === 0 && !unassignedCard ? (
+            <p className="text-ink-muted text-xs">ยังไม่มีทีมภายใน</p>
+          ) : null}
+        </div>
+      </section>
+
+      <div className="border-edge-strong ml-6 h-4 border-l sm:mx-auto" aria-hidden />
+
+      <section aria-label="ทีมภายนอก" className={TIER_BOX}>
+        <div className="mb-2 flex items-center gap-2">
+          <Building2 aria-hidden className="text-ink-secondary size-4 shrink-0" />
+          <p className={`${TIER_HEADING} min-w-0 flex-1 truncate`}>
+            ทีมภายนอก · ผู้รับเหมาช่วง · {firmCards.length} ราย
+          </p>
+          <button
+            type="button"
+            className={INFO_BTN}
+            aria-label="คำอธิบายบทบาททีมภายนอก"
+            onClick={() => openSheet({ type: "info", tier: "firm" })}
+          >
+            <Info aria-hidden className="size-4" />
+          </button>
+          <Link className={TIER_ACTION} href="/contacts">
+            <Building2 aria-hidden className="size-3.5" /> เพิ่มผู้รับเหมาช่วง
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {firmCards.map((t) => (
+            <TeamCard
+              key={t.id}
+              team={t}
+              expanded={expanded.has(t.id)}
+              onToggle={() => toggle(t.id)}
+              onManage={() => {}}
+              onChip={(chip) => openSheet({ type: "chip", chip, team: t })}
+              {...(tradesByWorker ? { tradesByWorker } : {})}
+              {...(assignments
+                ? {
+                    planChips: assignments.byTeam.get(t.id) ?? [],
+                    onPlanChip: (entry: TeamDayAssignment) =>
+                      openSheet({ type: "planChip", entry, team: t }),
+                  }
+                : {})}
+              projectId={projectId}
+            />
           ))}
-          {map.teams.length === 0 ? (
-            <p className="text-ink-muted text-xs">ยังไม่มีช่างในโครงการ</p>
+          {firmCards.length === 0 ? (
+            <p className="text-ink-muted text-xs">ยังไม่มีผู้รับเหมาช่วงในโครงการนี้</p>
           ) : null}
         </div>
       </section>
