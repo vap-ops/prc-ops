@@ -312,7 +312,22 @@ money and stops at the identity — which is exactly the asymmetry to close.
    permanently. §4's table says only "an active row exists" — U1's reading is
    deliberately narrower. Confirm it matches how the team actually uses the record.
 
-7. **Formatting variants of an account number.** U1 groups on the TRIMMED string only,
+7. **"Confirm own" has no landing, and the owner rows can never leave the worklist.**
+   Raised by the U4 review (2026-08-05). §5's three outcomes are confirm own / record a
+   nominee / correct a typo — but the first stores nothing, because §4 forbids a new
+   column, and that bar is right (a stored "someone said this was fine" would rot while
+   the detector re-derives the truth every render). The consequence: the **2 live owner
+   rows** — a worker whose own account other workers are also paid into — stay
+   `unrecorded` for as long as `accountWorkerCount > 1`, even after every other worker on
+   that account is nominee-covered. Their remedy genuinely lives on somebody else's row,
+   so the counter cannot reach zero from their side. **Options, none taken unilaterally:**
+   ⓐ exclude `nameMatches && isShared` owners from the worklist count and surface them
+   separately as context; ⓑ treat "all OTHER workers on this account are covered" as
+   resolving the owner too; ⓒ accept a floor above zero and say so in the copy.
+   ⚠️ Until this is decided, the count will not drive to 0 — and a counter that cannot be
+   cleared degrades into the noise this spec's siting decision was meant to avoid.
+
+8. **Formatting variants of an account number.** U1 groups on the TRIMMED string only,
    so `014-1623197-29` and `014162319729` would be two groups and the sharing would go
    undetected. Measured 2026-08-04: **all 42 stored numbers are digits-only**, so there
    is nothing to normalise today. Revisit with evidence if hand-entry ever introduces
