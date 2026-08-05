@@ -1,3 +1,9 @@
+# [0.332.0](https://github.com/vap-ops/prc-ops/compare/v0.331.0...v0.332.0) (2026-08-05)
+
+### Features
+
+- **photos:** self-hosted thumbnails, replacing the metered Storage transform API (spec 398) ([#972](https://github.com/vap-ops/prc-ops/issues/972)) ([1c4d774](https://github.com/vap-ops/prc-ops/commit/1c4d774b118995f34b4adc7b1651be5c98bb1882))
+
 # [0.331.0](https://github.com/vap-ops/prc-ops/compare/v0.330.0...v0.331.0) (2026-08-05)
 
 ### Features
