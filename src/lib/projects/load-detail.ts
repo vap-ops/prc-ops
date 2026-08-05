@@ -13,6 +13,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/database.types";
 import { fetchDisplayNames } from "@/lib/users/display-names";
 import { criticalWorkPackageIds } from "@/lib/work-packages/critical-path";
+import type { ZoneRowInput } from "@/lib/zones/zone-list";
 
 type Tbl = Database["public"]["Tables"];
 type Db = SupabaseClient<Database>;
@@ -31,6 +32,10 @@ type WpListRow = Pick<
   | "is_group"
   | "parent_id"
   | "category_id"
+  // Spec 392 U3a — the zone axis: feeds the zone × หมวดงาน rollup and the
+  // work-list's zone filter. A column on the row the list already reads, so it
+  // costs no extra query.
+  | "zone_id"
 >;
 type DeliverableRow = Pick<Tbl["deliverables"]["Row"], "id" | "code" | "name" | "sort_order">;
 // Spec 207 U3 — the project's work-category taxonomy (หมวดงาน) for the manager.
@@ -57,6 +62,16 @@ export interface ProjectDetailData {
   categories: ProjectCategoryRow[];
   /** Spec 277 — project_category id → reconciled GLOBAL work-category code (W0x). */
   categoryCodeById: Map<string, string>;
+  /**
+   * Spec 392 U3a — the project's zones, already in the zone-list's input shape
+   * so the rollup grid and the zones page share ONE ordering helper.
+   *
+   * Empty for a reader RLS withholds them from (`project_zones` SELECT is
+   * `procurement/procurement_manager OR can_see_project`) and — far more often
+   * today — for a project nobody has drawn yet. Both degrade to a surface that
+   * renders nothing, never to an error.
+   */
+  zones: ZoneRowInput[];
   criticalIds: Set<string>;
   onboarding: OnboardingStatusRow | null;
   sourceProjects: SourceProjectRow[];
@@ -76,6 +91,7 @@ export async function loadProjectDetail(
     { data: workPackages },
     { data: deliverables },
     { data: categories },
+    { data: zoneRows },
     onbRes,
     srcRes,
   ] = await Promise.all([
@@ -86,7 +102,7 @@ export async function loadProjectDetail(
     supabase
       .from("work_packages")
       .select(
-        "id, code, name, status, deliverable_id, contractor_id, priority, planned_start, planned_end, is_group, parent_id, category_id",
+        "id, code, name, status, deliverable_id, contractor_id, priority, planned_start, planned_end, is_group, parent_id, category_id, zone_id",
       )
       .eq("project_id", project.id)
       .order("code", { ascending: true }),
@@ -100,6 +116,15 @@ export async function loadProjectDetail(
       .select("id, code, name, sort_order, is_active, work_categories(code)")
       .eq("project_id", project.id)
       .order("sort_order", { ascending: true }),
+    // Spec 392 U3a — the project's zones. Joins the SAME wave as the work
+    // packages it groups: the rollup is on the app's highest-traffic mobile
+    // route, so it must not add a serial layer to TTFB. Every zone of the
+    // project is read, not just the current map's, because zone_id on a work
+    // package is not scoped to one map.
+    supabase
+      .from("project_zones")
+      .select("id, code, name, shape, sort_order, parent_zone_id")
+      .eq("project_id", project.id),
     isPmRole
       ? supabase.rpc("project_onboarding_status", { p_project_id: project.id })
       : Promise.resolve({ data: null }),
@@ -164,6 +189,14 @@ export async function loadProjectDetail(
     deliverables: deliverables ?? [],
     categories: categories ?? [],
     categoryCodeById,
+    zones: (zoneRows ?? []).map((z) => ({
+      id: z.id,
+      code: z.code,
+      name: z.name,
+      shape: z.shape,
+      sortOrder: z.sort_order,
+      parentZoneId: z.parent_zone_id,
+    })),
     criticalIds,
     onboarding: onbRes.data?.[0] ?? null,
     sourceProjects: srcRes.data ?? [],

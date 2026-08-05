@@ -1,3 +1,14 @@
+# [0.338.0](https://github.com/vap-ops/prc-ops/compare/v0.337.0...v0.338.0) (2026-08-05)
+
+### Bug Fixes
+
+- **zones:** address the fresh-eyes review of the U3a read surfaces ([6410423](https://github.com/vap-ops/prc-ops/commit/6410423c41303567f078d5bdb10a602dbc5835db))
+- **zones:** keep the rollup cell constant colour-free and register the zones component folder ([d09def2](https://github.com/vap-ops/prc-ops/commit/d09def26052f2a07c2ee2361636d5578c6d6f5e7))
+
+### Features
+
+- **zones:** read the zone on the WP detail, the project rollup and the work list (spec 392 U3a) ([4007098](https://github.com/vap-ops/prc-ops/commit/4007098548056674242ae01fd8c2ef3ca4fc265f))
+
 # [0.337.0](https://github.com/vap-ops/prc-ops/compare/v0.336.1...v0.337.0) (2026-08-05)
 
 ### Features

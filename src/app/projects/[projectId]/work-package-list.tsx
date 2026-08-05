@@ -38,7 +38,15 @@ import {
   groupWorkPackagesByDeliverable,
   type GroupDeliverable,
 } from "@/lib/deliverables/group-work-packages";
-import { WORK_PACKAGE_STATUS_LABEL, WP_GROUP_LABEL, WP_LEAF_LABEL } from "@/lib/i18n/labels";
+import {
+  WORK_PACKAGE_STATUS_LABEL,
+  WP_GROUP_LABEL,
+  WP_LEAF_LABEL,
+  ZONE_FILTER_ALL_LABEL,
+  ZONE_LABEL,
+  ZONE_UNSET_LABEL,
+} from "@/lib/i18n/labels";
+import { filterByZone, UNZONED, type ZoneSelection } from "@/lib/zones/zone-filter";
 import { workPackageStatusPillClasses } from "@/lib/status-colors";
 import { workPackageStatusIcon } from "@/lib/status-icons";
 import {
@@ -73,6 +81,23 @@ export interface WorkPackageListItem {
   parentId: string | null;
   /** Spec 277: reconciled GLOBAL work-category code (W0x), or null if uncategorised. */
   categoryCode: string | null;
+  /**
+   * Spec 392 U3a: the zone this งาน sits in, or null when nobody has placed it.
+   * Required (not optional) on purpose — every caller must decide, so a surface
+   * cannot silently omit the field and leave every row in the unzoned bucket.
+   */
+  zoneId: string | null;
+}
+
+/**
+ * Spec 392 U3a — one filterable zone, in the zone list's own ORDER. No `depth`:
+ * the chips are a flat horizontal scroller and cannot indent, so carrying the
+ * field would be a claim the surface never makes.
+ */
+export interface WorkPackageListZone {
+  id: string;
+  code: string;
+  name: string;
 }
 
 type Lens = "group" | "action" | "deliverable";
@@ -88,6 +113,11 @@ interface WorkPackageListProps {
    * threaded straight through to each WorklistRow.
    */
   canOpen?: boolean;
+  /**
+   * Spec 392 U3a: the project's zones, for the zone filter. Empty (the live
+   * state of every project today) renders no control at all.
+   */
+  zones?: ReadonlyArray<WorkPackageListZone>;
 }
 
 /**
@@ -106,11 +136,22 @@ export function WorkPackageList({
   workPackages,
   deliverables,
   canOpen = true,
+  zones = [],
 }: WorkPackageListProps) {
+  // Spec 392 U3a: the zone selection narrows the roster BEFORE the lenses see
+  // it, so every lens, the search and the band filter all agree about which
+  // งาน exist. null = no filter; UNZONED = the งาน nobody has placed yet.
+  const [zoneFilter, setZoneFilter] = useState<ZoneSelection>(null);
+  const visible = useMemo(() => filterByZone(workPackages, zoneFilter), [workPackages, zoneFilter]);
   // Spec 270 U3: split the roster into งาน sections + leaves. Groups head
   // sections in the งาน lens and are EXCLUDED from every other lens — they
   // are grouping entities, not actionable rows (DB rejects all work on them).
-  const roster = useMemo(() => buildGroupedRoster(workPackages), [workPackages]);
+  const roster = useMemo(() => buildGroupedRoster(visible), [visible]);
+  // ...but ADOPTION is a fact about the PROJECT, not about the current filter.
+  // Read off the unfiltered roster: derived from `visible` it would flicker as
+  // you filter, and the งาน lens option would vanish while `lens` still held
+  // "group" — a selected lens with no control and nothing rendered.
+  const adopted = useMemo(() => workPackages.some((wp) => wp.isGroup), [workPackages]);
   const leaves = roster.leaves;
   // Spec 337 U5: who may file a defect on a finished งานย่อย. Same predicate the
   // WP detail branches on (spec 171) — procurement reads the WP to raise a PR and
@@ -119,7 +160,7 @@ export function WorkPackageList({
   // non-interactive form before any door is built (spec 154), so an extra
   // `canOpen &&` would be an unreachable guard implying a hazard that isn't there.
   const canReportDefect = !isReadOnlyWpViewer(role);
-  const [lens, setLens] = useState<Lens>(() => defaultLens(role, roster.adopted));
+  const [lens, setLens] = useState<Lens>(() => defaultLens(role, adopted));
   // Spec 293: type-to-find over the whole in-memory roster. A non-empty
   // query replaces the lens with a flat, priority-ranked hit list — "find
   // the one งาน I need" beats hunting inside collapsed sections.
@@ -163,19 +204,75 @@ export function WorkPackageList({
     return m;
   }, [leaves]);
 
+  // Keyed on the UNFILTERED roster: "this project has no งาน" is a different
+  // fact from "this zone has none", and returning here under a filter would
+  // remove the very control the reader needs to get back (the spec 395 U4
+  // completion-path defect — resolve the last row, lose the page).
   if (workPackages.length === 0) {
     return <EmptyNotice>ยังไม่มีรายการงาน</EmptyNotice>;
   }
 
   const lensOptions: ReadonlyArray<{ value: Lens; label: string }> = [
     // งาน lens exists only once the project adopted the two-level model.
-    ...(roster.adopted ? [{ value: "group" as const, label: `ตาม${WP_GROUP_LABEL}` }] : []),
+    ...(adopted ? [{ value: "group" as const, label: `ตาม${WP_GROUP_LABEL}` }] : []),
     { value: "action", label: "ตามสถานะ" },
     { value: "deliverable", label: "ตามงวดงาน" },
   ];
 
+  // Spec 392 U3a — is the CHOSEN ZONE empty (as distinct from the project
+  // being empty, which returned above)? The two need different sentences: the
+  // unzoned bucket is not a zone, so telling a reader who has just placed the
+  // last งานย่อย that "there is no งานย่อย in this zone" states the wrong fact
+  // about the wrong thing. The one they wanted is that everything is placed.
+  const zoneIsEmpty = zoneFilter !== null && leaves.length === 0 && roster.sections.length === 0;
+  const zoneEmptyMessage =
+    zoneFilter === UNZONED
+      ? `${WP_LEAF_LABEL}ทุกรายการระบุ${ZONE_LABEL}แล้ว`
+      : `ไม่มี${WP_LEAF_LABEL}ใน${ZONE_LABEL}นี้`;
+
+  // Spec 392 U3a: its OWN radiogroup, never merged into the lens toggle — a
+  // lens is "how do I read this list" and a zone is "which part of the site",
+  // two independent choices, and folding them together would make each one
+  // cancel the other.
+  const zoneOptions: ReadonlyArray<{ value: ZoneSelection; label: string; code: string | null }> = [
+    { value: null, label: ZONE_FILTER_ALL_LABEL, code: null },
+    ...zones.map((z) => ({ value: z.id as ZoneSelection, label: z.name, code: z.code })),
+    { value: UNZONED, label: ZONE_UNSET_LABEL, code: null },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
+      {zones.length > 0 ? (
+        <div
+          role="radiogroup"
+          aria-label={`กรองตาม${ZONE_LABEL}`}
+          // The pan-x + pinch-zoom pair is mandatory beside overflow-x-auto
+          // (ui-class-contracts): a bare scroller hijacks vertical page scroll
+          // on touch, and pan-x alone silently kills pinch-zoom.
+          className="-mx-5 flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto px-5 pb-1"
+        >
+          {zoneOptions.map((opt) => {
+            const on = zoneFilter === opt.value;
+            return (
+              <button
+                key={opt.value ?? "__all__"}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setZoneFilter(opt.value)}
+                className={`text-meta focus-visible:ring-action min-h-11 shrink-0 rounded-full border px-3 font-medium whitespace-nowrap transition-colors focus:outline-none focus-visible:ring-2 ${
+                  on
+                    ? "border-fill bg-fill text-on-fill"
+                    : "border-edge bg-card text-ink-secondary hover:text-ink"
+                }`}
+              >
+                {opt.code ? <span className="mr-1.5 font-mono">{opt.code}</span> : null}
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       {/* Spec 293: type-to-find search over the whole roster (code or name). */}
       <div className="relative">
         <Search
@@ -203,7 +300,16 @@ export function WorkPackageList({
         ) : null}
       </div>
 
-      {isSearching ? (
+      {zoneIsEmpty ? (
+        /* Spec 392 U3a — the chosen zone holds nothing. This sits ABOVE the
+           search branch on purpose: with a query typed as well, the searching
+           branch would blame the QUERY ("ไม่พบ…ที่ตรงกับคำค้น") for an emptiness
+           the ZONE caused, and clearing the query would flip the message.
+           Every lens below renders silently empty on an empty roster, so
+           without this the reader gets a page that looks broken. The filter row
+           above stays mounted, which is the way back out. */
+        <EmptyNotice>{zoneEmptyMessage}</EmptyNotice>
+      ) : isSearching ? (
         // Search active: flat, priority-ranked hit list across every lens.
         <div className="flex flex-col gap-2.5">
           {searchResults.length === 0 ? (

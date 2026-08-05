@@ -46,6 +46,19 @@ const WORK_PACKAGES = [
     planned_end: null,
     is_group: false,
     parent_id: null,
+    // Spec 392 U3a — the zone axis rides the same read the worklist already does.
+    zone_id: "z1",
+  },
+];
+const ZONES = [
+  {
+    id: "z1",
+    map_id: "m1",
+    code: "A",
+    name: "พื้นลานด้านซ้าย",
+    shape: "rect",
+    sort_order: 0,
+    parent_zone_id: null,
   },
 ];
 const DELIVERABLES = [{ id: "d1", code: "D-01", name: "งวด 1", sort_order: 1 }];
@@ -70,6 +83,7 @@ const LIST: Record<string, unknown[]> = {
   work_packages: WORK_PACKAGES,
   deliverables: DELIVERABLES,
   project_categories: CATEGORIES,
+  project_zones: ZONES,
   projects: SOURCE_PROJECTS,
   work_package_dependencies: [],
 };
@@ -122,8 +136,10 @@ describe("loadProjectDetail", () => {
   it("runs the independent fan concurrently (not a serial waterfall)", async () => {
     await loadProjectDetail(supabase, PROJECT as never, true);
     // clients + project_members + work_packages + deliverables + project_categories
-    // + onboarding + projects = 7 reads that depend only on the project → overlap.
-    expect(maxInFlight).toBeGreaterThanOrEqual(7);
+    // + project_zones + onboarding + projects = 8 reads that depend only on the
+    // project → overlap. Spec 392 U3a added project_zones to the SAME wave: the
+    // rollup must not cost the app's highest-traffic mobile route a serial layer.
+    expect(maxInFlight).toBeGreaterThanOrEqual(8);
   });
 
   it("assembles the correct shape (PM role)", async () => {
@@ -143,6 +159,35 @@ describe("loadProjectDetail", () => {
     await loadProjectDetail(supabase, PROJECT as never, true);
     expect(selectedColumns["work_packages"]).toContain("is_group");
     expect(selectedColumns["work_packages"]).toContain("parent_id");
+  });
+
+  it("selects the zone column and returns the project's zones (spec 392 U3a)", async () => {
+    const data = await loadProjectDetail(supabase, PROJECT as never, true);
+    expect(selectedColumns["work_packages"]).toContain("zone_id");
+    // Returned in the zone-list's own input shape so the rollup and the list can
+    // share one ordering helper instead of two remappings.
+    expect(data.zones).toEqual([
+      {
+        id: "z1",
+        code: "A",
+        name: "พื้นลานด้านซ้าย",
+        shape: "rect",
+        sortOrder: 0,
+        parentZoneId: null,
+      },
+    ]);
+  });
+
+  it("returns no zones for a reader RLS withholds them from — not an error, an empty grid", async () => {
+    // project_zones SELECT is `procurement/procurement_manager OR
+    // can_see_project`; a reader outside both gets zero rows, and the surface
+    // must degrade to nothing rather than to a broken page.
+    const withheld = {
+      from: (table: string) => makeQuery(table === "project_zones" ? "__empty__" : table),
+      rpc: (name: string) => track({ data: RPC[name] ?? null, error: null }),
+    } as never;
+    const data = await loadProjectDetail(withheld, PROJECT as never, true);
+    expect(data.zones).toEqual([]);
   });
 
   it("skips the PM-only reads when not a PM", async () => {

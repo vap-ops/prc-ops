@@ -6,7 +6,7 @@ import { DETAIL_TITLE, BUTTON_SECONDARY } from "@/lib/ui/classes";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/require-role";
 import { WP_DETAIL_ROLES, isManagerRole, isReadOnlyWpViewer } from "@/lib/auth/role-home";
-import { projectHref, workPackageHref } from "@/lib/nav/project-paths";
+import { projectHref, workPackageHref, zonesHref } from "@/lib/nav/project-paths";
 import { groupWpThings } from "@/lib/work-packages/things";
 import { availableToBorrow, shapeWpLoans } from "@/lib/equipment/wp-loans";
 import { WpEquipmentSection } from "@/components/features/equipment/wp-equipment-section";
@@ -79,6 +79,7 @@ import { WpPriorityControl } from "@/components/features/work-packages/wp-priori
 import { WpDeliverableControl } from "@/components/features/work-packages/wp-deliverable-control";
 import { WpCategoryControl } from "@/components/features/work-packages/wp-category-control";
 import { WorkCategoryBadge } from "@/components/features/work-packages/work-category-badge";
+import { WpZoneChip } from "@/components/features/zones/wp-zone-chip";
 import { WpNameControl } from "@/components/features/work-packages/wp-name-control";
 import { WpDeleteControl } from "@/components/features/work-packages/wp-delete-control";
 import { WpSchedulePanel } from "@/components/features/work-packages/wp-schedule-panel";
@@ -139,12 +140,29 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
   // oversight view (children + derived rollup + read-only aggregates), never
   // the capture/PR/labor machinery below. One cheap pre-read decides the
   // branch; the leaf path also reads its parent for the breadcrumb.
+  // Spec 392 U3a: the zone rides the pre-read as an EMBED rather than a second
+  // query, and that is the gate as well as the fetch. `project_zones` SELECT is
+  // `procurement/procurement_manager OR can_see_project` — read live — so a
+  // reader the policy withholds gets `null` here and the chip renders nothing,
+  // instead of a name they may not have. No extra round-trip either.
   const { data: pre } = await supabase
     .from("work_packages")
-    .select("id, code, name, status, project_id, is_group, parent_id, category_id")
+    .select(
+      "id, code, name, status, project_id, is_group, parent_id, category_id, zone_id, project_zones ( code, name )",
+    )
     .eq("id", workPackageId)
     .maybeSingle();
   if (!pre || pre.project_id !== projectId) notFound();
+
+  // The zones route is PM-gated (requireRole(PM_ROLES), which REDIRECTS anyone
+  // else to their role home), and isPlanner IS that set — so a viewer who can
+  // read the zone but not open the map gets an inert chip rather than a door
+  // that bounces them. `?from` is threaded because U3a makes that route
+  // multi-parent: without it, back ejects to the project, not to this งาน.
+  const zoneChipHref = isPlanner
+    ? withBackFrom(zonesHref(projectId), workPackageHref(projectId, workPackageId))
+    : null;
+  const zone = pre.project_zones ?? null;
 
   if (pre.is_group) {
     // Spec 335: the project's own status gates the add-งานย่อย door and depends
@@ -195,6 +213,15 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
           <div className="min-w-0">
             <p className="text-meta text-ink-secondary font-mono">{pre.code}</p>
             <h1 className={DETAIL_TITLE}>{pre.name}</h1>
+            {/* Spec 392 U3a — the zone, on the งาน detail as well as the งานย่อย
+                one. `zone_id` is a column on every work_packages row, so a zone
+                set on a group would otherwise be written and never readable.
+                Renders nothing when there is no zone or RLS withheld it. */}
+            {zone ? (
+              <div className="mt-1.5">
+                <WpZoneChip zone={zone} href={zoneChipHref} />
+              </div>
+            ) : null}
           </div>
         </DetailHeader>
         <section className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
@@ -1125,9 +1152,13 @@ export default async function WorkPackagePhotoScreen({ params, searchParams }: P
             {/* Spec 57: WP name never truncates — the nameplate. */}
             <h1 className={DETAIL_TITLE}>{wp.name}</h1>
             {/* Spec 229 (ADR 0066 / S8): the WP's หมวดงาน (work-category) — the same
-                binding that scopes the PR + เบิก pickers below. */}
-            <div className="mt-1.5">
+                binding that scopes the PR + เบิก pickers below.
+                Spec 392 U3a: the zone sits beside it, because they are the two
+                axes of the same question — a WP carries exactly ONE หมวดงาน
+                while a zone spans several, so neither answers for the other. */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <WorkCategoryBadge name={workCategoryName} code={workCategoryCode} />
+              <WpZoneChip zone={zone} href={zoneChipHref} />
             </div>
           </div>
           <StatusPill
