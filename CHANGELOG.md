@@ -1,3 +1,9 @@
+# [0.333.0](https://github.com/vap-ops/prc-ops/compare/v0.332.0...v0.333.0) (2026-08-05)
+
+### Features
+
+- **muster:** a way back from a closed attendance day (spec 397 U3) ([#973](https://github.com/vap-ops/prc-ops/issues/973)) ([7357e85](https://github.com/vap-ops/prc-ops/commit/7357e85fd5ac0337a5e23220ff5902e51982e03e))
+
 # [0.332.0](https://github.com/vap-ops/prc-ops/compare/v0.331.0...v0.332.0) (2026-08-05)
 
 ### Features
