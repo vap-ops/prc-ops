@@ -17,18 +17,27 @@
 // (site_admin, super_admin, procurement_manager), so no control here can promise
 // what the server refuses.
 
+import Link from "next/link";
+
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
+import { HelpCard } from "@/components/features/sa/help/help-card";
 import { requireRole } from "@/lib/auth/require-role";
-import { SA_SURFACE_ROLES } from "@/lib/auth/role-home";
+import { SA_SURFACE_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
 import { bangkokTodayIso } from "@/lib/dates";
 import { createClient } from "@/lib/db/server";
-import { formatThaiDate, OFFICE_TEAM_LABEL } from "@/lib/i18n/labels";
+import {
+  formatThaiDate,
+  OFFICE_TEAM_LABEL,
+  USER_ROLE_LABEL,
+  WORKER_ROSTER_LABEL,
+} from "@/lib/i18n/labels";
 import { loadOfficeBoard } from "@/lib/muster/office-board";
 import { safeBackHref } from "@/lib/nav/back-href";
 import { getSaCurrentProject } from "@/lib/sa/current-project.server";
+import { OFFICE_ATTENDANCE_HELP } from "@/lib/sa/help-content";
 import {
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
@@ -129,6 +138,16 @@ export default async function OfficeTeamPage({
           </p>
         )}
 
+        {/* Spec 397 U6 — the teaching half, rendered OUTSIDE the open/not-open
+            split: the state a first-timer is in every morning is the one where
+            today's team is not open yet, so a guide inside either arm would miss
+            half its readers. OPEN until today's team exists and collapsed after —
+            a bare <details> is shut, so parking the guide here without that would
+            teach nobody. Native <details>, zero JS: this page hydrates nothing.
+            Same card object the คู่มือ hub renders, because `/sa/help` sees ~4
+            views a month and this page is where the task is. */}
+        <HelpCard card={OFFICE_ATTENDANCE_HELP} open={teamId === null} />
+
         {teamId === null ? (
           <div className={CARD}>
             <h2 className={SECTION_HEADING}>ยังไม่ได้เปิด{OFFICE_TEAM_LABEL}วันนี้</h2>
@@ -208,9 +227,27 @@ export default async function OfficeTeamPage({
                   "nobody has checked in" is a self-contradiction the reader
                   cannot resolve. */}
               {board.rosterSize === 0 ? (
+                /* Spec 397 U6 — role-aware, and that is not a nicety: `/workers`
+                   is gated on WORKER_ROSTER_ROLES, which does NOT include
+                   site_admin — this page's primary audience. U5's sentence sent
+                   them to a route that redirects them (U3's 🔴 #2, shipped
+                   again). Each arm names the step ITS reader can actually take. */
                 <p className="text-ink-secondary mt-1 text-sm">
-                  ยังไม่มีรายชื่อทีมสำนักงานในโครงการนี้ — ต้องเพิ่มรายชื่อ (ค่าแรง 0) ที่ /workers
-                  ก่อน
+                  ยังไม่มีรายชื่อทีมสำนักงานในโครงการนี้ —{" "}
+                  {WORKER_ROSTER_ROLES.includes(ctx.role) ? (
+                    <>
+                      เพิ่มได้ที่{" "}
+                      <Link href="/workers" className="text-action underline underline-offset-2">
+                        {WORKER_ROSTER_LABEL}
+                      </Link>{" "}
+                      โดยเลือก การจ่าย = รายเดือน แล้วเลือกโครงการนี้
+                    </>
+                  ) : (
+                    <>
+                      แจ้ง{USER_ROLE_LABEL.project_manager}หรือ{USER_ROLE_LABEL.procurement}
+                      ให้เพิ่มรายชื่อ (การจ่าย = รายเดือน) ในโครงการนี้ก่อน
+                    </>
+                  )}
                 </p>
               ) : board.addable.length === 0 ? (
                 <p className="text-ink-secondary mt-1 text-sm">

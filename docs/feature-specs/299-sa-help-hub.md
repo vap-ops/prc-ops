@@ -12,7 +12,7 @@ The site_admin is a non-technical field lead working on a phone. There is **no i
 - **`sa-real-usage-photos-2026-07`** — the SA's real day-to-day activity is **photographing work packages**; attendance/muster is the adoption bet. ⇒ the cards are **ordered by daily-use frequency** (photos first), not by onboarding sequence.
 - **`field-first-design-system`** — the SA surface uses the `globals.css` token system (raw Tailwind palette banned; enforced by tests). The hub reuses existing card/`PageShell`/`DetailHeader` primitives — no new visual system.
 - **`ui-term-consistency-ssot`** — every user-facing term the manual names must match the term the app actually shows (single-source via `src/lib/i18n/labels.ts`). The manual is a place term drift becomes visible; it must track the live labels, not invent copy.
-- **`self-governance-doctrine`** / **`sa-custody-doctrine`** — the manual describes what the SA is *allowed* to do (identity + presence + photos); it must not imply money/pay authority the SA doesn't have (ADR 0079).
+- **`self-governance-doctrine`** / **`sa-custody-doctrine`** — the manual describes what the SA is _allowed_ to do (identity + presence + photos); it must not imply money/pay authority the SA doesn't have (ADR 0079).
 - Spec **298** — the onboarding front door (`/sa/crew` → "เพิ่มช่างใหม่" sheet, มีมือถือ QR / ไม่มีมือถือ capture). The onboarding card documents this; its copy finalizes **after 298 U2 ships** (see build order).
 
 ## What already exists (verified LIVE 2026-07-11)
@@ -34,7 +34,7 @@ One presentational component `src/components/features/sa/help/help-card.tsx` (cl
 
 ### 3. The content (text-first, authored by CC, operator-reviewed)
 
-`src/lib/sa/help-content.ts` — a typed `HELP_CARDS: HelpCard[]` array. Four cards, **ordered by daily-use frequency**. The step copy below is the **outline the build drafts into polished Thai** from the live flows (each step's wording must match the live label it references):
+`src/lib/sa/help-content.ts` — a typed `HELP_CARDS: HelpCard[]` array. Four cards as specced here, **ordered by daily-use frequency** (later specs added two more — see the design-decision note below for the shipped order). The step copy below is the **outline the build drafts into polished Thai** from the live flows (each step's wording must match the live label it references):
 
 1. **`photos` — ถ่ายรูปงาน** _(the SA's #1 activity)_
    - เมื่อไหร่ใช้: ทุกครั้งที่งาน (WP) มีความคืบหน้าหรือทำเสร็จ
@@ -46,7 +46,7 @@ One presentational component `src/components/features/sa/help/help-card.tsx` (cl
    - เมื่อไหร่ใช้: มีช่างใหม่เข้าทีม
    - Steps: ไปที่ ทีมงาน (`/sa/crew`) → กด "เพิ่มช่างใหม่" → **ช่างมีมือถือ:** ให้สแกน QR แล้วกรอกข้อมูล+บัญชีด้วยตัวเอง / **ไม่มีมือถือ:** กรอกชื่อ–เลขบัตรประชาชน–วันเกิด แล้วถ่ายรูปสมุดบัญชี → เสร็จ
    - Tip (money-gov honesty): เรื่องค่าจ้าง/ระดับ ทีมสำนักงาน (PM) เป็นผู้กำหนด ไม่ใช่หน้าที่ SA
-4. **`manage` — จัดการทีม** 
+4. **`manage` — จัดการทีม**
    - เมื่อไหร่ใช้: ดูสมาชิกทีมและสถานะการรับเข้า
    - Steps: เปิด ทีมงาน → ดูสถานะ (รอตรวจ → รอยืนยัน → พร้อม) → ดูทีมหน้างาน
 
@@ -56,10 +56,10 @@ One card on `/sa` home (`src/app/sa/page.tsx`) — **"คู่มือกา�
 
 ## Unit plan
 
-| Unit | Scope | Merge gate | Tests (RED-first) |
-| ---- | ----- | ---------- | ----------------- |
-| **U1 — hub + 3 independent cards + entry** | `src/lib/sa/help-content.ts` (`HelpCard` type + the `photos`/`muster`/`manage` cards); `help-card.tsx`; `src/app/sa/help/page.tsx` (route, role gate, renders `HELP_CARDS`); the `/sa` home "คู่มือ" entry; any labels in `src/lib/i18n/labels.ts`. **Omits the `add-crew` card** (U2, coupled to 298). | Code-only → auto-merge on green. | Vitest/RTL: the page renders a card per `HELP_CARDS` entry with title + steps; each card has its anchor id; the accordion expands; the `/sa` home shows the คู่มือ link; role gate blocks a non-SA. Content test: every card's referenced screen label exists in `labels.ts` (term-consistency guard). |
-| **U2 — the onboarding card** _(after 298 U2 ships)_ | Add the `add-crew` card object to `help-content.ts`, its copy matching the **live** 298 front door (มีมือถือ QR / ไม่มีมือถือ capture) + the money-gov tip. | Code-only → auto-merge on green. | Vitest: the `add-crew` card renders both branches + the money-gov tip; its step labels match the live 298 UI labels. |
+| Unit                                                | Scope                                                                                                                                                                                                                                                                                                   | Merge gate                       | Tests (RED-first)                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **U1 — hub + 3 independent cards + entry**          | `src/lib/sa/help-content.ts` (`HelpCard` type + the `photos`/`muster`/`manage` cards); `help-card.tsx`; `src/app/sa/help/page.tsx` (route, role gate, renders `HELP_CARDS`); the `/sa` home "คู่มือ" entry; any labels in `src/lib/i18n/labels.ts`. **Omits the `add-crew` card** (U2, coupled to 298). | Code-only → auto-merge on green. | Vitest/RTL: the page renders a card per `HELP_CARDS` entry with title + steps; each card has its anchor id; the accordion expands; the `/sa` home shows the คู่มือ link; role gate blocks a non-SA. Content test: every card's referenced screen label exists in `labels.ts` (term-consistency guard). |
+| **U2 — the onboarding card** _(after 298 U2 ships)_ | Add the `add-crew` card object to `help-content.ts`, its copy matching the **live** 298 front door (มีมือถือ QR / ไม่มีมือถือ capture) + the money-gov tip.                                                                                                                                             | Code-only → auto-merge on green. | Vitest: the `add-crew` card renders both branches + the money-gov tip; its step labels match the live 298 UI labels.                                                                                                                                                                                   |
 
 Build order: **U1 anytime** (independent of 298). **U2 after 298 U2** so the onboarding copy documents the real, shipped front door (not a design that could still shift).
 
@@ -68,7 +68,7 @@ Build order: **U1 anytime** (independent of 298). **U2 after 298 U2** so the onb
 - **Shape = in-app help hub** (re-readable reference), NOT a coachmark tour (brittle/one-shot/heavy) and NOT a printable PDF (stale/out-of-app). A print/export of the same content is a possible future add-on. (Operator, 2026-07-11.)
 - **Text-first.** Plain Thai steps now; screenshots are a later follow-up (they rot as the UI changes and multiply the build). (Operator, 2026-07-11.)
 - **Copy authored by CC, operator-reviewed**, drafted from the live flows; every referenced term tracks the live `labels.ts` (`ui-term-consistency-ssot`). (Operator, 2026-07-11.)
-- **Cards ordered by daily-use frequency** (photos → muster → add-crew → manage), per `sa-real-usage-photos-2026-07` — not by onboarding sequence.
+- **Cards ordered by daily-use frequency**, per `sa-real-usage-photos-2026-07` — not by onboarding sequence. As shipped: photos → muster → office-attendance (spec 397 U6, beside the crew muster card) → add-crew → manage, then cold-restart (spec 339 U1, troubleshooting, deliberately outside the frequency block). The exact order is pinned in `sa-help-content.test.ts`.
 - **onboard + generate-QR = one card** (`add-crew`), because spec 298 unifies both behind the "เพิ่มช่างใหม่" front door. (Operator, 2026-07-11.)
 - **Accordion, no sub-routes** — least navigation for a field lead; anchor ids keep future deep-linking cheap.
 - **Content is data** (`help-content.ts` array), not markup — copy edits never touch layout.

@@ -11821,3 +11821,56 @@ closed`) → reopen ok → undo now works (4 rows → 3) → audit row reads
   team on a live project nobody asked for; the RPC path itself was proven in U4.
 - Gates: RED-first ×3 slices · lint 0 · typecheck 0 · vitest **877 files / 7159
   tests exit 0** (pre-review-fix; re-run after).
+
+## 2026-08-05 — Spec 397 U6: teaching the office team (lane attend)
+
+**THE LAST 397 UNIT.** U5 built the surface; this writes the instruction — and the
+unit SPLIT, because only half of it is code.
+
+- ✅ **The teaching half shipped.** An `office-attendance` card joins `HELP_CARDS`
+  (the `/sa/help` SSOT) directly after the crew muster card — same activity, same
+  time of day, different team — and **the same card object is rendered inline on
+  `/team/office`**. That is placement, not duplication: `/sa/help` drew **4 route
+  views from 3 users in 30 days** against **512 for `/team`**, so a guide living only
+  in the คู่มือ hub would be the "correct detector on a page nobody opens" failure.
+  One content source, two renders. It sits OUTSIDE the open/not-open split — the
+  state a first-timer is in every morning is the one where the team is not open yet.
+- ✅ **Fixed a role-blind sentence U5 shipped, and it is U3's 🔴 #2 exactly.** The
+  roster-empty arm read "ต้องเพิ่มรายชื่อ (ค่าแรง 0) ที่ /workers ก่อน" — but
+  `/workers` is gated on `WORKER_ROSTER_ROLES`, which does **not** contain
+  `site_admin`, this page's primary audience. Proved live under view-as: a
+  site_admin fetching `/workers` gets `NEXT_REDIRECT` and zero roster content. Each
+  arm now names the step ITS reader can take (a real link for the roster-capable,
+  "แจ้งผู้จัดการโครงการหรือฝ่ายจัดซื้อ" for everyone else), and the exhaustive
+  intersection is pinned so the branch cannot quietly become dead code.
+- 🚨 **The data-op half is handed to the operator, because the names are not in the
+  system to be read.** Of the five `site_admin` members of TFM โพธิ์ทอง only `aemon`
+  has a `staff_registrations` row, and hers (`PRC-26-0036` เอมอร ฮามศรีพรม) is bound
+  to a worker row named **นายเหิน เมืองงาม** — the spec-396 mismatch. For the other
+  four the only name anywhere is a LINE display name. A worker row cannot be deleted,
+  only deactivated, so a guessed name is permanent in the roster, the badge sheet,
+  `/workers` and the audit report. ⭐ The recipe needs **no new code**: `/workers` →
+  เพิ่มช่าง with การจ่าย = **รายเดือน** already writes `day_rate = 0`, which is
+  exactly how `Preston Inter` (monthly, rate 0, 6 attendance days, 0 wages) exists.
+- 🚨 **§6's "printing badges" is REFUTED and deliberately NOT done (new Q13).**
+  `/team/badges` has no rate filter, so office rows would print automatically — but
+  `/team/office` has no scanner (Q11), so the only surface that consumes a badge is
+  the crew cockpit, whose scan files the person into a **crew** team: WP-bound, the
+  wage path §8 forbids and Q9 flags. The badge's only reachable use is the mistake.
+- ⭐ **A mutant survived and the ASSERTION was the thing that was wrong.** Renaming
+  the check-out step's button to one that does not exist stayed green, because
+  `ออกงาน` also appears in the undo step's contrast clause and the pin counted over
+  the JOINED steps. Now counted **per step** with the real per-step counts. 11/11
+  mutants killed after the fix. ⚠️ And the harness itself lied first: `execFileSync`
+  cannot spawn `pnpm.cmd` (EINVAL), which the first run swallowed into an empty
+  string and reported as **11/11 SURVIVED**. A run with no `Tests` count line is now
+  a hard ABORT — a zero-ran filter reads as green.
+- ✅ **Real-flow verified against the live app**, not just tests: signed in, opened
+  today's office team through the page's actual Server Action form on the ARCHIVED
+  `บ้านคุณกฤษณ์` (never the live site), and read the server-rendered HTML — 14/14
+  probes in the not-open state, both roster-empty arms under their own roles, the
+  card's real geometry (1240×268) with all five steps and the tip, and all six
+  คู่มือ cards in the intended order. **Residue deleted and re-verified in a fresh
+  statement: 0 office teams, 44 teams total, today's 4 crew teams untouched.**
+- ⓘ **New Q14:** `/sa/help` itself is nearly unread (4 views / 30d). U6 routed around
+  it; whether the hub needs per-screen entry points is a separate call.
