@@ -1,3 +1,15 @@
+## [0.340.1](https://github.com/vap-ops/prc-ops/compare/v0.340.0...v0.340.1) (2026-08-05)
+
+### Bug Fixes
+
+- **nav:** no page a user lands on paints a dead frame (UX-audit G8) ([#979](https://github.com/vap-ops/prc-ops/issues/979)) ([bd252a1](https://github.com/vap-ops/prc-ops/commit/bd252a10c46f3c398c84f51e9369fd11fecc119e))
+
+# [0.340.0](https://github.com/vap-ops/prc-ops/compare/v0.339.0...v0.340.0) (2026-08-05)
+
+### Features
+
+- **purchasing:** a quotation purchase_doc_type (spec 380 U7) ([#981](https://github.com/vap-ops/prc-ops/issues/981)) ([970f525](https://github.com/vap-ops/prc-ops/commit/970f5255194714327c7eb572438cebfbaf2356b0))
+
 # [0.339.0](https://github.com/vap-ops/prc-ops/compare/v0.338.0...v0.339.0) (2026-08-05)
 
 ### Bug Fixes
