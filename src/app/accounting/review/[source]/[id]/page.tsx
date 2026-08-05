@@ -16,6 +16,10 @@ import {
   MONEY_REVIEW_LABEL,
   REVIEW_CHAIN_DONE,
   REVIEW_NEXT_CTA,
+  DOC_WAIVED_LABEL,
+  DOC_WAIVER_NONE,
+  DOC_WAIVER_REASON_LABEL,
+  DOC_WAIVER_SECTION_HEADING,
   formatThaiDate,
 } from "@/lib/i18n/labels";
 import { baht } from "@/lib/format";
@@ -30,11 +34,14 @@ import {
 } from "@/lib/accounting/review-queue-view";
 import { loadReviewVoucher } from "@/lib/accounting/load-review-voucher";
 import { ReviewVoucherActions } from "@/components/features/accounting/review-voucher-actions";
+import { PurchaseDocWaiverPanel } from "@/components/features/accounting/purchase-doc-waiver-panel";
 import {
   verifyMoneyEventAction,
   flagMoneyEventAction,
   resolveMoneyFlagAction,
   dismissMoneyFlagAction,
+  waivePurchaseDocsAction,
+  unwaivePurchaseDocsAction,
 } from "./actions";
 
 export const metadata = { title: MONEY_REVIEW_LABEL };
@@ -59,7 +66,7 @@ export default async function ReviewVoucherPage({ params, searchParams }: Vouche
 
   const data = await loadReviewVoucher(sourceTable, id);
   if (!data) notFound();
-  const { event, review, flags, docs, journal } = data;
+  const { event, review, flags, docs, journal, waiver } = data;
 
   // Spec 373 §6 — the verify chain door target comes from the loader (same
   // authed client, same error-throw posture; keyed on the DB-normalized event
@@ -172,6 +179,31 @@ export default async function ReviewVoucherPage({ params, searchParams }: Vouche
           // ever diverge, a read-only accountant sees the state, not dead buttons.
           <p className="text-muted-foreground text-sm">ดูอย่างเดียว — ไม่มีสิทธิ์ตรวจ/ติดธง</p>
         )}
+
+        {/* Spec 380 U6 — the doc waiver (§2 decision ③, accounting-only), so it
+            sits inside the SAME MONEY_REVIEW_ROLES gate as the actions above and
+            only for purchase requests, the only source a waiver keys on. A
+            read-only accountant still sees the recorded state via the section
+            below rather than a control that would refuse them. */}
+        {event.sourceTable === "purchase_requests" ? (
+          <>
+            <h2 className={`${SECTION_HEADING} mt-6`}>{DOC_WAIVER_SECTION_HEADING}</h2>
+            {(MONEY_REVIEW_ROLES as readonly string[]).includes(ctx.role) ? (
+              <PurchaseDocWaiverPanel
+                purchaseRequestId={event.sourceId}
+                waiver={waiver}
+                waive={waivePurchaseDocsAction}
+                unwaive={unwaivePurchaseDocsAction}
+              />
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                {waiver
+                  ? `${DOC_WAIVED_LABEL} — ${DOC_WAIVER_REASON_LABEL[waiver.reason]}`
+                  : DOC_WAIVER_NONE}
+              </p>
+            )}
+          </>
+        ) : null}
 
         {/* Spec 373 §6 — the chain door: after deciding, walk straight to the
             oldest remaining pending voucher of this source; the ?from= referrer
