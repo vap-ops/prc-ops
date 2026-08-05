@@ -1,3 +1,9 @@
+# [0.337.0](https://github.com/vap-ops/prc-ops/compare/v0.336.1...v0.337.0) (2026-08-05)
+
+### Features
+
+- **accounting:** doc waiver UI + accounting-document doc_count (spec 380 U6) ([#978](https://github.com/vap-ops/prc-ops/issues/978)) ([ec5bd4a](https://github.com/vap-ops/prc-ops/commit/ec5bd4a321ae8e64078c509a910224a0544524bb))
+
 ## [0.336.1](https://github.com/vap-ops/prc-ops/compare/v0.336.0...v0.336.1) (2026-08-05)
 
 ### Bug Fixes

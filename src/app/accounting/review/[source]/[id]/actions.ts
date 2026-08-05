@@ -14,9 +14,19 @@ import {
   ADMIN_FLAG_TYPES,
   type MoneySourceTable,
 } from "@/lib/accounting/review-queue-view";
-import type { Database } from "@/lib/db/database.types";
+import { DOC_WAIVER_NOTE_REQUIRED } from "@/lib/i18n/labels";
+import { Constants, type Database } from "@/lib/db/database.types";
 
 type MoneyFlagTypeDb = Database["public"]["Enums"]["money_flag_type"];
+type PurchaseDocWaiverReason = Database["public"]["Enums"]["purchase_doc_waiver_reason"];
+
+// The complete enum domain, taken from the GENERATED constants rather than
+// hand-listed: `readonly T[]` accepts any SUBSET, so a hand-list silently omits
+// the next enum value — and because DOC_WAIVER_REASON_LABEL is a Record over the
+// enum, that value would be offered in the picker and then refused here with a
+// generic error (affordance-then-refuse, naming nothing).
+const WAIVER_REASONS: readonly PurchaseDocWaiverReason[] =
+  Constants.public.Enums.purchase_doc_waiver_reason;
 
 export type ReviewActionResult = { ok: true } | { ok: false; error: string };
 
@@ -98,6 +108,52 @@ export async function resolveMoneyFlagAction(
   if (error) return { ok: false, error: GENERIC };
   revalidatePath("/accounting/review");
   revalidatePath(voucherPath(source, id));
+  return { ok: true };
+}
+
+// Spec 380 U6 — the accounting doc waiver (§2 decision ③: accounting-only).
+// The DEFINER RPC gates on the AUTHED session's role, which is exactly
+// MONEY_REVIEW_ROLES, so these run on the same gate as the review actions.
+export async function waivePurchaseDocsAction(
+  purchaseRequestId: string,
+  reason: string,
+  note: string,
+): Promise<ReviewActionResult> {
+  const g = await requireActionRole(MONEY_REVIEW_ROLES, GENERIC);
+  if ("error" in g) return { ok: false, error: g.error };
+  if (!(WAIVER_REASONS as readonly string[]).includes(reason)) {
+    return { ok: false, error: GENERIC };
+  }
+  const trimmed = note.trim();
+  // The RPC raises P0001 here too; refusing in place names the actual cause
+  // rather than spending a round-trip to say "try again".
+  if (reason === "other" && !trimmed) {
+    return { ok: false, error: DOC_WAIVER_NOTE_REQUIRED };
+  }
+  const { error } = await g.auth.supabase.rpc("waive_purchase_docs", {
+    p_purchase_request: purchaseRequestId,
+    p_reason: reason as PurchaseDocWaiverReason,
+    ...(trimmed ? { p_note: trimmed } : {}),
+  });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath("/accounting/review");
+  revalidatePath(voucherPath("purchase_requests", purchaseRequestId));
+  revalidatePath("/requests/docs");
+  return { ok: true };
+}
+
+export async function unwaivePurchaseDocsAction(
+  purchaseRequestId: string,
+): Promise<ReviewActionResult> {
+  const g = await requireActionRole(MONEY_REVIEW_ROLES, GENERIC);
+  if ("error" in g) return { ok: false, error: g.error };
+  const { error } = await g.auth.supabase.rpc("unwaive_purchase_docs", {
+    p_purchase_request: purchaseRequestId,
+  });
+  if (error) return { ok: false, error: GENERIC };
+  revalidatePath("/accounting/review");
+  revalidatePath(voucherPath("purchase_requests", purchaseRequestId));
+  revalidatePath("/requests/docs");
   return { ok: true };
 }
 
