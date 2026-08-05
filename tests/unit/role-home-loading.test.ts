@@ -91,11 +91,18 @@ describe("tab + hub-nav destination loading coverage (UX-audit G8)", () => {
     ),
   ].sort();
 
-  it("derives a real destination set (the scan is not vacuous)", () => {
+  it("derives a real destination set, with all three sources contributing", () => {
     // Without this floor a resolver refactor that returned null for every role
     // would empty the loop and the check below would pass over nothing.
     expect(destinations.length).toBeGreaterThanOrEqual(12);
-    expect(destinations).toContain("/team");
+    // One route per SOURCE, each reachable through that source ALONE — so
+    // narrowing the derivation reds here instead of silently shrinking the scan.
+    // Mutation-proved: without these three, dropping any one source left the
+    // suite green, because a smaller scan still passes while every route it does
+    // look at is covered. The breadth is the thing under test, not the verdict.
+    expect(destinations).toContain("/team"); // a bottom-tab href
+    expect(destinations).toContain("/expenses"); // ONLY from a tab's `match`
+    expect(destinations).toContain("/registrations"); // ONLY from the hub-nav strip
   });
 
   it("every tab and strip destination renders a loading boundary", () => {
