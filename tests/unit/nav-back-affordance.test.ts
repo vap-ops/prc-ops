@@ -220,6 +220,10 @@ const STATIC_DETAIL = [
   // Spec 328 U2: the printable per-firm subcon onboarding poster drills down
   // from /team's เพิ่มช่างใหม่ sheet (back chip → /team, print-first like badges).
   "team/poster",
+  // Spec 397 U5: ทีมสำนักงาน — the office team's own surface, drilled from the
+  // /team hub card (back chip → /team). Deliberately NOT part of the muster
+  // cockpit: that board groups by หัวหน้าชุด and excludes office teams (U4).
+  "team/office",
   // Spec 358 → 397 U2: the attendance AUDIT report (ประวัติการเช็คชื่อ) — a
   // MULTI-PARENT drill reached from THREE surfaces (the /team tile, the
   // /accounting register list, and the /procurement dashboard card), so its chip

@@ -11769,3 +11769,55 @@ closed`) → reopen ok → undo now works (4 rows → 3) → audit row reads
 - Gates: RED-first on both sides · lint 0 · typecheck 0 · vitest **872 files /
   7124 tests exit 0** (pre-review-fix) · pgTAP **354 files / 7385 assertions exit
   0** (27 new).
+
+## 2026-08-05 — Spec 397 U5: the office team becomes usable (lane attend)
+
+- **`/team/office`** — open today's office team (leadless), see who is in with
+  their times, add someone, check them out, and **take a wrong row back out**.
+  Zero client JS (POST forms + a redirect carrying an outcome CODE), so it works on
+  the in-app browser where hydration does not run. The door sits directly under the
+  วันนี้ hero on `/team` because the operator asked for it to be PROMINENT; inside
+  the icon grid it would read as one of nine equal tiles. Gated on
+  `SA_SURFACE_ROLES` — the muster WRITE set, verified live to equal every muster
+  RPC's allowlist — not the hub's wider audience, which admits procurement.
+- **The office board is a different SHAPE, not a copy of the crew board:** no lead,
+  no WP set, no prefill, no ยังไม่มา list (an office team has no roster to be absent
+  from). What it has is: is it open, who is in, who can still be added.
+- 🚨 **The review caught two 🔴, and the first was a defect I had already fixed
+  once.** ① The action put the mapped **Thai sentence** in the URL (`?m=`) and the
+  page rendered it inside its own `<ErrorNotice>` — unbounded, forgeable, in the
+  app's red danger box on an authenticated page. That is in-app spoofing, exactly
+  what U3's `reopen-return.ts` was written to prevent, **and this file's own comment
+  claimed it emitted codes while the code did the opposite.** ⭐ **A comment
+  asserting the safe behaviour is not the safe behaviour — pin it.** Now: codes
+  only, `classify()` at the action seam, every string owned by the page.
+  ② **The picker offered all 41 active ช่าง.** A mis-tap is not cosmetic: that ช่าง
+  is refused at their real crew lineup for the rest of the day (one team per worker
+  per day), and if the day is then closed `derive_muster_labor` books **nothing**
+  for them — the office team binds no WP — so they silently lose the day's wage,
+  with **no undo** anywhere (the cockpit's undo cannot see office rows). Fixed at
+  both ends: the picker is scoped to the office class (`day_rate = 0`, §5.1's own
+  wage-free mechanism) **and** every row now carries เอาออก → `undoMusterScan`.
+- ⚠️ Also fixed: the "everyone has checked in" line rendered beside "nobody has
+  checked in" whenever the roster was empty — a self-contradiction, and the live
+  state before U6 ⇒ `rosterSize` now distinguishes them · "ไม่นับรวมกับทีมช่าง" was
+  false of the unclosed-day banner (§9 Q10) ⇒ softened to name the board it is
+  actually absent from · ทีมออฟฟิศ vs ทีมสำนักงาน on one row (UI-term SSOT).
+- ⚠️ **The page and its actions had ZERO tests** — the U3-review class exactly
+  (gate and banners live in the PAGE while the tests cover the child and the pure
+  fold). Added source pins for the gate, every outcome code, the undo control and
+  the two empty states. ⭐ Three of those pins were false positives on first run and
+  the ASSERTION was wrong each time: `r.error)` also matches `classify(r.error)`;
+  `"m?: string"` is a substring of `"from?: string"`; and `เอาออก` also appears
+  inside the failure copy, so a bare count stayed green with the button deleted.
+- ⓘ **Shipped narrower than §6, recorded as Q11:** no cockpit card and no badge
+  scanner (the add path is a `<select>` + `method: 'manual'`, which is the truth —
+  claiming `qr` without a scan would put a lie in the audit report). **Q12** records
+  that `day_rate = 0` is a money column standing in for a role.
+- ✅ Live SSR probes on the worktree: the door renders once on `/team`, the surface
+  opens with the right back chip, the open-team button renders with no team today,
+  the form is a real Server Action POST with its hidden `projectId`, and both
+  banners render from codes. Not driven for real — submitting would leave an office
+  team on a live project nobody asked for; the RPC path itself was proven in U4.
+- Gates: RED-first ×3 slices · lint 0 · typecheck 0 · vitest **877 files / 7159
+  tests exit 0** (pre-review-fix; re-run after).
