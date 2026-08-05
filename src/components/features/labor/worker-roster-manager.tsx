@@ -53,6 +53,10 @@ import {
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE,
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT,
   PAYOUT_ACCOUNT_RECORD_CTA,
+  PAYOUT_ACCOUNT_REVIEW_FILTER,
+  PAYOUT_ACCOUNT_REVIEW_FILTER_ALL,
+  PAYOUT_ACCOUNT_SHARED_WITH_NOBODY,
+  PAYOUT_ACCOUNT_SHARED_WITH_PREFIX,
   PAYOUT_ACCOUNT_SHARED_BADGE,
   PAYOUT_ACCOUNT_THIRD_PARTY_HINT,
   PAYOUT_ACCOUNT_UNRECORDED_BADGE,
@@ -170,6 +174,11 @@ export type ManagedWorker = {
     state: PayoutAccountState;
     isShared: boolean;
     nameMatches: boolean;
+    // Spec 395 U4: the OTHER active workers paid into this same account, by name. This
+    // is the fact that decides the row — several others reads "third party, record a
+    // บัญชีตัวแทน"; an empty list on a flagged row reads "the name or number is off".
+    // Names only, never ids: the reviewer needs to recognise people, not join tables.
+    sharedWith: readonly string[];
   } | null;
 };
 
@@ -1160,6 +1169,14 @@ function WorkerRow({
                   ? PAYOUT_ACCOUNT_OWNER_SHARED_HINT
                   : PAYOUT_ACCOUNT_THIRD_PARTY_HINT}
               </p>
+              {/* Spec 395 U4 — the fact that tells a third party from a typo, and the one
+                  thing the app never showed. §5's three outcomes (confirm own / record a
+                  nominee / correct a typo) are indistinguishable without it. */}
+              <p className="text-ink-secondary mt-1 text-sm">
+                {worker.payoutAccount.isShared && worker.payoutAccount.sharedWith.length > 0
+                  ? `${PAYOUT_ACCOUNT_SHARED_WITH_PREFIX} ${worker.payoutAccount.sharedWith.join(", ")}`
+                  : PAYOUT_ACCOUNT_SHARED_WITH_NOBODY}
+              </p>
               {/* ⚠️ No CTA on the OWNER's row: the account IS theirs, so there is no
                   nominee to record and a link would invite fabricated data. The action
                   belongs to the OTHER rows sharing this account. */}
@@ -1548,6 +1565,9 @@ export function WorkerRosterManager({
 }) {
   const [query, setQuery] = useState("");
   const [selectedPay, setSelectedPay] = useState<PayType | typeof ALL>(ALL);
+  // Spec 395 U4: narrow to the accounts needing review. Off by default — the roster's
+  // job is the roster; this is a worklist you opt into.
+  const [reviewOnly, setReviewOnly] = useState(false);
   const [adding, setAdding] = useState(false);
 
   const contractorNames = new Map(contractors.map((c) => [c.id, c.name]));
@@ -1576,13 +1596,34 @@ export function WorkerRosterManager({
   // they do (by code AND by Thai name — nobody remembers "W03").
   const q = query.trim().toLowerCase();
   const searching = q !== "";
-  const queried = !searching
+  const searched = !searching
     ? workers
     : workers.filter((w) =>
         `${w.name} ${w.phone ?? ""} ${w.trades.map((t) => `${t.code} ${t.nameTh}`).join(" ")}`
           .toLowerCase()
           .includes(q),
       );
+
+  // Spec 395 U4 — the review worklist, sited here rather than on a new settings page:
+  // `/settings/payout-nominees` has ZERO route_views all-time while this page gets 686 in
+  // 30 days, and a worklist nobody opens is not a shipped feature (spec 396 U4).
+  // ⚠️ Its OWN axis, deliberately: the chips below filter by การจ่าย, and folding this in
+  // would mean you cannot review accounts while keeping a pay-type filter — and picking
+  // one would silently clear the other.
+  const flaggedCount = searched.filter((w) => w.payoutAccount?.state === "unrecorded").length;
+  // ⚠️ THREE conditions, each closing a blank-page path found in review:
+  //  · `!searching` — a live search overrides this filter exactly as it overrides the
+  //    การจ่าย chip below. Without it `showExistingWorker` (the 2026-08-04 duplicate-เลขบัตร
+  //    fix, which sets the query to put the colliding ช่าง on screen) silently shows
+  //    nothing whenever that worker is not himself flagged.
+  //  · `flaggedCount > 0` — the COMPLETION path. Fix the last of the 8, `router.refresh()`
+  //    lands, the count hits 0 and the chip row unmounts; a latched `reviewOnly` would
+  //    leave the reviewer staring at an empty roster with no control to undo it.
+  // Derived rather than stored, so it can never latch into a state the UI cannot show.
+  const reviewActive = reviewOnly && !searching && flaggedCount > 0;
+  const queried = reviewActive
+    ? searched.filter((w) => w.payoutAccount?.state === "unrecorded")
+    : searched;
 
   const GROUPS = [
     { key: "monthly", label: "ช่างรายเดือน" },
@@ -1592,8 +1633,12 @@ export function WorkerRosterManager({
   const present = GROUPS.filter((g) => countIn(g.key) > 0);
   // A live search overrides the chip and searches the whole roster (the
   // /catalog rule): a stuck filter would make a search look like an absence.
-  const sections =
-    !searching && selectedPay !== ALL ? present.filter((g) => g.key === selectedPay) : present;
+  // ⚠️ Falls back to `present` when the selected การจ่าย group holds nothing in the
+  // current view. Without it, narrowing to a group that the search — or now the review
+  // filter — has emptied yields `sections = []`, i.e. a blank page with no message and
+  // no chip appearing checked, because `present` no longer contains `selectedPay`.
+  const payChosen = !searching && selectedPay !== ALL && present.some((g) => g.key === selectedPay);
+  const sections = payChosen ? present.filter((g) => g.key === selectedPay) : present;
 
   const addDoor = (
     <div className="flex items-center justify-end">
@@ -1654,6 +1699,30 @@ export function WorkerRosterManager({
         />
       </div>
 
+      {/* Spec 395 U4 — a SEPARATE radiogroup from การจ่าย below (different axis), and
+          rendered only when something is actually flagged: an always-on "(0)" chip is
+          noise on the 35 of 43 rows that are fine. */}
+      {flaggedCount > 0 ? (
+        <div
+          className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1"
+          role="radiogroup"
+          aria-label="กรองตามบัญชี"
+        >
+          <RadioChip
+            name="worker-payout-review"
+            label={`${PAYOUT_ACCOUNT_REVIEW_FILTER_ALL} (${searched.length})`}
+            checked={!reviewOnly}
+            onSelect={() => setReviewOnly(false)}
+          />
+          <RadioChip
+            name="worker-payout-review"
+            label={`${PAYOUT_ACCOUNT_REVIEW_FILTER} (${flaggedCount})`}
+            checked={reviewOnly}
+            onSelect={() => setReviewOnly(true)}
+          />
+        </div>
+      ) : null}
+
       <div
         className="flex [touch-action:pan-x_pinch-zoom] gap-2 overflow-x-auto pb-1"
         role="radiogroup"
@@ -1676,8 +1745,18 @@ export function WorkerRosterManager({
         ))}
       </div>
 
-      {searching && queried.length === 0 ? (
-        <p className="text-ink-secondary text-body">ไม่พบช่างที่ค้นหา</p>
+      {/* ⚠️ Names the RIGHT cause. With the review filter on, "ไม่พบช่างที่ค้นหา" would be
+          false whenever the search DID match somebody the filter then hid — the honest-copy
+          rule: a message must not report a cause that is not the one that emptied the list. */}
+      {/* ⚠️ There is deliberately NO "the review filter emptied this" arm: `reviewActive`
+          already requires `flaggedCount > 0`, so an active filter always yields at least
+          one row and that branch is unreachable. A mutation proved it — the arm survived
+          every test because nothing can reach it. An unreachable message asserts a hazard
+          that does not exist (spec 340's lesson), so it is gone rather than pinned. */}
+      {queried.length === 0 ? (
+        <p className="text-ink-secondary text-body">
+          {searching ? "ไม่พบช่างที่ค้นหา" : "ยังไม่มีช่างในทะเบียน"}
+        </p>
       ) : null}
 
       <div className="flex flex-col gap-6">

@@ -1722,6 +1722,35 @@ export const PAYOUT_NOMINEE_PICKER_EMPTY = "ไม่มีช่างที่
 export const PAYOUT_NOMINEE_REASON_NO_ACCOUNT = "ยังไม่มีบัญชีของตัวเอง";
 export const PAYOUT_NOMINEE_REASON_NOT_OWN = "บัญชีอาจไม่ใช่ของตัวเอง";
 
+// Spec 395 U4 — working the flagged accounts, ON THE ROSTER.
+//
+// ⚠️ Sited here rather than on a new settings page because `/settings/payout-nominees`
+// has ZERO route_views all-time, while `/workers` gets 686 in 30 days. A worklist on a
+// route nobody opens is not a shipped feature (spec 396 U4's lesson).
+// ⚠️ Counts WORKERS, not accounts — 8 flagged workers sit on 4 accounts — so the noun is
+// ช่าง. `accountWorkerCount`'s own comment warns about exactly this confusion.
+export const PAYOUT_ACCOUNT_REVIEW_FILTER = "ช่างที่ต้องตรวจบัญชี";
+// ⚠️ Says บัญชี, not a bare "ทั้งหมด": the การจ่าย chips directly below already open with
+// "ทั้งหมด (N)", and two adjacent rows both starting that way is ambiguous on screen —
+// the reader cannot tell which axis they just cleared. Naming the axis fixes it for the
+// eye and for the accessible name.
+export const PAYOUT_ACCOUNT_REVIEW_FILTER_ALL = "ช่างทั้งหมด";
+
+// ⚠️ THE fact that decides each row, and it is shown nowhere else in the app: several
+// OTHER technicians on one account reads "third party, record a บัญชีตัวแทน"; nobody else
+// on it reads "probably a typo in the name or the number" — §5's `044…`/`014…` near-miss
+// being the likely example. Without this the reviewer cannot tell the two apart.
+export const PAYOUT_ACCOUNT_SHARED_WITH_PREFIX = "ช่างคนอื่นที่ใช้บัญชีนี้:";
+// ⚠️ Avoids the word ผิด on purpose: the roster's honest-copy guard bans it, and rightly
+// — "ผิด" reads as a fault by the ช่าง, while this is a data-entry discrepancy nobody is
+// blamed for. "คลาดเคลื่อน" carries the meaning without the accusation.
+// ⚠️ Names BOTH readings. The operator's own normal case — "some technicians use
+// family's account temporarily" — also has nobody else on the account, and its remedy is
+// a บัญชีตัวแทน, not a correction. Naming only the typo would point the reviewer at the
+// wrong action for the documented-normal row.
+export const PAYOUT_ACCOUNT_SHARED_WITH_NOBODY =
+  "ไม่มีช่างที่ยังทำงานอยู่คนอื่นใช้บัญชีนี้ — อาจเป็นบัญชีของคนในครอบครัว หรือกรอกชื่อ/เลขบัญชีคลาดเคลื่อน";
+
 export const PAYOUT_ACCOUNT_REQUEST_NAME_DIFFERS =
   "ชื่อบัญชีไม่ตรงกับชื่อช่าง — ถ้าอนุมัติแล้วเป็นบัญชีของคนอื่น ให้บันทึกบัญชีตัวแทนด้วย";
 

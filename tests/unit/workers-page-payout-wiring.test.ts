@@ -50,6 +50,12 @@ describe("/workers computes the payout-account state", () => {
     // wording. Without it the account's own holder — present in 2 of the 3 live shared
     // groups — is told to record a นominee for their own account.
     expect(PAGE).toContain("nameMatches: a.nameMatches");
+    // ⚠️ Spec 395 U4: the names of the other workers on the account. A mutation dropping
+    // this to `[]` survived every RTL test, because those pass the value in directly —
+    // only the page can lose it, so only a page-side pin can catch it. The sheet would
+    // then tell every reviewer "nobody else uses this account", which is the wrong
+    // remedy for 7 of the 8 live rows.
+    expect(PAGE).toContain("sharedWith: a.sharedWith");
   });
 
   // ⚠️ This reader THROWS by design (an empty worklist is a lie). On the roster's

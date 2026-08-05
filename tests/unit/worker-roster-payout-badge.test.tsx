@@ -80,9 +80,14 @@ const BASE: ManagedWorker = {
 };
 
 // The third party: paid into somebody else's account.
-const THIRD_PARTY = { state: "unrecorded", isShared: true, nameMatches: false } as const;
+const THIRD_PARTY = {
+  state: "unrecorded",
+  isShared: true,
+  nameMatches: false,
+  sharedWith: [],
+} as const;
 // The holder of a shared account, who is also a worker on it.
-const OWNER = { state: "unrecorded", isShared: true, nameMatches: true } as const;
+const OWNER = { state: "unrecorded", isShared: true, nameMatches: true, sharedWith: [] } as const;
 
 const openEditSheet = () => fireEvent.click(screen.getByRole("button", { name: /^แก้ไข/ }));
 const sheet = () => screen.getByRole("dialog");
@@ -105,8 +110,8 @@ describe("WorkerRosterManager — spec 395 U2, the payout-account signal", () =>
 
   it("renders nothing for own or nominee, and nothing when the state is unknown", () => {
     const cases = [
-      { state: "own", isShared: false, nameMatches: true } as const,
-      { state: "nominee", isShared: true, nameMatches: false } as const,
+      { state: "own", isShared: false, nameMatches: true, sharedWith: [] } as const,
+      { state: "nominee", isShared: true, nameMatches: false, sharedWith: [] } as const,
       null,
     ];
     for (const payoutAccount of cases) {

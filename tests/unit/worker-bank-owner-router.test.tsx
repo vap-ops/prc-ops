@@ -127,7 +127,12 @@ describe("WorkerRosterManager — spec 395 U3, routing a new third-party account
         workers={[
           {
             ...BASE,
-            payoutAccount: { state: "unrecorded", isShared: true, nameMatches: false },
+            payoutAccount: {
+              state: "unrecorded",
+              isShared: true,
+              nameMatches: false,
+              sharedWith: [],
+            },
           },
         ]}
         contractors={[]}
