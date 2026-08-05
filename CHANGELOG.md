@@ -1,3 +1,9 @@
+# [0.334.0](https://github.com/vap-ops/prc-ops/compare/v0.333.0...v0.334.0) (2026-08-05)
+
+### Features
+
+- **muster:** the office muster team (spec 397 U4) ([#975](https://github.com/vap-ops/prc-ops/issues/975)) ([de87f7c](https://github.com/vap-ops/prc-ops/commit/de87f7c77418b3c624996750cdf79737e9c94678))
+
 # [0.333.0](https://github.com/vap-ops/prc-ops/compare/v0.332.0...v0.333.0) (2026-08-05)
 
 ### Features
