@@ -84,6 +84,11 @@ const ALLOWED_DOMAINS = [
   "expenses",
   // Spec 350 U2: the /technician self-service surfaces (assigned-work progress card).
   "technician",
+  // Spec 392 U3a: the zone READ surfaces shared across routes — the WP-detail
+  // zone chip and the project page's zone × หมวดงาน rollup grid. (U2a's editor
+  // components live in the /zones route folder because only that route uses
+  // them; these two have two different callers, which is what earns a folder.)
+  "zones",
 ] as const;
 
 describe("feature components are grouped into domain folders", () => {

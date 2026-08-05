@@ -19,7 +19,12 @@ import {
 } from "@/lib/i18n/labels";
 import type { RollupRow, ZoneRollup } from "@/lib/zones/zone-rollup";
 
-const CELL = "text-meta text-ink-secondary px-3 py-2 text-right tabular-nums whitespace-nowrap";
+// GEOMETRY ONLY — no colour. A shared constant that also set a colour would be
+// overridden by the call sites that want a stronger ink, and which one wins is
+// decided by the GENERATED stylesheet's order rather than by the className
+// (ui-class-contracts, the 2026-07-26 bug class). Every cell spells out its own
+// ink below.
+const CELL = "text-meta px-3 py-2 text-right tabular-nums whitespace-nowrap";
 
 function Row({ row, isRemainder }: { row: RollupRow; isRemainder: boolean }) {
   return (
@@ -41,7 +46,7 @@ function Row({ row, isRemainder }: { row: RollupRow; isRemainder: boolean }) {
         )}
       </th>
       {row.cells.map((count, i) => (
-        <td key={i} className={CELL}>
+        <td key={i} className={`${CELL} text-ink-secondary`}>
           {count}
         </td>
       ))}
