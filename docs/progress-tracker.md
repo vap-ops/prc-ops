@@ -12253,6 +12253,21 @@ file. ⑥ The `65-consolidation-pass` queue entry reserving this swap for operat
 neither honoured nor retired. My own new delegation pin then caught a seventh on its first run —
 the component's header comment quotes the old markup, so documenting the hazard was the hazard.
 
+**Gates.** RED-first (3 of 5 assertions red on the first run; the two non-vacuity controls green
+by design) · lint 0 · typecheck 0 · full vitest **891 files / 7338 tests exit 0** · `pnpm build` 0
+· **10 mutants killed** — revert to the hand-rolled `<main>`; `variant` app→card; a
+`className="min-h-screen"` passed into the shell; the sr-only line deleted; a classless `<main>`
+added to a real `loading.tsx`; a hand-rolled `<main>` carrying the EXACT shell class string (the
+lookalike); a deleted placeholder row; `overflow-x-clip` dropped from `SHELL_BASE`; a bespoke
+boundary gone silent; a bespoke boundary hand-rolling a `min-h-screen` `<main>` — **plus 3
+control runs that had to behave the other way**: the classless `<main>` SURVIVES if the matcher
+is reverted to the old `/<main\s+className/` (so the hardening is what catches it), a comment
+mentioning `<main>` does NOT trip the guard, and it DOES once comment-stripping is removed.
+⚠️ One mutation run was an INSTRUMENT failure before it was a result: MSYS path-mangling ate the
+leading `//` of a comment passed as an argv string, so a `/ documenting…` line reached the file
+and the guard "failed" for a reason that had nothing to do with the guard. Read the mutated file,
+not just the count.
+
 **Recorded, not built.** ① `ui-conventions` §5 links `../src/components/features/page-shell.tsx`;
 the file is at `features/chrome/`. ② An sr-only node that is not a live region is still parity,
 not audibility (unchanged from #980). ③ `keyboard-viewport-fit.tsx` takes
