@@ -22,10 +22,16 @@
 //
 // So PageSkeleton renders PageShell. These pins are the class contract (what a
 // unit test CAN see); the geometry above is the evidence for why.
+//
+// The "only page-shell.tsx may contain a <main>" half is NOT re-implemented here
+// — the house already owns that scan (design-doctrine.test.ts, "every page
+// scroller clips horizontal overflow"). Its allowlist USED to carry
+// page-skeleton.tsx as a legal second home, i.e. the guard enshrined the defect;
+// it is narrowed to one file and hardened there (any <main> element, not just
+// `<main className`, with comments stripped) rather than forked into a bespoke
+// variant here.
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PageSkeleton } from "@/components/features/chrome/page-skeleton";
@@ -48,33 +54,6 @@ function shellClassName(): string {
   }
   return cls;
 }
-
-/**
- * Strip comments before any raw-text scan (house rule): every other `<main` in
- * src/ today is prose ABOUT the spec-64 lock — documenting the hazard must not
- * trip the guard against it. Line comments are only stripped when they start the
- * line, so a `https://` inside a string can never swallow code.
- */
-function stripComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("//"))
-    .join("\n");
-}
-
-function tsxFilesUnder(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) out.push(...tsxFilesUnder(full));
-    else if (entry.endsWith(".tsx")) out.push(full);
-  }
-  return out;
-}
-
-const SRC = join(process.cwd(), "src");
-const PAGE_SHELL = join(SRC, "components", "features", "chrome", "page-shell.tsx");
 
 describe("PageSkeleton renders the page scroller (UX-audit G8 follow-up)", () => {
   it("renders PageShell's <main>, byte-for-byte the shell's own classes", () => {
@@ -106,28 +85,5 @@ describe("PageSkeleton renders the page scroller (UX-audit G8 follow-up)", () =>
     expect(announcement?.textContent?.trim()).toBe("กำลังโหลด…");
     expect(container.querySelectorAll("main header").length).toBe(1);
     expect(container.querySelectorAll("main .bg-sunk").length).toBeGreaterThanOrEqual(7);
-  });
-});
-
-describe("no surface hand-rolls a <main> (ui-conventions §5, spec 63/64)", () => {
-  const files = tsxFilesUnder(SRC).filter((file) => file !== PAGE_SHELL);
-
-  it("scans a real file set and can actually see a <main> (not a vacuous scan)", () => {
-    // A scan that matches nothing passes forever. Floor the population, and
-    // prove the matcher fires on the one file that legitimately owns a <main>.
-    expect(files.length).toBeGreaterThan(300);
-    expect(stripComments(readFileSync(PAGE_SHELL, "utf8"))).toMatch(/<main[\s>]/);
-  });
-
-  it("only page-shell.tsx contains a <main> element", () => {
-    const offenders = files.filter((file) =>
-      /<main[\s>]/.test(stripComments(readFileSync(file, "utf8"))),
-    );
-
-    expect(
-      offenders.map((file) => file.slice(SRC.length + 1).replace(/\\/g, "/")),
-      "the body is locked (h-full overflow-hidden, spec 64) and PageShell's <main> " +
-        "is the only scroller — a hand-rolled <main> silently clips whatever does not fit",
-    ).toEqual([]);
   });
 });
