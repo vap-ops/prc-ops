@@ -66,6 +66,19 @@ describe("schedulePhotoThumb", () => {
     schedulePhotoThumb("");
     expect(after).not.toHaveBeenCalled();
   });
+
+  it("never throws into its caller, even when after() itself throws", () => {
+    // Found by the full suite, and it is NOT a test-only concern: `after` throws
+    // "called outside a request scope" whenever the calling context is not a request
+    // (it did so in 7 existing addPhoto tests). If that escaped, addPhoto would report
+    // failure for a photo row that ALREADY LANDED — and the offline queue would then
+    // retry that insert forever. A thumbnail must never be able to fail an upload.
+    after.mockImplementation(() => {
+      throw new Error("`after` was called outside a request scope.");
+    });
+
+    expect(() => schedulePhotoThumb(PATH)).not.toThrow();
+  });
 });
 
 describe("addPhoto wiring", () => {

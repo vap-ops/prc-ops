@@ -20,6 +20,21 @@ import { defaultThumbDeps, generatePhotoThumb } from "@/lib/photos/generate-thum
 export function schedulePhotoThumb(storagePath: string): void {
   if (!storagePath) return;
 
+  // The SCHEDULING call is guarded too, not just the work inside it: `after` throws
+  // "called outside a request scope" when the caller is not a request. If that escaped,
+  // addPhoto would report failure for a photo row that ALREADY LANDED, and the offline
+  // queue (ADR 0039) would retry that insert forever. A thumbnail is a derived
+  // convenience and must never be able to fail an upload.
+  try {
+    scheduleGeneration(storagePath);
+  } catch (e) {
+    console.error("[thumb] could not schedule generation", {
+      reason: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
+function scheduleGeneration(storagePath: string): void {
   after(async () => {
     try {
       const outcome = await generatePhotoThumb(storagePath, defaultThumbDeps(createAdminClient()));
