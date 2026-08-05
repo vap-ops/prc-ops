@@ -10,9 +10,12 @@
 // arrival of a pre-filled one. #980 shipped the sr-only line on every boundary
 // and said so honestly in its own review: parity, not audibility. This closes it.
 //
-// Polite, not assertive, on purpose: Next.js' own announcer speaks the
-// destination title assertively on arrival, and that message should be allowed
-// to interrupt this one.
+// Polite, not assertive, on purpose, and the house rule is the primary reason:
+// waiting is not an emergency and must not interrupt a reader mid-sentence —
+// role="alert" is reserved for real events (same call as the update chip).
+// Secondary: Next.js' own announcer is assertive, so if it ever fires its
+// message outranks this one, which is the right priority. Do not read that as
+// "arrival is covered" — measured live, it is not; see route-announcement.ts.
 
 import { useSyncExternalStore } from "react";
 

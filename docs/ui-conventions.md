@@ -255,23 +255,63 @@ bg-red-50 px-3 py-2 text-xs text-red-900`. Message text ends with
 Every route group has a `loading.tsx` rendering
 [page-skeleton.tsx](../src/components/features/chrome/page-skeleton.tsx) — it
 mirrors the page anatomy (zinc-50 main, white header strip, `h-16
-rounded-lg` row placeholders) with an sr-only `กำลังโหลด…`.
+rounded-lg` row placeholders).
 
 One deliberate exception: `src/app/portal/loading.tsx` keeps its own skeleton,
 because it renders `PageShell` (§5 — the page scroller) and mirrors the portal's
 sticky header, while `PageSkeleton` hand-rolls its own `<main>`. Swapping the
 shared component in there would drop the spec-64 body-lock contract, so the
-exception stays — but it carries the same sr-only `กำลังโหลด…`, pinned against
-the string `PageSkeleton` renders by
-[portal-loading-announcement.test.tsx](../tests/unit/portal-loading-announcement.test.tsx).
-The announcement is the part that is not optional — but be precise about what it
-buys: an sr-only node that is not a live region is read on a full page load, and
-a client-side navigation swaps the fallback in where readers announce only inside
-a live region. So a boundary without the line is strictly worse than its
-siblings; a boundary with it is consistent, not guaranteed audible. Making these
-truly audible means a persistent live region in the layout (the toast provider
-already keeps one) applied to every boundary at once — open, deliberately not
-done per-file.
+exception stays.
+
+### Announcing the wait
+
+Every boundary — shared or bespoke — renders
+[`<LoadingAnnouncement />`](../src/components/features/chrome/loading-announcement.tsx),
+and nothing else announces loading. That one leaf covers both navigation paths,
+because they fail differently:
+
+- **full page load** — the reader walks the document top-down, so the leaf's
+  static sr-only `กำลังโหลด…` is read before the fallback is replaced;
+- **client-side navigation** — the fallback is a DOM swap, and readers announce
+  inserted nodes only inside a live region. The leaf therefore also writes to
+  [`<RouteAnnouncer />`](../src/components/features/chrome/route-announcer.tsx),
+  a single `role="status" aria-live="polite" aria-atomic="true"` region mounted
+  once in `src/app/layout.tsx`, beside `{children}`.
+
+Three rules, all pinned by
+[route-loading-announcement.test.tsx](../tests/unit/route-loading-announcement.test.tsx)
+and, for the two surfaces together, by
+[portal-loading-announcement.test.tsx](../tests/unit/portal-loading-announcement.test.tsx):
+
+1. **The region is never declared by a boundary.** A live region inserted
+   already containing its text is not announced — readers speak _mutations_ of a
+   region that was already there. A repo-wide scan fails any `loading.tsx` (or
+   `PageSkeleton`) containing `aria-live` / `role="status"` / `role="alert"`.
+2. **It is polite, never assertive.** Waiting is not an emergency and must not
+   interrupt a reader mid-sentence; `role="alert"` is reserved for real events
+   (the same call as the update chip, §6). It covers the **pending window**
+   only.
+
+   ⚠️ **Arrival is NOT announced today — do not assume the framework has it.**
+   Next.js does mount a persistent announcer of its own
+   (`client/components/app-router-announcer`, a shadow-DOM
+   `role="alert" aria-live="assertive"` node), and reading that source suggests
+   it speaks `document.title` on every route change. Measured on a live server,
+   it does not: across four client-side navigations it stayed **empty** on three
+   whose title had provably changed, and on the fourth announced
+   `สวัสดี คุณ…` — the SA home's `<h1>`, neither the destination nor the current
+   page. It samples the title when the router tree changes, before Next swaps
+   it, then falls through to `querySelector("h1")`. Announcing the destination
+   is an open follow-up with its own decision to make (what to say, and when).
+
+3. **Each announcement gets a fresh node identity** (`key={seq}`). Every boundary
+   says the same words, and React unmounts one fallback and mounts the next in a
+   single commit — so without a new key the region re-renders identical text, no
+   DOM mutation occurs, and every navigation after the first is silent.
+
+The wording lives in `ROUTE_LOADING_MESSAGE`
+([route-announcement.ts](../src/lib/ui/route-announcement.ts)), not in the
+boundaries — it used to be typed into two files.
 
 ## 9. Server vs client components
 

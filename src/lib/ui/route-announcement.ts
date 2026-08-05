@@ -15,10 +15,17 @@
 // auto-dismiss on a 4s timer while a loading announcement must clear exactly
 // when the boundary unmounts. Separate concerns, separate region.
 //
-// SCOPE: this announces the PENDING window only. Next.js already ships its own
-// persistent announcer (client/components/app-router-announcer) that speaks
-// document.title on ARRIVAL, assertively. Ours is polite so that arrival message
-// wins the race, and we deliberately do not duplicate it.
+// SCOPE: this announces the PENDING window only — the seconds a route spends on
+// its skeleton. It does NOT announce arrival, and nothing else reliably does
+// either: Next.js mounts a persistent announcer of its own
+// (client/components/app-router-announcer, a shadow-DOM role="alert"), but
+// measured live across four client-side navigations it stayed EMPTY on three
+// whose document.title had provably changed, and on the fourth spoke
+// "สวัสดี คุณ…" — the SA home's <h1>, neither the destination nor the current
+// page. Its effect samples document.title when the router tree changes, before
+// the title is swapped, then falls through to querySelector("h1"). So arrival
+// is an OPEN gap, recorded rather than assumed handled; do not read this file's
+// silence on arrival as "the framework has it covered".
 
 export const ROUTE_LOADING_MESSAGE = "กำลังโหลด…";
 

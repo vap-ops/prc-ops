@@ -15,15 +15,20 @@
 // a role="status" added per boundary, and why the repo-wide scan below forbids
 // that shape.
 //
-// GATE-CHECK, and it narrows the claim this unit is allowed to make: Next.js
-// already ships a persistent announcer of its own
-// (node_modules/next/dist/client/components/app-router-announcer.js — a
-// shadow-DOM role="alert"/aria-live="assertive" node that speaks document.title
-// on every tree change, skipping the first load). ARRIVAL is therefore already
-// announced by the framework. The gap this unit closes is the PENDING window —
-// the seconds a heavy route (e.g. /team, 12 awaited reads) spends showing a
-// skeleton. Ours is POLITE on purpose so the framework's assertive arrival
-// message wins the race, and this unit deliberately does NOT announce arrival.
+// SCOPE, and it was narrowed by measurement rather than by reading a file. The
+// unit covers the PENDING window only — the seconds a heavy route (/team: 12
+// awaited reads) spends on its skeleton. Reading
+// node_modules/next/dist/client/components/app-router-announcer.js suggests
+// ARRIVAL is already handled: Next mounts a persistent shadow-DOM
+// role="alert"/aria-live="assertive" node and speaks document.title on every
+// tree change. Driven on a live dev server it does NOT — across four
+// client-side navigations it stayed empty on three whose title had provably
+// changed, and on the fourth announced the SA home's <h1> greeting. It samples
+// the title before Next swaps it, then falls back to querySelector("h1").
+// Arrival is therefore an OPEN gap, not a covered one. This unit still does not
+// build it (that needs its own decision about what to say and when), but the
+// reason is scope, not redundancy — and POLITE is chosen on the house rule that
+// waiting is not an emergency, not because something else will speak first.
 
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { globSync, readFileSync } from "node:fs";
@@ -41,8 +46,17 @@ import {
 
 afterEach(cleanup);
 
+/**
+ * Comments must go before any raw-text scan, or explaining the hazard becomes
+ * the hazard — a boundary whose comment says "do not add aria-live here" would
+ * trip the very rule it documents. Line comments are stripped too, but only
+ * when not preceded by `:` so URLs survive.
+ */
 function stripComments(src: string): string {
-  return src.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  return src
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
 describe("route-announcement store", () => {
