@@ -19,8 +19,8 @@
 // desired behaviour — copy src/app/sa/loading.tsx (a one-line <PageSkeleton />).
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { existsSync, globSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, globSync, readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ReactElement } from "react";
 import { tabsForRole } from "@/components/features/chrome/bottom-tab-bar";
@@ -157,6 +157,46 @@ describe("tab + hub-nav destination loading coverage (UX-audit G8)", () => {
 
   it("finds the loading files on disk (the render sweep is not vacuous)", () => {
     expect(loadingFiles.length).toBeGreaterThanOrEqual(40);
+  });
+
+  // The rule the other two blocks only approximate. Nav membership was never the
+  // real predicate — AWAITING is: a Server Component that awaits anything can
+  // suspend, and a suspending segment with no boundary above it paints a dead
+  // frame whether or not a tab points at it. Mutation-proved: deleting the
+  // boundaries for `/store/corrections`, `/register` and `/login` — three routes
+  // the fresh-eyes review found precisely BECAUSE they are not nav destinations —
+  // survived every other assertion in this file.
+  //
+  // Measured 2026-08-06: 135 pages await, and after this unit ZERO are uncovered,
+  // so the rule holds repo-wide with no allowlist. If a future page legitimately
+  // needs no boundary, exempting it is a deliberate edit here, never a silent gap.
+  it("every page.tsx with an awaited read sits under a loading boundary", () => {
+    const pages = globSync("src/app/**/page.tsx");
+    expect(pages.length, "the page sweep found nothing").toBeGreaterThanOrEqual(100);
+    const uncovered = pages
+      .filter((p) => /\bawait\s/.test(readFileSync(p, "utf8")))
+      .map(
+        (p) =>
+          "/" +
+          dirname(p)
+            .replace(/\\/g, "/")
+            .replace(/^src\/app\/?/, ""),
+      )
+      // The ONE deliberate exemption, and it is forced: `src/app/page.tsx` is the
+      // role dispatcher — it awaits the session, then `redirect()`s to a role home
+      // that has its own boundary. The only file that could cover it is a ROOT
+      // `src/app/loading.tsx`, which the walk above forbids precisely because it
+      // would satisfy every other assertion in this file at once. Covering the
+      // dispatcher is not worth blinding the guard, and a skeleton that flashes
+      // before an immediate redirect is worse UX than the redirect alone.
+      .filter((route) => route !== "/")
+      .filter((route) => !hasLoadingBoundary(route))
+      .sort();
+    expect(
+      uncovered,
+      `page(s) that await with NO loading.tsx above them — first paint is a dead ` +
+        `frame; fix: copy src/app/sa/loading.tsx into the segment: ${uncovered.join(", ")}`,
+    ).toEqual([]);
   });
 
   it.each(loadingFiles)(
