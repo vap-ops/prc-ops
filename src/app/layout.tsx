@@ -10,6 +10,7 @@ import { ThemeScript } from "@/components/features/chrome/theme-script";
 import { ViewAsBanner } from "@/components/features/chrome/view-as-banner";
 import { SandboxBanner } from "@/components/features/chrome/sandbox-banner";
 import { UpdateAvailableChip } from "@/components/features/chrome/update-available-chip";
+import { RouteAnnouncer } from "@/components/features/chrome/route-announcer";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TelemetryProvider } from "@/components/features/telemetry/telemetry-provider";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
@@ -90,6 +91,15 @@ export default async function RootLayout({
             nothing when current, when the probe fails, or once dismissed for that
             version; NEVER reloads on its own (an approved user may be mid-task). */}
         <UpdateAvailableChip />
+        {/* #980 follow-up: the ONE route-loading live region. Mounted here,
+            outside {children}, so it is in the document BEFORE any navigation
+            starts — a region inserted together with its own text is not
+            announced, which is why this cannot live in a loading.tsx. The 39
+            loading boundaries write to it via the shared LoadingAnnouncement
+            leaf. Separate from the toast provider's polite region on purpose:
+            that one's children are the visible pills and its 3-deep stack drops
+            the oldest, so navigation churn would evict real toasts. */}
+        <RouteAnnouncer />
         {/* Spec 76: the toast viewport wraps {children} so a toast fired just
             before a router.refresh() survives the RSC re-render. */}
         <ToastProvider>{children}</ToastProvider>

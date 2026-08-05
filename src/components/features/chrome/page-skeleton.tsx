@@ -1,3 +1,4 @@
+import { LoadingAnnouncement } from "@/components/features/chrome/loading-announcement";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Shared route-level loading state (spec 15 item E). Server component;
@@ -8,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function PageSkeleton() {
   return (
     <main className="bg-page min-h-screen overflow-x-clip">
-      <p className="sr-only">กำลังโหลด…</p>
+      <LoadingAnnouncement />
       <header className="border-edge bg-card border-b px-5 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div className="space-y-2">
