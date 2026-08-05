@@ -1,3 +1,9 @@
+# [0.340.0](https://github.com/vap-ops/prc-ops/compare/v0.339.0...v0.340.0) (2026-08-05)
+
+### Features
+
+- **purchasing:** a quotation purchase_doc_type (spec 380 U7) ([#981](https://github.com/vap-ops/prc-ops/issues/981)) ([970f525](https://github.com/vap-ops/prc-ops/commit/970f5255194714327c7eb572438cebfbaf2356b0))
+
 # [0.339.0](https://github.com/vap-ops/prc-ops/compare/v0.338.0...v0.339.0) (2026-08-05)
 
 ### Bug Fixes
