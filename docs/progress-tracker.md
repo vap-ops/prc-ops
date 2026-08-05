@@ -12141,6 +12141,29 @@ spec §7.7 rather than claimed. The operator's deferral of `price_comparison` is
 evidenced: `purchase_quotes` holds **2 rows across 2 purchase requests** with **0**
 `purpose='quote'` attachments all-time.
 
+**Fresh-eyes review found four real defects, all fixed in the unit.** ① the spec's own §4 U5
+bullet still read "default `tax_invoice_full`" — the ONE value the U5 review rejected — so a
+reader landing there first would reimplement the false-satisfy bug; §7.5 had claimed every
+surface naming this control was re-justified, and the spec itself was the surface missed.
+② the "the default is a NEVER-satisfying type" test asserted `NEVER_SATISFYING` contains the
+literal `"quotation"` — a duplicate of `doc-chase.test.ts` that touches neither the component
+nor its function-local default constant, so flipping the default left it **green**; it now
+reads the value the component renders and asserts THAT. ③ the term-consistency pin was a
+`toContain` over a button that already embeds the label after a "แนบ" prefix, so renaming the
+constant to a substring ("ใบเสนอ") would have passed while the two surfaces diverged — the
+prefix trap, and my own mutant had used a non-substring rename, i.e. the cheaper cousin of the
+defect. The button now **composes** its label from `DOC_TYPE_LABEL.quotation` and the test
+asserts the exact accessible name, so drift is impossible by construction. ④ the pgTAP
+partition complement subtracted only the `true`/`false` arms; it now subtracts `null` too, so
+the assertion covers the function's whole argument domain instead of leaning on a sibling pin.
+
+**🔔 Also found, NOT built (operator call, spec §7.7).** `PO_DOC_TYPES` omits `payment_voucher`
+(ใบสำคัญรับเงิน) — a rung of the RD fallback ladder and precisely what `DOC_CHASE_ASK_NON_VAT`
+tells the buyer to ask a non-VAT vendor for. Supply it and the buyer can only file it as
+`other`, so the order keeps its ไม่มีเอกสาร chip with the satisfying document already attached.
+Pre-dates U7 and left alone on scope discipline; which ladder rungs belong on a purchase ORDER
+is a ruling, not a side-effect of adding a quotation type.
+
 **Open questions.** Unchanged from U6 and unaffected by U7 (a never-satisfying type alters
 neither PO fan-out nor class derivation): ① one PO document discharges every request under that
 PO; ② the PO half classes by the _request's_ supplier, not the _order's_. New, recorded not

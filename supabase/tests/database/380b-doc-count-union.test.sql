@@ -197,12 +197,18 @@ select is(public.purchase_doc_satisfying_types(null),
 -- it and reds until someone classifies it deliberately. SQL mirror of the
 -- "doc-type partition" guard in tests/unit/doc-chase.test.ts — U6 left the two
 -- halves asymmetric and that asymmetry is what lets them drift.
+-- Subtracts all THREE arms of the function's argument domain, not just
+-- true/false: today null falls through to the same else-branch, but if the
+-- function ever grows a `when p_is_vat is null` arm, a type satisfying only for
+-- the unknown class would otherwise still appear in this complement and the
+-- assertion would pass while the classes disagreed (fresh-eyes catch).
 select is(
   (select array_agg(v order by v) from (
      select unnest(enum_range(null::public.purchase_doc_type))::text as v
      except
      select unnest(public.purchase_doc_satisfying_types(true)
-                || public.purchase_doc_satisfying_types(false))::text
+                || public.purchase_doc_satisfying_types(false)
+                || public.purchase_doc_satisfying_types(null))::text
    ) x),
   array['delivery_note','other','quotation','transfer_slip'],
   'the never-satisfying class is EXACTLY these four — a new enum value reds until classified');

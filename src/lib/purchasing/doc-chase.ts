@@ -57,10 +57,11 @@ export const SATISFYING_DOC_TYPES: Record<DocRequirementClass, readonly Purchase
   unknown: FALLBACK_LADDER_TYPES,
 };
 
-// Mirrors the enum's own order (mig 075910 positions quotation beside the other
-// never-satisfying types, ahead of the `other` catch-all). Kept in sync with the
-// SQL half by the partition assertions on BOTH sides — doc-chase.test.ts over
-// Constants.public.Enums, 380b over the live enum_range complement.
+// Listed in enum order for readability (mig 075910 positions quotation beside
+// the other never-satisfying types, ahead of the `other` catch-all). Only
+// MEMBERSHIP is guarded, not this order: the partition assertions on both sides
+// — doc-chase.test.ts over Constants.public.Enums, 380b over the live
+// enum_range complement — are set comparisons.
 export const NEVER_SATISFYING: readonly PurchaseDocType[] = [
   "delivery_note",
   "transfer_slip",

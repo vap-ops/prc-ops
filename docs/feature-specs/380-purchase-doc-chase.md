@@ -196,8 +196,13 @@ Scope, by mount (`src/components/features/purchasing/invoice-uploader.tsx` used 
 - **Self-purchase form** (`self-purchase-form.tsx`, always `site_purchased`) — inferred from the
   form's own `vatRate` field (`> 0 → tax_invoice_full`, else `receipt_cash_bill`; the VAT split
   already computed server-side needs a matching doc), select stays visible for override.
-- **PO create-sheet** (`create-purchase-order-sheet.tsx`) — required select, default `tax_invoice_full`
-  (its own label already says "ใบเสนอราคา / ใบแจ้งหนี้" — two real types behind one button).
+- **PO create-sheet** (`create-purchase-order-sheet.tsx`) — ⚠ **SUPERSEDED, read §7.5.** This
+  bullet's planned default `tax_invoice_full` was rejected at U5 build time by the fresh-eyes
+  review (an unread select would let a quote silently certify the ม.86/4 input-VAT claim) and
+  shipped as `other`; **§7 then flipped it to `quotation`**. It is also not a "required select":
+  this mount always carries a default, so it has no placeholder option. Left here with the
+  correction rather than rewritten, because the rejected value is the one thing that must never
+  be re-proposed.
 - **🔔 Operator decision, NOT built in U5:** `PaymentProofUploader` (payment-slip uploads) stays
   **untyped** (`doc_type` NULL, unchanged covered-loose behaviour). Typing it would require either
   hardcoding `transfer_slip` — which is in `NEVER_SATISFYING`, so every payment-only-proof order
@@ -481,6 +486,16 @@ the same unit.
   themselves differently (one by `purpose`, one by `doc_type`). Harmless at 2 rows; revisit if
   the comparison practice ever starts.
 - **`price_comparison` deferred** by operator ruling, with §7.1 ③ as the evidence.
+- 🔔 **`payment_voucher` is missing from the PO create-sheet's type list, and that is a real
+  hole — found by the U7 review, pre-dating U7, NOT widened here.** `PO_DOC_TYPES` offers
+  `tax_invoice_full · receipt_cash_bill · cert_in_lieu` but not `payment_voucher` (ใบสำคัญรับเงิน),
+  which IS a rung of `FALLBACK_LADDER_TYPES` and IS what `DOC_CHASE_ASK_NON_VAT`
+  ("ขอบิลเงินสด / ใบสำคัญรับเงิน") tells the buyer to go and ask for. So a non-VAT vendor who
+  supplies exactly the document the chase list requested can only be filed as `other`, and the
+  order stays in ไม่มีเอกสาร forever with its satisfying document already attached. **Not fixed
+  in U7 on scope discipline** — which ladder rungs belong on a purchase ORDER (as opposed to a
+  post-payment receive card) is an operator call, not a side-effect of adding a quotation type.
+  One-line fix when they rule: add it after `receipt_cash_bill`.
 - The two §4 U6 operator questions (one PO document discharges every order under it; the PO
   half classes by the request's supplier, not the order's) remain **open and unaffected** by
   U7 — a never-satisfying type changes neither fan-out nor class derivation.

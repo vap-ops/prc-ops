@@ -72,8 +72,15 @@ import { WpCategoryCode } from "@/components/features/work-packages/wp-category-
 // quotation or their invoice — and until U7 only one of them had a type, so a
 // quote collapsed into the 'other' shrug. `quotation` leads the list because it
 // IS the normal attachment here and it is this select's default; `other` stays
-// last as the catch-all. The RD fallback ladder follows for whichever paper the
-// buyer actually attaches.
+// last as the catch-all. The middle three are the accounting documents that can
+// actually arrive with a purchase order.
+// ⚠ This is NOT the whole RD fallback ladder: `payment_voucher` (ใบสำคัญรับเงิน)
+// is a rung in FALLBACK_LADDER_TYPES (doc-chase.ts) and is not offered here, so
+// a non-VAT vendor's ใบสำคัญรับเงิน — the very document DOC_CHASE_ASK_NON_VAT
+// tells the buyer to ask for — can only be filed as `other` and never discharges
+// the order. The gap predates U7; recorded in spec §7.7 rather than widened
+// here, because which rungs belong on a PO is the operator's call, not a
+// side-effect of adding a quotation type.
 const PO_DOC_TYPES: readonly PurchaseDocType[] = [
   "quotation",
   "tax_invoice_full",
@@ -511,7 +518,7 @@ export function CreatePurchaseOrderSheet({
       disabled={pending}
       className={BUTTON_SECONDARY_MUTED}
     >
-      แนบใบเสนอราคา / ใบแจ้งหนี้ (ไม่บังคับ)
+      {`แนบ${DOC_TYPE_LABEL.quotation} / ใบแจ้งหนี้ (ไม่บังคับ)`}
     </button>
   );
 
