@@ -11,6 +11,7 @@
 // so a new enum value fails ITS exhaustiveness first, then lands here, and the
 // new role's home gets checked automatically. Tripping on a new role home is the
 // desired behaviour — copy src/app/sa/loading.tsx (a one-line <PageSkeleton />).
+import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -113,4 +114,21 @@ describe("tab + hub-nav destination loading coverage (UX-audit G8)", () => {
         `is a dead frame; fix: copy src/app/sa/loading.tsx into the segment: ${uncovered.join(", ")}`,
     ).toEqual([]);
   });
+
+  // `existsSync` is satisfied by a file that exports nothing — which Next would
+  // treat as no boundary at all, painting the very dead frame the guard exists to
+  // prevent, while every path assertion above stayed green. So the three files
+  // this unit adds are RENDERED, not merely counted.
+  it.each(["team", "registrations", "expenses"])(
+    "src/app/%s/loading.tsx default-exports a component that renders the skeleton",
+    async (segment) => {
+      const mod = await import(`@/app/${segment}/loading`);
+      expect(typeof mod.default).toBe("function");
+      const { container } = render(mod.default());
+      // PageSkeleton's own screen-reader line, not a class guess: a boundary that
+      // renders nothing is indistinguishable from having none, and this is also
+      // the only part of the skeleton a non-sighted user perceives at all.
+      expect(container.textContent).toContain("กำลังโหลด");
+    },
+  );
 });
