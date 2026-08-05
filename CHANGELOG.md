@@ -1,3 +1,9 @@
+# [0.341.0](https://github.com/vap-ops/prc-ops/compare/v0.340.2...v0.341.0) (2026-08-05)
+
+### Features
+
+- **a11y:** announce route transitions from a persistent live region ([d5d2fe5](https://github.com/vap-ops/prc-ops/commit/d5d2fe5478ee319bdcb246e96635b0d3b639f735)), closes [#980](https://github.com/vap-ops/prc-ops/issues/980)
+
 ## [0.340.2](https://github.com/vap-ops/prc-ops/compare/v0.340.1...v0.340.2) (2026-08-05)
 
 ### Bug Fixes
