@@ -80,7 +80,42 @@ until invites are actually sent.
 ## Still open
 
 Unchanged from the gap analysis, in the audit's own ranking: G4 (dead surfaces triage),
-G7 (`/login` emits no telemetry), G8 (procurement home paints a dead frame — a
-`loading.tsx`, and `/expenses` owes the same one-liner), G10 (health-notice recency,
+G7 (`/login` emits no telemetry), G10 (health-notice recency,
 danger path), G11 (pinch-zoom disabled app-wide), G13 (four spellings of "no documents"),
 G14, G16, G17, G18.
+
+## G8 — CLOSED 2026-08-06
+
+**The audit under-scoped it, and building to the recorded wording would have re-done
+finished work.** G8 was written as "procurement home paints a dead frame — a
+`loading.tsx`, and `/expenses` owes the same one-liner". The procurement half had
+**already shipped on 08-04** (`src/app/procurement/loading.tsx` plus a derived guard
+over `roleHome()`), so the remaining scope was never one file.
+
+Swept the destinations users actually land on — derived from the nav SSOTs
+(`tabsForRole` hrefs, their `match` sub-surfaces, `hubNavForRole` strips) over the
+complete role domain — and found **six** uncovered routes, none carrying a `Suspense`
+fallback either:
+
+| Route                | Awaited reads | Traffic (14d)                |
+| -------------------- | ------------- | ---------------------------- |
+| `/team`              | 12            | 368 views / 9 users          |
+| `/registrations`     | 5             | 39 views                     |
+| `/expenses`          | 10            | 23 views                     |
+| `/store/corrections` | 6             | —                            |
+| `/register/*`        | 2             | QR landing / redirect target |
+| `/login`             | 4             | every user's first screen    |
+
+`/team` is heavier than `/procurement`, the instance the audit named, and was never
+mentioned. The last three were found by the unit's fresh-eyes review, not the sweep.
+
+**Why the old guard could not see them:** it derived its routes from `roleHome()` —
+role HOMES only. The guard now covers the nav destination set as well, still derived,
+and additionally **renders every `loading.tsx` on disk** (a file that exists but paints
+nothing satisfies an `existsSync` check while being no boundary at all). The ancestor
+walk now stops above the root, so a single `src/app/loading.tsx` can no longer satisfy
+every assertion at once. Guard: `tests/unit/nav-loading-boundaries.test.ts`.
+
+⚑ Out of scope, spun off: `/portal`'s hand-rolled skeleton paints but announces nothing
+to a screen reader — the only boundary in the repo without `PageSkeleton`'s `sr-only`
+line.
