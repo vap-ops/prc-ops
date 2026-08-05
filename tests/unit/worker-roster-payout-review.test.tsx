@@ -257,6 +257,29 @@ describe("WorkerRosterManager — spec 395 U4, working the flagged accounts", ()
     expect(screen.queryByText("ไม่พบช่างที่ค้นหา")).toBeNull();
   });
 
+  // ⚠️ Review filter × a การจ่าย chip that the filter has emptied. Without the fallback,
+  // `sections` becomes [] — a blank page with no message and no chip appearing checked,
+  // because `present` no longer contains the selected group. I fixed this in review and
+  // then shipped it untested; the surviving mutant is what said so.
+  it("does not go blank when the chosen การจ่าย group holds no flagged rows", () => {
+    render(
+      <WorkerRosterManager
+        workers={[
+          flagged({ id: "a", name: "รายเดือนต้องตรวจ", pay_type: "monthly" }),
+          { ...BASE, id: "b", name: "รายวันปกติ", pay_type: "daily" },
+        ]}
+        contractors={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /^ช่างรายวัน/ }));
+    expect(screen.getByText("รายวันปกติ")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: `${PAYOUT_ACCOUNT_REVIEW_FILTER} (1)` }));
+    // The only flagged worker is monthly — it must still be shown, not swallowed by a
+    // pay chip that no longer matches anything.
+    expect(screen.getByText("รายเดือนต้องตรวจ")).toBeInTheDocument();
+  });
+
   // ⚠️ A predicate mutated to `payoutAccount != null` survived the whole file, because
   // every unflagged fixture used `null`. `own` and `nominee` must NOT count.
   it("counts only unrecorded — own and nominee rows are not work", () => {
