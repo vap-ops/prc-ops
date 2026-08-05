@@ -69,6 +69,13 @@ function publish(next: RouteAnnouncement): void {
  * Ref-counted: Next.js applies the nearest `loading.tsx`, but a parent segment's
  * boundary can still be mounted when a child's appears, and a boolean would go
  * silent on the first release while the user is still waiting.
+ *
+ * The count is not purely protective — `seq` advances only on the 0→1
+ * transition, and both consequences are deliberate. A child boundary swapping
+ * beneath a still-mounted parent does NOT re-announce (the user is inside one
+ * continuous wait the parent already announced); an interrupted navigation —
+ * tapping a second link while the first skeleton is up — does pass through 0 and
+ * announces again (that genuinely is a second wait).
  */
 export function beginRouteLoading(): () => void {
   depth += 1;

@@ -267,16 +267,23 @@ exception stays.
 
 Every boundary — shared or bespoke — renders
 [`<LoadingAnnouncement />`](../src/components/features/chrome/loading-announcement.tsx),
-and nothing else announces loading. That one leaf covers both navigation paths,
-because they fail differently:
+and nothing else announces loading. The leaf has two parts, and the live region
+is the one that does the work:
 
-- **full page load** — the reader walks the document top-down, so the leaf's
-  static sr-only `กำลังโหลด…` is read before the fallback is replaced;
-- **client-side navigation** — the fallback is a DOM swap, and readers announce
-  inserted nodes only inside a live region. The leaf therefore also writes to
+- **the live region carries both navigation paths.** Once the leaf's effect has
+  run it writes to
   [`<RouteAnnouncer />`](../src/components/features/chrome/route-announcer.tsx),
   a single `role="status" aria-live="polite" aria-atomic="true"` region mounted
-  once in `src/app/layout.tsx`, beside `{children}`.
+  once in `src/app/layout.tsx`, beside `{children}` — on a client-side
+  navigation _and_ on a full load whose fallback is still up after hydration.
+  This is the part that makes a boundary audible; a `loading.tsx` fallback is
+  otherwise just a DOM swap, and readers announce inserted nodes only inside a
+  live region that was already present.
+- **the static sr-only `กำลังโหลด…` is the pre-hydration fallback.** It is in
+  the streamed HTML, so it covers the window before the effect can run (and a
+  JS-disabled read). Do not over-claim it: readers announce the title and focus
+  on load, not the whole body, so that node is reached only if the user happens
+  to be traversing the document during the wait.
 
 Three rules, all pinned by
 [route-loading-announcement.test.tsx](../tests/unit/route-loading-announcement.test.tsx)
@@ -306,12 +313,26 @@ and, for the two surfaces together, by
 
 3. **Each announcement gets a fresh node identity** (`key={seq}`). Every boundary
    says the same words, and React unmounts one fallback and mounts the next in a
-   single commit — so without a new key the region re-renders identical text, no
-   DOM mutation occurs, and every navigation after the first is silent.
+   single commit — so without a new key the region re-renders identical text and
+   **no DOM mutation occurs at all**, which no reader can announce. What the key
+   guarantees, and what was measured (unit test plus a live `MutationObserver`),
+   is the mutation. Whether a given reader then _speaks_ a consecutive update
+   whose text is byte-identical to the last one is reader-dependent and was not
+   measured — several suppress it. Closing that residual risk would mean letting
+   the region pass through empty between announcements (e.g. publishing the next
+   message in a `queueMicrotask` so the clear commits first); recorded, not
+   built.
 
-The wording lives in `ROUTE_LOADING_MESSAGE`
+Also pinned: **every boundary must render an announcement** — `<PageSkeleton />`
+or `<LoadingAnnouncement />` — so a new bespoke `loading.tsx` cannot ship mute
+the way `/portal` did. The negative rule alone permitted no shape at all.
+
+The route-boundary wording lives in `ROUTE_LOADING_MESSAGE`
 ([route-announcement.ts](../src/lib/ui/route-announcement.ts)), not in the
-boundaries — it used to be typed into two files.
+boundaries — it used to be typed into both of them. Note this is not a
+repo-wide consolidation: `กำลังโหลด…` is still typed inline in a few
+_in-component_ busy states (equipment history sheet, photo lightbox), which are
+a different thing from a route boundary and are out of scope here.
 
 ## 9. Server vs client components
 

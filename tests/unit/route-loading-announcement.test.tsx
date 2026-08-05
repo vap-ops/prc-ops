@@ -31,7 +31,8 @@
 // waiting is not an emergency, not because something else will speak first.
 
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { globSync, readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { renderToString } from "react-dom/server";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -179,6 +180,23 @@ describe("<RouteAnnouncer> — the persistent region", () => {
     expect(region.textContent).toBe("");
   });
 
+  it("renders EMPTY on the server even while a boundary is announcing", () => {
+    // The store test asserts the server-snapshot HELPER returns empty, which
+    // says nothing about whether the component asks for it: delete the third
+    // argument to useSyncExternalStore and every jsdom test still passes,
+    // because jsdom never server-renders. This is the assertion that bites —
+    // module state is shared across requests, so a live server snapshot would
+    // render one user's in-flight navigation into another user's HTML and then
+    // mismatch on hydration.
+    const release = beginRouteLoading();
+    try {
+      expect(getRouteAnnouncement().message).toBe(ROUTE_LOADING_MESSAGE);
+      expect(renderToString(<RouteAnnouncer />)).not.toContain(ROUTE_LOADING_MESSAGE);
+    } finally {
+      release();
+    }
+  });
+
   it("PERSISTS — the same region element survives a whole announce/release cycle", () => {
     // The entire point of the design. If the region were mounted by the boundary
     // it would be inserted already-containing its text and readers would skip it.
@@ -259,12 +277,18 @@ describe("the region is mounted ONCE, in the root layout", () => {
     expect(regionLine, "no <RouteAnnouncer /> in the root layout").toBeDefined();
     expect(childrenLine, "the root layout no longer renders {children}").toBeDefined();
 
+    // Compare against the line that OPENS the wrapper, not the one holding
+    // {children}: reformatting `<ToastProvider>{children}</ToastProvider>` onto
+    // three lines is a legitimate edit (the pageshell lane may well make it
+    // while adding a prop) and must not red a correctly-placed region.
+    const wrapperLine = lines.find((line) => line.includes("<ToastProvider"));
     const indentOf = (line: string) => (line.match(/^\s*/)?.[0] ?? "").length;
+    expect(wrapperLine, "the root layout no longer renders <ToastProvider>").toBeDefined();
     expect(
       indentOf(regionLine as string),
       "the region is nested deeper than the element receiving {children} — it is " +
         "inside the swapping subtree, so it is re-created on every navigation",
-    ).toBe(indentOf(childrenLine as string));
+    ).toBe(indentOf(wrapperLine as string));
 
     // …and it is not textually inside that element either.
     const wrapperStart = layout.indexOf("<ToastProvider>");
@@ -287,8 +311,14 @@ describe("the region is mounted ONCE, in the root layout", () => {
       35,
     );
 
+    // `<output>` carries an implicit role="status", and an expression-valued
+    // attribute (role={…} / aria-live={…}) evades a literal match.
     const offenders = sources
-      .filter(({ src }) => /aria-live|role="status"|role="alert"|RouteAnnouncer/.test(src))
+      .filter(({ src }) =>
+        /aria-live|role="status"|role="alert"|role=\{|aria-live=\{|<output|RouteAnnouncer/.test(
+          src,
+        ),
+      )
       .map(({ file }) => file);
 
     expect(
@@ -297,14 +327,43 @@ describe("the region is mounted ONCE, in the root layout", () => {
         "with its text and will not be announced; write to the layout's region instead",
     ).toEqual([]);
   });
+
+  it("every loading boundary actually RENDERS an announcement", () => {
+    // The negative rule above forbids the wrong shape but permits NO shape:
+    // without this, a new bespoke loading.tsx — or one refactored onto some
+    // other skeleton — ships mute and the whole suite stays green. That is
+    // exactly how /portal shipped silent for months. Only two sources are
+    // rendered by any test, so the other 38 boundaries are covered by this scan
+    // alone; #979's six new ones are covered the moment they land.
+    const mute = allLoadingSources()
+      .filter(({ src }) => !/<PageSkeleton \/>|<LoadingAnnouncement \/>/.test(src))
+      .map(({ file }) => file);
+
+    expect(
+      mute,
+      "loading boundary with no announcement — it must render <PageSkeleton /> " +
+        "(which carries one) or <LoadingAnnouncement /> directly, or a screen " +
+        "reader is told nothing while it is on screen",
+    ).toEqual([]);
+  });
 });
 
-/** Every route-level loading boundary in the app, plus the shared skeleton. */
+/**
+ * Every route-level loading boundary in the app, plus the shared skeleton.
+ * Walked with readdirSync to match the house idiom (and to avoid fs.globSync,
+ * still experimental on the pinned Node 22).
+ */
 function allLoadingSources(): { file: string; src: string }[] {
-  const files = [
-    ...globSync("src/app/**/loading.tsx", { cwd: process.cwd() }),
-    join("src", "components", "features", "chrome", "page-skeleton.tsx"),
-  ];
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+      if (entry.isDirectory()) walk(join(dir, entry.name));
+      else if (entry.name === "loading.tsx") files.push(join(dir, entry.name));
+    }
+  };
+  walk(join("src", "app"));
+  files.push(join("src", "components", "features", "chrome", "page-skeleton.tsx"));
+
   return files.map((file) => ({
     file,
     src: stripComments(readFileSync(join(process.cwd(), file), "utf8")),
