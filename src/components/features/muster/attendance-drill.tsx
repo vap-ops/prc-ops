@@ -22,6 +22,7 @@ export function AttendanceDrill({
   days,
   todayIso,
   canReopen = false,
+  canClose = false,
   backHref = "/team/attendance",
 }: {
   days: AttendanceDetailDay[];
@@ -32,6 +33,13 @@ export function AttendanceDrill({
    * withholds the CONTROL only, never the closure FACT above it.
    */
   canReopen?: boolean;
+  /**
+   * Whether the VIEWER can also close the day again (SA_SURFACE_ROLES — exactly
+   * `close_muster_day`'s allowlist). Plain procurement may reopen and not close,
+   * so the helper line must hand the rest of the loop to the SA instead of naming
+   * a step that role's own server refuses.
+   */
+  canClose?: boolean;
   /** Where the form returns to — the caller's current URL, outcome appended. */
   backHref?: string;
 }) {
@@ -105,8 +113,16 @@ export function AttendanceDrill({
               <button type="submit" className={`${BUTTON_SECONDARY} shrink-0`}>
                 เปิดวันอีกครั้ง
               </button>
+              {/* Role-aware, because the loop is not the same for everyone:
+                  close_muster_day admits only SA_SURFACE_ROLES (and applies
+                  can_see_project), so plain procurement — the role this spec is
+                  about — can reopen but neither scan nor close. Telling them to
+                  "close the day again" would name a step their own server
+                  refuses; the honest instruction is to hand it to the SA. */}
               <p className="text-ink-secondary basis-full text-[11px]">
-                แก้ไขแล้วต้องปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่
+                {canClose
+                  ? "แก้ไขแล้วต้องปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"
+                  : "แจ้ง SA ให้แก้ไขและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
               </p>
             </form>
           )}

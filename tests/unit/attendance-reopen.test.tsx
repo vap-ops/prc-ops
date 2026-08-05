@@ -18,9 +18,10 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AttendanceDrill } from "@/components/features/muster/attendance-drill";
-import { MUSTER_REOPEN_ROLES, type UserRole } from "@/lib/auth/role-home";
+import { MUSTER_REOPEN_ROLES, SA_SURFACE_ROLES, type UserRole } from "@/lib/auth/role-home";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { groupDetailByDate, type AttendanceDetailRow } from "@/lib/muster/attendance-audit";
+import { reopenReturnTo } from "@/lib/muster/reopen-return";
 
 function strip(src: string): string {
   return src
@@ -134,6 +135,80 @@ describe("spec 397 U3 — the reopen form on the day header", () => {
   });
 });
 
+describe("spec 397 U3 — the redirect target (the bug the review caught)", () => {
+  // The drill's own href ends `#w-<workerId>`, so appending `?reopened=1` after it
+  // hid the outcome in the FRAGMENT: the page's banners were dead code and every
+  // refusal — including "wages are already booked" — returned a silent no-op.
+  const DRILL = "/team/attendance?start=2026-08-04&end=2026-08-04&worker=w1#w-w1";
+
+  it("puts the outcome in the QUERY, before any fragment", () => {
+    const target = reopenReturnTo(DRILL, "ok");
+    const url = new URL(target, "http://x");
+    expect(url.searchParams.get("reopened")).toBe("1");
+    expect(url.hash).toBe("#w-w1");
+    // …and the drill stays open on the same worker.
+    expect(url.searchParams.get("worker")).toBe("w1");
+  });
+
+  it("carries a refusal as a CODE, never a sentence", () => {
+    const url = new URL(reopenReturnTo(DRILL, "wages"), "http://x");
+    expect(url.searchParams.get("reopenError")).toBe("wages");
+    expect(url.hash).toBe("#w-w1");
+  });
+
+  it("refuses an off-app returnTo — including the backslash form", () => {
+    // `/\evil.com` passes a naive startsWith("/") && !startsWith("//") check and
+    // browsers normalise it to protocol-relative. safeBackHref rejects it.
+    for (const bad of ["/\\evil.com", "//evil.com", "https://evil.com", "javascript:alert(1)"]) {
+      expect(reopenReturnTo(bad, "ok")).toBe("/team/attendance?reopened=1");
+    }
+    expect(reopenReturnTo(undefined, "ok")).toBe("/team/attendance?reopened=1");
+  });
+
+  it("uses ? when the referrer carries no query", () => {
+    expect(reopenReturnTo("/team/attendance", "denied")).toBe(
+      "/team/attendance?reopenError=denied",
+    );
+  });
+});
+
+describe("spec 397 U3 — the loop instruction is role-aware", () => {
+  // close_muster_day admits SA_SURFACE_ROLES only, and plain procurement fails
+  // both that and its can_see_project check — so telling THAT role to close the
+  // day again names a step its own server refuses.
+  it("tells a closer to close the day again", () => {
+    render(
+      <AttendanceDrill
+        days={groupDetailByDate([row()])}
+        todayIso={TODAY}
+        canReopen
+        canClose
+        backHref="/team"
+      />,
+    );
+    expect(screen.getByText(/แก้ไขแล้วต้องปิดวันใหม่/)).toBeInTheDocument();
+  });
+
+  it("tells a non-closer to hand it to the SA", () => {
+    render(
+      <AttendanceDrill
+        days={groupDetailByDate([row()])}
+        todayIso={TODAY}
+        canReopen
+        canClose={false}
+        backHref="/team"
+      />,
+    );
+    expect(screen.getByText(/แจ้ง SA ให้แก้ไขและปิดวันใหม่/)).toBeInTheDocument();
+    expect(screen.queryByText(/แก้ไขแล้วต้องปิดวันใหม่/)).not.toBeInTheDocument();
+  });
+
+  it("procurement — the role this spec is about — is NOT a closer", () => {
+    expect(SA_SURFACE_ROLES).not.toContain("procurement");
+    expect(MUSTER_REOPEN_ROLES).toContain("procurement");
+  });
+});
+
 describe("spec 397 U3 — the day carries its project id", () => {
   it("groupDetailByDate keeps projectId, not just the name", () => {
     const [day] = groupDetailByDate([row()]);
@@ -156,5 +231,13 @@ describe("spec 397 U3 — the action", () => {
 
   it("refuses a blank reason before it reaches the database", () => {
     expect(src).toContain("trim()");
+  });
+
+  it("builds its redirect through reopenReturnTo, never by hand", () => {
+    // The hand-rolled version is what shipped the fragment bug AND the weak
+    // open-redirect check; both live in the tested helper now.
+    expect(count(src, "reopenReturnTo")).toBe(2); // the import + the call
+    expect(src).not.toContain("startsWith(");
+    expect(src).not.toContain("reopened=1");
   });
 });

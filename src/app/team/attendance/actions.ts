@@ -7,10 +7,19 @@
 // role except `procurement` (for which it is structurally false), refuses when
 // wages are already booked, and writes the audit row. This action validates
 // shape, checks the same role set so the surface never promises what the server
-// refuses, relays, and maps the RPC's SQLSTATEs to Thai.
+// refuses, relays, and returns an outcome CODE.
+//
+// It returns a code, never a sentence: the outcome travels back in the URL, and a
+// Thai message there is unbounded, survives in history, and would let a crafted
+// link render attacker-chosen text inside the app's own error notice. The page
+// owns the copy — including the honest-copy rule, since no arm here is retryable
+// in a way a "ลองใหม่" could promise.
 //
 // The correction loop this opens is reopen → fix → close again: close_muster_day
-// is idempotent and re-derives, so re-closing is what re-settles the day.
+// is idempotent and re-derives, so re-closing is what re-settles the day. ⚠️ That
+// close is gated on SA_SURFACE_ROLES and can_see_project, which plain
+// `procurement` fails on both counts — so for that role the loop is two-person
+// and the page's copy must say so (spec 397 §9 Q7).
 
 import "server-only";
 
@@ -20,17 +29,10 @@ import { redirect } from "next/navigation";
 import { requireActionRole } from "@/lib/auth/action-gate";
 import { MUSTER_REOPEN_ROLES } from "@/lib/auth/role-home";
 import { ISO_DATE_REGEX } from "@/lib/dates";
+import { reopenReturnTo, type ReopenOutcome } from "@/lib/muster/reopen-return";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
-export type ReopenResult = { ok: true } | { ok: false; error: string };
-
-// No "ลองใหม่" anywhere in this file, deliberately (honest-copy ratchet). Of the
-// two arms that reach a generic message, one is a SHAPE failure — a malformed
-// project id or date can never succeed on a retry — and the other is an unknown
-// database refusal whose retryability we do not know. Neither may promise that
-// pressing the button again will work, so both name the cause and the next step.
-const GENERIC = "เปิดวันอีกครั้งไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ";
-const BAD_SHAPE = "วันที่หรือโครงการไม่ถูกต้อง";
+export type ReopenResult = { ok: true } | { ok: false; outcome: ReopenOutcome };
 
 export async function reopenMusterDay(input: {
   projectId: string;
@@ -41,12 +43,12 @@ export async function reopenMusterDay(input: {
   // the caller's role through users RLS and returns NOT_SIGNED_IN vs not-permitted
   // for us. The RPC gates again — this is the friendly early check, never the
   // boundary.
-  const gate = await requireActionRole(MUSTER_REOPEN_ROLES, "บัญชีนี้ไม่มีสิทธิ์เปิดวันที่ปิดแล้ว");
-  if ("error" in gate) return { ok: false, error: gate.error };
+  const gate = await requireActionRole(MUSTER_REOPEN_ROLES);
+  if ("error" in gate) return { ok: false, outcome: "denied" };
   const auth = gate.auth;
 
   if (!UUID_REGEX.test(input.projectId) || !ISO_DATE_REGEX.test(input.workDate)) {
-    return { ok: false, error: BAD_SHAPE };
+    return { ok: false, outcome: "shape" };
   }
 
   // Trimmed HERE, not only in the RPC: the reason is the whole audit value, and a
@@ -54,7 +56,8 @@ export async function reopenMusterDay(input: {
   // database refusal that reads like a system error.
   const reason = input.reason.trim();
   if (reason.length === 0) {
-    return { ok: false, error: "กรุณาระบุเหตุผลที่เปิดวันนี้อีกครั้ง" };
+    // The input is `required`, so this is the trimmed-to-empty case only.
+    return { ok: false, outcome: "shape" };
   }
 
   const { error } = await auth.supabase.rpc("reopen_muster_day", {
@@ -66,19 +69,10 @@ export async function reopenMusterDay(input: {
   if (error) {
     // 42501 is a permanent refusal — never "try again". The other two P0001 arms
     // describe a state the caller can see and act on, so they say what it is.
-    if (error.code === "42501") {
-      return { ok: false, error: "บัญชีนี้ไม่มีสิทธิ์เปิดวันนี้อีกครั้ง" };
-    }
-    if (error.message.includes("wages are already booked")) {
-      return {
-        ok: false,
-        error: "วันนี้บันทึกค่าแรงไปแล้ว ต้องยกเลิกค่าแรงก่อนจึงจะเปิดวันใหม่ได้",
-      };
-    }
-    if (error.message.includes("not closed")) {
-      return { ok: false, error: "วันนี้ยังไม่ได้ปิด จึงไม่ต้องเปิดใหม่" };
-    }
-    return { ok: false, error: GENERIC };
+    if (error.code === "42501") return { ok: false, outcome: "denied" };
+    if (error.message.includes("wages are already booked")) return { ok: false, outcome: "wages" };
+    if (error.message.includes("not closed")) return { ok: false, outcome: "notclosed" };
+    return { ok: false, outcome: "failed" };
   }
 
   // Both surfaces that show closure state: the report itself, and the /team hub
@@ -99,20 +93,18 @@ export async function reopenMusterDay(input: {
  * history and screenshots, and the page owns its own copy anyway.
  */
 export async function reopenMusterDayFromForm(formData: FormData): Promise<void> {
-  const back = String(formData.get("returnTo") ?? "/team/attendance");
-  // Never redirect off-app on a value that came from a form field.
-  const safeBack = back.startsWith("/") && !back.startsWith("//") ? back : "/team/attendance";
-  const sep = safeBack.includes("?") ? "&" : "?";
-
   const result = await reopenMusterDay({
     projectId: String(formData.get("projectId") ?? ""),
     workDate: String(formData.get("workDate") ?? ""),
     reason: String(formData.get("reason") ?? ""),
   });
 
+  // reopenReturnTo owns BOTH hazards: the off-app redirect (it runs the form
+  // field through safeBackHref, which a hand-rolled startsWith check let
+  // `/\evil.com` past) and the fragment — the drill's own href ends `#w-<id>`,
+  // so appending the outcome naively hid it in the hash and made both banners
+  // dead code.
   redirect(
-    result.ok
-      ? `${safeBack}${sep}reopened=1`
-      : `${safeBack}${sep}reopenError=${encodeURIComponent(result.error)}`,
+    reopenReturnTo(String(formData.get("returnTo") ?? ""), result.ok ? "ok" : result.outcome),
   );
 }

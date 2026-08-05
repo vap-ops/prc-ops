@@ -352,10 +352,21 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     // a tier: it is the only way past close_muster_day, it demands a reason, and
     // it is audited. Filed under "team" beside the report it is reached from,
     // though the roles are the muster WRITE set + procurement, not the readers.
+    // ⚠️ The set carries TWO powers, and the label names both deliberately: the
+    // same migration widened `muster_undo_scan` to this membership, so a holder
+    // can also DELETE a check-in — irreversible, with the audit payload as the
+    // only surviving copy. A label mentioning only the reopen would leave the
+    // WHO-CAN-DO-WHAT SSOT understating the role, which is how a privilege goes
+    // unnoticed. (The registry is a bijection — one entry per exported set — so
+    // this is one row, not two.)
+    // ⚠️ site_admin holds both at the DB level with no door to either: the reopen
+    // form renders on /team/attendance, which site_admin cannot open (spec 358
+    // keeps them on the cockpit). Recorded as spec 397 §9 Q8.
     key: "muster-day-reopen",
     setName: "MUSTER_REOPEN_ROLES",
     roles: MUSTER_REOPEN_ROLES,
-    labelTh: "เปิดวันที่ปิดแล้วอีกครั้งเพื่อแก้ไขการเช็คชื่อ (ต้องระบุเหตุผล)",
+    labelTh:
+      "เปิดวันที่ปิดแล้วอีกครั้งเพื่อแก้ไขการเช็คชื่อ (ต้องระบุเหตุผล) และลบรายการเช็คชื่อที่ผิด",
     domain: "team",
   },
   // money

@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(31);
 
 -- ============================================================================
 -- Spec 397 U3 — reopen_muster_day(project, date, reason).
@@ -186,6 +186,19 @@ reset role;
 -- ============================================================================
 -- D. procurement reopens — WITHOUT can_see_project, which is false for the role.
 -- ============================================================================
+-- BEFORE: the closure exists. Read as the OWNER, and read FIRST — this is the
+-- positive control that gives the "gone" assertion below its meaning.
+-- `muster_day_closures`' only SELECT policy is can_see_project(project_id), which
+-- this file asserts is FALSE for procurement, so under the caller's role BOTH
+-- reads return 0 and the pair would stay green with the DELETE removed entirely.
+-- Same trap as the audit_log block further down; caught by the U3 review, not by
+-- the run.
+set local role postgres;
+select is(
+  (select count(*)::int from public.muster_day_closures
+    where project_id = 'a1000000-0397-0397-0397-000000000001' and work_date = '2026-07-10'),
+  1, 'control: the closure IS there before procurement reopens it');
+
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0397-0397-0397-00000000000c"}';
 select is(public.can_see_project('a1000000-0397-0397-0397-000000000001'::uuid), false,
@@ -193,10 +206,14 @@ select is(public.can_see_project('a1000000-0397-0397-0397-000000000001'::uuid), 
 select lives_ok(
   $$select public.reopen_muster_day('a1000000-0397-0397-0397-000000000001'::uuid, '2026-07-10'::date, 'ตรวจสอบพบว่าลงเวลาไม่ครบ')$$,
   'procurement may reopen a closed day');
+
+set local role postgres;
 select is(
   (select count(*)::int from public.muster_day_closures
     where project_id = 'a1000000-0397-0397-0397-000000000001' and work_date = '2026-07-10'),
   0, 'the closure row is gone — the day is open again');
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0397-0397-0397-00000000000c"}';
 -- And undo, which refuses on a closed day, now works — that is the POINT.
 select lives_ok(
   $$select public.muster_undo_scan('e1000000-0397-0397-0397-000000000001'::uuid, '2026-07-10'::date, 'regular'::public.muster_session)$$,

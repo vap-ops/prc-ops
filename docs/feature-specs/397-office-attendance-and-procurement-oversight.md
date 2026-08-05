@@ -153,6 +153,21 @@ U3 is independent of both and carries its own risk.
   separation of powers ADR 0075 wants; confirm before building.
 - **Q3 — the 2026-08-04 hole.** 4 check-ins against 21/23 either side, day closed.
   Fix it as the first real use of U3, or leave it as-is and record the reason?
+- **Q7 — should `procurement` be able to CLOSE a day, not just reopen one?**
+  U3 gives them the reopen; `close_muster_day` still admits only
+  `SA_SURFACE_ROLES` and applies `can_see_project`, both of which plain
+  procurement fails. So the loop is deliberately two-person: procurement reopens
+  with a reason, the SA fixes and closes. The copy says exactly that (it does not
+  tell a non-closer to close), and the report already flags the interim state as
+  `ยังไม่ได้ปิด`. Widening close would hand a money-deriving action to that tier —
+  an operator call, not a build-time one. ⚠️ Nothing NOTIFIES the SA that a day
+  was reopened; today it is visible only as an unclosed day on the report.
+- **Q8 — `site_admin` holds reopen at the DB level with no door.** It is in
+  `MUSTER_REOPEN_ROLES` (mirroring the RPC, which must admit whoever may close),
+  but the form renders on `/team/attendance`, which `site_admin` cannot open —
+  spec 358 deliberately keeps them on the cockpit. Their cockpit's closed-day
+  refusal now states the precondition without naming a surface they lack. Give
+  the cockpit its own reopen control, or leave it to the office tier?
 - **Q6 — `procurement` cannot read its own audit trail.** `audit_log`'s SELECT
   policy is an event allowlist: privileged internal roles, plus site_admin /
   procurement / procurement_manager for `wp_reopened_for_defect` and

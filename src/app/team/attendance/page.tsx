@@ -31,6 +31,7 @@ import {
   ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
   MUSTER_REOPEN_ROLES,
+  SA_SURFACE_ROLES,
 } from "@/lib/auth/role-home";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -58,6 +59,18 @@ export const metadata = { title: ATTENDANCE_AUDIT_LABEL };
 function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 }
+
+// Spec 397 U3 — the reopen outcome codes, in the app's own words. No "ลองใหม่" in
+// any of them: `denied` and `shape` can never succeed on a retry, `wages` and
+// `notclosed` describe a state the reader must act on first, and `failed` is of
+// unknown retryability — so each names the cause and the next step instead.
+const REOPEN_ERROR_COPY: Record<string, string> = {
+  denied: "บัญชีนี้ไม่มีสิทธิ์เปิดวันที่ปิดแล้ว",
+  wages: "วันนี้บันทึกค่าแรงไปแล้ว ต้องยกเลิกค่าแรงก่อนจึงจะเปิดวันใหม่ได้",
+  notclosed: "วันนี้ยังไม่ได้ปิด จึงไม่ต้องเปิดใหม่",
+  shape: "วันที่หรือโครงการไม่ถูกต้อง และต้องระบุเหตุผลด้วย",
+  failed: "เปิดวันอีกครั้งไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
+};
 
 interface AttendanceAuditPageProps {
   // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
@@ -92,6 +105,12 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // adding a parent is a one-line change beside safeBackHref, not a wider ternary.
   const backHref = safeBackHref(from, "/team");
   const backLabel = attendanceBackLabel(backHref);
+  // Spec 397 U3 — whether the VIEWER can finish the loop themselves.
+  // SA_SURFACE_ROLES is exactly `close_muster_day`'s live allowlist (verified),
+  // and plain `procurement` is not in it (nor does it pass that RPC's
+  // can_see_project), so for the very role this spec is about the loop is
+  // two-person. The copy must say that rather than name a step it cannot take.
+  const canClose = SA_SURFACE_ROLES.includes(ctx.role);
 
   const supabase = await createServerClient();
   const rows = await loadAttendanceSummary(supabase, range);
@@ -212,19 +231,22 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
           </button>
         </form>
 
-        {/* Spec 397 U3 — the reopen form redirects back here with its outcome.
-            A refusal is stated in the words the action chose (it distinguishes a
-            permanent 42501 from "wages are booked", which is actionable), and
-            success says what is now true rather than just "done": the day is open
-            and it must be closed again before wages recompute. */}
+        {/* Spec 397 U3 — the reopen form redirects back here with its outcome as a
+            CODE, and this page owns the copy (a Thai sentence in the URL would be
+            unbounded and forgeable). Success states what is now TRUE rather than
+            "done", and it is role-aware: `close_muster_day` refuses plain
+            procurement, so telling that role to close the day again would name a
+            step it cannot take (§9 Q7). */}
         {typeof reopenError === "string" && reopenError.length > 0 && (
           <div className="mb-4">
-            <ErrorNotice>{reopenError}</ErrorNotice>
+            <ErrorNotice>{REOPEN_ERROR_COPY[reopenError] ?? REOPEN_ERROR_COPY.failed}</ErrorNotice>
           </div>
         )}
         {reopened === "1" && (
           <p className="border-edge bg-sunk text-ink rounded-card mb-4 border px-4 py-3 text-sm">
-            เปิดวันนี้อีกครั้งแล้ว — แก้ไขการเช็คชื่อได้ และต้องปิดวันใหม่เมื่อแก้เสร็จ
+            {canClose
+              ? "เปิดวันนี้อีกครั้งแล้ว — แก้ไขการเช็คชื่อได้ และต้องปิดวันใหม่เมื่อแก้เสร็จ"
+              : "เปิดวันนี้อีกครั้งแล้ว — แจ้ง SA ให้แก้ไขการเช็คชื่อและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
           </p>
         )}
 
@@ -323,6 +345,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                           days={detailDays}
                           todayIso={todayIso}
                           canReopen={MUSTER_REOPEN_ROLES.includes(ctx.role)}
+                          canClose={canClose}
                           backHref={drillHref(r.workerId)}
                         />
                       </div>

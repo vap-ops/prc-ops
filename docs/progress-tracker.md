@@ -11654,6 +11654,32 @@ closed`) → reopen ok → undo now works (4 rows → 3) → audit row reads
 - ⓘ `db:types` WAS regenerated here (the new RPC must be callable): live was
   `main` + this lane's own two migrations only, so nothing foreign came with it —
   the diff is 4 lines in each of the two type files.
+- 🚨 **The fresh-eyes review found TWO 🔴, both mine, both silent.** ① **The
+  redirect appended its outcome AFTER the fragment.** `backHref` is always
+  `drillHref(...)`, which ends `#w-<workerId>`, so `?reopened=1` landed in the
+  HASH and **both outcome banners were dead code** — every refusal, including
+  "wages are already booked", returned to an unchanged page saying nothing. 7,103
+  green tests did not see it because the gate and the banners live in the PAGE
+  while every test rendered the CHILD. The builder is now a tested pure function
+  (`reopen-return.ts`) that splits the hash, the way `withBackFrom` already did.
+  ② **The helper line named a step `procurement` cannot take**: `close_muster_day`
+  admits only `SA_SURFACE_ROLES` and applies `can_see_project`, both of which that
+  role fails — so "แก้ไขแล้วต้องปิดวันใหม่" was false for the very tier this spec
+  is about. Copy is role-aware now (`canClose`), and the two-person loop is
+  recorded as §9 Q7 rather than papered over.
+- ⚠️ Also from that review, all fixed: the hand-rolled open-redirect check let
+  `/\evil.com` through (browsers normalise `\` → `/`) ⇒ it runs through
+  `safeBackHref` now · a pgTAP assert counted `muster_day_closures` under the
+  caller's role, where RLS hides them, so it read 0 whether or not the DELETE ran
+  — **a before-control at 1 now gives the after-0 its meaning** · the outcome
+  travelled as a Thai sentence in the URL (unbounded, forgeable, rendered inside
+  the app's own ErrorNotice) ⇒ codes now, page owns the copy · the undo widening
+  had no capability-registry row · the cockpit's closed-day refusal still said
+  "ยกเลิกไม่ได้", which U3 made false.
+- ⭐ **The cockpit copy fix had its own trap:** naming ประวัติการเช็คชื่อ as the way
+  out would have repeated the defect, because `site_admin` — the main cockpit user
+  — cannot open that page (not in `ATTENDANCE_AUDIT_ROLES`). It states the
+  precondition instead and §9 Q8 records the missing door.
 - Gates: RED-first on both sides (pgTAP `42883 function does not exist`; vitest
-  ENOENT on the action) · lint 0 · typecheck 0 · pgTAP **354 files / 7388
-  assertions exit 0** (30 new) · live probes above.
+  ENOENT on the action) · lint 0 · typecheck 0 · pgTAP **354 files / 7389
+  assertions exit 0** (31 new) · live probes above.
