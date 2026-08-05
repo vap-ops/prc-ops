@@ -43,8 +43,16 @@ export default async function EditPayoutNomineePage({
     // Spec 395 U3 — the picker used to list ONLY bankless workers, and every worker
     // spec 395 is about HAS an account that simply is not theirs. None of the 8 live
     // cases was selectable here at all; U2's badge could reach them only by deep-link.
+    // ⚠️ DEGRADE, NEVER THROW. `loadPayoutAccountAudit` throws by design (for a worklist
+    // an empty result is a lie), but this is the REMEDY page: letting the detector's
+    // failure 500 it would take spec 320's original bankless population down with it, so
+    // the one surface that fixes the problem dies with the thing that detects it.
     const pickerDb = await createClient();
-    const workers = await listNomineeCandidates(pickerDb, await loadPayoutAccountAudit(pickerDb));
+    const assessments = await loadPayoutAccountAudit(pickerDb).catch((e: unknown) => {
+      console.error("payout-nominee picker: audit read failed, bankless-only list", e);
+      return [];
+    });
+    const workers = await listNomineeCandidates(assessments);
     return (
       <PageShell>
         <BottomTabBar role={ctx.role} />

@@ -48,6 +48,7 @@ import {
   PAYOUT_ACCOUNT_OWNER_QUESTION,
   PAYOUT_ACCOUNT_OWNER_SELF,
   PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE,
+  PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT,
   PAYOUT_ACCOUNT_RECORD_CTA,
 } from "@/lib/i18n/labels";
 
@@ -110,6 +111,34 @@ describe("WorkerRosterManager — spec 395 U3, routing a new third-party account
     // The picker cannot list a worker who has a bank account, so ?worker= is the
     // only route in — the same structural constraint U2 pinned.
     expect(cta.getAttribute("href")).toBe("/settings/payout-nominees/edit?worker=w-77");
+    // ⚠️ The load-bearing claim: the money still goes to THIS account (the nominee record
+    // is consent, not a redirect), and the editor must save before navigating or the
+    // fields they just typed are discarded. Unasserted, that whole <p> was deletable.
+    expect(within(sheet()).getByText(PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT)).toBeInTheDocument();
+  });
+
+  // ⚠️ The live majority case. U2 already tells an `unrecorded` worker's sheet that the
+  // account may not be theirs; asking the question again — pre-checked "ของช่างเอง" —
+  // would answer it the opposite way 40px below U2's own words, and choosing ของคนอื่น
+  // would stack a SECOND identical CTA. U2 owns that conversation.
+  it("stays silent when U2's detected block is already explaining the same thing", () => {
+    render(
+      <WorkerRosterManager
+        workers={[
+          {
+            ...BASE,
+            payoutAccount: { state: "unrecorded", isShared: true, nameMatches: false },
+          },
+        ]}
+        contractors={[]}
+      />,
+    );
+    openEditSheet();
+    expect(within(sheet()).queryByText(PAYOUT_ACCOUNT_OWNER_QUESTION)).toBeNull();
+    // …and exactly ONE route to the nominee form, not two.
+    expect(within(sheet()).getAllByRole("link", { name: PAYOUT_ACCOUNT_RECORD_CTA })).toHaveLength(
+      1,
+    );
   });
 
   // ⚠️ The bank fields still apply. Payroll pays `workers.bank_*` — the nominee record

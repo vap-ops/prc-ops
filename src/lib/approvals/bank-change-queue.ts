@@ -176,6 +176,11 @@ export function buildStaffBankChangeQueue(
  */
 export function requestedAccountNameDiffers(item: BankChangeQueueItem): boolean {
   if (item.kind !== "worker") return false;
+  // ⚠️ `name` is the builder's DISPLAY value and falls back to "—" when the worker id
+  // did not resolve. Flagging on that would assert "the account name does not match the
+  // ช่าง's" about a ช่าง whose name was never known — a claim made from ignorance, which
+  // is the opposite of what this advisory is for.
+  if (item.name === "—") return false;
   const person = normaliseThaiPersonName(item.name);
   const holder = normaliseThaiPersonName(item.accountName ?? "");
   // ⚠️ An empty normalisation is an ABSENCE of evidence, not a match — the same rule

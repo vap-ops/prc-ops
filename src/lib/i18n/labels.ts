@@ -1651,7 +1651,7 @@ export const PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE = "ของคนอื่น";
 // documentation, not a redirect. Payroll pays `workers.bank_*` either way, and copy
 // implying otherwise would be false.
 export const PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT =
-  "เงินยังโอนเข้าบัญชีนี้ตามปกติ — บันทึกบัญชีตัวแทนไว้เพื่อให้มีหลักฐานความยินยอม";
+  "เงินยังโอนเข้าบัญชีนี้ตามปกติ บันทึกบัญชีตัวแทนไว้เพื่อให้มีหลักฐานความยินยอม — กดบันทึกช่างก่อน แล้วค่อยไปบันทึกบัญชีตัวแทน";
 
 // Spec 395 U3 — the SECOND door: a ช่าง's own bank-change request, approved by
 // back-office (`decide_worker_bank_change`). §2: a unit that routes third-party
@@ -1662,8 +1662,8 @@ export const PAYOUT_ACCOUNT_OWNER_SOMEONE_ELSE_HINT =
 // account that is not theirs", so its caption had to stop promising the narrower set.
 // The old copy ("เลือกช่างที่ยังไม่มีบัญชีธนาคารของตัวเอง") described exactly the population
 // that EXCLUDED every worker spec 395 is about.
-export const PAYOUT_NOMINEE_PICKER_CAPTION = "เลือกช่างที่ต้องบันทึกบัญชีตัวแทน";
-export const PAYOUT_NOMINEE_PICKER_EMPTY = "ไม่มีช่างที่ต้องบันทึกบัญชีตัวแทนตอนนี้";
+export const PAYOUT_NOMINEE_PICKER_CAPTION = "เลือกช่างที่อาจต้องบันทึกบัญชีตัวแทน";
+export const PAYOUT_NOMINEE_PICKER_EMPTY = "ไม่มีช่างที่ต้องตรวจสอบบัญชีตอนนี้";
 export const PAYOUT_NOMINEE_REASON_NO_ACCOUNT = "ยังไม่มีบัญชีของตัวเอง";
 export const PAYOUT_NOMINEE_REASON_NOT_OWN = "บัญชีอาจไม่ใช่ของตัวเอง";
 

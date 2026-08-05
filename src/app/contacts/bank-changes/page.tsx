@@ -220,8 +220,15 @@ export default async function BankChangeQueuePage() {
                         `workers.bank_*` columns, which bypasses the nominee record just
                         as a back-office edit does (§2). ADVISORY ONLY: it never blocks
                         the approval — a family member's account is normal here, and the
-                        approver knows whose account it is. */}
-                    {requestedAccountNameDiffers(it) ? (
+                        approver knows whose account it is.
+                        ⚠️ Gated on `canSeeTrioKinds`, because the copy TELLS the reader to
+                        record a บัญชีตัวแทน and that page requires PAYOUT_NOMINEE_ROLES.
+                        This page admits `project_manager` (who may approve the request but
+                        may NOT open the nominee form), so showing them the instruction
+                        would be affordance-then-refuse. On this page the two sets coincide
+                        exactly: PAYOUT_NOMINEE_ROLES minus plain `procurement` (already
+                        excluded from the route) IS STAFF_APPROVAL_ROLES. */}
+                    {canSeeTrioKinds && requestedAccountNameDiffers(it) ? (
                       <p className="text-ink-secondary mt-2 text-sm">
                         {PAYOUT_ACCOUNT_REQUEST_NAME_DIFFERS}
                       </p>

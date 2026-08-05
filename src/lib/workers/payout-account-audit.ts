@@ -113,13 +113,22 @@ export interface NomineeCandidate {
  * the rule is what matters, not the count.
  *
  * Takes the assessments as an argument rather than re-reading them: the caller usually
- * has them already, and it keeps this function pure enough to test without a live DB.
+ * has them already, and it keeps the classification decision visible at the call site.
+ * ⓘ No session client parameter — both reads go through the admin seam, so advertising
+ * one would imply an RLS-scoped read that does not happen.
  */
 export async function listNomineeCandidates(
-  supabase: ServerClient,
   assessments: ReadonlyArray<PayoutAccountAssessment>,
 ): Promise<NomineeCandidate[]> {
-  const notOwnIds = assessments.filter((a) => a.state === "unrecorded").map((a) => a.workerId);
+  // ⚠️ `!a.nameMatches` is load-bearing and mirrors U2's CTA condition exactly. On a
+  // shared account the holder is often one of the workers themselves (live: 2 of the 3
+  // groups), and `unrecorded` covers them too. Offering those rows here would label a
+  // worker's OWN account "บัญชีอาจไม่ใช่ของตัวเอง", and recording a nominee against it would
+  // fabricate consent — then flip them to `state = "nominee"`, permanently silencing the
+  // shared-account signal U1 exists to raise. The remedy for them is on the OTHER rows.
+  const notOwnIds = assessments
+    .filter((a) => a.state === "unrecorded" && !a.nameMatches)
+    .map((a) => a.workerId);
 
   const [bankless, notOwnRows] = await Promise.all([
     listBanklessWorkers(),

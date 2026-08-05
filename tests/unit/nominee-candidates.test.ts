@@ -34,8 +34,6 @@ vi.mock("@/lib/payroll/payout-nominee", () => ({
 
 import { listNomineeCandidates } from "@/lib/workers/payout-account-audit";
 
-const SERVER = {} as never;
-
 // admin.from("workers").select(...).in("id", ids) → rows
 function adminReturning(rows: unknown) {
   const inFn = vi.fn().mockResolvedValue({ data: rows, error: null });
@@ -57,7 +55,7 @@ describe("listNomineeCandidates", () => {
     ]);
     mockCreateClient.mockReturnValue(client);
 
-    const out = await listNomineeCandidates(SERVER, [
+    const out = await listNomineeCandidates([
       {
         workerId: "w1",
         state: "unrecorded",
@@ -76,7 +74,7 @@ describe("listNomineeCandidates", () => {
     const { client } = adminReturning([]);
     mockCreateClient.mockReturnValue(client);
 
-    const out = await listNomineeCandidates(SERVER, []);
+    const out = await listNomineeCandidates([]);
     expect(out).toEqual([
       { id: "b1", name: "นายไม่มี บัญชี", code: "PRC-26-0009", reason: "no-account" },
     ]);
@@ -90,7 +88,7 @@ describe("listNomineeCandidates", () => {
     ]);
     mockCreateClient.mockReturnValue(client);
 
-    const out = await listNomineeCandidates(SERVER, [
+    const out = await listNomineeCandidates([
       {
         workerId: "w2",
         state: "unrecorded",
@@ -106,7 +104,7 @@ describe("listNomineeCandidates", () => {
     const { client, inFn } = adminReturning([]);
     mockCreateClient.mockReturnValue(client);
 
-    const out = await listNomineeCandidates(SERVER, [
+    const out = await listNomineeCandidates([
       { workerId: "a", state: "own", accountWorkerCount: 1, isShared: false, nameMatches: true },
       {
         workerId: "b",
@@ -121,6 +119,36 @@ describe("listNomineeCandidates", () => {
     expect(inFn).not.toHaveBeenCalled();
   });
 
+  // ⚠️ THE OWNER, and the review caught this as a shipped bug: on a shared account the
+  // holder is often one of the workers themselves, and `unrecorded` covers them. Offering
+  // that row would label a worker's OWN account "บัญชีอาจไม่ใช่ของตัวเอง" and, once a nominee
+  // was recorded, flip them to `nominee` — permanently silencing the shared-account
+  // signal U1 exists to raise. Mirrors U2's CTA condition exactly.
+  it("never offers the account's OWN holder, only the third parties on it", async () => {
+    const { client } = adminReturning([
+      { id: "third", name: "นายแดง บุญวัง", employee_id: null, contractor_id: null },
+    ]);
+    mockCreateClient.mockReturnValue(client);
+
+    const out = await listNomineeCandidates([
+      {
+        workerId: "owner",
+        state: "unrecorded",
+        accountWorkerCount: 2,
+        isShared: true,
+        nameMatches: true,
+      },
+      {
+        workerId: "third",
+        state: "unrecorded",
+        accountWorkerCount: 2,
+        isShared: true,
+        nameMatches: false,
+      },
+    ]);
+    expect(out.map((c) => c.id)).toEqual(["third"]);
+  });
+
   it("sorts by name so the two reasons interleave rather than forming hidden blocks", async () => {
     mockBankless.mockResolvedValue([{ id: "b1", name: "ขไก่", code: null }]);
     const { client } = adminReturning([
@@ -129,7 +157,7 @@ describe("listNomineeCandidates", () => {
     ]);
     mockCreateClient.mockReturnValue(client);
 
-    const out = await listNomineeCandidates(SERVER, [
+    const out = await listNomineeCandidates([
       {
         workerId: "w1",
         state: "unrecorded",
