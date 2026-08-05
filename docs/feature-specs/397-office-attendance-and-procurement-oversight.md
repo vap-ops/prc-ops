@@ -106,6 +106,11 @@ scan/undo/move RPCs, and the day is closed again afterwards.
 | **U5** | Prominent office-team surface: a pinned ทีมสำนักงาน card on `/team` and the SA cockpit, opening the team and scanning office/visitor badges.                                                     | no      |
 | **U6** | The teaching half: Thai how-to for the office team + the operator data op creating their worker rows (rate 0) and printing badges.                                                               | no      |
 
+U2 note (decided at build time): the door is a **labeled card**, deliberately not
+a member of `PROCUREMENT_STR_SECTIONS` — the ทั้งหมด grid and the icon chip row
+are the purchasing spine (ขอบเขต / เวลา / ทรัพยากร), and attendance oversight is
+not a purchasing door. Precedent: the คำขอสมัคร nudge sits outside that list too.
+
 Order is load-bearing: **U1 → U2** (permission before door) and
 **U4 → U5 → U6** (a card for a team that cannot exist is the same lie as U2's).
 U3 is independent of both and carries its own risk.

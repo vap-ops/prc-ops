@@ -57,8 +57,9 @@ function formatNumber(n: number): string {
 
 interface AttendanceAuditPageProps {
   // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
-  // BOTH /team and /accounting, so the parent is not derivable — the spec-334
-  // multi-parent pattern, and the same param split /payroll settled on).
+  // /team, /accounting AND — since spec 397 U2 — /procurement, so the parent is
+  // not derivable: the spec-334 multi-parent pattern, and the same param split
+  // /payroll settled on).
   searchParams: Promise<{
     start?: string | string[];
     end?: string | string[];

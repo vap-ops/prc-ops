@@ -26,7 +26,7 @@ import { describe, expect, it } from "vitest";
 
 import { attendanceBackLabel } from "@/lib/nav/back-href";
 import { ATTENDANCE_AUDIT_ROLES } from "@/lib/auth/role-home";
-import { PROCUREMENT_HOME_ROLES } from "@/app/procurement/hub-body";
+import { PROCUREMENT_HOME_ROLES } from "@/lib/purchasing/procurement-home";
 
 function strip(src: string): string {
   return src
@@ -89,8 +89,23 @@ describe("spec 397 U2 — the back chip names where it actually goes", () => {
     }
   });
 
-  it("is what the attendance page actually uses (no inline ternary left)", () => {
-    expect(count(attendancePage, "attendanceBackLabel")).toBe(2); // import + call
+  it("matches at a segment boundary — a neighbour route never inherits the name", () => {
+    // No /procurement-review or /accounting-close exists today; this pins the
+    // SHAPE, so the day one does it gets its own label instead of a wrong one.
+    expect(attendanceBackLabel("/procurement-review")).toBe("ทีมงาน");
+    expect(attendanceBackLabel("/accountingX")).toBe("ทีมงาน");
+    // …while the real children, and a href carrying a query or hash, still match.
+    expect(attendanceBackLabel("/procurement/scope?view=late")).toBe("จัดซื้อ");
+    expect(attendanceBackLabel("/accounting?tab=1")).toBe("บัญชี");
+    expect(attendanceBackLabel("")).toBe("ทีมงาน");
+  });
+
+  it("is what the attendance page actually uses, applied to the RESOLVED href", () => {
+    // The composition is the assertion: labelling the RAW ?from instead of
+    // safeBackHref's output would keep every other pin in this file green while
+    // announcing a destination the chip does not go to.
+    expect(attendancePage).toContain("attendanceBackLabel(backHref)");
+    expect(count(attendancePage, "attendanceBackLabel")).toBe(2); // import + that call
     expect(attendancePage).not.toContain('startsWith("/accounting") ? "บัญชี"');
   });
 });

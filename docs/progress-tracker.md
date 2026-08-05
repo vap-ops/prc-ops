@@ -11525,3 +11525,39 @@ only the first. U2b needs either a unique index or a map switcher.
   from `audit_attendance_summary` line 12) · lint 0 · typecheck 0 · vitest **867 files /
   7083 tests exit 0** · pgTAP **353 files / 7358 assertions, 0 failures, exit 0** · the live
   RPC probe above. pgTAP plan derived, not counted (48 → 50).
+
+## 2026-08-05 — Spec 397 U2: the /procurement door to the attendance report (lane attend)
+
+- **The unit is a door, and the door is the point.** U1's permission alone changes
+  nothing observable: `procurement_manager` has held it since spec 358 and has
+  **never opened `/team`** (0 route views in 30 days against `/procurement` 3396).
+  A labeled card on the procurement dashboard, gated on `ATTENDANCE_AUDIT_ROLES`
+  rather than a restated literal, threading `?from` so back returns here.
+- 🚨 **Adding a parent to a multi-parent page is a change to its LABEL, not just a
+  link.** The report's back chip was `backHref.startsWith("/accounting") ? "บัญชี"
+: "ทีมงาน"` — correct for two parents. A `/procurement` referrer would have
+  travelled back to `/procurement` while announcing **"ทีมงาน"**, which is the
+  aria-label a screen reader reads out. Naming moved into `attendanceBackLabel`
+  beside `safeBackHref`, tested over its whole domain.
+- ⭐ **Three mutants, three kills** (drop the card · drop the `/procurement` arm ·
+  revert the page to the inline ternary), each harness run printing its landing
+  line and aborting on a no-op replace.
+- ✅ **Live SSR probes on the worktree dev server** — back chip href/aria pairs are
+  exactly `(/procurement, จัดซื้อ)`, `(/accounting/register, บัญชี)`,
+  `(/team, ทีมงาน)`; and under `assumed_role=procurement` the card renders once,
+  the report opens with no `NEXT_REDIRECT`, **28 distinct worker names** render
+  and the project picker is populated. That last probe is U1+U2 end to end for the
+  actual audience.
+- ⚠️ **Fresh-eyes findings, all fixed in the same lane:** the prefix table matched
+  without a segment boundary (`/procurement-review` would have inherited จัดซื้อ)
+  · the docstring claimed the label "can never contradict the link", which is
+  false for a hand-crafted `?from=/accounting/../procurement` — the comment now
+  states the property the code actually has · the page pin did not assert the
+  ARGUMENT, so labelling the RAW `?from` would have stayed green · the test
+  imported an `/app` RSC module for one role array (passing only because vitest
+  stubs `server-only`), so `PROCUREMENT_HOME_ROLES` moved to the
+  `procurement-home` leaf and `hub-body` re-exports it · three stale
+  "two parents" comments and the missing `docs/site-map.md` rows.
+- ⓘ The card is deliberately NOT in `PROCUREMENT_STR_SECTIONS`: that grid is the
+  purchasing spine, and attendance oversight is not a purchasing door (the
+  คำขอสมัคร nudge sits outside it for the same reason). Recorded in the spec.

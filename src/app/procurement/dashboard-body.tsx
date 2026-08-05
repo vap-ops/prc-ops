@@ -256,7 +256,7 @@ export async function ProcurementDashboardBody({ role }: { role: UserRole }) {
       {ATTENDANCE_AUDIT_ROLES.includes(role) ? (
         <Link
           href={withBackFrom("/team/attendance", "/procurement")}
-          className="rounded-card border-edge bg-card shadow-card hover:bg-sunk flex items-center gap-3 border px-4 py-3"
+          className="rounded-card border-edge bg-card shadow-card focus-visible:ring-action hover:bg-sunk flex min-h-11 items-center gap-3 border px-4 py-3 focus:outline-none focus-visible:ring-2"
         >
           <CalendarCheck aria-hidden className="text-action size-5 shrink-0" />
           <span className="text-body text-ink min-w-0 flex-1 font-medium">
