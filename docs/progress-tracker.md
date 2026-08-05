@@ -279,10 +279,10 @@ cap per phase (default house uploader limit) · NFC sticker hardware pick
 - **Operator question:** _"should we prevent ปิดวัน? or at least provide warnings and
   request confirmations when there are technicians not checked out yet?"_
 - **The two cases are not the same shape, and the answer follows from that:**
-  | at close | what `close_muster_day` does | reversible |
-  | --- | --- | --- |
-  | regular still in | **auto-outs** at `greatest(17:00 BKK, in_at)`, sets `out_auto` | nothing lost — a guess, and flagged as one (07-25: 3 rows). Wages derive from day-presence, not hours |
-  | OT still open | **leaves it open, `ot_hours` NULL forever** | effectively no: `muster_scan_out` prices the span from `now()`, so closing it tomorrow bills garbage (07-24: 9 rows, still open) |
+  | at close         | what `close_muster_day` does                                   | reversible                                                                                                                       |
+  | ---------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+  | regular still in | **auto-outs** at `greatest(17:00 BKK, in_at)`, sets `out_auto` | nothing lost — a guess, and flagged as one (07-25: 3 rows). Wages derive from day-presence, not hours                            |
+  | OT still open    | **leaves it open, `ot_hours` NULL forever**                    | effectively no: `muster_scan_out` prices the span from `now()`, so closing it tomorrow bills garbage (07-24: 9 rows, still open) |
 - **Why NOT block:** verified live that neither `muster_scan_in` nor `muster_scan_out`
   references `muster_day_closures` — closing is not a lock, and a re-close re-derives
   idempotently. So closing early is recoverable while **not** closing is not, and a day
@@ -8255,7 +8255,7 @@ standing U2b follow-up.
   wage GL line falls back to the raw table name instead of "จ่ายค่าแรงรายวัน". No live
   impact (greenfield: 0 wage*payments / 0 GL rows), graceful `?? table` fallback. U8's
   `grep src for dc*`sweep must rename this key`dc_payments`→`wage_payments`. Same for
-the stale `get_my_dc_payments`comment (portal/page.tsx:7) +`record_dc_payment`
+  the stale `get_my_dc_payments`comment (portal/page.tsx:7) +`record_dc_payment`
   comments (role-home.ts:192, role-sets.test.ts:236) — all U7/U8 comment cleanup.
 
 ## Spec 266 U6 — settings IA: new ทีมช่าง section — ✅ BUILT (2026-07-05, code-only)
@@ -11454,3 +11454,40 @@ only the first. U2b needs either a unique index or a map switcher.
   opener, so `String.replace` had been mutating line 886 three times while claiming to test the
   sheet block at 1133. Re-anchored on a unique string, both die. lint 0 · typecheck 0 · live SSR
   probes per role.
+
+## 2026-08-05 — Spec 395 U3: route a new third-party account to the record (lane payroute)
+
+- **Four pieces, all from the spec.** ① the `/workers` edit-sheet router ("บัญชีนี้เป็นของใคร" →
+  own / someone else, deep-linking the nominee form) · ② the **second door**,
+  `worker_bank_change_requests` (§2) · ③ **the picker fix** owed from U2 · ④ the stale
+  `procurement_manager`-gated comments (§2 listed four; a **fifth** was in `actions.ts`).
+- ⭐ **THE PICKER WENT FROM 1 SELECTABLE WORKER TO 9, measured both ways.** It listed only
+  workers with no bank account (`listBanklessWorkers`, live count **1**), and every worker
+  spec 395 is about HAS an account that simply is not theirs — so **none of the 8 was
+  reachable through the normal flow at all**; U2's badge could only deep-link. The
+  population is now a union of two reasons (`no-account` ∪ `not-own-account`), each row
+  saying which, and the live page renders **9 rows / 9 anchors**. ⚠️ Contractor-tied
+  workers stay excluded from BOTH arms (spec 328 U3 — the firm pays the subcontractor, so
+  a nominee payout would move money PRC never owes); all 8 are firm-paid, so this excludes
+  none today.
+- ⚠️ **The answer is NOT persisted** — §4 forbids a new column, and that is right: U1
+  re-derives the truth from the account itself, so a wrong or skipped answer costs nothing
+  and can never rot into a stale "someone said this was fine". It re-seeds on sheet open
+  (spec 362 U3's survives-the-unmount hazard), which is pinned.
+- ⓘ **The second door was MEASURED before it was built: `worker_bank_change_requests` holds
+  ONE row all-time and zero pending.** So it is a thin advisory on a near-dormant path,
+  unverifiable against live pending data, and deliberately name-mismatch only — the
+  shared-account half would need a cross-worker read for a door with one lifetime request,
+  and U1's detector badges whatever arrives through it anyway. It never blocks an approval.
+- ⭐ **A SURVIVING MUTANT FOUND A REAL GAP.** Deleting the empty-normalisation guard changed
+  nothing: with a real worker name, `person !== holder` already flags a blank holder, so
+  every test stayed green. The guard only bites when **both** sides normalise away — a
+  placeholder name against a bare-honorific holder, where "they match" is the most dangerous
+  possible reading. Now pinned. (A second mutant survives and is EQUIVALENT: the
+  `useState(false)` initial is unobservable because `openEditor()` re-seeds on every open,
+  including the first — documented in place so nobody chases it.)
+- ⚠️ **A pre-existing guard was too loose and my copy exposed it.** Spec 396 U2 asserted an
+  unbound worker's sheet says nothing matching `/เป็นของ/`; U3's question ("บัญชีนี้เป็นของใคร"
+  — whose ACCOUNT) shares two syllables with the ownership line but makes no ownership claim
+  about the RECORD. Re-pinned to `/รายการนี้เป็นของ/` plus the UNKNOWN label — stronger (it
+  cannot pass on a reworded ownership line) and narrower (it does not veto unrelated copy).

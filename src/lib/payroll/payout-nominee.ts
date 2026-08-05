@@ -1,7 +1,9 @@
 import "server-only";
 
 // Spec 320 U2 — server readers for the PM payout-nominee surface. The four
-// worker_payout_nominee RPCs are DEFINER + procurement_manager-gated and the
+// worker_payout_nominee RPCs are DEFINER + PAYOUT_NOMINEE_ROLES-gated (spec 395 §6:
+// procurement_manager, project_director, super_admin AND plain procurement — the
+// "procurement_manager-only" reading here was stale) and the
 // table is zero-grant bank PII (ADR 0079), so the RLS-session reads go through
 // the RPCs. Worker display name + PRC code are workers-PII-walled, so they are
 // resolved through the admin client for the (already PM-authorized) worker ids —
@@ -72,7 +74,7 @@ export interface WorkerRef {
 }
 
 // Resolve name + PRC code for the worklist's worker ids (walled columns → admin
-// client). ⚠ MUST only be called from a procurement_manager-gated surface — the
+// client). ⚠ MUST only be called from a PAYOUT_NOMINEE_ROLES-gated surface — the
 // admin client bypasses RLS + the workers-PII wall, so the caller's requireRole
 // gate IS the authorization (same discipline as the badge-codes seam, spec 306).
 export async function fetchNomineeWorkerRefs(
@@ -103,7 +105,7 @@ export interface BanklessWorker {
 // for. Spec 328 U3: contractor-tied workers are excluded (pay-exempt subcon
 // members are permanently bankless BY DESIGN — the firm pays them, so routing a
 // nominee payout for one would move money PRC never owes). ⚠ MUST only be
-// called from a procurement_manager-gated surface (admin client bypasses RLS +
+// called from a PAYOUT_NOMINEE_ROLES-gated surface (admin client bypasses RLS +
 // the workers-PII wall; the caller's requireRole IS the authorization, per the
 // badge-codes seam).
 export async function listBanklessWorkers(): Promise<BanklessWorker[]> {

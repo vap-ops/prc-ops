@@ -1,7 +1,7 @@
 "use server";
 
 // Spec 320 U2 — server actions behind the PM /settings/payout-nominees surface.
-// Each relays to its procurement_manager-gated DEFINER RPC on the caller's RLS
+// Each relays to its PAYOUT_NOMINEE_ROLES-gated DEFINER RPC on the caller's RLS
 // session (never the admin client); the RPCs re-gate everything (PM role, worker
 // existence, consent folder-pin + existence), so these are shape-validation +
 // Thai-error relays. The consent path is REBUILT here from workerId — a

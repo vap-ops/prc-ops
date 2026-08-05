@@ -1,6 +1,6 @@
 // Spec 320 U2 — the PM soft-worklist for temporary payout nominees. Lists every
 // worker on a nominee with a days-on-nominee age chip (the reclaim pressure) and
-// a per-row clear. procurement_manager-gated (the RPCs re-gate). worker_payout_
+// a per-row clear. PAYOUT_NOMINEE_ROLES-gated (the RPCs re-gate). worker_payout_
 // nominee is zero-grant bank PII, read via the DEFINER list RPC; worker name +
 // PRC code are resolved through the admin seam (fetchNomineeWorkerRefs).
 

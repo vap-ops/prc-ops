@@ -1,3 +1,5 @@
+import { normaliseThaiPersonName } from "@/lib/workers/thai-name";
+
 // Spec 186 U1 / spec 170 U4c-2 — the pure builders behind the bank-change
 // approval queue page. Each pending request joins to its party name (fallback
 // "—") for display, tagged with a `kind` so the page routes the approve/reject to
@@ -151,3 +153,39 @@ export function buildStaffBankChangeQueue(
 // rows were applied, and the queue is empty. The submit_/decide_user_bank_change
 // RPCs + the user_bank_change_requests table remain (non-destructive), but no UI
 // stages or drains them, so buildUserBankChangeQueue is gone.
+
+/**
+ * Spec 395 U3 — does this bank-change request name a holder who is not the ช่าง?
+ *
+ * The SECOND door into `workers.bank_*` (§2). `/workers` is not the only path: a ช่าง's
+ * own self-service request, approved here, writes all three bank columns and equally
+ * bypasses the nominee record. This gives the approver the same signal the roster gives
+ * the editor, at the moment of approval.
+ *
+ * ⚠️ ADVISORY ONLY — it must never block an approval. A family member's account is
+ * normal at this firm, and the approver, not this predicate, knows whose account it is.
+ *
+ * ⚠️ WORKER kind only. A contractor's account holder is a FIRM, so comparing it to a
+ * person's name would fire on nearly every contractor request and train the approver to
+ * ignore the notice; staff-bank belongs to spec 317 and its `name` semantics are not
+ * verified here.
+ *
+ * ⓘ Measured 2026-08-05: `worker_bank_change_requests` holds ONE row all-time and zero
+ * pending, so this is a thin guard on a near-dormant path — built because the door is
+ * real, not because it is busy. U1's detector badges whatever arrives through it anyway.
+ */
+export function requestedAccountNameDiffers(item: BankChangeQueueItem): boolean {
+  if (item.kind !== "worker") return false;
+  // ⚠️ `name` is the builder's DISPLAY value and falls back to "—" when the worker id
+  // did not resolve. Flagging on that would assert "the account name does not match the
+  // ช่าง's" about a ช่าง whose name was never known — a claim made from ignorance, which
+  // is the opposite of what this advisory is for.
+  if (item.name === "—") return false;
+  const person = normaliseThaiPersonName(item.name);
+  const holder = normaliseThaiPersonName(item.accountName ?? "");
+  // ⚠️ An empty normalisation is an ABSENCE of evidence, not a match — the same rule
+  // isNormalisingRename enforces. A blank or honorific-only holder must never read as
+  // "this is theirs"; it is exactly the case worth a second look.
+  if (person === "" || holder === "") return true;
+  return person !== holder;
+}
