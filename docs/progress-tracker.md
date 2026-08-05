@@ -11862,3 +11862,49 @@ closed`) → reopen ok → undo now works (4 rows → 3) → audit row reads
   purchase requests are money events in that tab (the residual between 357 and the chase page's
   ~272) · the review-queue LIST still shows `ไม่มีเอกสาร` for a waived order, because exposing
   `waived` is a return-type change (`drop function` + regen + every pgTAP `with ordinality` site).
+
+### U6 — fresh-eyes review round (same day)
+
+- 🔴 **A source pin was spoofable by SUBSTRING, and it hid a real prop-swap.**
+  `"unwaivePurchaseDocsAction"` contains `"waivePurchaseDocsAction"`, so counting the
+  waive symbol also counted every unwaive mention — the pin passed with the waive
+  import _and_ its prop deleted. Worse, the two actions are structurally assignable
+  (a 1-param fn fits a 3-param slot), so swapping the props typechecks, every mocked
+  component test still passes, and ยกเว้นเอกสาร would call `unwaive_purchase_docs`:
+  **no order could ever be waived.** Now pinned as exact bindings with a `(?<!un)`
+  boundary — and writing that fix I was bitten by the same collision from the other
+  side (`unwaive={X}` contains `waive={X}`), which is why both directions are anchored.
+- 🔴 **`waiver={waiver}` was unpinned** — mutating it to `null` typechecked and passed
+  everything, leaving a waived order rendering the blank waive form forever with
+  ยกเลิกการยกเว้น never shown: the waiver would be **unremovable from the UI** while the
+  row stayed out of the tab.
+- 🔴 **The voucher contradicted the count that queued it**, in both directions, and this
+  unit created the split: the document LIST is attachments on the purchase request, while
+  `doc_count` is now class-aware and includes PO documents. A VAT vendor's cash bill got
+  chip ไม่มีเอกสาร over a voucher listing the file; a PO-covered order got no chip over
+  **"ไม่มีเอกสารแนบ"**. The page now names which is which; both branches verified on real
+  live rows.
+- ⚠️ **My exhaustiveness comment was false.** `readonly T[]` accepts any SUBSET, so the
+  hand-listed `WAIVER_REASONS` would silently omit the next enum value — which the picker
+  WOULD offer (its labels are a `Record` over the enum) and the action would then refuse
+  with a generic error. Now derived from `Constants.public.Enums`, with a test that
+  iterates the real domain. Same class as "a comment asserting the safe behaviour is not
+  the safe behaviour".
+- ⚠️ Waiver read moved OFF the admin client — the table is not sealed (`authenticated`
+  holds SELECT, RLS admits money reviewers), so the bypass was unnecessary and its
+  justifying comment was wrong. `database.types.ts` + the worker's ADR-0047 copy
+  regenerated (the new helper was missing from both). The helper's `authenticated` grant
+  was dropped: its only caller is the DEFINER function, so the grant published a callable
+  RPC for nothing.
+- ⭐ **A mutation harness reported 5 clean kills that were all FALSE** — the mutant name
+  went into the wrong argv slot, so nothing was ever mutated, and the abort fired but the
+  loop ran on regardless. Re-run with the name in the right slot and a hard exit: 2 of the
+  5 then SURVIVED. **A harness that cannot fail is worth less than no harness.**
+- ⭐ The two survivors were real: my `replace` landed on the IMPORT line while the
+  assertions were bare `toContain`, so deleting the RENDER stayed green. Pinned to the
+  actual use count (2) and re-mutated at the render site — both now red.
+- Review-round mutants: **5/5 killed** (prop swap · waiver prop · both reconciliation
+  lines · enum subset), on top of the unit's original 10/10.
+- 🔔 **Two operator questions recorded in spec §4 U6**, both consequences of the §3 SSOT
+  rather than deviations: one PO document discharges every order under that PO (most of
+  the 269), and the PO half classes by the REQUEST's supplier, not the ORDER's.

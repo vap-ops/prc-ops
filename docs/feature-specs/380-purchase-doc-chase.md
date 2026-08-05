@@ -249,13 +249,44 @@ stays NULL; §2 decision ② covered-loose grandfathering is unaffected).
 > and the PO half cannot drift; it mirrors `SATISFYING_DOC_TYPES` in `doc-chase.ts` and both sides
 > are pinned to the same literal table.
 >
+> **🔔 TWO OPERATOR QUESTIONS raised by the U6 review — both are consequences of the §3 SSOT, not
+> deviations from it, so U6 implements the SSOT and asks rather than quietly changing it.**
+>
+> **Q1 — one PO document discharges every order under that PO.** The PO half joins on
+> `purchase_order_id` with no per-line narrowing (exactly as `docCoverage` does), so a single
+> `source_document` covers all N purchase requests on that order. That fan-out is most of the 269
+> orders that leave the tab. For the accounting queue this matters because the input-VAT claim is
+> per tax invoice per order, and U5 defaults the PO create-sheet uploader to `tax_invoice_full` —
+> so one typed document on a PO can discharge ~20 orders' accounting evidence at once. **Is that
+> the intent, or should a PO document cover only the order it was uploaded against?**
+>
+> **Q2 — the PO half classes by the REQUEST's supplier, not the ORDER's.** A purchase request with
+> no `supplier_id` classes `unknown` (full fallback ladder) even when the order it hangs off has a
+> VAT-registered supplier — so a `receipt_cash_bill` on that PO discharges it, which is precisely
+> the gap §2 exists to close. **Should the class fall back to the purchase order's supplier when
+> the request has none?** (Cheap to change; it is a one-line `coalesce` in both halves.)
+>
 > **Recorded, NOT built (own follow-ups):** ① the RPC's `events` CTE never status-filters, so the
 > ~84 `cancelled`/`rejected` purchase requests are money events in the ไม่มีเอกสาร tab — that is
 > the residual between 357 and the chase page's ~272, and it is a scope question, not a count one.
 > ② the review-queue LIST does not know the waived state (the RPC's return type is unchanged on
 > purpose — a new column is a return-type change ⇒ `drop function` + regen + every pgTAP
 > `with ordinality` site), so a waived order still shows the `ไม่มีเอกสาร` chip in the `any`
-> /`pending` tabs. Both are cheap once someone wants them.
+> /`pending` tabs. The chip's own words stay literally true (the order genuinely has no documents —
+> it was waived, not documented), so this is a discoverability gap rather than a false statement;
+> it is listed here so the next reader meets a decision instead of re-finding it. Both are cheap
+> once someone wants them.
+>
+> **From the fresh-eyes review, fixed in this unit rather than deferred:** the voucher's document
+> LIST is every attachment on the purchase request while `doc_count` is now the class-aware
+> accounting-document test including PO-level documents — so the two could disagree in BOTH
+> directions and the page would silently contradict the queue chip that sent the accountant to it
+> (a VAT vendor's cash bill: chip says ไม่มีเอกสาร, voucher lists the file; a PO-covered order: no
+> chip, voucher said "ไม่มีเอกสารแนบ"). The page now names which is which. Also fixed: the waiver
+> read moved off the admin client (the table is NOT sealed — `authenticated` holds SELECT and the
+> RLS policy admits money reviewers directly), the reason list is now derived from the generated
+> enum constants instead of a hand-list that `readonly T[]` would have accepted as a subset, and
+> `database.types.ts` + the worker's ADR-0047 copy were regenerated for the new helper.
 
 - Waiver buttons (waive/unwaive w/ reason+note) on the review voucher action panel, gated
   MONEY_REVIEW_ROLES (UI) + the U1 RPC (DB).
