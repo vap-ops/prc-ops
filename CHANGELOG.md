@@ -1,3 +1,15 @@
+# [0.339.0](https://github.com/vap-ops/prc-ops/compare/v0.338.0...v0.339.0) (2026-08-05)
+
+### Bug Fixes
+
+- **portal:** announce the /portal loading boundary to screen readers ([#980](https://github.com/vap-ops/prc-ops/issues/980)) ([cee7a20](https://github.com/vap-ops/prc-ops/commit/cee7a208c73f93e39744b0b8ff387081dad4d1b5))
+- **workers:** close four filter-interaction blank-page paths (spec 395 U4) ([5207993](https://github.com/vap-ops/prc-ops/commit/5207993a5a575d2265c19e398c3664f4f64822f6))
+- **workers:** drop the unreachable review-empty message; pin search-override properly ([c9a7123](https://github.com/vap-ops/prc-ops/commit/c9a7123962bc326b447f605f6e964765a845fa2e))
+
+### Features
+
+- **workers:** work the flagged payout accounts on the roster (spec 395 U4) ([55669f8](https://github.com/vap-ops/prc-ops/commit/55669f8fefa66020fee0e2ec7d01eee929646e88))
+
 # [0.338.0](https://github.com/vap-ops/prc-ops/compare/v0.337.0...v0.338.0) (2026-08-05)
 
 ### Bug Fixes
