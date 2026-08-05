@@ -13,7 +13,7 @@ select has_type('public', 'purchase_doc_type', 'purchase_doc_type enum exists');
 select results_eq(
   $$select unnest(enum_range(null::public.purchase_doc_type))::text$$,
   array['tax_invoice_full','receipt_cash_bill','payment_voucher','cert_in_lieu',
-        'delivery_note','transfer_slip','other'],
+        'delivery_note','transfer_slip','quotation','other'],
   'purchase_doc_type values pinned');
 select has_type('public', 'purchase_doc_waiver_reason', 'waiver reason enum exists');
 select results_eq(

@@ -7,7 +7,9 @@
 // a full tax invoice (ม.86/4 — the input-VAT claim). Everyone else's by the
 // fallback ladder documents (ม.105 ทวิ receipt/cash bill · ใบสำคัญรับเงิน ·
 // ใบรับรองแทนใบเสร็จรับเงิน). Delivery notes and transfer slips prove goods and
-// payment, never the payee (ม.65 ตรี (18)) — they NEVER satisfy.
+// payment, never the payee (ม.65 ตรี (18)) — they NEVER satisfy, and neither
+// does a quotation (spec §7), which is a pre-transaction OFFER and so evidences
+// no leg of the transaction at all.
 
 import type { Database } from "@/lib/db/database.types";
 import { DOC_CHASE_ASK_NON_VAT, DOC_CHASE_ASK_UNKNOWN, DOC_CHASE_ASK_VAT } from "@/lib/i18n/labels";
@@ -55,9 +57,14 @@ export const SATISFYING_DOC_TYPES: Record<DocRequirementClass, readonly Purchase
   unknown: FALLBACK_LADDER_TYPES,
 };
 
+// Mirrors the enum's own order (mig 075910 positions quotation beside the other
+// never-satisfying types, ahead of the `other` catch-all). Kept in sync with the
+// SQL half by the partition assertions on BOTH sides — doc-chase.test.ts over
+// Constants.public.Enums, 380b over the live enum_range complement.
 export const NEVER_SATISFYING: readonly PurchaseDocType[] = [
   "delivery_note",
   "transfer_slip",
+  "quotation",
   "other",
 ];
 

@@ -312,3 +312,175 @@ stays NULL; §2 decision ② covered-loose grandfathering is unaffected).
 - `doc_type` null-vs-typed mixing: predicate centralised in U2; every surface must import it
   (source-pinned) — no local re-derivations.
 - Waiver misuse: reason enum + note + audit row + visible ยกเว้นโดยบัญชี section.
+
+## 7. U7 — a `quotation` doc type (operator ruling 2026-08-05)
+
+> **Origin:** the accounting team's 8-stage document request opens with ใบเสนอราคา. Today that
+> stage has no category of its own, so a quotation attached at PO creation is stored as `other`
+> — the shrug type. **Operator ruling 2026-08-05: add `quotation` ONLY; defer `price_comparison`
+> until a real comparison table exists.** This section is the design; it is written before any
+> code per the doctrine's spec-first gate, and every number in it was measured live 2026-08-06,
+> not inherited from §1's 2026-07-30 grounding.
+
+### 7.1 Live grounding (measured 2026-08-06 — read this before judging the unit's value)
+
+| Fact                                                                      | Value                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Current attachments carrying a `doc_type`                                 | **0 of 427** (both tables, through the `_current` views) |
+| Last PR attachment of any purpose                                         | **2026-07-27**                                           |
+| Last PO `source_document`                                                 | **2026-07-21**                                           |
+| U5 (the pickers) merged                                                   | 2026-07-30                                               |
+| POs created / PRs created / PRs delivered since U5                        | **13 / 29 / 36**                                         |
+| `purchase_quotes` rows · PRs with a quote · `purpose='quote'` attachments | **2 · 2 · 0**                                            |
+| Places `DOC_TYPE_LABEL` renders                                           | **2 — both of them the pickers themselves**              |
+
+Three things follow, and they shape the unit rather than block it:
+
+1. **`doc_type` has never been written in production, and U5 did not cause that.** Both upload
+   paths went quiet **3 and 9 days _before_ U5 shipped**, while real purchasing continued (13
+   POs, 36 deliveries since). So the pickers are **unproven, not proven-dead** — the U5 →
+   fill-rate-zero reading that the doctrine's rules would normally invite is refuted by the
+   dates. This unit adds vocabulary to a write path whose first real use is still ahead of it.
+2. **"Searchable category" is achieved at the DATA layer only.** `DOC_TYPE_LABEL` renders in
+   exactly two places and both are the pickers; no list, badge, chip or export shows a stored
+   `doc_type` back, and nothing filters by it. Adding the enum value makes the distinction
+   _recordable and queryable_; it does not by itself make it _findable in the UI_. Stated here
+   so the next reader meets a decision instead of assuming a search exists (§7.7).
+3. **The operator's deferral of `price_comparison` is correct, and now evidenced.** A comparison
+   surface exists in code (`price-comparison.tsx`, `QuoteDocAttach`) and a table exists
+   (`purchase_quotes`) — but it holds **2 rows across 2 purchase requests, with 0 quote
+   attachments all-time**. There is no comparison practice to categorise yet.
+
+### 7.2 Which "lands as `other`" — the PO create-sheet, exactly
+
+`create-purchase-order-sheet.tsx` is the mount the ruling is about, and its own U5 comment says
+so: _"the attach here is normally a QUOTATION … 'other' is the one type that appears in NO
+class's satisfying set"_. U5 chose `other` deliberately and for a good reason — it needed a
+default that an unread select could never turn into a false VAT claim — but it chose from a
+list that had no honest option. **Now one exists.**
+
+The other quotation path (`QuoteDocAttach` → `purpose='quote'`, feeding `PriceComparison`) is
+**not** in scope: it is a different surface, it carries its meaning in `purpose` already, and it
+has zero rows. Recorded in §7.7.
+
+### 7.3 The class rule — `quotation` NEVER satisfies
+
+A quotation is a **pre-transaction offer**. It proves neither that a payment happened nor who
+received it, so it cannot be an เอกสารประกอบการลงบัญชี under ม.65 ตรี (18) — the same reasoning
+that puts `delivery_note` (proves goods, not payee) and `transfer_slip` (proves payment, not
+payee) in that class. It is, if anything, the clearest member: the other two at least evidence
+a completed leg of the transaction; a quote evidences none.
+
+⇒ `quotation` joins `NEVER_SATISFYING` and appears in **no** class's satisfying set. This is
+pinned on **both** sides of the SSOT pair, which §4 U6 established must move together:
+
+- **TS** — `NEVER_SATISFYING` in `src/lib/purchasing/doc-chase.ts`.
+- **SQL** — `purchase_doc_satisfying_types(boolean)` (mig `075909`), the one SQL home of the
+  per-class rule, whose returned arrays simply must not contain it.
+
+`purchase_doc_satisfying_types`' **body does not change** — a never-satisfying type is defined
+by absence. That is precisely why the SQL side needs a new **partition assertion** rather than
+another equality pin: today nothing in pgTAP reds when the enum grows, so the SQL half of the
+rule can silently fall behind the TS half (which _does_ have that guard —
+`doc-chase.test.ts` "every enum member is either satisfying-for-someone or never-satisfying").
+U7 closes that asymmetry (§7.6).
+
+⚠ **Be precise about what the enum add does and does not do.** `NEVER_SATISFYING` has **no
+production consumer** — `docCoverage` keys off `SATISFYING_DOC_TYPES` alone, so any type
+outside it already reads as missing. Adding `quotation` to the enum is therefore
+**behaviour-neutral by construction**: no existing order changes verdict, `doc_count` is
+untouched, and the class list is a _declaration_ rather than a gate. What makes that
+declaration binding is the pair of partition tests, one per side — which is why they are the
+substance of this unit and not decoration around it.
+
+### 7.4 Enum position
+
+`alter type public.purchase_doc_type add value if not exists 'quotation' before 'other';`
+
+- **Positioned, not appended.** The house pattern appends, but `enum_range` order is pinned
+  exactly in pgTAP and reads as documentation of the classes. Placing `quotation` after
+  `transfer_slip` groups it with the never-satisfying supporting documents and keeps `other`
+  — the catch-all — last, where a catch-all belongs.
+- **Safe:** nothing in `src/` or `supabase/migrations/` orders by `doc_type` (verified by
+  grep), and every picker renders from its own hand-listed array, so enum ordinal position is
+  presentation-neutral. `Constants.public.Enums.purchase_doc_type` is iterated order-independently.
+- **Additive only.** No row carries the value, no coverage verdict changes, `doc_count` is
+  untouched. The migration adds vocabulary and nothing else.
+- PG 17: `ADD VALUE` inside a transaction block is permitted; the new value may not be _used_ in
+  the same transaction. This migration only adds it — no function body, CHECK or index
+  references it — so the restriction is not engaged.
+
+### 7.5 The PO create-sheet default flips `other` → `quotation`
+
+`PO_DOC_TYPE_SAFE_DEFAULT` becomes `"quotation"`, and `PO_DOC_TYPES` gains it **first** (it is
+the default and, per U5's own note, the normal attachment at PO creation); `other` stays last.
+
+**The safety property U5 chose `other` for is preserved exactly.** `quotation` is in
+`NEVER_SATISFYING`, so an unread default can still only ever **under**-claim: a buyer who
+attaches a real invoice and never opens the select gets an order that keeps being chased —
+annoying, recoverable, and the direction the RD risk runs. What changes is that the **common**
+case is now recorded truthfully instead of as a shrug.
+
+**Changing what a control does makes its label part of the change** — so every surface naming
+this control is re-justified here, not assumed:
+
+| Surface                                                | Verdict after the flip                                                                                                                                                                    |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Attach button `แนบใบเสนอราคา / ใบแจ้งหนี้ (ไม่บังคับ)` | **Keep — and it is now _more_ true than before.** It names two documents; until U7 only one of them had a type. Pinned so it cannot drift away from the default it now agrees with.       |
+| Select `aria-label` = `DOC_TYPE_PICKER_LABEL`          | Keep — axis-generic ("ประเภทเอกสาร"), correct for any default.                                                                                                                            |
+| No placeholder option on this select                   | Keep — unlike `DocTypeInvoiceUploader` this mount always has a default, so a "choose one" placeholder would be dead. The two mounts differ on purpose.                                    |
+| Empty state (no file attached ⇒ no select renders)     | Keep — unchanged and still correct.                                                                                                                                                       |
+| Reset-on-remove `setDocType(PO_DOC_TYPE_SAFE_DEFAULT)` | Follows the constant; no edit needed, but the test asserting it resets to `other` must be updated **deliberately** (its comment states the old rationale as fact).                        |
+| The two U5 code comments (lines ~71 and ~151)          | **Now false — rewritten.** Both assert that a quote "never satisfies doc-chase → `other`" and that `other` is the only safe default. A comment stating a retired rationale re-teaches it. |
+
+**Deliberately NOT changed:** `STRICT_DOC_TYPES` and `WIDE_DOC_TYPES` in
+`doc-type-invoice-uploader.tsx`. Those mounts fire **after** money is spent — the receive card
+asks "what did the driver hand over", the standalone/drawer mounts ask "which accounting
+document arrived". A quotation is neither. Offering it there would invite a mislabel on the
+exact surfaces the chase list reads. Recorded as an exclusion so it is a decision, not a
+gap.
+
+### 7.6 Tests, and the guards this trips on purpose
+
+An enum add trips guards **by design**; none is weakened, and every new value is classified in
+the same unit.
+
+- `supabase/tests/database/380-purchase-doc-types.test.sql` — the `enum_range` `results_eq`
+  pin gains `quotation` in its exact position.
+- `supabase/tests/database/380b-doc-count-union.test.sql` — the SQL home of the class rule:
+  1. `quotation` absent from `purchase_doc_satisfying_types(true)`, `(false)` and `(null)`;
+  2. **behavioural** — a delivered order whose only current attachment is typed `quotation`
+     reads `doc_count = 0` and sits in the ไม่มีเอกสาร tab (a positive control already exists
+     alongside, so "absent" cannot pass by the tab being empty);
+  3. **the partition assertion (new):** satisfying(vat) ∪ satisfying(non_vat) ∪ the
+     never-satisfying list must equal the **complete** enum domain, so the next value added
+     reds until someone classifies it. This is the SQL mirror of the TS guard that already
+     exists and is what stops the two halves drifting again.
+     Plan counts bumped by derivation (`grep -cE '^select (ok|is|results_eq|…)'`), never by hand.
+- `tests/unit/doc-chase.test.ts` — the partition test reds until `NEVER_SATISFYING` gains
+  `quotation`; the never-satisfying coverage loop then exercises it automatically.
+- `tests/unit/create-purchase-order-sheet-doc-type.test.tsx` — the three `other` assertions
+  become `quotation`, with their rationale comments rewritten rather than deleted.
+- `src/lib/i18n/labels.ts` — `DOC_TYPE_LABEL` is a `Record` over the enum, so **typecheck**
+  reds until `quotation: "ใบเสนอราคา"` exists. That is the guard working.
+- `pnpm db:types` → `database.types.ts` **and** the worker's ADR-0047 byte-identical copy
+  (`db-types-sync.test.ts`). Safe here because live == main was verified at claim time.
+- ⚠ `doc-type-defaults.ts` was flagged as a likely trip; read at HEAD it switches over
+  `PurchaseRequestStatus`, not over `purchase_doc_type`, so it should **not** red. Treated as a
+  claim to be confirmed by the run, not a fact — if it stays green when expected to red, that
+  is itself a finding (an unexpected green means the test does not reach the code).
+
+### 7.7 Recorded, NOT built
+
+- **No surface shows or filters a stored `doc_type`** (§7.1 ③). The natural next unit is a
+  type chip on the attachment lists + a `?docType=` filter on the chase page. Acceptance for
+  U7 itself is a fill-rate query, not a screenshot:
+  `select coalesce(doc_type::text,'(untyped)'), count(*) from purchase_request_attachments_current group by 1`
+  (plus the PO twin) — `quotation` moving off 0 is the proof the category is being used.
+- **`QuoteDocAttach` / `purchase_quotes` stay untyped**, so two quotation paths now describe
+  themselves differently (one by `purpose`, one by `doc_type`). Harmless at 2 rows; revisit if
+  the comparison practice ever starts.
+- **`price_comparison` deferred** by operator ruling, with §7.1 ③ as the evidence.
+- The two §4 U6 operator questions (one PO document discharges every order under it; the PO
+  half classes by the request's supplier, not the order's) remain **open and unaffected** by
+  U7 — a never-satisfying type changes neither fan-out nor class derivation.

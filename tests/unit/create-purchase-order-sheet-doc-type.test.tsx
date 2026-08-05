@@ -1,6 +1,7 @@
-// Spec 380 U5 — the PO create-sheet's optional source doc gains a doc_type
-// select once a file is attached, defaulting to tax_invoice_full (the label
-// already says "ใบเสนอราคา / ใบแจ้งหนี้" — two real types behind one button).
+// Spec 380 §7 (U7) — the PO create-sheet's optional source doc gains a doc_type
+// select once a file is attached, defaulting to `quotation`. The button label
+// says "ใบเสนอราคา / ใบแจ้งหนี้" — two real documents behind one button, and as
+// of U7 both of them have a type of their own.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
@@ -24,6 +25,8 @@ vi.mock("@/lib/db/browser", () => ({
 }));
 
 import { CreatePurchaseOrderSheet } from "@/components/features/purchasing/create-purchase-order-sheet";
+import { DOC_TYPE_LABEL } from "@/lib/i18n/labels";
+import { NEVER_SATISFYING } from "@/lib/purchasing/doc-chase";
 
 const SUP = "11111111-1111-4111-8111-111111111111";
 const R1 = "aaaaaaaa-1111-4111-8111-111111111111";
@@ -68,18 +71,26 @@ describe("CreatePurchaseOrderSheet doc_type (spec 380 U5)", () => {
     expect(screen.queryByRole("combobox", { name: /ประเภทเอกสาร/ })).toBeNull();
   });
 
-  it("attaching a file reveals the type select, defaulted to 'other' — never a type that could falsely satisfy a VAT claim", async () => {
-    // Fresh-eyes catch: the attach here is normally a QUOTATION, not an
-    // accounting doc — defaulting to tax_invoice_full would let an unread
-    // quote silently certify the ม.86/4 input-VAT claim on delivery. 'other'
-    // is the one type that never appears in any SATISFYING_DOC_TYPES set, so
-    // an unread default can only under-claim, never falsely satisfy.
+  it("attaching a file reveals the type select, defaulted to 'quotation' — the honest name for what is normally attached here, and still never a type that could falsely satisfy a VAT claim", async () => {
+    // U5 defaulted to 'other' for the right reason (defaulting to
+    // tax_invoice_full would let an unread quote silently certify the ม.86/4
+    // input-VAT claim on delivery) but from a list with no honest option.
+    // 'quotation' is ALSO in NEVER_SATISFYING, so the safety property is
+    // unchanged — an unread default can only under-claim — while the common
+    // case stops being recorded as a shrug.
     setup();
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(fileInput, { target: { files: [pdf()] } });
     await waitFor(() =>
-      expect(screen.getByRole("combobox", { name: /ประเภทเอกสาร/ })).toHaveValue("other"),
+      expect(screen.getByRole("combobox", { name: /ประเภทเอกสาร/ })).toHaveValue("quotation"),
     );
+  });
+
+  it("the default is a NEVER-satisfying type — an unread select can only under-claim, never discharge an order", () => {
+    // The property, not the literal: this is what makes an unread default safe,
+    // so it must fail if a later edit picks a name that happens to be spelled
+    // differently but sits in some class's satisfying set.
+    expect(NEVER_SATISFYING).toContain("quotation");
   });
 
   it("removing the attached file resets the type back to the safe default — no stale type on a later re-attach", async () => {
@@ -92,8 +103,24 @@ describe("CreatePurchaseOrderSheet doc_type (spec 380 U5)", () => {
 
     fireEvent.change(fileInput, { target: { files: [pdf()] } });
     await waitFor(() =>
-      expect(screen.getByRole("combobox", { name: /ประเภทเอกสาร/ })).toHaveValue("other"),
+      expect(screen.getByRole("combobox", { name: /ประเภทเอกสาร/ })).toHaveValue("quotation"),
     );
+  });
+
+  it("offers ใบเสนอราคา as a real option, named with the same word the attach button promises", () => {
+    // The button label names ใบเสนอราคา and ใบแจ้งหนี้; until U7 only the second
+    // had a type of its own, so a quote collapsed into อื่นๆ. Asserting the
+    // button CONTAINS the label constant (rather than composing the button from
+    // it — only half of it would derive, which reads as derived and is not) pins
+    // the term consistency in both directions: rename the constant and the
+    // button no longer carries it; reword the button and the same assert reds.
+    setup();
+    const attach = screen.getByRole("button", { name: /แนบใบเสนอราคา \/ ใบแจ้งหนี้/ });
+    expect(attach.textContent).toContain(DOC_TYPE_LABEL.quotation);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [pdf()] } });
+    expect(screen.getByRole("option", { name: DOC_TYPE_LABEL.quotation })).toBeInTheDocument();
   });
 
   it("submitting with a picked type forwards that exact type to addPurchaseOrderAttachment", async () => {

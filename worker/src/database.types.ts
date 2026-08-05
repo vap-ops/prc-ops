@@ -13134,6 +13134,7 @@ export type Database = {
         | "cert_in_lieu"
         | "delivery_note"
         | "transfer_slip"
+        | "quotation"
         | "other"
       purchase_doc_waiver_reason:
         | "vendor_refused"
@@ -13617,6 +13618,7 @@ export const Constants = {
         "cert_in_lieu",
         "delivery_note",
         "transfer_slip",
+        "quotation",
         "other",
       ],
       purchase_doc_waiver_reason: [

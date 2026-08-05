@@ -499,6 +499,7 @@ export const DOC_TYPE_LABEL: Record<Enums["purchase_doc_type"], string> = {
   cert_in_lieu: "ใบรับรองแทนใบเสร็จรับเงิน",
   delivery_note: "ใบส่งของ",
   transfer_slip: "สลิปโอนเงิน",
+  quotation: "ใบเสนอราคา",
   other: "อื่นๆ",
 };
 export const DOC_TYPE_PICKER_PLACEHOLDER = "เลือกประเภทเอกสาร";
