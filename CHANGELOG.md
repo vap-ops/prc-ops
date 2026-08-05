@@ -1,3 +1,49 @@
+## [0.336.1](https://github.com/vap-ops/prc-ops/compare/v0.336.0...v0.336.1) (2026-08-05)
+
+### Bug Fixes
+
+- **expenses:** action-phrase the reimburse mark button (feedback 3570ccbe) ([d476b89](https://github.com/vap-ops/prc-ops/commit/d476b89ca2af6584d649d2d350f6bcf338ec495f))
+
+# [0.336.0](https://github.com/vap-ops/prc-ops/compare/v0.335.0...v0.336.0) (2026-08-05)
+
+### Bug Fixes
+
+- **397:** address the U6 fresh-eyes review ([ecfe47f](https://github.com/vap-ops/prc-ops/commit/ecfe47ff60ea18fc79befc20b174b1702cd55865))
+
+### Features
+
+- **397:** teach the office team how to take their own attendance ([42be46c](https://github.com/vap-ops/prc-ops/commit/42be46c1fa9db95d7a53ceda285e44d952eba634))
+
+# [0.335.0](https://github.com/vap-ops/prc-ops/compare/v0.334.0...v0.335.0) (2026-08-05)
+
+### Bug Fixes
+
+- **muster:** address the U5 fresh-eyes review ([749a54d](https://github.com/vap-ops/prc-ops/commit/749a54db3c8562197feaf2f50034691d899648b5))
+
+### Features
+
+- **muster:** openMusterTeam accepts the office kind (spec 397 U5 slice 1) ([4a781e9](https://github.com/vap-ops/prc-ops/commit/4a781e914d548829138a222c2692c407348ea460))
+- **muster:** the office team board shaper + loader (spec 397 U5 slice 2) ([b853dc7](https://github.com/vap-ops/prc-ops/commit/b853dc7020285e8e8b8b95e3469fa8e3bd5d56fd))
+- **muster:** the office team surface + its door (spec 397 U5 slice 3) ([cbfb363](https://github.com/vap-ops/prc-ops/commit/cbfb363e0f7b605e03df5107f5310fe9deb1acb8))
+
+# [0.334.0](https://github.com/vap-ops/prc-ops/compare/v0.333.0...v0.334.0) (2026-08-05)
+
+### Features
+
+- **muster:** the office muster team (spec 397 U4) ([#975](https://github.com/vap-ops/prc-ops/issues/975)) ([de87f7c](https://github.com/vap-ops/prc-ops/commit/de87f7c77418b3c624996750cdf79737e9c94678))
+
+# [0.333.0](https://github.com/vap-ops/prc-ops/compare/v0.332.0...v0.333.0) (2026-08-05)
+
+### Features
+
+- **muster:** a way back from a closed attendance day (spec 397 U3) ([#973](https://github.com/vap-ops/prc-ops/issues/973)) ([7357e85](https://github.com/vap-ops/prc-ops/commit/7357e85fd5ac0337a5e23220ff5902e51982e03e))
+
+# [0.332.0](https://github.com/vap-ops/prc-ops/compare/v0.331.0...v0.332.0) (2026-08-05)
+
+### Features
+
+- **photos:** self-hosted thumbnails, replacing the metered Storage transform API (spec 398) ([#972](https://github.com/vap-ops/prc-ops/issues/972)) ([1c4d774](https://github.com/vap-ops/prc-ops/commit/1c4d774b118995f34b4adc7b1651be5c98bb1882))
+
 # [0.331.0](https://github.com/vap-ops/prc-ops/compare/v0.330.0...v0.331.0) (2026-08-05)
 
 ### Features

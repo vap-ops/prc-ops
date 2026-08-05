@@ -25,9 +25,14 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
 import { attendanceBackLabel, safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
-import { EmptyNotice } from "@/components/features/common/notices";
+import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
-import { ATTENDANCE_AUDIT_ALL_PROJECT_ROLES, ATTENDANCE_AUDIT_ROLES } from "@/lib/auth/role-home";
+import {
+  ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
+  ATTENDANCE_AUDIT_ROLES,
+  MUSTER_REOPEN_ROLES,
+  SA_SURFACE_ROLES,
+} from "@/lib/auth/role-home";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -55,6 +60,18 @@ function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 }
 
+// Spec 397 U3 — the reopen outcome codes, in the app's own words. No "ลองใหม่" in
+// any of them: `denied` and `shape` can never succeed on a retry, `wages` and
+// `notclosed` describe a state the reader must act on first, and `failed` is of
+// unknown retryability — so each names the cause and the next step instead.
+const REOPEN_ERROR_COPY: Record<string, string> = {
+  denied: "บัญชีนี้ไม่มีสิทธิ์เปิดวันที่ปิดแล้ว",
+  wages: "วันนี้บันทึกค่าแรงไปแล้ว ต้องยกเลิกค่าแรงก่อนจึงจะเปิดวันใหม่ได้",
+  notclosed: "วันนี้ยังไม่ได้ปิด จึงไม่ต้องเปิดใหม่",
+  shape: "วันที่หรือโครงการไม่ถูกต้อง และต้องระบุเหตุผลด้วย",
+  failed: "เปิดวันอีกครั้งไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
+};
+
 interface AttendanceAuditPageProps {
   // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
   // /team, /accounting AND — since spec 397 U2 — /procurement, so the parent is
@@ -65,6 +82,9 @@ interface AttendanceAuditPageProps {
     end?: string | string[];
     project?: string | string[];
     from?: string | string[];
+    /** Spec 397 U3 — the reopen form's outcome, carried back by its redirect. */
+    reopened?: string | string[];
+    reopenError?: string | string[];
     // U3 — expand ONE worker's per-session rows.
     worker?: string | string[];
   }>;
@@ -72,7 +92,7 @@ interface AttendanceAuditPageProps {
 
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
-  const { start, end, project, from, worker } = await searchParams;
+  const { start, end, project, from, worker, reopened, reopenError } = await searchParams;
   const todayIso = bangkokTodayIso();
   const range = attendanceRange({ start, end, project }, todayIso);
   // Mid-shift open check-outs are expected (no auto-out cron), so the chip wording
@@ -85,6 +105,12 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // adding a parent is a one-line change beside safeBackHref, not a wider ternary.
   const backHref = safeBackHref(from, "/team");
   const backLabel = attendanceBackLabel(backHref);
+  // Spec 397 U3 — whether the VIEWER can finish the loop themselves.
+  // SA_SURFACE_ROLES is exactly `close_muster_day`'s live allowlist (verified),
+  // and plain `procurement` is not in it (nor does it pass that RPC's
+  // can_see_project), so for the very role this spec is about the loop is
+  // two-person. The copy must say that rather than name a step it cannot take.
+  const canClose = SA_SURFACE_ROLES.includes(ctx.role);
 
   const supabase = await createServerClient();
   const rows = await loadAttendanceSummary(supabase, range);
@@ -205,6 +231,25 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
           </button>
         </form>
 
+        {/* Spec 397 U3 — the reopen form redirects back here with its outcome as a
+            CODE, and this page owns the copy (a Thai sentence in the URL would be
+            unbounded and forgeable). Success states what is now TRUE rather than
+            "done", and it is role-aware: `close_muster_day` refuses plain
+            procurement, so telling that role to close the day again would name a
+            step it cannot take (§9 Q7). */}
+        {typeof reopenError === "string" && reopenError.length > 0 && (
+          <div className="mb-4">
+            <ErrorNotice>{REOPEN_ERROR_COPY[reopenError] ?? REOPEN_ERROR_COPY.failed}</ErrorNotice>
+          </div>
+        )}
+        {reopened === "1" && (
+          <p className="border-edge bg-sunk text-ink rounded-card mb-4 border px-4 py-3 text-sm">
+            {canClose
+              ? "เปิดวันนี้อีกครั้งแล้ว — แก้ไขการเช็คชื่อได้ และต้องปิดวันใหม่เมื่อแก้เสร็จ"
+              : "เปิดวันนี้อีกครั้งแล้ว — แจ้ง SA ให้แก้ไขการเช็คชื่อและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
+          </p>
+        )}
+
         {rows.length === 0 ? (
           <EmptyNotice>ไม่มีบันทึกการเช็คชื่อในช่วงนี้</EmptyNotice>
         ) : (
@@ -291,7 +336,18 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                         DAY header, not the session (it is a project-day fact). */}
                     {isOpen && (
                       <div className="border-edge mt-3 border-t pt-3">
-                        <AttendanceDrill days={detailDays} todayIso={todayIso} />
+                        {/* Spec 397 U3 — the reopen control rides the day header.
+                            canReopen mirrors reopen_muster_day's own allowlist, so
+                            the button can never promise what the RPC refuses;
+                            drillHref(openWorkerId) is the URL the form returns to,
+                            so the outcome lands on the SAME open drill. */}
+                        <AttendanceDrill
+                          days={detailDays}
+                          todayIso={todayIso}
+                          canReopen={MUSTER_REOPEN_ROLES.includes(ctx.role)}
+                          canClose={canClose}
+                          backHref={drillHref(r.workerId)}
+                        />
                       </div>
                     )}
                   </li>

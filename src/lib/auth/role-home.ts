@@ -423,6 +423,27 @@ export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 397 U3 — who may REOPEN a closed muster day (`reopen_muster_day`).
+ *
+ * The roles that may CLOSE a day (site_admin, super_admin, procurement_manager —
+ * the muster write set) PLUS `procurement`, the tier U1 put on the audit report:
+ * a checker who cannot undo the finality of a day they just found wrong hands the
+ * work straight back. Deliberately NOT `ATTENDANCE_AUDIT_ROLES` — accounting, hr
+ * and the PM tier read that report and must never edit the muster.
+ *
+ * Mirrors the allowlist inside `reopen_muster_day` (and `muster_undo_scan`, which
+ * moved to the same set) verbatim, migration 20260813075907. The RPC is the real
+ * boundary; this set exists so the affordance never promises what the server
+ * refuses. Pinned over the exhaustive role domain by attendance-reopen.test.tsx.
+ */
+export const MUSTER_REOPEN_ROLES: ReadonlyArray<UserRole> = [
+  "site_admin",
+  "super_admin",
+  "procurement_manager",
+  "procurement",
+];
+
+/**
  * Spec 358 — the CROSS-PROJECT tier of ATTENDANCE_AUDIT_ROLES: the roles whose
  * attendance read spans every project. Mirrors, exactly, the inner
  * `v_role in (...)` arm of both `audit_attendance_*` RPCs (migration

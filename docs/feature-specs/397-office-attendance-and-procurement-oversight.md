@@ -86,6 +86,37 @@ kind. The lead is the site owner's worker row and is **nullable** — zero
 `site_owner` users exist today, and a team that cannot open until an appointment
 lands is a team nobody can check into.
 
+**5.3a What U3 actually unblocks (gate-checked at build time, and it narrowed
+the unit).** `muster_scan_in` carries **no closure guard** — the SA can already
+add rows to a closed day — so ADDING was never blocked. `muster_undo_scan` is the
+one that refuses (`P0001`), and `close_muster_day` is idempotent and re-derives.
+So reopen is the real blocker and the loop is reopen → fix → close again. U3
+therefore widens only `muster_undo_scan` to `procurement`, not the other four
+write RPCs: procurement has no cockpit door, so that privilege would be dead
+weight. Giving procurement a scanning surface is a separate unit if it is ever
+wanted.
+
+⚠️ **Built, and it cost two corrections worth recording.** ① `lead_worker_id` was
+`NOT NULL` **at the table level**, so no amount of RPC logic could have allowed a
+leadless office team — the first insert died `23502`. Dropping that constraint
+outright would let a CREW team exist with no lead, and the cockpit board GROUPS by
+lead, so the rule moved from "always" to per-kind:
+`CHECK (kind = 'office' OR lead_worker_id IS NOT NULL)`, strictly stronger than
+the old NOT NULL for crew rows. ② The 3-arg `open_muster_team` is **dropped**, not
+left beside the 4-arg one — two overloads make PostgREST resolve by argument
+NAMES, so an existing 3-name call would go ambiguous instead of defaulting. The
+drop also takes the old ACL, so the `revoke … from public, anon` is mandatory: a
+new function is born executable by anon.
+
+**5.2a Which readers exclude the office team, decided once.** `loadMusterBoard`
+(groups by lead — a leadless team renders headless) and the prior-day rows that
+seed crew suggestions filter `kind = 'crew'`; so does the `/team` hub's วันนี้
+card, because that card is the crew's and U5 owns the office surface. The
+prior-team-BY-LEAD read needs no filter (`eq(lead_worker_id)` never matches null),
+and **`loadUnclosedPriorDays` is deliberately NOT filtered** — closure is a
+project-DAY fact, so an office-only day still needs closing and filtering there
+would hide it. All five classifications are pinned in `office-team-kind.test.ts`.
+
 **5.3 Correcting a closed day needs a reopen, and the reopen is the danger.**
 There is no un-close path by design. The unit adds `reopen_muster_day(project,
 date, reason)` — audited, reason mandatory — which deletes the closure row and, when
@@ -105,6 +136,27 @@ scan/undo/move RPCs, and the day is closed again afterwards.
 | **U4** | `muster_teams.kind` + one-office-team-per-day index + `open_muster_team(p_kind)`; office team never counts toward crew totals.                                                                   | **yes** |
 | **U5** | Prominent office-team surface: a pinned ทีมสำนักงาน card on `/team` and the SA cockpit, opening the team and scanning office/visitor badges.                                                     | no      |
 | **U6** | The teaching half: Thai how-to for the office team + the operator data op creating their worker rows (rate 0) and printing badges.                                                               | no      |
+
+U6 note (decided at build time, and it SPLITS the unit): the **teaching half is
+code and shipped**; the **data op is an operator input and is handed over**, because
+the names do not exist in the system to be read. Of the five `site_admin` members of
+TFM โพธิ์ทอง, only `aemon` has a `staff_registrations` row — and hers
+(`PRC-26-0036` เอมอร ฮามศรีพรม) is bound to a worker row named นายเหิน เมืองงาม, the
+spec-396 identity mismatch. For the other four the only name anywhere is a LINE
+display name (`เล็กครับ`, `Wutpong jantorn`, …). A worker row cannot be deleted, only
+deactivated, so a guessed name is permanent in the roster, the badge sheet, `/workers`
+and the audit report. The recipe handed over needs **no new code**: `/workers` →
+เพิ่มช่าง with การจ่าย = **รายเดือน** already writes `day_rate = 0`
+(`worker-roster-manager.tsx` — `isDaily ? parsed : 0`), which is exactly how
+`Preston Inter` exists.
+
+⭐ **And §6's "printing badges" is REFUTED for office staff — deliberately not done.**
+`/team/badges` prints a card for every active worker with no rate filter, so office
+rows appear there automatically; but `/team/office` has **no scanner** (Q11: a
+`<select>` recording `method: 'manual'`), so the only surface that consumes a badge is
+the crew cockpit, whose scan puts the person in a **crew** team — WP-bound, i.e. the
+wage path §8 forbids and Q9 already flags. The badge's only reachable use is the
+mistake. New question Q13.
 
 U2 note (decided at build time): the door is a **labeled card**, deliberately not
 a member of `PROCUREMENT_STR_SECTIONS` — the ทั้งหมด grid and the icon chip row
@@ -135,14 +187,90 @@ U3 is independent of both and carries its own risk.
 
 ## 9. Open questions
 
+- **Q13 — should office staff get printed badges at all?** §6 asked U6 to print them
+  and U6 refused, for the reason recorded under the units table: no office surface
+  scans, and the one surface that does would file the person in a crew team. Options:
+  (a) leave office people badge-less, which is what shipped; (b) build the office
+  scanner (Q11) and print them then; (c) filter `day_rate = 0` out of `/team/badges`
+  so the sheet stops offering a card whose only use is a mis-file. (c) is one line
+  and is the honest default if (b) is not wanted.
+- **Q15 — `procurement_manager` may open `/team/office` but has no chrome route to
+  it.** It is in `SA_SURFACE_ROLES` (so the page admits it and the คู่มือ serves it
+  this card) while `PROCUREMENT_MANAGER_TABS` is the procurement spine — หน้าหลัก /
+  ขอบเขต / เวลา / ทรัพยากร / ตั้งค่า — with **no `/team` tab at all**, and `/team` is
+  the only door to the office surface. So the card's step 1 ("เปิดแท็บ ทีมงาน") is
+  unfollowable for that role, and so is the whole feature. Found by U6's review;
+  pinned in `office-attendance-help.test.ts` so it cannot be half-fixed silently.
+  Same shape as U2's finding (permission without a door) and the same two options:
+  give the role a `/team` route, or narrow `SA_SURFACE_ROLES` here. Not U6's call —
+  it is a nav/role-set change on a danger path.
+- **Q14 — `/sa/help` is read by almost nobody: 4 route views from 3 users in 30 days,
+  against 512 for `/team` and 1,815 for `/sa`.** U6 worked around it by rendering the
+  office card on `/team/office` itself, but every OTHER card in the hub — including
+  the cold-restart troubleshooting one — is still parked behind a tile nobody taps.
+  Either the คู่มือ needs per-screen entry points (the card ids were designed for
+  exactly that deep link) or the hub is decorative. Not U6's call; measured here
+  because U6 had to route around it.
+
 - **Q1 — office people in `workers` surfaces.** A rate-0 office row appears in the
   roster, the badge sheet, `/workers`, and the payout-account audit (spec 395).
   Filter them out by `kind`/`employment_type`, or accept the noise?
+- **Q11 — U5 shipped NARROWER than §6 said, deliberately.** §6 asks for a card on
+  `/team` **and the SA cockpit**, and for **scanning office/visitor badges**. U5
+  ships the `/team` card and a `<select>` + manual check-in; the cockpit card and
+  the badge scanner are not built. The cockpit is a client component whose board is
+  crew-only by construction (U4), so an office section there is its own unit; and
+  `method: 'manual'` is the truth today — claiming `qr` without a scan would put a
+  lie in the audit report. Build the scanner, or accept manual as the office flow?
+- **Q12 — the office picker is scoped by `day_rate = 0`, which is a proxy.** That
+  is the spec's own wage-free mechanism (§5.1), and it is what stops a ช่าง being
+  mis-tapped into the office team — which costs them their crew check-in for the
+  day and, once the day closes, their wage. But it is a money column standing in
+  for a role. If office people ever need a non-zero rate, this filter hides them.
+  A `kind`/`employment_type` axis on `workers` would be the honest key (it is Q1's
+  mirror image, and Q1 is still open).
+- **Q9 — an office team can still be bound to a WP, and that IS a wage path.**
+  `set_muster_team_wps` accepts any `muster_teams` row (no kind check) and
+  `derive_muster_labor` joins attendance to teams without one, so binding a WP to
+  the office team would book a wage for any office attendee who later gains a
+  confirmed rate. §8 says "no wage path for office staff", and today TWO accidents
+  hold it shut — rate 0, and zero WPs on that team — neither of them a constraint.
+  Guard `set_muster_team_wps` with `kind <> 'office'`, or accept it? Found by the
+  U4 review; deliberately not built, because it changes another RPC's contract.
+- **Q10 — the unclosed-day banner counts teams, including the office one.**
+  `loadUnclosedPriorDays` is (correctly) unfiltered — closure is a project-day
+  fact — and its `teamCount` renders as `N ทีม`. So an office-only day will read
+  "1 ทีม" while the crew-filtered วันนี้ card reads `not_started` and the board is
+  empty: one surface nags to close a day another says never happened. Unreachable
+  until U5 creates office teams; U5 should decide whether that count means crews
+  or teams.
 - **Q2 — who may reopen a closed day?** U3 assumes the same set that may close it
   plus `procurement`. `site_admin` closing and `procurement` reopening is the
   separation of powers ADR 0075 wants; confirm before building.
 - **Q3 — the 2026-08-04 hole.** 4 check-ins against 21/23 either side, day closed.
   Fix it as the first real use of U3, or leave it as-is and record the reason?
+- **Q7 — should `procurement` be able to CLOSE a day, not just reopen one?**
+  U3 gives them the reopen; `close_muster_day` still admits only
+  `SA_SURFACE_ROLES` and applies `can_see_project`, both of which plain
+  procurement fails. So the loop is deliberately two-person: procurement reopens
+  with a reason, the SA fixes and closes. The copy says exactly that (it does not
+  tell a non-closer to close), and the report already flags the interim state as
+  `ยังไม่ได้ปิด`. Widening close would hand a money-deriving action to that tier —
+  an operator call, not a build-time one. ⚠️ Nothing NOTIFIES the SA that a day
+  was reopened; today it is visible only as an unclosed day on the report.
+- **Q8 — `site_admin` holds reopen at the DB level with no door.** It is in
+  `MUSTER_REOPEN_ROLES` (mirroring the RPC, which must admit whoever may close),
+  but the form renders on `/team/attendance`, which `site_admin` cannot open —
+  spec 358 deliberately keeps them on the cockpit. Their cockpit's closed-day
+  refusal now states the precondition without naming a surface they lack. Give
+  the cockpit its own reopen control, or leave it to the office tier?
+- **Q6 — `procurement` cannot read its own audit trail.** `audit_log`'s SELECT
+  policy is an event allowlist: privileged internal roles, plus site_admin /
+  procurement / procurement_manager for `wp_reopened_for_defect` and
+  `wp_evidence_resubmitted` **only**. So the role that reopens a day writes an
+  audit row it can never see, and no surface shows reopen history to anyone.
+  Found while writing U3's pgTAP (the asserts read 0 until they ran as the
+  owner). Surface it, widen the allowlist, or leave it to the DB? Not U3's call.
 - **Q4 — the CSV export writes no `audit_log` row.** `/team/attendance/export` lets
   any audit role bulk-download every worker's cross-project attendance (names,
   scan times, who recorded each one) with no record that they did. Pre-existing for

@@ -265,6 +265,12 @@ export type AttendanceDetailDay = {
    * name twice on any day with OT.
    */
   projectName: string;
+  /**
+   * Spec 397 U3 — the reopen form posts (project, date), and the day header is
+   * the only place that knows which project-day it is rendering. Same
+   * single-project invariant as projectName above.
+   */
+  projectId: string;
   sessions: AttendanceDetailRow[];
 };
 
@@ -291,6 +297,7 @@ export function groupDetailByDate(rows: AttendanceDetailRow[]): AttendanceDetail
         // which is the safe direction for a "this day is settled" claim.
         dayClosed: ordered.every((s) => s.dayClosed),
         projectName: ordered[0]?.projectName ?? "",
+        projectId: ordered[0]?.projectId ?? "",
         sessions: ordered,
       };
     });
