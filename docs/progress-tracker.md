@@ -11491,3 +11491,66 @@ only the first. U2b needs either a unique index or a map switcher.
   — whose ACCOUNT) shares two syllables with the ownership line but makes no ownership claim
   about the RECORD. Re-pinned to `/รายการนี้เป็นของ/` plus the UNKNOWN label — stronger (it
   cannot pass on a reworded ownership line) and narrower (it does not veto unrelated copy).
+
+## 2026-08-05 — Spec 397 U1: procurement joins the attendance audit audience (lane attend)
+
+- **Scope, exactly the spec.** `procurement` joins BOTH `ATTENDANCE_AUDIT_ROLES` and
+  `ATTENDANCE_AUDIT_ALL_PROJECT_ROLES`; migration `20260813075906` widens the matching
+  allowlists inside `audit_attendance_summary` and `audit_attendance_detail`. No new role
+  set (so no spec-316 bijection trip), no write path, no money path, signatures unchanged
+  (a true `CREATE OR REPLACE` — grants and the anon revoke survive untouched).
+- 🚨 **The assertion that matters is the INNER arm, not the gate.** Each RPC carries TWO
+  allowlists: the outer 42501 gate and an inner `v_role in (...)` arm that decides
+  cross-project reach. Widening only the outer one would drop `procurement` into the
+  `can_see_project` branch — **verified live as FALSE for that role** — so the report would
+  have opened and rendered NOTHING. A silent empty is worse than a refusal. Both lists move
+  in one migration and are pinned together in `358-attendance-audit.test.sql`.
+- ✅ **Real-flow verified as a REAL procurement principal** (rollback-wrapped, live prod
+  data): `current_user_role()` = `procurement`, `can_see_project(PRC-2026-004)` = **false**,
+  and yet **33 summary rows / 261 detail rows / 2 distinct projects** over the last 30 days
+  — the cross-project tier is what carries them. The 2026-08-04 anomaly is visible to them
+  exactly as intended: **4 rows, `closed=true`**.
+- ⭐ **An expected RED that was the point:** `team-tiles.test.tsx` failed on
+  `procurement → only the WORKER_ROSTER_ROLES pair`, because `team-tiles.tsx:182` gates the
+  ประวัติการเช็คชื่อ tile on `ATTENDANCE_AUDIT_ROLES`. Updated deliberately to
+  `["workers", "payroll", "attendance"]` — that tile IS the `/team` door.
+- ⚠️ **But the door is not done.** `procurement_manager` has been permitted since spec 358
+  and has **never opened `/team`** (0 views in 30d against `/procurement` 3396), so a tile on
+  a hub this audience does not visit changes nothing. **U2 (a card on `/procurement`) is what
+  makes U1 visible**, and it is deliberately a separate, code-only unit.
+- ⚠️ **`db:types` deliberately NOT regenerated.** The signatures are unchanged, and live is
+  ahead of `main` by this very migration — a regen would import it plus any other lane's
+  applied-but-unmerged schema.
+- Gates: RED-first on both sides (vitest exact-set mismatch; pgTAP `42501: not authorized`
+  from `audit_attendance_summary` line 12) · lint 0 · typecheck 0 · vitest **867 files /
+  7083 tests exit 0** · pgTAP **353 files / 7358 assertions, 0 failures, exit 0** · the live
+  RPC probe above. pgTAP plan derived, not counted (48 → 50).
+
+## 2026-08-05 — Spec 397 U1: procurement joins the attendance audit audience (lane attend)
+
+- **Scope, exactly the spec.** `procurement` joins BOTH `ATTENDANCE_AUDIT_ROLES` and
+  `ATTENDANCE_AUDIT_ALL_PROJECT_ROLES`; migration `20260813075906` widens the matching
+  allowlists inside `audit_attendance_summary` and `audit_attendance_detail`. No new role
+  set (so no spec-316 bijection trip), no write path, no money path, signatures unchanged
+  (a true `CREATE OR REPLACE` — grants and the anon revoke survive untouched).
+- 🚨 **The assertion that matters is the INNER arm, not the gate.** Each RPC carries TWO
+  allowlists: the outer 42501 gate and an inner `v_role in (...)` arm that decides
+  cross-project reach. Widening only the outer one would drop `procurement` into the
+  `can_see_project` branch — **verified live as FALSE for that role** — so the report would
+  have opened and rendered NOTHING. A silent empty is worse than a refusal. Both lists move
+  in one migration and are pinned together.
+- ✅ **Real-flow verified as a REAL procurement principal** (rollback-wrapped, live prod
+  data): `current_user_role()` = `procurement`, `can_see_project(PRC-2026-004)` = **false**,
+  and yet **33 summary rows / 261 detail rows / 2 distinct projects** over the last 30 days
+  — i.e. the cross-project tier is what carries them. The 2026-08-04 anomaly is visible to
+  them exactly as intended: **4 rows, `closed=true`**.
+- ⭐ **An expected RED that was the point:** `team-tiles.test.tsx` failed on
+  `procurement → only the WORKER_ROSTER_ROLES pair`, because `team-tiles.tsx:182` gates the
+  ประวัติการเช็คชื่อ tile on `ATTENDANCE_AUDIT_ROLES`. Updated deliberately to
+  `["workers", "payroll", "attendance"]` — that tile IS the `/team` door.
+- ⚠️ **But the door is not done.** `procurement_manager` has been permitted since spec 358
+  and has **never opened `/team`** (0 views in 30d against `/procurement` 3396) — a tile on a
+  hub this audience does not visit changes nothing. **U2 (a card on `/procurement`) is what
+  makes U1 visible**, and it is deliberately a separate, code-only unit.
+- ⚠️ **`db:types` deliberately NOT regenerated.** The signatures are unchanged, and live is
+  ahead of `main` by this very migration — a regen would import it plus any other lanes

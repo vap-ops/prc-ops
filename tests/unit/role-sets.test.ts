@@ -382,6 +382,7 @@ describe("ATTENDANCE_AUDIT_ROLES (spec 358)", () => {
       [
         "accounting",
         "hr",
+        "procurement",
         "procurement_manager",
         "project_coordinator",
         "project_director",
@@ -415,12 +416,14 @@ describe("ATTENDANCE_AUDIT_ROLES (spec 358)", () => {
     }
   });
 
+  // Spec 397 U1: `procurement` JOINED this set — the team doing the attendance
+  // double-check. It is deliberately NOT in this exclusion list any more; the
+  // exact-set assertion above is what pins the membership in both directions.
   it("excludes the field + external roles, incl. site_admin (it keeps the cockpit)", () => {
     for (const role of [
       "site_admin",
       "site_owner",
       "auditor",
-      "procurement",
       "technician",
       "subcon_manager",
       "legal",
