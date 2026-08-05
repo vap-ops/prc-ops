@@ -30,6 +30,11 @@ export const WORKER_TEAM_LABEL = "ทีมช่าง";
 export const TEAM_HUB_LABEL = "ทีมงาน";
 export const WORKER_ROSTER_LABEL = "รายชื่อช่าง";
 
+// Spec 397 U5 — the office/visitor attendance team. Named here because it is used
+// in two places (the /team door and the surface's own title + metadata), which is
+// the UI-term SSOT threshold.
+export const OFFICE_TEAM_LABEL = "ทีมสำนักงาน";
+
 // Spec 397 U2 — the other two hub names, needed where a page must NAME the hub
 // it is about to send someone back to (attendanceBackLabel). ⚠️ Not yet the sole
 // source: the nav chrome (bottom-tab-bar, hub-nav) still inlines both literals.

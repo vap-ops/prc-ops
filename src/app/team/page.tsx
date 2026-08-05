@@ -16,11 +16,19 @@ import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { HubNav, hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { requireRole } from "@/lib/auth/require-role";
-import { SITE_STAFF_ROLES, STAFF_APPROVAL_ROLES, type UserRole } from "@/lib/auth/role-home";
+import Link from "next/link";
+import { Building2 } from "lucide-react";
+import {
+  SA_SURFACE_ROLES,
+  SITE_STAFF_ROLES,
+  STAFF_APPROVAL_ROLES,
+  type UserRole,
+} from "@/lib/auth/role-home";
+import { withBackFrom } from "@/lib/nav/back-href";
 import { createClient } from "@/lib/db/server";
 import { bangkokTodayIso } from "@/lib/dates";
 import { clientEnv } from "@/lib/env";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { formatThaiDate, OFFICE_TEAM_LABEL } from "@/lib/i18n/labels";
 import { technicianOnboardUrl } from "@/lib/register/onboard-link";
 import { listVisibleTechnicianRegistrations } from "@/lib/register/admin-registrations";
 import { countWorkersAwaitingBank } from "@/lib/register/worker-bank-queue";
@@ -220,6 +228,26 @@ export default async function TeamPage() {
             projectName={musterProjectName}
             dateLabel={formatThaiDate(today)}
           />
+        ) : null}
+
+        {/* Spec 397 U5 — ทีมสำนักงาน, directly under the วันนี้ hero because the
+            operator asked for it to be PROMINENT: inside the icon grid it would
+            read as one of nine equal tiles. Gated on SA_SURFACE_ROLES (the muster
+            WRITE set) rather than this hub's wider audience — /team also admits
+            procurement, who cannot open or scan a team, so a door for them would
+            promise what the RPC refuses. It threads ?from so the surface's back
+            chip returns here. */}
+        {SA_SURFACE_ROLES.includes(ctx.role) ? (
+          <Link
+            href={withBackFrom("/team/office", "/team")}
+            className="rounded-card border-edge bg-card shadow-card focus-visible:ring-action hover:bg-sunk flex min-h-11 items-center gap-3 border px-4 py-3 focus:outline-none focus-visible:ring-2"
+          >
+            <Building2 aria-hidden className="text-action size-5 shrink-0" />
+            <span className="text-body text-ink min-w-0 flex-1 font-medium">
+              {OFFICE_TEAM_LABEL}
+            </span>
+            <span className="text-ink-secondary shrink-0 text-xs">เช็คชื่อทีมออฟฟิศ</span>
+          </Link>
         ) : null}
 
         {/* The icon-tile grid (spec 334 U3). For the crew view the grid is wrapped by
