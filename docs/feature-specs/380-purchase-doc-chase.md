@@ -218,7 +218,44 @@ others accept-and-ignore so `InvoiceUploaderProps.action`'s structural type (`ty
 addInvoiceAttachment`) stays satisfied by every current caller. Legacy rows untouched (`doc_type`
 stays NULL; §2 decision ② covered-loose grandfathering is unaffected).
 
-### U6 — accounting side (DANGER, operator merge)
+### U6 — accounting side (DANGER, operator merge) — ✅ BUILT 2026-08-05 (mig `20260813075909`)
+
+> **As-built notes.**
+>
+> **A THIRD doc_count defect, found at build time and fixed here.** §1 named two (purpose-blind,
+> PO-blind); the old subquery also **counted TOMBSTONES**. In these two attachment tables a delete
+> is an append-only, payload-less row carrying `superseded_by` → the row it retires (enforced by
+> `pra_tombstone_shape` / `poa_tombstone_shape`: `superseded_by is null OR storage_path is null`).
+> Nothing points AT a tombstone, so the old not-pointed-at anti-join kept it and a **DELETED
+> invoice still read as a document** — live on purchase request `c7f61658-967d-4099-a9fd-639c46b5100e`.
+> Reading through `purchase_*_attachments_current` fixes it. ⚠️ I first mis-read this as a DEFECT in
+> those views (they look like they drop both rows of a supersede pair) and nearly re-derived the
+> predicate; the CHECK constraint one layer down settled it — the views are correct, the anti-join
+> was not.
+>
+> **The waiver had to reach the tab, which the U6 text above does not say.** §3 counts a waiver as
+> coverage but the `no_docs` arm was `dexp = 'expected' and dc = 0`, so a waived dead-end order
+> would sit in the ไม่มีเอกสาร tab forever and the waiver would be **inert in the very queue its
+> button lives in**. Fixed with a `wv` flag carried through the union (`false` on all 14 non-PR
+> arms) and `and not j.wv` on that arm. ⭐ Deliberately NOT done by counting the waiver as a
+> document: `doc_count` is rendered (`docsBadgeLabel`) and CSV-exported, so inflating it would put
+> a lie in an export. A waiver is not a document; it discharges the tab, not the count.
+>
+> **Measured live before/after** (643 purchase requests): the tab goes **620 → 357**; **269 leave**
+> (they always carried a PO `source_document` the count could not see) and **6 enter** (only a
+> reference/delivery photo — never documented).
+>
+> The per-class rule lives in ONE place, `purchase_doc_satisfying_types(boolean)`, so the PR half
+> and the PO half cannot drift; it mirrors `SATISFYING_DOC_TYPES` in `doc-chase.ts` and both sides
+> are pinned to the same literal table.
+>
+> **Recorded, NOT built (own follow-ups):** ① the RPC's `events` CTE never status-filters, so the
+> ~84 `cancelled`/`rejected` purchase requests are money events in the ไม่มีเอกสาร tab — that is
+> the residual between 357 and the chase page's ~272, and it is a scope question, not a count one.
+> ② the review-queue LIST does not know the waived state (the RPC's return type is unchanged on
+> purpose — a new column is a return-type change ⇒ `drop function` + regen + every pgTAP
+> `with ordinality` site), so a waived order still shows the `ไม่มีเอกสาร` chip in the `any`
+> /`pending` tabs. Both are cheap once someone wants them.
 
 - Waiver buttons (waive/unwaive w/ reason+note) on the review voucher action panel, gated
   MONEY_REVIEW_ROLES (UI) + the U1 RPC (DB).

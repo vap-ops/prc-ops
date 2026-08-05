@@ -11821,3 +11821,44 @@ closed`) → reopen ok → undo now works (4 rows → 3) → audit row reads
   team on a live project nobody asked for; the RPC path itself was proven in U4.
 - Gates: RED-first ×3 slices · lint 0 · typecheck 0 · vitest **877 files / 7159
   tests exit 0** (pre-review-fix; re-run after).
+
+## 2026-08-05 — Spec 380 U6 (the LAST 380 unit): accounting doc waiver + the doc_count union
+
+- **`list_money_events_for_review.doc_count` for purchase requests now means "accounting
+  document" (§3), not "any attachment".** §1 named two defects; a **third** turned up at build
+  time. The old subquery counted **tombstones**: a delete in these tables is an append-only,
+  payload-less row carrying `superseded_by` → the row it retires, nothing points AT it, so the
+  not-pointed-at anti-join kept it and a **deleted invoice still read as a document** (live on
+  `c7f61658-967d-4099-a9fd-639c46b5100e`). Reading through `purchase_*_attachments_current`
+  closes all three.
+- ⚠️ **I nearly re-derived the predicate on a false finding.** Those views look like they drop
+  BOTH rows of a supersede pair, and I wrote that up as a view defect. The `pra_tombstone_shape`
+  CHECK one layer down refuted it — the pointer row is a tombstone, never a document, so the
+  views are right and the anti-join was wrong. The cheapest refutation was reading the
+  constraint, not the view.
+- **The waiver had to reach the tab, which U6's spec text does not say.** §3 counts a waiver as
+  coverage, but the `no_docs` arm was `dexp='expected' and dc = 0` — so a waived dead end would
+  sit in the ไม่มีเอกสาร tab forever and the button would be **inert in its own queue**. Added a
+  `wv` flag through the union (`false` on all 14 non-PR arms) + `and not j.wv`. ⭐ **Not** done by
+  counting the waiver as a document: `doc_count` is rendered and CSV-exported, so inflating it
+  would put a lie in an export.
+- 📊 Measured live (643 PRs): the tab goes **620 → 357** · **269 leave** (they always had a PO
+  `source_document`) · **6 enter** (only a photo, never documented).
+- The per-class rule lives in one place, `purchase_doc_satisfying_types(boolean)`, so the PR and
+  PO halves cannot drift; it mirrors `SATISFYING_DOC_TYPES` and both sides are pinned to the same
+  literal table.
+- ⭐ **A page-scan pin SURVIVED its mutation** — `lastIndexOf('event.sourceTable ===
+"purchase_requests"', panel)` silently matched the _full-document link_ higher up the page, so
+  deleting the waiver section's own guard stayed green. Re-anchored to the region after the
+  read-only marker; the mutant now reds. Same fake-coverage family as a `toContain` satisfied by
+  an import line.
+- Gates: RED-first on both halves · pgTAP **26/26** inside a 356-file / 0-failure `db:test` ·
+  **10/10 mutants killed** (5 SQL inside rolled-back transactions, each flipping only its own
+  probe value; 5 TS) · lint 0 · typecheck 0 · real-flow on a live dev server (waive → the order
+  leaves the tab with `doc_count` still 0 → the waived state renders with reason/note/actor →
+  unwaive returns it → a second unwaive is refused), probe waiver removed, `purchase_doc_waivers`
+  back to **0 rows**.
+- ⓘ **Recorded, NOT built:** the `events` CTE never status-filters, so ~84 `cancelled`/`rejected`
+  purchase requests are money events in that tab (the residual between 357 and the chase page's
+  ~272) · the review-queue LIST still shows `ไม่มีเอกสาร` for a waived order, because exposing
+  `waived` is a return-type change (`drop function` + regen + every pgTAP `with ordinality` site).
