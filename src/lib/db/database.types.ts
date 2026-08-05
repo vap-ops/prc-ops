@@ -4054,7 +4054,8 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
-          lead_worker_id: string
+          kind: Database["public"]["Enums"]["muster_team_kind"]
+          lead_worker_id: string | null
           project_id: string
           work_date: string
         }
@@ -4062,7 +4063,8 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
-          lead_worker_id: string
+          kind?: Database["public"]["Enums"]["muster_team_kind"]
+          lead_worker_id?: string | null
           project_id: string
           work_date: string
         }
@@ -4070,7 +4072,8 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
-          lead_worker_id?: string
+          kind?: Database["public"]["Enums"]["muster_team_kind"]
+          lead_worker_id?: string | null
           project_id?: string
           work_date?: string
         }
@@ -11412,7 +11415,12 @@ export type Database = {
       my_contact_bank_present: { Args: never; Returns: boolean }
       open_accounting_period: { Args: { p_month: string }; Returns: string }
       open_muster_team: {
-        Args: { p_date: string; p_lead_worker: string; p_project: string }
+        Args: {
+          p_date: string
+          p_kind?: Database["public"]["Enums"]["muster_team_kind"]
+          p_lead_worker: string
+          p_project: string
+        }
         Returns: string
       }
       photo_markup_tombstone_target_ok: {
@@ -11845,6 +11853,10 @@ export type Database = {
         Returns: string
       }
       rename_crew: { Args: { p_crew: string; p_name: string }; Returns: string }
+      reopen_muster_day: {
+        Args: { p_date: string; p_project: string; p_reason: string }
+        Returns: undefined
+      }
       reopen_supply_plan: { Args: { p_plan_id: string }; Returns: undefined }
       reopen_work_package_for_defect: {
         Args: {
@@ -13077,6 +13089,7 @@ export type Database = {
       money_review_verified_via: "reviewer" | "agent"
       muster_method: "qr" | "manual"
       muster_session: "regular" | "ot"
+      muster_team_kind: "crew" | "office"
       notification_channel: "line" | "telegram"
       notification_event_type:
         | "wp_pending_approval"
@@ -13557,6 +13570,7 @@ export const Constants = {
       money_review_verified_via: ["reviewer", "agent"],
       muster_method: ["qr", "manual"],
       muster_session: ["regular", "ot"],
+      muster_team_kind: ["crew", "office"],
       notification_channel: ["line", "telegram"],
       notification_event_type: [
         "wp_pending_approval",

@@ -86,6 +86,27 @@ kind. The lead is the site owner's worker row and is **nullable** — zero
 `site_owner` users exist today, and a team that cannot open until an appointment
 lands is a team nobody can check into.
 
+⚠️ **Built, and it cost two corrections worth recording.** ① `lead_worker_id` was
+`NOT NULL` **at the table level**, so no amount of RPC logic could have allowed a
+leadless office team — the first insert died `23502`. Dropping that constraint
+outright would let a CREW team exist with no lead, and the cockpit board GROUPS by
+lead, so the rule moved from "always" to per-kind:
+`CHECK (kind = 'office' OR lead_worker_id IS NOT NULL)`, strictly stronger than
+the old NOT NULL for crew rows. ② The 3-arg `open_muster_team` is **dropped**, not
+left beside the 4-arg one — two overloads make PostgREST resolve by argument
+NAMES, so an existing 3-name call would go ambiguous instead of defaulting. The
+drop also takes the old ACL, so the `revoke … from public, anon` is mandatory: a
+new function is born executable by anon.
+
+**5.2a Which readers exclude the office team, decided once.** `loadMusterBoard`
+(groups by lead — a leadless team renders headless) and the prior-day rows that
+seed crew suggestions filter `kind = 'crew'`; so does the `/team` hub's วันนี้
+card, because that card is the crew's and U5 owns the office surface. The
+prior-team-BY-LEAD read needs no filter (`eq(lead_worker_id)` never matches null),
+and **`loadUnclosedPriorDays` is deliberately NOT filtered** — closure is a
+project-DAY fact, so an office-only day still needs closing and filtering there
+would hide it. All five classifications are pinned in `office-team-kind.test.ts`.
+
 **5.3 Correcting a closed day needs a reopen, and the reopen is the danger.**
 There is no un-close path by design. The unit adds `reopen_muster_day(project,
 date, reason)` — audited, reason mandatory — which deletes the closure row and, when

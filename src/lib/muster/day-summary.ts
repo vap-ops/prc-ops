@@ -33,11 +33,15 @@ export async function loadMusterDaySummary(
   // teams today (ids only) → attendance worker_ids over those ids → closure → active-worker count.
   // Every read is null-tolerant: a failed read degrades to [] / null / 0, never throws —
   // spec U1 negative case "card falls back to not_started, never blanks the hub".
+  // Spec 397 U4 — CREW only. This card is the crew's วันนี้ hero; counting the
+  // office team's people here would silently change a number the operator did not
+  // ask to change. The office team gets its own surface in U5.
   const { data: teams } = await supabase
     .from("muster_teams")
     .select("id")
     .eq("project_id", projectId)
-    .eq("work_date", date);
+    .eq("work_date", date)
+    .eq("kind", "crew");
   const teamIds = (teams ?? []).map((t) => t.id);
 
   // in_at is set by scan; a muster_attendance row IS presence — distinct count lives in the shaper.
