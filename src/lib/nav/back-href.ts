@@ -1,3 +1,5 @@
+import { ACCOUNTING_HUB_LABEL, PROCUREMENT_HUB_LABEL, TEAM_HUB_LABEL } from "@/lib/i18n/labels";
+
 // Referrer-aware back chip (sitemap review, 2026-06-26).
 //
 // A detail page (DetailHeader) renders a single "up" back chip with a hardcoded
@@ -56,4 +58,48 @@ export function withBackFrom(href: string, fromPath: string): string {
   const hash = hashIndex === -1 ? "" : href.slice(hashIndex);
   const sep = base.includes("?") ? "&" : "?";
   return `${base}${sep}from=${encodeURIComponent(fromPath)}${hash}`;
+}
+
+// Spec 358 → 397 U2 — the attendance report's back-chip LABEL.
+//
+// The chip is icon-only, so this string is what a screen reader announces: it is
+// a factual claim about where back goes. It began as a two-arm ternary on the
+// page (accounting → บัญชี, else ทีมงาน), which was true while /team and
+// /accounting were the only parents. Spec 397 U2 adds /procurement as a third,
+// and an unlabelled third parent does not fail anything — it just announces the
+// wrong destination. So the resolution moved here, beside safeBackHref, where a
+// future parent is a one-line addition with a test rather than a growing ternary.
+//
+// Each prefix is matched at a SEGMENT boundary, not with a bare startsWith: a
+// future top-level `/accounting-close` or `/procurement-review` would otherwise
+// inherit its neighbour's name silently. (Fresh-eyes catch — there is no such
+// route today, so this is the shape being wrong rather than the output.)
+//
+// The labels are matched against the RESOLVED href (safeBackHref's output), not
+// the raw `?from`. Note what that does and does not buy: safeBackHref rejects
+// only OFF-APP values, so any root-relative string still passes through, and a
+// hand-crafted `?from=/accounting/../procurement` can still be labelled บัญชี
+// while the browser lands on /procurement. Self-inflicted, no privilege crossed
+// — but the honest statement is "the label names the resolved href's first
+// segment", not "the label can never disagree with the link".
+const ATTENDANCE_BACK_LABELS: ReadonlyArray<readonly [prefix: string, label: string]> = [
+  ["/accounting", ACCOUNTING_HUB_LABEL],
+  ["/procurement", PROCUREMENT_HUB_LABEL],
+];
+
+function isUnder(href: string, prefix: string): boolean {
+  if (href === prefix) return true;
+  const next = href.charAt(prefix.length);
+  return href.startsWith(prefix) && (next === "/" || next === "?" || next === "#");
+}
+
+/**
+ * Name the attendance report's back destination. Falls back to the hierarchical
+ * parent's own name (ทีมงาน) for any href nobody has labelled — which is also
+ * where `safeBackHref` sends a direct load or an off-app `?from`, so an
+ * unlabelled parent degrades to the truthful default rather than to silence.
+ */
+export function attendanceBackLabel(backHref: string): string {
+  const match = ATTENDANCE_BACK_LABELS.find(([prefix]) => isUnder(backHref, prefix));
+  return match ? match[1] : TEAM_HUB_LABEL;
 }

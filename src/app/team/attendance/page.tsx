@@ -23,7 +23,7 @@ import { PageShell } from "@/components/features/chrome/page-shell";
 import { AttendanceDrill } from "@/components/features/muster/attendance-drill";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { DetailHeader } from "@/components/features/chrome/detail-header";
-import { safeBackHref } from "@/lib/nav/back-href";
+import { attendanceBackLabel, safeBackHref } from "@/lib/nav/back-href";
 import { BottomTabBar } from "@/components/features/chrome/bottom-tab-bar";
 import { EmptyNotice } from "@/components/features/common/notices";
 import { requireRole } from "@/lib/auth/require-role";
@@ -57,8 +57,9 @@ function formatNumber(n: number): string {
 
 interface AttendanceAuditPageProps {
   // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
-  // BOTH /team and /accounting, so the parent is not derivable — the spec-334
-  // multi-parent pattern, and the same param split /payroll settled on).
+  // /team, /accounting AND — since spec 397 U2 — /procurement, so the parent is
+  // not derivable: the spec-334 multi-parent pattern, and the same param split
+  // /payroll settled on).
   searchParams: Promise<{
     start?: string | string[];
     end?: string | string[];
@@ -79,9 +80,11 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   const rangeIncludesToday = range.to >= todayIso;
   // Multi-parent chip: resolve the href FIRST, then label it for where it actually
   // goes. A fixed "ทีมงาน" label is the aria-label a screen reader hears, so on an
-  // /accounting referral it would announce the wrong destination.
+  // /accounting referral it would announce the wrong destination. Spec 397 U2 made
+  // /procurement a third parent and moved the naming into attendanceBackLabel, so
+  // adding a parent is a one-line change beside safeBackHref, not a wider ternary.
   const backHref = safeBackHref(from, "/team");
-  const backLabel = backHref.startsWith("/accounting") ? "บัญชี" : "ทีมงาน";
+  const backLabel = attendanceBackLabel(backHref);
 
   const supabase = await createServerClient();
   const rows = await loadAttendanceSummary(supabase, range);
@@ -94,6 +97,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // exposure: the RPC already returns them every project's attendance), while
   // project_manager keeps the SESSION read so RLS scopes options to exactly its
   // memberships — matching the rows the RPC will actually return for it.
+  //
+  // Spec 397 U1 note: `procurement` joined the cross-project tier for the RPC arm,
+  // NOT because it needs this bypass — the live `projects` SELECT policy already
+  // reads `current_user_role() = any('{procurement,procurement_manager}') or
+  // can_see_project(id)`, so a session read would return every project for it too.
+  // The tier branch is therefore a no-op for that role today; if `projects` RLS is
+  // ever narrowed, this comment is the reason the picker would not notice.
   const seesAllProjects = ATTENDANCE_AUDIT_ALL_PROJECT_ROLES.includes(ctx.role);
   const projectReader = seesAllProjects ? createAdminClient() : supabase;
   const { data: projectOptions } = await projectReader

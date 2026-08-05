@@ -30,6 +30,14 @@ export const WORKER_TEAM_LABEL = "ทีมช่าง";
 export const TEAM_HUB_LABEL = "ทีมงาน";
 export const WORKER_ROSTER_LABEL = "รายชื่อช่าง";
 
+// Spec 397 U2 — the other two hub names, needed where a page must NAME the hub
+// it is about to send someone back to (attendanceBackLabel). ⚠️ Not yet the sole
+// source: the nav chrome (bottom-tab-bar, hub-nav) still inlines both literals.
+// Unifying those is a nav sweep, not this unit's job — but new code should take
+// the hub's name from here.
+export const ACCOUNTING_HUB_LABEL = "บัญชี";
+export const PROCUREMENT_HUB_LABEL = "จัดซื้อ";
+
 /**
  * Spec 396 U2 — who a portal-bound worker record belongs to, shown at the ชื่อ
  * field on the roster edit sheet.

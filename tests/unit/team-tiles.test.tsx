@@ -63,11 +63,12 @@ describe("teamTilesForRole — per-role tile sets (derived from the role SSOTs)"
   });
 
   // plain procurement is NOT an approver (procurement_manager is, plain procurement
-  // isn't) and NOT crew → ONLY the worker-roster pair.
-  it("procurement → only the WORKER_ROSTER_ROLES pair", () => {
+  // isn't) and NOT crew → the worker-roster pair, plus (spec 397 U1) the
+  // attendance-audit door: this is the team that runs the attendance double-check.
+  it("procurement → the WORKER_ROSTER_ROLES pair + the attendance door", () => {
     expect(STAFF_APPROVAL_ROLES).not.toContain("procurement");
     expect(WORKER_ROSTER_ROLES).toContain("procurement");
-    expect(keysFor("procurement", false)).toEqual(["workers", "payroll"]);
+    expect(keysFor("procurement", false)).toEqual(["workers", "payroll", "attendance"]);
   });
 
   // PM_ROLES ⊂ WORKER_ROSTER_ROLES, and project_manager is NOT an approver, NOT

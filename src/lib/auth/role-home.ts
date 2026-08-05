@@ -399,10 +399,17 @@ export const MONEY_VIEW_ROLES: ReadonlyArray<UserRole> = [...PM_ROLES, "accounti
  * `site_owner` and `auditor` are deliberately OUT — the SA's surface is the
  * muster cockpit (today's scan), not the office history report.
  *
+ * Spec 397 U1 added plain `procurement` (cross-project tier): that team runs the
+ * attendance double-check, and doing it outside the app was the operator's ask on
+ * 2026-08-05. It joins BOTH tiers deliberately — `can_see_project` is FALSE for
+ * `procurement`, so the project-scoped arm would open the report onto nothing.
+ *
  * READ-only: this set never gates a write. Attendance here is RAW scan truth —
  * no wages, no GL (the money derive is spec 306 U5). Pinned by role-sets.test.ts
  * over the exhaustive role domain, and mirrored verbatim by the RPC allowlist in
- * migration 20260813075853 — the RPC and the page gate must never drift apart.
+ * migration 20260813075906 (spec 397 U1 replaced 20260813075853 — NEVER edit the
+ * applied one, a re-push silently no-ops) — the RPC and the page gate must never
+ * drift apart.
  */
 export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
   "accounting",
@@ -410,6 +417,7 @@ export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
   "project_director",
   "project_coordinator",
   "procurement_manager",
+  "procurement",
   "super_admin",
   "project_manager",
 ];
@@ -418,7 +426,7 @@ export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
  * Spec 358 — the CROSS-PROJECT tier of ATTENDANCE_AUDIT_ROLES: the roles whose
  * attendance read spans every project. Mirrors, exactly, the inner
  * `v_role in (...)` arm of both `audit_attendance_*` RPCs (migration
- * 20260813075853); `project_manager` is the one audit role NOT here, because the
+ * 20260813075906); `project_manager` is the one audit role NOT here, because the
  * RPC scopes it by `can_see_project`.
  *
  * Needed in TS because the report's project PICKER cannot use the session client
@@ -436,6 +444,7 @@ export const ATTENDANCE_AUDIT_ALL_PROJECT_ROLES: ReadonlyArray<UserRole> = [
   "project_director",
   "project_coordinator",
   "procurement_manager",
+  "procurement",
   "super_admin",
 ];
 

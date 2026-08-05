@@ -17,6 +17,13 @@
 - **Precedent (spec 350):** `get_my_assigned_work()` = a `SECURITY DEFINER` read RPC serving an RLS-excluded audience (technician), `revoke … from anon` / `grant execute … to authenticated`, self-scoped in the body. The exact pattern this spec reuses — but gated on a role allowlist + visibility-scoped instead of self-scoped.
 - **Precedent (spec 345):** `/accounting/review` = a back-office audit queue page. **Precedent (spec 350 reader):** `src/lib/technician/assigned-work-view.ts` (RPC call + row typing; db:types marks RETURNS-TABLE cols non-null → widen nullable ones in the consumer). **Precedent (payroll export):** a CSV export route (`src/app/payroll/export/route.ts`) exists behind `PAYROLL_VIEW_ROLES` (= `PAYROLL_ROLES` + accounting), streaming `text/csv` with a `Content-Disposition` filename.
 
+> ⚠️ **Membership below is SUPERSEDED by [397](397-office-attendance-and-procurement-oversight.md) U1
+> (2026-08-05):** plain `procurement` joined BOTH tiers — the outer 42501 gate (now **8** roles)
+> and the cross-project arm (now **7**) — so the team running the attendance double-check can
+> read it in the app. Live definitions come from migration `20260813075906`, not `…075853`.
+> `ATTENDANCE_AUDIT_ROLES` in `src/lib/auth/role-home.ts` is the SSOT; the lists in this file
+> are the original decision, kept for its reasoning.
+
 ## Design cruxes (decided, justified, alternatives recorded)
 
 ### Crux 1 — Access mechanism → **NEW `ATTENDANCE_AUDIT_ROLES` + DEFINER read RPCs** (RLS untouched)
