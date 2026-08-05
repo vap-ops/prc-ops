@@ -1,3 +1,9 @@
+## [0.336.1](https://github.com/vap-ops/prc-ops/compare/v0.336.0...v0.336.1) (2026-08-05)
+
+### Bug Fixes
+
+- **expenses:** action-phrase the reimburse mark button (feedback 3570ccbe) ([d476b89](https://github.com/vap-ops/prc-ops/commit/d476b89ca2af6584d649d2d350f6bcf338ec495f))
+
 # [0.336.0](https://github.com/vap-ops/prc-ops/compare/v0.335.0...v0.336.0) (2026-08-05)
 
 ### Bug Fixes
