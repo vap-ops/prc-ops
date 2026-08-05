@@ -137,6 +137,27 @@ scan/undo/move RPCs, and the day is closed again afterwards.
 | **U5** | Prominent office-team surface: a pinned ทีมสำนักงาน card on `/team` and the SA cockpit, opening the team and scanning office/visitor badges.                                                     | no      |
 | **U6** | The teaching half: Thai how-to for the office team + the operator data op creating their worker rows (rate 0) and printing badges.                                                               | no      |
 
+U6 note (decided at build time, and it SPLITS the unit): the **teaching half is
+code and shipped**; the **data op is an operator input and is handed over**, because
+the names do not exist in the system to be read. Of the five `site_admin` members of
+TFM โพธิ์ทอง, only `aemon` has a `staff_registrations` row — and hers
+(`PRC-26-0036` เอมอร ฮามศรีพรม) is bound to a worker row named นายเหิน เมืองงาม, the
+spec-396 identity mismatch. For the other four the only name anywhere is a LINE
+display name (`เล็กครับ`, `Wutpong jantorn`, …). A worker row cannot be deleted, only
+deactivated, so a guessed name is permanent in the roster, the badge sheet, `/workers`
+and the audit report. The recipe handed over needs **no new code**: `/workers` →
+เพิ่มช่าง with การจ่าย = **รายเดือน** already writes `day_rate = 0`
+(`worker-roster-manager.tsx` — `isDaily ? parsed : 0`), which is exactly how
+`Preston Inter` exists.
+
+⭐ **And §6's "printing badges" is REFUTED for office staff — deliberately not done.**
+`/team/badges` prints a card for every active worker with no rate filter, so office
+rows appear there automatically; but `/team/office` has **no scanner** (Q11: a
+`<select>` recording `method: 'manual'`), so the only surface that consumes a badge is
+the crew cockpit, whose scan puts the person in a **crew** team — WP-bound, i.e. the
+wage path §8 forbids and Q9 already flags. The badge's only reachable use is the
+mistake. New question Q13.
+
 U2 note (decided at build time): the door is a **labeled card**, deliberately not
 a member of `PROCUREMENT_STR_SECTIONS` — the ทั้งหมด grid and the icon chip row
 are the purchasing spine (ขอบเขต / เวลา / ทรัพยากร), and attendance oversight is
@@ -165,6 +186,31 @@ U3 is independent of both and carries its own risk.
 - **No wage path for office staff.** Rate 0 / unconfirmed is the whole mechanism.
 
 ## 9. Open questions
+
+- **Q13 — should office staff get printed badges at all?** §6 asked U6 to print them
+  and U6 refused, for the reason recorded under the units table: no office surface
+  scans, and the one surface that does would file the person in a crew team. Options:
+  (a) leave office people badge-less, which is what shipped; (b) build the office
+  scanner (Q11) and print them then; (c) filter `day_rate = 0` out of `/team/badges`
+  so the sheet stops offering a card whose only use is a mis-file. (c) is one line
+  and is the honest default if (b) is not wanted.
+- **Q15 — `procurement_manager` may open `/team/office` but has no chrome route to
+  it.** It is in `SA_SURFACE_ROLES` (so the page admits it and the คู่มือ serves it
+  this card) while `PROCUREMENT_MANAGER_TABS` is the procurement spine — หน้าหลัก /
+  ขอบเขต / เวลา / ทรัพยากร / ตั้งค่า — with **no `/team` tab at all**, and `/team` is
+  the only door to the office surface. So the card's step 1 ("เปิดแท็บ ทีมงาน") is
+  unfollowable for that role, and so is the whole feature. Found by U6's review;
+  pinned in `office-attendance-help.test.ts` so it cannot be half-fixed silently.
+  Same shape as U2's finding (permission without a door) and the same two options:
+  give the role a `/team` route, or narrow `SA_SURFACE_ROLES` here. Not U6's call —
+  it is a nav/role-set change on a danger path.
+- **Q14 — `/sa/help` is read by almost nobody: 4 route views from 3 users in 30 days,
+  against 512 for `/team` and 1,815 for `/sa`.** U6 worked around it by rendering the
+  office card on `/team/office` itself, but every OTHER card in the hub — including
+  the cold-restart troubleshooting one — is still parked behind a tile nobody taps.
+  Either the คู่มือ needs per-screen entry points (the card ids were designed for
+  exactly that deep link) or the hub is decorative. Not U6's call; measured here
+  because U6 had to route around it.
 
 - **Q1 — office people in `workers` surfaces.** A rate-0 office row appears in the
   roster, the badge sheet, `/workers`, and the payout-account audit (spec 395).

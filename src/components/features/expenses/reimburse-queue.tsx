@@ -2,7 +2,7 @@
 
 // Spec 310 U5 — the finance reimburse queue. Expenses awaiting reimbursement,
 // grouped by the person they're owed to, each with a running total; a per-row
-// "คืนเงินแล้ว" marks it settled (confirm-guarded — it's a money action). Only
+// "บันทึกคืนเงิน" marks it settled (confirm-guarded — it's a money action). Only
 // rendered for OFFICE_EXPENSE_FINANCE_ROLES (the page gates it).
 // Spec 373 D5 — validate-before-pay: rows carry their spec-345 review status +
 // doc chip and link to the voucher. §5 HARD gate (operator 2026-07-29): the

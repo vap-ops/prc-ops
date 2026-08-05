@@ -18,6 +18,15 @@ import {
   REIMBURSE_QUEUE_EMPTY,
 } from "@/lib/i18n/labels";
 
+// Feedback 3570ccbe — the money button must be action-phrased. "คืนเงินแล้ว" read
+// as a state claim (already reimbursed?) and confused finance; the confirm dialog
+// keeps the state assertion, the button carries the verb.
+describe("REIMBURSE_MARK_LABEL", () => {
+  it("is the action phrase, not a state claim", () => {
+    expect(REIMBURSE_MARK_LABEL).toBe("บันทึกคืนเงิน");
+  });
+});
+
 const rows: ReimbursableRow[] = [
   {
     id: "1",

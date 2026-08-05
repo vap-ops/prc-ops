@@ -1,3 +1,19 @@
+## [0.336.1](https://github.com/vap-ops/prc-ops/compare/v0.336.0...v0.336.1) (2026-08-05)
+
+### Bug Fixes
+
+- **expenses:** action-phrase the reimburse mark button (feedback 3570ccbe) ([d476b89](https://github.com/vap-ops/prc-ops/commit/d476b89ca2af6584d649d2d350f6bcf338ec495f))
+
+# [0.336.0](https://github.com/vap-ops/prc-ops/compare/v0.335.0...v0.336.0) (2026-08-05)
+
+### Bug Fixes
+
+- **397:** address the U6 fresh-eyes review ([ecfe47f](https://github.com/vap-ops/prc-ops/commit/ecfe47ff60ea18fc79befc20b174b1702cd55865))
+
+### Features
+
+- **397:** teach the office team how to take their own attendance ([42be46c](https://github.com/vap-ops/prc-ops/commit/42be46c1fa9db95d7a53ceda285e44d952eba634))
+
 # [0.335.0](https://github.com/vap-ops/prc-ops/compare/v0.334.0...v0.335.0) (2026-08-05)
 
 ### Bug Fixes

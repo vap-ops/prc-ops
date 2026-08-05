@@ -14,10 +14,13 @@ describe("HELP_CARDS — spec 299", () => {
   // sits AFTER the daily-use block rather than joining its frequency ordering. It
   // is text-only and points at /settings → เกี่ยวกับ, which carries the illustrated
   // version (that page is reachable by every role; /sa/help is site_admin-gated).
-  it("ships the four day-to-day cards in daily-use order, then troubleshooting", () => {
+  // Spec 397 U6: office-attendance joins the daily-use block directly after the
+  // crew muster card — same activity, same time of day, a different team.
+  it("ships the day-to-day cards in daily-use order, then troubleshooting", () => {
     expect(HELP_CARDS.map((c) => c.id)).toEqual([
       "photos",
       "muster",
+      "office-attendance",
       "add-crew",
       "manage",
       "cold-restart",
