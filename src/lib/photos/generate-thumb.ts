@@ -12,13 +12,18 @@ import { classifyStorageUploadError } from "@/lib/photos/upload-queue";
 import { PHOTOS_BUCKET } from "@/lib/storage/buckets";
 import { thumbKeyFor, THUMB_SIZE } from "@/lib/photos/thumb-key";
 
+// The optional members carry an explicit `| undefined` because the repo compiles with
+// `exactOptionalPropertyTypes`: supabase-js types StorageError.statusCode as
+// `string | undefined`, which is NOT assignable to a bare `statusCode?: string | number`.
+export interface StorageErrorLike {
+  statusCode?: string | number | undefined;
+  message?: string | undefined;
+}
+
 export interface ThumbDeps {
-  download(key: string): Promise<{ bytes: Buffer | null; error: { message?: string } | null }>;
+  download(key: string): Promise<{ bytes: Buffer | null; error: StorageErrorLike | null }>;
   resize(input: Buffer): Promise<Buffer>;
-  upload(
-    key: string,
-    bytes: Buffer,
-  ): Promise<{ error: { statusCode?: string | number; message?: string } | null }>;
+  upload(key: string, bytes: Buffer): Promise<{ error: StorageErrorLike | null }>;
 }
 
 export type ThumbOutcome =
@@ -74,12 +79,12 @@ export async function generatePhotoThumb(
 export function defaultThumbDeps(admin: {
   storage: {
     from(bucket: string): {
-      download(path: string): Promise<{ data: Blob | null; error: { message?: string } | null }>;
+      download(path: string): Promise<{ data: Blob | null; error: StorageErrorLike | null }>;
       upload(
         path: string,
         body: Buffer,
         opts: { upsert: boolean; contentType: string },
-      ): Promise<{ error: { statusCode?: string | number; message?: string } | null }>;
+      ): Promise<{ error: StorageErrorLike | null }>;
     };
   };
 }): ThumbDeps {
@@ -92,6 +97,12 @@ export function defaultThumbDeps(admin: {
     },
     async resize(input) {
       const { default: sharp } = await import("sharp");
+      // ⚠️ HEIC does not decode in this build and cannot be made to: the prebuilt
+      // libheif ships without an HEVC decoder ("Support for this compression format
+      // has not been built in"). Measured on the real bucket — all 10 .heic originals
+      // fail, with or without `unlimited: true` (that flag only clears the separate
+      // iloc security limit, so it was tried and reverted). Those photos fall back to
+      // full size per D4; see spec 398 §5.
       return sharp(input)
         .rotate() // honour EXIF orientation before resizing, or a portrait photo thumbs sideways
         .resize(THUMB_SIZE, THUMB_SIZE, { fit: "inside", withoutEnlargement: true })

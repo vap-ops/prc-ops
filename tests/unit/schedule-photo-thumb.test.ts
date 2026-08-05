@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const after = vi.fn();
 const generatePhotoThumb = vi.fn();
-const defaultThumbDeps = vi.fn(() => ({ marker: "deps" }));
+const defaultThumbDeps = vi.fn((_admin: unknown) => ({ marker: "deps" }));
 const createAdminClient = vi.fn(() => ({ marker: "admin" }));
 
 vi.mock("next/server", () => ({ after: (cb: () => unknown) => after(cb) }));

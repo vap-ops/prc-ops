@@ -154,6 +154,30 @@ has run**, so the fallback is rare rather than universal.
 
 ---
 
+## 4b. What the backfill actually measured (2026-08-05)
+
+`created 2735 · exists 0 · failed 14` over 2,749 originals, plus 5 from the smoke run ⇒
+**2,740 thumbnails, 14 MB, avg ~14.7 KB each** (the transform API's own output was 9.9–20 KB, so
+this is like-for-like). Coverage **2,740 / 2,754 photo_logs objects = 99.49%**.
+
+The 14 failures are all unreadable ORIGINALS, and they split into two real findings:
+
+- **10 × `.heic` — permanent, and not fixable here.** The prebuilt libheif inside `sharp` has no
+  HEVC decoder (`Support for this compression format has not been built in`). `unlimited: true`
+  was tried — it clears a separate `iloc` security limit and the files still fail — and reverted,
+  because keeping a flag that buys nothing is worse than recording why. ⚠️ These arrived
+  **2026-07-21 → 07-31**, so HEIC is still reaching the bucket; the client's
+  `preparePhotoForUpload` canvas re-encode is not catching every path. Those photos render at
+  full size (D4) and are correct, just heavy.
+- **4 × truncated/corrupt originals** (3 `VipsJpeg: premature end of JPEG image`, 1 `bad seek`) —
+  partial uploads. The image itself is damaged; a thumbnail was never possible.
+
+A further **14 bucket objects are not referenced by any `photo_logs` row** (upload-queue orphans,
+which ADR 0039 accepts by design). The backfill walks `photo_logs`, so it never touches them —
+that is why the bucket-level count reads 2,740/2,768 while the meaningful figure is 99.49%.
+
+---
+
 ## 5. Open / owed, deliberately not built
 
 - **Superseded and tombstoned photos** keep their thumbnails (originals are append-only and are
@@ -166,3 +190,9 @@ has run**, so the fallback is rare rather than universal.
   in scope here — recorded so the next person meets a decision, not a gap.
 - **The spend cap stays ON and stays the operator's call.** This spec removes the pressure on it;
   it does not change a billing setting.
+- **HEIC still reaches the bucket** (10 objects, the newest 2026-07-31) and can never be
+  thumbnailed by this build. Two possible follow-ups, neither taken here: make the client's
+  `preparePhotoForUpload` re-encode cover whatever path is letting HEIC through, or drop `heic`
+  from the bucket's `allowed_mime_types` so it is refused at the door instead of silently costing
+  every viewer a 1 MB tile. Wants its own decision — dropping a MIME type can reject a real
+  upload from the field.
