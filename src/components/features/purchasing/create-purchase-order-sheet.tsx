@@ -68,10 +68,21 @@ import { DOC_TYPE_LABEL, DOC_TYPE_PICKER_LABEL } from "@/lib/i18n/labels";
 import { splitSupplierOptions } from "@/lib/purchasing/vendor-suggestion";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 
-// Spec 380 U5: the label covers two real worlds (a supplier quote, which
-// never satisfies doc-chase → 'other', or their invoice) plus the RD
-// fallback ladder for whichever paper the buyer actually attaches.
+// Spec 380 §7 (U7): the attach button names two real worlds — a supplier
+// quotation or their invoice — and until U7 only one of them had a type, so a
+// quote collapsed into the 'other' shrug. `quotation` leads the list because it
+// IS the normal attachment here and it is this select's default; `other` stays
+// last as the catch-all. The middle three are the accounting documents that can
+// actually arrive with a purchase order.
+// ⚠ This is NOT the whole RD fallback ladder: `payment_voucher` (ใบสำคัญรับเงิน)
+// is a rung in FALLBACK_LADDER_TYPES (doc-chase.ts) and is not offered here, so
+// a non-VAT vendor's ใบสำคัญรับเงิน — the very document DOC_CHASE_ASK_NON_VAT
+// tells the buyer to ask for — can only be filed as `other` and never discharges
+// the order. The gap predates U7; recorded in spec §7.7 rather than widened
+// here, because which rungs belong on a PO is the operator's call, not a
+// side-effect of adding a quotation type.
 const PO_DOC_TYPES: readonly PurchaseDocType[] = [
+  "quotation",
   "tax_invoice_full",
   "receipt_cash_bill",
   "cert_in_lieu",
@@ -148,12 +159,15 @@ export function CreatePurchaseOrderSheet({
   // the po_id (ADR 0046 upload-on-submit; resolves the no-po_id-yet problem).
   const docInputRef = useRef<HTMLInputElement>(null);
   const [docFile, setDocFile] = useState<File | null>(null);
-  // Spec 380 U5: the attach here is normally a QUOTATION, not an accounting
-  // doc — never default to a satisfying type an unread select would let
-  // silently certify a VAT claim it never earned. 'other' is the one type
-  // that appears in NO class's satisfying set (doc-chase.ts), so an unread
-  // default can only under-claim, never falsely satisfy (fresh-eyes catch).
-  const PO_DOC_TYPE_SAFE_DEFAULT: PurchaseDocType = "other";
+  // Spec 380 §7 (U7): the attach here is normally a QUOTATION, and now there is
+  // a type that says so. U5 defaulted to 'other' for the right reason — never
+  // pre-select a type an unread select could let silently certify a VAT claim it
+  // never earned — but it was choosing from a list with no honest option.
+  // 'quotation' keeps that safety property EXACTLY: it is in NEVER_SATISFYING
+  // (doc-chase.ts), so an unread default can still only under-claim (the order
+  // keeps being chased), never falsely satisfy. What changes is that the common
+  // case is now recorded truthfully instead of as a shrug.
+  const PO_DOC_TYPE_SAFE_DEFAULT: PurchaseDocType = "quotation";
   const [docType, setDocType] = useState<PurchaseDocType>(PO_DOC_TYPE_SAFE_DEFAULT);
   // Spec 126: phone doc⇄form toggle (lg+ shows both side-by-side). A fresh
   // attach lands on the doc so the buyer confirms it loaded, then taps ฟอร์ม.
@@ -504,7 +518,7 @@ export function CreatePurchaseOrderSheet({
       disabled={pending}
       className={BUTTON_SECONDARY_MUTED}
     >
-      แนบใบเสนอราคา / ใบแจ้งหนี้ (ไม่บังคับ)
+      {`แนบ${DOC_TYPE_LABEL.quotation} / ใบแจ้งหนี้ (ไม่บังคับ)`}
     </button>
   );
 

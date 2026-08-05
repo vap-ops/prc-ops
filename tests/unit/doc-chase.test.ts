@@ -46,6 +46,28 @@ describe("doc-type partition", () => {
     }
   });
 
+  // Spec 380 U7 (operator ruling 2026-08-05). The partition test above derives
+  // its domain from the GENERATED enum, so it can only red once db:types has
+  // run — it cannot state which side a value belongs on. This names it: a
+  // quotation is a pre-transaction OFFER, so it evidences neither that a
+  // payment happened nor who received it (ม.65 ตรี (18)) — the clearest member
+  // of the never-satisfying class, since delivery_note and transfer_slip at
+  // least prove a completed leg of the transaction.
+  it("a quotation NEVER satisfies — it proves neither payee nor payment", () => {
+    expect(NEVER_SATISFYING).toContain("quotation");
+    for (const cls of ["vat", "non_vat", "unknown"] as const) {
+      expect(SATISFYING_DOC_TYPES[cls]).not.toContain("quotation");
+    }
+    expect(
+      docCoverage({
+        status: "delivered",
+        cls: "unknown",
+        attachments: [att({ docType: "quotation" })],
+        waived: false,
+      }),
+    ).toBe("missing");
+  });
+
   it("vat is satisfied ONLY by the full tax invoice; non_vat and unknown by the ladder", () => {
     expect(SATISFYING_DOC_TYPES.vat).toEqual(["tax_invoice_full"]);
     // both pinned against LITERALS — asserting unknown === non_vat would pass

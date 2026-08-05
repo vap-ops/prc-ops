@@ -12097,3 +12097,75 @@ allowlist). What survived:
   was a **harness** error (M7 ran the RTL file, but the `sharedWith` page-pin lives in the
   wiring test — the mutant was never measured against its own assertion). Live: the chip
   renders `บัญชีต้องตรวจสอบ (8)` on 43 rows. lint 0 · typecheck 0.
+
+## 2026-08-06 — Spec 380 U7: a `quotation` doc type (lane quotedoc)
+
+Operator ruling 2026-08-05: add `quotation` to `purchase_doc_type` **only**; defer
+`price_comparison` until a real comparison practice exists. Migration `20260813075910`,
+additive — one `alter type … add value`. Design written into spec §7 before any code.
+
+- **The value joins the NEVER-satisfies class.** A quotation is a pre-transaction OFFER: it
+  evidences neither that a payment happened nor who received it (ม.65 ตรี (18)). It is the
+  clearest member of that class — `delivery_note` and `transfer_slip` at least prove a
+  completed leg of the transaction; a quote proves none. Pinned on **both** sides of the U6
+  SSOT pair: `NEVER_SATISFYING` in `doc-chase.ts`, and pgTAP over
+  `purchase_doc_satisfying_types`.
+- ⭐ **`purchase_doc_satisfying_types`' BODY does not change — a never-satisfying type is
+  defined by ABSENCE — and that is exactly the hole.** The three existing exact-equality pins
+  already red if a type is wrongly _added_ to a satisfying set, but nothing on the SQL side
+  moved when the enum grew, so the SQL half could silently fall behind the TS half (which does
+  have a partition guard). U7 closes the asymmetry with a **partition assertion over the
+  complete `enum_range` complement** — a new `purchase_doc_type` value now reds until someone
+  classifies it deliberately.
+- **The PO create-sheet default flips `other` → `quotation`.** U5 picked `other` for the right
+  reason (never pre-select a type an unread select could let silently certify a ม.86/4 VAT
+  claim) but from a list with no honest option. `quotation` is _also_ never-satisfying, so the
+  safety property is unchanged — an unread default can still only under-claim, and the order
+  keeps being chased — while the common case stops being recorded as a shrug. Every label,
+  hint and empty state around the picker re-justified in spec §7.5; the two U5 code comments
+  asserting the retired rationale were rewritten, not left to re-teach it.
+- **Deliberately NOT changed:** `STRICT_DOC_TYPES` / `WIDE_DOC_TYPES` on the InvoiceUploader
+  mounts. Those fire _after_ money is spent ("what did the driver hand over", "which
+  accounting document arrived"); a quotation is neither, and offering it there would invite a
+  mislabel on the exact surfaces the chase list reads.
+
+**Live measurement first, and it reframes the unit (all 2026-08-06).** `doc_type` is **0 of
+427 filled** — every current attachment on both tables is untyped. That is **not** a U5
+regression: the last purchase document of any kind was uploaded **2026-07-27** (PR) and
+**2026-07-21** (PO source doc), i.e. **3 and 9 days before U5 shipped the pickers**, while 13
+POs, 29 PRs and 36 deliveries have happened since. The upload paths went quiet on their own —
+U5's pickers are **unproven, not proven-dead**. Separately: `DOC_TYPE_LABEL` renders in exactly
+**two** places and both are the pickers themselves, so a stored `doc_type` is never shown back
+and nothing filters by it — **"searchable category" lands at the data layer only**, recorded in
+spec §7.7 rather than claimed. The operator's deferral of `price_comparison` is likewise
+evidenced: `purchase_quotes` holds **2 rows across 2 purchase requests** with **0**
+`purpose='quote'` attachments all-time.
+
+**Fresh-eyes review found four real defects, all fixed in the unit.** ① the spec's own §4 U5
+bullet still read "default `tax_invoice_full`" — the ONE value the U5 review rejected — so a
+reader landing there first would reimplement the false-satisfy bug; §7.5 had claimed every
+surface naming this control was re-justified, and the spec itself was the surface missed.
+② the "the default is a NEVER-satisfying type" test asserted `NEVER_SATISFYING` contains the
+literal `"quotation"` — a duplicate of `doc-chase.test.ts` that touches neither the component
+nor its function-local default constant, so flipping the default left it **green**; it now
+reads the value the component renders and asserts THAT. ③ the term-consistency pin was a
+`toContain` over a button that already embeds the label after a "แนบ" prefix, so renaming the
+constant to a substring ("ใบเสนอ") would have passed while the two surfaces diverged — the
+prefix trap, and my own mutant had used a non-substring rename, i.e. the cheaper cousin of the
+defect. The button now **composes** its label from `DOC_TYPE_LABEL.quotation` and the test
+asserts the exact accessible name, so drift is impossible by construction. ④ the pgTAP
+partition complement subtracted only the `true`/`false` arms; it now subtracts `null` too, so
+the assertion covers the function's whole argument domain instead of leaning on a sibling pin.
+
+**🔔 Also found, NOT built (operator call, spec §7.7).** `PO_DOC_TYPES` omits `payment_voucher`
+(ใบสำคัญรับเงิน) — a rung of the RD fallback ladder and precisely what `DOC_CHASE_ASK_NON_VAT`
+tells the buyer to ask a non-VAT vendor for. Supply it and the buyer can only file it as
+`other`, so the order keeps its ไม่มีเอกสาร chip with the satisfying document already attached.
+Pre-dates U7 and left alone on scope discipline; which ladder rungs belong on a purchase ORDER
+is a ruling, not a side-effect of adding a quotation type.
+
+**Open questions.** Unchanged from U6 and unaffected by U7 (a never-satisfying type alters
+neither PO fan-out nor class derivation): ① one PO document discharges every request under that
+PO; ② the PO half classes by the _request's_ supplier, not the _order's_. New, recorded not
+built: no surface displays or filters `doc_type`, and `QuoteDocAttach`/`purchase_quotes` remain
+untyped, so the two quotation paths now describe themselves differently.

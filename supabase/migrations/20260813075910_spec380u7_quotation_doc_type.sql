@@ -1,0 +1,31 @@
+-- Spec 380 §7 (U7) — a `quotation` value for purchase_doc_type.
+-- Operator ruling 2026-08-05: quotation ONLY; price_comparison deferred until a
+-- real comparison practice exists (live evidence: purchase_quotes holds 2 rows
+-- across 2 purchase requests, with 0 quote attachments all-time).
+--
+-- WHY IT IS A NEVER-SATISFYING TYPE. A quotation is a pre-transaction OFFER: it
+-- evidences neither that a payment happened nor who received it, so it is not an
+-- เอกสารประกอบการลงบัญชี under ม.65 ตรี (18). It is the clearest member of that
+-- class — delivery_note (proves goods, not payee) and transfer_slip (proves
+-- payment, not payee) at least evidence a completed leg of the transaction; a
+-- quote evidences none. It therefore appears in NO class's satisfying set, which
+-- is why purchase_doc_satisfying_types() (mig 075909, the one SQL home of the
+-- per-class rule) is UNCHANGED here: a never-satisfying type is defined by
+-- absence. Because absence is invisible to an equality pin, 380b gains a
+-- partition assertion over the COMPLETE enum domain in this same unit, so the
+-- next value added reds until someone classifies it — the SQL mirror of the
+-- "doc-type partition" guard that already exists in tests/unit/doc-chase.test.ts.
+--
+-- POSITION. Placed after transfer_slip rather than appended, so the never-
+-- satisfying types sit together and `other` — the catch-all — stays last.
+-- Presentation-neutral: nothing in src/ or supabase/migrations/ orders by
+-- doc_type, and every picker renders from its own hand-listed array.
+--
+-- ADDITIVE ONLY. No row carries the value, no coverage verdict changes and
+-- doc_count is untouched — this migration adds vocabulary and nothing else.
+-- PG 17 permits ADD VALUE inside a transaction block; the new value may not be
+-- USED in the same transaction, and nothing here uses it (no function body,
+-- CHECK or index references it), so that restriction is not engaged.
+-- `if not exists` keeps a re-push a no-op (enum values cannot be dropped).
+
+alter type public.purchase_doc_type add value if not exists 'quotation' before 'other';

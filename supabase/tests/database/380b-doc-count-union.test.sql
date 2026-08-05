@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(29);
 
 -- ============================================================================
 -- Spec 380 U6 — list_money_events_for_review.doc_count for purchase_requests
@@ -122,7 +122,15 @@ values
   ('b2000000-0000-4000-8000-000000000380', 'c1000000-0000-4000-8000-000000000380',
    'e1000000-0000-4000-8000-000000000380', 'waived dead end', 1, 'ea',
    '10000000-0000-4000-8000-000000000380', 'delivered', 100,
-   '2001-03-15 09:00:00+00', '5a000000-0000-4000-8000-000000000380', null);
+   '2001-03-15 09:00:00+00', '5a000000-0000-4000-8000-000000000380', null),
+  -- G. spec §7 (U7) — a quotation is a pre-transaction OFFER. Deliberately hung
+  -- off the NON-VAT vendor, whose satisfying set is the WIDEST one (the full RD
+  -- fallback ladder): if a quotation cannot discharge that order, it cannot
+  -- discharge any.
+  ('d1000000-0000-4000-8000-000000000380', 'c1000000-0000-4000-8000-000000000380',
+   'e1000000-0000-4000-8000-000000000380', 'non-vat + quotation only', 1, 'ea',
+   '10000000-0000-4000-8000-000000000380', 'delivered', 100,
+   '2001-03-15 09:00:00+00', '5b000000-0000-4000-8000-000000000380', null);
 
 insert into public.purchase_request_attachments
   (purchase_request_id, kind, purpose, doc_type, storage_path, created_by)
@@ -138,7 +146,8 @@ values
   ('ab000000-0000-4000-8000-000000000380', 'image', 'reference', 'cert_in_lieu',      'p/ab', '10000000-0000-4000-8000-000000000380'),
   ('ac000000-0000-4000-8000-000000000380', 'image', 'reference', 'delivery_note',     'p/ac', '10000000-0000-4000-8000-000000000380'),
   ('ad000000-0000-4000-8000-000000000380', 'image', 'reference', 'transfer_slip',     'p/ad', '10000000-0000-4000-8000-000000000380'),
-  ('ae000000-0000-4000-8000-000000000380', 'image', 'reference', 'other',             'p/ae', '10000000-0000-4000-8000-000000000380');
+  ('ae000000-0000-4000-8000-000000000380', 'image', 'reference', 'other',             'p/ae', '10000000-0000-4000-8000-000000000380'),
+  ('d1000000-0000-4000-8000-000000000380', 'image', 'reference', 'quotation',         'p/d1', '10000000-0000-4000-8000-000000000380');
 
 -- E. Deleting an attachment. The table is append-only (UPDATE raises P0001), so
 -- a delete INSERTS a payload-less TOMBSTONE carrying superseded_by → the row it
@@ -179,6 +188,30 @@ select is(public.purchase_doc_satisfying_types(false),
 select is(public.purchase_doc_satisfying_types(null),
   array['tax_invoice_full','receipt_cash_bill','payment_voucher','cert_in_lieu']::public.purchase_doc_type[],
   'an unknown supplier (no row) gets the fallback ladder, not the VAT rule');
+
+-- Spec §7 (U7): the three pins above are EXACT-equality, so they already red if
+-- a never-satisfying type is ever added to a satisfying set. What they cannot
+-- see is a type that belongs to NEITHER side — and a never-satisfying type is
+-- defined by ABSENCE, so nothing here moves when the enum grows. This pins the
+-- complement over the COMPLETE domain: a new purchase_doc_type value lands in
+-- it and reds until someone classifies it deliberately. SQL mirror of the
+-- "doc-type partition" guard in tests/unit/doc-chase.test.ts — U6 left the two
+-- halves asymmetric and that asymmetry is what lets them drift.
+-- Subtracts all THREE arms of the function's argument domain, not just
+-- true/false: today null falls through to the same else-branch, but if the
+-- function ever grows a `when p_is_vat is null` arm, a type satisfying only for
+-- the unknown class would otherwise still appear in this complement and the
+-- assertion would pass while the classes disagreed (fresh-eyes catch).
+select is(
+  (select array_agg(v order by v) from (
+     select unnest(enum_range(null::public.purchase_doc_type))::text as v
+     except
+     select unnest(public.purchase_doc_satisfying_types(true)
+                || public.purchase_doc_satisfying_types(false)
+                || public.purchase_doc_satisfying_types(null))::text
+   ) x),
+  array['delivery_note','other','quotation','transfer_slip'],
+  'the never-satisfying class is EXACTLY these four — a new enum value reds until classified');
 
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "10000000-0000-4000-8000-000000000380"}';
@@ -236,6 +269,16 @@ select is((select doc_count from public.list_money_events_for_review('any', null
 select is((select doc_count from public.list_money_events_for_review('any', null, date '2001-03-01')
            where source_id = 'ae000000-0000-4000-8000-000000000380'),
   0, 'doc_type other never satisfies');
+-- Spec §7 (U7). Behavioural, not just array membership: a quotation attached to
+-- a NON-VAT order (the widest satisfying set there is) still leaves the order
+-- undocumented, and the count having a consequence is asserted on the next line
+-- — a 0 that no queue reads would be a number nobody acts on.
+select is((select doc_count from public.list_money_events_for_review('any', null, date '2001-03-01')
+           where source_id = 'd1000000-0000-4000-8000-000000000380'),
+  0, 'a quotation never satisfies — it proves neither payee nor payment (ม.65 ตรี (18))');
+select is((select count(*) from public.list_money_events_for_review('no_docs', null, date '2001-03-01')
+           where source_id = 'd1000000-0000-4000-8000-000000000380'),
+  1::bigint, 'the quotation-only order stays in the ไม่มีเอกสาร tab — it is still owed a document');
 
 -- ============================================================================
 -- E. Deleted attachments — neither the tombstone nor its target may count.
