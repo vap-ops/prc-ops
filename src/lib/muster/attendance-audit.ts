@@ -1,6 +1,7 @@
 // Spec 358 U2 — the attendance AUDIT read layer for the office/payroll audience.
 //
-// The two `audit_attendance_*` RPCs (migration 20260813075853) are SECURITY
+// The two `audit_attendance_*` RPCs (migration 20260813075906, which replaced
+// 20260813075853 when spec 397 U1 widened the allowlists) are SECURITY
 // DEFINER reads gated on ATTENDANCE_AUDIT_ROLES, because muster_* RLS runs on
 // can_see_project — which is FALSE for accounting and hr. They are called on the
 // RLS SESSION client (never admin): the RPC is the privileged seam, and calling it

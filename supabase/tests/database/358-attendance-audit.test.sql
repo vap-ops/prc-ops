@@ -1,5 +1,5 @@
 begin;
-select plan(48);
+select plan(50);
 
 -- ============================================================================
 -- Spec 358 U1 — attendance audit read RPCs for the office/payroll audience.
@@ -88,10 +88,12 @@ select is(array_length(enum_range(null::public.user_role), 1), 17,
   'user_role has 17 values — a new one must be classified into the audit gate below');
 
 -- ============================================================================
--- C. Summary gate over ALL 17 roles: the 7 audit roles live, the other 10 raise
+-- C. Summary gate over ALL 17 roles: the 8 audit roles live, the other 9 raise
 --    42501. (probe user id fixed; only its role flips.)
+--    Spec 397 U1 moved `procurement` from the denied block into the audit block —
+--    that team runs the attendance double-check.
 -- ============================================================================
--- 7 AUDIT roles → lives_ok
+-- 8 AUDIT roles → lives_ok
 reset role;
 update public.users set role = 'accounting' where id = '70000000-0358-0358-0358-0000000000fe';
 set local role authenticated;
@@ -128,16 +130,16 @@ set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0358-0358-0358-0000000000fe"}';
 select lives_ok($$select * from public.audit_attendance_summary('2026-07-01'::date,'2026-07-31'::date)$$, 'project_manager may audit (scoped)');
 reset role;
--- 10 NON-audit roles → throws 42501
+update public.users set role = 'procurement' where id = '70000000-0358-0358-0358-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0358-0358-0358-0000000000fe"}';
+select lives_ok($$select * from public.audit_attendance_summary('2026-07-01'::date,'2026-07-31'::date)$$, 'procurement may audit (spec 397 U1 — the double-check team)');
+reset role;
+-- 9 NON-audit roles → throws 42501
 update public.users set role = 'site_admin' where id = '70000000-0358-0358-0358-0000000000fe';
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0358-0358-0358-0000000000fe"}';
 select throws_ok($$select * from public.audit_attendance_summary('2026-07-01'::date,'2026-07-31'::date)$$, '42501', null, 'site_admin denied (cockpit, not this office surface)');
-reset role;
-update public.users set role = 'procurement' where id = '70000000-0358-0358-0358-0000000000fe';
-set local role authenticated;
-set local "request.jwt.claims" = '{"sub": "70000000-0358-0358-0358-0000000000fe"}';
-select throws_ok($$select * from public.audit_attendance_summary('2026-07-01'::date,'2026-07-31'::date)$$, '42501', null, 'procurement denied');
 reset role;
 update public.users set role = 'technician' where id = '70000000-0358-0358-0358-0000000000fe';
 set local role authenticated;
@@ -215,6 +217,21 @@ select is((select count(*)::int from public.audit_attendance_summary('2026-07-01
 select is((select count(distinct project_id)::int from public.audit_attendance_detail('2026-07-01'::date,'2026-07-31'::date)
              where project_id in ('a1000000-0358-0358-0358-000000000001','a2000000-0358-0358-0358-000000000002')),
   2, 'accounting detail spans both seeded projects');
+reset role;
+
+-- Spec 397 U1 — procurement joins the CROSS-PROJECT tier, not just the outer gate.
+-- This is the assertion that matters: widening only the outer allowlist would drop
+-- procurement into the `can_see_project` arm, which is FALSE for that role, so the
+-- report would open and render NOTHING — a silent empty, not a 42501.
+update public.users set role = 'procurement' where id = '70000000-0358-0358-0358-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0358-0358-0358-0000000000fe"}';
+select is((select count(*)::int from public.audit_attendance_summary('2026-07-01'::date,'2026-07-31'::date)
+             where worker_id in ('e1000000-0358-0358-0358-000000000001','e2000000-0358-0358-0358-000000000002')),
+  2, 'procurement summary spans both seeded projects (cross-project tier, no membership)');
+select is((select count(distinct project_id)::int from public.audit_attendance_detail('2026-07-01'::date,'2026-07-31'::date)
+             where project_id in ('a1000000-0358-0358-0358-000000000001','a2000000-0358-0358-0358-000000000002')),
+  2, 'procurement detail spans both seeded projects');
 reset role;
 
 -- ============================================================================
