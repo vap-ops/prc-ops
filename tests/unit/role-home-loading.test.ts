@@ -14,6 +14,8 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { tabsForRole } from "@/components/features/chrome/bottom-tab-bar";
+import { hubNavForRole } from "@/components/features/chrome/hub-nav";
 import { roleHome, type UserRole } from "@/lib/auth/role-home";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 
@@ -57,6 +59,51 @@ describe("role-home loading coverage (UX-audit G8)", () => {
       uncovered,
       `role home(s) with NO loading.tsx anywhere above them — first paint is a dead frame; ` +
         `fix: copy src/app/sa/loading.tsx into the segment: ${uncovered.join(", ")}`,
+    ).toEqual([]);
+  });
+});
+
+// UX-audit G8, the rest of it (2026-08-06). The block above covers role HOMES —
+// the set `roleHome()` returns — and that is strictly narrower than the set of
+// pages users land on. Every bottom TAB and every hub-nav strip item is a
+// one-tap destination reached as often as a home, and three of them had no
+// boundary at all: `/team` (12 awaited reads, 368 views / 9 users / 14d — heavier
+// than `/procurement`, the instance the audit actually named), `/registrations`
+// (39 views) and `/expenses` (23 views). None carries a `Suspense` fallback
+// either, so first paint was a frozen page on all three.
+//
+// Derived from the nav resolvers over the COMPLETE role domain, never a hand-typed
+// route list — the house lesson is that a hand list silently misses the next
+// entry, which is exactly how these three escaped the guard above.
+//
+// A tab's `match` sub-surfaces count as destinations: the bar claims them as its
+// own (`/expenses` is one), so a user lands there with the same dead-frame
+// exposure as on the tab itself. Including them is what makes `/expenses` — the
+// one route the audit DID name — fall out of the derivation instead of a list.
+describe("tab + hub-nav destination loading coverage (UX-audit G8)", () => {
+  const roles = Object.keys(USER_ROLE_LABEL) as UserRole[];
+  const destinations = [
+    ...new Set(
+      roles.flatMap((role) => [
+        ...(tabsForRole(role) ?? []).flatMap((t) => [t.href, ...(t.match ?? [])]),
+        ...(hubNavForRole(role) ?? []).map((n) => n.href),
+      ]),
+    ),
+  ].sort();
+
+  it("derives a real destination set (the scan is not vacuous)", () => {
+    // Without this floor a resolver refactor that returned null for every role
+    // would empty the loop and the check below would pass over nothing.
+    expect(destinations.length).toBeGreaterThanOrEqual(12);
+    expect(destinations).toContain("/team");
+  });
+
+  it("every tab and strip destination renders a loading boundary", () => {
+    const uncovered = destinations.filter((href) => !hasLoadingBoundary(href));
+    expect(
+      uncovered,
+      `one-tap destination(s) with NO loading.tsx anywhere above them — first paint ` +
+        `is a dead frame; fix: copy src/app/sa/loading.tsx into the segment: ${uncovered.join(", ")}`,
     ).toEqual([]);
   });
 });
