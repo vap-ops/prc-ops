@@ -89,7 +89,14 @@ select has_table('public'::name, 'muster_day_closures'::name, 'muster_day_closur
 -- ============================================================================
 -- B. anon is revoked on every muster RPC.
 -- ============================================================================
-select ok(not has_function_privilege('anon', 'public.open_muster_team(uuid,date,uuid)', 'execute'),
+-- Spec 397 U4 gave this function a fourth argument (the team kind) and DROPPED
+-- the 3-arg form, so the old identity here raised 42883 and took the whole file
+-- down — a signature change is a change to every assertion that names it. The
+-- revoke matters more than ever: the drop took the original ACL with it, so the
+-- new function was born EXECUTE-able by public/anon until the migration revoked it.
+select ok(
+  not has_function_privilege(
+    'anon', 'public.open_muster_team(uuid,date,uuid,public.muster_team_kind)', 'execute'),
   'anon cannot execute open_muster_team');
 select ok(not has_function_privilege('anon', 'public.muster_scan_in(uuid,uuid,public.muster_method,public.muster_session)', 'execute'),
   'anon cannot execute muster_scan_in');

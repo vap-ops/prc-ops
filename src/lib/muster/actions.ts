@@ -17,6 +17,7 @@ import { ISO_DATE_REGEX } from "@/lib/dates";
 
 type MusterMethod = Database["public"]["Enums"]["muster_method"];
 type MusterSession = Database["public"]["Enums"]["muster_session"];
+type MusterTeamKind = Database["public"]["Enums"]["muster_team_kind"];
 
 const GENERIC = "เช็คชื่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
@@ -31,6 +32,14 @@ export type MusterResult =
 export type MusterVoidResult = { ok: true } | { ok: false; error: string };
 
 function scanErrorToThai(message: string): string {
+  // Spec 397 U4 — the office team has NO lead, so it cannot be named the way a
+  // crew is ("อยู่ในทีมของ <หัวหน้า>"). Without this arm the RPC's own office
+  // message falls through to the generic and the SA is told the worker is "in
+  // another team" with nothing to go on. ⚠️ Must stay ABOVE the `already in team
+  // of` arm: this mapper is ordered substring matching.
+  if (message.includes("already in the office team")) {
+    return "คนนี้เช็คชื่อในทีมสำนักงานแล้ววันนี้";
+  }
   // The worker is already mustered on another team today (scan-in) — the RPC
   // reveals the other lead's name only inside the caller's visibility.
   if (message.includes("already in team of")) {
@@ -88,8 +97,15 @@ function undoErrorToThai(message: string): string {
   // can_see_project INTO the lookup so an invisible check-in reads as an absent
   // one, and this copy must not contradict that by implying it exists.
   if (message.includes("no check-in to undo")) return "ไม่พบการเช็คชื่อนี้ — อาจถูกยกเลิกไปแล้ว";
+  // Spec 397 U3 gave this refusal a way out — reopen_muster_day — so "ยกเลิกไม่ได้"
+  // is no longer true and the old copy sent the SA to a manager for nothing.
+  // ⚠️ It deliberately does NOT name the surface: the reopen form lives on
+  // /team/attendance, which `site_admin` (the main cockpit user) cannot open —
+  // it is not in ATTENDANCE_AUDIT_ROLES — so naming it would repeat the
+  // affordance-that-is-not-there defect one layer down. It states the
+  // PRECONDITION, which is true for every reader; who can lift it is §9 Q7.
   if (message.includes("already closed"))
-    return "ปิดวันแล้ว — ยกเลิกไม่ได้ ต้องแจ้งผู้จัดการให้แก้ไข";
+    return "ปิดวันแล้ว — ต้องเปิดวันนั้นอีกครั้งก่อนจึงจะยกเลิกรายการได้";
   if (message.includes("wages are already booked")) {
     return "บันทึกค่าแรงของรายการนี้แล้ว — ต้องแจ้งผู้จัดการให้แก้ไข";
   }
@@ -131,15 +147,29 @@ export async function undoMusterScan(input: {
   return { ok: true };
 }
 
+/**
+ * Spec 397 U5 — `kind` defaults to `crew`, so every existing caller is unchanged.
+ *
+ * The lead requirement is PER KIND, mirroring the RPC's own guard: a crew team
+ * groups the cockpit board by its lead and must have one, while an office team is
+ * legitimately leadless (there are no `site_owner` users yet, and a team that
+ * cannot open until an appointment lands is a team nobody can check into). A
+ * non-null lead is still shape-validated for both — `null` is allowed, garbage is
+ * not.
+ */
 export async function openMusterTeam(input: {
   projectId: string;
   date: string;
-  leadWorkerId: string;
+  leadWorkerId: string | null;
+  kind?: MusterTeamKind;
   revalidate: string;
 }): Promise<MusterResult> {
+  const kind: MusterTeamKind = input.kind ?? "crew";
+  const leadShapeOk =
+    input.leadWorkerId === null ? kind === "office" : UUID_REGEX.test(input.leadWorkerId);
   if (
     !UUID_REGEX.test(input.projectId) ||
-    !UUID_REGEX.test(input.leadWorkerId) ||
+    !leadShapeOk ||
     !ISO_DATE_REGEX.test(input.date) ||
     !input.revalidate.startsWith("/")
   ) {
@@ -148,11 +178,19 @@ export async function openMusterTeam(input: {
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
 
-  const { data, error } = await auth.supabase.rpc("open_muster_team", {
+  // ⚠️ The generator types `p_lead_worker` as a bare `string` because the argument
+  // carries no SQL DEFAULT — it cannot express "nullable uuid argument". The
+  // function itself accepts NULL and enforces the real rule per kind
+  // (`muster_teams_crew_has_lead` + its own P0001). Narrowed through `unknown`
+  // with that reason rather than widened with `any`, and the null path is pinned
+  // in office-team-open.test.ts.
+  const args = {
     p_project: input.projectId,
     p_date: input.date,
     p_lead_worker: input.leadWorkerId,
-  });
+    p_kind: kind,
+  } as unknown as Database["public"]["Functions"]["open_muster_team"]["Args"];
+  const { data, error } = await auth.supabase.rpc("open_muster_team", args);
   if (error) return { ok: false, error: scanErrorToThai(error.message) };
   revalidatePath(input.revalidate);
   return { ok: true, id: data as string };

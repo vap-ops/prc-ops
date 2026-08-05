@@ -5,9 +5,17 @@
 
 import type { HelpCard as HelpCardData } from "@/lib/sa/help-content";
 
-export function HelpCard({ card }: { card: HelpCardData }) {
+// Spec 397 U6 — `open` is opt-in and defaults to closed, so the /sa/help hub is
+// unchanged. It exists because a card rendered ON the surface it teaches has a
+// state where the reader has not done the task yet, and a collapsed summary is a
+// guide the first-timer never reads.
+export function HelpCard({ card, open = false }: { card: HelpCardData; open?: boolean }) {
   return (
-    <details id={card.id} className="rounded-card border-edge bg-card shadow-card border px-4 py-3">
+    <details
+      id={card.id}
+      open={open}
+      className="rounded-card border-edge bg-card shadow-card border px-4 py-3"
+    >
       <summary className="text-ink text-body cursor-pointer font-semibold">{card.title}</summary>
       <div className="mt-3 flex flex-col gap-3">
         <p className="text-ink-secondary text-sm">

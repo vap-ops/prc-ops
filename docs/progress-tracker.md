@@ -11608,6 +11608,273 @@ only the first. U2b needs either a unique index or a map switcher.
   **870 files / 7109 tests exit 0** through git bash — the 10 `ship-pr-*` reds under
   PowerShell are the documented PATH quirk, not the change.
 
+## 2026-08-05 — Spec 397 U3: a way back from a closed muster day (lane attend)
+
+- **`reopen_muster_day(project, date, reason)`** (migration `20260813075907`) +
+  `muster_undo_scan` widened to `procurement` + the reopen affordance on the audit
+  report's closed-day header. Gate = the three closer roles PLUS procurement
+  (`MUSTER_REOPEN_ROLES`, registered in the capability registry in the same edit).
+- ⭐ **The gate-check that NARROWED the unit: `muster_scan_in` has no closure
+  guard.** The SA can already add rows to a closed day, so ADDING was never
+  blocked — `muster_undo_scan` is the one that refuses, and `close_muster_day` is
+  idempotent and re-derives. Reopen is the real blocker, the loop is reopen → fix
+  → close again, and the other four write RPCs stay untouched: procurement has no
+  cockpit door, so widening them would have been dead privilege.
+- 🚨 **Scope had to mirror the U1 inner arm, not `close_muster_day`.**
+  `can_see_project` falls to `else false` for plain `procurement`, so gating the
+  reopen on membership would have admitted them at the door and refused them at
+  every project. Every other role keeps the membership check; the same fold went
+  into `muster_undo_scan`'s lookup, because there the predicate is inside the row
+  lookup — leaving it would have answered "no check-in to undo" for a row that
+  exists (an existence oracle turned into a lie).
+- ⚠️ **The money guard is built now for a rule that cannot fire yet:**
+  `labor_logs` is 0 rows all-time, so no day has booked wages. It refuses a reopen
+  whose wages are CURRENT (anti-join, so a retracted day is not frozen forever) —
+  the guard exists because spec 368 U2 turns this on.
+- ✅ **Real-flow on the operator's own case, rolled back:** as the real
+  `procurement` user against 2026-08-04 — undo refused (`the day is already
+closed`) → reopen ok → undo now works (4 rows → 3) → audit row reads
+  `ตรวจสอบพบว่าวันนี้ลงเวลาแค่ 4 คน · by procurement`. Plus live SSR probes: the
+  form renders on the closed day (required reason, hidden project + date) and is
+  absent on an open one.
+- ⚠️ **Three INSTRUMENT traps, each of which reads exactly like a finding.**
+  ① the `_tap_buf` grant — a role-switching pgTAP file dies at assertion one with
+  42501 and reports `not ok` with zero assertions; ② `audit_log`'s SELECT policy
+  is an event allowlist, so a correctly-written row reads as ABSENT unless the
+  assert runs as the owner (`set local role postgres`; a bare `reset role` was not
+  enough under the runner); ③ **`now()` is constant inside a transaction**, so
+  `order by created_at desc limit 1` picked another actor's row — the audit asserts
+  are scoped by `actor_id` instead. A fourth in the live probe: reading
+  `muster_attendance` after the role switch returns nothing (RLS), so the target
+  must be resolved as owner BEFORE switching.
+- ⚠️ **The honest-copy ratchet caught a real defect in my own copy**: the action's
+  generic said "กรุณาลองใหม่" while one of its two arms is a SHAPE failure that can
+  never succeed on a retry. Both arms now name the cause and the next step; the
+  ceiling was not raised.
+- ⓘ `db:types` WAS regenerated here (the new RPC must be callable): live was
+  `main` + this lane's own two migrations only, so nothing foreign came with it —
+  the diff is 4 lines in each of the two type files.
+- 🚨 **The fresh-eyes review found TWO 🔴, both mine, both silent.** ① **The
+  redirect appended its outcome AFTER the fragment.** `backHref` is always
+  `drillHref(...)`, which ends `#w-<workerId>`, so `?reopened=1` landed in the
+  HASH and **both outcome banners were dead code** — every refusal, including
+  "wages are already booked", returned to an unchanged page saying nothing. 7,103
+  green tests did not see it because the gate and the banners live in the PAGE
+  while every test rendered the CHILD. The builder is now a tested pure function
+  (`reopen-return.ts`) that splits the hash, the way `withBackFrom` already did.
+  ② **The helper line named a step `procurement` cannot take**: `close_muster_day`
+  admits only `SA_SURFACE_ROLES` and applies `can_see_project`, both of which that
+  role fails — so "แก้ไขแล้วต้องปิดวันใหม่" was false for the very tier this spec
+  is about. Copy is role-aware now (`canClose`), and the two-person loop is
+  recorded as §9 Q7 rather than papered over.
+- ⚠️ Also from that review, all fixed: the hand-rolled open-redirect check let
+  `/\evil.com` through (browsers normalise `\` → `/`) ⇒ it runs through
+  `safeBackHref` now · a pgTAP assert counted `muster_day_closures` under the
+  caller's role, where RLS hides them, so it read 0 whether or not the DELETE ran
+  — **a before-control at 1 now gives the after-0 its meaning** · the outcome
+  travelled as a Thai sentence in the URL (unbounded, forgeable, rendered inside
+  the app's own ErrorNotice) ⇒ codes now, page owns the copy · the undo widening
+  had no capability-registry row · the cockpit's closed-day refusal still said
+  "ยกเลิกไม่ได้", which U3 made false.
+- ⭐ **The cockpit copy fix had its own trap:** naming ประวัติการเช็คชื่อ as the way
+  out would have repeated the defect, because `site_admin` — the main cockpit user
+  — cannot open that page (not in `ATTENDANCE_AUDIT_ROLES`). It states the
+  precondition instead and §9 Q8 records the missing door.
+- Gates: RED-first on both sides (pgTAP `42883 function does not exist`; vitest
+  ENOENT on the action) · lint 0 · typecheck 0 · pgTAP **354 files / 7389
+  assertions exit 0** (31 new) · live probes above.
+
+## 2026-08-05 — Spec 397 U4: the office muster team (lane attend)
+
+- **A team KIND, not a naming convention.** `muster_team_kind` (`crew` | `office`),
+  `muster_teams.kind` NOT NULL default `crew` — **all 44 live teams backfilled as
+  crew, none mislabelled** — a partial unique index for one office team per
+  project × date, and `open_muster_team` gains `p_kind`.
+- 🚨 **`lead_worker_id` was NOT NULL at the TABLE level.** My gate-check read the
+  FK and the indexes and never checked nullability, so the first office insert
+  died `23502` — no RPC logic could have talked around it. Dropping the constraint
+  outright would let a CREW team exist with no lead, and the cockpit board GROUPS
+  by lead, so the rule moved from "always" to per-kind:
+  `CHECK (kind = 'office' OR lead_worker_id IS NOT NULL)` — strictly STRONGER than
+  the old NOT NULL for crew rows, and the only thing that permits a leadless
+  office row. ⭐ **A column's nullability is part of its contract; reading the FK
+  and the index is not reading the column.**
+- ⚠️ **The 3-arg `open_muster_team` is DROPPED, not left beside the 4-arg one** —
+  two overloads make PostgREST resolve by argument NAMES, so an existing 3-name
+  call would go ambiguous instead of picking up the default. Verified live: a
+  3-arg call still opens a CREW team. **The drop takes the old ACL with it**, so
+  the `revoke … from public, anon` is mandatory — a new function is born
+  EXECUTE-able by anon, and `306-muster.test.sql` (which pins that revoke) had to
+  move to the new signature or 42883 took the whole file down.
+- ⚠️ **The migration was already hand-applied when the NOT NULL surfaced** (live
+  carried U3's `…907`, which is not on this branch, so `db:push` refused with
+  drift and the documented `db query -f` escape was used). Rather than patch live,
+  I proved the new objects EMPTY, **reset the schema to its true pre-state** —
+  including restoring the original 3-arg function from its captured definition —
+  and replayed the corrected file end to end, so the committed file is
+  byte-for-byte what ran. Registered with `migration repair --status applied`
+  (never `--status reverted`, which rewrites another lane's history).
+- ⭐ **Two of my own asserts were wrong, and one was VACUOUS.** Calling the RPC
+  inside `where id = fn(...)` runs the insert but reads against the statement's own
+  snapshot, so the new row is invisible and the assert saw NULL — which the
+  leadless case would then have "passed" trivially (NULL is NULL). The call is its
+  own statement now, and idempotency compares the returned ids.
+- ⓘ **Reader classification, decided once and pinned:** board + prior-suggestion
+  rows + the /team วันนี้ card filter `kind = 'crew'`; the by-lead read needs no
+  filter (`eq(lead_worker_id)` never matches null); **`loadUnclosedPriorDays` is
+  deliberately NOT filtered** — closure is a project-DAY fact, so an office-only
+  day still needs closing and a filter there would hide it.
+- ⓘ Making the lead nullable widened the generated type for every reader; the
+  crew paths NARROW with `flatMap` (unreachable given the CHECK) rather than cast.
+- ✅ **Live end-to-end as the site_admin who actually opens teams there** (32 of
+  them), rolled back: office team opened leadless → opening again returns the SAME
+  team → a legacy 3-arg call still yields `crew` → the office worker scanned in →
+  a leadless CREW is refused `P0001` → the board reads 1 crew · 1 office excluded
+  → no leadless crew row exists. ⚠️ The first attempt used the wrong principal (a
+  site_admin who is not a member of that project) and got a correct `42501` — pick
+  the account that does the work, not the first row.
+- 🚨 **The fresh-eyes review found a 🔴 the whole unit turned on: the two upsert
+  arbiters OVERLAPPED.** The pre-existing `UNIQUE (project, date, lead)` is a FULL
+  index, so it covers office rows too — with an office team carrying a lead L, a
+  CREW upsert on the same `(project, date, L)` conflicts against the OFFICE row,
+  updates nothing, and returns the **office team's id**. The SA would then scan
+  the whole lineup into a team the cockpit filters out, and both the board and the
+  วันนี้ card would show the day as empty. Fixed by making the crew constraint
+  PARTIAL too (`where kind = 'crew'`), so the two kinds live in disjoint
+  namespaces and each arbiter can only match its own. ⭐ **Adding a discriminator
+  column to a table with an existing unique constraint means re-reading that
+  constraint: a full index silently spans the new partition.**
+- ⚠️ **Also from the review, all fixed:** `p_kind` was defaulted but not guarded
+  against an explicit `null` (PostgREST forwards one, and every `=` comparison
+  then yields NULL — the honest P0001 would be skipped and a CREW team created for
+  a caller who asked for office) ⇒ `coalesce` once into `v_kind` · the office
+  upsert's `do update … coalesce(excluded.lead, t.lead)` was described as a no-op
+  but would silently REASSIGN the office lead, unaudited ⇒ genuinely inert now,
+  appointment belongs to U5 · `muster_scan_in` resolves its "already in another
+  team" message through an **INNER** join on the other team's lead, so a leadless
+  office team fell through to the cross-project privacy fallback and told the SA
+  the worker was "mustered elsewhere" — false, and unfindable, for someone
+  standing on the same site ⇒ LEFT join + its own message + a mapper arm + a test ·
+  the CHECK had no table-level pin (the RPC refusal left it deletable) · the index
+  pin was three loose `ilike`s that a unique index on `(kind)` alone would satisfy.
+- ⚠️ **The migration had been hand-applied TWICE by then** (drift: live carries
+  U3's `…907`, absent from this branch). Each time: prove the objects empty, reset
+  to the true pre-state — restoring the original constraint, the 3-arg function
+  AND the original `muster_scan_in` from their captured live definitions — then
+  replay the committed file whole. The file is byte-for-byte what ran.
+- ⚑ **Two review findings recorded, NOT built (spec §9):** `set_muster_team_wps`
+  has no kind check, so binding a WP to the office team is still a wage path that
+  only rate-0 and zero-WPs keep shut (Q9) · the unclosed-day banner's `N ทีม`
+  counts the office team while the วันนี้ card does not (Q10, U5's to reconcile).
+- Gates: RED-first on both sides · lint 0 · typecheck 0 · vitest **872 files /
+  7124 tests exit 0** (pre-review-fix) · pgTAP **354 files / 7385 assertions exit
+  0** (27 new).
+
+## 2026-08-05 — Spec 397 U5: the office team becomes usable (lane attend)
+
+- **`/team/office`** — open today's office team (leadless), see who is in with
+  their times, add someone, check them out, and **take a wrong row back out**.
+  Zero client JS (POST forms + a redirect carrying an outcome CODE), so it works on
+  the in-app browser where hydration does not run. The door sits directly under the
+  วันนี้ hero on `/team` because the operator asked for it to be PROMINENT; inside
+  the icon grid it would read as one of nine equal tiles. Gated on
+  `SA_SURFACE_ROLES` — the muster WRITE set, verified live to equal every muster
+  RPC's allowlist — not the hub's wider audience, which admits procurement.
+- **The office board is a different SHAPE, not a copy of the crew board:** no lead,
+  no WP set, no prefill, no ยังไม่มา list (an office team has no roster to be absent
+  from). What it has is: is it open, who is in, who can still be added.
+- 🚨 **The review caught two 🔴, and the first was a defect I had already fixed
+  once.** ① The action put the mapped **Thai sentence** in the URL (`?m=`) and the
+  page rendered it inside its own `<ErrorNotice>` — unbounded, forgeable, in the
+  app's red danger box on an authenticated page. That is in-app spoofing, exactly
+  what U3's `reopen-return.ts` was written to prevent, **and this file's own comment
+  claimed it emitted codes while the code did the opposite.** ⭐ **A comment
+  asserting the safe behaviour is not the safe behaviour — pin it.** Now: codes
+  only, `classify()` at the action seam, every string owned by the page.
+  ② **The picker offered all 41 active ช่าง.** A mis-tap is not cosmetic: that ช่าง
+  is refused at their real crew lineup for the rest of the day (one team per worker
+  per day), and if the day is then closed `derive_muster_labor` books **nothing**
+  for them — the office team binds no WP — so they silently lose the day's wage,
+  with **no undo** anywhere (the cockpit's undo cannot see office rows). Fixed at
+  both ends: the picker is scoped to the office class (`day_rate = 0`, §5.1's own
+  wage-free mechanism) **and** every row now carries เอาออก → `undoMusterScan`.
+- ⚠️ Also fixed: the "everyone has checked in" line rendered beside "nobody has
+  checked in" whenever the roster was empty — a self-contradiction, and the live
+  state before U6 ⇒ `rosterSize` now distinguishes them · "ไม่นับรวมกับทีมช่าง" was
+  false of the unclosed-day banner (§9 Q10) ⇒ softened to name the board it is
+  actually absent from · ทีมออฟฟิศ vs ทีมสำนักงาน on one row (UI-term SSOT).
+- ⚠️ **The page and its actions had ZERO tests** — the U3-review class exactly
+  (gate and banners live in the PAGE while the tests cover the child and the pure
+  fold). Added source pins for the gate, every outcome code, the undo control and
+  the two empty states. ⭐ Three of those pins were false positives on first run and
+  the ASSERTION was wrong each time: `r.error)` also matches `classify(r.error)`;
+  `"m?: string"` is a substring of `"from?: string"`; and `เอาออก` also appears
+  inside the failure copy, so a bare count stayed green with the button deleted.
+- ⓘ **Shipped narrower than §6, recorded as Q11:** no cockpit card and no badge
+  scanner (the add path is a `<select>` + `method: 'manual'`, which is the truth —
+  claiming `qr` without a scan would put a lie in the audit report). **Q12** records
+  that `day_rate = 0` is a money column standing in for a role.
+- ✅ Live SSR probes on the worktree: the door renders once on `/team`, the surface
+  opens with the right back chip, the open-team button renders with no team today,
+  the form is a real Server Action POST with its hidden `projectId`, and both
+  banners render from codes. Not driven for real — submitting would leave an office
+  team on a live project nobody asked for; the RPC path itself was proven in U4.
+- Gates: RED-first ×3 slices · lint 0 · typecheck 0 · vitest **877 files / 7159
+  tests exit 0** (pre-review-fix; re-run after).
+
+## 2026-08-05 — Spec 397 U6: teaching the office team (lane attend)
+
+**THE LAST 397 UNIT.** U5 built the surface; this writes the instruction — and the
+unit SPLIT, because only half of it is code.
+
+- ✅ **The teaching half shipped.** An `office-attendance` card joins `HELP_CARDS`
+  (the `/sa/help` SSOT) directly after the crew muster card — same activity, same
+  time of day, different team — and **the same card object is rendered inline on
+  `/team/office`**. That is placement, not duplication: `/sa/help` drew **4 route
+  views from 3 users in 30 days** against **512 for `/team`**, so a guide living only
+  in the คู่มือ hub would be the "correct detector on a page nobody opens" failure.
+  One content source, two renders. It sits OUTSIDE the open/not-open split — the
+  state a first-timer is in every morning is the one where the team is not open yet.
+- ✅ **Fixed a role-blind sentence U5 shipped, and it is U3's 🔴 #2 exactly.** The
+  roster-empty arm read "ต้องเพิ่มรายชื่อ (ค่าแรง 0) ที่ /workers ก่อน" — but
+  `/workers` is gated on `WORKER_ROSTER_ROLES`, which does **not** contain
+  `site_admin`, this page's primary audience. Proved live under view-as: a
+  site_admin fetching `/workers` gets `NEXT_REDIRECT` and zero roster content. Each
+  arm now names the step ITS reader can take (a real link for the roster-capable,
+  "แจ้งผู้จัดการโครงการหรือฝ่ายจัดซื้อ" for everyone else), and the exhaustive
+  intersection is pinned so the branch cannot quietly become dead code.
+- 🚨 **The data-op half is handed to the operator, because the names are not in the
+  system to be read.** Of the five `site_admin` members of TFM โพธิ์ทอง only `aemon`
+  has a `staff_registrations` row, and hers (`PRC-26-0036` เอมอร ฮามศรีพรม) is bound
+  to a worker row named **นายเหิน เมืองงาม** — the spec-396 mismatch. For the other
+  four the only name anywhere is a LINE display name. A worker row cannot be deleted,
+  only deactivated, so a guessed name is permanent in the roster, the badge sheet,
+  `/workers` and the audit report. ⭐ The recipe needs **no new code**: `/workers` →
+  เพิ่มช่าง with การจ่าย = **รายเดือน** already writes `day_rate = 0`, which is
+  exactly how `Preston Inter` (monthly, rate 0, 6 attendance days, 0 wages) exists.
+- 🚨 **§6's "printing badges" is REFUTED and deliberately NOT done (new Q13).**
+  `/team/badges` has no rate filter, so office rows would print automatically — but
+  `/team/office` has no scanner (Q11), so the only surface that consumes a badge is
+  the crew cockpit, whose scan files the person into a **crew** team: WP-bound, the
+  wage path §8 forbids and Q9 flags. The badge's only reachable use is the mistake.
+- ⭐ **A mutant survived and the ASSERTION was the thing that was wrong.** Renaming
+  the check-out step's button to one that does not exist stayed green, because
+  `ออกงาน` also appears in the undo step's contrast clause and the pin counted over
+  the JOINED steps. Now counted **per step** with the real per-step counts. 11/11
+  mutants killed after the fix. ⚠️ And the harness itself lied first: `execFileSync`
+  cannot spawn `pnpm.cmd` (EINVAL), which the first run swallowed into an empty
+  string and reported as **11/11 SURVIVED**. A run with no `Tests` count line is now
+  a hard ABORT — a zero-ran filter reads as green.
+- ✅ **Real-flow verified against the live app**, not just tests: signed in, opened
+  today's office team through the page's actual Server Action form on the ARCHIVED
+  `บ้านคุณกฤษณ์` (never the live site), and read the server-rendered HTML — 14/14
+  probes in the not-open state, both roster-empty arms under their own roles, the
+  card's real geometry (1240×268) with all five steps and the tip, and all six
+  คู่มือ cards in the intended order. **Residue deleted and re-verified in a fresh
+  statement: 0 office teams, 44 teams total, today's 4 crew teams untouched.**
+- ⓘ **New Q14:** `/sa/help` itself is nearly unread (4 views / 30d). U6 routed around
+  it; whether the hub needs per-screen entry points is a separate call.
+
 ## 2026-08-05 — Spec 392 U3a: the zone read surfaces (lane zones)
 
 **Unit:** U3a — the zone chip on the work-package detail, the zone × หมวดงาน
