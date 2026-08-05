@@ -34,7 +34,7 @@ One presentational component `src/components/features/sa/help/help-card.tsx` (cl
 
 ### 3. The content (text-first, authored by CC, operator-reviewed)
 
-`src/lib/sa/help-content.ts` — a typed `HELP_CARDS: HelpCard[]` array. Four cards, **ordered by daily-use frequency**. The step copy below is the **outline the build drafts into polished Thai** from the live flows (each step's wording must match the live label it references):
+`src/lib/sa/help-content.ts` — a typed `HELP_CARDS: HelpCard[]` array. Four cards as specced here, **ordered by daily-use frequency** (later specs added two more — see the design-decision note below for the shipped order). The step copy below is the **outline the build drafts into polished Thai** from the live flows (each step's wording must match the live label it references):
 
 1. **`photos` — ถ่ายรูปงาน** _(the SA's #1 activity)_
    - เมื่อไหร่ใช้: ทุกครั้งที่งาน (WP) มีความคืบหน้าหรือทำเสร็จ

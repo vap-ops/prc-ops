@@ -1,6 +1,8 @@
 // Spec 299 U1 — the SA help hub: a re-readable, text-first manual for the non-technical
-// site_admin. One accordion card per day-to-day task, ordered by daily use (photos →
-// muster → manage; the add-crew card is U2). Content is data (HELP_CARDS); each card is a
+// site_admin. One accordion card per day-to-day task, ordered by daily use — the array's
+// own order, pinned in sa-help-content.test.ts rather than restated here (spec 397 U6
+// inserted office-attendance beside the crew muster card and this comment went stale).
+// Content is data (HELP_CARDS); each card is a
 // native <details> (zero JS) with an anchor id so a future per-screen "?" can deep-link
 // (/sa/help#photos). Gate = the SA home's gate (site_admin/super_admin).
 
