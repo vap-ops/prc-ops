@@ -13027,3 +13027,202 @@ precedent); U3 touches `supabase/` anyway, so it lands there rather than turning
 into an operator-held one. ③ `ไม่มีบันทึกการเช็คชื่อในช่วงนี้` is now in three places and the
 UI-term SSOT wants it in `labels.ts` — still deferred as its own sweep, for the collider reason. ④
 U3, the correction path, is next and the operator has ruled **option A**.
+
+## 2026-08-06 — Spec 392 U2b: the Konva zone-drawing canvas (lane zonecanvas)
+
+**Why.** U1 shipped the schema and U2a the zone LIST, but the operator's original ask was a
+surface where the draftsman **draws** the zones. Until this unit a manager could name a zone and
+nothing more — every zone landed on the U2a default rect `{0.1, 0.1, 0.3, 0.2}` and stayed
+there, which is to say the geometry column existed and no one could set it.
+
+**What shipped.** `/projects/[projectId]/zones` gains a Konva island above the list: select a
+zone, drag it, resize it by its transformer anchors, switch its shape between the four
+`zone_shape` values, and edit a polygon by dragging its vertices. Plus a 5% snap grid (on by
+default) and undo. Every write goes through U2a's existing `saveZone` → `upsert_project_zone`;
+**no new RPC, no schema.**
+
+**The split, and why it is additive-only.** Spec §5's toolbar also lists a background image.
+That needs a Storage bucket and a `storage.objects` policy — a fourth gate layer in another
+schema (`delivery-photo-storage-rls-fix-2026-07`) — so it is **U2c**, which claims the schema
+lane. Nothing is removed by shipping the canvas first: the U2a list keeps every operation it
+had, so neither half deletes a signal (doctrine §2).
+
+**Design.**
+
+- **The canvas is the SECOND path, never the only one.** A canvas is opaque to a keyboard and a
+  screen reader, so this surface owns exactly the two things a list cannot express — WHERE a
+  zone is and WHAT SHAPE it has. Code, name and delete stay solely with the list underneath.
+- **The engine never sees the database.** `src/lib/zones/canvas-geometry.ts` holds every
+  pixel↔fraction conversion, the snap and the clamp; geometry persists as `[0,1]` fractions, so
+  the stage can be any size and a background swap (U2c) will move nothing.
+- **Overflow SLIDES a zone back inside the map rather than shrinking it** — a manager dragging
+  past the edge meant to move it, and a silent resize would change the zone's meaning without
+  saying so. Only a box larger than the map itself is shrunk.
+- **Snapping happens INSIDE the clamp, and a snapped size floors at one grid step.** Rounding an
+  origin up can push a box that was inside over the edge, and rounding a sliver's size down
+  reaches `w = 0`, which `zone_geometry_ok` refuses outright. Both would surface as a refused
+  save at the END of a drag, with the work already lost.
+- **One renderer with a `readOnly` mode**, so the field-facing map (and the SA surface below)
+  reuses this geometry rather than forking a copy free to drift.
+- The shape `switch` has **no `default:` arm** (spec §9) — a new enum value fails the compile
+  instead of rendering as nothing.
+
+**Bundle.** konva 10.3.0 + react-konva 19.2.5 (~54 KB gz) in a repo of 16 runtime dependencies,
+reached **only** through `next/dynamic({ ssr: false })`. `zone-canvas-island.test.ts` scans all
+of `src/` for a static importer and for any non-`"use client"` module importing konva; the props
+type lives in its own leaf module so even the lazy wrapper has nothing to import from the heavy
+one.
+
+**Gates.** RED first (module absent, then 4 island guards). vitest **7377 green / 894 files**,
+typecheck clean, lint clean, `pnpm build` exit 0. **4 mutants killed:** removing `ssr: false` ·
+turning `case "polygon"` into `default:` · adding one static import of `zone-canvas` · breaking
+`clampBoxToUnit`'s slide-back (which also reds the DB-validator property test).
+
+**Real-flow verification (Gate 4).** The in-app Browser pane is denied in this session, so
+hydration never runs there and every client-side claim would be unmeasurable — driven instead
+through **real installed Chrome via Playwright** (`channel: "chrome"`) against the live dev
+server and the real DB as `dev-preview`. `project_zones` is empty in prod, so the run **created
+its own subject** through the real DEFINER RPCs: a rect and a polygon on the operator's own
+`ผังโซน` map (TFM นายาว เพชรบูรณ์). Canvas rendered **1238×774** with all six toolbar controls; a
+click selected the zone and the note read `เลือก CCV-A พื้นลานด้านซ้าย — ลากเพื่อย้าย ลากมุมกรอบเพื่อปรับขนาด`;
+a **real mouse drag** moved it from `x=0.10, y=0.10` to `x=0.35, y=0.35` — exactly the distance
+dragged, snapped to the grid — and the value was read back **from the database**, not off the
+render. Zero console errors. Cleanup deleted both zones and re-read `remaining: 0`.
+
+**Open questions.**
+
+① 🚨 **Spec 366 and spec 392 model zones differently, and 392 never reconciled with 366.**
+`docs/feature-specs/366-wp-zones.md` (operator-locked 2026-07-27, never built) is
+_"polygon buttons on simplified drawings dedicated to the respected WP"_: a **`wp_zones` M:N
+junction** so a WP references the several zones it covers, plus **`photo_logs.zone_id` set at
+capture and sticky per session**, so a during/after photo says WHERE it was taken. Spec 392
+(2026-08-04) contains **zero occurrences** of `366`, `wp_zones` or `project_drawings`, and U1
+shipped a table that takes 366's name — `project_zones` — with `work_packages.zone_id`, **one
+zone per WP**, and no photo link at all. The operator re-raised 366's model on 2026-08-06
+("zones live under WPs", tapping a zone assists the SA in uploading during/after photos). The
+shipped schema covers most of it and the gap is additive: `wp_zones`, `photo_logs.zone_id`, and
+the drawings bucket 392 declared (`project_zone_maps.background_path`) but never created. **This
+needs an operator decision and a reconciling spec before any further zone unit.**
+
+② The polygon vertex drag was exercised only through its unit tests and the shared conversion —
+the Gate-4 run created a polygon and drove the RECT. Worth one live pass in U2c.
+
+③ `save_project_zone_map` with a null id always INSERTS and there is still **no
+`delete_project_zone_map` RPC at all** (carried from U2a/U3a). Two simultaneous presses of the
+create button on an empty project make two maps, and the page renders only `mapRows[0]`.
+
+④ The canvas hides itself until the map has at least one zone: an empty stage teaches nothing
+and the list's empty state says more. That means the very first zone is always created from the
+list, which is also the accessible path — deliberate, but it is a rule the spec does not state.
+
+## 2026-08-06 — Spec 392 U2b, review round 2: the write machine gets tested (lane zonecanvas)
+
+The fresh-eyes pass on U2b returned **6🔴 8🟡**, and five of the six 🔴 lived in one place: the
+canvas's optimistic write state, which was loose `useState` calls inside a Konva island and
+therefore had **zero coverage** — RTL cannot render a canvas and jsdom has no layout engine, so
+Gate 4's happy-path drag was the only thing that had ever exercised it.
+
+**The 🔴 that was NOT in the canvas shipped first, as its own PR** — `upsert_project_zone`'s
+unconditional UPDATE erasing a renamed zone's shape, position, parent and sort order
+([#988](https://github.com/vap-ops/prc-ops/pull/988), on the operator's call).
+
+**The state machine is now a pure reducer** (`src/lib/zones/canvas-state.ts`), which is what made
+the other four assertable without pixels:
+
+- **A failed write rolls back ITS OWN write.** It popped the newest history entry, so dragging A
+  then B and having A refused destroyed B's undo entry and left A's for a zone already rolled back.
+  Settled writes are matched by sequence number.
+- **A refused undo costs one entry, and gives it back.** `handleUndo` popped when issued and the
+  failure arm popped again, so one refused undo destroyed two entries and stranded the older state
+  forever.
+- **Undo restores a state the database actually held.** The pre-write snapshot came from state
+  that already included unconfirmed draft. ⭐ The fix moved the snapshot from COMMIT time to SETTLE
+  time — three drags issued back to back all see an empty `confirmed`, so a commit-time snapshot
+  records the original server row three times and undo jumps straight past two landed writes. That
+  correction came out of a test failing, not out of reading the code.
+- **The draft clears when a write LANDS,** not only when it fails. A draft outliving its write
+  pinned the zone for the component's lifetime, so the server row could never win — and a
+  corruption arriving from elsewhere would have been invisible on the one surface that shows it.
+
+**🔴 The shape stranded under the pointer.** A Konva node is a mutable object the pointer has
+already moved. When a drag's SNAPPED result equals the stored geometry, react-konva sees identical
+props and writes nothing back, so the shape stayed where it was dropped while the database held the
+old value — and the next transform read that drifted position and baked it in. Snap is ON at 5%, so
+on a ~1200px stage **every drag under ~30px did this**. Shapes and vertex handles now carry a
+repaint counter in their key.
+
+**🔴 Honest copy.** A comment claimed the lossy polygon→box collapse was covered by confirm copy.
+No dialog existed. There is one now (only when it would actually discard vertices), and the list
+warns in place before the tap.
+
+**🔴 The a11y contract was not being met, and the commit message said it was.** The shape toolbar
+could only be enabled by CLICKING a shape on the canvas, so a keyboard or screen-reader user could
+reach those four buttons in tab order and never make one usable. Spec §5 says the list is the path
+to everything the canvas does; shape was the half with no path. `ZoneSheet` now carries a `รูปทรง`
+control, sharing the canvas's exact four labels. **Position stays canvas-only and honestly so — it
+is a coordinate, not a choice from a set.**
+
+**🟡 The island guard had a hole and then a worse one.** Its static-import scan was line-anchored,
+so a prettier-wrapped `import {\n  ZoneCanvas,\n} from "…"` — 54 KB of konva into the main bundle,
+the exact regression it exists to catch — passed. Matching on the module specifier fixed it; but
+the two repo-wide scans then each re-read every file in `src/` and **blew the 5s timeout**. A guard
+that times out reds for a reason unrelated to what it protects. One walk, one read per file, both
+checks over the same pass, plus an assertion that the walk saw >200 files — a zero-file scan would
+otherwise pass both checks.
+
+**🟡 Also fixed:** `boxToCorners`/`cornersToBox` were unexported module-locals doing exactly the
+pure arithmetic `canvas-geometry.ts` exists to hold (a degenerate collinear polygon yielded `h = 0`,
+which the DB refuses) — moved and tested. `aria-pressed` was `undefined` with nothing selected, so
+React dropped the attribute and the buttons stopped being toggles for a screen reader.
+
+**Mutation, six mutants, all killed.** Roll-back-newest · undo double-pop · previous-from-draft ·
+draft-outlives-write · a prettier-wrapped static import · the `cornersToBox` floor.
+⚠️ **The draft mutant's first form reported `Tests no tests`** — it left an unused binding and broke
+the compile, so nothing ran. A zero-ran mutation reads exactly like a pass; it was re-run in a form
+that compiles (`draft[id] = write.next`, i.e. the original defect) and killed 2 assertions.
+
+**Real-flow verification (Gate 4), re-driven in real Chrome** because the first pass could not
+reach any of these paths. On the operator's own `ผังโซน` map, against the live database:
+
+| leg                                      | result                                                                                                   |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **sub-grid drag** (under one snap step)  | Konva node at `{371, 232}`, expected `{371, 232}` — re-derived from geometry, not left under the pointer |
+| real drag                                | `x 0.3 → 0.5`, persisted                                                                                 |
+| **undo**                                 | `x` back to `0.3` in the database                                                                        |
+| **shape from the LIST, no canvas click** | `rect → polygon` at exactly the box's four corners — the zone did not move                               |
+
+Zero page errors; cleanup re-read `remaining: 0`.
+
+⭐ **TWO house guards caught what the reviewer did not, and both catches were mine to own.**
+① `design-doctrine.test.ts` bans `window.confirm` outright (spec 18 — destructive actions use the
+themed `ConfirmDialog`), so the "real confirm" round 1 added was the native dialog. ② The
+**honest-copy ratchet** reds on any new `ลองใหม่` occurrence and demands a justification in the
+ledger: the canvas's `SAVE_FAILED` is reached only from the round trip's `.catch`, and a REJECTION
+is not a refusal — a dropped connection, a 500, or a stale server-action id after a deploy all
+succeed on retry, while the action's resolved refusals pass their own non-retry copy through
+untouched. Ledger raised 236→237 and 109→110 with that reasoning written in beside it.
+**Neither guard was in the review's field of view. The suite is the reviewer of last resort.**
+
+**Merge order, and the proof it was needed.** U2b was HELD until #988 landed, because every canvas
+write is a full-row upsert and the pre-#988 `saveZone` sent `p_sort_order: 0` — a literal zero the
+coalescing RPC writes straight through. After merging main (0.345.3, incl. #988) the final Gate-4
+run seeded a CHILD zone nested under a parent at `sort_order 7`, dragged it on the canvas, and read
+the row back: `geometryMoved: true` (x 0.3→0.45, y 0.3→0.4) with `sortOrderPreserved: true` and
+`parentPreserved: true`, the parent row untouched, zero page errors, cleanup `remaining: 0`.
+
+⚠️ **The FIRST attempt at that run was vacuous and said so: `geometryMoved: false`.** The parent zone
+was seeded spanning 0.05–0.95, so it geometrically covered the child and the click selected the
+PARENT — no write happened, and “sort_order preserved” would have proven nothing. Nesting here is a
+DATA relation, not a containment one, so the fixture was rewritten with the two zones side by side.
+⭐ A preservation claim needs the mutation to have actually landed; the positive control is the
+assertion that the thing you dragged MOVED.
+
+**Open questions.** ① The `หลายเหลี่ยม` tool always produces exactly four corners and there is no
+add- or remove-vertex affordance, so `ZONE_POLYGON_MAX_POINTS = 200` is unreachable from the UI —
+the vertices are draggable, so it is a real quadrilateral, but the label promises more than the
+tool delivers. ② The canvas echoes `code`/`name` from its props on every geometry write, so a
+rename whose `router.refresh()` is still in flight can be overwritten by a drag; the window is
+small and the fix wants a geometry-only RPC arm. ③ Every zone created from the list still gets the
+identical default box, so three of them are exactly coincident and only the top is hit-testable.
+④ Spec 392 §7.1 records that spec 366 models zones differently and is unreconciled — that blocks
+further zone units, not this one.

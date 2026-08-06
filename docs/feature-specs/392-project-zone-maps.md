@@ -1,6 +1,6 @@
 # 392 — Project zone maps (ผังโซนโครงการ)
 
-**Status:** spec only · **Owner:** CC · **Created:** 2026-08-04
+**Status:** U1 · U2a · U2b · U3a shipped — U2c · U3b · U4 open, and **§7.1 must be settled first** · **Owner:** CC · **Created:** 2026-08-04
 
 Operator, 2026-08-04: _"would it be great if we have an illustration feature for draftman to draw zones under each WP"_ → after the first recommendation argued against a drawing surface: _"I still believe we must draw zones, you can help seed too. reason being, we repeat same project again and again, these zones just need minor adjustments in each project."_
 
@@ -141,14 +141,41 @@ The zone **list** is not decoration: it is the keyboard and screen-reader path t
 
 ## 7. Units
 
-| U   | Scope                                                                                                                              | Schema                          |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| U1  | Tables, enum, `work_packages.zone_id`, RLS, the five RPCs, pgTAP (gate refusals with a positive control; the `[0,1]` CHECK; clone) | **yes** — needs the schema lane |
-| U2  | Konva editor island + toolbar + snapping + zone list                                                                               | no                              |
-| U3  | Zone chip on WP · rollup grid · filter the WP list by zone                                                                         | no                              |
-| U4  | Clone-from-project UI + TFM seed + the assignment review screen                                                                    | data op                         |
+| U   | Scope                                                                                                                              | Schema                          | State        |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------ |
+| U1  | Tables, enum, `work_packages.zone_id`, RLS, the five RPCs, pgTAP (gate refusals with a positive control; the `[0,1]` CHECK; clone) | **yes** — needs the schema lane | ✅ #957      |
+| U2a | The zone LIST, `validate-zone`, the three server actions, the header chip                                                          | no                              | ✅ #958      |
+| U2b | Konva editor island + toolbar + snapping + undo                                                                                    | no                              | ✅ this unit |
+| U2c | Background image on the map                                                                                                        | **yes** — bucket + policy       | ⬜           |
+| U3a | Zone chip on WP · rollup grid · filter the WP list by zone                                                                         | no                              | ✅ #974      |
+| U3b | The ช่าง's own zone — two columns on `get_my_assigned_work`'s RETURN                                                               | **yes** — drop + recreate       | ⬜           |
+| U4  | Clone-from-project UI + TFM seed + the assignment review screen                                                                    | data op                         | ⬜           |
 
-U3 ships **with or before** U2 in calendar terms: an editor whose output nothing reads is spec 377's failure mode repeated.
+U3 ships **with or before** U2 in calendar terms: an editor whose output nothing reads is spec 377's failure mode repeated. It did — U3a merged before U2b.
+
+**U2 was split, and the split is additive-only.** U2c is separated because a background image needs a Storage bucket and a `storage.objects` policy, which is a fourth gate layer in another schema and claims the schema lane; the canvas needs neither. Neither half removes a signal — the U2a list keeps every operation it had — so the doctrine §2 split test passes.
+
+⚠️ **U2b hides the canvas until the map holds at least one zone.** An empty stage teaches nothing and the list's empty state says more, so the FIRST zone of any map is always created from the list — which is also the keyboard and screen-reader path. Deliberate; stated here because the surface does not say it.
+
+---
+
+## 7.1 🚨 Unreconciled with spec 366 — read before building another zone unit
+
+**`docs/feature-specs/366-wp-zones.md` (operator-locked 2026-07-27, never built) models zones differently, and this spec never mentions it** — zero occurrences of `366`, `wp_zones` or `project_drawings` anywhere above. U1 then shipped a table that takes 366's name.
+
+|              | 366 — _"photos that know where they were taken"_                     | 392 — as shipped                                          |
+| ------------ | -------------------------------------------------------------------- | --------------------------------------------------------- |
+| drawing      | `project_drawings` + a private `project-drawings` bucket             | `project_zone_maps.background_path`, bucket never created |
+| shape        | `project_zones.polygon`                                              | `project_zones.shape` + `geometry` — a superset           |
+| WP ↔ zone    | **`wp_zones` M:N** — a WP references the zones it covers             | `work_packages.zone_id` — **one zone per WP**             |
+| photo ↔ zone | **`photo_logs.zone_id`**, set at capture, sticky per session (D4/D5) | none                                                      |
+| purpose      | evidence axis: prove a `หลัง` photo is the same place as its `ก่อน`  | tracking axis: rollup and filter                          |
+
+The operator re-raised 366's model on **2026-08-06** — _"zones must be clickable, assisting SA in uploading during and after images in the respected zones"_, and, asked where a zone tap should land, _"zones live under WPs"_.
+
+The gap is **additive**: `wp_zones`, `photo_logs.zone_id`, and the bucket this spec declared but never created. Nothing shipped has to be undone; `work_packages.zone_id` becomes either a derived primary zone or a retirement. ⚠️ Note the grain trap 366 §3 already recorded: `photo_logs_reject_group_wp` means a photo can never bind to a group WP, so zone-tagged evidence is leaf-grained.
+
+**This needs an operator decision and one reconciling spec before any further zone unit.**
 
 ---
 
