@@ -12441,6 +12441,117 @@ card-variant skeleton is its own unit. The reviewer found this by asking which b
 diff's own criterion makes WORSE, which is the question a "make everything consistent" change
 never asks itself.
 
+## 2026-08-06 — Arrival is announced too (lane a11yarrival)
+
+**Closes the ⚑ gap [#983](https://github.com/vap-ops/prc-ops/pull/983) recorded against itself.** That
+unit made the PENDING window audible and deliberately left ARRIVAL alone, because it had just
+measured that Next's own announcer does not in fact cover it. This is the other half: the user is
+now told **where they landed**, not only that something was loading.
+
+**⭐ The design came out of the browser, not the docs — and the measurement root-caused the
+framework bug rather than merely observing it.** Instrumented on a live dev server, one real
+client-side navigation:
+
+```
++1073ms  title-node-REMOVED   ""                    ← head briefly has NO title
++1074ms  pathname-changed     /projects
++1094ms  loading-region       "กำลังโหลด…"
++1100ms  title-node-ADDED     "โครงการ — PRC Ops"
++1736ms  loading-region       ""                    ← content actually arrives
+```
+
+Three facts, each of which decided a design choice that the obvious implementation would have got
+wrong:
+
+① **Next REPLACES the `<title>` NODE rather than editing its text**, so `document.title` is empty
+for ~1–6 ms on every navigation. That gap is precisely what the framework's announcer samples,
+which is why it falls through to `querySelector("h1")` — #983 observed the wrong output, this
+explains it. ⇒ the watcher observes `document.head`, because a `<title>`-node-bound observer goes
+**deaf after the first navigation**, and the empty gap maps to silence rather than a bogus
+announcement.
+
+② **The `<h1>` is REFUTED as a fallback.** On 4 of 5 sampled pages it reads `สวัสดี คุณ<ชื่อ>` — the
+greeting. Announcing it would read the user **their own name** on arrival, which is exactly the
+wrong string the framework spoke. A page with no title of its own stays SILENT instead (measured
+on `/contacts`: title `PRC Ops`, no `<h1>` at all). Silence beats naming the app instead of the
+page.
+
+③ **The title is correct 640–930 ms BEFORE the content renders.** So "announce on title change" —
+the natural implementation — would claim arrival while the skeleton is still up. Arrival therefore
+DEFERS while a loading boundary is open, reusing #983's ref-count, and both messages flow through
+the ONE region so a navigation reads `กำลังโหลด…` → `โครงการ` and they can never overlap.
+
+**Scope note.** 127 of 135 `page.tsx` carry a static Thai `metadata.title` and none uses
+`generateMetadata`, so the title is a high-quality source — but it is per ROUTE, not per record: 39
+dynamic-segment pages reuse one title for every record (79 distinct strings across the 127; 4 are
+shared by 2–3 routes). The 8 that set none announce nothing; giving them titles is recorded as a
+follow-up rather than folded in, because it is page metadata rather than this unit's mechanism.
+
+**🚨 That per-route/per-record distinction was a HIGH defect, caught by the fresh-eyes pass.** The
+watcher de-duped on the page NAME, so a second record under the same route title read as a repeat:
+`work-packages/[workPackageId]` is `รูปถ่ายงาน` for every work package, and **WP→WP is the site
+admin's commonest navigation**. The user would have heard `กำลังโหลด…` and then silence, forever, on
+exactly the movement the app exists for — while every test stayed green, because every test used two
+DIFFERENT page names. The de-dupe is now keyed on `(pathname, name)`; the pathname is already
+updated when the new title lands (measured: pathname +1074 ms, title node re-added +1100 ms), and
+comparing both is also what keeps a same-page node replacement silent. ⭐ **A de-dupe key is a claim
+about what counts as "the same thing" — check it against the real DATA, not against the examples in
+your tests.**
+
+**🚨 A mutant survived TWICE, and the second failure is the more instructive one.** Deleting the
+watcher's `name === ""` guard left all 19 tests green — because `announceArrival("")` is itself a
+no-op, so the ANNOUNCE path is correct either way. The half that matters is the **baseline**: every
+navigation passes through the empty gap, so letting it become `lastAnnounced` makes the very next
+title look like a change even when it is the same page — a `router.refresh()`, which replaces the
+node with identical text, would announce an arrival the user never made. My own code comment on
+that line had stated the opposite reason. The first fix still did not kill it: **`MutationObserver`
+batches into one microtask**, so performing the remove and the add inside a single `act()` means
+the callback only ever sees the finished state and the empty moment never occurs. Split into two
+flushes (the real events are ~27 ms apart) the mutant dies. **Second instance of the class #983
+found with `key={seq}`: an `act()` boundary decides what a batching observer sees, so a defect that
+lives BETWEEN two flushes is invisible to a test that merges them.**
+
+**🚨 And Gate 4 then found what neither the tests nor the review had: a boundary HANDOFF swallowed
+the arrival entirely.** Navigating into a project detail announced `กำลังโหลด…` for **nine seconds
+and then SILENCE** — never the page name. React releases one skeleton and opens the next inside a
+SINGLE commit as the segment resolves deeper, so the count passes through zero while the wait is
+still on; the release published the pending destination and the incoming boundary overwrote it in
+the same commit, leaving the real release with nothing to say. The review had flagged this shape as
+a MEDIUM and I had under-rated it as a rare interruption — **it is neither rare nor an
+interruption**, it is what a normal navigation into a nested route does. The release now defers the
+arrival by a microtask and re-checks the count after the commit settles. Deliberately narrow: only
+the arrival is deferred, because a clear cannot be invalidated by what follows, and making both
+async broke 12 tests including #983's pinned contract. ⭐ **Twice in this unit the browser found what
+the suite could not — and both times the defect lived INSIDE a single React commit.**
+
+⚠️ **A false alarm on the way, worth recording because the instinct was to "fix" it:** an earlier
+run showed the region stuck on `กำลังโหลด…` and I read it as a leak. One probe for the boundary's own
+static line (`boundaryMounted: true`, 8 pulses at +9 s) proved the skeleton was genuinely still on
+screen — that dev page really is that slow — so the code was behaving correctly. **A stuck-looking
+state is not evidence of a stuck state; measure whether the cause is still present.**
+
+**Gates.** RED first (19 failing) · **16/16 mutants killed**, re-run after each round of fixes
+because the code the earlier sweeps validated had changed ·
+full vitest suite green · lint 0 · typecheck 0 · `pnpm build` 0. **Gate 4 in real Chrome via
+Playwright** (the in-app Browser pane is
+hidden on this box, so hydration never runs there), three real navigations: destination spoken with
+the suffix stripped (`โครงการ` · `รายชื่อช่าง` · `ทีมงาน`); announced **after** the wait, not over it
+(`กำลังโหลด…` +1048 ms → title +1056 ms → `โครงการ` **+1797 ms**); **no** region event during the
+title gap; the same persistent element throughout; and a hard page load announces **nothing**
+(the reader does that itself). Exactly two region mutations per navigation.
+
+**Open questions.** ① The 8 titleless pages (`/contacts`, `/contacts/[type]/[id]`, `/store`,
+`/stock-count`, `/sa/crew`, `/sa/crew/badges`, `/projects/[projectId]/costs`, and `src/app/page.tsx`
+— the redirect dispatcher, which no one reads) announce nothing — one-line `metadata.title` each.
+④ One ordering edge is recorded, not built: if a title ever landed before its boundary opened,
+arrival would be spoken and then immediately replaced by `กำลังโหลด…` (measured, the boundary opens
+6–8 ms FIRST on every sampled navigation, so this is theoretical today; the same
+microtask-and-recheck that fixed the handoff would close it). ② Next's own announcer still fires occasionally, assertively, with
+the wrong text; suppressing it from app code was not attempted. Worth re-measuring now that a
+correct polite announcement exists. ③ Still carried from #983: the region does not pass through empty between two
+identical consecutive announcements (`queueMicrotask`), so a reader that suppresses byte-identical
+repeats may not speak the second.
+
 ## 2026-08-06 — `NarrowSkeleton`: the single-column screens get their own frame (lane cardskel)
 
 **The unit the previous one recorded** — operator asked for it directly after reading the
