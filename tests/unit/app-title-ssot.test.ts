@@ -171,6 +171,22 @@ describe("the root layout consumes that SSOT rather than re-declaring it", () =>
     ).toMatch(/\bAPP_TITLE_SUFFIX\.trimStart\(\)/);
   });
 
+  it("the PWA manifest does not re-declare the name either", () => {
+    // Third instance of the same tautology in this one unit: manifest.test.ts
+    // asserts `m.name === APP_NAME`, which a re-hardcoded "PRC Ops" satisfies
+    // perfectly while the values coincide — a mutant proved it. A value equality
+    // between two things that are equal today can never see a re-hardcode; only
+    // the source can. The manifest is a Next metadata route beside layout.tsx,
+    // so a rename must reach the phone home-screen name too.
+    const manifest = read("src/app/manifest.ts");
+    expect(
+      manifest.includes(APP_NAME),
+      `src/app/manifest.ts contains the literal "${APP_NAME}" — import APP_NAME ` +
+        "from @/lib/ui/app-title so a rename reaches the installed app's name",
+    ).toBe(false);
+    expect(manifest).toContain("@/lib/ui/app-title");
+  });
+
   it("keeps the SSOT importable from a Server Component", () => {
     // layout.tsx is a Server Component and route-announcement.ts is pulled into
     // the client bundle, so the shared module must be a leaf: no `server-only`,
