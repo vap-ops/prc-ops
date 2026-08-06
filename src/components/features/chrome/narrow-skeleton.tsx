@@ -1,6 +1,7 @@
 import { LoadingAnnouncement } from "@/components/features/chrome/loading-announcement";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 // The route-loading frame for the app's SINGLE-COLUMN screens (spec 41's
 // recorded width exceptions): /login, /coming-soon and /profile. Server
@@ -15,27 +16,54 @@ import { Skeleton } from "@/components/ui/skeleton";
 // GROUND flips too, so the whole screen flashes grey→white at the swap.
 //
 // The variant is PageShell's own vocabulary, and both arms have a real caller:
-//   • card — centred on bg-card: /login (max-w-sm card) and /coming-soon (its
-//     unserved-role arm is variant="card", its super_admin OperatorHub arm is
-//     bare+bg-card; both are a max-w-md column on the card ground);
-//   • app  — top-aligned on bg-page: /profile, which is an app-variant page with
-//     a narrow max-w-md column, so a centred card frame would be a NEW mismatch.
+//   • card — centred on bg-card, NO header: /login (a max-w-sm card) and
+//     /coming-soon (three arms — the unserved-role card, the VisitorLanding
+//     card, and the super_admin OperatorHub at bare+bg-card; all a max-w-md
+//     column on the card ground);
+//   • app  — top-aligned on bg-page WITH a sticky-header placeholder: /profile,
+//     which renders DetailHeader above a max-w-md column, so a headerless
+//     centred frame would be a NEW mismatch on the vertical axis.
 //
-// /profile is also the reason this unit is not card-only: /login and
-// /coming-soon are both in the telemetry EXCLUDED_PREFIXES, so their usage is
-// unmeasurable, while /profile is measurably alive (91 route views / 73 sessions
-// / 9 roles in 60 days). A card-only fix would have landed entirely on surfaces
-// whose value cannot be observed.
+// Two residual jumps, disclosed rather than papered over (both far smaller than
+// the ~792px this replaces, and neither is fixable without a knob per screen):
+//   • /login's card is max-w-sm (384) against this column's max-w-md (448);
+//   • /coming-soon's super_admin arm is TOP-aligned (variant="bare") while the
+//     card variant centres, so that one arm still shifts vertically. The other
+//     two arms of that page are centred, so `card` is the majority match.
+//
+// /profile is also the reason this is not card-only: /login and /coming-soon are
+// both in the telemetry EXCLUDED_PREFIXES, so their usage is unmeasurable, while
+// /profile is measurably alive (91 route views / 73 sessions / 9 roles in 60
+// days). A card-only fix would have landed entirely on surfaces whose value
+// cannot be observed.
 export function NarrowSkeleton({ variant }: { variant: "app" | "card" }) {
-  const column =
-    variant === "card"
-      ? "w-full max-w-md space-y-6 text-center"
-      : "mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10";
-
   return (
     <PageShell variant={variant}>
       <LoadingAnnouncement />
-      <div className={column}>
+      {/* The app arm stands in for a page that has a sticky DetailHeader; the
+          card arm's screens have no header at all. Same classes as
+          detail-header.tsx so the strip does not resize at the swap. */}
+      {variant === "app" ? (
+        <header className="border-edge bg-card border-b px-5 py-4">
+          <div className={`mx-auto flex ${PAGE_MAX_W} flex-col gap-3`}>
+            <Skeleton className="bg-sunk h-11 w-11 rounded-full" />
+            <div className="flex items-center gap-4">
+              <Skeleton className="bg-sunk h-16 w-16 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="bg-sunk h-6 w-40" />
+                <Skeleton className="bg-sunk h-4 w-28" />
+              </div>
+            </div>
+          </div>
+        </header>
+      ) : null}
+      <div
+        className={
+          variant === "card"
+            ? "w-full max-w-md space-y-6 text-center"
+            : "mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10"
+        }
+      >
         <Skeleton className="bg-sunk mx-auto h-8 w-48" />
         <Skeleton className="bg-sunk mx-auto h-4 w-64" />
         <Skeleton className="rounded-control bg-sunk h-12 w-full" />

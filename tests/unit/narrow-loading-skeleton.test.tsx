@@ -50,13 +50,27 @@ function shellClassName(variant: "app" | "card"): string {
   return cls;
 }
 
-/** Comments stripped: prose about a variant must not satisfy a source pin. */
+/**
+ * Comments stripped: prose about a variant must not satisfy a source pin, and
+ * all three of these pages open with block-comment prose about their shell.
+ * Whole comment LINES only — a general `/* … *\/` sweep is opened by
+ * `accept="image/*"` and eats real code (the #982 lesson), so this drops lines
+ * that START a JSDoc/banner comment or continue one, never a mid-line string.
+ */
 function sourceOf(...segments: string[]): string {
   return readFileSync(join(APP, ...segments), "utf8")
     .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
     .split("\n")
-    .filter((line) => !line.trimStart().startsWith("//"))
+    .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
     .join("\n");
+}
+
+/** The variant a page's own PageShell call declares — three-way, not a boolean. */
+function declaredVariant(source: string): "app" | "card" | "bare" {
+  const call = source.match(/<PageShell\b[^>]*>/);
+  if (!call) throw new Error("page renders no PageShell — the derivation is vacuous");
+  const explicit = call[0].match(/variant="(app|card|bare)"/);
+  return explicit ? (explicit[1] as "app" | "card" | "bare") : "app";
 }
 
 /**
@@ -106,11 +120,37 @@ describe("NarrowSkeleton — the loading frame for single-column screens", () =>
     expect(container.querySelector(".sr-only")?.textContent?.trim()).toBe(ROUTE_LOADING_MESSAGE);
     expect(container.querySelectorAll(".animate-pulse").length).toBe(4);
   });
+
+  it("the app arm paints a header strip; the card arm does not", () => {
+    // Fresh-eyes catch: /profile renders DetailHeader (sticky, avatar + title)
+    // above its column, so a headerless app frame drops the column ~148px at the
+    // swap — WORSE on the vertical axis than the PageSkeleton it replaced, on
+    // the one boundary here with measurable traffic. /login and /coming-soon
+    // have no header at all, so the card arm must NOT grow one.
+    const app = render(<NarrowSkeleton variant="app" />).container;
+    const card = render(<NarrowSkeleton variant="card" />).container;
+
+    expect(app.querySelectorAll("main > header").length, "the app arm mirrors DetailHeader").toBe(
+      1,
+    );
+    expect(card.querySelectorAll("main > header").length, "card screens have no header").toBe(0);
+    expect(app.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
+      card.querySelectorAll(".animate-pulse").length,
+    );
+  });
 });
 
 describe("the three narrow boundaries use it, with their page's own variant", () => {
   it.each(NARROW_BOUNDARIES)("$route delegates to NarrowSkeleton", ({ Loading, variant }) => {
+    // The shell class alone would also pass for a hand-rolled
+    // `<PageShell variant="…"><LoadingAnnouncement /></PageShell>` with no frame
+    // at all (fresh-eyes catch), so compare the boundary's whole rendered output
+    // to the component's — that is what "delegates" means.
+    const boundary = render(<Loading />).container.innerHTML;
+    const component = render(<NarrowSkeleton variant={variant} />).container.innerHTML;
+
     expect(mainOf(<Loading />).className).toBe(shellClassName(variant));
+    expect(boundary).toBe(component);
   });
 
   it.each(NARROW_BOUNDARIES)("$route keeps the announcement", ({ Loading }) => {
@@ -124,10 +164,14 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
       // The invariant that makes this unit worth shipping: the fallback must not
       // flip the ground colour under the user. Read the page's own shell call —
       // these are async Server Components the suite cannot render.
-      const source = sourceOf(...page);
-      const declared = /<PageShell\s+variant="card"/.test(source) ? "card" : "app";
-
-      expect(declared, `${page.join("/")} renders PageShell variant=${declared}`).toBe(variant);
+      //
+      // Three-way, deliberately: a boolean `card ? card : app` cannot see
+      // `bare`, so switching a page to `variant="bare" className="bg-card"` —
+      // exactly what /coming-soon's OperatorHub arm does — would flip the ground
+      // under the user with the pin still green (fresh-eyes catch).
+      expect(declaredVariant(sourceOf(...page)), `${page.join("/")}'s own PageShell call`).toBe(
+        variant,
+      );
     },
   );
 });

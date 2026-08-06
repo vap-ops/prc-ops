@@ -306,11 +306,17 @@ the variant its PAGE renders — pinned in
 [narrow-loading-skeleton.test.tsx](../tests/unit/narrow-loading-skeleton.test.tsx),
 which reads the page's own `PageShell` call so the two cannot drift:
 
-| boundary       | variant | because the page is                                                                                                  |
-| -------------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
-| `/login`       | `card`  | `variant="card"`, `max-w-sm` centred                                                                                 |
-| `/coming-soon` | `card`  | `variant="card"` (unserved roles) / `bare`+`bg-card` (super_admin hub) — both a `max-w-md` column on the card ground |
-| `/profile`     | `app`   | an APP-variant page with a `max-w-md` column — a centred card frame would be a NEW mismatch                          |
+| boundary       | variant | because the page is                                                                                                                                                                                     |
+| -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`       | `card`  | `variant="card"`, `max-w-sm` centred, no header                                                                                                                                                         |
+| `/coming-soon` | `card`  | THREE arms — the unserved-role card, `VisitorLanding`'s card, and the super_admin `OperatorHub` at `bare`+`bg-card`; all a `max-w-md` column on the card ground, none with a header                     |
+| `/profile`     | `app`   | an APP-variant page with a `max-w-md` column **under a sticky `DetailHeader`** — so the app arm paints a header strip too; a centred headerless card frame would be a NEW mismatch on the vertical axis |
+
+⚠️ **Two residual jumps, disclosed rather than papered over** (both far smaller than the
+~792px they replace, and neither fixable without a knob per screen): `/login`'s card is
+`max-w-sm` (384) against the frame's `max-w-md` (448); and `/coming-soon`'s super_admin arm
+is TOP-aligned (`variant="bare"`) while the card variant centres, so that one arm still
+shifts vertically. The page's other two arms are centred, so `card` is the majority match.
 
 ⚠️ **Not card-only, and the measurement is why:** `/login` and `/coming-soon` are both in
 the telemetry `EXCLUDED_PREFIXES` (`src/lib/telemetry/scope.ts`), so their usage is
