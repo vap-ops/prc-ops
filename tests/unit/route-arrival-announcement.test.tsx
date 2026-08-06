@@ -44,6 +44,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { RouteAnnouncer } from "@/components/features/chrome/route-announcer";
+import { APP_NAME } from "@/lib/ui/app-title";
 import {
   APP_TITLE_SUFFIX,
   ROUTE_LOADING_MESSAGE,
@@ -68,7 +69,7 @@ describe("pageNameFromTitle — what a destination is called", () => {
     // Measured on /contacts: document.title is the bare default "PRC Ops" and
     // there is no <h1> at all. Announcing the app's name tells the listener
     // nothing about where they landed, so this stays silent.
-    expect(pageNameFromTitle("PRC Ops")).toBe("");
+    expect(pageNameFromTitle(APP_NAME)).toBe("");
     expect(pageNameFromTitle("")).toBe("");
     expect(pageNameFromTitle("   ")).toBe("");
   });
@@ -437,7 +438,7 @@ describe("<RouteAnnouncer> watches the document title for arrivals", () => {
     await act(async () => {});
 
     await act(async () => {
-      document.title = "PRC Ops";
+      document.title = APP_NAME;
     });
 
     expect(

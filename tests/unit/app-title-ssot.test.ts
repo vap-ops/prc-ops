@@ -61,6 +61,24 @@ describe("app title SSOT", () => {
     expect(APP_TITLE_TEMPLATE).toContain("%s");
   });
 
+  it("DERIVES them in source — the value check above cannot see a re-hardcoded literal", () => {
+    // A mutation proved the assertion above is tautological on its own: writing
+    // `APP_TITLE_SUFFIX = " — PRC Ops"` back as a literal still equals
+    // `${SEPARATOR}${NAME}` while the values happen to match, which is exactly
+    // the defect this whole unit exists to remove — one level down. Only the
+    // source can distinguish "composed" from "coincidentally equal".
+    const ssot = read("src/lib/ui/app-title.ts");
+    expect(
+      ssot,
+      "APP_TITLE_SUFFIX is not composed from APP_NAME — a rename would leave it behind",
+    ).toMatch(/APP_TITLE_SUFFIX\s*=\s*`\$\{APP_TITLE_SEPARATOR\}\$\{APP_NAME\}`/);
+    expect(ssot, "APP_TITLE_TEMPLATE is not composed from APP_TITLE_SUFFIX").toMatch(
+      /APP_TITLE_TEMPLATE\s*=\s*`%s\$\{APP_TITLE_SUFFIX\}`/,
+    );
+    // APP_NAME is the only place the product's name may appear as a literal.
+    expect(ssot.split(APP_NAME).length - 1, "the name appears more than once in the SSOT").toBe(1);
+  });
+
   it("round-trips: a title rendered through the real template announces the page's own name", () => {
     // This is the assertion the old one only appeared to make. It is meaningful
     // ONLY because the layout is pinned below to use this same template — the
@@ -105,15 +123,15 @@ describe("the root layout consumes that SSOT rather than re-declaring it", () =>
     // Symmetric to the layout pin. Guarding only the writer leaves the other
     // half of the original defect open: route-announcement.ts could hard-code
     // the suffix again and a rename would strip nothing.
+    // Match the NAME anywhere, not the exact suffix string: a mutation wrote
+    // the trimmed `"— PRC Ops"` and slipped straight past an equality check on
+    // `" — PRC Ops"`. Comments are stripped above, so any surviving occurrence
+    // is a real literal.
     const announcement = read("src/lib/ui/route-announcement.ts");
     expect(
-      announcement.includes(`"${APP_NAME}"`),
-      "route-announcement.ts hard-codes the app name again — import it from " +
+      announcement.includes(APP_NAME),
+      `route-announcement.ts contains the literal "${APP_NAME}" — import it from ` +
         "@/lib/ui/app-title so a rename cannot leave the stripper behind",
-    ).toBe(false);
-    expect(
-      announcement.includes(`"${APP_TITLE_SUFFIX}"`),
-      "route-announcement.ts hard-codes the title suffix again",
     ).toBe(false);
     expect(announcement).toContain("@/lib/ui/app-title");
   });
