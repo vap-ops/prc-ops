@@ -12551,6 +12551,85 @@ correct polite announcement exists. ③ Still carried from #983: the region does
 identical consecutive announcements (`queueMicrotask`), so a reader that suppresses byte-identical
 repeats may not speak the second.
 
+## 2026-08-06 — `NarrowSkeleton`: the single-column screens get their own frame (lane cardskel)
+
+**The unit the previous one recorded** — operator asked for it directly after reading the
+finding. `/login`, `/coming-soon` and `/profile` are §5's recorded width exceptions (a
+`max-w-sm`/`max-w-md` column), but their loading boundary delegated to `PageSkeleton`, which
+paints a header strip and list rows at `PAGE_MAX_W`.
+
+**Measured on `/coming-soon` at 1280×800**, fallback and resolved page both present in one
+DOM: the fallback's container was **1240px on `bg-page`**, the page's **448px on `bg-card`**.
+**Width is the smaller half — the GROUND flips**, so the whole screen flashes grey→white at
+the swap. That is the part a width-only fix could never have addressed.
+
+**The inherited list was checked, not trusted, and it was wrong in two places.** The previous
+review named "/login, /coming-soon, /profile — all `PageShell variant="card"`". Live at HEAD:
+`/profile` is an **app**-variant page (`PageShell` default, `bg-page`) with a narrow column,
+so a centred card frame would have been a NEW mismatch there; and `/coming-soon` has **three**
+arms (`variant="card"` for unserved roles, `VisitorLanding`'s own card, and
+`variant="bare"`+`bg-card` for the super_admin OperatorHub) — all a `max-w-md` column on the
+card ground, so one variant covers them. `/register` was also on the suspect list and is NOT
+narrow: its boundary covers `/register/office` and `/register/technician`, which render
+`StaffRegisterWorkspace` at `PAGE_MAX_W`.
+
+**Built.** `NarrowSkeleton({ variant })` takes PageShell's own vocabulary — `card` (centred on
+`bg-card`: `/login`, `/coming-soon`) and `app` (top-aligned on `bg-page`: `/profile`) — and
+both arms have a real caller, so the prop is not speculative generality.
+
+**🔔 Scope call, stated plainly: this is NOT card-only, and the measurement is the reason.**
+`/login` and `/coming-soon` both sit in the telemetry `EXCLUDED_PREFIXES`
+(`src/lib/telemetry/scope.ts`), so their usage is **unmeasurable — not zero**; I initially
+read `/coming-soon`'s zero rows as "dead" before checking whether the instrument covers it,
+which is the house trap. `/profile` IS measurable and alive: **91 route views / 73 sessions /
+9 roles in 60 days, latest 2026-08-05.** A card-only unit would have landed entirely on
+surfaces whose value cannot be observed, so the app arm shipped with them.
+
+**Verified after, in the browser.** `/coming-soon`: fallback column **448px on `bg-card`**
+against the page's 448px on `bg-card` — both axes matched. `/profile`: the fallback's column
+class string is **byte-identical** to the page's own
+(`mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10`), same ground, both 448px.
+
+**Pinned.** `narrow-loading-skeleton.test.tsx`: each arm's `<main>` equals `PageShell`'s own
+rendered class string for that variant (read off the component); the column is `max-w-md` and
+never the page width; the app arm paints a header strip and the card arm does not; the
+announcement survives on all three boundaries; and — the invariant that makes the unit worth
+shipping — **each boundary's variant is asserted against the variant its PAGE renders**, read
+from the page source with comments stripped, because those are async Server Components the
+suite cannot render. Mutants killed on both variant swaps, the widened column, and the deleted
+announcement.
+
+**The fresh-eyes pass found two 🔴 and I had missed both.** ① **The suite was RED and I said it
+was green** — `route-loading-announcement.test.tsx` has a repo-wide "every boundary renders an
+announcement" scan whose carrier list was the hand-typed literal
+`/<PageSkeleton \/>|<LoadingAnnouncement \/>/`, so the moment three boundaries moved onto
+`NarrowSkeleton` it reported them mute. I had run "the four affected test files" and picked the
+wrong four. ⭐ **Fixed at the class, not the instance: the carrier set is now DERIVED — any
+chrome component whose own source renders `<LoadingAnnouncement />` counts — with a positive
+control that the derivation is non-empty. A hand-typed allowlist of carriers is the same defect
+the scan exists to catch, one level up.** ② **`/profile` renders a sticky `DetailHeader` above
+its column**, and my first app arm was the column alone: at the swap it would have dropped
+~148px and a white strip would have materialised — i.e. the VERTICAL axis got worse on the one
+boundary with measurable traffic, in a unit fixing the horizontal one. The app arm now mirrors
+`DetailHeader`'s own classes. ⭐ **Carry: "the fallback's column className is byte-identical to
+the page's" is a claim about ONE axis — identical classes at a different `y` are still a jump.
+Compare the whole frame, not the piece the change was about.**
+
+**Also from that review, fixed:** the boundary pin compared only the shell class, so a
+hand-rolled `<PageShell variant="…"><LoadingAnnouncement /></PageShell>` with no frame passed —
+it now compares the boundary's whole rendered output to the component's · the page-variant
+derivation was a boolean (`card` else `app`), blind to `bare`, so switching a page to
+`variant="bare" className="bg-card"` would have flipped the ground with the pin green — now
+three-way, and a page with no `PageShell` throws · the comment stripper missed plain `/* … */`
+banners, which all three pages open with · stale delegation counts (44 → 41 of 45) in
+`page-skeleton.tsx`, `loading-announcement.tsx` and `page-skeleton-shell.test.tsx` · the ⚠️
+block in `page-skeleton.tsx` still described these three as delegating to it.
+
+**Residual jumps, disclosed not hidden:** `/login`'s card is `max-w-sm` (384) against the
+frame's `max-w-md` (448); `/coming-soon`'s super_admin arm is top-aligned (`bare`) while the
+card variant centres. Both are recorded in `docs/ui-conventions.md` §8 rather than fixed with a
+per-screen knob.
+
 ## 2026-08-06 — Page titles: two real ones, and a guard (lane a11ytitles)
 
 **Closes ① from the arrival unit — and corrects it.** [#986](https://github.com/vap-ops/prc-ops/pull/986)

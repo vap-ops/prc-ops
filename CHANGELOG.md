@@ -1,3 +1,13 @@
+# [0.343.0](https://github.com/vap-ops/prc-ops/compare/v0.342.0...v0.343.0) (2026-08-06)
+
+### Bug Fixes
+
+- close the fresh-eyes findings on the narrow skeleton ([3e1d450](https://github.com/vap-ops/prc-ops/commit/3e1d4508421c87f778bfabaaec958e301c79e63c))
+
+### Features
+
+- **chrome:** a narrow loading skeleton for the single-column screens ([c591b3c](https://github.com/vap-ops/prc-ops/commit/c591b3c4650b3e1335de2a622c8b0333041fa2f9))
+
 # [0.342.0](https://github.com/vap-ops/prc-ops/compare/v0.341.1...v0.342.0) (2026-08-06)
 
 ### Bug Fixes
