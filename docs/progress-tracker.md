@@ -13443,3 +13443,59 @@ assertions**. Live today: 0 of 228 closed sessions are inverted, so the hole is 
 instance. ⚠️ The migration was re-applied with `db query -f` (it is `create or replace` throughout, so
 replay is idempotent) — the recorded `schema_migrations.statements` for `20260813075915` therefore
 predates that edit; the FILE is what a fresh database and CI run, and pgTAP certifies the live objects.
+
+## 2026-08-06 — spec 400 U3c (schema half): the add-person picker can finally see a team (lane u3c)
+
+`20260813075916_spec400u3c_list_muster_teams.sql` adds `list_muster_teams_for_day(project, date)`.
+
+**The blocker it clears is U3b's finding 2.** U3a widened `muster_scan_in` to `procurement` and U4 gave
+a correction a real `in_at`, so the WRITE is complete — but every write takes `p_team`, `muster_teams`
+RLS is a single `can_see_project(project_id)` policy, and that helper falls to `else false` for
+`procurement`. A team picker on the session client is therefore EMPTY for 4 of the 5 people U3a widened
+the write for. That is why U3b shipped without add-person.
+
+⭐ **The seam was chosen by PRECEDENT, not taste.** `procurement` already reads every project's
+attendance through `audit_attendance_summary` / `audit_attendance_detail`, both SECURITY DEFINER — so a
+definer listing RPC adds no new kind of trust. The two alternatives were weighed and written down: an
+admin-client (service-role) read moves a real authorization decision out of the database into TS where
+no pgTAP can drive it over the role domain, and widening `muster_teams` RLS would widen the table for
+every existing reader that joins it — the shape spec 400 U2 already paid for (a surface joining a TABLE
+read to an RPC read inherits the WIDER of the two gates).
+
+**Gate and scope are two separate role lists**, copied verbatim from `muster_correct_session`: gate =
+`{super_admin, procurement_manager, procurement}` (the correction audience — `site_admin` is absent
+because she reads `muster_teams` through RLS already and has no surface here); scope = `can_see_project`
+except `procurement`, which is cross-project. An unseeable project is a REFUSAL, not an empty list —
+an empty list reads as "that day had no teams", which is a different fact and the one a corrector would
+act on.
+
+**Each row carries the lead's name, headcount and kind.** Live, a project-day carries one team on 7 days
+and 2–5 on 10, so an "only one team, auto-pick" shortcut would cover 41% and strand the rest — a picker
+is genuinely required, and a picker of unlabelled uuids is not a choice.
+
+**Gates.** RED first for the right reason (`function ... does not exist`). New
+`400c-list-muster-teams.test.sql` **22/22**, `plan(22)` grep-derived; suite 358 of 359 files pass.
+**4 mutants, each killed by its own assertion**: the cross-project arm removed (aborts the file at the
+first procurement call), the headcount's `where a.team_id = t.id` dropped (#9, #10), `left join`
+narrowed to `join` (#12), `site_admin` added to the gate (#16).
+
+⭐ **The LEFT-join mutant would have survived the first draft of the test**, because the fixture had no
+office team — and zero office teams exist in production, so nothing would have caught an inner join
+until the first one was created. Added a lead-less office team on its own date. This is spec 397 U4's
+defect exactly: there an inner join turned "they are in the office team" into "somewhere elsewhere".
+
+⚠️ **`db:push` refused (`Remote migration versions not found in local migrations directory`)** because
+this branch is off a `main` that does not yet carry U4's `20260813075915`. Applied with `db query -f`
+plus `migration repair --status applied 20260813075916` — only this lane's own version was touched; the
+CLI's suggested `--status reverted 20260813075915` is the thing doctrine forbids.
+
+⚠️ **`306-muster.test.sql` reds on this branch and it is NOT this unit's fault** — it is main's old copy
+asserting the SA can scan out of a past-day team, which U4's live `muster_scan_out` now refuses. It goes
+green the moment #1005 lands. Reproducing it on a second branch is the direct confirmation that the
+merge queue is jammed on #1005 rather than on anything here.
+
+**Open questions.** ① The UI half (the panel's add-person form: team picker, worker picker, time input,
+calling `muster_correct_session`) is NOT built — it is U3c-b. ② The worker picker needs no new read:
+`workers` is readable by `procurement` under the live policy, and "already mustered that day" is already
+loaded by the grid. ③ **This PR must merge AFTER #1005** — main would otherwise carry `075916` without
+`075915`.
