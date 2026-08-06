@@ -32,9 +32,9 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 //   • ~~/coming-soon's super_admin arm is TOP-aligned while the card variant
 //     centres~~ CLOSED 2026-08-06: `card` now centres with auto margins rather
 //     than `items-center` (which clipped tall content), so that arm adopted it
-//     and all three agree. ⚑ The hub keeps its own `py-10`, which this frame
-//     does not — invisible while content is centred, a 40px step once the hub
-//     overflows.
+//     and all three agree, including their padding: the hub's own `py-10` moved
+//     into the variant, so this frame inherits it and the two <main> class
+//     strings are byte-identical.
 //
 // /profile is also the reason this is not card-only: /login and /coming-soon are
 // both in the telemetry EXCLUDED_PREFIXES, so their usage is unmeasurable, while

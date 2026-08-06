@@ -42,13 +42,23 @@ const VARIANT_CLASSES: Record<PageShellVariant, string> = {
    * arm's history is not evidence of it.) With centring made safe, the arm now
    * uses this variant and the three agree.
    *
+   * `py-10` belongs here rather than on a caller: auto margins collapse to 0 when
+   * a card overflows, so without it the content would touch the viewport edge —
+   * and a caller-side `py-10` is invisible to that screen's loading fallback,
+   * which is exactly the 40px step /coming-soon's hub used to carry.
+   *
    * ⚠️ `[&>*]:m-auto` is emitted LAST at equal specificity, so it beats every
    * margin utility a child sets — `mx-auto` (same result), `.sr-only`'s
    * `margin:-1px`, and any future `mt-*`/`m-0`. A card child that needs its own
    * margin must set it on an inner element.
    */
-  card: "flex items-start justify-center bg-card px-6 [&>*]:m-auto",
-  /** Caller supplies the rest (profile, coming-soon hub). */
+  card: "flex items-start justify-center bg-card px-6 py-10 [&>*]:m-auto",
+  /**
+   * Caller supplies the rest. ⚠️ ZERO production callers as of 2026-08-06 —
+   * `/profile` renders the default `app` and /coming-soon's hub moved to `card`.
+   * Kept as API surface (and pinned by page-shell.test.tsx); if it is still
+   * unused the next time someone reads this, delete it.
+   */
   bare: "",
 };
 

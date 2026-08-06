@@ -12953,3 +12953,36 @@ defect this unit fixes.
 
 ⚠️ **jsdom cannot see any of this** — the pins are class contracts; the evidence is the browser
 measurement above, same as #982's scroller fix.
+
+## 2026-08-06 — The card variant owns its padding, and a vacuous pin gets repaired (lane cspad)
+
+**The last recorded residual.** `/coming-soon`'s OperatorHub arm carried `className="py-10"`; the
+loading fallback could not see it, so the two stepped 40px apart the moment that arm overflowed.
+**`py-10` moved into the `card` variant** and the arm's `className` is gone, so page and fallback
+now render **byte-identical `<main>` class strings** (verified live: `shellClassesIdentical: true`
+with both mains in one DOM).
+
+**It earns its keep everywhere, not just for parity.** Auto margins collapse to 0 when a card
+overflows — which is the whole point of the #996 fix — so without vertical padding an overflowing
+card's content touches the viewport edge. Measured with the shipped class string: a 900px card in
+a 600px scroller now sits at top **40** with `scrollHeight` **980** (= 900 + 2×40) and `maxScroll`
+380, all reachable; a short 300px card is unchanged at top 150.
+
+**🚨 And the pin that should have caught this was VACUOUS — my own, shipped in #996.** The
+"no arm overrides its shell ground" loop read
+`/<PageShell\b[^>]*?>/` — except the `\b` was a literal **backspace character (0x08)**, written
+by a `node -e '…\\b…'` through bash. It matched nothing, so the loop body never executed and the
+assertion passed over an empty set. Repaired here (swept the whole repo: `src/`, `tests/`, `docs/`
+— that file was the only one carrying stray control characters), and **widened while repairing**:
+no arm of a narrow screen may pass `className` **at all**, because anything a screen needs belongs
+in the variant where its fallback inherits it. The RED run named the offender exactly
+(`app/coming-soon/page.tsx extends its shell with a className the fallback cannot see`).
+
+⭐ **Carry: a regex assembled through a shell can be silently corrupted into one that matches
+nothing — and a `not.toMatch` over an empty set is green.** Build regexes with the file tools, and
+when a scan-style pin lands, check it can still SEE its subject (the same "assert the scan matched
+something" rule, applied to the pattern rather than the file list).
+
+**Also fixed:** `bare`'s docstring still named `/profile` and the coming-soon hub — it now has
+**zero** production callers, recorded in the variant itself with an instruction to delete it if
+the next reader finds it still unused.

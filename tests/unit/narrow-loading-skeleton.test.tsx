@@ -264,11 +264,23 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
       for (const arm of arms) {
         const source = sourceOf(arm);
         expect(declaredVariant(source), `${arm}'s own PageShell call`).toBe(variant);
-        // The variant alone does not fix the ground: `variant="card" className="bg-page"`
-        // flips it back with the pin above still green (fresh-eyes catch), so no arm
-        // may override the surface its variant supplies.
-        for (const call of source.match(/<PageShell[^>]*?>/g) ?? []) {
-          expect(call, `${arm} overrides its shell ground`).not.toMatch(/className="[^"]*bg-/);
+        // Writing failing test first (2026-08-06). The variant is not the whole
+        // shell: an arm may also pass `className`, and the fallback cannot see it.
+        // `className="bg-page"` flips the ground with the variant pin still green
+        // (fresh-eyes catch), and `className="py-10"` — which the OperatorHub arm
+        // carried — put a 40px step between page and fallback the moment that arm
+        // overflowed. So NO arm may extend its shell: what these screens need goes
+        // in the VARIANT, where the fallback inherits it too (`py-10` moved there
+        // in this unit).
+        //
+        // ⚠️ This loop was DEAD until now — `/<PageShell\b…/` carried a literal
+        // backspace (0x08), written by a `node -e '…\\b…'` through bash, so it
+        // matched nothing and the assertion passed over an empty set.
+        for (const call of source.match(/<PageShell\b[^>]*?>/g) ?? []) {
+          expect(
+            call,
+            `${arm} extends its shell with a className the fallback cannot see`,
+          ).not.toMatch(/className=/);
         }
       }
     },

@@ -68,6 +68,12 @@ describe("PageShell", () => {
     expect(main?.className, "auto margins centre only inside a flex container").toContain("flex");
     expect(main?.className).toContain("items-start");
     expect(main?.className).toContain("justify-center");
+    // `py-10` lives HERE, not on a caller's className: auto margins collapse to 0
+    // when a card overflows, so without it the content would touch the viewport
+    // edge — and a caller-side `py-10` (which /coming-soon's hub used to carry)
+    // is invisible to the loading fallback, putting a 40px step between the two
+    // the moment that screen overflows. In the variant, the fallback inherits it.
+    expect(main?.className, "overflow breathing room belongs to the variant").toContain("py-10");
     expect(main?.className).toContain("bg-card");
     expect(main?.className).not.toContain("bg-page");
   });
