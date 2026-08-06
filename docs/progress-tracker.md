@@ -12894,6 +12894,16 @@ reach any of these paths. On the operator's own `ผังโซน` map, agains
 
 Zero page errors; cleanup re-read `remaining: 0`.
 
+⭐ **TWO house guards caught what the reviewer did not, and both catches were mine to own.**
+① `design-doctrine.test.ts` bans `window.confirm` outright (spec 18 — destructive actions use the
+themed `ConfirmDialog`), so the "real confirm" round 1 added was the native dialog. ② The
+**honest-copy ratchet** reds on any new `ลองใหม่` occurrence and demands a justification in the
+ledger: the canvas's `SAVE_FAILED` is reached only from the round trip's `.catch`, and a REJECTION
+is not a refusal — a dropped connection, a 500, or a stale server-action id after a deploy all
+succeed on retry, while the action's resolved refusals pass their own non-retry copy through
+untouched. Ledger raised 236→237 and 109→110 with that reasoning written in beside it.
+**Neither guard was in the review's field of view. The suite is the reviewer of last resort.**
+
 **Open questions.** ① The `หลายเหลี่ยม` tool always produces exactly four corners and there is no
 add- or remove-vertex affordance, so `ZONE_POLYGON_MAX_POINTS = 200` is unreachable from the UI —
 the vertices are draggable, so it is a real quadrilateral, but the label promises more than the
