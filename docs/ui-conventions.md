@@ -343,7 +343,9 @@ gone, the hub arm adopts `card` and all three arms — and the fallback — agre
 **Every `card` screen gained the fix:** `/login`, `/coming-soon`, `error.tsx`, `not-found.tsx`,
 `page.tsx`, `visitor-landing.tsx` and `narrow-skeleton.tsx` — the loading frame, and the only
 caller passing two children, which is what `[&>*]` had to be checked against.
-✅ **The `py-10` step is closed too (2026-08-06):** the hub used to carry its own `className="py-10"`,
+✅ **The `py-10` step is closed too (2026-08-06)** — and note the caveat under "Short content is
+byte-identical" above: that holds while free space is ≥ 80px; a card between (viewport − 80) and
+the viewport now scrolls a little instead of running edge-to-edge. the hub used to carry its own `className="py-10"`,
 which the fallback could not see — invisible while content is centred, a 40px step the moment that
 arm overflowed. The padding now lives in the VARIANT, so page and fallback inherit it together and
 their `<main>` class strings are byte-identical. It also earns its keep everywhere: auto margins

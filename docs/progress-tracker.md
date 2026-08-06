@@ -12968,7 +12968,9 @@ card's content touches the viewport edge. Measured with the shipped class string
 a 600px scroller now sits at top **40** with `scrollHeight` **980** (= 900 + 2×40) and `maxScroll`
 380, all reachable; a short 300px card is unchanged at top 150.
 
-**🚨 And the pin that should have caught this was VACUOUS — my own, shipped in #996.** The
+**🚨 Two separate defects, and conflating them would teach the wrong lesson.** The WIDENING is what
+catches a stray `py-10`; the #996 pin banned only `className="…bg-…"`, so even an uncorrupted
+version would have passed it. Separately — and worse — that pin was **VACUOUS**: the
 "no arm overrides its shell ground" loop read
 `/<PageShell\b[^>]*?>/` — except the `\b` was a literal **backspace character (0x08)**, written
 by a `node -e '…\\b…'` through bash. It matched nothing, so the loop body never executed and the
@@ -12981,7 +12983,27 @@ in the variant where its fallback inherits it. The RED run named the offender ex
 ⭐ **Carry: a regex assembled through a shell can be silently corrupted into one that matches
 nothing — and a `not.toMatch` over an empty set is green.** Build regexes with the file tools, and
 when a scan-style pin lands, check it can still SEE its subject (the same "assert the scan matched
-something" rule, applied to the pattern rather than the file list).
+something" rule, applied to the pattern rather than the file list). That check is now an
+ASSERTION in the loop, not an accident of `declaredVariant` throwing first — a reviewer pointed
+out the non-vacuity was inherited, so reordering the two assertions would have silently restored
+the defect.
+
+**📊 The trade the padding buys, measured across the band a reviewer named** (375×667, the
+card height sweeping the range where it used to fit exactly):
+
+| card height | before                        | after                         |
+| ----------- | ----------------------------- | ----------------------------- |
+| 560         | top 54, no scroll             | top 54, no scroll — identical |
+| 600         | top 34, no scroll             | top 40, scrolls 13px          |
+| 640         | top 14, no scroll             | top 40, scrolls 53px          |
+| 667         | top **0** (flush to the edge) | top 40, scrolls 80px          |
+
+So "unchanged for short content" holds only while free space is ≥ 80px; between there and the
+viewport height a card that used to fit now scrolls a little, and in exchange stops running
+edge-to-edge. That is the intended trade, stated rather than hidden. ⚑ **The 40px itself is
+inherited from the hub's pre-PageShell markup — nothing measured justifies 40 over 24 for
+`/login`, `not-found` or the root dispatcher; it is consistency with the one screen that already
+had a value, not a derived number.**
 
 **Also fixed:** `bare`'s docstring still named `/profile` and the coming-soon hub — it now has
 **zero** production callers, recorded in the variant itself with an instruction to delete it if

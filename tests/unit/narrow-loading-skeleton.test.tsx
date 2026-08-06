@@ -273,10 +273,22 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
         // in the VARIANT, where the fallback inherits it too (`py-10` moved there
         // in this unit).
         //
-        // ⚠️ This loop was DEAD until now — `/<PageShell\b…/` carried a literal
-        // backspace (0x08), written by a `node -e '…\\b…'` through bash, so it
-        // matched nothing and the assertion passed over an empty set.
-        for (const call of source.match(/<PageShell\b[^>]*?>/g) ?? []) {
+        // ⚠️ This loop was DEAD — `/<PageShell\b…/` carried a literal backspace
+        // (0x08) instead of the escape, written by a `node -e '…\\b…'` through
+        // bash, so it matched nothing and the assertion passed over an empty
+        // set. Repaired, and the non-vacuity is now ASSERTED rather than
+        // inherited from `declaredVariant` throwing first: a `not.toMatch` over
+        // zero matches is green, so the pattern must be shown to see its subject
+        // (the house "a zero-match scan is an ABORT, not a pass" rule, applied
+        // to the pattern rather than the file list).
+        //
+        // Declared limits: it reads source TEXT over a hardcoded `arms` list, so
+        // a fourth arm in a new file, or `<PageShell {...props}>`, is invisible.
+        // The ban is also deliberately narrow-screens-only — `PageShell
+        // className={PAGE_MAX_W}` is legitimate elsewhere (accounting/review).
+        const calls = source.match(/<PageShell\b[^>]*?>/g) ?? [];
+        expect(calls.length, `${arm}: the PageShell scan matched nothing`).toBeGreaterThan(0);
+        for (const call of calls) {
           expect(
             call,
             `${arm} extends its shell with a className the fallback cannot see`,

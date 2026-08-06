@@ -42,7 +42,9 @@ const VARIANT_CLASSES: Record<PageShellVariant, string> = {
    * arm's history is not evidence of it.) With centring made safe, the arm now
    * uses this variant and the three agree.
    *
-   * `py-10` belongs here rather than on a caller: auto margins collapse to 0 when
+   * `py-10` is inherited from the hub's pre-PageShell markup — consistency with the
+   * one screen that already had a value, not a derived number — and it belongs
+   * HERE rather than on a caller: auto margins collapse to 0 when
    * a card overflows, so without it the content would touch the viewport edge —
    * and a caller-side `py-10` is invisible to that screen's loading fallback,
    * which is exactly the 40px step /coming-soon's hub used to carry.
