@@ -31,9 +31,9 @@
 // waiting is not an emergency, not because something else will speak first.
 
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { readFileSync, readdirSync } from "node:fs";
+import { globSync, readFileSync, readdirSync } from "node:fs";
 import { renderToString } from "react-dom/server";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { RouteAnnouncer } from "@/components/features/chrome/route-announcer";
@@ -332,11 +332,27 @@ describe("the region is mounted ONCE, in the root layout", () => {
     // The negative rule above forbids the wrong shape but permits NO shape:
     // without this, a new bespoke loading.tsx — or one refactored onto some
     // other skeleton — ships mute and the whole suite stays green. That is
-    // exactly how /portal shipped silent for months. Only two sources are
-    // rendered by any test, so the other 38 boundaries are covered by this scan
-    // alone; #979's six new ones are covered the moment they land.
+    // exactly how /portal shipped silent for months.
+    //
+    // The carrier set is DERIVED, not hand-listed (2026-08-06): the original
+    // form named `<PageSkeleton />` and `<LoadingAnnouncement />` literally, so
+    // the moment three boundaries moved onto NarrowSkeleton — a component that
+    // renders the announcement — this scan reported them mute. A hand-typed
+    // allowlist of carriers is the same defect it exists to catch, one level up.
+    // So: any chrome component whose own source renders <LoadingAnnouncement />
+    // counts as a carrier, and a boundary is covered if it renders the leaf
+    // directly or any carrier.
+    const carriers = globSync("src/components/features/chrome/*.tsx")
+      .filter((f) => /<LoadingAnnouncement\s*\/>/.test(readFileSync(f, "utf8")))
+      .map((f) => basename(f, ".tsx").replace(/(^|-)([a-z])/g, (_, __, c) => c.toUpperCase()));
+    expect(
+      carriers,
+      "no component renders <LoadingAnnouncement /> — the carrier derivation is vacuous",
+    ).toContain("PageSkeleton");
+
+    const carried = new RegExp(`<(?:LoadingAnnouncement|${carriers.join("|")})[\\s/>]`);
     const mute = allLoadingSources()
-      .filter(({ src }) => !/<PageSkeleton \/>|<LoadingAnnouncement \/>/.test(src))
+      .filter(({ src }) => !carried.test(src))
       .map(({ file }) => file);
 
     expect(

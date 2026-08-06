@@ -238,8 +238,13 @@ export function attendanceWorkerId(
  * expanded into rows that all said ยังไม่เช็คออก — the exact wording the summary
  * had deliberately rejected, and with no way to tell today's normal open session
  * from yesterday's real gap.
+ *
+ * Spec 400 U1 widened the PARAMETER (not the rule) to the field it actually
+ * reads, so the grid — whose cell is a merged DATE, not a session row — calls
+ * this same function instead of re-deriving the wording a third time. Every
+ * existing caller passes a full row and still type-checks.
  */
-export function openSessionLabel(row: AttendanceDetailRow, todayIso: string): string {
+export function openSessionLabel(row: { workDate: string }, todayIso: string): string {
   return row.workDate >= todayIso ? "ยังอยู่ในงาน" : "ยังไม่เช็คออก";
 }
 

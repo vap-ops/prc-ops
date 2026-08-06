@@ -2,7 +2,8 @@
 //
 // UX-audit G8 follow-up, recorded by lane portalsr on #980 and MEASURED here
 // before being built: page-skeleton.tsx hand-rolled `<main class="bg-page
-// min-h-screen overflow-x-clip">`, and 44 of the app's 45 loading.tsx files
+// min-h-screen overflow-x-clip">`, and 44 of the app's 45 loading.tsx files (41 today — three moved to
+// narrow-skeleton.tsx)
 // delegate to it — so 44 loading boundaries rendered a <main> that is not a
 // scroller under a body the root layout locks (h-full overflow-hidden, spec 64).
 //
@@ -37,6 +38,7 @@ import { join } from "node:path";
 
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { PageSkeleton } from "@/components/features/chrome/page-skeleton";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 const SKELETON_SRC = join(
   process.cwd(),
@@ -112,8 +114,41 @@ describe("PageSkeleton renders the page scroller (UX-audit G8 follow-up)", () =>
     ).not.toContain("min-h-screen");
   });
 
+  it("mirrors the page width — each container's width IS PAGE_MAX_W and nothing else", () => {
+    // Writing failing test first (2026-08-06, operator sign-off on the
+    // 65-consolidation queue entry). The skeleton stands in for a real page, so a
+    // width it does not share is a horizontal JUMP at the fallback→content swap.
+    // Measured on ONE route with both states in the same DOM (/dashboard, real
+    // root layout): at 1280×800 the fallback's containers were 768px against the
+    // page's 1240 — a 472px jump; 768 vs 860 at 900; and in the 672–768 band the
+    // old cap was the VIEWPORT while the page sat at max-w-2xl (at 760: skeleton
+    // 760, page 672). Only below 672 did the two already agree.
+    //
+    // Two shapes this pin has to resist, both fresh-eyes findings:
+    // ① a COUNT does not pin POSITION — the centred containers are addressed by
+    //    their place in the anatomy (the header strip's inner div, and the content
+    //    div directly under <main>), so moving one onto an inner Skeleton reds;
+    // ② `toContain(PAGE_MAX_W)` + "no max-w-3xl" is satisfied by
+    //    `max-w-5xl ${PAGE_MAX_W}`, which is the ui-conventions §5 hazard exactly
+    //    (two utilities for one CSS property; the GENERATED stylesheet's order
+    //    picks the winner, not the className's). So assert the max-w-* token SET,
+    //    read off PAGE_MAX_W itself and never re-typed.
+    const { container } = render(<PageSkeleton />);
+
+    const expected = PAGE_MAX_W.split(" ");
+    const widthsOf = (el: Element | null) => (el?.className ?? "").match(/\S*max-w-\S+/g) ?? [];
+
+    const headerInner = container.querySelector("main > header > .mx-auto");
+    const content = container.querySelector("main > .mx-auto");
+    expect(headerInner, "the header strip's centred container").not.toBeNull();
+    expect(content, "the content container directly under <main>").not.toBeNull();
+
+    expect(widthsOf(headerInner), "header strip width is exactly PAGE_MAX_W").toEqual(expected);
+    expect(widthsOf(content), "content width is exactly PAGE_MAX_W").toEqual(expected);
+  });
+
   it("still announces itself and still paints the frame it is announcing", () => {
-    // The shell swap must cost nothing: the sr-only line that all 44 delegating
+    // The shell swap must cost nothing: the sr-only line that every delegating
     // boundaries inherit, and the pulsing blocks a sighted user reads as "this
     // page is coming", both survive. Counts are EXACT — a floor lets a
     // placeholder row be deleted under a pin whose stated job is the frame.

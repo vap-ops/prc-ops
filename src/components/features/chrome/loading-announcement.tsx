@@ -1,7 +1,7 @@
 "use client";
 
 // The shared announcement leaf every route-loading boundary renders (#980
-// follow-up). One component so the 38 boundaries that delegate to PageSkeleton
+// follow-up). One component so the 41 boundaries that delegate to PageSkeleton
 // and the one bespoke skeleton (src/app/portal/loading.tsx) cannot drift apart.
 //
 // Two channels, one string, because the two navigation paths differ:

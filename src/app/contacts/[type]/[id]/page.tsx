@@ -43,6 +43,14 @@ const TYPE_CONFIG = {
   },
 } as const;
 
+// One static title for all four contact types. It cannot name the type — that
+// would need generateMetadata, which this app uses nowhere — so it follows the
+// house detail pattern (รายละเอียด + noun, as in รายละเอียดคำขอซื้อ /
+// รายละเอียดคำขอสมัคร) with the umbrella noun the app already uses for the
+// contact-type selector (contacts-tabs.tsx, aria-label="ประเภทผู้ติดต่อ").
+// Without it the page announces nothing on arrival (#986).
+export const metadata = { title: "รายละเอียดผู้ติดต่อ" };
+
 const LABELS: Record<string, string> = {
   contact_person: "ผู้ติดต่อ",
   phone: "เบอร์โทร",

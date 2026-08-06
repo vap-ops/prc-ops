@@ -1,3 +1,47 @@
+# [0.345.0](https://github.com/vap-ops/prc-ops/compare/v0.344.0...v0.345.0) (2026-08-06)
+
+### Features
+
+- **a11y:** give the two untitled pages a name, and guard the rest ([5e1e030](https://github.com/vap-ops/prc-ops/commit/5e1e030a0c52bffcb10ca3e2de597ea9d9530594)), closes [#986](https://github.com/vap-ops/prc-ops/issues/986)
+
+# [0.344.0](https://github.com/vap-ops/prc-ops/compare/v0.343.0...v0.344.0) (2026-08-06)
+
+### Bug Fixes
+
+- **attendance:** address the fresh-eyes review of the grid (spec 400 U1) ([c9b8dfd](https://github.com/vap-ops/prc-ops/commit/c9b8dfd2ba13ba5e5582d8f317a5b08ff5a7569b))
+
+### Features
+
+- **attendance:** the worker x day grid (spec 400 U1) ([58412fa](https://github.com/vap-ops/prc-ops/commit/58412fac063e944c666f6598b243e689408921b0))
+
+# [0.343.0](https://github.com/vap-ops/prc-ops/compare/v0.342.0...v0.343.0) (2026-08-06)
+
+### Bug Fixes
+
+- close the fresh-eyes findings on the narrow skeleton ([3e1d450](https://github.com/vap-ops/prc-ops/commit/3e1d4508421c87f778bfabaaec958e301c79e63c))
+
+### Features
+
+- **chrome:** a narrow loading skeleton for the single-column screens ([c591b3c](https://github.com/vap-ops/prc-ops/commit/c591b3c4650b3e1335de2a622c8b0333041fa2f9))
+
+# [0.342.0](https://github.com/vap-ops/prc-ops/compare/v0.341.1...v0.342.0) (2026-08-06)
+
+### Bug Fixes
+
+- **a11y:** a boundary handoff no longer swallows the arrival ([7e92fb8](https://github.com/vap-ops/prc-ops/commit/7e92fb833e8f46edb0bbb7373707a9b07ab29b3f))
+- **a11y:** de-dupe arrivals by navigation, not by page name ([087df7b](https://github.com/vap-ops/prc-ops/commit/087df7b038eaf978e77e4ffea9e2d0b15b74ded0))
+
+### Features
+
+- **a11y:** announce the destination on arrival, not just the wait ([8967d1c](https://github.com/vap-ops/prc-ops/commit/8967d1c758141ba66430cac425c38d782804398f)), closes [#983](https://github.com/vap-ops/prc-ops/issues/983)
+
+## [0.341.1](https://github.com/vap-ops/prc-ops/compare/v0.341.0...v0.341.1) (2026-08-06)
+
+### Bug Fixes
+
+- **chrome:** the loading skeleton adopts PAGE_MAX_W, so the fallback stops jumping ([a28333f](https://github.com/vap-ops/prc-ops/commit/a28333f34d984efd95d75d8a3767bb3119ef6699))
+- close the fresh-eyes findings on the width unit ([490b71f](https://github.com/vap-ops/prc-ops/commit/490b71f00750e0bbc54a3b63f84423e03fac1ed9))
+
 # [0.341.0](https://github.com/vap-ops/prc-ops/compare/v0.340.2...v0.341.0) (2026-08-05)
 
 ### Features

@@ -12206,6 +12206,8 @@ retired and half still open: `PAGE_MAX_W` adoption is the half that changes what
 md+ screens, and it stays queued. `variant="app"` does bring `pb-20 sm:pb-0` and `text-ink`; the
 skeleton renders no visible text, and matching the variant the REAL page uses is what makes the
 fallback-to-content swap shift the least.
+_(Superseded the same day: the operator signed the width half off and it shipped — see the
+`lane skelwidth` entry below. Left as written; this is a dated log, not a live claim.)_
 Re-measured after the change at 812×375: `main` is the scroller (`clientHeight` 375,
 `scrollHeight` 433), 1 user-scrollable ancestor, and the row previously cut at 409 sits at 351
 after a 58px scroll — exactly the clipped amount. Real boundaries verified from streamed HTML,
@@ -12378,6 +12380,354 @@ lands after #980 is now due: uxg8's `nav-loading-boundaries.test.ts` sweep asser
 something", justified by a `/portal` exception that no longer exists — it should assert the
 announcement across all boundaries. ③ `PageSkeleton` still hand-rolls a `<main>` under the
 spec-64 locked body; that is lane `pageshell`'s unit, untouched here beyond one line.
+
+_(Both ② and ③ above were closed the same day by #982, which landed just before this entry — the
+sweep now asserts the announcement plus the scroller contract on all 45 boundaries, and the
+skeleton renders `PageShell`. Left as written: this is a dated log, not a live claim.)_
+
+## 2026-08-06 — The skeleton adopts `PAGE_MAX_W`: the fallback stops jumping (lane skelwidth)
+
+**Operator sign-off, and it closes the `65-consolidation-pass` queue entry.** That entry had
+reserved `PageSkeleton → PageShell/PAGE_MAX_W` as "changes transient loading-state width — needs
+operator sign-off as a visual change". #982 shipped the PageShell half (a measured defect, not a
+visual change) and deliberately left the width alone; the operator cleared the width half today.
+
+**Measured before building, and it reframes the entry.** The queue described a width SHIFT; the
+live app has a width MISMATCH. On `/dashboard` at 1280×800, with the fallback and the resolved
+page both present in one DOM (the streamed fallback is still in the document, so the two states
+can be measured against each other rather than remembered):
+
+| viewport | fallback container | real page container | jump                          |
+| -------- | ------------------ | ------------------- | ----------------------------- |
+| 1280×800 | **768px**          | **1240px**          | 472px                         |
+| 900×800  | **768px**          | **860px**           | 92px                          |
+| 760×800  | **760px**          | **672px**           | 88px — the skeleton was WIDER |
+| 375×812  | 335px              | 335px               | none — both clamp to the box  |
+
+⚠️ **The 760 row was added after a fresh-eyes pass refuted my first reading.** I sampled only
+375 below `md` and wrote "below md both clamp to the viewport, so a phone never saw it" into the
+component comment, two docs and the queue entry. It is arithmetically false from 672px up:
+`max-w-3xl` is 768, so through the whole **672–768 band the effective cap was the VIEWPORT**
+while the page sat at `max-w-2xl` = 672. Measured live at 760: skeleton 760, page 672. Real
+phone-landscape widths (720, 736, 740) are in that band. The direction was always toward the
+page, but the claim was wrong — **one sample below a breakpoint does not characterise the band,
+because the outlier's cap and the token's cap cross INSIDE it.**
+
+`max-w-3xl` appeared in exactly TWO places in all of `src/` and both were this component.
+`src/app/portal/loading.tsx` — the bespoke boundary — already imported the token, the same "the
+bespoke one is the compliant one" shape #980 found. (Stated precisely: `AppHeader`/`HubNav`
+accept only `typeof PAGE_MAX_W`, which constrains those two props — it does not stop a section
+hand-rolling a width, and three screens legitimately do.)
+
+**Built.** Both centred containers interpolate `PAGE_MAX_W`. Re-measured after: fallback 1240 /
+1280 against the page's 1240 / 1280 at 1280 wide, 860 vs 860 at 900, and 672 vs 672 at 760 —
+matched at all three, with `max-w-3xl` absent from the rendered document.
+
+**Pinned.** `page-skeleton-shell.test.tsx` asserts each container's `max-w-*` token SET equals
+`PAGE_MAX_W`'s own tokens, read off the constant and never re-typed. Both halves of that shape
+came from the review: a `toContain` + "no max-w-3xl" pair is satisfied by
+`max-w-5xl ${PAGE_MAX_W}` — the ui-conventions §5 hazard exactly, where the GENERATED
+stylesheet's order picks the winner rather than the className's — and a container COUNT pins no
+position, so the containers are now addressed through the anatomy (`main > header > .mx-auto`,
+`main > .mx-auto`) and moving one onto an inner `Skeleton` reds.
+
+**🔔 Found, recorded NOT built — and it is the finding worth carrying.** `/login`,
+`/coming-soon` and `/profile` delegate to this shared skeleton but are **card screens**: their
+real pages render `PageShell variant="card"` around a `max-w-sm`/`max-w-md` card. So the
+fallback paints an app-variant header strip and list rows at page width, and this change widens
+that particular gap (768 → 1240 against a 384px card at 1280). Deliberately not patched with a
+width prop: **the anatomy is the larger half and a matching width would not fix it** — a
+card-variant skeleton is its own unit. The reviewer found this by asking which boundaries the
+diff's own criterion makes WORSE, which is the question a "make everything consistent" change
+never asks itself.
+
+## 2026-08-06 — Arrival is announced too (lane a11yarrival)
+
+**Closes the ⚑ gap [#983](https://github.com/vap-ops/prc-ops/pull/983) recorded against itself.** That
+unit made the PENDING window audible and deliberately left ARRIVAL alone, because it had just
+measured that Next's own announcer does not in fact cover it. This is the other half: the user is
+now told **where they landed**, not only that something was loading.
+
+**⭐ The design came out of the browser, not the docs — and the measurement root-caused the
+framework bug rather than merely observing it.** Instrumented on a live dev server, one real
+client-side navigation:
+
+```
++1073ms  title-node-REMOVED   ""                    ← head briefly has NO title
++1074ms  pathname-changed     /projects
++1094ms  loading-region       "กำลังโหลด…"
++1100ms  title-node-ADDED     "โครงการ — PRC Ops"
++1736ms  loading-region       ""                    ← content actually arrives
+```
+
+Three facts, each of which decided a design choice that the obvious implementation would have got
+wrong:
+
+① **Next REPLACES the `<title>` NODE rather than editing its text**, so `document.title` is empty
+for ~1–6 ms on every navigation. That gap is precisely what the framework's announcer samples,
+which is why it falls through to `querySelector("h1")` — #983 observed the wrong output, this
+explains it. ⇒ the watcher observes `document.head`, because a `<title>`-node-bound observer goes
+**deaf after the first navigation**, and the empty gap maps to silence rather than a bogus
+announcement.
+
+② **The `<h1>` is REFUTED as a fallback.** On 4 of 5 sampled pages it reads `สวัสดี คุณ<ชื่อ>` — the
+greeting. Announcing it would read the user **their own name** on arrival, which is exactly the
+wrong string the framework spoke. A page with no title of its own stays SILENT instead (measured
+on `/contacts`: title `PRC Ops`, no `<h1>` at all). Silence beats naming the app instead of the
+page.
+
+③ **The title is correct 640–930 ms BEFORE the content renders.** So "announce on title change" —
+the natural implementation — would claim arrival while the skeleton is still up. Arrival therefore
+DEFERS while a loading boundary is open, reusing #983's ref-count, and both messages flow through
+the ONE region so a navigation reads `กำลังโหลด…` → `โครงการ` and they can never overlap.
+
+**Scope note.** 127 of 135 `page.tsx` carry a static Thai `metadata.title` and none uses
+`generateMetadata`, so the title is a high-quality source — but it is per ROUTE, not per record: 39
+dynamic-segment pages reuse one title for every record (79 distinct strings across the 127; 4 are
+shared by 2–3 routes). The 8 that set none announce nothing; giving them titles is recorded as a
+follow-up rather than folded in, because it is page metadata rather than this unit's mechanism.
+
+**🚨 That per-route/per-record distinction was a HIGH defect, caught by the fresh-eyes pass.** The
+watcher de-duped on the page NAME, so a second record under the same route title read as a repeat:
+`work-packages/[workPackageId]` is `รูปถ่ายงาน` for every work package, and **WP→WP is the site
+admin's commonest navigation**. The user would have heard `กำลังโหลด…` and then silence, forever, on
+exactly the movement the app exists for — while every test stayed green, because every test used two
+DIFFERENT page names. The de-dupe is now keyed on `(pathname, name)`; the pathname is already
+updated when the new title lands (measured: pathname +1074 ms, title node re-added +1100 ms), and
+comparing both is also what keeps a same-page node replacement silent. ⭐ **A de-dupe key is a claim
+about what counts as "the same thing" — check it against the real DATA, not against the examples in
+your tests.**
+
+**🚨 A mutant survived TWICE, and the second failure is the more instructive one.** Deleting the
+watcher's `name === ""` guard left all 19 tests green — because `announceArrival("")` is itself a
+no-op, so the ANNOUNCE path is correct either way. The half that matters is the **baseline**: every
+navigation passes through the empty gap, so letting it become `lastAnnounced` makes the very next
+title look like a change even when it is the same page — a `router.refresh()`, which replaces the
+node with identical text, would announce an arrival the user never made. My own code comment on
+that line had stated the opposite reason. The first fix still did not kill it: **`MutationObserver`
+batches into one microtask**, so performing the remove and the add inside a single `act()` means
+the callback only ever sees the finished state and the empty moment never occurs. Split into two
+flushes (the real events are ~27 ms apart) the mutant dies. **Second instance of the class #983
+found with `key={seq}`: an `act()` boundary decides what a batching observer sees, so a defect that
+lives BETWEEN two flushes is invisible to a test that merges them.**
+
+**🚨 And Gate 4 then found what neither the tests nor the review had: a boundary HANDOFF swallowed
+the arrival entirely.** Navigating into a project detail announced `กำลังโหลด…` for **nine seconds
+and then SILENCE** — never the page name. React releases one skeleton and opens the next inside a
+SINGLE commit as the segment resolves deeper, so the count passes through zero while the wait is
+still on; the release published the pending destination and the incoming boundary overwrote it in
+the same commit, leaving the real release with nothing to say. The review had flagged this shape as
+a MEDIUM and I had under-rated it as a rare interruption — **it is neither rare nor an
+interruption**, it is what a normal navigation into a nested route does. The release now defers the
+arrival by a microtask and re-checks the count after the commit settles. Deliberately narrow: only
+the arrival is deferred, because a clear cannot be invalidated by what follows, and making both
+async broke 12 tests including #983's pinned contract. ⭐ **Twice in this unit the browser found what
+the suite could not — and both times the defect lived INSIDE a single React commit.**
+
+⚠️ **A false alarm on the way, worth recording because the instinct was to "fix" it:** an earlier
+run showed the region stuck on `กำลังโหลด…` and I read it as a leak. One probe for the boundary's own
+static line (`boundaryMounted: true`, 8 pulses at +9 s) proved the skeleton was genuinely still on
+screen — that dev page really is that slow — so the code was behaving correctly. **A stuck-looking
+state is not evidence of a stuck state; measure whether the cause is still present.**
+
+**Gates.** RED first (19 failing) · **16/16 mutants killed**, re-run after each round of fixes
+because the code the earlier sweeps validated had changed ·
+full vitest suite green · lint 0 · typecheck 0 · `pnpm build` 0. **Gate 4 in real Chrome via
+Playwright** (the in-app Browser pane is
+hidden on this box, so hydration never runs there), three real navigations: destination spoken with
+the suffix stripped (`โครงการ` · `รายชื่อช่าง` · `ทีมงาน`); announced **after** the wait, not over it
+(`กำลังโหลด…` +1048 ms → title +1056 ms → `โครงการ` **+1797 ms**); **no** region event during the
+title gap; the same persistent element throughout; and a hard page load announces **nothing**
+(the reader does that itself). Exactly two region mutations per navigation.
+
+**Open questions.** ① ~~The 8 titleless pages announce nothing~~ — **CLOSED, and the premise was
+wrong: only TWO of them ever rendered without a name.** See the 2026-08-06 page-titles entry below.
+④ One ordering edge is recorded, not built: if a title ever landed before its boundary opened,
+arrival would be spoken and then immediately replaced by `กำลังโหลด…` (measured, the boundary opens
+6–8 ms FIRST on every sampled navigation, so this is theoretical today; the same
+microtask-and-recheck that fixed the handoff would close it). ② Next's own announcer still fires occasionally, assertively, with
+the wrong text; suppressing it from app code was not attempted. Worth re-measuring now that a
+correct polite announcement exists. ③ Still carried from #983: the region does not pass through empty between two
+identical consecutive announcements (`queueMicrotask`), so a reader that suppresses byte-identical
+repeats may not speak the second.
+
+## 2026-08-06 — `NarrowSkeleton`: the single-column screens get their own frame (lane cardskel)
+
+**The unit the previous one recorded** — operator asked for it directly after reading the
+finding. `/login`, `/coming-soon` and `/profile` are §5's recorded width exceptions (a
+`max-w-sm`/`max-w-md` column), but their loading boundary delegated to `PageSkeleton`, which
+paints a header strip and list rows at `PAGE_MAX_W`.
+
+**Measured on `/coming-soon` at 1280×800**, fallback and resolved page both present in one
+DOM: the fallback's container was **1240px on `bg-page`**, the page's **448px on `bg-card`**.
+**Width is the smaller half — the GROUND flips**, so the whole screen flashes grey→white at
+the swap. That is the part a width-only fix could never have addressed.
+
+**The inherited list was checked, not trusted, and it was wrong in two places.** The previous
+review named "/login, /coming-soon, /profile — all `PageShell variant="card"`". Live at HEAD:
+`/profile` is an **app**-variant page (`PageShell` default, `bg-page`) with a narrow column,
+so a centred card frame would have been a NEW mismatch there; and `/coming-soon` has **three**
+arms (`variant="card"` for unserved roles, `VisitorLanding`'s own card, and
+`variant="bare"`+`bg-card` for the super_admin OperatorHub) — all a `max-w-md` column on the
+card ground, so one variant covers them. `/register` was also on the suspect list and is NOT
+narrow: its boundary covers `/register/office` and `/register/technician`, which render
+`StaffRegisterWorkspace` at `PAGE_MAX_W`.
+
+**Built.** `NarrowSkeleton({ variant })` takes PageShell's own vocabulary — `card` (centred on
+`bg-card`: `/login`, `/coming-soon`) and `app` (top-aligned on `bg-page`: `/profile`) — and
+both arms have a real caller, so the prop is not speculative generality.
+
+**🔔 Scope call, stated plainly: this is NOT card-only, and the measurement is the reason.**
+`/login` and `/coming-soon` both sit in the telemetry `EXCLUDED_PREFIXES`
+(`src/lib/telemetry/scope.ts`), so their usage is **unmeasurable — not zero**; I initially
+read `/coming-soon`'s zero rows as "dead" before checking whether the instrument covers it,
+which is the house trap. `/profile` IS measurable and alive: **91 route views / 73 sessions /
+9 roles in 60 days, latest 2026-08-05.** A card-only unit would have landed entirely on
+surfaces whose value cannot be observed, so the app arm shipped with them.
+
+**Verified after, in the browser.** `/coming-soon`: fallback column **448px on `bg-card`**
+against the page's 448px on `bg-card` — both axes matched. `/profile`: the fallback's column
+class string is **byte-identical** to the page's own
+(`mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10`), same ground, both 448px.
+
+**Pinned.** `narrow-loading-skeleton.test.tsx`: each arm's `<main>` equals `PageShell`'s own
+rendered class string for that variant (read off the component); the column is `max-w-md` and
+never the page width; the app arm paints a header strip and the card arm does not; the
+announcement survives on all three boundaries; and — the invariant that makes the unit worth
+shipping — **each boundary's variant is asserted against the variant its PAGE renders**, read
+from the page source with comments stripped, because those are async Server Components the
+suite cannot render. Mutants killed on both variant swaps, the widened column, and the deleted
+announcement.
+
+**The fresh-eyes pass found two 🔴 and I had missed both.** ① **The suite was RED and I said it
+was green** — `route-loading-announcement.test.tsx` has a repo-wide "every boundary renders an
+announcement" scan whose carrier list was the hand-typed literal
+`/<PageSkeleton \/>|<LoadingAnnouncement \/>/`, so the moment three boundaries moved onto
+`NarrowSkeleton` it reported them mute. I had run "the four affected test files" and picked the
+wrong four. ⭐ **Fixed at the class, not the instance: the carrier set is now DERIVED — any
+chrome component whose own source renders `<LoadingAnnouncement />` counts — with a positive
+control that the derivation is non-empty. A hand-typed allowlist of carriers is the same defect
+the scan exists to catch, one level up.** ② **`/profile` renders a sticky `DetailHeader` above
+its column**, and my first app arm was the column alone: at the swap it would have dropped
+~148px and a white strip would have materialised — i.e. the VERTICAL axis got worse on the one
+boundary with measurable traffic, in a unit fixing the horizontal one. The app arm now mirrors
+`DetailHeader`'s own classes. ⭐ **Carry: "the fallback's column className is byte-identical to
+the page's" is a claim about ONE axis — identical classes at a different `y` are still a jump.
+Compare the whole frame, not the piece the change was about.**
+
+**Also from that review, fixed:** the boundary pin compared only the shell class, so a
+hand-rolled `<PageShell variant="…"><LoadingAnnouncement /></PageShell>` with no frame passed —
+it now compares the boundary's whole rendered output to the component's · the page-variant
+derivation was a boolean (`card` else `app`), blind to `bare`, so switching a page to
+`variant="bare" className="bg-card"` would have flipped the ground with the pin green — now
+three-way, and a page with no `PageShell` throws · the comment stripper missed plain `/* … */`
+banners, which all three pages open with · stale delegation counts (44 → 41 of 45) in
+`page-skeleton.tsx`, `loading-announcement.tsx` and `page-skeleton-shell.test.tsx` · the ⚠️
+block in `page-skeleton.tsx` still described these three as delegating to it.
+
+**Residual jumps, disclosed not hidden:** `/login`'s card is `max-w-sm` (384) against the
+frame's `max-w-md` (448); `/coming-soon`'s super_admin arm is top-aligned (`bare`) while the
+card variant centres. Both are recorded in `docs/ui-conventions.md` §8 rather than fixed with a
+per-screen knob.
+
+## 2026-08-06 — spec 400 U1: the attendance grid
+
+**Why the list could not be fixed in place.** `/team/attendance` builds one row per worker FROM
+`muster_attendance` rows, so it is structurally blind to absence. Measured before building: **11
+of 41 active workers have ZERO July rows** — they are not shown as zero, they have no row — and
+headcount ran **13 · 17 · 18 · 17 · 1 · 24 · 22 · 23** across 24–31 Jul with **1 · 15 · 21 · 4 ·
+23** across 1–5 Aug. The `1`s and the `4` are exactly what a double-checker is looking for, and a
+per-worker total is where they disappear. Spec 358 rejected this matrix on three grounds and all
+three have expired (its audience was payroll-per-worker; the operator retired mobile-hostility on
+2026-08-06; the CSV is untouched) — recorded in the spec so an audit cannot re-raise it.
+
+**Built.** `?view=` toggle, grid default, list kept. Cell grain is the DATE (regular + OT merged
+by `buildAttendanceMonth`'s rule, pinned by a parity test); headcount and closure live on the
+COLUMN because they are project-day facts; Sundays + `public_holidays` shade; the range is capped
+at 92 days because `?start` is validated for calendar validity, not span, so `?start=2020-01-01`
+was reachable and now skips the fetch entirely and names the cap.
+
+**Two mutants survived and both were real.** `if (canOpenCalendar)` → `if (true)` stayed green:
+a source scan proves code EXISTS, never that it is REACHABLE. Extracted `gridWorkerHref` as a
+pure function and pinned both arms behaviourally. Then the grid's render site `{shape === "grid"
+&& (` → `{false && (` stayed green, because that predicate also appears in the two data-loading
+guards — each render site is now pinned by the guard immediately preceding it.
+
+**The review found ten more, and the one worth carrying is not a logic bug.** A raw **NUL byte**
+sat in `attendance-grid.ts`: `file` reported `data` and ripgrep classified it binary, so the whole
+module returned "binary file matches" with zero content lines — **invisible to every rg-based
+source scan, including the guard class this unit's own page test belongs to.** Also: `manualIn`
+and `autoOut` were read off the earliest-in / latest-out session while `openOut` looked at all of
+them, so a QR regular check-in hid a typed OT one; a `?worker=` URL with no `?view` resolved to
+the grid and silently dropped the drill every pre-existing bookmark exists to open; and the
+unclosed-day header mark was amber for `dayClosed === false`, which is the normal state of the
+current day — the rightmost column would have been amber every single day, the cry-wolf failure
+the shading exists to prevent.
+
+**Verified in real Chrome** (the in-app Browser pane is hidden this session, so nothing there
+hydrates): across a month-crossing range, 14 columns with `ก.ค.`/`ส.ค.` labels exactly at the
+turnover, today's column carrying no unclosed mark, the calendar link carrying `m=2026-07` plus
+the report's own range, empty cells announcing `ไม่มีการเช็คชื่อ` vs `วันหยุด`, a legacy
+`?worker=` URL landing on the list with its drill open, and zero console errors. Role arms under
+view-as: `accounting` → 33/33 worker links to this report's drill, `procurement` → 33/33 to the
+spec-374 calendar.
+
+**Open questions.** ① The grid path costs three reads and the summary is now redundant on it —
+its own unit, since collapsing it changes what the header renders. ② `บันทึกมือ` /
+`ออกอัตโนมัติ` are free literals in several components; the UI-term SSOT says they belong in
+`labels.ts`, which is a collider, so that is a sweep of its own. ③ Row ordering is alphabetical;
+ranking by "most findings" needs the distribution measured first (the spec-375 trap). ④ U2
+(roster rows, the "11 of 41" finding) and U3 (the correction path, operator ruled **option A** on
+2026-08-06) are the next units.
+
+## 2026-08-06 — Page titles: two real ones, and a guard (lane a11ytitles)
+
+**Closes ① from the arrival unit — and corrects it.** [#986](https://github.com/vap-ops/prc-ops/pull/986)
+recorded "8 titleless pages announce nothing" and I carried that number into the report. Driven in
+a real browser, **six of the eight redirect** and announce their destination perfectly well:
+`/contacts` → `/contacts/customers` (ลูกค้า) · `/store` and `/stock-count` → `/projects` (โครงการ) ·
+`/` → `/dashboard` (ภาพรวม) · `/sa/crew` and `/sa/crew/badges` serve an RSC payload carrying
+`NEXT_REDIRECT;replace;/team;307` (ทีมงาน). Only **two** pages genuinely rendered without a name.
+
+⭐ **The earlier probe had said otherwise, and the probe was wrong, not the app.** It reported
+`/contacts`, `/sa/crew` and `/sa/crew/badges` landing on THEMSELVES titled `PRC Ops` — because it
+waited for hydration (with the timeout swallowed) and then read, while a `redirect()` in a Server
+Component is delivered as an RSC instruction the CLIENT acts on. It was reading before the redirect
+completed. Re-probed by waiting for the URL to STOP MOVING instead, all six resolve. **A route's
+"where does this land" is a settling process, not a value you can read once** — same family as the
+redirect-inflates-route-views lesson, one layer lower.
+
+**The two real ones.** `/projects/[projectId]/costs` takes `PROJECT_COSTS_LABEL` — the same constant
+its own `DetailHeader` renders, so the spoken name and the visible heading cannot drift.
+`/contacts/[type]/[id]` takes `รายละเอียดผู้ติดต่อ`: one static title must cover all four contact
+types (`generateMetadata` is used NOWHERE in this app), so it follows the house detail pattern —
+`รายละเอียด` + noun, as in `รายละเอียดคำขอซื้อ` / `รายละเอียดคำขอสมัคร` — with the umbrella noun the app
+already uses for the contact-type selector (`contacts-tabs.tsx`, `aria-label="ประเภทผู้ติดต่อ"`).
+Both were gate-checked against the page and its siblings, not written from memory.
+
+**The durable half is the guard.** `page-metadata-titles.test.ts` requires a `metadata.title` on
+every `page.tsx`, because since #986 a missing title is a SILENT page rather than a dull browser
+tab. Exemptions are allowed but **verified, not trusted**: each must still exist, still lack a
+title, and **still actually redirect** — so a real page cannot be waved through by adding it to the
+list, and a stale entry (a page that has since gained a title) reds too.
+
+**Gates.** RED first — the guard named exactly the two pages · **5/5 mutants killed**, including the
+abuse case (untitle a real page AND add it to the exemption list: still red) and a zero-match walk ·
+lint 0 · typecheck 0 · full suite green · **Gate 4 in real Chrome**: both titles served
+(`ต้นทุนโครงการ — PRC Ops`, `รายละเอียดผู้ติดต่อ — PRC Ops`) and both ANNOUNCED on a genuine
+client-side navigation — the contact detail spoke `รายละเอียดผู้ติดต่อ` at +429 ms with a `window`
+beacon proving the document was never replaced.
+
+⚠️ **A second probing artifact on the way, recorded because it nearly became a bug report:** a
+coarser polling script read the contact detail's region as `""` and it looked like a lost
+announcement. Instrumenting the navigation directly showed the announcement had fired at +429 ms and
+the region was later emptied by a subsequent boundary release. **Poll loops report the state they
+happen to catch; when the claim is about an EVENT, observe the event.**
+
+**Open questions.** ① The region's end state differs by route — some keep the destination, some
+return to empty when a later boundary releases with nothing pending. Both announce correctly, so
+this is cosmetic, but it means "what does the region say now" is not a stable assertion. ② Still
+carried: one theoretical ordering edge, and Next's own announcer misfiring.
 
 ## 2026-08-06 — Spec 392 U2b: the Konva zone-drawing canvas (lane zonecanvas)
 
