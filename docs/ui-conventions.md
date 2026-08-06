@@ -408,12 +408,19 @@ and — for the two boundary surfaces together — by
    - **Strip the `— PRC Ops` suffix, and stay SILENT for a page that set no
      title of its own.** Never fall back to the `<h1>`: on 4 of 5 sampled pages
      it reads `สวัสดี คุณ<ชื่อ>`, so announcing it reads the user their own name
-     on arrival. Measured on `/contacts`: title `PRC Ops`, no `<h1>` at all.
-     127 of 135 `page.tsx` do carry a static Thai `metadata.title` (zero
-     `generateMetadata`) — but per ROUTE, not per record: 39 dynamic-segment
-     pages reuse one title for every record, which is why the de-dupe below is
-     keyed on the pathname as well as the name. ⚑ Giving the other 8 a title is
-     an open follow-up.
+     on arrival. Titles are per ROUTE, not per record — 39 dynamic-segment pages
+     reuse one title for every record, which is why the de-dupe below is keyed on
+     the pathname as well as the name.
+
+     **Because of this, a page with no `metadata.title` is a SILENT page, not
+     merely a dull browser tab** — so
+     [page-metadata-titles.test.ts](../tests/unit/page-metadata-titles.test.ts)
+     requires one on every `page.tsx`. The only exemptions are pages that never
+     render a name because they redirect to one that has it, and each is verified
+     rather than trusted: it must still exist, still lack a title, and still
+     actually redirect, so a real page cannot be waved through by adding it to
+     the list.
+
    - **Defer while a boundary is open.** The title is correct **640–930 ms
      before** the content renders, so announcing on the title alone would tell
      the user they had landed on a page that is still a skeleton. Verified in
