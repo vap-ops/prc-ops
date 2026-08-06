@@ -73,7 +73,10 @@ describe("the trail section", () => {
     // the audited day. Hand-written, in Bangkok, in the app's Buddhist era, so
     // the expectation is independent of the formatter it checks.
     expect(only[0]).toHaveTextContent("5 ส.ค. 2569 09:00");
-    expect(only[0].textContent).not.toContain("2026-08-05T02:00:00");
+    // …and the raw payload timestamp never reaches the reader. `getAllByRole`
+    // is indexed, so under noUncheckedIndexedAccess the element is read through
+    // `?.` rather than asserted non-null.
+    expect(only[0]?.textContent).not.toContain("2026-08-05T02:00:00");
   });
 
   it("renders an unattributed edit rather than a uuid when the actor has no name", () => {
