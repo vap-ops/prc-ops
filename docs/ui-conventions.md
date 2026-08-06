@@ -376,9 +376,19 @@ and — for the two boundary surfaces together — by
    home's `<h1>`, neither the destination nor the page being left. Root cause,
    measured: **Next REPLACES the `<title>` node rather than editing its text**,
    so `document.title` is empty for ~1–6 ms per navigation, and that is the
-   window its effect samples in — hence the `h1` fallback. It still fires
-   occasionally, assertively, with that wrong text; suppressing it from app code
-   was not attempted. Our own arrival announcement (rule 4) carries the truth.
+   window its effect samples in — hence the `h1` fallback.
+
+   **It is therefore SILENCED** (`RouteAnnouncer` sets `aria-live="off"` and
+   removes `role="alert"` on the node inside `<next-route-announcer>`'s shadow
+   root). Across 7 measured navigations it was correct **zero** times — usually
+   silent, once announcing the user's own name, assertively, for a page they
+   were not on — while our polite region got every one right. Two ARIA
+   attributes is the narrowest intervention available: no patched framework
+   file, no removed DOM, and nothing breaks if a future Next stops shipping the
+   announcer. Safe because React portals the announcement TEXT into that div but
+   does not own the element — verified in a real browser, where the change stuck
+   across navigations and a probe tag on the node survived. Rule 4 carries the
+   truth instead. ⚑ Worth reporting upstream; not done.
 
 3. **Each announcement gets a fresh node identity** (`key={seq}`). Every boundary
    says the same words, and React unmounts one fallback and mounts the next in a
