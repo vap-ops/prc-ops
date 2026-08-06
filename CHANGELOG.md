@@ -1,3 +1,9 @@
+# [0.349.0](https://github.com/vap-ops/prc-ops/compare/v0.348.0...v0.349.0) (2026-08-06)
+
+### Features
+
+- **attendance:** correction affordances on the grid (spec 400 U3b) ([#1003](https://github.com/vap-ops/prc-ops/issues/1003)) ([99501d0](https://github.com/vap-ops/prc-ops/commit/99501d0bd699af999300a22e6f1e1073583fbfb2))
+
 # [0.348.0](https://github.com/vap-ops/prc-ops/compare/v0.347.0...v0.348.0) (2026-08-06)
 
 ### Features
