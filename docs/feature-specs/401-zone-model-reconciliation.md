@@ -120,7 +120,7 @@ Writes delegate to `is_manager(current_user_role())` (live membership: `project_
 
 **This corrects 392 §4.1**, which claims "the field roles that already open a WP can see its zone without a new door". That is true for `site_admin` — arm 2, and 5 of 6 SAs hold a `project_members` row, so **the SA's zone picker can read through table RLS**. It is **false for `technician`**: 14 users, 1 with a membership row, and no arm admits the role, so ช่าง reach WP surfaces through DEFINER RPCs only. ⚠️ An earlier draft of this spec conflated the two and claimed the SA needed an RPC; it does not.
 
-**Binding rule for U5/U6:** any zone surface shown to `technician` goes through a DEFINER RPC. A zone surface for `site_admin` may use table RLS. 392 §4.1 should be corrected in-repo when #995's edits to that file land.
+**Binding rule for U5/U6:** any zone surface shown to `technician` goes through a DEFINER RPC. A zone surface for `site_admin` may use table RLS. ✅ 392 §4.1 was corrected in-repo 2026-08-06 (#995 having landed); it now carries this correction and points back here.
 
 ---
 
@@ -139,7 +139,9 @@ Every path below is on `origin/main` today. §4's earlier draft said "four read 
 | `src/lib/zones/zone-rollup.ts` · `zone-filter.ts`                     | keyed on `zoneId`                                                          | keyed on the junction                      |
 | `set_wp_zone` RPC                                                     | writes the column                                                          | retired → `add_wp_zone` / `remove_wp_zone` |
 
-**Tests that must move in the same units** (none of them optional — U3's drop reds CI otherwise): `zone-read-surfaces.test.ts`, `zone-rollup.test.ts`, `zone-rollup-grid.test.tsx`, `zone-filter.test.ts`, `wp-zone-chip.test.tsx`, `work-package-list-zone-filter.test.tsx`, plus **two assertions in `supabase/tests/database/392-project-zone-maps.test.sql`** (the `set_wp_zone` grant and the "may NOT write `zone_id` directly" pin) and the generated `src/lib/db/database.types.ts`.
+**Tests that must move in the same units** (none of them optional — U3's drop reds CI otherwise): `zone-read-surfaces.test.ts`, `zone-rollup.test.ts`, `zone-rollup-grid.test.tsx`, `zone-filter.test.ts`, `wp-zone-chip.test.tsx`, `work-package-list-zone-filter.test.tsx`, plus the pgTAP suite `supabase/tests/database/392-project-zone-maps.test.sql` and the generated `src/lib/db/database.types.ts`.
+
+🚨 **CORRECTED 2026-08-06 — this section previously said "two assertions" in that pgTAP file. Counted directly, it is TEN, plus `select plan(37)` itself:** `has_column` for `zone_id` · two `has_column_privilege` pins (SELECT allowed, UPDATE denied) · **two `set_wp_zone` membership assertions inside the five-RPC arrays, one of them a `count(*) = 5`** · `has_function_privilege('anon', 'set_wp_zone(uuid, uuid)')` · and four behavioural blocks that call `set_wp_zone` or read `zone_id` back off `work_packages`. ⚠️ **`has_column_privilege` / `has_function_privilege` against a dropped object ERRORS rather than returning false**, so U3 cannot just watch these turn red — they must be removed as part of the drop. ⭐ The wrong figure came from re-running an inherited count instead of re-deriving it, which is the same trap §1.1 records.
 
 Untouched: `validate-zone.ts`, `zone-list.ts`, the four surviving RPCs, and — once #995 lands — `canvas-geometry.ts`, `canvas-state.ts` and the canvas components. None of them knows what a zone binds to.
 
@@ -150,7 +152,7 @@ Untouched: `validate-zone.ts`, `zone-list.ts`, the four surviving RPCs, and — 
 | U      | Ships                                                                                                                                                                     | Schema?                 |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | **U1** | `wp_zones` + `photo_logs.zone_id` + RLS + `add_wp_zone`/`remove_wp_zone` + pgTAP (gate refusals with a positive control; the leaf-only rule; the append-only interaction) | **yes** — schema lane   |
-| **U2** | Move every reader in §4 onto the junction; `overlap` + `hidden` in the rollup; retire `set_wp_zone` and its two pgTAP assertions                                          | no                      |
+| **U2** | Move every reader in §4 onto the junction; `overlap` + `hidden` in the rollup; retire `set_wp_zone` and **all ten** of its pgTAP assertions (§4)                          | no                      |
 | **U3** | ⛔ **DROP `work_packages.zone_id`** + regenerate `database.types.ts` — destructive, `break-glass.md` Procedure B, operator-held                                           | **yes** — only after U2 |
 | **U4** | PM binds zones to WPs (366 U2's authoring surface) + the group-WP ruling from §3                                                                                          | no                      |
 | **U5** | SA capture: sticky zone chips above the shutter, always optional (366 D4/D5)                                                                                              | no                      |
@@ -201,4 +203,4 @@ select decided_at::date, count(*) from public.approvals
 
 ## 8. Sibling
 
-[392](392-project-zone-maps.md) — the geometry, the editor, the map; its §4.1 needs the §3.1 correction once #995 lands. [366](366-wp-zones.md) — the origin of the evidence axis; keep its D1–D7 decisions and its argument, treat its §3 model and §9 appendix as superseded.
+[392](392-project-zone-maps.md) — the geometry, the editor, the map; its §4.1 carries the §3.1 correction as of 2026-08-06. [366](366-wp-zones.md) — the origin of the evidence axis; keep its D1–D7 decisions and its argument, treat its §3 model and §9 appendix as superseded.
