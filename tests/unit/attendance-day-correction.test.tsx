@@ -338,6 +338,30 @@ describe("spec 400 U3b — the column header link", () => {
     expect(link).toHaveAttribute("href", "/team/attendance?day=2026-08-04");
   });
 
+  it("CARRIES the column's facts in that label instead of replacing them", () => {
+    // An author-supplied aria-label wins over its subtree AND becomes the <th>'s
+    // accessible name, so a bare `แก้ไขวัน 4 ส.ค. 2569` would strip the headcount
+    // and the closure state from what a screen reader announces as the header of
+    // all 42 cells — leaving the roles that GOT the control hearing strictly less
+    // than the roles that did not.
+    render(
+      <AttendanceGridView
+        grid={grid}
+        todayIso={TODAY}
+        workerHref={null}
+        dayHref={(d) => `/team/attendance?day=${d}`}
+      />,
+    );
+    // Read the attribute directly — a matcher that takes an asymmetric argument
+    // it does not support would pass on anything.
+    const open = screen.getByRole("link", { name: /แก้ไขวัน 4 ส\.ค\./ });
+    expect(open.getAttribute("aria-label")).toContain("7 คน");
+    // The closed column carries its closure state too.
+    const closed = screen.getByRole("link", { name: /แก้ไขวัน 5 ส\.ค\./ });
+    expect(closed.getAttribute("aria-label")).toContain("9 คน");
+    expect(closed.getAttribute("aria-label")).toContain("ปิดวันแล้ว");
+  });
+
   it("withholds the LINK, never the column's facts, when the reader may not act", () => {
     // The four audit roles outside both allowlists. A link here would promise a
     // panel whose every control their own server refuses.
