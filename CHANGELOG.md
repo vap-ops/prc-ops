@@ -1,3 +1,9 @@
+# [0.345.0](https://github.com/vap-ops/prc-ops/compare/v0.344.0...v0.345.0) (2026-08-06)
+
+### Features
+
+- **a11y:** give the two untitled pages a name, and guard the rest ([5e1e030](https://github.com/vap-ops/prc-ops/commit/5e1e030a0c52bffcb10ca3e2de597ea9d9530594)), closes [#986](https://github.com/vap-ops/prc-ops/issues/986)
+
 # [0.344.0](https://github.com/vap-ops/prc-ops/compare/v0.343.0...v0.344.0) (2026-08-06)
 
 ### Bug Fixes
