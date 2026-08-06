@@ -26,9 +26,10 @@
 import { closeMusterDayFromForm } from "@/app/team/attendance/actions";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
 import { ErrorNotice } from "@/components/features/common/notices";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { USER_ROLE_LABEL, formatThaiDate, formatThaiTime } from "@/lib/i18n/labels";
 import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import type { GridDay } from "@/lib/muster/attendance-grid";
+import { describeAuditEvent, type DayAuditRow } from "@/lib/muster/day-audit";
 import { dayCorrectionControl, type DayCorrectionControl } from "@/lib/muster/day-correction";
 import { BUTTON_SECONDARY, CARD } from "@/lib/ui/classes";
 
@@ -62,6 +63,7 @@ export function AttendanceDayPanel({
   returnTo,
   stillIn = { regular: [], ot: [] },
   outcome = null,
+  trail = null,
 }: {
   day: GridDay;
   todayIso: string;
@@ -86,6 +88,17 @@ export function AttendanceDayPanel({
    * reader lands — a refusal would look like nothing happened.
    */
   outcome?: { ok: true } | { ok: false; message: string } | null;
+  /**
+   * Spec 400 U5 — every after-the-fact edit to this project-day, newest first,
+   * from `list_muster_day_audit`.
+   *
+   * `null` means NOT FETCHED, and it is a different fact from `[]`. Both RPCs on
+   * this panel take exactly one project, so a ทุกโครงการ column reads nothing —
+   * and rendering "ยังไม่มีการแก้ไข" there would assert something about days the
+   * page never looked at. The controls already make that distinction with their
+   * own `noProject` arm; the trail makes it too rather than inheriting silence.
+   */
+  trail?: readonly DayAuditRow[] | null;
 }) {
   const state = dayCorrectionControl({
     date: day.date,
@@ -179,6 +192,45 @@ export function AttendanceDayPanel({
       {state.control === "none" && NO_CONTROL_COPY[state.reason] !== null && (
         <p className="text-ink-secondary mt-2 text-xs">{NO_CONTROL_COPY[state.reason]}</p>
       )}
+
+      {/* Spec 400 U5 — the trail, BELOW the controls that write it. Shown to the
+          whole ATTENDANCE_AUDIT_ROLES audience, which is wider than the roles
+          that may correct: accounting owns the wage consequence of a correction,
+          so withholding the record from a reader who cannot act would be
+          withholding a FACT, not a control (spec 397 U3's rule). */}
+      <div className="border-edge mt-4 border-t pt-3">
+        <h3 className="text-ink text-xs font-semibold">การแก้ไขย้อนหลัง</h3>
+        {trail === null ? (
+          <p className="text-ink-secondary mt-1 text-xs">
+            เลือกโครงการก่อน จึงจะดูประวัติการแก้ไขได้
+          </p>
+        ) : trail.length === 0 ? (
+          <p className="text-ink-secondary mt-1 text-xs">ยังไม่มีการแก้ไขย้อนหลังของวันดังกล่าว</p>
+        ) : (
+          <ul aria-label="ประวัติการแก้ไขย้อนหลัง" className="mt-1 flex flex-col gap-2">
+            {trail.map((row, i) => {
+              const event = describeAuditEvent(row);
+              return (
+                <li key={`${row.loggedAt}-${i}`} className="text-xs">
+                  <p className="text-ink">
+                    {formatThaiTime(row.loggedAt)} · {event.action}
+                    {row.workerName !== null ? ` · ${row.workerName}` : ""}
+                  </p>
+                  {event.detail !== null && (
+                    <p className="text-ink-secondary mt-0.5">{event.detail}</p>
+                  )}
+                  {/* An actor with no name is UNATTRIBUTED, never a uuid — the
+                      wp-timeline rule. It is the real case: 4 of the 5 live site
+                      admins have no name in the system at all. */}
+                  <p className="text-ink-secondary mt-0.5">
+                    โดย {row.actorName ?? "ไม่ทราบผู้แก้ไข"} ({USER_ROLE_LABEL[row.actorRole]})
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }

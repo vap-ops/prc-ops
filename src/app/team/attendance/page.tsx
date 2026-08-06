@@ -37,6 +37,7 @@ import {
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
 import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
+import { loadDayAudit } from "@/lib/muster/day-audit";
 import { attendanceDayParam } from "@/lib/muster/day-correction";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
@@ -338,6 +339,17 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     grid.days.map((d) => d.date),
   );
   const openDay = grid.days.find((d) => d.date === openDayDate) ?? null;
+  // Spec 400 U5 — the correction TRAIL for the open column. SESSION client: the
+  // RPC is SECURITY DEFINER and gates on ATTENDANCE_AUDIT_ROLES itself, which is
+  // this page's own audience, so no admin seam is involved.
+  //
+  // `null` (not `[]`) when there is no open column or no picked project. The RPC
+  // takes exactly one project, so a ทุกโครงการ column is NOT READ — and an empty
+  // array there would render "ยังไม่มีการแก้ไข" about days nobody looked at.
+  const dayTrail =
+    openDay !== null && range.projectId
+      ? await loadDayAudit(supabase, range.projectId, openDay.date)
+      : null;
   const dayHref = (date: string | null): string => {
     const q = new URLSearchParams({ start: range.from, end: range.to });
     if (range.projectId) q.set("project", range.projectId);
@@ -578,6 +590,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     returnTo={dayHref(openDay.date)}
                     stillIn={stillInOnOpenDay}
                     outcome={closeOutcome}
+                    trail={dayTrail}
                   />
                 )}
               </>

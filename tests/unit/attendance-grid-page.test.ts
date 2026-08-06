@@ -330,3 +330,29 @@ describe("/team/attendance page — spec 400 U3b wiring", () => {
     expect(block).toContain('r.stillIn && r.session === "ot"');
   });
 });
+
+describe("/team/attendance page — spec 400 U5 wiring (the correction trail)", () => {
+  it("reads the trail and hands it to the panel", () => {
+    // The import plus the single call site; the panel prop is what makes the
+    // fetch visible to a reader. A component test cannot see any of this — the
+    // whole fetch lives in the Server Component.
+    expect(occurrences("loadDayAudit")).toBe(2);
+    expect(code).toContain("trail={dayTrail}");
+  });
+
+  it("reads it on the SESSION client, not the admin one", () => {
+    // The RPC is SECURITY DEFINER and gates on ATTENDANCE_AUDIT_ROLES itself, so
+    // the admin client would move a live authorization decision into TS where no
+    // pgTAP can drive it over the role domain.
+    expect(code).toContain("loadDayAudit(supabase,");
+  });
+
+  it("passes NULL rather than an empty trail when no project is picked", () => {
+    // `list_muster_day_audit` takes exactly one project, so a ทุกโครงการ column is
+    // never read — and `[]` would render "ยังไม่มีการแก้ไขย้อนหลัง" about a day the
+    // page did not look at. The guard is on the PROJECT, not only on the column.
+    const block = code.slice(code.indexOf("const dayTrail"), code.indexOf("const dayHref"));
+    expect(block).toContain("openDay !== null && range.projectId");
+    expect(block).toContain(": null");
+  });
+});
