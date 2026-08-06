@@ -1,5 +1,5 @@
 begin;
-select plan(49);
+select plan(51);
 
 -- ============================================================================
 -- Spec 400 U3a — the correction path for procurement.
@@ -454,6 +454,27 @@ select ok(
                  and payload->>'kind' = 'muster_correction_scan_in'
                  and actor_role = 'site_admin'),
   'the SA''s ordinary cockpit scan is NOT relabelled a correction (arm-specific audit)');
+
+-- The closure audit row is deliberately written for EVERY closer, not only the new
+-- arm: a closure is the event that triggers the wage derive, so "who finalised this
+-- day" is the fact a later money question needs. 075913's header says so, and prose
+-- is not a pin — without this assertion the claim is only true by accident, and an
+-- edit that moved the insert inside `if v_role = 'procurement'` would stay green.
+-- 07-20 is closed here, at the END of the file, because the scan-in and OT
+-- assertions above all require it OPEN.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-00000000000d"}';
+select lives_ok(
+  $$select public.close_muster_day('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-20'::date)$$,
+  'site_admin may still close (the widening added a role, it removed none)');
+reset role;
+select ok(
+  exists (select 1 from public.audit_log
+           where target_table = 'muster_day_closures'
+             and payload->>'kind' = 'muster_day_close'
+             and payload->>'work_date' = '2026-07-20'
+             and actor_role = 'site_admin'),
+  'a NON-procurement close is audited too — the closure audit is for every closer');
 
 -- ============================================================================
 -- H. The least-privilege split (migration 075913).
