@@ -116,6 +116,12 @@ boundaries mirror those widths (§8).
   iOS bounce. Variants: `app` (content pages), `card` (single-card
   screens), `bare`. Hand-rolling a `<main>` is a review reject.
 - The `app` variant's `pb-20 sm:pb-0` clears the phone tab bar.
+- **The `card` variant centres with AUTO MARGINS, never `items-center`** —
+  on a scrolling flex container `align-items: center` puts the top of
+  overflowing content out of reach of every scroll position (measured:
+  150px unreachable for a 900px card in a 600px scroller). Auto margins
+  centre identically while there is free space and collapse to 0 when
+  there is not. Same rule for any new centred scroller (§8).
 - **Exception — WP detail (Field-First reskin Unit 1):** the WP detail page
   omits `BottomTabBar`; the fixed amber capture bar owns the thumb zone and the
   back chip is the return nav. The only screen exempt from the bottom-tabs
@@ -321,9 +327,25 @@ WIDTH residual (2026-08-06): the frame originally shipped at a fixed `max-w-md`,
 width pin reads every file that renders one of a screen's ARMS, not just `page.tsx`, because
 `/coming-soon`'s visitor arm lives in `visitor-landing.tsx`.
 
-⚠️ **One residual left, disclosed rather than papered over:** `/coming-soon`'s super_admin
-arm is TOP-aligned (`variant="bare"`) while the card variant centres, so that one arm still
-shifts vertically. The page's other two arms are centred, so `card` is the majority match.
+✅ **The last residual is closed (2026-08-06), and it was a symptom, not the disease.**
+`/coming-soon`'s super_admin arm was TOP-aligned (`variant="bare"`) while the other two
+centred — so the fallback could match at most two of three. That `bare` was a 1:1 port of a
+hand-rolled `<main>` from before `PageShell` existed (`git show 9248267c` / `e600c4ed`), not a
+deliberate opt-out — but moving the arm onto `card` first required fixing a real trap:
+**`align-items: center` on a scrolling flex container centres overflowing
+content by pushing its top ABOVE the scrollable area, where no scroll position reaches it.**
+Measured against the real stylesheet — a 900px card in a 600px scroller: top `−150`,
+`scrollHeight` 750, `maxScroll` 150, i.e. **150px unreachable**. So `card` now centres with
+**auto margins** (`items-start … [&>*]:m-auto`), which centre identically while free space is
+positive and collapse to 0 when it is not: the same card reports top `0`, `scrollHeight` 900,
+`maxScroll` 300. Short content is byte-identical to before (top 150 either way). With the trap
+gone, the hub arm adopts `card` and all three arms — and the fallback — agree.
+**Every `card` screen gained the fix:** `/login`, `/coming-soon`, `error.tsx`, `not-found.tsx`,
+`page.tsx`, `visitor-landing.tsx` and `narrow-skeleton.tsx` — the loading frame, and the only
+caller passing two children, which is what `[&>*]` had to be checked against.
+⚑ The hub keeps its own `py-10` and the fallback does not, so the two step 40px apart once the
+hub overflows. ⚠️ `variant="bare"` now has **zero** production callers — kept for the API and
+its own test, not deleted here.
 
 ⚠️ **Not card-only, and the measurement is why:** `/login` and `/coming-soon` are both in
 the telemetry `EXCLUDED_PREFIXES` (`src/lib/telemetry/scope.ts`), so their usage is
