@@ -45,7 +45,12 @@ export interface SaveZoneInput {
   name: string;
   shape?: ZoneShape;
   geometry?: ZoneGeometry;
-  parentZoneId?: string | null;
+  // ⚠️ Deliberately NOT `string | null`. The RPC now coalesces `p_parent_zone_id`,
+  // so passing null to UN-nest a zone would return ok, fire a refresh, and leave
+  // the zone exactly where it was — the silent-success class (#791). Nothing in
+  // the UI nests or un-nests today; when an un-nest affordance exists it needs
+  // its own RPC arm, and this type should stop advertising one until then.
+  parentZoneId?: string;
   sortOrder?: number;
 }
 
@@ -62,10 +67,34 @@ export async function saveZone(input: SaveZoneInput): Promise<ZoneActionResult> 
   const nameResult = validateZoneName(input.name);
   if (!nameResult.ok) return { ok: false, error: nameResult.error };
 
-  const shape: ZoneShape = input.shape ?? "rect";
-  const geometry = input.geometry ?? DEFAULT_ZONE_GEOMETRY;
-  const geometryResult = validateZoneGeometry(shape, geometry);
-  if (!geometryResult.ok) return { ok: false, error: geometryResult.error };
+  // ⭐ Defaults belong to the CREATE path only. `upsert_project_zone` reads a
+  // NULL as "leave this column alone" (migration 20260813075911), so an UPDATE
+  // that fills the gaps with `rect` + the default box does not merely miss the
+  // point — it OVERWRITES. That is what made the rename sheet, which sends
+  // {zoneId, code, name} and nothing else, reset a drawn zone to the same
+  // default rectangle. The two halves have to agree: the RPC stopped clobbering
+  // on null, and this stops manufacturing non-nulls.
+  // `=== undefined` is safe despite `p_zone_id` below using `?? null`: a review
+  // asked whether `zoneId: null` could disagree across the three checks and take
+  // the DB's CREATE arm with a null shape (23502 behind a generic message).
+  // Refuted — `isValidUuid` is `(value: unknown)` and false for null, so the
+  // guard above already returns ไม่พบโซนนี้ and nothing reaches here.
+  const isCreate = input.zoneId === undefined;
+  const shape: ZoneShape | null = input.shape ?? (isCreate ? "rect" : null);
+  const geometry = input.geometry ?? (isCreate ? DEFAULT_ZONE_GEOMETRY : null);
+
+  // Validate only what is actually being written. A partial update sends no
+  // geometry, so there is nothing to check — and checking the STORED geometry
+  // would need a read this action deliberately does not do.
+  if (shape !== null && geometry !== null) {
+    const geometryResult = validateZoneGeometry(shape, geometry);
+    if (!geometryResult.ok) return { ok: false, error: geometryResult.error };
+  } else if (shape !== null || geometry !== null) {
+    // Shape and geometry are one fact, not two: `{x,y,w,h}` under `polygon` is
+    // a row the DB CHECK refuses. Sending one without the other would ask the
+    // database to validate a pairing that only half exists.
+    return { ok: false, error: "ต้องระบุรูปทรงและตำแหน่งของโซนคู่กัน" };
+  }
 
   const auth = await getActionUser();
   if (!auth) return { ok: false, error: NOT_SIGNED_IN };
@@ -79,10 +108,12 @@ export async function saveZone(input: SaveZoneInput): Promise<ZoneActionResult> 
     p_zone_id: (input.zoneId ?? null) as unknown as string,
     p_code: codeResult.code,
     p_name: nameResult.name,
-    p_shape: shape,
+    p_shape: shape as unknown as ZoneShape,
     p_geometry: geometry as unknown as Json,
     p_parent_zone_id: (input.parentZoneId ?? null) as unknown as string,
-    p_sort_order: input.sortOrder ?? 0,
+    // Null, not 0, on an update: `sort_order` is coalesced at the DB, so a
+    // rename that sends 0 would send a zone back to the top of its map.
+    p_sort_order: (input.sortOrder ?? (isCreate ? 0 : null)) as unknown as number,
   });
   if (error) {
     console.error("[saveZone] RPC failed", { mapId: input.mapId, error: error.message });

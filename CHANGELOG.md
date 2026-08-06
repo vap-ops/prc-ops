@@ -1,3 +1,9 @@
+## [0.345.2](https://github.com/vap-ops/prc-ops/compare/v0.345.1...v0.345.2) (2026-08-06)
+
+### Bug Fixes
+
+- **zones:** upsert_project_zone must not erase what the caller did not send ([#988](https://github.com/vap-ops/prc-ops/issues/988)) ([e93bad7](https://github.com/vap-ops/prc-ops/commit/e93bad7f4b551e6039a82198ae2579bf67ef3ac7)), closes [#958](https://github.com/vap-ops/prc-ops/issues/958)
+
 ## [0.345.1](https://github.com/vap-ops/prc-ops/compare/v0.345.0...v0.345.1) (2026-08-06)
 
 ### Bug Fixes
