@@ -220,6 +220,13 @@ describe("spec 400 U3b — the panel", () => {
     const list = within(form).getByRole("list");
     const button = within(form).getByRole("button", { name: /^ปิดวัน$/ });
     expect(list.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // …and DOM order is the only order. jsdom has no layout engine, so a flex
+    // `order-*` utility would move the disclosure below the button VISUALLY with
+    // every assertion above still green — the geometry blind spot this repo has
+    // paid for twice. Nothing in this form may carry one.
+    for (const el of Array.from(form.querySelectorAll("*"))) {
+      expect(el.className).not.toMatch(/\border-(?:first|last|none|\d+)\b/);
+    }
   });
 
   it("needs a second deliberate act — the close is never one tap", () => {
