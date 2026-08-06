@@ -109,7 +109,11 @@ describe("announceArrival — the store half", () => {
     expect(getRouteAnnouncement().message).toBe("รายชื่อช่าง");
   });
 
-  it("DEFERS while a loading boundary is open, then speaks on release", () => {
+  // A deferred destination is published a microtask after the release, so the
+  // decision is made once the commit has settled and a boundary handoff cannot
+  // consume it. Clearing the region stays synchronous, so #983's contract is
+  // unchanged — that is why only the arrival cases await here.
+  it("DEFERS while a loading boundary is open, then speaks on release", async () => {
     // The measured 640–930ms gap. The title is already correct while the
     // skeleton is still on screen; announcing then would tell the user they had
     // arrived at a page that is not there yet.
@@ -124,36 +128,70 @@ describe("announceArrival — the store half", () => {
     ).toBe(ROUTE_LOADING_MESSAGE);
 
     release();
+    await Promise.resolve();
     expect(getRouteAnnouncement().message).toBe("โครงการ");
   });
 
-  it("keeps only the LAST destination when several resolve during one wait", () => {
+  it("keeps only the LAST destination when several resolve during one wait", async () => {
     // A redirect chain, or a second tap mid-wait: the title can change more than
     // once behind one skeleton. The user arrives exactly once, at the last one.
     const release = beginRouteLoading();
     announceArrival("โครงการ");
     announceArrival("รายชื่อช่าง");
     release();
+    await Promise.resolve();
 
     expect(getRouteAnnouncement().message).toBe("รายชื่อช่าง");
   });
 
-  it("does not resurrect a deferred arrival on a LATER, unrelated wait", () => {
+  it("does not resurrect a deferred arrival on a LATER, unrelated wait", async () => {
     // Releasing must consume the pending arrival. Otherwise the next navigation
     // that opens a boundary would replay a stale destination name.
     const first = beginRouteLoading();
     announceArrival("โครงการ");
     first();
+    await Promise.resolve();
     expect(getRouteAnnouncement().message).toBe("โครงการ");
 
     const second = beginRouteLoading();
     expect(getRouteAnnouncement().message).toBe(ROUTE_LOADING_MESSAGE);
     second();
+    await Promise.resolve();
     expect(
       getRouteAnnouncement().message,
       "a stale destination replayed after an unrelated wait — the reader is told " +
         "they landed somewhere they left two navigations ago",
     ).toBe("");
+  });
+
+  it("survives a boundary HANDOFF — the destination is not swallowed", async () => {
+    // Measured in real Chrome, and it is not an edge case: navigating into a
+    // project detail opens a boundary, the title lands, and then a SECOND
+    // boundary takes over as the segment resolves deeper. The first release
+    // reaches depth 0, flushes the pending arrival, and the incoming boundary
+    // republishes "กำลังโหลด…" in the same commit — so the announcement is
+    // consumed and overwritten, and the eventual release publishes "".
+    // Observed end state: "กำลังโหลด…" for 9s, then SILENCE, never the page name.
+    const first = beginRouteLoading();
+    announceArrival("รายการงาน");
+
+    // handoff: the outgoing boundary releases and the incoming one opens.
+    first();
+    const second = beginRouteLoading();
+    await Promise.resolve();
+
+    expect(
+      getRouteAnnouncement().message,
+      "the handoff consumed the arrival — the second wait is showing but the " +
+        "destination has already been thrown away",
+    ).toBe(ROUTE_LOADING_MESSAGE);
+
+    second();
+    await Promise.resolve();
+    expect(
+      getRouteAnnouncement().message,
+      "the wait ended in silence — the destination was swallowed by the handoff",
+    ).toBe("รายการงาน");
   });
 
   it("ignores an empty destination — silence, not a blank announcement", () => {
@@ -181,7 +219,7 @@ describe("<RouteAnnouncer> renders arrival through the SAME region", () => {
     beginRouteLoading()();
   });
 
-  it("reads the loading message then the destination, in that order", () => {
+  it("reads the loading message then the destination, in that order", async () => {
     render(<RouteAnnouncer />);
     const region = screen.getByRole("status");
     const seen: string[] = [];
@@ -195,10 +233,14 @@ describe("<RouteAnnouncer> renders arrival through the SAME region", () => {
     act(() => announceArrival("โครงการ"));
     seen.push(region.textContent ?? "");
 
-    act(() => release());
+    // async act, so the deferred arrival's microtask lands before we read
+    await act(async () => release());
     seen.push(region.textContent ?? "");
 
     expect(seen).toEqual([ROUTE_LOADING_MESSAGE, ROUTE_LOADING_MESSAGE, "โครงการ"]);
+    // …and it never blanks in between: the region goes straight from the wait to
+    // the destination, because the clear is skipped when something is pending.
+    expect(seen).not.toContain("");
   });
 
   it("uses ONE region for both, so the two can never overlap", () => {

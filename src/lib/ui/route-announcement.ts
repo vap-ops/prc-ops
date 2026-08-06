@@ -159,15 +159,55 @@ export function beginRouteLoading(): () => void {
     depth -= 1;
     if (depth !== 0) return;
 
-    // The wait is over. If a destination resolved behind this skeleton, THIS is
-    // the honest moment to name it — the title has been correct for most of a
-    // second, but the page has only just appeared. Consume it either way, so a
-    // stale destination cannot replay on some later, unrelated wait.
+    // Nothing waiting to be named: clear the region NOW, exactly as before this
+    // unit existed. A clear cannot be invalidated by what happens next — if a
+    // boundary is taking over it republishes the loading message in the same
+    // commit anyway — so this half stays synchronous and #983's contract is
+    // untouched.
+    if (pendingArrival === "") {
+      seq += 1;
+      publish({ message: "", seq });
+      return;
+    }
+
+    // A destination IS waiting, and that is a one-shot announcement worth
+    // protecting, so the decision waits for the commit to settle.
+    scheduleArrivalFlush();
+  };
+}
+
+let flushScheduled = false;
+
+/**
+ * Publish a deferred destination once the current commit has SETTLED.
+ *
+ * A boundary HANDOFF — one skeleton releasing as the next opens, which React
+ * does inside a single commit — passes through depth 0 without the wait being
+ * over. Publishing there CONSUMED the pending arrival while the incoming
+ * boundary immediately overwrote it with the loading message, so the
+ * destination was thrown away and the eventual release said nothing at all.
+ * Measured in real Chrome on a project-detail navigation: `กำลังโหลด…` for 9 s,
+ * then SILENCE — the announcement the whole unit exists for, gone.
+ *
+ * A microtask runs after the commit, so `depth` is truthful by then: still 0
+ * means the wait genuinely ended; back above 0 means a handoff, and the pending
+ * destination is simply left for the real release to speak. It survives either
+ * way — if the user really did go elsewhere, the new title overwrites it.
+ */
+function scheduleArrivalFlush(): void {
+  if (flushScheduled) return;
+  flushScheduled = true;
+  queueMicrotask(() => {
+    flushScheduled = false;
+    if (depth !== 0) return;
+
+    // The wait is over. The title has been correct for most of a second, but the
+    // page has only just appeared — THIS is the honest moment to name it.
     const arrived = pendingArrival;
     pendingArrival = "";
     seq += 1;
     publish({ message: arrived, seq });
-  };
+  });
 }
 
 /**
