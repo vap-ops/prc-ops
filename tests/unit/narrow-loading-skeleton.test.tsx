@@ -34,11 +34,11 @@ import { join } from "node:path";
 import ComingSoonLoading from "@/app/coming-soon/loading";
 import LoginLoading from "@/app/login/loading";
 import ProfileLoading from "@/app/profile/loading";
-import { NarrowSkeleton, type NarrowWidth } from "@/components/features/chrome/narrow-skeleton";
+import { NarrowSkeleton } from "@/components/features/chrome/narrow-skeleton";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { ROUTE_LOADING_MESSAGE } from "@/lib/ui/route-announcement";
 
-const APP = join(process.cwd(), "src", "app");
+const SRC = join(process.cwd(), "src");
 
 function mainOf(ui: React.ReactElement): HTMLElement {
   const { container } = render(ui);
@@ -63,8 +63,8 @@ function shellClassName(variant: "app" | "card"): string {
  * `accept="image/*"` and eats real code (the #982 lesson), so this drops lines
  * that START a JSDoc/banner comment or continue one, never a mid-line string.
  */
-function sourceOf(...segments: string[]): string {
-  return readFileSync(join(APP, ...segments), "utf8")
+function sourceOf(relative: string): string {
+  return readFileSync(join(SRC, relative), "utf8")
     .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
     .split("\n")
     .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
@@ -80,18 +80,38 @@ function declaredVariant(source: string): "app" | "card" | "bare" {
 }
 
 /**
- * The column width a page declares, read off the page rather than re-typed.
- * A single-column screen uses exactly ONE `max-w-*` — /coming-soon names it
- * three times (its two arms plus VisitorLanding's) and they agree — so more
- * than one distinct value means the page is no longer a single-column screen
- * and this table's premise, not the skeleton, is what needs revisiting.
+ * The column width a screen declares, read off its own source rather than
+ * re-typed. Three deliberate shapes, each a fresh-eyes finding:
+ *
+ * ① it reads EVERY file that renders one of the screen's arms, not just
+ *    `page.tsx` — `/coming-soon`'s visitor arm lives in
+ *    `components/features/register/visitor-landing.tsx`, so a page-only scan
+ *    left it unpinned and the docstring claiming otherwise was simply wrong;
+ * ② a match must be a COLUMN, not any `max-w-*` in the file: all five arms are
+ *    `w-full … max-w-*`, so the token is only counted inside a class list that
+ *    also carries `w-full`. A `max-w-sm` chip nested in the card no longer
+ *    reds, and a column widened to `max-w-lg` while a chip still says `sm` no
+ *    longer passes;
+ * ③ the pattern keeps any variant PREFIX (`\S*max-w-\S+`, the house idiom from
+ *    page-skeleton-shell.test.tsx) so `sm:max-w-md` cannot read as a base width,
+ *    and it matches ANY width — a page moving to `max-w-lg` fails with the value
+ *    it found rather than with an empty set nothing could satisfy.
  */
-function declaredWidth(source: string): NarrowWidth {
-  const found = [...new Set((source.match(/\bmax-w-(?:sm|md)\b/g) ?? []).map((m) => m.slice(6)))];
-  if (found.length !== 1) {
-    throw new Error(`expected exactly one column width, found [${found.join(", ")}]`);
+function declaredWidth(sources: string[]): string {
+  const found = new Set<string>();
+  for (const source of sources) {
+    for (const attr of source.match(/class(?:Name)?="[^"]*"|`[^`]*`/g) ?? []) {
+      if (!/\bw-full\b/.test(attr)) continue;
+      for (const token of attr.match(/\S*max-w-\S+/g) ?? []) found.add(token.replace(/["`]/g, ""));
+    }
   }
-  return found[0] as NarrowWidth;
+  const widths = [...found];
+  if (widths.length !== 1) {
+    throw new Error(
+      `expected exactly one column width across the screen's arms, found [${widths.join(", ")}]`,
+    );
+  }
+  return widths[0] as string;
 }
 
 /**
@@ -107,21 +127,21 @@ const NARROW_BOUNDARIES = [
     Loading: LoginLoading,
     variant: "card" as const,
     width: "sm" as const,
-    page: ["login", "page.tsx"],
+    arms: ["app/login/page.tsx"],
   },
   {
     route: "/coming-soon",
     Loading: ComingSoonLoading,
     variant: "card" as const,
     width: "md" as const,
-    page: ["coming-soon", "page.tsx"],
+    arms: ["app/coming-soon/page.tsx", "components/features/register/visitor-landing.tsx"],
   },
   {
     route: "/profile",
     Loading: ProfileLoading,
     variant: "app" as const,
     width: "md" as const,
-    page: ["profile", "page.tsx"],
+    arms: ["app/profile/page.tsx"],
   },
 ];
 
@@ -147,9 +167,9 @@ describe("NarrowSkeleton — the loading frame for single-column screens", () =>
         const column = render(
           <NarrowSkeleton variant={variant} width={width} />,
         ).container.querySelector("main > div");
-        expect(column?.className.match(/\bmax-w-\S+/g), `${variant}/${width}: the column`).toEqual([
-          `max-w-${width}`,
-        ]);
+        expect(column?.className.match(/\S*max-w-\S+/g), `${variant}/${width}: the column`).toEqual(
+          [`max-w-${width}`],
+        );
       }
     }
   });
@@ -204,7 +224,7 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
 
   it.each(NARROW_BOUNDARIES)(
     "$route's fallback ground matches what its PAGE renders",
-    ({ variant, page }) => {
+    ({ variant, arms }) => {
       // The invariant that makes this unit worth shipping: the fallback must not
       // flip the ground colour under the user. Read the page's own shell call —
       // these are async Server Components the suite cannot render.
@@ -213,7 +233,7 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
       // `bare`, so switching a page to `variant="bare" className="bg-card"` —
       // exactly what /coming-soon's OperatorHub arm does — would flip the ground
       // under the user with the pin still green (fresh-eyes catch).
-      expect(declaredVariant(sourceOf(...page)), `${page.join("/")}'s own PageShell call`).toBe(
+      expect(declaredVariant(sourceOf(arms[0] as string)), `${arms[0]}'s own PageShell call`).toBe(
         variant,
       );
     },
@@ -221,12 +241,14 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
 
   it.each(NARROW_BOUNDARIES)(
     "$route's fallback WIDTH matches what its PAGE renders",
-    ({ width, page }) => {
+    ({ width, arms }) => {
       // The same derivation as the variant pin, for the other axis: #987 shipped
       // one fixed max-w-md and left /login 64px wide against its max-w-sm card.
       // Reading the width off the page is what stops that recurring — change the
       // page's column and this reds until the boundary follows.
-      expect(declaredWidth(sourceOf(...page)), `${page.join("/")}'s own column width`).toBe(width);
+      expect(declaredWidth(arms.map(sourceOf)), `${arms.join(" + ")} column width`).toBe(
+        `max-w-${width}`,
+      );
     },
   );
 });

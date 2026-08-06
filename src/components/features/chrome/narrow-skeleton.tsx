@@ -25,7 +25,7 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 //     centred frame would be a NEW mismatch on the vertical axis.
 //
 // Two residual jumps, disclosed rather than papered over (both far smaller than
-// the ~792px this replaced):
+// the ~792px this replaced) — one closed, one open:
 //   • ~~/login's card is max-w-sm against a fixed max-w-md column~~ CLOSED
 //     2026-08-06: the width is per-screen now, and each boundary's is pinned
 //     against the width its own PAGE declares, so it cannot drift back;
@@ -42,8 +42,9 @@ export type NarrowWidth = "sm" | "md";
 
 // Literal class strings, never `max-w-${width}` — Tailwind generates utilities by
 // scanning source for whole candidates, so an interpolated name is not guaranteed
-// to exist in the stylesheet (it would only work here by accident, because
-// login/page.tsx happens to mention max-w-sm).
+// to exist in the stylesheet. Both values do happen to be emitted from elsewhere in
+// src/ today (login/page.tsx, confirm-dialog.tsx) — which is exactly the kind of
+// accident that stops being true the day those files change.
 const COLUMN_WIDTH: Record<NarrowWidth, string> = {
   sm: "max-w-sm",
   md: "max-w-md",

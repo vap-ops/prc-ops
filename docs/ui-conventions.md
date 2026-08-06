@@ -97,8 +97,9 @@ One canonical token in [page-width.ts](../src/lib/ui/page-width.ts):
 `max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl`. Every content page's
 header strip, nav strip, and content container use it. `AppHeader`/`HubNav`
 accept only `typeof PAGE_MAX_W` — the type system prevents drift.
-Recorded exceptions: `/login`, `/profile`, `/coming-soon` — single-card
-form screens at `max-w-md`.
+Recorded exceptions — the single-column screens: `/profile` and
+`/coming-soon` at `max-w-md`, `/login` at `max-w-sm`. Their loading
+boundaries mirror those widths (§8).
 
 ### Page anatomy
 
@@ -315,8 +316,10 @@ which reads the page's own `PageShell` call so the two cannot drift:
 **Both axes are read off the page**, never re-typed: the pin derives the variant from the
 page's own `PageShell` call and the width from the page's own column class, so changing
 either on the page reds until the boundary follows. The width column closed the last
-residual (2026-08-06): the frame originally shipped at a fixed `max-w-md`, leaving `/login`'s
-fallback 448px against its 384px card — measured live, and 384 vs 384 after.
+WIDTH residual (2026-08-06): the frame originally shipped at a fixed `max-w-md`, leaving
+`/login`'s fallback 448px against its 384px card — measured live, and 384 vs 384 after. The
+width pin reads every file that renders one of a screen's ARMS, not just `page.tsx`, because
+`/coming-soon`'s visitor arm lives in `visitor-landing.tsx`.
 
 ⚠️ **One residual left, disclosed rather than papered over:** `/coming-soon`'s super_admin
 arm is TOP-aligned (`variant="bare"`) while the card variant centres, so that one arm still
