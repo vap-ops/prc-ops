@@ -91,7 +91,7 @@ function declaredVariant(source: string): "app" | "card" | "bare" {
   ];
   if (variants.length !== 1) {
     throw new Error(
-      `this file's ${calls.length} PageShell calls disagree: [${variants.join(", ")}]`,
+      `${calls.length} PageShell calls in this file disagree: [${variants.join(", ")}]`,
     );
   }
   return variants[0] as "app" | "card" | "bare";
@@ -137,9 +137,10 @@ function declaredWidth(sources: string[]): string {
  * PageShell's centred bg-card ground; `app` is the top-aligned bg-page one.
  *
  * /coming-soon's three arms (unserved-role card · VisitorLanding · super_admin
- * OperatorHub) all declare `card` as of 2026-08-06 — the hub used to be
- * `bare`+`bg-card` because the card variant's `items-center` clipped tall
- * content, and it could adopt the variant once that was fixed with auto margins.
+ * OperatorHub) all declare `card` as of 2026-08-06. The hub had been `bare` +
+ * `bg-card` since before PageShell existed (a 1:1 port of a hand-rolled <main>,
+ * not a deliberate opt-out); it could only adopt the variant once `card` stopped
+ * centring with `items-center`, which clipped content taller than the viewport.
  */
 const NARROW_BOUNDARIES = [
   {
@@ -261,7 +262,14 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
       // Checking arms[0] alone could never see that. The arms are now required
       // to agree with each other AND with the boundary.
       for (const arm of arms) {
-        expect(declaredVariant(sourceOf(arm)), `${arm}'s own PageShell call`).toBe(variant);
+        const source = sourceOf(arm);
+        expect(declaredVariant(source), `${arm}'s own PageShell call`).toBe(variant);
+        // The variant alone does not fix the ground: `variant="card" className="bg-page"`
+        // flips it back with the pin above still green (fresh-eyes catch), so no arm
+        // may override the surface its variant supplies.
+        for (const call of source.match(/<PageShell[^>]*?>/g) ?? []) {
+          expect(call, `${arm} overrides its shell ground`).not.toMatch(/className="[^"]*bg-/);
+        }
       }
     },
   );

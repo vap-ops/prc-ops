@@ -12915,7 +12915,7 @@ while its other two arms centred, so one loading boundary faced three pages that
 and its fallback could match at most two. The obvious fix — an `align` prop on the skeleton —
 would have been wrong: **the boundary cannot know which arm is coming.**
 
-**Why that arm had opted out, measured rather than guessed.** `align-items: center` on a
+**Why the shared shell could not simply absorb that arm — measured, not guessed.** (The arm's own `bare` was NOT a deliberate opt-out: `git show 9248267c` shows a hand-rolled `<main>` from before `PageShell` existed, ported 1:1 in `e600c4ed`. The trap below is real; that history is not evidence for it, and my first draft claimed it was.) `align-items: center` on a
 _scrolling_ flex container centres overflowing content by pushing its top ABOVE the scrollable
 area, where no scroll position can reach it. Against the real generated stylesheet, a 900px card
 in a 600px scroller:
@@ -12932,12 +12932,18 @@ it is not — which is the whole difference.
 **Built.** `card` becomes `flex items-start justify-center bg-card px-6 [&>*]:m-auto`; the
 OperatorHub arm drops to `variant="card" className="py-10"`. Every card screen gains the fix —
 `/login`, `/coming-soon`, `error.tsx`, `not-found.tsx`, `page.tsx`, `visitor-landing.tsx` — and
-each passes exactly one child element, checked before relying on `[&>*]` (the sr-only
-announcement in the skeleton's card arm is `position: absolute`, so it is not a flex item).
+each passes exactly one child element except the skeleton's card arm, which also renders the
+sr-only announcement. ⚠️ `[&>*]` selects that node too (it is emitted LAST at equal specificity,
+so it overrides `.sr-only`'s `margin:-1px` and any child `mx-auto`/`mt-*`) — harmless on a 1×1
+clipped box, but the blast radius is real and is now recorded in the variant's own comment.
 
-**Verified live** at 375×812: the fallback's column and the hub's column now sit under the same
-shell on the same ground, each centred by the same mechanism (page 671px column at top 40 in a
-751px box; fallback 216px at 298 in 812 — both exactly `(box − content) / 2`).
+**Verified live** at 375×812: the fallback and the hub now render the same shell classes on the
+same ground. ⚠️ Stated precisely, because the first draft overclaimed: the hub's 671px column
+in a 751px box with `py-10` leaves **zero** free space, so its `top 40` is that padding, not the
+auto-margin centring — that arm never exercised the new mechanism at this viewport, and the two
+numbers come from differently-sized boxes. The auto-margin behaviour is proved by the isolated
+measurement above, not by this one. ⚑ The hub keeps `py-10` and the fallback does not, so they
+step 40px apart once the hub overflows.
 
 **Pinned.** `page-shell.test.tsx` asserts the card variant does NOT carry `items-center` and DOES
 carry `[&>*]:m-auto`, with the measurement in the comment so the next reader cannot "simplify" it

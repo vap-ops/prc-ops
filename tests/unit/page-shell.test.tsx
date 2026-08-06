@@ -60,6 +60,13 @@ describe("PageShell", () => {
       "items-center clips a card taller than the viewport — centre with auto margins",
     ).not.toContain("items-center");
     expect(main?.className).toContain("[&>*]:m-auto");
+    // BOTH halves of the mechanism, because auto margins only centre in a FLEX
+    // formatting context: in a block box `margin-block: auto` computes to 0
+    // (CSS 2.1 §10.6.3), so deleting `flex` would top-align all seven card
+    // screens with every other assertion here still green. A fresh-eyes mutant
+    // survived exactly that — `items-center` was self-contained, this is not.
+    expect(main?.className, "auto margins centre only inside a flex container").toContain("flex");
+    expect(main?.className).toContain("items-start");
     expect(main?.className).toContain("justify-center");
     expect(main?.className).toContain("bg-card");
     expect(main?.className).not.toContain("bg-page");

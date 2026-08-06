@@ -34,9 +34,18 @@ const VARIANT_CLASSES: Record<PageShellVariant, string> = {
    * and collapse to 0 when it is not, so a tall card simply scrolls
    * (same child: top 0, scrollHeight 900, maxScroll 300).
    *
-   * That trap is why /coming-soon's OperatorHub arm opted out of this variant
-   * (bare + py-10), which left that one page's three arms disagreeing about
-   * vertical alignment — and its loading fallback unable to match all three.
+   * /coming-soon's OperatorHub arm used to render `bare` + `bg-card px-6 py-10`,
+   * which left that page's three arms disagreeing about vertical alignment and
+   * its loading fallback unable to match all three. (It was NOT a deliberate
+   * opt-out from this trap — `git show 9248267c` shows a hand-rolled <main> from
+   * before PageShell existed, ported 1:1 in e600c4ed. The trap is real; that
+   * arm's history is not evidence of it.) With centring made safe, the arm now
+   * uses this variant and the three agree.
+   *
+   * ⚠️ `[&>*]:m-auto` is emitted LAST at equal specificity, so it beats every
+   * margin utility a child sets — `mx-auto` (same result), `.sr-only`'s
+   * `margin:-1px`, and any future `mt-*`/`m-0`. A card child that needs its own
+   * margin must set it on an inner element.
    */
   card: "flex items-start justify-center bg-card px-6 [&>*]:m-auto",
   /** Caller supplies the rest (profile, coming-soon hub). */

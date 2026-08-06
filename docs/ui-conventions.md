@@ -329,8 +329,10 @@ width pin reads every file that renders one of a screen's ARMS, not just `page.t
 
 ✅ **The last residual is closed (2026-08-06), and it was a symptom, not the disease.**
 `/coming-soon`'s super_admin arm was TOP-aligned (`variant="bare"`) while the other two
-centred — so the fallback could match at most two of three. The arm had opted out of `card`
-for a good reason: **`align-items: center` on a scrolling flex container centres overflowing
+centred — so the fallback could match at most two of three. That `bare` was a 1:1 port of a
+hand-rolled `<main>` from before `PageShell` existed (`git show 9248267c` / `e600c4ed`), not a
+deliberate opt-out — but moving the arm onto `card` first required fixing a real trap:
+**`align-items: center` on a scrolling flex container centres overflowing
 content by pushing its top ABOVE the scrollable area, where no scroll position reaches it.**
 Measured against the real stylesheet — a 900px card in a 600px scroller: top `−150`,
 `scrollHeight` 750, `maxScroll` 150, i.e. **150px unreachable**. So `card` now centres with
@@ -339,7 +341,11 @@ positive and collapse to 0 when it is not: the same card reports top `0`, `scrol
 `maxScroll` 300. Short content is byte-identical to before (top 150 either way). With the trap
 gone, the hub arm adopts `card` and all three arms — and the fallback — agree.
 **Every `card` screen gained the fix:** `/login`, `/coming-soon`, `error.tsx`, `not-found.tsx`,
-`page.tsx`, `visitor-landing.tsx`.
+`page.tsx`, `visitor-landing.tsx` and `narrow-skeleton.tsx` — the loading frame, and the only
+caller passing two children, which is what `[&>*]` had to be checked against.
+⚑ The hub keeps its own `py-10` and the fallback does not, so the two step 40px apart once the
+hub overflows. ⚠️ `variant="bare"` now has **zero** production callers — kept for the API and
+its own test, not deleted here.
 
 ⚠️ **Not card-only, and the measurement is why:** `/login` and `/coming-soon` are both in
 the telemetry `EXCLUDED_PREFIXES` (`src/lib/telemetry/scope.ts`), so their usage is
