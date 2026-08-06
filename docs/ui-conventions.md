@@ -375,7 +375,7 @@ and — for the two boundary surfaces together — by
    had provably changed, and on the fourth announced `สวัสดี คุณ…` — the SA
    home's `<h1>`, neither the destination nor the page being left. Root cause,
    measured: **Next REPLACES the `<title>` node rather than editing its text**,
-   so `document.title` is empty for ~1–6 ms per navigation, and that is the
+   so `document.title` is empty for ~3–170 ms per navigation, and that is the
    window its effect samples in — hence the `h1` fallback.
 
    **It is therefore SILENCED** (`RouteAnnouncer` sets `aria-live="off"` and
@@ -388,7 +388,10 @@ and — for the two boundary surfaces together — by
    announcer. Safe because React portals the announcement TEXT into that div but
    does not own the element — verified in a real browser, where the change stuck
    across navigations and a probe tag on the node survived. Rule 4 carries the
-   truth instead. ⚑ Worth reporting upstream; not done.
+   truth instead. **Reported upstream:
+   [vercel/next.js#96797](https://github.com/vercel/next.js/issues/96797)** — if
+   it is fixed, this silencing becomes unnecessary rather than harmful, and can
+   simply be deleted.
 
 3. **Each announcement gets a fresh node identity** (`key={seq}`). Every boundary
    says the same words, and React unmounts one fallback and mounts the next in a

@@ -12776,6 +12776,13 @@ guard that exists for it. lint 0 · typecheck 0 · `pnpm build` 0 · full suite 
 **Gate 4 in real Chrome:** `nextRole: null`, `nextAriaLive: "off"` on the live app, while ours
 announced `โครงการ` · `รายชื่อช่าง` · `ทีมงาน` across the same navigations.
 
-**Open questions.** ① Worth reporting upstream to Next — the announcer samples `document.title`
-in the window where it has removed the title node. Not done. ② If a future Next fixes it, the
+**Open questions.** ① ~~Worth reporting upstream to Next~~ — **REPORTED:
+[vercel/next.js#96797](https://github.com/vercel/next.js/issues/96797)** (2026-08-06). Filed as a
+distinct issue rather than a comment on the existing #86660, which reports the _opposite_ symptom —
+that the `h1`/path fallbacks are never reached — while our measurement is a counter-example: the
+fallback IS reached, precisely because `document.title` is transiently empty, which is also why it
+fires with the wrong content. The report notes that implementing #86660's cascade without closing
+this window would leave the `h1` step inheriting the same race. ⚠️ Filing it also corrected a figure
+we had been carrying: the empty window is **~3–170 ms**, not the "~1–6 ms" taken from the first two
+samples — fixed in all five places that quoted it. ② If a future Next fixes it, the
 silencing becomes unnecessary rather than harmful, and the guard's comments say where to look.

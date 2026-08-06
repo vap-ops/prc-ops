@@ -38,7 +38,7 @@
 //
 // Three facts from that, each load-bearing below:
 //   ① Next REPLACES the <title> NODE rather than mutating its text, so
-//      document.title is empty for ~1–6ms per navigation. That gap is what the
+//      document.title is empty for ~3–170ms per navigation. That gap is what the
 //      framework's announcer samples in — the root cause of it speaking the
 //      wrong thing. NOTE the split, because this file's value is that
 //      distinction: the gap and the wrong output were both MEASURED, but the
@@ -223,7 +223,7 @@ function scheduleArrivalFlush(): void {
  * a truthful answer to "where am I".
  *
  * `""` is a NON-announcement and is ignored outright — you cannot announce
- * nothing. It reaches here from the ~1–6ms window where Next has removed the
+ * nothing. It reaches here from the ~3–170ms window where Next has removed the
  * title node, and from a page that set no title of its own; in both cases the
  * region must keep whatever it last truthfully said rather than blanking. (To
  * clear the region, open and close a loading boundary — that is the only thing
