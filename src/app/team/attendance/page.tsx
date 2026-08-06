@@ -204,6 +204,10 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     // already shows them.
     roster: roster ?? [],
   });
+  // Read off the rendered grid, so the headline and the table can never disagree
+  // — the spec-358 U3 rule (two surfaces rendering one fact must not derive it
+  // independently). Zero in the list view, which draws no roster rows.
+  const absentCount = shape === "grid" ? grid.rows.filter((r) => r.daysPresent === 0).length : 0;
 
   const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
   const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
@@ -373,6 +377,17 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                 {rows.length} คน · รวม {formatNumber(totalDays)} วัน
                 {totalOt > 0 ? ` · OT ${formatNumber(totalOt)} ชม.` : ""}
               </p>
+              {/* Spec 400 U2 — the finding, in words, beside the count it would
+                  otherwise contradict. The header's `N คน` counts people the
+                  muster RECORDED (25 live), while the grid now draws the roster
+                  too (42 rows), so without this line one screen carries two
+                  numbers and no explanation. Derived from the grid the reader is
+                  looking at, never recomputed. */}
+              {absentCount > 0 && (
+                <p className="text-ink-secondary mt-1 text-xs">
+                  ไม่มีบันทึกการเช็คชื่อในช่วงนี้ {absentCount} คน
+                </p>
+              )}
               {/* The unclosed-day count is a PROJECT-day fact, identical for every
                   worker of that day — so it belongs here ONCE, not as a chip on
                   each worker row (which read as N findings against N people). It

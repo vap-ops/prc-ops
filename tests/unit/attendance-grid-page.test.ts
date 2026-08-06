@@ -163,6 +163,23 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     expect(rosterBlock).toContain("range.projectId");
   });
 
+  it("states the absent count beside the header number it would otherwise contradict", () => {
+    // Live: the header reads `25 คน` (people the muster recorded) above a table
+    // of 42 rows once the roster is unioned in. One screen, two numbers, no
+    // explanation — so the finding is written out, and derived from the GRID the
+    // reader is looking at rather than recomputed from another source.
+    expect(code).toContain(
+      'const absentCount = shape === "grid" ? grid.rows.filter((r) => r.daysPresent === 0).length : 0;',
+    );
+    expect(code).toContain("ไม่มีบันทึกการเช็คชื่อในช่วงนี้ {absentCount} คน");
+    // It sits in the header card, not in the grid — a per-range fact, once.
+    const header = code.slice(
+      code.indexOf("{rows.length} คน"),
+      code.indexOf("<AttendanceGridView"),
+    );
+    expect(header).toContain("absentCount > 0");
+  });
+
   it("hands the roster to the builder as a UNION input, not as the row set", () => {
     // Measured: one worker with attendance in the live window is not `active`.
     // Substituting the roster for the rows would drop them from a grid that
