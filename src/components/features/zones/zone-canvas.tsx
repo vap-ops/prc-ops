@@ -27,6 +27,7 @@ import {
   cornersToBox,
   pixelsToBox,
   pixelsToPolygon,
+  polygonLosesShape,
   polygonToPixels,
   snapBox,
   snapPolygon,
@@ -41,6 +42,7 @@ import {
 } from "@/lib/zones/canvas-state";
 import type { ZoneGeometry, ZoneShape } from "@/lib/zones/validate-zone";
 import { ZONE_LABEL } from "@/lib/i18n/labels";
+import { ConfirmDialog } from "@/components/features/common/confirm-dialog";
 import { ZoneShapeNode } from "./zone-shape-node";
 import type { CanvasZone, ZoneCanvasProps } from "./zone-canvas-types";
 
@@ -48,6 +50,11 @@ export type { CanvasZone, ZoneCanvasProps } from "./zone-canvas-types";
 
 /** The map box's aspect. A site plan is landscape; the stage width follows the container. */
 const ASPECT = 0.625;
+
+// A rejected round trip has no server message to show, so the canvas supplies
+// one. Deliberately the retryable wording: a dropped connection IS retryable,
+// unlike the permanent refusals the honest-copy rule is about.
+const SAVE_FAILED = "บันทึกโซนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 
 const SHAPE_TOOLS: ReadonlyArray<{ shape: ZoneShape; label: string }> = [
   { shape: "rect", label: "สี่เหลี่ยม" },
@@ -81,14 +88,28 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
   // any of it is testable, because a canvas is opaque to RTL.
   const [writes, dispatch] = useReducer(canvasReducer, initialCanvasState);
 
-  // ⭐ Bumped after every settled write. Konva nodes are mutable objects the
-  // pointer moves directly, so when a drag's SNAPPED result equals the stored
-  // geometry, react-konva sees identical props, writes nothing back, and the
-  // shape stays under the pointer while the database holds something else.
+  // ⭐ Bumped after a settled write, PER ZONE. Konva nodes are mutable objects
+  // the pointer moves directly, so when a drag's SNAPPED result equals the
+  // stored geometry, react-konva sees identical props, writes nothing back, and
+  // the shape stays under the pointer while the database holds something else.
   // Snap is on by default at 5%, so on a ~1200px stage every drag under ~30px
-  // does exactly that. Remounting the layer's shapes forces the node position
-  // to be re-derived from the geometry, which is the only source of truth.
-  const [repaint, setRepaint] = useState(0);
+  // does exactly that. Remounting the node forces its position to be re-derived
+  // from the geometry, which is the only source of truth.
+  //
+  // ⚠️ Keyed BY ZONE, not one counter for the layer: a single counter in every
+  // key remounts every shape on every settle, so finishing a drag on A while B
+  // is mid-gesture destroys and recreates B's node under the pointer — B snaps
+  // back and its `dragend` fires on a detached node, losing the move. That is
+  // precisely the two-zones-at-once case the reducer's sequencing exists for.
+  const [repaint, setRepaint] = useState<Record<string, number>>({});
+  const bumpRepaint = useCallback((zoneId: string) => {
+    setRepaint((current) => ({ ...current, [zoneId]: (current[zoneId] ?? 0) + 1 }));
+  }, []);
+
+  // The lossy polygon→box collapse waits on the themed ConfirmDialog (spec 18);
+  // `window.confirm` is banned by the design doctrine and is the wrong register
+  // for a destructive step anyway.
+  const [pendingReshape, setPendingReshape] = useState<ZoneShape | null>(null);
 
   const resolved = useMemo(
     () =>
@@ -99,7 +120,20 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
     [zones, writes],
   );
   const selected = resolved.find((zone) => zone.id === selectedId) ?? null;
-  const canUndo = undoTarget(writes) !== null;
+
+  // ⚠️ `canUndo` is computed against the zones actually on screen and against
+  // in-flight writes, not merely against a non-empty history. Two dead-control
+  // cases it closes (the silent-success class, #791):
+  //   · the entry's zone was deleted from the list, so every tap did nothing
+  //     forever while the button stayed enabled;
+  //   · a write for that zone is still out, so undo and the drag would race at
+  //     the database with no ordering token and the loser would survive only
+  //     until a reload.
+  const undoable = undoTarget(writes);
+  const canUndo =
+    undoable !== null &&
+    zones.some((zone) => zone.id === undoable.zoneId) &&
+    !writes.inFlight.some((w) => w.zoneId === undoable.zoneId);
 
   // The stage has no intrinsic size; it takes the container's width and the map
   // aspect. Measured rather than assumed — a Konva stage is 0×0 for one frame,
@@ -142,7 +176,16 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
       writeSeq.current = seq;
       dispatch(viaUndo ? { type: "undo" } : { type: "commit", zoneId: zone.id, server, next });
 
-      void saveZone({
+      const settle = (ok: boolean, message?: string) => {
+        dispatch({ type: "settled", seq, ok });
+        // Whatever the outcome, the node under the pointer may now disagree
+        // with the geometry — on failure it is at the refused position, and on
+        // an equal-after-snap success it never moved back. Re-derive it.
+        bumpRepaint(zone.id);
+        if (!ok) setError(message ?? SAVE_FAILED);
+      };
+
+      saveZone({
         projectId,
         mapId,
         zoneId: zone.id,
@@ -150,16 +193,16 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
         name: zone.name,
         shape: next.shape,
         geometry: next.geometry,
-      }).then((result) => {
-        dispatch({ type: "settled", seq, ok: result.ok });
-        // Whatever the outcome, the node under the pointer may now disagree
-        // with the geometry — on failure it is at the refused position, and on
-        // an equal-after-snap success it never moved back. Re-derive it.
-        setRepaint((n) => n + 1);
-        if (!result.ok) setError(result.error);
-      });
+      })
+        .then((result) => settle(result.ok, result.ok ? undefined : result.error))
+        // ⚠️ A REJECTION is not a refusal — a dropped connection, a 500, or a
+        // stale action id after a deploy never resolves, so without this the
+        // write is never settled: the draft pins the zone forever, the in-flight
+        // entry leaks, the shape sits at a position the database never received,
+        // and the manager is told nothing. (Plus an unhandled rejection.)
+        .catch(() => settle(false));
     },
-    [projectId, mapId],
+    [projectId, mapId, bumpRepaint],
   );
 
   const commit = useCallback(
@@ -237,30 +280,13 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
     [selected, stage, snap, commit],
   );
 
-  const handleShapeChange = useCallback(
-    (shape: ZoneShape) => {
-      if (!selected || shape === selected.shape) return;
-      // ⚠️ Collapsing a polygon to a box keeps only its bounding rectangle —
-      // every vertex beyond the four corners is gone, and undo is the only way
-      // back. An earlier version of this file claimed in a comment that a
-      // confirmation covered that; none existed. Either the dialog is real or
-      // the claim is not made, and a destructive tap deserves the dialog.
-      if (isPolygon(selected.geometry) && shape !== "polygon") {
-        const points = selected.geometry.points.length;
-        if (
-          points > 4 &&
-          !window.confirm(
-            `เปลี่ยนเป็นรูปทรงนี้จะเหลือเฉพาะกรอบสี่เหลี่ยม — จุดมุมทั้ง ${points} จุดที่วาดไว้จะหายไป ยืนยันหรือไม่`,
-          )
-        ) {
-          return;
-        }
-      }
-      // Narrowed on the VALUE rather than on a boolean: a `wasPolygon` flag
-      // reads the same to a human and tells the compiler nothing, so the
-      // `as BoxGeometry` it forces would be the only thing standing between a
-      // polygon and `boxToCorners` reading four undefined corners.
-      const current = selected.geometry;
+  // Narrowed on the VALUE rather than on a boolean: a `wasPolygon` flag reads
+  // the same to a human and tells the compiler nothing, so the `as BoxGeometry`
+  // it forces would be the only thing standing between a polygon and
+  // `boxToCorners` reading four undefined corners.
+  const applyShape = useCallback(
+    (zone: CanvasZone, shape: ZoneShape) => {
+      const current = zone.geometry;
       const geometry: ZoneGeometry = isPolygon(current)
         ? shape === "polygon"
           ? current
@@ -268,9 +294,33 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
         : shape === "polygon"
           ? { points: boxToCorners(current) }
           : current;
-      commit(selected, { shape, geometry });
+      commit(zone, { shape, geometry });
     },
-    [selected, commit],
+    [commit],
+  );
+
+  const handleShapeChange = useCallback(
+    (shape: ZoneShape) => {
+      if (!selected || shape === selected.shape) return;
+      // ⚠️ Collapsing a polygon to a box keeps only its bounding rectangle, and
+      // undo is the only way back. An earlier version claimed in a comment that
+      // a confirmation covered this; none existed.
+      //
+      // ⭐ The test is whether the geometry actually CHANGES, not whether there
+      // are more than four points: a four-vertex quad that is not a rectangle
+      // loses three of its corners to its bounding box, silently, and a point
+      // count cannot see that.
+      if (
+        isPolygon(selected.geometry) &&
+        shape !== "polygon" &&
+        polygonLosesShape(selected.geometry.points)
+      ) {
+        setPendingReshape(shape);
+        return;
+      }
+      applyShape(selected, shape);
+    },
+    [selected, applyShape],
   );
 
   const handleUndo = useCallback(() => {
@@ -278,12 +328,11 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
     // guard is load-bearing: dispatching `undo` on an empty history is a no-op
     // there while `write` would still have burned a sequence number here, and
     // every later settle would then name a write that does not exist.
-    const target = undoTarget(writes);
-    if (!target) return;
-    const zone = resolved.find((z) => z.id === target.zoneId);
+    if (!canUndo || !undoable) return;
+    const zone = resolved.find((z) => z.id === undoable.zoneId);
     if (!zone) return;
-    write(zone, target.snapshot, target.snapshot, true);
-  }, [writes, resolved, write]);
+    write(zone, undoable.snapshot, undoable.snapshot, true);
+  }, [canUndo, undoable, resolved, write]);
 
   const toolButton =
     "rounded-control border-edge text-meta focus-visible:ring-action border px-3 py-2 font-medium focus:outline-none focus-visible:ring-2 disabled:opacity-40";
@@ -369,7 +418,7 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
                   // and the next transform then reads that drifted position and
                   // bakes it in. Remounting after every settled write forces the
                   // position to be re-derived from the geometry.
-                  key={`${zone.id}-${repaint}`}
+                  key={`${zone.id}-${repaint[zone.id] ?? 0}`}
                   id={zone.id}
                   shape={zone.shape}
                   geometry={zone.geometry}
@@ -389,7 +438,7 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
                       // dropped within one grid step of where it started keeps
                       // identical props, so without the remount the white dot
                       // sits away from the corner it edits.
-                      key={`${selected.id}-${index}-${repaint}`}
+                      key={`${selected.id}-${index}-${repaint[selected.id] ?? 0}`}
                       x={x * stage.width}
                       y={y * stage.height}
                       radius={8}
@@ -420,6 +469,24 @@ export function ZoneCanvas({ projectId, mapId, zones, readOnly = false }: ZoneCa
           </Stage>
         )}
       </div>
+
+      {/* Spec 18's themed dialog, not `window.confirm` — which the design
+          doctrine bans outright and which the suite caught here. The message
+          names the count so the cost is concrete rather than abstract. */}
+      <ConfirmDialog
+        open={pendingReshape !== null}
+        message={
+          selected && isPolygon(selected.geometry)
+            ? `เปลี่ยนเป็นรูปทรงนี้จะเหลือเฉพาะกรอบสี่เหลี่ยมที่ครอบโซนอยู่ — จุดมุมที่วาดไว้ ${selected.geometry.points.length} จุดจะหายไป`
+            : ""
+        }
+        confirmLabel="เปลี่ยนรูปทรง"
+        onConfirm={() => {
+          if (selected && pendingReshape) applyShape(selected, pendingReshape);
+          setPendingReshape(null);
+        }}
+        onCancel={() => setPendingReshape(null)}
+      />
     </div>
   );
 }

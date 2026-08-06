@@ -24,6 +24,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  HISTORY_LIMIT,
   canvasReducer,
   initialCanvasState,
   resolveZone,
@@ -111,7 +112,12 @@ describe("③ undo restores a state the database actually held", () => {
     // Every `previous` must be a value the DB held: the server row, then 0.3.
     // 0.2 was never persisted and must appear nowhere.
     expect(s.history.map((h) => h.previous)).toEqual([SERVER_A, box(0.3)]);
-    expect(s.history.some((h) => h.previous.geometry === box(0.2).geometry)).toBe(false);
+    // ⚠️ `=== box(0.2).geometry` compares against a freshly allocated object and
+    // is therefore false for EVERY possible reducer — the assertion that used to
+    // sit here proved nothing. Compare the value that identifies the snapshot.
+    expect(s.history.some((h) => "x" in h.previous.geometry && h.previous.geometry.x === 0.2)).toBe(
+      false,
+    );
   });
 });
 
@@ -164,9 +170,46 @@ describe("the history is bounded", () => {
       const c = commit(s, A, SERVER_A, box(i / 100));
       s = canvasReducer(c.state, { type: "settled", seq: c.seq, ok: true });
     }
-    expect(s.history.length).toBeLessThanOrEqual(20);
-    // The newest entry undoes to the value written one step earlier.
+    // ⚠️ `toBeLessThanOrEqual(20)` is satisfied by a reducer that keeps ONE
+    // entry, and the `undoTarget` check below only pins the newest — a
+    // `slice(-1)` mutant passed both. Pin the exact depth AND the oldest
+    // surviving entry, which is what "the oldest is dropped" actually means.
+    expect(s.history).toHaveLength(HISTORY_LIMIT);
     expect(undoTarget(s)?.snapshot).toEqual(box(28 / 100));
+    // 30 writes, 20 kept ⇒ the oldest survivor undoes to the 9th value written.
+    expect(s.history[0]?.previous).toEqual(box(9 / 100));
+  });
+});
+
+describe("a refused write must not pin the zone", () => {
+  it("drops the draft rather than re-pointing it at the last confirmed value", () => {
+    // Pinning the draft to `confirmed` on failure is rule ④'s defect relocated
+    // to the failure path: the zone would then ignore every later SERVER row —
+    // another manager's move, a list-driven reshape, a router.refresh — for the
+    // component's lifetime, on the one surface that would have shown it.
+    const one = commit(initialCanvasState, A, SERVER_A, box(0.3));
+    const landed = canvasReducer(one.state, { type: "settled", seq: one.seq, ok: true });
+    const two = commit(landed, A, box(0.3), box(0.6));
+    const refused = canvasReducer(two.state, { type: "settled", seq: two.seq, ok: false });
+
+    expect(refused.draft[A]).toBeUndefined();
+    // A fresh server row now wins outright.
+    expect(resolveZone(refused, A, box(0.9))).toEqual(box(0.9));
+  });
+});
+
+describe("out-of-order settles for the same zone", () => {
+  it("does not let an older write's response overwrite a newer one", () => {
+    const one = commit(initialCanvasState, A, SERVER_A, box(0.3));
+    const two = commit(one.state, A, SERVER_A, box(0.6));
+
+    // The SECOND write answers first, then the first arrives late.
+    let s = canvasReducer(two.state, { type: "settled", seq: two.seq, ok: true });
+    s = canvasReducer(s, { type: "settled", seq: one.seq, ok: true });
+
+    // `confirmed` must still be the newer geometry, or a later rollback would
+    // put the canvas at a value the database does not hold.
+    expect(s.confirmed[A]).toEqual(box(0.6));
   });
 });
 

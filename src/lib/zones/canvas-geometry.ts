@@ -168,6 +168,36 @@ export function cornersToBox(points: ReadonlyArray<readonly [number, number]>): 
   return clampBoxToUnit({ x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y });
 }
 
+/**
+ * Would collapsing this polygon to its bounding box move any of its corners?
+ *
+ * ⭐ The honest test for "is this destructive", and it is NOT a point count. A
+ * four-vertex quad that is not axis-aligned loses three corners to its bounding
+ * box — same number of points, different shape — so a `points > 4` gate stays
+ * silent on exactly the case a user is most likely to have drawn by hand.
+ * Conversely a polygon that already IS its bounding box loses nothing, however
+ * many points it lists, and should not raise a dialog.
+ */
+export function polygonLosesShape(
+  points: ReadonlyArray<readonly [number, number]>,
+  epsilon = 1e-9,
+): boolean {
+  if (points.length === 0) return false;
+  const box = cornersToBox(points);
+  const corners = boxToCorners(box);
+  // Every point must coincide with one of the four corners, and each corner
+  // must be occupied — otherwise the box is not the same region.
+  const covered = corners.map(() => false);
+  for (const [px, py] of points) {
+    const index = corners.findIndex(
+      ([cx, cy]) => Math.abs(cx - px) <= epsilon && Math.abs(cy - py) <= epsilon,
+    );
+    if (index === -1) return true;
+    covered[index] = true;
+  }
+  return covered.some((seen) => !seen);
+}
+
 export function clampBoxToUnit(box: BoxGeometry): BoxGeometry {
   // A zero or non-finite size cannot be slid anywhere useful. One grid step is
   // the smallest thing the toolbar can produce, so it is the floor here too.

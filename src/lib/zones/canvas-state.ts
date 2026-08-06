@@ -52,6 +52,9 @@ export interface CanvasState {
   confirmed: Record<string, ZoneSnapshot>;
   inFlight: InFlightWrite[];
   history: HistoryEntry[];
+  /** Highest sequence already settled per zone, so a late response for an
+      OLDER write cannot overwrite a newer one's confirmed value. */
+  settledSeq: Record<string, number>;
   seq: number;
 }
 
@@ -68,6 +71,7 @@ export const initialCanvasState: CanvasState = {
   confirmed: {},
   inFlight: [],
   history: [],
+  settledSeq: {},
   seq: 0,
 };
 
@@ -135,7 +139,19 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       const stillPending = inFlight.some((w) => w.zoneId === write.zoneId);
 
       if (action.ok) {
-        const confirmed = { ...state.confirmed, [write.zoneId]: write.next };
+        // ⚠️ Out-of-order settles for the SAME zone: two drags go out, the
+        // second answers first. Taking the later response as authoritative
+        // would overwrite `confirmed` with the OLDER write's geometry, and the
+        // canvas would then roll back to a value the database does not hold.
+        // The highest settled sequence wins.
+        const settledAt = state.settledSeq[write.zoneId] ?? 0;
+        const stale = action.seq < settledAt;
+        const confirmed = stale
+          ? state.confirmed
+          : { ...state.confirmed, [write.zoneId]: write.next };
+        const settledSeq = stale
+          ? state.settledSeq
+          : { ...state.settledSeq, [write.zoneId]: action.seq };
         const draft = { ...state.draft };
         if (!stillPending) delete draft[write.zoneId]; // rule ④
         // ⭐ The undo point is read HERE, not at commit time. Three drags issued
@@ -149,17 +165,18 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         const history = write.isUndo
           ? state.history
           : [...state.history, { zoneId: write.zoneId, previous }].slice(-HISTORY_LIMIT);
-        return { ...state, inFlight, draft, confirmed, history };
+        return { ...state, inFlight, draft, confirmed, settledSeq, history };
       }
 
       const draft = { ...state.draft };
-      if (!stillPending) {
-        const known = state.confirmed[write.zoneId];
-        // Back to what the DB holds. With nothing confirmed yet, dropping the
-        // draft hands the zone back to the server row it was rendered with.
-        if (known) draft[write.zoneId] = known;
-        else delete draft[write.zoneId];
-      }
+      // ⚠️ The draft is DROPPED on failure, never re-pointed at `confirmed`.
+      // Pinning it to the last known value is rule ④'s defect relocated to the
+      // failure path: the zone would then ignore every later server row — a
+      // second manager's move, a list-driven reshape, a `router.refresh` — for
+      // the component's lifetime, on the one surface that would have shown it.
+      // Dropping it hands the zone back to whatever the server last rendered,
+      // which is the same thing `confirmed` was standing in for.
+      if (!stillPending) delete draft[write.zoneId];
       // Rule ②: a refused undo gives its entry BACK. It must not also pop one.
       const history = write.isUndo
         ? [...state.history, { zoneId: write.zoneId, previous: write.next }].slice(-HISTORY_LIMIT)

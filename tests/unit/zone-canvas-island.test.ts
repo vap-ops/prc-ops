@@ -74,7 +74,15 @@ describe("the Konva island stays out of the main bundle", () => {
       // `react-konva` reaches for `window` at import time, so a Server
       // Component importing it fails the BUILD, not the suite — pinned here
       // where the failure is readable.
-      if (KONVA_IMPORT.test(raw) && !/^["']use client["']/.test(raw)) serverKonva.push(rel);
+      // ⚠️ Strip comments before the specifier test, and look for the directive
+      // in the first NON-COMMENT line rather than at byte 0. Every file in this
+      // repo may carry a licence/doc comment above `"use client"` — Next accepts
+      // that — so a byte-0 anchor would red a file that is perfectly correct.
+      const stripped = stripComments(raw);
+      const firstCode = stripped.split("\n").find((l) => l.trim().length > 0) ?? "";
+      if (KONVA_IMPORT.test(stripped) && !/^["']use client["']/.test(firstCode.trim())) {
+        serverKonva.push(rel);
+      }
     }
     return { staticImporters, serverKonva, files };
   })();
@@ -110,10 +118,15 @@ describe("the canvas is the second path to every operation, not the only one", (
   it("renders read-only when told to, so the SA map can reuse it", () => {
     // Spec 392 §5: field devices get the map read-only. One renderer with a
     // mode, never a second copy of the geometry that can drift from this one.
+    // ⚠️ `toContain("readOnly")` is satisfied by the word appearing anywhere —
+    // an unused prop, or the identifier inside a template literal. Bind the
+    // assertion to the MECHANISM the read-only mode actually is: dragging off
+    // and no transformer.
     const source = stripComments(read(SHAPES));
-    expect(source).toContain("readOnly");
+    expect(source).toContain("draggable: !readOnly");
     const canvas = stripComments(read(CANVAS));
-    expect(canvas).toContain("readOnly");
+    expect(canvas).toContain("!readOnly && (");
+    expect(canvas).toContain("readOnly={readOnly}");
   });
 });
 

@@ -22,6 +22,7 @@ import {
   cornersToBox,
   pixelsToBox,
   pixelsToPolygon,
+  polygonLosesShape,
   polygonToPixels,
   snapBox,
   snapFraction,
@@ -148,6 +149,49 @@ describe("switching between a box and a polygon", () => {
 
     const empty = cornersToBox([]);
     expect(validateZoneGeometry("rect", empty).ok).toBe(true);
+  });
+});
+
+describe("polygonLosesShape — the honest test for a destructive collapse", () => {
+  it("is TRUE for a four-vertex quad that is not a rectangle", () => {
+    // ⭐ The case a point count cannot see, and the one a hand-drawn zone most
+    // often is: same number of points, three corners moved.
+    expect(
+      polygonLosesShape([
+        [0.1, 0.1],
+        [0.5, 0.2],
+        [0.6, 0.6],
+        [0.05, 0.5],
+      ]),
+    ).toBe(true);
+  });
+
+  it("is FALSE for a polygon that already IS its bounding box", () => {
+    expect(polygonLosesShape(boxToCorners({ x: 0.2, y: 0.3, w: 0.4, h: 0.1 }))).toBe(false);
+  });
+
+  it("is TRUE for a many-sided polygon", () => {
+    expect(
+      polygonLosesShape([
+        [0.1, 0.1],
+        [0.5, 0.1],
+        [0.5, 0.4],
+        [0.3, 0.5],
+        [0.1, 0.4],
+      ]),
+    ).toBe(true);
+  });
+
+  it("is TRUE when a corner of the bounding box is unoccupied", () => {
+    // A triangle spans the box but leaves one corner empty — collapsing it adds
+    // area the zone never covered, which is a change like any other.
+    expect(
+      polygonLosesShape([
+        [0, 0],
+        [1, 0],
+        [0, 1],
+      ]),
+    ).toBe(true);
   });
 });
 
