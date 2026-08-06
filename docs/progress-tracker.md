@@ -12722,8 +12722,35 @@ their day cells still announces why it is empty. Zero console errors.
 the role-set pin reds) and the header one (recompute the absent count from the roster instead of
 the grid → the derivation pin reds).
 
-**Open questions.** ① The grid path's three reads (carried from U1) are still worth collapsing. ②
-An all-empty range still shows the list's `ไม่มีบันทึกการเช็คชื่อในช่วงนี้` rather than a roster
-of empty rows — deliberate: "nobody worked in this range" is not the same finding as "these people
-did not work while others did". ③ U3, the correction path, is next and the operator has ruled
-**option A**.
+**🔴 The review found the bug that mattered, and a live probe quantified it.** The `workers`
+"readable by staff" policy is **role-only — no project predicate** — while `audit_attendance_summary`
+scopes `project_manager` by `can_see_project`, and project_manager is the one `WORKER_ROSTER_ROLES`
+member outside `ATTENDANCE_AUDIT_ALL_PROJECT_ROLES`. Impersonating the real PM in a rolled-back
+transaction: **2 of 6 projects visible · 41 `workers` rows readable (the whole firm) · 0 active
+workers on their projects · 0 attendance workers they may read.** So the unscoped roster would have
+shown that PM **41 rows, every one "never scanned", under a headline reading 41 คน** — about people
+on projects they are not on and whose records they may not read. The roster now takes the same scope
+the attendance has: the picked project, everything for the cross-project tier, otherwise exactly the
+`projectOptions` this page already read on the session client.
+
+Three more from the same review: the roster `error` was discarded (a failed read reverted the grid
+to U1 and reported "nobody is absent" — it throws now, mirroring `loadAttendanceSummary`); a range
+in which NOBODY was scanned rendered the summary's empty notice while the roster was fetched and
+thrown away (the grid shape gates on its own rows now); and `ดาวน์โหลด CSV (ทุกคน)` stopped being
+true the moment roster rows joined the grid — 42 on screen, 25 in the file — so the label names what
+the file holds. It also caught three weak tests of mine: a project-scoping assertion satisfiable with
+`.eq("active", true)` deleted from one branch, a per-cell `aria-label` loop matching only the worker
+NAME (which both branches emit), and no pin at all on the CSV or empty-state behaviour.
+
+**11 mutation checks, all killed** — including the two that matter: unscope the roster for the PM
+tier, and swallow the roster error. ⚠️ One mutant had to be re-crafted: the first attempt produced
+unparseable code and the run reported `Tests no tests`, which is an ABORT, not a green.
+
+**Open questions.** ① The grid path's reads (now four) are still worth collapsing — its own unit. ②
+⚠️ **The role-set pin is one-directional and this is owed to U3:** it asserts the TS array, so it
+catches someone widening `WORKER_ROSTER_ROLES` but NOT the live policy being narrowed underneath a
+SESSION read. That belongs in pgTAP over the exhaustive role domain (the `358-attendance-audit.test.sql`
+precedent); U3 touches `supabase/` anyway, so it lands there rather than turning this code-only unit
+into an operator-held one. ③ `ไม่มีบันทึกการเช็คชื่อในช่วงนี้` is now in three places and the
+UI-term SSOT wants it in `labels.ts` — still deferred as its own sweep, for the collider reason. ④
+U3, the correction path, is next and the operator has ruled **option A**.
