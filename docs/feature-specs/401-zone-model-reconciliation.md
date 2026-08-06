@@ -106,7 +106,23 @@ sort_order   │             sort_order
 
 **Drawings bucket** — still does not exist (`storage.buckets` has 13, none of them drawings). 392 declared `project_zone_maps.background_path` and never created one; its fill is **0**. One private bucket, its `storage.objects` policies written and pgTAP-pinned in the same unit, delegating to the same role helper rather than restating its members (the `catalog-images` lesson, #823). Thai zone names need the ASCII key sanitiser (`supabase-storage-key-ascii`).
 
-### 3.0 🔔 Nesting × M:N — THREE OPERATOR QUESTIONS, owed before U4
+### 3.0 ✅ Nesting × M:N — RULED: flat zones only, architecture kept flexible
+
+> **OPERATOR RULING 2026-08-06: _"no nesting yet — flat zones only for now, but keep architecture flexible."_ SETTLED — do not re-litigate. What follows is what that costs and what it forbids.**
+>
+> **U1's scope does NOT change, and U1 ships NO nesting machinery.** With flat zones an ancestor+descendant pair is **unreachable**, so a rejection guard in `add_wp_zone` would be machinery for a state that cannot occur — the spec-394 trade (settle the blast radius, then record the decision rather than build the escape hatch). ⭐ **Equally, an unconstrained `add_wp_zone` does NOT silently answer N2 here** — the warning below applies only once nesting exists, and it is now a precondition rather than a live hazard.
+>
+> **"Flexible" is a constraint on U1, not a mood. U1 MUST NOT:** drop or narrow `parent_zone_id` (it stays nullable and unused — 392 §4's reasoning holds: free today, a migration plus a backfill later) · remove the depth handling in `zone-list.ts` / `zone-rollup-grid.tsx` / `zone-rollup.ts` that already survives nesting, cycles and unresolvable parents · give `wp_zones` any shape that assumes one zone per WP (the composite PK is correct; a unique index on `work_package_id` would NOT be) · delete the own-work-only note that renders when `depth > 0`.
+>
+> **🔒 NESTING PRECONDITIONS — binding on whatever unit turns nesting on.** All are open; none is owed now:
+>
+> 1. **N2 + N3 ruled** — may a WP bind to a parent AND its descendant, and does `add_wp_zone` reject the pair? An unconstrained RPC at that point answers "yes, double-counted" by omission.
+> 2. **N1 ruled** — does a child's work roll up to its parent? Changes the zone LIST as well as the grid.
+> 3. **A cycle guard**, which does not exist in constraints, triggers or the RPC — `A → B → A` is reachable the moment two parents can be set.
+> 4. **An un-nest path.** #988 coalesces `parent_zone_id`, so the RPC cannot clear a parent; nesting without this is one-way.
+> 5. **A parent picker** — there is none, so nesting is RPC-only and today unreachable from the UI.
+>
+> ⓘ Numbers below are live 2026-08-06 and unchanged by this ruling: `project_zones` **2 rows, 0 nested**; `work_packages.zone_id` **0 of 1,307**.
 
 **Nesting and the junction are each specced; their INTERACTION is not.** Both halves are live-verified 2026-08-06 and the whole area is latent — `project_zones` holds **2 rows, 0 of them nested**, and `work_packages.zone_id` is **0 of 1,307**. Recorded here so U1/U4 meet a decision instead of discovering one.
 
@@ -120,7 +136,9 @@ sort_order   │             sort_order
 | **N2** | May a WP bind to BOTH a parent and its descendant?                     | Nothing stops it once `wp_zones` exists; any subtree rollup would then **count it twice**.               | ruling needed                                               |
 | **N3** | Should `add_wp_zone` REJECT an ancestor+descendant pair at write time? | n/a — the RPC does not exist yet.                                                                        | **U1 if N2 is "no"** — cheap now, expensive once rows exist |
 
-⭐ **The prior question, and it collapses all three: is nesting REAL?** The operator's stated need — zones clickable, the SA uploading ก่อน/หลัง photos into the right zone — is served completely by FLAT zones. Nesting today is speculative capability with no UI, no un-nest and no cycle guard, and it is the sole reason N1–N3 are hard. **If the answer is "no nesting", U4 simplifies, the rollup stays a clean grid, and N3 costs nothing.** If it is "yes", **N3 must be answered in U1**, because the first ancestor+descendant pair a user creates is data someone has to clean up. ⚠️ Do not let U1 silently settle this by omission — an unconstrained `add_wp_zone` IS the answer "yes, both, double-counted".
+⭐ **The prior question collapsed all three, and it is the one that was answered: is nesting REAL?** The operator's stated need — zones clickable, the SA uploading ก่อน/หลัง photos into the right zone — is served completely by FLAT zones, while nesting was speculative capability with no UI, no un-nest and no cycle guard. **Ruled "not yet" (see the block above): U4 simplifies, the rollup stays a clean grid, and N1–N3 cost nothing today because the states they describe cannot occur.** The three rows survive as the agenda for the unit that turns nesting on, not as work owed now.
+
+⚠️ **The one way this ruling gets silently reversed: someone adds a parent picker without reading the preconditions above.** Nesting is reachable through `upsert_project_zone` today — a single RPC argument — so "we only ship flat zones" is a property of the UI, not of the schema. The guard is that this spec is the place the picker's author must pass through.
 
 ### 3.1 Gates — and a correction to 392
 
