@@ -12907,6 +12907,53 @@ documented behaviour, not on this number.
 only seen on a client-side navigation — e.g. after logout. The fix is right; its audience is
 narrower than the other two.
 
+## 2026-08-06 — `PageShell`'s card variant centres safely, and /coming-soon's arms agree (lane csalign)
+
+**The ask was the last disclosed residual; the answer was one layer down.** `/coming-soon`'s
+super_admin `OperatorHub` arm was TOP-aligned (`variant="bare" className="bg-card px-6 py-10"`)
+while its other two arms centred, so one loading boundary faced three pages that did not agree
+and its fallback could match at most two. The obvious fix — an `align` prop on the skeleton —
+would have been wrong: **the boundary cannot know which arm is coming.**
+
+**Why the shared shell could not simply absorb that arm — measured, not guessed.** (The arm's own `bare` was NOT a deliberate opt-out: `git show 9248267c` shows a hand-rolled `<main>` from before `PageShell` existed, ported 1:1 in `e600c4ed`. The trap below is real; that history is not evidence for it, and my first draft claimed it was.) `align-items: center` on a
+_scrolling_ flex container centres overflowing content by pushing its top ABOVE the scrollable
+area, where no scroll position can reach it. Against the real generated stylesheet, a 900px card
+in a 600px scroller:
+
+| shell                                  | short 300px card        | tall 900px card                                                           |
+| -------------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `items-center` (before)                | top 150 — centred       | top **−150**, `scrollHeight` 750, `maxScroll` 150 ⇒ **150px unreachable** |
+| `items-start` + `[&>*]:m-auto` (after) | top 150 — **identical** | top **0**, `scrollHeight` **900**, `maxScroll` 300 ⇒ fully reachable      |
+
+So the alignment mismatch was a SYMPTOM of a latent clipping bug in the shared shell. Auto
+margins centre exactly like `items-center` while free space is positive and collapse to 0 when
+it is not — which is the whole difference.
+
+**Built.** `card` becomes `flex items-start justify-center bg-card px-6 [&>*]:m-auto`; the
+OperatorHub arm drops to `variant="card" className="py-10"`. Every card screen gains the fix —
+`/login`, `/coming-soon`, `error.tsx`, `not-found.tsx`, `page.tsx`, `visitor-landing.tsx` — and
+each passes exactly one child element except the skeleton's card arm, which also renders the
+sr-only announcement. ⚠️ `[&>*]` selects that node too (it is emitted LAST at equal specificity,
+so it overrides `.sr-only`'s `margin:-1px` and any child `mx-auto`/`mt-*`) — harmless on a 1×1
+clipped box, but the blast radius is real and is now recorded in the variant's own comment.
+
+**Verified live** at 375×812: the fallback and the hub now render the same shell classes on the
+same ground. ⚠️ Stated precisely, because the first draft overclaimed: the hub's 671px column
+in a 751px box with `py-10` leaves **zero** free space, so its `top 40` is that padding, not the
+auto-margin centring — that arm never exercised the new mechanism at this viewport, and the two
+numbers come from differently-sized boxes. The auto-margin behaviour is proved by the isolated
+measurement above, not by this one. ⚑ The hub keeps `py-10` and the fallback does not, so they
+step 40px apart once the hub overflows.
+
+**Pinned.** `page-shell.test.tsx` asserts the card variant does NOT carry `items-center` and DOES
+carry `[&>*]:m-auto`, with the measurement in the comment so the next reader cannot "simplify" it
+back. And the narrow-boundary ground pin now checks **every** arm rather than `arms[0]`: the old
+form structurally could not see a page whose arms disagree with each other, which is exactly the
+defect this unit fixes.
+
+⚠️ **jsdom cannot see any of this** — the pins are class contracts; the evidence is the browser
+measurement above, same as #982's scroller fix.
+
 ## 2026-08-06 — One SSOT for the app title, so the announcement strip cannot drift (lane apptitle)
 
 **Closes ① of the cross-lane fact-check on the route-announcement arc — and it is this repo's own
