@@ -106,6 +106,22 @@ sort_order   │             sort_order
 
 **Drawings bucket** — still does not exist (`storage.buckets` has 13, none of them drawings). 392 declared `project_zone_maps.background_path` and never created one; its fill is **0**. One private bucket, its `storage.objects` policies written and pgTAP-pinned in the same unit, delegating to the same role helper rather than restating its members (the `catalog-images` lesson, #823). Thai zone names need the ASCII key sanitiser (`supabase-storage-key-ascii`).
 
+### 3.0 🔔 Nesting × M:N — THREE OPERATOR QUESTIONS, owed before U4
+
+**Nesting and the junction are each specced; their INTERACTION is not.** Both halves are live-verified 2026-08-06 and the whole area is latent — `project_zones` holds **2 rows, 0 of them nested**, and `work_packages.zone_id` is **0 of 1,307**. Recorded here so U1/U4 meet a decision instead of discovering one.
+
+**What nesting already has:** `parent_zone_id uuid NULL` → `project_zones(id) ON DELETE SET NULL` · CHECK `project_zones_no_self_parent` (blocks `parent = id` only) · `upsert_project_zone`'s `p_parent_zone_id` · a read side that is genuinely careful — `zone-list.ts` indents by depth, degrades a parent it cannot resolve to top level (RLS may hide it; absence ≠ deletion), and an `emitted` set makes the walk terminate on a cycle · `zone-rollup-grid.tsx` indents children and prints an own-work-only note **only when nesting exists**, so today's flat case carries no copy.
+
+**What it does not have:** no way to NEST (zero `parent` matches in the zones UI — RPC-only) · no way to UN-NEST (#988 coalesces `parent_zone_id`, so null means _leave alone_) · **no cycle guard anywhere** — verified absent in constraints, triggers AND the RPC, so `A → B → A` is reachable · no ruling on aggregation. ⓘ A cross-map parent is NOT a hole: `authenticated` holds neither INSERT nor UPDATE on the table, so `upsert_project_zone` is the only writer and its body checks the parent against `map_id`.
+
+| Q      | Question                                                               | Today                                                                                                    | Whose call                                                  |
+| ------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **N1** | A WP bound to child `A1` — does it appear under parent `อาคาร A`?      | **No.** A parent's numbers are its OWN directly-placed work (`zone-rollup-grid.tsx` says so and defers). | U4 — but it changes the zone LIST too                       |
+| **N2** | May a WP bind to BOTH a parent and its descendant?                     | Nothing stops it once `wp_zones` exists; any subtree rollup would then **count it twice**.               | ruling needed                                               |
+| **N3** | Should `add_wp_zone` REJECT an ancestor+descendant pair at write time? | n/a — the RPC does not exist yet.                                                                        | **U1 if N2 is "no"** — cheap now, expensive once rows exist |
+
+⭐ **The prior question, and it collapses all three: is nesting REAL?** The operator's stated need — zones clickable, the SA uploading ก่อน/หลัง photos into the right zone — is served completely by FLAT zones. Nesting today is speculative capability with no UI, no un-nest and no cycle guard, and it is the sole reason N1–N3 are hard. **If the answer is "no nesting", U4 simplifies, the rollup stays a clean grid, and N3 costs nothing.** If it is "yes", **N3 must be answered in U1**, because the first ancestor+descendant pair a user creates is data someone has to clean up. ⚠️ Do not let U1 silently settle this by omission — an unconstrained `add_wp_zone` IS the answer "yes, both, double-counted".
+
 ### 3.1 Gates — and a correction to 392
 
 Writes delegate to `is_manager(current_user_role())` (live membership: `project_manager`, `super_admin`, `project_director`, coalesce-hardened) plus `can_see_project`, both raising `42501`. The role array is never restated.
