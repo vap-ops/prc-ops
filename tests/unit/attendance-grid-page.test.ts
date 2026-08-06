@@ -11,6 +11,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ATTENDANCE_AUDIT_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
 
 const PAGE = join(process.cwd(), "src/app/team/attendance/page.tsx");
 
@@ -82,7 +83,9 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     // is that the page hands the helper the right input.
     expect(occurrences("gridWorkerHref")).toBe(2);
     expect(code).toContain("WORKER_ROSTER_ROLES.includes(ctx.role)");
-    expect(code).toContain("gridWorkerHref({ workerId, canOpenCalendar, range, backHref })");
+    expect(code).toContain(
+      "gridWorkerHref({ workerId, canOpenCalendar: inWorkerRosterRoles, range, backHref })",
+    );
     // …and that the page does not quietly rebuild either destination itself.
     expect(code).not.toContain("/workers/${workerId}/attendance");
   });
@@ -109,6 +112,126 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
       "const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];",
     );
     expect(code).toContain("const { data: holidays } = drawsGrid");
+  });
+
+  it("reads the roster on the SESSION client, gated on the roles RLS actually admits", () => {
+    // U2. The gate is load-bearing and the NEXT test explains why this exact set.
+    expect(code).toContain("drawsGrid && inWorkerRosterRoles ? await rosterQuery");
+    expect(code).toContain('supabase.from("workers").select("id, name").eq("active", true)');
+    const rosterBlock = code.slice(code.indexOf("const rosterQuery"), code.indexOf("const grid ="));
+    expect(rosterBlock).not.toContain("createAdminClient");
+    // `day_rate` and `employee_id` are column-WALLED on `workers`; naming them
+    // reads back null under RLS rather than failing, so they stay unnamed.
+    expect(rosterBlock).not.toContain("day_rate");
+    expect(rosterBlock).not.toContain("employee_id");
+  });
+
+  it("pins the role set the roster read depends on — a SESSION read needs RLS to agree", () => {
+    // THE load-bearing assertion of U2, and the one that will age.
+    //
+    // Live `workers` policy "readable by staff" (verified 2026-08-06):
+    //   {site_admin, project_manager, procurement, procurement_manager,
+    //    super_admin, project_director}
+    // WORKER_ROSTER_ROLES is exactly ATTENDANCE_AUDIT_ROLES ∩ that policy, which
+    // is why the roster can be read on the SESSION client with no admin seam.
+    //
+    // But the two sets MEAN different things — "who onboards ช่าง" vs "who may
+    // read worker rows" — so the equality is a coincidence, not a guarantee.
+    // `project_coordinator` is the live example of the hazard: it is in
+    // ATTENDANCE_AUDIT_ROLES and can open `/workers` (that page reads via the
+    // ADMIN client), but the policy denies it — so adding it here would give
+    // this surface a SILENT EMPTY roster, never a refusal.
+    //
+    // If this test reds, do not "fix" it by editing the array: re-read the live
+    // policy and decide whether the new member can actually SELECT `workers`.
+    expect([...WORKER_ROSTER_ROLES].sort()).toEqual([
+      "procurement",
+      "procurement_manager",
+      "project_director",
+      "project_manager",
+      "super_admin",
+    ]);
+    // …and every one of them really is an audit role, or the branch is dead.
+    for (const role of WORKER_ROSTER_ROLES) {
+      expect(ATTENDANCE_AUDIT_ROLES).toContain(role);
+    }
+  });
+
+  it("scopes the roster to the SAME projects the attendance is scoped to", () => {
+    // 🔴 found in review. The `workers` policy is ROLE-only — no project
+    // predicate — while the RPCs scope `project_manager` by can_see_project, and
+    // project_manager is the one WORKER_ROSTER_ROLES member outside
+    // ATTENDANCE_AUDIT_ALL_PROJECT_ROLES. Unscoped, a PM gets a roster of every
+    // active worker in the firm against their own projects' attendance: every
+    // other project's workers rendered "never scanned", and counted into the
+    // absent line. A finding-shaped lie.
+    const block = code.slice(code.indexOf("const rosterProjectIds"), code.indexOf("const grid ="));
+    expect(block).toContain("range.projectId\n    ? [range.projectId]");
+    expect(block).toContain("seesAllProjects");
+    expect(block).toContain("(projectOptions ?? []).map((p) => p.id)");
+    expect(block).toContain('rosterBase.in("project_id", rosterProjectIds)');
+  });
+
+  it("asks for ACTIVE workers on every arm of the roster query", () => {
+    // The earlier version of this test asserted `.eq("active", true)` against
+    // one branch only, so deleting it from the other stayed green while inactive
+    // workers gained roster rows. One base query now carries it, and the pin is
+    // that the project filter is applied TO that base rather than beside it.
+    const block = code.slice(
+      code.indexOf("const rosterBase"),
+      code.indexOf("const { data: roster"),
+    );
+    expect(block).toContain('.eq("active", true)');
+    expect(occurrences('.from("workers")')).toBe(1);
+  });
+
+  it("throws on a roster read error instead of reporting nobody absent", () => {
+    // A swallowed error reverts the grid to U1 silently AND makes absentCount 0
+    // — "the roster could not be read" rendered as "nobody is absent". Mirrors
+    // loadAttendanceSummary, which throws for the same reason.
+    expect(code).toContain("error: rosterError");
+    expect(code).toContain("if (rosterError) throw new Error(");
+  });
+
+  it("lets the GRID speak when nobody was scanned at all", () => {
+    // The maximal instance of the finding: a range with no muster whatsoever.
+    // Gating on the attendance summary alone fetched the roster and threw it
+    // away. The list keeps the summary gate — it draws no roster rows.
+    expect(code).toContain('{(shape === "grid" ? grid.rows.length === 0 : rows.length === 0) ? (');
+  });
+
+  it("stops calling the CSV ทุกคน on a view where it is not everyone", () => {
+    // The file is built from attendance sessions, so a roster-only worker has
+    // nothing in it — 42 rows on screen, 25 in the download.
+    expect(code).toContain(
+      'shape === "grid" ? "ดาวน์โหลด CSV (ผู้ที่มีบันทึก)" : "ดาวน์โหลด CSV (ทุกคน)"',
+    );
+  });
+
+  it("states the absent count beside the header number it would otherwise contradict", () => {
+    // Live: the header reads `25 คน` (people the muster recorded) above a table
+    // of 42 rows once the roster is unioned in. One screen, two numbers, no
+    // explanation — so the finding is written out, and derived from the GRID the
+    // reader is looking at rather than recomputed from another source.
+    expect(code).toContain(
+      'const absentCount = shape === "grid" ? grid.rows.filter((r) => r.daysPresent === 0).length : 0;',
+    );
+    expect(code).toContain("ไม่มีบันทึกการเช็คชื่อในช่วงนี้ {absentCount} คน");
+    // It sits in the header card, not in the grid — a per-range fact, once.
+    const header = code.slice(
+      code.indexOf("{rows.length} คน"),
+      code.indexOf("<AttendanceGridView"),
+    );
+    expect(header).toContain("absentCount > 0");
+  });
+
+  it("hands the roster to the builder as a UNION input, not as the row set", () => {
+    // Measured: one worker with attendance in the live window is not `active`.
+    // Substituting the roster for the rows would drop them from a grid that
+    // already shows them.
+    const gridCall = code.slice(code.indexOf("const grid = buildAttendanceGrid"));
+    expect(gridCall).toContain("rows: gridDetail");
+    expect(gridCall).toContain("roster: roster ?? []");
   });
 
   it("pays for the per-worker drill query only in the view that renders it", () => {

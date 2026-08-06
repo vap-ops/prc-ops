@@ -153,6 +153,47 @@ describe("AttendanceGridView", () => {
     expect(scroller?.className).toContain("[touch-action:pan-x_pinch-zoom]");
   });
 
+  it("renders a roster-only worker as a visibly empty row (U2)", () => {
+    // The finding the list view could not express at all. The row must carry the
+    // name and `0 วัน`, and NOT a stray finding dot — an absence is the signal
+    // here, not an anomaly to flag.
+    renderGrid({
+      rows: [row({ workerId: "a", workerName: "ก" })],
+      roster: [
+        { id: "a", name: "ก" },
+        { id: "b", name: "ข" },
+      ],
+    });
+    expect(screen.getByText("ข")).toBeInTheDocument();
+    const absentRow = screen.getByText("ข").closest("tr");
+    expect(absentRow).not.toBeNull();
+    expect(absentRow?.textContent).toContain("0 วัน");
+    // …and every one of its day cells announces the REASON, not just the name.
+    // The first version matched only the worker name, which both branches emit —
+    // so stripping the reason clause left it green while "never scanned" and
+    // "it was a Sunday" became the same silence to a screen reader.
+    const cells = [...(absentRow?.querySelectorAll("td") ?? [])];
+    expect(cells.length).toBeGreaterThan(0);
+    for (const td of cells) {
+      expect(td.getAttribute("aria-label")).toContain("ไม่มีการเช็คชื่อ");
+    }
+  });
+
+  it("tells an absent cell on a HOLIDAY apart from one on a working day", () => {
+    renderGrid({
+      from: "2026-08-03",
+      to: "2026-08-04",
+      rows: [],
+      roster: [{ id: "b", name: "ข" }],
+      holidays: [{ holiday_date: "2026-08-04", name_th: "วันหยุดทดสอบ" }],
+    });
+    const labels = [...document.querySelectorAll("tbody td")].map((td) =>
+      td.getAttribute("aria-label"),
+    );
+    expect(labels.some((l) => l?.includes("ไม่มีการเช็คชื่อ"))).toBe(true);
+    expect(labels.some((l) => l?.includes("วันหยุดทดสอบ"))).toBe(true);
+  });
+
   it("says the range is empty rather than rendering a headless table", () => {
     renderGrid({ rows: [] });
     expect(screen.queryByRole("table")).toBeNull();
