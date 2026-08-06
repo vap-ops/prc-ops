@@ -12540,9 +12540,8 @@ the suffix stripped (`โครงการ` · `รายชื่อช่า�
 title gap; the same persistent element throughout; and a hard page load announces **nothing**
 (the reader does that itself). Exactly two region mutations per navigation.
 
-**Open questions.** ① The 8 titleless pages (`/contacts`, `/contacts/[type]/[id]`, `/store`,
-`/stock-count`, `/sa/crew`, `/sa/crew/badges`, `/projects/[projectId]/costs`, and `src/app/page.tsx`
-— the redirect dispatcher, which no one reads) announce nothing — one-line `metadata.title` each.
+**Open questions.** ① ~~The 8 titleless pages announce nothing~~ — **CLOSED, and the premise was
+wrong: only TWO of them ever rendered without a name.** See the 2026-08-06 page-titles entry below.
 ④ One ordering edge is recorded, not built: if a title ever landed before its boundary opened,
 arrival would be spoken and then immediately replaced by `กำลังโหลด…` (measured, the boundary opens
 6–8 ms FIRST on every sampled navigation, so this is theoretical today; the same
@@ -12551,3 +12550,52 @@ the wrong text; suppressing it from app code was not attempted. Worth re-measuri
 correct polite announcement exists. ③ Still carried from #983: the region does not pass through empty between two
 identical consecutive announcements (`queueMicrotask`), so a reader that suppresses byte-identical
 repeats may not speak the second.
+
+## 2026-08-06 — Page titles: two real ones, and a guard (lane a11ytitles)
+
+**Closes ① from the arrival unit — and corrects it.** [#986](https://github.com/vap-ops/prc-ops/pull/986)
+recorded "8 titleless pages announce nothing" and I carried that number into the report. Driven in
+a real browser, **six of the eight redirect** and announce their destination perfectly well:
+`/contacts` → `/contacts/customers` (ลูกค้า) · `/store` and `/stock-count` → `/projects` (โครงการ) ·
+`/` → `/dashboard` (ภาพรวม) · `/sa/crew` and `/sa/crew/badges` serve an RSC payload carrying
+`NEXT_REDIRECT;replace;/team;307` (ทีมงาน). Only **two** pages genuinely rendered without a name.
+
+⭐ **The earlier probe had said otherwise, and the probe was wrong, not the app.** It reported
+`/contacts`, `/sa/crew` and `/sa/crew/badges` landing on THEMSELVES titled `PRC Ops` — because it
+waited for hydration (with the timeout swallowed) and then read, while a `redirect()` in a Server
+Component is delivered as an RSC instruction the CLIENT acts on. It was reading before the redirect
+completed. Re-probed by waiting for the URL to STOP MOVING instead, all six resolve. **A route's
+"where does this land" is a settling process, not a value you can read once** — same family as the
+redirect-inflates-route-views lesson, one layer lower.
+
+**The two real ones.** `/projects/[projectId]/costs` takes `PROJECT_COSTS_LABEL` — the same constant
+its own `DetailHeader` renders, so the spoken name and the visible heading cannot drift.
+`/contacts/[type]/[id]` takes `รายละเอียดผู้ติดต่อ`: one static title must cover all four contact
+types (`generateMetadata` is used NOWHERE in this app), so it follows the house detail pattern —
+`รายละเอียด` + noun, as in `รายละเอียดคำขอซื้อ` / `รายละเอียดคำขอสมัคร` — with the umbrella noun the app
+already uses for the contact-type selector (`contacts-tabs.tsx`, `aria-label="ประเภทผู้ติดต่อ"`).
+Both were gate-checked against the page and its siblings, not written from memory.
+
+**The durable half is the guard.** `page-metadata-titles.test.ts` requires a `metadata.title` on
+every `page.tsx`, because since #986 a missing title is a SILENT page rather than a dull browser
+tab. Exemptions are allowed but **verified, not trusted**: each must still exist, still lack a
+title, and **still actually redirect** — so a real page cannot be waved through by adding it to the
+list, and a stale entry (a page that has since gained a title) reds too.
+
+**Gates.** RED first — the guard named exactly the two pages · **5/5 mutants killed**, including the
+abuse case (untitle a real page AND add it to the exemption list: still red) and a zero-match walk ·
+lint 0 · typecheck 0 · full suite green · **Gate 4 in real Chrome**: both titles served
+(`ต้นทุนโครงการ — PRC Ops`, `รายละเอียดผู้ติดต่อ — PRC Ops`) and both ANNOUNCED on a genuine
+client-side navigation — the contact detail spoke `รายละเอียดผู้ติดต่อ` at +429 ms with a `window`
+beacon proving the document was never replaced.
+
+⚠️ **A second probing artifact on the way, recorded because it nearly became a bug report:** a
+coarser polling script read the contact detail's region as `""` and it looked like a lost
+announcement. Instrumenting the navigation directly showed the announcement had fired at +429 ms and
+the region was later emptied by a subsequent boundary release. **Poll loops report the state they
+happen to catch; when the claim is about an EVENT, observe the event.**
+
+**Open questions.** ① The region's end state differs by route — some keep the destination, some
+return to empty when a later boundary releases with nothing pending. Both announce correctly, so
+this is cosmetic, but it means "what does the region say now" is not a stable assertion. ② Still
+carried: one theoretical ordering edge, and Next's own announcer misfiring.
