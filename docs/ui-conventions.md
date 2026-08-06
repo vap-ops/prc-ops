@@ -306,16 +306,20 @@ the variant its PAGE renders — pinned in
 [narrow-loading-skeleton.test.tsx](../tests/unit/narrow-loading-skeleton.test.tsx),
 which reads the page's own `PageShell` call so the two cannot drift:
 
-| boundary       | variant | because the page is                                                                                                                                                                                     |
-| -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/login`       | `card`  | `variant="card"`, `max-w-sm` centred, no header                                                                                                                                                         |
-| `/coming-soon` | `card`  | THREE arms — the unserved-role card, `VisitorLanding`'s card, and the super_admin `OperatorHub` at `bare`+`bg-card`; all a `max-w-md` column on the card ground, none with a header                     |
-| `/profile`     | `app`   | an APP-variant page with a `max-w-md` column **under a sticky `DetailHeader`** — so the app arm paints a header strip too; a centred headerless card frame would be a NEW mismatch on the vertical axis |
+| boundary       | variant | width | because the page is                                                                                                                                                                                     |
+| -------------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`       | `card`  | `sm`  | `variant="card"`, a `max-w-sm` column centred, no header                                                                                                                                                |
+| `/coming-soon` | `card`  | `md`  | THREE arms — the unserved-role card, `VisitorLanding`'s card, and the super_admin `OperatorHub` at `bare`+`bg-card`; all a `max-w-md` column on the card ground, none with a header                     |
+| `/profile`     | `app`   | `md`  | an APP-variant page with a `max-w-md` column **under a sticky `DetailHeader`** — so the app arm paints a header strip too; a centred headerless card frame would be a NEW mismatch on the vertical axis |
 
-⚠️ **Two residual jumps, disclosed rather than papered over** (both far smaller than the
-~792px they replace, and neither fixable without a knob per screen): `/login`'s card is
-`max-w-sm` (384) against the frame's `max-w-md` (448); and `/coming-soon`'s super_admin arm
-is TOP-aligned (`variant="bare"`) while the card variant centres, so that one arm still
+**Both axes are read off the page**, never re-typed: the pin derives the variant from the
+page's own `PageShell` call and the width from the page's own column class, so changing
+either on the page reds until the boundary follows. The width column closed the last
+residual (2026-08-06): the frame originally shipped at a fixed `max-w-md`, leaving `/login`'s
+fallback 448px against its 384px card — measured live, and 384 vs 384 after.
+
+⚠️ **One residual left, disclosed rather than papered over:** `/coming-soon`'s super_admin
+arm is TOP-aligned (`variant="bare"`) while the card variant centres, so that one arm still
 shifts vertically. The page's other two arms are centred, so `card` is the majority match.
 
 ⚠️ **Not card-only, and the measurement is why:** `/login` and `/coming-soon` are both in

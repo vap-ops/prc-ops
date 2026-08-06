@@ -12680,3 +12680,40 @@ its own unit, since collapsing it changes what the header renders. ② `บั�
 ranking by "most findings" needs the distribution measured first (the spec-375 trap). ④ U2
 (roster rows, the "11 of 41" finding) and U3 (the correction path, operator ruled **option A** on
 2026-08-06) are the next units.
+
+## 2026-08-06 — The narrow skeleton's column width is per screen (lane loginw)
+
+**Closing the residual #987 disclosed instead of fixing.** `NarrowSkeleton` shipped with one
+fixed `max-w-md` column, which is right for `/coming-soon` and `/profile` and 64px too wide for
+`/login`, whose card is `max-w-sm`. The operator asked for it closed.
+
+**Built.** The width is a prop (`"sm" | "md"`, required — each boundary states its own), and the
+class strings are a literal lookup rather than `` `max-w-${width}` ``: **Tailwind generates
+utilities by scanning source for whole candidates, so an interpolated name is not guaranteed to
+be in the stylesheet.** It would have worked here by accident — `login/page.tsx` mentions
+`max-w-sm` — which is exactly the kind of accident that breaks the day that page changes.
+
+**Pinned on the same principle as the variant, which is the point.** The existing pin reads the
+page's own `PageShell` call; the new one reads the page's own column class. Both axes are now
+derived from the page the boundary stands in for, so neither can drift back silently. The width
+assertion compares the **exact `max-w-*` token set**, not `toContain` — `max-w-sm max-w-md`
+would satisfy a contains check while leaving the winner to the generated stylesheet's order
+(ui-conventions §5).
+
+**4/4 mutants killed**, and one of them is the RED-first proof after the fact: reverting
+`/login/loading.tsx` to `width="md"` — the exact pre-fix state — reds. Also killed: collapsing
+the width map to one value; putting two `max-w-*` on the column; and **the coordinated
+regression** — changing the test table AND the boundary to `md` together, which the
+page-derived pin catches (`expected 'sm' to be 'md'`).
+
+**Verified in a real browser against the real generated stylesheet.** `/login` cannot be opened
+in the preview (an authenticated session redirects it), so it was fetched with
+`credentials: "omit"` — the server then renders the real login page, whose column is
+`w-full max-w-sm space-y-6 text-center`. Measured at 1280×800: the page's card **384px**, the
+new fallback column **384px**, the old one **448px**. `max-w-sm` resolving to 384px is also the
+proof that the literal-lookup concern above is satisfied. `/coming-soon` re-checked for
+regression: fallback 448 vs page 448, unchanged.
+
+⚑ **Recorded, not built:** `/login`'s streamed HTML carries **no** suspense fallback on a cold
+load (it resolves too fast), so that boundary is only seen on a client-side navigation — e.g.
+after logout. The fix is still right, but its audience is narrower than the other two.
