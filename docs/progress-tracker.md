@@ -12378,3 +12378,90 @@ lands after #980 is now due: uxg8's `nav-loading-boundaries.test.ts` sweep asser
 something", justified by a `/portal` exception that no longer exists — it should assert the
 announcement across all boundaries. ③ `PageSkeleton` still hand-rolls a `<main>` under the
 spec-64 locked body; that is lane `pageshell`'s unit, untouched here beyond one line.
+
+## 2026-08-06 — Spec 392 U2b: the Konva zone-drawing canvas (lane zonecanvas)
+
+**Why.** U1 shipped the schema and U2a the zone LIST, but the operator's original ask was a
+surface where the draftsman **draws** the zones. Until this unit a manager could name a zone and
+nothing more — every zone landed on the U2a default rect `{0.1, 0.1, 0.3, 0.2}` and stayed
+there, which is to say the geometry column existed and no one could set it.
+
+**What shipped.** `/projects/[projectId]/zones` gains a Konva island above the list: select a
+zone, drag it, resize it by its transformer anchors, switch its shape between the four
+`zone_shape` values, and edit a polygon by dragging its vertices. Plus a 5% snap grid (on by
+default) and undo. Every write goes through U2a's existing `saveZone` → `upsert_project_zone`;
+**no new RPC, no schema.**
+
+**The split, and why it is additive-only.** Spec §5's toolbar also lists a background image.
+That needs a Storage bucket and a `storage.objects` policy — a fourth gate layer in another
+schema (`delivery-photo-storage-rls-fix-2026-07`) — so it is **U2c**, which claims the schema
+lane. Nothing is removed by shipping the canvas first: the U2a list keeps every operation it
+had, so neither half deletes a signal (doctrine §2).
+
+**Design.**
+
+- **The canvas is the SECOND path, never the only one.** A canvas is opaque to a keyboard and a
+  screen reader, so this surface owns exactly the two things a list cannot express — WHERE a
+  zone is and WHAT SHAPE it has. Code, name and delete stay solely with the list underneath.
+- **The engine never sees the database.** `src/lib/zones/canvas-geometry.ts` holds every
+  pixel↔fraction conversion, the snap and the clamp; geometry persists as `[0,1]` fractions, so
+  the stage can be any size and a background swap (U2c) will move nothing.
+- **Overflow SLIDES a zone back inside the map rather than shrinking it** — a manager dragging
+  past the edge meant to move it, and a silent resize would change the zone's meaning without
+  saying so. Only a box larger than the map itself is shrunk.
+- **Snapping happens INSIDE the clamp, and a snapped size floors at one grid step.** Rounding an
+  origin up can push a box that was inside over the edge, and rounding a sliver's size down
+  reaches `w = 0`, which `zone_geometry_ok` refuses outright. Both would surface as a refused
+  save at the END of a drag, with the work already lost.
+- **One renderer with a `readOnly` mode**, so the field-facing map (and the SA surface below)
+  reuses this geometry rather than forking a copy free to drift.
+- The shape `switch` has **no `default:` arm** (spec §9) — a new enum value fails the compile
+  instead of rendering as nothing.
+
+**Bundle.** konva 10.3.0 + react-konva 19.2.5 (~54 KB gz) in a repo of 16 runtime dependencies,
+reached **only** through `next/dynamic({ ssr: false })`. `zone-canvas-island.test.ts` scans all
+of `src/` for a static importer and for any non-`"use client"` module importing konva; the props
+type lives in its own leaf module so even the lazy wrapper has nothing to import from the heavy
+one.
+
+**Gates.** RED first (module absent, then 4 island guards). vitest **7377 green / 894 files**,
+typecheck clean, lint clean, `pnpm build` exit 0. **4 mutants killed:** removing `ssr: false` ·
+turning `case "polygon"` into `default:` · adding one static import of `zone-canvas` · breaking
+`clampBoxToUnit`'s slide-back (which also reds the DB-validator property test).
+
+**Real-flow verification (Gate 4).** The in-app Browser pane is denied in this session, so
+hydration never runs there and every client-side claim would be unmeasurable — driven instead
+through **real installed Chrome via Playwright** (`channel: "chrome"`) against the live dev
+server and the real DB as `dev-preview`. `project_zones` is empty in prod, so the run **created
+its own subject** through the real DEFINER RPCs: a rect and a polygon on the operator's own
+`ผังโซน` map (TFM นายาว เพชรบูรณ์). Canvas rendered **1238×774** with all six toolbar controls; a
+click selected the zone and the note read `เลือก CCV-A พื้นลานด้านซ้าย — ลากเพื่อย้าย ลากมุมกรอบเพื่อปรับขนาด`;
+a **real mouse drag** moved it from `x=0.10, y=0.10` to `x=0.35, y=0.35` — exactly the distance
+dragged, snapped to the grid — and the value was read back **from the database**, not off the
+render. Zero console errors. Cleanup deleted both zones and re-read `remaining: 0`.
+
+**Open questions.**
+
+① 🚨 **Spec 366 and spec 392 model zones differently, and 392 never reconciled with 366.**
+`docs/feature-specs/366-wp-zones.md` (operator-locked 2026-07-27, never built) is
+_"polygon buttons on simplified drawings dedicated to the respected WP"_: a **`wp_zones` M:N
+junction** so a WP references the several zones it covers, plus **`photo_logs.zone_id` set at
+capture and sticky per session**, so a during/after photo says WHERE it was taken. Spec 392
+(2026-08-04) contains **zero occurrences** of `366`, `wp_zones` or `project_drawings`, and U1
+shipped a table that takes 366's name — `project_zones` — with `work_packages.zone_id`, **one
+zone per WP**, and no photo link at all. The operator re-raised 366's model on 2026-08-06
+("zones live under WPs", tapping a zone assists the SA in uploading during/after photos). The
+shipped schema covers most of it and the gap is additive: `wp_zones`, `photo_logs.zone_id`, and
+the drawings bucket 392 declared (`project_zone_maps.background_path`) but never created. **This
+needs an operator decision and a reconciling spec before any further zone unit.**
+
+② The polygon vertex drag was exercised only through its unit tests and the shared conversion —
+the Gate-4 run created a polygon and drove the RECT. Worth one live pass in U2c.
+
+③ `save_project_zone_map` with a null id always INSERTS and there is still **no
+`delete_project_zone_map` RPC at all** (carried from U2a/U3a). Two simultaneous presses of the
+create button on an empty project make two maps, and the page renders only `mapRows[0]`.
+
+④ The canvas hides itself until the map has at least one zone: an empty stage teaches nothing
+and the list's empty state says more. That means the very first zone is always created from the
+list, which is also the accessible path — deliberate, but it is a rule the spec does not state.
