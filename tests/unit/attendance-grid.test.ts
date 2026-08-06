@@ -13,6 +13,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_GRID_DAYS,
+  attendanceView,
   buildAttendanceGrid,
   gridWorkerHref,
   type AttendanceGridInput,
@@ -54,7 +55,6 @@ function build(over: Partial<AttendanceGridInput> = {}) {
     to: "2026-08-05",
     rows: [],
     holidays: [],
-    todayIso: "2026-08-05",
     ...over,
   });
 }
@@ -191,6 +191,39 @@ describe("buildAttendanceGrid — cells", () => {
     expect(cell?.outNextDay).toBe(true);
   });
 
+  it("flags manualIn and autoOut on the SAME any-session rule as openOut", () => {
+    // A review caught these two being read off the earliest-in / latest-out
+    // session while openOut looked at all of them — so a QR regular check-in
+    // hid a typed OT one, and a hand check-out hid an auto-closed session. The
+    // argument that produced openOut applies verbatim; the cell displays the
+    // regular session's times and must still carry both findings.
+    const grid = build({
+      rows: [
+        row({
+          session: "regular",
+          inMethod: "qr",
+          outAuto: false,
+          outAt: "2026-08-03T10:00:00+00:00",
+          outTime: "17:00",
+        }),
+        row({
+          session: "ot",
+          inMethod: "manual",
+          outAuto: true,
+          inAt: "2026-08-03T10:30:00+00:00",
+          inTime: "17:30",
+          outAt: "2026-08-03T09:00:00+00:00", // earlier instant ⇒ not the latest
+          outTime: "16:00",
+        }),
+      ],
+    });
+    const cell = grid.rows[0]?.cells["2026-08-03"];
+    expect(cell?.inTime).toBe("08:00"); // the QR session is the one displayed
+    expect(cell?.outTime).toBe("17:00"); // …and the hand check-out
+    expect(cell?.manualIn).toBe(true);
+    expect(cell?.autoOut).toBe(true);
+  });
+
   it("flags openOut when ANY session of the date was never checked out", () => {
     // The regular session closed cleanly and the OT one did not. Reading only
     // the merged latest-out would call this cell complete and hide the gap that
@@ -245,10 +278,33 @@ describe("buildAttendanceGrid — rows", () => {
 describe("gridWorkerHref — the link goes where the ROLE can land", () => {
   const range = { from: "2026-08-01", to: "2026-08-05" };
 
-  it("sends a roster role to the spec-374 per-worker calendar", () => {
-    expect(
-      gridWorkerHref({ workerId: "w1", canOpenCalendar: true, range, backHref: "/team" }),
-    ).toBe("/workers/w1/attendance?from=%2Fteam%2Fattendance");
+  it("sends a roster role to the spec-374 calendar, ANCHORED on the audited month", () => {
+    // Without `m=`, that calendar falls back to the CURRENT month — so a checker
+    // auditing July would click a name and land on August, the range they were
+    // reading silently discarded at the click. A review caught it.
+    const href = gridWorkerHref({
+      workerId: "w1",
+      canOpenCalendar: true,
+      range: { from: "2026-07-24", to: "2026-07-31" },
+      backHref: "/team",
+    });
+    expect(href).toContain("/workers/w1/attendance?");
+    expect(href).toContain("m=2026-07");
+  });
+
+  it("threads the report's own range back, so the calendar's back chip returns there", () => {
+    const href = gridWorkerHref({
+      workerId: "w1",
+      canOpenCalendar: true,
+      range: { from: "2026-07-24", to: "2026-07-31", projectId: "p1" },
+      backHref: "/procurement",
+    });
+    const back = new URLSearchParams(href.slice(href.indexOf("?") + 1)).get("from") ?? "";
+    expect(back).toContain("start=2026-07-24");
+    expect(back).toContain("end=2026-07-31");
+    expect(back).toContain("project=p1");
+    // …including the referrer, or a procurement reader cannot get home.
+    expect(back).toContain("from=%2Fprocurement");
   });
 
   it("sends a NON-roster audit role to this report's own drill instead", () => {
@@ -335,10 +391,93 @@ describe("parity with the per-worker calendar (spec 374)", () => {
 
     const monthCell = month.cells["2026-08-03"];
     const gridCell = grid.rows[0]?.cells["2026-08-03"];
+    // Only the three fields BOTH builders SELECT are compared. `outNextDay` and
+    // `autoOut` were asserted here too and a review was right that they are
+    // worthless: the grid copies them straight off the fixture row, so those
+    // lines compared the fixture to buildAttendanceMonth, not one builder to the
+    // other. (`autoOut` has since diverged deliberately — the grid reads it
+    // across ALL sessions, the calendar off the latest — which is exactly why a
+    // parity assertion on it would now be wrong.)
     expect(gridCell?.inTime).toBe(monthCell?.inTime);
     expect(gridCell?.outTime).toBe(monthCell?.outTime);
     expect(gridCell?.otHours).toBe(monthCell?.otHours);
-    expect(gridCell?.outNextDay).toBe(monthCell?.outNextDay);
-    expect(gridCell?.autoOut).toBe(monthCell?.outAuto);
+  });
+
+  it("breaks a timestamp TIE the same way — first row wins on both sides", () => {
+    // Both builders use strict `<` / `>`, so an accidental `<=` on either side
+    // would silently flip which session a tied cell displays. Nothing else in
+    // the suite has two sessions at the same instant.
+    const at = "2026-08-03T01:00:00+00:00";
+    const sessions = [
+      {
+        work_date: "2026-08-03",
+        in_at: at,
+        out_at: at,
+        in_method: "qr",
+        out_method: "qr",
+        out_auto: false,
+        ot_hours: 0,
+        project_name: "TFM โพธิ์ทอง",
+      },
+      {
+        work_date: "2026-08-03",
+        in_at: at,
+        out_at: at,
+        in_method: "manual",
+        out_method: "manual",
+        out_auto: false,
+        ot_hours: 0,
+        project_name: "TFM โพธิ์ทอง",
+      },
+    ];
+    const month = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: sessions,
+      paidRows: [],
+      dayRate: null,
+    });
+    const grid = build({
+      rows: sessions.map((s, i) =>
+        row({
+          session: i === 0 ? "regular" : "ot",
+          inAt: s.in_at,
+          // Both sessions sit on the SAME instant (01:00Z = 08:00 Bangkok), so
+          // the labels must agree with it or this compares the fixture's prose
+          // to buildAttendanceMonth's computed clock rather than the two merge
+          // rules. The sentinels are the SECOND row's — if either builder flips
+          // to last-wins, they surface.
+          inTime: i === 0 ? "08:00" : "09:99",
+          outAt: s.out_at,
+          outTime: i === 0 ? "08:00" : "18:88",
+        }),
+      ),
+    });
+    const cell = grid.rows[0]?.cells["2026-08-03"];
+    expect(cell?.inTime).toBe("08:00");
+    expect(cell?.outTime).toBe("08:00");
+    expect(cell?.inTime).toBe(month.cells["2026-08-03"]?.inTime);
+    expect(cell?.outTime).toBe(month.cells["2026-08-03"]?.outTime);
+  });
+});
+
+describe("attendanceView", () => {
+  it("defaults to the grid and falls back to it for anything unrecognised", () => {
+    expect(attendanceView(undefined)).toBe("grid");
+    expect(attendanceView("grid")).toBe("grid");
+    expect(attendanceView("nonsense")).toBe("grid");
+    expect(attendanceView(["list", "grid"])).toBe("grid"); // repeated key = absent
+  });
+
+  it("keeps an explicit ?view=list", () => {
+    expect(attendanceView("list")).toBe("list");
+  });
+
+  it("resolves a ?worker= URL with no ?view to the LIST, where the drill lives", () => {
+    // Every drill link, bookmark and history entry the report has minted since
+    // spec 358 U3 carries ?worker and no ?view. Defaulting those to the grid
+    // would drop the drill the URL exists to open.
+    expect(attendanceView(undefined, { workerRequested: true })).toBe("list");
+    // …but an explicit ?view still wins, so a grid link is never hijacked.
+    expect(attendanceView("grid", { workerRequested: true })).toBe("grid");
   });
 });

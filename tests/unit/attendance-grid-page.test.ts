@@ -101,7 +101,18 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
 
   it("skips the detail fetch entirely when the range is too wide to draw", () => {
     // Otherwise a ?start=2020-01-01 pulls every session ever recorded and then
-    // refuses to render them.
-    expect(code).toContain("gridProbe.tooWide");
+    // refuses to render them. Asserting only that `gridProbe.tooWide` APPEARS is
+    // the two-appearance hole again (it guards the holidays read as well), so
+    // the guard is pinned adjacent to the detail call itself.
+    expect(code).toContain('const drawsGrid = shape === "grid" && !gridProbe.tooWide;');
+    expect(code).toContain(
+      "const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];",
+    );
+    expect(code).toContain("const { data: holidays } = drawsGrid");
+  });
+
+  it("pays for the per-worker drill query only in the view that renders it", () => {
+    const drill = code.slice(code.indexOf("const detailDays"), code.indexOf("const exportHref"));
+    expect(drill).toContain('shape === "list"');
   });
 });

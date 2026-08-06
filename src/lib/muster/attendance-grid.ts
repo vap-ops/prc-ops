@@ -45,8 +45,17 @@ export interface GridHoliday {
  * it rather than 404-ing a bookmarked URL. A repeated key arrives as an array
  * and is treated as absent, the same rule `attendanceRange` applies.
  */
-export function attendanceView(value: string | string[] | undefined): "grid" | "list" {
-  return value === "list" ? "list" : "grid";
+export function attendanceView(
+  value: string | string[] | undefined,
+  opts: { workerRequested?: boolean } = {},
+): "grid" | "list" {
+  if (value === "list") return "list";
+  // A `?worker=` URL predates this unit — every drill link, bookmark and history
+  // entry the report has ever minted carries one and no ?view. Defaulting those
+  // to the grid would silently drop the drill the URL exists to open, so an
+  // explicit worker means the LIST unless ?view says otherwise.
+  if (value === undefined && opts.workerRequested) return "list";
+  return "grid";
 }
 
 /**
@@ -71,8 +80,21 @@ export function gridWorkerHref(opts: {
   backHref: string;
 }): string {
   const { workerId, canOpenCalendar, range, backHref } = opts;
+  // The report's own URL, so the calendar's back chip returns to the range and
+  // the referrer the reader actually came from — `safeBackHref` accepts a query
+  // string (it rejects only protocol-relative, scheme, backslash and control
+  // chars), so this round-trips intact.
+  const selfHref = (() => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    return `/team/attendance?${q.toString()}`;
+  })();
   if (canOpenCalendar) {
-    const q = new URLSearchParams({ from: "/team/attendance" });
+    // `m=` is load-bearing: the spec-374 calendar anchors on the CURRENT month
+    // when it is absent, so a checker auditing July would click a name and land
+    // on August — the report's range silently discarded at the click.
+    const q = new URLSearchParams({ m: range.from.slice(0, 7), from: selfHref });
     return `/workers/${workerId}/attendance?${q.toString()}`;
   }
   const q = new URLSearchParams({
@@ -104,18 +126,27 @@ export interface GridDay {
 export interface GridCell {
   /** Bangkok wall clock of the EARLIEST check-in of the date. */
   inTime: string | null;
-  /** …and the LATEST check-out. Null while any part of the day is still open. */
+  /** …and the LATEST check-out that EXISTS. A day whose regular session closed
+   *  and whose OT session did not still renders a time here — and `openOut`
+   *  beside it. The two are not alternatives; read them together. */
   outTime: string | null;
   otHours: number;
-  /** The earliest check-in was typed, not scanned. */
+  /** ANY session of the date was entered by hand rather than scanned. Same
+   *  reading as `openOut`, and for the same reason: a QR regular check-in must
+   *  not hide a typed OT one. */
   manualIn: boolean;
   /** ANY session of the date was never checked out — not merely the last one.
    *  A regular session that closed cleanly must not hide an OT one that did
    *  not; that gap is 23 of 67 August sessions. */
   openOut: boolean;
+  /** ANY session of the date was closed by `close_muster_day` rather than by a
+   *  human — again the same reading, so a manual regular check-out cannot hide
+   *  an auto-closed OT session. */
   autoOut: boolean;
+  /** The check-out this cell DISPLAYS landed on a later calendar day. Tied to
+   *  the displayed time on purpose: it explains that time, it is not a finding
+   *  about some other session. */
   outNextDay: boolean;
-  projectName: string;
 }
 
 export interface GridRow {
@@ -132,7 +163,6 @@ export interface AttendanceGridInput {
   to: string;
   rows: readonly AttendanceDetailRow[];
   holidays?: readonly GridHoliday[];
-  todayIso: string;
 }
 
 export interface AttendanceGrid {
@@ -160,8 +190,10 @@ function isSunday(dateIso: string): boolean {
 }
 
 export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid {
-  const { from, to, rows, todayIso } = input;
-  void todayIso; // the view owns day-aware WORDING; the builder owns facts only
+  // No `todayIso`: this builder owns FACTS, the view owns the day-aware WORDING
+  // (openSessionLabel / dayClosureLabel). A required input the function cannot
+  // use is a contract that drifts.
+  const { from, to, rows } = input;
 
   const startMs = utcMs(from);
   const endMs = utcMs(to);
@@ -189,7 +221,7 @@ export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid 
   const rowByWorker = new Map<string, GridRow>();
   const earliestIn = new Map<string, number>();
   const latestOut = new Map<string, number>();
-  const key = (workerId: string, date: string) => `${workerId} ${date}`;
+  const key = (workerId: string, date: string) => `${workerId}|${date}`;
 
   for (const r of rows) {
     if (!inRange.has(r.workDate)) continue;
@@ -222,7 +254,6 @@ export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid 
         openOut: false,
         autoOut: false,
         outNextDay: false,
-        projectName: r.projectName,
       };
       gridRow.cells[r.workDate] = cell;
       gridRow.daysPresent += 1;
@@ -230,8 +261,15 @@ export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid 
 
     cell.otHours += r.otHours ?? 0;
     gridRow.otHoursTotal += r.otHours ?? 0;
-    // ANY unclosed session, not merely the last one — see the field comment.
+    // All three findings read the same way: ANY session of the date, never
+    // merely the one whose TIME the cell happens to display. A QR regular
+    // check-in must not hide a typed OT one, and a hand check-out must not hide
+    // an auto-closed session — the argument that produced `openOut` applies
+    // verbatim to the other two, and reading them off the earliest/latest
+    // session was an inconsistency a review caught.
     if (r.outAt === null) cell.openOut = true;
+    if (r.inMethod === "manual") cell.manualIn = true;
+    if (r.outAuto) cell.autoOut = true;
 
     const cellKey = key(r.workerId, r.workDate);
     const inMs = Date.parse(r.inAt);
@@ -239,7 +277,6 @@ export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid 
     if (!Number.isNaN(inMs) && (bestIn === undefined || inMs < bestIn)) {
       earliestIn.set(cellKey, inMs);
       cell.inTime = r.inTime;
-      cell.manualIn = r.inMethod === "manual";
     }
     if (r.outAt !== null) {
       const outMs = Date.parse(r.outAt);
@@ -247,7 +284,8 @@ export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid 
       if (!Number.isNaN(outMs) && (bestOut === undefined || outMs > bestOut)) {
         latestOut.set(cellKey, outMs);
         cell.outTime = r.outTime;
-        cell.autoOut = r.outAuto;
+        // Stays tied to the DISPLAYED check-out: it explains that time rather
+        // than reporting a finding about a different session.
         cell.outNextDay = r.outNextDay;
       }
     }

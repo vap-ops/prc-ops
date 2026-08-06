@@ -44,7 +44,6 @@ function grid(over: Partial<AttendanceGridInput> = {}) {
     to: "2026-08-05",
     rows: [row()],
     holidays: [],
-    todayIso: "2026-08-05",
     ...over,
   });
 }
@@ -110,7 +109,17 @@ describe("AttendanceGridView", () => {
 
   it("leaves a clean cell unmarked", () => {
     const { container } = renderGrid();
-    expect(container.querySelectorAll("[data-finding='true']")).toHaveLength(0);
+    expect(container.querySelectorAll("td .bg-attn")).toHaveLength(0);
+  });
+
+  it("marks exactly the cells that carry a finding", () => {
+    renderGrid({
+      rows: [
+        row({ workerId: "a", workerName: "ก", workDate: "2026-08-03" }),
+        row({ workerId: "a", workerName: "ก", workDate: "2026-08-04", inMethod: "manual" }),
+      ],
+    });
+    expect(document.querySelectorAll("td .bg-attn")).toHaveLength(1);
   });
 
   it("links the worker name to their calendar only when the viewer may open it", () => {

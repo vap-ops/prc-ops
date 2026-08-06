@@ -98,7 +98,10 @@ interface AttendanceAuditPageProps {
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
   const { start, end, project, from, worker, reopened, reopenError, view } = await searchParams;
-  const shape = attendanceView(view);
+  // `?worker=` predates this unit: every drill link the report has ever minted
+  // carries one and no ?view, so those URLs resolve to the LIST or the drill
+  // they exist to open would silently vanish.
+  const shape = attendanceView(view, { workerRequested: typeof worker === "string" });
   const todayIso = bangkokTodayIso();
   const range = attendanceRange({ start, end, project }, todayIso);
   // Mid-shift open check-outs are expected (no auto-out cron), so the chip wording
@@ -152,23 +155,17 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // The range is capped (MAX_GRID_DAYS) because ?start is validated for calendar
   // validity, not span — so the fetch is SKIPPED for a too-wide range rather than
   // pulling every session since 2020 to then refuse to draw it.
-  const gridProbe = buildAttendanceGrid({ ...range, rows: [], todayIso });
-  const gridDetail =
-    shape === "grid" && !gridProbe.tooWide ? await loadAttendanceDetail(supabase, range, null) : [];
-  const { data: holidays } =
-    shape === "grid" && !gridProbe.tooWide
-      ? await supabase
-          .from("public_holidays")
-          .select("holiday_date, name_th")
-          .gte("holiday_date", range.from)
-          .lte("holiday_date", range.to)
-      : { data: null };
-  const grid = buildAttendanceGrid({
-    ...range,
-    rows: gridDetail,
-    holidays: holidays ?? [],
-    todayIso,
-  });
+  const gridProbe = buildAttendanceGrid({ ...range, rows: [] });
+  const drawsGrid = shape === "grid" && !gridProbe.tooWide;
+  const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];
+  const { data: holidays } = drawsGrid
+    ? await supabase
+        .from("public_holidays")
+        .select("holiday_date, name_th")
+        .gte("holiday_date", range.from)
+        .lte("holiday_date", range.to)
+    : { data: null };
+  const grid = buildAttendanceGrid({ ...range, rows: gridDetail, holidays: holidays ?? [] });
 
   const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
   const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
@@ -182,9 +179,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     worker,
     rows.map((r) => r.workerId),
   );
-  const detailDays = openWorkerId
-    ? groupDetailByDate(await loadAttendanceDetail(supabase, range, openWorkerId))
-    : [];
+  // Only the LIST renders the drill, so only the list pays for it — a grid URL
+  // carrying a stale ?worker would otherwise buy a per-worker RPC round-trip
+  // whose result nothing displays.
+  const detailDays =
+    openWorkerId && shape === "list"
+      ? groupDetailByDate(await loadAttendanceDetail(supabase, range, openWorkerId))
+      : [];
 
   // U4 — the export link mirrors the CURRENT range + project so the file is
   // exactly what the viewer sees. No ?worker: the export is always every worker in
