@@ -1,3 +1,22 @@
+# [0.346.0](https://github.com/vap-ops/prc-ops/compare/v0.345.4...v0.346.0) (2026-08-06)
+
+### Bug Fixes
+
+- **attendance:** scope the roster to the projects the reader may audit (spec 400 U2) ([e71a44d](https://github.com/vap-ops/prc-ops/commit/e71a44db154a7886700aa8ed1ed34351c4067cff))
+- **attendance:** state the absent count beside the header it contradicts (spec 400 U2) ([4728d02](https://github.com/vap-ops/prc-ops/commit/4728d02eccd40b6bae51add1ffb2154325214e1d))
+
+### Features
+
+- **attendance:** roster rows, so a worker nobody scanned still has a row (spec 400 U2) ([76d5452](https://github.com/vap-ops/prc-ops/commit/76d5452798256c6d60d5578443c9873d27a004a1))
+
+## [0.345.4](https://github.com/vap-ops/prc-ops/compare/v0.345.3...v0.345.4) (2026-08-06)
+
+### Bug Fixes
+
+- **chrome:** the card variant centres safely, so /coming-soon's arms agree ([818779d](https://github.com/vap-ops/prc-ops/commit/818779d943942056faedeb73a166c51f4857d2b6))
+- close the fresh-eyes findings on the card-centring unit ([d80f06b](https://github.com/vap-ops/prc-ops/commit/d80f06bb6cd819d8bce334d6a3a65df008d5da78))
+- **tests:** the variant pin reads EVERY PageShell call in a file ([81c8287](https://github.com/vap-ops/prc-ops/commit/81c8287bb5acf3fc3c0f0c2c9a4c9c41c81b8fe0))
+
 ## [0.345.3](https://github.com/vap-ops/prc-ops/compare/v0.345.2...v0.345.3) (2026-08-06)
 
 ### Bug Fixes

@@ -12907,6 +12907,127 @@ documented behaviour, not on this number.
 only seen on a client-side navigation — e.g. after logout. The fix is right; its audience is
 narrower than the other two.
 
+## 2026-08-06 — `PageShell`'s card variant centres safely, and /coming-soon's arms agree (lane csalign)
+
+**The ask was the last disclosed residual; the answer was one layer down.** `/coming-soon`'s
+super_admin `OperatorHub` arm was TOP-aligned (`variant="bare" className="bg-card px-6 py-10"`)
+while its other two arms centred, so one loading boundary faced three pages that did not agree
+and its fallback could match at most two. The obvious fix — an `align` prop on the skeleton —
+would have been wrong: **the boundary cannot know which arm is coming.**
+
+**Why the shared shell could not simply absorb that arm — measured, not guessed.** (The arm's own `bare` was NOT a deliberate opt-out: `git show 9248267c` shows a hand-rolled `<main>` from before `PageShell` existed, ported 1:1 in `e600c4ed`. The trap below is real; that history is not evidence for it, and my first draft claimed it was.) `align-items: center` on a
+_scrolling_ flex container centres overflowing content by pushing its top ABOVE the scrollable
+area, where no scroll position can reach it. Against the real generated stylesheet, a 900px card
+in a 600px scroller:
+
+| shell                                  | short 300px card        | tall 900px card                                                           |
+| -------------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `items-center` (before)                | top 150 — centred       | top **−150**, `scrollHeight` 750, `maxScroll` 150 ⇒ **150px unreachable** |
+| `items-start` + `[&>*]:m-auto` (after) | top 150 — **identical** | top **0**, `scrollHeight` **900**, `maxScroll` 300 ⇒ fully reachable      |
+
+So the alignment mismatch was a SYMPTOM of a latent clipping bug in the shared shell. Auto
+margins centre exactly like `items-center` while free space is positive and collapse to 0 when
+it is not — which is the whole difference.
+
+**Built.** `card` becomes `flex items-start justify-center bg-card px-6 [&>*]:m-auto`; the
+OperatorHub arm drops to `variant="card" className="py-10"`. Every card screen gains the fix —
+`/login`, `/coming-soon`, `error.tsx`, `not-found.tsx`, `page.tsx`, `visitor-landing.tsx` — and
+each passes exactly one child element except the skeleton's card arm, which also renders the
+sr-only announcement. ⚠️ `[&>*]` selects that node too (it is emitted LAST at equal specificity,
+so it overrides `.sr-only`'s `margin:-1px` and any child `mx-auto`/`mt-*`) — harmless on a 1×1
+clipped box, but the blast radius is real and is now recorded in the variant's own comment.
+
+**Verified live** at 375×812: the fallback and the hub now render the same shell classes on the
+same ground. ⚠️ Stated precisely, because the first draft overclaimed: the hub's 671px column
+in a 751px box with `py-10` leaves **zero** free space, so its `top 40` is that padding, not the
+auto-margin centring — that arm never exercised the new mechanism at this viewport, and the two
+numbers come from differently-sized boxes. The auto-margin behaviour is proved by the isolated
+measurement above, not by this one. ⚑ The hub keeps `py-10` and the fallback does not, so they
+step 40px apart once the hub overflows.
+
+**Pinned.** `page-shell.test.tsx` asserts the card variant does NOT carry `items-center` and DOES
+carry `[&>*]:m-auto`, with the measurement in the comment so the next reader cannot "simplify" it
+back. And the narrow-boundary ground pin now checks **every** arm rather than `arms[0]`: the old
+form structurally could not see a page whose arms disagree with each other, which is exactly the
+defect this unit fixes.
+
+⚠️ **jsdom cannot see any of this** — the pins are class contracts; the evidence is the browser
+measurement above, same as #982's scroller fix.
+
+## 2026-08-06 — spec 400 U2: roster rows
+
+**The finding U1 could not express.** The grid's rows still came FROM attendance rows, so a worker
+the muster never recorded had no row at all — live, **11 of 41 active workers had ZERO July rows**.
+The roster is now UNIONed in and those people render as empty rows carrying `0 วัน`.
+
+**UNION, never substitution — and that is measured, not defensive.** One worker with attendance
+since 24 Jul is no longer `active`, so a roster-only row set would have dropped someone the grid
+already showed. An existing attendance row always wins the name, because both come from
+`workers.name` and the report must not tell a different story from the CSV built off the same
+audit rows.
+
+**No new role set, and that was the gate-check's doing.** The roster read is on the SESSION client
+with no admin seam, because `WORKER_ROSTER_ROLES` is exactly `ATTENDANCE_AUDIT_ROLES` intersected
+with the live `workers` "readable by staff" policy. A new `*_ROLES` export would have put this unit
+in `src/lib/auth/` and held it for an operator tap for nothing. ⚠️ **The equality is a coincidence
+of two different meanings** — "who onboards ช่าง" vs "who may read worker rows" — so it is pinned
+by a test with the live policy written into the comment. `project_coordinator` is the live hazard:
+it is an audit role and can open `/workers` (that page reads via ADMIN), but the policy denies it,
+so adding it here would produce a **silent empty roster, never a refusal**. Mutation-proved: adding
+it reds the pin.
+
+Only `id, name` are selected — `day_rate` and `employee_id` are column-walled on `workers` and
+would read back null under RLS rather than failing (the spec-397 `employee_id` class).
+
+**The live probe found what no test did.** With the roster unioned in, the header card read
+**`25 คน`** (people the muster recorded) above a table of **42 rows**. One screen, two numbers, no
+explanation — the summary line was hiding the very finding the grid exists to surface. There is now
+an absent-count line, derived from the GRID the reader is looking at rather than recomputed, and
+zero in the list view which draws no roster rows.
+
+**Verified in real Chrome**, and the arithmetic closes from both directions: `super_admin` and
+`procurement` see **42 rows / 17 empty** (25 attended + 17 never = 41 active + 1 attended-but-
+inactive), while `accounting` — outside the `workers` policy — sees **25 rows / 0 empty**, exactly
+today's population and no PII widening. Absent rows carry `0 วัน`, no finding dot, and each of
+their day cells still announces why it is empty. Zero console errors.
+
+**7 mutation checks, all killed**, including the load-bearing one (widen `WORKER_ROSTER_ROLES` →
+the role-set pin reds) and the header one (recompute the absent count from the roster instead of
+the grid → the derivation pin reds).
+
+**🔴 The review found the bug that mattered, and a live probe quantified it.** The `workers`
+"readable by staff" policy is **role-only — no project predicate** — while `audit_attendance_summary`
+scopes `project_manager` by `can_see_project`, and project_manager is the one `WORKER_ROSTER_ROLES`
+member outside `ATTENDANCE_AUDIT_ALL_PROJECT_ROLES`. Impersonating the real PM in a rolled-back
+transaction: **2 of 6 projects visible · 41 `workers` rows readable (the whole firm) · 0 active
+workers on their projects · 0 attendance workers they may read.** So the unscoped roster would have
+shown that PM **41 rows, every one "never scanned", under a headline reading 41 คน** — about people
+on projects they are not on and whose records they may not read. The roster now takes the same scope
+the attendance has: the picked project, everything for the cross-project tier, otherwise exactly the
+`projectOptions` this page already read on the session client.
+
+Three more from the same review: the roster `error` was discarded (a failed read reverted the grid
+to U1 and reported "nobody is absent" — it throws now, mirroring `loadAttendanceSummary`); a range
+in which NOBODY was scanned rendered the summary's empty notice while the roster was fetched and
+thrown away (the grid shape gates on its own rows now); and `ดาวน์โหลด CSV (ทุกคน)` stopped being
+true the moment roster rows joined the grid — 42 on screen, 25 in the file — so the label names what
+the file holds. It also caught three weak tests of mine: a project-scoping assertion satisfiable with
+`.eq("active", true)` deleted from one branch, a per-cell `aria-label` loop matching only the worker
+NAME (which both branches emit), and no pin at all on the CSV or empty-state behaviour.
+
+**11 mutation checks, all killed** — including the two that matter: unscope the roster for the PM
+tier, and swallow the roster error. ⚠️ One mutant had to be re-crafted: the first attempt produced
+unparseable code and the run reported `Tests no tests`, which is an ABORT, not a green.
+
+**Open questions.** ① The grid path's reads (now four) are still worth collapsing — its own unit. ②
+⚠️ **The role-set pin is one-directional and this is owed to U3:** it asserts the TS array, so it
+catches someone widening `WORKER_ROSTER_ROLES` but NOT the live policy being narrowed underneath a
+SESSION read. That belongs in pgTAP over the exhaustive role domain (the `358-attendance-audit.test.sql`
+precedent); U3 touches `supabase/` anyway, so it lands there rather than turning this code-only unit
+into an operator-held one. ③ `ไม่มีบันทึกการเช็คชื่อในช่วงนี้` is now in three places and the
+UI-term SSOT wants it in `labels.ts` — still deferred as its own sweep, for the collider reason. ④
+U3, the correction path, is next and the operator has ruled **option A**.
+
 ## 2026-08-06 — Spec 392 U2b: the Konva zone-drawing canvas (lane zonecanvas)
 
 **Why.** U1 shipped the schema and U2a the zone LIST, but the operator's original ask was a

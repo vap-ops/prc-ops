@@ -176,7 +176,7 @@ function OperatorHub({
   fullName,
 }: OperatorHubProps) {
   return (
-    <PageShell variant="bare" className="bg-card px-6 py-10">
+    <PageShell variant="card" className="py-10">
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <header className="space-y-1">
           <p className="text-action text-xs font-semibold tracking-wider uppercase">ศูนย์ควบคุม</p>
