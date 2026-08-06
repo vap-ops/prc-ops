@@ -12953,3 +12953,72 @@ defect this unit fixes.
 
 ⚠️ **jsdom cannot see any of this** — the pins are class contracts; the evidence is the browser
 measurement above, same as #982's scroller fix.
+
+## 2026-08-06 — spec 400 U3a: procurement can correct a muster day (lane u3corr)
+
+**The hole U1/U2 created.** The grid surfaces attendance holes to procurement — 11 of 41
+active workers had zero July rows, 08-04 mustered one person — and gave them nothing to fix
+any of them with. Of the five muster powers they held read, reopen-day and undo-scan, all of
+which REMOVE, and were refused `muster_scan_in` and `close_muster_day`, the two that SUPPLY.
+Destructive-only, while the commonest correction is "he was here, add him". 4 of the 5
+procurement people are plain `procurement`, so this was 80% of the team.
+
+**Operator ruling (spec §3), option A with both sub-questions answered:** they may correct,
+they may also RE-CLOSE, and the binding is ANY OPEN DAY rather than only a day they reopened
+— that last part chosen on the measurement that `reopen_muster_day` has **0 audit rows
+all-time**, so gating corrections behind a reopen would have put a new capability behind a
+ritual nobody performs. The rule is: procurement may write to a project-day with no
+`muster_day_closures` row. A closed day still needs `reopen_muster_day`, which they hold.
+
+**Four migrations, and every addition past the first was forced by evidence.**
+
+- `075912` — the ruling as written: both functions gain `procurement` plus the cross-project
+  arm (`can_see_project` is live-FALSE for procurement, the spec-397 two-allowlist trap), a
+  closure guard on `muster_scan_in` (which had none), and an audit row per correction.
+- `075913` — **the gate the spec's own gate-check could not see.** `close_muster_day`
+  PERFORMs `derive_muster_labor`, which carries a THIRD gate ("Same authority as the labour
+  engine. Money-writing."). Widening close alone left procurement passing two gates and dying
+  at the third. Resolved LEAST-PRIVILEGE per the operator: the mechanism moved to
+  `derive_muster_labor_internal` with EXECUTE revoked from public/anon/authenticated, the
+  public `derive_muster_labor` keeps its gate byte-identical, and procurement reaches the
+  derive only through `close_muster_day`. The cheap fix — adding `procurement` to the money
+  function's list — was explicitly declined.
+- `075914` — **the OT arm, found by self-review.** `muster_scan_in`'s `p_session` default
+  meant the widening also handed procurement the `ot` arm, which is ×1.5 money (spec 351) and
+  was never part of the ruling. The correction arm is now regular-only; the SA arm keeps both,
+  which is the positive control that makes the bound procurement-specific.
+- plus `tests/unit/contractor-money-wall.test.ts` re-pointed: the spec-328 subcon wall moved
+  WITH the mechanism, so the guard's pin no longer covered the writer and it went red. The
+  wall was never lost — the guard's REACH was. Now pinned on the internal, plus a new
+  assertion that the public wrapper delegates and does not itself `insert into
+public.labor_logs`, so re-inlining a wall-less body cannot pass on a stale `_internal` pin.
+
+**Gates.** pgTAP **358/358 files, 0 failures**, this spec's file **51/51** with `plan(51)`
+grep-derived, never hand-counted. RED first was real and named: 9 of 42 failed before the
+migrations, exactly the new behaviour, with every control green. typecheck + lint exit 0.
+Full vitest **7453/7463**; the 10 reds are 3 files, all `Test timed out in 5000ms` with **zero
+AssertionErrors** — `claude-hooks-bash-guards` (this box's named canary, 25/25 alone),
+`ship-pr-token-path` (the PowerShell-PATH quirk, green once run through git bash) and
+`pgtap-global-count-guard` (3/3 alone on this branch WITH the new file, and 3/3 on a detached
+`origin/main` control, so the added file is not the straw).
+
+**The pgTAP role-set pin U2 owed lands here**, behaviourally over the exhaustive 17-role
+domain against a synthetic worker row — 6 admitted, 11 refused, scoped by row id and never a
+global `count(*)` (#954's class). Note the live `workers` policy admits **6** roles while
+`WORKER_ROSTER_ROLES` resolves to **5**: `site_admin` is in the policy and not the constant, so
+the invariant is `WORKER_ROSTER_ROLES ⊆ policy`, not equality. `anon` is asserted via
+`has_table_privilege`, not a read — it is walled one layer BELOW RLS, so an attempted read
+raises 42501 and aborts the file rather than returning zero rows.
+
+**Open questions.** ① `close_muster_day` still does not take `derive_muster_labor`'s advisory
+key, so `reopen_muster_day`'s lock is one-sided and cannot serialise against a concurrent
+close — **pre-existing, not introduced here**, out of scope, and worth its own unit. The new
+correction arm DOES take that key. ② The SA can still scan into a CLOSED day; the guard is
+new-arm-only by design and that hole is now PINNED as still-open, so closing it later is
+deliberate. ③ `db:types` not regenerated: `derive_muster_labor_internal` would land in
+`database.types.ts` and the byte-identical `worker/` copy, but its grants are revoked so no
+app code can call it — deferred to a unit that needs the type. ④ **No independent reviewer has
+read this diff** — self-review only, per session constraint; it found two real defects in my
+own work (the OT arm and the money-wall reach), which is a reason to want a second pass on a
+money-adjacent danger-path change. ⑤ U3b (the affordances) and U4 (the back-dated check-out,
+which exists for no role) are unstarted.

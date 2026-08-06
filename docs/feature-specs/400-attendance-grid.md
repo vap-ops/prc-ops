@@ -275,6 +275,65 @@ the only door.
   widened role set; only this catches a narrowed POLICY.
 - Recording a **back-dated check-out** stays U4 — no RPC does it for any role.
 
+### ⚠️ What the gate-check above MISSED — found at build time, 2026-08-06
+
+The list above names two gates per function and is **incomplete**. It was derived by
+reading `close_muster_day`'s own body, and a body-read cannot see a gate reached
+through a callee.
+
+**`close_muster_day` PERFORMs `derive_muster_labor`, which carries a THIRD gate** —
+role list `{site_admin, project_manager, super_admin, project_director,
+procurement_manager}` plus its own `can_see_project` with no cross-project arm, and
+its comment reads _"Same authority as the labour engine (log_labor_day).
+Money-writing."_ So widening `close_muster_day` alone left procurement passing two
+gates and dying at the third: affordance-then-refuse, the three-layer class.
+
+It surfaced because U3a's pgTAP drives the RPC **behaviourally** (`lives_ok`), which
+reported `42501: derive_muster_labor: role not permitted`. No amount of re-reading
+`close_muster_day` would have shown it. ⭐ **Generalises: when a function you are
+widening calls another, the callee's gate is part of your change's surface — read the
+call graph one level down, or drive it and read the SQLSTATE.**
+
+**The resolution (operator-ruled 2026-08-06): least privilege, NOT the cheap fix.**
+Adding `procurement` to `derive_muster_labor`'s list was rejected — it is directly
+`authenticated`-executable, so that list is a real security boundary, and widening it
+grants the labour engine's whole authority rather than "may re-close a day", and
+persists after 368 U2 lights up the money. Instead the mechanism moved:
+
+| function                       | gate                                   | reachable by                      |
+| ------------------------------ | -------------------------------------- | --------------------------------- |
+| `derive_muster_labor`          | **unchanged** role list                | `authenticated` (EXECUTE granted) |
+| `close_muster_day`             | role list **+ `procurement`** + x-proj | `authenticated`                   |
+| `derive_muster_labor_internal` | **none** — it is the mechanism         | **nobody** (EXECUTE revoked)      |
+
+Every entry point authorizes before reaching the mechanism; the mechanism is
+unreachable from `authenticated` and `anon`. Procurement gains exactly one power
+(re-close, which derives as a consequence) and **no** ability to invoke a derive
+directly — pinned in pgTAP, with the `super_admin` positive control that proves the
+public gate was not narrowed either.
+
+Two further bounds, both from the build's own self-review:
+
+- **REGULAR sessions only.** `muster_scan_in`'s signature carries
+  `p_session default 'regular'`, so the widening also handed procurement the `ot`
+  arm — ×1.5 money (spec 351), never part of the ruling. The correction arm now
+  refuses a non-regular session; the SA arm keeps both, which is the positive
+  control that makes the bound procurement-specific rather than global.
+- **The subcon money wall moved with the mechanism**, so
+  `tests/unit/contractor-money-wall.test.ts` — which pins the LAST definition of
+  `derive_muster_labor` carrying `v_worker.contractor_id is null` — went red. The
+  wall was never lost, but the guard's REACH no longer covered the writer. Re-pointed
+  at `derive_muster_labor_internal`, plus a new assertion that the public wrapper
+  **delegates and does not itself `insert into public.labor_logs`** — without that,
+  re-inlining a wall-less body later would pass on a stale `_internal` pin.
+
+⚑ **Left alone deliberately:** `close_muster_day` still does not take
+`derive_muster_labor`'s advisory key, so `reopen_muster_day`'s lock is one-sided and
+cannot serialise against a concurrent close. **Pre-existing, not introduced here**,
+and out of U3a's scope — but it is a real gap and belongs in its own unit. The new
+correction arm in `muster_scan_in` DOES take that key, because its write is the one
+that can invalidate derive's precondition.
+
 ### Why the window is open NOW
 
 `labor_logs` is **0 rows all-time** — no worker has `cost_confirmed_at`, so
