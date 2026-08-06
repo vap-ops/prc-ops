@@ -32,7 +32,10 @@ import {
   ATTENDANCE_AUDIT_ROLES,
   MUSTER_REOPEN_ROLES,
   SA_SURFACE_ROLES,
+  WORKER_ROSTER_ROLES,
 } from "@/lib/auth/role-home";
+import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
+import { attendanceView, buildAttendanceGrid } from "@/lib/muster/attendance-grid";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -87,12 +90,15 @@ interface AttendanceAuditPageProps {
     reopenError?: string | string[];
     // U3 — expand ONE worker's per-session rows.
     worker?: string | string[];
+    /** Spec 400 U1 — `grid` (default) or `list`. */
+    view?: string | string[];
   }>;
 }
 
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
-  const { start, end, project, from, worker, reopened, reopenError } = await searchParams;
+  const { start, end, project, from, worker, reopened, reopenError, view } = await searchParams;
+  const shape = attendanceView(view);
   const todayIso = bangkokTodayIso();
   const range = attendanceRange({ start, end, project }, todayIso);
   // Mid-shift open check-outs are expected (no auto-out cron), so the chip wording
@@ -137,6 +143,33 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     .select("id, code, name")
     .order("code");
 
+  // Spec 400 U1 — the GRID reads the same DEFINER RPC as the CSV export does,
+  // with no p_worker_id, so it inherits the report's role gate and its
+  // can_see_project scoping unchanged. Holidays come off the SESSION client:
+  // `public_holidays` RLS is `readable by authenticated` with qual `true`
+  // (verified live), so no admin seam is needed to shade a column.
+  //
+  // The range is capped (MAX_GRID_DAYS) because ?start is validated for calendar
+  // validity, not span — so the fetch is SKIPPED for a too-wide range rather than
+  // pulling every session since 2020 to then refuse to draw it.
+  const gridProbe = buildAttendanceGrid({ ...range, rows: [], todayIso });
+  const gridDetail =
+    shape === "grid" && !gridProbe.tooWide ? await loadAttendanceDetail(supabase, range, null) : [];
+  const { data: holidays } =
+    shape === "grid" && !gridProbe.tooWide
+      ? await supabase
+          .from("public_holidays")
+          .select("holiday_date, name_th")
+          .gte("holiday_date", range.from)
+          .lte("holiday_date", range.to)
+      : { data: null };
+  const grid = buildAttendanceGrid({
+    ...range,
+    rows: gridDetail,
+    holidays: holidays ?? [],
+    todayIso,
+  });
+
   const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
   const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
   const unclosedDays = unclosedDaySignal(rows);
@@ -162,12 +195,49 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     return `/team/attendance/export?${q.toString()}`;
   })();
 
+  // Spec 400 U1 — the two views of the same range. GRID is the default, so its
+  // href carries no ?view at all: a bookmark made today keeps working if the
+  // default ever moves, and the URL stays the short one.
+  const viewHref = (target: "grid" | "list"): string => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    if (target === "list") q.set("view", "list");
+    return `/team/attendance?${q.toString()}`;
+  };
+
+  // Spec 400 D9 — a worker name in the grid goes wherever that ROLE can actually
+  // land. WORKER_ROSTER_ROLES is narrower than ATTENDANCE_AUDIT_ROLES, so
+  // accounting / hr / project_coordinator would meet a redirect at the spec-374
+  // calendar; they get this report's own drill instead, which they can open. The
+  // affordance is therefore never withheld, only re-aimed.
+  const canOpenCalendar = WORKER_ROSTER_ROLES.includes(ctx.role);
+  const gridWorkerHref = (workerId: string): string => {
+    if (canOpenCalendar) {
+      const q = new URLSearchParams({ from: "/team/attendance" });
+      return `/workers/${workerId}/attendance?${q.toString()}`;
+    }
+    const q = new URLSearchParams({
+      start: range.from,
+      end: range.to,
+      view: "list",
+      worker: workerId,
+    });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    return `/team/attendance?${q.toString()}#w-${workerId}`;
+  };
+
   // Preserve the range + project + referrer when toggling a drill open/closed.
   const drillHref = (workerId: string | null): string => {
     const q = new URLSearchParams({ start: range.from, end: range.to });
     if (range.projectId) q.set("project", range.projectId);
     if (backHref !== "/team") q.set("from", backHref);
     if (workerId) q.set("worker", workerId);
+    // Spec 400 U1 — the drill lives in the LIST view, so its own links must keep
+    // that view. Without this, opening a row would silently switch the reader
+    // back to the default grid and the drill they asked for would not be there.
+    q.set("view", "list");
     // Fragment so toggling a row keeps that row in view (a server navigation
     // otherwise re-renders scrolled to the top and the user hunts for it again).
     return `/team/attendance?${q.toString()}#w-${workerId ?? openWorkerId ?? ""}`;
@@ -226,6 +296,10 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
               accounting user who changes the range would find the back chip
               pointing at /team, a place they never came from. */}
           {backHref !== "/team" && <input type="hidden" name="from" value={backHref} />}
+          {/* Same reason as ?from: a GET form rebuilds the URL from its own
+              fields, so without this a reader who changed the range while in the
+              LIST view would be thrown back to the default grid. */}
+          {shape === "list" && <input type="hidden" name="view" value="list" />}
           <button type="submit" className={BUTTON_PRIMARY}>
             ดูข้อมูล
           </button>
@@ -283,77 +357,106 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                   {unclosedDays} วันที่ยังไม่ได้ปิด — ค่าแรงของวันนั้นยังไม่ถูกบันทึก
                 </p>
               )}
+              {/* Spec 400 U1 — the two shapes of the same range. The list is NOT
+                  retired: it is the better read for one person's month and it is
+                  what the CSV mirrors, so the grid is a default, not a
+                  replacement. aria-current marks the live one for a reader. */}
+              <div className="border-edge mt-3 flex gap-2 border-t pt-3">
+                {(["grid", "list"] as const).map((target) => {
+                  const isCurrent = shape === target;
+                  return (
+                    <Link
+                      key={target}
+                      href={viewHref(target)}
+                      aria-current={isCurrent ? "page" : undefined}
+                      className={`inline-flex min-h-11 items-center rounded-full px-3 text-xs ${
+                        isCurrent
+                          ? "bg-action-soft text-action font-semibold"
+                          : "text-ink-secondary hover:underline"
+                      }`}
+                    >
+                      {target === "grid" ? "ตาราง" : "รายการ"}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
+
+            {shape === "grid" && (
+              <AttendanceGridView grid={grid} todayIso={todayIso} workerHref={gridWorkerHref} />
+            )}
 
             {/* One row per worker. The signal chips mark the rows an auditor
                 should look at — a clean row carries none. Each name opens the
                 per-day drill (U3), which turns those COUNTS into the actual
                 sessions behind them. */}
-            <ul className="flex flex-col gap-2">
-              {rows.map((r) => {
-                const signals = formatSignals(r, { rangeIncludesToday });
-                const isOpen = r.workerId === openWorkerId;
-                return (
-                  <li key={r.workerId} id={`w-${r.workerId}`} className={CARD}>
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                      {/* text-action + inline-flex items-center is the house link
+            {shape === "list" && (
+              <ul className="flex flex-col gap-2">
+                {rows.map((r) => {
+                  const signals = formatSignals(r, { rangeIncludesToday });
+                  const isOpen = r.workerId === openWorkerId;
+                  return (
+                    <li key={r.workerId} id={`w-${r.workerId}`} className={CARD}>
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        {/* text-action + inline-flex items-center is the house link
                           idiom (globals.css reserves --color-action for links).
                           Styling it like the surrounding text left the drill
                           invisible on touch, where hover:underline never fires —
                           an undiscoverable feature ships to zero usage. */}
-                      <Link
-                        href={drillHref(isOpen ? null : r.workerId)}
-                        className="text-action focus-visible:ring-action inline-flex min-h-11 min-w-0 items-center rounded text-sm font-semibold underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
-                      >
-                        {r.workerName}
-                        <span className="text-ink-secondary ml-1 text-xs font-normal">
-                          {isOpen ? "▾" : "▸"}
+                        <Link
+                          href={drillHref(isOpen ? null : r.workerId)}
+                          className="text-action focus-visible:ring-action inline-flex min-h-11 min-w-0 items-center rounded text-sm font-semibold underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+                        >
+                          {r.workerName}
+                          <span className="text-ink-secondary ml-1 text-xs font-normal">
+                            {isOpen ? "▾" : "▸"}
+                          </span>
+                        </Link>
+                        <span className="text-ink-secondary text-xs">
+                          {r.daysPresent} วัน
+                          {r.otHoursTotal > 0 ? ` · OT ${formatNumber(r.otHoursTotal)} ชม.` : ""}
+                          {r.projectCount > 1 ? ` · ${r.projectCount} โครงการ` : ""}
                         </span>
-                      </Link>
-                      <span className="text-ink-secondary text-xs">
-                        {r.daysPresent} วัน
-                        {r.otHoursTotal > 0 ? ` · OT ${formatNumber(r.otHoursTotal)} ชม.` : ""}
-                        {r.projectCount > 1 ? ` · ${r.projectCount} โครงการ` : ""}
-                      </span>
-                    </div>
-                    {signals.length > 0 && (
-                      <ul className="mt-2 flex flex-wrap gap-1.5">
-                        {signals.map((s) => (
-                          <li
-                            key={s.key}
-                            className="bg-sunk text-ink-secondary rounded-full px-2 py-0.5 text-[11px]"
-                          >
-                            {s.label}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                      </div>
+                      {signals.length > 0 && (
+                        <ul className="mt-2 flex flex-wrap gap-1.5">
+                          {signals.map((s) => (
+                            <li
+                              key={s.key}
+                              className="bg-sunk text-ink-secondary rounded-full px-2 py-0.5 text-[11px]"
+                            >
+                              {s.label}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
 
-                    {/* U3 — the drill. Per DAY (newest first), regular before OT,
+                      {/* U3 — the drill. Per DAY (newest first), regular before OT,
                         with the facts behind the summary's counts: the actual
                         times, how each scan was recorded, whether the system
                         auto-closed it, and who recorded it. Closure sits on the
                         DAY header, not the session (it is a project-day fact). */}
-                    {isOpen && (
-                      <div className="border-edge mt-3 border-t pt-3">
-                        {/* Spec 397 U3 — the reopen control rides the day header.
+                      {isOpen && (
+                        <div className="border-edge mt-3 border-t pt-3">
+                          {/* Spec 397 U3 — the reopen control rides the day header.
                             canReopen mirrors reopen_muster_day's own allowlist, so
                             the button can never promise what the RPC refuses;
                             drillHref(openWorkerId) is the URL the form returns to,
                             so the outcome lands on the SAME open drill. */}
-                        <AttendanceDrill
-                          days={detailDays}
-                          todayIso={todayIso}
-                          canReopen={MUSTER_REOPEN_ROLES.includes(ctx.role)}
-                          canClose={canClose}
-                          backHref={drillHref(r.workerId)}
-                        />
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+                          <AttendanceDrill
+                            days={detailDays}
+                            todayIso={todayIso}
+                            canReopen={MUSTER_REOPEN_ROLES.includes(ctx.role)}
+                            canClose={canClose}
+                            backHref={drillHref(r.workerId)}
+                          />
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </>
         )}
       </section>
