@@ -157,10 +157,55 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     }
   });
 
-  it("scopes the roster to the picked project, and to every project otherwise", () => {
-    const rosterBlock = code.slice(code.indexOf("const rosterQuery"), code.indexOf("const grid ="));
-    expect(rosterBlock).toContain('.eq("project_id", range.projectId)');
-    expect(rosterBlock).toContain("range.projectId");
+  it("scopes the roster to the SAME projects the attendance is scoped to", () => {
+    // 🔴 found in review. The `workers` policy is ROLE-only — no project
+    // predicate — while the RPCs scope `project_manager` by can_see_project, and
+    // project_manager is the one WORKER_ROSTER_ROLES member outside
+    // ATTENDANCE_AUDIT_ALL_PROJECT_ROLES. Unscoped, a PM gets a roster of every
+    // active worker in the firm against their own projects' attendance: every
+    // other project's workers rendered "never scanned", and counted into the
+    // absent line. A finding-shaped lie.
+    const block = code.slice(code.indexOf("const rosterProjectIds"), code.indexOf("const grid ="));
+    expect(block).toContain("range.projectId\n    ? [range.projectId]");
+    expect(block).toContain("seesAllProjects");
+    expect(block).toContain("(projectOptions ?? []).map((p) => p.id)");
+    expect(block).toContain('rosterBase.in("project_id", rosterProjectIds)');
+  });
+
+  it("asks for ACTIVE workers on every arm of the roster query", () => {
+    // The earlier version of this test asserted `.eq("active", true)` against
+    // one branch only, so deleting it from the other stayed green while inactive
+    // workers gained roster rows. One base query now carries it, and the pin is
+    // that the project filter is applied TO that base rather than beside it.
+    const block = code.slice(
+      code.indexOf("const rosterBase"),
+      code.indexOf("const { data: roster"),
+    );
+    expect(block).toContain('.eq("active", true)');
+    expect(occurrences('.from("workers")')).toBe(1);
+  });
+
+  it("throws on a roster read error instead of reporting nobody absent", () => {
+    // A swallowed error reverts the grid to U1 silently AND makes absentCount 0
+    // — "the roster could not be read" rendered as "nobody is absent". Mirrors
+    // loadAttendanceSummary, which throws for the same reason.
+    expect(code).toContain("error: rosterError");
+    expect(code).toContain("if (rosterError) throw new Error(");
+  });
+
+  it("lets the GRID speak when nobody was scanned at all", () => {
+    // The maximal instance of the finding: a range with no muster whatsoever.
+    // Gating on the attendance summary alone fetched the roster and threw it
+    // away. The list keeps the summary gate — it draws no roster rows.
+    expect(code).toContain('{(shape === "grid" ? grid.rows.length === 0 : rows.length === 0) ? (');
+  });
+
+  it("stops calling the CSV ทุกคน on a view where it is not everyone", () => {
+    // The file is built from attendance sessions, so a roster-only worker has
+    // nothing in it — 42 rows on screen, 25 in the download.
+    expect(code).toContain(
+      'shape === "grid" ? "ดาวน์โหลด CSV (ผู้ที่มีบันทึก)" : "ดาวน์โหลด CSV (ทุกคน)"',
+    );
   });
 
   it("states the absent count beside the header number it would otherwise contradict", () => {

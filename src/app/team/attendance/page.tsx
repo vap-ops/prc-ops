@@ -186,14 +186,33 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   //
   // Only `id, name`: `day_rate` and `employee_id` are column-WALLED on `workers`,
   // and a select naming them reads back null under RLS rather than failing.
-  const rosterQuery = range.projectId
-    ? supabase
-        .from("workers")
-        .select("id, name")
-        .eq("active", true)
-        .eq("project_id", range.projectId)
-    : supabase.from("workers").select("id, name").eq("active", true);
-  const { data: roster } = drawsGrid && inWorkerRosterRoles ? await rosterQuery : { data: null };
+  // 🔴 The `workers` policy is ROLE-only — it carries NO project predicate — while
+  // the attendance RPCs scope `project_manager` by `can_see_project`, and
+  // project_manager is the one WORKER_ROSTER_ROLES member outside
+  // ATTENDANCE_AUDIT_ALL_PROJECT_ROLES. Unscoped, a PM would get a roster of every
+  // active worker in the firm against attendance for their own projects only —
+  // every other project's workers rendered as "never scanned", which is a
+  // FINDING-SHAPED lie about people whose records that PM simply may not read.
+  //
+  // So the roster is scoped to the same projects the attendance is: the picked
+  // one, everything for the cross-project tier, and otherwise exactly the
+  // `projectOptions` this page already read on the SESSION client (RLS hands a PM
+  // its memberships, which is what `can_see_project` resolves to). A PM with no
+  // visible projects gets `.in(…, [])` — an empty roster, which is correct.
+  const rosterProjectIds: string[] | null = range.projectId
+    ? [range.projectId]
+    : seesAllProjects
+      ? null
+      : (projectOptions ?? []).map((p) => p.id);
+  const rosterBase = supabase.from("workers").select("id, name").eq("active", true);
+  const rosterQuery = rosterProjectIds ? rosterBase.in("project_id", rosterProjectIds) : rosterBase;
+  // Throws rather than degrading to `null`, mirroring loadAttendanceSummary: a
+  // swallowed error here reverts the grid to U1 silently and reports "nobody is
+  // absent" when the truth is "the roster could not be read" — the silent empty
+  // this spec's §D4 exists to refuse.
+  const { data: roster, error: rosterError } =
+    drawsGrid && inWorkerRosterRoles ? await rosterQuery : { data: null, error: null };
+  if (rosterError) throw new Error(`attendance roster read failed: ${rosterError.message}`);
 
   const grid = buildAttendanceGrid({
     ...range,
@@ -353,7 +372,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
           </p>
         )}
 
-        {rows.length === 0 ? (
+        {/* Spec 400 U2 — the GRID has something to say when the summary does
+            not: a range in which nobody was scanned at all is the strongest
+            instance of the finding, and gating on the attendance summary alone
+            would fetch the roster and throw it away. The list keeps the summary
+            gate, because it draws no roster rows and would otherwise render a
+            headless list. */}
+        {(shape === "grid" ? grid.rows.length === 0 : rows.length === 0) ? (
           <EmptyNotice>ไม่มีบันทึกการเช็คชื่อในช่วงนี้</EmptyNotice>
         ) : (
           <>
@@ -370,7 +395,11 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     even while one worker's drill is open on screen.
                     BUTTON_SECONDARY matches the /payroll + /requests exports. */}
                 <a href={exportHref} download className={`${BUTTON_SECONDARY} shrink-0`}>
-                  ดาวน์โหลด CSV (ทุกคน)
+                  {/* Spec 400 U2 — ทุกคน stopped being true on the grid the
+                      moment roster rows joined it: the file is built from
+                      attendance sessions, so a worker with no record has
+                      nothing to export. The label names what the file holds. */}
+                  {shape === "grid" ? "ดาวน์โหลด CSV (ผู้ที่มีบันทึก)" : "ดาวน์โหลด CSV (ทุกคน)"}
                 </a>
               </div>
               <p className="text-ink mt-1 text-sm font-semibold">
