@@ -1,6 +1,14 @@
 # Spec 366 — WP zones: photos that know where they were taken
 
-**Status:** DRAFT — designed with the operator 2026-07-27, not yet planned or built.
+**Status:** ⚠️ **MODEL SUPERSEDED by [spec 401](401-zone-model-reconciliation.md) (2026-08-06). Build from 401, not from here.**
+
+> **Why.** Spec 392 (2026-08-04) shipped a zone model without ever referencing this one — and took this spec's table name, `project_zones`, for a different relationship (`work_packages.zone_id`, one zone per WP). The operator re-raised THIS spec's model on 2026-08-06 (_"zones live under WPs"_), and 401 is the reconciliation: **392's geometry, editor and RPCs are kept wholesale; this spec's `wp_zones` M:N and `photo_logs.zone_id` are added; `work_packages.zone_id` is dropped.**
+>
+> **What is still live here and worth reading:** the D1–D7 decision table (especially **D1** — zones are additive to the WP tree, never a restructure of it, because `labor_logs`, `wp_profit` and the 331-item `plan_baselines` row are all keyed to today's WP grain), **D4/D5** (optional-but-sticky at capture), the §1.1 spec-248 warning, and the §3 trigger facts. **What is superseded:** §3's model diagram (`project_drawings` → 392's `project_zone_maps`; `polygon` → 392's `shape` + `geometry`) and §4's unit table.
+>
+> ⚠️ §9's evidence appendix is dated 2026-07-27 and **has moved** — `mismatch` rejections are **14**, not 4. Re-measured figures are in 401 §1.1; do not quote §9 without re-running it.
+
+**Original status:** DRAFT — designed with the operator 2026-07-27, not yet planned or built.
 **Origin:** operator directive 2026-07-26, points 6 and 7 of seven — _"Prepare for multiple zones per WP, images of during and after must be relevant"_ and _"SA needs to understand the zones (think of polygon buttons on simplified drawings dedicated to the respected WP) users can pick zones simply by clicking on the simplified drawing"_.
 **Sibling:** [spec 363](363-wp-detail-sa-nav.md) (points 1–5) shipped the SA's navigation and deliberately left the seam this spec fills. ⚠️ 363 originally called this "spec 364"; 364 and 365 were claimed by other lanes on 2026-07-27, so zones are **366**. The references in 363 were corrected in this spec's PR.
 
