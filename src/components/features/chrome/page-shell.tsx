@@ -22,8 +22,32 @@ const SHELL_BASE = "h-full overflow-x-clip overflow-y-auto overscroll-y-contain 
 const VARIANT_CLASSES: Record<PageShellVariant, string> = {
   /** Content pages: zinc wash + phone tab-bar clearance. */
   app: "bg-page pb-20 sm:pb-0",
-  /** Single-card screens (login, landing, error, not-found). */
-  card: "flex items-center justify-center bg-card px-6",
+  /**
+   * Single-card screens (login, landing, error, not-found, /coming-soon).
+   *
+   * Centred with AUTO MARGINS, not `items-center`: on a scrolling flex
+   * container, `align-items: center` centres overflowing content by pushing its
+   * top above the scrollable area, where no scroll position can reach it.
+   * Measured 2026-08-06 in a real browser — a 900px child in a 600px scroller
+   * sat at top −150 with scrollHeight 750 and maxScroll 150, so 150px was
+   * unreachable. Auto margins centre identically while free space is positive
+   * and collapse to 0 when it is not, so a tall card simply scrolls
+   * (same child: top 0, scrollHeight 900, maxScroll 300).
+   *
+   * /coming-soon's OperatorHub arm used to render `bare` + `bg-card px-6 py-10`,
+   * which left that page's three arms disagreeing about vertical alignment and
+   * its loading fallback unable to match all three. (It was NOT a deliberate
+   * opt-out from this trap — `git show 9248267c` shows a hand-rolled <main> from
+   * before PageShell existed, ported 1:1 in e600c4ed. The trap is real; that
+   * arm's history is not evidence of it.) With centring made safe, the arm now
+   * uses this variant and the three agree.
+   *
+   * ⚠️ `[&>*]:m-auto` is emitted LAST at equal specificity, so it beats every
+   * margin utility a child sets — `mx-auto` (same result), `.sr-only`'s
+   * `margin:-1px`, and any future `mt-*`/`m-0`. A card child that needs its own
+   * margin must set it on an inner element.
+   */
+  card: "flex items-start justify-center bg-card px-6 [&>*]:m-auto",
   /** Caller supplies the rest (profile, coming-soon hub). */
   bare: "",
 };

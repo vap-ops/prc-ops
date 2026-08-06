@@ -1,3 +1,11 @@
+## [0.345.4](https://github.com/vap-ops/prc-ops/compare/v0.345.3...v0.345.4) (2026-08-06)
+
+### Bug Fixes
+
+- **chrome:** the card variant centres safely, so /coming-soon's arms agree ([818779d](https://github.com/vap-ops/prc-ops/commit/818779d943942056faedeb73a166c51f4857d2b6))
+- close the fresh-eyes findings on the card-centring unit ([d80f06b](https://github.com/vap-ops/prc-ops/commit/d80f06bb6cd819d8bce334d6a3a65df008d5da78))
+- **tests:** the variant pin reads EVERY PageShell call in a file ([81c8287](https://github.com/vap-ops/prc-ops/commit/81c8287bb5acf3fc3c0f0c2c9a4c9c41c81b8fe0))
+
 ## [0.345.3](https://github.com/vap-ops/prc-ops/compare/v0.345.2...v0.345.3) (2026-08-06)
 
 ### Bug Fixes

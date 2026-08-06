@@ -18,20 +18,23 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // The variant is PageShell's own vocabulary, and both arms have a real caller:
 //   • card — centred on bg-card, NO header: /login (a max-w-sm card) and
 //     /coming-soon (three arms — the unserved-role card, the VisitorLanding
-//     card, and the super_admin OperatorHub at bare+bg-card; all a max-w-md
-//     column on the card ground);
+//     card, and the super_admin OperatorHub; all a max-w-md column on the card
+//     ground, and since 2026-08-06 all three declare variant="card");
 //   • app  — top-aligned on bg-page WITH a sticky-header placeholder: /profile,
 //     which renders DetailHeader above a max-w-md column, so a headerless
 //     centred frame would be a NEW mismatch on the vertical axis.
 //
-// Two residual jumps, disclosed rather than papered over (both far smaller than
-// the ~792px this replaced) — one closed, one open:
+// The two residual jumps this frame started with (both far smaller than the
+// ~792px it replaced) are now BOTH closed:
 //   • ~~/login's card is max-w-sm against a fixed max-w-md column~~ CLOSED
 //     2026-08-06: the width is per-screen now, and each boundary's is pinned
 //     against the width its own PAGE declares, so it cannot drift back;
-//   • /coming-soon's super_admin arm is TOP-aligned (variant="bare") while the
-//     card variant centres, so that one arm still shifts vertically. The other
-//     two arms of that page are centred, so `card` is the majority match.
+//   • ~~/coming-soon's super_admin arm is TOP-aligned while the card variant
+//     centres~~ CLOSED 2026-08-06: `card` now centres with auto margins rather
+//     than `items-center` (which clipped tall content), so that arm adopted it
+//     and all three agree. ⚑ The hub keeps its own `py-10`, which this frame
+//     does not — invisible while content is centred, a 40px step once the hub
+//     overflows.
 //
 // /profile is also the reason this is not card-only: /login and /coming-soon are
 // both in the telemetry EXCLUDED_PREFIXES, so their usage is unmeasurable, while
