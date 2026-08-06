@@ -472,6 +472,33 @@ export const MUSTER_CLOSE_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 400 U4/U3c — who may CORRECT a session's recorded times, and so who may
+ * add a person the muster missed (`muster_correct_session`, migration
+ * 20260813075915) and read a day's teams to add them to
+ * (`list_muster_teams_for_day`, 20260813075916).
+ *
+ * Mirrors those RPCs' shared allowlist verbatim, read from the LIVE functions
+ * 2026-08-06. The RPC is the real boundary; this set exists so the affordance and
+ * the copy around it never promise what the server refuses.
+ *
+ * ⚠️ **This is the one muster set WITHOUT `site_admin`, and that is deliberate,
+ * not an omission.** She holds `muster_scan_in`, `muster_scan_out` and the whole
+ * cockpit — but every surface that reaches a PAST day is gated on
+ * `ATTENDANCE_AUDIT_ROLES`, which has no `site_admin`, so granting her the
+ * correction would be privilege with no door. The same ruling narrowed
+ * `muster_scan_out` so it can no longer stamp `now()` onto an old session.
+ *
+ * It is a SUBSET of MUSTER_REOPEN_ROLES, and the "closed day → เปิดวันก่อน" copy
+ * depends on that: a reader told to reopen must be able to. Pinned over the
+ * exhaustive role domain by attendance-add-person.test.tsx rather than assumed.
+ */
+export const MUSTER_CORRECT_ROLES: ReadonlyArray<UserRole> = [
+  "super_admin",
+  "procurement_manager",
+  "procurement",
+];
+
+/**
  * Spec 358 — the CROSS-PROJECT tier of ATTENDANCE_AUDIT_ROLES: the roles whose
  * attendance read spans every project. Mirrors, exactly, the inner
  * `v_role in (...)` arm of both `audit_attendance_*` RPCs (migration

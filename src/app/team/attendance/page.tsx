@@ -31,6 +31,7 @@ import {
   ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
   MUSTER_CLOSE_ROLES,
+  MUSTER_CORRECT_ROLES,
   MUSTER_REOPEN_ROLES,
   WORKER_ROSTER_ROLES,
 } from "@/lib/auth/role-home";
@@ -87,6 +88,20 @@ const CLOSE_ERROR_COPY: Record<string, string> = {
   failed: "ปิดวันไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
 };
 
+/** Spec 400 U3c-b — the add form's outcomes. Same honest-copy rule as the close
+ *  map: not one arm is retryable without the reader changing something first, so
+ *  none of them says ลองใหม่. `duplicate` names the state rather than the fix,
+ *  because the fix depends on which team the person is already on — a fact the
+ *  grid's own row shows. */
+const ADD_ERROR_COPY: Record<string, string> = {
+  denied: "บัญชีนี้ไม่มีสิทธิ์แก้ไขการเช็คชื่อของโครงการนี้",
+  shape: "ข้อมูลที่ส่งไม่ถูกต้อง",
+  closed: "ปิดวันแล้ว — ต้องเปิดวันดังกล่าวอีกครั้งก่อน",
+  duplicate: "ช่างคนนี้มีการเช็คชื่อของวันดังกล่าวอยู่แล้ว",
+  noteam: "ไม่พบทีมของวันดังกล่าว",
+  failed: "เพิ่มไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อช่าง",
+};
+
 interface AttendanceAuditPageProps {
   // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
   // /team, /accounting AND — since spec 397 U2 — /procurement, so the parent is
@@ -109,6 +124,9 @@ interface AttendanceAuditPageProps {
     /** Spec 400 U3b — the close form's outcome, carried back by its redirect. */
     closed?: string | string[];
     closeError?: string | string[];
+    /** Spec 400 U3c-b — the add-person form's outcome. */
+    added?: string | string[];
+    addError?: string | string[];
   }>;
 }
 
@@ -126,6 +144,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     day,
     closed,
     closeError,
+    added,
+    addError,
   } = await searchParams;
   // `?worker=` predates this unit: every drill link the report has ever minted
   // carries one and no ?view, so those URLs resolve to the LIST or the drill
@@ -353,6 +373,10 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // fact the panel states is readable from the column and the drill, and a link
   // would promise an action their own server refuses.
   const canCorrectDay = canReopen || canClose;
+  // Spec 400 U3c-b — the correction audience, and it is NARROWER than canClose:
+  // MUSTER_CORRECT_ROLES has no site_admin, because every surface reaching a past
+  // day is gated on ATTENDANCE_AUDIT_ROLES, which has none either.
+  const canCorrect = MUSTER_CORRECT_ROLES.includes(ctx.role);
   // The two things closing COSTS, named from the rows already on screen:
   // close_muster_day stamps 17:00 on every open REGULAR session and leaves every
   // open OT one alone — and no RPC records a past check-out for any role, so an
@@ -374,6 +398,56 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         ? ({
             ok: false,
             message: CLOSE_ERROR_COPY[closeError] ?? CLOSE_ERROR_COPY.failed!,
+          } as const)
+        : null;
+
+  // Spec 400 U3c-b — the add-person arm.
+  //
+  // The teams come from `list_muster_teams_for_day`, NOT from a PostgREST read of
+  // muster_teams: that table's RLS is `can_see_project`, which is `else false` for
+  // `procurement`, so a table read would hand 4 of the 5 people this form exists
+  // for an EMPTY picker and no error to notice. The RPC is the seam this audience
+  // already uses for attendance (audit_attendance_summary/_detail).
+  //
+  // Fetched only when the form could actually render: the panel is open on most
+  // day-column visits, and the roles who may not correct would otherwise pay a
+  // round trip for a control they never see.
+  const wantsAddForm = canCorrect && openDay !== null && range.projectId !== undefined;
+  const { data: dayTeams, error: dayTeamsError } = wantsAddForm
+    ? await supabase.rpc("list_muster_teams_for_day", {
+        p_project: range.projectId!,
+        p_date: openDay!.date,
+      })
+    : { data: null, error: null };
+  // Throw rather than degrade: an empty picker is the panel's `noTeams` arm,
+  // which asserts a FACT about the day ("ยังไม่มีทีมของวันดังกล่าว"). Swallowing a
+  // failed read would state that fact when the truth is that it could not be
+  // determined — U2's discarded-error lesson, one surface over.
+  if (dayTeamsError) throw new Error(`muster team list failed: ${dayTeamsError.message}`);
+  const addTeams = (dayTeams ?? []).map((t) => ({
+    teamId: t.team_id,
+    leadName: t.lead_name,
+    headcount: t.headcount,
+  }));
+
+  // Only workers with NO session that day: the RPC refuses a duplicate, so an
+  // unfiltered list would be offer-then-refuse across a 41-name select. The
+  // population is the grid's own rows, which U2 already UNIONs the roster into —
+  // so a worker the muster has never recorded is exactly who this offers.
+  const musteredOnOpenDay = new Set(openDaySessions.map((r) => r.workerId));
+  const addCandidates = wantsAddForm
+    ? grid.rows
+        .filter((r) => !musteredOnOpenDay.has(r.workerId))
+        .map((r) => ({ workerId: r.workerId, name: r.workerName }))
+    : [];
+
+  const addOutcome =
+    added === "1"
+      ? ({ ok: true } as const)
+      : typeof addError === "string" && addError.length > 0
+        ? ({
+            ok: false,
+            message: ADD_ERROR_COPY[addError] ?? ADD_ERROR_COPY.failed!,
           } as const)
         : null;
 
@@ -578,6 +652,10 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     returnTo={dayHref(openDay.date)}
                     stillIn={stillInOnOpenDay}
                     outcome={closeOutcome}
+                    canCorrect={canCorrect}
+                    addTeams={addTeams}
+                    addWorkers={addCandidates}
+                    addOutcome={addOutcome}
                   />
                 )}
               </>

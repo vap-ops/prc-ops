@@ -31,11 +31,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireActionRole } from "@/lib/auth/action-gate";
-import { MUSTER_CLOSE_ROLES, MUSTER_REOPEN_ROLES } from "@/lib/auth/role-home";
-import { bangkokTodayIso, ISO_DATE_REGEX } from "@/lib/dates";
 import {
+  MUSTER_CLOSE_ROLES,
+  MUSTER_CORRECT_ROLES,
+  MUSTER_REOPEN_ROLES,
+} from "@/lib/auth/role-home";
+import { bangkokTodayIso, ISO_DATE_REGEX } from "@/lib/dates";
+import { bangkokInAt } from "@/lib/muster/add-person";
+import {
+  addPersonReturnTo,
   closeReturnTo,
   reopenReturnTo,
+  type AddPersonOutcome,
   type CloseOutcome,
   type ReopenOutcome,
 } from "@/lib/muster/reopen-return";
@@ -173,6 +180,100 @@ export async function closeMusterDay(input: {
   revalidatePath("/team/attendance");
   revalidatePath("/team");
   return { ok: true };
+}
+
+export type AddPersonResult = { ok: true } | { ok: false; outcome: AddPersonOutcome };
+
+/**
+ * Spec 400 U3c-b — "he was here, add him", spec 400 §3's commonest correction and
+ * the one the app never had. Three units had to land first: U3a widened
+ * `muster_scan_in` to `procurement`, U4 added `muster_correct_session` so the row
+ * can carry a REAL check-in time, and U3c-a added `list_muster_teams_for_day`
+ * because `muster_teams` RLS refuses `procurement` outright — the picker was
+ * empty for 4 of the 5 people the write was widened for.
+ *
+ * Authorization is the DB's: `muster_correct_session` is SECURITY DEFINER, gates
+ * on `current_user_role() ∈ MUSTER_CORRECT_ROLES`, applies `can_see_project` to
+ * every role except `procurement`, bounds the time to the row's own Bangkok work
+ * date, refuses the INSERT path on a closed day, and delegates the insert to
+ * `muster_scan_in` so the "already mustered elsewhere" invariants are not forked.
+ *
+ * ⚠️ `p_session` is hard-coded `regular` rather than taken from the form: an OT
+ * session is ×1.5 money (spec 351) and the RPC refuses to CREATE one, so a field
+ * would be an offer the server declines. `p_out_at` is null — this records an
+ * arrival, and a departure is a separate correction.
+ */
+export async function addMusterPerson(input: {
+  teamId: string;
+  workerId: string;
+  workDate: string;
+  inTime: string;
+}): Promise<AddPersonResult> {
+  const gate = await requireActionRole(MUSTER_CORRECT_ROLES);
+  if ("error" in gate) return { ok: false, outcome: "denied" };
+  const auth = gate.auth;
+
+  if (!UUID_REGEX.test(input.teamId) || !UUID_REGEX.test(input.workerId)) {
+    return { ok: false, outcome: "shape" };
+  }
+
+  // bangkokInAt validates BOTH parts and states the +07:00 offset explicitly. A
+  // bare local-time string would be read as UTC — this box, Vercel and CI all run
+  // UTC — so an early-morning correction would land on the previous day and the
+  // RPC's own work-date bound would refuse it.
+  const inAt = bangkokInAt(input.workDate, input.inTime);
+  if (inAt === null) return { ok: false, outcome: "shape" };
+
+  // `p_out_at` is OMITTED, not passed as null: it is an optional parameter, so
+  // the generated type is `p_out_at?: string` and `exactOptionalPropertyTypes`
+  // rejects an explicit undefined. Omitting it takes the function's own
+  // `default null`, which is the same instruction — this records an ARRIVAL, and
+  // a departure is a separate correction.
+  const { error } = await auth.supabase.rpc("muster_correct_session", {
+    p_team: input.teamId,
+    p_worker: input.workerId,
+    p_session: "regular",
+    p_in_at: inAt,
+  });
+
+  if (error) {
+    // 42501 covers both of the RPC's permanent refusals — the role gate and the
+    // can_see_project arm — and neither may ever say ลองใหม่.
+    if (error.code === "42501") return { ok: false, outcome: "denied" };
+    // Ordered like the RPC's own guards. The duplicate arm matches THREE
+    // sentences because the insert is delegated to muster_scan_in, which words
+    // the conflict differently depending on what the caller may see.
+    if (error.message.includes("only be added to an open day")) {
+      return { ok: false, outcome: "closed" };
+    }
+    if (
+      error.message.includes("already in team of") ||
+      error.message.includes("already mustered") ||
+      error.message.includes("already in the office team")
+    ) {
+      return { ok: false, outcome: "duplicate" };
+    }
+    if (error.message.includes("team not found")) return { ok: false, outcome: "noteam" };
+    return { ok: false, outcome: "failed" };
+  }
+
+  revalidatePath("/team/attendance");
+  revalidatePath("/team");
+  return { ok: true };
+}
+
+/** The form entry point — same shape as the other two: POST, redirect, code. */
+export async function addMusterPersonFromForm(formData: FormData): Promise<void> {
+  const result = await addMusterPerson({
+    teamId: String(formData.get("teamId") ?? ""),
+    workerId: String(formData.get("workerId") ?? ""),
+    workDate: String(formData.get("workDate") ?? ""),
+    inTime: String(formData.get("inTime") ?? ""),
+  });
+
+  redirect(
+    addPersonReturnTo(String(formData.get("returnTo") ?? ""), result.ok ? "ok" : result.outcome),
+  );
 }
 
 /** The form entry point — same shape as reopen's: POST, redirect, outcome CODE. */
