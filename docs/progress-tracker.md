@@ -13361,3 +13361,71 @@ write RPC admits — both corrected here. ② `#1000` carries a migration commen
 names the wrong unit and belongs to U4. Not touched — it is another lane's branch. ③ There is still
 NO surface, for ANY role, that corrects a past day's attendance: both undo surfaces are today-locked.
 That is the gap U4 closes.
+
+## 2026-08-06 — spec 400 U3c-b: adding a person the muster missed (lane u3cb)
+
+The correction spec 400 §3 named as the commonest one ("he was here, add him") and the only one the app
+never had. Three units had to land first: U3a widened `muster_scan_in` to `procurement`, U4 added
+`muster_correct_session` so the row can carry a REAL check-in time, and U3c-a added
+`list_muster_teams_for_day` because `muster_teams` RLS refuses `procurement` outright.
+
+**What shipped.** `MUSTER_CORRECT_ROLES` (mirrors the two correction RPCs' shared gate) ·
+`addPersonControl`, a pure five-arm predicate · `bangkokInAt`, which builds the timestamp · the
+`AttendanceAddPersonForm` (team picker, worker picker, required time) inside the U3b `?day=` panel ·
+`addMusterPerson` + its form entry point · `addPersonReturnTo` · the `ADD_ERROR_COPY` map · a
+capability-registry row.
+
+⭐ **`MUSTER_CORRECT_ROLES` is the one muster set WITHOUT `site_admin`, and unlike the two beside it
+that is not "holds it at the DB level with no door" — the RPC itself refuses her.** Every surface that
+reaches a past day is gated on `ATTENDANCE_AUDIT_ROLES`, which has no `site_admin`, so the correction
+would have been privilege with no door. Her equivalent power is the cockpit, on the day itself.
+
+⭐ **The time field has NO default, deliberately.** A pre-filled 08:00 is a guess the app would present
+as a record, and the entire reason U4 exists is that a fabricated timestamp is worse than a missing one.
+
+⭐ **The picker offers only workers with no session that day.** The RPC refuses a duplicate, so an
+unfiltered list would be offer-then-refuse across a 41-name select. The population is the grid's own
+rows, which U2 already UNIONs the roster into — so a worker the muster has never recorded is exactly
+who this offers. Measured live: **41 roster − 23 mustered = 18 candidates**, exactly.
+
+⚠️ **The capability-registry bijection guard caught the new export and that is the guard working.**
+`role-capabilities.test.ts` requires every exported role set to have exactly one registry entry
+referencing the LIVE const; adding `MUSTER_CORRECT_ROLES` without a row reds it. Added
+`muster-session-correct` with the site_admin reasoning written into it.
+
+**Gates.** RED first, three times (the missing module, `addMusterPerson is not a function`, six page
+wiring assertions). **8 mutants, all killed**: the closed-day arm, the permission arm, the `+07:00`
+offset, the `noTeams` arm, `canCorrect` keyed on `MUSTER_CLOSE_ROLES` instead, the candidate filter
+dropped, `required` removed from the time input, and the teams read renamed off the RPC. Pre-flight
+`git diff --quiet` gate before every batch; tree verified clean after. Suite **7590 passed** (the 10
+documented `ship-pr-*` shell reds), typecheck 0, lint 0, `pnpm build` 0.
+
+✅ **Gate 4 was the REAL flow on REAL prod data, and the write was retracted afterwards.** Dev server +
+the dev-preview session, `PRC-2026-004`:
+
+- **08-05 (open, 4 teams)** — the form renders with all four real teams labelled by lead and headcount
+  (`นายจันทร์ เงางาม · 6 คน` …), **18 worker candidates** (41 − 23 already mustered, exact), the time
+  input `type=time required` with an EMPTY value, and the correction disclosure.
+- **08-04 (closed, the known 4-person hole)** — no form; the panel states the closure, offers the
+  reopen form, and says `ปิดวันแล้ว — ต้องเปิดวันดังกล่าวอีกครั้งก่อนจึงจะเพิ่มคนที่ตกหล่นได้`.
+- **The submit loop** — a real `requestSubmit()` wrote a real row: the redirect came back with
+  `added=1` **before** the `#d-2026-08-05` fragment (the dead-banner bug avoided), the column headcount
+  moved **23 → 24**, and the new name appeared in the still-in disclosure. The row read back
+  `in_at = 2026-08-05 07:45` Bangkok — **the supplied time, not `now()`**, which is the U4 defect closed
+  end to end — with `in_method manual` and one `muster_correction_time` audit row.
+- **Cleanup:** retracted through `muster_undo_scan` (the day is open and `labor_logs` is 0, so it is
+  the sanctioned path, not a raw delete). Headcount back to **23**, row count 0. The audit rows for
+  both the correction and the undo remain, which is correct — they are an honest record.
+
+⚠️ **A fetch-based SSR probe read the form as HALF-BUILT and it was the PROBE, not the page.** Next dev
+streams, so the fetched HTML carried `<template id="P:2a">` placeholders where the worker select and
+the time input belong — the probe reported `hasTimeInput: false` while four team options were present,
+a contradiction that only the rendered DOM could settle. The existing note about stripping `<!-- -->`
+markers covers a different half of the same hazard; **a fetched dev-server HTML string is a snapshot of
+a STREAM, so absence in it is not absence on the page.**
+
+**Open questions.** ① No OT arm: the RPC refuses to CREATE an `ot` session (×1.5 money, spec 351), so
+the form does not offer one — retiming an existing OT row is U4's path and has no surface yet. ② The
+form records an ARRIVAL only; a back-dated check-out exists in the RPC and has no control. ③ `site_admin`
+cannot reach any of this by design — if she should be able to fix her own past day, that is a surface
+plus an audience decision, not a re-widening of `muster_scan_out`.

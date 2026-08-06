@@ -25,6 +25,7 @@ import {
   ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
   MUSTER_CLOSE_ROLES,
+  MUSTER_CORRECT_ROLES,
   MUSTER_REOPEN_ROLES,
   EXTERNAL_ROLES,
   LEGAL_ROLES,
@@ -387,6 +388,24 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     setName: "MUSTER_CLOSE_ROLES",
     roles: MUSTER_CLOSE_ROLES,
     labelTh: "ปิดวันเช็คชื่อ ซึ่งเป็นขั้นตอนที่ทำให้ระบบคิดค่าแรงของวันนั้น",
+    domain: "team",
+  },
+  {
+    // Spec 400 U4/U3c — correcting the TIMES a session recorded, and adding a
+    // person the muster missed entirely (`muster_correct_session`, plus
+    // `list_muster_teams_for_day` so the picker is not empty for `procurement`).
+    //
+    // ⚠️ THE ONE MUSTER SET WITHOUT `site_admin`, and unlike the two rows above
+    // that is not "holds it at the DB level with no door" — the RPC itself
+    // refuses her. Every surface reaching a PAST day is gated on
+    // ATTENDANCE_AUDIT_ROLES, which has no site_admin, so the correction would
+    // have been privilege with no door; the same ruling narrowed
+    // `muster_scan_out` so it can no longer stamp now() onto an old session.
+    // Her equivalent power is the cockpit, on the day itself.
+    key: "muster-session-correct",
+    setName: "MUSTER_CORRECT_ROLES",
+    roles: MUSTER_CORRECT_ROLES,
+    labelTh: "แก้เวลาเข้า–ออกงานย้อนหลัง และเพิ่มคนที่ตกหล่นจากการเช็คชื่อ",
     domain: "team",
   },
   // money
