@@ -108,7 +108,9 @@ Every write RPC mirrors the live posture of `save_wp_brief_draft` and `create_wo
 
 ⭐ **Delegate to `is_manager`, never restate its members.** A hardcoded role array is exactly the defect that broke `catalog-images` uploads for two weeks (#823) — the helper moved and the copy did not.
 
-RPCs: `save_project_zone_map` · `upsert_project_zone` · `delete_project_zone` · `set_wp_zone` · `clone_project_zones(source, target)`. Reads go through RLS on `project_zones` gated by `can_see_project`, so the field roles that already open a WP can see its zone without a new door.
+RPCs: `save_project_zone_map` · `upsert_project_zone` · `delete_project_zone` · `set_wp_zone` · `clone_project_zones(source, target)`. Reads go through RLS on `project_zones`, whose live policy is `current_user_role() in ('procurement','procurement_manager') or can_see_project(project_id)`.
+
+🚨 **CORRECTED 2026-08-06 — the original sentence here claimed "the field roles that already open a WP can see its zone without a new door". That is true for `site_admin` and FALSE for `technician`.** Read live from `pg_get_functiondef`, `can_see_project` has exactly three arms: unconditional true for `{super_admin, project_coordinator, project_director, procurement_manager}`, membership-or-project-lead for `{project_manager, site_admin, site_owner, auditor}`, and **`else false`**. `technician` appears in no arm, so the role never reaches the membership test — a ช่าง is refused **even when they hold a `project_members` row**. Live counts: `site_admin` 6 users / **5 with a membership** / 0 as lead ⇒ SA reads through table RLS today; `technician` **14 users / 1 with a membership**, and that one is still refused. ⇒ **a zone surface for ช่าง needs a DEFINER RPC, not RLS**, while an SA surface may use table RLS. That is the binding rule in spec 401 §3.1 (which carries the same correction) — not a detail an implementer can discover at build time. 392's own U3b, the ช่าง's zone on `get_my_assigned_work`, is exactly the unit that rule governs.
 
 ⚠️ **If a background image is uploaded, the `storage.objects` policy is a fourth layer and lives in a different schema** — a `public`-only audit misses it (`delivery-photo-storage-rls-fix-2026-07`). The policy must call the same role helper. Storage keys must be **ASCII-sanitised**: a `\p{L}` sanitizer passes Thai letters through and Storage rejects the key (`supabase-storage-key-ascii`, fixed in #933) — and every zone name here is Thai.
 
@@ -176,6 +178,10 @@ The operator re-raised 366's model on **2026-08-06** — _"zones must be clickab
 The gap is **additive**: `wp_zones`, `photo_logs.zone_id`, and the bucket this spec declared but never created. Nothing shipped has to be undone; `work_packages.zone_id` becomes either a derived primary zone or a retirement. ⚠️ Note the grain trap 366 §3 already recorded: `photo_logs_reject_group_wp` means a photo can never bind to a group WP, so zone-tagged evidence is leaf-grained.
 
 **This needs an operator decision and one reconciling spec before any further zone unit.**
+
+✅ **RESOLVED 2026-08-06 — both the decision and the spec exist. → `docs/feature-specs/401-zone-model-reconciliation.md` (merged, PR #1001).** The operator ruled **`wp_zones` M:N is the single truth and `work_packages.zone_id` is DROPPED** — chosen over keeping it as a derived "primary zone" because a WP like งานพื้นลาน spanning four yards has no non-arbitrary main zone. 392's geometry, editor and four of its five RPCs are reused wholesale; **`set_wp_zone` is retired.** Build order lives in 401 §5 — U1 junction + `photo_logs.zone_id` → U2 move every reader → U3 drop the column → U4 PM binds → U5 SA sticky capture → U6 gallery-by-zone → U7 drawings bucket.
+
+⚠️ **So the `work_packages.zone_id` row in the §7 units table and the fill-rate bullet in §8 below describe a column that is being retired.** 401 §4 carries the reader inventory the drop must budget for (five modules, two page call sites, six test files, two pgTAP assertions, `database.types.ts`); 401 §3 records that a leaf-only `wp_zones` would silently regress the **group**-WP zone chip this spec shipped. Do not build another zone unit from this file alone — read 401 first.
 
 ---
 
