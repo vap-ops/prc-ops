@@ -71,12 +71,30 @@ function sourceOf(relative: string): string {
     .join("\n");
 }
 
-/** The variant a page's own PageShell call declares — three-way, not a boolean. */
+/**
+ * The variant a file's PageShell calls declare — three-way, not a boolean, and
+ * EVERY call in the file, not the first.
+ *
+ * Reading only the first was a hole a mutation found: `coming-soon/page.tsx`
+ * renders TWO shells (the unserved-role card at the top, the super_admin
+ * OperatorHub below), so reverting the hub to `variant="bare"` — the exact
+ * regression this unit fixes — left the pin green because the card arm above it
+ * still matched. A file with two disagreeing shells is precisely the defect.
+ */
 function declaredVariant(source: string): "app" | "card" | "bare" {
-  const call = source.match(/<PageShell\b[^>]*>/);
-  if (!call) throw new Error("page renders no PageShell — the derivation is vacuous");
-  const explicit = call[0].match(/variant="(app|card|bare)"/);
-  return explicit ? (explicit[1] as "app" | "card" | "bare") : "app";
+  const calls = source.match(/<PageShell\b[^>]*?>/g) ?? [];
+  if (calls.length === 0) throw new Error("file renders no PageShell — the derivation is vacuous");
+  const variants = [
+    ...new Set(
+      calls.map((call) => (call.match(/variant="(app|card|bare)"/)?.[1] ?? "app") as string),
+    ),
+  ];
+  if (variants.length !== 1) {
+    throw new Error(
+      `${calls.length} PageShell calls in this file disagree: [${variants.join(", ")}]`,
+    );
+  }
+  return variants[0] as "app" | "card" | "bare";
 }
 
 /**
@@ -117,9 +135,12 @@ function declaredWidth(sources: string[]): string {
 /**
  * The three narrow screens, each with the variant its PAGE renders. `card` is
  * PageShell's centred bg-card ground; `app` is the top-aligned bg-page one.
- * /coming-soon renders card for unserved roles and a bare+bg-card OperatorHub
- * for super_admin — both are a max-w-md column on the card ground, so `card`
- * is right for either arm.
+ *
+ * /coming-soon's three arms (unserved-role card · VisitorLanding · super_admin
+ * OperatorHub) all declare `card` as of 2026-08-06. The hub had been `bare` +
+ * `bg-card` since before PageShell existed (a 1:1 port of a hand-rolled <main>,
+ * not a deliberate opt-out); it could only adopt the variant once `card` stopped
+ * centring with `items-center`, which clipped content taller than the viewport.
  */
 const NARROW_BOUNDARIES = [
   {
@@ -230,12 +251,26 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
       // these are async Server Components the suite cannot render.
       //
       // Three-way, deliberately: a boolean `card ? card : app` cannot see
-      // `bare`, so switching a page to `variant="bare" className="bg-card"` —
-      // exactly what /coming-soon's OperatorHub arm does — would flip the ground
-      // under the user with the pin still green (fresh-eyes catch).
-      expect(declaredVariant(sourceOf(arms[0] as string)), `${arms[0]}'s own PageShell call`).toBe(
-        variant,
-      );
+      // `bare`, so switching a page to `variant="bare" className="bg-card"`
+      // would flip the ground under the user with the pin still green
+      // (fresh-eyes catch).
+      //
+      // EVERY arm, not just the first (2026-08-06): /coming-soon's OperatorHub
+      // arm was `bare` while its other two were `card`, so one boundary faced
+      // three pages that did not agree with each other — the fallback could
+      // match at most two, and its vertical alignment was wrong for the third.
+      // Checking arms[0] alone could never see that. The arms are now required
+      // to agree with each other AND with the boundary.
+      for (const arm of arms) {
+        const source = sourceOf(arm);
+        expect(declaredVariant(source), `${arm}'s own PageShell call`).toBe(variant);
+        // The variant alone does not fix the ground: `variant="card" className="bg-page"`
+        // flips it back with the pin above still green (fresh-eyes catch), so no arm
+        // may override the surface its variant supplies.
+        for (const call of source.match(/<PageShell[^>]*?>/g) ?? []) {
+          expect(call, `${arm} overrides its shell ground`).not.toMatch(/className="[^"]*bg-/);
+        }
+      }
     },
   );
 
