@@ -1,3 +1,9 @@
+# [0.350.0](https://github.com/vap-ops/prc-ops/compare/v0.349.0...v0.350.0) (2026-08-06)
+
+### Features
+
+- **muster:** record a session's real check-in and check-out times after the fact ([#1005](https://github.com/vap-ops/prc-ops/issues/1005)) ([233bbda](https://github.com/vap-ops/prc-ops/commit/233bbda16c4a8109d5756e9f17a1dc1aea477a26))
+
 # [0.349.0](https://github.com/vap-ops/prc-ops/compare/v0.348.0...v0.349.0) (2026-08-06)
 
 ### Features

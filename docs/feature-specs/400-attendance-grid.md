@@ -377,18 +377,42 @@ mirrors the RPC allowlists verbatim (the `MUSTER_REOPEN_ROLES` precedent).
 Splittable as **U3a** (schema + pgTAP) → **U3b** (the affordances), the order spec
 397 U1/U2 used.
 
-**U4 — the check-out gap (schema, and it is older than this spec).**
-There is no way to record a check-out at a PAST time, **for any role**. Verified
-live: `muster_scan_out` sets `out_at = now()` and refuses a session that already has
-one, and `close_muster_day` auto-outs `session = 'regular'` only — its own comment
-says an open OT session "is left for the SA", and the SA has no control for it. So
-an evening OT session left open prices garbage the next day and nothing can repair
-it.
+**U4 — the back-dated timestamps (schema, and it is older than this spec). SHIPPED
+2026-08-06, migration `20260813075915`.**
+Two holes, one migration, because they are the same defect twice: `muster_scan_in`
+names no `in_at` (so U3a's correction stamps the correction moment, and
+`close_muster_day`'s `greatest(day_end, in_at)` auto-out then fabricates a
+zero-length session), and no RPC recorded a check-out at a past time for any role.
 
-This is a pre-existing gap, carried until now only in the session lane notes rather
-than in a spec — it belongs here because the grid is the surface that will make
-those cells visible at scale: **23 of 67 August sessions (34%) have no check-out.**
-Sequence after U3; same danger path.
+⚠️ **The "23 of 67 August sessions (34%)" figure was re-measured before building
+and it conflates two different populations.** 24 regular rows on 07-31…08-05 sit on
+days nobody has closed — `close_muster_day` auto-outs those at 17:00 and U3b shipped
+procurement the affordance to do it. The genuinely stuck rows are **9 OT sessions,
+all on 2026-07-24, on a day that is CLOSED**, because `close_muster_day` skips
+`session = 'ot'` by design. ⭐ **A single percentage over a mixed population is not a
+work-list; split it by the mechanism that would clear each part.**
+
+⚠️ **And the check-out hole was "permitted and wrong", not "refused".**
+`muster_scan_out` carried no date or closure check, so a `site_admin` could close
+those nine sessions today at `out_at = now()` — pricing `ot_hours` at ~13 days.
+Invisible to every money test, because `derive_muster_labor_internal` never reads
+`ot_hours` (it is presence-based); visible to users, because
+`attendance-month.ts`, `attendance-sessions.ts` and `attendance-audit.ts` all
+display it.
+
+**Shipped shape** — `muster_correct_session(team, worker, session, in_at, out_at)`,
+gated on `{super_admin, procurement_manager, procurement}` (NOT `site_admin`: every
+surface reaching a past day is gated on `ATTENDANCE_AUDIT_ROLES`, which has no
+`site_admin`, so the grant would be privilege with no door). `muster_scan_out` gains
+a matching window and refuses anything past 06:00 the next morning. Retiming an
+existing row is allowed on **any day whose wages are not booked, including a closed
+one** — the closure is not the guard, the CURRENT-wage anti-join is, exactly as in
+`muster_undo_scan`. Adding a missing person stays open-days-and-regular-only, and
+delegates the insert to `muster_scan_in` so its invariants are not forked.
+
+▶ **What it unblocks and what it does not.** U3c (add-person) is now unblocked on
+the TIME axis and still blocked on the other U3b finding: `procurement` cannot read
+a team id, so the picker needs an admin seam or a listing RPC.
 
 ---
 

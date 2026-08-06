@@ -13362,6 +13362,88 @@ names the wrong unit and belongs to U4. Not touched — it is another lane's bra
 NO surface, for ANY role, that corrects a past day's attendance: both undo surfaces are today-locked.
 That is the gap U4 closes.
 
+## 2026-08-06 — spec 400 U4: a session's real times, recorded after the fact (lane u4times)
+
+**One migration, both directions** (`20260813075915_spec400u4_backdated_session_times.sql`), because
+they are the same defect twice and shipping half of it gives the operator a surface that can record an
+arrival but not a departure. New `muster_correct_session(team, worker, session, in_at, out_at)` for the
+correction audience, plus a narrowing of `muster_scan_out`.
+
+**The measurement corrected the brief.** "34% of August sessions have no check-out" hides two
+structurally different populations: **24 regular rows on 07-31…08-05 whose days are simply not closed**
+(`close_muster_day` auto-outs those at 17:00, and U3b just shipped procurement that affordance), and
+**9 OT rows, all on 2026-07-24, on a day that IS closed** — `close_muster_day` skips `session='ot'` by
+design, so those nine are the genuinely unbookable ones. The stuck population is nine rows on one day,
+not thirty-three.
+
+🚨 **And the second hole was not "refused", it was "permitted and wrong".** `muster_scan_out` carried
+no date check and no closure check, so a `site_admin`, `super_admin` or `procurement_manager` could
+close those nine sessions today — `out_at = now()` and `ot_hours = floor((now() − in_at)/3600 × 2)/2`,
+i.e. **~13 days of overtime**. Nothing would have failed: `derive_muster_labor_internal` never reads
+`ot_hours`, so no money test can see it, while `attendance-month.ts`, `attendance-sessions.ts` and
+`attendance-audit.ts` all display it. Part 2 of the migration closes that path.
+
+**The four operator rulings (spec §2), all taken as recommended.** ① Shape — one NEW function, not
+optional params: the out-side would otherwise force widening `muster_scan_out` to `procurement`,
+handing the live cockpit write path to a role with no cockpit. ② Audience — `{super_admin,
+procurement_manager, procurement}` only; `site_admin` is deliberately absent because every surface
+reaching a past day is gated on `ATTENDANCE_AUDIT_ROLES`, which has no `site_admin`. ③ Bounds —
+`in_at` on the row's own Bangkok work date, `out_at` ≥ `in_at`, not future, and no later than 06:00 the
+next morning so a night OT crossing midnight stays recordable (**zero of 228 closed sessions have ever
+crossed midnight — that bound is headroom, not a modelled case**). ④ Overwrite — closing still
+auto-outs, so U3b's shipped disclosure stays true; a correction may replace a FABRICATED auto-out
+(`out_auto = true`, 17 live rows) and is refused on a human-recorded check-out.
+
+⭐ **What guards a closed day here is NOT the closure.** The nine stuck rows are ON a closed day, so
+refusing closed days outright would leave U4 unable to repair the rows it exists for. The real
+precondition is the one `muster_undo_scan` and `reopen_muster_day` already use — no CURRENT wage row,
+as an ANTI-JOIN because a retraction is a null-fraction supersede row. So retiming an existing row is
+allowed on any day whose wages are not booked; ADDING a missing person stays open-days-and-regular-only,
+unchanged from U3a. The insert path DELEGATES to `muster_scan_in` rather than restating its invariants.
+
+**Gates.** RED first, twice and for the right reason (`function ... does not exist`; the two new Thai
+copy cases). pgTAP **359/359 files, 7559 assertions, 0 failures**; the new
+`400b-muster-correct-session.test.sql` is 43/43 with `plan(43)` grep-derived. **4 mutants, all killed
+with their own dedicated assertion** — OT priced from `now()` instead of the span (#21), the wage
+anti-join dropped to a bare `exists()` (#32), the `muster_scan_out` window disabled (#39 plus 306's
+#54), and `site_admin` added to the gate (#10). Mutants applied to the LIVE functions and restored by
+replaying the committed migration end-to-end, so live is provably what the file produces. Typecheck 0,
+lint 0, vitest 7556 passed with the documented 10-red `ship-pr-*` shell quirk.
+
+**Gate 4 drove the real RPC against real prod rows, rolled back.** One of the nine 2026-07-24 OT
+sessions (นายภานุพงษ์, a CLOSED day) corrected by a real `procurement` user: `17:21 → 20:00`,
+`ot_hours` **2.5** priced from the span, `out_auto false`, `out_method manual`, one `audit_log` row with
+`kind = muster_correction_time` and `actor_role = procurement`. Then the narrowing, on the same row: a
+real `super_admin` calling `muster_scan_out` is refused with `P0001 muster_scan_out: this session
+belongs to an earlier day`. Before this migration that call would have succeeded.
+
+⚠️ **A pgTAP file had to be re-pointed, deliberately.** `306-muster.test.sql` asserted that the SA
+_can_ scan out of a past-day team — the exact capability ruling ② removes. It now asserts the refusal,
+and the spec-351 claim it carried ("a regular scan-out past 17:00 computes no OT") moved to a
+12-hour-span session on today's team so the span that would catch a reintroduced threshold is preserved
+rather than weakened.
+
+**Open questions.** ① There is still no UI: U4 is the DB half, and the add-person picker U3c needs is
+still blocked on the second U3b finding (`procurement` cannot read a team id — `muster_teams` RLS is
+`can_see_project`, `else false` for that role). ② The `site_admin` narrowing means the nine OT rows can
+now only be repaired by the correction audience; if the SA should be able to fix her own day, that is a
+surface plus an audience decision, not a re-widening of `muster_scan_out`. ③ `#1000`'s migration comment
+still names U3b for a `ยังไม่มีทีมของวันนั้น` message that belongs to U3c — now on `main`, so a later
+unit can sweep it. ④ `close_muster_day` still does not take `derive_muster_labor`'s advisory key, so
+`reopen_muster_day`'s lock stays one-sided (pre-existing, its own unit; the new function DOES take it).
+
+⭐ **One defect found by self-review AFTER the first green, and it is the same shape as U3b's finding 1.** The out-of-order guard was written as `p_out_at < v_in` INSIDE the `p_out_at is not null` block, so
+it could only ever see a bad CHECK-OUT — moving `in_at` alone, past an `out_at` the caller never
+mentioned, would have produced an **inverted session**, which is exactly the "out-BEFORE-in defect"
+`attendance-audit.ts` exists to flag. The correction path would have manufactured the anomaly its own
+surface reports, for the second time in this spec. Rewritten as one check over the EFFECTIVE pair
+(`v_out < v_in`) after both branches, so it covers both directions; RED-first proved it (the assertion
+red, plus two cascade reds from the inverted row it wrote), then green at **359/359 files, 7561
+assertions**. Live today: 0 of 228 closed sessions are inverted, so the hole is closed before it has an
+instance. ⚠️ The migration was re-applied with `db query -f` (it is `create or replace` throughout, so
+replay is idempotent) — the recorded `schema_migrations.statements` for `20260813075915` therefore
+predates that edit; the FILE is what a fresh database and CI run, and pgTAP certifies the live objects.
+
 ## 2026-08-06 — spec 400 U3c-b: adding a person the muster missed (lane u3cb)
 
 The correction spec 400 §3 named as the commonest one ("he was here, add him") and the only one the app

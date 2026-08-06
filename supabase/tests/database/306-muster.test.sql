@@ -1,5 +1,5 @@
 begin;
-select plan(69);
+select plan(70);
 
 -- ============================================================================
 -- Spec 306 U2 — morning-talk scan muster: schema + DEFINER RPCs.
@@ -413,24 +413,64 @@ select ok(
   (select public.muster_scan_in((select id from _ids where k = 'team3'),
      'e4000000-0306-0306-0306-e40000000306', 'qr')) is not null,
   'worker 4 scans into the past-day team');
-select ok(
-  (select public.muster_scan_out((select id from _ids where k = 'team3'),
-     'e4000000-0306-0306-0306-e40000000306', 'qr')) is not null,
-  'worker 4 scans out of the past-day team');
+-- ⚠️ CHANGED BY SPEC 400 U4 (2026-08-06), deliberately — this assertion used to
+-- read `... scans out of the past-day team` and pass.
+--
+-- muster_scan_out writes out_at = now(), so on a day that is over it can only
+-- ever write a WRONG time, and for an ot session it prices that wrong span into
+-- ot_hours. Nine live rows (2026-07-24 OT, on a CLOSED day) sat reachable by
+-- exactly this path with ~13 days of overtime waiting to be written — the hole
+-- was "permitted and wrong", not "blocked", which is why nothing ever failed.
+--
+-- The capability is not replaced in kind: a real past time now goes through
+-- muster_correct_session (spec 400 U4, 400b-muster-correct-session.test.sql),
+-- whose audience is {super_admin, procurement_manager, procurement} and NOT
+-- site_admin. That narrowing is the operator's fork-2 ruling, taken knowingly.
+select throws_ok(
+  $$ select public.muster_scan_out((select id from _ids where k = 'team3'),
+       'e4000000-0306-0306-0306-e40000000306', 'qr') $$,
+  'P0001', 'muster_scan_out: this session belongs to an earlier day',
+  'the SA can no longer stamp now() onto a session whose day is over (spec 400 U4)');
 reset role;
+
 -- Spec 351: a REGULAR scan-out no longer computes OT even well past 17:00 — the
--- OT span moved to the `ot` session (asserted in 351-ot-session.test.sql). This
--- worker's out is a regular session, so ot_hours must stay NULL. Re-pointed from
--- the retired 17:00-threshold pin, NOT weakened.
+-- OT span moved to the `ot` session (asserted in 351-ot-session.test.sql).
+--
+-- Re-pointed by spec 400 U4 from the 2026-01-05 team (now unreachable, above) to
+-- a LONG-SPAN session on TODAY's team. The span is what matters and is preserved:
+-- a 12-hour regular session still yields ot_hours NULL, so a reintroduced
+-- threshold would still red. Seeded directly rather than scanned in, because
+-- muster_scan_in has no in_at parameter either — which is the OTHER half of what
+-- U4 exists to fix.
+-- A SIXTH worker, because muster_attendance is UNIQUE (worker, date, session)
+-- and all five above already carry a row for current_date — reusing one would
+-- red on the constraint instead of on the thing under test.
+insert into public.workers (id, name, pay_type, employment_type, day_rate, active, created_by) values
+  ('e6000000-0306-0306-0306-e60000000306', 'สมบูรณ์ กะยาว', 'daily', 'temporary', 400, true,
+   '75000000-0306-0306-0306-750000000306');
+insert into public.muster_attendance
+  (team_id, worker_id, work_date, session, in_at, in_method, scanned_by)
+values (
+  (select id from _ids where k = 'team2'),
+  'e6000000-0306-0306-0306-e60000000306', current_date, 'regular',
+  now() - interval '12 hours', 'qr', '70000000-0306-0306-0306-700000000306');
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0306-0306-0306-700000000306"}';
+select ok(
+  (select public.muster_scan_out((select id from _ids where k = 'team2'),
+     'e6000000-0306-0306-0306-e60000000306', 'qr')) is not null,
+  'a same-day worker with a 12-hour span scans out');
+reset role;
 select is(
   (select ot_hours from public.muster_attendance
-    where worker_id = 'e4000000-0306-0306-0306-e40000000306' and work_date = '2026-01-05'),
+    where worker_id = 'e6000000-0306-0306-0306-e60000000306' and work_date = current_date),
   null,
   'a regular scan-out past 17:00 no longer computes OT — ot_hours stays null (spec 351)');
 select ok(
   (select out_at is not null and out_method = 'qr' and out_auto = false
      from public.muster_attendance
-    where worker_id = 'e4000000-0306-0306-0306-e40000000306' and work_date = '2026-01-05'),
+    where worker_id = 'e6000000-0306-0306-0306-e60000000306' and work_date = current_date),
   'the regular scan-out still stamps out_at + method (only the OT derivation was removed)');
 
 set local role authenticated;
