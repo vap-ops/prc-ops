@@ -1,3 +1,22 @@
+## [0.345.3](https://github.com/vap-ops/prc-ops/compare/v0.345.2...v0.345.3) (2026-08-06)
+
+### Bug Fixes
+
+- **chrome:** the narrow skeleton's column width is per screen ([48436ba](https://github.com/vap-ops/prc-ops/commit/48436bad9656bb4cdbeaba97a699887b8d52d0db))
+- **tests:** close the fresh-eyes findings on the width pin ([bf789a1](https://github.com/vap-ops/prc-ops/commit/bf789a11525cea5c331868336813fc3781b49814))
+
+## [0.345.2](https://github.com/vap-ops/prc-ops/compare/v0.345.1...v0.345.2) (2026-08-06)
+
+### Bug Fixes
+
+- **zones:** upsert_project_zone must not erase what the caller did not send ([#988](https://github.com/vap-ops/prc-ops/issues/988)) ([e93bad7](https://github.com/vap-ops/prc-ops/commit/e93bad7f4b551e6039a82198ae2579bf67ef3ac7)), closes [#958](https://github.com/vap-ops/prc-ops/issues/958)
+
+## [0.345.1](https://github.com/vap-ops/prc-ops/compare/v0.345.0...v0.345.1) (2026-08-06)
+
+### Bug Fixes
+
+- **a11y:** silence the framework's own route announcer ([824469e](https://github.com/vap-ops/prc-ops/commit/824469e6c78bc151e7c146bca76f2847af2959fb))
+
 # [0.345.0](https://github.com/vap-ops/prc-ops/compare/v0.344.0...v0.345.0) (2026-08-06)
 
 ### Features
