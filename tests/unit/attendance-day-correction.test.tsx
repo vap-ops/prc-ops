@@ -21,6 +21,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
+import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
 import { MUSTER_CLOSE_ROLES, MUSTER_REOPEN_ROLES, type UserRole } from "@/lib/auth/role-home";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { attendanceDayParam, dayCorrectionControl } from "@/lib/muster/day-correction";
@@ -227,6 +228,47 @@ describe("spec 400 U3b — the panel", () => {
     expect(screen.queryByRole("form", { name: /เปิดวัน/ })).not.toBeInTheDocument();
     expect(screen.getByText(/ปิดวันแล้ว/)).toBeInTheDocument();
     expect(screen.getByText(/4 คน/)).toBeInTheDocument();
+  });
+});
+
+describe("spec 400 U3b — the column header link", () => {
+  const grid = {
+    tooWide: false,
+    // headcount 7 ≠ the day number 4, so an assertion about one cannot pass on
+    // the other — the two are adjacent spans in the same header.
+    days: [day({ headcount: 7 }), day({ date: "2026-08-05", dayClosed: true, headcount: 9 })],
+    rows: [
+      {
+        workerId: "w1",
+        workerName: "ช่าง หนึ่ง",
+        cells: {},
+        daysPresent: 0,
+        otHoursTotal: 0,
+      },
+    ],
+  };
+
+  it("names the DATE, not the day number — 31 links called 1…31 say nothing", () => {
+    render(
+      <AttendanceGridView
+        grid={grid}
+        todayIso={TODAY}
+        workerHref={null}
+        dayHref={(d) => `/team/attendance?day=${d}`}
+      />,
+    );
+    const link = screen.getByRole("link", { name: /แก้ไขวัน 4 ส\.ค\./ });
+    expect(link).toHaveAttribute("href", "/team/attendance?day=2026-08-04");
+  });
+
+  it("withholds the LINK, never the column's facts, when the reader may not act", () => {
+    // The four audit roles outside both allowlists. A link here would promise a
+    // panel whose every control their own server refuses.
+    render(<AttendanceGridView grid={grid} todayIso={TODAY} workerHref={null} dayHref={null} />);
+    expect(screen.queryByRole("link", { name: /แก้ไขวัน/ })).not.toBeInTheDocument();
+    // …and the header still carries the day number and its headcount.
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByText("7")).toBeInTheDocument();
   });
 });
 
