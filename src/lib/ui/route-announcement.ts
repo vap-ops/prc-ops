@@ -55,14 +55,19 @@
 export const ROUTE_LOADING_MESSAGE = "กำลังโหลด…";
 
 /**
- * The root layout's metadata template is `%s — PRC Ops`, so every routed page's
- * document.title carries this suffix. Repeating the app's name on every
- * navigation is pure noise to someone listening.
+ * Every routed page's `document.title` carries the app-title suffix, because
+ * the root layout's `metadata.title.template` appends it. Repeating the app's
+ * name on every navigation is pure noise to someone listening, so it is
+ * stripped back off here.
+ *
+ * Re-exported from the SSOT rather than re-declared: this used to be a
+ * hand-copy of the layout's literal, and the test that appeared to cover it
+ * compared the constant against itself, so a rename would have gone green while
+ * every announcement kept a stale suffix.
  */
-export const APP_TITLE_SUFFIX = " — PRC Ops";
+import { APP_NAME, APP_TITLE_SUFFIX } from "@/lib/ui/app-title";
 
-/** What the title reads when a page sets none of its own (the template default). */
-const APP_TITLE_DEFAULT = "PRC Ops";
+export { APP_TITLE_SUFFIX };
 
 /**
  * The destination name to announce, or "" for silence.
@@ -83,7 +88,10 @@ export function pageNameFromTitle(title: string): string {
   // that set no title) and a title that was ONLY the suffix. Testing for the
   // default up front as well made the two guards mutually redundant, so neither
   // was pinned and one was dead — a mutation on each survived.
-  return name === APP_TITLE_DEFAULT ? "" : name;
+  // The bare app name is what a page with no title of its own renders (the
+  // template's `default`), and it names no page — so it is silence, not an
+  // announcement. Read from the SSOT for the same reason as the suffix.
+  return name === APP_NAME ? "" : name;
 }
 
 export interface RouteAnnouncement {
