@@ -32,7 +32,7 @@ import {
  *
  * It observes `document.head` rather than the `<title>` node, because Next
  * REPLACES that node on every navigation instead of editing its text (measured:
- * `title-node-removed` then `title-node-added` ~1–6ms later, with
+ * `title-node-removed` then `title-node-added` ~3–170ms later, with
  * `document.title` empty in between). A watcher bound to the original node
  * would go deaf after the first navigation — and that empty gap is exactly what
  * the framework's own announcer samples, which is why it speaks the wrong
@@ -100,7 +100,7 @@ function useArrivalAnnouncements(): void {
  * "สวัสดี คุณ<ชื่อ>" — the SA home's `<h1>` greeting, i.e. the user's own name,
  * ASSERTIVELY, for a page they were not on. Root cause (measured): Next REPLACES
  * the `<title>` node rather than editing it, so `document.title` is empty for
- * ~1–6ms per navigation and its effect samples inside that window, falling
+ * ~3–170ms per navigation and its effect samples inside that window, falling
  * through to `querySelector("h1")`. Our polite region announces the destination
  * correctly on every one of those navigations, so this removes nothing that
  * works and removes a real, intermittent lie.
