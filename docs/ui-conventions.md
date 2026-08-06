@@ -252,10 +252,14 @@ bg-red-50 px-3 py-2 text-xs text-red-900`. Message text ends with
 
 ## 8. Loading
 
-Every route group has a `loading.tsx` rendering
+Every route group has a `loading.tsx`. A CONTENT page's renders
 [page-skeleton.tsx](../src/components/features/chrome/page-skeleton.tsx) — it
 mirrors the page anatomy (zinc-50 main, white header strip, `h-16
-rounded-lg` row placeholders).
+rounded-lg` row placeholders) at `PAGE_MAX_W`. A SINGLE-COLUMN screen's renders
+[narrow-skeleton.tsx](../src/components/features/chrome/narrow-skeleton.tsx)
+instead (see below); `/portal` keeps its own. **Pick the frame that matches the
+page the boundary stands in for — the fallback's job is to not move when it is
+replaced.**
 
 **A loading boundary is a route, so it renders `PageShell` like every other route**
 (§5). `PageSkeleton` used to hand-roll `<main class="bg-page min-h-screen
@@ -288,13 +292,31 @@ remaining `max-w-sm`/`max-w-md` are the recorded single-card exceptions in §5, 
 outliers. `variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and
 `text-ink` — the skeleton renders no visible text.
 
-⚠️ **The shared skeleton is an APP-variant frame, so it is wrong for the three card
-screens that delegate to it** — `/login`, `/coming-soon`, `/profile` render `PageShell
-variant="card"` around a `max-w-sm`/`max-w-md` card while their fallback paints a
-header strip and list rows at `PAGE_MAX_W`. The width change widens that particular
-mismatch (768→1240 against a 384px card at 1280); it is recorded as its own unit (a
-card-variant skeleton) rather than patched with a width prop, because the anatomy is
-the larger half of the problem and a matching width would not fix it.
+**The SINGLE-COLUMN screens have their own frame:**
+[narrow-skeleton.tsx](../src/components/features/chrome/narrow-skeleton.tsx). `/login`,
+`/coming-soon` and `/profile` are §5's recorded width exceptions — a `max-w-sm`/`max-w-md`
+column, not a content page — and delegating them to `PageSkeleton` painted a header strip
+and list rows at `PAGE_MAX_W` instead. Measured on `/coming-soon` at 1280×800 with both
+states in one DOM: the fallback's container was **1240px on `bg-page`**, the page's
+**448px on `bg-card`** — width is the smaller half, the GROUND flips too, so the whole
+screen flashes at the swap.
+
+`NarrowSkeleton` takes **PageShell's own variant vocabulary**, and each boundary passes
+the variant its PAGE renders — pinned in
+[narrow-loading-skeleton.test.tsx](../tests/unit/narrow-loading-skeleton.test.tsx),
+which reads the page's own `PageShell` call so the two cannot drift:
+
+| boundary       | variant | because the page is                                                                                                  |
+| -------------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
+| `/login`       | `card`  | `variant="card"`, `max-w-sm` centred                                                                                 |
+| `/coming-soon` | `card`  | `variant="card"` (unserved roles) / `bare`+`bg-card` (super_admin hub) — both a `max-w-md` column on the card ground |
+| `/profile`     | `app`   | an APP-variant page with a `max-w-md` column — a centred card frame would be a NEW mismatch                          |
+
+⚠️ **Not card-only, and the measurement is why:** `/login` and `/coming-soon` are both in
+the telemetry `EXCLUDED_PREFIXES` (`src/lib/telemetry/scope.ts`), so their usage is
+**unmeasurable — not zero**; `/profile` is measurably alive (91 route views / 73 sessions
+/ 9 roles in 60 days). A card-only fix would have landed entirely on surfaces whose value
+cannot be observed.
 
 One deliberate exception to the SHARED SKELETON — not to the shell:
 `src/app/portal/loading.tsx` keeps its own frame because it mirrors the portal's

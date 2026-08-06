@@ -12440,3 +12440,49 @@ width prop: **the anatomy is the larger half and a matching width would not fix 
 card-variant skeleton is its own unit. The reviewer found this by asking which boundaries the
 diff's own criterion makes WORSE, which is the question a "make everything consistent" change
 never asks itself.
+
+## 2026-08-06 — `NarrowSkeleton`: the single-column screens get their own frame (lane cardskel)
+
+**The unit the previous one recorded** — operator asked for it directly after reading the
+finding. `/login`, `/coming-soon` and `/profile` are §5's recorded width exceptions (a
+`max-w-sm`/`max-w-md` column), but their loading boundary delegated to `PageSkeleton`, which
+paints a header strip and list rows at `PAGE_MAX_W`.
+
+**Measured on `/coming-soon` at 1280×800**, fallback and resolved page both present in one
+DOM: the fallback's container was **1240px on `bg-page`**, the page's **448px on `bg-card`**.
+**Width is the smaller half — the GROUND flips**, so the whole screen flashes grey→white at
+the swap. That is the part a width-only fix could never have addressed.
+
+**The inherited list was checked, not trusted, and it was wrong in two places.** The previous
+review named "/login, /coming-soon, /profile — all `PageShell variant="card"`". Live at HEAD:
+`/profile` is an **app**-variant page (`PageShell` default, `bg-page`) with a narrow column,
+so a centred card frame would have been a NEW mismatch there; and `/coming-soon` has TWO arms
+(`variant="card"` for unserved roles, `variant="bare"`+`bg-card` for the super_admin
+OperatorHub) — both a `max-w-md` column on the card ground, so one variant covers it.
+`/register` was also on the suspect list and is NOT narrow: its boundary covers
+`/register/office` and `/register/technician`, which render `StaffRegisterWorkspace` at
+`PAGE_MAX_W`.
+
+**Built.** `NarrowSkeleton({ variant })` takes PageShell's own vocabulary — `card` (centred on
+`bg-card`: `/login`, `/coming-soon`) and `app` (top-aligned on `bg-page`: `/profile`) — and
+both arms have a real caller, so the prop is not speculative generality.
+
+**🔔 Scope call, stated plainly: this is NOT card-only, and the measurement is the reason.**
+`/login` and `/coming-soon` both sit in the telemetry `EXCLUDED_PREFIXES`
+(`src/lib/telemetry/scope.ts`), so their usage is **unmeasurable — not zero**; I initially
+read `/coming-soon`'s zero rows as "dead" before checking whether the instrument covers it,
+which is the house trap. `/profile` IS measurable and alive: **91 route views / 73 sessions /
+9 roles in 60 days, latest 2026-08-05.** A card-only unit would have landed entirely on
+surfaces whose value cannot be observed, so the app arm shipped with them.
+
+**Verified after, in the browser.** `/coming-soon`: fallback column **448px on `bg-card`**
+against the page's 448px on `bg-card` — both axes matched. `/profile`: the fallback's column
+class string is **byte-identical** to the page's own
+(`mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10`), same ground, both 448px.
+
+**Pinned.** `narrow-loading-skeleton.test.tsx`: each arm's `<main>` equals `PageShell`'s own
+rendered class string for that variant (read off the component); the column is `max-w-md` and
+never the page width; the announcement survives on all three boundaries; and — the invariant
+that makes the unit worth shipping — **each boundary's variant is asserted against the variant
+its PAGE renders**, read from the page source with comments stripped, because those are async
+Server Components the suite cannot render. 4/4 mutants killed, including both variant swaps.
