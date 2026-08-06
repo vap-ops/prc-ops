@@ -12815,3 +12815,91 @@ create button on an empty project make two maps, and the page renders only `mapR
 ④ The canvas hides itself until the map has at least one zone: an empty stage teaches nothing
 and the list's empty state says more. That means the very first zone is always created from the
 list, which is also the accessible path — deliberate, but it is a rule the spec does not state.
+
+## 2026-08-06 — Spec 392 U2b, review round 2: the write machine gets tested (lane zonecanvas)
+
+The fresh-eyes pass on U2b returned **6🔴 8🟡**, and five of the six 🔴 lived in one place: the
+canvas's optimistic write state, which was loose `useState` calls inside a Konva island and
+therefore had **zero coverage** — RTL cannot render a canvas and jsdom has no layout engine, so
+Gate 4's happy-path drag was the only thing that had ever exercised it.
+
+**The 🔴 that was NOT in the canvas shipped first, as its own PR** — `upsert_project_zone`'s
+unconditional UPDATE erasing a renamed zone's shape, position, parent and sort order
+([#988](https://github.com/vap-ops/prc-ops/pull/988), on the operator's call).
+
+**The state machine is now a pure reducer** (`src/lib/zones/canvas-state.ts`), which is what made
+the other four assertable without pixels:
+
+- **A failed write rolls back ITS OWN write.** It popped the newest history entry, so dragging A
+  then B and having A refused destroyed B's undo entry and left A's for a zone already rolled back.
+  Settled writes are matched by sequence number.
+- **A refused undo costs one entry, and gives it back.** `handleUndo` popped when issued and the
+  failure arm popped again, so one refused undo destroyed two entries and stranded the older state
+  forever.
+- **Undo restores a state the database actually held.** The pre-write snapshot came from state
+  that already included unconfirmed draft. ⭐ The fix moved the snapshot from COMMIT time to SETTLE
+  time — three drags issued back to back all see an empty `confirmed`, so a commit-time snapshot
+  records the original server row three times and undo jumps straight past two landed writes. That
+  correction came out of a test failing, not out of reading the code.
+- **The draft clears when a write LANDS,** not only when it fails. A draft outliving its write
+  pinned the zone for the component's lifetime, so the server row could never win — and a
+  corruption arriving from elsewhere would have been invisible on the one surface that shows it.
+
+**🔴 The shape stranded under the pointer.** A Konva node is a mutable object the pointer has
+already moved. When a drag's SNAPPED result equals the stored geometry, react-konva sees identical
+props and writes nothing back, so the shape stayed where it was dropped while the database held the
+old value — and the next transform read that drifted position and baked it in. Snap is ON at 5%, so
+on a ~1200px stage **every drag under ~30px did this**. Shapes and vertex handles now carry a
+repaint counter in their key.
+
+**🔴 Honest copy.** A comment claimed the lossy polygon→box collapse was covered by confirm copy.
+No dialog existed. There is one now (only when it would actually discard vertices), and the list
+warns in place before the tap.
+
+**🔴 The a11y contract was not being met, and the commit message said it was.** The shape toolbar
+could only be enabled by CLICKING a shape on the canvas, so a keyboard or screen-reader user could
+reach those four buttons in tab order and never make one usable. Spec §5 says the list is the path
+to everything the canvas does; shape was the half with no path. `ZoneSheet` now carries a `รูปทรง`
+control, sharing the canvas's exact four labels. **Position stays canvas-only and honestly so — it
+is a coordinate, not a choice from a set.**
+
+**🟡 The island guard had a hole and then a worse one.** Its static-import scan was line-anchored,
+so a prettier-wrapped `import {\n  ZoneCanvas,\n} from "…"` — 54 KB of konva into the main bundle,
+the exact regression it exists to catch — passed. Matching on the module specifier fixed it; but
+the two repo-wide scans then each re-read every file in `src/` and **blew the 5s timeout**. A guard
+that times out reds for a reason unrelated to what it protects. One walk, one read per file, both
+checks over the same pass, plus an assertion that the walk saw >200 files — a zero-file scan would
+otherwise pass both checks.
+
+**🟡 Also fixed:** `boxToCorners`/`cornersToBox` were unexported module-locals doing exactly the
+pure arithmetic `canvas-geometry.ts` exists to hold (a degenerate collinear polygon yielded `h = 0`,
+which the DB refuses) — moved and tested. `aria-pressed` was `undefined` with nothing selected, so
+React dropped the attribute and the buttons stopped being toggles for a screen reader.
+
+**Mutation, six mutants, all killed.** Roll-back-newest · undo double-pop · previous-from-draft ·
+draft-outlives-write · a prettier-wrapped static import · the `cornersToBox` floor.
+⚠️ **The draft mutant's first form reported `Tests no tests`** — it left an unused binding and broke
+the compile, so nothing ran. A zero-ran mutation reads exactly like a pass; it was re-run in a form
+that compiles (`draft[id] = write.next`, i.e. the original defect) and killed 2 assertions.
+
+**Real-flow verification (Gate 4), re-driven in real Chrome** because the first pass could not
+reach any of these paths. On the operator's own `ผังโซน` map, against the live database:
+
+| leg                                      | result                                                                                                   |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **sub-grid drag** (under one snap step)  | Konva node at `{371, 232}`, expected `{371, 232}` — re-derived from geometry, not left under the pointer |
+| real drag                                | `x 0.3 → 0.5`, persisted                                                                                 |
+| **undo**                                 | `x` back to `0.3` in the database                                                                        |
+| **shape from the LIST, no canvas click** | `rect → polygon` at exactly the box's four corners — the zone did not move                               |
+
+Zero page errors; cleanup re-read `remaining: 0`.
+
+**Open questions.** ① The `หลายเหลี่ยม` tool always produces exactly four corners and there is no
+add- or remove-vertex affordance, so `ZONE_POLYGON_MAX_POINTS = 200` is unreachable from the UI —
+the vertices are draggable, so it is a real quadrilateral, but the label promises more than the
+tool delivers. ② The canvas echoes `code`/`name` from its props on every geometry write, so a
+rename whose `router.refresh()` is still in flight can be overwritten by a drag; the window is
+small and the fix wants a geometry-only RPC arm. ③ Every zone created from the list still gets the
+identical default box, so three of them are exactly coincident and only the top is hit-testable.
+④ Spec 392 §7.1 records that spec 366 models zones differently and is unreconciled — that blocks
+further zone units, not this one.
