@@ -228,6 +228,53 @@ privilege), and `set_muster_team_wps` has no `kind` check — spec 397 §9 Q9 al
 records that binding a WP to the office team is a wage path held shut only by
 rate-0. A single narrow RPC keeps the blast radius nameable.
 
+### ✅ OPERATOR RULING, 2026-08-06 — option A, and both sub-questions answered
+
+> "A, build U1" … "yes re-close too, bind to any open day"
+
+1. **Procurement may correct.** Option A.
+2. **They may also RE-CLOSE.** Without it the loop strands: `close_muster_day` is
+   what triggers `derive_muster_labor`, so a reopened-and-corrected day whose
+   closer never comes leaves wages underived — leaving them worse off than before,
+   having un-closed a day they cannot restore.
+3. **Bound to ANY OPEN DAY, not only a reopened one.** This is the ruling that
+   changed the design, and the measurement behind it: `reopen_muster_day` has
+   **0 audit rows all-time** — the power shipped 2026-08-05 and has never been
+   used. Gating corrections behind a reopen would have put a new capability behind
+   a ritual nobody performs, which is spec §1③'s failure in a new costume. An open
+   day is a state that already exists (6 project-days live).
+
+⇒ **The rule is: `procurement` may write to a project-day that has no
+`muster_day_closures` row.** A closed day still needs `reopen_muster_day` first —
+which they already hold — so the reopen path is not retired, it is just no longer
+the only door.
+
+### What U3 must change (gate-checked live 2026-08-06)
+
+- **`close_muster_day(p_project, p_date)`** — role list gains `procurement`, AND it
+  needs the cross-project arm, because its second gate is
+  `if not can_see_project(p_project)` which is **live-FALSE for procurement**.
+  Same shape `reopen_muster_day` and `muster_undo_scan` already use:
+  `v_role = 'procurement' or can_see_project(...)`. Widening only the role list
+  would produce a `42501` at the second gate — the spec-397 two-allowlist trap.
+- **`muster_scan_in(p_team, p_worker, p_method, p_session)`** — role list gains
+  `procurement` + the same cross-project arm, PLUS a **closure guard, which it does
+  not have today** (verified: the function never mentions `muster_day_closures`).
+  It takes a TEAM, not a project-day, so the guard must resolve the team's
+  `project_id`/`work_date` first.
+  ⚠️ That the SA can currently scan into a CLOSED day is a **pre-existing hole**;
+  U3 closes it for the new arm only and records it rather than silently changing
+  the SA path.
+- **A day with no team at all cannot be corrected**, because `muster_scan_in`
+  requires one and `open_muster_team` needs a lead worker (`lead_worker_id` is
+  NOT NULL for `kind='crew'`, spec 397 U4). U3 raises a NAMED error the UI turns
+  into honest copy — "ยังไม่มีทีมของวันนั้น" — rather than inventing a lead.
+- **The pgTAP role-set pin U2 owes lands here** (U3 touches `supabase/` anyway):
+  assert the live `workers` "readable by staff" policy admits every member of
+  `WORKER_ROSTER_ROLES`, over the exhaustive role domain. U2's TS pin catches a
+  widened role set; only this catches a narrowed POLICY.
+- Recording a **back-dated check-out** stays U4 — no RPC does it for any role.
+
 ### Why the window is open NOW
 
 `labor_logs` is **0 rows all-time** — no worker has `cost_confirmed_at`, so
@@ -262,10 +309,14 @@ Adds the workers with **no** attendance in the range, for the roles that can rea
 `workers` on the session client (D4). This is finding ① and it is purely additive:
 the same grid gains rows. Ships the "11 of 41" fact.
 
-**U3 — the correction path (schema, danger path, BLOCKED on §3).**
-Whatever option §3 rules for. Expect: one DEFINER RPC + pgTAP over the exhaustive
-role domain + an `audit_log` row + the affordance on the grid, gated on a set that
-mirrors the RPC verbatim (the `MUSTER_REOPEN_ROLES` precedent).
+**U3 — the correction path (schema, danger path). §3 is RULED; blocked only on the
+schema lane.**
+Widen `close_muster_day` and `muster_scan_in` to `procurement` with the
+cross-project arm and an open-day guard, per §3's gate-check list; add the pgTAP
+role-set pin U2 owes; then the affordances on the grid, gated on a TS set that
+mirrors the RPC allowlists verbatim (the `MUSTER_REOPEN_ROLES` precedent).
+Splittable as **U3a** (schema + pgTAP) → **U3b** (the affordances), the order spec
+397 U1/U2 used.
 
 **U4 — the check-out gap (schema, and it is older than this spec).**
 There is no way to record a check-out at a PAST time, **for any role**. Verified
