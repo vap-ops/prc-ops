@@ -13082,6 +13082,20 @@ succeed on retry, while the action's resolved refusals pass their own non-retry 
 untouched. Ledger raised 236→237 and 109→110 with that reasoning written in beside it.
 **Neither guard was in the review's field of view. The suite is the reviewer of last resort.**
 
+**Merge order, and the proof it was needed.** U2b was HELD until #988 landed, because every canvas
+write is a full-row upsert and the pre-#988 `saveZone` sent `p_sort_order: 0` — a literal zero the
+coalescing RPC writes straight through. After merging main (0.345.3, incl. #988) the final Gate-4
+run seeded a CHILD zone nested under a parent at `sort_order 7`, dragged it on the canvas, and read
+the row back: `geometryMoved: true` (x 0.3→0.45, y 0.3→0.4) with `sortOrderPreserved: true` and
+`parentPreserved: true`, the parent row untouched, zero page errors, cleanup `remaining: 0`.
+
+⚠️ **The FIRST attempt at that run was vacuous and said so: `geometryMoved: false`.** The parent zone
+was seeded spanning 0.05–0.95, so it geometrically covered the child and the click selected the
+PARENT — no write happened, and “sort_order preserved” would have proven nothing. Nesting here is a
+DATA relation, not a containment one, so the fixture was rewritten with the two zones side by side.
+⭐ A preservation claim needs the mutation to have actually landed; the positive control is the
+assertion that the thing you dragged MOVED.
+
 **Open questions.** ① The `หลายเหลี่ยม` tool always produces exactly four corners and there is no
 add- or remove-vertex affordance, so `ZONE_POLYGON_MAX_POINTS = 200` is unreachable from the UI —
 the vertices are draggable, so it is a real quadrilateral, but the label promises more than the
