@@ -1,3 +1,14 @@
+# [0.342.0](https://github.com/vap-ops/prc-ops/compare/v0.341.1...v0.342.0) (2026-08-06)
+
+### Bug Fixes
+
+- **a11y:** a boundary handoff no longer swallows the arrival ([7e92fb8](https://github.com/vap-ops/prc-ops/commit/7e92fb833e8f46edb0bbb7373707a9b07ab29b3f))
+- **a11y:** de-dupe arrivals by navigation, not by page name ([087df7b](https://github.com/vap-ops/prc-ops/commit/087df7b038eaf978e77e4ffea9e2d0b15b74ded0))
+
+### Features
+
+- **a11y:** announce the destination on arrival, not just the wait ([8967d1c](https://github.com/vap-ops/prc-ops/commit/8967d1c758141ba66430cac425c38d782804398f)), closes [#983](https://github.com/vap-ops/prc-ops/issues/983)
+
 ## [0.341.1](https://github.com/vap-ops/prc-ops/compare/v0.341.0...v0.341.1) (2026-08-06)
 
 ### Bug Fixes
