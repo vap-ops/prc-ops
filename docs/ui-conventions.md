@@ -252,10 +252,14 @@ bg-red-50 px-3 py-2 text-xs text-red-900`. Message text ends with
 
 ## 8. Loading
 
-Every route group has a `loading.tsx` rendering
+Every route group has a `loading.tsx`. A CONTENT page's renders
 [page-skeleton.tsx](../src/components/features/chrome/page-skeleton.tsx) — it
 mirrors the page anatomy (zinc-50 main, white header strip, `h-16
-rounded-lg` row placeholders).
+rounded-lg` row placeholders) at `PAGE_MAX_W`. A SINGLE-COLUMN screen's renders
+[narrow-skeleton.tsx](../src/components/features/chrome/narrow-skeleton.tsx)
+instead (see below); `/portal` keeps its own. **Pick the frame that matches the
+page the boundary stands in for — the fallback's job is to not move when it is
+replaced.**
 
 **A loading boundary is a route, so it renders `PageShell` like every other route**
 (§5). `PageSkeleton` used to hand-roll `<main class="bg-page min-h-screen
@@ -288,13 +292,37 @@ remaining `max-w-sm`/`max-w-md` are the recorded single-card exceptions in §5, 
 outliers. `variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and
 `text-ink` — the skeleton renders no visible text.
 
-⚠️ **The shared skeleton is an APP-variant frame, so it is wrong for the three card
-screens that delegate to it** — `/login`, `/coming-soon`, `/profile` render `PageShell
-variant="card"` around a `max-w-sm`/`max-w-md` card while their fallback paints a
-header strip and list rows at `PAGE_MAX_W`. The width change widens that particular
-mismatch (768→1240 against a 384px card at 1280); it is recorded as its own unit (a
-card-variant skeleton) rather than patched with a width prop, because the anatomy is
-the larger half of the problem and a matching width would not fix it.
+**The SINGLE-COLUMN screens have their own frame:**
+[narrow-skeleton.tsx](../src/components/features/chrome/narrow-skeleton.tsx). `/login`,
+`/coming-soon` and `/profile` are §5's recorded width exceptions — a `max-w-sm`/`max-w-md`
+column, not a content page — and delegating them to `PageSkeleton` painted a header strip
+and list rows at `PAGE_MAX_W` instead. Measured on `/coming-soon` at 1280×800 with both
+states in one DOM: the fallback's container was **1240px on `bg-page`**, the page's
+**448px on `bg-card`** — width is the smaller half, the GROUND flips too, so the whole
+screen flashes at the swap.
+
+`NarrowSkeleton` takes **PageShell's own variant vocabulary**, and each boundary passes
+the variant its PAGE renders — pinned in
+[narrow-loading-skeleton.test.tsx](../tests/unit/narrow-loading-skeleton.test.tsx),
+which reads the page's own `PageShell` call so the two cannot drift:
+
+| boundary       | variant | because the page is                                                                                                                                                                                     |
+| -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`       | `card`  | `variant="card"`, `max-w-sm` centred, no header                                                                                                                                                         |
+| `/coming-soon` | `card`  | THREE arms — the unserved-role card, `VisitorLanding`'s card, and the super_admin `OperatorHub` at `bare`+`bg-card`; all a `max-w-md` column on the card ground, none with a header                     |
+| `/profile`     | `app`   | an APP-variant page with a `max-w-md` column **under a sticky `DetailHeader`** — so the app arm paints a header strip too; a centred headerless card frame would be a NEW mismatch on the vertical axis |
+
+⚠️ **Two residual jumps, disclosed rather than papered over** (both far smaller than the
+~792px they replace, and neither fixable without a knob per screen): `/login`'s card is
+`max-w-sm` (384) against the frame's `max-w-md` (448); and `/coming-soon`'s super_admin arm
+is TOP-aligned (`variant="bare"`) while the card variant centres, so that one arm still
+shifts vertically. The page's other two arms are centred, so `card` is the majority match.
+
+⚠️ **Not card-only, and the measurement is why:** `/login` and `/coming-soon` are both in
+the telemetry `EXCLUDED_PREFIXES` (`src/lib/telemetry/scope.ts`), so their usage is
+**unmeasurable — not zero**; `/profile` is measurably alive (91 route views / 73 sessions
+/ 9 roles in 60 days). A card-only fix would have landed entirely on surfaces whose value
+cannot be observed.
 
 One deliberate exception to the SHARED SKELETON — not to the shell:
 `src/app/portal/loading.tsx` keeps its own frame because it mirrors the portal's
@@ -348,9 +376,19 @@ and — for the two boundary surfaces together — by
    home's `<h1>`, neither the destination nor the page being left. Root cause,
    measured: **Next REPLACES the `<title>` node rather than editing its text**,
    so `document.title` is empty for ~1–6 ms per navigation, and that is the
-   window its effect samples in — hence the `h1` fallback. It still fires
-   occasionally, assertively, with that wrong text; suppressing it from app code
-   was not attempted. Our own arrival announcement (rule 4) carries the truth.
+   window its effect samples in — hence the `h1` fallback.
+
+   **It is therefore SILENCED** (`RouteAnnouncer` sets `aria-live="off"` and
+   removes `role="alert"` on the node inside `<next-route-announcer>`'s shadow
+   root). Across 7 measured navigations it was correct **zero** times — usually
+   silent, once announcing the user's own name, assertively, for a page they
+   were not on — while our polite region got every one right. Two ARIA
+   attributes is the narrowest intervention available: no patched framework
+   file, no removed DOM, and nothing breaks if a future Next stops shipping the
+   announcer. Safe because React portals the announcement TEXT into that div but
+   does not own the element — verified in a real browser, where the change stuck
+   across navigations and a probe tag on the node survived. Rule 4 carries the
+   truth instead. ⚑ Worth reporting upstream; not done.
 
 3. **Each announcement gets a fresh node identity** (`key={seq}`). Every boundary
    says the same words, and React unmounts one fallback and mounts the next in a
@@ -373,12 +411,19 @@ and — for the two boundary surfaces together — by
    - **Strip the `— PRC Ops` suffix, and stay SILENT for a page that set no
      title of its own.** Never fall back to the `<h1>`: on 4 of 5 sampled pages
      it reads `สวัสดี คุณ<ชื่อ>`, so announcing it reads the user their own name
-     on arrival. Measured on `/contacts`: title `PRC Ops`, no `<h1>` at all.
-     127 of 135 `page.tsx` do carry a static Thai `metadata.title` (zero
-     `generateMetadata`) — but per ROUTE, not per record: 39 dynamic-segment
-     pages reuse one title for every record, which is why the de-dupe below is
-     keyed on the pathname as well as the name. ⚑ Giving the other 8 a title is
-     an open follow-up.
+     on arrival. Titles are per ROUTE, not per record — 39 dynamic-segment pages
+     reuse one title for every record, which is why the de-dupe below is keyed on
+     the pathname as well as the name.
+
+     **Because of this, a page with no `metadata.title` is a SILENT page, not
+     merely a dull browser tab** — so
+     [page-metadata-titles.test.ts](../tests/unit/page-metadata-titles.test.ts)
+     requires one on every `page.tsx`. The only exemptions are pages that never
+     render a name because they redirect to one that has it, and each is verified
+     rather than trusted: it must still exist, still lack a title, and still
+     actually redirect, so a real page cannot be waved through by adding it to
+     the list.
+
    - **Defer while a boundary is open.** The title is correct **640–930 ms
      before** the content renders, so announcing on the title alone would tell
      the user they had landed on a page that is still a skeleton. Verified in

@@ -2,7 +2,8 @@
 //
 // UX-audit G8 follow-up, recorded by lane portalsr on #980 and MEASURED here
 // before being built: page-skeleton.tsx hand-rolled `<main class="bg-page
-// min-h-screen overflow-x-clip">`, and 44 of the app's 45 loading.tsx files
+// min-h-screen overflow-x-clip">`, and 44 of the app's 45 loading.tsx files (41 today — three moved to
+// narrow-skeleton.tsx)
 // delegate to it — so 44 loading boundaries rendered a <main> that is not a
 // scroller under a body the root layout locks (h-full overflow-hidden, spec 64).
 //
@@ -147,7 +148,7 @@ describe("PageSkeleton renders the page scroller (UX-audit G8 follow-up)", () =>
   });
 
   it("still announces itself and still paints the frame it is announcing", () => {
-    // The shell swap must cost nothing: the sr-only line that all 44 delegating
+    // The shell swap must cost nothing: the sr-only line that every delegating
     // boundaries inherit, and the pulsing blocks a sighted user reads as "this
     // page is coming", both survive. Counts are EXACT — a floor lets a
     // placeholder row be deleted under a pin whose stated job is the frame.

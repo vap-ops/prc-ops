@@ -12540,9 +12540,8 @@ the suffix stripped (`โครงการ` · `รายชื่อช่า�
 title gap; the same persistent element throughout; and a hard page load announces **nothing**
 (the reader does that itself). Exactly two region mutations per navigation.
 
-**Open questions.** ① The 8 titleless pages (`/contacts`, `/contacts/[type]/[id]`, `/store`,
-`/stock-count`, `/sa/crew`, `/sa/crew/badges`, `/projects/[projectId]/costs`, and `src/app/page.tsx`
-— the redirect dispatcher, which no one reads) announce nothing — one-line `metadata.title` each.
+**Open questions.** ① ~~The 8 titleless pages announce nothing~~ — **CLOSED, and the premise was
+wrong: only TWO of them ever rendered without a name.** See the 2026-08-06 page-titles entry below.
 ④ One ordering edge is recorded, not built: if a title ever landed before its boundary opened,
 arrival would be spoken and then immediately replaced by `กำลังโหลด…` (measured, the boundary opens
 6–8 ms FIRST on every sampled navigation, so this is theoretical today; the same
@@ -12551,6 +12550,235 @@ the wrong text; suppressing it from app code was not attempted. Worth re-measuri
 correct polite announcement exists. ③ Still carried from #983: the region does not pass through empty between two
 identical consecutive announcements (`queueMicrotask`), so a reader that suppresses byte-identical
 repeats may not speak the second.
+
+## 2026-08-06 — `NarrowSkeleton`: the single-column screens get their own frame (lane cardskel)
+
+**The unit the previous one recorded** — operator asked for it directly after reading the
+finding. `/login`, `/coming-soon` and `/profile` are §5's recorded width exceptions (a
+`max-w-sm`/`max-w-md` column), but their loading boundary delegated to `PageSkeleton`, which
+paints a header strip and list rows at `PAGE_MAX_W`.
+
+**Measured on `/coming-soon` at 1280×800**, fallback and resolved page both present in one
+DOM: the fallback's container was **1240px on `bg-page`**, the page's **448px on `bg-card`**.
+**Width is the smaller half — the GROUND flips**, so the whole screen flashes grey→white at
+the swap. That is the part a width-only fix could never have addressed.
+
+**The inherited list was checked, not trusted, and it was wrong in two places.** The previous
+review named "/login, /coming-soon, /profile — all `PageShell variant="card"`". Live at HEAD:
+`/profile` is an **app**-variant page (`PageShell` default, `bg-page`) with a narrow column,
+so a centred card frame would have been a NEW mismatch there; and `/coming-soon` has **three**
+arms (`variant="card"` for unserved roles, `VisitorLanding`'s own card, and
+`variant="bare"`+`bg-card` for the super_admin OperatorHub) — all a `max-w-md` column on the
+card ground, so one variant covers them. `/register` was also on the suspect list and is NOT
+narrow: its boundary covers `/register/office` and `/register/technician`, which render
+`StaffRegisterWorkspace` at `PAGE_MAX_W`.
+
+**Built.** `NarrowSkeleton({ variant })` takes PageShell's own vocabulary — `card` (centred on
+`bg-card`: `/login`, `/coming-soon`) and `app` (top-aligned on `bg-page`: `/profile`) — and
+both arms have a real caller, so the prop is not speculative generality.
+
+**🔔 Scope call, stated plainly: this is NOT card-only, and the measurement is the reason.**
+`/login` and `/coming-soon` both sit in the telemetry `EXCLUDED_PREFIXES`
+(`src/lib/telemetry/scope.ts`), so their usage is **unmeasurable — not zero**; I initially
+read `/coming-soon`'s zero rows as "dead" before checking whether the instrument covers it,
+which is the house trap. `/profile` IS measurable and alive: **91 route views / 73 sessions /
+9 roles in 60 days, latest 2026-08-05.** A card-only unit would have landed entirely on
+surfaces whose value cannot be observed, so the app arm shipped with them.
+
+**Verified after, in the browser.** `/coming-soon`: fallback column **448px on `bg-card`**
+against the page's 448px on `bg-card` — both axes matched. `/profile`: the fallback's column
+class string is **byte-identical** to the page's own
+(`mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10`), same ground, both 448px.
+
+**Pinned.** `narrow-loading-skeleton.test.tsx`: each arm's `<main>` equals `PageShell`'s own
+rendered class string for that variant (read off the component); the column is `max-w-md` and
+never the page width; the app arm paints a header strip and the card arm does not; the
+announcement survives on all three boundaries; and — the invariant that makes the unit worth
+shipping — **each boundary's variant is asserted against the variant its PAGE renders**, read
+from the page source with comments stripped, because those are async Server Components the
+suite cannot render. Mutants killed on both variant swaps, the widened column, and the deleted
+announcement.
+
+**The fresh-eyes pass found two 🔴 and I had missed both.** ① **The suite was RED and I said it
+was green** — `route-loading-announcement.test.tsx` has a repo-wide "every boundary renders an
+announcement" scan whose carrier list was the hand-typed literal
+`/<PageSkeleton \/>|<LoadingAnnouncement \/>/`, so the moment three boundaries moved onto
+`NarrowSkeleton` it reported them mute. I had run "the four affected test files" and picked the
+wrong four. ⭐ **Fixed at the class, not the instance: the carrier set is now DERIVED — any
+chrome component whose own source renders `<LoadingAnnouncement />` counts — with a positive
+control that the derivation is non-empty. A hand-typed allowlist of carriers is the same defect
+the scan exists to catch, one level up.** ② **`/profile` renders a sticky `DetailHeader` above
+its column**, and my first app arm was the column alone: at the swap it would have dropped
+~148px and a white strip would have materialised — i.e. the VERTICAL axis got worse on the one
+boundary with measurable traffic, in a unit fixing the horizontal one. The app arm now mirrors
+`DetailHeader`'s own classes. ⭐ **Carry: "the fallback's column className is byte-identical to
+the page's" is a claim about ONE axis — identical classes at a different `y` are still a jump.
+Compare the whole frame, not the piece the change was about.**
+
+**Also from that review, fixed:** the boundary pin compared only the shell class, so a
+hand-rolled `<PageShell variant="…"><LoadingAnnouncement /></PageShell>` with no frame passed —
+it now compares the boundary's whole rendered output to the component's · the page-variant
+derivation was a boolean (`card` else `app`), blind to `bare`, so switching a page to
+`variant="bare" className="bg-card"` would have flipped the ground with the pin green — now
+three-way, and a page with no `PageShell` throws · the comment stripper missed plain `/* … */`
+banners, which all three pages open with · stale delegation counts (44 → 41 of 45) in
+`page-skeleton.tsx`, `loading-announcement.tsx` and `page-skeleton-shell.test.tsx` · the ⚠️
+block in `page-skeleton.tsx` still described these three as delegating to it.
+
+**Residual jumps, disclosed not hidden:** `/login`'s card is `max-w-sm` (384) against the
+frame's `max-w-md` (448); `/coming-soon`'s super_admin arm is top-aligned (`bare`) while the
+card variant centres. Both are recorded in `docs/ui-conventions.md` §8 rather than fixed with a
+per-screen knob.
+
+## 2026-08-06 — spec 400 U1: the attendance grid
+
+**Why the list could not be fixed in place.** `/team/attendance` builds one row per worker FROM
+`muster_attendance` rows, so it is structurally blind to absence. Measured before building: **11
+of 41 active workers have ZERO July rows** — they are not shown as zero, they have no row — and
+headcount ran **13 · 17 · 18 · 17 · 1 · 24 · 22 · 23** across 24–31 Jul with **1 · 15 · 21 · 4 ·
+23** across 1–5 Aug. The `1`s and the `4` are exactly what a double-checker is looking for, and a
+per-worker total is where they disappear. Spec 358 rejected this matrix on three grounds and all
+three have expired (its audience was payroll-per-worker; the operator retired mobile-hostility on
+2026-08-06; the CSV is untouched) — recorded in the spec so an audit cannot re-raise it.
+
+**Built.** `?view=` toggle, grid default, list kept. Cell grain is the DATE (regular + OT merged
+by `buildAttendanceMonth`'s rule, pinned by a parity test); headcount and closure live on the
+COLUMN because they are project-day facts; Sundays + `public_holidays` shade; the range is capped
+at 92 days because `?start` is validated for calendar validity, not span, so `?start=2020-01-01`
+was reachable and now skips the fetch entirely and names the cap.
+
+**Two mutants survived and both were real.** `if (canOpenCalendar)` → `if (true)` stayed green:
+a source scan proves code EXISTS, never that it is REACHABLE. Extracted `gridWorkerHref` as a
+pure function and pinned both arms behaviourally. Then the grid's render site `{shape === "grid"
+&& (` → `{false && (` stayed green, because that predicate also appears in the two data-loading
+guards — each render site is now pinned by the guard immediately preceding it.
+
+**The review found ten more, and the one worth carrying is not a logic bug.** A raw **NUL byte**
+sat in `attendance-grid.ts`: `file` reported `data` and ripgrep classified it binary, so the whole
+module returned "binary file matches" with zero content lines — **invisible to every rg-based
+source scan, including the guard class this unit's own page test belongs to.** Also: `manualIn`
+and `autoOut` were read off the earliest-in / latest-out session while `openOut` looked at all of
+them, so a QR regular check-in hid a typed OT one; a `?worker=` URL with no `?view` resolved to
+the grid and silently dropped the drill every pre-existing bookmark exists to open; and the
+unclosed-day header mark was amber for `dayClosed === false`, which is the normal state of the
+current day — the rightmost column would have been amber every single day, the cry-wolf failure
+the shading exists to prevent.
+
+**Verified in real Chrome** (the in-app Browser pane is hidden this session, so nothing there
+hydrates): across a month-crossing range, 14 columns with `ก.ค.`/`ส.ค.` labels exactly at the
+turnover, today's column carrying no unclosed mark, the calendar link carrying `m=2026-07` plus
+the report's own range, empty cells announcing `ไม่มีการเช็คชื่อ` vs `วันหยุด`, a legacy
+`?worker=` URL landing on the list with its drill open, and zero console errors. Role arms under
+view-as: `accounting` → 33/33 worker links to this report's drill, `procurement` → 33/33 to the
+spec-374 calendar.
+
+**Open questions.** ① The grid path costs three reads and the summary is now redundant on it —
+its own unit, since collapsing it changes what the header renders. ② `บันทึกมือ` /
+`ออกอัตโนมัติ` are free literals in several components; the UI-term SSOT says they belong in
+`labels.ts`, which is a collider, so that is a sweep of its own. ③ Row ordering is alphabetical;
+ranking by "most findings" needs the distribution measured first (the spec-375 trap). ④ U2
+(roster rows, the "11 of 41" finding) and U3 (the correction path, operator ruled **option A** on
+2026-08-06) are the next units.
+
+## 2026-08-06 — Page titles: two real ones, and a guard (lane a11ytitles)
+
+**Closes ① from the arrival unit — and corrects it.** [#986](https://github.com/vap-ops/prc-ops/pull/986)
+recorded "8 titleless pages announce nothing" and I carried that number into the report. Driven in
+a real browser, **six of the eight redirect** and announce their destination perfectly well:
+`/contacts` → `/contacts/customers` (ลูกค้า) · `/store` and `/stock-count` → `/projects` (โครงการ) ·
+`/` → `/dashboard` (ภาพรวม) · `/sa/crew` and `/sa/crew/badges` serve an RSC payload carrying
+`NEXT_REDIRECT;replace;/team;307` (ทีมงาน). Only **two** pages genuinely rendered without a name.
+
+⭐ **The earlier probe had said otherwise, and the probe was wrong, not the app.** It reported
+`/contacts`, `/sa/crew` and `/sa/crew/badges` landing on THEMSELVES titled `PRC Ops` — because it
+waited for hydration (with the timeout swallowed) and then read, while a `redirect()` in a Server
+Component is delivered as an RSC instruction the CLIENT acts on. It was reading before the redirect
+completed. Re-probed by waiting for the URL to STOP MOVING instead, all six resolve. **A route's
+"where does this land" is a settling process, not a value you can read once** — same family as the
+redirect-inflates-route-views lesson, one layer lower.
+
+**The two real ones.** `/projects/[projectId]/costs` takes `PROJECT_COSTS_LABEL` — the same constant
+its own `DetailHeader` renders, so the spoken name and the visible heading cannot drift.
+`/contacts/[type]/[id]` takes `รายละเอียดผู้ติดต่อ`: one static title must cover all four contact
+types (`generateMetadata` is used NOWHERE in this app), so it follows the house detail pattern —
+`รายละเอียด` + noun, as in `รายละเอียดคำขอซื้อ` / `รายละเอียดคำขอสมัคร` — with the umbrella noun the app
+already uses for the contact-type selector (`contacts-tabs.tsx`, `aria-label="ประเภทผู้ติดต่อ"`).
+Both were gate-checked against the page and its siblings, not written from memory.
+
+**The durable half is the guard.** `page-metadata-titles.test.ts` requires a `metadata.title` on
+every `page.tsx`, because since #986 a missing title is a SILENT page rather than a dull browser
+tab. Exemptions are allowed but **verified, not trusted**: each must still exist, still lack a
+title, and **still actually redirect** — so a real page cannot be waved through by adding it to the
+list, and a stale entry (a page that has since gained a title) reds too.
+
+**Gates.** RED first — the guard named exactly the two pages · **5/5 mutants killed**, including the
+abuse case (untitle a real page AND add it to the exemption list: still red) and a zero-match walk ·
+lint 0 · typecheck 0 · full suite green · **Gate 4 in real Chrome**: both titles served
+(`ต้นทุนโครงการ — PRC Ops`, `รายละเอียดผู้ติดต่อ — PRC Ops`) and both ANNOUNCED on a genuine
+client-side navigation — the contact detail spoke `รายละเอียดผู้ติดต่อ` at +429 ms with a `window`
+beacon proving the document was never replaced.
+
+⚠️ **A second probing artifact on the way, recorded because it nearly became a bug report:** a
+coarser polling script read the contact detail's region as `""` and it looked like a lost
+announcement. Instrumenting the navigation directly showed the announcement had fired at +429 ms and
+the region was later emptied by a subsequent boundary release. **Poll loops report the state they
+happen to catch; when the claim is about an EVENT, observe the event.**
+
+**Open questions.** ① The region's end state differs by route — some keep the destination, some
+return to empty when a later boundary releases with nothing pending. Both announce correctly, so
+this is cosmetic, but it means "what does the region say now" is not a stable assertion. ② Still
+carried: one theoretical ordering edge, and Next's own announcer misfiring.
+
+## 2026-08-06 — Silence the framework's own route announcer (lane a11ysilence)
+
+**Closes the last carry from the arrival work.** Next mounts a
+`<next-route-announcer>` custom element whose shadow root holds a
+`role="alert" aria-live="assertive"` div and reports `document.title` on every
+router-tree change. #983 observed it speaking the wrong thing; #986 root-caused it
+(Next REPLACES the `<title>` node rather than editing it, so `document.title` is empty for
+~1–6 ms per navigation and its effect samples inside that window, falling through to
+`querySelector("h1")`). Both units recorded "suppressing it from app code was not attempted".
+This attempts it.
+
+**The decision was a measurement, and the measurement could have gone the other way.** Suppressing
+a framework accessibility feature is only defensible if it never gets it right where we do not, so
+that was audited before any code: **across 7 real navigations in two sessions it was correct ZERO
+times.** Usually it mutates to `""` — harmless. Once it announced **`สวัสดี คุณDev Preview (CC)`** —
+the SA home's `<h1>` greeting, i.e. **the user's own name, assertively**, interrupting whatever they
+were reading, for a page they were not on. Our polite region announced the right destination on
+every one of those same navigations. So this removes nothing that works and removes a real,
+intermittent lie. Had even one navigation shown it correct where ours was silent, the answer would
+have been to leave it alone.
+
+**The narrowest intervention available: two ARIA attributes on one node.** `aria-live="off"` plus
+removing `role` (which is an assertive live region in its own right, so `aria-live` alone would not
+be enough). No patched framework file, no `patch-package`, no removed DOM, and nothing breaks if a
+future Next stops shipping the announcer or fixes it.
+
+⭐ **Why touching a React-managed node is safe here — proven, not assumed.** React portals the
+announcement TEXT into that div, so the obvious worry is that it owns the attributes and would
+restore them. Driven in real Chrome: after the change, `aria-live="off"` and the missing `role`
+**stuck across three navigations**, `hostCount` stayed 1, and a `data-probe` tag placed on the node
+**survived throughout** — so React never replaced it. It owns the children, not the element. That
+probe is the whole licence for this approach; without it this would have been a guess.
+
+⚠️ **The node is created inside Next's OWN effect**, and effect order between two components is not
+ours to control — so "not there when we looked" cannot mean "give up". A missing node is watched
+for on `document.body` (where Next appends it) until it appears, then the observer stops. A mutant
+that replaced this with a single best-effort attempt dies.
+
+**Gates.** RED first (3 failing, 3 controls green) · **6/6 mutants killed** — including targeting
+the HOST instead of the shadow-root region, leaving `role` in place while setting `aria-live`, and
+giving up when the node is late. ⚠️ One mutant pattern was **not unique** (`return () =>
+observer.disconnect();` matches both observers in the file) and the harness aborted rather than
+silently mutating the wrong one — the documented anchor-on-a-unique-symbol trap, caught by the
+guard that exists for it. lint 0 · typecheck 0 · `pnpm build` 0 · full suite green.
+**Gate 4 in real Chrome:** `nextRole: null`, `nextAriaLive: "off"` on the live app, while ours
+announced `โครงการ` · `รายชื่อช่าง` · `ทีมงาน` across the same navigations.
+
+**Open questions.** ① Worth reporting upstream to Next — the announcer samples `document.title`
+in the window where it has removed the title node. Not done. ② If a future Next fixes it, the
+silencing becomes unnecessary rather than harmful, and the guard's comments say where to look.
 
 ## 2026-08-06 — `upsert_project_zone` stops erasing what the caller did not send (lane zonerpc)
 
