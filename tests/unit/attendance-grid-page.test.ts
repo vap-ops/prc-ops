@@ -39,6 +39,20 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     expect(code).toContain('shape === "list"');
   });
 
+  it("guards each view's RENDER SITE with its own arm of the shape", () => {
+    // A bare toContain on the predicate is NOT this assertion: `shape === "grid"`
+    // also appears in the two data-loading guards, so replacing the render site's
+    // condition with `false` left the whole grid unrendered and every test green
+    // (mutation-proved). What matters is the guard IMMEDIATELY around each site.
+    const near = (needle: string) => {
+      const at = code.indexOf(needle);
+      expect(at).toBeGreaterThan(-1);
+      return code.slice(Math.max(0, at - 200), at);
+    };
+    expect(near("<AttendanceGridView")).toContain('shape === "grid" && (');
+    expect(near('<ul className="flex flex-col gap-2">')).toContain('shape === "list" && (');
+  });
+
   it("keeps the list reachable — the grid is a default, not a replacement", () => {
     // Spec §D7: the list is the better read for one person's month and it is
     // what the CSV mirrors. A toggle that only points one way would retire it.
