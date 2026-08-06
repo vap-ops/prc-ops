@@ -380,13 +380,21 @@ and — for the two boundary surfaces together — by
      +1074 ms, title node re-added +1100 ms). Comparing both is also what keeps
      a same-page node replacement silent.
 
-   ⚑ **Two ordering edges are recorded, not built** — both need the store's
-   publish to become async (a microtask that re-checks the boundary count), which
-   is its own change rather than a detail: ① an INTERRUPTED navigation whose two
-   boundaries land in separate commits speaks the abandoned destination before
-   the new wait; ② if a title ever lands before its boundary opens, arrival is
-   spoken then immediately replaced by `กำลังโหลด…`. Measured, the boundary opens
-   6–8 ms FIRST on every sampled navigation, so ② is theoretical today.
+   - **A boundary HANDOFF must not swallow the destination.** React releases one
+     skeleton and opens the next inside a SINGLE commit as a segment resolves
+     deeper, so the count passes through zero while the wait is still on.
+     Publishing there consumed the destination and the incoming boundary
+     overwrote it — measured in real Chrome on a project-detail navigation:
+     `กำลังโหลด…` for nine seconds and then **silence**. So the release DEFERS the
+     arrival by a microtask and re-checks the count once the commit has settled.
+     Only the arrival is deferred; clearing the region stays synchronous,
+     because a clear cannot be invalidated by what follows.
+
+   ⚑ **One ordering edge is recorded, not built:** if a title ever landed before
+   its boundary opened, arrival would be spoken and then replaced by
+   `กำลังโหลด…`. Measured, the boundary opens 6–8 ms FIRST on every sampled
+   navigation, so this is theoretical today; the same microtask-and-recheck would
+   close it.
 
 Also pinned: **every boundary must render an announcement** — `<PageSkeleton />`
 or `<LoadingAnnouncement />` — so a new bespoke `loading.tsx` cannot ship mute

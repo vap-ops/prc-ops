@@ -12449,7 +12449,27 @@ flushes (the real events are ~27 ms apart) the mutant dies. **Second instance of
 found with `key={seq}`: an `act()` boundary decides what a batching observer sees, so a defect that
 lives BETWEEN two flushes is invisible to a test that merges them.**
 
-**Gates.** RED first (19 failing) · **10/10 mutants killed**, then re-run after the review fixes ·
+**🚨 And Gate 4 then found what neither the tests nor the review had: a boundary HANDOFF swallowed
+the arrival entirely.** Navigating into a project detail announced `กำลังโหลด…` for **nine seconds
+and then SILENCE** — never the page name. React releases one skeleton and opens the next inside a
+SINGLE commit as the segment resolves deeper, so the count passes through zero while the wait is
+still on; the release published the pending destination and the incoming boundary overwrote it in
+the same commit, leaving the real release with nothing to say. The review had flagged this shape as
+a MEDIUM and I had under-rated it as a rare interruption — **it is neither rare nor an
+interruption**, it is what a normal navigation into a nested route does. The release now defers the
+arrival by a microtask and re-checks the count after the commit settles. Deliberately narrow: only
+the arrival is deferred, because a clear cannot be invalidated by what follows, and making both
+async broke 12 tests including #983's pinned contract. ⭐ **Twice in this unit the browser found what
+the suite could not — and both times the defect lived INSIDE a single React commit.**
+
+⚠️ **A false alarm on the way, worth recording because the instinct was to "fix" it:** an earlier
+run showed the region stuck on `กำลังโหลด…` and I read it as a leak. One probe for the boundary's own
+static line (`boundaryMounted: true`, 8 pulses at +9 s) proved the skeleton was genuinely still on
+screen — that dev page really is that slow — so the code was behaving correctly. **A stuck-looking
+state is not evidence of a stuck state; measure whether the cause is still present.**
+
+**Gates.** RED first (19 failing) · **16/16 mutants killed**, re-run after each round of fixes
+because the code the earlier sweeps validated had changed ·
 full vitest suite green · lint 0 · typecheck 0 · `pnpm build` 0. **Gate 4 in real Chrome via
 Playwright** (the in-app Browser pane is
 hidden on this box, so hydration never runs there), three real navigations: destination spoken with
@@ -12461,12 +12481,10 @@ title gap; the same persistent element throughout; and a hard page load announce
 **Open questions.** ① The 8 titleless pages (`/contacts`, `/contacts/[type]/[id]`, `/store`,
 `/stock-count`, `/sa/crew`, `/sa/crew/badges`, `/projects/[projectId]/costs`, and `src/app/page.tsx`
 — the redirect dispatcher, which no one reads) announce nothing — one-line `metadata.title` each.
-④ Two ordering edges are recorded, not built, because both need the store's publish to become async
-(a microtask that re-checks the boundary count) and that is its own change: an INTERRUPTED
-navigation whose two boundaries land in separate commits speaks the abandoned destination before the
-new wait; and if a title ever landed before its boundary opened, arrival would be spoken and then
-immediately replaced by `กำลังโหลด…` (measured, the boundary opens 6–8 ms FIRST on every sampled
-navigation, so this one is theoretical today). ② Next's own announcer still fires occasionally, assertively, with
+④ One ordering edge is recorded, not built: if a title ever landed before its boundary opened,
+arrival would be spoken and then immediately replaced by `กำลังโหลด…` (measured, the boundary opens
+6–8 ms FIRST on every sampled navigation, so this is theoretical today; the same
+microtask-and-recheck that fixed the handoff would close it). ② Next's own announcer still fires occasionally, assertively, with
 the wrong text; suppressing it from app code was not attempted. Worth re-measuring now that a
 correct polite announcement exists. ③ Still carried from #983: the region does not pass through empty between two
 identical consecutive announcements (`queueMicrotask`), so a reader that suppresses byte-identical
