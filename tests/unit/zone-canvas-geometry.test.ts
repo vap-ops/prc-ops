@@ -16,8 +16,10 @@ import { describe, expect, it } from "vitest";
 import { validateZoneGeometry } from "@/lib/zones/validate-zone";
 import {
   ZONE_SNAP_STEP,
+  boxToCorners,
   boxToPixels,
   clampBoxToUnit,
+  cornersToBox,
   pixelsToBox,
   pixelsToPolygon,
   polygonToPixels,
@@ -98,6 +100,54 @@ describe("snapping", () => {
       true,
     );
     expect(validateZoneGeometry("polygon", snapped).ok).toBe(true);
+  });
+});
+
+describe("switching between a box and a polygon", () => {
+  it("seeds a polygon from the box's own four corners, so the zone does not move", () => {
+    const box = { x: 0.2, y: 0.3, w: 0.4, h: 0.1 };
+    expect(boxToCorners(box)).toEqual([
+      [0.2, 0.3],
+      [0.6000000000000001, 0.3],
+      [0.6000000000000001, 0.4],
+      [0.2, 0.4],
+    ]);
+  });
+
+  it("round-trips a box through a polygon unchanged", () => {
+    const box = { x: 0.2, y: 0.3, w: 0.4, h: 0.1 };
+    const back = cornersToBox(boxToCorners(box));
+    expect(back.x).toBeCloseTo(box.x, 10);
+    expect(back.y).toBeCloseTo(box.y, 10);
+    expect(back.w).toBeCloseTo(box.w, 10);
+    expect(back.h).toBeCloseTo(box.h, 10);
+  });
+
+  it("collapses a polygon to its bounding box", () => {
+    const box = cornersToBox([
+      [0.1, 0.2],
+      [0.5, 0.1],
+      [0.4, 0.6],
+    ]);
+    expect(box.x).toBeCloseTo(0.1, 10);
+    expect(box.y).toBeCloseTo(0.1, 10);
+    expect(box.w).toBeCloseTo(0.4, 10);
+    expect(box.h).toBeCloseTo(0.5, 10);
+  });
+
+  it("gives a degenerate polygon a box the DB will accept", () => {
+    // Three collinear points have zero height. `w > 0 and h > 0` is a DB CHECK,
+    // so a naive bounding box would be refused at the end of a shape switch.
+    const flat = cornersToBox([
+      [0.2, 0.5],
+      [0.5, 0.5],
+      [0.8, 0.5],
+    ]);
+    expect(flat.h).toBeGreaterThan(0);
+    expect(validateZoneGeometry("rect", flat).ok).toBe(true);
+
+    const empty = cornersToBox([]);
+    expect(validateZoneGeometry("rect", empty).ok).toBe(true);
   });
 });
 

@@ -46,32 +46,49 @@ describe("the Konva island stays out of the main bundle", () => {
     expect(lazy).toMatch(/ssr:\s*false/);
   });
 
-  it("has no static importer anywhere in src/ — a single one would undo the split", () => {
+  // ⚠️ ONE walk of src/, one read per file, both checks over the same pass.
+  // Two separate scans each re-read every file in the repo and blew the 5s
+  // default timeout on a loaded box — a guard that times out is a guard that
+  // reds for a reason unrelated to what it protects, which is its own defect.
+  const scan = (() => {
     // The lazy wrapper's own reference is a dynamic `import()`, so a STATIC
     // `from "…/zone-canvas"` anywhere is the regression this pins.
-    const offenders: string[] = [];
+    // ⚠️ Matched on the MODULE SPECIFIER, not on a single line. Prettier wraps a
+    // named import past 80 chars across several lines, so a line-anchored
+    // `^\s*import…from "…"` pattern reads a wrapped `import {\n  ZoneCanvas,\n}
+    // from "…/zone-canvas"` as clean — and that import pulls all 54 KB of konva
+    // into the main bundle, which is the exact regression this test exists to
+    // catch. `from` immediately before the specifier is what distinguishes a
+    // static import from the lazy wrapper's `import("./zone-canvas")` call.
+    const STATIC_IMPORT = /\bfrom\s*["'][^"']*\/zone-canvas["']/;
+    const KONVA_IMPORT = /\bfrom\s*["'](?:konva|react-konva)["']/;
+    const staticImporters: string[] = [];
+    const serverKonva: string[] = [];
+    let files = 0;
+
     for (const file of sourceFiles(join(ROOT, "src"))) {
-      const source = stripComments(readFileSync(file, "utf8"));
-      if (/^\s*import[^\n]*from\s+["'][^"']*zone-canvas["']/m.test(source)) {
-        offenders.push(file.slice(ROOT.length + 1));
-      }
+      files += 1;
+      const raw = readFileSync(file, "utf8");
+      const rel = file.slice(ROOT.length + 1);
+      if (STATIC_IMPORT.test(stripComments(raw))) staticImporters.push(rel);
+      // `react-konva` reaches for `window` at import time, so a Server
+      // Component importing it fails the BUILD, not the suite — pinned here
+      // where the failure is readable.
+      if (KONVA_IMPORT.test(raw) && !/^["']use client["']/.test(raw)) serverKonva.push(rel);
     }
-    expect(offenders).toEqual([]);
+    return { staticImporters, serverKonva, files };
+  })();
+
+  it("scanned the repo at all — a zero-file walk would pass both checks below", () => {
+    expect(scan.files).toBeGreaterThan(200);
+  });
+
+  it("has no static importer anywhere in src/ — a single one would undo the split", () => {
+    expect(scan.staticImporters).toEqual([]);
   });
 
   it("keeps konva out of every server-rendered module", () => {
-    // `react-konva` reaches for `window` at import time. A Server Component
-    // that imports it fails the build, not the test suite — pin it here where
-    // the failure is readable.
-    const offenders: string[] = [];
-    for (const file of sourceFiles(join(ROOT, "src"))) {
-      const source = readFileSync(file, "utf8");
-      if (!/from\s+["'](?:konva|react-konva)/.test(source)) continue;
-      if (!source.startsWith('"use client"') && !source.startsWith("'use client'")) {
-        offenders.push(file.slice(ROOT.length + 1));
-      }
-    }
-    expect(offenders).toEqual([]);
+    expect(scan.serverKonva).toEqual([]);
   });
 });
 

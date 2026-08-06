@@ -154,32 +154,48 @@ export default async function ZonesPage({ params, searchParams }: PageProps) {
               </div>
             ) : (
               <ul className="rounded-card border-edge bg-card divide-edge divide-y border">
-                {rows.map((row) => (
-                  <li
-                    key={row.id}
-                    className="flex items-center gap-3 px-4 py-2"
-                    style={{ paddingLeft: `${16 + row.depth * 20}px` }}
-                  >
-                    <span className="text-meta text-ink-secondary font-mono">{row.code}</span>
-                    <span className="text-body text-ink min-w-0 flex-1 truncate">{row.name}</span>
-                    <span className="text-meta text-ink-secondary shrink-0">
-                      {row.workPackageCount} งาน
-                    </span>
-                    <ZoneSheet
-                      projectId={project.id}
-                      mapId={map.id}
-                      zone={{ id: row.id, code: row.code, name: row.name }}
-                      trigger="แก้ไข"
-                      triggerClassName="text-ink-secondary focus-visible:ring-action text-meta shrink-0 rounded px-2 py-1 font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
-                    />
-                    <DeleteZoneButton
-                      projectId={project.id}
-                      zoneId={row.id}
-                      zoneName={row.name}
-                      workPackageCount={row.workPackageCount}
-                    />
-                  </li>
-                ))}
+                {rows.map((row) => {
+                  // The sheet needs the geometry to convert between a box and a
+                  // polygon when the shape is changed from the keyboard. A row
+                  // whose geometry the validator refuses gets no shape control
+                  // rather than a broken one — the same rule the canvas uses.
+                  const drawn = canvasZones.find((z) => z.id === row.id);
+                  return (
+                    <li
+                      key={row.id}
+                      className="flex items-center gap-3 px-4 py-2"
+                      style={{ paddingLeft: `${16 + row.depth * 20}px` }}
+                    >
+                      <span className="text-meta text-ink-secondary font-mono">{row.code}</span>
+                      <span className="text-body text-ink min-w-0 flex-1 truncate">{row.name}</span>
+                      <span className="text-meta text-ink-secondary shrink-0">
+                        {row.workPackageCount} งาน
+                      </span>
+                      <ZoneSheet
+                        projectId={project.id}
+                        mapId={map.id}
+                        zone={{
+                          id: row.id,
+                          code: row.code,
+                          name: row.name,
+                          // Absent when the stored geometry does not validate. The
+                          // sheet then hides the shape control and stays a rename
+                          // sheet — it must never silently become an ADD sheet,
+                          // which is what passing `zone={undefined}` would do.
+                          ...(drawn ? { shape: drawn.shape, geometry: drawn.geometry } : {}),
+                        }}
+                        trigger="แก้ไข"
+                        triggerClassName="text-ink-secondary focus-visible:ring-action text-meta shrink-0 rounded px-2 py-1 font-medium underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2"
+                      />
+                      <DeleteZoneButton
+                        projectId={project.id}
+                        zoneId={row.id}
+                        zoneName={row.name}
+                        workPackageCount={row.workPackageCount}
+                      />
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

@@ -135,6 +135,39 @@ export function snapPolygon(
  * zone's meaning without ever saying so. Only a box larger than the map itself
  * is shrunk, because nothing else can be done with it.
  */
+/**
+ * The four corners of a box, in draw order.
+ *
+ * Converting a box to a polygon starts here because it is the only starting
+ * shape that leaves the zone exactly where the manager put it — any other seed
+ * would move the zone as a side effect of changing its shape.
+ */
+export function boxToCorners(box: BoxGeometry): ReadonlyArray<readonly [number, number]> {
+  return [
+    [box.x, box.y],
+    [box.x + box.w, box.y],
+    [box.x + box.w, box.y + box.h],
+    [box.x, box.y + box.h],
+  ];
+}
+
+/**
+ * A polygon collapsed to its bounding box.
+ *
+ * Lossy, and the caller is responsible for saying so before it happens — every
+ * vertex past the four corners is gone. Degenerate input (all points collinear)
+ * yields a zero-thickness box, which the DB refuses outright, so the clamp's
+ * one-grid-step floor applies here too rather than at the call site.
+ */
+export function cornersToBox(points: ReadonlyArray<readonly [number, number]>): BoxGeometry {
+  if (points.length === 0) return clampBoxToUnit({ x: 0, y: 0, w: 0, h: 0 });
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return clampBoxToUnit({ x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y });
+}
+
 export function clampBoxToUnit(box: BoxGeometry): BoxGeometry {
   // A zero or non-finite size cannot be slid anywhere useful. One grid step is
   // the smallest thing the toolbar can produce, so it is the floor here too.
