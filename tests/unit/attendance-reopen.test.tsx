@@ -18,7 +18,12 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AttendanceDrill } from "@/components/features/muster/attendance-drill";
-import { MUSTER_REOPEN_ROLES, SA_SURFACE_ROLES, type UserRole } from "@/lib/auth/role-home";
+import {
+  MUSTER_CLOSE_ROLES,
+  MUSTER_REOPEN_ROLES,
+  SA_SURFACE_ROLES,
+  type UserRole,
+} from "@/lib/auth/role-home";
 import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { groupDetailByDate, type AttendanceDetailRow } from "@/lib/muster/attendance-audit";
 import { reopenReturnTo } from "@/lib/muster/reopen-return";
@@ -173,9 +178,9 @@ describe("spec 397 U3 — the redirect target (the bug the review caught)", () =
 });
 
 describe("spec 397 U3 — the loop instruction is role-aware", () => {
-  // close_muster_day admits SA_SURFACE_ROLES only, and plain procurement fails
-  // both that and its can_see_project check — so telling THAT role to close the
-  // day again names a step its own server refuses.
+  // The branch is kept because the two RPCs are two allowlists; which ARM a given
+  // role lands on is decided by the page and pinned in
+  // attendance-day-correction.test.tsx, not here.
   it("tells a closer to close the day again", () => {
     render(
       <AttendanceDrill
@@ -203,9 +208,19 @@ describe("spec 397 U3 — the loop instruction is role-aware", () => {
     expect(screen.queryByText(/แก้ไขแล้วต้องปิดวันใหม่/)).not.toBeInTheDocument();
   });
 
-  it("procurement — the role this spec is about — is NOT a closer", () => {
-    expect(SA_SURFACE_ROLES).not.toContain("procurement");
+  it("procurement — the role this spec is about — IS a closer since spec 400 U3a", () => {
+    // ⚠️ This assertion used to read `SA_SURFACE_ROLES).not.toContain("procurement")`
+    // and was cited as proof the loop was two-person for that role. It stayed
+    // GREEN through U3a — SA_SURFACE_ROLES never changed — while the fact it was
+    // standing in for stopped being true: migration 20260813075912 widened
+    // `close_muster_day` itself. A test pinned to the WRONG set cannot see a
+    // widening of the right one, which is why the page now keys on the set that
+    // mirrors the RPC.
+    expect(MUSTER_CLOSE_ROLES).toContain("procurement");
     expect(MUSTER_REOPEN_ROLES).toContain("procurement");
+    // SA_SURFACE_ROLES still means "the SA cockpit surfaces" and is unchanged by
+    // this unit — named here only so the two are not confused again.
+    expect(SA_SURFACE_ROLES).not.toContain("procurement");
   });
 });
 
@@ -231,6 +246,27 @@ describe("spec 397 U3 — the action", () => {
 
   it("refuses a blank reason before it reaches the database", () => {
     expect(src).toContain("trim()");
+  });
+
+  it("spec 400 U3b — closes through the same gate-then-relay shape", () => {
+    // The RPC is the boundary; the action's own check exists so the surface never
+    // promises what the server refuses. Pinned as the SET, never a literal, so a
+    // widening lands in one place.
+    expect(count(src, "MUSTER_CLOSE_ROLES")).toBeGreaterThanOrEqual(2);
+    expect(count(src, '"close_muster_day"')).toBe(1);
+    expect(count(src, "closeReturnTo")).toBe(2); // the import + the call
+    expect(src).not.toContain("closed=1");
+  });
+
+  it("spec 400 U3b — maps 42501 to a permanent refusal, and only 42501", () => {
+    // A contrasting control: the close RPC's OTHER refusals are P0001 and must
+    // not be reported as a permission problem. Both arms are read out of the same
+    // block so deleting either reds.
+    const block = src.slice(src.indexOf("close_muster_day"), src.indexOf("closeMusterDayFromForm"));
+    expect(block).toContain('if (error.code === "42501") return { ok: false, outcome: "denied" };');
+    expect(block).toContain('return { ok: false, outcome: "failed" };');
+    // No invented "already closed" arm — the RPC upserts and re-derives.
+    expect(block).not.toContain("notclosed");
   });
 
   it("builds its redirect through reopenReturnTo, never by hand", () => {

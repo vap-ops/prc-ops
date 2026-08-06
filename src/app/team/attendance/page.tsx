@@ -30,12 +30,14 @@ import { requireRole } from "@/lib/auth/require-role";
 import {
   ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
+  MUSTER_CLOSE_ROLES,
   MUSTER_REOPEN_ROLES,
-  SA_SURFACE_ROLES,
   WORKER_ROSTER_ROLES,
 } from "@/lib/auth/role-home";
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
+import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
+import { attendanceDayParam } from "@/lib/muster/day-correction";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -75,6 +77,15 @@ const REOPEN_ERROR_COPY: Record<string, string> = {
   failed: "เปิดวันอีกครั้งไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
 };
 
+/** Spec 400 U3b — the close form's own outcomes, same honest-copy rule: `denied`
+ *  and `shape` can never succeed on a retry, so neither says ลองใหม่, and
+ *  `denied` covers the RPC's project-scope refusal as well as its role gate. */
+const CLOSE_ERROR_COPY: Record<string, string> = {
+  denied: "บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้",
+  shape: "วันที่หรือโครงการไม่ถูกต้อง",
+  failed: "ปิดวันไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
+};
+
 interface AttendanceAuditPageProps {
   // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
   // /team, /accounting AND — since spec 397 U2 — /procurement, so the parent is
@@ -92,12 +103,29 @@ interface AttendanceAuditPageProps {
     worker?: string | string[];
     /** Spec 400 U1 — `grid` (default) or `list`. */
     view?: string | string[];
+    /** Spec 400 U3b — open the correction panel for ONE day column. */
+    day?: string | string[];
+    /** Spec 400 U3b — the close form's outcome, carried back by its redirect. */
+    closed?: string | string[];
+    closeError?: string | string[];
   }>;
 }
 
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
-  const { start, end, project, from, worker, reopened, reopenError, view } = await searchParams;
+  const {
+    start,
+    end,
+    project,
+    from,
+    worker,
+    reopened,
+    reopenError,
+    view,
+    day,
+    closed,
+    closeError,
+  } = await searchParams;
   // `?worker=` predates this unit: every drill link the report has ever minted
   // carries one and no ?view, so those URLs resolve to the LIST or the drill
   // they exist to open would silently vanish.
@@ -114,12 +142,16 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // adding a parent is a one-line change beside safeBackHref, not a wider ternary.
   const backHref = safeBackHref(from, "/team");
   const backLabel = attendanceBackLabel(backHref);
-  // Spec 397 U3 — whether the VIEWER can finish the loop themselves.
-  // SA_SURFACE_ROLES is exactly `close_muster_day`'s live allowlist (verified),
-  // and plain `procurement` is not in it (nor does it pass that RPC's
-  // can_see_project), so for the very role this spec is about the loop is
-  // two-person. The copy must say that rather than name a step it cannot take.
-  const canClose = SA_SURFACE_ROLES.includes(ctx.role);
+  // Spec 397 U3 / 400 U3b — whether the VIEWER can finish the loop themselves.
+  //
+  // ⚠️ This keyed on SA_SURFACE_ROLES until spec 400 U3a, when migration
+  // 20260813075912 added `procurement` to `close_muster_day` AND gave it a
+  // cross-project arm. Both statements the old set produced — the reopen form's
+  // helper line and the reopened banner — therefore went on telling the one role
+  // this work exists for to hand the close to the SA, about a day it may now
+  // close itself. MUSTER_CLOSE_ROLES mirrors the LIVE allowlist.
+  const canClose = MUSTER_CLOSE_ROLES.includes(ctx.role);
+  const canReopen = MUSTER_REOPEN_ROLES.includes(ctx.role);
 
   const supabase = await createServerClient();
   const rows = await loadAttendanceSummary(supabase, range);
@@ -291,6 +323,31 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     return `/team/attendance?${q.toString()}#w-${workerId ?? openWorkerId ?? ""}`;
   };
 
+  // Spec 400 U3b — the day panel: the COLUMN twin of the drill, so it keeps the
+  // drill's rules. It stays in the GRID (the list has no columns), it toggles on
+  // the same column, and it anchors on `#d-<date>` because a server navigation
+  // otherwise lands at the top of a 42-row table.
+  const dayHref = (date: string | null): string => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    if (date) q.set("day", date);
+    return `/team/attendance?${q.toString()}#d-${date ?? openDayDate ?? ""}`;
+  };
+  // Validated against the dates the grid ACTUALLY drew, the same way ?worker= is
+  // validated against the rows it drew: a `?day=2020-01-01` would otherwise
+  // render a panel about a column that is not on screen.
+  const openDayDate = attendanceDayParam(
+    day,
+    grid.days.map((d) => d.date),
+  );
+  const openDay = grid.days.find((d) => d.date === openDayDate) ?? null;
+  // Whether the columns are links at all. Withholding it from the four audit
+  // roles that may neither close nor reopen is not withholding a FACT: the panel
+  // would carry only the closure and headcount their column header already
+  // states, under a link promising an action their own server refuses.
+  const canCorrectDay = canReopen || canClose;
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -369,6 +426,21 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
             {canClose
               ? "เปิดวันนี้อีกครั้งแล้ว — แก้ไขการเช็คชื่อได้ และต้องปิดวันใหม่เมื่อแก้เสร็จ"
               : "เปิดวันนี้อีกครั้งแล้ว — แจ้ง SA ให้แก้ไขการเช็คชื่อและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
+          </p>
+        )}
+
+        {/* Spec 400 U3b — the close form's own outcomes, same shape as reopen's:
+            a CODE in the URL, the copy owned here. The success line states what
+            is now TRUE (the wages were derived) rather than "done", because that
+            is the fact the reader came to settle. */}
+        {typeof closeError === "string" && closeError.length > 0 && (
+          <div className="mb-4">
+            <ErrorNotice>{CLOSE_ERROR_COPY[closeError] ?? CLOSE_ERROR_COPY.failed}</ErrorNotice>
+          </div>
+        )}
+        {closed === "1" && (
+          <p className="border-edge bg-sunk text-ink rounded-card mb-4 border px-4 py-3 text-sm">
+            ปิดวันแล้ว — ค่าแรงของวันนั้นถูกคิดใหม่จากการเช็คชื่อล่าสุด
           </p>
         )}
 
@@ -452,7 +524,26 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
             </div>
 
             {shape === "grid" && (
-              <AttendanceGridView grid={grid} todayIso={todayIso} workerHref={workerHref} />
+              <>
+                <AttendanceGridView
+                  grid={grid}
+                  todayIso={todayIso}
+                  workerHref={workerHref}
+                  dayHref={
+                    canCorrectDay ? (date) => dayHref(date === openDayDate ? null : date) : null
+                  }
+                />
+                {openDay !== null && (
+                  <AttendanceDayPanel
+                    day={openDay}
+                    todayIso={todayIso}
+                    projectId={range.projectId ?? null}
+                    canReopen={canReopen}
+                    canClose={canClose}
+                    returnTo={dayHref(openDay.date)}
+                  />
+                )}
+              </>
             )}
 
             {/* One row per worker. The signal chips mark the rows an auditor
@@ -515,7 +606,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                           <AttendanceDrill
                             days={detailDays}
                             todayIso={todayIso}
-                            canReopen={MUSTER_REOPEN_ROLES.includes(ctx.role)}
+                            canReopen={canReopen}
                             canClose={canClose}
                             backHref={drillHref(r.workerId)}
                           />

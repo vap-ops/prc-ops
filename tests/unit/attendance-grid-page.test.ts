@@ -239,3 +239,70 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     expect(drill).toContain('shape === "list"');
   });
 });
+
+describe("/team/attendance page — spec 400 U3b wiring", () => {
+  it("keys canClose on close_muster_day's OWN allowlist, never on SA_SURFACE_ROLES", () => {
+    // THE defect this unit exists for. SA_SURFACE_ROLES was a correct mirror of
+    // that RPC until migration 20260813075912 added `procurement`; keeping it
+    // left two sentences telling the one role this work is for to hand the close
+    // to the SA. Absence is pinned BARE, not quote-wrapped: a revert would write
+    // the identifier, not a string literal.
+    expect(code).toContain("const canClose = MUSTER_CLOSE_ROLES.includes(ctx.role);");
+    expect(code).not.toContain("SA_SURFACE_ROLES");
+    expect(occurrences("MUSTER_CLOSE_ROLES")).toBe(2);
+  });
+
+  it("renders the day panel, not merely imports it", () => {
+    expect(occurrences("AttendanceDayPanel")).toBe(2);
+    expect(occurrences("attendanceDayParam")).toBe(2);
+  });
+
+  it("validates ?day= against the dates the grid actually DREW", () => {
+    // Mirrors ?worker=. Passing the raw param would render a panel about a column
+    // that is not on screen, and a malformed one would reach the RPC as a date
+    // parse error on the error boundary.
+    const block = code.slice(
+      code.indexOf("const openDayDate"),
+      code.indexOf("const canCorrectDay"),
+    );
+    expect(block).toContain("grid.days.map((d) => d.date)");
+  });
+
+  it("gives the panel the PICKED project, so a ทุกโครงการ column cannot guess one", () => {
+    // close_muster_day and reopen_muster_day each take one p_project; the panel's
+    // noProject arm is what makes that visible instead of submitting a wrong one.
+    const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
+    expect(panel).toContain("projectId={range.projectId ?? null}");
+    expect(panel).toContain("canReopen={canReopen}");
+    expect(panel).toContain("canClose={canClose}");
+  });
+
+  it("withholds the column LINK from roles that may neither close nor reopen", () => {
+    // Not a withheld fact: the panel would carry only the closure and headcount
+    // the column header already prints, under a link promising a refused action.
+    expect(code).toContain("const canCorrectDay = canReopen || canClose;");
+    const site = code.slice(code.indexOf("<AttendanceGridView"), code.indexOf("{openDay !== null"));
+    expect(site).toContain("canCorrectDay ?");
+    expect(site).toContain(": null");
+  });
+
+  it("renders the panel only when a VALID day resolved", () => {
+    // `openDay` is the found GridDay, not the raw param — so an unparseable or
+    // out-of-range ?day= renders nothing rather than a panel about nothing.
+    expect(code).toContain("{openDay !== null && (");
+    expect(code).toContain(
+      "const openDay = grid.days.find((d) => d.date === openDayDate) ?? null;",
+    );
+  });
+
+  it("owns the close outcome copy here, and reads the code from the QUERY", () => {
+    // The action returns a CODE; a Thai sentence in a URL is unbounded, survives
+    // in history and would render attacker-chosen text inside the app's own
+    // notice. Same rule the reopen banners already follow.
+    expect(code).toContain("CLOSE_ERROR_COPY");
+    expect(code).toContain('{closed === "1" && (');
+    // …and no arm of it may promise a retry: `denied` and `shape` are permanent.
+    const copy = code.slice(code.indexOf("const CLOSE_ERROR_COPY"), code.indexOf("interface"));
+    expect(copy).not.toContain("ลองใหม่");
+  });
+});

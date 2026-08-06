@@ -24,6 +24,7 @@ import {
   EQUIPMENT_MOVE_ROLES,
   ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
+  MUSTER_CLOSE_ROLES,
   MUSTER_REOPEN_ROLES,
   EXTERNAL_ROLES,
   LEGAL_ROLES,
@@ -367,6 +368,25 @@ export const CAPABILITY_REGISTRY: readonly CapabilityEntry[] = [
     roles: MUSTER_REOPEN_ROLES,
     labelTh:
       "เปิดวันที่ปิดแล้วอีกครั้งเพื่อแก้ไขการเช็คชื่อ (ต้องระบุเหตุผล) และลบรายการเช็คชื่อที่ผิด",
+    domain: "team",
+  },
+  {
+    // Spec 400 U3a/U3b — the OTHER half of that loop, and the money-adjacent one:
+    // `close_muster_day` auto-checks-out the day's open regular sessions and then
+    // calls the labour derive, so closing is what BOOKS the day's wages. The label
+    // says so rather than calling it "ปิดวัน", which reads like a bookkeeping tick.
+    // ⚠️ Same membership as MUSTER_REOPEN_ROLES today and still its own row: the
+    // registry is a bijection over exported SETS, and the two mean different
+    // things ("may un-finalise" vs "may finalise"). Filed under "team" beside the
+    // reopen it completes, though the power is money-adjacent — the money DOMAIN
+    // is for the surfaces that show baht, and this one shows none.
+    // ⚠️ site_admin holds it at the DB level with no door here either, for the
+    // same reason as the row above (spec 397 §9 Q8) — it closes days from the
+    // cockpit instead.
+    key: "muster-day-close",
+    setName: "MUSTER_CLOSE_ROLES",
+    roles: MUSTER_CLOSE_ROLES,
+    labelTh: "ปิดวันเช็คชื่อ ซึ่งเป็นขั้นตอนที่ทำให้ระบบคิดค่าแรงของวันนั้น",
     domain: "team",
   },
   // money

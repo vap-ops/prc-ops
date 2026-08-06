@@ -444,6 +444,34 @@ export const MUSTER_REOPEN_ROLES: ReadonlyArray<UserRole> = [
 ];
 
 /**
+ * Spec 400 U3a/U3b — who may CLOSE a muster day (`close_muster_day`), and so who
+ * may finish the correction loop reopen → fix → close.
+ *
+ * Mirrors that RPC's allowlist verbatim, read from the LIVE function 2026-08-06
+ * after migration 20260813075912 added `procurement` (the MUSTER_REOPEN_ROLES
+ * precedent). The RPC is the real boundary; this set exists so the affordance —
+ * and the COPY around it — never promises what the server refuses.
+ *
+ * ⚠️ It is deliberately NOT `SA_SURFACE_ROLES`, which this page used to key
+ * `canClose` on. That was a correct mirror until U3a and is now a narrower set,
+ * so keeping it would tell `procurement` to "แจ้ง SA ให้ปิดวันใหม่" about a day it
+ * may close itself — the affordance-then-refuse defect running backwards.
+ *
+ * Members coincide with MUSTER_REOPEN_ROLES today; the MEANINGS differ ("who may
+ * un-finalise" vs "who may finalise, which books the day's wages"), so they stay
+ * separate per the role doctrine. The relationship the loop copy depends on —
+ * every reopener can also close — is pinned by attendance-day-correction.test.tsx
+ * rather than assumed, so a later narrowing of either reds instead of silently
+ * stranding the reader mid-loop.
+ */
+export const MUSTER_CLOSE_ROLES: ReadonlyArray<UserRole> = [
+  "site_admin",
+  "super_admin",
+  "procurement_manager",
+  "procurement",
+];
+
+/**
  * Spec 358 — the CROSS-PROJECT tier of ATTENDANCE_AUDIT_ROLES: the roles whose
  * attendance read spans every project. Mirrors, exactly, the inner
  * `v_role in (...)` arm of both `audit_attendance_*` RPCs (migration
