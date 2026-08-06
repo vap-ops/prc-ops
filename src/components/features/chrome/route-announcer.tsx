@@ -89,6 +89,62 @@ function useArrivalAnnouncements(): void {
   }, []);
 }
 
+/**
+ * Silence Next's own route announcer, which in this app is wrong when it speaks
+ * at all.
+ *
+ * It is a `<next-route-announcer>` custom element whose shadow root holds a
+ * `role="alert" aria-live="assertive"` div, and it reports `document.title` on
+ * every router-tree change. Measured across 7 real navigations it was correct
+ * ZERO times: usually it mutates to "" (harmless), and once it announced
+ * "สวัสดี คุณ<ชื่อ>" — the SA home's `<h1>` greeting, i.e. the user's own name,
+ * ASSERTIVELY, for a page they were not on. Root cause (measured): Next REPLACES
+ * the `<title>` node rather than editing it, so `document.title` is empty for
+ * ~1–6ms per navigation and its effect samples inside that window, falling
+ * through to `querySelector("h1")`. Our polite region announces the destination
+ * correctly on every one of those navigations, so this removes nothing that
+ * works and removes a real, intermittent lie.
+ *
+ * The narrowest possible intervention: two ARIA attributes on one node. No
+ * patched framework file, no removed DOM. Safe because React portals the
+ * announcement TEXT into that div but does not own the element — proven in real
+ * Chrome, where the change stuck across three navigations and a probe tag on the
+ * node survived throughout.
+ *
+ * @returns whether the node was found (and therefore silenced).
+ */
+function silenceFrameworkAnnouncer(): boolean {
+  const host = document.getElementsByTagName("next-route-announcer")[0];
+  const region = host?.shadowRoot?.firstElementChild;
+  if (!region) return false;
+
+  region.setAttribute("aria-live", "off");
+  // `role="alert"` is an assertive live region in its own right, so aria-live
+  // alone would not be enough.
+  region.removeAttribute("role");
+  return true;
+}
+
+/**
+ * Silences the framework announcer as soon as it exists.
+ *
+ * Next creates that node inside its OWN effect, and effect order between two
+ * components is not something we control — so "not there when we looked" cannot
+ * mean "give up". If it is missing we watch `document.body` (where Next appends
+ * it) until it appears, then stop watching.
+ */
+function useSilencedFrameworkAnnouncer(): void {
+  useEffect(() => {
+    if (silenceFrameworkAnnouncer()) return;
+
+    const observer = new MutationObserver(() => {
+      if (silenceFrameworkAnnouncer()) observer.disconnect();
+    });
+    observer.observe(document.body, { childList: true });
+    return () => observer.disconnect();
+  }, []);
+}
+
 export function RouteAnnouncer() {
   const { message, seq } = useSyncExternalStore(
     subscribeRouteAnnouncement,
@@ -96,6 +152,7 @@ export function RouteAnnouncer() {
     getServerRouteAnnouncement,
   );
   useArrivalAnnouncements();
+  useSilencedFrameworkAnnouncer();
 
   return (
     <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
