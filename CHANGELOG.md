@@ -1,3 +1,9 @@
+# [0.348.0](https://github.com/vap-ops/prc-ops/compare/v0.347.0...v0.348.0) (2026-08-06)
+
+### Features
+
+- **muster:** procurement can correct an open muster day, least-privilege (spec 400 U3a) ([#1000](https://github.com/vap-ops/prc-ops/issues/1000)) ([d0bbec3](https://github.com/vap-ops/prc-ops/commit/d0bbec3f36c8d0680477e408ebfb3dccef3795d4)), closes [#988](https://github.com/vap-ops/prc-ops/issues/988)
+
 # [0.347.0](https://github.com/vap-ops/prc-ops/compare/v0.346.0...v0.347.0) (2026-08-06)
 
 ### Features
