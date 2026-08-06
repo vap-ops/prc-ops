@@ -17,13 +17,77 @@
 // message outranks this one, which is the right priority. Do not read that as
 // "arrival is covered" — measured live, it is not; see route-announcement.ts.
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import {
+  announceArrival,
   getRouteAnnouncement,
   getServerRouteAnnouncement,
+  pageNameFromTitle,
   subscribeRouteAnnouncement,
 } from "@/lib/ui/route-announcement";
+
+/**
+ * Watches the document title and reports each new destination.
+ *
+ * It observes `document.head` rather than the `<title>` node, because Next
+ * REPLACES that node on every navigation instead of editing its text (measured:
+ * `title-node-removed` then `title-node-added` ~1–6ms later, with
+ * `document.title` empty in between). A watcher bound to the original node
+ * would go deaf after the first navigation — and that empty gap is exactly what
+ * the framework's own announcer samples, which is why it speaks the wrong
+ * thing. `pageNameFromTitle` maps the gap to "" so it is never announced.
+ *
+ * Lives inside the region component on purpose: this is already the one thing
+ * mounted once in the root layout, so folding it in adds no second mount point
+ * to keep pinned and no second client component to the bundle.
+ */
+function useArrivalAnnouncements(): void {
+  // What the user is currently on. The page loaded directly is the BASELINE to
+  // compare against, never something to speak — screen readers announce a full
+  // page load themselves.
+  //
+  // Keyed on the PATHNAME as well as the name, because the name alone is not a
+  // navigation: 39 dynamic-segment pages carry ONE static title for every
+  // record (`work-packages/[workPackageId]` is "รูปถ่ายงาน" for all of them), so
+  // a name-only key treats every WP→WP move — the site admin's commonest
+  // navigation — as a repeat and says nothing at all. The pathname is already
+  // updated by the time the new title lands (measured: pathname +1074ms, title
+  // node re-added +1100ms). Comparing both is also what the same-page case
+  // needs: a router.refresh() keeps the pathname, so it still stays silent.
+  const lastPath = useRef<string | null>(null);
+  const lastName = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastPath.current = window.location.pathname;
+    lastName.current = pageNameFromTitle(document.title);
+
+    const report = () => {
+      const name = pageNameFromTitle(document.title);
+      // "" is the node-swap gap, or a page that set no title. Say nothing — and
+      // crucially do not let it BECOME the baseline. Every navigation passes
+      // through that gap, so a poisoned baseline makes the next title look like
+      // a change even when it is the same page: a same-title node replacement
+      // would announce an arrival the user never made. (Dropping this test
+      // leaves the announce path correct — announceArrival("") is itself a
+      // no-op — which is exactly why the baseline is the half that matters.)
+      if (name === "") return;
+
+      const path = window.location.pathname;
+      if (path === lastPath.current && name === lastName.current) return;
+      lastPath.current = path;
+      lastName.current = name;
+      announceArrival(name);
+    };
+
+    // childList + subtree is the whole mechanism: Next replaces the <title>
+    // NODE. `characterData` was here too and nothing could distinguish its
+    // presence from its absence, so it is not carried on faith.
+    const observer = new MutationObserver(report);
+    observer.observe(document.head, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+}
 
 export function RouteAnnouncer() {
   const { message, seq } = useSyncExternalStore(
@@ -31,6 +95,7 @@ export function RouteAnnouncer() {
     getRouteAnnouncement,
     getServerRouteAnnouncement,
   );
+  useArrivalAnnouncements();
 
   return (
     <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">

@@ -323,9 +323,11 @@ is the one that does the work:
   on load, not the whole body, so that node is reached only if the user happens
   to be traversing the document during the wait.
 
-Three rules, all pinned by
+Four rules, pinned by
 [route-loading-announcement.test.tsx](../tests/unit/route-loading-announcement.test.tsx)
-and, for the two surfaces together, by
+and
+[route-arrival-announcement.test.tsx](../tests/unit/route-arrival-announcement.test.tsx),
+and — for the two boundary surfaces together — by
 [portal-loading-announcement.test.tsx](../tests/unit/portal-loading-announcement.test.tsx):
 
 1. **The region is never declared by a boundary.** A live region inserted
@@ -334,20 +336,21 @@ and, for the two surfaces together, by
    `PageSkeleton`) containing `aria-live` / `role="status"` / `role="alert"`.
 2. **It is polite, never assertive.** Waiting is not an emergency and must not
    interrupt a reader mid-sentence; `role="alert"` is reserved for real events
-   (the same call as the update chip, §6). It covers the **pending window**
-   only.
+   (the same call as the update chip, §6).
 
-   ⚠️ **Arrival is NOT announced today — do not assume the framework has it.**
-   Next.js does mount a persistent announcer of its own
+   ⚠️ **Do not assume the framework announces arrival — it does not.** Next.js
+   mounts a persistent announcer of its own
    (`client/components/app-router-announcer`, a shadow-DOM
    `role="alert" aria-live="assertive"` node), and reading that source suggests
    it speaks `document.title` on every route change. Measured on a live server,
-   it does not: across four client-side navigations it stayed **empty** on three
-   whose title had provably changed, and on the fourth announced
-   `สวัสดี คุณ…` — the SA home's `<h1>`, neither the destination nor the current
-   page. It samples the title when the router tree changes, before Next swaps
-   it, then falls through to `querySelector("h1")`. Announcing the destination
-   is an open follow-up with its own decision to make (what to say, and when).
+   it does not: across four navigations it stayed **empty** on three whose title
+   had provably changed, and on the fourth announced `สวัสดี คุณ…` — the SA
+   home's `<h1>`, neither the destination nor the page being left. Root cause,
+   measured: **Next REPLACES the `<title>` node rather than editing its text**,
+   so `document.title` is empty for ~1–6 ms per navigation, and that is the
+   window its effect samples in — hence the `h1` fallback. It still fires
+   occasionally, assertively, with that wrong text; suppressing it from app code
+   was not attempted. Our own arrival announcement (rule 4) carries the truth.
 
 3. **Each announcement gets a fresh node identity** (`key={seq}`). Every boundary
    says the same words, and React unmounts one fallback and mounts the next in a
@@ -360,6 +363,51 @@ and, for the two surfaces together, by
    the region pass through empty between announcements (e.g. publishing the next
    message in a `queueMicrotask` so the clear commits first); recorded, not
    built.
+
+4. **Arrival is announced through the SAME region, and it DEFERS behind the
+   wait.** `RouteAnnouncer` watches `document.head` (not the `<title>` node —
+   Next replaces it, so a node-bound observer goes deaf after one navigation)
+   and reports each new destination via `announceArrival`. Two rules fall out of
+   the measurements, both pinned:
+
+   - **Strip the `— PRC Ops` suffix, and stay SILENT for a page that set no
+     title of its own.** Never fall back to the `<h1>`: on 4 of 5 sampled pages
+     it reads `สวัสดี คุณ<ชื่อ>`, so announcing it reads the user their own name
+     on arrival. Measured on `/contacts`: title `PRC Ops`, no `<h1>` at all.
+     127 of 135 `page.tsx` do carry a static Thai `metadata.title` (zero
+     `generateMetadata`) — but per ROUTE, not per record: 39 dynamic-segment
+     pages reuse one title for every record, which is why the de-dupe below is
+     keyed on the pathname as well as the name. ⚑ Giving the other 8 a title is
+     an open follow-up.
+   - **Defer while a boundary is open.** The title is correct **640–930 ms
+     before** the content renders, so announcing on the title alone would tell
+     the user they had landed on a page that is still a skeleton. Verified in
+     real Chrome: `กำลังโหลด…` at +1048 ms, title at +1056 ms, `โครงการ` at
+     **+1797 ms** — the announcement waits for the content, not the title. One
+     region for both means the two can never overlap in CONTENT.
+   - **De-dupe on the navigation, not the words.** Keying on the title alone
+     would silence the app's commonest movement, because a dynamic route's title
+     is the same for every record (`work-packages/[workPackageId]` is
+     `รูปถ่ายงาน` for all of them), so WP→WP would read as a repeat. The pathname
+     has already changed by the time the new title lands (measured: pathname
+     +1074 ms, title node re-added +1100 ms). Comparing both is also what keeps
+     a same-page node replacement silent.
+
+   - **A boundary HANDOFF must not swallow the destination.** React releases one
+     skeleton and opens the next inside a SINGLE commit as a segment resolves
+     deeper, so the count passes through zero while the wait is still on.
+     Publishing there consumed the destination and the incoming boundary
+     overwrote it — measured in real Chrome on a project-detail navigation:
+     `กำลังโหลด…` for nine seconds and then **silence**. So the release DEFERS the
+     arrival by a microtask and re-checks the count once the commit has settled.
+     Only the arrival is deferred; clearing the region stays synchronous,
+     because a clear cannot be invalidated by what follows.
+
+   ⚑ **One ordering edge is recorded, not built:** if a title ever landed before
+   its boundary opened, arrival would be spoken and then replaced by
+   `กำลังโหลด…`. Measured, the boundary opens 6–8 ms FIRST on every sampled
+   navigation, so this is theoretical today; the same microtask-and-recheck would
+   close it.
 
 Also pinned: **every boundary must render an announcement** — `<PageSkeleton />`
 or `<LoadingAnnouncement />` — so a new bespoke `loading.tsx` cannot ship mute
