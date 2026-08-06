@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/features/chrome/page-skeleton";
+import { NarrowSkeleton } from "@/components/features/chrome/narrow-skeleton";
 
 export default function Loading() {
-  return <PageSkeleton />;
+  return <NarrowSkeleton variant="card" />;
 }

@@ -10,8 +10,9 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // Skeleton's theme-token default (the screens hardcode the light palette).
 //
 // It renders PageShell, like every other route (spec 63/64, ui-conventions §5)
-// — 44 of the app's 45 loading.tsx files delegate here, so this one line is 44
-// boundaries' scroller. It used to hand-roll `<main class="bg-page min-h-screen
+// — 41 of the app's 45 loading.tsx files delegate here (the other four: the
+// three single-column screens on narrow-skeleton.tsx and /portal's bespoke
+// frame), so this one line is 41 boundaries' scroller. It used to hand-roll `<main class="bg-page min-h-screen
 // overflow-x-clip">`, which is not a scroller: the root layout locks the body
 // (h-full overflow-hidden), so a min-h-screen <main> grows PAST the viewport and
 // the overflow is clipped with no gesture that can reach it. Measured in a real
@@ -31,13 +32,11 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // vs 672 at 760 — the old private cap was the VIEWPORT through the 672–768 band,
 // so the two only already agreed below 672.
 //
-// ⚠️ Three boundaries are NOT content pages and this makes their (pre-existing)
-// mismatch wider, not narrower: /login, /coming-soon and /profile render
-// `PageShell variant="card"` around a max-w-sm/max-w-md card, while this shared
-// skeleton paints an app-variant header strip + list rows at PAGE_MAX_W. Width is
-// the smaller half of that — the ANATOMY is already wrong for them — so it is
-// recorded as its own unit (a card-variant skeleton) rather than patched with a
-// width prop here.
+// ⚠️ Three boundaries are NOT content pages, and they no longer delegate here:
+// /login, /coming-soon and /profile are single-column screens, so a PAGE_MAX_W
+// header strip + list rows was the wrong anatomy for them at any width. They
+// render narrow-skeleton.tsx instead (shipped 2026-08-06). Send a new boundary
+// there, not here, whenever the page it stands in for is one narrow column.
 export function PageSkeleton() {
   return (
     <PageShell variant="app">
