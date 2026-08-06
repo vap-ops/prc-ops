@@ -1,3 +1,9 @@
+# [0.347.0](https://github.com/vap-ops/prc-ops/compare/v0.346.0...v0.347.0) (2026-08-06)
+
+### Features
+
+- **zones:** the Konva zone-drawing canvas (spec 392 U2b) ([#995](https://github.com/vap-ops/prc-ops/issues/995)) ([5fb5be0](https://github.com/vap-ops/prc-ops/commit/5fb5be058df60a2bfd6d6815c9c0e9aaf375e3e0))
+
 # [0.346.0](https://github.com/vap-ops/prc-ops/compare/v0.345.4...v0.346.0) (2026-08-06)
 
 ### Bug Fixes
