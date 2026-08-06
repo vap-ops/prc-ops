@@ -60,14 +60,17 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     expect(drill).toContain('q.set("view", "list")');
   });
 
-  it("aims a worker name at a page THAT ROLE can open", () => {
-    // WORKER_ROSTER_ROLES is narrower than ATTENDANCE_AUDIT_ROLES; the other
-    // three roles get this report's own drill rather than a redirect.
-    expect(occurrences("WORKER_ROSTER_ROLES")).toBe(2);
-    expect(code).toContain("/workers/${workerId}/attendance");
-    const fallback = code.slice(code.indexOf("const gridWorkerHref"));
-    expect(fallback).toContain('view: "list"');
-    expect(fallback).toContain("worker: workerId");
+  it("resolves the worker link through gridWorkerHref, keyed on the REAL role set", () => {
+    // The BEHAVIOUR of both arms is pinned in attendance-grid.test.ts, because a
+    // source scan cannot see reachability: with the branch inline, mutating
+    // `if (canOpenCalendar)` to `if (true)` left the fallback code and the
+    // role-set count untouched and this file stayed GREEN. All this may assert
+    // is that the page hands the helper the right input.
+    expect(occurrences("gridWorkerHref")).toBe(2);
+    expect(code).toContain("WORKER_ROSTER_ROLES.includes(ctx.role)");
+    expect(code).toContain("gridWorkerHref({ workerId, canOpenCalendar, range, backHref })");
+    // …and that the page does not quietly rebuild either destination itself.
+    expect(code).not.toContain("/workers/${workerId}/attendance");
   });
 
   it("reads public_holidays on the SESSION client, never the admin one", () => {

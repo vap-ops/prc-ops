@@ -35,7 +35,7 @@ import {
   WORKER_ROSTER_ROLES,
 } from "@/lib/auth/role-home";
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
-import { attendanceView, buildAttendanceGrid } from "@/lib/muster/attendance-grid";
+import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -212,21 +212,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // calendar; they get this report's own drill instead, which they can open. The
   // affordance is therefore never withheld, only re-aimed.
   const canOpenCalendar = WORKER_ROSTER_ROLES.includes(ctx.role);
-  const gridWorkerHref = (workerId: string): string => {
-    if (canOpenCalendar) {
-      const q = new URLSearchParams({ from: "/team/attendance" });
-      return `/workers/${workerId}/attendance?${q.toString()}`;
-    }
-    const q = new URLSearchParams({
-      start: range.from,
-      end: range.to,
-      view: "list",
-      worker: workerId,
-    });
-    if (range.projectId) q.set("project", range.projectId);
-    if (backHref !== "/team") q.set("from", backHref);
-    return `/team/attendance?${q.toString()}#w-${workerId}`;
-  };
+  const workerHref = (workerId: string): string =>
+    gridWorkerHref({ workerId, canOpenCalendar, range, backHref });
 
   // Preserve the range + project + referrer when toggling a drill open/closed.
   const drillHref = (workerId: string | null): string => {
@@ -383,7 +370,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
             </div>
 
             {shape === "grid" && (
-              <AttendanceGridView grid={grid} todayIso={todayIso} workerHref={gridWorkerHref} />
+              <AttendanceGridView grid={grid} todayIso={todayIso} workerHref={workerHref} />
             )}
 
             {/* One row per worker. The signal chips mark the rows an auditor

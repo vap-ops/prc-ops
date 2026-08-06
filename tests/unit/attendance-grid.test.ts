@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_GRID_DAYS,
   buildAttendanceGrid,
+  gridWorkerHref,
   type AttendanceGridInput,
 } from "@/lib/muster/attendance-grid";
 import { buildAttendanceMonth } from "@/lib/attendance/attendance-month";
@@ -238,6 +239,46 @@ describe("buildAttendanceGrid — rows", () => {
     // but the builder must not silently drop a value it was handed.
     expect(grid.rows[0]?.otHoursTotal).toBe(6);
     expect(grid.rows[1]?.daysPresent).toBe(1);
+  });
+});
+
+describe("gridWorkerHref — the link goes where the ROLE can land", () => {
+  const range = { from: "2026-08-01", to: "2026-08-05" };
+
+  it("sends a roster role to the spec-374 per-worker calendar", () => {
+    expect(
+      gridWorkerHref({ workerId: "w1", canOpenCalendar: true, range, backHref: "/team" }),
+    ).toBe("/workers/w1/attendance?from=%2Fteam%2Fattendance");
+  });
+
+  it("sends a NON-roster audit role to this report's own drill instead", () => {
+    // accounting / hr / project_coordinator are in ATTENDANCE_AUDIT_ROLES but not
+    // in WORKER_ROSTER_ROLES, so the calendar would redirect them. The affordance
+    // is re-aimed, never withheld — and this arm was mutation-proved reachable.
+    const href = gridWorkerHref({
+      workerId: "w1",
+      canOpenCalendar: false,
+      range,
+      backHref: "/team",
+    });
+    expect(href).toContain("/team/attendance?");
+    expect(href).toContain("view=list");
+    expect(href).toContain("worker=w1");
+    expect(href).toContain("start=2026-08-01");
+    expect(href).toContain("end=2026-08-05");
+    expect(href).toContain("#w-w1");
+    expect(href).not.toContain("/workers/");
+  });
+
+  it("carries the project filter and a non-default referrer into the drill", () => {
+    const href = gridWorkerHref({
+      workerId: "w1",
+      canOpenCalendar: false,
+      range: { ...range, projectId: "p1" },
+      backHref: "/procurement",
+    });
+    expect(href).toContain("project=p1");
+    expect(href).toContain("from=%2Fprocurement");
   });
 });
 
