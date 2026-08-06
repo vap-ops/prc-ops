@@ -71,12 +71,30 @@ function sourceOf(relative: string): string {
     .join("\n");
 }
 
-/** The variant a page's own PageShell call declares — three-way, not a boolean. */
+/**
+ * The variant a file's PageShell calls declare — three-way, not a boolean, and
+ * EVERY call in the file, not the first.
+ *
+ * Reading only the first was a hole a mutation found: `coming-soon/page.tsx`
+ * renders TWO shells (the unserved-role card at the top, the super_admin
+ * OperatorHub below), so reverting the hub to `variant="bare"` — the exact
+ * regression this unit fixes — left the pin green because the card arm above it
+ * still matched. A file with two disagreeing shells is precisely the defect.
+ */
 function declaredVariant(source: string): "app" | "card" | "bare" {
-  const call = source.match(/<PageShell\b[^>]*>/);
-  if (!call) throw new Error("page renders no PageShell — the derivation is vacuous");
-  const explicit = call[0].match(/variant="(app|card|bare)"/);
-  return explicit ? (explicit[1] as "app" | "card" | "bare") : "app";
+  const calls = source.match(/<PageShell\b[^>]*?>/g) ?? [];
+  if (calls.length === 0) throw new Error("file renders no PageShell — the derivation is vacuous");
+  const variants = [
+    ...new Set(
+      calls.map((call) => (call.match(/variant="(app|card|bare)"/)?.[1] ?? "app") as string),
+    ),
+  ];
+  if (variants.length !== 1) {
+    throw new Error(
+      `this file's ${calls.length} PageShell calls disagree: [${variants.join(", ")}]`,
+    );
+  }
+  return variants[0] as "app" | "card" | "bare";
 }
 
 /**
@@ -117,9 +135,11 @@ function declaredWidth(sources: string[]): string {
 /**
  * The three narrow screens, each with the variant its PAGE renders. `card` is
  * PageShell's centred bg-card ground; `app` is the top-aligned bg-page one.
- * /coming-soon renders card for unserved roles and a bare+bg-card OperatorHub
- * for super_admin — both are a max-w-md column on the card ground, so `card`
- * is right for either arm.
+ *
+ * /coming-soon's three arms (unserved-role card · VisitorLanding · super_admin
+ * OperatorHub) all declare `card` as of 2026-08-06 — the hub used to be
+ * `bare`+`bg-card` because the card variant's `items-center` clipped tall
+ * content, and it could adopt the variant once that was fixed with auto margins.
  */
 const NARROW_BOUNDARIES = [
   {
