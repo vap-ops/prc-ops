@@ -12729,6 +12729,57 @@ return to empty when a later boundary releases with nothing pending. Both announ
 this is cosmetic, but it means "what does the region say now" is not a stable assertion. ② Still
 carried: one theoretical ordering edge, and Next's own announcer misfiring.
 
+## 2026-08-06 — Silence the framework's own route announcer (lane a11ysilence)
+
+**Closes the last carry from the arrival work.** Next mounts a
+`<next-route-announcer>` custom element whose shadow root holds a
+`role="alert" aria-live="assertive"` div and reports `document.title` on every
+router-tree change. #983 observed it speaking the wrong thing; #986 root-caused it
+(Next REPLACES the `<title>` node rather than editing it, so `document.title` is empty for
+~1–6 ms per navigation and its effect samples inside that window, falling through to
+`querySelector("h1")`). Both units recorded "suppressing it from app code was not attempted".
+This attempts it.
+
+**The decision was a measurement, and the measurement could have gone the other way.** Suppressing
+a framework accessibility feature is only defensible if it never gets it right where we do not, so
+that was audited before any code: **across 7 real navigations in two sessions it was correct ZERO
+times.** Usually it mutates to `""` — harmless. Once it announced **`สวัสดี คุณDev Preview (CC)`** —
+the SA home's `<h1>` greeting, i.e. **the user's own name, assertively**, interrupting whatever they
+were reading, for a page they were not on. Our polite region announced the right destination on
+every one of those same navigations. So this removes nothing that works and removes a real,
+intermittent lie. Had even one navigation shown it correct where ours was silent, the answer would
+have been to leave it alone.
+
+**The narrowest intervention available: two ARIA attributes on one node.** `aria-live="off"` plus
+removing `role` (which is an assertive live region in its own right, so `aria-live` alone would not
+be enough). No patched framework file, no `patch-package`, no removed DOM, and nothing breaks if a
+future Next stops shipping the announcer or fixes it.
+
+⭐ **Why touching a React-managed node is safe here — proven, not assumed.** React portals the
+announcement TEXT into that div, so the obvious worry is that it owns the attributes and would
+restore them. Driven in real Chrome: after the change, `aria-live="off"` and the missing `role`
+**stuck across three navigations**, `hostCount` stayed 1, and a `data-probe` tag placed on the node
+**survived throughout** — so React never replaced it. It owns the children, not the element. That
+probe is the whole licence for this approach; without it this would have been a guess.
+
+⚠️ **The node is created inside Next's OWN effect**, and effect order between two components is not
+ours to control — so "not there when we looked" cannot mean "give up". A missing node is watched
+for on `document.body` (where Next appends it) until it appears, then the observer stops. A mutant
+that replaced this with a single best-effort attempt dies.
+
+**Gates.** RED first (3 failing, 3 controls green) · **6/6 mutants killed** — including targeting
+the HOST instead of the shadow-root region, leaving `role` in place while setting `aria-live`, and
+giving up when the node is late. ⚠️ One mutant pattern was **not unique** (`return () =>
+observer.disconnect();` matches both observers in the file) and the harness aborted rather than
+silently mutating the wrong one — the documented anchor-on-a-unique-symbol trap, caught by the
+guard that exists for it. lint 0 · typecheck 0 · `pnpm build` 0 · full suite green.
+**Gate 4 in real Chrome:** `nextRole: null`, `nextAriaLive: "off"` on the live app, while ours
+announced `โครงการ` · `รายชื่อช่าง` · `ทีมงาน` across the same navigations.
+
+**Open questions.** ① Worth reporting upstream to Next — the announcer samples `document.title`
+in the window where it has removed the title node. Not done. ② If a future Next fixes it, the
+silencing becomes unnecessary rather than harmful, and the guard's comments say where to look.
+
 ## 2026-08-06 — The narrow skeleton's column width is per screen (lane loginw)
 
 **Closing the residual #987 disclosed instead of fixing.** `NarrowSkeleton` shipped with one
