@@ -20,6 +20,12 @@
 // So the component takes PageShell's OWN variant vocabulary — `card` (centred on
 // bg-card: /login, /coming-soon) and `app` (top-aligned on bg-page: /profile) —
 // and each boundary's variant is pinned against the variant its PAGE renders.
+//
+// 2026-08-06, second pass: the column WIDTH is per-screen for the same reason.
+// #987 shipped one fixed max-w-md and disclosed the residual — /login's card is
+// max-w-sm, so its fallback was 64px too wide — and the operator asked for that
+// closed too. Both axes are now derived from the page the boundary stands in
+// for, so neither can drift back silently.
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -28,7 +34,7 @@ import { join } from "node:path";
 import ComingSoonLoading from "@/app/coming-soon/loading";
 import LoginLoading from "@/app/login/loading";
 import ProfileLoading from "@/app/profile/loading";
-import { NarrowSkeleton } from "@/components/features/chrome/narrow-skeleton";
+import { NarrowSkeleton, type NarrowWidth } from "@/components/features/chrome/narrow-skeleton";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { ROUTE_LOADING_MESSAGE } from "@/lib/ui/route-announcement";
 
@@ -74,6 +80,21 @@ function declaredVariant(source: string): "app" | "card" | "bare" {
 }
 
 /**
+ * The column width a page declares, read off the page rather than re-typed.
+ * A single-column screen uses exactly ONE `max-w-*` — /coming-soon names it
+ * three times (its two arms plus VisitorLanding's) and they agree — so more
+ * than one distinct value means the page is no longer a single-column screen
+ * and this table's premise, not the skeleton, is what needs revisiting.
+ */
+function declaredWidth(source: string): NarrowWidth {
+  const found = [...new Set((source.match(/\bmax-w-(?:sm|md)\b/g) ?? []).map((m) => m.slice(6)))];
+  if (found.length !== 1) {
+    throw new Error(`expected exactly one column width, found [${found.join(", ")}]`);
+  }
+  return found[0] as NarrowWidth;
+}
+
+/**
  * The three narrow screens, each with the variant its PAGE renders. `card` is
  * PageShell's centred bg-card ground; `app` is the top-aligned bg-page one.
  * /coming-soon renders card for unserved roles and a bare+bg-card OperatorHub
@@ -81,41 +102,60 @@ function declaredVariant(source: string): "app" | "card" | "bare" {
  * is right for either arm.
  */
 const NARROW_BOUNDARIES = [
-  { route: "/login", Loading: LoginLoading, variant: "card" as const, page: ["login", "page.tsx"] },
+  {
+    route: "/login",
+    Loading: LoginLoading,
+    variant: "card" as const,
+    width: "sm" as const,
+    page: ["login", "page.tsx"],
+  },
   {
     route: "/coming-soon",
     Loading: ComingSoonLoading,
     variant: "card" as const,
+    width: "md" as const,
     page: ["coming-soon", "page.tsx"],
   },
   {
     route: "/profile",
     Loading: ProfileLoading,
     variant: "app" as const,
+    width: "md" as const,
     page: ["profile", "page.tsx"],
   },
 ];
 
 describe("NarrowSkeleton — the loading frame for single-column screens", () => {
   it("renders PageShell's <main> byte-for-byte, per variant", () => {
-    expect(mainOf(<NarrowSkeleton variant="card" />).className).toBe(shellClassName("card"));
-    expect(mainOf(<NarrowSkeleton variant="app" />).className).toBe(shellClassName("app"));
+    expect(mainOf(<NarrowSkeleton variant="card" width="md" />).className).toBe(
+      shellClassName("card"),
+    );
+    expect(mainOf(<NarrowSkeleton variant="app" width="md" />).className).toBe(
+      shellClassName("app"),
+    );
   });
 
-  it("paints a narrow column, not a page-width one", () => {
-    // max-w-md is the width all three real screens use (/login's card is
-    // max-w-sm, one step narrower — 448 vs 384 against the 1240 it replaces).
+  it("paints the column at the width it was given, and nothing wider", () => {
+    // Writing failing test first (2026-08-06). The frame shipped at a fixed
+    // max-w-md, which is right for /coming-soon and /profile and 64px too wide
+    // for /login's max-w-sm card — the residual #987 disclosed rather than
+    // fixed. Width is now per-screen, so assert the EXACT max-w-* token set:
+    // `toContain("max-w-sm")` alone would pass on `max-w-sm max-w-md`, which is
+    // the ui-conventions §5 two-utilities-one-property hazard.
     for (const variant of ["card", "app"] as const) {
-      const column = render(<NarrowSkeleton variant={variant} />).container.querySelector(
-        "main > div",
-      );
-      expect(column?.className, `${variant}: the column`).toContain("max-w-md");
-      expect(column?.className, `${variant}: never the page width`).not.toContain("max-w-2xl");
+      for (const width of ["sm", "md"] as const) {
+        const column = render(
+          <NarrowSkeleton variant={variant} width={width} />,
+        ).container.querySelector("main > div");
+        expect(column?.className.match(/\bmax-w-\S+/g), `${variant}/${width}: the column`).toEqual([
+          `max-w-${width}`,
+        ]);
+      }
     }
   });
 
   it("announces itself and paints a frame to announce", () => {
-    const { container } = render(<NarrowSkeleton variant="card" />);
+    const { container } = render(<NarrowSkeleton variant="card" width="md" />);
 
     expect(container.querySelector(".sr-only")?.textContent?.trim()).toBe(ROUTE_LOADING_MESSAGE);
     expect(container.querySelectorAll(".animate-pulse").length).toBe(4);
@@ -127,8 +167,8 @@ describe("NarrowSkeleton — the loading frame for single-column screens", () =>
     // swap — WORSE on the vertical axis than the PageSkeleton it replaced, on
     // the one boundary here with measurable traffic. /login and /coming-soon
     // have no header at all, so the card arm must NOT grow one.
-    const app = render(<NarrowSkeleton variant="app" />).container;
-    const card = render(<NarrowSkeleton variant="card" />).container;
+    const app = render(<NarrowSkeleton variant="app" width="md" />).container;
+    const card = render(<NarrowSkeleton variant="card" width="md" />).container;
 
     expect(app.querySelectorAll("main > header").length, "the app arm mirrors DetailHeader").toBe(
       1,
@@ -141,17 +181,21 @@ describe("NarrowSkeleton — the loading frame for single-column screens", () =>
 });
 
 describe("the three narrow boundaries use it, with their page's own variant", () => {
-  it.each(NARROW_BOUNDARIES)("$route delegates to NarrowSkeleton", ({ Loading, variant }) => {
-    // The shell class alone would also pass for a hand-rolled
-    // `<PageShell variant="…"><LoadingAnnouncement /></PageShell>` with no frame
-    // at all (fresh-eyes catch), so compare the boundary's whole rendered output
-    // to the component's — that is what "delegates" means.
-    const boundary = render(<Loading />).container.innerHTML;
-    const component = render(<NarrowSkeleton variant={variant} />).container.innerHTML;
+  it.each(NARROW_BOUNDARIES)(
+    "$route delegates to NarrowSkeleton",
+    ({ Loading, variant, width }) => {
+      // The shell class alone would also pass for a hand-rolled
+      // `<PageShell variant="…"><LoadingAnnouncement /></PageShell>` with no frame
+      // at all (fresh-eyes catch), so compare the boundary's whole rendered output
+      // to the component's — that is what "delegates" means.
+      const boundary = render(<Loading />).container.innerHTML;
+      const component = render(<NarrowSkeleton variant={variant} width={width} />).container
+        .innerHTML;
 
-    expect(mainOf(<Loading />).className).toBe(shellClassName(variant));
-    expect(boundary).toBe(component);
-  });
+      expect(mainOf(<Loading />).className).toBe(shellClassName(variant));
+      expect(boundary).toBe(component);
+    },
+  );
 
   it.each(NARROW_BOUNDARIES)("$route keeps the announcement", ({ Loading }) => {
     const { container } = render(<Loading />);
@@ -172,6 +216,17 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
       expect(declaredVariant(sourceOf(...page)), `${page.join("/")}'s own PageShell call`).toBe(
         variant,
       );
+    },
+  );
+
+  it.each(NARROW_BOUNDARIES)(
+    "$route's fallback WIDTH matches what its PAGE renders",
+    ({ width, page }) => {
+      // The same derivation as the variant pin, for the other axis: #987 shipped
+      // one fixed max-w-md and left /login 64px wide against its max-w-sm card.
+      // Reading the width off the page is what stops that recurring — change the
+      // page's column and this reds until the boundary follows.
+      expect(declaredWidth(sourceOf(...page)), `${page.join("/")}'s own column width`).toBe(width);
     },
   );
 });

@@ -25,8 +25,10 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 //     centred frame would be a NEW mismatch on the vertical axis.
 //
 // Two residual jumps, disclosed rather than papered over (both far smaller than
-// the ~792px this replaces, and neither is fixable without a knob per screen):
-//   • /login's card is max-w-sm (384) against this column's max-w-md (448);
+// the ~792px this replaced):
+//   • ~~/login's card is max-w-sm against a fixed max-w-md column~~ CLOSED
+//     2026-08-06: the width is per-screen now, and each boundary's is pinned
+//     against the width its own PAGE declares, so it cannot drift back;
 //   • /coming-soon's super_admin arm is TOP-aligned (variant="bare") while the
 //     card variant centres, so that one arm still shifts vertically. The other
 //     two arms of that page are centred, so `card` is the majority match.
@@ -36,7 +38,24 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // /profile is measurably alive (91 route views / 73 sessions / 9 roles in 60
 // days). A card-only fix would have landed entirely on surfaces whose value
 // cannot be observed.
-export function NarrowSkeleton({ variant }: { variant: "app" | "card" }) {
+export type NarrowWidth = "sm" | "md";
+
+// Literal class strings, never `max-w-${width}` — Tailwind generates utilities by
+// scanning source for whole candidates, so an interpolated name is not guaranteed
+// to exist in the stylesheet (it would only work here by accident, because
+// login/page.tsx happens to mention max-w-sm).
+const COLUMN_WIDTH: Record<NarrowWidth, string> = {
+  sm: "max-w-sm",
+  md: "max-w-md",
+};
+
+export function NarrowSkeleton({
+  variant,
+  width,
+}: {
+  variant: "app" | "card";
+  width: NarrowWidth;
+}) {
   return (
     <PageShell variant={variant}>
       <LoadingAnnouncement />
@@ -60,8 +79,8 @@ export function NarrowSkeleton({ variant }: { variant: "app" | "card" }) {
       <div
         className={
           variant === "card"
-            ? "w-full max-w-md space-y-6 text-center"
-            : "mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10"
+            ? `w-full ${COLUMN_WIDTH[width]} space-y-6 text-center`
+            : `mx-auto flex w-full ${COLUMN_WIDTH[width]} flex-col gap-6 px-6 py-10`
         }
       >
         <Skeleton className="bg-sunk mx-auto h-8 w-48" />
