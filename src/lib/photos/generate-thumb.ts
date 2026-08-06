@@ -97,12 +97,24 @@ export function defaultThumbDeps(admin: {
     },
     async resize(input) {
       const { default: sharp } = await import("sharp");
-      // ⚠️ HEIC does not decode in this build and cannot be made to: the prebuilt
-      // libheif ships without an HEVC decoder ("Support for this compression format
-      // has not been built in"). Measured on the real bucket — all 10 .heic originals
-      // fail, with or without `unlimited: true` (that flag only clears the separate
-      // iloc security limit, so it was tried and reverted). Those photos fall back to
-      // full size per D4; see spec 398 §5.
+      // ⚠️ The 10 .heic originals on the real bucket do not decode. RE-MEASURED
+      // 2026-08-06 — the earlier explanation here was WRONG on both counts, so do not
+      // re-derive it: `unlimited: true` DOES clear the iloc security limit, and the
+      // files are NOT truncated (every top-level ISOBMFF box parses to exactly the
+      // byte length, overshoot 0). With 64 bytes of padding a decoder plugin actually
+      // runs, so the build is not missing an HEVC decoder either.
+      //
+      // The real wall: these are Samsung HEICs (they carry a `sefd` trailer) whose
+      // `iloc` extents point 32 and 7 bytes PAST EOF. The image data the offsets
+      // describe was never written, so no decoder setting can recover it.
+      //
+      // ⛔ Do NOT "fix" this with `unlimited: true`. It recovers ZERO photos and
+      // removes libheif's memory-exhaustion guard on server-side decode of
+      // user-uploaded files — a real DoS surface bought for nothing.
+      //
+      // These fall back to full size per D4. The actual fix is upstream, at the
+      // upload path (spec 398 §5): the Samsung route slips past the client canvas
+      // re-encode — 4 files 2026-07-21, 6 files 2026-07-31.
       return sharp(input)
         .rotate() // honour EXIF orientation before resizing, or a portrait photo thumbs sideways
         .resize(THUMB_SIZE, THUMB_SIZE, { fit: "inside", withoutEnlargement: true })

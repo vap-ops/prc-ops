@@ -162,10 +162,19 @@ this is like-for-like). Coverage **2,740 / 2,754 photo_logs objects = 99.49%**.
 
 The 14 failures are all unreadable ORIGINALS, and they split into two real findings:
 
-- **10 × `.heic` — permanent, and not fixable here.** The prebuilt libheif inside `sharp` has no
-  HEVC decoder (`Support for this compression format has not been built in`). `unlimited: true`
-  was tried — it clears a separate `iloc` security limit and the files still fail — and reverted,
-  because keeping a flag that buys nothing is worse than recording why. ⚠️ These arrived
+- **10 × `.heic` — permanent, and not fixable here.** ⚠️ **CORRECTED 2026-08-06 after
+  re-measuring; the original explanation below was wrong on both counts and is kept only so the
+  next reader recognises it and does not re-derive it.** ~~The prebuilt libheif inside `sharp` has
+  no HEVC decoder (`Support for this compression format has not been built in`), and
+  `unlimited: true` was tried and reverted.~~ In fact **`unlimited: true` DOES clear the `iloc`
+  security limit**, the files are **not truncated** (every top-level ISOBMFF box parses to exactly
+  the byte length, overshoot 0), and with 64 bytes of padding **a decoder plugin does run** — so
+  the build is not missing an HEVC decoder. The real wall is that these are **Samsung HEICs**
+  (they carry a `sefd` trailer) whose **`iloc` extents point 32 and 7 bytes PAST EOF**: the image
+  data the offsets describe was never written, so no decoder setting can recover it. ⛔ **Do not
+  ship `unlimited: true`** — it recovers zero photos and removes libheif's memory-exhaustion guard
+  on server-side decode of user-uploaded files, i.e. a DoS surface bought for nothing. ⚠️ These
+  arrived
   **2026-07-21 → 07-31**, so HEIC is still reaching the bucket; the client's
   `preparePhotoForUpload` canvas re-encode is not catching every path. Those photos render at
   full size (D4) and are correct, just heavy.
