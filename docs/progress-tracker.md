@@ -12860,3 +12860,49 @@ unreconciled; that blocks further zone units, but not this fix.
 - ⓘ **Recorded for spec 392 U2b, which is held on another branch:** the shape/geometry pairing refusal means a shape-only change is impossible, and `rect`/`rounded_rect`/`ellipse` share the identical `{x,y,w,h}`. U2b's shape toggle must send the current geometry alongside the new shape — it does — but the contract now needs to survive an edit, so it is written here where that unit's author will read it.
 
 **Suite note.** `tests/unit/claude-hooks-bash-guards.test.ts` failed twice in full-suite runs with `Test timed out in 5000ms` and passes **25/25** when run alone in this worktree and in a sibling one; it spawns a node subprocess per case and is untouched by this diff. Box contention, not a finding — the earlier full run showed `environment 4112s` against a 1010s wall clock with two dev servers up.
+
+## 2026-08-06 — The narrow skeleton's column width is per screen (lane loginw)
+
+**Closing the residual #987 disclosed instead of fixing.** `NarrowSkeleton` shipped with one
+fixed `max-w-md` column, which is right for `/coming-soon` and `/profile` and 64px too wide for
+`/login`, whose card is `max-w-sm`. The operator asked for it closed.
+
+**Built.** The width is a prop (`"sm" | "md"`, required — each boundary states its own), and the
+class strings are a literal lookup rather than `` `max-w-${width}` ``: **Tailwind generates
+utilities by scanning source for whole candidates, so an interpolated name is not guaranteed to
+be in the stylesheet.** It would have worked here by accident — `login/page.tsx` mentions
+`max-w-sm` — which is exactly the kind of accident that breaks the day that page changes.
+
+**Pinned on the same principle as the variant, which is the point.** The existing pin reads the
+page's own `PageShell` call; the new one reads the page's own column class. Both axes are now
+derived from the page the boundary stands in for, so neither can drift back silently. The width
+assertion compares the **exact `max-w-*` token set**, not `toContain` — `max-w-sm max-w-md`
+would satisfy a contains check while leaving the winner to the generated stylesheet's order
+(ui-conventions §5).
+
+**4/4 mutants killed**, and one of them is the RED-first proof after the fact: reverting
+`/login/loading.tsx` to `width="md"` — the exact pre-fix state — reds. Also killed: collapsing
+the width map to one value; putting two `max-w-*` on the column; and **the coordinated
+regression** — changing the test table AND the boundary to `md` together, which the
+page-derived pin catches (`expected 'sm' to be 'md'`).
+
+**Verified in a real browser against the real generated stylesheet — with the provenance stated,
+because a fresh-eyes pass caught the first draft implying more than was done.** `/login` cannot
+be opened in the preview (an authenticated session redirects it), so it was fetched with
+`credentials: "omit"`; the server then renders the real login page, whose column reads
+`w-full max-w-sm space-y-6 text-center`. That response carries **no suspense fallback at all**
+(the page resolves too fast), so the fallback was NOT rendered — the three widths were measured
+by injecting the class strings into a card-variant container at 1280×800 and reading their
+rects: the page's card **384px**, the new column class **384px**, the old one **448px**.
+`/coming-soon` was measured the real way (both states in one DOM): fallback 448 vs page 448,
+unchanged.
+
+⚠️ **What that measurement does NOT prove:** `max-w-sm` resolving to 384px says nothing about
+the literal-`Record` decision, because `max-w-sm` is emitted from `login/page.tsx` and
+`confirm-dialog.tsx` regardless of what `COLUMN_WIDTH` contains. The first draft claimed it as
+proof; it is only proof that the utility exists. The Tailwind reasoning stands on the scanner's
+documented behaviour, not on this number.
+
+⚑ **Recorded, not built:** because `/login` streams no fallback on a cold load, that boundary is
+only seen on a client-side navigation — e.g. after logout. The fix is right; its audience is
+narrower than the other two.
