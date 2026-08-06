@@ -230,12 +230,19 @@ describe("the three narrow boundaries use it, with their page's own variant", ()
       // these are async Server Components the suite cannot render.
       //
       // Three-way, deliberately: a boolean `card ? card : app` cannot see
-      // `bare`, so switching a page to `variant="bare" className="bg-card"` —
-      // exactly what /coming-soon's OperatorHub arm does — would flip the ground
-      // under the user with the pin still green (fresh-eyes catch).
-      expect(declaredVariant(sourceOf(arms[0] as string)), `${arms[0]}'s own PageShell call`).toBe(
-        variant,
-      );
+      // `bare`, so switching a page to `variant="bare" className="bg-card"`
+      // would flip the ground under the user with the pin still green
+      // (fresh-eyes catch).
+      //
+      // EVERY arm, not just the first (2026-08-06): /coming-soon's OperatorHub
+      // arm was `bare` while its other two were `card`, so one boundary faced
+      // three pages that did not agree with each other — the fallback could
+      // match at most two, and its vertical alignment was wrong for the third.
+      // Checking arms[0] alone could never see that. The arms are now required
+      // to agree with each other AND with the boundary.
+      for (const arm of arms) {
+        expect(declaredVariant(sourceOf(arm)), `${arm}'s own PageShell call`).toBe(variant);
+      }
     },
   );
 

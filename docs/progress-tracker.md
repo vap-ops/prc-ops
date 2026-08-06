@@ -12906,3 +12906,44 @@ documented behaviour, not on this number.
 ⚑ **Recorded, not built:** because `/login` streams no fallback on a cold load, that boundary is
 only seen on a client-side navigation — e.g. after logout. The fix is right; its audience is
 narrower than the other two.
+
+## 2026-08-06 — `PageShell`'s card variant centres safely, and /coming-soon's arms agree (lane csalign)
+
+**The ask was the last disclosed residual; the answer was one layer down.** `/coming-soon`'s
+super_admin `OperatorHub` arm was TOP-aligned (`variant="bare" className="bg-card px-6 py-10"`)
+while its other two arms centred, so one loading boundary faced three pages that did not agree
+and its fallback could match at most two. The obvious fix — an `align` prop on the skeleton —
+would have been wrong: **the boundary cannot know which arm is coming.**
+
+**Why that arm had opted out, measured rather than guessed.** `align-items: center` on a
+_scrolling_ flex container centres overflowing content by pushing its top ABOVE the scrollable
+area, where no scroll position can reach it. Against the real generated stylesheet, a 900px card
+in a 600px scroller:
+
+| shell                                  | short 300px card        | tall 900px card                                                           |
+| -------------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `items-center` (before)                | top 150 — centred       | top **−150**, `scrollHeight` 750, `maxScroll` 150 ⇒ **150px unreachable** |
+| `items-start` + `[&>*]:m-auto` (after) | top 150 — **identical** | top **0**, `scrollHeight` **900**, `maxScroll` 300 ⇒ fully reachable      |
+
+So the alignment mismatch was a SYMPTOM of a latent clipping bug in the shared shell. Auto
+margins centre exactly like `items-center` while free space is positive and collapse to 0 when
+it is not — which is the whole difference.
+
+**Built.** `card` becomes `flex items-start justify-center bg-card px-6 [&>*]:m-auto`; the
+OperatorHub arm drops to `variant="card" className="py-10"`. Every card screen gains the fix —
+`/login`, `/coming-soon`, `error.tsx`, `not-found.tsx`, `page.tsx`, `visitor-landing.tsx` — and
+each passes exactly one child element, checked before relying on `[&>*]` (the sr-only
+announcement in the skeleton's card arm is `position: absolute`, so it is not a flex item).
+
+**Verified live** at 375×812: the fallback's column and the hub's column now sit under the same
+shell on the same ground, each centred by the same mechanism (page 671px column at top 40 in a
+751px box; fallback 216px at 298 in 812 — both exactly `(box − content) / 2`).
+
+**Pinned.** `page-shell.test.tsx` asserts the card variant does NOT carry `items-center` and DOES
+carry `[&>*]:m-auto`, with the measurement in the comment so the next reader cannot "simplify" it
+back. And the narrow-boundary ground pin now checks **every** arm rather than `arms[0]`: the old
+form structurally could not see a page whose arms disagree with each other, which is exactly the
+defect this unit fixes.
+
+⚠️ **jsdom cannot see any of this** — the pins are class contracts; the evidence is the browser
+measurement above, same as #982's scroller fix.

@@ -22,8 +22,23 @@ const SHELL_BASE = "h-full overflow-x-clip overflow-y-auto overscroll-y-contain 
 const VARIANT_CLASSES: Record<PageShellVariant, string> = {
   /** Content pages: zinc wash + phone tab-bar clearance. */
   app: "bg-page pb-20 sm:pb-0",
-  /** Single-card screens (login, landing, error, not-found). */
-  card: "flex items-center justify-center bg-card px-6",
+  /**
+   * Single-card screens (login, landing, error, not-found, /coming-soon).
+   *
+   * Centred with AUTO MARGINS, not `items-center`: on a scrolling flex
+   * container, `align-items: center` centres overflowing content by pushing its
+   * top above the scrollable area, where no scroll position can reach it.
+   * Measured 2026-08-06 in a real browser — a 900px child in a 600px scroller
+   * sat at top −150 with scrollHeight 750 and maxScroll 150, so 150px was
+   * unreachable. Auto margins centre identically while free space is positive
+   * and collapse to 0 when it is not, so a tall card simply scrolls
+   * (same child: top 0, scrollHeight 900, maxScroll 300).
+   *
+   * That trap is why /coming-soon's OperatorHub arm opted out of this variant
+   * (bare + py-10), which left that one page's three arms disagreeing about
+   * vertical alignment — and its loading fallback unable to match all three.
+   */
+  card: "flex items-start justify-center bg-card px-6 [&>*]:m-auto",
   /** Caller supplies the rest (profile, coming-soon hub). */
   bare: "",
 };
