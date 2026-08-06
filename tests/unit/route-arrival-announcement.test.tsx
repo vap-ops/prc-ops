@@ -315,6 +315,49 @@ describe("<RouteAnnouncer> watches the document title for arrivals", () => {
     ).toBe("รูปถ่ายงาน");
   });
 
+  it("stays silent on a same-title refresh AFTER having navigated", async () => {
+    // The pathname baseline has to ADVANCE with each announcement, not just be
+    // seeded at mount. Otherwise it stays pinned to the page the user loaded
+    // directly, every later comparison sees a differing pathname, and a
+    // router.refresh() on the page they navigated to announces all over again.
+    // (A mutation proved the case below cannot catch this: it never navigates,
+    // so a frozen baseline still happens to match.)
+    window.history.pushState({}, "", "/projects/p1");
+    document.title = "รายการงาน" + APP_TITLE_SUFFIX;
+
+    render(<RouteAnnouncer />);
+    await act(async () => {});
+
+    // navigate to a different record — announces
+    await act(async () => {
+      window.history.pushState({}, "", "/projects/p2");
+      document.head.querySelector("title")?.remove();
+    });
+    await act(async () => {
+      const t = document.createElement("title");
+      t.textContent = "รายการงาน" + APP_TITLE_SUFFIX;
+      document.head.appendChild(t);
+    });
+    expect(screen.getByRole("status").textContent).toBe("รายการงาน");
+
+    // …now a refresh AT p2: same pathname, same title ⇒ must say nothing new
+    const before = getRouteAnnouncement().seq;
+    await act(async () => {
+      document.head.querySelector("title")?.remove();
+    });
+    await act(async () => {
+      const t = document.createElement("title");
+      t.textContent = "รายการงาน" + APP_TITLE_SUFFIX;
+      document.head.appendChild(t);
+    });
+
+    expect(
+      getRouteAnnouncement().seq,
+      "re-announced the page the user is already on — the pathname baseline never " +
+        "advanced past the page that was loaded directly",
+    ).toBe(before);
+  });
+
   it("stays silent when the node is REPLACED with the same page's title", async () => {
     // The case above cannot see the real mechanism: assigning document.title
     // edits the existing text node, while Next removes the node and adds a new

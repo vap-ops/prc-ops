@@ -73,12 +73,16 @@ const APP_TITLE_DEFAULT = "PRC Ops";
  */
 export function pageNameFromTitle(title: string): string {
   const trimmed = title.trim();
-  if (trimmed === "" || trimmed === APP_TITLE_DEFAULT) return "";
-  // `trim()` above shortens " — PRC Ops" below the suffix's length, so endsWith
-  // misses it and a whitespace-only title would announce a dangling em dash
-  // plus the app name. Match the trimmed suffix, then require a remainder.
+  if (trimmed === "") return "";
+  // Match the TRIMMED suffix: the trim() above shortens " — PRC Ops" below the
+  // full suffix's length, so a plain endsWith misses it and a page with
+  // `title: ""` would be read a dangling em dash followed by the app name.
   const suffix = APP_TITLE_SUFFIX.trimStart();
   const name = trimmed.endsWith(suffix) ? trimmed.slice(0, -suffix.length).trim() : trimmed;
+  // One check, deliberately at the END: it catches both the bare default (a page
+  // that set no title) and a title that was ONLY the suffix. Testing for the
+  // default up front as well made the two guards mutually redundant, so neither
+  // was pinned and one was dead — a mutation on each survived.
   return name === APP_TITLE_DEFAULT ? "" : name;
 }
 
