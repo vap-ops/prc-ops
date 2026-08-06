@@ -67,8 +67,13 @@ describe("the trail section", () => {
     expect(only[0]).toHaveTextContent("คุณเอ ผู้แก้ไข");
     // The role is the one on the audit row, which is what explains the edit.
     expect(only[0]).toHaveTextContent("จัดซื้อ");
-    // Bangkok wall clock, not the raw UTC string.
-    expect(only[0]).toHaveTextContent("09:00");
+    // ⚠️ The DATE the edit was made, not the time alone. The panel is open on
+    // 4 ส.ค. and this edit happened on 5 ส.ค. — a correction is made on a LATER
+    // day than the one being audited, so a bare "09:00" would read as 09:00 on
+    // the audited day. Hand-written, in Bangkok, in the app's Buddhist era, so
+    // the expectation is independent of the formatter it checks.
+    expect(only[0]).toHaveTextContent("5 ส.ค. 2569 09:00");
+    expect(only[0].textContent).not.toContain("2026-08-05T02:00:00");
   });
 
   it("renders an unattributed edit rather than a uuid when the actor has no name", () => {

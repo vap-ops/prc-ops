@@ -26,7 +26,7 @@
 import { closeMusterDayFromForm } from "@/app/team/attendance/actions";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
 import { ErrorNotice } from "@/components/features/common/notices";
-import { USER_ROLE_LABEL, formatThaiDate, formatThaiTime } from "@/lib/i18n/labels";
+import { USER_ROLE_LABEL, formatThaiDate, formatThaiDateTime } from "@/lib/i18n/labels";
 import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import type { GridDay } from "@/lib/muster/attendance-grid";
 import { describeAuditEvent, type DayAuditRow } from "@/lib/muster/day-audit";
@@ -212,8 +212,13 @@ export function AttendanceDayPanel({
               const event = describeAuditEvent(row);
               return (
                 <li key={`${row.loggedAt}-${i}`} className="text-xs">
+                  {/* DATE and time, not the time alone. A correction is made on a
+                      LATER day than the one being audited — that is what makes it
+                      a correction — so a bare "09:00" beside a panel titled
+                      4 ส.ค. reads as 09:00 ON 4 ส.ค., which is the wrong day. Same
+                      trap NO_CONTROL_COPY avoids by never saying วันนี้. */}
                   <p className="text-ink">
-                    {formatThaiTime(row.loggedAt)} · {event.action}
+                    {formatThaiDateTime(row.loggedAt)} · {event.action}
                     {row.workerName !== null ? ` · ${row.workerName}` : ""}
                   </p>
                   {event.detail !== null && (
