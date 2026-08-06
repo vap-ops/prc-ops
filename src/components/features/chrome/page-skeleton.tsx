@@ -21,14 +21,23 @@ import { PAGE_MAX_W } from "@/lib/ui/page-width";
 // content put 29 of 40 rows permanently out of reach — while the identical
 // content inside PageShell scrolled normally.
 //
-// Both containers carry PAGE_MAX_W (spec 41), like every real page's header
+// Both containers carry PAGE_MAX_W (spec 41), like a content page's header
 // strip, nav strip and content container — the width half of the same
 // consolidation, cleared by the operator 2026-08-06 (docs/feature-specs/
 // 65-consolidation-pass.md reserved it as a visual change). A skeleton that
 // stands in for a page and does not share its width IS a horizontal jump at the
 // swap: measured on /dashboard with both states in one DOM, the fallback was
-// 768px against the page's 1240 at 1280×800 (472px), and 768 vs 860 at 900px
-// wide. Below `md` both clamp to the viewport, so nothing changes on a phone.
+// 768px against the page's 1240 at 1280×800 (472px), 768 vs 860 at 900, and 760
+// vs 672 at 760 — the old private cap was the VIEWPORT through the 672–768 band,
+// so the two only already agreed below 672.
+//
+// ⚠️ Three boundaries are NOT content pages and this makes their (pre-existing)
+// mismatch wider, not narrower: /login, /coming-soon and /profile render
+// `PageShell variant="card"` around a max-w-sm/max-w-md card, while this shared
+// skeleton paints an app-variant header strip + list rows at PAGE_MAX_W. Width is
+// the smaller half of that — the ANATOMY is already wrong for them — so it is
+// recorded as its own unit (a card-variant skeleton) rather than patched with a
+// width prop here.
 export function PageSkeleton() {
   return (
     <PageShell variant="app">

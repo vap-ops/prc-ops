@@ -280,12 +280,21 @@ which asserts every one of the 45 `loading.tsx` files renders an announcement AN
 **The skeleton also carries `PAGE_MAX_W`** (operator sign-off 2026-08-06, retiring the
 `65-consolidation-pass` queue entry). A fallback that stands in for a page and does not
 share its width IS a horizontal jump at the swap: measured on `/dashboard` with both
-states in one DOM, the fallback was **768px against the page's 1240 at 1280×800**, and
-768 vs 860 at 900px wide; below `md` both clamp to the viewport, so a phone never saw
-it. `max-w-3xl` now appears nowhere in `src/` — spec 41 has exactly one width again.
-`variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and `text-ink` —
-the skeleton renders no visible text, and matching the variant the real page uses is
-what makes the fallback-to-content swap shift the least.
+states in one DOM, the fallback was **768px against the page's 1240 at 1280×800**, 768
+vs 860 at 900, and **760 vs 672 at a 760px viewport** — the skeleton's private
+`max-w-3xl` left the viewport as the effective cap right through the 672–768 band, so
+the two only already agreed below 672. `max-w-3xl` now appears nowhere in `src/`; the
+remaining `max-w-sm`/`max-w-md` are the recorded single-card exceptions in §5, not
+outliers. `variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and
+`text-ink` — the skeleton renders no visible text.
+
+⚠️ **The shared skeleton is an APP-variant frame, so it is wrong for the three card
+screens that delegate to it** — `/login`, `/coming-soon`, `/profile` render `PageShell
+variant="card"` around a `max-w-sm`/`max-w-md` card while their fallback paints a
+header strip and list rows at `PAGE_MAX_W`. The width change widens that particular
+mismatch (768→1240 against a 384px card at 1280); it is recorded as its own unit (a
+card-variant skeleton) rather than patched with a width prop, because the anatomy is
+the larger half of the problem and a matching width would not fix it.
 
 One deliberate exception to the SHARED SKELETON — not to the shell:
 `src/app/portal/loading.tsx` keeps its own frame because it mirrors the portal's

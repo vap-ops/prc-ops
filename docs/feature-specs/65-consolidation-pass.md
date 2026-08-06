@@ -116,7 +116,13 @@ A unit test pins every new constant's exact value so drift is a test failure.
   first, so the sign-off was informed rather than assumed — the fallback was 768px
   against the real page's 1240 at 1280×800 (768 vs 860 at 900), i.e. the queue entry
   described the change as a width shift when it was really a width MISMATCH being
-  removed. Below `md` nothing moves. Both halves in `docs/ui-conventions.md` §8.
+  removed — and it reached further down than first measured: `max-w-3xl` left the
+  VIEWPORT as the effective cap right through the 672–768 band (at 760 the skeleton
+  was 760 against the page's 672), so the two only already agreed below 672. Both
+  halves in `docs/ui-conventions.md` §8. **New, recorded not built:** `/login`,
+  `/coming-soon` and `/profile` are card screens that delegate to the app-variant
+  shared skeleton — wrong anatomy, and this change widens the width half of that
+  mismatch. Own unit (a card-variant skeleton), not a width prop bolted on here.
 - `parseRequestsSearchParams` extraction + tests; `requireSessionProfile`
   for the coming-soon/profile pair; serverEnv test-mock dedup; e2e
   proxy-protection parametrization; Pick<Row> prop types; test-gap additions

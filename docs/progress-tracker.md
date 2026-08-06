@@ -12206,6 +12206,8 @@ retired and half still open: `PAGE_MAX_W` adoption is the half that changes what
 md+ screens, and it stays queued. `variant="app"` does bring `pb-20 sm:pb-0` and `text-ink`; the
 skeleton renders no visible text, and matching the variant the REAL page uses is what makes the
 fallback-to-content swap shift the least.
+_(Superseded the same day: the operator signed the width half off and it shipped — see the
+`lane skelwidth` entry below. Left as written; this is a dated log, not a live claim.)_
 Re-measured after the change at 812×375: `main` is the scroller (`clientHeight` 375,
 `scrollHeight` 433), 1 user-scrollable ancestor, and the row previously cut at 409 sits at 351
 after a 58px scroll — exactly the clipped amount. Real boundaries verified from streamed HTML,
@@ -12395,23 +12397,46 @@ live app has a width MISMATCH. On `/dashboard` at 1280×800, with the fallback a
 page both present in one DOM (the streamed fallback is still in the document, so the two states
 can be measured against each other rather than remembered):
 
-| viewport | fallback container | real page container | jump                              |
-| -------- | ------------------ | ------------------- | --------------------------------- |
-| 1280×800 | **768px**          | **1240px**          | 472px                             |
-| 900×800  | **768px**          | **860px**           | 92px                              |
-| 375×812  | 335px              | 335px               | none — both clamp to the viewport |
+| viewport | fallback container | real page container | jump                          |
+| -------- | ------------------ | ------------------- | ----------------------------- |
+| 1280×800 | **768px**          | **1240px**          | 472px                         |
+| 900×800  | **768px**          | **860px**           | 92px                          |
+| 760×800  | **760px**          | **672px**           | 88px — the skeleton was WIDER |
+| 375×812  | 335px              | 335px               | none — both clamp to the box  |
 
-So it is a desktop/tablet defect and a phone never saw it. `max-w-3xl` appeared in exactly TWO
-places in all of `src/` and both were this component: the skeleton was the app's last width
-outlier, every real surface already going through `PAGE_MAX_W` (`AppHeader`/`HubNav` accept only
-`typeof PAGE_MAX_W`, so a page cannot drift). `src/app/portal/loading.tsx` — the bespoke boundary
-— already imported the token, the same "the bespoke one is the compliant one" shape #980 found.
+⚠️ **The 760 row was added after a fresh-eyes pass refuted my first reading.** I sampled only
+375 below `md` and wrote "below md both clamp to the viewport, so a phone never saw it" into the
+component comment, two docs and the queue entry. It is arithmetically false from 672px up:
+`max-w-3xl` is 768, so through the whole **672–768 band the effective cap was the VIEWPORT**
+while the page sat at `max-w-2xl` = 672. Measured live at 760: skeleton 760, page 672. Real
+phone-landscape widths (720, 736, 740) are in that band. The direction was always toward the
+page, but the claim was wrong — **one sample below a breakpoint does not characterise the band,
+because the outlier's cap and the token's cap cross INSIDE it.**
+
+`max-w-3xl` appeared in exactly TWO places in all of `src/` and both were this component.
+`src/app/portal/loading.tsx` — the bespoke boundary — already imported the token, the same "the
+bespoke one is the compliant one" shape #980 found. (Stated precisely: `AppHeader`/`HubNav`
+accept only `typeof PAGE_MAX_W`, which constrains those two props — it does not stop a section
+hand-rolling a width, and three screens legitimately do.)
 
 **Built.** Both centred containers interpolate `PAGE_MAX_W`. Re-measured after: fallback 1240 /
-1280 against the page's 1240 / 1280 at 1280 wide, and 860 vs 860 at 900 — matched at both, with
-`max-w-3xl` absent from the rendered document.
+1280 against the page's 1240 / 1280 at 1280 wide, 860 vs 860 at 900, and 672 vs 672 at 760 —
+matched at all three, with `max-w-3xl` absent from the rendered document.
 
-**Pinned.** `page-skeleton-shell.test.tsx` asserts both `.mx-auto` containers contain the string
-`PAGE_MAX_W` itself exports — read off the constant, never re-typed, so a spec-41 token change
-drags the skeleton with it — plus the absence of the retired `max-w-3xl` literal, and an exact
-container count so a container cannot be deleted under the pin.
+**Pinned.** `page-skeleton-shell.test.tsx` asserts each container's `max-w-*` token SET equals
+`PAGE_MAX_W`'s own tokens, read off the constant and never re-typed. Both halves of that shape
+came from the review: a `toContain` + "no max-w-3xl" pair is satisfied by
+`max-w-5xl ${PAGE_MAX_W}` — the ui-conventions §5 hazard exactly, where the GENERATED
+stylesheet's order picks the winner rather than the className's — and a container COUNT pins no
+position, so the containers are now addressed through the anatomy (`main > header > .mx-auto`,
+`main > .mx-auto`) and moving one onto an inner `Skeleton` reds.
+
+**🔔 Found, recorded NOT built — and it is the finding worth carrying.** `/login`,
+`/coming-soon` and `/profile` delegate to this shared skeleton but are **card screens**: their
+real pages render `PageShell variant="card"` around a `max-w-sm`/`max-w-md` card. So the
+fallback paints an app-variant header strip and list rows at page width, and this change widens
+that particular gap (768 → 1240 against a 384px card at 1280). Deliberately not patched with a
+width prop: **the anatomy is the larger half and a matching width would not fix it** — a
+card-variant skeleton is its own unit. The reviewer found this by asking which boundaries the
+diff's own criterion makes WORSE, which is the question a "make everything consistent" change
+never asks itself.
