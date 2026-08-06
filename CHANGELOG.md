@@ -1,3 +1,9 @@
+## [0.345.1](https://github.com/vap-ops/prc-ops/compare/v0.345.0...v0.345.1) (2026-08-06)
+
+### Bug Fixes
+
+- **a11y:** silence the framework's own route announcer ([824469e](https://github.com/vap-ops/prc-ops/commit/824469e6c78bc151e7c146bca76f2847af2959fb))
+
 # [0.345.0](https://github.com/vap-ops/prc-ops/compare/v0.344.0...v0.345.0) (2026-08-06)
 
 ### Features
