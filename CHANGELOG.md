@@ -1,3 +1,10 @@
+## [0.345.3](https://github.com/vap-ops/prc-ops/compare/v0.345.2...v0.345.3) (2026-08-06)
+
+### Bug Fixes
+
+- **chrome:** the narrow skeleton's column width is per screen ([48436ba](https://github.com/vap-ops/prc-ops/commit/48436bad9656bb4cdbeaba97a699887b8d52d0db))
+- **tests:** close the fresh-eyes findings on the width pin ([bf789a1](https://github.com/vap-ops/prc-ops/commit/bf789a11525cea5c331868336813fc3781b49814))
+
 ## [0.345.2](https://github.com/vap-ops/prc-ops/compare/v0.345.1...v0.345.2) (2026-08-06)
 
 ### Bug Fixes
