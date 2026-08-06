@@ -13,9 +13,14 @@
 // outcome code. Nothing to hydrate — and it therefore works on the in-app browser,
 // where hydration does not run.
 //
-// Gate is SA_SURFACE_ROLES: exactly the set every muster write RPC admits
-// (site_admin, super_admin, procurement_manager), so no control here can promise
-// what the server refuses.
+// Gate is SA_SURFACE_ROLES (site_admin, super_admin, procurement_manager), so no
+// control here can promise what the server refuses.
+// ⚠️ CORRECTED 2026-08-06 (spec 400 U3a/U3b): it is no longer "exactly the set
+// every muster write RPC admits". Migration 20260813075912 widened
+// `close_muster_day`, `muster_scan_in`, `reopen_muster_day` and
+// `muster_undo_scan` to `procurement` as well; SA_SURFACE_ROLES is now a SUBSET
+// of those four allowlists, which keeps this gate safe (never wider than the
+// server) but stops it being a mirror of them.
 
 import Link from "next/link";
 

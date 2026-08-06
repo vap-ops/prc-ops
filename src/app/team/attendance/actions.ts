@@ -32,7 +32,7 @@ import { redirect } from "next/navigation";
 
 import { requireActionRole } from "@/lib/auth/action-gate";
 import { MUSTER_CLOSE_ROLES, MUSTER_REOPEN_ROLES } from "@/lib/auth/role-home";
-import { ISO_DATE_REGEX } from "@/lib/dates";
+import { bangkokTodayIso, ISO_DATE_REGEX } from "@/lib/dates";
 import {
   closeReturnTo,
   reopenReturnTo,
@@ -146,6 +146,16 @@ export async function closeMusterDay(input: {
 
   if (!UUID_REGEX.test(input.projectId) || !ISO_DATE_REGEX.test(input.workDate)) {
     return { ok: false, outcome: "shape" };
+  }
+
+  // The UI withholds the control for today and the future (dayCorrectionControl's
+  // `dayNotOver` / `future` arms), but these are plain hidden inputs on a
+  // zero-client-JS form — a hand-posted date would write a closure for
+  // 2027-01-01, and U3a's own closure guard would then refuse every correction
+  // scan on that day. The RPC has no date bound of its own, so the bound lives
+  // here, on the server side of the same rule the surface renders.
+  if (input.workDate >= bangkokTodayIso()) {
+    return { ok: false, outcome: "notover" };
   }
 
   const { error } = await auth.supabase.rpc("close_muster_day", {

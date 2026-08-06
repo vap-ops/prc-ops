@@ -39,6 +39,8 @@ export type CloseOutcome =
   | "denied"
   /** A malformed project id or date — never retryable. */
   | "shape"
+  /** Today or later: the surface withholds the control, the action re-checks it. */
+  | "notover"
   /** Anything else the database refused. */
   | "failed";
 

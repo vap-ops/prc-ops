@@ -83,6 +83,7 @@ const REOPEN_ERROR_COPY: Record<string, string> = {
 const CLOSE_ERROR_COPY: Record<string, string> = {
   denied: "บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้",
   shape: "วันที่หรือโครงการไม่ถูกต้อง",
+  notover: "ยังอยู่ระหว่างวัน ปิดวันได้เมื่อจบวันแล้ว",
   failed: "ปิดวันไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
 };
 
@@ -327,26 +328,54 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // drill's rules. It stays in the GRID (the list has no columns), it toggles on
   // the same column, and it anchors on `#d-<date>` because a server navigation
   // otherwise lands at the top of a 42-row table.
-  const dayHref = (date: string | null): string => {
-    const q = new URLSearchParams({ start: range.from, end: range.to });
-    if (range.projectId) q.set("project", range.projectId);
-    if (backHref !== "/team") q.set("from", backHref);
-    if (date) q.set("day", date);
-    return `/team/attendance?${q.toString()}#d-${date ?? openDayDate ?? ""}`;
-  };
   // Validated against the dates the grid ACTUALLY drew, the same way ?worker= is
   // validated against the rows it drew: a `?day=2020-01-01` would otherwise
-  // render a panel about a column that is not on screen.
+  // render a panel about a column that is not on screen. Declared BEFORE dayHref
+  // rather than after it — the closure was safe only because every call site
+  // happened to sit below, which a JSX reorder would turn into a TDZ throw.
   const openDayDate = attendanceDayParam(
     day,
     grid.days.map((d) => d.date),
   );
   const openDay = grid.days.find((d) => d.date === openDayDate) ?? null;
+  const dayHref = (date: string | null): string => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    if (date) q.set("day", date);
+    // No fragment on the CLOSE link: `#d-<date>` exists only on the panel that
+    // is about to unmount, and a hash with no target scrolls the reader to the
+    // top of a 42-row table — the very jump the fragment exists to prevent.
+    return date ? `/team/attendance?${q.toString()}#d-${date}` : `/team/attendance?${q.toString()}`;
+  };
   // Whether the columns are links at all. Withholding it from the four audit
-  // roles that may neither close nor reopen is not withholding a FACT: the panel
-  // would carry only the closure and headcount their column header already
-  // states, under a link promising an action their own server refuses.
+  // roles that may neither close nor reopen is not withholding a FACT: every
+  // fact the panel states is readable from the column and the drill, and a link
+  // would promise an action their own server refuses.
   const canCorrectDay = canReopen || canClose;
+  // The two things closing COSTS, named from the rows already on screen:
+  // close_muster_day stamps 17:00 on every open REGULAR session and leaves every
+  // open OT one alone — and no RPC records a past check-out for any role, so an
+  // OT session left open is unbookable. gridDetail is already scoped to the
+  // range and the picked project by the RPC, so this is a filter, not a fetch.
+  const openDaySessions = openDay ? gridDetail.filter((r) => r.workDate === openDay.date) : [];
+  const stillInOnOpenDay = {
+    regular: openDaySessions
+      .filter((r) => r.stillIn && r.session === "regular")
+      .map((r) => r.workerName),
+    ot: openDaySessions.filter((r) => r.stillIn && r.session === "ot").map((r) => r.workerName),
+  };
+  // Rendered INSIDE the panel: the redirect anchors on `#d-<date>`, so a banner
+  // in the page header would land a viewport away from the reader.
+  const closeOutcome =
+    closed === "1"
+      ? ({ ok: true } as const)
+      : typeof closeError === "string" && closeError.length > 0
+        ? ({
+            ok: false,
+            message: CLOSE_ERROR_COPY[closeError] ?? CLOSE_ERROR_COPY.failed!,
+          } as const)
+        : null;
 
   return (
     <PageShell>
@@ -423,25 +452,31 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         )}
         {reopened === "1" && (
           <p className="border-edge bg-sunk text-ink rounded-card mb-4 border px-4 py-3 text-sm">
+            {/* Same correction as the reopen form's own helper line: neither
+                arm may claim the reader (or the SA) can edit the check-ins of a
+                PAST day — no surface does that yet for any role. */}
             {canClose
-              ? "เปิดวันนี้อีกครั้งแล้ว — แก้ไขการเช็คชื่อได้ และต้องปิดวันใหม่เมื่อแก้เสร็จ"
-              : "เปิดวันนี้อีกครั้งแล้ว — แจ้ง SA ให้แก้ไขการเช็คชื่อและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
+              ? "เปิดวันดังกล่าวอีกครั้งแล้ว — ปิดวันใหม่เมื่อพร้อม ระบบจะคิดค่าแรงใหม่จากข้อมูลล่าสุด"
+              : "เปิดวันดังกล่าวอีกครั้งแล้ว — แจ้ง SA ให้ปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
           </p>
         )}
 
-        {/* Spec 400 U3b — the close form's own outcomes, same shape as reopen's:
-            a CODE in the URL, the copy owned here. The success line states what
-            is now TRUE (the wages were derived) rather than "done", because that
-            is the fact the reader came to settle. */}
-        {typeof closeError === "string" && closeError.length > 0 && (
+        {/* Spec 400 U3b — the close outcome normally renders INSIDE the panel,
+            because the redirect anchors on `#d-<date>` and this header is a
+            viewport away from where the reader lands. This is the FALLBACK for
+            the case that leaves no panel: a `?day=` that no longer resolves (the
+            range moved, or the returnTo lost it), where rendering nowhere would
+            turn a refusal into silence. */}
+        {closeOutcome !== null && openDay === null && (
           <div className="mb-4">
-            <ErrorNotice>{CLOSE_ERROR_COPY[closeError] ?? CLOSE_ERROR_COPY.failed}</ErrorNotice>
+            {closeOutcome.ok ? (
+              <p className="border-edge bg-sunk text-ink rounded-card border px-4 py-3 text-sm">
+                ปิดวันแล้ว — ระบบคิดค่าแรงของวันดังกล่าวจากการเช็คชื่อล่าสุด
+              </p>
+            ) : (
+              <ErrorNotice>{closeOutcome.message}</ErrorNotice>
+            )}
           </div>
-        )}
-        {closed === "1" && (
-          <p className="border-edge bg-sunk text-ink rounded-card mb-4 border px-4 py-3 text-sm">
-            ปิดวันแล้ว — ค่าแรงของวันนั้นถูกคิดใหม่จากการเช็คชื่อล่าสุด
-          </p>
         )}
 
         {/* Spec 400 U2 — the GRID has something to say when the summary does
@@ -541,6 +576,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     canReopen={canReopen}
                     canClose={canClose}
                     returnTo={dayHref(openDay.date)}
+                    stillIn={stillInOnOpenDay}
+                    outcome={closeOutcome}
                   />
                 )}
               </>

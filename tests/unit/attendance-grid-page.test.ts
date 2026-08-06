@@ -300,9 +300,33 @@ describe("/team/attendance page — spec 400 U3b wiring", () => {
     // in history and would render attacker-chosen text inside the app's own
     // notice. Same rule the reopen banners already follow.
     expect(code).toContain("CLOSE_ERROR_COPY");
-    expect(code).toContain('{closed === "1" && (');
-    // …and no arm of it may promise a retry: `denied` and `shape` are permanent.
+    expect(code).toContain('closed === "1"');
+    // …and no arm of it may promise a retry: every one of them is permanent.
     const copy = code.slice(code.indexOf("const CLOSE_ERROR_COPY"), code.indexOf("interface"));
     expect(copy).not.toContain("ลองใหม่");
+  });
+
+  it("hands the outcome to the PANEL, and keeps a header fallback for a dead ?day=", () => {
+    // The redirect anchors on `#d-<date>`, and the panel sits below a 42-row
+    // table — a banner in the page header lands a viewport away from the reader,
+    // so a refusal reads as nothing having happened. But a `?day=` that no
+    // longer resolves leaves no panel, and rendering nowhere would turn that
+    // refusal into silence, so the header keeps the other arm.
+    expect(code).toContain("outcome={closeOutcome}");
+    expect(code).toContain("{closeOutcome !== null && openDay === null && (");
+  });
+
+  it("discloses what closing COSTS, from the rows already on screen", () => {
+    // close_muster_day stamps 17:00 on every open REGULAR session and leaves the
+    // open OT ones alone. Derived from gridDetail — a second fetch would let the
+    // disclosure and the table disagree about the same day.
+    expect(code).toContain("const openDaySessions = openDay");
+    expect(code).toContain("stillIn={stillInOnOpenDay}");
+    const block = code.slice(
+      code.indexOf("const stillInOnOpenDay"),
+      code.indexOf("const closeOutcome"),
+    );
+    expect(block).toContain('r.stillIn && r.session === "regular"');
+    expect(block).toContain('r.stillIn && r.session === "ot"');
   });
 });

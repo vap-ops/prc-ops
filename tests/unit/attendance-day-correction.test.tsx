@@ -76,8 +76,21 @@ describe("spec 400 U3b — dayCorrectionControl", () => {
     canClose: true,
   };
 
-  it("offers CLOSE on an open day", () => {
+  it("offers CLOSE on an open PAST day", () => {
     expect(dayCorrectionControl(base)).toEqual({ control: "close" });
+  });
+
+  it("withholds CLOSE on today — closing mid-shift stamps 17:00 on everyone still in", () => {
+    // Today belongs to the muster cockpit, which reaches the same RPC through a
+    // ready/overdue state machine this audit report does not reimplement.
+    expect(dayCorrectionControl({ ...base, date: TODAY })).toEqual({
+      control: "none",
+      reason: "dayNotOver",
+    });
+    // …but a today that was closed EARLY is still reopenable from here.
+    expect(dayCorrectionControl({ ...base, date: TODAY, dayClosed: true })).toEqual({
+      control: "reopen",
+    });
   });
 
   it("offers REOPEN on a closed day", () => {
@@ -168,24 +181,88 @@ describe("spec 400 U3b — the panel", () => {
     returnTo: "/team/attendance?start=2026-08-01&end=2026-08-06",
   };
 
+  // ⚠️ EVERY close assertion is ANCHORED, and every one names a discriminator.
+  // `ปิดวัน` is a SUBSTRING of `เปิดวัน`, so an unanchored /ปิดวัน/ matches the
+  // REOPEN form's own label, its เปิดวันอีกครั้ง button and its ค่าแรง helper —
+  // and the two forms carry identical hidden fields. A fresh-eyes pass proved a
+  // mutant rendering <MusterReopenForm> in the close arm passed the lot.
   it("offers the close form on an open day, carrying the project-day it names", () => {
     render(<AttendanceDayPanel day={day()} {...props} />);
-    const form = screen.getByRole("form", { name: /ปิดวัน/ });
+    const form = screen.getByRole("form", { name: /^ปิดวัน/ });
     expect(form.querySelector('input[name="projectId"]')).toHaveValue("p1");
     expect(form.querySelector('input[name="workDate"]')).toHaveValue("2026-08-04");
-    expect(within(form).getByRole("button", { name: /ปิดวัน/ })).toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: /^ปิดวัน$/ })).toBeInTheDocument();
+    // The discriminator: the reopen form's required reason must be ABSENT here.
+    expect(within(form).queryByLabelText(/เหตุผล/)).toBeNull();
+    expect(screen.queryByRole("form", { name: /อีกครั้ง/ })).not.toBeInTheDocument();
   });
 
-  it("says what closing DOES — it books the day's wages", () => {
+  it("discloses BOTH losses before the control, not after it", () => {
+    // close_muster_day stamps 17:00 on every open REGULAR session and leaves the
+    // open OT ones alone — and no RPC records a past check-out for any role, so
+    // an OT session left open is unbookable. The cockpit and the prior-day
+    // banner both disclose exactly this; a one-tap close here would re-ship the
+    // loss those two surfaces exist to prevent.
+    render(
+      <AttendanceDayPanel
+        day={day()}
+        {...props}
+        stillIn={{ regular: ["ช่าง หนึ่ง", "ช่าง สอง"], ot: ["ช่าง สาม"] }}
+      />,
+    );
+    const form = screen.getByRole("form", { name: /^ปิดวัน/ });
+    expect(within(form).getByText(/ยังไม่เช็คออก.*17:00/)).toBeInTheDocument();
+    expect(within(form).getByText(/ช่าง หนึ่ง, ช่าง สอง/)).toBeInTheDocument();
+    expect(within(form).getByText(/ไม่บันทึก OT/)).toBeInTheDocument();
+    expect(within(form).getByText(/อัตราปัจจุบัน/)).toBeInTheDocument();
+    // …and the disclosure precedes the button in DOM order, or it is a
+    // disclosure the reader meets after the tap.
+    const list = within(form).getByRole("list");
+    const button = within(form).getByRole("button", { name: /^ปิดวัน$/ });
+    expect(list.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("needs a second deliberate act — the close is never one tap", () => {
     render(<AttendanceDayPanel day={day()} {...props} />);
-    expect(screen.getByText(/ค่าแรง/)).toBeInTheDocument();
+    const form = screen.getByRole("form", { name: /^ปิดวัน/ });
+    expect(within(form).getByRole("checkbox")).toBeRequired();
+  });
+
+  it("names no still-in worker when there is none — no empty scare line", () => {
+    render(<AttendanceDayPanel day={day()} {...props} />);
+    expect(screen.queryByText(/ยังไม่เช็คออก/)).toBeNull();
+    expect(screen.queryByText(/ไม่บันทึก OT/)).toBeNull();
   });
 
   it("offers the reopen form on a closed day, with the reason required at the input", () => {
     render(<AttendanceDayPanel day={day({ dayClosed: true })} {...props} />);
-    const form = screen.getByRole("form", { name: /เปิดวัน/ });
+    const form = screen.getByRole("form", { name: /อีกครั้ง/ });
     expect(within(form).getByLabelText(/เหตุผล/)).toBeRequired();
     expect(screen.queryByRole("form", { name: /^ปิดวัน/ })).not.toBeInTheDocument();
+  });
+
+  it("does not offer to close TODAY — mid-shift that fabricates the day's end", () => {
+    render(<AttendanceDayPanel day={day({ date: TODAY })} {...props} />);
+    expect(screen.queryByRole("form", { name: /^ปิดวัน/ })).not.toBeInTheDocument();
+    // The header ALSO says ยังอยู่ระหว่างวัน (dayClosureLabel), so the assertion
+    // names the whole reason line — matching the header would pass on a panel
+    // that renders no explanation at all.
+    expect(screen.getByText("ยังอยู่ระหว่างวัน ปิดวันได้เมื่อจบวันแล้ว")).toBeInTheDocument();
+  });
+
+  it("still offers to REOPEN today, if today was closed early", () => {
+    render(<AttendanceDayPanel day={day({ date: TODAY, dayClosed: true })} {...props} />);
+    expect(screen.getByRole("form", { name: /อีกครั้ง/ })).toBeInTheDocument();
+  });
+
+  it("renders the close outcome HERE, where the redirect lands the reader", () => {
+    // The panel sits below a 42-row table and the redirect anchors on
+    // `#d-<date>`, so a banner in the page header is a viewport away — a refusal
+    // would read as nothing having happened, with the button still there.
+    render(
+      <AttendanceDayPanel day={day()} {...props} outcome={{ ok: false, message: "ไม่มีสิทธิ์" }} />,
+    );
+    expect(screen.getByText("ไม่มีสิทธิ์")).toBeInTheDocument();
   });
 
   // Each of these arms REPLACES a control, so what is pinned is the presence of
@@ -194,7 +271,7 @@ describe("spec 400 U3b — the panel", () => {
   // so a later assertion can pass on an earlier render's output.
   it("names the cause on a day nobody was scanned", () => {
     render(<AttendanceDayPanel day={day({ dayClosed: null, headcount: 0 })} {...props} />);
-    expect(screen.getByText("ยังไม่มีบันทึกการเช็คชื่อในวันนี้")).toBeInTheDocument();
+    expect(screen.getByText("ยังไม่มีบันทึกการเช็คชื่อของวันดังกล่าว")).toBeInTheDocument();
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
   });
 

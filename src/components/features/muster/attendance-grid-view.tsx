@@ -130,12 +130,28 @@ function DayHeader({
       {dayHref ? (
         // The whole header is the target: a bare day NUMBER is a ~10px tap on a
         // gloved hand, and the month/headcount/closure lines are what the reader
-        // is aiming at anyway. Named for the DATE, not "4" — a screen reader
-        // reading 31 links called "1…31" learns nothing about where they go.
+        // is aiming at anyway. min-h-11 because the commonest column state (no
+        // month row, no holiday, no closure bar) is only ~42px of content.
+        //
+        // ⚠️ The label CARRIES the column's facts rather than replacing them. An
+        // author-supplied aria-label on the link wins over its subtree AND
+        // becomes the <th>'s accessible name, so `แก้ไขวัน 4 ส.ค. 2569` alone
+        // would silently strip the headcount and the closure state from what a
+        // screen reader announces for all 42 cells of that column — leaving the
+        // roles that got the CONTROL hearing strictly less than the roles that
+        // did not. Withholding the control must not withhold the fact, and
+        // granting it must not either.
         <Link
           href={dayHref(day.date)}
-          aria-label={`แก้ไขวัน ${formatThaiDate(day.date)}`}
-          className="focus-visible:ring-action block rounded px-1 py-1 focus:outline-none focus-visible:ring-2"
+          aria-label={[
+            `แก้ไขวัน ${formatThaiDate(day.date)}`,
+            `${day.headcount} คน`,
+            day.holidayName,
+            closure,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          className="focus-visible:ring-action flex min-h-11 flex-col justify-end rounded px-1 py-1 focus:outline-none focus-visible:ring-2"
         >
           {body}
         </Link>

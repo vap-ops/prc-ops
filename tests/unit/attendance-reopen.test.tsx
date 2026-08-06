@@ -191,7 +191,13 @@ describe("spec 397 U3 — the loop instruction is role-aware", () => {
         backHref="/team"
       />,
     );
-    expect(screen.getByText(/แก้ไขแล้วต้องปิดวันใหม่/)).toBeInTheDocument();
+    // ⚠️ Spec 400 U3b corrected this line. It opened "แก้ไขแล้ว…", which assumed
+    // the reader corrects the check-ins between the reopen and the close —
+    // nothing on any page they can open does that (both undo surfaces are
+    // today-locked and SA-gated; add-person is deferred to U4). It now names
+    // what re-closing actually does: re-derive from the latest data.
+    expect(screen.getByText(/ปิดวันใหม่เมื่อพร้อม/)).toBeInTheDocument();
+    expect(screen.queryByText(/แก้ไขแล้ว/)).toBeNull();
   });
 
   it("tells a non-closer to hand it to the SA", () => {
@@ -204,8 +210,8 @@ describe("spec 397 U3 — the loop instruction is role-aware", () => {
         backHref="/team"
       />,
     );
-    expect(screen.getByText(/แจ้ง SA ให้แก้ไขและปิดวันใหม่/)).toBeInTheDocument();
-    expect(screen.queryByText(/แก้ไขแล้วต้องปิดวันใหม่/)).not.toBeInTheDocument();
+    expect(screen.getByText(/แจ้ง SA ให้ปิดวันใหม่/)).toBeInTheDocument();
+    expect(screen.queryByText(/ปิดวันใหม่เมื่อพร้อม/)).not.toBeInTheDocument();
   });
 
   it("procurement — the role this spec is about — IS a closer since spec 400 U3a", () => {

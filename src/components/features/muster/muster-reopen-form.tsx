@@ -51,10 +51,18 @@ export function MusterReopenForm({
       <button type="submit" className={`${BUTTON_SECONDARY} shrink-0`}>
         เปิดวันอีกครั้ง
       </button>
+      {/* ⚠️ This line used to open "แก้ไขแล้ว…" — it assumed the reader would
+          correct the check-ins between the reopen and the close. Nothing on any
+          page they can open does that: the two undo surfaces are hard-locked to
+          `bangkokTodayIso()` and gated on SA_SURFACE_ROLES, and the add-person
+          path is deferred to U4 (muster_scan_in stamps in_at = now(), so a
+          past-day correction would record the wrong time). What re-closing DOES
+          do is re-derive the day from the latest rates and WP bindings — so that
+          is what it now says. */}
       <p className="text-ink-secondary basis-full text-[11px]">
         {canClose
-          ? "แก้ไขแล้วต้องปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"
-          : "แจ้ง SA ให้แก้ไขและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
+          ? "ปิดวันใหม่เมื่อพร้อม ระบบจะคิดค่าแรงของวันนั้นใหม่จากข้อมูลล่าสุด"
+          : "แจ้ง SA ให้ปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
       </p>
     </form>
   );

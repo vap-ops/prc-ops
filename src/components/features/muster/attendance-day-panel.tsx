@@ -13,23 +13,43 @@
 // The state machine is NOT here. dayCorrectionControl is a pure exported function
 // because U1 proved a source scan cannot see reachability — `if (x)` → `if (true)`
 // left the suite green — so every arm is driven directly in its own test.
+//
+// ⚠️ CLOSING IS THE MONEY STEP AND IT LOSES TWO THINGS. `close_muster_day` stamps
+// `out_at = greatest(17:00, in_at)` on every open REGULAR session (a check-out
+// nobody recorded) and leaves every open OT session alone — and no RPC can record
+// a past check-out for any role, so an OT session left open is unbookable. The
+// cockpit and the prior-day banner both disclose exactly that before their own
+// close, behind a second deliberate act. This panel does the same rather than
+// re-shipping, for PAST days and for a role that has never closed a day, the
+// one-tap loss those two surfaces exist to prevent.
 
 import { closeMusterDayFromForm } from "@/app/team/attendance/actions";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
+import { ErrorNotice } from "@/components/features/common/notices";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import type { GridDay } from "@/lib/muster/attendance-grid";
-import { dayCorrectionControl } from "@/lib/muster/day-correction";
+import { dayCorrectionControl, type DayCorrectionControl } from "@/lib/muster/day-correction";
 import { BUTTON_SECONDARY, CARD } from "@/lib/ui/classes";
 
-/** The copy for every arm that offers nothing. `notPermitted` is deliberately
- *  silent: spec 397 U3's rule is that withholding the CONTROL must not withhold
- *  the FACT, and it does not license telling a reader off either — the header
- *  above still states the day's closure and headcount. */
-const NO_CONTROL_COPY: Record<string, string | null> = {
-  future: "วันนี้ยังมาไม่ถึง",
-  noRecords: "ยังไม่มีบันทึกการเช็คชื่อในวันนี้",
-  noProject: "เลือกโครงการก่อน จึงจะปิดหรือเปิดวันนี้ได้",
+/** The copy for every arm that offers nothing.
+ *
+ *  `notPermitted` is deliberately silent: spec 397 U3's rule is that withholding
+ *  the CONTROL must not withhold the FACT, and it does not license telling a
+ *  reader off either — the header above still states closure and headcount.
+ *
+ *  ⚠️ Keyed on the reason UNION, not `string`: a fifth arm must red at typecheck
+ *  rather than render an empty paragraph. And none of them says วันนี้ — the panel
+ *  is usually open on a PAST column, where "today" is a claim about the wrong day.
+ */
+const NO_CONTROL_COPY: Record<
+  Extract<DayCorrectionControl, { control: "none" }>["reason"],
+  string | null
+> = {
+  future: "วันดังกล่าวยังมาไม่ถึง",
+  noRecords: "ยังไม่มีบันทึกการเช็คชื่อของวันดังกล่าว",
+  dayNotOver: "ยังอยู่ระหว่างวัน ปิดวันได้เมื่อจบวันแล้ว",
+  noProject: "เลือกโครงการก่อน จึงจะปิดหรือเปิดวันดังกล่าวได้",
   notPermitted: null,
 };
 
@@ -40,6 +60,8 @@ export function AttendanceDayPanel({
   canReopen,
   canClose,
   returnTo,
+  stillIn = { regular: [], ot: [] },
+  outcome = null,
 }: {
   day: GridDay;
   todayIso: string;
@@ -51,6 +73,19 @@ export function AttendanceDayPanel({
   canClose: boolean;
   /** The caller's current URL; the redirect appends the outcome to it. */
   returnTo: string;
+  /**
+   * The names, per session kind, of the workers with no check-out on this day —
+   * the two things closing costs. Named, not counted, because "3 คน" gives the
+   * reader nothing to check against and the cockpit already names them.
+   */
+  stillIn?: { regular: readonly string[]; ot: readonly string[] };
+  /**
+   * The close form's outcome, rendered HERE rather than at the top of the page:
+   * the redirect anchors on `#d-<date>`, and this panel sits below a table tall
+   * enough that a banner in the page header is a viewport away from where the
+   * reader lands — a refusal would look like nothing happened.
+   */
+  outcome?: { ok: true } | { ok: false; message: string } | null;
 }) {
   const state = dayCorrectionControl({
     date: day.date,
@@ -80,6 +115,17 @@ export function AttendanceDayPanel({
         {day.holidayName !== null ? ` · ${day.holidayName}` : day.nonWorking ? " · วันหยุด" : ""}
       </p>
 
+      {outcome !== null &&
+        (outcome.ok ? (
+          <p className="border-edge bg-sunk text-ink rounded-card mt-2 border px-3 py-2 text-xs">
+            ปิดวันแล้ว — ระบบคิดค่าแรงของวันดังกล่าวจากการเช็คชื่อล่าสุด
+          </p>
+        ) : (
+          <div className="mt-2">
+            <ErrorNotice>{outcome.message}</ErrorNotice>
+          </div>
+        ))}
+
       {state.control === "reopen" && projectId !== null && (
         <MusterReopenForm
           projectId={projectId}
@@ -93,21 +139,40 @@ export function AttendanceDayPanel({
         <form
           action={closeMusterDayFromForm}
           aria-label={`ปิดวัน ${formatThaiDate(day.date)}`}
-          className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end"
+          className="mt-3 flex flex-col gap-2"
         >
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="workDate" value={day.date} />
           <input type="hidden" name="returnTo" value={returnTo} />
-          <button type="submit" className={`${BUTTON_SECONDARY} shrink-0`}>
+
+          {/* ABOVE the control, because a disclosure a reader meets after the
+              button is a disclosure they meet after the tap. */}
+          <ul className="text-ink-secondary flex flex-col gap-1 text-[11px]">
+            {stillIn.regular.length > 0 && (
+              <li>
+                {`ช่าง ${stillIn.regular.length} คนยังไม่เช็คออก — ระบบจะบันทึกเวลาออก 17:00 ให้ · ${stillIn.regular.join(", ")}`}
+              </li>
+            )}
+            {stillIn.ot.length > 0 && (
+              <li>
+                {`ปิดวันจะไม่บันทึก OT ให้ — OT ที่ยังไม่เช็คออก ${stillIn.ot.length} คน · ${stillIn.ot.join(", ")}`}
+              </li>
+            )}
+            <li>ค่าแรงจะบันทึกตามอัตราปัจจุบันของช่าง</li>
+            <li>ปิดแล้วแก้ไขการเช็คชื่อไม่ได้จนกว่าจะเปิดวันอีกครั้ง</li>
+          </ul>
+
+          {/* The second deliberate act, in the only form this zero-client-JS page
+              can carry one: a `required` checkbox. The cockpit arms its own close
+              with client state; here the browser enforces it with no hydration. */}
+          <label className="text-ink flex min-h-11 items-center gap-2 text-xs">
+            <input type="checkbox" name="confirm" required value="1" className="size-4 shrink-0" />
+            เข้าใจแล้วว่าปิดวันดังกล่าวจะบันทึกเวลาออกและคิดค่าแรง
+          </label>
+
+          <button type="submit" className={`${BUTTON_SECONDARY} self-start`}>
             ปิดวัน
           </button>
-          {/* Closing is not a bookkeeping tick: close_muster_day auto-checks-out
-              the open regular sessions and calls the labour derive, so it is the
-              step that books the day's wages. A reader who does not know that
-              cannot judge whether to press it. */}
-          <p className="text-ink-secondary basis-full text-[11px]">
-            ปิดวันแล้วระบบจะคิดค่าแรงของวันนั้น และแก้ไขการเช็คชื่อไม่ได้จนกว่าจะเปิดวันอีกครั้ง
-          </p>
         </form>
       )}
 

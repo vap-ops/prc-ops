@@ -23,6 +23,13 @@ export type DayCorrectionControl =
         | "future"
         /** No attendance row at all that day (`GridDay.dayClosed === null`). */
         | "noRecords"
+        /**
+         * Today, still open. Closing stamps a 17:00 check-out on everyone still
+         * in, so mid-shift it fabricates the day's end — and today is the muster
+         * COCKPIT's surface, which reaches the same RPC through a ready/overdue
+         * state machine this audit report deliberately does not reimplement.
+         */
+        | "dayNotOver"
         /** The viewer's role is outside the RPC's allowlist. Renders NO message:
          *  withholding the control must not turn into telling a reader off. */
         | "notPermitted"
@@ -46,6 +53,9 @@ export function dayCorrectionControl(input: {
   // and neither permission nor a project choice can change them.
   if (date > todayIso) return { control: "none", reason: "future" };
   if (dayClosed === null) return { control: "none", reason: "noRecords" };
+  // Today's OPEN day is withheld from the close arm only — a closed today can
+  // still be reopened from here, which is the whole point of the reopen path.
+  if (dayClosed === false && date >= todayIso) return { control: "none", reason: "dayNotOver" };
 
   // Permission before the project prompt: "เลือกโครงการก่อน" is only actionable
   // for a reader who could then act. Telling accounting to pick a project would
