@@ -1,3 +1,13 @@
+# [0.344.0](https://github.com/vap-ops/prc-ops/compare/v0.343.0...v0.344.0) (2026-08-06)
+
+### Bug Fixes
+
+- **attendance:** address the fresh-eyes review of the grid (spec 400 U1) ([c9b8dfd](https://github.com/vap-ops/prc-ops/commit/c9b8dfd2ba13ba5e5582d8f317a5b08ff5a7569b))
+
+### Features
+
+- **attendance:** the worker x day grid (spec 400 U1) ([58412fa](https://github.com/vap-ops/prc-ops/commit/58412fac063e944c666f6598b243e689408921b0))
+
 # [0.343.0](https://github.com/vap-ops/prc-ops/compare/v0.342.0...v0.343.0) (2026-08-06)
 
 ### Bug Fixes

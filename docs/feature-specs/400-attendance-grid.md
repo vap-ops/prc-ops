@@ -316,6 +316,19 @@ group by 1` — a `procurement` row must exist. It is **0 all-time** today.
   name an off-home project — 374's calendar already does. Not in U1's scope.
 - The `/team/attendance` CSV export writes **no** `audit_log` row (spec 397's
   recorded item). Unchanged here, still owed a decision.
+- **The grid path now costs three reads** — `audit_attendance_summary`, the
+  full-range `audit_attendance_detail`, and the holidays select — and the summary's
+  only remaining jobs on that path are the header totals, `unclosedDaySignal` and
+  the empty-range gate, all of which the detail rows already carry. Collapsing it
+  to one read is a real simplification and it changes what the header renders, so
+  it is its own unit, not a U1 side effect. Found in review; trivial at today's
+  volumes (261 detail rows for a month) and worth doing before the roster grows.
+- **`บันทึกมือ` / `ออกอัตโนมัติ` are free string literals in several components**
+  (6 and 3 copies in `src/`). The UI-term SSOT rule says a term used in 2+ places
+  belongs in `labels.ts`; that file is one of the repo's two constant colliders, so
+  hoisting them is a sweep of its own rather than a rider on this unit. `(+1 วัน)`
+  was aligned here because it was a THIRD name for a fact two neighbouring surfaces
+  already agreed on.
 
 ---
 
