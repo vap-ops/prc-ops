@@ -24,6 +24,11 @@ import { PROJECT_COSTS_LABEL } from "@/lib/i18n/labels";
 import { PAGE_MAX_W } from "@/lib/ui/page-width";
 import { ProjectCostsView } from "./costs-view";
 
+// The same constant the DetailHeader below renders, so the spoken name and the
+// visible heading cannot drift (#986: a page with no title of its own announces
+// nothing at all on arrival).
+export const metadata = { title: PROJECT_COSTS_LABEL };
+
 interface PageProps {
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ from?: string | string[] }>;
