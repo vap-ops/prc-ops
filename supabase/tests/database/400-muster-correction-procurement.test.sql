@@ -1,5 +1,5 @@
 begin;
-select plan(42);
+select plan(49);
 
 -- ============================================================================
 -- Spec 400 U3a — the correction path for procurement.
@@ -143,19 +143,29 @@ set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-00000000000c"
 select lives_ok(
   $$select public.close_muster_day('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-22'::date)$$,
   'procurement MAY close an open day (the ruling: they may re-close)');
+reset role;
+-- Read back AS OWNER, not as the caller: procurement has no RLS read on
+-- muster_day_closures, so this `exists` returns FALSE under their JWT and the
+-- assertion would fail while the write had actually succeeded. A verification
+-- read must run as a principal that can SEE the thing — otherwise it measures the
+-- reader's privileges, not the writer's effect.
 select ok(
   exists (select 1 from public.muster_day_closures
            where project_id = 'a1000000-0400-0400-0400-000000000001'
              and work_date = '2026-07-22'),
   'and the closure row really landed — not merely a call that did not raise');
-reset role;
 
 -- The cross-project arm: procurement has NO membership anywhere, so a
 -- role-list-only widening would pass the door and raise 42501 at can_see_project.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-00000000000c"}';
+-- 07-25, NOT the 07-23 that project B's team sits on: closing 07-23 here would
+-- leave the cross-project SCAN assertion below trying to write to a day this
+-- assertion had just closed, and the new closure guard would refuse it — a red
+-- caused by the test's own earlier write rather than by the gate under test.
+-- close_muster_day needs no team; it inserts the closure and finds no attendance.
 select lives_ok(
-  $$select public.close_muster_day('a2000000-0400-0400-0400-000000000002'::uuid, '2026-07-23'::date)$$,
+  $$select public.close_muster_day('a2000000-0400-0400-0400-000000000002'::uuid, '2026-07-25'::date)$$,
   'procurement may close on a project they are not a member of (cross-project arm)');
 reset role;
 
@@ -251,6 +261,31 @@ select ok(
                where team_id = '71000000-0400-0400-0400-000000000011'
                  and worker_id = 'e1000000-0400-0400-0400-000000000002'),
   'and nothing was written on the closed day');
+
+-- The second bound (075914): a correction records a REGULAR session only. OT is
+-- ×1.5 money (spec 351) and the ruling did not ask for the power to create it.
+-- The SA arm keeps both sessions, which is what the next assertion proves — the
+-- pair is what makes this a procurement-specific bound rather than a global one.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-00000000000c"}';
+select throws_ok(
+  $$select public.muster_scan_in('71000000-0400-0400-0400-000000000010'::uuid,
+      'e1000000-0400-0400-0400-000000000001'::uuid, 'manual'::public.muster_method,
+      'ot'::public.muster_session)$$,
+  'P0001', null,
+  'procurement may NOT open an OT session — a correction is regular-only (×1.5 money)');
+reset role;
+-- Positive control: the SA arm still opens OT on the same open day. The lead has a
+-- regular session there (scanned by the fixture? no — scan one first), so this also
+-- exercises spec 351's same-team precondition.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-00000000000d"}';
+select lives_ok(
+  $$select public.muster_scan_in('71000000-0400-0400-0400-000000000010'::uuid,
+      'e1000000-0400-0400-0400-000000000002'::uuid, 'manual'::public.muster_method,
+      'ot'::public.muster_session)$$,
+  'site_admin still MAY open OT — the regular-only bound is procurement-specific');
+reset role;
 
 -- ============================================================================
 -- E. The SA path is DELIBERATELY unchanged — scope pin, not an endorsement.
@@ -419,6 +454,55 @@ select ok(
                  and payload->>'kind' = 'muster_correction_scan_in'
                  and actor_role = 'site_admin'),
   'the SA''s ordinary cockpit scan is NOT relabelled a correction (arm-specific audit)');
+
+-- ============================================================================
+-- H. The least-privilege split (migration 075913).
+--
+--    close_muster_day PERFORMs the wage derive, and derive_muster_labor carries a
+--    THIRD gate one layer down — {site_admin, project_manager, super_admin,
+--    project_director, procurement_manager} + can_see_project, commented "Same
+--    authority as the labour engine. Money-writing." Widening close alone left
+--    procurement passing two gates and dying at the third (found by section B's
+--    lives_ok reporting `42501: derive_muster_labor: role not permitted`, which
+--    reading close_muster_day's own body could never have revealed).
+--
+--    The operator declined widening the money function. So the mechanism moved to
+--    an unexported helper and procurement reaches it ONLY through close_muster_day.
+--    These assertions are what make that claim falsifiable: if someone later
+--    "simplifies" it by adding procurement to derive_muster_labor's list, the
+--    first assertion below reds.
+-- ============================================================================
+select has_function('public', 'derive_muster_labor_internal', array['uuid', 'date'],
+  'the unexported mechanism exists');
+select ok(
+  not has_function_privilege('authenticated',
+    'public.derive_muster_labor_internal(uuid,date)', 'EXECUTE'),
+  'authenticated may NOT execute the mechanism directly (grants revoked, not merely ungranted)');
+select ok(
+  not has_function_privilege('anon',
+    'public.derive_muster_labor_internal(uuid,date)', 'EXECUTE'),
+  'anon may NOT execute the mechanism directly');
+
+-- THE CRUX: procurement gained "re-close a day", NOT "derive wages". A direct
+-- call must still be refused, or the split bought nothing over widening the list.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-00000000000c"}';
+select throws_ok(
+  $$select public.derive_muster_labor('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-22'::date)$$,
+  '42501', null,
+  'procurement STILL may not derive wages directly — the money gate is unchanged');
+reset role;
+
+-- And the roles that legitimately hold the labour-engine authority keep it: the
+-- split must not have narrowed the public entry point either. super_admin is a
+-- member of no project here, so this also proves can_see_project still applies —
+-- it is the ROLE arm being checked, and super_admin passes can_see_project by role.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-000000000009"}';
+select lives_ok(
+  $$select public.derive_muster_labor('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-22'::date)$$,
+  'super_admin may still derive directly — the split did not narrow the public gate');
+reset role;
 
 select * from finish();
 rollback;
