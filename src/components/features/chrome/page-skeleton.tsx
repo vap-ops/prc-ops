@@ -1,6 +1,7 @@
 import { LoadingAnnouncement } from "@/components/features/chrome/loading-announcement";
 import { PageShell } from "@/components/features/chrome/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_MAX_W } from "@/lib/ui/page-width";
 
 // Shared route-level loading state (spec 15 item E). Server component;
 // purely presentational. Mirrors the common page anatomy — header strip,
@@ -19,12 +20,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 // y=409 with ZERO user-scrollable ancestors, and the same wrapper with tall
 // content put 29 of 40 rows permanently out of reach — while the identical
 // content inside PageShell scrolled normally.
+//
+// Both containers carry PAGE_MAX_W (spec 41), like a content page's header
+// strip, nav strip and content container — the width half of the same
+// consolidation, cleared by the operator 2026-08-06 (docs/feature-specs/
+// 65-consolidation-pass.md reserved it as a visual change). A skeleton that
+// stands in for a page and does not share its width IS a horizontal jump at the
+// swap: measured on /dashboard with both states in one DOM, the fallback was
+// 768px against the page's 1240 at 1280×800 (472px), 768 vs 860 at 900, and 760
+// vs 672 at 760 — the old private cap was the VIEWPORT through the 672–768 band,
+// so the two only already agreed below 672.
+//
+// ⚠️ Three boundaries are NOT content pages and this makes their (pre-existing)
+// mismatch wider, not narrower: /login, /coming-soon and /profile render
+// `PageShell variant="card"` around a max-w-sm/max-w-md card, while this shared
+// skeleton paints an app-variant header strip + list rows at PAGE_MAX_W. Width is
+// the smaller half of that — the ANATOMY is already wrong for them — so it is
+// recorded as its own unit (a card-variant skeleton) rather than patched with a
+// width prop here.
 export function PageSkeleton() {
   return (
     <PageShell variant="app">
       <LoadingAnnouncement />
       <header className="border-edge bg-card border-b px-5 py-4">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+        <div className={`mx-auto flex ${PAGE_MAX_W} items-center justify-between gap-3`}>
           <div className="space-y-2">
             <Skeleton className="bg-sunk h-3 w-20" />
             <Skeleton className="bg-sunk h-5 w-44" />
@@ -32,7 +51,7 @@ export function PageSkeleton() {
           <Skeleton className="bg-sunk h-8 w-28" />
         </div>
       </header>
-      <div className="mx-auto max-w-3xl px-5 py-6">
+      <div className={`mx-auto ${PAGE_MAX_W} px-5 py-6`}>
         <Skeleton className="bg-sunk mb-4 h-4 w-28" />
         <div className="flex flex-col gap-2">
           {[0, 1, 2, 3].map((i) => (
