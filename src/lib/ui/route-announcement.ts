@@ -40,7 +40,10 @@
 //   ① Next REPLACES the <title> NODE rather than mutating its text, so
 //      document.title is empty for ~1–6ms per navigation. That gap is what the
 //      framework's announcer samples in — the root cause of it speaking the
-//      wrong thing, measured rather than inferred.
+//      wrong thing. NOTE the split, because this file's value is that
+//      distinction: the gap and the wrong output were both MEASURED, but the
+//      causal link between them is read off that file's source and is an
+//      INFERENCE — the announcer's own read was never instrumented.
 //   ② The <h1> is NOT a usable fallback: on 4 of 5 sampled pages it reads
 //      "สวัสดี คุณ<ชื่อ>", the greeting — announcing it reads the user their own
 //      name on arrival. We never fall back to it; a page with no title of its
@@ -71,9 +74,12 @@ const APP_TITLE_DEFAULT = "PRC Ops";
 export function pageNameFromTitle(title: string): string {
   const trimmed = title.trim();
   if (trimmed === "" || trimmed === APP_TITLE_DEFAULT) return "";
-  return trimmed.endsWith(APP_TITLE_SUFFIX)
-    ? trimmed.slice(0, -APP_TITLE_SUFFIX.length).trim()
-    : trimmed;
+  // `trim()` above shortens " — PRC Ops" below the suffix's length, so endsWith
+  // misses it and a whitespace-only title would announce a dangling em dash
+  // plus the app name. Match the trimmed suffix, then require a remainder.
+  const suffix = APP_TITLE_SUFFIX.trimStart();
+  const name = trimmed.endsWith(suffix) ? trimmed.slice(0, -suffix.length).trim() : trimmed;
+  return name === APP_TITLE_DEFAULT ? "" : name;
 }
 
 export interface RouteAnnouncement {

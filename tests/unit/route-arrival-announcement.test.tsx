@@ -32,8 +32,10 @@
 //    ONE region, so a navigation reads "กำลังโหลด…" then "โครงการ" and the two
 //    can never overlap or race.
 //
-// ④ 127 of 135 page.tsx carry a distinct static Thai metadata.title and the
-//    template is `%s — PRC Ops`, so the suffix is stripped. 7 pages set none
+// ④ 127 of 135 page.tsx carry a static Thai metadata.title and the template is
+//    `%s — PRC Ops`, so the suffix is stripped. It is per ROUTE, not per record
+//    — 39 dynamic pages reuse one title for every record, which is why the
+//    de-dupe is keyed on the pathname too. 8 pages set none
 //    (/contacts measured: title "PRC Ops", h1 null) — those announce NOTHING
 //    rather than "PRC Ops"; silence beats noise, and giving them titles is a
 //    flagged follow-up rather than this unit's business.
@@ -76,6 +78,14 @@ describe("pageNameFromTitle — what a destination is called", () => {
     // then must produce silence, never a bogus announcement — this is the exact
     // state that makes the framework's own announcer speak the wrong thing.
     expect(pageNameFromTitle("")).toBe("");
+  });
+
+  it("returns nothing for a title that is ONLY the suffix", () => {
+    // A page with `title: ""` renders " — PRC Ops". The leading trim() shortens
+    // it below the suffix's own length, so a naive endsWith misses and the user
+    // is read a dangling em dash followed by the app name.
+    expect(pageNameFromTitle(APP_TITLE_SUFFIX)).toBe("");
+    expect(pageNameFromTitle(`  ${APP_TITLE_SUFFIX}  `)).toBe("");
   });
 
   it("keeps a title that does not carry the suffix at all", () => {
@@ -272,6 +282,37 @@ describe("<RouteAnnouncer> watches the document title for arrivals", () => {
     });
 
     expect(screen.getByRole("status").textContent).toBe("");
+  });
+
+  it("announces a DIFFERENT RECORD under the same route title", async () => {
+    // The app's most frequent navigation, and a name-only de-dupe kills it
+    // outright. 39 dynamic-segment pages carry ONE static title for every
+    // record — /projects/[projectId]/work-packages/[workPackageId] is
+    // "รูปถ่ายงาน" for every work package, and WP→WP is what a site admin does
+    // all day. Keying only on the title means the second WP is treated as a
+    // repeat, nothing is announced, and the boundary's release then publishes
+    // "" — so the user hears "กำลังโหลด…" and then silence, permanently.
+    window.history.pushState({}, "", "/projects/p1/work-packages/a");
+    document.title = "รูปถ่ายงาน" + APP_TITLE_SUFFIX;
+
+    render(<RouteAnnouncer />);
+    await act(async () => {});
+
+    await act(async () => {
+      window.history.pushState({}, "", "/projects/p1/work-packages/b");
+      document.head.querySelector("title")?.remove();
+    });
+    await act(async () => {
+      const t = document.createElement("title");
+      t.textContent = "รูปถ่ายงาน" + APP_TITLE_SUFFIX;
+      document.head.appendChild(t);
+    });
+
+    expect(
+      screen.getByRole("status").textContent,
+      "a different record under the same route title announced nothing — the " +
+        "de-dupe is keyed on the page NAME instead of the navigation",
+    ).toBe("รูปถ่ายงาน");
   });
 
   it("stays silent when the node is REPLACED with the same page's title", async () => {

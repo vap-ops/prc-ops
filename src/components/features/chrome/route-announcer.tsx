@@ -43,31 +43,48 @@ import {
  * to keep pinned and no second client component to the bundle.
  */
 function useArrivalAnnouncements(): void {
-  // The title present at mount is the page the user loaded directly. Screen
-  // readers announce a full page load themselves, so it is the baseline to
-  // compare against, never something to speak.
-  const lastAnnounced = useRef<string | null>(null);
+  // What the user is currently on. The page loaded directly is the BASELINE to
+  // compare against, never something to speak — screen readers announce a full
+  // page load themselves.
+  //
+  // Keyed on the PATHNAME as well as the name, because the name alone is not a
+  // navigation: 39 dynamic-segment pages carry ONE static title for every
+  // record (`work-packages/[workPackageId]` is "รูปถ่ายงาน" for all of them), so
+  // a name-only key treats every WP→WP move — the site admin's commonest
+  // navigation — as a repeat and says nothing at all. The pathname is already
+  // updated by the time the new title lands (measured: pathname +1074ms, title
+  // node re-added +1100ms). Comparing both is also what the same-page case
+  // needs: a router.refresh() keeps the pathname, so it still stays silent.
+  const lastPath = useRef<string | null>(null);
+  const lastName = useRef<string | null>(null);
 
   useEffect(() => {
-    lastAnnounced.current = pageNameFromTitle(document.title);
+    lastPath.current = window.location.pathname;
+    lastName.current = pageNameFromTitle(document.title);
 
     const report = () => {
       const name = pageNameFromTitle(document.title);
       // "" is the node-swap gap, or a page that set no title. Say nothing — and
       // crucially do not let it BECOME the baseline. Every navigation passes
-      // through that gap, so a poisoned baseline makes the very next title look
-      // like a change even when it is the same page: a router.refresh(), which
-      // replaces the node with identical text, would announce an arrival the
-      // user never made. (Dropping this `name === ""` test leaves the announce
-      // path correct — announceArrival("") is itself a no-op — which is exactly
-      // why the baseline is the half that matters.)
-      if (name === "" || name === lastAnnounced.current) return;
-      lastAnnounced.current = name;
+      // through that gap, so a poisoned baseline makes the next title look like
+      // a change even when it is the same page: a same-title node replacement
+      // would announce an arrival the user never made. (Dropping this test
+      // leaves the announce path correct — announceArrival("") is itself a
+      // no-op — which is exactly why the baseline is the half that matters.)
+      if (name === "") return;
+
+      const path = window.location.pathname;
+      if (path === lastPath.current && name === lastName.current) return;
+      lastPath.current = path;
+      lastName.current = name;
       announceArrival(name);
     };
 
+    // childList + subtree is the whole mechanism: Next replaces the <title>
+    // NODE. `characterData` was here too and nothing could distinguish its
+    // presence from its absence, so it is not carried on faith.
     const observer = new MutationObserver(report);
-    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.head, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, []);
 }
