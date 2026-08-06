@@ -62,10 +62,14 @@ function DayHeader({
   day,
   todayIso,
   showMonth,
+  dayHref,
 }: {
   day: GridDay;
   todayIso: string;
   showMonth: boolean;
+  /** Spec 400 U3b — opens the day panel. `null` withholds the LINK only; every
+   *  fact in this header still renders (the spec 397 U3 rule). */
+  dayHref: ((date: string) => string) | null;
 }) {
   const dayNumber = Number(day.date.slice(8, 10));
   // Closure is a PROJECT-DAY fact and belongs here, once, not on 41 cells.
@@ -86,19 +90,16 @@ function DayHeader({
       : day.dayClosed === false && day.date < todayIso
         ? "attn"
         : null;
-  return (
-    <th
-      scope="col"
-      className={`border-edge min-w-14 border-b px-1 py-2 text-center align-bottom font-normal ${
-        day.nonWorking ? "bg-sunk" : ""
-      }`}
-    >
+  const body = (
+    <>
       {showMonth && (
         <span className="text-ink-secondary block text-[10px] leading-tight">
           {THAI_MONTH.format(new Date(`${day.date}T00:00:00Z`))}
         </span>
       )}
-      <span className="text-ink block text-xs font-semibold">{dayNumber}</span>
+      <span className={`block text-xs font-semibold ${dayHref ? "text-action" : "text-ink"}`}>
+        {dayNumber}
+      </span>
       {day.holidayName !== null && (
         <span className="text-ink-secondary mt-0.5 block text-[10px] leading-tight">
           {day.holidayName}
@@ -117,6 +118,46 @@ function DayHeader({
           }`}
         />
       )}
+    </>
+  );
+  return (
+    <th
+      scope="col"
+      className={`border-edge min-w-14 border-b px-1 py-2 text-center align-bottom font-normal ${
+        day.nonWorking ? "bg-sunk" : ""
+      }`}
+    >
+      {dayHref ? (
+        // The whole header is the target: a bare day NUMBER is a ~10px tap on a
+        // gloved hand, and the month/headcount/closure lines are what the reader
+        // is aiming at anyway. min-h-11 because the commonest column state (no
+        // month row, no holiday, no closure bar) is only ~42px of content.
+        //
+        // ⚠️ The label CARRIES the column's facts rather than replacing them. An
+        // author-supplied aria-label on the link wins over its subtree AND
+        // becomes the <th>'s accessible name, so `แก้ไขวัน 4 ส.ค. 2569` alone
+        // would silently strip the headcount and the closure state from what a
+        // screen reader announces for all 42 cells of that column — leaving the
+        // roles that got the CONTROL hearing strictly less than the roles that
+        // did not. Withholding the control must not withhold the fact, and
+        // granting it must not either.
+        <Link
+          href={dayHref(day.date)}
+          aria-label={[
+            `แก้ไขวัน ${formatThaiDate(day.date)}`,
+            `${day.headcount} คน`,
+            day.holidayName,
+            closure,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          className="focus-visible:ring-action flex min-h-11 flex-col justify-end rounded px-1 py-1 focus:outline-none focus-visible:ring-2"
+        >
+          {body}
+        </Link>
+      ) : (
+        body
+      )}
     </th>
   );
 }
@@ -125,9 +166,17 @@ export function AttendanceGridView({
   grid,
   todayIso,
   workerHref,
+  dayHref = null,
 }: {
   grid: AttendanceGrid;
   todayIso: string;
+  /**
+   * Spec 400 U3b — opens the ?day= correction panel. `null` for the roles that
+   * may neither close nor reopen (accounting, hr, project_coordinator,
+   * project_manager): the panel would carry nothing but facts the column header
+   * already states, so the link would be a promise of an action they cannot take.
+   */
+  dayHref?: ((date: string) => string) | null;
   /**
    * Spec 400 D9 — the per-worker calendar (spec 374) gates on
    * WORKER_ROSTER_ROLES, which is NARROWER than ATTENDANCE_AUDIT_ROLES:
@@ -190,6 +239,7 @@ export function AttendanceGridView({
                   key={day.date}
                   day={day}
                   todayIso={todayIso}
+                  dayHref={dayHref}
                   // Name the month on the first column and wherever it turns
                   // over — a 92-day range can cross four of them.
                   showMonth={i === 0 || day.date.slice(0, 7) !== grid.days[i - 1]?.date.slice(0, 7)}

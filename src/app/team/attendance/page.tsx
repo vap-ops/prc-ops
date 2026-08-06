@@ -30,12 +30,14 @@ import { requireRole } from "@/lib/auth/require-role";
 import {
   ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
+  MUSTER_CLOSE_ROLES,
   MUSTER_REOPEN_ROLES,
-  SA_SURFACE_ROLES,
   WORKER_ROSTER_ROLES,
 } from "@/lib/auth/role-home";
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
+import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
+import { attendanceDayParam } from "@/lib/muster/day-correction";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -75,6 +77,16 @@ const REOPEN_ERROR_COPY: Record<string, string> = {
   failed: "เปิดวันอีกครั้งไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
 };
 
+/** Spec 400 U3b — the close form's own outcomes, same honest-copy rule: `denied`
+ *  and `shape` can never succeed on a retry, so neither says ลองใหม่, and
+ *  `denied` covers the RPC's project-scope refusal as well as its role gate. */
+const CLOSE_ERROR_COPY: Record<string, string> = {
+  denied: "บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้",
+  shape: "วันที่หรือโครงการไม่ถูกต้อง",
+  notover: "ยังอยู่ระหว่างวัน ปิดวันได้เมื่อจบวันแล้ว",
+  failed: "ปิดวันไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
+};
+
 interface AttendanceAuditPageProps {
   // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
   // /team, /accounting AND — since spec 397 U2 — /procurement, so the parent is
@@ -92,12 +104,29 @@ interface AttendanceAuditPageProps {
     worker?: string | string[];
     /** Spec 400 U1 — `grid` (default) or `list`. */
     view?: string | string[];
+    /** Spec 400 U3b — open the correction panel for ONE day column. */
+    day?: string | string[];
+    /** Spec 400 U3b — the close form's outcome, carried back by its redirect. */
+    closed?: string | string[];
+    closeError?: string | string[];
   }>;
 }
 
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
-  const { start, end, project, from, worker, reopened, reopenError, view } = await searchParams;
+  const {
+    start,
+    end,
+    project,
+    from,
+    worker,
+    reopened,
+    reopenError,
+    view,
+    day,
+    closed,
+    closeError,
+  } = await searchParams;
   // `?worker=` predates this unit: every drill link the report has ever minted
   // carries one and no ?view, so those URLs resolve to the LIST or the drill
   // they exist to open would silently vanish.
@@ -114,12 +143,16 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // adding a parent is a one-line change beside safeBackHref, not a wider ternary.
   const backHref = safeBackHref(from, "/team");
   const backLabel = attendanceBackLabel(backHref);
-  // Spec 397 U3 — whether the VIEWER can finish the loop themselves.
-  // SA_SURFACE_ROLES is exactly `close_muster_day`'s live allowlist (verified),
-  // and plain `procurement` is not in it (nor does it pass that RPC's
-  // can_see_project), so for the very role this spec is about the loop is
-  // two-person. The copy must say that rather than name a step it cannot take.
-  const canClose = SA_SURFACE_ROLES.includes(ctx.role);
+  // Spec 397 U3 / 400 U3b — whether the VIEWER can finish the loop themselves.
+  //
+  // ⚠️ This keyed on SA_SURFACE_ROLES until spec 400 U3a, when migration
+  // 20260813075912 added `procurement` to `close_muster_day` AND gave it a
+  // cross-project arm. Both statements the old set produced — the reopen form's
+  // helper line and the reopened banner — therefore went on telling the one role
+  // this work exists for to hand the close to the SA, about a day it may now
+  // close itself. MUSTER_CLOSE_ROLES mirrors the LIVE allowlist.
+  const canClose = MUSTER_CLOSE_ROLES.includes(ctx.role);
+  const canReopen = MUSTER_REOPEN_ROLES.includes(ctx.role);
 
   const supabase = await createServerClient();
   const rows = await loadAttendanceSummary(supabase, range);
@@ -291,6 +324,59 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     return `/team/attendance?${q.toString()}#w-${workerId ?? openWorkerId ?? ""}`;
   };
 
+  // Spec 400 U3b — the day panel: the COLUMN twin of the drill, so it keeps the
+  // drill's rules. It stays in the GRID (the list has no columns), it toggles on
+  // the same column, and it anchors on `#d-<date>` because a server navigation
+  // otherwise lands at the top of a 42-row table.
+  // Validated against the dates the grid ACTUALLY drew, the same way ?worker= is
+  // validated against the rows it drew: a `?day=2020-01-01` would otherwise
+  // render a panel about a column that is not on screen. Declared BEFORE dayHref
+  // rather than after it — the closure was safe only because every call site
+  // happened to sit below, which a JSX reorder would turn into a TDZ throw.
+  const openDayDate = attendanceDayParam(
+    day,
+    grid.days.map((d) => d.date),
+  );
+  const openDay = grid.days.find((d) => d.date === openDayDate) ?? null;
+  const dayHref = (date: string | null): string => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    if (date) q.set("day", date);
+    // No fragment on the CLOSE link: `#d-<date>` exists only on the panel that
+    // is about to unmount, and a hash with no target scrolls the reader to the
+    // top of a 42-row table — the very jump the fragment exists to prevent.
+    return date ? `/team/attendance?${q.toString()}#d-${date}` : `/team/attendance?${q.toString()}`;
+  };
+  // Whether the columns are links at all. Withholding it from the four audit
+  // roles that may neither close nor reopen is not withholding a FACT: every
+  // fact the panel states is readable from the column and the drill, and a link
+  // would promise an action their own server refuses.
+  const canCorrectDay = canReopen || canClose;
+  // The two things closing COSTS, named from the rows already on screen:
+  // close_muster_day stamps 17:00 on every open REGULAR session and leaves every
+  // open OT one alone — and no RPC records a past check-out for any role, so an
+  // OT session left open is unbookable. gridDetail is already scoped to the
+  // range and the picked project by the RPC, so this is a filter, not a fetch.
+  const openDaySessions = openDay ? gridDetail.filter((r) => r.workDate === openDay.date) : [];
+  const stillInOnOpenDay = {
+    regular: openDaySessions
+      .filter((r) => r.stillIn && r.session === "regular")
+      .map((r) => r.workerName),
+    ot: openDaySessions.filter((r) => r.stillIn && r.session === "ot").map((r) => r.workerName),
+  };
+  // Rendered INSIDE the panel: the redirect anchors on `#d-<date>`, so a banner
+  // in the page header would land a viewport away from the reader.
+  const closeOutcome =
+    closed === "1"
+      ? ({ ok: true } as const)
+      : typeof closeError === "string" && closeError.length > 0
+        ? ({
+            ok: false,
+            message: CLOSE_ERROR_COPY[closeError] ?? CLOSE_ERROR_COPY.failed!,
+          } as const)
+        : null;
+
   return (
     <PageShell>
       <BottomTabBar role={ctx.role} />
@@ -366,10 +452,31 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         )}
         {reopened === "1" && (
           <p className="border-edge bg-sunk text-ink rounded-card mb-4 border px-4 py-3 text-sm">
+            {/* Same correction as the reopen form's own helper line: neither
+                arm may claim the reader (or the SA) can edit the check-ins of a
+                PAST day — no surface does that yet for any role. */}
             {canClose
-              ? "เปิดวันนี้อีกครั้งแล้ว — แก้ไขการเช็คชื่อได้ และต้องปิดวันใหม่เมื่อแก้เสร็จ"
-              : "เปิดวันนี้อีกครั้งแล้ว — แจ้ง SA ให้แก้ไขการเช็คชื่อและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
+              ? "เปิดวันดังกล่าวอีกครั้งแล้ว — ปิดวันใหม่เมื่อพร้อม ระบบจะคิดค่าแรงใหม่จากข้อมูลล่าสุด"
+              : "เปิดวันดังกล่าวอีกครั้งแล้ว — แจ้ง SA ให้ปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
           </p>
+        )}
+
+        {/* Spec 400 U3b — the close outcome normally renders INSIDE the panel,
+            because the redirect anchors on `#d-<date>` and this header is a
+            viewport away from where the reader lands. This is the FALLBACK for
+            the case that leaves no panel: a `?day=` that no longer resolves (the
+            range moved, or the returnTo lost it), where rendering nowhere would
+            turn a refusal into silence. */}
+        {closeOutcome !== null && openDay === null && (
+          <div className="mb-4">
+            {closeOutcome.ok ? (
+              <p className="border-edge bg-sunk text-ink rounded-card border px-4 py-3 text-sm">
+                ปิดวันแล้ว — ระบบคิดค่าแรงของวันดังกล่าวจากการเช็คชื่อล่าสุด
+              </p>
+            ) : (
+              <ErrorNotice>{closeOutcome.message}</ErrorNotice>
+            )}
+          </div>
         )}
 
         {/* Spec 400 U2 — the GRID has something to say when the summary does
@@ -452,7 +559,28 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
             </div>
 
             {shape === "grid" && (
-              <AttendanceGridView grid={grid} todayIso={todayIso} workerHref={workerHref} />
+              <>
+                <AttendanceGridView
+                  grid={grid}
+                  todayIso={todayIso}
+                  workerHref={workerHref}
+                  dayHref={
+                    canCorrectDay ? (date) => dayHref(date === openDayDate ? null : date) : null
+                  }
+                />
+                {openDay !== null && (
+                  <AttendanceDayPanel
+                    day={openDay}
+                    todayIso={todayIso}
+                    projectId={range.projectId ?? null}
+                    canReopen={canReopen}
+                    canClose={canClose}
+                    returnTo={dayHref(openDay.date)}
+                    stillIn={stillInOnOpenDay}
+                    outcome={closeOutcome}
+                  />
+                )}
+              </>
             )}
 
             {/* One row per worker. The signal chips mark the rows an auditor
@@ -515,7 +643,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                           <AttendanceDrill
                             days={detailDays}
                             todayIso={todayIso}
-                            canReopen={MUSTER_REOPEN_ROLES.includes(ctx.role)}
+                            canReopen={canReopen}
                             canClose={canClose}
                             backHref={drillHref(r.workerId)}
                           />

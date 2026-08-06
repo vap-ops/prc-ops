@@ -13295,3 +13295,69 @@ read this diff** — self-review only, per session constraint; it found two real
 own work (the OT arm and the money-wall reach), which is a reason to want a second pass on a
 money-adjacent danger-path change. ⑤ U3b (the affordances) and U4 (the back-dated check-out,
 which exists for no role) are unstarted.
+
+## 2026-08-06 — spec 400 U3b: the correction affordances on the grid (lane u3b)
+
+U3a widened `close_muster_day` and `muster_scan_in` to `procurement` (migration `20260813075912`).
+No surface offered that role the step: the report told them to hand the close to the SA, and the
+GRID — the default view since U1 — carried no correction control at all. U3b is that surface.
+
+**`MUSTER_CLOSE_ROLES`** mirrors `close_muster_day`'s LIVE allowlist, read with `pg_get_functiondef`
+rather than from the migration file: `{site_admin, super_admin, procurement_manager, procurement}`,
+identical to the other three muster RPCs after U3a. The page's `canClose` keyed on `SA_SURFACE_ROLES`
+— a correct mirror until U3a and a narrower set after it — so two Thai sentences went on naming a
+step their reader could now take alone. Kept a DISTINCT set from `MUSTER_REOPEN_ROLES` per the role
+doctrine (two RPCs, two meanings) with the implication the loop copy rests on, `REOPEN ⊆ CLOSE`,
+pinned rather than assumed.
+
+**The `?day=` panel** is the COLUMN twin of the `?worker=` drill: closure and headcount are
+project-day facts, so their controls belong on the column. Reopen on a closed day, close on an open
+PAST one, and a named cause on every arm that offers neither — `future`, `noRecords`, `dayNotOver`,
+`noProject`, and a deliberately silent `notPermitted` (withholding the control must not become
+telling a reader off; the header still states the day's state). `dayCorrectionControl` is a pure
+exported function because U1 proved a source scan cannot see reachability.
+
+**Two red findings from the fresh-eyes review, both real.** ① Closing was ONE TAP with none of the
+disclosures the cockpit and the prior-day banner treat as mandatory: `close_muster_day` stamps 17:00
+on every open REGULAR session and leaves every open OT one alone, and no RPC records a past
+check-out for any role, so an open OT session is unbookable. The panel now names both losses WITH the
+workers, states the current-rate basis, puts all of it above the control, and requires a confirm
+checkbox — the arm-then-confirm a zero-client-JS page can carry. ② The loop copy said
+`แก้ไขแล้วต้องปิดวันใหม่`, naming a middle step with NO surface: both undo surfaces are hard-locked to
+today and gated on `SA_SURFACE_ROLES`, and add-person is deferred. It now says what re-closing
+actually does — re-derive from the latest rates and WP bindings.
+
+⚠️ **Add-person is deliberately absent, and the reason is a finding about U3a.** `muster_scan_in`
+names no `in_at` and the column default is `now()`, so correcting a PAST day would stamp the
+correction moment, and `close_muster_day`'s auto-out (`greatest(day_end, in_at)`) would then produce
+a **zero-length session** — the audit surface manufacturing the anomaly it exists to find. Money is
+unaffected (`derive_muster_labor_internal` is presence-based: `day_fraction` full/half by
+`muster_team_wps` count, never hours). **`p_in_at` is owed and it is U4's shape**, which already owes
+a back-dated `out_at` — one migration, both directions. Operator ruled to defer.
+
+🚨 **A second finding U3b could not fix: `procurement` cannot read a team id.** `muster_scan_in` takes
+`p_team`, `muster_teams` RLS is `can_see_project(project_id)`, and that helper falls to `else false`
+for `procurement` — so a team picker on the session client is EMPTY for 4 of the 5 people U3a widened
+the RPC for. Needs an admin seam or a new DEFINER RPC. Measured: teams per project-day is 1 on 7 days
+and 2–5 on 10, so an "only one team, auto-pick" shortcut covers 41% — a picker is genuinely required.
+All 44 teams are `kind='crew'`; zero office teams have ever been created.
+
+**10 mutation checks, all killed** — including the page's `canClose` revert, each arm of
+`dayCorrectionControl`, the return URL's param moved after the fragment, the confirm checkbox's
+`required`, and an `order-last` on the disclosure list (jsdom has no layout engine, so DOM order is
+asserted AND no `order-*` utility is allowed inside the form).
+
+⚠️ Gate 4 was render-only by choice: every arm was driven live as `procurement` and as
+`super_admin` via SSR fetch probes on the real dev server against project `PRC-2026-004`
+(08-04 closed → reopen form + the new loop copy; 08-05 open → close form + the still-in disclosure +
+the confirm box; 08-06 no records; 08-09 future; ทุกโครงการ → the project prompt; accounting and
+project_manager get no column links). **No prod close was executed** — it would auto-out 23 live
+sessions and reopening does not restore their `out_at`. The RPC itself is pgTAP-proven by U3a.
+
+**Open questions.** ① The stale-copy sweep found two more: `prior-day-close.ts` claimed this report
+has no close action, and `/team/office` claimed `SA_SURFACE_ROLES` is exactly the set every muster
+write RPC admits — both corrected here. ② `#1000` carries a migration comment saying the UI turns
+`team not found` into `ยังไม่มีทีมของวันนั้น` in U3b; U3b builds no add-person path, so that comment
+names the wrong unit and belongs to U4. Not touched — it is another lane's branch. ③ There is still
+NO surface, for ANY role, that corrects a past day's attendance: both undo surfaces are today-locked.
+That is the gap U4 closes.

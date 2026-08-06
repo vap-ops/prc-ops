@@ -16,10 +16,14 @@
 // in a way a "ลองใหม่" could promise.
 //
 // The correction loop this opens is reopen → fix → close again: close_muster_day
-// is idempotent and re-derives, so re-closing is what re-settles the day. ⚠️ That
-// close is gated on SA_SURFACE_ROLES and can_see_project, which plain
-// `procurement` fails on both counts — so for that role the loop is two-person
-// and the page's copy must say so (spec 397 §9 Q7).
+// is idempotent and re-derives, so re-closing is what re-settles the day.
+//
+// ⚠️ CORRECTED 2026-08-06 (spec 400 U3a/U3b). This header used to say the close
+// was gated on SA_SURFACE_ROLES + can_see_project, which plain `procurement`
+// failed on both counts, so the loop was two-person for it. Migration
+// 20260813075912 widened `close_muster_day` to `procurement` AND gave that role a
+// cross-project arm, so the loop is now ONE person — see closeMusterDay below,
+// which is the surface half of that ruling.
 
 import "server-only";
 
@@ -27,9 +31,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireActionRole } from "@/lib/auth/action-gate";
-import { MUSTER_REOPEN_ROLES } from "@/lib/auth/role-home";
-import { ISO_DATE_REGEX } from "@/lib/dates";
-import { reopenReturnTo, type ReopenOutcome } from "@/lib/muster/reopen-return";
+import { MUSTER_CLOSE_ROLES, MUSTER_REOPEN_ROLES } from "@/lib/auth/role-home";
+import { bangkokTodayIso, ISO_DATE_REGEX } from "@/lib/dates";
+import {
+  closeReturnTo,
+  reopenReturnTo,
+  type CloseOutcome,
+  type ReopenOutcome,
+} from "@/lib/muster/reopen-return";
 import { UUID_REGEX } from "@/lib/validate/uuid";
 
 export type ReopenResult = { ok: true } | { ok: false; outcome: ReopenOutcome };
@@ -106,5 +115,74 @@ export async function reopenMusterDayFromForm(formData: FormData): Promise<void>
   // dead code.
   redirect(
     reopenReturnTo(String(formData.get("returnTo") ?? ""), result.ok ? "ok" : result.outcome),
+  );
+}
+
+export type CloseResult = { ok: true } | { ok: false; outcome: CloseOutcome };
+
+/**
+ * Spec 400 U3b — the OTHER half of the loop. Spec 400 U3a widened
+ * `close_muster_day` to `procurement` (migration 20260813075912), and until this
+ * unit no surface offered that role the step: the report told them to hand it to
+ * the SA, and the grid — the default view since U1 — carried no control at all.
+ *
+ * Authorization is the DB's, exactly as for reopen: the RPC is SECURITY DEFINER,
+ * gates on `current_user_role() ∈ MUSTER_CLOSE_ROLES`, applies `can_see_project`
+ * to every role except `procurement` (for which it is structurally false), and
+ * calls `derive_muster_labor_internal` — so this is the step that BOOKS the day's
+ * wages, not a bookkeeping tick.
+ *
+ * ⚠️ No "already closed" arm, and that is a property of the RPC rather than an
+ * omission: it upserts the closure (`on conflict … do update`) and re-derives, so
+ * re-closing is idempotent. Inventing a refusal here would contradict it.
+ */
+export async function closeMusterDay(input: {
+  projectId: string;
+  workDate: string;
+}): Promise<CloseResult> {
+  const gate = await requireActionRole(MUSTER_CLOSE_ROLES);
+  if ("error" in gate) return { ok: false, outcome: "denied" };
+  const auth = gate.auth;
+
+  if (!UUID_REGEX.test(input.projectId) || !ISO_DATE_REGEX.test(input.workDate)) {
+    return { ok: false, outcome: "shape" };
+  }
+
+  // The UI withholds the control for today and the future (dayCorrectionControl's
+  // `dayNotOver` / `future` arms), but these are plain hidden inputs on a
+  // zero-client-JS form — a hand-posted date would write a closure for
+  // 2027-01-01, and U3a's own closure guard would then refuse every correction
+  // scan on that day. The RPC has no date bound of its own, so the bound lives
+  // here, on the server side of the same rule the surface renders.
+  if (input.workDate >= bangkokTodayIso()) {
+    return { ok: false, outcome: "notover" };
+  }
+
+  const { error } = await auth.supabase.rpc("close_muster_day", {
+    p_project: input.projectId,
+    p_date: input.workDate,
+  });
+
+  if (error) {
+    // 42501 covers BOTH of the RPC's refusals — the role gate and the
+    // can_see_project arm — and neither is retryable, so neither may say ลองใหม่.
+    if (error.code === "42501") return { ok: false, outcome: "denied" };
+    return { ok: false, outcome: "failed" };
+  }
+
+  revalidatePath("/team/attendance");
+  revalidatePath("/team");
+  return { ok: true };
+}
+
+/** The form entry point — same shape as reopen's: POST, redirect, outcome CODE. */
+export async function closeMusterDayFromForm(formData: FormData): Promise<void> {
+  const result = await closeMusterDay({
+    projectId: String(formData.get("projectId") ?? ""),
+    workDate: String(formData.get("workDate") ?? ""),
+  });
+
+  redirect(
+    closeReturnTo(String(formData.get("returnTo") ?? ""), result.ok ? "ok" : result.outcome),
   );
 }
