@@ -1,3 +1,20 @@
+# [0.347.0](https://github.com/vap-ops/prc-ops/compare/v0.346.0...v0.347.0) (2026-08-06)
+
+### Features
+
+- **zones:** the Konva zone-drawing canvas (spec 392 U2b) ([#995](https://github.com/vap-ops/prc-ops/issues/995)) ([5fb5be0](https://github.com/vap-ops/prc-ops/commit/5fb5be058df60a2bfd6d6815c9c0e9aaf375e3e0))
+
+# [0.346.0](https://github.com/vap-ops/prc-ops/compare/v0.345.4...v0.346.0) (2026-08-06)
+
+### Bug Fixes
+
+- **attendance:** scope the roster to the projects the reader may audit (spec 400 U2) ([e71a44d](https://github.com/vap-ops/prc-ops/commit/e71a44db154a7886700aa8ed1ed34351c4067cff))
+- **attendance:** state the absent count beside the header it contradicts (spec 400 U2) ([4728d02](https://github.com/vap-ops/prc-ops/commit/4728d02eccd40b6bae51add1ffb2154325214e1d))
+
+### Features
+
+- **attendance:** roster rows, so a worker nobody scanned still has a row (spec 400 U2) ([76d5452](https://github.com/vap-ops/prc-ops/commit/76d5452798256c6d60d5578443c9873d27a004a1))
+
 ## [0.345.4](https://github.com/vap-ops/prc-ops/compare/v0.345.3...v0.345.4) (2026-08-06)
 
 ### Bug Fixes

@@ -157,6 +157,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // pulling every session since 2020 to then refuse to draw it.
   const gridProbe = buildAttendanceGrid({ ...range, rows: [] });
   const drawsGrid = shape === "grid" && !gridProbe.tooWide;
+  // One membership test, two distinct uses below — and the fact that ONE set
+  // answers both is a gate-check result, not an assumption: `WORKER_ROSTER_ROLES`
+  // is exactly `ATTENDANCE_AUDIT_ROLES` ∩ the live `workers` "readable by staff"
+  // policy, so its members can both OPEN the spec-374 calendar (U1 D9) and READ
+  // the roster under RLS (U2). attendance-grid-page.test.ts pins the set so that
+  // widening it re-opens this question instead of silently emptying the roster.
+  const inWorkerRosterRoles = WORKER_ROSTER_ROLES.includes(ctx.role);
   const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];
   const { data: holidays } = drawsGrid
     ? await supabase
@@ -165,7 +172,61 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         .gte("holiday_date", range.from)
         .lte("holiday_date", range.to)
     : { data: null };
-  const grid = buildAttendanceGrid({ ...range, rows: gridDetail, holidays: holidays ?? [] });
+
+  // Spec 400 U2 — the roster, so a worker the muster NEVER recorded gets a row
+  // instead of vanishing (live: 11 of 41 active workers had zero July rows).
+  //
+  // SESSION client, and the gate is the reason it can be: `WORKER_ROSTER_ROLES`
+  // is exactly `ATTENDANCE_AUDIT_ROLES` intersected with the live `workers`
+  // "readable by staff" policy, so every role that reaches this branch can read
+  // these rows under RLS. The other three audit roles — accounting, hr,
+  // project_coordinator — pass no roster and keep exactly today's population;
+  // widening this to the admin client would hand them every worker's name, a PII
+  // decision this unit has no mandate for.
+  //
+  // Only `id, name`: `day_rate` and `employee_id` are column-WALLED on `workers`,
+  // and a select naming them reads back null under RLS rather than failing.
+  // 🔴 The `workers` policy is ROLE-only — it carries NO project predicate — while
+  // the attendance RPCs scope `project_manager` by `can_see_project`, and
+  // project_manager is the one WORKER_ROSTER_ROLES member outside
+  // ATTENDANCE_AUDIT_ALL_PROJECT_ROLES. Unscoped, a PM would get a roster of every
+  // active worker in the firm against attendance for their own projects only —
+  // every other project's workers rendered as "never scanned", which is a
+  // FINDING-SHAPED lie about people whose records that PM simply may not read.
+  //
+  // So the roster is scoped to the same projects the attendance is: the picked
+  // one, everything for the cross-project tier, and otherwise exactly the
+  // `projectOptions` this page already read on the SESSION client (RLS hands a PM
+  // its memberships, which is what `can_see_project` resolves to). A PM with no
+  // visible projects gets `.in(…, [])` — an empty roster, which is correct.
+  const rosterProjectIds: string[] | null = range.projectId
+    ? [range.projectId]
+    : seesAllProjects
+      ? null
+      : (projectOptions ?? []).map((p) => p.id);
+  const rosterBase = supabase.from("workers").select("id, name").eq("active", true);
+  const rosterQuery = rosterProjectIds ? rosterBase.in("project_id", rosterProjectIds) : rosterBase;
+  // Throws rather than degrading to `null`, mirroring loadAttendanceSummary: a
+  // swallowed error here reverts the grid to U1 silently and reports "nobody is
+  // absent" when the truth is "the roster could not be read" — the silent empty
+  // this spec's §D4 exists to refuse.
+  const { data: roster, error: rosterError } =
+    drawsGrid && inWorkerRosterRoles ? await rosterQuery : { data: null, error: null };
+  if (rosterError) throw new Error(`attendance roster read failed: ${rosterError.message}`);
+
+  const grid = buildAttendanceGrid({
+    ...range,
+    rows: gridDetail,
+    holidays: holidays ?? [],
+    // UNIONed inside the builder, never substituted: a worker with attendance
+    // who is no longer `active` (one, live) must not be dropped from a grid that
+    // already shows them.
+    roster: roster ?? [],
+  });
+  // Read off the rendered grid, so the headline and the table can never disagree
+  // — the spec-358 U3 rule (two surfaces rendering one fact must not derive it
+  // independently). Zero in the list view, which draws no roster rows.
+  const absentCount = shape === "grid" ? grid.rows.filter((r) => r.daysPresent === 0).length : 0;
 
   const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
   const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
@@ -212,9 +273,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // accounting / hr / project_coordinator would meet a redirect at the spec-374
   // calendar; they get this report's own drill instead, which they can open. The
   // affordance is therefore never withheld, only re-aimed.
-  const canOpenCalendar = WORKER_ROSTER_ROLES.includes(ctx.role);
   const workerHref = (workerId: string): string =>
-    gridWorkerHref({ workerId, canOpenCalendar, range, backHref });
+    gridWorkerHref({ workerId, canOpenCalendar: inWorkerRosterRoles, range, backHref });
 
   // Preserve the range + project + referrer when toggling a drill open/closed.
   const drillHref = (workerId: string | null): string => {
@@ -312,7 +372,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
           </p>
         )}
 
-        {rows.length === 0 ? (
+        {/* Spec 400 U2 — the GRID has something to say when the summary does
+            not: a range in which nobody was scanned at all is the strongest
+            instance of the finding, and gating on the attendance summary alone
+            would fetch the roster and throw it away. The list keeps the summary
+            gate, because it draws no roster rows and would otherwise render a
+            headless list. */}
+        {(shape === "grid" ? grid.rows.length === 0 : rows.length === 0) ? (
           <EmptyNotice>ไม่มีบันทึกการเช็คชื่อในช่วงนี้</EmptyNotice>
         ) : (
           <>
@@ -329,13 +395,28 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     even while one worker's drill is open on screen.
                     BUTTON_SECONDARY matches the /payroll + /requests exports. */}
                 <a href={exportHref} download className={`${BUTTON_SECONDARY} shrink-0`}>
-                  ดาวน์โหลด CSV (ทุกคน)
+                  {/* Spec 400 U2 — ทุกคน stopped being true on the grid the
+                      moment roster rows joined it: the file is built from
+                      attendance sessions, so a worker with no record has
+                      nothing to export. The label names what the file holds. */}
+                  {shape === "grid" ? "ดาวน์โหลด CSV (ผู้ที่มีบันทึก)" : "ดาวน์โหลด CSV (ทุกคน)"}
                 </a>
               </div>
               <p className="text-ink mt-1 text-sm font-semibold">
                 {rows.length} คน · รวม {formatNumber(totalDays)} วัน
                 {totalOt > 0 ? ` · OT ${formatNumber(totalOt)} ชม.` : ""}
               </p>
+              {/* Spec 400 U2 — the finding, in words, beside the count it would
+                  otherwise contradict. The header's `N คน` counts people the
+                  muster RECORDED (25 live), while the grid now draws the roster
+                  too (42 rows), so without this line one screen carries two
+                  numbers and no explanation. Derived from the grid the reader is
+                  looking at, never recomputed. */}
+              {absentCount > 0 && (
+                <p className="text-ink-secondary mt-1 text-xs">
+                  ไม่มีบันทึกการเช็คชื่อในช่วงนี้ {absentCount} คน
+                </p>
+              )}
               {/* The unclosed-day count is a PROJECT-day fact, identical for every
                   worker of that day — so it belongs here ONCE, not as a chip on
                   each worker row (which read as N findings against N people). It

@@ -426,7 +426,14 @@ group by 1` — a `procurement` row must exist. It is **0 all-time** today.
   name an off-home project — 374's calendar already does. Not in U1's scope.
 - The `/team/attendance` CSV export writes **no** `audit_log` row (spec 397's
   recorded item). Unchanged here, still owed a decision.
-- **The grid path now costs three reads** — `audit_attendance_summary`, the
+- ⚠️ **The `WORKER_ROSTER_ROLES` pin is ONE-DIRECTIONAL, and closing it is owed to U3.** U2's
+  roster is a SESSION read, so it depends on the live `workers` "readable by staff" policy —
+  but the test asserts the TypeScript array. It therefore catches someone WIDENING the role set
+  and is blind to the POLICY being narrowed underneath it, which would produce a silent empty
+  roster rather than a refusal. The pin belongs in pgTAP over the exhaustive role domain (the
+  `358-attendance-audit.test.sql` precedent). It is deferred to U3 rather than built here only
+  because U3 touches `supabase/` anyway, while U2 is otherwise code-only.
+- **The grid path now costs four reads** — `audit_attendance_summary`, the
   full-range `audit_attendance_detail`, and the holidays select — and the summary's
   only remaining jobs on that path are the header totals, `unclosedDaySignal` and
   the empty-range gate, all of which the detail rows already carry. Collapsing it
