@@ -44,9 +44,8 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { RouteAnnouncer } from "@/components/features/chrome/route-announcer";
-import { APP_NAME } from "@/lib/ui/app-title";
+import { APP_NAME, APP_TITLE_SUFFIX } from "@/lib/ui/app-title";
 import {
-  APP_TITLE_SUFFIX,
   ROUTE_LOADING_MESSAGE,
   announceArrival,
   beginRouteLoading,

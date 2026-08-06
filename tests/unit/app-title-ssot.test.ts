@@ -42,10 +42,15 @@ import { pageNameFromTitle } from "@/lib/ui/route-announcement";
  * are stripped too, but only when not preceded by `:` so URLs survive.
  */
 function stripComments(src: string): string {
-  return src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+  return (
+    src
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      // Also skip `//` preceded by a quote or slash, so a protocol-relative URL
+      // in a string (`"//cdn…"`) or a regex literal is not eaten — eating one
+      // would silently truncate the line and turn an absence pin into a pass.
+      .replace(/(^|[^:"'/\\])\/\/.*$/gm, "$1")
+  );
 }
 
 const read = (rel: string) => stripComments(readFileSync(join(process.cwd(), rel), "utf8"));
@@ -79,10 +84,22 @@ describe("app title SSOT", () => {
     expect(ssot.split(APP_NAME).length - 1, "the name appears more than once in the SSOT").toBe(1);
   });
 
-  it("round-trips: a title rendered through the real template announces the page's own name", () => {
-    // This is the assertion the old one only appeared to make. It is meaningful
-    // ONLY because the layout is pinned below to use this same template — the
-    // composition being exercised is the one production actually applies.
+  it("strips a HAND-WRITTEN title — an oracle that does not depend on the constants", () => {
+    // The one assertion here that is independent of the code under test. A
+    // review caught that `pageNameFromTitle(APP_TITLE_TEMPLATE.replace("%s", x))`
+    // expands to `x + APP_TITLE_SUFFIX`, i.e. byte-identical to the OLD
+    // constant-against-itself test and with the same kill set — it proves the
+    // stripper still strips, and nothing about drift. This literal is what the
+    // shipped HTML actually contains (verified in the browser), so it fails if
+    // the composed title ever stops matching reality. Renaming the app is then a
+    // deliberate one-line edit here, which is the correct cost for an oracle.
+    expect(pageNameFromTitle("โครงการ — PRC Ops")).toBe("โครงการ");
+  });
+
+  it("round-trips every page name through the real template", () => {
+    // Complements the oracle above: the stripper must be the exact inverse of
+    // the template for arbitrary names, including Thai and names containing
+    // spaces. (Anti-drift power lives in the source pins below, not here.)
     for (const page of ["โครงการ", "รายชื่อช่าง", "ต้นทุนโครงการ", "รายละเอียดผู้ติดต่อ"]) {
       expect(pageNameFromTitle(APP_TITLE_TEMPLATE.replace("%s", page))).toBe(page);
     }
@@ -111,12 +128,22 @@ describe("the root layout consumes that SSOT rather than re-declaring it", () =>
     ).toBe(false);
   });
 
-  it("actually references the shared constants", () => {
-    // Absence alone is satisfied by deleting the metadata; require the usage.
+  it("uses the constants UNMODIFIED — not merely mentions them", () => {
+    // Absence alone is satisfied by deleting the metadata, so require the usage
+    // — but a prefix match is not enough either. `default: APP_NAME.toUpperCase()`
+    // and `template: APP_TITLE_TEMPLATE.replace("—", "-")` both satisfy a
+    // `default:\s*APP_NAME` regex while shipping every page title in a different
+    // shape and silently breaking the stripper. So the value must END at the
+    // constant: anchor on the trailing comma.
     expect(layoutSource.split("APP_NAME").length - 1).toBeGreaterThanOrEqual(2); // import + use
     expect(layoutSource.split("APP_TITLE_TEMPLATE").length - 1).toBeGreaterThanOrEqual(2);
-    expect(layoutSource).toMatch(/title:\s*\{[\s\S]*?default:\s*APP_NAME/);
-    expect(layoutSource).toMatch(/title:\s*\{[\s\S]*?template:\s*APP_TITLE_TEMPLATE/);
+    expect(layoutSource, "layout.tsx post-processes APP_NAME instead of using it as-is").toMatch(
+      /title:\s*\{[^}]*?\bdefault:\s*APP_NAME,/,
+    );
+    expect(
+      layoutSource,
+      "layout.tsx post-processes APP_TITLE_TEMPLATE instead of using it as-is",
+    ).toMatch(/title:\s*\{[^}]*?\btemplate:\s*APP_TITLE_TEMPLATE,/);
   });
 
   it("the READING side does not re-declare them either", () => {
@@ -134,6 +161,14 @@ describe("the root layout consumes that SSOT rather than re-declaring it", () =>
         "@/lib/ui/app-title so a rename cannot leave the stripper behind",
     ).toBe(false);
     expect(announcement).toContain("@/lib/ui/app-title");
+    // …and it must strip using the SUFFIX, not rebuild it. A review found that
+    // `const suffix = \`— ${APP_NAME}\`` passes every other pin here: it uses
+    // APP_NAME, so the literal check is clean, yet it re-hardcodes the
+    // separator and would survive a change to APP_TITLE_SEPARATOR.
+    expect(
+      announcement,
+      "route-announcement.ts rebuilds the suffix instead of using APP_TITLE_SUFFIX",
+    ).toMatch(/\bAPP_TITLE_SUFFIX\.trimStart\(\)/);
   });
 
   it("keeps the SSOT importable from a Server Component", () => {
@@ -143,8 +178,10 @@ describe("the root layout consumes that SSOT rather than re-declaring it", () =>
     const ssot = read("src/lib/ui/app-title.ts");
     expect(ssot).not.toContain("server-only");
     expect(ssot).not.toContain("use client");
+    // A re-export IS an import, and `export { X } from "…"` dodges /^import /.
+    expect(ssot).not.toMatch(/\bfrom\s+["']/);
     expect(ssot).not.toMatch(/^import /m);
-    // …and it is not empty, so the three absences above are not vacuous.
+    // …and it is not empty, so the absences above are not vacuous.
     expect(ssot).toContain("APP_NAME");
   });
 });

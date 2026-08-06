@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+import { APP_NAME } from "@/lib/ui/app-title";
+
 // PWA manifest (spec 18) — what makes the app installable to a phone
 // home screen with a standalone (no browser chrome) window. Thai-first
 // per spec 14; the brand name stays Latin. Theme/background match the
@@ -9,8 +11,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "PRC Ops",
-    short_name: "PRC Ops",
+    name: APP_NAME,
+    short_name: APP_NAME,
     description: "ระบบบริหารงานก่อสร้าง — รูปถ่ายความคืบหน้า อนุมัติงาน และรายงานโครงการ",
     lang: "th",
     start_url: "/",

@@ -54,20 +54,7 @@
 
 export const ROUTE_LOADING_MESSAGE = "กำลังโหลด…";
 
-/**
- * Every routed page's `document.title` carries the app-title suffix, because
- * the root layout's `metadata.title.template` appends it. Repeating the app's
- * name on every navigation is pure noise to someone listening, so it is
- * stripped back off here.
- *
- * Re-exported from the SSOT rather than re-declared: this used to be a
- * hand-copy of the layout's literal, and the test that appeared to cover it
- * compared the constant against itself, so a rename would have gone green while
- * every announcement kept a stale suffix.
- */
 import { APP_NAME, APP_TITLE_SUFFIX } from "@/lib/ui/app-title";
-
-export { APP_TITLE_SUFFIX };
 
 /**
  * The destination name to announce, or "" for silence.
