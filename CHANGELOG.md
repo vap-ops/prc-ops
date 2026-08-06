@@ -1,3 +1,10 @@
+## [0.341.1](https://github.com/vap-ops/prc-ops/compare/v0.341.0...v0.341.1) (2026-08-06)
+
+### Bug Fixes
+
+- **chrome:** the loading skeleton adopts PAGE_MAX_W, so the fallback stops jumping ([a28333f](https://github.com/vap-ops/prc-ops/commit/a28333f34d984efd95d75d8a3767bb3119ef6699))
+- close the fresh-eyes findings on the width unit ([490b71f](https://github.com/vap-ops/prc-ops/commit/490b71f00750e0bbc54a3b63f84423e03fac1ed9))
+
 # [0.341.0](https://github.com/vap-ops/prc-ops/compare/v0.340.2...v0.341.0) (2026-08-05)
 
 ### Features
