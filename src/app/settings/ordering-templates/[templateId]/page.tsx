@@ -24,7 +24,7 @@ import {
   type TemplateEditorLine,
 } from "@/components/features/supply-plan/ordering-template-editor";
 
-export const metadata = { title: ORDERING_TEMPLATES_LABEL };
+export const metadata = { title: `รายละเอียด${ORDERING_TEMPLATES_LABEL}` };
 
 interface PageProps {
   params: Promise<{ templateId: string }>;
