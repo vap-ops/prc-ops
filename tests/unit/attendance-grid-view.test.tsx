@@ -153,6 +153,28 @@ describe("AttendanceGridView", () => {
     expect(scroller?.className).toContain("[touch-action:pan-x_pinch-zoom]");
   });
 
+  it("renders a roster-only worker as a visibly empty row (U2)", () => {
+    // The finding the list view could not express at all. The row must carry the
+    // name and `0 วัน`, and NOT a stray finding dot — an absence is the signal
+    // here, not an anomaly to flag.
+    renderGrid({
+      rows: [row({ workerId: "a", workerName: "ก" })],
+      roster: [
+        { id: "a", name: "ก" },
+        { id: "b", name: "ข" },
+      ],
+    });
+    expect(screen.getByText("ข")).toBeInTheDocument();
+    const absentRow = screen.getByText("ข").closest("tr");
+    expect(absentRow).not.toBeNull();
+    expect(absentRow?.textContent).toContain("0 วัน");
+    expect(absentRow?.querySelectorAll("td .bg-attn")).toHaveLength(0);
+    // …and every one of its day cells still announces WHY it is empty.
+    const cells = absentRow?.querySelectorAll("td") ?? [];
+    expect(cells.length).toBeGreaterThan(0);
+    for (const td of cells) expect(td.getAttribute("aria-label")).toMatch(/ข /);
+  });
+
   it("says the range is empty rather than rendering a headless table", () => {
     renderGrid({ rows: [] });
     expect(screen.queryByRole("table")).toBeNull();

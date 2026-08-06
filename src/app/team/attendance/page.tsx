@@ -157,6 +157,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // pulling every session since 2020 to then refuse to draw it.
   const gridProbe = buildAttendanceGrid({ ...range, rows: [] });
   const drawsGrid = shape === "grid" && !gridProbe.tooWide;
+  // One membership test, two distinct uses below — and the fact that ONE set
+  // answers both is a gate-check result, not an assumption: `WORKER_ROSTER_ROLES`
+  // is exactly `ATTENDANCE_AUDIT_ROLES` ∩ the live `workers` "readable by staff"
+  // policy, so its members can both OPEN the spec-374 calendar (U1 D9) and READ
+  // the roster under RLS (U2). attendance-grid-page.test.ts pins the set so that
+  // widening it re-opens this question instead of silently emptying the roster.
+  const inWorkerRosterRoles = WORKER_ROSTER_ROLES.includes(ctx.role);
   const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];
   const { data: holidays } = drawsGrid
     ? await supabase
@@ -165,7 +172,38 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         .gte("holiday_date", range.from)
         .lte("holiday_date", range.to)
     : { data: null };
-  const grid = buildAttendanceGrid({ ...range, rows: gridDetail, holidays: holidays ?? [] });
+
+  // Spec 400 U2 — the roster, so a worker the muster NEVER recorded gets a row
+  // instead of vanishing (live: 11 of 41 active workers had zero July rows).
+  //
+  // SESSION client, and the gate is the reason it can be: `WORKER_ROSTER_ROLES`
+  // is exactly `ATTENDANCE_AUDIT_ROLES` intersected with the live `workers`
+  // "readable by staff" policy, so every role that reaches this branch can read
+  // these rows under RLS. The other three audit roles — accounting, hr,
+  // project_coordinator — pass no roster and keep exactly today's population;
+  // widening this to the admin client would hand them every worker's name, a PII
+  // decision this unit has no mandate for.
+  //
+  // Only `id, name`: `day_rate` and `employee_id` are column-WALLED on `workers`,
+  // and a select naming them reads back null under RLS rather than failing.
+  const rosterQuery = range.projectId
+    ? supabase
+        .from("workers")
+        .select("id, name")
+        .eq("active", true)
+        .eq("project_id", range.projectId)
+    : supabase.from("workers").select("id, name").eq("active", true);
+  const { data: roster } = drawsGrid && inWorkerRosterRoles ? await rosterQuery : { data: null };
+
+  const grid = buildAttendanceGrid({
+    ...range,
+    rows: gridDetail,
+    holidays: holidays ?? [],
+    // UNIONed inside the builder, never substituted: a worker with attendance
+    // who is no longer `active` (one, live) must not be dropped from a grid that
+    // already shows them.
+    roster: roster ?? [],
+  });
 
   const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
   const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
@@ -212,9 +250,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // accounting / hr / project_coordinator would meet a redirect at the spec-374
   // calendar; they get this report's own drill instead, which they can open. The
   // affordance is therefore never withheld, only re-aimed.
-  const canOpenCalendar = WORKER_ROSTER_ROLES.includes(ctx.role);
   const workerHref = (workerId: string): string =>
-    gridWorkerHref({ workerId, canOpenCalendar, range, backHref });
+    gridWorkerHref({ workerId, canOpenCalendar: inWorkerRosterRoles, range, backHref });
 
   // Preserve the range + project + referrer when toggling a drill open/closed.
   const drillHref = (workerId: string | null): string => {

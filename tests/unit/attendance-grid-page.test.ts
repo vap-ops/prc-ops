@@ -11,6 +11,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ATTENDANCE_AUDIT_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
 
 const PAGE = join(process.cwd(), "src/app/team/attendance/page.tsx");
 
@@ -82,7 +83,9 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     // is that the page hands the helper the right input.
     expect(occurrences("gridWorkerHref")).toBe(2);
     expect(code).toContain("WORKER_ROSTER_ROLES.includes(ctx.role)");
-    expect(code).toContain("gridWorkerHref({ workerId, canOpenCalendar, range, backHref })");
+    expect(code).toContain(
+      "gridWorkerHref({ workerId, canOpenCalendar: inWorkerRosterRoles, range, backHref })",
+    );
     // …and that the page does not quietly rebuild either destination itself.
     expect(code).not.toContain("/workers/${workerId}/attendance");
   });
@@ -109,6 +112,64 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
       "const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];",
     );
     expect(code).toContain("const { data: holidays } = drawsGrid");
+  });
+
+  it("reads the roster on the SESSION client, gated on the roles RLS actually admits", () => {
+    // U2. The gate is load-bearing and the NEXT test explains why this exact set.
+    expect(code).toContain("drawsGrid && inWorkerRosterRoles ? await rosterQuery");
+    expect(code).toContain('supabase.from("workers").select("id, name").eq("active", true)');
+    const rosterBlock = code.slice(code.indexOf("const rosterQuery"), code.indexOf("const grid ="));
+    expect(rosterBlock).not.toContain("createAdminClient");
+    // `day_rate` and `employee_id` are column-WALLED on `workers`; naming them
+    // reads back null under RLS rather than failing, so they stay unnamed.
+    expect(rosterBlock).not.toContain("day_rate");
+    expect(rosterBlock).not.toContain("employee_id");
+  });
+
+  it("pins the role set the roster read depends on — a SESSION read needs RLS to agree", () => {
+    // THE load-bearing assertion of U2, and the one that will age.
+    //
+    // Live `workers` policy "readable by staff" (verified 2026-08-06):
+    //   {site_admin, project_manager, procurement, procurement_manager,
+    //    super_admin, project_director}
+    // WORKER_ROSTER_ROLES is exactly ATTENDANCE_AUDIT_ROLES ∩ that policy, which
+    // is why the roster can be read on the SESSION client with no admin seam.
+    //
+    // But the two sets MEAN different things — "who onboards ช่าง" vs "who may
+    // read worker rows" — so the equality is a coincidence, not a guarantee.
+    // `project_coordinator` is the live example of the hazard: it is in
+    // ATTENDANCE_AUDIT_ROLES and can open `/workers` (that page reads via the
+    // ADMIN client), but the policy denies it — so adding it here would give
+    // this surface a SILENT EMPTY roster, never a refusal.
+    //
+    // If this test reds, do not "fix" it by editing the array: re-read the live
+    // policy and decide whether the new member can actually SELECT `workers`.
+    expect([...WORKER_ROSTER_ROLES].sort()).toEqual([
+      "procurement",
+      "procurement_manager",
+      "project_director",
+      "project_manager",
+      "super_admin",
+    ]);
+    // …and every one of them really is an audit role, or the branch is dead.
+    for (const role of WORKER_ROSTER_ROLES) {
+      expect(ATTENDANCE_AUDIT_ROLES).toContain(role);
+    }
+  });
+
+  it("scopes the roster to the picked project, and to every project otherwise", () => {
+    const rosterBlock = code.slice(code.indexOf("const rosterQuery"), code.indexOf("const grid ="));
+    expect(rosterBlock).toContain('.eq("project_id", range.projectId)');
+    expect(rosterBlock).toContain("range.projectId");
+  });
+
+  it("hands the roster to the builder as a UNION input, not as the row set", () => {
+    // Measured: one worker with attendance in the live window is not `active`.
+    // Substituting the roster for the rows would drop them from a grid that
+    // already shows them.
+    const gridCall = code.slice(code.indexOf("const grid = buildAttendanceGrid"));
+    expect(gridCall).toContain("rows: gridDetail");
+    expect(gridCall).toContain("roster: roster ?? []");
   });
 
   it("pays for the per-worker drill query only in the view that renders it", () => {
