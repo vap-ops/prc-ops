@@ -12630,3 +12630,53 @@ block in `page-skeleton.tsx` still described these three as delegating to it.
 frame's `max-w-md` (448); `/coming-soon`'s super_admin arm is top-aligned (`bare`) while the
 card variant centres. Both are recorded in `docs/ui-conventions.md` §8 rather than fixed with a
 per-screen knob.
+
+## 2026-08-06 — spec 400 U1: the attendance grid
+
+**Why the list could not be fixed in place.** `/team/attendance` builds one row per worker FROM
+`muster_attendance` rows, so it is structurally blind to absence. Measured before building: **11
+of 41 active workers have ZERO July rows** — they are not shown as zero, they have no row — and
+headcount ran **13 · 17 · 18 · 17 · 1 · 24 · 22 · 23** across 24–31 Jul with **1 · 15 · 21 · 4 ·
+23** across 1–5 Aug. The `1`s and the `4` are exactly what a double-checker is looking for, and a
+per-worker total is where they disappear. Spec 358 rejected this matrix on three grounds and all
+three have expired (its audience was payroll-per-worker; the operator retired mobile-hostility on
+2026-08-06; the CSV is untouched) — recorded in the spec so an audit cannot re-raise it.
+
+**Built.** `?view=` toggle, grid default, list kept. Cell grain is the DATE (regular + OT merged
+by `buildAttendanceMonth`'s rule, pinned by a parity test); headcount and closure live on the
+COLUMN because they are project-day facts; Sundays + `public_holidays` shade; the range is capped
+at 92 days because `?start` is validated for calendar validity, not span, so `?start=2020-01-01`
+was reachable and now skips the fetch entirely and names the cap.
+
+**Two mutants survived and both were real.** `if (canOpenCalendar)` → `if (true)` stayed green:
+a source scan proves code EXISTS, never that it is REACHABLE. Extracted `gridWorkerHref` as a
+pure function and pinned both arms behaviourally. Then the grid's render site `{shape === "grid"
+&& (` → `{false && (` stayed green, because that predicate also appears in the two data-loading
+guards — each render site is now pinned by the guard immediately preceding it.
+
+**The review found ten more, and the one worth carrying is not a logic bug.** A raw **NUL byte**
+sat in `attendance-grid.ts`: `file` reported `data` and ripgrep classified it binary, so the whole
+module returned "binary file matches" with zero content lines — **invisible to every rg-based
+source scan, including the guard class this unit's own page test belongs to.** Also: `manualIn`
+and `autoOut` were read off the earliest-in / latest-out session while `openOut` looked at all of
+them, so a QR regular check-in hid a typed OT one; a `?worker=` URL with no `?view` resolved to
+the grid and silently dropped the drill every pre-existing bookmark exists to open; and the
+unclosed-day header mark was amber for `dayClosed === false`, which is the normal state of the
+current day — the rightmost column would have been amber every single day, the cry-wolf failure
+the shading exists to prevent.
+
+**Verified in real Chrome** (the in-app Browser pane is hidden this session, so nothing there
+hydrates): across a month-crossing range, 14 columns with `ก.ค.`/`ส.ค.` labels exactly at the
+turnover, today's column carrying no unclosed mark, the calendar link carrying `m=2026-07` plus
+the report's own range, empty cells announcing `ไม่มีการเช็คชื่อ` vs `วันหยุด`, a legacy
+`?worker=` URL landing on the list with its drill open, and zero console errors. Role arms under
+view-as: `accounting` → 33/33 worker links to this report's drill, `procurement` → 33/33 to the
+spec-374 calendar.
+
+**Open questions.** ① The grid path costs three reads and the summary is now redundant on it —
+its own unit, since collapsing it changes what the header renders. ② `บันทึกมือ` /
+`ออกอัตโนมัติ` are free literals in several components; the UI-term SSOT says they belong in
+`labels.ts`, which is a collider, so that is a sweep of its own. ③ Row ordering is alphabetical;
+ranking by "most findings" needs the distribution measured first (the spec-375 trap). ④ U2
+(roster rows, the "11 of 41" finding) and U3 (the correction path, operator ruled **option A** on
+2026-08-06) are the next units.
