@@ -255,10 +255,6 @@ begin
       raise exception 'muster_correct_session: a recorded check-out cannot be replaced'
         using errcode = 'P0001';
     end if;
-    if p_out_at < v_in then
-      raise exception 'muster_correct_session: check-out cannot precede check-in'
-        using errcode = 'P0001';
-    end if;
     if p_out_at > now() then
       raise exception 'muster_correct_session: a time cannot be in the future'
         using errcode = 'P0001';
@@ -271,6 +267,20 @@ begin
       raise exception 'muster_correct_session: check-out is too late for this work date'
         using errcode = 'P0001';
     end if;
+  end if;
+
+  -- ORDER MATTERS, and this check covers BOTH directions on purpose. Written as
+  -- `p_out_at < v_in` inside the block above, it could only ever see a bad
+  -- CHECK-OUT — so moving in_at alone, past an out_at the caller never mentioned,
+  -- would have produced an inverted session. That is the defect
+  -- attendance-audit.ts exists to FLAG ("the out-BEFORE-in defect"), which would
+  -- have made this the second correction path to manufacture the anomaly its own
+  -- surface reports (U3b finding 1 was the first). Zero of 228 closed live
+  -- sessions are inverted today, so this closes the hole before it has an
+  -- instance rather than after.
+  if v_out is not null and v_out < v_in then
+    raise exception 'muster_correct_session: check-out cannot precede check-in'
+      using errcode = 'P0001';
   end if;
 
   -- Spec 351: an ot session's OT is its real span, floored to the half hour.

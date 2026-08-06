@@ -13431,3 +13431,15 @@ surface plus an audience decision, not a re-widening of `muster_scan_out`. ③ `
 still names U3b for a `ยังไม่มีทีมของวันนั้น` message that belongs to U3c — now on `main`, so a later
 unit can sweep it. ④ `close_muster_day` still does not take `derive_muster_labor`'s advisory key, so
 `reopen_muster_day`'s lock stays one-sided (pre-existing, its own unit; the new function DOES take it).
+
+⭐ **One defect found by self-review AFTER the first green, and it is the same shape as U3b's finding 1.** The out-of-order guard was written as `p_out_at < v_in` INSIDE the `p_out_at is not null` block, so
+it could only ever see a bad CHECK-OUT — moving `in_at` alone, past an `out_at` the caller never
+mentioned, would have produced an **inverted session**, which is exactly the "out-BEFORE-in defect"
+`attendance-audit.ts` exists to flag. The correction path would have manufactured the anomaly its own
+surface reports, for the second time in this spec. Rewritten as one check over the EFFECTIVE pair
+(`v_out < v_in`) after both branches, so it covers both directions; RED-first proved it (the assertion
+red, plus two cascade reds from the inverted row it wrote), then green at **359/359 files, 7561
+assertions**. Live today: 0 of 228 closed sessions are inverted, so the hole is closed before it has an
+instance. ⚠️ The migration was re-applied with `db query -f` (it is `create or replace` throughout, so
+replay is idempotent) — the recorded `schema_migrations.statements` for `20260813075915` therefore
+predates that edit; the FILE is what a fresh database and CI run, and pgTAP certifies the live objects.

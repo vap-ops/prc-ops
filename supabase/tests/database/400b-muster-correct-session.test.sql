@@ -1,5 +1,5 @@
 begin;
-select plan(43);
+select plan(45);
 
 -- ============================================================================
 -- Spec 400 U4 — the back-dated timestamps. ONE unit, BOTH directions.
@@ -393,6 +393,11 @@ select is(
     where id = 'c1000000-0401-0401-0401-000000000001'),
   false,
   'a corrected check-out is not marked auto — it is a recorded fact now');
+select is(
+  (select out_method::text from public.muster_attendance
+    where id = 'c1000000-0401-0401-0401-000000000001'),
+  'manual',
+  'a corrected check-out records method manual — it was typed, never scanned');
 
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0401-0401-0401-00000000000c"}';
@@ -425,6 +430,18 @@ select throws_ok(
       null, (now() + interval '2 hours')::timestamptz)$$,
   'P0001', 'muster_correct_session: a time cannot be in the future',
   'a FUTURE out_at is refused');
+-- THE OTHER DIRECTION, and it is the one a p_out_at-only check cannot see: moving
+-- in_at alone, past an out_at the caller never mentioned, would leave an inverted
+-- session — the "out-BEFORE-in defect" attendance-audit.ts exists to FLAG. W2's
+-- check-out is 19:45 (replaced in section E, which runs after this — so this drives
+-- against the 17:00 auto-out, still well before 23:00).
+select throws_ok(
+  $$select public.muster_correct_session(
+      '71000000-0401-0401-0401-000000000022'::uuid,
+      'e1000000-0401-0401-0401-000000000002'::uuid, 'regular'::public.muster_session,
+      '2026-07-22 23:00+07'::timestamptz, null)$$,
+  'P0001', 'muster_correct_session: check-out cannot precede check-in',
+  'moving in_at PAST an existing check-out is refused — no inverted session');
 reset role;
 
 -- ============================================================================
