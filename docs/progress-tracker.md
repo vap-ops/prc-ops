@@ -12779,3 +12779,77 @@ announced `โครงการ` · `รายชื่อช่าง` · `ท
 **Open questions.** ① Worth reporting upstream to Next — the announcer samples `document.title`
 in the window where it has removed the title node. Not done. ② If a future Next fixes it, the
 silencing becomes unnecessary rather than harmful, and the guard's comments say where to look.
+
+## 2026-08-06 — `upsert_project_zone` stops erasing what the caller did not send (lane zonerpc)
+
+**The bug.** `upsert_project_zone`'s UPDATE arm was an unconditional overwrite —
+`set code=…, name=…, shape=p_shape, geometry=p_geometry, parent_zone_id=p_parent_zone_id,
+sort_order=coalesce(p_sort_order,0)` — while `zone-sheet.tsx`, the U2a rename/re-code sheet and
+the only other caller, sends `{zoneId, code, name}` and nothing else, so `saveZone` filled the
+gaps with `shape='rect'` and a default box. **Renaming a zone therefore reset its drawn shape and
+position to the same default rectangle, nulled its parent, and zeroed its sort order.**
+
+Live since #958. Harmless only because `project_zones` held 0 rows in every project — spec 392
+U2b, the canvas that finally lets a manager draw, is what arms it: the first typo fix after the
+first drawing erases the drawing. Found by the fresh-eyes review of U2b and confirmed against the
+live function body before a line was written. Shipped **ahead of** the canvas, on the operator's
+call, so the hole closes independently of that unit.
+
+**The fix is two halves, and either alone is useless.** Migration `20260813075911` makes a NULL
+mean "leave this column alone" on the UPDATE arm; `saveZone` stops manufacturing non-null
+defaults on the update path, because no amount of coalescing can see through a caller that sends
+`'rect'`. The CREATE arm is untouched — a new zone genuinely needs a shape and a box, and the
+columns are NOT NULL.
+
+**Two judgement calls, recorded.**
+
+① ⚖️ **`parent_zone_id` is coalesced too, so this RPC can no longer UN-nest a zone.** Nothing in
+the UI nests or un-nests today (`zone-sheet.tsx` exposes no parent picker; nesting is reachable
+only by calling the RPC directly), so nothing shipped is lost — while leaving parent
+writable-to-null is precisely the arm that silently flattened the tree on every rename. An
+explicit un-nest belongs with the affordance that needs it.
+
+② **Shape and geometry are refused separately.** `{x,y,w,h}` under `polygon` is a row the DB CHECK
+rejects, so a caller may not change one half and leave the database to reconcile it with the
+stored other half. `saveZone` returns `ต้องระบุรูปทรงและตำแหน่งของโซนคู่กัน` rather than doing a
+read-modify-write it would have to race on.
+
+**Gates.** RED first, twice and in both layers: the pgTAP run failed with Postgres quoting the
+defect back verbatim — `23502: null value in column "shape" … CONTEXT: update public.project_zones
+set … shape = p_shape, geometry = p_geometry, parent_zone_id = p_parent_zone_id` — and the new
+vitest file failed 4 of 8 against the old action (stash / pop, tree verified clean after). After
+the fix: **pgTAP 357 files, 357 passed, 0 failures**, the new `398-zone-upsert-partial.test.sql`
+11/11 with its `plan(11)` derived by grep, never counted. The live function was verified by
+reading `pg_get_functiondef` back — `coalesce(p_geometry, geometry)` and
+`coalesce(p_parent_zone_id, parent_zone_id)` both present, `anon` still cannot execute — never by
+trusting `db push`'s own success message.
+
+⭐ **The rename pin carries a positive control.** "The shape survived" passes just as happily on an
+update that did nothing at all, so the assertion that the NAME changed sits immediately above it.
+
+**Real-flow verification (Gate 4).** pgTAP rolls back and calls the RPC directly, so it cannot see
+the server action — the half that was manufacturing the defaults. Driven instead through **real
+installed Chrome via Playwright** against the live dev server and the real database as
+`dev-preview`: created a 5-vertex polygon zone at `sort_order 4` on the operator's own `ผังโซน`
+map, then **used the real แก้ไข sheet in the real app** to rename it. Read back from the database:
+`renameLanded: true` · `shapeSurvived: polygon` · `geometrySurvived: true` (all five vertices) ·
+`sortOrderSurvived: 4` · zero page errors · cleanup re-read `remaining: 0`.
+
+**Open questions.** ① `saveZone` had **zero test coverage** before this unit, which is why the
+defect shipped — `tests/unit/zone-actions-partial-update.test.ts` is now the pin, but
+`createZoneMap` and `deleteZone` in the same file are still untested. ② `save_project_zone_map`
+with a null id always INSERTs and there is **no `delete_project_zone_map` RPC at all**, so two
+taps of the create button make two maps and the page renders only `mapRows[0]` — carried from
+U2a/U3a, still open. ③ Spec 392 §7.1 records that spec 366 models zones differently and is
+unreconciled; that blocks further zone units, but not this fix.
+
+**Fresh-eyes review (Gate 5) — 5🟡, no 🔴. Four applied, one refuted.**
+
+- ⭐ **`p_sort_order` still defaulted to `0`, which is a live contradiction of the arm below it.** Once NULL means "leave alone", a caller that simply OMITS the argument — the natural six-argument shorthand now that shape and geometry are nullable — writes `sort_order = 0` and sends the zone back to the top of its map. The default is now `NULL`; the CREATE arm already coalesced it to 0 itself. **This is the same bug class as the one the unit exists to fix, one layer up, and I introduced it.**
+- **`parentZoneId?: string | null` was advertising an un-nest that silently does nothing** — null is now coalesced away, so the action would return ok, refresh, and leave the zone nested (the silent-success class, #791). The type is narrowed to `string`; an un-nest affordance needs its own RPC arm.
+- ⭐ **The WRITE half of two coalesces was untested.** Deleting `parent_zone_id` and `sort_order` from the UPDATE `set` list entirely — making them permanently read-only — passed all 11 original assertions, because section B only ever proved they SURVIVED. Section C now writes both. **Mutation-proved by applying exactly that mutant to the live function: assertions 14 and 17 red with `have: 7, want: 42`, then the file replayed and the function verified back.**
+- The dragged-geometry pin did not assert the shape, so it was carried by `project_zones_geometry_ok` in another file rather than by anything this one states. Asserted explicitly.
+- ⛔ **REFUTED — "`isCreate` uses `=== undefined` while `p_zone_id` uses `?? null`, so `zoneId: null` takes the CREATE arm with a null shape and dies at 23502 behind a generic message."** `isValidUuid` is `(value: unknown)` and returns false for null, so the guard at the top of `saveZone` already returns `ไม่พบโซนนี้` and nothing reaches `isCreate`. Recorded in the code beside the line so it is not re-derived.
+- ⓘ **Recorded for spec 392 U2b, which is held on another branch:** the shape/geometry pairing refusal means a shape-only change is impossible, and `rect`/`rounded_rect`/`ellipse` share the identical `{x,y,w,h}`. U2b's shape toggle must send the current geometry alongside the new shape — it does — but the contract now needs to survive an edit, so it is written here where that unit's author will read it.
+
+**Suite note.** `tests/unit/claude-hooks-bash-guards.test.ts` failed twice in full-suite runs with `Test timed out in 5000ms` and passes **25/25** when run alone in this worktree and in a sibling one; it spawns a node subprocess per case and is untouched by this diff. Box contention, not a finding — the earlier full run showed `environment 4112s` against a 1010s wall clock with two dev servers up.
