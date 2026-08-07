@@ -1,3 +1,10 @@
+## [0.363.1](https://github.com/vap-ops/prc-ops/compare/v0.363.0...v0.363.1) (2026-08-07)
+
+### Bug Fixes
+
+- **a11y:** close the review's holes in the app-title SSOT pin ([e51216d](https://github.com/vap-ops/prc-ops/commit/e51216da9387f9324615b498d45b26afbda20eab))
+- **a11y:** one SSOT for the app title, so the strip cannot drift ([931c7b6](https://github.com/vap-ops/prc-ops/commit/931c7b684819ae698d41bacaa2436d199f57983d))
+
 # [0.363.0](https://github.com/vap-ops/prc-ops/compare/v0.362.0...v0.363.0) (2026-08-07)
 
 ### Features
