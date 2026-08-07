@@ -13623,3 +13623,64 @@ across many dates, which is a different query and was scoped out. ② `interacti
 path WITHOUT its query string (all 93 rows in 30 days read exactly `/team/attendance`), so `?day=` opens
 are NOT measurable and the spec's acceptance says so rather than inventing a query. ③ The CSV export still
 writes no audit row (spec 397's recorded item), so an export is invisible to this trail by construction.
+
+---
+
+## 2026-08-07 — spec 403 U1: the DOB sanity gate (lane dobgate)
+
+**Status:** built. Migration `20260813075918` applied; pgTAP `403-dob-sanity.test.sql` 27/27;
+full pgTAP 362 files / 7,643 assertions / 0 failures.
+
+**Ask.** Operator, on a screenshot of `/contacts/bank-changes`: _"dob is often wrong year, how
+about verifying child labor to prevent that?"_ Ruling: **hard block under 15**; on a follow-up,
+**keep the 120-year ceiling**.
+
+**What was measured, before any code.** Two live wrong-year classes, neither rejected anywhere:
+a Buddhist-era year typed into a CE field (`วีระชัย เส็งนา` = `2513-03-11` in BOTH `workers` and
+`staff_registrations` — 487 years in the future) and the date picker's own submit date (a pending
+identity request at `2026-07-15`, age 0 — the row in the screenshot). `submit_identity_change`
+runs a mod-11 checksum on the national ID and nothing at all on the DOB. 1 of 47 `type="date"`
+inputs in `src/` carries a `max`.
+
+**The refutation that mattered.** The first draft of the spec claimed an age was "unconstrained in
+both directions". A refute-first fact-check against the live DB proved that **false for half the
+surface**: `sa_add_project_worker`, `sa_add_project_worker_with_bank` and `crew_lead_add_member`
+already floor at **18**, with pgTAP pins. U1 therefore does not touch them — the operator's "15"
+answered _what floor the new gate should use_, at a moment when nobody knew an 18 floor existed,
+and relaxing a shipped 18 is a different decision. Left as an open operator question.
+
+**The finding that chose the design.** The same fact-check found a **seventh, non-RPC write path**:
+`authenticated` holds column-level INSERT _and_ UPDATE on `contractors.date_of_birth` with
+permissive RLS, and `service_role` bypasses RLS entirely. A per-RPC `perform` would have had to be
+reproduced in six function bodies **and would still not have closed this**. So the gate is a
+`before insert or update` trigger per table over a pure `dob_rejection_reason(date)` SSOT. A CHECK
+constraint cannot do it — the rule depends on `current_date`, which is not immutable.
+
+**Decisions worth keeping.** ① The reason function returns **the reason**, not a boolean, so every
+caller can name the actual cause instead of refusing generically. ② The Buddhist-era arm is tested
+**before** the future arm — `2513-03-11` satisfies both, and "the future" is true, useless, and
+never teaches the user to subtract 543; `year > 2400` is exact (one row in the whole database
+exceeds it, and it is the known mis-entry). ③ An UPDATE that does not **change** the DOB is not
+validated, so the legacy bad row stays editable for every other reason — the gate is deliberately
+not retroactive.
+
+**Gates.** RED first for the right reason (`function "public.dob_rejection_reason(date)" does not
+exist`) with the rest of the suite green in the same run. `plan(27)` derived by grep, never
+counted. Both boundaries pinned in both directions (exactly 15 and exactly 120 accepted, one day
+either side refused). Five triggers mutated **separately** — a whole-set mutation cannot tell
+"gated" from "gated in one place". Objects verified live after `db:push`, not from the push's own
+success message. `db:types` regenerated with live == main + this migration only (diff is one
+line).
+
+**Verified, not assumed:** no existing pgTAP goes red (every DOB literal in the eight affected
+test files is a legitimate adult date; the `2015-01-01` cases already expect `P0001`), and no
+downstream consumer breaks — `date_of_birth` appears in three non-generated app modules plus five
+display-only surfaces, and nothing in `worker/` or `scripts/` reads it.
+
+**Open questions.** ① Leave the 15/18 asymmetry or raise everything to 18 — operator's call.
+② `update_own_staff_registration` is **coalesce-keep** (blank = keep, never clears), so U2 must not
+offer to clear a DOB; clearing needs an RPC semantics change that is not scoped. ③ U3's age
+renderer needs its own guard: `formatThaiDate` adds 543 to an already-BE year, so the `2513` row
+displays `11 มี.ค. 3056` and a naive age would read `อายุ -1030 ปี`. ④ The operator's ask #1 —
+identity changes are approved against zero evidence (no photo column, no upload, 1 of 4 pending
+requesters has an `id_card` anywhere) — is recorded in the spec §8 and needs its own spec.

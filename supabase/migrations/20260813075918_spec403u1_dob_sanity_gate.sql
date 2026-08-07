@@ -1,0 +1,106 @@
+-- Spec 403 U1 — the DOB sanity gate. Operator ruling 2026-08-07: hard block
+-- under 15, and keep the 120-year ceiling ("dob is often wrong year" is
+-- symmetric — a 1889 typo is the same defect as a 2569 one).
+--
+-- Two wrong-year classes were measured live and neither was rejected anywhere:
+--   * a Buddhist-era year typed into a CE field — `วีระชัย เส็งนา` carried
+--     2513-03-11 in BOTH workers and staff_registrations, a date 487 years in
+--     the future;
+--   * the date picker's own submit date — a pending identity_change_requests
+--     row carried 2026-07-15, its own created_at, i.e. age 0.
+-- submit_identity_change runs a mod-11 checksum on the national ID and NOTHING
+-- on the DOB, and no other writer checks either.
+--
+-- WHY A TRIGGER RATHER THAN A CHECK IN EACH RPC. Six live functions can write a
+-- DOB (submit_identity_change, decide_identity_change, sa_add_project_worker,
+-- sa_add_project_worker_with_bank, crew_lead_add_member,
+-- update_own_staff_registration) and a seventh can be added by anyone. A
+-- per-RPC `perform` would have to be reproduced in six function bodies and
+-- would silently not cover writer number seven; the trigger covers every path
+-- into the column by construction. A CHECK constraint cannot do it — the rule
+-- depends on current_date, which is not immutable.
+--
+-- dob_rejection_reason is the pure SSOT and returns the REASON rather than a
+-- boolean, so every caller can name the actual cause. That matters most for the
+-- Buddhist-era arm: 2513-03-11 is ALSO a future date, so the BE test runs
+-- FIRST — "the future" would be true, useless, and would never tell the user to
+-- subtract 543.
+--
+-- NOT RETROACTIVE, deliberately. An UPDATE that does not CHANGE the DOB is not
+-- validated, so the one legacy bad row stays editable for every other reason.
+-- Repairing it is spec 403 U4, an operator-run data op, not this migration.
+
+create or replace function public.dob_rejection_reason(p_dob date)
+returns text
+language sql
+stable
+set search_path = public
+as $$
+  select case
+    -- Every BE year a living person can hold is >= 2440 and no legitimate CE
+    -- birth year exceeds 2400, so this is an exact discriminator. It runs
+    -- before the future test on purpose (see header).
+    when p_dob is null                                          then null
+    when extract(year from p_dob) > 2400                        then 'dob looks like a buddhist era year'
+    when p_dob > current_date                                   then 'dob in the future'
+    when p_dob > (current_date - interval '15 years')::date      then 'dob under minimum age'
+    when p_dob < (current_date - interval '120 years')::date     then 'dob implausibly old'
+    else null
+  end;
+$$;
+revoke all on function public.dob_rejection_reason(date) from public, anon;
+
+-- The trigger body. The guarded column is passed as TG_ARGV[0] so one function
+-- serves all five tables; to_jsonb keeps it column-name-driven without dynamic
+-- SQL.
+create or replace function public.assert_valid_dob_trigger()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_col    text := tg_argv[0];
+  v_new    date := nullif(to_jsonb(new) ->> v_col, '')::date;
+  v_old    date := case
+                     when tg_op = 'UPDATE' then nullif(to_jsonb(old) ->> v_col, '')::date
+                     else null
+                   end;
+  v_reason text;
+begin
+  -- An UPDATE that leaves the DOB alone is never validated: a row that predates
+  -- this gate must stay editable for other reasons.
+  if tg_op = 'UPDATE' and v_new is not distinct from v_old then
+    return new;
+  end if;
+
+  v_reason := public.dob_rejection_reason(v_new);
+  if v_reason is not null then
+    raise exception '%.%: %', tg_table_name, v_col, v_reason using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.assert_valid_dob_trigger() from public, anon;
+
+create trigger workers_dob_valid
+  before insert or update on public.workers
+  for each row execute function public.assert_valid_dob_trigger('date_of_birth');
+
+create trigger staff_registrations_dob_valid
+  before insert or update on public.staff_registrations
+  for each row execute function public.assert_valid_dob_trigger('date_of_birth');
+
+create trigger crew_registrations_dob_valid
+  before insert or update on public.crew_registrations
+  for each row execute function public.assert_valid_dob_trigger('date_of_birth');
+
+create trigger contractors_dob_valid
+  before insert or update on public.contractors
+  for each row execute function public.assert_valid_dob_trigger('date_of_birth');
+
+-- The pre-approval store: blocking here stops the age-0 class at the source,
+-- while the workers/staff_registrations triggers stop an ALREADY-pending bad
+-- request at approve time (decide_identity_change writes both in one txn).
+create trigger identity_change_requests_dob_valid
+  before insert or update on public.identity_change_requests
+  for each row execute function public.assert_valid_dob_trigger('proposed_dob');

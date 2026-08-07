@@ -11034,6 +11034,7 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: string
       }
+      dob_rejection_reason: { Args: { p_dob: string }; Returns: string }
       draft_feedback_message: {
         Args: { p_body: string; p_feedback_id: string }
         Returns: string
