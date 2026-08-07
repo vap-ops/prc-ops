@@ -479,3 +479,24 @@ describe("/team/attendance page — spec 400 U3c-b wiring", () => {
     expect(MUSTER_CORRECT_ROLES.length).toBeLessThan(ATTENDANCE_AUDIT_ROLES.length);
   });
 });
+
+describe("spec 400 U6b — the panel work-list's own referrer", () => {
+  it("returns a work-list row to the PANEL, not to the bare grid", () => {
+    // Writing failing test first. The rows reused `cellFixHref`, whose backHref is
+    // viewHref("grid") — which never carries `day`, so a reader who came from the
+    // open ?day= column was returned with the panel CLOSED and the #d-<date>
+    // anchor gone, landing at the top of a 42-row table. Found by review.
+    const decl = code.slice(code.indexOf("const workItemFixHref"));
+    const body = decl.slice(0, decl.indexOf("});") + 3);
+    expect(body).toContain("backHref: dayHref(date)");
+    expect(body).not.toContain('viewHref("grid")');
+    // …and the panel is handed THAT builder, not the cell one.
+    const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
+    expect(panel).toContain("workItemHref={canCorrect ? workItemFixHref : null}");
+  });
+
+  it("still gates the work-list rows on the correction audience", () => {
+    const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
+    expect(panel).toMatch(/workItemHref=\{canCorrect \?/);
+  });
+});
