@@ -1,3 +1,9 @@
+## [0.351.1](https://github.com/vap-ops/prc-ops/compare/v0.351.0...v0.351.1) (2026-08-07)
+
+### Bug Fixes
+
+- **work-packages:** stop the WP schedule date pickers collapsing on iOS ([fa7464a](https://github.com/vap-ops/prc-ops/commit/fa7464a0a39966eb332819d9bdb9365fe4a2da11))
+
 # [0.351.0](https://github.com/vap-ops/prc-ops/compare/v0.350.0...v0.351.0) (2026-08-07)
 
 ### Features
