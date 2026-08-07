@@ -263,6 +263,27 @@ describe("/team/attendance/fix page — every reachable add refusal states its r
   });
 });
 
+// Gate-5 gap (2026-08-07): the plan's own requirement — "if ?project= is absent,
+// say so and offer no form rather than guessing" — had NO pin. The branch
+// existed and rendered correctly, but the string appeared in this file only
+// inside a COMMENT and as a `SIBLING_BOUNDARIES` entry, so deleting the whole
+// block left the suite green. Presence of the NEW string, not merely absence of
+// a form: an empty render satisfies an absence-only assertion perfectly.
+describe("/team/attendance/fix page — a missing ?project= states its reason", () => {
+  it("renders the pick-a-project sentence when the project cannot be resolved", () => {
+    expect(code).toContain("เลือกโครงการก่อน จึงจะเพิ่มหรือแก้ไขการเช็คชื่อได้");
+  });
+
+  it("sites that sentence under the dayClosed === null arm, not somewhere incidental", () => {
+    expect(
+      isSitedUnder(
+        "เลือกโครงการก่อน จึงจะเพิ่มหรือแก้ไขการเช็คชื่อได้",
+        "{dayClosed === null && (",
+      ),
+    ).toBe(true);
+  });
+});
+
 describe("/team/attendance/fix page — retime is offered on ANY day state", () => {
   it("renders one retime card per session, gated only on sessions existing", () => {
     // …and NOT gated on dayClosed — the whole point of retime is that it works
