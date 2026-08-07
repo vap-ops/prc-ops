@@ -21,6 +21,7 @@ import {
   type GridCell,
   type GridDay,
 } from "@/lib/muster/attendance-grid";
+import { gridCellFixable, unfinishedDays } from "@/lib/muster/day-fix";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
@@ -167,9 +168,28 @@ export function AttendanceGridView({
   todayIso,
   workerHref,
   dayHref = null,
+  cellFixHref = null,
+  canFixGaps = false,
 }: {
   grid: AttendanceGrid;
   todayIso: string;
+  /**
+   * Spec 400 U6b — a cell's link to the U6a worker-day fix screen.
+   *
+   * `null` for every role outside MUSTER_CORRECT_ROLES. That set is NARROWER
+   * than this page's own ATTENDANCE_AUDIT_ROLES gate: project_manager,
+   * project_director, accounting, hr and project_coordinator read this grid, and
+   * `muster_correct_session` refuses all five with 42501 — so a link would be
+   * affordance-then-refuse, the defect U3a already paid for. They keep every
+   * FACT the cell states and lose only the link.
+   */
+  cellFixHref?: ((workerId: string, date: string) => string) | null;
+  /**
+   * A project is picked, so the fix screen can resolve one for a cell that has
+   * NO session to infer it from. Gap cells do not link without this: the page
+   * would render its `noProject` arm and offer the reader a sentence.
+   */
+  canFixGaps?: boolean;
   /**
    * Spec 400 U3b — opens the ?day= correction panel. `null` for the roles that
    * may neither close nor reopen (accounting, hr, project_coordinator,
@@ -198,8 +218,54 @@ export function AttendanceGridView({
     return <EmptyNotice>ไม่มีบันทึกการเช็คชื่อในช่วงนี้</EmptyNotice>;
   }
 
+  // Spec 400 U6b — the days whose correction loop is UNFINISHED. Amber, and it
+  // earns the colour: measured 2026-08-07, all 13 past days carrying attendance
+  // are closed, so this is empty against production rather than permanent.
+  //
+  // The banner is a FACT about the day, so it renders for the whole audience —
+  // including the roles that get no cell link. Closing is MUSTER_CLOSE_ROLES,
+  // a different set again, and `dayHref` already withholds the control from
+  // whoever may not act; the statement is not withheld from anyone.
+  const unfinished = unfinishedDays(grid.days, todayIso);
+
   return (
     <div>
+      {/* No `role="status"` on the banner: it is static server-rendered prose. A
+          live region announces CHANGES, so on a server navigation it adds nothing,
+          and marking static content as one competes with the day panel's real
+          outcome messages. The aria-label makes it a findable region instead. */}
+      {unfinished.length > 0 && (
+        <div
+          aria-label="วันที่ยังไม่ปิด"
+          className="border-attn bg-attn-soft text-ink rounded-card mb-2 border px-3 py-2 text-xs"
+        >
+          {/* Says what the data supports and no more. A day in this set may have
+              been reopened and left open, or never closed at all — the grid
+              carries no reopen history, so copy claiming "reopened" would assert
+              what cannot be known here. Both states need the same act. */}
+          <p className="font-semibold">
+            {`มี ${unfinished.length} วันที่ผ่านไปแล้วแต่ยังไม่ปิด — ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก`}
+          </p>
+          <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            {unfinished.map((d) => (
+              <li key={d.date}>
+                {dayHref ? (
+                  <Link
+                    href={dayHref(d.date)}
+                    aria-label={`ปิดวัน ${formatThaiDate(d.date)}`}
+                    className="text-action inline-flex min-h-11 items-center underline-offset-2 hover:underline"
+                  >
+                    {formatThaiDate(d.date)}
+                  </Link>
+                ) : (
+                  <span>{formatThaiDate(d.date)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* The legend is not decoration: a mark nobody can decode is noise, and
           the shading is what stops an empty Sunday reading as a finding. */}
       <ul className="text-ink-secondary mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
@@ -280,31 +346,63 @@ export function AttendanceGridView({
                 {grid.days.map((day) => {
                   const cell = row.cells[day.date];
                   const findings = cell ? cellFindings(cell, day.date, todayIso) : [];
+                  // The cell's whole story, identical whether or not it links —
+                  // withholding the control must not withhold the fact, and
+                  // GRANTING it must not either (the U3b <th> lesson).
+                  const label = cell
+                    ? cellLabel(row.workerName, day.date, cell, todayIso)
+                    : `${row.workerName} ${formatThaiDate(day.date)} ${
+                        day.holidayName ?? (day.nonWorking ? "วันหยุด" : "ไม่มีการเช็คชื่อ")
+                      }`;
+                  const fixable =
+                    cellFixHref !== null &&
+                    gridCellFixable({
+                      hasSession: cell !== undefined,
+                      hasFindings: findings.length > 0,
+                      day,
+                      canFixGaps,
+                    });
+                  const body = cell ? (
+                    <span className="inline-flex items-center gap-0.5">
+                      <span className="text-ink">{cell.inTime ?? "—"}</span>
+                      {findings.length > 0 && (
+                        <span className="bg-attn inline-block size-1.5 shrink-0 rounded-full" />
+                      )}
+                    </span>
+                  ) : null;
                   return (
                     <td
                       key={day.date}
                       // An EMPTY cell is announced too: without this, "never
                       // scanned" and "it was a Sunday" are the same silence to a
                       // screen reader, and only one of them is a finding.
-                      aria-label={
-                        cell
-                          ? cellLabel(row.workerName, day.date, cell, todayIso)
-                          : `${row.workerName} ${formatThaiDate(day.date)} ${
-                              day.holidayName ?? (day.nonWorking ? "วันหยุด" : "ไม่มีการเช็คชื่อ")
-                            }`
-                      }
+                      //
+                      // Dropped when the cell LINKS: the link carries the same
+                      // label, and both would read the whole story twice per
+                      // cell — 546 times on the live grid.
+                      {...(fixable ? {} : { "aria-label": label })}
                       className={`border-edge border-b px-1 py-1.5 text-center align-middle ${
                         day.nonWorking ? "bg-sunk" : ""
                       }`}
                     >
-                      {cell ? (
-                        <span className="inline-flex items-center gap-0.5">
-                          <span className="text-ink">{cell.inTime ?? "—"}</span>
-                          {findings.length > 0 && (
-                            <span className="bg-attn inline-block size-1.5 shrink-0 rounded-full" />
-                          )}
-                        </span>
-                      ) : null}
+                      {fixable ? (
+                        <Link
+                          href={cellFixHref(row.workerId, day.date)}
+                          // Facts FIRST, then the act: a screen reader hearing
+                          // this in a 13-column row needs to know which cell it
+                          // is before what it can do about it.
+                          aria-label={`${label} · แก้ไข`}
+                          className="focus-visible:ring-action flex min-h-11 items-center justify-center rounded focus:outline-none focus-visible:ring-2"
+                        >
+                          {/* A gap cell has no time to show, so the door needs a
+                              visible mark or it is an invisible tap target. `+`
+                              reads as "add the missing check-in" and is not
+                              colour-dependent. */}
+                          {body ?? <span className="text-action text-sm leading-none">+</span>}
+                        </Link>
+                      ) : (
+                        body
+                      )}
                     </td>
                   );
                 })}

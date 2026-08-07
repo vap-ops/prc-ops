@@ -84,3 +84,51 @@ describe("worker attendance page wiring (spec 374 U1)", () => {
     expect(uses(src, "canOpenCalendar")).toBeGreaterThanOrEqual(2);
   });
 });
+
+// ── Spec 400 U6b — the calendar's door into the fix screen ───────────────────
+//
+// Writing failing test first. These live at the PAGE because the ROLE GATE and
+// the month threading are decided here; the component test can only prove that a
+// builder it was handed gets called.
+
+describe("spec 400 U6b — the calendar's fix-screen door", () => {
+  it("gates the day links on MUSTER_CORRECT_ROLES, not on the page's own gate", () => {
+    // WORKER_ROSTER_ROLES (this page's gate) contains project_manager and
+    // project_director; muster_correct_session refuses both with 42501. Handing
+    // them a link would be affordance-then-refuse.
+    const src = stripComments(read(PAGE));
+    expect(uses(src, "MUSTER_CORRECT_ROLES")).toBeGreaterThanOrEqual(2);
+    expect(src).toMatch(/dayFixHref\s*=\s*MUSTER_CORRECT_ROLES\.includes\(ctx\.role\)/);
+  });
+
+  it("passes the builder to the calendar, rather than merely declaring it", () => {
+    const src = stripComments(read(PAGE));
+    expect(src).toContain("dayFixHref={dayFixHref}");
+  });
+
+  it("builds the href through the shared fixHref, not a hand-rolled query", () => {
+    const src = stripComments(read(PAGE));
+    expect(uses(src, "fixHref")).toBeGreaterThanOrEqual(2);
+  });
+
+  it("threads the AUDITED month into the referrer, never the current one", () => {
+    // U1's own lost-month bug, from the other direction: `withFrom(monthAnchor)`
+    // carries the month on screen. `withFrom(bangkokTodayIso())` — or a bare
+    // `base` — would send a July auditor back to August.
+    const src = stripComments(read(PAGE));
+    const decl = src.slice(src.indexOf("const dayFixHref"));
+    const body = decl.slice(0, decl.indexOf(": null;") + 7);
+    expect(body).toContain("withFrom(monthAnchor)");
+    expect(body).not.toContain("bangkokTodayIso");
+  });
+
+  it("sends NO project — this calendar has none to send", () => {
+    // AttendanceDayCell carries projectName, not a project id, so the fix screen
+    // infers the project from the session. An invented `?project=` would be a
+    // guess, and a wrong uuid fails parseFixParams outright.
+    const src = stripComments(read(PAGE));
+    const decl = src.slice(src.indexOf("const dayFixHref"));
+    const body = decl.slice(0, decl.indexOf(": null;") + 7);
+    expect(body).toContain("projectId: null");
+  });
+});

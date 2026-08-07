@@ -38,6 +38,7 @@ import {
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
 import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
+import { dayWorkList, fixHref } from "@/lib/muster/day-fix";
 import { loadDayAudit } from "@/lib/muster/day-audit";
 import { attendanceDayParam } from "@/lib/muster/day-correction";
 import { ADD_ERROR_COPY, REOPEN_ERROR_COPY } from "@/lib/muster/outcome-copy";
@@ -367,6 +368,29 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // MUSTER_CORRECT_ROLES has no site_admin, because every surface reaching a past
   // day is gated on ATTENDANCE_AUDIT_ROLES, which has none either.
   const canCorrect = MUSTER_CORRECT_ROLES.includes(ctx.role);
+  // Spec 400 U6b — a cell's door into the worker-day fix screen (U6a), which
+  // built the destination and left it reachable only by typing the URL.
+  //
+  // Gated on canCorrect, NOT canCorrectDay: the fix page's own gate is
+  // MUSTER_CORRECT_ROLES and every correction RPC refuses the wider audit set
+  // with 42501, so handing project_manager or project_director a link would be
+  // affordance-then-refuse. They keep every fact the cell states.
+  //
+  // The referrer is this page's own URL including the picked range and project,
+  // so the fix screen's back chip returns the reader to the column they left.
+  const cellFixHref = (workerId: string, date: string): string =>
+    fixHref({
+      workerId,
+      date,
+      // Passed explicitly when known so the fix page never has to infer it; a
+      // GAP cell has no session to infer FROM, which is why canFixGaps below
+      // withholds those links entirely when no project is picked.
+      projectId: range.projectId ?? null,
+      // viewHref("grid") IS this reader's current URL — range, project and their
+      // own referrer — so the back chip returns to the grid they left rather than
+      // to a bare /team/attendance with the range discarded.
+      backHref: viewHref("grid"),
+    });
   // The two things closing COSTS, named from the rows already on screen:
   // close_muster_day stamps 17:00 on every open REGULAR session and leaves every
   // open OT one alone — and no RPC records a past check-out for any role, so an
@@ -430,6 +454,23 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         .filter((r) => !musteredOnOpenDay.has(r.workerId))
         .map((r) => ({ workerId: r.workerId, name: r.workerName }))
     : [];
+
+  // Spec 400 U6b — the panel's anomaly work-list, built from the day's sessions
+  // (which already carry `stillIn`). No new read, and no roster: an unscanned
+  // rostered worker is NOT a finding at day grain — see `DayWorkProblem` for the
+  // measurement that removed that arm before it shipped.
+  const dayWork = openDay !== null ? dayWorkList({ sessions: openDaySessions }) : [];
+
+  // The work-list's rows return to the PANEL, not to the grid: the reader came
+  // from an open `?day=` column and `viewHref("grid")` would close it and drop
+  // the `#d-<date>` anchor, landing them at the top of a 42-row table.
+  const workItemFixHref = (workerId: string, date: string): string =>
+    fixHref({
+      workerId,
+      date,
+      projectId: range.projectId ?? null,
+      backHref: dayHref(date),
+    });
 
   const addOutcome =
     added === "1"
@@ -631,6 +672,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                   dayHref={
                     canCorrectDay ? (date) => dayHref(date === openDayDate ? null : date) : null
                   }
+                  cellFixHref={canCorrect ? cellFixHref : null}
+                  canFixGaps={range.projectId !== undefined}
                 />
                 {openDay !== null && (
                   <AttendanceDayPanel
@@ -647,6 +690,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     addTeams={addTeams}
                     addWorkers={addCandidates}
                     addOutcome={addOutcome}
+                    workList={dayWork}
+                    workItemHref={canCorrect ? workItemFixHref : null}
                   />
                 )}
               </>

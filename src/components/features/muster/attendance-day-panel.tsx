@@ -23,6 +23,7 @@
 // re-shipping, for PAST days and for a role that has never closed a day, the
 // one-tap loss those two surfaces exist to prevent.
 
+import Link from "next/link";
 import { closeMusterDayFromForm } from "@/app/team/attendance/actions";
 import {
   AttendanceAddPersonForm,
@@ -37,7 +38,15 @@ import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import type { GridDay } from "@/lib/muster/attendance-grid";
 import { describeAuditEvent, type DayAuditRow } from "@/lib/muster/day-audit";
 import { dayCorrectionControl, type DayCorrectionControl } from "@/lib/muster/day-correction";
+import { unfinishedDays, type DayWorkItem } from "@/lib/muster/day-fix";
 import { BUTTON_SECONDARY, CARD } from "@/lib/ui/classes";
+
+/** Spec 400 U6b — what each work-list row says is wrong. Keyed on the problem
+ *  UNION so a kind added later reds at typecheck rather than rendering an empty
+ *  row. See `DayWorkProblem` for why `notScanned` is deliberately not a member. */
+const WORK_PROBLEM_COPY: Record<DayWorkItem["problem"], string> = {
+  openOut: "ยังไม่เช็คออก",
+};
 
 /** The copy for every arm that offers nothing.
  *
@@ -87,6 +96,8 @@ export function AttendanceDayPanel({
   addTeams = [],
   addWorkers = [],
   addOutcome = null,
+  workList = [],
+  workItemHref = null,
 }: {
   day: GridDay;
   todayIso: string;
@@ -131,6 +142,20 @@ export function AttendanceDayPanel({
   addWorkers?: readonly AddPersonWorker[];
   /** The add form's outcome, rendered here for the same reason the close one is. */
   addOutcome?: { ok: true } | { ok: false; message: string } | null;
+  /**
+   * Spec 400 U6b — this day's anomalies, one row per person, from `dayWorkList`.
+   *
+   * Rendered for the WHOLE audience: it states what is wrong with the day, and
+   * accounting owns the wage consequence of exactly these holes, so withholding
+   * it from a reader who cannot act would withhold a FACT (spec 397 U3's rule).
+   * Only the LINK is role-gated, through `workItemHref`.
+   */
+  workList?: readonly DayWorkItem[];
+  /**
+   * Where a work-list row points — the U6a worker-day fix screen. `null` for
+   * every role outside MUSTER_CORRECT_ROLES, whom the correction RPCs refuse.
+   */
+  workItemHref?: ((workerId: string, date: string) => string) | null;
 }) {
   const state = dayCorrectionControl({
     date: day.date,
@@ -168,6 +193,24 @@ export function AttendanceDayPanel({
         {day.holidayName !== null ? ` · ${day.holidayName}` : day.nonWorking ? " · วันหยุด" : ""}
       </p>
 
+      {/* Spec 400 U6b — the unfinished-day mark, keyed on the SAME predicate the
+          grid's banner uses so the two surfaces can never disagree about which
+          days are unfinished.
+          It states the CONSEQUENCE, not the closure label: the header above
+          already says ยังไม่ปิดวัน in neutral ink, and repeating that in amber
+          would be decoration. What the header cannot say is why it matters.
+          Claims nothing about a reopen — this panel has no reopen history either
+          (the trail below does, and it speaks for itself). */}
+      {/* No `role="status"`: static server-rendered prose is not a state change,
+          and the grid's banner states the same fact one screen up — with ?day= on
+          an unfinished date, two live regions would announce it twice. The real
+          state change on this panel is the close/reopen outcome below. */}
+      {unfinishedDays([day], todayIso).length > 0 && (
+        <p className="border-attn bg-attn-soft text-ink rounded-card mt-2 border px-3 py-2 text-xs">
+          ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก จนกว่าจะปิดวัน
+        </p>
+      )}
+
       {outcome !== null &&
         (outcome.ok ? (
           <p className="border-edge bg-sunk text-ink rounded-card mt-2 border px-3 py-2 text-xs">
@@ -188,6 +231,78 @@ export function AttendanceDayPanel({
         />
       )}
 
+      {/* Spec 400 U6b — the anomaly WORK-LIST, ABOVE every control that acts on
+          the day as a whole. One row per person with the specific thing wrong,
+          because the panel's grain is the DAY while every dispute is a
+          WORKER-DAY — the premise of the whole U6 design.
+          Facts for everyone; only the LINK is role-gated. */}
+      {workList.length > 0 && (
+        <div className="mt-3">
+          <h3 className="text-ink text-xs font-semibold">ต้องแก้ไข</h3>
+          <ul
+            aria-label={`ต้องแก้ไข ${formatThaiDate(day.date)}`}
+            className="mt-1 flex flex-col gap-1"
+          >
+            {workList.map((item) => {
+              const text = `${item.workerName} · ${WORK_PROBLEM_COPY[item.problem]}`;
+              return (
+                <li key={`${item.problem}-${item.workerId}`} className="text-xs">
+                  {workItemHref ? (
+                    <Link
+                      href={workItemHref(item.workerId, day.date)}
+                      className="text-action flex min-h-11 items-center underline-offset-2 hover:underline"
+                    >
+                      {text}
+                    </Link>
+                  ) : (
+                    <span className="text-ink block">{text}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Spec 400 U3c-b — the add arm. It is INDEPENDENT of the close/reopen
+          state machine above rather than a fourth branch of it: closing is about
+          finalising the day and this is about what the day RECORDS, so a day can
+          legitimately offer both (open, past, correctable) or neither. Folding
+          them into one control would have made "add" unreachable on exactly the
+          days it is for — an open past day already offers ปิดวัน. */}
+      {addOutcome !== null &&
+        (addOutcome.ok ? (
+          <p className="border-edge bg-sunk text-ink rounded-card mt-2 border px-3 py-2 text-xs">
+            เพิ่มคนที่ตกหล่นแล้ว — ต้องปิดวันอีกครั้งเพื่อคิดค่าแรง
+          </p>
+        ) : (
+          <div className="mt-2">
+            <ErrorNotice>{addOutcome.message}</ErrorNotice>
+          </div>
+        ))}
+
+      {addState.control === "add" && (
+        <AttendanceAddPersonForm
+          workDate={day.date}
+          returnTo={returnTo}
+          teams={addTeams}
+          workers={addWorkers}
+        />
+      )}
+
+      {addState.control === "none" && NO_ADD_COPY[addState.reason] !== null && (
+        <p className="text-ink-secondary mt-2 text-xs">{NO_ADD_COPY[addState.reason]}</p>
+      )}
+
+      {/* Spec 400 U6b — ปิดวัน sits LAST of the acting controls, below the
+          work-list and below the add form.
+          The loop is fix-then-close: closing derives wages from whatever the day
+          records, so a control that finalises the day must not sit above the work
+          it depends on. U3b shipped it first-in-the-panel, which read as "the
+          thing to do here" while the corrections were still owed.
+          The REOPEN arm deliberately stays ABOVE (it is the FIRST step on a
+          closed day, the one that unlocks add and delete) — the two are mutually
+          exclusive arms of one state machine, so only ever one renders. */}
       {state.control === "close" && projectId !== null && (
         <form
           action={closeMusterDayFromForm}
@@ -231,36 +346,6 @@ export function AttendanceDayPanel({
 
       {state.control === "none" && NO_CONTROL_COPY[state.reason] !== null && (
         <p className="text-ink-secondary mt-2 text-xs">{NO_CONTROL_COPY[state.reason]}</p>
-      )}
-
-      {/* Spec 400 U3c-b — the add arm. It is INDEPENDENT of the close/reopen
-          state machine above rather than a fourth branch of it: closing is about
-          finalising the day and this is about what the day RECORDS, so a day can
-          legitimately offer both (open, past, correctable) or neither. Folding
-          them into one control would have made "add" unreachable on exactly the
-          days it is for — an open past day already offers ปิดวัน. */}
-      {addOutcome !== null &&
-        (addOutcome.ok ? (
-          <p className="border-edge bg-sunk text-ink rounded-card mt-2 border px-3 py-2 text-xs">
-            เพิ่มคนที่ตกหล่นแล้ว — ต้องปิดวันอีกครั้งเพื่อคิดค่าแรง
-          </p>
-        ) : (
-          <div className="mt-2">
-            <ErrorNotice>{addOutcome.message}</ErrorNotice>
-          </div>
-        ))}
-
-      {addState.control === "add" && (
-        <AttendanceAddPersonForm
-          workDate={day.date}
-          returnTo={returnTo}
-          teams={addTeams}
-          workers={addWorkers}
-        />
-      )}
-
-      {addState.control === "none" && NO_ADD_COPY[addState.reason] !== null && (
-        <p className="text-ink-secondary mt-2 text-xs">{NO_ADD_COPY[addState.reason]}</p>
       )}
 
       {/* Spec 400 U5 — the trail, BELOW the controls that write it. Shown to the

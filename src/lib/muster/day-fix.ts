@@ -8,6 +8,7 @@
 
 import { isValidUuid } from "@/lib/validate/uuid";
 import { isValidIsoDate } from "@/lib/muster/attendance-audit";
+import type { GridDay } from "@/lib/muster/attendance-grid";
 
 type Param = string | string[] | undefined;
 
@@ -41,6 +42,167 @@ export function parseFixParams(input: {
   if (project !== undefined && !isValidUuid(project)) return null;
 
   return { workerId: worker, date, projectId: project ?? null };
+}
+
+/**
+ * Spec 400 U6b — the ONE builder for every link INTO this page.
+ *
+ * Deliberately in the same module as `parseFixParams`, which reads this URL: the
+ * writer and the reader of a param contract drift the moment they live apart,
+ * and three surfaces (the grid, the ?day= panel, the spec-374 calendar) now mint
+ * this href. A round-trip test over the pair is one assertion here instead of
+ * three copies of `new URLSearchParams` in three components.
+ *
+ * `project` is OMITTED rather than emptied when absent: `parseFixParams` fails
+ * the whole parse on a malformed project and `""` is not a uuid, so `?project=`
+ * would turn a working link into a dead one. Leaving it out is correct wherever
+ * a session exists — the page falls back to `sessions[0].projectId`.
+ */
+export function fixHref(opts: {
+  workerId: string;
+  date: string;
+  projectId: string | null;
+  /** Where this page's back chip should return to — the caller's own URL. */
+  backHref: string;
+}): string {
+  const q = new URLSearchParams({ worker: opts.workerId, date: opts.date });
+  if (opts.projectId) q.set("project", opts.projectId);
+  // `?from=` is threaded even when it is /team: this page is multi-parent and
+  // `safeBackHref` resolves the fallback, so an explicit referrer is what makes
+  // the back chip return to the SURFACE the reader actually came from.
+  q.set("from", opts.backHref);
+  return `/team/attendance/fix?${q.toString()}`;
+}
+
+/**
+ * Spec 400 U6b — whether a GRID cell becomes a link to the fix screen.
+ *
+ * Two doors, and they have different preconditions because the RPCs do:
+ *
+ *  - a cell WITH a session is a retime/delete target. `muster_correct_session`'s
+ *    UPDATE path works on a CLOSED day (its guard is the unbooked-wage anti-join,
+ *    built for the nine 2026-07-24 OT rows), and the project can always be
+ *    inferred from the session, so neither closure nor `?project=` gates it. Only
+ *    cells carrying a FINDING link: a clean session is not a hole, and 546 tap
+ *    targets would bury the ones that are. A clean day is still reachable
+ *    per-worker through the spec-374 calendar, whose grain is one worker.
+ *  - an EMPTY cell is an add target, and `muster_correct_session`'s INSERT path
+ *    needs a team, a project and an open day. With no session there is nothing to
+ *    infer the project FROM, so `canFixGaps` (a project is picked) is required or
+ *    the page renders `noProject` and offers nothing. A non-working day is
+ *    excluded because an empty Sunday is not a finding — the shading rule exists
+ *    to stop it reading as one, and a tap target on 41 of them re-creates that.
+ *    `headcount === 0` is excluded because no team exists to add anyone to.
+ */
+export function gridCellFixable(opts: {
+  hasSession: boolean;
+  hasFindings: boolean;
+  day: Pick<GridDay, "nonWorking" | "headcount">;
+  /** A project is picked, so the fix page can resolve one without a session. */
+  canFixGaps: boolean;
+}): boolean {
+  if (opts.hasSession) return opts.hasFindings;
+  return opts.canFixGaps && !opts.day.nonWorking && opts.day.headcount > 0;
+}
+
+/**
+ * Spec 400 U6b — the days whose correction loop is UNFINISHED: attendance was
+ * recorded, the day is over, and nobody closed it.
+ *
+ * All three conditions are load-bearing, and the two exclusions are the same
+ * cry-wolf line the U1 review drew at the column header:
+ *
+ *  - `dayClosed === false` alone is the NORMAL state of the current day, and the
+ *    default range always includes today, so keying on it would paint the banner
+ *    amber every single day forever.
+ *  - `dayClosed === null` (no attendance rows at all) is a THIRD state and must
+ *    not collapse into `false`. Live, 2026-08-06 carries zero rows; calling it
+ *    unfinished would invent a correction nobody owes.
+ *
+ * ⚠️ NAMED FOR WHAT IT DETECTS, not for what prompted it. A day that was reopened
+ * and never re-closed is in this set, but so is one nobody ever closed — the grid
+ * carries no reopen history, so copy calling this "reopened" would assert what
+ * the data cannot support. Both states need the same act (ปิดวัน), which is why
+ * one predicate is honest here.
+ *
+ * Measured 2026-08-07: 13 past days carry attendance and ALL 13 are closed, so
+ * this returns `[]` against today's production data — an exception signal, not
+ * wallpaper.
+ */
+export function unfinishedDays(days: readonly GridDay[], todayIso: string): GridDay[] {
+  return days.filter((d) => d.dayClosed === false && d.date < todayIso);
+}
+
+/**
+ * The per-person problems a day's work-list can carry.
+ *
+ * ⚠️ `notScanned` was BUILT AND REMOVED before shipping, on a measurement. The U6
+ * plan asked for one row per person reading `ไม่มีการเช็คชื่อ` / `ยังไม่เช็คออก`,
+ * and the first half is a false positive at DAY grain: measured on the live
+ * TFM โพธิ์ทอง roster, 2026-08-01..05 produced 23·16·15·20·15 "not scanned" rows
+ * against 0 open check-outs — so on 2026-08-05, a fully-closed day with all 23
+ * people mustered, a heading reading ต้องแก้ไข would have listed 15 people who
+ * simply were not scheduled. A roster spans people who do not work every day, so
+ * absence at day grain is normal, and a list that fires on every row is the exact
+ * cry-wolf failure D5 exists to prevent.
+ *
+ * Absence is a RANGE-level finding (spec 400's own finding ①, "11 of 41 workers
+ * have zero July rows") and the GRID states it — where a gap cell's `+` is an
+ * OFFER, not a claim that something is wrong. The add-person form directly below
+ * this list already enumerates the same people as its worker dropdown, so the rows
+ * duplicated an existing control while adding a false accusation.
+ *
+ * A single-member union on purpose: the Record below still forces copy for any kind
+ * added later.
+ */
+export type DayWorkProblem = "openOut";
+
+export interface DayWorkItem {
+  workerId: string;
+  workerName: string;
+  problem: DayWorkProblem;
+}
+
+/**
+ * Spec 400 U6b — the ?day= panel's anomaly WORK-LIST: one row per person with
+ * the specific thing wrong, each row a door to that worker-day.
+ *
+ * The panel's grain is the DAY while every dispute is a WORKER-DAY, which is the
+ * premise of the whole U6 design. Its header already states the day's facts and
+ * its close form already NAMES the workers still checked in — but as a
+ * disclosure of what closing costs, not as a list of work with a way to do it.
+ *
+ * Alphabetical, and a worker with two open sessions (spec 351 allows regular AND
+ * ot) is ONE row of work rather than two.
+ *
+ * A day whose sessions all closed cleanly returns `[]` and the panel renders no
+ * list at all.
+ *
+ * ⚠️ Measured 2026-08-07: **ZERO sessions with a null `out_at` exist in the whole
+ * database**, so this renders empty on every day right now. Do NOT read that as a
+ * dead feature, and do not re-inherit the older figures: spec 400's "23 of 67
+ * August sessions have no check-out" and U4's "nine stuck 2026-07-24 OT rows" are
+ * both HISTORY — those rows have since been closed. An open check-out is the
+ * normal state of anyone who has checked in and not yet checked out, so the list
+ * populates during any live working day and lingers on a past day left unclosed.
+ * It is an exception surface with a recurring population, not a backlog view.
+ */
+export function dayWorkList(input: {
+  sessions: readonly {
+    workerId: string;
+    workerName: string;
+    stillIn: boolean;
+    session: "regular" | "ot";
+  }[];
+}): DayWorkItem[] {
+  const openSeen = new Set<string>();
+  const openOut: DayWorkItem[] = [];
+  for (const s of input.sessions) {
+    if (!s.stillIn || openSeen.has(s.workerId)) continue;
+    openSeen.add(s.workerId);
+    openOut.push({ workerId: s.workerId, workerName: s.workerName, problem: "openOut" });
+  }
+  return openOut.sort((a, b) => a.workerName.localeCompare(b.workerName, "th"));
 }
 
 /**

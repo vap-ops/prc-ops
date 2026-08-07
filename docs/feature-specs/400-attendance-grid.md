@@ -655,7 +655,7 @@ a decision function nothing calls reads as coverage while covering nothing),
 `attendance-fix-add-form.tsx` — the last a single-worker variant of
 `AttendanceAddPersonForm` with no worker dropdown).
 
-**Not built here (U6b, deliberately separate):** the three entry doors (grid
+**Not built here — U6b shipped these, see §8 below:** the three entry doors (grid
 anomaly/empty cells, the `?day=` panel's own anomaly work-list, the spec-374
 calendar's in-month cells) and the unfinished-day banner rendered on those OTHER
 pages. Reachable in U6a only by a hand-typed URL. `safeBackHref`/`?from=` is
@@ -663,6 +663,160 @@ already wired and the route is registered in `nav-back-affordance.test.ts`'s
 `STATIC_MULTI_PARENT` list on the same "built multi-parent from day one" basis
 `/team/attendance` itself used, so U6b's doors need no nav-guard change of their
 own — only the links.
+
+## 8. The three doors + the unfinished-day banner (U6b) — shipped, code-only
+
+U6a built the destination and left it reachable only by typing the URL. U6b makes
+it reachable from the three surfaces that already show the holes, and makes an
+unfinished correction loop visible. No schema, no new RPC, no new role-set export.
+
+**One href builder, in the module that PARSES the href.** `fixHref` lives beside
+`parseFixParams` in `src/lib/muster/day-fix.ts`: three surfaces now mint this URL,
+and a param contract whose writer and reader live apart drifts. `project` is
+omitted rather than emptied when absent — `parseFixParams` fails the whole parse
+on a malformed project and `""` is not a uuid, so `?project=` would turn a working
+link into a dead one.
+
+### D10 — the links are gated on `MUSTER_CORRECT_ROLES`, which is NARROWER than this page's own gate
+
+`ATTENDANCE_AUDIT_ROLES` (8 roles) reads this report. `muster_correct_session`'s
+live allowlist is `{super_admin, procurement_manager, procurement}` — read from
+`pg_get_functiondef` 2026-08-07 — and the fix page's own gate is that same set. So
+`accounting`, `hr`, `project_coordinator`, `project_manager` and
+`project_director` would meet a hard refusal at a page they were just invited to,
+which is the affordance-then-refuse defect U3a already paid for. **They keep every
+FACT the cell states and lose only the link.** Pinned as a strict-subset property
+so a role can never be handed a link to a page it cannot open.
+
+Live proof, same range and project, `accounting` via view-as: **0 fix links vs 105
+for `super_admin`, with anomaly words (86) and check-in times (63) identical.**
+
+### D11 — a session cell links on a FINDING; an empty cell needs a project, a working day, and a team
+
+Different preconditions because the RPCs have different ones:
+
+- **A cell with a session** is a retime/delete target. The UPDATE path works on a
+  CLOSED day (its guard is the unbooked-wage anti-join, built for the nine
+  2026-07-24 OT rows), and the project is always inferable from the session
+  (`fix/page.tsx`: `projectParam ?? sessions[0]?.projectId ?? null`). So neither
+  closure nor `?project=` gates it. Only cells carrying a finding link — a clean
+  session is not a hole, and 546 tap targets would bury the ones that are. A clean
+  worker-day stays reachable through the calendar, whose grain is one worker.
+- **An empty cell** is an add target. With no session there is nothing to infer a
+  project FROM, so a project must be picked or the link lands on the page's
+  `noProject` arm — a promise of a correction that delivers a sentence. A
+  non-working day is excluded because an empty Sunday is not a finding (D5's whole
+  argument, one layer up), and `headcount === 0` is excluded because no team exists
+  to add anyone to.
+
+Live: no project picked → **37 links, all finding cells, none carrying `project=`**.
+Project picked → **105 links, 69 of them `+` gap cells, all carrying `project=`**.
+A project whose range has no attendance renders the grid with **0** links.
+
+### D12 — the banner names what the data supports, not what prompted it
+
+A day that was reopened and never re-closed is indistinguishable, from the grid's
+own data, from one nobody ever closed: `GridDay.dayClosed` carries no reopen
+history. Both need the same act, so `unfinishedDays` is `dayClosed === false &&
+date < today` and the copy says **`ยังไม่ปิด`**, never "reopened". Calling it a
+reopen would assert what cannot be known here.
+
+Two exclusions are load-bearing and are the same cry-wolf line the U1 review drew
+at the column header: **today** (whose open day is normal, and the default range
+always includes it) and **`dayClosed === null`** (no attendance rows at all — live,
+2026-08-06 carries zero, and calling it unfinished would invent a correction nobody
+owes).
+
+**Fire rate measured before building it: 13 past days carry attendance and ALL 13
+are closed**, so the banner is empty against production — an exception signal, not
+wallpaper. Pinned as a test over those 13 real dates.
+
+The grid banner states the consequence and links each date to that day's `?day=`
+panel, where `ปิดวัน` lives. The panel renders the consequence sentence only: its
+header already says `ยังไม่ปิดวัน` in neutral ink, so repeating the label in amber
+would be decoration — what the header cannot say is that the day's wages stay
+unbooked. Both keyed on the SAME predicate, so the two surfaces cannot disagree.
+
+### D13 — `ปิดวัน` moves to the BOTTOM, below the work-list AND the add form
+
+The loop is fix-then-close: closing derives wages from whatever the day records,
+so the control that finalises the day must not sit above the work it depends on.
+U3b shipped it first-in-the-panel, which read as "the thing to do here" while the
+corrections were still owed. The **reopen** arm deliberately stays above — on a
+closed day it is the first step, the one that unlocks add and delete — and the two
+are mutually exclusive arms of one state machine, so only ever one renders.
+
+The panel's work-list is one row per PERSON with an OPEN CHECK-OUT
+(`ยังไม่เช็คออก`), alphabetical, deduped so a worker with two open sessions
+(spec 351 allows regular AND ot) is one row of work rather than two. The rows are
+FACTS — accounting owns the wage consequence of exactly these holes — so the list
+renders for the whole audience and only the link is role-gated.
+
+⚠️ **Live population, measured 2026-08-07: ZERO sessions with a null `out_at` exist
+database-wide**, so this list renders empty on every day today. Spec 400 §1's "23 of
+67 August sessions have no check-out" and U4's "nine stuck 2026-07-24 OT rows" are
+both HISTORY — re-measured, those rows are closed. Do not re-inherit either figure.
+An open check-out is the normal state of anyone who has checked in and not yet
+checked out, so the list populates during a live working day and lingers on a past
+day left unclosed: an exception surface with a recurring population, not a backlog.
+
+⚠️ **The plan's second row kind, `ไม่มีการเช็คชื่อ`, was built and then REMOVED on a
+measurement.** On the live TFM โพธิ์ทอง roster, 2026-08-01..05 would have produced
+**23 · 16 · 15 · 20 · 15** "not scanned" rows against **0** open check-outs — so
+2026-08-05, a fully-closed day with all 23 people mustered, would still have listed
+15 people under a heading reading ต้องแก้ไข who simply were not scheduled. A roster
+spans people who do not work every day, so absence at DAY grain is normal, and a
+list that fires on every row is precisely D5's cry-wolf failure — shipped into the
+surface that exists to fight it. Absence stays a RANGE-level finding (spec 400's own
+finding ①) stated by the GRID, where a gap cell's `+` is an OFFER rather than a
+claim, and the add-person form directly below already enumerates the same people as
+its worker dropdown. Pinned as an exhaustive-domain check so a kind added later is a
+deliberate act.
+
+### D14 — the calendar links only days that CARRY attendance, and threads the audited month
+
+Operator, 2026-08-07: _"attendance calendar view is not edittable? it feels like it
+can be interactive, especially accessing from tablets."_ The whole cell is the tap
+target, because a ~10px day number is not one on a tablet.
+
+`AttendanceDayCell` carries `projectName` but **no project id**, so an empty day has
+nothing to infer a project from and does not link; a day with data does. The
+referrer is `withFrom(monthAnchor)` — the **audited** month. U1 shipped exactly this
+bug once (the grid's calendar link dropped `m=`, so a July auditor landed on
+August), and it is now pinned from both directions.
+
+Live: 7 July links for a worker with 11 July sessions (only the days she was
+recorded), every referrer `?m=2026-07`, and following one lands on 2026-07-24's fix
+page with the back chip returning to July.
+
+### ⚠️ What the plan claimed that the live gate-check REFUTED
+
+The U6 plan said a cross-project day the reader cannot act on should state that
+rather than offering a link that will 42501. **That state cannot occur.**
+`muster_correct_session` skips `can_see_project` for `procurement` outright, and
+`can_see_project` returns unconditional `true` for `super_admin` and
+`procurement_manager` (read live 2026-08-07) — so all three members of the
+correction audience can act on every project. Building the copy would have been an
+unreachable clause asserting a hazard that is not there (the spec-340 lesson), so
+it was deliberately NOT built.
+
+### Owed / carried
+
+- The **PM's calendar is structurally empty** (0 attendance rows readable, U2's
+  measurement), so the withheld link there is untestable in the field; the gate was
+  proved with `project_director`, the other `WORKER_ROSTER_ROLES` member outside the
+  correction audience.
+- `?day=`, `?worker=` and `?m=` remain **invisible to telemetry**:
+  `interaction_events.route` stores the path without its query string, so there is
+  no acceptance query for "someone opened a work-list row". The `audit_log`
+  correction counts in §5 stay the only end-to-end signal.
+- The residual **insert-path race on retime** is carried from U6a unchanged (a row
+  deleted between render and submit falls through to the RPC's INSERT branch; the
+  three refusals map to `stale`, and closing it properly needs a `p_update_only`
+  flag, i.e. schema).
+- A clean worker-day is reachable from the calendar but **not from the grid**, by
+  design (D11). If that turns out to be the commonest correction, the grid's rule is
+  the thing to revisit, not the calendar's.
 
 ---
 
