@@ -142,16 +142,27 @@ describe("absolute-centering contract (#236 bug class)", () => {
 // keeps zoom while still killing the vertical jump.
 // ---------------------------------------------------------------------------
 
-/** TALL 2-axis surfaces (viewport-filling gantts) where
+/** TALL 2-axis surfaces (viewport-filling gantts and DATA TABLES) where
  *  `[touch-action:manipulation]` is the compliant form instead of the row-strip
  *  pair: pan-x-only would dead-zone vertical page scrolling across the whole
  *  viewport there, while manipulation still enables the horizontal pan the
  *  bug class is about AND preserves pinch-zoom (WCAG 1.4.10). The allowance is
  *  FILE-SCOPED on purpose — a thin row strip writing `manipulation` elsewhere
- *  would re-expose the vertical-jump bug and must keep failing. */
+ *  would re-expose the vertical-jump bug and must keep failing.
+ *
+ *  Operator report 2026-08-07 ("cannot scroll up/down when pressing on the
+ *  table; touching beside it is the workaround"): the pan-x pair is correct for
+ *  a ONE-ROW strip, where a user's thumb has somewhere else to land. A table is
+ *  many rows tall and usually fills the phone screen, so pan-x there removes
+ *  vertical scrolling from the only part of the page the user can reach. */
 const MANIPULATION_ALLOWED_FILES = new Set([
   // Spec 327 U4 — 300+ WP lanes tall; vertical touches must scroll the page.
   "components/features/purchasing/procurement-timeline.tsx",
+  // Multi-row <table> scrollers — same reasoning, reported from the field.
+  "app/accounting/projects/[projectId]/page.tsx",
+  "components/features/muster/attendance-grid-view.tsx",
+  "components/features/supply-plan/supply-plan-accuracy.tsx",
+  "components/features/zones/zone-rollup-grid.tsx",
 ]);
 
 /** String literals that scroll horizontally but never declare a compliant
@@ -208,6 +219,37 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
     expect(
       offenders,
       "add [touch-action:pan-x_pinch-zoom] next to overflow-x-auto (see feedback 14263ad8; tall 2-axis surfaces may use [touch-action:manipulation] once allow-listed in MANIPULATION_ALLOWED_FILES)",
+    ).toEqual([]);
+  });
+
+  // The pair fixes a ONE-ROW strip and breaks a TABLE: a multi-row grid fills
+  // the phone screen, so locking it to pan-x leaves the user no reachable
+  // surface to scroll the page with (operator report 2026-08-07). Every
+  // <table> scroller must therefore take the manipulation form instead. The
+  // check is per-ELEMENT, not per-file: a file may legitimately hold both a
+  // thin chip strip (pair) and a table wrapper (manipulation) — procurement
+  // does — so only the <div> directly wrapping each <table> is examined.
+  it("no <table> wrapper in src/ locks the vertical axis with the strip-form pair", () => {
+    let wrappersSeen = 0;
+    const offenders = tsxFiles().flatMap((f) => {
+      const hits: string[] = [];
+      for (const m of f.content.matchAll(/<table\b/g)) {
+        const openIdx = f.content.lastIndexOf("<div", m.index);
+        if (openIdx === -1) continue;
+        const [wrapper] = f.content.slice(openIdx, m.index).matchAll(STRING_LITERALS);
+        const lit = wrapper?.[0] ?? "";
+        if (!lit.includes("overflow-x-auto")) continue;
+        wrappersSeen += 1;
+        if (lit.includes("touch-action:pan-x_pinch-zoom")) hits.push(`${f.rel}: ${lit}`);
+      }
+      return hits;
+    });
+    // Positive control: if the scan stopped recognising wrappers it would pass
+    // forever while every table quietly reverted.
+    expect(wrappersSeen).toBeGreaterThan(0);
+    expect(
+      offenders,
+      "a <table> wrapper uses [touch-action:manipulation], not the strip-form pan-x_pinch-zoom pair, and is listed in MANIPULATION_ALLOWED_FILES",
     ).toEqual([]);
   });
 });

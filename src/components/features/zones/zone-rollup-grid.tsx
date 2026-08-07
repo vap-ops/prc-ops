@@ -83,10 +83,10 @@ export function ZoneRollupGrid({ rollup }: { rollup: ZoneRollup }) {
       {hasNesting ? (
         <p className="text-meta text-ink-secondary mb-2">{ZONE_ROLLUP_OWN_ONLY_NOTE}</p>
       ) : null}
-      {/* The pan-x + pinch-zoom pair is mandatory beside overflow-x-auto
-          (ui-class-contracts): a bare scroller hijacks vertical page scroll on
-          touch, and pan-x alone silently kills pinch-zoom. */}
-      <div className="rounded-card border-edge bg-card [touch-action:pan-x_pinch-zoom] overflow-x-auto border">
+      {/* Tall multi-row grid — [touch-action:manipulation], not the
+          strip-form pan-x_pinch-zoom pair, so a vertical touch starting on
+          the grid still scrolls the page (ui-class-contracts). */}
+      <div className="rounded-card border-edge bg-card [touch-action:manipulation] overflow-x-auto border">
         <table className="w-full border-collapse">
           <caption className="sr-only">
             {ZONE_PROGRESS_LABEL} — {ZONE_LABEL} × {PROJECT_CATEGORY_LABEL}
