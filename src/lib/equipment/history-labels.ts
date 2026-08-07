@@ -22,6 +22,10 @@ export const EQUIPMENT_HISTORY_KIND_LABEL = {
   loan_returned: "คืนแล้ว",
   item_updated: "แก้ไขข้อมูล",
   rate_change: "เปลี่ยนค่าเช่า",
+  // Spec 367 §10.4 — the purchase cost / acquired-on, from the RPC's fifth arm.
+  // A separate KIND, not a second meaning for rate_change: this map is what the
+  // reader sees, so one label per real-world event or the history lies.
+  acquisition_change: "บันทึกราคาทุน",
 } as const;
 
 export type EquipmentHistoryKind = keyof typeof EQUIPMENT_HISTORY_KIND_LABEL;
@@ -52,6 +56,11 @@ function rateText(v: unknown): string {
   return typeof v === "number" ? bahtCompact(v) : "—";
 }
 
+/** Spec 367 §10.4 — a jsonb date arrives as a string; anything else is "unset". */
+function dateText(v: unknown): string {
+  return typeof v === "string" && v !== "" ? v : "—";
+}
+
 /**
  * The second line under the event label, or `null` when the label already says
  * everything. Never throws on an unexpected shape: this renders a definer RPC's
@@ -72,6 +81,22 @@ export function describeHistoryEntry(entry: HistoryEntryLike): string | null {
 
   if (entry.kind === "rate_change") {
     return `ค่าเช่า/วัน: ${rateText(detail["old_rate"])} → ${rateText(detail["new_rate"])}`;
+  }
+
+  // Spec 367 §10.4 — cost and date move together, so the line reports whichever
+  // actually changed rather than restating both. A write that changed neither
+  // still lists (the row exists), it just adds no second line.
+  if (entry.kind === "acquisition_change") {
+    const parts: string[] = [];
+    if (detail["old_cost"] !== detail["new_cost"]) {
+      parts.push(`ราคาทุน: ${rateText(detail["old_cost"])} → ${rateText(detail["new_cost"])}`);
+    }
+    if (detail["old_acquired_at"] !== detail["new_acquired_at"]) {
+      parts.push(
+        `วันที่ได้มา: ${dateText(detail["old_acquired_at"])} → ${dateText(detail["new_acquired_at"])}`,
+      );
+    }
+    return parts.length > 0 ? parts.join(" · ") : null;
   }
 
   const note = detail["note"];

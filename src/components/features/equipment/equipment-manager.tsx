@@ -60,6 +60,7 @@ import {
   EQUIPMENT_TRACKING_LABEL,
 } from "@/lib/i18n/labels";
 import { SetDailyRate } from "@/components/features/equipment/set-daily-rate";
+import { SetAcquisition } from "@/components/features/equipment/set-acquisition";
 import {
   createEquipmentFromCatalog,
   createEquipmentOwner,
@@ -773,6 +774,7 @@ function EquipmentRow({
   locationLabel,
   canManageRegistry,
   dailyRate,
+  acquisition,
   photos,
 }: {
   item: ManagedEquipmentItem;
@@ -785,6 +787,9 @@ function EquipmentRow({
   // Spec 202 U1 — present ONLY for the money audience (page omits it otherwise).
   // `undefined` = not the money audience → no rate control renders. MONEY.
   dailyRate?: number | null;
+  // Spec 367 §10.4 — same undefined-vs-null contract as dailyRate: `undefined`
+  // means "not the money audience", so no acquisition control renders at all.
+  acquisition?: { cost: number | null; acquiredAt: string | null };
   // Spec 382 U2 — which of the four slots are filled, with a 120s signed URL for
   // each (minted by the page; equipment-images is private, so a raw path renders
   // nothing). The KINDS drive the n/4 chip and the URLs drive the thumbnails —
@@ -903,6 +908,13 @@ function EquipmentRow({
             money events for her. It fetches only when tapped. */}
         <EquipmentHistorySheet itemId={item.id} itemName={item.name} />
         {dailyRate !== undefined ? <SetDailyRate itemId={item.id} currentRate={dailyRate} /> : null}
+        {acquisition !== undefined ? (
+          <SetAcquisition
+            itemId={item.id}
+            currentCost={acquisition.cost}
+            currentAcquiredAt={acquisition.acquiredAt}
+          />
+        ) : null}
       </span>
 
       <BottomSheet open={moving} title="ย้ายอุปกรณ์" onClose={() => setMoving(false)}>
@@ -1031,6 +1043,7 @@ export function EquipmentManager({
   catalogSkus,
   canManageRegistry,
   dailyRates,
+  acquisitions,
   photosByItem,
 }: {
   items: ManagedEquipmentItem[];
@@ -1048,6 +1061,9 @@ export function EquipmentManager({
   // MONEY: present ONLY when the page resolved the back-office money audience; the
   // field view (site_admin) never receives it, so no rate ever reaches that client.
   dailyRates?: Record<string, number | null>;
+  // Spec 367 §10.4 — same contract as dailyRates: money, so present ONLY for the
+  // back-office audience and absent (not null-filled) for the field view.
+  acquisitions?: Record<string, { cost: number | null; acquiredAt: string | null }>;
   // Spec 382 U2 — itemId → the slots that are filled, each with a 120s signed URL
   // where one could be minted. equipment-images is private, so a raw storage path
   // would render nothing; the KIND list is what the n/4 chip counts, so a slot
@@ -1231,6 +1247,9 @@ export function EquipmentManager({
                     locationLabel={equipmentLocationLabel(loc, projectName)}
                     canManageRegistry={canManageRegistry}
                     {...(canPriceEquipment ? { dailyRate: dailyRates![it.id] ?? null } : {})}
+                    {...(canManageRegistry && acquisitions !== undefined
+                      ? { acquisition: acquisitions[it.id] ?? { cost: null, acquiredAt: null } }
+                      : {})}
                     {...(photosByItem?.[it.id] ? { photos: photosByItem[it.id]! } : {})}
                   />
                 );

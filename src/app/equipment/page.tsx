@@ -125,10 +125,20 @@ export default async function EquipmentPage({
   // audience (canManageRegistry) and ONLY via the admin client. The site_admin
   // field view never gets the map, so no rate reaches that client (spec 46).
   let dailyRates: Record<string, number | null> | undefined;
+  // Spec 367 §10.4 — the acquisition figures ride the SAME admin read and the
+  // SAME audience gate, for the same reason: `acquisition_cost`/`acquired_at`
+  // carry no authenticated grant either, so an RLS read returns nothing rather
+  // than erroring, and a site_admin session must never receive the map at all.
+  let acquisitions: Record<string, { cost: number | null; acquiredAt: string | null }> | undefined;
   if (canManageRegistry) {
     const admin = createAdminSupabase();
-    const { data: rateRows } = await admin.from("equipment_items").select("id, daily_rate");
+    const { data: rateRows } = await admin
+      .from("equipment_items")
+      .select("id, daily_rate, acquisition_cost, acquired_at");
     dailyRates = Object.fromEntries((rateRows ?? []).map((r) => [r.id, r.daily_rate]));
+    acquisitions = Object.fromEntries(
+      (rateRows ?? []).map((r) => [r.id, { cost: r.acquisition_cost, acquiredAt: r.acquired_at }]),
+    );
   }
 
   return (
@@ -217,6 +227,7 @@ export default async function EquipmentPage({
           movements={movements}
           canManageRegistry={canManageRegistry}
           {...(dailyRates ? { dailyRates } : {})}
+          {...(acquisitions ? { acquisitions } : {})}
           {...(Object.keys(photosByItem).length > 0 ? { photosByItem } : {})}
         />
       </div>

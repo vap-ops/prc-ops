@@ -47,7 +47,12 @@ select enum_has_labels(
         -- Spec 381: per-item equipment edit history.
         'equipment_item_updated',
         -- Feedback 41cd07d9: edit/delete an office expense (mig 075889).
-        'office_expense_update', 'office_expense_delete'],
+        'office_expense_update', 'office_expense_delete',
+        -- Spec 367 §10.4 (mig 075920): equipment acquisition cost / date. Its OWN
+        -- value rather than a reuse of equipment_rate_change, which the item
+        -- history renders as "เปลี่ยนค่าเช่า" — a cost filed there reads as a rent
+        -- change. This array is the guard that made the add deliberate.
+        'equipment_acquisition_change'],
   'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
 );
 

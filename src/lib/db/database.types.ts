@@ -12110,6 +12110,10 @@ export type Database = {
         Args: { p_department: string; p_head_user: string }
         Returns: undefined
       }
+      set_equipment_acquisition: {
+        Args: { p_acquired_at?: string; p_cost?: number; p_id: string }
+        Returns: undefined
+      }
       set_equipment_catalog_default_rate: {
         Args: { p_id: string; p_rate: number }
         Returns: undefined
@@ -13004,6 +13008,7 @@ export type Database = {
         | "equipment_item_updated"
         | "office_expense_update"
         | "office_expense_delete"
+        | "equipment_acquisition_change"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -13473,6 +13478,7 @@ export const Constants = {
         "equipment_item_updated",
         "office_expense_update",
         "office_expense_delete",
+        "equipment_acquisition_change",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],

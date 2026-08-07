@@ -815,6 +815,13 @@ export const EQUIPMENT_CATEGORY_MENU_LABEL = "หมวดเครื่อง�
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";
 export const EQUIPMENT_SET_DAILY_RATE_LABEL = "ตั้งค่าเช่า/วัน";
+// Spec 367 §10.4 — what the machine COST and when it was bought (money;
+// back-office only). Distinct words from ค่าเช่า on purpose: one is what PRC
+// charges per day, the other is what PRC paid once, and the §3 PRI transfer
+// schedule needs the second.
+export const EQUIPMENT_ACQUISITION_COST_LABEL = "ราคาทุน";
+export const EQUIPMENT_ACQUIRED_AT_LABEL = "วันที่ได้มา";
+export const EQUIPMENT_SET_ACQUISITION_LABEL = "บันทึกราคาทุน";
 // Spec 268 — the inbound rental-deal recorder (/equipment/rentals; money, back office).
 export const EQUIPMENT_RENTAL_LABEL = "เช่าอุปกรณ์";
 export const EQUIPMENT_RENTAL_RECORD_LABEL = "บันทึกการเช่า";
