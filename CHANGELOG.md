@@ -1,3 +1,9 @@
+## [0.358.2](https://github.com/vap-ops/prc-ops/compare/v0.358.1...v0.358.2) (2026-08-07)
+
+### Bug Fixes
+
+- **muster:** make the attendance fix screen readable, and say what ปิดวัน/เปิดวัน mean ([441aa0a](https://github.com/vap-ops/prc-ops/commit/441aa0ac23be628317d5f49f1af3f00d6bbcb9ac))
+
 ## [0.358.1](https://github.com/vap-ops/prc-ops/compare/v0.358.0...v0.358.1) (2026-08-07)
 
 ### Bug Fixes
