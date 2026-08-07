@@ -1,3 +1,9 @@
+# [0.358.0](https://github.com/vap-ops/prc-ops/compare/v0.357.0...v0.358.0) (2026-08-07)
+
+### Features
+
+- **muster:** spec 400 U6c - the correction audience becomes the audit audience ([#1022](https://github.com/vap-ops/prc-ops/issues/1022)) ([7e79a7b](https://github.com/vap-ops/prc-ops/commit/7e79a7bfbf706b0ab4a4c2c9d674b90476a90bc2))
+
 # [0.357.0](https://github.com/vap-ops/prc-ops/compare/v0.356.0...v0.357.0) (2026-08-07)
 
 ### Features
