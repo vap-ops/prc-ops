@@ -1,3 +1,9 @@
+# [0.363.0](https://github.com/vap-ops/prc-ops/compare/v0.362.0...v0.363.0) (2026-08-07)
+
+### Features
+
+- **equipment:** import the money columns instead of refusing them ([e0e66a1](https://github.com/vap-ops/prc-ops/commit/e0e66a1c144e7cde315895fe9a6c28a41407e0f9))
+
 # [0.362.0](https://github.com/vap-ops/prc-ops/compare/v0.361.0...v0.362.0) (2026-08-07)
 
 ### Bug Fixes
