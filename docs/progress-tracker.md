@@ -14158,3 +14158,67 @@ names the ย้าย button instead of closing quietly.
 **Gates.** RED first: 10 failing tests + 1 unresolved import before any production code. lint 0 ·
 typecheck 0 · six mutants each killed by its own assertion, every run reporting `1 failed | N skipped`
 so no filter matched zero tests, every restore verified with `git diff --quiet`.
+
+## 2026-08-07 — spec 367 §13: เพิ่มหลายเครื่อง, the bulk add paste (lane eqbulk)
+
+**What shipped.** A second door on `/equipment`, beside the CSV importer: paste a table of
+`ทะเบียน · จำนวน · เจ้าของ · ที่ตั้ง`, press ตรวจสอบ to see what each line will do, press
+เพิ่มทั้งหมด to create the rows. New: `bulk-add-parse.ts` (pure), `bulkAddEquipmentFromCatalog`,
+`BulkAddEquipmentSheet`, and `paste-delimiter.ts` (the sniff hoisted out of the importer so both
+pastes share one rule).
+
+**Why.** The registry is at 0 rows and the add sheet creates ONE machine per trip. The last
+physical count was 68 units across 63 SKU rows, so the procurement hand-off cost ~68 trips
+before anyone typed a serial number. At 34 unit SKUs + 5 bulk SKUs live, the same fleet is
+~39 pasted lines.
+
+⭐ **It does NOT reverse spec 385 U4, and that shaped the whole design.** The obvious move —
+re-open the export importer's retired INSERT arm — would have re-created the free-text birth
+path the ทะเบียน exists to close, and `equipment_catalog_item_id` is NOT NULL anyway. Instead
+this is a SEPARATE paste whose first column is the SKU name, resolved against
+`equipment_catalog_items` and never created. `equipment-import.ts` is untouched apart from the
+delimiter hoist. Two doors, one birth channel: adding = ทะเบียน, fixing = the CSV.
+
+⚠️ **`จำนวน` means two different things and the design admits it.** For a unit SKU it is how many
+machines to create (N rows, `<SKU> No.<n+1>` … from the LIVE count); for a bulk SKU it is the one
+row's quantity, because the partial unique index allows a single bulk row per SKU. That is the
+collapsed-semantics class — the mitigation is that every parsed row carries its **effect in words**
+(`สร้าง 2 เครื่อง (เครื่องตบดิน No.1–No.2) · รับเข้าคลัง` vs `1 แถว จำนวน 200 · …`), the dry run
+prints them, and the commit is unreachable until that preview comes back clean. Editing the paste
+re-locks it, so reviewed-file ≠ committed-file cannot happen.
+
+⭐ **The parser refuses ALL-OR-NOTHING, not by caller convention.** A file with any bad row returns
+`rows: []`, so a future caller that reads `rows` without checking `errors` cannot half-load the
+registry — and the good rows of a rejected file are exactly the ones the operator re-pastes after
+fixing the bad ones. The duplicate-SKU refusal exists for the same reason numbering is derived
+server-side: two lines for one SKU would both number from the same live count.
+
+⚖️ **Honest about atomicity.** The commit is row-by-row over PostgREST and cannot roll back, so a
+mid-way failure reports how many landed and NAMES the SKU it stopped on rather than claiming a
+rollback that did not happen. Re-pasting the remainder is safe: unit numbering continues from the
+live count and a landed bulk row is refused by the one-row rule. The spec says this in §13.5
+rather than promising atomicity the transport cannot give.
+
+**Carries #1024 forward:** every created row also gets its initial `equipment_movements` event
+through the same `resolveInitialMovement`, or this door would re-create the unlocated-item defect
+once per row — 68 times in one press.
+
+**Gates.** RED first on all three layers (25 parser cases, 9 action cases, 6 component cases — the
+parser and component files failed to resolve at all, the action file 9/9). lint 0 · typecheck 0 ·
+build 0 · six mutants each killed by its own assertion, every run printing `1 failed | N skipped`.
+**Gate 4 drove the real dry run in real Chrome against LIVE data** — commit locked before the
+check, a deliberately dirty paste listed both real refusals (`ซ้ำในไฟล์เดียวกัน`, `ไม่พบ … ในทะเบียน`)
+with the commit still locked, editing re-locked it, and a clean paste produced
+`พร้อมเพิ่ม 2 เครื่อง` + `สร้าง 2 เครื่อง (เครื่องตบดิน No.1–No.2) · รับเข้าคลัง` against the real
+catalogue, zero page errors. ⚠️ The COMMIT leg was deliberately not driven in prod:
+`equipment_items` has no DELETE policy and no DELETE grant, so probe rows would be permanent in the
+registry the team is about to fill (same trade as #1024). ⭐ The first probe's bespoke
+`button:nth-last-child(1)` selector reported the commit as ENABLED on the dirty file while the real
+control was disabled — the instrument, not the app; re-read through the same locator as the other
+two checks.
+
+**Open questions.** ① Asset tag / serial / condition are deliberately absent from the paste
+(per-unit facts for the completion pass) — if the team wants them in the sheet, that is a column
+add, not a redesign. ② Nothing enforces or reports photo coverage, though images are the stated PRI
+prerequisite. ③ `acquisition_cost` / `acquired_at` still have no write path anywhere, so the PRI
+valuation schedule stays blocked (§10.4).
