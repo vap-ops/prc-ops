@@ -45,6 +45,25 @@ export type CloseOutcome =
   | "failed";
 
 /**
+ * Spec 400 U3c-b — the outcomes of adding a missed person through
+ * `muster_correct_session`'s insert path.
+ */
+export type AddPersonOutcome =
+  | "ok"
+  /** The caller's role, or its project scope, was refused (42501). */
+  | "denied"
+  /** A malformed id, date or time — never retryable. */
+  | "shape"
+  /** The day is closed: the insert path refuses until it is reopened. */
+  | "closed"
+  /** That worker already has a session that day — on this team or another. */
+  | "duplicate"
+  /** The team vanished between the page render and the submit. */
+  | "noteam"
+  /** Anything else the database refused. */
+  | "failed";
+
+/**
  * Build the redirect target: the caller's own URL, validated the same way every
  * other back-link in the app is, with the outcome added BEFORE any fragment so
  * the page can actually read it.
@@ -75,4 +94,14 @@ export function reopenReturnTo(rawBack: string | undefined, outcome: ReopenOutco
  */
 export function closeReturnTo(rawBack: string | undefined, outcome: CloseOutcome): string {
   return returnWith(rawBack, outcome === "ok" ? "closed=1" : `closeError=${outcome}`);
+}
+
+/**
+ * The add-person form's twin, sharing `returnWith` for the same reason the close
+ * form does: the fragment hazard belongs to the URL shape, not to one form, and
+ * this form's own panel anchor is `#d-<date>` — the exact shape that made both
+ * banners dead code the first time.
+ */
+export function addPersonReturnTo(rawBack: string | undefined, outcome: AddPersonOutcome): string {
+  return returnWith(rawBack, outcome === "ok" ? "added=1" : `addError=${outcome}`);
 }
