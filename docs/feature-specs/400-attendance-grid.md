@@ -161,9 +161,12 @@ it is what the CSV mirrors; a toggle costs one param and removes nothing.
 ### D8 — desktop-first, said out loud, and the scroll container is a house rule
 
 The grid is a wide surface for an office audience. It scrolls horizontally inside
-its own container — and every `overflow-x-auto` row in this app carries the
-`[touch-action:pan-x_pinch-zoom]` PAIR (a build-failing guard enforces it). The
-page body never scrolls sideways.
+its own container. A one-ROW strip in this app carries the
+`[touch-action:pan-x_pinch-zoom]` pair, but the grid is TALL, so it carries
+`[touch-action:manipulation]` instead — the pair omits `pan-y`, which on a
+screen-filling surface leaves a thumb resting on the grid unable to scroll the
+page at all (operator report 2026-08-07, corrected here). A build-failing guard
+enforces both halves. The page body never scrolls sideways.
 
 Narrow viewports get the LIST view, not a broken grid: the toggle's default is
 resolved per viewport class only if that can be done without client JS; otherwise
