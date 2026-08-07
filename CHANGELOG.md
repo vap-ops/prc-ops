@@ -1,3 +1,9 @@
+## [0.352.1](https://github.com/vap-ops/prc-ops/compare/v0.352.0...v0.352.1) (2026-08-07)
+
+### Bug Fixes
+
+- **ui:** clear the tab bar's safe area, and let a tall photo scroll ([#1012](https://github.com/vap-ops/prc-ops/issues/1012)) ([92b71b3](https://github.com/vap-ops/prc-ops/commit/92b71b393c2974f20b274f5dcdb27ac954f784e0))
+
 # [0.352.0](https://github.com/vap-ops/prc-ops/compare/v0.351.2...v0.352.0) (2026-08-07)
 
 ### Features
