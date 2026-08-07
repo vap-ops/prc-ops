@@ -87,7 +87,7 @@ import type { Database } from "@/lib/db/database.types";
 // addendum A1 / ADR 0026. Spec 47: each row is a slim card linking to
 // /requests/[id] — facts and every action zone (decision, recording,
 // shipping, cancel, attachments) render on the detail screen.
-export const metadata = { title: "จัดซื้อ" };
+export const metadata = { title: "คำขอซื้อ" };
 
 interface RequestsPageProps {
   searchParams: Promise<{

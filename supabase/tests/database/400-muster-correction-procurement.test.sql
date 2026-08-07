@@ -1,5 +1,5 @@
 begin;
-select plan(52);
+select plan(69);
 
 -- ============================================================================
 -- Spec 400 U3a — the correction path for procurement.
@@ -195,13 +195,11 @@ reset role;
 -- UNBOOKED — flipping it here silently cascaded into four unrelated assertions
 -- (procurement's add, its read-back, and the SA's OT control). The positive
 -- control lives after them.
-update public.users set role = 'project_manager' where id = '70000000-0400-0400-0400-0000000000fe';
-set local role authenticated;
-set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
-select throws_ok(
-  $$select public.close_muster_day('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-20'::date)$$,
-  '42501', null, 'project_manager may not close');
-reset role;
+-- ⚠️ `project_manager may not close` USED TO LIVE HERE and was removed 2026-08-08:
+-- post-u6c it is FALSE — project_manager IS in close_muster_day's live allowlist. It
+-- passed only because this probe user has no `project_members` row, i.e. it was
+-- asserting the MEMBERSHIP gate while claiming to assert the ROLE gate. The exhaustive
+-- sweep in section B2 replaces it and cannot drift that way.
 update public.users set role = 'visitor' where id = '70000000-0400-0400-0400-0000000000fe';
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
@@ -217,6 +215,177 @@ select throws_ok(
   $$select public.close_muster_day('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-20'::date)$$,
   '42501', null, 'unbound caller (null role) denied, not silently allowed');
 reset role;
+
+-- ============================================================================
+-- B2. THE EFFECTIVE DERIVE ALLOWLIST — exhaustive over all 17 roles.
+--
+-- Why this exists, and it is the most load-bearing block in the file. U3a moved
+-- derive_muster_labor's mechanism into derive_muster_labor_internal so procurement's
+-- re-close could derive without procurement gaining the labour engine's authority.
+-- A consequence nobody re-derives on their own: **close_muster_day now calls the
+-- INTERNAL, so ITS role list — not derive_muster_labor's — is the effective gate on
+-- the wage write.** u6c then widened close to accounting/hr/project_coordinator, none
+-- of which derive_muster_labor itself admits. That was operator-sanctioned; the defect
+-- is that nothing MAKES the next widener notice, while derive_muster_labor's own body
+-- still carries a ⚠️ pointing at the list that no longer governs.
+--
+-- So: assert the admitted set EXACTLY, over the whole enum. Adding a role to
+-- close_muster_day now REDS here, forcing whoever does it to re-answer "should this
+-- role be able to trigger a wage derive?" — which is the question the split made
+-- invisible. ⏳ Live today: labor_logs = 0 rows and no worker has cost_confirmed_at,
+-- so a derive books nothing; this becomes a money question the moment spec 368 U2
+-- confirms the first rate.
+--
+-- Isolation of the ROLE gate from the MEMBERSHIP gate is the whole trick, and it is
+-- what the retired `project_manager may not close` assertion got wrong: project C is a
+-- dedicated project the probe user IS a member of, with NO teams and NO attendance, so
+--   * can_see_project is TRUE for every role ⇒ only the role gate can refuse, and
+--   * an admitted role's close writes a closure row and derives NOTHING,
+-- so each of the 17 calls is side-effect-free with respect to every other assertion in
+-- this file. One distinct date per role keeps even the closure rows from colliding.
+-- ============================================================================
+insert into public.projects (id, code, name) values
+  ('a3000000-0400-0400-0400-000000000003', 'TAP-400C', 'โครงการซี');
+insert into public.project_members (project_id, user_id, added_by) values
+  ('a3000000-0400-0400-0400-000000000003', '70000000-0400-0400-0400-0000000000fe',
+   '70000000-0400-0400-0400-000000000009');
+
+-- ADMITTED (9) — live close_muster_day allowlist, verified with pg_get_functiondef
+-- 2026-08-08. Each one is also asserting "may trigger a wage derive".
+reset role;
+update public.users set role = 'site_admin' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-01'::date)$$,
+  'site_admin may close ⇒ may trigger a wage derive');
+reset role;
+update public.users set role = 'super_admin' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-02'::date)$$,
+  'super_admin may close ⇒ may trigger a wage derive');
+reset role;
+update public.users set role = 'procurement_manager' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-03'::date)$$,
+  'procurement_manager may close ⇒ may trigger a wage derive');
+reset role;
+update public.users set role = 'procurement' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-04'::date)$$,
+  'procurement may close ⇒ may trigger a wage derive (spec 400 U3a, the ruling)');
+reset role;
+update public.users set role = 'project_manager' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-05'::date)$$,
+  'project_manager may close ⇒ may trigger a wage derive');
+reset role;
+update public.users set role = 'project_director' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-06'::date)$$,
+  'project_director may close ⇒ may trigger a wage derive');
+reset role;
+-- ⚠️ These three arrived with u6c and are NOT in derive_muster_labor's own list. They
+-- reach the wage derive only through close_muster_day's bypass. Operator-sanctioned
+-- 2026-08-07 ("let's enable them first, we trust the current team") — pinned so the
+-- grant stays visible rather than implicit.
+update public.users set role = 'accounting' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-07'::date)$$,
+  'accounting may close ⇒ may trigger a wage derive (u6c; NOT in derive_muster_labor)');
+reset role;
+update public.users set role = 'hr' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-08'::date)$$,
+  'hr may close ⇒ may trigger a wage derive (u6c; NOT in derive_muster_labor)');
+reset role;
+update public.users set role = 'project_coordinator' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-09'::date)$$,
+  'project_coordinator may close ⇒ may trigger a wage derive (u6c; NOT in derive_muster_labor)');
+reset role;
+
+-- REFUSED (8) — the complement. 9 + 8 = 17 = the whole enum, so a NEW enum value lands
+-- in neither arm and the count assertion at the end of this block reds.
+update public.users set role = 'technician' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select throws_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-10'::date)$$,
+  '42501', 'close_muster_day: role not permitted',
+  'technician may NOT close (role gate, not membership — they ARE a member here)');
+reset role;
+update public.users set role = 'visitor' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select throws_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-11'::date)$$,
+  '42501', 'close_muster_day: role not permitted', 'visitor may NOT close');
+reset role;
+update public.users set role = 'legal' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select throws_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-12'::date)$$,
+  '42501', 'close_muster_day: role not permitted', 'legal may NOT close');
+reset role;
+update public.users set role = 'subcon_manager' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select throws_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-13'::date)$$,
+  '42501', 'close_muster_day: role not permitted', 'subcon_manager may NOT close');
+reset role;
+update public.users set role = 'site_owner' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select throws_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-14'::date)$$,
+  '42501', 'close_muster_day: role not permitted', 'site_owner may NOT close');
+reset role;
+update public.users set role = 'auditor' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select throws_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-15'::date)$$,
+  '42501', 'close_muster_day: role not permitted', 'auditor may NOT close');
+reset role;
+update public.users set role = 'client' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select throws_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-16'::date)$$,
+  '42501', 'close_muster_day: role not permitted', 'client may NOT close');
+reset role;
+update public.users set role = 'contractor' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select throws_ok(
+  $$select public.close_muster_day('a3000000-0400-0400-0400-000000000003'::uuid, '2026-06-17'::date)$$,
+  '42501', 'close_muster_day: role not permitted', 'contractor may NOT close');
+reset role;
+
+-- The completeness latch: 9 admitted + 8 refused must equal the enum. A new role value
+-- makes this red, and the author then has to place it in one arm or the other — which
+-- is exactly the re-derivation the internal-call bypass would otherwise skip.
+select is(9 + 8, array_length(enum_range(null::public.user_role), 1),
+  'every user_role is classified above — a new value must be placed in an arm');
 
 -- ============================================================================
 -- C. muster_scan_in — procurement may add a missing person to an OPEN day.
@@ -268,18 +437,32 @@ select ok(
 -- ×1.5 money (spec 351) and the ruling did not ask for the power to create it.
 -- The SA arm keeps both sessions, which is what the next assertion proves — the
 -- pair is what makes this a procurement-specific bound rather than a global one.
+-- ⚠️ FIXED 2026-08-08 after a post-merge review found this assertion GREEN over a
+-- deleted guard. It used to drive worker …0001 — team …0010's LEAD, which the fixture
+-- never scans in — so spec 351's OWN precondition ("no regular session on this team
+-- today") raised P0001 too, and with a `null` message `throws_ok` compares only the
+-- SQLSTATE. Deleting 075914's `p_session <> 'regular'` block left this passing.
+--
+-- ⭐ THE GENERAL RULE, and it is why the message argument is now filled in:
+-- `throws_ok(…, '<SQLSTATE>', null, …)` is WEAK whenever the function can raise that
+-- code from more than one branch — and muster_scan_in raises P0001 from SIX. Pass the
+-- message, AND pick a fixture that cannot trip any other branch raising the same code.
+--
+-- Worker …0002 was scanned into team …0010 (regular) by section C above, so spec 351's
+-- precondition is SATISFIED and the regular-only guard is the only branch left that can
+-- raise here.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-00000000000c"}';
 select throws_ok(
   $$select public.muster_scan_in('71000000-0400-0400-0400-000000000010'::uuid,
-      'e1000000-0400-0400-0400-000000000001'::uuid, 'manual'::public.muster_method,
+      'e1000000-0400-0400-0400-000000000002'::uuid, 'manual'::public.muster_method,
       'ot'::public.muster_session)$$,
-  'P0001', null,
+  'P0001', 'muster_scan_in: a correction may only record a regular session',
   'procurement may NOT open an OT session — a correction is regular-only (×1.5 money)');
 reset role;
--- Positive control: the SA arm still opens OT on the same open day. The lead has a
--- regular session there (scanned by the fixture? no — scan one first), so this also
--- exercises spec 351's same-team precondition.
+-- Positive control: the SA arm still opens OT on the same open day, for the SAME worker
+-- and team the procurement attempt above was refused on — so the pair isolates the ROLE
+-- as the only difference, and proves spec 351's precondition really was satisfied.
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-00000000000d"}';
 select lives_ok(

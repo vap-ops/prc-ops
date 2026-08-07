@@ -86,10 +86,34 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
   // Extract the CREATE ... FUNCTION body starting at `start`. A migration
   // re-emitted from `pg_get_functiondef` closes with `$function$`; a
   // hand-written one closes with `$$;`. Take whichever terminator comes first.
+  // ⚠️ FIXED 2026-08-08 (post-merge review of #1000). The old terminator list was
+  // `$$;` and `$function$\n` — but a function written `end; $function$;` closes with
+  // `$function$` followed by a SEMICOLON, matching NEITHER. So the extraction ran past
+  // the real end, all the way to the next function's OPENING tag or EOF: in
+  // 075913 the "body" of derive_muster_labor_internal spanned ~180 extra lines and
+  // swallowed the revoke block plus the next function's header comment.
+  //
+  // Why that is dangerous rather than merely untidy: a later migration could re-emit
+  // derive_muster_labor_internal WITHOUT the subcon money wall, and as long as anything
+  // else in the same file contained `v_worker.contractor_id is null`, the overshooting
+  // span would still contain the phrase and the guard would pass. The wall would be
+  // reopened with this test green — the exact regression the block exists to catch.
+  //
+  // Terminate on the closing tag followed by optional whitespace and `;`, and on a bare
+  // tag-at-end-of-line, taking whichever comes first.
   function extractDefinition(text: string, start: number): string {
-    const endDollar = text.indexOf("$$;", start);
-    const endTagged = text.indexOf("$function$\n", text.indexOf("$function$", start) + 1);
-    const ends = [endDollar, endTagged].filter((i) => i !== -1);
+    const after = text.indexOf("$function$", start) + 1;
+    const candidates = [
+      text.indexOf("$$;", start),
+      // `$function$;` / `$function$ ;` — the pg_get_functiondef-style close.
+      (() => {
+        const m = /\$function\$\s*;/.exec(text.slice(after));
+        return m ? after + m.index : -1;
+      })(),
+      // `$function$` alone on the line, for hand-written bodies.
+      text.indexOf("$function$\n", after),
+    ];
+    const ends = candidates.filter((i) => i !== -1);
     const end = ends.length ? Math.min(...ends) : -1;
     return text.slice(start, end === -1 ? undefined : end);
   }
@@ -144,6 +168,23 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
     const body = lastDefinition.get(DERIVE_INTERNAL_FN) ?? "";
     expect(body, `${DERIVE_INTERNAL_FN} has no definition in ${MIGRATIONS}`).not.toBe("");
     expect(body).toContain("v_worker.contractor_id is null");
+  });
+
+  // The extraction must STOP at the function's own terminator. Without this, the
+  // `toContain` above is satisfiable by a phrase belonging to a DIFFERENT function that
+  // happens to sit later in the same migration file — so the money wall could be
+  // dropped from the real body and this suite would stay green (the defect that shipped
+  // in #1000 and was found post-merge). These two markers both live AFTER
+  // derive_muster_labor_internal ends in 075913, so their absence proves the boundary.
+  it("extractDefinition stops at the function terminator and does not overshoot", () => {
+    const body = lastDefinition.get(DERIVE_INTERNAL_FN) ?? "";
+    expect(body).not.toBe("");
+    expect(body, "overshot into the revoke block that follows the function").not.toMatch(
+      /revoke\s+all\s+on\s+function/i,
+    );
+    expect(body, "overshot into the next function's definition").not.toMatch(
+      /create\s+or\s+replace\s+function\s+public\.derive_muster_labor\s*\(/i,
+    );
   });
 
   // The wall lives with the writer, so this asserts the writer has not MOVED BACK.

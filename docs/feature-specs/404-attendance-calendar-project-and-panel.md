@@ -1,0 +1,293 @@
+# Spec 404 — ปฏิทินเข้างาน: โครงการรายวัน + แผงแก้ไขในหน้าเดียว
+
+**Status:** SPEC ONLY, 2026-08-08. U1–U3 open, none built.
+**No schema.** Lane `attncal`, `../prc-ops-attncal`. Surface = `/workers/[workerId]/attendance`
+(spec 374 U1) and its cell doors into `/team/attendance/fix` (spec 400 U6b/U7).
+
+**Operator ask (2026-08-08),** on a screenshot of the August calendar for `นางสาว สายฝน เข็มวงศ์`:
+
+> 1. A person can work in more than one project in the same month, how do we identify that?
+> 2. In case of large screens, I suggest holding an edit panel on the right side opened, with
+>    arrows left and right. Mobile could be a modal instead.
+
+Two rulings were made in the same exchange and are SETTLED — do not re-litigate either:
+
+- **Worker model = SEQUENTIAL MOVE ONLY.** One person is assigned to one project at a time; a
+  MONTH may span projects, a DAY may not. This closes the ⚖️ shared-worker decision that has been
+  open since the 2026-07-12 multi-project readiness audit.
+- **Tablet renders as desktop.** One breakpoint at `md`, not `lg` (§4.1), at the price of a
+  compact cell (§4.2).
+
+---
+
+## 1. Why — the split month is live, and the page already labels it wrongly
+
+Measured live 2026-08-08, not inherited:
+
+| Probe                                          | Result                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------ |
+| Active projects                                | **3** — `PRC-2026-004`, `-007`, `-008`                             |
+| `worker_project_moves` rows                    | 48                                                                 |
+| Workers with 2+ moves                          | **12**                                                             |
+| Moves dated `2026-08-07`                       | **10**, all off `PRC-2026-004` onto `-007` / `-008`                |
+| Those workers' August muster days              | 2–3 each, **all still at `PRC-2026-004`**                          |
+| Muster worker-months spanning 2 projects       | 0 — because the moved workers have not yet scanned at the new site |
+| `labor_logs` worker-months spanning 2 projects | 0                                                                  |
+
+⚠️ **The two zeros are a "not yet", not a "never".** They flip the first morning a moved worker
+scans at their new site. The 2026-07-12 audit assumed ONE active project; that premise is dead.
+
+### 1.1 Three defects on the page today
+
+The truthful grain already exists and is already loaded: `muster_teams.project_id` travels with
+every attendance row, so **the DAY knows its project**. What is wrong is that the page asserts a
+project at WORKER grain.
+
+1. **The header lies after a move.** `worker.projectLabel` comes from `workers.project_id` — where
+   the person is NOW. Open July for any of the 10 moved workers and the header reads
+   `โครงการ PRC-2026-008` above a month worked entirely at `PRC-2026-004`.
+2. **The cell badge inverts.** `worker-attendance-calendar.tsx` renders the day's project only when
+   `data.projectName !== worker.projectLabel`. Before a move that is silence (correct); after a
+   move every correct day is badged while the wrong header stays clean.
+3. **The summary blends.** `มาทำงาน N วัน` and `ประมาณการค่าแรง` are single numbers across whatever
+   projects the month contains, computed at TODAY's `day_rate` — and a move is exactly when a rate
+   changes. `labor_logs.day_rate_snapshot` exists because of this.
+
+---
+
+## 2. The rule this spec builds to
+
+> **The day owns the project. The worker header states an assignment, never a month's truth.**
+
+`muster_attendance` is `UNIQUE (worker_id, work_date, session)` — firm-wide, not per project — so
+two sites on one day in one session is unrepresentable at the schema level. Sequential move is
+therefore not a constraint the UI must enforce; it is already the only expressible shape. What the
+UI owes is honesty about which project each day belonged to.
+
+---
+
+## 3. U1 — project honesty (code only, no new reads)
+
+Every fact needed is already in `loadWorkerAttendance`'s payload. This unit adds no query.
+
+### 3.1 Header
+
+Replace the single `โครงการ <current>` row with the month's ACTUAL composition, derived from the
+month's muster rows:
+
+- Month spans one project → `โครงการ` + that project, as today.
+- Month spans 2+ → `โครงการเดือนนี้` + one line per project with its day count, ordered by days
+  descending: `PRC-2026-004 · 12 วัน`.
+- The person's current assignment differs from every project in the month → an extra muted line
+  `ปัจจุบันอยู่ที่ <code>`. This is the only place `workers.project_id` may be shown, and it is
+  labelled as an assignment rather than as the month's project.
+- Month has zero muster rows → no project line at all (today's `projectLabel` fallback is dropped).
+
+### 3.2 Cell badge
+
+The badge condition becomes **"the month spans more than one project"**, not "this day differs from
+the header". Within a split month EVERY day carrying attendance is badged; within a single-project
+month none are. The comparison against `worker.projectLabel` is deleted.
+
+The badge shows the project's **tail** (`004`), not the full code. `PRC-2026-` is constant across
+all six projects and carries zero information in a 60px box (§4.2 makes that box real). The full
+code stays in the header and in the fix panel.
+
+### 3.3 Summary
+
+`มาทำงาน` splits when the month spans 2+ projects: the total first, then one indented line per
+project with its day count and its own OT subtotal. `ประมาณการค่าแรง` stays ONE number and gains
+the qualifier it already deserves — it is `จำนวนวัน × ค่าแรง/วัน ปัจจุบัน`, so its label must say
+`ปัจจุบัน`. It is NOT split per project (§7.1).
+
+### 3.4 What U1 must not do
+
+**No per-project money.** `wage_payments` has no project column (verified live 2026-08-08:
+`worker_id, period_from, period_to, computed_amount, computed_days, paid_amount, paid_at, method,
+reference, note, paid_by, superseded_by, correction_reason, created_at`). A per-project
+`บันทึกค่าแรงแล้ว` or variance on this page would state a number `/payroll` cannot reproduce, and
+the one-payment-per-`(worker, period)` shape blocks paying a split worker twice. That is the
+2026-07-12 P0 and it is a schema unit, not this one. `บันทึกค่าแรงแล้ว` and `ต่างกัน` stay
+month-total and unlabelled by project.
+
+---
+
+## 4. U2 — the inline fix panel (code only)
+
+Spec 400 U7 (#1026) already extracted `loadWorkerDayFix` + `WorkerDayFixPanel` and shipped a
+URL-driven `?fix=` panel on `/team/attendance`, explicitly rejecting `<dialog>` because it pays the
+same server round trip and costs the page its zero-JS property. **This unit adopts that shape on
+the calendar. It invents no panel.**
+
+- `?fix=<YYYY-MM-DD>` on the calendar's own route. Server Component, plain POST forms, redirect —
+  no client JS, no hydration, shareable URL, working back button.
+- Default **closed**. Opening with a panel already showing forces a default target, and "today" is
+  not in the viewed month half the time — the same rule as U6a's "no time field ever has a default
+  value".
+- A day cell no longer navigates away, which retires the `withFrom(monthAnchor)` back-chip
+  threading in `page.tsx`.
+- `/team/attendance/fix` stays exactly as it is and keeps serving every link minted elsewhere.
+
+### 4.1 Breakpoints — two bands, tablet is desktop
+
+| Band             | Width        | Layout                                               |
+| ---------------- | ------------ | ---------------------------------------------------- |
+| phone            | `<md` (<768) | panel REPLACES the calendar (full width, same route) |
+| tablet + desktop | `md+` (≥768) | side by side; panel ~300px fixed, calendar flexes    |
+
+The split is at `md`, not `lg`, **because a tablet is two widths and it changes under the user's
+hand**: iPad Pro 11 is 1194 landscape / 834 portrait, iPad 10.9 is 1180 / 820. A `lg:` split would
+appear in landscape and vanish in portrait on the same device. iPad mini portrait (744px) is the
+one device that falls into the phone band, which is correct for a 744px screen.
+
+⚠️ **The operator's own screenshot is ~1194 CSS px landscape.** That figure is DERIVED, not
+measured: the week rows sit at the enforced `min-h-16` and the content is capped at
+`lg:max-w-6xl`, which fixes the image scale. **`interaction_events.context` carries no viewport and
+no orientation** (live keys: `where, recurred, kind, reason, status, digest, stage, message`), so
+device mix on this page is currently unmeasurable — see §7.4.
+
+### 4.2 The compact cell (the price of `md`)
+
+Worst case is iPad portrait:
+
+```
+834  viewport
+-40  px-5 page padding
+-16  column gap
+-300 panel floor (time inputs + buttons)
+────
+ 478 calendar  ÷ 7 = 68px per column, minus p-1 = 60px usable
+```
+
+At 10px, `17:00 (อัตโนมัติ)` needs ~80px and `PRC-2026-004` ~58px. So the cell shrinks — and the
+shrunk cell becomes the ONLY cell, at every width:
+
+- **One time line**: `08:15–17:00` (~55px) instead of two stacked lines.
+- **Markers become glyphs**: `(อัตโนมัติ)` and `(+1 วัน)` render as icons. Their words move into the
+  panel, which at `md+` is always on screen. Desktop loses the spelled-out words too — accepted.
+- **Project badge is the tail** (§3.2), ~18px instead of ~58px.
+- `ทำงานวันหยุด` and `บันทึกมือ` are unchanged; both already fit.
+
+### 4.3 Arrows — name the axis
+
+The grid's walk is **next PERSON within a day**; the calendar's is **next DAY for one person**.
+Same control, opposite axis, one shared component — so the calendar's steppers are labelled
+`วันก่อนหน้า` / `วันถัดไป` (visible text or `aria-label`), never bare chevrons.
+
+They step to the next day **that carries attendance**, skipping empty cells: stepping through 20
+blank days is the cry-wolf failure U6b already ruled against. An empty day is still reachable by
+clicking its cell — and here the calendar can do something the standalone fix screen structurally
+cannot, because it knows the month's project set and can supply a project where an empty day has no
+session to infer one from.
+
+### 4.4 `title=` is not a fallback on a tablet
+
+Two present defects, live today on the operator's own device, fixed in this unit because the cell is
+being rewritten anyway:
+
+- the holiday name is truncated with the full text only in `title=`;
+- the fix link's entire purpose (`แก้ไขการเช็คชื่อ 5 ส.ค.`) is in `title=`.
+
+Both comments justify it as "desktop back-office, where hover is real". There is no hover on an
+iPad. The holiday name wraps or moves to the panel; the link's purpose is carried by the panel's own
+heading once the cell opens it in place.
+
+⚠️ **A panel that scrolls independently is a NEW scroller.** Before shipping, read
+`prc-ops-touch-action-scroll-rows`: a tall scroller needs `manipulation` or vertical scroll dies on
+touch, and making an element scrollable re-homes its `absolute` children.
+
+⚠️ **`aria-label` on the day link stays FORBIDDEN.** It replaces the link's subtree as the
+accessible name and would drop the times, OT, markers and badge — the exact defect U6b caught.
+
+---
+
+## 5. U3 — viewer-scope disclosure
+
+`loadWorkerAttendance` filters muster to the viewer's memberships for any role outside
+`viewerSeesAllMusterProjects`. A project manager who is a member of `-008` opens a moved worker and
+sees the `-004` days simply MISSING — indistinguishable from "he did not come to work".
+
+U3 renders, when and only when rows were withheld, a muted line under the summary:
+`อีก N วันอยู่ในโครงการที่คุณไม่มีสิทธิ์เห็น`. The count comes from a second, membership-free
+`count` on the same admin client — it discloses a NUMBER, never a project name or a date.
+
+This is the same class as spec 400's finding that an event-derived report is structurally blind to
+absence. Without it, every number on this page is wrong for the reader most likely to act on it.
+
+---
+
+## 6. Negative cases, messages, recovery
+
+| #   | Mode                                                             | Thai string                                                                                  | Recovery                                                                                             |
+| --- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1   | `?fix=` carries a date outside the viewed month                  | `วันที่เลือกไม่อยู่ในเดือนนี้`                                                               | Panel does not open; the calendar renders normally. No retry promise — it is permanent for that URL. |
+| 2   | `?fix=` is not a valid ISO date                                  | `ลิงก์ไม่ถูกต้อง` (existing `parseFixParams` behaviour)                                      | Panel does not open.                                                                                 |
+| 3   | `?fix=` names an empty day and the month has no project to infer | `วันนี้ยังไม่มีการเช็คชื่อ และยังไม่ทราบโครงการ — เปิดจากหน้าตารางเช็คชื่อแทน`               | Permanent; names the surface that can resolve it. Never `ลองใหม่`.                                   |
+| 4   | Retime / add / delete / reopen failure                           | Reuse `RETIME_ERROR_COPY`, `ADD_ERROR_COPY`, `UNDO_ERROR_COPY`, `REOPEN_ERROR_COPY` verbatim | Unchanged from U6a/U7. **Invent no new copy here.**                                                  |
+| 5   | Month has zero muster rows                                       | `เดือนนี้ยังไม่มีการเช็คชื่อ`                                                                | Nothing to fix; steppers still work.                                                                 |
+| 6   | Split month, one project contributes 0 days after a filter       | Not reachable — the split is derived from the rows present.                                  | —                                                                                                    |
+| 7   | Viewer's memberships hide the whole month                        | U3's line renders with the full count and the summary reads 0                                | The line is the recovery: it tells them the zero is not absence.                                     |
+
+Strings used on 2+ surfaces go to `src/lib/i18n/labels.ts`. `วันก่อนหน้า` / `วันถัดไป` are already
+generic enough to belong there if a second surface adopts them; a single use stays local.
+
+---
+
+## 7. Out of scope, and why
+
+1. **Per-project money.** §3.4. Blocked on the `wage_payments` project dimension — a schema unit and
+   an operator call, since it also needs the `(worker, period)` uniqueness widened.
+2. **Concurrent multi-project assignment.** Ruled out 2026-08-08 (§0). Would require rethinking the
+   muster unique key, the roster reads, `sa_add_project_worker`'s firm-wide national-ID rule, and
+   payroll splitting.
+3. **A phone day-list view.** The `<md` band currently keeps the 7-column grid; at 375px it is
+   genuinely unreadable, but replacing it is its own unit with its own design, not a rider on this
+   one. U2 makes the panel work there; the calendar underneath is unchanged.
+4. **Viewport / orientation telemetry.** `route_view` context stores neither, so every layout
+   decision in §4 is derived from a screenshot rather than measured. Adding them is cheap and would
+   make the next layout call evidence-based — recorded here, not built here.
+5. **Rate snapshotting in the estimate.** The estimate uses the current `day_rate` and says so
+   (§3.3). Using `day_rate_snapshot` per day is correct but changes what the number MEANS, so it
+   belongs with the money unit.
+
+---
+
+## 8. Open operator questions
+
+1. §3.3 — should `ประมาณการค่าแรง` be suppressed entirely in a split month rather than shown as one
+   current-rate number? Suppressing is more honest; showing it keeps the page useful for the common
+   single-project case. Recommendation: show it, labelled `ปัจจุบัน`.
+2. §4.2 — the compact cell removes the spelled-out `(อัตโนมัติ)` on DESKTOP as well, to keep one
+   cell everywhere. Acceptable, or does desktop keep the words?
+3. §7.3 — is a phone day-list wanted at all, or is this page understood as tablet-and-up?
+
+---
+
+## 9. Acceptance
+
+Run after U1, on production:
+
+```sql
+-- Worker-months that MUST render the split header. Zero today; non-zero is the trigger.
+select count(*) from (
+  select ma.worker_id, to_char(ma.work_date,'YYYY-MM') mo
+  from muster_attendance ma join muster_teams mt on mt.id = ma.team_id
+  group by 1,2 having count(distinct mt.project_id) > 1
+) d;
+
+-- Workers whose CURRENT project differs from where they worked this month
+-- (these are the rows whose header is wrong today).
+select w.name, p.code as assigned_now,
+       (select string_agg(distinct p2.code, ',')
+          from muster_attendance ma
+          join muster_teams mt on mt.id = ma.team_id
+          join projects p2 on p2.id = mt.project_id
+         where ma.worker_id = w.id and ma.work_date >= date_trunc('month', now())) as worked_this_month
+from workers w join projects p on p.id = w.project_id
+where w.id in (select worker_id from worker_project_moves group by 1 having count(*) > 1);
+```
+
+After U2: `interaction_events` cannot see `?fix=` (the route stores no query string — standing
+limitation recorded in spec 400). Acceptance is the audit trail instead: corrections whose
+`audit_log` rows arrive in a tighter cluster than the ~24s-per-edit baseline #1026 measured on the
+grid.
