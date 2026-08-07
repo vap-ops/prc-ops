@@ -1,3 +1,9 @@
+# [0.361.0](https://github.com/vap-ops/prc-ops/compare/v0.360.0...v0.361.0) (2026-08-07)
+
+### Features
+
+- **equipment:** record what a machine cost and when it was acquired (spec 367 §10.4) ([#1027](https://github.com/vap-ops/prc-ops/issues/1027)) ([5375a30](https://github.com/vap-ops/prc-ops/commit/5375a308e7af93b5b384f533d3aac645b4976873))
+
 # [0.360.0](https://github.com/vap-ops/prc-ops/compare/v0.359.0...v0.360.0) (2026-08-07)
 
 ### Features
