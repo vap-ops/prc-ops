@@ -13,6 +13,13 @@ import { describe, expect, it } from "vitest";
 import { MUSTER_CORRECT_ROLES } from "@/lib/auth/role-home";
 
 const PAGE = join(process.cwd(), "src/app/team/attendance/fix/page.tsx");
+// Spec 400 U7 (§D19) — the screen is now rendered by TWO doors (this route and
+// the grid's ?fix= panel), so its reads live in a loader and its render in a
+// component. These pins moved WITH the code they protect rather than being
+// deleted: each one now scans the file that actually owns the behaviour, which
+// is also what stops a future copy from satisfying them in the wrong place.
+const LOADER = join(process.cwd(), "src/lib/muster/worker-day-fix.ts");
+const PANEL = join(process.cwd(), "src/components/features/muster/worker-day-fix-panel.tsx");
 
 function stripComments(src: string): string {
   return src
@@ -22,6 +29,8 @@ function stripComments(src: string): string {
 }
 
 const code = stripComments(readFileSync(PAGE, "utf8"));
+const loader = stripComments(readFileSync(LOADER, "utf8"));
+const panel = stripComments(readFileSync(PANEL, "utf8"));
 const occurrences = (needle: string) => code.split(needle).length - 1;
 
 describe("/team/attendance/fix page — the gate", () => {
@@ -68,13 +77,19 @@ describe("/team/attendance/fix page — params + identity", () => {
     expect(code).toContain("attendanceBackLabel(backHref)");
   });
 
-  it("reads the worker's name off the SESSION client, never admin", () => {
-    const block = code.slice(
-      code.indexOf('.from("workers")') - 200,
-      code.indexOf('.from("workers")') + 50,
-    );
-    expect(block).toContain("supabase");
-    expect(block).not.toContain("admin.from");
+  // ⚠️ INVERTED 2026-08-07, and the old form was VACUOUS — worth stating plainly.
+  // It read "reads the worker's name off the SESSION client, never admin" and
+  // asserted `not.toContain("admin.from")`. Spec 400 U6c had already moved this
+  // read to the ADMIN seam on purpose (session-client `workers` is role-only and
+  // excludes accounting / hr / project_coordinator, who would otherwise be told
+  // the worker does not exist). The pin kept passing against the very code it
+  // forbade, because prettier puts `await admin` and `.from("workers")` on
+  // SEPARATE LINES, so the literal `admin.from` never appears — and "supabase"
+  // appeared in the window from an unrelated line. A substring pin that spans a
+  // line break is a pin that measures the formatter.
+  it("reads the worker's name through the ADMIN seam — the U6c audience needs it", () => {
+    expect(loader).toMatch(/await admin\s*\.from\("workers"\)/);
+    expect(loader).not.toMatch(/await supabase\s*\.from\("workers"\)/);
   });
 
   // Gate-4 real-flow finding (2026-08-07): a no-session worker-day with ?project=
@@ -85,27 +100,34 @@ describe("/team/attendance/fix page — params + identity", () => {
   // verified live and documented on the day-panel page), only when there is no
   // session to read it from.
   it("falls back to a projects lookup for the header when there is no session", () => {
-    expect(code).toContain('.from("projects")');
-    const block = code.slice(
-      code.indexOf('.from("projects")') - 200,
-      code.indexOf('.from("projects")') + 200,
+    expect(loader).toContain('.from("projects")');
+    const block = loader.slice(
+      loader.indexOf('.from("projects")') - 200,
+      loader.indexOf('.from("projects")') + 200,
     );
     expect(block).toContain("sessions.length === 0");
-    expect(block).not.toContain("admin.from");
+    // Deliberately the SESSION client: can_see_project is else-false for
+    // accounting and hr, so those two lose a project NAME on a no-session
+    // worker-day. That degrades a label rather than making a false claim, which
+    // is why the worker read above moved to admin and this one did not.
+    expect(block).toMatch(/supabase\s*\.from\("projects"\)/);
+    expect(block).not.toMatch(/admin\s*\.from\("projects"\)/);
   });
 });
 
 describe("/team/attendance/fix page — sessions, closure and team resolution", () => {
   it("reads the worker-day's sessions through loadAttendanceDetail", () => {
-    expect(occurrences("loadAttendanceDetail")).toBeGreaterThanOrEqual(2);
+    expect(
+      ((n: string) => loader.split(n).length - 1)("loadAttendanceDetail"),
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("derives closure from the sessions when any exist, an ADMIN lookup otherwise", () => {
-    expect(code).toContain("sessions.every((s) => s.dayClosed)");
-    expect(code).toContain('.from("muster_day_closures")');
-    const block = code.slice(
-      code.indexOf('.from("muster_day_closures")') - 50,
-      code.indexOf('.from("muster_day_closures")') + 300,
+    expect(loader).toContain("sessions.every((s) => s.dayClosed)");
+    expect(loader).toContain('.from("muster_day_closures")');
+    const block = loader.slice(
+      loader.indexOf('.from("muster_day_closures")') - 50,
+      loader.indexOf('.from("muster_day_closures")') + 300,
     );
     expect(block).toContain("admin");
   });
@@ -124,9 +146,9 @@ describe("/team/attendance/fix page — sessions, closure and team resolution", 
   // own precedent (the team lookup, the teams RPC, loadAttendanceDetail and
   // loadDayAudit all throw).
   it("throws rather than reading an ERRORED closure lookup as 'the day is open'", () => {
-    const block = code.slice(
-      code.indexOf('.from("muster_day_closures")'),
-      code.indexOf('.from("muster_day_closures")') + 500,
+    const block = loader.slice(
+      loader.indexOf('.from("muster_day_closures")'),
+      loader.indexOf('.from("muster_day_closures")') + 500,
     );
     expect(block).toContain("closureError");
     expect(block).toContain("throw new Error");
@@ -136,9 +158,9 @@ describe("/team/attendance/fix page — sessions, closure and team resolution", 
   // a factual claim that this worker does not exist. An errored read must not
   // make that claim about a worker who does.
   it("distinguishes a FAILED worker read from a genuinely missing worker", () => {
-    const block = code.slice(
-      code.indexOf('.from("workers")'),
-      code.indexOf('.from("workers")') + 400,
+    const block = loader.slice(
+      loader.indexOf('.from("workers")'),
+      loader.indexOf('.from("workers")') + 400,
     );
     expect(block).toContain("workerError");
   });
@@ -149,9 +171,9 @@ describe("/team/attendance/fix page — sessions, closure and team resolution", 
     // lookup needs a project id to scope to, and calling it unconditionally
     // would either crash on a null id or, worse, silently read the WRONG
     // project-day if a bug ever supplied a stale default.
-    const block = code.slice(
-      code.indexOf('.from("muster_day_closures")') - 200,
-      code.indexOf('.from("muster_day_closures")'),
+    const block = loader.slice(
+      loader.indexOf('.from("muster_day_closures")') - 200,
+      loader.indexOf('.from("muster_day_closures")'),
     );
     expect(block).toContain("projectId !== null");
   });
@@ -160,18 +182,18 @@ describe("/team/attendance/fix page — sessions, closure and team resolution", 
     // muster_attendance / muster_teams RLS is can_see_project — FALSE for
     // procurement — so the session client cannot answer this for the audience
     // this page exists for.
-    expect(code).toContain('.from("muster_attendance")');
-    const block = code.slice(
-      code.indexOf('.from("muster_attendance")') - 50,
-      code.indexOf('.from("muster_attendance")') + 300,
+    expect(loader).toContain('.from("muster_attendance")');
+    const block = loader.slice(
+      loader.indexOf('.from("muster_attendance")') - 50,
+      loader.indexOf('.from("muster_attendance")') + 300,
     );
     expect(block).toContain("admin");
   });
 
   it("throws rather than silently degrading when the team lookup comes back empty", () => {
-    const block = code.slice(
-      code.indexOf('.from("muster_attendance")'),
-      code.indexOf('.from("muster_attendance")') + 500,
+    const block = loader.slice(
+      loader.indexOf('.from("muster_attendance")'),
+      loader.indexOf('.from("muster_attendance")') + 500,
     );
     expect(block).toContain("throw new Error");
   });
@@ -179,16 +201,20 @@ describe("/team/attendance/fix page — sessions, closure and team resolution", 
 
 describe("/team/attendance/fix page — the add arm", () => {
   it("gates ADD on canAddMissingSession — only when no regular session exists yet", () => {
-    expect(occurrences("canAddMissingSession")).toBeGreaterThanOrEqual(2);
+    expect(
+      ((n: string) => loader.split(n).length - 1)("canAddMissingSession"),
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("reads the day's teams through the DEFINER RPC, never off the table", () => {
-    expect(code).toContain("list_muster_teams_for_day");
-    expect(code).not.toContain('from("muster_teams")');
+    expect(loader).toContain("list_muster_teams_for_day");
+    expect(loader).not.toContain('from("muster_teams")');
   });
 
   it("decides the add control through addPersonControl, the day panel's own function", () => {
-    expect(occurrences("addPersonControl")).toBeGreaterThanOrEqual(2);
+    expect(((n: string) => loader.split(n).length - 1)("addPersonControl")).toBeGreaterThanOrEqual(
+      2,
+    );
   });
 });
 
@@ -208,14 +234,14 @@ const SIBLING_BOUNDARIES = [
   "{dayClosed === null && (",
 ];
 function isSitedUnder(needle: string, guard: string): boolean {
-  const at = code.indexOf(needle);
+  const at = panel.indexOf(needle);
   expect(at).toBeGreaterThan(-1);
-  const openAt = code.lastIndexOf(guard, at);
+  const openAt = panel.lastIndexOf(guard, at);
   if (openAt === -1 || openAt > at) return false;
   let nextSiblingAt = Infinity;
   for (const g of SIBLING_BOUNDARIES) {
     if (g === guard) continue; // the guard's OWN string never bounds itself
-    const gi = code.indexOf(g, openAt + guard.length);
+    const gi = panel.indexOf(g, openAt + guard.length);
     if (gi !== -1 && gi < nextSiblingAt) nextSiblingAt = gi;
   }
   return at < nextSiblingAt;
@@ -227,7 +253,7 @@ describe("/team/attendance/fix page — the locked group", () => {
   });
 
   it("states the day-wide blast radius in the locked group, not per-control", () => {
-    expect(code).toContain("ทั้งวัน");
+    expect(panel).toContain("ทั้งวัน");
   });
 
   it("offers add/delete ONLY on an open day", () => {
@@ -250,15 +276,15 @@ describe("/team/attendance/fix page — the locked group", () => {
 // empty render that asserts nothing, the class the U3a review named.
 describe("/team/attendance/fix page — every reachable add refusal states its reason", () => {
   it("names the FUTURE-date reason instead of rendering a bare heading", () => {
-    expect(code).toContain("ยังมาไม่ถึง");
+    expect(panel).toContain("ยังมาไม่ถึง");
   });
 
   it("renders the add section only when it has a form or a reason to show", () => {
     // The heading must not be able to render alone: it is inside the same
     // conditional as the thing it titles.
-    const at = code.indexOf("เพิ่มคนที่ตกหล่น</h3>");
+    const at = panel.indexOf("เพิ่มคนที่ตกหล่น</h3>");
     expect(at).toBeGreaterThan(-1);
-    const before = code.slice(Math.max(0, at - 300), at);
+    const before = panel.slice(Math.max(0, at - 300), at);
     expect(before).toContain("addState");
   });
 });
@@ -271,7 +297,7 @@ describe("/team/attendance/fix page — every reachable add refusal states its r
 // a form: an empty render satisfies an absence-only assertion perfectly.
 describe("/team/attendance/fix page — a missing ?project= states its reason", () => {
   it("renders the pick-a-project sentence when the project cannot be resolved", () => {
-    expect(code).toContain("เลือกโครงการก่อน จึงจะเพิ่มหรือแก้ไขการเช็คชื่อได้");
+    expect(panel).toContain("เลือกโครงการก่อน จึงจะเพิ่มหรือแก้ไขการเช็คชื่อได้");
   });
 
   it("sites that sentence under the dayClosed === null arm, not somewhere incidental", () => {
@@ -293,21 +319,24 @@ describe("/team/attendance/fix page — retime is offered on ANY day state", () 
   });
 
   it("computes outLocked through outTimeLocked, not inline", () => {
-    expect(occurrences("outTimeLocked")).toBeGreaterThanOrEqual(2);
+    expect(((n: string) => panel.split(n).length - 1)("outTimeLocked")).toBeGreaterThanOrEqual(2);
   });
 });
 
 describe("/team/attendance/fix page — the trail, filtered to ONE worker", () => {
   it("reads the same RPC the day panel does, then filters by workerId in TS", () => {
-    expect(occurrences("loadDayAudit")).toBeGreaterThanOrEqual(2);
-    const block = code.slice(code.indexOf("loadDayAudit("), code.indexOf("loadDayAudit(") + 300);
+    expect(((n: string) => loader.split(n).length - 1)("loadDayAudit")).toBeGreaterThanOrEqual(2);
+    const block = loader.slice(
+      loader.indexOf("loadDayAudit("),
+      loader.indexOf("loadDayAudit(") + 300,
+    );
     expect(block).toContain("r.workerId === workerId");
   });
 
   it("passes null, not an empty array, when no project is known", () => {
-    const block = code.slice(
-      code.indexOf("const fullTrail"),
-      code.indexOf("const fullTrail") + 200,
+    const block = loader.slice(
+      loader.indexOf("const fullTrail"),
+      loader.indexOf("const fullTrail") + 200,
     );
     expect(block).toContain("projectId !== null");
     expect(block).toContain(": null");
@@ -348,9 +377,9 @@ describe("/team/attendance/fix page — the lock reads before the corrections", 
     // indexOf compares the import's position against the heading's and passes
     // however the JSX is ordered — proved by physically relocating the block
     // back below แก้เวลา and watching this stay green.
-    const lock = code.indexOf(">{MUSTER_DAY_CLOSED_LABEL}<");
-    const retime = code.indexOf("แก้เวลา");
-    const empty = code.indexOf("ยังไม่มีการเช็คชื่อของช่างคนนี้");
+    const lock = panel.indexOf(">{MUSTER_DAY_CLOSED_LABEL}<");
+    const retime = panel.indexOf("แก้เวลา");
+    const empty = panel.indexOf("ยังไม่มีการเช็คชื่อของช่างคนนี้");
     expect(lock).toBeGreaterThan(-1);
     expect(retime).toBeGreaterThan(-1);
     expect(lock).toBeLessThan(retime);
@@ -362,9 +391,9 @@ describe("/team/attendance/fix page — the lock reads before the corrections", 
     // here would be exactly the drift the constant exists to prevent. What the
     // term MEANS is stated by MusterReopenForm, so the day panel — the other
     // surface offering that control — carries the same sentence.
-    expect(code).toContain("MUSTER_DAY_CLOSED_LABEL");
-    expect(code).not.toContain('"ปิดวันแล้ว"');
-    expect(code).not.toContain(">ปิดวันแล้ว<");
-    expect(code).toContain("<MusterReopenForm");
+    expect(panel).toContain("MUSTER_DAY_CLOSED_LABEL");
+    expect(panel).not.toContain('"ปิดวันแล้ว"');
+    expect(panel).not.toContain(">ปิดวันแล้ว<");
+    expect(panel).toContain("<MusterReopenForm");
   });
 });

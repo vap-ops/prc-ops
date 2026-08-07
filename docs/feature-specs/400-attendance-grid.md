@@ -922,6 +922,86 @@ applied to a test name.
   link-withholding branches are unreachable. Kept, and the equality is pinned, so a
   future narrowing re-separates them instead of silently rotting.
 
+## 10. The fix panel — correcting without leaving the grid (U7)
+
+**Operator, 2026-08-07, after U6a / #1023 shipped:** _"how about editing in a modal or side
+panel on the same page? currently user must edit one day at a time, and returning to
+previous page takes time."_
+
+### D16 — the work has a shape, and it is not the one the complaint names
+
+Measured before designing, from `audit_log` where `target_table = 'muster_attendance'`:
+
+| sitting                    | day corrected | edits                       | workers | elapsed       |
+| -------------------------- | ------------- | --------------------------- | ------- | ------------- |
+| 2026-08-07 `03:54`–`03:58` | 2026-07-24    | 10 `muster_correction_time` | 9       | **4 min 2 s** |
+| 2026-07-25 `17:51`         | 2026-07-25    | 9 `muster_move`             | 9       | one batch     |
+| 2026-08-06 → 08-07         | 2026-08-05    | 2 time + 2 undo             | 2       | —             |
+
+Every sitting is **one day, many workers** — never many days. So the axis the panel must
+optimise is worker-within-day, and the affordance that matters is not "open a panel", it is
+"go to the next person without leaving". At roughly 24 s per correction including the round
+trip, the 07-24 sitting is this unit's own acceptance case.
+
+### D17 — a URL-driven panel, not a client modal
+
+The page is zero-client-JS by construction and every correction is a POST + redirect. A
+client `<dialog>` would still pay the same server round trip per save, so it buys only the
+repaint — at the cost of the property that makes this page work on a field device whose
+hydration this repo has watched fail. The panel is therefore `?fix=<workerId>` alongside the
+existing `?day=`, the same mechanism U3b already ships.
+
+### D18 — "next" is resolved AFTER the write, never precomputed
+
+The save's `returnTo` carries `?fixNext=1` plus the worker just saved, and the page
+re-derives the day's work-list from FRESH data before choosing who to open. Precomputing the
+next worker at render time would hand the user a queue built from pre-write state: if the
+correction resolved someone else's row too, or resolved nothing, the precomputed target is a
+claim about a day that no longer exists.
+
+Consequences, all deliberate:
+
+- a correction that did **not** resolve the anomaly re-opens the SAME person, which is
+  honest — they are still on the work-list;
+- when the list empties the panel says so rather than closing silently, because a surface
+  that vanishes is indistinguishable from a crash (the silent-success rule this repo has
+  already paid for twice);
+- the work-list is `dayWorkList`, which today carries exactly `openOut`. The panel therefore
+  advances through UNCHECKED-OUT people, not through "everyone I might want to edit" — and
+  this spec says so rather than implying a queue it does not build.
+
+### D20 — the queue walks the DAY, not the anomaly list (D18 corrected at gate-check)
+
+D18 above said the panel advances through `dayWorkList`. Gate-checking that against live data
+refuted it, and the refutation is kept beside the original rather than edited away:
+
+- `dayWorkList` carries exactly `openOut`, and **zero sessions in the entire database have a
+  null `out_at`** (`day-fix.ts` already records this, measured 2026-08-07). An anomalies-only
+  queue therefore advances through NOTHING on every day that exists today — the
+  ranking-by-a-constant-column failure, shipped as a queue.
+- The 07-24 sitting corrected **9 workers out of the 13 on that day** — precisely its 9 OT
+  sessions, which were the anomaly set _at that time_ because they were stuck open. The two
+  populations coincided then and do not coincide now.
+
+So the queue is the day's own roster of workers WITH sessions, ordered anomalies-first and
+then by name, and `dayWorkList` becomes the ORDERING signal instead of the membership test. A
+day with no anomalies still yields a walkable queue, which is the state every day in the
+database is in right now.
+
+### D19 — one implementation, two doors
+
+`/team/attendance/fix` must keep working: U6b built three doors into it and links exist in
+the wild. So the unit EXTRACTS the screen — its loader and its render — and both the route
+and the panel call the extraction. The route is neither deleted nor duplicated; duplicating
+it is exactly how the reopen form drifted before it was extracted in the first place.
+
+### Acceptance
+
+- The 07-24 sitting, replayed: 9 workers corrected without a single navigation away from the
+  grid, each save landing on the next unresolved person.
+- `/team/attendance/fix?worker=…&date=…` still renders standalone, unchanged.
+- Panel and route render the same component, proven by a source pin rather than by eye.
+
 ---
 
 Related: `358-attendance-audit.md` (the report this replaces as the default view) ·
