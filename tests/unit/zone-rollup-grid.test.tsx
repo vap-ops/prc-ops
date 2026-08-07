@@ -121,16 +121,18 @@ describe("ZoneRollupGrid", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("locks the scroll gesture on its own horizontal scroller", () => {
-    // A bare overflow-x-auto row hijacks vertical page scroll on touch; the
-    // pan-x + pinch-zoom pair is the repo's build-failing contract, and this
-    // grid is wide by construction.
+  it("scrolls sideways on its own scroller without locking the vertical axis", () => {
+    // Wide by construction AND tall by row count, so it is a block scroller,
+    // not a one-row strip: the strip-form `pan-x pinch-zoom` pair omits pan-y
+    // and would strand a thumb resting on the grid with no way to scroll the
+    // page (operator report 2026-08-07). ui-class-contracts enforces the split.
     const { container } = render(
       <ZoneRollupGrid
         rollup={rollupOf([zone({ id: "z1", code: "A" })], [wp({ zoneId: "z1", categoryId: "c1" })])}
       />,
     );
     const scroller = container.querySelector(".overflow-x-auto");
-    expect(scroller?.className).toContain("[touch-action:pan-x_pinch-zoom]");
+    expect(scroller?.className).toContain("[touch-action:manipulation]");
+    expect(scroller?.className).not.toContain("pan-x_pinch-zoom");
   });
 });

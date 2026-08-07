@@ -142,17 +142,35 @@ describe("absolute-centering contract (#236 bug class)", () => {
 // keeps zoom while still killing the vertical jump.
 // ---------------------------------------------------------------------------
 
-/** TALL 2-axis surfaces (viewport-filling gantts) where
+/** TALL 2-axis surfaces (viewport-filling gantts and DATA TABLES) where
  *  `[touch-action:manipulation]` is the compliant form instead of the row-strip
  *  pair: pan-x-only would dead-zone vertical page scrolling across the whole
  *  viewport there, while manipulation still enables the horizontal pan the
  *  bug class is about AND preserves pinch-zoom (WCAG 1.4.10). The allowance is
  *  FILE-SCOPED on purpose — a thin row strip writing `manipulation` elsewhere
- *  would re-expose the vertical-jump bug and must keep failing. */
+ *  would re-expose the vertical-jump bug and must keep failing.
+ *
+ *  Operator report 2026-08-07 ("cannot scroll up/down when pressing on the
+ *  table; touching beside it is the workaround"): the pan-x pair is correct for
+ *  a ONE-ROW strip, where a user's thumb has somewhere else to land. A table is
+ *  many rows tall and usually fills the phone screen, so pan-x there removes
+ *  vertical scrolling from the only part of the page the user can reach. */
 const MANIPULATION_ALLOWED_FILES = new Set([
   // Spec 327 U4 — 300+ WP lanes tall; vertical touches must scroll the page.
   "components/features/purchasing/procurement-timeline.tsx",
+  // Multi-row <table> scrollers — same reasoning, reported from the field.
+  "app/accounting/projects/[projectId]/page.tsx",
+  "components/features/muster/attendance-grid-view.tsx",
+  "components/features/supply-plan/supply-plan-accuracy.tsx",
+  "components/features/zones/zone-rollup-grid.tsx",
+  // Columns of stacked cards — tall for the same reason a table is.
+  "components/features/feedback/feedback-kanban.tsx",
 ]);
+
+/** How many non-flex (tall) `overflow-x-auto` scrollers exist in src/. Pinned
+ *  so that a scroller dropping out of the scan's view fails loudly instead of
+ *  quietly narrowing what the contract below covers. */
+const BLOCK_SCROLLERS = 6;
 
 /** String literals that scroll horizontally but never declare a compliant
  *  touch-action — each is a row that can bleed a horizontal swipe into a
@@ -208,6 +226,103 @@ describe("horizontal-scroll touch-action contract (14263ad8 bug class)", () => {
     expect(
       offenders,
       "add [touch-action:pan-x_pinch-zoom] next to overflow-x-auto (see feedback 14263ad8; tall 2-axis surfaces may use [touch-action:manipulation] once allow-listed in MANIPULATION_ALLOWED_FILES)",
+    ).toEqual([]);
+  });
+
+  // The pair fixes a ONE-ROW strip and breaks a TALL one. A strip is a single
+  // row of chips or thumbnails, so a thumb that lands on it always has page
+  // left over to scroll; a table or a kanban board fills the phone screen, and
+  // omitting pan-y there leaves the user nowhere to scroll FROM — the operator
+  // reported (2026-08-07) having to touch beside the table to move the page.
+  //
+  // The two are told apart STRUCTURALLY rather than by position: a one-row
+  // strip lays its children out with `flex`, a block scroller does not. That
+  // beats "the <div> nearest the <table>", which silently skips a wrapper
+  // whenever an inner <div> sits between the two, and it also reaches tall
+  // NON-table scrollers (the feedback kanban) that a <table>-shaped scan
+  // cannot see.
+  //
+  // ⚖️ Accepted trade: `manipulation` permits pan-y, so on these surfaces a
+  // diagonal swipe CAN jump the page mid-swipe — the original 14263ad8
+  // symptom. On a tall surface that is the correct side of the trade (the
+  // alternative is no vertical scrolling at all), and it is the same call
+  // spec 327 U4 already made for the procurement gantt. Pinch-zoom — the
+  // actual WCAG 1.4.10 mechanism — survives in both forms.
+  const BLOCK_SCROLLER_HINT =
+    "a tall scroller (table, board, any non-flex overflow-x-auto container) must NOT use the strip-form [touch-action:pan-x_pinch-zoom] — it removes vertical panning from a surface that fills the screen. Use [touch-action:manipulation] and add the file to MANIPULATION_ALLOWED_FILES";
+
+  /** `overflow-x-auto` literals split by layout shape, comments stripped so a
+   *  doc comment quoting either form can neither trip nor mask the scan. */
+  function scrollerLiterals(content: string): { strips: string[]; blocks: string[] } {
+    const code = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const strips: string[] = [];
+    const blocks: string[] = [];
+    for (const [lit] of code.matchAll(STRING_LITERALS)) {
+      if (!lit.includes("overflow-x-auto")) continue;
+      (/\bflex\b/.test(lit) ? strips : blocks).push(lit);
+    }
+    return { strips, blocks };
+  }
+
+  it("the classifier splits a one-row strip from a tall block scroller, and only that", () => {
+    const strip =
+      'className="-mx-5 flex gap-2 overflow-x-auto px-5 [touch-action:pan-x_pinch-zoom]"';
+    const block =
+      'className="border-edge rounded-card [touch-action:manipulation] overflow-x-auto"';
+    expect(scrollerLiterals(strip)).toEqual({ strips: [expect.any(String)], blocks: [] });
+    expect(scrollerLiterals(block)).toEqual({ strips: [], blocks: [expect.any(String)] });
+    // A container that scrolls nothing horizontally is neither.
+    expect(scrollerLiterals('className="flex gap-2"')).toEqual({ strips: [], blocks: [] });
+    // Comments are stripped: quoting either form while EXPLAINING it must not
+    // register as a scroller (documenting the hazard would become the hazard).
+    expect(
+      scrollerLiterals('// see "overflow-x-auto [touch-action:pan-x_pinch-zoom]" above\n'),
+    ).toEqual({ strips: [], blocks: [] });
+    expect(scrollerLiterals('/* "overflow-x-auto [touch-action:pan-x_pinch-zoom]" */\n')).toEqual({
+      strips: [],
+      blocks: [],
+    });
+  });
+
+  it("no tall (non-flex) scroller in src/ locks the vertical axis with the strip-form pair", () => {
+    let blocksSeen = 0;
+    const offenders = tsxFiles().flatMap((f) => {
+      const { blocks } = scrollerLiterals(f.content);
+      blocksSeen += blocks.length;
+      return blocks
+        .filter((lit) => lit.includes("touch-action:pan-x_pinch-zoom"))
+        .map((lit) => `${f.rel}: ${lit}`);
+    });
+    // Positive control pinned to the real count: `> 0` would survive all but
+    // one block scroller vanishing from the scan's view.
+    expect(blocksSeen).toBe(BLOCK_SCROLLERS);
+    expect(offenders, BLOCK_SCROLLER_HINT).toEqual([]);
+  });
+
+  // The manipulation allowance is FILE-scoped (the scan above cannot resolve
+  // elements), so a file on the list could quietly give a thin chip strip the
+  // tall-surface form and re-open 14263ad8 on it. The allowance is earned by a
+  // block scroller and must not travel to the strips beside it.
+  it("a strip inside an allow-listed file still takes the pair, not manipulation", () => {
+    // Fixture first: no allow-listed file holds a strip TODAY, so the repo scan
+    // below currently has nothing to look at and would pass while broken. This
+    // pins the rule itself, so the guard is real the day a strip is added.
+    expect(
+      scrollerLiterals(
+        'className="flex gap-2 overflow-x-auto [touch-action:manipulation]"',
+      ).strips.filter((l) => !l.includes("touch-action:pan-x_pinch-zoom")),
+    ).toHaveLength(1);
+
+    const offenders = tsxFiles()
+      .filter((f) => MANIPULATION_ALLOWED_FILES.has(f.rel))
+      .flatMap((f) =>
+        scrollerLiterals(f.content)
+          .strips.filter((lit) => !lit.includes("touch-action:pan-x_pinch-zoom"))
+          .map((lit) => `${f.rel}: ${lit}`),
+      );
+    expect(
+      offenders,
+      "[touch-action:manipulation] is allowed on this file's TALL scroller only; a one-row flex strip beside it still needs the pan-x_pinch-zoom pair",
     ).toEqual([]);
   });
 });

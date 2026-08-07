@@ -222,9 +222,11 @@ export function AttendanceGridView({
         <li>ตัวเลขใต้วันที่ = จำนวนคนที่เช็คชื่อ</li>
       </ul>
 
-      {/* A bare overflow-x-auto row lets a horizontal swipe bleed into a
-          vertical page jump; the pair is the repo-wide contract. */}
-      <div className="border-edge rounded-card [touch-action:pan-x_pinch-zoom] overflow-x-auto border">
+      {/* Tall multi-row grid — [touch-action:manipulation] (not the
+          strip-form pan-x_pinch-zoom pair) so a vertical touch starting on
+          the grid still scrolls the page; see MANIPULATION_ALLOWED_FILES
+          in tests/unit/ui-class-contracts.test.tsx. */}
+      <div className="border-edge rounded-card [touch-action:manipulation] overflow-x-auto border">
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr>

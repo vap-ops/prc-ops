@@ -145,12 +145,16 @@ describe("AttendanceGridView", () => {
     expect(screen.getByText(/มุมมองรายการ/)).toBeInTheDocument();
   });
 
-  it("scrolls sideways inside its own container, with the touch-action pair", () => {
-    // A bare overflow-x-auto row bleeds a horizontal swipe into a vertical page
-    // jump; the repo's ui-class-contracts guard enforces the pair.
+  it("scrolls sideways inside its own container without locking the vertical axis", () => {
+    // The grid is TALL — 42 rows measured over 3.7 phone screens — so the
+    // strip-form `pan-x pinch-zoom` pair would leave a thumb resting on it
+    // unable to scroll the page at all (operator report 2026-08-07).
+    // `manipulation` keeps the horizontal pan and pinch-zoom and returns
+    // pan-y to the page. Enforced repo-wide by ui-class-contracts.
     const { container } = renderGrid();
     const scroller = container.querySelector(".overflow-x-auto");
-    expect(scroller?.className).toContain("[touch-action:pan-x_pinch-zoom]");
+    expect(scroller?.className).toContain("[touch-action:manipulation]");
+    expect(scroller?.className).not.toContain("pan-x_pinch-zoom");
   });
 
   it("renders a roster-only worker as a visibly empty row (U2)", () => {
