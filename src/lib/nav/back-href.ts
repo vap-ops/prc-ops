@@ -1,4 +1,9 @@
-import { ACCOUNTING_HUB_LABEL, PROCUREMENT_HUB_LABEL, TEAM_HUB_LABEL } from "@/lib/i18n/labels";
+import {
+  ACCOUNTING_HUB_LABEL,
+  ATTENDANCE_AUDIT_LABEL,
+  PROCUREMENT_HUB_LABEL,
+  TEAM_HUB_LABEL,
+} from "@/lib/i18n/labels";
 
 // Referrer-aware back chip (sitemap review, 2026-06-26).
 //
@@ -82,9 +87,14 @@ export function withBackFrom(href: string, fromPath: string): string {
 // while the browser lands on /procurement. Self-inflicted, no privilege crossed
 // — but the honest statement is "the label names the resolved href's first
 // segment", not "the label can never disagree with the link".
+// Spec 400 U6a — the fix page's most common parent is the report itself, which
+// the report never had to name before (it never links to itself). Order does
+// not matter (the prefixes are disjoint), so this is appended rather than
+// sorted specially.
 const ATTENDANCE_BACK_LABELS: ReadonlyArray<readonly [prefix: string, label: string]> = [
   ["/accounting", ACCOUNTING_HUB_LABEL],
   ["/procurement", PROCUREMENT_HUB_LABEL],
+  ["/team/attendance", ATTENDANCE_AUDIT_LABEL],
 ];
 
 function isUnder(href: string, prefix: string): boolean {

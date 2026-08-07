@@ -58,6 +58,10 @@ export type DayAuditRow = {
   kind: string;
   actorName: string | null;
   actorRole: UserRole;
+  /** Spec 400 U6a — kept alongside workerName so a per-worker filter (the fix
+   *  page's own trail) does not have to match on a display name two workers
+   *  could share. Null for a whole-day event (close/reopen). */
+  workerId: string | null;
   workerName: string | null;
   session: "regular" | "ot" | null;
   detail: Record<string, unknown>;
@@ -69,6 +73,7 @@ export function shapeDayAuditRow(raw: RawDayAuditRow): DayAuditRow {
     kind: raw.kind,
     actorName: raw.actor_name,
     actorRole: raw.actor_role,
+    workerId: raw.worker_id,
     workerName: raw.worker_name,
     session: raw.session,
     detail: raw.detail ?? {},

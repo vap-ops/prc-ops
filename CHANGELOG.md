@@ -1,3 +1,14 @@
+# [0.355.0](https://github.com/vap-ops/prc-ops/compare/v0.354.0...v0.355.0) (2026-08-07)
+
+### Bug Fixes
+
+- **muster:** overnight check-out, the returnTo dead end, and four review findings ([fd985be](https://github.com/vap-ops/prc-ops/commit/fd985be3c94596336c83d22653b7105e84ba0912))
+- **muster:** three self-review defects on the fix screen ([c825060](https://github.com/vap-ops/prc-ops/commit/c8250605875716723f055694a34dc399845b31b2))
+
+### Features
+
+- **muster:** the worker-day fix screen, so a correction has one place to happen ([21e1971](https://github.com/vap-ops/prc-ops/commit/21e19713b5bef0318b00b081f3e2d135db3ba01c))
+
 # [0.354.0](https://github.com/vap-ops/prc-ops/compare/v0.353.0...v0.354.0) (2026-08-07)
 
 ### Features
