@@ -4,14 +4,15 @@
 // standalone display, white sun theme, 512 icon + maskable entry).
 
 import { describe, expect, it } from "vitest";
+import { APP_NAME } from "@/lib/ui/app-title";
 import manifest from "@/app/manifest";
 
 describe("PWA manifest", () => {
   const m = manifest();
 
   it("identifies the app in Thai with the brand name kept Latin", () => {
-    expect(m.name).toBe("PRC Ops");
-    expect(m.short_name).toBe("PRC Ops");
+    expect(m.name).toBe(APP_NAME);
+    expect(m.short_name).toBe(APP_NAME);
     expect(m.lang).toBe("th");
     expect(m.description).toMatch(/ก่อสร้าง/);
   });

@@ -13,6 +13,7 @@ import { UpdateAvailableChip } from "@/components/features/chrome/update-availab
 import { RouteAnnouncer } from "@/components/features/chrome/route-announcer";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TelemetryProvider } from "@/components/features/telemetry/telemetry-provider";
+import { APP_NAME, APP_TITLE_TEMPLATE } from "@/lib/ui/app-title";
 import { THEME_COOKIE, parseThemeSetting } from "@/lib/ui/theme";
 import { clientEnv } from "@/lib/env";
 import "./globals.css";
@@ -31,10 +32,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// The name and the template come from the SSOT the route-announcement layer
+// also reads (src/lib/ui/app-title.ts). They used to be literals here and
+// hand-copies there, with nothing connecting them — so a rename would have left
+// the tests green while every spoken announcement kept a stale suffix.
 export const metadata: Metadata = {
   title: {
-    default: "PRC Ops",
-    template: "%s — PRC Ops",
+    default: APP_NAME,
+    template: APP_TITLE_TEMPLATE,
   },
   description: "ระบบบริหารงานก่อสร้าง — รูปถ่ายความคืบหน้า อนุมัติงาน และรายงานโครงการ",
 };
