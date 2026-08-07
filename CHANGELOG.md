@@ -1,3 +1,9 @@
+# [0.354.0](https://github.com/vap-ops/prc-ops/compare/v0.353.0...v0.354.0) (2026-08-07)
+
+### Features
+
+- **notifications:** spec 402 U3 - feedback and the dormant events ([#1017](https://github.com/vap-ops/prc-ops/issues/1017)) ([b11382c](https://github.com/vap-ops/prc-ops/commit/b11382c9042aa32115679240574fb0a9fcfd8a1a))
+
 # [0.353.0](https://github.com/vap-ops/prc-ops/compare/v0.352.1...v0.353.0) (2026-08-07)
 
 ### Features
