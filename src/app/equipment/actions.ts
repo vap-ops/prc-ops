@@ -752,7 +752,11 @@ export async function setEquipmentDailyRate(input: {
 // get a Thai sentence instead of a generic failure; the RPC re-checks both (and
 // owns the future-date rule, which must be a Bangkok civil date, not UTC).
 // ---------------------------------------------------------------------------
-const ACQUISITION_ERROR = "บันทึกราคาทุนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+// No "try again" here, deliberately: this arm also catches the PERMANENT
+// refusals (42501 role, P0001 unknown item), and telling someone to retry a
+// refusal that can never succeed is the honest-copy defect the ratchet guards.
+// The retryable-looking cases get their own named messages below.
+const ACQUISITION_ERROR = "บันทึกราคาทุนไม่สำเร็จ";
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function setEquipmentAcquisition(input: {
@@ -795,11 +799,18 @@ export async function setEquipmentAcquisition(input: {
     ...(acquiredAt === null ? {} : { p_acquired_at: acquiredAt }),
   });
   if (error) {
-    // A future date is the one refusal the operator can fix without help, and
-    // it is the one a wrong device clock produces — name it rather than hiding
-    // it behind the generic message.
-    if ((error as { message?: string }).message?.includes("in the future")) {
+    const message = (error as { message?: string }).message ?? "";
+    // Name the refusals the operator can act on. A future date is the one a
+    // wrong device clock produces; the role refusal is permanent and must not
+    // read as something a retry could fix.
+    if (message.includes("in the future")) {
       return { ok: false, error: "วันที่ได้มาต้องไม่เป็นวันในอนาคต" };
+    }
+    if ((error as { code?: string }).code === "42501") {
+      return { ok: false, error: "บัญชีของคุณไม่มีสิทธิ์บันทึกราคาทุน" };
+    }
+    if (message.includes("not found")) {
+      return { ok: false, error: "ไม่พบอุปกรณ์นี้ในระบบแล้ว" };
     }
     return { ok: false, error: ACQUISITION_ERROR };
   }

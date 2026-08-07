@@ -14222,3 +14222,55 @@ two checks.
 add, not a redesign. ② Nothing enforces or reports photo coverage, though images are the stated PRI
 prerequisite. ③ `acquisition_cost` / `acquired_at` still have no write path anywhere, so the PRI
 valuation schedule stays blocked (§10.4).
+
+## 2026-08-07 — spec 367 §10.4: what the machine cost (lane eqcost)
+
+**What shipped.** `set_equipment_acquisition(uuid, numeric, date)` — a SECURITY DEFINER RPC for
+`acquisition_cost` + `acquired_at` — plus a per-item control on `/equipment` for the money
+audience, a new `audit_action` value, and a fifth arm on `equipment_item_history`. Migrations
+`20260813075920` (the enum value) and `20260813075921` (the function + the history arm).
+
+**Why it needed an RPC at all.** Both columns are money-walled: `equipment_items` is
+column-granted and neither column carries ANY grant to `authenticated` in either direction
+(verified live — only `service_role` and `postgres` hold one). So the app has had **no** way to
+record what a machine cost, an RLS UPDATE would 42501, and an RLS read returns nothing. That gap
+is what §3's PRI transfer schedule was blocked on.
+
+⭐ **A NEW audit action, not a reuse — and the reason is a label, not taste.**
+`equipment_item_history` maps `equipment_rate_change` to the kind `rate_change`, which the UI
+renders as "เปลี่ยนค่าเช่า". Filing a purchase cost under it would produce a true row carrying a
+false sentence about a rent change — the collapsed-class defect, one level down from the
+status-field version. ⚠️ The enum add trips **two** full-array pins (`03-audit-log-shape` and
+`18-appsheet-writer-purchasing`); I updated one and the other went red with a message naming
+`purchase_request_*` and saying nothing about equipment. **Sweep for the sibling pin.**
+
+⚠️ **`ALTER TYPE … ADD VALUE` cannot share a transaction with a statement that uses the value**,
+hence two migration files rather than one.
+
+⭐ **The DEFAULTs are load-bearing, not decoration.** Supabase's type generator emits a parameter
+as optional only when it carries a default, so without `default null` the generated `Args` type is
+`{p_cost: number}` and the app cannot express "clear this" without a cast that lies. With the
+defaults it is `p_cost?: number`, the action OMITS a blank field, and omission IS the clear. pgTAP
+pins the 1-arg clearing form so a signature edit cannot silently turn clearing into a no-op.
+
+⚖️ **Null clears, it does not mean "leave unchanged."** One meaning per argument: correcting a
+wrong figure back to unknown is a real need, and a second "clear" verb would be a second way to
+say one thing.
+
+**Gates.** RED first on both halves (a live probe showed the function and enum value absent; the
+action file was 7/7 red). pgTAP **364 files / 7708 assertions / 0 failures**, including 18 new
+ones that drive the gate BEHAVIOURALLY by impersonating a real `site_admin` (refused 42501) and a
+real back-office user. lint 0 · typecheck 0 · build 0 · 3 mutants each killed by its own
+assertion.
+
+⚠️ **Three self-inflicted incidents worth recording, all one cause.** I used PowerShell for
+in-place text edits on files containing Thai and corrupted them three times — a test file, a pgTAP
+file, and `equipment-manager.tsx` (tracked, restored with `git checkout --` after confirming my
+only changes to it were four small edits I could redo). **The rule already existed in memory:
+Thai text is edited with the file tools, never PowerShell.** The second and third corruptions
+happened after the first was noticed.
+
+**Open questions.** ① Bulk pricing by CSV is still refused — the importer has no DEFINER seam, so
+the fleet is priced one machine at a time; that is now a small unit rather than a blocker, since
+the RPC exists. ② `acquisition_cost` remains unreadable to `authenticated` by design, so any
+future report over it needs the admin seam or its own DEFINER reader.

@@ -422,7 +422,23 @@ new columns, so the real order is **U0 → U1 → U2 → U3 → U4 → U5**.
    `supplier`, or neither? The transfer spec needs one clear counterparty record,
    and today `owner_id` and `supplier_id` **both** point at PRC (§1.2), which is the
    modelling smell the transfer will force a decision on.
-4. ⚠️ **Loading `acquisition_cost` / `daily_rate` / `acquired_at` BY CSV needs its
+4. ✅ **PARTLY CLOSED 2026-08-07 — the WRITE PATH now exists.** Migration
+   `20260813075921` adds `set_equipment_acquisition(uuid, numeric, date)`, a
+   SECURITY DEFINER RPC mirroring `set_equipment_daily_rate` (same five
+   back-office roles, explicit existence probe, audit row carrying old **and**
+   new), plus a per-item control on `/equipment` for the money audience. Both
+   value params `default null` and **null CLEARS** — one meaning per argument.
+   The audit row uses a NEW `audit_action` value rather than reusing
+   `equipment_rate_change`, because `equipment_item_history` maps that action to
+   the kind `rate_change` ("เปลี่ยนค่าเช่า") and a purchase cost filed there would be
+   a true row carrying a false label; the history RPC gained a fifth arm under the
+   same money-audience gate. **So the PRI schedule is no longer blocked on having
+   nowhere to put a book value.** ⚑ **Still open, and it is the ORIGINAL wording of
+   this item: loading the figures BY CSV.** The importer still refuses a filled
+   money cell (correctly — it has no DEFINER seam), so today the fleet is priced
+   one machine at a time. If the PRI pass needs bulk pricing, that is its own unit
+   and it now has an RPC to call. Superseded text:
+   ⚠️ **Loading `acquisition_cost` / `daily_rate` / `acquired_at` BY CSV needs its
    own unit — and it is the one the PRI transfer actually depends on.** Found at
    U3 gate-check against the real write path, not assumed from this spec: none of
    the three carries an authenticated grant, `daily_rate` is writable only through
