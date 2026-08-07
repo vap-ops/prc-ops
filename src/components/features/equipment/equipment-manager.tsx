@@ -53,6 +53,7 @@ import {
   nextUnitName,
   type CatalogSkuOption,
 } from "@/lib/equipment/catalog-pick";
+import { STORE_LOCATION } from "@/lib/equipment/initial-location";
 import {
   EQUIPMENT_MOVEMENT_KIND_LABEL,
   EQUIPMENT_STATUS_LABEL,
@@ -293,12 +294,16 @@ const NEW_SKU = "__new__";
 function AddEquipmentForm({
   categories,
   owners,
+  projects,
   catalogSkus,
   skuInstanceCounts,
   onDone,
 }: {
   categories: Ref[];
   owners: OwnerOption[];
+  // Spec 367 Q1 — the same project list the ย้าย form uses, because the picker's
+  // two answers ARE the two movement kinds a registration can produce.
+  projects: Ref[];
   catalogSkus: CatalogSkuOption[];
   // itemId-FK counts per SKU — the client-side PREVIEW of the server's own
   // No.<n+1> derivation, and the bulk one-row rule's input. ONE predicate on
@@ -330,11 +335,20 @@ function AddEquipmentForm({
   const [assetTag, setAssetTag] = useState("");
   const [quantity, setQuantity] = useState("");
   const [status, setStatus] = useState<EquipmentStatus>("available");
+  // Spec 367 Q1 — where the thing physically is, recorded as the item's first
+  // movement. Starts at คลัง because the store-first directive makes that the
+  // normal answer for a tool being entered into the registry; a site is one tap.
+  // It is never left unset: an item with no movement renders `—` forever, which
+  // is the blank 63 of 64 items carried before the reset.
+  const [location, setLocation] = useState<string>(STORE_LOCATION);
   const [error, setError] = useState<string | null>(null);
   // Saved, but the rate copy failed: the row EXISTS, so the form freezes rather
   // than inviting a second submit under the same (spent) draftId — and closing
   // silently would hide the one follow-up that is owed (silent-success rule).
   const [rateNotice, setRateNotice] = useState(false);
+  // Same contract as rateNotice, for the movement: the row exists, so freeze and
+  // name the one follow-up that is owed instead of closing on a silent gap.
+  const [locationNotice, setLocationNotice] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const groups = groupSkusByCategory(catalogSkus, categories);
@@ -378,6 +392,7 @@ function AddEquipmentForm({
         assetTag: effectiveTracking === "unit" ? assetTag : "",
         quantity: qty,
         status,
+        location,
       });
     } catch {
       // Transport failure — without this arm `busy` never clears and the sheet
@@ -392,8 +407,9 @@ function AddEquipmentForm({
       setError(result.error);
       return;
     }
-    if (result.rateWarning) {
-      setRateNotice(true);
+    if (result.rateWarning || result.locationWarning) {
+      if (result.rateWarning) setRateNotice(true);
+      if (result.locationWarning) setLocationNotice(true);
       router.refresh();
       return;
     }
@@ -401,13 +417,21 @@ function AddEquipmentForm({
     router.refresh();
   }
 
-  if (rateNotice) {
+  // Saved-with-a-gap: the row exists under a spent draftId, so the form is
+  // replaced rather than re-offered, and every owed follow-up is named. Both
+  // arms can fire on one save, so this lists them instead of branching.
+  if (rateNotice || locationNotice) {
     return (
       <div>
-        <p className="text-ink text-body">
-          บันทึกอุปกรณ์แล้ว แต่คัดลอกค่าเช่าจากทะเบียนไม่สำเร็จ —
-          ตั้งค่าเช่าได้ที่ปุ่มค่าเช่าบนแถวรายการ
-        </p>
+        <p className="text-ink text-body">บันทึกอุปกรณ์แล้ว แต่ยังมีสิ่งที่ต้องตามเก็บ</p>
+        <ul className="text-ink text-body mt-2 list-disc space-y-1 pl-5">
+          {rateNotice ? (
+            <li>คัดลอกค่าเช่าจากทะเบียนไม่สำเร็จ — ตั้งค่าเช่าได้ที่ปุ่มค่าเช่าบนแถวรายการ</li>
+          ) : null}
+          {locationNotice ? (
+            <li>บันทึกที่อยู่ของอุปกรณ์ไม่สำเร็จ — ระบุได้ที่ปุ่มย้ายบนแถวรายการ</li>
+          ) : null}
+        </ul>
         <button type="button" onClick={onDone} className={`mt-3 w-full ${BUTTON_PRIMARY_COMPACT}`}>
           ปิด
         </button>
@@ -573,6 +597,29 @@ function AddEquipmentForm({
                   {STATUS_LABELS[s]}
                 </option>
               ))}
+            </select>
+          </label>
+          {/* Spec 367 Q1 — the option labels are the MOVEMENT labels, so what the
+              registrar picks here is exactly what the row's location badge will
+              read afterwards (ui-term-consistency). */}
+          <label className="text-ink-secondary mt-2 block text-sm">
+            ตอนนี้อยู่ที่ไหน
+            <select
+              aria-label="ตอนนี้อยู่ที่ไหน"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className={FIELD_STACKED}
+            >
+              <option value={STORE_LOCATION}>{EQUIPMENT_MOVEMENT_KIND_LABEL.received}</option>
+              {projects.length > 0 ? (
+                <optgroup label={EQUIPMENT_MOVEMENT_KIND_LABEL.deployed}>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
           </label>
         </>
@@ -1086,6 +1133,7 @@ export function EquipmentManager({
         <AddEquipmentForm
           categories={categories}
           owners={owners}
+          projects={projects}
           catalogSkus={catalogSkus}
           skuInstanceCounts={skuInstanceCounts}
           onDone={() => setAddingItem(false)}
