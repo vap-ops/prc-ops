@@ -21,6 +21,7 @@ import { requireActionRole } from "@/lib/auth/action-gate";
 import { MUSTER_CORRECT_ROLES } from "@/lib/auth/role-home";
 import { ISO_DATE_REGEX } from "@/lib/dates";
 import { bangkokInAt } from "@/lib/muster/add-person";
+import { nextIsoDate } from "@/lib/muster/day-fix";
 import {
   retimeReturnTo,
   undoReturnTo,
@@ -57,6 +58,13 @@ export async function correctMusterSession(input: {
   workDate: string;
   inTime: string;
   outTime: string;
+  /**
+   * The row's CURRENT check-in as a Bangkok `HH:MM`, carried by the form as a
+   * hidden field. Read ONLY to decide whether an out-time belongs to the next
+   * calendar day (see the overnight note below) — never sent to the RPC, which
+   * keeps whatever it already holds when `p_in_at` is omitted.
+   */
+  currentInTime: string;
 }): Promise<RetimeResult> {
   const gate = await requireActionRole(MUSTER_CORRECT_ROLES);
   if ("error" in gate) return { ok: false, outcome: "denied" };
@@ -71,11 +79,37 @@ export async function correctMusterSession(input: {
     return { ok: false, outcome: "shape" };
   }
 
-  // bangkokInAt is named for the add form's ARRIVAL case but is a generic
-  // Bangkok-offset timestamp builder — reused here for both directions, per
-  // U6a's brief.
+  // bangkokInAt is named for the add form's ARRIVAL case, but the construction
+  // (a Bangkok-offset timestamp from a date + HH:MM) is direction-neutral. What
+  // is NOT direction-neutral is the DATE it is given — see below.
   const inAt = input.inTime.trim() === "" ? null : bangkokInAt(input.workDate, input.inTime);
-  const outAt = input.outTime.trim() === "" ? null : bangkokInAt(input.workDate, input.outTime);
+
+  // ⚠️ THE OUT-DATE IS NOT ALWAYS THE WORK DATE. `muster_correct_session`
+  // permits `p_out_at` up to `((work_date + 1) + time '06:00')` — migration
+  // 20260813075915's ruling 3, kept so a night OT crossing midnight stays
+  // recordable, and a shape the codebase already models
+  // (`AttendanceDetailRow.outNextDay`). Pinning the out stamp to the work date
+  // made that capability UNREACHABLE from this screen: an out of 01:30 became
+  // `<workDate>T01:30`, i.e. BEFORE the check-in, so the RPC answered
+  // "check-out cannot precede check-in" and the corrector was blamed for the
+  // app's own construction — on the nine 2026-07-24 OT rows this page exists
+  // to repair.
+  //
+  // An out-time EARLIER than the effective check-in has exactly one reading
+  // that is not an inverted session, and the RPC refuses the inverted one
+  // outright, so rolling to the next date is a derivation rather than a guess.
+  // Compared against the EFFECTIVE pair (the new in-time when this same submit
+  // moves it, else the stored one) — U4's own "validate the effective pair
+  // after coalescing" rule, which exists because checking inside one branch can
+  // only ever see one side. With no in-time on either side there is nothing to
+  // derive from, so the date is left alone and the RPC's bounds answer it.
+  const effectiveInTime =
+    input.inTime.trim() !== "" ? input.inTime.trim() : input.currentInTime.trim();
+  const outIsNextDay =
+    input.outTime.trim() !== "" && effectiveInTime !== "" && input.outTime.trim() < effectiveInTime;
+  const outDate = outIsNextDay ? nextIsoDate(input.workDate) : input.workDate;
+  const outAt = input.outTime.trim() === "" ? null : bangkokInAt(outDate, input.outTime);
+
   if (
     (input.inTime.trim() !== "" && inAt === null) ||
     (input.outTime.trim() !== "" && outAt === null)
@@ -113,6 +147,20 @@ export async function correctMusterSession(input: {
     if (error.message.includes("another team today") || error.message.includes("team not found")) {
       return { ok: false, outcome: "stale" };
     }
+    // ⚠️ The RPC's INSERT-path refusals, reachable here only as a RACE: this
+    // form renders only for an existing session, so reaching them means the row
+    // was deleted between render and submit and `muster_correct_session` fell
+    // through to its insert branch. All three mean the same thing to the reader
+    // — what you were editing is gone, reload — so they map to `stale` rather
+    // than the generic `failed`, which would invite a retry against a row that
+    // no longer exists.
+    if (
+      error.message.includes("a check-in time is required") ||
+      error.message.includes("may only add a regular session") ||
+      error.message.includes("only be added to an open day")
+    ) {
+      return { ok: false, outcome: "stale" };
+    }
     return { ok: false, outcome: "failed" };
   }
 
@@ -131,6 +179,7 @@ export async function correctMusterSessionFromForm(formData: FormData): Promise<
     workDate: String(formData.get("workDate") ?? ""),
     inTime: String(formData.get("inTime") ?? ""),
     outTime: String(formData.get("outTime") ?? ""),
+    currentInTime: String(formData.get("currentInTime") ?? ""),
   });
   redirect(
     retimeReturnTo(String(formData.get("returnTo") ?? ""), result.ok ? "ok" : result.outcome),

@@ -565,8 +565,12 @@ bodies rather than assumed from the plan:
   reopen form (`MusterReopenForm`, reused unchanged) plus the blast-radius
   sentence — reopening and re-closing re-derives wages for the WHOLE day, not
   just this person.
-- The reopened-but-unclosed state is a persistent banner at the top of the page
-  (the outcome of the embedded reopen form), never a wizard step.
+- The reopened-but-unclosed state is a STATE, never a wizard step — but be
+  precise about which signal carries it: the `?reopened=1` banner is an OUTCOME
+  notice and disappears on the next load, while the thing that persists is the
+  header's own `dayClosureLabel` line ("ยังไม่ปิดวัน") plus the fact that the
+  locked group is gone and add/delete are live. U6b adds the day-level banner to
+  the OTHER surfaces; on this page the closure line is the persistent signal.
 
 **No time defaults, anywhere.** Both the retime form's fields and the add form's
 field start blank — a wrong guessed timestamp is worse than an empty one forcing
@@ -610,9 +614,26 @@ shaping step). A day-wide event (close/reopen) has `worker_id = null` and is
 therefore correctly absent from this per-worker view; the full untrimmed trail
 stays on the day panel.
 
-**Reused unchanged:** `bangkokInAt` (also used to build the retime form's
-out-time timestamp — the name reflects its original use, the construction is
-generic), `addMusterPersonFromForm` / `addMusterPerson` (no second copy — this
+⭐ **THE OUT-DATE IS NOT ALWAYS THE WORK DATE, and pinning it there made a
+shipped capability unreachable.** `muster_correct_session` permits `p_out_at` up
+to `((work_date + 1) + time '06:00')` — U4's own ruling 3, kept so a night OT
+crossing midnight stays recordable, and a shape `AttendanceDetailRow.outNextDay`
+already models. The first draft of this screen built every out-stamp on the work
+date, so an out of `01:30` landed BEFORE the check-in, the RPC answered
+"check-out cannot precede check-in", and the corrector was blamed for the app's
+own construction — on the nine 2026-07-24 OT rows this page exists to repair.
+An out-time earlier than the EFFECTIVE check-in has exactly one reading that is
+not an inverted session (and the RPC refuses the inverted one outright), so the
+action rolls it to the following date: a derivation, not a guess. Compared
+against the effective PAIR — the new in-time when the same submit moves it, else
+the stored one, carried as a hidden `currentInTime` — which is U4's own
+"validate the effective pair after coalescing" rule applied one layer up.
+⭐ **The general form: a capability whose bound lives in the RPC is not shipped
+until the SURFACE can express every value inside that bound.**
+
+**Reused unchanged:** `bangkokInAt` (also used for the retime form's out-time —
+the CONSTRUCTION is direction-neutral, but the DATE handed to it is not, see
+above), `addMusterPersonFromForm` / `addMusterPerson` (no second copy — this
 page's audience is identical to the day panel's), `MusterReopenForm`,
 `addPersonControl`, `dayClosureLabel`, `describeAuditEvent`. `REOPEN_ERROR_COPY`
 and `ADD_ERROR_COPY` moved out of `/team/attendance/page.tsx` into
@@ -622,8 +643,11 @@ same outcome; `RETIME_ERROR_COPY` and `UNDO_ERROR_COPY` are new in that file.
 which the report itself never had to name before).
 
 **New, code-only:** `src/lib/muster/day-fix.ts` (`parseFixParams`,
-`outTimeLocked`, `canAddMissingSession`, `undoSessionControl` — all pure,
-individually tested per the U1 reachability lesson), `RetimeOutcome` /
+`outTimeLocked`, `canAddMissingSession`, `nextIsoDate` — all pure, individually
+tested per the U1 reachability lesson; an `undoSessionControl` was written and
+then DELETED, because the page inlined the same `dayClosed === false` check and
+a decision function nothing calls reads as coverage while covering nothing),
+`RetimeOutcome` /
 `UndoOutcome` + their `returnTo` builders in `reopen-return.ts`,
 `correctMusterSession` / `undoAttendanceSession` (+ `*FromForm` wrappers) in
 `src/app/team/attendance/fix/actions.ts`, and three presentational forms

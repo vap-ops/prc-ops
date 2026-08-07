@@ -15,6 +15,7 @@
 
 import { correctMusterSessionFromForm } from "@/app/team/attendance/fix/actions";
 import { formatThaiTime } from "@/lib/i18n/labels";
+import { OUT_LOCKED_COPY } from "@/lib/muster/outcome-copy";
 import { BUTTON_SECONDARY, FIELD_INPUT } from "@/lib/ui/classes";
 
 export function AttendanceFixRetimeForm({
@@ -50,6 +51,12 @@ export function AttendanceFixRetimeForm({
       <input type="hidden" name="session" value={session} />
       <input type="hidden" name="workDate" value={workDate} />
       <input type="hidden" name="returnTo" value={returnTo} />
+      {/* The row's CURRENT check-in, Bangkok wall clock. Read ONLY to decide
+          whether an out-time belongs to the NEXT calendar day (a night OT
+          crossing midnight, which the RPC permits up to 06:00) — never sent to
+          the RPC. Derived through the same formatThaiTime the visible line
+          uses, so the two can never disagree about the same instant. */}
+      <input type="hidden" name="currentInTime" value={formatThaiTime(currentInAt)} />
 
       <p className="text-ink text-xs font-semibold">{session === "ot" ? "OT" : "กะปกติ"}</p>
       <p className="text-ink-secondary text-xs">
@@ -75,11 +82,9 @@ export function AttendanceFixRetimeForm({
           className={`${FIELD_INPUT} mt-1 max-w-full appearance-none disabled:opacity-50`}
         />
       </label>
-      {outLocked && (
-        <p className="text-ink-secondary text-[11px]">
-          เวลาออกนี้บันทึกโดยคนแล้ว แก้ไขไม่ได้ — ต้องลบแล้วเพิ่มใหม่
-        </p>
-      )}
+      {/* The SAME string the action's `locked` outcome uses — one home, so the
+          disclosure before the tap and the refusal after it cannot drift. */}
+      {outLocked && <p className="text-ink-secondary text-[11px]">{OUT_LOCKED_COPY}</p>}
 
       <button type="submit" className={`${BUTTON_SECONDARY} self-start`}>
         บันทึกเวลาใหม่

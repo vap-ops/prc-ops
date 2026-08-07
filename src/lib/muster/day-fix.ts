@@ -44,6 +44,22 @@ export function parseFixParams(input: {
 }
 
 /**
+ * The next calendar date, as `YYYY-MM-DD`.
+ *
+ * Built through UTC on purpose: the input is a bare CALENDAR date with no zone,
+ * and `new Date("2026-08-04")` is parsed as UTC midnight, so adding a day in UTC
+ * and re-slicing is exact. Constructing it in LOCAL time would shift the result
+ * by a day on any machine west of UTC — and this box, Vercel and CI all run UTC
+ * while the app's dates are Bangkok, which is precisely the mismatch
+ * `bangkokInAt` exists to make explicit.
+ */
+export function nextIsoDate(dateIso: string): string {
+  const d = new Date(`${dateIso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
  * Whether an existing session's recorded check-out can be replaced by a
  * retime. `muster_correct_session` refuses to touch `out_at` once a HUMAN
  * recorded it (`out_auto === false`) — a fabricated auto-out may be replaced,
@@ -65,14 +81,11 @@ export function canAddMissingSession(sessions: readonly { session: "regular" | "
   return !sessions.some((s) => s.session === "regular");
 }
 
-/**
- * Whether a session may be deleted right now. `muster_undo_scan` refuses
- * outright once the day is closed — reopening is the only way past it, which
- * is why delete sits in the same locked group as add rather than carrying its
- * own separate gate message.
- */
-export type UndoSessionControl = { control: "undo" } | { control: "none"; reason: "closed" };
-
-export function undoSessionControl(input: { dayClosed: boolean }): UndoSessionControl {
-  return input.dayClosed ? { control: "none", reason: "closed" } : { control: "undo" };
-}
+// ⚠️ There is deliberately NO `undoSessionControl` here. One was written,
+// exported and tested — and the page inlined `dayClosed === false` anyway, so
+// the tested arm was never the arm that ran: a decision function nothing calls,
+// reading as coverage while covering nothing. Deleting a session is gated on
+// exactly "the day is open" (`muster_undo_scan` refuses a closure outright),
+// which the page's own locked-group block already expresses and
+// `attendance-fix-page.test.ts` pins by SITE rather than by symbol. Re-adding a
+// helper here would restore the ceremony without restoring the coverage.

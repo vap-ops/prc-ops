@@ -38,6 +38,7 @@ function retimeArgs(over: Partial<Parameters<typeof correctMusterSession>[0]> = 
     workDate: "2026-08-04",
     inTime: "08:15",
     outTime: "",
+    currentInTime: "",
     ...over,
   };
 }
@@ -122,6 +123,53 @@ describe("correctMusterSession — the arguments it sends", () => {
     await correctMusterSession(retimeArgs({ session: "ot", inTime: "20:00" }));
     const sent = rpc.mock.calls[0]?.[1] as { p_session: unknown };
     expect(sent.p_session).toBe("ot");
+  });
+});
+
+// Fresh-eyes finding, HIGH (2026-08-07). `muster_correct_session` deliberately
+// permits `p_out_at` up to `((work_date + 1) + time '06:00')` — migration
+// 20260813075915's ruling 3, so a night OT crossing midnight stays recordable,
+// and the codebase already models the case (`AttendanceDetailRow.outNextDay`).
+// Pinning the OUT stamp to the work date made that capability UNREACHABLE from
+// this screen: an out of 01:30 became `<workDate>T01:30+07:00`, i.e. BEFORE the
+// check-in, so the RPC answered "check-out cannot precede check-in" and the
+// corrector was blamed for the app's own construction. The nine 2026-07-24 OT
+// rows are exactly the population this page exists to repair.
+describe("correctMusterSession — an overnight check-out rolls to the next day", () => {
+  it("keeps a same-day out on the work date", async () => {
+    await correctMusterSession(
+      retimeArgs({ inTime: "", outTime: "17:30", currentInTime: "08:15" }),
+    );
+    const sent = rpc.mock.calls[0]?.[1] as { p_out_at: string };
+    expect(sent.p_out_at).toBe("2026-08-04T17:30:00+07:00");
+  });
+
+  it("rolls an out EARLIER than the check-in onto the following date", async () => {
+    // 20:00 in, 01:30 out — the only reading that is not an inverted session.
+    await correctMusterSession(
+      retimeArgs({ inTime: "", outTime: "01:30", currentInTime: "20:00" }),
+    );
+    const sent = rpc.mock.calls[0]?.[1] as { p_out_at: string };
+    expect(sent.p_out_at).toBe("2026-08-05T01:30:00+07:00");
+  });
+
+  it("compares against the NEW in-time when the same submit moves both", async () => {
+    // The roll must key on the effective pair, not on the stored in-time — the
+    // same "validate the EFFECTIVE PAIR after coalescing" rule U4 shipped.
+    await correctMusterSession(
+      retimeArgs({ inTime: "21:00", outTime: "02:00", currentInTime: "08:00" }),
+    );
+    const sent = rpc.mock.calls[0]?.[1] as { p_in_at: string; p_out_at: string };
+    expect(sent.p_in_at).toBe("2026-08-04T21:00:00+07:00");
+    expect(sent.p_out_at).toBe("2026-08-05T02:00:00+07:00");
+  });
+
+  it("does NOT roll when there is no in-time to compare against", async () => {
+    // No stored in-time and none supplied: rolling would be a guess. Same date,
+    // and the RPC's own bounds answer whatever is wrong with it.
+    await correctMusterSession(retimeArgs({ inTime: "", outTime: "01:30", currentInTime: "" }));
+    const sent = rpc.mock.calls[0]?.[1] as { p_out_at: string };
+    expect(sent.p_out_at).toBe("2026-08-04T01:30:00+07:00");
   });
 });
 

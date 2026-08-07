@@ -295,7 +295,13 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
   // with its outcome appended.
   const returnTo = (() => {
     const q = new URLSearchParams({ worker: workerId, date });
-    if (projectParam) q.set("project", projectParam);
+    // The RESOLVED id, not the raw `?project=` param. Reached WITHOUT the param
+    // (the project inferred from the first session row), carrying the param
+    // forward would drop the project the moment the last session is deleted —
+    // the page would come back with no project, hence no closure, no add form
+    // and no trail: a dead end immediately after its only destructive action,
+    // with no way to re-add the person just removed.
+    if (projectId) q.set("project", projectId);
     if (backHref !== "/team/attendance") q.set("from", backHref);
     return `/team/attendance/fix?${q.toString()}`;
   })();

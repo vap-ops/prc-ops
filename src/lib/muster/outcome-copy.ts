@@ -11,6 +11,17 @@
 // survives in history, and would let a crafted link render attacker-chosen
 // text inside the app's own error notice.
 
+/**
+ * Why a recorded check-out cannot be retimed, said once.
+ *
+ * Two surfaces state this same fact — the retime form disables its out-field
+ * and explains why BEFORE the tap, and `RETIME_ERROR_COPY.locked` answers a
+ * hand-posted submit that got past the disabled input. They were duplicated
+ * verbatim; a term used in two places belongs in one home (the UI-term SSOT
+ * rule), or the two drift and the form promises something the server denies.
+ */
+export const OUT_LOCKED_COPY = "เวลาออกนี้บันทึกโดยคนแล้ว แก้ไขไม่ได้ — ต้องลบแล้วเพิ่มใหม่";
+
 /** Spec 397 U3 — the reopen outcome codes. */
 export const REOPEN_ERROR_COPY: Record<string, string> = {
   denied: "บัญชีนี้ไม่มีสิทธิ์เปิดวันที่ปิดแล้ว",
@@ -41,7 +52,7 @@ export const RETIME_ERROR_COPY: Record<string, string> = {
   shape: "ต้องระบุเวลาที่จะแก้ไขอย่างน้อยหนึ่งช่อง",
   bounds:
     "เวลาที่กรอกไม่ถูกต้อง (ต้องอยู่ในวันทำงานนี้ ไม่เกินเวลาปัจจุบัน และเวลาออกต้องไม่ก่อนเวลาเข้า)",
-  locked: "เวลาออกนี้บันทึกโดยคนแล้ว แก้ไขไม่ได้ — ต้องลบแล้วเพิ่มใหม่",
+  locked: OUT_LOCKED_COPY,
   booked: "ค่าแรงบันทึกไปแล้ว แก้ไขเวลาไม่ได้",
   stale: "ข้อมูลมีการเปลี่ยนแปลง กรุณาโหลดหน้านี้ใหม่แล้วลองอีกครั้ง",
   failed: "แก้เวลาไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อช่าง",

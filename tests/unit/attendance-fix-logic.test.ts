@@ -9,9 +9,9 @@
 import { describe, expect, it } from "vitest";
 import {
   canAddMissingSession,
+  nextIsoDate,
   outTimeLocked,
   parseFixParams,
-  undoSessionControl,
 } from "@/lib/muster/day-fix";
 
 const WORKER = "aaaaaaaa-1111-1111-1111-111111111111";
@@ -56,6 +56,28 @@ describe("parseFixParams", () => {
   });
 });
 
+describe("nextIsoDate", () => {
+  it("advances an ordinary date", () => {
+    expect(nextIsoDate("2026-08-04")).toBe("2026-08-05");
+  });
+
+  it("crosses a month boundary", () => {
+    expect(nextIsoDate("2026-08-31")).toBe("2026-09-01");
+  });
+
+  it("crosses a year boundary", () => {
+    expect(nextIsoDate("2026-12-31")).toBe("2027-01-01");
+  });
+
+  // The reason it is built through UTC: this box, Vercel and CI all run UTC
+  // while the app's dates are Bangkok. A local-time construction would shift
+  // the result by a day anywhere west of UTC.
+  it("handles a leap day", () => {
+    expect(nextIsoDate("2028-02-28")).toBe("2028-02-29");
+    expect(nextIsoDate("2028-02-29")).toBe("2028-03-01");
+  });
+});
+
 describe("outTimeLocked", () => {
   it("is locked once a HUMAN recorded the check-out", () => {
     expect(outTimeLocked({ outAt: "2026-08-04T10:00:00Z", outAuto: false })).toBe(true);
@@ -85,12 +107,10 @@ describe("canAddMissingSession", () => {
   });
 });
 
-describe("undoSessionControl", () => {
-  it("offers undo on an open day", () => {
-    expect(undoSessionControl({ dayClosed: false })).toEqual({ control: "undo" });
-  });
-
-  it("withholds undo on a closed day — the RPC refuses outright", () => {
-    expect(undoSessionControl({ dayClosed: true })).toEqual({ control: "none", reason: "closed" });
-  });
-});
+// ⚠️ `undoSessionControl` was REMOVED here, not merely left untested. It was
+// exported, tested and named in the spec — but the page inlines the same
+// `dayClosed === false` check, so the tested arm was never the arm the page
+// ran. A decision function nothing calls is dead code that reads as coverage;
+// the delete gate is genuinely just "the day is open", which the page's own
+// enclosing block expresses and `attendance-fix-page.test.ts` pins by SITE.
+// (Doctrine: an unreachable guard asserts a hazard that is not there.)

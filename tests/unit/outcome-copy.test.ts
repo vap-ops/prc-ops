@@ -15,9 +15,26 @@ import {
   UNDO_ERROR_COPY,
 } from "@/lib/muster/outcome-copy";
 
-function assertNoRetryPromise(map: Record<string, string>) {
+/** The ratchet's OWN regex, not a substring of it.
+ *
+ *  ⚠️ Fresh-eyes finding (2026-08-07): this checked only "ลองใหม่", while the
+ *  house rule and `honest-copy-ratchet.test.ts` both use
+ *  `/ลองใหม่|ลองอีกครั้ง/`. `RETIME_ERROR_COPY.stale` ends "…ลองอีกครั้ง" and
+ *  therefore DOES promise a retry — yet a test named "never promises a retry"
+ *  passed on that substring technicality, and any future arm could have added
+ *  the second phrasing unnoticed. False assurance inside the guard meant to
+ *  prevent it, which is the fake-coverage class this repo keeps re-learning. */
+const RETRY = /ลองใหม่|ลองอีกครั้ง/;
+
+/** @param retryable keys whose failure genuinely CAN succeed unchanged on a
+ *  retry, each justified where it is declared. Everything else must not. */
+function assertNoRetryPromise(map: Record<string, string>, retryable: readonly string[] = []) {
   for (const [key, value] of Object.entries(map)) {
-    expect(value, `${key} must not promise a retry`).not.toContain("ลองใหม่");
+    if (retryable.includes(key)) {
+      expect(value, `${key} is declared retryable — it should say so`).toMatch(RETRY);
+      continue;
+    }
+    expect(value, `${key} must not promise a retry`).not.toMatch(RETRY);
   }
 }
 
@@ -32,11 +49,16 @@ describe("outcome copy maps — honest-copy rule", () => {
     assertNoRetryPromise(ADD_ERROR_COPY);
   });
 
-  it("RETIME_ERROR_COPY never promises a retry, and covers every RetimeOutcome arm", () => {
+  it("RETIME_ERROR_COPY promises a retry on `stale` ALONE, and covers every arm", () => {
     for (const key of ["denied", "shape", "bounds", "locked", "booked", "stale", "failed"]) {
       expect(RETIME_ERROR_COPY[key], `missing arm: ${key}`).toBeTruthy();
     }
-    assertNoRetryPromise(RETIME_ERROR_COPY);
+    // `stale` is the ONE genuinely retryable arm in the whole unit — the page's
+    // server-resolved team id went out of date, and reloading re-resolves it —
+    // and it is the occurrence the honest-copy ratchet was raised 237→238 for.
+    // Asserted POSITIVELY as well as negatively, so deleting the retry phrasing
+    // from it (or adding one to any sibling) reds.
+    assertNoRetryPromise(RETIME_ERROR_COPY, ["stale"]);
   });
 
   it("UNDO_ERROR_COPY never promises a retry, and covers every UndoOutcome arm", () => {

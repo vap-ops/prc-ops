@@ -49,6 +49,19 @@ describe("/team/attendance/fix page — params + identity", () => {
     expect(code).toContain("ErrorNotice");
   });
 
+  // Fresh-eyes finding, HIGH (2026-08-07). `returnTo` carried the raw
+  // `?project=` param rather than the RESOLVED project id. Reached without
+  // `?project=` (the project inferred from the first session row), deleting the
+  // LAST session redirected to a URL with no project at all — so `sessions` came
+  // back empty, `dayClosed` fell to null, and the page rendered
+  // "เลือกโครงการก่อน" with no add form and no trail: a dead end immediately
+  // after the page's only destructive action, with no way to re-add the person.
+  it("threads the RESOLVED project id into returnTo, not the raw param", () => {
+    const block = code.slice(code.indexOf("const returnTo"), code.indexOf("const returnTo") + 400);
+    expect(block).toContain("projectId");
+    expect(block).not.toContain("projectParam");
+  });
+
   it("resolves the back chip through safeBackHref, falling back to the report itself", () => {
     expect(occurrences("safeBackHref")).toBeGreaterThanOrEqual(2);
     expect(code).toContain('safeBackHref(sp.from, "/team/attendance")');
