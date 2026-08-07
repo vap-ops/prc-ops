@@ -284,7 +284,11 @@ describe("spec 400 U3b — the panel", () => {
 
   it("asks for a project rather than offering a write with no target", () => {
     render(<AttendanceDayPanel day={day()} {...props} projectId={null} />);
-    expect(screen.getByText(/เลือกโครงการ/)).toBeInTheDocument();
+    // ⚠️ The WHOLE control string, not /เลือกโครงการ/: spec 400 U5 added a second,
+    // deliberately parallel "เลือกโครงการก่อน จึงจะดูประวัติการแก้ไขได้" for the
+    // trail, and an unanchored matcher cannot tell the two apart — it would pass
+    // for a panel that had lost this arm entirely.
+    expect(screen.getByText("เลือกโครงการก่อน จึงจะปิดหรือเปิดวันดังกล่าวได้")).toBeInTheDocument();
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
   });
 
@@ -300,7 +304,11 @@ describe("spec 400 U3b — the panel", () => {
     // it may not close muster days.
     render(<AttendanceDayPanel day={day()} {...props} canReopen={false} canClose={false} />);
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
-    expect(screen.queryByText(/เลือกโครงการ/)).not.toBeInTheDocument();
+    // Same anchoring point as above: the CONTROL's own copy, so U5's trail line
+    // cannot satisfy — or break — a claim about the correction arm.
+    expect(
+      screen.queryByText("เลือกโครงการก่อน จึงจะปิดหรือเปิดวันดังกล่าวได้"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/ยังมาไม่ถึง/)).not.toBeInTheDocument();
     // …and the FACT survives.
     expect(screen.getByText(/4 คน/)).toBeInTheDocument();

@@ -13567,3 +13567,59 @@ the form does not offer one — retiming an existing OT row is U4's path and has
 form records an ARRIVAL only; a back-dated check-out exists in the RPC and has no control. ③ `site_admin`
 cannot reach any of this by design — if she should be able to fix her own past day, that is a surface
 plus an audience decision, not a re-widening of `muster_scan_out`.
+
+## 2026-08-07 — spec 400 U5: the correction trail, so an edit can be read as well as made (lane daytrail)
+
+**Status: SHIPPED.** Migration `20260813075917` = `list_muster_day_audit(project, date)`, plus the trail
+section inside U3b's `?day=` panel.
+
+**The gap.** Every muster correction has written an `audit_log` row since U3a — six kinds across six
+functions — and **nothing in `src/` read a single one of them**. It was not merely unbuilt: `audit_log`'s
+RLS is an internal-privileged arm (`super_admin`, `project_director`, `accounting`, `project_manager`)
+plus a WP-rework arm that gives `site_admin`/`procurement`/`procurement_manager` exactly two payload
+kinds. **The correction audience could not read its own trail on the session client**, and `hr` and
+`project_coordinator` cannot read any audit row at all.
+
+🚨 **THE MEASUREMENT THAT SHAPED THE QUERY, taken from the live ROWS rather than from the six producing
+functions: `muster_move` and `muster_undo` carry NO `project_id`.** `muster_move` carries
+`from_team`/`to_team`, `muster_undo` carries `team_id`, and both must be resolved through `muster_teams`.
+**13 of the 16 live rows are `muster_move`** — so a payload-only filter would have rendered an EMPTY
+trail on every real day, with every assertion about the other four kinds passing. Each kind is therefore
+pinned SEPARATELY: a total would let one leak while another is over-filtered and still read 6.
+
+**Gate and scope are two lists,** the shape U3c copied from spec 397: gate = `ATTENDANCE_AUDIT_ROLES`
+(everyone who already opens the report — deliberately wider than the correction audience, because
+`accounting` owns the wage consequence), scope = the cross-project tier plus `can_see_project` for
+`project_manager` alone. An unseeable project is a REFUSAL, not an empty list — an empty trail reads as
+"nobody edited this day", which is a different fact and the one a reader acts on.
+
+⭐ **Reusing an existing role set is what kept the `src/` half free of a danger path.** No new export ⇒
+no capability-registry row, no `src/lib/auth/**` edit. The migration is the only protected surface here.
+
+**Gates.** RED first twice, each for the right reason (`function ... does not exist`; then the missing TS
+module). pgTAP **361/361 files, 7616 assertions, 0 failures**; the new `400d-list-muster-day-audit.test.sql`
+is **33/33**, `plan(33)` grep-derived. vitest: 3 new/updated suites green. typecheck 0, lint 0.
+**11 mutants, every one killed by its own dedicated assertion** — 4 SQL (team resolution dropped, kind
+allowlist removed, cross-project tier removed, `site_admin` added to the gate) and 7 TS (an unchanged
+axis reported as a change, the unknown-kind fallback removed, the TS kind list drifted from the SQL
+allowlist, not-fetched collapsed into empty, the unattributed-actor fallback removed, the trail reversed,
+the page's project guard dropped).
+
+⚠️ **The pgTAP fixture stores ISO-8601 UTC strings because that is what the live payload holds** (read off
+the one real row: `"2026-08-05T00:45:00+00:00"`). A hand-written `'…+07'` literal would have pinned an
+encoding the app never meets and hidden the Bangkok rendering from the caller.
+
+⚠️ **One existing assertion was re-anchored, deliberately.** `attendance-day-correction.test.tsx` matched
+`/เลือกโครงการ/` for the control's own copy; U5 adds a parallel "เลือกโครงการก่อน จึงจะดูประวัติการแก้ไขได้"
+for the trail, and an unanchored matcher cannot tell the two apart — it would pass for a panel that had
+lost the control arm entirely. Both sites now assert the whole control string.
+
+⚠️ **`pnpm db:types` was regenerated** (live == main + this lane's own migration, verified before and
+after). The diff is purely additive and also picks up `derive_muster_labor_internal`,
+`list_muster_teams_for_day` and `muster_correct_session`, all already on `main` and never regenerated.
+
+**Open questions.** ① There is still no trail on the `?worker=` drill — the grain there is one worker
+across many dates, which is a different query and was scoped out. ② `interaction_events.route` stores the
+path WITHOUT its query string (all 93 rows in 30 days read exactly `/team/attendance`), so `?day=` opens
+are NOT measurable and the spec's acceptance says so rather than inventing a query. ③ The CSV export still
+writes no audit row (spec 397's recorded item), so an export is invisible to this trail by construction.

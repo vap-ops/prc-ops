@@ -11343,6 +11343,20 @@ export type Database = {
           source_table: string
         }[]
       }
+      list_muster_day_audit: {
+        Args: { p_date: string; p_project: string }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          actor_role: Database["public"]["Enums"]["user_role"]
+          detail: Json
+          kind: string
+          logged_at: string
+          session: Database["public"]["Enums"]["muster_session"]
+          worker_id: string
+          worker_name: string
+        }[]
+      }
       list_muster_teams_for_day: {
         Args: { p_date: string; p_project: string }
         Returns: {

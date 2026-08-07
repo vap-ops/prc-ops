@@ -417,6 +417,60 @@ delegates the insert to `muster_scan_in` so its invariants are not forked.
 the TIME axis and still blocked on the other U3b finding: `procurement` cannot read
 a team id, so the picker needs an admin seam or a listing RPC.
 
+**U5 — the correction TRAIL (schema, danger path).**
+
+U3a/U3b/U4/U3c ship the whole WRITE side, and every one of those writes already
+lands an `audit_log` row — `muster_correction_scan_in`, `muster_correction_time`,
+`muster_undo`, `muster_move`, `muster_day_close`, `muster_day_reopen`, all under
+action `crew_change`. **Nothing in `src/` reads any of them.** So the question the
+audit trail exists to answer — _who edited this day after the fact, and what did it
+say before?_ — is answerable only by an operator running SQL.
+
+⚠️ **And it is not merely unbuilt, it is unreachable.** `audit_log`'s RLS is two
+policies: an internal-privileged arm (`super_admin`, `project_director`,
+`accounting`, `project_manager`) and a WP-rework arm that gives `site_admin`,
+`procurement` and `procurement_manager` exactly two payload kinds
+(`wp_reopened_for_defect`, `wp_evidence_resubmitted`). **The correction audience
+cannot read its own trail on the session client**, so this needs a DEFINER RPC, not
+a query.
+
+🚨 **THE MEASUREMENT THAT SHAPED THE QUERY, and it was taken from the live rows
+rather than from the producing migrations: `muster_move` and `muster_undo` payloads
+carry NO `project_id`.** `muster_move` carries `from_team`/`to_team`, `muster_undo`
+carries `team_id`; both must be resolved through `muster_teams`. **13 of the 16 live
+rows are `muster_move`** — so a payload-only filter would have rendered an EMPTY
+trail on every real day, with every assertion about the other four kinds passing.
+⭐ The general form: _a payload written by six different functions is six different
+shapes; read the rows, not the writers._
+
+**Shape** — `list_muster_day_audit(p_project uuid, p_date date)`, SECURITY DEFINER,
+read-only. Seam chosen by the precedent U3c already set: `audit_attendance_summary`,
+`audit_attendance_detail` and `list_muster_teams_for_day` are all DEFINER RPCs
+serving this audience this data.
+
+- **Gate = `ATTENDANCE_AUDIT_ROLES`** — the eight roles that already open the
+  report. Deliberately WIDER than the correction audience: `accounting` owns the
+  wage consequence of a correction and `hr`/the PM tier read the same report, and a
+  reader who is shown a hole must be able to see who has already touched it.
+  Reusing the existing set is also what keeps the unit's `src/` half free of a new
+  role-set export (no capability-registry row, no `role-home.ts` danger path).
+- **Scope = the second list**, mirroring `audit_attendance_summary`: the
+  cross-project tier passes any project; `project_manager` alone must pass
+  `can_see_project`. An unseeable project is a **refusal, not an empty list** — an
+  empty trail reads as "nobody edited this day", which is a different fact and the
+  one a reader would act on (spec 400 U2's wider-of-two-gates lesson, and U3c's
+  refusal-over-silence one).
+- **Rows** carry `logged_at`, `kind`, the actor (id, `users.full_name`, and the role
+  **as recorded on the audit row**, not as it is today), the worker, the session,
+  and a `detail` jsonb built explicitly per kind — the prior `in_at`/`out_at` for a
+  retime or an undo, the team names either side of a move, the mandatory reason for
+  a reopen. Explicit rather than the raw payload: `before` is a whole row snapshot
+  and has no business reaching the client.
+
+**Surface** — a section inside the U3b `?day=` panel, under the reopen/close
+controls that produce the rows. The panel's grain is already the project-day, which
+is the audit grain. It requires a picked project, exactly as the controls do.
+
 ---
 
 ## 5. Acceptance
@@ -431,7 +485,17 @@ group by 1` — a `procurement` row must exist. It is **0 all-time** today.
 3. **The finding is acted on:** `select count(*) from audit_log where action =
 'crew_change' and payload->>'kind' = 'muster_day_reopen'` — **0 today**. A
    non-zero count is the first evidence the double-check loop closed end to end.
-4. **U2's finding is real:** re-run the roster gap
+4. **U5's trail has something to report:** `select payload->>'kind', count(*) from
+audit_log where action = 'crew_change' and payload->>'kind' like 'muster%' group
+by 1` — **16 rows today, 13 of them `muster_move` and exactly one
+   `muster_correction_time`** (a retracted gate-4 probe). A correction row written
+   by someone who is not an agent is the first evidence the loop is in real use.
+   ⚠️ **Panel opens are NOT measurable and no query should pretend otherwise:**
+   `interaction_events.route` stores the path WITHOUT its query string (all 93
+   rows in 30 days read exactly `/team/attendance`), so `?day=` and `?worker=` are
+   invisible to telemetry. Measuring drill-down would need its own event, which
+   this unit does not add.
+5. **U2's finding is real:** re-run the roster gap
    (`41 active / 30 appeared` in July) at the end of the next full month; if the gap
    is still ~11 the rows are earning their place, and if it collapses to 0 the
    feature has done its job.
