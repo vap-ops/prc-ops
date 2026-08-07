@@ -13668,3 +13668,48 @@ against the pre-402 output; the exact-match cases are the real pins. ② `PR_STA
 `purchase_request_status` enum, but `requested` and `site_purchased` are unreachable from these four
 events' transitions — they exist so the Record stays exhaustive, not because anything renders them today.
 ③ Gate 4 for a message-shape change is a real push to a phone; no push was sent from this lane.
+
+## 2026-08-07 — spec 402 U2: the work-package family learns to say what the work is (lane notiu2)
+
+**What shipped.** `wp_pending_approval`, `wp_decision`, `wp_reopened` and `wp_evidence_resubmitted` (498
+rows) move onto the six-slot skeleton, each with a deep link. `WP_DECISION_ICON` (a Record over
+`approval_decision`, so a new value fails the compile) plus `workPackageLink` / `reviewWorkPackageLink` in
+`message-skeleton.ts`; the drain adds `name` to its `work_packages` select and resolves the WP's project
+and the event's actor.
+
+⭐ **`wp_decision`'s payload snapshots NOTHING about the work — no code, no name, no project, verified
+243 of 243 live rows.** Its whole message was `ผลการตรวจ WP-44-02: อนุมัติแล้ว`, and the WP code in it came
+from context, not the payload. All three facts now arrive through the drain's `work_packages` join, which
+already ran — it just never selected `name`.
+
+🚨 **The link is a ROLE decision and one outbox row produces ONE body for every recipient, so it cannot
+be varied per person.** `/review/work-packages/[id]` is `requireRole(PM_ROLES)`;
+`/projects/[pid]/work-packages/[id]` is `WP_DETAIL_ROLES`. Recipients, read live from
+`resolve-recipients.ts`: `wp_pending_approval` → the PM pool, `wp_evidence_resubmitted` → the decider
+being answered (both manager-tier ⇒ **review** link), `wp_decision` + `wp_reopened` → the WP's photo
+UPLOADERS (⇒ **project** link). A test pins the review link's presence AND the absence of `/projects/`,
+because a swap between two valid-looking URLs is exactly the defect the split prevents.
+
+⚠️ **A measured exposure, shipped deliberately.** Live uploader roles are site_admin 2348 photos ·
+project_manager 326 · **visitor 145 (1 person)** · super_admin 3 — and `visitor` is not in
+`WP_DETAIL_ROLES`, so that one account's `wp_decision` link will redirect it rather than open the WP.
+Withholding the link from everyone to spare one mis-roled account is the worse trade; `requireRole`
+redirects rather than erroring, so the cost is a wrong landing, not a failure. **Recorded as an operator
+item: that account is shooting site photos and should probably not be a `visitor`.**
+
+⚠️ **`wp_reopened`'s copy changed because its behaviour did.** The old text ended
+"— เปิดแอปดูข้อบกพร่อง", a stand-in for the link this unit adds; leaving it would have contradicted the
+tappable URL directly below it. Retired, and its absence is pinned.
+
+⚠️ **Name/code precedence is deliberate:** the payload snapshot wins where it exists (it is what the work
+was called WHEN the event fired) and the join fills in otherwise. `wp_decision` has no snapshot, so its
+name is necessarily the current one — a WP renamed after the decision will read with its new name.
+
+⚠️ **The drain test mock had no `photo_logs` branch and returned `[]` for the contacts-only users leg**,
+so no test in the file could ever produce a `wp_decision` push — the event was untestable end-to-end, not
+merely untested. Both are now fixtures, and the `work_packages` mock CHECKS that `name` was requested.
+
+**Open questions.** ① `wp_reopened` has 2 rows all-time, so its shape is unproven against real traffic.
+② A WP renamed between decision and push renders its new name (see precedence above) — correct for
+"go look at this", arguably wrong for an audit trail. ③ Gate 4 for a message-shape change is a real push
+to a phone; none was sent from this lane.

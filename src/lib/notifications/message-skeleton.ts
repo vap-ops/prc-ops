@@ -11,8 +11,10 @@
 // Pure: no env, no DB. The drain resolves the values; compose arranges them.
 
 import type { Database } from "@/lib/db/database.types";
+import { workPackageHref } from "@/lib/nav/project-paths";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
+type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
 
 export interface NotificationSlots {
   /** L1 — what happened. The ONLY required slot: a phone's notification shelf
@@ -64,6 +66,40 @@ export function joinWhere(parts: ReadonlyArray<string | undefined>): string {
 export function purchaseRequestLink(baseUrl: string, purchaseRequestId: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/requests/${purchaseRequestId}`;
 }
+
+/**
+ * Spec 402 U2 — the work package on its OWN detail page, via the nav SSOT so
+ * the route shape lives in one place. Gate: WP_DETAIL_ROLES, the wider of the
+ * two, which is why the events whose recipients are photo UPLOADERS
+ * (wp_decision, wp_reopened) point here.
+ */
+export function workPackageLink(baseUrl: string, projectId: string, workPackageId: string): string {
+  return `${baseUrl.replace(/\/+$/, "")}${workPackageHref(projectId, workPackageId)}`;
+}
+
+/**
+ * The same work package in the REVIEW QUEUE — where a decider acts on it, and
+ * reachable without knowing the project.
+ *
+ * 🚨 `/review/work-packages/[id]` is `requireRole(PM_ROLES)`. Only use this for
+ * events whose recipients are all manager-tier: wp_pending_approval (the PM
+ * pool) and wp_evidence_resubmitted (the decider being answered). Pointing an
+ * uploader at it would redirect them away.
+ */
+export function reviewWorkPackageLink(baseUrl: string, workPackageId: string): string {
+  return `${baseUrl.replace(/\/+$/, "")}/review/work-packages/${workPackageId}`;
+}
+
+/**
+ * One icon per approval decision. Same exhaustiveness contract as
+ * PR_STATUS_ICON: a Record over the enum, so a new `approval_decision` value
+ * fails the compile instead of rendering a blank headline.
+ */
+export const WP_DECISION_ICON: Record<ApprovalDecision, string> = {
+  approved: "✅",
+  rejected: "⛔",
+  needs_revision: "🔁",
+};
 
 /**
  * One icon per purchase-request status.

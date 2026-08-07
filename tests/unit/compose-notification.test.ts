@@ -5,49 +5,126 @@ import {
 } from "@/lib/notifications/compose-notification";
 
 describe("composeNotification", () => {
-  it("composes wp_pending_approval from the payload snapshot", () => {
-    expect(
-      composeNotification("wp_pending_approval", { code: "WP-001", name: "งานเทพื้น" }, {}),
-    ).toBe("งานรอตรวจ: WP-001 งานเทพื้น");
-  });
+  // --- Spec 402 U2: the work-package family on the six-slot skeleton --------
 
-  // Feedback c5136ad9 — "we want to know who submitted for approval": the drain
-  // resolves payload.submittedBy → a display name; compose appends the line.
-  it("appends the submitter line to wp_pending_approval when the drain resolved a name", () => {
+  it("composes wp_pending_approval with the project and the review-queue link", () => {
     expect(
       composeNotification(
         "wp_pending_approval",
         { code: "WP-001", name: "งานเทพื้น", submittedBy: "22222222-2222-2222-2222-22222222feed" },
-        { submitterName: "สมชาย ใจดี" },
+        {
+          projectName: "โครงการบ้านสวย",
+          submitterName: "สมชาย ใจดี",
+          deepLink: "https://app.example/review/work-packages/wp-1",
+        },
       ),
-    ).toBe("งานรอตรวจ: WP-001 งานเทพื้น\nส่งตรวจโดย สมชาย ใจดี");
+    ).toBe(
+      [
+        "🔎 งานรอตรวจ",
+        "งานเทพื้น",
+        "โครงการบ้านสวย · WP-001",
+        "ส่งตรวจโดย สมชาย ใจดี",
+        "https://app.example/review/work-packages/wp-1",
+      ].join("\n"),
+    );
   });
 
-  it("composes wp_decision with the Thai decision label and WP code from context", () => {
+  it("degrades wp_pending_approval to the slots it has", () => {
+    expect(
+      composeNotification("wp_pending_approval", { code: "WP-001", name: "งานเทพื้น" }, {}),
+    ).toBe("🔎 งานรอตรวจ\nงานเทพื้น\nWP-001");
+  });
+
+  // wp_decision's payload snapshots NOTHING about the work — no code, no name,
+  // no project (verified live: 243 of 243 rows). All three reach the message
+  // through the drain's work_packages join, which is why this was the thinnest
+  // message in the WP family.
+  it("composes wp_decision with the work it is about, resolved entirely from context", () => {
     expect(
       composeNotification(
         "wp_decision",
         { decision: "needs_revision", comment: "รูปช่วงหลังไม่ชัด" },
-        { wpCode: "WP-001" },
+        {
+          wpCode: "WP-001",
+          wpName: "งานเทพื้น",
+          projectName: "โครงการบ้านสวย",
+          actorName: "พีเอ็มเอ",
+          deepLink: "https://app.example/projects/p1/work-packages/wp-1",
+        },
       ),
-    ).toBe("ผลการตรวจ WP-001: ถ่ายรูปใหม่\nความเห็น: รูปช่วงหลังไม่ชัด");
+    ).toBe(
+      [
+        "🔁 ผลการตรวจ: ถ่ายรูปใหม่",
+        "งานเทพื้น",
+        "โครงการบ้านสวย · WP-001",
+        "ตรวจโดย พีเอ็มเอ",
+        "ความเห็น: รูปช่วงหลังไม่ชัด",
+        "https://app.example/projects/p1/work-packages/wp-1",
+      ].join("\n"),
+    );
   });
 
   it("omits the comment line when wp_decision has no comment", () => {
     expect(composeNotification("wp_decision", { decision: "approved" }, { wpCode: "WP-001" })).toBe(
-      "ผลการตรวจ WP-001: อนุมัติแล้ว",
+      "✅ ผลการตรวจ: อนุมัติแล้ว\nWP-001",
     );
   });
 
-  it("composes wp_reopened with the round + WP, pointing back to the app (spec 218)", () => {
-    expect(
-      composeNotification("wp_reopened", { code: "WP-014", name: "ผนังกันตก", round: 2 }, {}),
-    ).toBe("งานถูกเปิดใหม่เพื่อแก้ไข (รอบ 2): WP-014 ผนังกันตก — เปิดแอปดูข้อบกพร่อง");
+  it("uses the rejected icon for a rejected decision", () => {
+    expect(composeNotification("wp_decision", { decision: "rejected" }, { wpCode: "WP-001" })).toBe(
+      "⛔ ผลการตรวจ: งานต้องแก้ไข\nWP-001",
+    );
+  });
+
+  // The old copy ended "— เปิดแอปดูข้อบกพร่อง", a stand-in for the link this unit
+  // adds. Now that the link is real, the instruction is redundant and gone.
+  it("composes wp_reopened with the round, and no longer tells the reader to open the app", () => {
+    const message = composeNotification(
+      "wp_reopened",
+      { code: "WP-014", name: "ผนังกันตก", round: 2 },
+      {
+        projectName: "โครงการบ้านสวย",
+        actorName: "พีเอ็มเอ",
+        deepLink: "https://app.example/projects/p1/work-packages/wp-2",
+      },
+    );
+    expect(message).toBe(
+      [
+        "🔁 เปิดงานใหม่เพื่อแก้ไข (รอบ 2)",
+        "ผนังกันตก",
+        "โครงการบ้านสวย · WP-014",
+        "เปิดโดย พีเอ็มเอ",
+        "https://app.example/projects/p1/work-packages/wp-2",
+      ].join("\n"),
+    );
+    expect(message).not.toContain("เปิดแอปดูข้อบกพร่อง");
   });
 
   it("drops the round suffix for a legacy reopen with round 0", () => {
     expect(composeNotification("wp_reopened", { code: "WP-014", name: "ผนัง", round: 0 }, {})).toBe(
-      "งานถูกเปิดใหม่เพื่อแก้ไข: WP-014 ผนัง — เปิดแอปดูข้อบกพร่อง",
+      "🔁 เปิดงานใหม่เพื่อแก้ไข\nผนัง\nWP-014",
+    );
+  });
+
+  it("composes wp_evidence_resubmitted with the resubmitter and the review link", () => {
+    expect(
+      composeNotification(
+        "wp_evidence_resubmitted",
+        { code: "WP-044", name: "งานติดตั้งเสากันชน" },
+        {
+          projectName: "โครงการบ้านสวย",
+          actorName: "สมชาย ใจดี",
+          deepLink: "https://app.example/review/work-packages/wp-3",
+        },
+      ),
+    ).toBe(
+      [
+        "📸 ส่งตรวจอีกครั้ง",
+        "งานติดตั้งเสากันชน",
+        "โครงการบ้านสวย · WP-044",
+        "ถ่ายรูปเพิ่มโดย สมชาย ใจดี",
+        "https://app.example/review/work-packages/wp-3",
+      ].join("\n"),
     );
   });
 
@@ -279,10 +356,10 @@ describe("composeNotification", () => {
 
   // Spec 337 U1 (F2) — the SA answered a needs_revision and pressed
   // ส่งตรวจอีกครั้ง; the decider is told the WP is ready to look at again.
-  it("composes wp_evidence_resubmitted naming the WP", () => {
+  it("composes wp_evidence_resubmitted naming the WP, degrading to the slots it has", () => {
     expect(
       composeNotification("wp_evidence_resubmitted", { code: "W05-03", name: "งานฉาบผนัง" }, {}),
-    ).toBe("ส่งตรวจอีกครั้ง: W05-03 งานฉาบผนัง — ถ่ายรูปเพิ่มหลังให้แก้ไขแล้ว");
+    ).toBe("📸 ส่งตรวจอีกครั้ง\nงานฉาบผนัง\nW05-03");
   });
 
   // Hardening (2026-07-11) — an event type the compiled code predates must

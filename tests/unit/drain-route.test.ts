@@ -49,11 +49,27 @@ let pmPoolUsers: PoolUserWithRole[] = [];
 let candidateUsers: Array<
   PoolUserWithRole & { full_name: string | null; line_display_name: string | null }
 > = [];
-let wpTableRows: Array<{ id: string; code: string; project_id: string | null }> = [];
+let wpTableRows: Array<{
+  id: string;
+  code: string;
+  project_id: string | null;
+  name?: string | null;
+}> = [];
 let projectRows: Array<{ id: string; name: string; project_lead_id: string | null }> = [];
 let memberRows: Array<{ project_id: string; user_id: string }> = [];
 // Spec 402 U1 — purchase_request_id → project_id, the PR family's L3 source.
 let prProjectIdByRequest: Record<string, string> = {};
+// Spec 402 U2 — wp_decision / wp_reopened fan out to the WP's photo uploaders,
+// so driving those events needs the photo_logs leg the mock never had.
+let photoLogRows: Array<{ work_package_id: string; uploaded_by: string }> = [];
+// …and the contacts-only users lookup (`id, line_user_id, telegram_chat_id`)
+// that maps those uploader uids to a channel. Returned [] before, which is why
+// no test could ever produce a wp_decision push.
+let contactUsers: Array<{
+  id: string;
+  line_user_id: string | null;
+  telegram_chat_id: string | null;
+}> = [];
 let rowUpdates: Array<{ id: unknown; values: Record<string, unknown> }> = [];
 // Feedback c5136ad9 — captured (cols, ids) of every users .in() lookup.
 let usersInCalls: Array<{ cols: string; ids: unknown[] }> = [];
@@ -131,21 +147,43 @@ vi.mock("@/lib/db/admin", () => ({
                   ? candidateUsers
                   : cols.includes("role")
                     ? pmPoolUsers
-                    : [],
+                    : // The contacts-only leg (spec 402 U2): uid → channel, for
+                      // recipients resolved outside the pools (photo uploaders).
+                      contactUsers,
                 error: null,
               };
             },
           }),
         };
       }
+      // Spec 402 U2 — `name` is CHECKED, not assumed: wp_decision's message can
+      // only say what the work is via this join, so a revert to the pre-402
+      // three-column select must red rather than silently drop the line.
       if (table === "work_packages") {
         return {
-          select: () => ({ in: async () => ({ data: wpTableRows, error: null }) }),
+          select: (cols: string) => ({
+            in: async () => ({
+              data: wpTableRows.map((wp) =>
+                cols.includes("name")
+                  ? wp
+                  : { id: wp.id, code: wp.code, project_id: wp.project_id },
+              ),
+              error: null,
+            }),
+          }),
         };
       }
       if (table === "projects") {
         return {
           select: () => ({ in: async () => ({ data: projectRows, error: null }) }),
+        };
+      }
+      // wp_decision / wp_reopened recipients = the WP's photo uploaders.
+      if (table === "photo_logs") {
+        return {
+          select: () => ({
+            in: () => ({ not: async () => ({ data: photoLogRows, error: null }) }),
+          }),
         };
       }
       if (table === "project_members") {
@@ -234,6 +272,8 @@ beforeEach(() => {
   projectRows = [];
   memberRows = [];
   prProjectIdByRequest = {};
+  photoLogRows = [];
+  contactUsers = [];
   superUsers = [{ id: SUPER_ID, line_user_id: "Lsuper", telegram_chat_id: null }];
   outboxRows = [
     // (1) event type the deployed code doesn't know → safe skip, not a crash.
@@ -642,6 +682,110 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     await POST(drainRequest());
 
     expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Spec 402 U2 — the work-package family. The link is the load-bearing part:
+// /review/work-packages is requireRole(PM_ROLES), and one outbox row produces
+// ONE body for every recipient, so an event whose recipients are photo
+// UPLOADERS must not be pointed at it.
+describe("POST /api/notifications/drain — spec 402 U2 work-package enrichment", () => {
+  const W1 = "eeeeeeee-0000-4000-8000-0000000004e1";
+  const P1 = "ffffffff-0000-4000-8000-0000000004f2";
+  const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+  const SA_1 = "bbbbbbbb-0000-4000-8000-0000000004b2";
+
+  it("gives wp_decision the WP name and project it never had, plus the PROJECT link", async () => {
+    wpTableRows = [{ id: W1, code: "WP-02-06", project_id: P1, name: "งานจัดหาห้องน้ำชั่วคราว" }];
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
+    memberRows = [];
+    candidateUsers = [
+      {
+        id: PM_A,
+        role: "project_manager",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "พีเอ็มเอ",
+        line_display_name: null,
+      },
+    ];
+    // The recipient is the WP's photo uploader (resolved from photo_logs), not
+    // the decider — who is excluded from their own decision.
+    photoLogRows = [{ work_package_id: W1, uploaded_by: SA_1 }];
+    contactUsers = [{ id: SA_1, line_user_id: "Lsa", telegram_chat_id: null }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "wp_decision",
+        work_package_id: W1,
+        purchase_request_id: null,
+        payload: { decision: "approved", comment: null, decided_by: PM_A },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toBe(
+      [
+        "✅ ผลการตรวจ: อนุมัติแล้ว",
+        "งานจัดหาห้องน้ำชั่วคราว",
+        "โครงการบ้านสวย · WP-02-06",
+        "ตรวจโดย พีเอ็มเอ",
+        `http://localhost:3000/projects/${P1}/work-packages/${W1}`,
+      ].join("\n"),
+    );
+  });
+
+  it("points wp_pending_approval at the REVIEW queue, not the project surface", async () => {
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+    ];
+    wpTableRows = [{ id: W1, code: "WP-02-06", project_id: P1, name: "งานจัดหาห้องน้ำชั่วคราว" }];
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: PM_A }];
+    memberRows = [{ project_id: P1, user_id: PM_A }];
+    candidateUsers = [
+      {
+        id: PM_A,
+        role: "project_manager",
+        line_user_id: "LpmA",
+        telegram_chat_id: null,
+        full_name: "พีเอ็มเอ",
+        line_display_name: null,
+      },
+      {
+        id: SA_1,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "wp_pending_approval",
+        work_package_id: W1,
+        purchase_request_id: null,
+        payload: { code: "WP-02-06", name: "งานจัดหาห้องน้ำชั่วคราว", submitted_by: SA_1 },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts.length).toBeGreaterThan(0);
+    for (const text of texts) {
+      expect(text).toContain(`http://localhost:3000/review/work-packages/${W1}`);
+      // The project surface would ALSO be a valid URL, so pin its absence:
+      // a swap between the two is exactly the defect this split prevents.
+      expect(text).not.toContain("/projects/");
+      expect(text).toContain("โครงการบ้านสวย · WP-02-06");
+    }
   });
 });
 

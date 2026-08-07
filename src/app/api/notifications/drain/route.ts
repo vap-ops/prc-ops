@@ -30,7 +30,11 @@ import { filterMutedRecipients, mutedKey } from "@/lib/notifications/preference-
 import { channelKey, filterChannelTargets } from "@/lib/notifications/channel-preference-filter";
 import { pushLineMessage } from "@/lib/notifications/line-push";
 import { pushTelegramMessage } from "@/lib/notifications/telegram-push";
-import { purchaseRequestLink } from "@/lib/notifications/message-skeleton";
+import {
+  purchaseRequestLink,
+  workPackageLink,
+  reviewWorkPackageLink,
+} from "@/lib/notifications/message-skeleton";
 
 // Spec 402 U1 — the four events whose subject is a purchase request.
 const PR_FAMILY_EVENTS = new Set<string>([
@@ -39,6 +43,18 @@ const PR_FAMILY_EVENTS = new Set<string>([
   "pr_progress",
   "pr_cancelled",
 ]);
+
+// Spec 402 U2 — the four events whose subject is a work package.
+const WP_FAMILY_EVENTS = new Set<string>([
+  "wp_pending_approval",
+  "wp_decision",
+  "wp_reopened",
+  "wp_evidence_resubmitted",
+]);
+
+// …and the subset whose recipients are ALL manager-tier, so the review queue
+// (requireRole(PM_ROLES)) is a surface every one of them can open.
+const REVIEW_LINK_EVENTS = new Set<string>(["wp_pending_approval", "wp_evidence_resubmitted"]);
 
 // First-activation backlog: up to 50 rows × several sequential LINE pushes
 // each — needs more than the default function duration.
@@ -153,7 +169,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     wpIds.length > 0
       ? // + project_id (spec 318 U5): wp_pending_approval scopes its PM fanout
         // to the WP's project.
-        admin.from("work_packages").select("id, code, project_id").in("id", wpIds)
+        // + name (spec 402 U2): wp_decision's payload carries no name at all,
+        // so the join is the ONLY way its message can say what the work is.
+        admin.from("work_packages").select("id, code, project_id, name").in("id", wpIds)
       : Promise.resolve({ data: [], error: null }),
     needsPmPool
       ? admin
@@ -276,9 +294,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const wpCodeById = new Map<string, string>();
   const wpProjectById = new Map<string, string>();
+  const wpNameById = new Map<string, string>();
   for (const wp of wpResult.data ?? []) {
     wpCodeById.set(wp.id, wp.code);
     if (wp.project_id) wpProjectById.set(wp.id, wp.project_id);
+    if (wp.name) wpNameById.set(wp.id, wp.name);
   }
   // Spec 318 U5 — legacy pool = every PM_ROLES user (fallback only);
   // org-wide tier = PD + super (see-all, always alerted on approval events).
@@ -402,6 +422,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .filter((id): id is string => id !== undefined),
     ),
   ];
+  // Spec 402 U2 — the work-package family's actor, per event. wp_pending_approval
+  // is absent because its actor (the submitter) already rides `submitterIds`.
+  const wpActorIds = [
+    ...new Set(
+      parsed
+        .map(({ row, payload }) => {
+          if (row.event_type === "wp_decision") return payload.decidedBy;
+          if (row.event_type === "wp_reopened") return payload.reopenedBy;
+          if (row.event_type === "wp_evidence_resubmitted") return payload.resubmittedBy;
+          return undefined;
+        })
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
+  // …and their project, for the L3 slot. Distinct from `approvalProjectIds`,
+  // which exists to fan RECIPIENTS out to a project's PMs — these ids are for
+  // the message text only and must not be confused with that.
+  const wpProjectIds = [
+    ...new Set(
+      parsed
+        .filter(({ row }) => WP_FAMILY_EVENTS.has(row.event_type))
+        .map(({ row }) =>
+          row.work_package_id ? wpProjectById.get(row.work_package_id) : undefined,
+        )
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
   // Every PR row's project, for the L3 slot.
   const prProjectIds = [
     ...new Set(
@@ -421,7 +468,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     approvalProjectIds.length > 0 ||
     submitterIds.length > 0 ||
     prActorIds.length > 0 ||
-    prProjectIds.length > 0
+    prProjectIds.length > 0 ||
+    wpActorIds.length > 0 ||
+    wpProjectIds.length > 0
   ) {
     const enrichmentProjectIds = [
       ...new Set([
@@ -430,6 +479,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           .filter((id): id is string => id !== undefined),
         ...approvalProjectIds,
         ...prProjectIds,
+        ...wpProjectIds,
       ]),
     ];
     const reporterIds = [
@@ -495,10 +545,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ...[...memberIdsByProject.values()].flat(),
         ...reporterIds,
         ...submitterIds,
-        // Spec 402 U1 — the PR actor is usually NOT a recipient (a requester is
+        // Spec 402 U1/U2 — the actor is usually NOT a recipient (a decider is
         // not pinged for their own decision), so their name must ride this
         // lookup or the actor line silently never renders.
         ...prActorIds,
+        ...wpActorIds,
       ]),
     ];
     const roleById = new Map<string, UserRole>();
@@ -633,6 +684,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (row.event_type === "wp_pending_approval" && payload.submittedBy !== undefined) {
         const submitterName = displayNameById.get(payload.submittedBy);
         if (submitterName !== undefined) composeContext.submitterName = submitterName;
+      }
+      // Spec 402 U2 — the work-package family's skeleton slots.
+      if (WP_FAMILY_EVENTS.has(row.event_type) && row.work_package_id !== null) {
+        const wpName = wpNameById.get(row.work_package_id);
+        if (wpName !== undefined) composeContext.wpName = wpName;
+        const wpProjectId = wpProjectById.get(row.work_package_id);
+        if (wpProjectId !== undefined) {
+          const projectName = projectNameById.get(wpProjectId);
+          if (projectName !== undefined) composeContext.projectName = projectName;
+        }
+        // 🚨 WHICH link is a ROLE decision, not a cosmetic one, and one outbox
+        // row yields ONE body for every recipient — so it cannot be varied per
+        // person. /review/work-packages is requireRole(PM_ROLES): safe for
+        // wp_pending_approval (the PM pool) and wp_evidence_resubmitted (the
+        // decider being answered). wp_decision and wp_reopened go to the WP's
+        // photo UPLOADERS, so they get the project surface (WP_DETAIL_ROLES).
+        if (REVIEW_LINK_EVENTS.has(row.event_type)) {
+          composeContext.deepLink = reviewWorkPackageLink(
+            clientEnv.NEXT_PUBLIC_APP_URL,
+            row.work_package_id,
+          );
+        } else if (wpProjectId !== undefined) {
+          composeContext.deepLink = workPackageLink(
+            clientEnv.NEXT_PUBLIC_APP_URL,
+            wpProjectId,
+            row.work_package_id,
+          );
+        }
+        const wpActorId =
+          row.event_type === "wp_decision"
+            ? payload.decidedBy
+            : row.event_type === "wp_reopened"
+              ? payload.reopenedBy
+              : row.event_type === "wp_evidence_resubmitted"
+                ? payload.resubmittedBy
+                : undefined;
+        if (wpActorId !== undefined) {
+          const actorName = displayNameById.get(wpActorId);
+          if (actorName !== undefined) composeContext.actorName = actorName;
+        }
       }
       // Spec 402 U1 — the purchase-request family's skeleton slots: the project
       // it belongs to, the actor the event can honestly name, and a deep link

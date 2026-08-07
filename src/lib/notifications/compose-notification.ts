@@ -13,12 +13,20 @@ import { formatPoNumber, formatPrNumber } from "@/lib/purchasing/format-id";
 import type { Database } from "@/lib/db/database.types";
 import type { NotificationPayload } from "./payload";
 import { warnUnknownNotificationEvent } from "./unknown-event";
-import { buildNotificationMessage, joinWhere, PR_STATUS_ICON } from "./message-skeleton";
+import {
+  buildNotificationMessage,
+  joinWhere,
+  PR_STATUS_ICON,
+  WP_DECISION_ICON,
+} from "./message-skeleton";
 
 export type NotificationEventType = Database["public"]["Enums"]["notification_event_type"];
 
 export interface ComposeContext {
   wpCode?: string;
+  // Spec 402 U2 — the WP's NAME, resolved by the drain from work_packages.
+  // wp_decision's payload carries no name at all, so this is its only source.
+  wpName?: string;
   // Spec 211 U8: the parent PO number for a PR event, resolved at compose time
   // (the drain enriches it from purchase_request_id → purchase_order). Absent for
   // a PR with no PO yet.
@@ -92,6 +100,26 @@ function prStatusIcon(payload: NotificationPayload): string {
   return PR_STATUS_ICON[to as keyof typeof PR_STATUS_ICON] ?? "";
 }
 
+// Spec 402 U2 — the WP family's shared slot builders.
+
+// L2: the work's NAME. The payload snapshot wins where it exists, because it is
+// what the work was called WHEN the event happened; wp_decision has no snapshot
+// at all, so its name can only come from the drain's join (i.e. current).
+function wpSubject(payload: NotificationPayload, context: ComposeContext): string {
+  return payload.name?.trim() || (context.wpName?.trim() ?? "");
+}
+
+// L3: the project, then the WP code — same precedence as the name.
+function wpWhere(payload: NotificationPayload, context: ComposeContext): string {
+  return joinWhere([context.projectName, payload.code?.trim() || context.wpCode]);
+}
+
+function wpDecisionIcon(payload: NotificationPayload): string {
+  const decision = payload.decision;
+  if (decision === undefined) return "";
+  return WP_DECISION_ICON[decision as keyof typeof WP_DECISION_ICON] ?? "";
+}
+
 // An unresolved name drops the whole line rather than rendering a dangling
 // prefix — the drain leaves actorName undefined when the lookup found nothing.
 function actorLine(prefix: string, name: string | undefined): string {
@@ -105,32 +133,62 @@ export function composeNotification(
   context: ComposeContext,
 ): string {
   switch (eventType) {
-    case "wp_pending_approval": {
-      // Feedback c5136ad9 — name who submitted; omit the line when the drain
-      // could not resolve a name (system flip / pre-migration rows).
-      const head = `งานรอตรวจ: ${payload.code ?? ""} ${payload.name ?? ""}`.trim();
-      return context.submitterName ? `${head}\nส่งตรวจโดย ${context.submitterName}` : head;
-    }
+    // Spec 402 U2 — the work-package family on the six-slot skeleton. The WP's
+    // NAME becomes the subject, the project says where it lives, and the link
+    // lands on the surface the recipient can actually open (see below).
+    case "wp_pending_approval":
+      return buildNotificationMessage({
+        headline: "🔎 งานรอตรวจ",
+        subject: wpSubject(payload, context),
+        where: wpWhere(payload, context),
+        // Feedback c5136ad9 — name who submitted; the line disappears when the
+        // drain could not resolve a name (system flip / pre-migration rows).
+        actor: actorLine("ส่งตรวจโดย", context.submitterName),
+        link: context.deepLink,
+      });
 
-    case "wp_decision": {
-      const head = `ผลการตรวจ ${context.wpCode ?? ""}: ${label(
-        APPROVAL_DECISION_LABEL,
-        payload.decision,
-      )}`;
-      return payload.comment ? `${head}\nความเห็น: ${payload.comment}` : head;
-    }
+    // ⭐ This payload snapshots NOTHING about the work — no code, no name, no
+    // project (243 of 243 live rows). Every one of those three reaches the
+    // reader through the drain's work_packages join, which is why this was the
+    // thinnest message in the WP family: "ผลการตรวจ WP-44-02: อนุมัติแล้ว".
+    case "wp_decision":
+      return buildNotificationMessage({
+        headline: `${wpDecisionIcon(payload)} ผลการตรวจ: ${label(
+          APPROVAL_DECISION_LABEL,
+          payload.decision,
+        )}`,
+        subject: wpSubject(payload, context),
+        where: wpWhere(payload, context),
+        actor: actorLine("ตรวจโดย", context.actorName),
+        note: payload.comment ? `ความเห็น: ${payload.comment}` : undefined,
+        link: context.deepLink,
+      });
 
     // Spec 218 U5 — a defect reopened the WP to งานแก้ไข. The reason/source live in
-    // the app's "ต้องแก้ไข" surface; the ping names the WP + round and sends them in.
-    case "wp_reopened": {
-      const round = payload.round && payload.round >= 1 ? ` (รอบ ${payload.round})` : "";
-      return `งานถูกเปิดใหม่เพื่อแก้ไข${round}: ${payload.code ?? ""} ${payload.name ?? ""} — เปิดแอปดูข้อบกพร่อง`.trim();
-    }
+    // the app's "ต้องแก้ไข" surface, which the link now reaches directly: the old
+    // copy ended "— เปิดแอปดูข้อบกพร่อง", a stand-in for exactly that link, so it
+    // is retired here rather than left to contradict the tappable URL below it.
+    case "wp_reopened":
+      return buildNotificationMessage({
+        headline: `🔁 เปิดงานใหม่เพื่อแก้ไข${
+          payload.round && payload.round >= 1 ? ` (รอบ ${payload.round})` : ""
+        }`,
+        subject: wpSubject(payload, context),
+        where: wpWhere(payload, context),
+        actor: actorLine("เปิดโดย", context.actorName),
+        link: context.deepLink,
+      });
 
     // Spec 337 U1 (F2) — the SA re-shot what the decision asked for and pressed
     // ส่งตรวจอีกครั้ง; the decider is told this one is ready to look at again.
     case "wp_evidence_resubmitted":
-      return `ส่งตรวจอีกครั้ง: ${payload.code ?? ""} ${payload.name ?? ""} — ถ่ายรูปเพิ่มหลังให้แก้ไขแล้ว`.trim();
+      return buildNotificationMessage({
+        headline: "📸 ส่งตรวจอีกครั้ง",
+        subject: wpSubject(payload, context),
+        where: wpWhere(payload, context),
+        actor: actorLine("ถ่ายรูปเพิ่มโดย", context.actorName),
+        link: context.deepLink,
+      });
 
     // Spec 402 U1 — the purchase-request family, 81% of every push ever sent.
     // All four take the six-slot skeleton: the ITEM finally reaches the reader

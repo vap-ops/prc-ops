@@ -3,9 +3,12 @@ import {
   buildNotificationMessage,
   joinWhere,
   purchaseRequestLink,
+  workPackageLink,
+  reviewWorkPackageLink,
   PR_STATUS_ICON,
+  WP_DECISION_ICON,
 } from "@/lib/notifications/message-skeleton";
-import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+import { PURCHASE_REQUEST_STATUS_LABEL, APPROVAL_DECISION_LABEL } from "@/lib/i18n/labels";
 
 // Spec 402 U1 — the six-slot plain-text skeleton every push is composed onto.
 // Pure: no env, no DB. The drain resolves the values, compose arranges them.
@@ -88,6 +91,47 @@ describe("purchaseRequestLink", () => {
     expect(purchaseRequestLink("https://app.example/", "abc")).toBe(
       "https://app.example/requests/abc",
     );
+  });
+});
+
+// Spec 402 U2 — the work-package family's two links. Which one an event gets is
+// a ROLE decision, not a cosmetic one: /review/work-packages is gated on
+// PM_ROLES, so pointing an event whose recipients are photo uploaders at it
+// would redirect every one of them.
+describe("workPackageLink / reviewWorkPackageLink", () => {
+  it("builds the project-scoped WP link through the nav SSOT", () => {
+    expect(workPackageLink("https://app.example", "proj-1", "wp-1")).toBe(
+      "https://app.example/projects/proj-1/work-packages/wp-1",
+    );
+  });
+
+  it("builds the review-queue link, which needs no project", () => {
+    expect(reviewWorkPackageLink("https://app.example", "wp-1")).toBe(
+      "https://app.example/review/work-packages/wp-1",
+    );
+  });
+
+  it("tolerates a trailing slash on the base URL for both", () => {
+    expect(workPackageLink("https://app.example/", "proj-1", "wp-1")).toBe(
+      "https://app.example/projects/proj-1/work-packages/wp-1",
+    );
+    expect(reviewWorkPackageLink("https://app.example/", "wp-1")).toBe(
+      "https://app.example/review/work-packages/wp-1",
+    );
+  });
+});
+
+describe("WP_DECISION_ICON", () => {
+  it("covers the complete approval_decision domain", () => {
+    expect(Object.keys(WP_DECISION_ICON).sort()).toEqual(
+      Object.keys(APPROVAL_DECISION_LABEL).sort(),
+    );
+  });
+
+  it("gives every decision a non-empty icon", () => {
+    for (const [decision, icon] of Object.entries(WP_DECISION_ICON)) {
+      expect(icon, `decision ${decision} has no icon`).not.toBe("");
+    }
   });
 });
 
