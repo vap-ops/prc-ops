@@ -34,6 +34,10 @@ describe("EQUIPMENT_HISTORY_KIND_LABEL", () => {
     "loan_returned",
     "item_updated",
     "rate_change",
+    // Spec 367 §10.4 — the RPC's fifth arm, under the same money-audience gate
+    // as rate_change. Its OWN kind: filing a purchase cost under rate_change
+    // would render "เปลี่ยนค่าเช่า" over a figure that is not a rent.
+    "acquisition_change",
   ] as const;
 
   it("labels every kind the RPC can emit", () => {
@@ -50,6 +54,52 @@ describe("EQUIPMENT_HISTORY_KIND_LABEL", () => {
     expect(Object.keys(EQUIPMENT_HISTORY_KIND_LABEL).sort()).toEqual(
       [...KINDS_THE_RPC_EMITS].sort(),
     );
+  });
+
+  // Spec 367 §10.4 — the two money kinds must not read alike: one is what PRC
+  // charges per day, the other what PRC paid once.
+  it("does not label the acquisition kind as a rent change", () => {
+    expect(EQUIPMENT_HISTORY_KIND_LABEL.acquisition_change).not.toBe(
+      EQUIPMENT_HISTORY_KIND_LABEL.rate_change,
+    );
+    expect(EQUIPMENT_HISTORY_KIND_LABEL.acquisition_change).not.toContain("เช่า");
+  });
+});
+
+describe("describeHistoryEntry — acquisition_change", () => {
+  it("reports the cost move", () => {
+    expect(
+      describeHistoryEntry({
+        kind: "acquisition_change",
+        detail: { old_cost: null, new_cost: 12500, old_acquired_at: null, new_acquired_at: null },
+      }),
+    ).toContain("ราคาทุน");
+  });
+
+  it("reports the date move on its own when only the date changed", () => {
+    const line = describeHistoryEntry({
+      kind: "acquisition_change",
+      detail: {
+        old_cost: 500,
+        new_cost: 500,
+        old_acquired_at: null,
+        new_acquired_at: "2025-03-04",
+      },
+    });
+
+    expect(line).toContain("2025-03-04");
+    // The unchanged half is omitted rather than restated as "500 → 500", which
+    // reads as a change that did not happen.
+    expect(line).not.toContain("ราคาทุน");
+  });
+
+  it("adds no second line when a write changed neither figure", () => {
+    expect(
+      describeHistoryEntry({
+        kind: "acquisition_change",
+        detail: { old_cost: 500, new_cost: 500, old_acquired_at: null, new_acquired_at: null },
+      }),
+    ).toBeNull();
   });
 });
 

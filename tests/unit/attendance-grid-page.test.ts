@@ -11,6 +11,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  ATTENDANCE_AUDIT_ROLES,
+  MUSTER_CORRECT_ROLES,
+  WORKER_ROSTER_ROLES,
+} from "@/lib/auth/role-home";
+import { ADD_ERROR_COPY } from "@/lib/muster/outcome-copy";
 
 const PAGE = join(process.cwd(), "src/app/team/attendance/page.tsx");
 
@@ -82,7 +88,9 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     // is that the page hands the helper the right input.
     expect(occurrences("gridWorkerHref")).toBe(2);
     expect(code).toContain("WORKER_ROSTER_ROLES.includes(ctx.role)");
-    expect(code).toContain("gridWorkerHref({ workerId, canOpenCalendar, range, backHref })");
+    expect(code).toContain(
+      "gridWorkerHref({ workerId, canOpenCalendar: inWorkerRosterRoles, range, backHref })",
+    );
     // …and that the page does not quietly rebuild either destination itself.
     expect(code).not.toContain("/workers/${workerId}/attendance");
   });
@@ -111,8 +119,409 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     expect(code).toContain("const { data: holidays } = drawsGrid");
   });
 
+  it("reads the roster on the SESSION client, gated on the roles RLS actually admits", () => {
+    // U2. The gate is load-bearing and the NEXT test explains why this exact set.
+    expect(code).toContain("drawsGrid && inWorkerRosterRoles ? await rosterQuery");
+    expect(code).toContain('supabase.from("workers").select("id, name").eq("active", true)');
+    const rosterBlock = code.slice(code.indexOf("const rosterQuery"), code.indexOf("const grid ="));
+    expect(rosterBlock).not.toContain("createAdminClient");
+    // `day_rate` and `employee_id` are column-WALLED on `workers`; naming them
+    // reads back null under RLS rather than failing, so they stay unnamed.
+    expect(rosterBlock).not.toContain("day_rate");
+    expect(rosterBlock).not.toContain("employee_id");
+  });
+
+  it("pins the role set the roster read depends on — a SESSION read needs RLS to agree", () => {
+    // THE load-bearing assertion of U2, and the one that will age.
+    //
+    // Live `workers` policy "readable by staff" (verified 2026-08-06):
+    //   {site_admin, project_manager, procurement, procurement_manager,
+    //    super_admin, project_director}
+    // WORKER_ROSTER_ROLES is exactly ATTENDANCE_AUDIT_ROLES ∩ that policy, which
+    // is why the roster can be read on the SESSION client with no admin seam.
+    //
+    // But the two sets MEAN different things — "who onboards ช่าง" vs "who may
+    // read worker rows" — so the equality is a coincidence, not a guarantee.
+    // `project_coordinator` is the live example of the hazard: it is in
+    // ATTENDANCE_AUDIT_ROLES and can open `/workers` (that page reads via the
+    // ADMIN client), but the policy denies it — so adding it here would give
+    // this surface a SILENT EMPTY roster, never a refusal.
+    //
+    // If this test reds, do not "fix" it by editing the array: re-read the live
+    // policy and decide whether the new member can actually SELECT `workers`.
+    expect([...WORKER_ROSTER_ROLES].sort()).toEqual([
+      "procurement",
+      "procurement_manager",
+      "project_director",
+      "project_manager",
+      "super_admin",
+    ]);
+    // …and every one of them really is an audit role, or the branch is dead.
+    for (const role of WORKER_ROSTER_ROLES) {
+      expect(ATTENDANCE_AUDIT_ROLES).toContain(role);
+    }
+  });
+
+  it("scopes the roster to the SAME projects the attendance is scoped to", () => {
+    // 🔴 found in review. The `workers` policy is ROLE-only — no project
+    // predicate — while the RPCs scope `project_manager` by can_see_project, and
+    // project_manager is the one WORKER_ROSTER_ROLES member outside
+    // ATTENDANCE_AUDIT_ALL_PROJECT_ROLES. Unscoped, a PM gets a roster of every
+    // active worker in the firm against their own projects' attendance: every
+    // other project's workers rendered "never scanned", and counted into the
+    // absent line. A finding-shaped lie.
+    const block = code.slice(code.indexOf("const rosterProjectIds"), code.indexOf("const grid ="));
+    expect(block).toContain("range.projectId\n    ? [range.projectId]");
+    expect(block).toContain("seesAllProjects");
+    expect(block).toContain("(projectOptions ?? []).map((p) => p.id)");
+    expect(block).toContain('rosterBase.in("project_id", rosterProjectIds)');
+  });
+
+  it("asks for ACTIVE workers on every arm of the roster query", () => {
+    // The earlier version of this test asserted `.eq("active", true)` against
+    // one branch only, so deleting it from the other stayed green while inactive
+    // workers gained roster rows. One base query now carries it, and the pin is
+    // that the project filter is applied TO that base rather than beside it.
+    const block = code.slice(
+      code.indexOf("const rosterBase"),
+      code.indexOf("const { data: roster"),
+    );
+    expect(block).toContain('.eq("active", true)');
+    expect(occurrences('.from("workers")')).toBe(1);
+  });
+
+  it("throws on a roster read error instead of reporting nobody absent", () => {
+    // A swallowed error reverts the grid to U1 silently AND makes absentCount 0
+    // — "the roster could not be read" rendered as "nobody is absent". Mirrors
+    // loadAttendanceSummary, which throws for the same reason.
+    expect(code).toContain("error: rosterError");
+    expect(code).toContain("if (rosterError) throw new Error(");
+  });
+
+  it("lets the GRID speak when nobody was scanned at all", () => {
+    // The maximal instance of the finding: a range with no muster whatsoever.
+    // Gating on the attendance summary alone fetched the roster and threw it
+    // away. The list keeps the summary gate — it draws no roster rows.
+    expect(code).toContain('{(shape === "grid" ? grid.rows.length === 0 : rows.length === 0) ? (');
+  });
+
+  it("stops calling the CSV ทุกคน on a view where it is not everyone", () => {
+    // The file is built from attendance sessions, so a roster-only worker has
+    // nothing in it — 42 rows on screen, 25 in the download.
+    expect(code).toContain(
+      'shape === "grid" ? "ดาวน์โหลด CSV (ผู้ที่มีบันทึก)" : "ดาวน์โหลด CSV (ทุกคน)"',
+    );
+  });
+
+  it("states the absent count beside the header number it would otherwise contradict", () => {
+    // Live: the header reads `25 คน` (people the muster recorded) above a table
+    // of 42 rows once the roster is unioned in. One screen, two numbers, no
+    // explanation — so the finding is written out, and derived from the GRID the
+    // reader is looking at rather than recomputed from another source.
+    expect(code).toContain(
+      'const absentCount = shape === "grid" ? grid.rows.filter((r) => r.daysPresent === 0).length : 0;',
+    );
+    expect(code).toContain("ไม่มีบันทึกการเช็คชื่อในช่วงนี้ {absentCount} คน");
+    // It sits in the header card, not in the grid — a per-range fact, once.
+    const header = code.slice(
+      code.indexOf("{rows.length} คน"),
+      code.indexOf("<AttendanceGridView"),
+    );
+    expect(header).toContain("absentCount > 0");
+  });
+
+  it("hands the roster to the builder as a UNION input, not as the row set", () => {
+    // Measured: one worker with attendance in the live window is not `active`.
+    // Substituting the roster for the rows would drop them from a grid that
+    // already shows them.
+    const gridCall = code.slice(code.indexOf("const grid = buildAttendanceGrid"));
+    expect(gridCall).toContain("rows: gridDetail");
+    expect(gridCall).toContain("roster: roster ?? []");
+  });
+
   it("pays for the per-worker drill query only in the view that renders it", () => {
     const drill = code.slice(code.indexOf("const detailDays"), code.indexOf("const exportHref"));
     expect(drill).toContain('shape === "list"');
+  });
+});
+
+describe("/team/attendance page — spec 400 U3b wiring", () => {
+  it("keys canClose on close_muster_day's OWN allowlist, never on SA_SURFACE_ROLES", () => {
+    // THE defect this unit exists for. SA_SURFACE_ROLES was a correct mirror of
+    // that RPC until migration 20260813075912 added `procurement`; keeping it
+    // left two sentences telling the one role this work is for to hand the close
+    // to the SA. Absence is pinned BARE, not quote-wrapped: a revert would write
+    // the identifier, not a string literal.
+    expect(code).toContain("const canClose = MUSTER_CLOSE_ROLES.includes(ctx.role);");
+    expect(code).not.toContain("SA_SURFACE_ROLES");
+    expect(occurrences("MUSTER_CLOSE_ROLES")).toBe(2);
+  });
+
+  it("renders the day panel, not merely imports it", () => {
+    expect(occurrences("AttendanceDayPanel")).toBe(2);
+    expect(occurrences("attendanceDayParam")).toBe(2);
+  });
+
+  it("validates ?day= against the dates the grid actually DREW", () => {
+    // Mirrors ?worker=. Passing the raw param would render a panel about a column
+    // that is not on screen, and a malformed one would reach the RPC as a date
+    // parse error on the error boundary.
+    const block = code.slice(
+      code.indexOf("const openDayDate"),
+      code.indexOf("const canCorrectDay"),
+    );
+    expect(block).toContain("grid.days.map((d) => d.date)");
+  });
+
+  it("gives the panel the PICKED project, so a ทุกโครงการ column cannot guess one", () => {
+    // close_muster_day and reopen_muster_day each take one p_project; the panel's
+    // noProject arm is what makes that visible instead of submitting a wrong one.
+    const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
+    expect(panel).toContain("projectId={range.projectId ?? null}");
+    expect(panel).toContain("canReopen={canReopen}");
+    expect(panel).toContain("canClose={canClose}");
+  });
+
+  it("withholds the column LINK from roles that may neither close nor reopen", () => {
+    // Not a withheld fact: the panel would carry only the closure and headcount
+    // the column header already prints, under a link promising a refused action.
+    expect(code).toContain("const canCorrectDay = canReopen || canClose;");
+    const site = code.slice(code.indexOf("<AttendanceGridView"), code.indexOf("{openDay !== null"));
+    expect(site).toContain("canCorrectDay ?");
+    expect(site).toContain(": null");
+  });
+
+  it("renders the panel only when a VALID day resolved", () => {
+    // `openDay` is the found GridDay, not the raw param — so an unparseable or
+    // out-of-range ?day= renders nothing rather than a panel about nothing.
+    expect(code).toContain("{openDay !== null && (");
+    expect(code).toContain(
+      "const openDay = grid.days.find((d) => d.date === openDayDate) ?? null;",
+    );
+  });
+
+  it("owns the close outcome copy here, and reads the code from the QUERY", () => {
+    // The action returns a CODE; a Thai sentence in a URL is unbounded, survives
+    // in history and would render attacker-chosen text inside the app's own
+    // notice. Same rule the reopen banners already follow.
+    expect(code).toContain("CLOSE_ERROR_COPY");
+    expect(code).toContain('closed === "1"');
+    // …and no arm of it may promise a retry: every one of them is permanent.
+    const copy = code.slice(code.indexOf("const CLOSE_ERROR_COPY"), code.indexOf("interface"));
+    expect(copy).not.toContain("ลองใหม่");
+  });
+
+  it("hands the outcome to the PANEL, and keeps a header fallback for a dead ?day=", () => {
+    // The redirect anchors on `#d-<date>`, and the panel sits below a 42-row
+    // table — a banner in the page header lands a viewport away from the reader,
+    // so a refusal reads as nothing having happened. But a `?day=` that no
+    // longer resolves leaves no panel, and rendering nowhere would turn that
+    // refusal into silence, so the header keeps the other arm.
+    expect(code).toContain("outcome={closeOutcome}");
+    expect(code).toContain("{closeOutcome !== null && openDay === null && (");
+  });
+
+  it("discloses what closing COSTS, from the rows already on screen", () => {
+    // close_muster_day stamps 17:00 on every open REGULAR session and leaves the
+    // open OT ones alone. Derived from gridDetail — a second fetch would let the
+    // disclosure and the table disagree about the same day.
+    expect(code).toContain("const openDaySessions = openDay");
+    expect(code).toContain("stillIn={stillInOnOpenDay}");
+    const block = code.slice(
+      code.indexOf("const stillInOnOpenDay"),
+      code.indexOf("const closeOutcome"),
+    );
+    expect(block).toContain('r.stillIn && r.session === "regular"');
+    expect(block).toContain('r.stillIn && r.session === "ot"');
+  });
+});
+
+describe("/team/attendance page — spec 400 U5 wiring (the correction trail)", () => {
+  it("reads the trail and hands it to the panel", () => {
+    // The import plus the single call site; the panel prop is what makes the
+    // fetch visible to a reader. A component test cannot see any of this — the
+    // whole fetch lives in the Server Component.
+    expect(occurrences("loadDayAudit")).toBe(2);
+    expect(code).toContain("trail={dayTrail}");
+  });
+
+  it("reads it on the SESSION client, not the admin one", () => {
+    // The RPC is SECURITY DEFINER and gates on ATTENDANCE_AUDIT_ROLES itself, so
+    // the admin client would move a live authorization decision into TS where no
+    // pgTAP can drive it over the role domain.
+    expect(code).toContain("loadDayAudit(supabase,");
+  });
+
+  it("passes NULL rather than an empty trail when no project is picked", () => {
+    // `list_muster_day_audit` takes exactly one project, so a ทุกโครงการ column is
+    // never read — and `[]` would render "ยังไม่มีการแก้ไขย้อนหลัง" about a day the
+    // page did not look at. The guard is on the PROJECT, not only on the column.
+    const block = code.slice(code.indexOf("const dayTrail"), code.indexOf("const dayHref"));
+    expect(block).toContain("openDay !== null && range.projectId");
+    expect(block).toContain(": null");
+  });
+});
+
+// Writing failing test first.
+//
+// Spec 400 U3c-b — the add-person wiring. The component test renders the FORM;
+// only a page-level test can see which client fetches the teams, whether the
+// worker list actually excludes the people already mustered, and whether the
+// outcome copy is owned here rather than carried in the URL. That gap is exactly
+// what shipped two dead banners in spec 397 U3.
+describe("/team/attendance page — spec 400 U3c-b wiring", () => {
+  it("keys the add control on muster_correct_session's OWN allowlist", () => {
+    // NOT MUSTER_CLOSE_ROLES: that set includes site_admin, whom the correction
+    // RPCs deliberately exclude — reusing it would put the form in front of a
+    // role whose own server refuses it.
+    expect(code).toContain("const canCorrect = MUSTER_CORRECT_ROLES.includes(ctx.role);");
+    expect(occurrences("MUSTER_CORRECT_ROLES")).toBe(2);
+  });
+
+  it("reads the day's teams through the DEFINER RPC, never off the table", () => {
+    // muster_teams RLS is can_see_project, which is `else false` for
+    // `procurement` — a PostgREST read would return an empty picker for 4 of the
+    // 5 people this form exists for, with no error to notice.
+    expect(code).toContain("list_muster_teams_for_day");
+    expect(code).not.toContain('from("muster_teams")');
+  });
+
+  it("fetches the teams ONLY when the form could actually render", () => {
+    // A day panel is open on most views; an unconditional RPC call would add a
+    // round trip to every render for the roles that may not correct at all.
+    const block = code.slice(code.indexOf("list_muster_teams_for_day") - 400);
+    expect(block).toContain("canCorrect");
+  });
+
+  it("offers only workers who are NOT already mustered that day", () => {
+    // The RPC refuses a duplicate, so an unfiltered list is an offer-then-refuse:
+    // the commonest correction is one person, and the list is 41 names long.
+    expect(code).toContain("addCandidates");
+    const block = code.slice(
+      code.indexOf("const musteredOnOpenDay"),
+      code.indexOf("const addOutcome"),
+    );
+    // The exclusion set comes from the day's OWN sessions, and the population it
+    // is subtracted from is the grid's rows — which U2 already UNIONs the roster
+    // into, so a worker the muster has never recorded is exactly who is offered.
+    expect(block).toContain("openDaySessions");
+    expect(block).toContain("grid.rows");
+    expect(block).toContain("!musteredOnOpenDay.has(r.workerId)");
+  });
+
+  it("owns the add outcome copy here and reads the CODE from the query", () => {
+    expect(code).toContain("ADD_ERROR_COPY");
+    expect(code).toContain("addError");
+    // Spec 400 U6a moved the map itself to outcome-copy.ts (the fix page shares
+    // it), so the honest-copy rule is checked there directly rather than by
+    // slicing this page's source — a slice keyed on "const ADD_ERROR_COPY"
+    // would find nothing here now that this file only imports it.
+    expect(ADD_ERROR_COPY).not.toBe(undefined);
+    for (const [key, value] of Object.entries(ADD_ERROR_COPY)) {
+      expect(value, `${key} must not promise a retry`).not.toContain("ลองใหม่");
+    }
+  });
+
+  it("passes the panel everything the add arm needs", () => {
+    const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
+    expect(panel).toContain("canCorrect={canCorrect}");
+    expect(panel).toContain("addTeams={addTeams}");
+    expect(panel).toContain("addWorkers={addCandidates}");
+    expect(panel).toContain("addOutcome={addOutcome}");
+  });
+
+  // ── Spec 400 U6b — the doors into the fix screen ───────────────────────────
+  //
+  // Writing failing test first. These live at the PAGE because the page is where
+  // the role gate and the project-resolution are decided; a component test can
+  // render a linked grid all day without proving that the ROLE which gets the
+  // links is the one the RPC accepts.
+
+  it("gates the cell links on MUSTER_CORRECT_ROLES, the set the RPC accepts", () => {
+    const view = code.slice(code.indexOf("<AttendanceGridView"));
+    const block = view.slice(0, view.indexOf("/>"));
+    expect(block).toContain("cellFixHref");
+    // The gate must be the correction audience, NOT this page's own wider gate.
+    // ATTENDANCE_AUDIT_ROLES includes project_manager and project_director, whom
+    // muster_correct_session refuses with 42501.
+    expect(block).toMatch(/cellFixHref=\{canCorrect \?/);
+    expect(block).not.toContain("cellFixHref={canCorrectDay");
+  });
+
+  it("only offers GAP links when a project is actually picked", () => {
+    // With no session there is nothing for the fix page to infer a project from,
+    // so a gap link without one lands on a page that offers a sentence.
+    const view = code.slice(code.indexOf("<AttendanceGridView"));
+    const block = view.slice(0, view.indexOf("/>"));
+    expect(block).toMatch(/canFixGaps=\{[^}]*range\.projectId/);
+  });
+
+  // ⚠️ REWRITTEN by spec 400 U7, not deleted. Both pins below asserted that the
+  // grid mints a ROUTE url through `fixHref` and threads a `backHref` for the fix
+  // screen's back chip. That contract is gone on purpose: a cell now opens the
+  // panel on THIS page, so there is no navigation to come back from and no
+  // referrer to thread. What still matters — that the URL is built by one shared
+  // builder rather than three hand-rolled query strings — is pinned on the new
+  // builder instead.
+  it("builds the panel href through ONE builder, not a hand-rolled query string", () => {
+    expect(occurrences("panelFixHref")).toBeGreaterThanOrEqual(4);
+    // The route builder is no longer called from this page at all.
+    expect(code).not.toContain("fixHref({");
+  });
+
+  it("keeps the reader's range, project and referrer in the panel URL", () => {
+    // The panel replaces a navigation, so the URL it builds IS the reader's own
+    // page state — losing the range here would reload a different report under
+    // them rather than merely losing a back chip.
+    const decl = code.slice(code.indexOf("const panelFixHref"));
+    const body = decl.slice(0, decl.indexOf("};") + 2);
+    expect(body).toContain("start: range.from");
+    expect(body).toContain("end: range.to");
+    expect(body).toContain('q.set("project", range.projectId)');
+    expect(body).toContain('q.set("from", backHref)');
+  });
+
+  it("asserts the correction audience is a SUBSET of this page's own gate", () => {
+    // The load-bearing half, unchanged: if a role could ever hold
+    // MUSTER_CORRECT_ROLES without ATTENDANCE_AUDIT_ROLES it would be handed a link
+    // to a page it cannot open.
+    for (const role of MUSTER_CORRECT_ROLES) {
+      expect(ATTENDANCE_AUDIT_ROLES, `${role} must be able to open this page`).toContain(role);
+    }
+  });
+
+  it("is EQUAL to this page's gate since U6c — every reader may now correct", () => {
+    // ⚠️ This replaces a `toBeLessThan` assertion added by U6b one unit ago ("…and
+    // genuinely narrower, or the whole gate is theatre"). U6c made the two sets
+    // identical on the operator's instruction, so strict-narrowness is no longer
+    // true — and asserting the EQUALITY is what keeps the pair honest now: the U6b
+    // code still withholds links from `cellFixHref === null`, and if the sets ever
+    // diverge again that branch becomes reachable and this test says so.
+    expect([...MUSTER_CORRECT_ROLES].sort()).toEqual([...ATTENDANCE_AUDIT_ROLES].sort());
+  });
+});
+
+describe("spec 400 U6b — the panel work-list's own referrer", () => {
+  it("returns a work-list row to the PANEL, not to the bare grid", () => {
+    // Writing failing test first. The rows reused `cellFixHref`, whose backHref is
+    // viewHref("grid") — which never carries `day`, so a reader who came from the
+    // open ?day= column was returned with the panel CLOSED and the #d-<date>
+    // anchor gone, landing at the top of a 42-row table. Found by review.
+    // ⚠️ U7: the row now opens the PANEL on this page, so the defect this test was
+    // written for — coming back with the panel closed and the anchor gone — cannot
+    // occur: there is no navigation away. What is pinned instead is that the row
+    // and the cell go through the SAME builder, which is what carries ?day= and the
+    // #d-<date> anchor.
+    const decl = code.slice(code.indexOf("const workItemFixHref"));
+    const body = decl.slice(0, decl.indexOf(";") + 1);
+    expect(body).toContain("panelFixHref(date, workerId)");
+    // …and the panel is handed THAT builder, not the cell one.
+    const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
+    expect(panel).toContain("workItemHref={canCorrect ? workItemFixHref : null}");
+  });
+
+  it("still gates the work-list rows on the correction audience", () => {
+    const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
+    expect(panel).toMatch(/workItemHref=\{canCorrect \?/);
   });
 });

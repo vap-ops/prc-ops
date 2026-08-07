@@ -32,8 +32,13 @@ interface WpSchedulePanelProps {
   candidates: WpOption[];
 }
 
+// w-full + min-w-0 mirror the shared FIELD_INPUT/FIELD_SELECT: without them an
+// empty <input type="date"> collapses to its (content-based) min-content width
+// on iOS WebKit — feedback 9b0d24b0 "date picker … appears shrinking". The
+// globals.css appearance:none reset is necessary but not sufficient; the input
+// still needs an explicit width to fill its label.
 const FIELD =
-  "h-11 rounded-control border border-edge-strong bg-card px-3 text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-action";
+  "h-11 w-full min-w-0 rounded-control border border-edge-strong bg-card px-3 text-sm text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-action";
 
 export function WpSchedulePanel({
   projectId,
@@ -82,8 +87,8 @@ export function WpSchedulePanel({
       {/* Planned window */}
       <div className="flex flex-col gap-1.5">
         <p className="text-meta text-ink-secondary font-semibold">กำหนดการ (แผน)</p>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-meta text-ink-secondary flex flex-col gap-1">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="text-meta text-ink-secondary flex min-w-0 flex-col gap-1">
             เริ่ม
             <input
               type="date"
@@ -92,7 +97,7 @@ export function WpSchedulePanel({
               className={FIELD}
             />
           </label>
-          <label className="text-meta text-ink-secondary flex flex-col gap-1">
+          <label className="text-meta text-ink-secondary flex min-w-0 flex-col gap-1">
             สิ้นสุด
             <input
               type="date"

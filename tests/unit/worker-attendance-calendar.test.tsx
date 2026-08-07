@@ -276,3 +276,114 @@ describe("WorkerAttendanceCalendar", () => {
     expect(screen.getByText(/ประมาณการค่าแรง —/)).toBeInTheDocument();
   });
 });
+
+// ── Spec 400 U6b — the calendar as a door into the fix screen ────────────────
+//
+// Writing failing test first.
+//
+// Operator, 2026-08-07: "attendance calendar view is not edittable? it feels
+// like it can be interactive, especially accessing from tablets." It was
+// read-only; a day with attendance now opens that worker-day's fix screen for
+// the correction audience.
+
+describe("spec 400 U6b — calendar days as fix-screen doors", () => {
+  /** The builder the page passes down, carrying the AUDITED month back. */
+  const dayFixHref = (date: string) =>
+    `/team/attendance/fix?worker=w1&date=${date}&from=${encodeURIComponent(
+      "/workers/w1/attendance?m=2026-07",
+    )}`;
+
+  function fixLinks() {
+    return screen
+      .getAllByRole("link")
+      .filter((a) => (a.getAttribute("href") ?? "").startsWith("/team/attendance/fix"));
+  }
+
+  it("links a day that carries attendance, at that date", () => {
+    renderCal({ dayFixHref });
+    const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.some((h) => h.includes("date=2026-07-15"))).toBe(true);
+    expect(hrefs.some((h) => h.includes("date=2026-07-16"))).toBe(true);
+  });
+
+  it("threads the AUDITED month back, so returning does not land on today's", () => {
+    // U1 shipped this bug once already: the grid's calendar link dropped `m=`, so
+    // a checker auditing July clicked a name and landed on August. The referrer
+    // has to carry the month the reader is actually looking at.
+    renderCal({ dayFixHref });
+    const from = new URL(
+      fixLinks()[0]!.getAttribute("href") ?? "",
+      "https://x.test",
+    ).searchParams.get("from");
+    expect(from).toBe("/workers/w1/attendance?m=2026-07");
+  });
+
+  it("does NOT link a day with no attendance — there is no project to infer", () => {
+    // The fix page resolves the project from the first session; an empty day has
+    // none, and this calendar carries no project id of its own (the month cell
+    // holds project_NAME only). A link would land on the `noProject` arm.
+    renderCal({ dayFixHref });
+    const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.some((h) => h.includes("date=2026-07-14"))).toBe(false);
+    expect(hrefs.some((h) => h.includes("date=2026-07-17"))).toBe(false);
+  });
+
+  it("renders no fix link at all for a reader outside the correction audience", () => {
+    // WORKER_ROSTER_ROLES (this page's gate) includes project_manager and
+    // project_director; every correction RPC refuses them with 42501.
+    renderCal({ dayFixHref: null });
+    expect(fixLinks()).toHaveLength(0);
+  });
+
+  it("keeps every FACT when the link is withheld", () => {
+    const linked = renderCal({ dayFixHref });
+    const withTimes = screen.getAllByText("07:30").length;
+    linked.unmount();
+    renderCal({ dayFixHref: null });
+    expect(screen.getAllByText("07:30")).toHaveLength(withTimes);
+    expect(screen.getByText(/ทำงานวันหยุด|17:00/)).toBeInTheDocument();
+  });
+
+  it("keeps every FACT in the link's accessible name, and puts the ACT in title", () => {
+    // ⚠️ NOT an aria-label. An author-supplied one REPLACES the subtree as the
+    // accessible name, so `แก้ไขการเช็คชื่อ 15 ก.ค.` would drop the times, the OT
+    // hours, บันทึกมือ and the rest — the roles that GOT the control hearing
+    // strictly less than the roles that did not. That is the U3b <th> defect, and
+    // an earlier draft of this cell shipped it (a fresh-eyes pass caught it while
+    // this very test asserted only that แก้ไข was present, which is what let it
+    // through). The name comes from the subtree; `title` carries the act.
+    renderCal({ dayFixHref });
+    const link = fixLinks().find((a) => (a.getAttribute("href") ?? "").includes("2026-07-15"))!;
+    expect(link.hasAttribute("aria-label")).toBe(false);
+    const name = link.textContent ?? "";
+    expect(name).toMatch(/15/); // the day
+    expect(name).toMatch(/07:30/); // the check-in it renders
+    expect(name).toMatch(/17:00/); // the check-out it renders
+    expect(link.getAttribute("title")).toMatch(/แก้ไข/);
+  });
+
+  it("does not swallow the OT hours or the manual-entry marker either", () => {
+    // 2026-07-16 carries a regular session AND an OT one (spec 351). The cell
+    // merges them — earliest in, LATEST out — so the rendered check-out is the OT
+    // row's 21:00, which a human recorded: no (อัตโนมัติ) marker belongs here, and
+    // asserting one would be asserting against the merge rule rather than against
+    // this link. What must survive is every marker the cell DOES render.
+    renderCal({ dayFixHref });
+    const link = fixLinks().find((a) => (a.getAttribute("href") ?? "").includes("2026-07-16"))!;
+    const name = link.textContent ?? "";
+    expect(name).toMatch(/07:35/); // earliest in
+    expect(name).toMatch(/21:00/); // latest out
+    expect(name).toMatch(/\+3 ชม\./); // the OT hours
+    expect(name).toMatch(/บันทึกมือ/);
+  });
+
+  it("does not link the out-of-month padding cells", () => {
+    // `cell.inMonth === false` cells belong to the neighbouring months and carry
+    // no data for this month's read; linking them would mint a worker-day URL
+    // for a date this page never audited.
+    renderCal({ dayFixHref });
+    const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.some((h) => h.includes("date=2026-06-"))).toBe(false);
+    expect(hrefs.some((h) => h.includes("date=2026-08-"))).toBe(false);
+  });
+});

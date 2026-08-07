@@ -230,6 +230,14 @@ const STATIC_DETAIL = [
   // resolves via safeBackHref(?from, "/team"), never a hardcoded href — and its
   // LABEL resolves via attendanceBackLabel, pinned in attendance-audit-door.test.
   "team/attendance",
+  // Spec 400 U6a: the worker-day fix screen drills down from the report above
+  // it (back chip -> /team/attendance) — the report's own back-label array now
+  // names that destination too, so a fix-page chip announces itself correctly.
+  // Reachable only by a hand-typed URL today; U6b wires the grid/day-panel/
+  // calendar doors that make it multi-parent for REAL, and it is listed in
+  // STATIC_MULTI_PARENT below already, on the same "built multi-parent from day
+  // one" basis as the report itself.
+  "team/attendance/fix",
 ].map((r) => `${r}/page.tsx`);
 // Spec 234: the external /client tree is bespoke (own header + logout, no app
 // DetailHeader — like /portal), so its dynamic drill (/client/[projectId]) is
@@ -473,6 +481,11 @@ describe("referrer-aware back chips (multi-parent details use safeBackHref)", ()
     // attendance-audit-door.test.ts, because a chip that goes to /procurement
     // while announcing "ทีมงาน" is the same defect one layer up.
     "team/attendance/page.tsx",
+    // Spec 400 U6a: the fix screen's back chip resolves ?from the same way, with
+    // the report as its hierarchical fallback — pinned here so a later edit
+    // cannot revert it to a hardcoded href before U6b's doors make the
+    // multi-parent shape real.
+    "team/attendance/fix/page.tsx",
   ];
 
   // ≥2 occurrences = the IMPORT plus a real call. A bare `toContain` here was

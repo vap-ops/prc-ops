@@ -20,8 +20,18 @@ type PageShellVariant = "app" | "card" | "bare";
 const SHELL_BASE = "h-full overflow-x-clip overflow-y-auto overscroll-y-contain text-ink";
 
 const VARIANT_CLASSES: Record<PageShellVariant, string> = {
-  /** Content pages: zinc wash + phone tab-bar clearance. */
-  app: "bg-page pb-20 sm:pb-0",
+  /**
+   * Content pages: zinc wash + phone tab-bar clearance.
+   *
+   * The clearance COMPOSES the safe-area inset because the bar it clears does:
+   * `bottom-tab-bar` is `h-16` (64px) + `border-t` (1px) +
+   * `pb-[env(safe-area-inset-bottom)]`. On a notched iPhone that inset is 34px,
+   * so the bar stands 99px tall — a flat `pb-20` reserved only 80 and left the
+   * last 19px of every content page behind it. Every other bottom-fixed element
+   * in the app already composes the inset (toast-provider, phase-uploader,
+   * muster-cockpit, phone-po-basket); this was the one site that hardcoded it.
+   */
+  app: "bg-page pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0",
   /**
    * Single-card screens (login, landing, error, not-found, /coming-soon).
    *

@@ -59,8 +59,11 @@ function deviceLabel(ua: string | null): string {
 export function FeedbackKanban({ cards }: { cards: FeedbackCardVM[] }) {
   const columns = groupFeedbackByStatus(cards);
 
+  // Columns of stacked cards, so this fills the screen like a table rather than
+  // sitting in one row: [touch-action:manipulation], never the strip-form pair,
+  // or a thumb resting on a card cannot scroll the page (ui-class-contracts).
   return (
-    <div className="-mx-5 [touch-action:pan-x_pinch-zoom] overflow-x-auto px-5 pb-2">
+    <div className="-mx-5 [touch-action:manipulation] overflow-x-auto px-5 pb-2">
       <div className="flex min-w-full gap-3">
         {columns.map((col) => (
           <section key={col.status} className="flex w-72 shrink-0 flex-col gap-3">

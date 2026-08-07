@@ -244,6 +244,73 @@ describe("musterScan — the already-out refusal (spec 306 §5)", () => {
 
 // Writing failing test first.
 //
+// Spec 400 U4 — muster_scan_out now REFUSES a session whose day is over.
+//
+// Why the copy matters here specifically: the refusal is PERMANENT for this
+// caller. Before U4 the RPC had no date check at all, so a site_admin could
+// close 2026-07-24's nine still-open OT sessions today — stamping out_at = now()
+// and pricing ot_hours at ~13 days. The hole was "permitted and wrong", not
+// "blocked", so the guard has to exist AND has to explain itself: falling
+// through to GENERIC ("กรุณาลองใหม่อีกครั้ง") would invite a retry that can never
+// succeed, which is the honest-copy class this repo has now paid for five times.
+//
+// The copy names the FACT and no actor. Its readers are muster_scan_out's whole
+// gate — {site_admin, super_admin, procurement_manager} — and only the last two
+// are in the correction audience, so an instruction ("ask X", "go to Y") would
+// be true for some of them and false for the rest. It also must not name
+// /team/attendance: site_admin is not in ATTENDANCE_AUDIT_ROLES and cannot open
+// it. Same reasoning muster_undo_scan's `already closed` arm carries.
+describe("musterScan — the day-is-over refusal (spec 400 U4)", () => {
+  const args = {
+    teamId: TEAM,
+    workerId: WORKER,
+    mode: "out",
+    method: "qr",
+    session: "ot",
+    revalidate: "/projects/x/muster",
+  } as const;
+
+  it("says the window has closed, not that the tap failed", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: this session belongs to an earlier day" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r).toEqual({
+      ok: false,
+      error: "หมดเวลาบันทึกออกงานของวันนั้นแล้ว — ต้องแก้เวลาย้อนหลัง",
+    });
+  });
+
+  it("never degrades to the generic retry copy", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: this session belongs to an earlier day" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).not.toContain("ลองใหม่");
+  });
+
+  // CONTRASTING CONTROL — this arm must not swallow `already checked out`, which
+  // is a DIFFERENT refusal with a different remedy (and its own `reason` field
+  // that two components branch on). Ordered substring matching is why.
+  it("leaves the already-out refusal and its reason intact", async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "muster_scan_out: already checked out at 17:02" },
+    });
+    const r = await musterScan({ ...args });
+    expect(r).toEqual({
+      ok: false,
+      error: "ช่างคนนี้ออกงานแล้วเมื่อ 17:02 น.",
+      reason: "already_out",
+    });
+  });
+});
+
+// Writing failing test first.
+//
 // Spec 306 §5 — the two BENIGN-REFUSAL consequences of the new server guard.
 // Both are regressions the guard itself introduced: a call that used to succeed
 // silently now returns an error, and two callers were reading every error as a

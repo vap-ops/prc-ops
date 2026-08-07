@@ -40,6 +40,7 @@ export function WorkerAttendanceCalendar({
   stdRate,
   prevHref,
   nextHref,
+  dayFixHref = null,
 }: {
   month: AttendanceMonth;
   worker: AttendanceWorkerHeader;
@@ -48,6 +49,20 @@ export function WorkerAttendanceCalendar({
   stdRate: number | null;
   prevHref: string;
   nextHref: string;
+  /**
+   * Spec 400 U6b — a day cell's link to that worker-day's fix screen (U6a).
+   *
+   * `null` for every reader outside MUSTER_CORRECT_ROLES. This page's own gate is
+   * WORKER_ROSTER_ROLES, which includes project_manager and project_director —
+   * both refused by every correction RPC with 42501 — so the link is withheld
+   * from them while every fact in the cell stays.
+   *
+   * Only days that CARRY attendance link: the fix screen resolves its project
+   * from the first session, and this calendar holds `projectName` but no project
+   * id, so an empty day has nothing to resolve from and would land on the page's
+   * `noProject` arm.
+   */
+  dayFixHref?: ((date: string) => string) | null;
 }) {
   const { summary } = month;
   const showStd = stdRate !== null && stdRate !== worker.dayRate;
@@ -158,19 +173,14 @@ export function WorkerAttendanceCalendar({
               {week.map((cell) => {
                 const data = cell.inMonth ? month.cells[cell.iso] : undefined;
                 const holiday = cell.inMonth ? month.holidayByDate[cell.iso] : undefined;
-                return (
-                  <div
-                    key={cell.iso}
-                    className={`border-edge min-h-16 border-r p-1 last:border-r-0 ${
-                      cell.inMonth
-                        ? holiday
-                          ? "bg-attn-soft"
-                          : cell.isWeekend
-                            ? "bg-sunk"
-                            : ""
-                        : "opacity-40"
-                    }`}
-                  >
+                // Spec 400 U6b — a day with attendance is a door. `data` is the
+                // gate on purpose: it is exactly "this date has something to
+                // correct", and it is also what guarantees the fix screen can
+                // infer a project. Padding cells (`inMonth === false`) resolve
+                // `data` to undefined, so they never link.
+                const fixTo = data && dayFixHref ? dayFixHref(cell.iso) : null;
+                const inner = (
+                  <>
                     <p
                       className={`text-meta text-right ${
                         data ? "text-ink font-semibold" : "text-ink-muted"
@@ -227,6 +237,49 @@ export function WorkerAttendanceCalendar({
                         ) : null}
                       </div>
                     ) : null}
+                  </>
+                );
+                return (
+                  <div
+                    key={cell.iso}
+                    className={`border-edge min-h-16 border-r p-1 last:border-r-0 ${
+                      cell.inMonth
+                        ? holiday
+                          ? "bg-attn-soft"
+                          : cell.isWeekend
+                            ? "bg-sunk"
+                            : ""
+                        : "opacity-40"
+                    }`}
+                  >
+                    {fixTo ? (
+                      // The whole cell is the target: on a tablet — the device the
+                      // operator asked about — a 10px day number is not a usable
+                      // one. `block h-full` so the tap area is the cell rather
+                      // than just the text it wraps.
+                      //
+                      // ⚠️ NO author-supplied aria-label. An aria-label on a link
+                      // REPLACES its subtree as the accessible name, so
+                      // `แก้ไขการเช็คชื่อ 15 ก.ค.` would silently drop the
+                      // check-in/out times, (+1 วัน), (อัตโนมัติ), the OT hours,
+                      // บันทึกมือ, ทำงานวันหยุด, the holiday name and the
+                      // off-home project — leaving the roles that GOT the control
+                      // hearing strictly less than the roles that did not. That is
+                      // the U3b <th> defect verbatim, and an earlier draft of this
+                      // very cell shipped it. The subtree already names the day and
+                      // every fact; `title` supplies the act without touching the
+                      // name (this page's audience is desktop/tablet back-office,
+                      // where the existing holiday <p> already relies on hover).
+                      <Link
+                        href={fixTo}
+                        title={`แก้ไขการเช็คชื่อ ${cell.day} ${month.grid.label}`}
+                        className="focus-visible:ring-action block h-full rounded focus:outline-none focus-visible:ring-2"
+                      >
+                        {inner}
+                      </Link>
+                    ) : (
+                      inner
+                    )}
                   </div>
                 );
               })}

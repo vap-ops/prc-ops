@@ -142,15 +142,22 @@ describe("photo markup keyboard occlusion (spec 51 follow-up)", () => {
 
     await openLightbox();
     const dialog = screen.getByRole("dialog");
-    // Viewing only (no field focused yet) — overlay stays centered, no lift.
-    expect(dialog.className).toContain("justify-center");
+    // Viewing only (no field focused yet) — no lift.
     expect((dialog as HTMLElement).style.paddingBottom).toBe("");
 
     fireEvent.click(await screen.findByRole("button", { name: "วาดและความเห็น" }));
-    // Composing → the field exists → overlay pads past the keyboard and scrolls.
+    // Composing → the field exists → the overlay pads past the keyboard.
+    // The PADDING is the lift, and it is what this unit exists to protect.
+    expect((dialog as HTMLElement).style.paddingBottom).toBe("336px");
+
+    // The layout mode is NO LONGER the signal. This used to read
+    // `justify-center` → `justify-start overflow-y-auto`, i.e. the overlay
+    // only became scrollable while the keyboard was up — which left a tall
+    // photo unreachable with the keyboard DOWN (2026-08-07). The overlay now
+    // always scrolls and always top-aligns, so these are invariants of both
+    // states rather than a distinction between them.
     expect(dialog.className).toContain("justify-start");
     expect(dialog.className).toContain("overflow-y-auto");
     expect(dialog.className).not.toContain("justify-center");
-    expect((dialog as HTMLElement).style.paddingBottom).toBe("336px");
   });
 });

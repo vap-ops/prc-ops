@@ -163,6 +163,27 @@ export interface AttendanceGridInput {
   to: string;
   rows: readonly AttendanceDetailRow[];
   holidays?: readonly GridHoliday[];
+  /**
+   * Spec 400 U2 — the workers who SHOULD appear, so the ones who never did get a
+   * row instead of vanishing. `rows` alone can only ever describe people the
+   * muster already recorded; live, 11 of 41 active workers had zero July rows
+   * and therefore no row at all on a page whose job is to find exactly that.
+   *
+   * UNIONed, never substituted: 1 worker with attendance in the live window is
+   * not `active`, so a roster-only list would drop someone the grid shows today.
+   *
+   * Omitted by the caller for the three `ATTENDANCE_AUDIT_ROLES` outside the
+   * `workers` RLS policy (accounting, hr, project_coordinator) — they keep
+   * exactly today's population rather than an empty list or a lie.
+   */
+  roster?: readonly GridRosterWorker[];
+}
+
+/** Only what the grid needs, and only what `authenticated` may SELECT:
+ *  `day_rate` and `employee_id` are column-walled on `workers`. */
+export interface GridRosterWorker {
+  id: string;
+  name: string;
 }
 
 export interface AttendanceGrid {
@@ -302,9 +323,28 @@ export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid 
     };
   });
 
-  // Alphabetical by Thai collation. Ranking by "most findings" is deliberately
-  // NOT the default — spec §6 keeps it open until the distribution is measured
-  // (the spec-375 trap: a rank over a column that barely varies).
+  // U2 — the workers the muster never recorded. Added AFTER the attendance pass
+  // so an existing row always wins: both names come from `workers.name`, and if
+  // they ever disagree the report must not tell a different story from the CSV
+  // built off the same audit rows.
+  for (const w of input.roster ?? []) {
+    if (rowByWorker.has(w.id)) continue;
+    rowByWorker.set(w.id, {
+      workerId: w.id,
+      workerName: w.name,
+      cells: {},
+      daysPresent: 0,
+      otHoursTotal: 0,
+    });
+  }
+
+  // Alphabetical by Thai collation, over the UNION — sorting the two groups
+  // separately would file every absent worker in a block at the bottom, which
+  // reads as a second table rather than as gaps in the first.
+  //
+  // Ranking by "most findings" is deliberately NOT the default — spec §6 keeps
+  // it open until the distribution is measured (the spec-375 trap: a rank over a
+  // column that barely varies).
   const gridRows = [...rowByWorker.values()].sort((a, b) =>
     a.workerName.localeCompare(b.workerName, "th"),
   );

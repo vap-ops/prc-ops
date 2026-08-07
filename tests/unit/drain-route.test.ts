@@ -49,9 +49,27 @@ let pmPoolUsers: PoolUserWithRole[] = [];
 let candidateUsers: Array<
   PoolUserWithRole & { full_name: string | null; line_display_name: string | null }
 > = [];
-let wpTableRows: Array<{ id: string; code: string; project_id: string | null }> = [];
+let wpTableRows: Array<{
+  id: string;
+  code: string;
+  project_id: string | null;
+  name?: string | null;
+}> = [];
 let projectRows: Array<{ id: string; name: string; project_lead_id: string | null }> = [];
 let memberRows: Array<{ project_id: string; user_id: string }> = [];
+// Spec 402 U1 — purchase_request_id → project_id, the PR family's L3 source.
+let prProjectIdByRequest: Record<string, string> = {};
+// Spec 402 U2 — wp_decision / wp_reopened fan out to the WP's photo uploaders,
+// so driving those events needs the photo_logs leg the mock never had.
+let photoLogRows: Array<{ work_package_id: string; uploaded_by: string }> = [];
+// …and the contacts-only users lookup (`id, line_user_id, telegram_chat_id`)
+// that maps those uploader uids to a channel. Returned [] before, which is why
+// no test could ever produce a wp_decision push.
+let contactUsers: Array<{
+  id: string;
+  line_user_id: string | null;
+  telegram_chat_id: string | null;
+}> = [];
 let rowUpdates: Array<{ id: unknown; values: Record<string, unknown> }> = [];
 // Feedback c5136ad9 — captured (cols, ids) of every users .in() lookup.
 let usersInCalls: Array<{ cols: string; ids: unknown[] }> = [];
@@ -129,16 +147,30 @@ vi.mock("@/lib/db/admin", () => ({
                   ? candidateUsers
                   : cols.includes("role")
                     ? pmPoolUsers
-                    : [],
+                    : // The contacts-only leg (spec 402 U2): uid → channel, for
+                      // recipients resolved outside the pools (photo uploaders).
+                      contactUsers,
                 error: null,
               };
             },
           }),
         };
       }
+      // Spec 402 U2 — `name` is CHECKED, not assumed: wp_decision's message can
+      // only say what the work is via this join, so a revert to the pre-402
+      // three-column select must red rather than silently drop the line.
       if (table === "work_packages") {
         return {
-          select: () => ({ in: async () => ({ data: wpTableRows, error: null }) }),
+          select: (cols: string) => ({
+            in: async () => ({
+              data: wpTableRows.map((wp) =>
+                cols.includes("name")
+                  ? wp
+                  : { id: wp.id, code: wp.code, project_id: wp.project_id },
+              ),
+              error: null,
+            }),
+          }),
         };
       }
       if (table === "projects") {
@@ -146,19 +178,36 @@ vi.mock("@/lib/db/admin", () => ({
           select: () => ({ in: async () => ({ data: projectRows, error: null }) }),
         };
       }
+      // wp_decision / wp_reopened recipients = the WP's photo uploaders.
+      if (table === "photo_logs") {
+        return {
+          select: () => ({
+            in: () => ({ not: async () => ({ data: photoLogRows, error: null }) }),
+          }),
+        };
+      }
       if (table === "project_members") {
         return {
           select: () => ({ in: async () => ({ data: memberRows, error: null }) }),
         };
       }
-      // PR→PO number enrichment (spec 211 U8) — no PO in these fixtures.
+      // PR→PO number enrichment (spec 211 U8) + the PR's project (spec 402 U1).
+      // The columns are CHECKED: the project slot is only reachable if the
+      // route actually selects project_id, so a revert to the two-column select
+      // reds here instead of silently dropping the project line.
       if (table === "purchase_requests") {
         return {
-          select: () => ({
+          select: (cols: string) => ({
             in: async () => ({
               data: outboxRows
                 .filter((r) => r.purchase_request_id !== null)
-                .map((r) => ({ id: r.purchase_request_id, purchase_order_id: null })),
+                .map((r) => ({
+                  id: r.purchase_request_id,
+                  purchase_order_id: null,
+                  ...(cols.includes("project_id")
+                    ? { project_id: prProjectIdByRequest[r.purchase_request_id as string] ?? null }
+                    : {}),
+                })),
               error: null,
             }),
           }),
@@ -222,6 +271,9 @@ beforeEach(() => {
   wpTableRows = [];
   projectRows = [];
   memberRows = [];
+  prProjectIdByRequest = {};
+  photoLogRows = [];
+  contactUsers = [];
   superUsers = [{ id: SUPER_ID, line_user_id: "Lsuper", telegram_chat_id: null }];
   outboxRows = [
     // (1) event type the deployed code doesn't know → safe skip, not a crash.
@@ -630,5 +682,351 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     await POST(drainRequest());
 
     expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Spec 402 U3 — feedback + the receipt-correction pair. Same load-bearing
+// question as U2: does the drain resolve the right project and the right
+// actor for each of them?
+describe("POST /api/notifications/drain — spec 402 U3 feedback + correction enrichment", () => {
+  const REPORTER = "aaaaaaaa-0000-4000-8000-0000000005a1";
+  const FB_ID = "cccccccc-0000-4000-8000-0000000005c1";
+  const P1 = "ffffffff-0000-4000-8000-0000000005f1";
+  const BO_1 = "dddddddd-0000-4000-8000-0000000005d1";
+
+  it("names the feedback reporter, resolved via the candidates lookup", async () => {
+    usersInCalls = [];
+    candidateUsers = [
+      {
+        id: REPORTER,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "feedback_submitted",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          feedback_id: FB_ID,
+          feedback_type: "bug",
+          role_snapshot: "site_admin",
+          feedback_title: "รูปอัปโหลดไม่ขึ้น",
+          submitted_by: REPORTER,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    // The reporter uid reached the candidates lookup — they are NOT a recipient
+    // (the super pool is), so nothing else would have fetched their name.
+    const candidateCall = usersInCalls.find((c) => c.cols.includes("full_name"));
+    expect(candidateCall?.ids).toContain(REPORTER);
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toBe(
+      [
+        "🐞 ข้อเสนอแนะใหม่ (ปัญหา)",
+        "รูปอัปโหลดไม่ขึ้น",
+        "แจ้งโดย สมชาย ทดสอบ (ผู้ดูแลหน้างาน)",
+      ].join("\n"),
+    );
+  });
+
+  // The flagged event goes to BACK_OFFICE_ROLES, whose queue is /store/corrections.
+  // The resolved event goes to the SA who flagged, who would be REFUSED there —
+  // so the absence of the queue URL is as load-bearing as the presence.
+  it("sends the flagged correction to the back-office queue, naming the flagger", async () => {
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
+    contactUsers = [{ id: BO_1, line_user_id: "Lbo", telegram_chat_id: null }];
+    candidateUsers = [
+      {
+        id: REPORTER,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "receipt_correction_flagged",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          requested_by: REPORTER,
+          item_description: "ปูนซีเมนต์",
+          project_id: P1,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toBe(
+      ["⚠️ แจ้งแก้ไขจำนวนรับของ", "ปูนซีเมนต์", "โครงการบ้านสวย", "แจ้งโดย สมชาย ทดสอบ"].join("\n"),
+    );
+  });
+
+  // Spec 402 U4 — this case used to pin WHICH link the resolved event got. With
+  // links gone it pins what remains: the item and project reach the flagger,
+  // and the message still names no actor (its only uid is the recipient's).
+  it("tells the flagger the correction was resolved, naming the item but no actor", async () => {
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
+    contactUsers = [{ id: REPORTER, line_user_id: "Lsa", telegram_chat_id: null }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "receipt_correction_resolved",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          requested_by: REPORTER,
+          item_description: "ปูนซีเมนต์",
+          project_id: P1,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toBe(["✅ แก้ไขจำนวนรับของแล้ว", "ปูนซีเมนต์", "โครงการบ้านสวย"].join("\n"));
+  });
+});
+
+// Spec 402 U2 — the work-package family. The load-bearing part is the join:
+// /review/work-packages is requireRole(PM_ROLES), and one outbox row produces
+// ONE body for every recipient, so an event whose recipients are photo
+// UPLOADERS must not be pointed at it.
+describe("POST /api/notifications/drain — spec 402 U2 work-package enrichment", () => {
+  const W1 = "eeeeeeee-0000-4000-8000-0000000004e1";
+  const P1 = "ffffffff-0000-4000-8000-0000000004f2";
+  const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+  const SA_1 = "bbbbbbbb-0000-4000-8000-0000000004b2";
+
+  it("gives wp_decision the WP name and project its payload never had", async () => {
+    wpTableRows = [{ id: W1, code: "WP-02-06", project_id: P1, name: "งานจัดหาห้องน้ำชั่วคราว" }];
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
+    memberRows = [];
+    candidateUsers = [
+      {
+        id: PM_A,
+        role: "project_manager",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "พีเอ็มเอ",
+        line_display_name: null,
+      },
+    ];
+    // The recipient is the WP's photo uploader (resolved from photo_logs), not
+    // the decider — who is excluded from their own decision.
+    photoLogRows = [{ work_package_id: W1, uploaded_by: SA_1 }];
+    contactUsers = [{ id: SA_1, line_user_id: "Lsa", telegram_chat_id: null }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "wp_decision",
+        work_package_id: W1,
+        purchase_request_id: null,
+        payload: { decision: "approved", comment: null, decided_by: PM_A },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toBe(
+      [
+        "✅ ผลการตรวจ: อนุมัติแล้ว",
+        "งานจัดหาห้องน้ำชั่วคราว",
+        "โครงการบ้านสวย · WP-02-06",
+        "ตรวจโดย พีเอ็มเอ",
+      ].join("\n"),
+    );
+  });
+
+  it("points wp_pending_approval at the REVIEW queue, not the project surface", async () => {
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+    ];
+    wpTableRows = [{ id: W1, code: "WP-02-06", project_id: P1, name: "งานจัดหาห้องน้ำชั่วคราว" }];
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: PM_A }];
+    memberRows = [{ project_id: P1, user_id: PM_A }];
+    candidateUsers = [
+      {
+        id: PM_A,
+        role: "project_manager",
+        line_user_id: "LpmA",
+        telegram_chat_id: null,
+        full_name: "พีเอ็มเอ",
+        line_display_name: null,
+      },
+      {
+        id: SA_1,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "wp_pending_approval",
+        work_package_id: W1,
+        purchase_request_id: null,
+        payload: { code: "WP-02-06", name: "งานจัดหาห้องน้ำชั่วคราว", submitted_by: SA_1 },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts.length).toBeGreaterThan(0);
+    for (const text of texts) {
+      expect(text).toContain("โครงการบ้านสวย · WP-02-06");
+    }
+  });
+});
+
+// Spec 402 U1 — the purchase-request family's skeleton slots. These batches
+// contain NO site-issue row and NO work-package row, so they also pin that the
+// PR legs resolve on their own: the enrichment gate must not depend on another
+// leg being non-empty (the latent-coupling shape the submitter arm was fixed
+// for).
+describe("POST /api/notifications/drain — spec 402 U1 purchase-request enrichment", () => {
+  const REQUESTER = "aaaaaaaa-0000-4000-8000-0000000004a1";
+  const PR_UUID = "bbbbbbbb-0000-4000-8000-0000000004b1";
+  const P1 = "ffffffff-0000-4000-8000-0000000004f1";
+
+  it("gives pr_progress its project and item — and names no actor", async () => {
+    prProjectIdByRequest = { [PR_UUID]: P1 };
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
+    memberRows = [{ project_id: P1, user_id: REQUESTER }];
+    candidateUsers = [
+      {
+        id: REQUESTER,
+        role: "site_admin",
+        line_user_id: "Lreq",
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "pr_progress",
+        work_package_id: null,
+        purchase_request_id: PR_UUID,
+        payload: {
+          pr_number: 12,
+          item_description: "เหล็กกล่อง กาวาไนซ์",
+          transition: ["purchased", "on_route"],
+          requested_by: REQUESTER,
+          // The trigger snapshots decided_by from approved_by — the APPROVER,
+          // not whoever shipped it.
+          decided_by: REQUESTER,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    const text = texts[0] as string;
+    expect(text).toContain("เหล็กกล่อง กาวาไนซ์");
+    expect(text).toContain("โครงการบ้านสวย");
+    expect(text).toContain("สั่งซื้อแล้ว → กำลังจัดส่ง");
+    // 🚨 The name IS resolvable here (the candidates lookup returned it), so
+    // this pins the DECISION not to render it, never a lookup that came back
+    // empty. Attributing a shipment to the approver is the misattribution the
+    // pr_progress arm exists to avoid.
+    expect(text).not.toContain("สมชาย ทดสอบ");
+  });
+
+  it("names the requester on pr_created, resolved via the candidates lookup", async () => {
+    const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+    usersInCalls = [];
+    prProjectIdByRequest = { [PR_UUID]: P1 };
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: PM_A }];
+    memberRows = [{ project_id: P1, user_id: PM_A }];
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+    ];
+    candidateUsers = [
+      {
+        id: PM_A,
+        role: "project_manager",
+        line_user_id: "LpmA",
+        telegram_chat_id: null,
+        full_name: "พีเอ็มเอ",
+        line_display_name: null,
+      },
+      {
+        id: REQUESTER,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "pr_created",
+        work_package_id: null,
+        purchase_request_id: PR_UUID,
+        payload: {
+          pr_number: 7,
+          item_description: "ปูน",
+          quantity: 10,
+          unit: "ถุง",
+          project_id: P1,
+          requested_by: REQUESTER,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    // The requester uid reached the candidates lookup — a result-only assertion
+    // could not tell that apart from a name that happened to be in the pool.
+    const candidateCall = usersInCalls.find((c) => c.cols.includes("full_name"));
+    expect(candidateCall?.ids).toContain(REQUESTER);
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts.length).toBeGreaterThan(0);
+    for (const text of texts) {
+      expect(text).toBe(
+        ["🆕 คำขอซื้อใหม่", "ปูน × 10 ถุง", "โครงการบ้านสวย · PR-0007", "ขอโดย สมชาย ทดสอบ"].join(
+          "\n",
+        ),
+      );
+    }
   });
 });

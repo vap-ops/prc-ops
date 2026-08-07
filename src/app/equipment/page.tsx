@@ -12,6 +12,7 @@ import {
   EQUIPMENT_RENTAL_LABEL,
 } from "@/lib/i18n/labels";
 import { ImportEquipmentSheet } from "@/components/features/equipment/import-equipment-sheet";
+import { BulkAddEquipmentSheet } from "@/components/features/equipment/bulk-add-equipment-sheet";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
@@ -124,10 +125,20 @@ export default async function EquipmentPage({
   // audience (canManageRegistry) and ONLY via the admin client. The site_admin
   // field view never gets the map, so no rate reaches that client (spec 46).
   let dailyRates: Record<string, number | null> | undefined;
+  // Spec 367 §10.4 — the acquisition figures ride the SAME admin read and the
+  // SAME audience gate, for the same reason: `acquisition_cost`/`acquired_at`
+  // carry no authenticated grant either, so an RLS read returns nothing rather
+  // than erroring, and a site_admin session must never receive the map at all.
+  let acquisitions: Record<string, { cost: number | null; acquiredAt: string | null }> | undefined;
   if (canManageRegistry) {
     const admin = createAdminSupabase();
-    const { data: rateRows } = await admin.from("equipment_items").select("id, daily_rate");
+    const { data: rateRows } = await admin
+      .from("equipment_items")
+      .select("id, daily_rate, acquisition_cost, acquired_at");
     dailyRates = Object.fromEntries((rateRows ?? []).map((r) => [r.id, r.daily_rate]));
+    acquisitions = Object.fromEntries(
+      (rateRows ?? []).map((r) => [r.id, { cost: r.acquisition_cost, acquiredAt: r.acquired_at }]),
+    );
   }
 
   return (
@@ -191,6 +202,10 @@ export default async function EquipmentPage({
           {/* Spec 367 U3b — import writes, so it is back-office only, matching
               the equipment_items INSERT/UPDATE policies and the action gate. */}
           {canManageRegistry && <ImportEquipmentSheet />}
+          {/* Spec 367 §13 — เพิ่มหลายเครื่อง. Same gate as the importer (it writes
+              equipment_items), and deliberately BESIDE it: adding many is the
+              ทะเบียน door, editing many is the CSV door. */}
+          {canManageRegistry && <BulkAddEquipmentSheet />}
         </div>
         <EquipmentManager
           items={items}
@@ -212,6 +227,7 @@ export default async function EquipmentPage({
           movements={movements}
           canManageRegistry={canManageRegistry}
           {...(dailyRates ? { dailyRates } : {})}
+          {...(acquisitions ? { acquisitions } : {})}
           {...(Object.keys(photosByItem).length > 0 ? { photosByItem } : {})}
         />
       </div>

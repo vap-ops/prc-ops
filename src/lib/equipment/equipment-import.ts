@@ -41,6 +41,7 @@ import {
   EQUIPMENT_TRACKING_LABEL,
 } from "@/lib/i18n/labels";
 import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
+import { detectPasteDelimiter as detectDelimiter } from "@/lib/equipment/paste-delimiter";
 import type { Database } from "@/lib/db/database.types";
 
 type Enums = Database["public"]["Enums"];
@@ -126,12 +127,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MONEY_READ_ONLY = (col: string): string =>
   `คอลัมน์ "${col}" ยังแก้ไขผ่านการนำเข้าไม่ได้ — กรุณาเว้นว่างไว้ แล้วแก้ไขในหน้าอุปกรณ์โดยตรง`;
 
-function detectDelimiter(text: string): "\t" | "," {
-  // A Google-Sheets paste is TAB-delimited with no file round trip — the path
-  // that avoids a download entirely on the operator's cloud PC.
-  const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
-  return firstLine.includes("\t") ? "\t" : ",";
-}
+// Spec 367 §13 — the sniff moved to `paste-delimiter.ts` when the bulk-add paste
+// needed the same rule; re-exported under the old local name so this file's call
+// site and its tests are unchanged. One rule, one home.
 
 /** Blank → null. A number → itself. Anything else → an error for the caller. */
 function parseOptionalNumber(raw: string): { ok: true; value: number | null } | { ok: false } {

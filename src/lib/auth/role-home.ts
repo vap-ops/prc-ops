@@ -437,10 +437,106 @@ export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
  * refuses. Pinned over the exhaustive role domain by attendance-reopen.test.tsx.
  */
 export const MUSTER_REOPEN_ROLES: ReadonlyArray<UserRole> = [
-  "site_admin",
-  "super_admin",
+  // Spec 400 U6c — the audit audience PLUS site_admin, which runs the muster
+  // cockpit and is deliberately NOT in ATTENDANCE_AUDIT_ROLES. Mirrors the live
+  // allowlist of reopen_muster_day (migration 20260813075919).
+  "accounting",
+  "hr",
+  "project_director",
+  "project_coordinator",
   "procurement_manager",
   "procurement",
+  "super_admin",
+  "project_manager",
+  "site_admin",
+];
+
+/**
+ * Spec 400 U3a/U3b — who may CLOSE a muster day (`close_muster_day`), and so who
+ * may finish the correction loop reopen → fix → close.
+ *
+ * Mirrors that RPC's allowlist verbatim, read from the LIVE function 2026-08-06
+ * after migration 20260813075912 added `procurement` (the MUSTER_REOPEN_ROLES
+ * precedent). The RPC is the real boundary; this set exists so the affordance —
+ * and the COPY around it — never promises what the server refuses.
+ *
+ * ⚠️ It is deliberately NOT `SA_SURFACE_ROLES`, which this page used to key
+ * `canClose` on. That was a correct mirror until U3a and is now a narrower set,
+ * so keeping it would tell `procurement` to "แจ้ง SA ให้ปิดวันใหม่" about a day it
+ * may close itself — the affordance-then-refuse defect running backwards.
+ *
+ * Members coincide with MUSTER_REOPEN_ROLES today; the MEANINGS differ ("who may
+ * un-finalise" vs "who may finalise, which books the day's wages"), so they stay
+ * separate per the role doctrine. The relationship the loop copy depends on —
+ * every reopener can also close — is pinned by attendance-day-correction.test.tsx
+ * rather than assumed, so a later narrowing of either reds instead of silently
+ * stranding the reader mid-loop.
+ */
+export const MUSTER_CLOSE_ROLES: ReadonlyArray<UserRole> = [
+  // Spec 400 U6c — the audit audience PLUS site_admin (the cockpit role). Mirrors
+  // the live allowlist of close_muster_day (migration 20260813075919).
+  //
+  // ⚖️ Closing DERIVES WAGES (close_muster_day → derive_muster_labor_internal →
+  // labor_logs → GL), so this is the money step, and the widening hands it to
+  // SEVEN REAL USERS who could not book a muster day's wages before: accounting 3,
+  // project_director 3, project_manager 1 (the last scoped to its own projects).
+  // It also reaches hr and project_coordinator, which have ZERO users today.
+  // Taken deliberately: one rule ("the audit audience may correct") is
+  // maintainable and a subset with two unexplained holes is not. Narrowing is one
+  // line here plus one per RPC.
+  "accounting",
+  "hr",
+  "project_director",
+  "project_coordinator",
+  "procurement_manager",
+  "procurement",
+  "super_admin",
+  "project_manager",
+  "site_admin",
+];
+
+/**
+ * Spec 400 U4/U3c — who may CORRECT a session's recorded times, and so who may
+ * add a person the muster missed (`muster_correct_session`, migration
+ * 20260813075915) and read a day's teams to add them to
+ * (`list_muster_teams_for_day`, 20260813075916).
+ *
+ * Mirrors those RPCs' shared allowlist verbatim, read from the LIVE functions
+ * 2026-08-06. The RPC is the real boundary; this set exists so the affordance and
+ * the copy around it never promise what the server refuses.
+ *
+ * ⚠️ **This is the one muster set WITHOUT `site_admin`, and that is deliberate,
+ * not an omission.** She holds `muster_scan_in`, `muster_scan_out` and the whole
+ * cockpit — but every surface that reaches a PAST day is gated on
+ * `ATTENDANCE_AUDIT_ROLES`, which has no `site_admin`, so granting her the
+ * correction would be privilege with no door. The same ruling narrowed
+ * `muster_scan_out` so it can no longer stamp `now()` onto an old session.
+ *
+ * It is a SUBSET of MUSTER_REOPEN_ROLES, and the "closed day → เปิดวันก่อน" copy
+ * depends on that: a reader told to reopen must be able to. Pinned over the
+ * exhaustive role domain by attendance-add-person.test.tsx rather than assumed.
+ */
+export const MUSTER_CORRECT_ROLES: ReadonlyArray<UserRole> = [
+  // Spec 400 U6c — now EXACTLY ATTENDANCE_AUDIT_ROLES: "if you can see the hole,
+  // you can fix it". Operator, 2026-08-07: "let's enable them first, we trust the
+  // current team. we can limit access in the future."
+  //
+  // Kept as its own export rather than aliased to that constant: the two MEAN
+  // different things (who may READ the report vs who may WRITE the muster) and may
+  // diverge again the moment the operator narrows this, which they explicitly
+  // reserved. The equality is PINNED by a test rather than assumed — U2's rule for
+  // two role sets that happen to coincide.
+  //
+  // Mirrors the live allowlist of muster_correct_session + list_muster_teams_for_day
+  // (migration 20260813075919).
+  "accounting",
+  "hr",
+  "project_director",
+  "project_coordinator",
+  "procurement_manager",
+  "procurement",
+  "super_admin",
+  "project_manager",
 ];
 
 /**

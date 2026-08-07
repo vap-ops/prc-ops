@@ -60,13 +60,28 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
   // crews, it simply must not turn a firm-paid worker's attendance into a PRC
   // wage. Its own assertion (contractor_id is null) lives below.
   const DERIVE_FN = "derive_muster_labor";
+  // Spec 400 U3a split the derive into a GATED public entry point and an
+  // unexported mechanism, so procurement's re-close could derive wages without
+  // procurement gaining the labour engine's authority. The money wall went WITH
+  // THE MECHANISM — which is correct, and which silently moved it out of this
+  // guard's reach: the wall is still enforced, but `derive_muster_labor`'s last
+  // definition is now a wrapper that contains no `contractor_id` arm at all.
+  // This guard caught that on the first full run, which is exactly its job.
+  //
+  // ⚠️ The pin therefore follows the WRITER, not the name. Whichever function
+  // holds the `insert into public.labor_logs` is the one that must carry the wall
+  // — see the delegation assertion below, which is what stops a future edit from
+  // re-inlining a wall-less body back into the public wrapper and leaving both
+  // pins green. (Matching is on `function public.<name>(` including the paren, so
+  // DERIVE_FN does not accidentally resolve to this longer name.)
+  const DERIVE_INTERNAL_FN = "derive_muster_labor_internal";
   // Spec 306 — the MANUAL twin of the derive, and the other direct labor_logs
   // writer. It carried no contractor guard at all until 075885: spec 328 U3
   // filtered the picker, so the wall existed only in the UI and any caller of
   // the RPC walked straight through it. Same reason as the derive for living
   // outside WALLED_FNS — the crew-specific phrase does not describe it.
   const MANUAL_FN = "log_labor_day";
-  const WANTED = [...WALLED_FNS, DERIVE_FN, MANUAL_FN];
+  const WANTED = [...WALLED_FNS, DERIVE_FN, DERIVE_INTERNAL_FN, MANUAL_FN];
 
   // Extract the CREATE ... FUNCTION body starting at `start`. A migration
   // re-emitted from `pg_get_functiondef` closes with `$function$`; a
@@ -125,10 +140,24 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
     expect(body).toMatch(/pay-exempt and cannot (join|lead) a crew/);
   });
 
-  it("the LAST definition of derive_muster_labor carries the money wall", () => {
+  it("the LAST definition of derive_muster_labor_internal carries the money wall", () => {
+    const body = lastDefinition.get(DERIVE_INTERNAL_FN) ?? "";
+    expect(body, `${DERIVE_INTERNAL_FN} has no definition in ${MIGRATIONS}`).not.toBe("");
+    expect(body).toContain("v_worker.contractor_id is null");
+  });
+
+  // The wall lives with the writer, so this asserts the writer has not MOVED BACK.
+  // Without it, re-inlining the mechanism into the public wrapper (dropping the
+  // contractor arm on the way) leaves the assertion above pinned to a stale
+  // `_internal` definition that nothing calls — green over the exact regression
+  // the whole block exists to catch.
+  it("derive_muster_labor delegates and does not itself write labor_logs", () => {
     const body = lastDefinition.get(DERIVE_FN) ?? "";
     expect(body, `derive_muster_labor has no definition in ${MIGRATIONS}`).not.toBe("");
-    expect(body).toContain("v_worker.contractor_id is null");
+    expect(body).toContain("derive_muster_labor_internal");
+    // If this ever fails, the wrapper became a writer again and must carry the
+    // wall itself — restore `v_worker.contractor_id is null` to it, or re-delegate.
+    expect(body).not.toMatch(/insert\s+into\s+public\.labor_logs/i);
   });
 
   // Spec 306 — the manual writer reaches the same table, so it needs the same
