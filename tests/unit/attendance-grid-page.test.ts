@@ -11,7 +11,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ATTENDANCE_AUDIT_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
+import {
+  ATTENDANCE_AUDIT_ROLES,
+  MUSTER_CORRECT_ROLES,
+  WORKER_ROSTER_ROLES,
+} from "@/lib/auth/role-home";
 import { ADD_ERROR_COPY } from "@/lib/muster/outcome-copy";
 
 const PAGE = join(process.cwd(), "src/app/team/attendance/page.tsx");
@@ -424,5 +428,54 @@ describe("/team/attendance page — spec 400 U3c-b wiring", () => {
     expect(panel).toContain("addTeams={addTeams}");
     expect(panel).toContain("addWorkers={addCandidates}");
     expect(panel).toContain("addOutcome={addOutcome}");
+  });
+
+  // ── Spec 400 U6b — the doors into the fix screen ───────────────────────────
+  //
+  // Writing failing test first. These live at the PAGE because the page is where
+  // the role gate and the project-resolution are decided; a component test can
+  // render a linked grid all day without proving that the ROLE which gets the
+  // links is the one the RPC accepts.
+
+  it("gates the cell links on MUSTER_CORRECT_ROLES, the set the RPC accepts", () => {
+    const view = code.slice(code.indexOf("<AttendanceGridView"));
+    const block = view.slice(0, view.indexOf("/>"));
+    expect(block).toContain("cellFixHref");
+    // The gate must be the correction audience, NOT this page's own wider gate.
+    // ATTENDANCE_AUDIT_ROLES includes project_manager and project_director, whom
+    // muster_correct_session refuses with 42501.
+    expect(block).toMatch(/cellFixHref=\{canCorrect \?/);
+    expect(block).not.toContain("cellFixHref={canCorrectDay");
+  });
+
+  it("only offers GAP links when a project is actually picked", () => {
+    // With no session there is nothing for the fix page to infer a project from,
+    // so a gap link without one lands on a page that offers a sentence.
+    const view = code.slice(code.indexOf("<AttendanceGridView"));
+    const block = view.slice(0, view.indexOf("/>"));
+    expect(block).toMatch(/canFixGaps=\{[^}]*range\.projectId/);
+  });
+
+  it("builds the fix href through fixHref, not a hand-rolled query string", () => {
+    // One builder, shared with the panel and the calendar: three copies of
+    // `new URLSearchParams` in three files is how a param contract drifts.
+    expect(occurrences("fixHref")).toBeGreaterThanOrEqual(2);
+  });
+
+  it("threads the reader's own URL as the fix screen's back referrer", () => {
+    const slice = code.slice(code.indexOf("const cellFixHref"));
+    const decl = slice.slice(0, slice.indexOf("\n  //") + 1 || 400);
+    expect(decl).toContain("backHref");
+  });
+
+  it("asserts the correction audience is a strict SUBSET of this page's own gate", () => {
+    // Not decoration: if a role could ever hold MUSTER_CORRECT_ROLES without
+    // ATTENDANCE_AUDIT_ROLES it would be handed a link on a page it cannot open,
+    // and the subset is what makes "narrower" the right word everywhere above.
+    for (const role of MUSTER_CORRECT_ROLES) {
+      expect(ATTENDANCE_AUDIT_ROLES, `${role} must be able to open this page`).toContain(role);
+    }
+    // …and genuinely narrower, or the whole gate is theatre.
+    expect(MUSTER_CORRECT_ROLES.length).toBeLessThan(ATTENDANCE_AUDIT_ROLES.length);
   });
 });
