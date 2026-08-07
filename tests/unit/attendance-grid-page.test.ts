@@ -468,15 +468,23 @@ describe("/team/attendance page — spec 400 U3c-b wiring", () => {
     expect(decl).toContain("backHref");
   });
 
-  it("asserts the correction audience is a strict SUBSET of this page's own gate", () => {
-    // Not decoration: if a role could ever hold MUSTER_CORRECT_ROLES without
-    // ATTENDANCE_AUDIT_ROLES it would be handed a link on a page it cannot open,
-    // and the subset is what makes "narrower" the right word everywhere above.
+  it("asserts the correction audience is a SUBSET of this page's own gate", () => {
+    // The load-bearing half, unchanged: if a role could ever hold
+    // MUSTER_CORRECT_ROLES without ATTENDANCE_AUDIT_ROLES it would be handed a link
+    // to a page it cannot open.
     for (const role of MUSTER_CORRECT_ROLES) {
       expect(ATTENDANCE_AUDIT_ROLES, `${role} must be able to open this page`).toContain(role);
     }
-    // …and genuinely narrower, or the whole gate is theatre.
-    expect(MUSTER_CORRECT_ROLES.length).toBeLessThan(ATTENDANCE_AUDIT_ROLES.length);
+  });
+
+  it("is EQUAL to this page's gate since U6c — every reader may now correct", () => {
+    // ⚠️ This replaces a `toBeLessThan` assertion added by U6b one unit ago ("…and
+    // genuinely narrower, or the whole gate is theatre"). U6c made the two sets
+    // identical on the operator's instruction, so strict-narrowness is no longer
+    // true — and asserting the EQUALITY is what keeps the pair honest now: the U6b
+    // code still withholds links from `cellFixHref === null`, and if the sets ever
+    // diverge again that branch becomes reachable and this test says so.
+    expect([...MUSTER_CORRECT_ROLES].sort()).toEqual([...ATTENDANCE_AUDIT_ROLES].sort());
   });
 });
 

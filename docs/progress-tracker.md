@@ -6,6 +6,63 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 400 U6c — the correction audience becomes the audit audience (2026-08-07)
+
+**Status:** shipped. SCHEMA — migration `20260813075919`, six `create or replace`
+RPCs. 🔒 danger path (migration + `src/lib/auth/`).
+
+Operator, on U6b's report that five roles keep the facts and lose the link:
+_"let's enable them first, we trust the current team. we can limit access in the
+future."_ So `MUSTER_CORRECT_ROLES` == `ATTENDANCE_AUDIT_ROLES` — if you can see the
+hole, you can fix it.
+
+**The allowlist was one third of the work.** Two other predicates had to move, and
+neither was in the plan:
+
+- **Scoping.** `can_see_project` is `else false` for accounting and hr, so widening
+  the allowlist alone would have handed them a link and then a 42501. The new arm
+  mirrors the READ side verbatim (the seven roles `audit_attendance_summary` treats
+  as cross-project). `project_manager` and `site_admin` stay scoped by membership —
+  a rewrite phrased as "everyone except project_manager" would have made the FIELD
+  role cross-project.
+- **`muster_scan_in`'s arm split.** `v_role = 'procurement'` selects the CORRECTION
+  arm (regular-only, open-days-only behind derive's advisory key, and the
+  `muster_correction_scan_in` audit row). Widening the allowlist without extending it
+  would have routed every new role down the SA cockpit arm: free to create OT, free
+  to write into a closed day, and invisible to the correction trail — more power and
+  less accountability than the role being copied.
+
+⚖️ Closing derives wages, so this hands the money step to **seven real users**
+(accounting 3, project_director 3, project_manager 1) plus hr and
+project_coordinator, which have zero users. Deliberate; narrowing is one line per
+RPC.
+
+🚨 **The 🔴 the review caught, and it is this unit's own defect class.** The fix
+screen's first read was a session-client `workers` select justified by a comment
+ENUMERATING the old audience. `workers` excludes accounting/hr/project_coordinator,
+so they passed the gate, read zero rows with `error === null`, and were told
+`ไม่พบช่างคนนี้` — the worker does not exist — about a worker whose name the audit RPC
+had just shown them. Moved to a narrow admin read. ⭐ **A comment that justifies a
+read by naming the audience becomes false the moment the audience widens.**
+
+**Gates.** pgTAP **363/363 files, 7690 assertions, 0 failures** (new
+`400c-correction-audience.test.sql` drives every newly-admitted role behaviourally
+over the exhaustive domain) · vitest **920 / 7867** · typecheck 0 · lint 0 · build 0 ·
+Gate 4: accounting **0 → 60** fix links on the same grid, day panel gained the
+close/reopen form, and a REAL accounting user drove `list_muster_teams_for_day` live
+to 4 teams where it previously raised 42501.
+
+Six pre-existing assertions re-pointed, not deleted; two had their message corrected
+because the verdict survived while the reason moved a layer down.
+
+**Open questions / owed.** A no-session worker-day shows accounting/hr the date
+without the project name (`projects` is `can_see_project`) — a label, not a false
+claim · `parseFixParams` validates `?project=` for shape only, so a PM with a stale
+non-member project id turns the teams RPC's 42501 into a 500 · the two role sets are
+now equal, so U6b's withholding branches are unreachable but kept and pinned.
+
+---
+
 ## Spec 400 U6b — the three doors + the unfinished-day banner (2026-08-07)
 
 **Status:** shipped. Code + tests + docs only, no schema, no new RPC, no new

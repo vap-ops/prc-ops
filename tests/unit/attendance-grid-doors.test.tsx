@@ -125,10 +125,12 @@ describe("grid cells as fix-screen doors", () => {
   });
 
   it("renders NO fix link at all for a role without the correction capability", () => {
-    // MUSTER_CORRECT_ROLES only. ATTENDANCE_AUDIT_ROLES is wider — project_manager
-    // and project_director read this grid and every correction RPC refuses them
-    // with 42501, so a link would be affordance-then-refuse (the defect U3a
-    // already paid for). `null` withholds the LINK, never the facts.
+    // `null` withholds the LINK, never the facts.
+    // ⚠️ Spec 400 U6c made MUSTER_CORRECT_ROLES equal to ATTENDANCE_AUDIT_ROLES, so
+    // no live role is withheld today — this drives the prop directly, which is what
+    // keeps the branch covered against the narrowing the operator reserved. Until
+    // then project_manager and project_director were refused by every correction
+    // RPC with 42501 and a link would have been affordance-then-refuse.
     renderGrid({ rows: [row({ outAt: null, outTime: null })] }, { cellFixHref: null });
     expect(fixLinks()).toHaveLength(0);
   });

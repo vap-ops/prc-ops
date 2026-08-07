@@ -206,11 +206,17 @@ reset role;
 update public.users set role = 'accounting' where id = '70000000-0402-0402-0402-0000000000fe';
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0402-0402-0402-0000000000fe"}';
-select throws_ok(
+-- ⚠️ INVERTED by spec 400 U6c, not deleted. This assertion existed to record that
+-- reading the report and editing the muster were two different audiences; the
+-- operator closed that gap on 2026-08-07 ("let's enable them first, we trust the
+-- current team"), so ATTENDANCE_AUDIT_ROLES is now the audience for this RPC too.
+-- It survives as the POSITIVE control — the same claim the other way round, and the
+-- one the U6b add-person picker depends on. It is also cross-project proof:
+-- can_see_project is `else false` for accounting and this probe holds no membership.
+select lives_ok(
   $$select * from public.list_muster_teams_for_day(
       'a1000000-0402-0402-0402-000000000001'::uuid, '2026-07-20'::date)$$,
-  '42501', 'list_muster_teams_for_day: role not permitted',
-  'accounting is in ATTENDANCE_AUDIT_ROLES and may READ the report — but not this');
+  'accounting MAY list the day''s teams since U6c — cross-project, no membership');
 reset role;
 
 update public.users set role = 'technician' where id = '70000000-0402-0402-0402-0000000000fe';
@@ -248,12 +254,22 @@ select is(
       and pg_get_functiondef(p.oid) like '%can_see_project%'),
   1,
   'the body still consults can_see_project — the gate is not the whole story');
+-- ⚠️ RE-POINTED by spec 400 U6c. This pinned the arm as literally
+-- `<> 'procurement'`, which the widening replaced with the READ side's own tiering.
+-- The property worth pinning was never the literal — it was that the bypass is a
+-- NAMED LIST and not a blanket one, so the check now asserts the two roles that
+-- must still fall through to can_see_project.
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'list_muster_teams_for_day'
-      and pg_get_functiondef(p.oid) like '%<> ''procurement''%'),
+      and pg_get_functiondef(p.oid) ~ 'v_role in \(''accounting'''
+      -- project_manager and site_admin must NOT be in the cross-project list: a
+      -- rewrite phrased as "everyone except project_manager" would have made the
+      -- FIELD role cross-project, which is the regression this guards.
+      and pg_get_functiondef(p.oid) !~ 'v_role in \([^)]*''site_admin'''
+      and pg_get_functiondef(p.oid) !~ 'v_role in \([^)]*''project_manager'''),
   1,
-  'and the cross-project arm is procurement-specific, not a blanket bypass');
+  'the cross-project arm is a NAMED list — project_manager and site_admin stay scoped');
 
 -- A project the caller cannot see returns a REFUSAL, not an empty list: an empty
 -- list would read as "that day had no teams", which is a different fact and the

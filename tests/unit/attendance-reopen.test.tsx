@@ -62,18 +62,32 @@ function row(over: Partial<AttendanceDetailRow> = {}): AttendanceDetailRow {
 const TODAY = "2026-08-05";
 
 describe("spec 397 U3 — who may reopen", () => {
-  it("is exactly the roles that may CLOSE, plus procurement", () => {
+  it("is exactly the audit audience plus site_admin (U6c)", () => {
     const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
     expect(all.filter((r) => MUSTER_REOPEN_ROLES.includes(r)).sort()).toEqual(
-      ["procurement", "procurement_manager", "site_admin", "super_admin"].sort(),
+      // Spec 400 U6c: the audit audience plus site_admin (the cockpit role).
+      [
+        "accounting",
+        "hr",
+        "procurement",
+        "procurement_manager",
+        "project_coordinator",
+        "project_director",
+        "project_manager",
+        "site_admin",
+        "super_admin",
+      ].sort(),
     );
   });
 
-  it("excludes the roles that only READ the report", () => {
-    // accounting/hr audit attendance and must never edit the muster; a PM cannot
-    // close a day either, so it cannot un-close one.
+  it("INCLUDES the roles that read the report — U6c closed that gap", () => {
+    // ⚠️ INVERTED, not deleted. This asserted that accounting/hr/PM/PD "audit
+    // attendance and must never edit the muster". The operator reversed exactly
+    // that on 2026-08-07 ("let's enable them first, we trust the current team"),
+    // so reading and correcting are one audience now. Kept as the positive claim
+    // because it is the one the U6b doors depend on.
     for (const role of ["accounting", "hr", "project_manager", "project_director"] as const) {
-      expect(MUSTER_REOPEN_ROLES).not.toContain(role);
+      expect(MUSTER_REOPEN_ROLES).toContain(role);
     }
   });
 });

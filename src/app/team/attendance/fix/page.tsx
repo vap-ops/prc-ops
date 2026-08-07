@@ -107,15 +107,25 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
   const supabase = await createServerClient();
   const admin = createAdminClient();
 
-  // The worker's own name. "workers" "readable by staff" is ROLE-only and
-  // covers every MUSTER_CORRECT_ROLES member (procurement, procurement_manager,
-  // super_admin — verified live), so the session client is enough.
-  // ⚠️ The `error` is read, not discarded. `data === null` renders "ไม่พบช่างคนนี้"
-  // — a factual claim that this worker does not exist — and a FAILED read is
-  // indistinguishable from a genuinely missing row if only `data` is checked.
-  // Making that claim about a worker who does exist is the honest-copy defect;
-  // throwing surfaces the real failure instead.
-  const { data: workerRow, error: workerError } = await supabase
+  // The worker's own name, through a NARROW ADMIN read.
+  //
+  // ⚠️ This was a SESSION-client read until spec 400 U6c, justified by a comment
+  // that enumerated the audience: "covers every MUSTER_CORRECT_ROLES member
+  // (procurement, procurement_manager, super_admin — verified live)". U6c widened
+  // that set to ATTENDANCE_AUDIT_ROLES, and `workers` "readable by staff" is
+  // role-only over {site_admin, project_manager, procurement, procurement_manager,
+  // super_admin, project_director} — so accounting, hr and project_coordinator now
+  // pass the page gate and then read ZERO rows with `error === null`. That renders
+  // "ไม่พบช่างคนนี้", a factual claim that the worker does not exist, about a worker
+  // whose name the audit RPC just showed them on the grid they clicked from: the
+  // affordance-then-refuse AND honest-copy defects at once, in the unit built to
+  // remove one. (Same constraint /team/attendance already states for its roster.)
+  //
+  // No new exposure: `audit_attendance_detail` — gated on this same audience —
+  // already returns `workerName` for every session it discloses, so this reads one
+  // column of one row this reader is already entitled to see by name. Scoped to
+  // exactly this worker id, matching the closure and team lookups below.
+  const { data: workerRow, error: workerError } = await admin
     .from("workers")
     .select("id, name")
     .eq("id", workerId)
@@ -134,9 +144,17 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
   // A no-session worker-day carries no session to read the project's NAME off
   // of, even though `?project=` already gave us its id — the header would
   // otherwise show the date alone where every session-bearing render shows
-  // "date · project". `projects` SELECT already admits procurement/
-  // procurement_manager directly (verified live, documented on the day-panel
-  // page above this one), so this is a session-client read, not an admin one.
+  // "date · project". `projects` SELECT admits procurement/procurement_manager
+  // directly and everyone else through `can_see_project`.
+  //
+  // ⚠️ Deliberately left a SESSION-client read after spec 400 U6c widened the
+  // audience: `can_see_project` is `else false` for accounting and hr, so on a
+  // worker-day with NO session those two see the date without the project name.
+  // That degrades a label, it does not make a false claim or withhold a control —
+  // unlike the worker read above, which asserted the worker did not exist and had
+  // to move to the admin seam. Widening this one would mean reading a project row
+  // for a reader the RLS deliberately keeps out of `projects`, to win a decoration.
+  // Recorded in the spec as owed rather than fixed silently.
   const projectNameFromSession =
     sessions.length === 0 && projectId !== null
       ? ((await supabase.from("projects").select("name").eq("id", projectId).maybeSingle()).data

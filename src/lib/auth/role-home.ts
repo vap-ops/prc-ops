@@ -437,10 +437,18 @@ export const ATTENDANCE_AUDIT_ROLES: ReadonlyArray<UserRole> = [
  * refuses. Pinned over the exhaustive role domain by attendance-reopen.test.tsx.
  */
 export const MUSTER_REOPEN_ROLES: ReadonlyArray<UserRole> = [
-  "site_admin",
-  "super_admin",
+  // Spec 400 U6c — the audit audience PLUS site_admin, which runs the muster
+  // cockpit and is deliberately NOT in ATTENDANCE_AUDIT_ROLES. Mirrors the live
+  // allowlist of reopen_muster_day (migration 20260813075919).
+  "accounting",
+  "hr",
+  "project_director",
+  "project_coordinator",
   "procurement_manager",
   "procurement",
+  "super_admin",
+  "project_manager",
+  "site_admin",
 ];
 
 /**
@@ -465,10 +473,26 @@ export const MUSTER_REOPEN_ROLES: ReadonlyArray<UserRole> = [
  * stranding the reader mid-loop.
  */
 export const MUSTER_CLOSE_ROLES: ReadonlyArray<UserRole> = [
-  "site_admin",
-  "super_admin",
+  // Spec 400 U6c — the audit audience PLUS site_admin (the cockpit role). Mirrors
+  // the live allowlist of close_muster_day (migration 20260813075919).
+  //
+  // ⚖️ Closing DERIVES WAGES (close_muster_day → derive_muster_labor_internal →
+  // labor_logs → GL), so this is the money step, and the widening hands it to
+  // SEVEN REAL USERS who could not book a muster day's wages before: accounting 3,
+  // project_director 3, project_manager 1 (the last scoped to its own projects).
+  // It also reaches hr and project_coordinator, which have ZERO users today.
+  // Taken deliberately: one rule ("the audit audience may correct") is
+  // maintainable and a subset with two unexplained holes is not. Narrowing is one
+  // line here plus one per RPC.
+  "accounting",
+  "hr",
+  "project_director",
+  "project_coordinator",
   "procurement_manager",
   "procurement",
+  "super_admin",
+  "project_manager",
+  "site_admin",
 ];
 
 /**
@@ -493,9 +517,26 @@ export const MUSTER_CLOSE_ROLES: ReadonlyArray<UserRole> = [
  * exhaustive role domain by attendance-add-person.test.tsx rather than assumed.
  */
 export const MUSTER_CORRECT_ROLES: ReadonlyArray<UserRole> = [
-  "super_admin",
+  // Spec 400 U6c — now EXACTLY ATTENDANCE_AUDIT_ROLES: "if you can see the hole,
+  // you can fix it". Operator, 2026-08-07: "let's enable them first, we trust the
+  // current team. we can limit access in the future."
+  //
+  // Kept as its own export rather than aliased to that constant: the two MEAN
+  // different things (who may READ the report vs who may WRITE the muster) and may
+  // diverge again the moment the operator narrows this, which they explicitly
+  // reserved. The equality is PINNED by a test rather than assumed — U2's rule for
+  // two role sets that happen to coincide.
+  //
+  // Mirrors the live allowlist of muster_correct_session + list_muster_teams_for_day
+  // (migration 20260813075919).
+  "accounting",
+  "hr",
+  "project_director",
+  "project_coordinator",
   "procurement_manager",
   "procurement",
+  "super_admin",
+  "project_manager",
 ];
 
 /**

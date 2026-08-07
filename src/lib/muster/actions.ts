@@ -4,7 +4,14 @@
 // RPCs (open_muster_team / muster_scan_in / muster_scan_out / set_muster_team_wps)
 // are SECURITY DEFINER, gate on current_user_role() ∈ (site_admin, super_admin,
 // procurement_manager — spec 348 SA-parity) +
-// can_see_project, and enforce the one-team-per-(worker,date) rule. Actions
+// can_see_project, and enforce the one-team-per-(worker,date) rule.
+// ⚠️ `muster_scan_in` OUTGREW that sentence in spec 400 U6c: it now names nine
+// roles and BYPASSES can_see_project for the seven cross-project office ones, and
+// it has two arms (the cockpit arm for site_admin/super_admin/procurement_manager,
+// a bounded+audited correction arm for the rest). Not exploitable from this file —
+// every action here is `getActionUser()`-only and the cockpit page is gated on
+// SA_SURFACE_ROLES, so this bundle is unreachable for the new roles — but do not
+// reason about a signed-in-only write path from the sentence above. Actions
 // validate shape, relay to the RPC, and map its errors to Thai for the SA.
 
 import "server-only";
