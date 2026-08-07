@@ -13624,6 +13624,139 @@ path WITHOUT its query string (all 93 rows in 30 days read exactly `/team/attend
 are NOT measurable and the spec's acceptance says so rather than inventing a query. ③ The CSV export still
 writes no audit row (spec 397's recorded item), so an export is invisible to this trail by construction.
 
+---
+
+## 2026-08-07 — spec 403 U1: the DOB sanity gate (lane dobgate)
+
+**Status:** built. Migration `20260813075918` applied; pgTAP `403-dob-sanity.test.sql` 27/27;
+full pgTAP 362 files / 7,643 assertions / 0 failures.
+
+**Ask.** Operator, on a screenshot of `/contacts/bank-changes`: _"dob is often wrong year, how
+about verifying child labor to prevent that?"_ Ruling: **hard block under 15**; on a follow-up,
+**keep the 120-year ceiling**.
+
+**What was measured, before any code.** Two live wrong-year classes, neither rejected anywhere:
+a Buddhist-era year typed into a CE field (`วีระชัย เส็งนา` = `2513-03-11` in BOTH `workers` and
+`staff_registrations` — 487 years in the future) and the date picker's own submit date (a pending
+identity request at `2026-07-15`, age 0 — the row in the screenshot). `submit_identity_change`
+runs a mod-11 checksum on the national ID and nothing at all on the DOB. 1 of 47 `type="date"`
+inputs in `src/` carries a `max`.
+
+**The refutation that mattered.** The first draft of the spec claimed an age was "unconstrained in
+both directions". A refute-first fact-check against the live DB proved that **false for half the
+surface**: `sa_add_project_worker`, `sa_add_project_worker_with_bank` and `crew_lead_add_member`
+already floor at **18**, with pgTAP pins. U1 therefore does not touch them — the operator's "15"
+answered _what floor the new gate should use_, at a moment when nobody knew an 18 floor existed,
+and relaxing a shipped 18 is a different decision. Left as an open operator question.
+
+**The finding that chose the design.** The same fact-check found a **seventh, non-RPC write path**:
+`authenticated` holds column-level INSERT _and_ UPDATE on `contractors.date_of_birth` with
+permissive RLS, and `service_role` bypasses RLS entirely. A per-RPC `perform` would have had to be
+reproduced in six function bodies **and would still not have closed this**. So the gate is a
+`before insert or update` trigger per table over a pure `dob_rejection_reason(date)` SSOT. A CHECK
+constraint cannot do it — the rule depends on `current_date`, which is not immutable.
+
+**Decisions worth keeping.** ① The reason function returns **the reason**, not a boolean, so every
+caller can name the actual cause instead of refusing generically. ② The Buddhist-era arm is tested
+**before** the future arm — `2513-03-11` satisfies both, and "the future" is true, useless, and
+never teaches the user to subtract 543; `year > 2400` is exact (one row in the whole database
+exceeds it, and it is the known mis-entry). ③ An UPDATE that does not **change** the DOB is not
+validated, so the legacy bad row stays editable for every other reason — the gate is deliberately
+not retroactive.
+
+**Gates.** RED first for the right reason (`function "public.dob_rejection_reason(date)" does not
+exist`) with the rest of the suite green in the same run. `plan(27)` derived by grep, never
+counted. Both boundaries pinned in both directions (exactly 15 and exactly 120 accepted, one day
+either side refused). Five triggers mutated **separately** — a whole-set mutation cannot tell
+"gated" from "gated in one place". Objects verified live after `db:push`, not from the push's own
+success message. `db:types` regenerated with live == main + this migration only (diff is one
+line).
+
+**Verified, not assumed:** no existing pgTAP goes red (every DOB literal in the eight affected
+test files is a legitimate adult date; the `2015-01-01` cases already expect `P0001`), and no
+downstream consumer breaks — `date_of_birth` appears in three non-generated app modules plus five
+display-only surfaces, and nothing in `worker/` or `scripts/` reads it.
+
+**Open questions.** ① Leave the 15/18 asymmetry or raise everything to 18 — operator's call.
+② `update_own_staff_registration` is **coalesce-keep** (blank = keep, never clears), so U2 must not
+offer to clear a DOB; clearing needs an RPC semantics change that is not scoped. ③ U3's age
+renderer needs its own guard: `formatThaiDate` adds 543 to an already-BE year, so the `2513` row
+displays `11 มี.ค. 3056` and a naive age would read `อายุ -1030 ปี`. ④ The operator's ask #1 —
+identity changes are approved against zero evidence (no photo column, no upload, 1 of 4 pending
+requesters has an `id_card` anywhere) — is recorded in the spec §8 and needs its own spec.
+
+**⚠️ Gate 4 refuted this unit's own first build, and the correction is the interesting part.**
+The first version covered `decide_identity_change` only by side effect — the triggers on
+`workers`/`staff_registrations`/`contractors` would fire when the approve wrote them. Driven for
+real as a live trio member against the live age-0 request, **the approve SUCCEEDED**: all three of
+that RPC's writes are `where`-scoped to the requester's linked records, and three of the four
+pending requests have none of them (zero worker rows, zero approved registrations, zero contractor
+links). Nothing was updated, no trigger fired, nothing was raised, and the request was marked
+approved. Fixed by giving the `identity_change_requests` trigger an optional second argument that
+also validates the transition to `approved` — **a proposal has to be checked where it is APPLIED,
+not only where it lands**. The pgTAP for it was written RED first and failed on exactly that
+assertion; a sixth mutant removes only that argument and the approve probe survives.
+
+⭐ **The wider finding, out of scope and worth its own spec:** for those three requesters,
+approving changes **nothing at all** — including the two proposals that are perfectly valid. The
+trio approves, the update lands on zero rows, nobody is told. Silent-success class again.
+
+⚠️ **Two instrument traps, both caught by controls rather than by reading the code.** ① The first
+Gate 4 run returned `42501 not authenticated` for every case, because `SET LOCAL` inside a helper
+function reverts when that function exits — the impersonation never happened, and only the control
+("a valid DOB from the same principal must be ACCEPTED") distinguished that from a working gate.
+② The new approve assertions first died on `42501 permission denied for table _tap_buf` — the
+documented role-switch trap; the runner's collector table needs explicit grants before a
+`set local role`.
+
+**Replay, not a hand-patch.** The applying arm arrived after `075918` had already been pushed, and
+editing an applied migration silently no-ops. The file was made replayable (`drop trigger if
+exists` before each create) and re-run end-to-end with `db query -f`, so the committed file is
+byte-for-byte what the live schema was built from — which matters because pgTAP asserts against
+the live objects, not the file.
+
+**Gate 5 (fresh-eyes) returned ten findings; nine were taken.** The four that changed behaviour:
+
+1. **Timezone (MEDIUM).** The gate reasoned in `current_date` while the server runs in **UTC**, so
+   between 00:00 and 07:00 Bangkok it is a day behind — a person submitting on their real 15th
+   birthday would have been refused as under-age, and today's Bangkok date would have been named
+   "in the future" rather than "under minimum age" (the wrong cause, in a design whose whole point
+   is naming the right one). It also silently disagreed with the three shipped 18-floor RPCs,
+   which all use `(now() at time zone 'Asia/Bangkok')::date` — the spec quoted that line and then
+   did not adopt it. Now `public.dob_today()`, pinned by an assertion.
+2. **A `ShareRowExclusiveLock` on a hot table, in CI, against production (MEDIUM).** The test
+   planted its legacy row with `alter table … disable trigger`, which takes that lock — and the
+   runner wraps **twenty files in one transaction**, so the lock would have been held long after
+   this file's own rollback (a subtransaction transfers locks to the parent, it does not release
+   them). Every live INSERT/UPDATE on `workers` would have blocked for the rest of the chunk. Now
+   `set local session_replication_role`, which takes no table lock.
+3. **A mistyped `TG_ARGV[0]` was a silent no-op (MEDIUM).** `->>` returns NULL for an absent key
+   and a NULL DOB is acceptable, so a typo'd column name left the trigger installed and guarding
+   nothing — and three of the five tables had only a `has_trigger` pin, which asserts the trigger's
+   NAME and nothing about its argument. The trigger now fails loudly on an absent column, proved
+   by a temp-table probe, and `contractors` gained a behavioural assertion.
+4. **`throws_ok(…, 'P0001', null, …)` let arms pass for each other's reason (LOW, but fake
+   coverage).** Deleting the Buddhist-era arm left "a Buddhist-era year cannot be inserted"
+   **green**, because the value fell through to the future arm and still raised `P0001`. Every
+   `throws_ok` now pins the message.
+
+Also taken: `isfinite` (an infinite date was reported as a Buddhist-era year), five `col_type_is`
+pins (the trigger's `to_jsonb(new)->>col` read is only safe while all five columns are `date`), and
+three doc corrections — the migration header's "covers every path by construction" is now scoped to
+non-owner roles (the table owner can still disable triggers or set `session_replication_role`, the
+existing break-glass surface), and `approve_staff_registration` only inserts into `workers` under
+its `technician` arm, so the blast-radius claim was too broad.
+
+**One finding was acted on by widening the unit rather than documenting it.** U1 shipping ahead of
+U2 meant every live DOB refusal read "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" — a permanent refusal
+dressed as a transient one, which is exactly the honest-copy rule the repo already carries. Pulled
+`src/lib/profile/dob-refusal.ts` plus its two call sites forward into U1 (RED-first, 9 tests). The
+mapper returns the **fact only and names no actor**: the person correcting their own birthday can
+fix it and is told to; an approver reading someone else's stored proposal cannot, and is told to
+reject and ask for a resubmission. A single shared string would have been false for one of them.
+
+**Final U1 gates:** pgTAP **39/39**, full suite **362 files / 7,655 assertions / 0 failures**.
+
 ## 2026-08-07 — spec 400 U6a: the worker-day fix screen (lane attnfix)
 
 **Status: SHIPPED, code-only.** New route `/team/attendance/fix?worker=&date=&project=&from=` — retime,
