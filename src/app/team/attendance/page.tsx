@@ -531,13 +531,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
 
   // ⚠️ Resolved AFTER the write, never precomputed (§D18): the queue above is
   // built from THIS render's data, which is post-redirect and therefore post-save.
-  const advanceFrom =
-    firstParam(fixNext) === "1"
-      ? attendanceWorkerId(
-          fix,
-          fixRoster.map((r) => r.workerId),
-        )
-      : null;
+  // ⚠️ Validated against every worker the GRID drew, not just the day's session
+  // roster. A GAP cell is a worker with no attendance that day — exactly the case
+  // the panel's add-person arm exists for — and validating against the session
+  // roster refused to open it, silently, while the fix ROUTE opened it fine.
+  // Caught in the browser: 28 cells linked, and the gap ones opened nothing.
+  const gridWorkerIds = grid.rows.map((r) => r.workerId);
+  const advanceFrom = firstParam(fixNext) === "1" ? attendanceWorkerId(fix, gridWorkerIds) : null;
   const advanced =
     advanceFrom !== null ? nextFixTarget({ queue: fixWalk, justSaved: advanceFrom }) : null;
   const fixDone = advanced !== null && "done" in advanced;
@@ -546,10 +546,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
       ? advanced.workerId
       : fixDone
         ? null
-        : attendanceWorkerId(
-            fix,
-            fixRoster.map((r) => r.workerId),
-          );
+        : attendanceWorkerId(fix, gridWorkerIds);
 
   const fixData =
     openDay !== null && openFixWorkerId !== null
@@ -562,6 +559,9 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
           todayIso,
         })
       : null;
+  // 0 when this worker is not in the walk at all (a gap cell has no session), in
+  // which case the panel renders WITHOUT a position line rather than claiming a
+  // place in a queue it is not in.
   const fixPosition = openFixWorkerId
     ? fixWalk.findIndex((r) => r.workerId === openFixWorkerId) + 1
     : 0;
@@ -806,9 +806,15 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                 {openDay !== null && fixData !== null && openFixWorkerId !== null && (
                   <div className={`${CARD} mt-3`}>
                     <div className="border-edge mb-3 flex flex-wrap items-center gap-2 border-b pb-2">
-                      <p className="text-ink-secondary text-xs">
-                        คนที่ {fixPosition} จาก {fixWalk.length} ของวันนี้
-                      </p>
+                      {fixPosition > 0 ? (
+                        <p className="text-ink-secondary text-xs">
+                          คนที่ {fixPosition} จาก {fixWalk.length} ของวันนี้
+                        </p>
+                      ) : (
+                        <p className="text-ink-secondary text-xs">
+                          ยังไม่มีการเช็คชื่อของคนนี้ในวันนี้
+                        </p>
+                      )}
                       <Link
                         href={dayHref(openDay.date)}
                         className="text-action ml-auto flex min-h-11 items-center text-xs underline-offset-2 hover:underline"

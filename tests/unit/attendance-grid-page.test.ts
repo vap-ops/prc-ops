@@ -456,16 +456,29 @@ describe("/team/attendance page — spec 400 U3c-b wiring", () => {
     expect(block).toMatch(/canFixGaps=\{[^}]*range\.projectId/);
   });
 
-  it("builds the fix href through fixHref, not a hand-rolled query string", () => {
-    // One builder, shared with the panel and the calendar: three copies of
-    // `new URLSearchParams` in three files is how a param contract drifts.
-    expect(occurrences("fixHref")).toBeGreaterThanOrEqual(2);
+  // ⚠️ REWRITTEN by spec 400 U7, not deleted. Both pins below asserted that the
+  // grid mints a ROUTE url through `fixHref` and threads a `backHref` for the fix
+  // screen's back chip. That contract is gone on purpose: a cell now opens the
+  // panel on THIS page, so there is no navigation to come back from and no
+  // referrer to thread. What still matters — that the URL is built by one shared
+  // builder rather than three hand-rolled query strings — is pinned on the new
+  // builder instead.
+  it("builds the panel href through ONE builder, not a hand-rolled query string", () => {
+    expect(occurrences("panelFixHref")).toBeGreaterThanOrEqual(4);
+    // The route builder is no longer called from this page at all.
+    expect(code).not.toContain("fixHref({");
   });
 
-  it("threads the reader's own URL as the fix screen's back referrer", () => {
-    const slice = code.slice(code.indexOf("const cellFixHref"));
-    const decl = slice.slice(0, slice.indexOf("\n  //") + 1 || 400);
-    expect(decl).toContain("backHref");
+  it("keeps the reader's range, project and referrer in the panel URL", () => {
+    // The panel replaces a navigation, so the URL it builds IS the reader's own
+    // page state — losing the range here would reload a different report under
+    // them rather than merely losing a back chip.
+    const decl = code.slice(code.indexOf("const panelFixHref"));
+    const body = decl.slice(0, decl.indexOf("};") + 2);
+    expect(body).toContain("start: range.from");
+    expect(body).toContain("end: range.to");
+    expect(body).toContain('q.set("project", range.projectId)');
+    expect(body).toContain('q.set("from", backHref)');
   });
 
   it("asserts the correction audience is a SUBSET of this page's own gate", () => {
@@ -494,10 +507,14 @@ describe("spec 400 U6b — the panel work-list's own referrer", () => {
     // viewHref("grid") — which never carries `day`, so a reader who came from the
     // open ?day= column was returned with the panel CLOSED and the #d-<date>
     // anchor gone, landing at the top of a 42-row table. Found by review.
+    // ⚠️ U7: the row now opens the PANEL on this page, so the defect this test was
+    // written for — coming back with the panel closed and the anchor gone — cannot
+    // occur: there is no navigation away. What is pinned instead is that the row
+    // and the cell go through the SAME builder, which is what carries ?day= and the
+    // #d-<date> anchor.
     const decl = code.slice(code.indexOf("const workItemFixHref"));
-    const body = decl.slice(0, decl.indexOf("});") + 3);
-    expect(body).toContain("backHref: dayHref(date)");
-    expect(body).not.toContain('viewHref("grid")');
+    const body = decl.slice(0, decl.indexOf(";") + 1);
+    expect(body).toContain("panelFixHref(date, workerId)");
     // …and the panel is handed THAT builder, not the cell one.
     const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
     expect(panel).toContain("workItemHref={canCorrect ? workItemFixHref : null}");
