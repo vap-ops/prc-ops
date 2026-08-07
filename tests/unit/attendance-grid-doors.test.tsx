@@ -215,7 +215,7 @@ describe("the unfinished-day banner", () => {
 
   it("names a past day nobody closed, and links it to that day's panel", () => {
     renderGrid(UNCLOSED);
-    const banner = screen.getByRole("status");
+    const banner = screen.getByLabelText("วันที่ยังไม่ปิด");
     expect(banner).toHaveTextContent("3 ส.ค.");
     // The link goes to the ?day= PANEL, which is where ปิดวัน lives — not to the
     // per-worker fix screen, which cannot close a day.
@@ -228,7 +228,7 @@ describe("the unfinished-day banner", () => {
   it("renders NO banner when every past day is closed", () => {
     // The live shape 2026-08-07: 13 past days, all closed.
     renderGrid({ rows: [row({ workDate: "2026-08-03", dayClosed: true })] });
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByLabelText("วันที่ยังไม่ปิด")).toBeNull();
   });
 
   it("renders NO banner for TODAY's own open day", () => {
@@ -238,18 +238,26 @@ describe("the unfinished-day banner", () => {
       { rows: [row({ workDate: "2026-08-05", dayClosed: false })] },
       { todayIso: "2026-08-05" },
     );
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByLabelText("วันที่ยังไม่ปิด")).toBeNull();
   });
 
   it("renders NO banner for a day with no attendance at all", () => {
     // dayClosed === null. Live, 2026-08-06 carries zero rows.
-    renderGrid({ from: "2026-08-03", to: "2026-08-03", rows: [] });
-    expect(screen.queryByRole("status")).toBeNull();
+    //
+    // ⚠️ The range spans TWO days with rows on the first, so 08-04 is a genuine
+    // past column whose dayClosed is null. An earlier draft passed `rows: []`,
+    // which hits the `grid.rows.length === 0` early return — only EmptyNotice
+    // rendered, so the assertion could not fail whatever unfinishedDays did.
+    renderGrid({ from: "2026-08-03", to: "2026-08-04", rows: [row({ workDate: "2026-08-03" })] });
+    // The grid really did draw the empty column…
+    expect(screen.getAllByRole("columnheader")).toHaveLength(3); // ช่าง + 2 days
+    // …and the null-closure day is not called unfinished.
+    expect(screen.queryByLabelText("วันที่ยังไม่ปิด")).toBeNull();
   });
 
   it("states the finding in WORDS, not only in amber", () => {
     renderGrid(UNCLOSED);
-    const banner = screen.getByRole("status");
+    const banner = screen.getByLabelText("วันที่ยังไม่ปิด");
     // "reopened" is NOT claimed: the grid carries no reopen history, so the copy
     // names what the data supports — a past day that is still open.
     expect(banner).toHaveTextContent(/ยังไม่ปิด/);
@@ -261,6 +269,6 @@ describe("the unfinished-day banner", () => {
     // cannot act would withhold a fact, not a control — and closing is
     // MUSTER_CLOSE_ROLES anyway, a different set from the cell links.
     renderGrid(UNCLOSED, { cellFixHref: null });
-    expect(screen.getByRole("status")).toHaveTextContent(/ยังไม่ปิด/);
+    expect(screen.getByLabelText("วันที่ยังไม่ปิด")).toHaveTextContent(/ยังไม่ปิด/);
   });
 });

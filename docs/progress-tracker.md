@@ -21,11 +21,15 @@ U6b makes it reachable from the three surfaces that already show the holes.
   gate it — retime works on a closed day and the page infers the project from the
   session); an empty cell links only with a project picked, on a working day, where
   a team exists. Live: 37 links with no project, 105 (69 gap `+`) with one.
-- **Day panel:** an anomaly work-list, one row per person
-  (`ไม่มีการเช็คชื่อ` / `ยังไม่เช็คออก`), grouped by the act each needs, deduped so
-  two open sessions are one row. **`ปิดวัน` moved to the BOTTOM**, below the
-  work-list and the add form — the loop is fix-then-close, and the reopen arm stays
-  above because on a closed day it is the first step.
+- **Day panel:** an anomaly work-list, one row per person with an OPEN check-out
+  (`ยังไม่เช็คออก`), deduped so two open sessions are one row. **`ปิดวัน` moved to
+  the BOTTOM**, below the work-list and the add form — the loop is fix-then-close,
+  and the reopen arm stays above because on a closed day it is the first step.
+  ⚠️ The plan's second row kind (`ไม่มีการเช็คชื่อ`) was built and REMOVED on a
+  measurement: it would have produced 23·16·15·20·15 rows over 2026-08-01..05
+  against 0 open check-outs, i.e. 15 unscheduled people listed as ต้องแก้ไข on a
+  fully-closed day. Absence is a RANGE finding the grid states, where a gap `+` is
+  an offer rather than a claim.
 - **Calendar (spec 374):** days that carry attendance become tap targets, whole cell,
   referrer carrying the AUDITED month. Answers the operator directly (2026-08-07:
   _"attendance calendar view is not edittable? it feels like it can be interactive,

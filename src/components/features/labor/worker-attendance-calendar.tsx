@@ -253,19 +253,26 @@ export function WorkerAttendanceCalendar({
                     }`}
                   >
                     {fixTo ? (
-                      // The whole cell is the target: on a tablet — the device
-                      // the operator asked about — a 10px day number is not a
-                      // usable one. `block h-full` so the tap area is the cell
-                      // rather than just the text it wraps.
+                      // The whole cell is the target: on a tablet — the device the
+                      // operator asked about — a 10px day number is not a usable
+                      // one. `block h-full` so the tap area is the cell rather
+                      // than just the text it wraps.
                       //
-                      // The label names the DATE and the act. It does not restate
-                      // the times: unlike the grid's <td>, this cell renders them
-                      // as real text inside the link, so they are already in the
-                      // accessible name via its subtree — an author-supplied
-                      // label would REPLACE them (the U3b <th> lesson).
+                      // ⚠️ NO author-supplied aria-label. An aria-label on a link
+                      // REPLACES its subtree as the accessible name, so
+                      // `แก้ไขการเช็คชื่อ 15 ก.ค.` would silently drop the
+                      // check-in/out times, (+1 วัน), (อัตโนมัติ), the OT hours,
+                      // บันทึกมือ, ทำงานวันหยุด, the holiday name and the
+                      // off-home project — leaving the roles that GOT the control
+                      // hearing strictly less than the roles that did not. That is
+                      // the U3b <th> defect verbatim, and an earlier draft of this
+                      // very cell shipped it. The subtree already names the day and
+                      // every fact; `title` supplies the act without touching the
+                      // name (this page's audience is desktop/tablet back-office,
+                      // where the existing holiday <p> already relies on hover).
                       <Link
                         href={fixTo}
-                        aria-label={`แก้ไขการเช็คชื่อ ${cell.day} ${month.grid.label}`}
+                        title={`แก้ไขการเช็คชื่อ ${cell.day} ${month.grid.label}`}
                         className="focus-visible:ring-action block h-full rounded focus:outline-none focus-visible:ring-2"
                       >
                         {inner}

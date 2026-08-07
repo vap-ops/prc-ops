@@ -433,8 +433,10 @@ describe("spec 400 U6b — the day panel's work-list", () => {
     returnTo: "/team/attendance?start=2026-08-01&end=2026-08-06",
   };
 
+  // Two OPEN-check-out rows. There is deliberately no unscanned-worker arm — see
+  // DayWorkProblem and the exhaustive-domain pin in attendance-fix-doors.test.ts.
   const WORK = [
-    { workerId: "a1", workerName: "อนันต์", problem: "notScanned" as const },
+    { workerId: "a1", workerName: "อนันต์", problem: "openOut" as const },
     { workerId: "s1", workerName: "สมชาย", problem: "openOut" as const },
   ];
 
@@ -456,10 +458,15 @@ describe("spec 400 U6b — the day panel's work-list", () => {
   it("names each person AND their specific problem", () => {
     renderPanel();
     const list = screen.getByRole("list", { name: /ต้องแก้ไข/ });
-    expect(within(list).getByText(/อนันต์/)).toBeInTheDocument();
-    expect(within(list).getByText(/ไม่มีการเช็คชื่อ/)).toBeInTheDocument();
-    expect(within(list).getByText(/สมชาย/)).toBeInTheDocument();
-    expect(within(list).getByText(/ยังไม่เช็คออก/)).toBeInTheDocument();
+    expect(within(list).getByText(/อนันต์ · ยังไม่เช็คออก/)).toBeInTheDocument();
+    expect(within(list).getByText(/สมชาย · ยังไม่เช็คออก/)).toBeInTheDocument();
+  });
+
+  it("never claims a rostered worker is missing — that is not a day-grain finding", () => {
+    // The removed arm would have listed 15 unscheduled people on a fully-closed
+    // day (measured live). The panel must not speak that phrase at all.
+    renderPanel();
+    expect(screen.queryByText(/ไม่มีการเช็คชื่อ/)).toBeNull();
   });
 
   it("makes each row a link to THAT worker-day", () => {
@@ -479,8 +486,8 @@ describe("spec 400 U6b — the day panel's work-list", () => {
     // consequence of these very holes, so the list is a fact it must keep.
     renderPanel({ workItemHref: null });
     const list = screen.getByRole("list", { name: /ต้องแก้ไข/ });
-    expect(within(list).getByText(/อนันต์/)).toBeInTheDocument();
-    expect(within(list).getByText(/ไม่มีการเช็คชื่อ/)).toBeInTheDocument();
+    expect(within(list).getByText(/อนันต์ · ยังไม่เช็คออก/)).toBeInTheDocument();
+    expect(within(list).getByText(/สมชาย · ยังไม่เช็คออก/)).toBeInTheDocument();
     expect(within(list).queryAllByRole("link")).toHaveLength(0);
   });
 
@@ -549,23 +556,25 @@ describe("spec 400 U6b — the unfinished-day mark on the panel", () => {
     // it. That sentence is the whole point of the amber, not a second copy of the
     // closure label.
     render(<AttendanceDayPanel day={day({ dayClosed: false })} {...props} />);
-    const mark = screen.getByRole("status");
-    expect(mark).toHaveTextContent(/ค่าแรง.*ยังไม่ถูกบันทึก/);
+    // Queried by TEXT, not by role="status": static server-rendered prose is not a
+    // live region, and the grid above already carries one for the same fact — with
+    // ?day= on an unfinished date both would have announced.
+    expect(screen.getByText(/ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก/)).toBeInTheDocument();
   });
 
   it("shows no mark on a CLOSED day", () => {
     render(<AttendanceDayPanel day={day({ dayClosed: true })} {...props} />);
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(/ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก/)).toBeNull();
   });
 
   it("shows no mark on TODAY, whose open day is normal", () => {
     render(<AttendanceDayPanel day={day({ date: TODAY, dayClosed: false })} {...props} />);
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(/ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก/)).toBeNull();
   });
 
   it("shows no mark on a day with no attendance at all", () => {
     render(<AttendanceDayPanel day={day({ dayClosed: null, headcount: 0 })} {...props} />);
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(/ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก/)).toBeNull();
   });
 
   it("shows the mark to a reader who cannot close — it is a fact about the day", () => {
@@ -577,11 +586,13 @@ describe("spec 400 U6b — the unfinished-day mark on the panel", () => {
         canClose={false}
       />,
     );
-    expect(screen.getByRole("status")).toHaveTextContent(/ค่าแรง/);
+    expect(screen.getByText(/ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก/)).toBeInTheDocument();
   });
 
   it("claims nothing about a REOPEN — the panel cannot know one happened", () => {
     render(<AttendanceDayPanel day={day({ dayClosed: false })} {...props} />);
-    expect(screen.getByRole("status").textContent).not.toMatch(/เปิดวันอีกครั้ง/);
+    expect(screen.getByText(/ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก/).textContent).not.toMatch(
+      /เปิดวันอีกครั้ง/,
+    );
   });
 });

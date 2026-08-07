@@ -344,12 +344,37 @@ describe("spec 400 U6b — calendar days as fix-screen doors", () => {
     expect(screen.getByText(/ทำงานวันหยุด|17:00/)).toBeInTheDocument();
   });
 
-  it("names the date in the link, so it is not an unlabelled tap target", () => {
+  it("keeps every FACT in the link's accessible name, and puts the ACT in title", () => {
+    // ⚠️ NOT an aria-label. An author-supplied one REPLACES the subtree as the
+    // accessible name, so `แก้ไขการเช็คชื่อ 15 ก.ค.` would drop the times, the OT
+    // hours, บันทึกมือ and the rest — the roles that GOT the control hearing
+    // strictly less than the roles that did not. That is the U3b <th> defect, and
+    // an earlier draft of this cell shipped it (a fresh-eyes pass caught it while
+    // this very test asserted only that แก้ไข was present, which is what let it
+    // through). The name comes from the subtree; `title` carries the act.
     renderCal({ dayFixHref });
     const link = fixLinks().find((a) => (a.getAttribute("href") ?? "").includes("2026-07-15"))!;
-    const name = link.getAttribute("aria-label") ?? link.textContent ?? "";
-    expect(name).toMatch(/15/);
-    expect(name).toMatch(/แก้ไข/);
+    expect(link.hasAttribute("aria-label")).toBe(false);
+    const name = link.textContent ?? "";
+    expect(name).toMatch(/15/); // the day
+    expect(name).toMatch(/07:30/); // the check-in it renders
+    expect(name).toMatch(/17:00/); // the check-out it renders
+    expect(link.getAttribute("title")).toMatch(/แก้ไข/);
+  });
+
+  it("does not swallow the OT hours or the manual-entry marker either", () => {
+    // 2026-07-16 carries a regular session AND an OT one (spec 351). The cell
+    // merges them — earliest in, LATEST out — so the rendered check-out is the OT
+    // row's 21:00, which a human recorded: no (อัตโนมัติ) marker belongs here, and
+    // asserting one would be asserting against the merge rule rather than against
+    // this link. What must survive is every marker the cell DOES render.
+    renderCal({ dayFixHref });
+    const link = fixLinks().find((a) => (a.getAttribute("href") ?? "").includes("2026-07-16"))!;
+    const name = link.textContent ?? "";
+    expect(name).toMatch(/07:35/); // earliest in
+    expect(name).toMatch(/21:00/); // latest out
+    expect(name).toMatch(/\+3 ชม\./); // the OT hours
+    expect(name).toMatch(/บันทึกมือ/);
   });
 
   it("does not link the out-of-month padding cells", () => {

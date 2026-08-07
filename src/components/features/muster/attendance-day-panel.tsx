@@ -42,10 +42,9 @@ import { unfinishedDays, type DayWorkItem } from "@/lib/muster/day-fix";
 import { BUTTON_SECONDARY, CARD } from "@/lib/ui/classes";
 
 /** Spec 400 U6b — what each work-list row says is wrong. Keyed on the problem
- *  UNION so a third kind reds at typecheck rather than rendering an empty row.
- *  `ไม่มีการเช็คชื่อ` is the same words the grid's own empty cell announces. */
+ *  UNION so a kind added later reds at typecheck rather than rendering an empty
+ *  row. See `DayWorkProblem` for why `notScanned` is deliberately not a member. */
 const WORK_PROBLEM_COPY: Record<DayWorkItem["problem"], string> = {
-  notScanned: "ไม่มีการเช็คชื่อ",
   openOut: "ยังไม่เช็คออก",
 };
 
@@ -202,11 +201,12 @@ export function AttendanceDayPanel({
           would be decoration. What the header cannot say is why it matters.
           Claims nothing about a reopen — this panel has no reopen history either
           (the trail below does, and it speaks for itself). */}
+      {/* No `role="status"`: static server-rendered prose is not a state change,
+          and the grid's banner states the same fact one screen up — with ?day= on
+          an unfinished date, two live regions would announce it twice. The real
+          state change on this panel is the close/reopen outcome below. */}
       {unfinishedDays([day], todayIso).length > 0 && (
-        <p
-          role="status"
-          className="border-attn bg-attn-soft text-ink rounded-card mt-2 border px-3 py-2 text-xs"
-        >
+        <p className="border-attn bg-attn-soft text-ink rounded-card mt-2 border px-3 py-2 text-xs">
           ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก จนกว่าจะปิดวัน
         </p>
       )}

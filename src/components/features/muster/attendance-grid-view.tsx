@@ -230,9 +230,13 @@ export function AttendanceGridView({
 
   return (
     <div>
+      {/* No `role="status"` on the banner: it is static server-rendered prose. A
+          live region announces CHANGES, so on a server navigation it adds nothing,
+          and marking static content as one competes with the day panel's real
+          outcome messages. The aria-label makes it a findable region instead. */}
       {unfinished.length > 0 && (
         <div
-          role="status"
+          aria-label="วันที่ยังไม่ปิด"
           className="border-attn bg-attn-soft text-ink rounded-card mb-2 border px-3 py-2 text-xs"
         >
           {/* Says what the data supports and no more. A day in this set may have

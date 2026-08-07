@@ -746,12 +746,24 @@ corrections were still owed. The **reopen** arm deliberately stays above — on 
 closed day it is the first step, the one that unlocks add and delete — and the two
 are mutually exclusive arms of one state machine, so only ever one renders.
 
-The panel's work-list is one row per PERSON with their specific problem
-(`ไม่มีการเช็คชื่อ` / `ยังไม่เช็คออก`), grouped by the act each needs and
-alphabetical inside each group, deduped so a worker with two open sessions
+The panel's work-list is one row per PERSON with an OPEN CHECK-OUT
+(`ยังไม่เช็คออก`), alphabetical, deduped so a worker with two open sessions
 (spec 351 allows regular AND ot) is one row of work rather than two. The rows are
 FACTS — accounting owns the wage consequence of exactly these holes — so the list
 renders for the whole audience and only the link is role-gated.
+
+⚠️ **The plan's second row kind, `ไม่มีการเช็คชื่อ`, was built and then REMOVED on a
+measurement.** On the live TFM โพธิ์ทอง roster, 2026-08-01..05 would have produced
+**23 · 16 · 15 · 20 · 15** "not scanned" rows against **0** open check-outs — so
+2026-08-05, a fully-closed day with all 23 people mustered, would still have listed
+15 people under a heading reading ต้องแก้ไข who simply were not scheduled. A roster
+spans people who do not work every day, so absence at DAY grain is normal, and a
+list that fires on every row is precisely D5's cry-wolf failure — shipped into the
+surface that exists to fight it. Absence stays a RANGE-level finding (spec 400's own
+finding ①) stated by the GRID, where a gap cell's `+` is an OFFER rather than a
+claim, and the add-person form directly below already enumerates the same people as
+its worker dropdown. Pinned as an exhaustive-domain check so a kind added later is a
+deliberate act.
 
 ### D14 — the calendar links only days that CARRY attendance, and threads the audited month
 

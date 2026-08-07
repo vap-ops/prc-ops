@@ -455,24 +455,22 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         .map((r) => ({ workerId: r.workerId, name: r.workerName }))
     : [];
 
-  // Spec 400 U6b — the panel's anomaly work-list. Both inputs are already on
-  // this page: the day's sessions (which carry `stillIn`) and the add-candidates,
-  // which ARE the rostered workers with no session that day. No new read.
-  //
-  // ⚠️ `addCandidates` is computed only when `wantsAddForm`, i.e. for the
-  // correction audience — so the absentee half of the list would be silently
-  // EMPTY for accounting, who is exactly who the list is a fact for. The
-  // population is recomputed here without that gate.
-  const absenteesOnOpenDay =
-    openDay !== null
-      ? grid.rows
-          .filter((r) => !musteredOnOpenDay.has(r.workerId))
-          .map((r) => ({ workerId: r.workerId, name: r.workerName }))
-      : [];
-  const dayWork =
-    openDay !== null
-      ? dayWorkList({ sessions: openDaySessions, absentees: absenteesOnOpenDay })
-      : [];
+  // Spec 400 U6b — the panel's anomaly work-list, built from the day's sessions
+  // (which already carry `stillIn`). No new read, and no roster: an unscanned
+  // rostered worker is NOT a finding at day grain — see `DayWorkProblem` for the
+  // measurement that removed that arm before it shipped.
+  const dayWork = openDay !== null ? dayWorkList({ sessions: openDaySessions }) : [];
+
+  // The work-list's rows return to the PANEL, not to the grid: the reader came
+  // from an open `?day=` column and `viewHref("grid")` would close it and drop
+  // the `#d-<date>` anchor, landing them at the top of a 42-row table.
+  const workItemFixHref = (workerId: string, date: string): string =>
+    fixHref({
+      workerId,
+      date,
+      projectId: range.projectId ?? null,
+      backHref: dayHref(date),
+    });
 
   const addOutcome =
     added === "1"
@@ -693,7 +691,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     addWorkers={addCandidates}
                     addOutcome={addOutcome}
                     workList={dayWork}
-                    workItemHref={canCorrect ? cellFixHref : null}
+                    workItemHref={canCorrect ? workItemFixHref : null}
                   />
                 )}
               </>

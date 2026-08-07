@@ -259,20 +259,14 @@ describe("dayWorkList", () => {
     ...over,
   });
 
-  it("names a rostered worker with no session at all", () => {
-    expect(dayWorkList({ sessions: [], absentees: [{ workerId: "a1", name: "อนันต์" }] })).toEqual([
-      { workerId: "a1", workerName: "อนันต์", problem: "notScanned" },
-    ]);
-  });
-
   it("names a worker whose session was never checked out", () => {
-    expect(dayWorkList({ sessions: [session({ stillIn: true })], absentees: [] })).toEqual([
+    expect(dayWorkList({ sessions: [session({ stillIn: true })] })).toEqual([
       { workerId: "s1", workerName: "สมชาย", problem: "openOut" },
     ]);
   });
 
   it("ignores a clean session — a work-list of everybody is not a work-list", () => {
-    expect(dayWorkList({ sessions: [session()], absentees: [] })).toEqual([]);
+    expect(dayWorkList({ sessions: [session()] })).toEqual([]);
   });
 
   it("lists a worker with TWO open sessions ONCE", () => {
@@ -284,32 +278,42 @@ describe("dayWorkList", () => {
           session({ stillIn: true, session: "regular" }),
           session({ stillIn: true, session: "ot" }),
         ],
-        absentees: [],
       }),
     ).toEqual([{ workerId: "s1", workerName: "สมชาย", problem: "openOut" }]);
   });
 
-  it("puts the un-scanned before the un-checked-out, each alphabetical", () => {
-    // Grouped by the ACT each needs (add a person / record a check-out) so the
-    // reader batches one kind at a time, alphabetical inside each group so the
-    // order is stable rather than an accident of the query.
+  it("is alphabetical, so the order is not an accident of the query", () => {
     const out = dayWorkList({
       sessions: [
         session({ workerId: "s2", workerName: "ขจร", stillIn: true }),
         session({ workerId: "s1", workerName: "กมล", stillIn: true }),
       ],
-      absentees: [
-        { workerId: "a2", name: "ธนา" },
-        { workerId: "a1", name: "ชาติ" },
-      ],
     });
-    expect(out.map((r) => r.workerName)).toEqual(["ชาติ", "ธนา", "กมล", "ขจร"]);
-    expect(out.map((r) => r.problem)).toEqual(["notScanned", "notScanned", "openOut", "openOut"]);
+    expect(out.map((r) => r.workerName)).toEqual(["กมล", "ขจร"]);
   });
 
-  it("is empty when the day is clean, so the panel renders no work-list at all", () => {
-    expect(
-      dayWorkList({ sessions: [session(), session({ workerId: "s2" })], absentees: [] }),
-    ).toEqual([]);
+  it("is empty when every session closed cleanly — the COMMON live case", () => {
+    // Measured 2026-08-01..05: every day has ZERO open check-outs. An empty list
+    // is what makes a row here worth reading.
+    expect(dayWorkList({ sessions: [session(), session({ workerId: "s2" })] })).toEqual([]);
+  });
+
+  it("has NO arm for an unscanned rostered worker — absence is not a day-grain finding", () => {
+    // The U6 plan asked for `ไม่มีการเช็คชื่อ` rows here. Measured on the live
+    // TFM โพธิ์ทอง roster, 2026-08-01..05 would have produced 23·16·15·20·15 such
+    // rows against 0 open check-outs — so a fully-closed day with all 23 people
+    // mustered would still have listed 15 people, under a heading reading
+    // ต้องแก้ไข, who simply were not scheduled. That is D5's cry-wolf failure.
+    // Absence is a RANGE-level finding the grid states, where a gap cell's `+` is
+    // an OFFER rather than a claim.
+    //
+    // Pinned as an EXHAUSTIVE domain check, not an absence: a kind added later
+    // must be a deliberate act that reds here first.
+    const problems = new Set(
+      dayWorkList({
+        sessions: [session({ stillIn: true }), session({ workerId: "s2", stillIn: false })],
+      }).map((r) => r.problem),
+    );
+    expect([...problems]).toEqual(["openOut"]);
   });
 });

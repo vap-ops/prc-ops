@@ -133,9 +133,29 @@ export function unfinishedDays(days: readonly GridDay[], todayIso: string): Grid
   return days.filter((d) => d.dayClosed === false && d.date < todayIso);
 }
 
-/** The two per-person problems a day's work-list can carry. Mutually exclusive
- *  by construction: a worker with no session cannot also have an open one. */
-export type DayWorkProblem = "notScanned" | "openOut";
+/**
+ * The per-person problems a day's work-list can carry.
+ *
+ * ⚠️ `notScanned` was BUILT AND REMOVED before shipping, on a measurement. The U6
+ * plan asked for one row per person reading `ไม่มีการเช็คชื่อ` / `ยังไม่เช็คออก`,
+ * and the first half is a false positive at DAY grain: measured on the live
+ * TFM โพธิ์ทอง roster, 2026-08-01..05 produced 23·16·15·20·15 "not scanned" rows
+ * against 0 open check-outs — so on 2026-08-05, a fully-closed day with all 23
+ * people mustered, a heading reading ต้องแก้ไข would have listed 15 people who
+ * simply were not scheduled. A roster spans people who do not work every day, so
+ * absence at day grain is normal, and a list that fires on every row is the exact
+ * cry-wolf failure D5 exists to prevent.
+ *
+ * Absence is a RANGE-level finding (spec 400's own finding ①, "11 of 41 workers
+ * have zero July rows") and the GRID states it — where a gap cell's `+` is an
+ * OFFER, not a claim that something is wrong. The add-person form directly below
+ * this list already enumerates the same people as its worker dropdown, so the rows
+ * duplicated an existing control while adding a false accusation.
+ *
+ * A single-member union on purpose: the Record below still forces copy for any kind
+ * added later.
+ */
+export type DayWorkProblem = "openOut";
 
 export interface DayWorkItem {
   workerId: string;
@@ -152,13 +172,13 @@ export interface DayWorkItem {
  * its close form already NAMES the workers still checked in — but as a
  * disclosure of what closing costs, not as a list of work with a way to do it.
  *
- * Grouped by the ACT each problem needs (add a person / record a check-out) so
- * the reader batches one kind at a time, alphabetical within each group so the
- * order is stable rather than an accident of the query. A worker with two open
- * sessions (spec 351 allows regular AND ot) is ONE row of work, not two.
+ * Alphabetical, and a worker with two open sessions (spec 351 allows regular AND
+ * ot) is ONE row of work rather than two.
  *
- * A clean day returns `[]` and the panel renders no list at all — a work-list
- * naming everybody is not a work-list.
+ * A day whose sessions all closed cleanly returns `[]` and the panel renders no
+ * list at all. That is the COMMON case today — measured 2026-08-01..05, every one
+ * of those days has ZERO open check-outs — which is exactly what makes a row here
+ * worth reading. The nine 2026-07-24 OT rows are the live population it is for.
  */
 export function dayWorkList(input: {
   sessions: readonly {
@@ -167,15 +187,7 @@ export function dayWorkList(input: {
     stillIn: boolean;
     session: "regular" | "ot";
   }[];
-  /** Rostered workers with no session that day — the page's own add-candidates. */
-  absentees: readonly { workerId: string; name: string }[];
 }): DayWorkItem[] {
-  const byName = (a: DayWorkItem, b: DayWorkItem) => a.workerName.localeCompare(b.workerName, "th");
-
-  const notScanned: DayWorkItem[] = input.absentees
-    .map((w) => ({ workerId: w.workerId, workerName: w.name, problem: "notScanned" as const }))
-    .sort(byName);
-
   const openSeen = new Set<string>();
   const openOut: DayWorkItem[] = [];
   for (const s of input.sessions) {
@@ -183,9 +195,7 @@ export function dayWorkList(input: {
     openSeen.add(s.workerId);
     openOut.push({ workerId: s.workerId, workerName: s.workerName, problem: "openOut" });
   }
-  openOut.sort(byName);
-
-  return [...notScanned, ...openOut];
+  return openOut.sort((a, b) => a.workerName.localeCompare(b.workerName, "th"));
 }
 
 /**
