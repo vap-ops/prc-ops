@@ -52,7 +52,8 @@ revoke all on function public.dob_rejection_reason(date) from public, anon;
 
 -- The trigger body. The guarded column is passed as TG_ARGV[0] so one function
 -- serves all five tables; to_jsonb keeps it column-name-driven without dynamic
--- SQL.
+-- SQL. TG_ARGV[1] is optional and names the status value that means "this
+-- proposal is being APPLIED" — see the applying arm below.
 create or replace function public.assert_valid_dob_trigger()
 returns trigger
 language plpgsql
@@ -65,11 +66,22 @@ declare
                      when tg_op = 'UPDATE' then nullif(to_jsonb(old) ->> v_col, '')::date
                      else null
                    end;
+  -- The APPLYING arm. Found by Gate 4, not by reasoning: decide_identity_change
+  -- writes workers / staff_registrations / contractors only WHERE a matching row
+  -- exists, and live, three of the four pending requests have none of the three.
+  -- So approving a bad proposal updated nothing, fired no trigger, raised
+  -- nothing, and marked the request approved. A proposal has to be validated
+  -- where it is APPLIED, not only where it lands.
+  v_applying boolean := tg_op = 'UPDATE'
+                        and tg_nargs > 1
+                        and (to_jsonb(new) ->> 'status') = tg_argv[1]
+                        and (to_jsonb(old) ->> 'status') is distinct from tg_argv[1];
   v_reason text;
 begin
   -- An UPDATE that leaves the DOB alone is never validated: a row that predates
-  -- this gate must stay editable for other reasons.
-  if tg_op = 'UPDATE' and v_new is not distinct from v_old then
+  -- this gate must stay editable for other reasons. Applying it is the one
+  -- exception — that is the moment the stored value becomes real.
+  if tg_op = 'UPDATE' and v_new is not distinct from v_old and not v_applying then
     return new;
   end if;
 
@@ -82,25 +94,37 @@ end;
 $$;
 revoke all on function public.assert_valid_dob_trigger() from public, anon;
 
+-- `drop … if exists` first so this file is replayable end-to-end. It had to be
+-- replayed once: the applying arm above was added after the first apply, and a
+-- hand-patched object would leave the committed file untested by pgTAP, which
+-- asserts against the LIVE schema.
+drop trigger if exists workers_dob_valid on public.workers;
 create trigger workers_dob_valid
   before insert or update on public.workers
   for each row execute function public.assert_valid_dob_trigger('date_of_birth');
 
+drop trigger if exists staff_registrations_dob_valid on public.staff_registrations;
 create trigger staff_registrations_dob_valid
   before insert or update on public.staff_registrations
   for each row execute function public.assert_valid_dob_trigger('date_of_birth');
 
+drop trigger if exists crew_registrations_dob_valid on public.crew_registrations;
 create trigger crew_registrations_dob_valid
   before insert or update on public.crew_registrations
   for each row execute function public.assert_valid_dob_trigger('date_of_birth');
 
+drop trigger if exists contractors_dob_valid on public.contractors;
 create trigger contractors_dob_valid
   before insert or update on public.contractors
   for each row execute function public.assert_valid_dob_trigger('date_of_birth');
 
--- The pre-approval store: blocking here stops the age-0 class at the source,
--- while the workers/staff_registrations triggers stop an ALREADY-pending bad
--- request at approve time (decide_identity_change writes both in one txn).
+-- The pre-approval store. The second argument arms the applying arm: blocking on
+-- INSERT stops the age-0 class at the source, and blocking on the transition to
+-- 'approved' stops an ALREADY-pending bad request — including for the three live
+-- requesters who have no worker row, no approved registration and no contractor
+-- link, and whose approve would otherwise have written nowhere and refused
+-- nothing.
+drop trigger if exists identity_change_requests_dob_valid on public.identity_change_requests;
 create trigger identity_change_requests_dob_valid
   before insert or update on public.identity_change_requests
-  for each row execute function public.assert_valid_dob_trigger('proposed_dob');
+  for each row execute function public.assert_valid_dob_trigger('proposed_dob', 'approved');

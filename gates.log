@@ -1,0 +1,8 @@
+﻿
+> prc-ops@0.352.0 lint D:\claude\projects\prc-ops\prc-ops-dobgate
+> eslint
+
+
+> prc-ops@0.352.0 typecheck D:\claude\projects\prc-ops\prc-ops-dobgate
+> tsc --noEmit
+

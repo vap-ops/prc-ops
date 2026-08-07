@@ -13684,3 +13684,33 @@ renderer needs its own guard: `formatThaiDate` adds 543 to an already-BE year, s
 displays `11 มี.ค. 3056` and a naive age would read `อายุ -1030 ปี`. ④ The operator's ask #1 —
 identity changes are approved against zero evidence (no photo column, no upload, 1 of 4 pending
 requesters has an `id_card` anywhere) — is recorded in the spec §8 and needs its own spec.
+
+**⚠️ Gate 4 refuted this unit's own first build, and the correction is the interesting part.**
+The first version covered `decide_identity_change` only by side effect — the triggers on
+`workers`/`staff_registrations`/`contractors` would fire when the approve wrote them. Driven for
+real as a live trio member against the live age-0 request, **the approve SUCCEEDED**: all three of
+that RPC's writes are `where`-scoped to the requester's linked records, and three of the four
+pending requests have none of them (zero worker rows, zero approved registrations, zero contractor
+links). Nothing was updated, no trigger fired, nothing was raised, and the request was marked
+approved. Fixed by giving the `identity_change_requests` trigger an optional second argument that
+also validates the transition to `approved` — **a proposal has to be checked where it is APPLIED,
+not only where it lands**. The pgTAP for it was written RED first and failed on exactly that
+assertion; a sixth mutant removes only that argument and the approve probe survives.
+
+⭐ **The wider finding, out of scope and worth its own spec:** for those three requesters,
+approving changes **nothing at all** — including the two proposals that are perfectly valid. The
+trio approves, the update lands on zero rows, nobody is told. Silent-success class again.
+
+⚠️ **Two instrument traps, both caught by controls rather than by reading the code.** ① The first
+Gate 4 run returned `42501 not authenticated` for every case, because `SET LOCAL` inside a helper
+function reverts when that function exits — the impersonation never happened, and only the control
+("a valid DOB from the same principal must be ACCEPTED") distinguished that from a working gate.
+② The new approve assertions first died on `42501 permission denied for table _tap_buf` — the
+documented role-switch trap; the runner's collector table needs explicit grants before a
+`set local role`.
+
+**Replay, not a hand-patch.** The applying arm arrived after `075918` had already been pushed, and
+editing an applied migration silently no-ops. The file was made replayable (`drop trigger if
+exists` before each create) and re-run end-to-end with `db query -f`, so the committed file is
+byte-for-byte what the live schema was built from — which matters because pgTAP asserts against
+the live objects, not the file.

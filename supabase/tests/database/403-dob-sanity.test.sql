@@ -1,5 +1,5 @@
 begin;
-select plan(27);
+select plan(30);
 
 -- ============================================================================
 -- Spec 403 U1 — the DOB sanity gate. Operator ruling 2026-08-07: hard block
@@ -140,6 +140,59 @@ select lives_ok($$
   insert into public.identity_change_requests (user_id, proposed_dob)
   values ('11111111-1111-1111-1111-111111110403', (current_date - interval '30 years')::date)
 $$, 'a valid proposed DOB is requested normally');
+
+-- ---------------------------------------------------------------------------
+-- F. APPROVING a stored proposal. Gate 4 found this the hard way: the
+--    trigger on workers/staff_registrations/contractors only fires if the
+--    approve actually UPDATES a row, and decide_identity_change's three writes
+--    are all conditional on the requester having such a row. Live, THREE of the
+--    four pending requests have no worker row, no approved registration and no
+--    contractor link — so approving a bad proposal touched nothing, raised
+--    nothing, and marked the request approved.
+--
+--    The proposal must therefore be validated at the moment it is APPLIED, not
+--    only where it lands. Rejecting must stay open, or an approver is left with
+--    a row they can neither approve nor clear.
+-- ---------------------------------------------------------------------------
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('a4030403-0403-4403-8403-a4a4a4a40403', 'orphan@dob.local',   '{}'::jsonb),
+  ('b4030403-0403-4403-8403-b4b4b4b40403', 'orphan2@dob.local',  '{}'::jsonb),
+  ('c4030403-0403-4403-8403-c4c4c4c40403', 'approver@dob.local', '{}'::jsonb);
+update public.users set role = 'procurement_manager'
+  where id = 'c4030403-0403-4403-8403-c4c4c4c40403';
+
+-- Two proposals from users with NO linked records at all, planted with the
+-- trigger off so the gate is exercised at approve time rather than at insert.
+alter table public.identity_change_requests disable trigger identity_change_requests_dob_valid;
+insert into public.identity_change_requests (id, user_id, proposed_dob) values
+  ('e4030403-0403-4403-8403-e4e4e4e40403', 'a4030403-0403-4403-8403-a4a4a4a40403', current_date),
+  ('f4030403-0403-4403-8403-f4f4f4f40403', 'b4030403-0403-4403-8403-b4b4b4b40403',
+   (current_date - interval '30 years')::date);
+alter table public.identity_change_requests enable trigger identity_change_requests_dob_valid;
+
+-- The runner rewrites assertions into a temp collector table, so a role switch
+-- needs these grants or every assertion below dies on _tap_buf, not on the code.
+grant insert on _tap_buf to authenticated;
+grant select on _tap_buf to authenticated;
+grant usage  on sequence _tap_buf_ord_seq to authenticated;
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "c4030403-0403-4403-8403-c4c4c4c40403"}';
+
+select throws_ok(
+  $$ select public.decide_identity_change('e4030403-0403-4403-8403-e4e4e4e40403', true) $$,
+  'P0001', null,
+  'APPROVING an age-0 proposal is refused even when the requester has no linked record to write it to');
+
+select lives_ok(
+  $$ select public.decide_identity_change('e4030403-0403-4403-8403-e4e4e4e40403', false) $$,
+  'REJECTING it is still open — the approver is never left with a row they can neither approve nor clear');
+
+select lives_ok(
+  $$ select public.decide_identity_change('f4030403-0403-4403-8403-f4f4f4f40403', true) $$,
+  'CONTROL — a good proposal still approves, so the refusal above is the gate and not a broken approve');
+
+reset role;
 
 select * from finish();
 rollback;

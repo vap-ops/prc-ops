@@ -96,6 +96,26 @@ all** — only `full_name` is written there.
 already hold their values — one of them the age-0 date — so a submit-side-only guard would let an
 approve write it into three tables in one txn.
 
+### 2.2 🚨 What Gate 4 found — and the arm it forced
+
+The first build of U1 covered `decide_identity_change` **only by side effect**: the triggers on
+`workers` / `staff_registrations` / `contractors` would fire when the approve wrote them. Driven
+for real as a live trio member against the live age-0 request, **the approve SUCCEEDED.**
+
+The cause is that all three of `decide_identity_change`'s writes are `where`-scoped to the
+requester's linked records, and — measured live — **three of the four pending requests have none
+of them**: zero worker rows, zero approved registrations, zero contractor links. So the approve
+updated nothing, fired no trigger, raised nothing, and marked the request approved.
+
+⇒ **the trigger on `identity_change_requests` also validates the transition to `approved`** (its
+optional second argument). A proposal must be checked where it is APPLIED, not only where it
+lands.
+
+⭐ **The wider finding, which is NOT this spec's to fix:** for those three requesters, approving
+changes **nothing at all** — including the two proposals that are perfectly valid. The trio
+approves, the person's name/ID/DOB update lands on zero rows, and nobody is told. That is the
+silent-success class again (`sa-add-technician-silent-success`), and it needs its own spec.
+
 ### 2.1 ⚠️ The seventh path — and the reason the design is a trigger
 
 The first draft assumed every write goes through an RPC. **It does not.** `authenticated` holds
@@ -154,9 +174,9 @@ requirement; existing ones stand.
 
 **U1 — the gate (schema, danger path). ✅ BUILT.** `dob_rejection_reason(date)` +
 `assert_valid_dob_trigger()` + five triggers (`workers`, `staff_registrations`,
-`crew_registrations`, `contractors`, `identity_change_requests.proposed_dob`). Migration
-`20260813075918`, head re-queried at apply time. pgTAP `403-dob-sanity.test.sql` 27/27; full suite
-**362 files / 7,643 assertions / 0 failures**.
+`crew_registrations`, `contractors`, `identity_change_requests.proposed_dob` — the last one armed
+with the applying arm of §2.2). Migration `20260813075918`, head re-queried at apply time. pgTAP
+`403-dob-sanity.test.sql` 30/30; full suite **362 files / 7,646 assertions / 0 failures**.
 
 **U2 — the three forms (code-only).** `identity-change-form.tsx`, `staff-registration-form.tsx`,
 `add-technician-sheet.tsx` (`staff-register-workspace.tsx` only feeds the second): `max` on the
@@ -176,8 +196,9 @@ range ages render as a named problem, not as a number.
 
 **U4 — repair the committed bad data (operator-run, not a migration).** The `2513-03-11` row in
 `workers` + `staff_registrations`, and a decision on pending request `1085b058`. ⚠️ U1 is live, so
-**approving that request now refuses with `P0001`** — correct, and exactly why U2/U3 must tell the
-approver to reject it and ask the person to resubmit rather than leave them on a generic error.
+**approving that request now refuses with `P0001`** — verified on the real row (§5), and exactly
+why U2/U3 must tell the approver to reject it and ask the person to resubmit rather than leave
+them on a generic error. Rejecting it is verified to still work.
 
 Order: U1 ✅ → U2. U3 is independent. U4 any time after U1.
 
@@ -190,8 +211,20 @@ Order: U1 ✅ → U2. U3 is independent. U4 any time after U1.
 - 27 assertions: three catalogue/posture, ten pure arms (including **both** boundaries — exactly
   15 accepted, one day short refused; exactly 120 accepted, one day over refused), five
   trigger-presence, seven `workers` behaviours, two `identity_change_requests` behaviours.
-- Mutation: each of the five triggers dropped **separately** — a whole-set mutation cannot tell
-  "gated" from "gated in one place".
+- Mutation: **six mutants, each killed by its own probe.** Each of the five triggers dropped
+  **separately** (a whole-set mutation cannot tell "gated" from "gated in one place"), plus a
+  sixth that removes ONLY the applying arm's trigger argument. Cross-probes prove per-site
+  coverage — dropping the `workers` trigger leaves the `identity_change_requests` probe blocked
+  and vice versa — and every mutant run carries a CONTROL proving the probe can succeed.
+- **Gate 4 was the real flow on real prod rows, twice, rolled back both times.** A live
+  `site_admin` proposing today's date → `P0001 … dob under minimum age`; the same user proposing
+  `2513-03-11` → `P0001 … dob looks like a buddhist era year` (named as พ.ศ., not as "the
+  future"); the same user proposing a real DOB, and a 16-year-old, both ACCEPTED (the controls
+  that prove the refusals are the gate and not a broken RPC). Then the live trio approving the
+  live age-0 request → refused; rejecting it → clean; approving a good request → still works.
+  ⚠️ **The first Gate 4 run reported `42501 not authenticated` for all three cases** — `SET LOCAL`
+  inside a helper function reverts when that function exits, so nothing was ever impersonated.
+  The CONTROL is the only reason that was caught instead of being read as a pass.
 - The objects were verified **live** after `db:push`, not from the push's own success message.
 - ✅ **No existing pgTAP goes red:** every DOB literal in the eight affected test files is a
   legitimate adult date (`1992-03-04`, `1990-05-01`, `1988-03-03`, `1990-01-15`, `1988-03-15`, …);
@@ -206,6 +239,11 @@ Order: U1 ✅ → U2. U3 is independent. U4 any time after U1.
 ## 6. Risks
 
 - **The gate is not retroactive** and must never be described as if it were (D6).
+- **A registration carrying a bad DOB becomes unapprovable.** `approve_staff_registration` /
+  `approve_crew_registration` copy `date_of_birth` into `workers`, so the insert now refuses.
+  Measured: the only bad registration row is `วีระชัย เส็งนา`'s, and it is already `approved`, so
+  **no pending approval is blocked today** — but U4's repair is what keeps it that way, and an
+  approver meeting this needs the DOB fixed on the registration first, not a generic error.
 - **A refusal on a surface with no other exit.** `update_own_staff_registration` is on the
   self-registration path.
 
