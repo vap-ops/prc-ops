@@ -40,12 +40,13 @@ export interface ComposeContext {
   // Feedback c5136ad9 — wp_pending_approval context: the submitter's display
   // name, resolved by the drain from the payload's submitted_by uid.
   submitterName?: string;
-  // Spec 402 U1 — the skeleton's shared slots, resolved by the drain.
-  // `actorName` is whoever the EVENT attributes the change to; an event whose
-  // snapshot cannot honestly name one simply never reads it (see pr_progress).
-  // `deepLink` is the absolute URL to the thing the push is about.
+  // Spec 402 U1 — whoever the EVENT attributes the change to. An event whose
+  // snapshot cannot honestly name one simply never reads this (see pr_progress
+  // and receipt_correction_resolved).
+  //
+  // ⛔ There is deliberately no `deepLink`. U1–U3 had one; spec 402 U4 removed
+  // it — a push cannot reach an installed PWA (see message-skeleton.ts).
   actorName?: string;
-  deepLink?: string;
 }
 
 function label(map: Record<string, string>, value: string | undefined): string {
@@ -139,9 +140,9 @@ export function composeNotification(
   context: ComposeContext,
 ): string {
   switch (eventType) {
-    // Spec 402 U2 — the work-package family on the six-slot skeleton. The WP's
-    // NAME becomes the subject, the project says where it lives, and the link
-    // lands on the surface the recipient can actually open (see below).
+    // Spec 402 U2 — the work-package family on the skeleton. The WP's NAME
+    // becomes the subject and the project says where it lives, so the reader
+    // knows what this is about without opening anything.
     case "wp_pending_approval":
       return buildNotificationMessage({
         headline: "🔎 งานรอตรวจ",
@@ -150,7 +151,6 @@ export function composeNotification(
         // Feedback c5136ad9 — name who submitted; the line disappears when the
         // drain could not resolve a name (system flip / pre-migration rows).
         actor: actorLine("ส่งตรวจโดย", context.submitterName),
-        link: context.deepLink,
       });
 
     // ⭐ This payload snapshots NOTHING about the work — no code, no name, no
@@ -167,13 +167,12 @@ export function composeNotification(
         where: wpWhere(payload, context),
         actor: actorLine("ตรวจโดย", context.actorName),
         note: payload.comment ? `ความเห็น: ${payload.comment}` : undefined,
-        link: context.deepLink,
       });
 
     // Spec 218 U5 — a defect reopened the WP to งานแก้ไข. The reason/source live in
-    // the app's "ต้องแก้ไข" surface, which the link now reaches directly: the old
-    // copy ended "— เปิดแอปดูข้อบกพร่อง", a stand-in for exactly that link, so it
-    // is retired here rather than left to contradict the tappable URL below it.
+    // the app's "ต้องแก้ไข" surface. The old copy ended "— เปิดแอปดูข้อบกพร่อง";
+    // U2 retired it and U4 kept it retired — the round and the WP name already
+    // say what this is, and a generic "go open the app" adds nothing.
     case "wp_reopened":
       return buildNotificationMessage({
         headline: `🔁 เปิดงานใหม่เพื่อแก้ไข${
@@ -182,7 +181,6 @@ export function composeNotification(
         subject: wpSubject(payload, context),
         where: wpWhere(payload, context),
         actor: actorLine("เปิดโดย", context.actorName),
-        link: context.deepLink,
       });
 
     // Spec 337 U1 (F2) — the SA re-shot what the decision asked for and pressed
@@ -193,21 +191,19 @@ export function composeNotification(
         subject: wpSubject(payload, context),
         where: wpWhere(payload, context),
         actor: actorLine("ถ่ายรูปเพิ่มโดย", context.actorName),
-        link: context.deepLink,
       });
 
     // Spec 402 U1 — the purchase-request family, 81% of every push ever sent.
     // All four take the six-slot skeleton: the ITEM finally reaches the reader
     // (pr_progress has carried item_description in its payload since the
     // trigger was written and never rendered it), the project names where the
-    // line lives, and the link lands on the request itself.
+    // line lives.
     case "pr_created":
       return buildNotificationMessage({
         headline: "🆕 คำขอซื้อใหม่",
         subject: prSubject(payload),
         where: prWhere(payload, context),
         actor: actorLine("ขอโดย", context.actorName),
-        link: context.deepLink,
       });
 
     case "pr_decision":
@@ -220,7 +216,6 @@ export function composeNotification(
         where: prWhere(payload, context),
         actor: actorLine("โดย", context.actorName),
         note: payload.decisionComment ? `ความเห็น: ${payload.decisionComment}` : undefined,
-        link: context.deepLink,
       });
 
     // 🚨 No actor line, deliberately. notify_pr_status_change snapshots
@@ -237,7 +232,6 @@ export function composeNotification(
         subject: prSubject(payload),
         where: prWhere(payload, context),
         actor: prTransitionLine(payload),
-        link: context.deepLink,
       });
 
     case "pr_cancelled":
@@ -247,7 +241,6 @@ export function composeNotification(
         where: prWhere(payload, context),
         actor: actorLine("ยกเลิกโดย", context.actorName),
         note: payload.cancellationReason ? `เหตุผล: ${payload.cancellationReason}` : undefined,
-        link: context.deepLink,
       });
 
     // Spec 201 A4 — a new bug report / feature request, to the operator
@@ -266,13 +259,12 @@ export function composeNotification(
         // empty and the skeleton drops it.
         actor:
           reporter === "" ? (role === "" ? "" : `แจ้งโดย${role}`) : `แจ้งโดย ${reporter} (${role})`,
-        link: context.deepLink,
       });
     }
 
     // Spec 277 P1a — a SERIOUS site issue (safety/access/equipment), to the project
     // PM + the director/procurement pool. Names the issue type + project (· WP when
-    // scoped) + reporter, then a deep link into the project to act.
+    // scoped) + the reporter, so the alert is actionable on its own terms.
     case "site_issue_reported":
       return buildNotificationMessage({
         headline: `⚠️ ปัญหาหน้างาน (${label(SITE_ISSUE_TYPE_LABEL, payload.issueType)})`,
@@ -280,25 +272,21 @@ export function composeNotification(
         // scope moves to its proper slot.
         where: joinWhere([context.projectName, context.wpCode]),
         actor: actorLine("แจ้งโดย", context.actorName),
-        link: context.deepLink,
       });
 
     // Spec 324 — an SA reported that a store receipt was booked with the wrong
     // (over-) count; the back-office correction authority is nudged to true it
-    // down. The link is the correction QUEUE, whose gate (BACK_OFFICE_ROLES) is
-    // exactly this event's recipient set.
+    // down. Names the item and the project so the queue can be found by hand.
     case "receipt_correction_flagged":
       return buildNotificationMessage({
         headline: "⚠️ แจ้งแก้ไขจำนวนรับของ",
         subject: payload.itemDescription,
         where: context.projectName,
         actor: actorLine("แจ้งโดย", context.actorName),
-        link: context.deepLink,
       });
 
     // Spec 324 — the correction was applied or rejected; the SA who flagged is
-    // told, and lands on their own project store (the back-office queue above
-    // would refuse them).
+    // told.
     //
     // 🚨 No actor line: this payload names only `requested_by`, who is the
     // FLAGGER — i.e. the RECIPIENT of this very message, not whoever resolved
@@ -309,7 +297,6 @@ export function composeNotification(
         headline: "✅ แก้ไขจำนวนรับของแล้ว",
         subject: payload.itemDescription,
         where: context.projectName,
-        link: context.deepLink,
       });
 
     default:

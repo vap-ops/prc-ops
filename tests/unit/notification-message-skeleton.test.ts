@@ -2,13 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildNotificationMessage,
   joinWhere,
-  purchaseRequestLink,
-  workPackageLink,
-  reviewWorkPackageLink,
-  feedbackLink,
-  storeCorrectionsLink,
-  projectStoreLink,
-  projectLink,
   PR_STATUS_ICON,
   WP_DECISION_ICON,
   FEEDBACK_TYPE_ICON,
@@ -19,11 +12,12 @@ import {
   FEEDBACK_TYPE_LABEL,
 } from "@/lib/i18n/labels";
 
-// Spec 402 U1 — the six-slot plain-text skeleton every push is composed onto.
+// Spec 402 — the five-slot plain-text skeleton every push is composed onto.
 // Pure: no env, no DB. The drain resolves the values, compose arranges them.
+// U4 removed a sixth slot that carried a URL; see notification-no-deep-links.
 
 describe("buildNotificationMessage", () => {
-  it("renders the six slots in order, one per line", () => {
+  it("renders the five slots in order, one per line", () => {
     expect(
       buildNotificationMessage({
         headline: "🚚 กำลังจัดส่ง · คำขอซื้อ",
@@ -31,7 +25,6 @@ describe("buildNotificationMessage", () => {
         where: "โครงการบ้านสวย · PR-0012",
         actor: "สั่งซื้อแล้ว → กำลังจัดส่ง",
         note: "ความเห็น: รีบหน่อย",
-        link: "https://app.example/requests/abc",
       }),
     ).toBe(
       [
@@ -40,7 +33,6 @@ describe("buildNotificationMessage", () => {
         "โครงการบ้านสวย · PR-0012",
         "สั่งซื้อแล้ว → กำลังจัดส่ง",
         "ความเห็น: รีบหน่อย",
-        "https://app.example/requests/abc",
       ].join("\n"),
     );
   });
@@ -84,91 +76,6 @@ describe("joinWhere", () => {
 
   it("returns an empty string when every part is absent", () => {
     expect(joinWhere([undefined, undefined])).toBe("");
-  });
-});
-
-describe("purchaseRequestLink", () => {
-  it("builds the /requests/<uuid> deep link", () => {
-    expect(purchaseRequestLink("https://app.example", "11111111-1111-1111-1111-111111111111")).toBe(
-      "https://app.example/requests/11111111-1111-1111-1111-111111111111",
-    );
-  });
-
-  // NEXT_PUBLIC_APP_URL is operator-configured; a trailing slash would yield
-  // a double slash that some clients refuse to linkify.
-  it("tolerates a trailing slash on the base URL", () => {
-    expect(purchaseRequestLink("https://app.example/", "abc")).toBe(
-      "https://app.example/requests/abc",
-    );
-  });
-});
-
-// Spec 402 U2 — the work-package family's two links. Which one an event gets is
-// a ROLE decision, not a cosmetic one: /review/work-packages is gated on
-// PM_ROLES, so pointing an event whose recipients are photo uploaders at it
-// would redirect every one of them.
-describe("workPackageLink / reviewWorkPackageLink", () => {
-  it("builds the project-scoped WP link through the nav SSOT", () => {
-    expect(workPackageLink("https://app.example", "proj-1", "wp-1")).toBe(
-      "https://app.example/projects/proj-1/work-packages/wp-1",
-    );
-  });
-
-  it("builds the review-queue link, which needs no project", () => {
-    expect(reviewWorkPackageLink("https://app.example", "wp-1")).toBe(
-      "https://app.example/review/work-packages/wp-1",
-    );
-  });
-
-  it("tolerates a trailing slash on the base URL for both", () => {
-    expect(workPackageLink("https://app.example/", "proj-1", "wp-1")).toBe(
-      "https://app.example/projects/proj-1/work-packages/wp-1",
-    );
-    expect(reviewWorkPackageLink("https://app.example/", "wp-1")).toBe(
-      "https://app.example/review/work-packages/wp-1",
-    );
-  });
-});
-
-// Spec 402 U3 — the remaining events' links. Same rule as U2: each target is
-// chosen to match its event's RECIPIENT set, because one outbox row yields one
-// body for everyone who receives it.
-describe("the spec 402 U3 links", () => {
-  it("builds the feedback detail link (RLS-scoped, no requireRole)", () => {
-    expect(feedbackLink("https://app.example", "fb-1")).toBe("https://app.example/feedback/fb-1");
-  });
-
-  // requireRole(BACK_OFFICE_ROLES) — exactly receipt_correction_flagged's
-  // recipient set (context.backOfficeIds).
-  it("builds the back-office corrections queue link", () => {
-    expect(storeCorrectionsLink("https://app.example")).toBe(
-      "https://app.example/store/corrections",
-    );
-  });
-
-  // WP_DETAIL_ROLES, which includes site_admin — the flagger who receives
-  // receipt_correction_resolved and cannot open the back-office queue.
-  it("builds the project store link", () => {
-    expect(projectStoreLink("https://app.example", "proj-1")).toBe(
-      "https://app.example/projects/proj-1/store",
-    );
-  });
-
-  it("builds the project link", () => {
-    expect(projectLink("https://app.example", "proj-1")).toBe(
-      "https://app.example/projects/proj-1",
-    );
-  });
-
-  it("tolerates a trailing slash on every one of them", () => {
-    expect(feedbackLink("https://app.example/", "fb-1")).toBe("https://app.example/feedback/fb-1");
-    expect(storeCorrectionsLink("https://app.example/")).toBe(
-      "https://app.example/store/corrections",
-    );
-    expect(projectStoreLink("https://app.example/", "p1")).toBe(
-      "https://app.example/projects/p1/store",
-    );
-    expect(projectLink("https://app.example/", "p1")).toBe("https://app.example/projects/p1");
   });
 });
 

@@ -686,15 +686,15 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
 });
 
 // Spec 402 U3 — feedback + the receipt-correction pair. Same load-bearing
-// question as U2: does each event's link land somewhere its RECIPIENTS can
-// actually open?
+// question as U2: does the drain resolve the right project and the right
+// actor for each of them?
 describe("POST /api/notifications/drain — spec 402 U3 feedback + correction enrichment", () => {
   const REPORTER = "aaaaaaaa-0000-4000-8000-0000000005a1";
   const FB_ID = "cccccccc-0000-4000-8000-0000000005c1";
   const P1 = "ffffffff-0000-4000-8000-0000000005f1";
   const BO_1 = "dddddddd-0000-4000-8000-0000000005d1";
 
-  it("names the feedback reporter and links straight to the report", async () => {
+  it("names the feedback reporter, resolved via the candidates lookup", async () => {
     usersInCalls = [];
     candidateUsers = [
       {
@@ -737,7 +737,6 @@ describe("POST /api/notifications/drain — spec 402 U3 feedback + correction en
         "🐞 ข้อเสนอแนะใหม่ (ปัญหา)",
         "รูปอัปโหลดไม่ขึ้น",
         "แจ้งโดย สมชาย ทดสอบ (ผู้ดูแลหน้างาน)",
-        `http://localhost:3000/feedback/${FB_ID}`,
       ].join("\n"),
     );
   });
@@ -778,17 +777,14 @@ describe("POST /api/notifications/drain — spec 402 U3 feedback + correction en
     const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
     expect(texts).toHaveLength(1);
     expect(texts[0]).toBe(
-      [
-        "⚠️ แจ้งแก้ไขจำนวนรับของ",
-        "ปูนซีเมนต์",
-        "โครงการบ้านสวย",
-        "แจ้งโดย สมชาย ทดสอบ",
-        "http://localhost:3000/store/corrections",
-      ].join("\n"),
+      ["⚠️ แจ้งแก้ไขจำนวนรับของ", "ปูนซีเมนต์", "โครงการบ้านสวย", "แจ้งโดย สมชาย ทดสอบ"].join("\n"),
     );
   });
 
-  it("sends the resolved correction to the flagger's own project store, not the queue", async () => {
+  // Spec 402 U4 — this case used to pin WHICH link the resolved event got. With
+  // links gone it pins what remains: the item and project reach the flagger,
+  // and the message still names no actor (its only uid is the recipient's).
+  it("tells the flagger the correction was resolved, naming the item but no actor", async () => {
     projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
     contactUsers = [{ id: REPORTER, line_user_id: "Lsa", telegram_chat_id: null }];
     outboxRows = [
@@ -810,13 +806,11 @@ describe("POST /api/notifications/drain — spec 402 U3 feedback + correction en
 
     const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
     expect(texts).toHaveLength(1);
-    const text = texts[0] as string;
-    expect(text).toContain(`http://localhost:3000/projects/${P1}/store`);
-    expect(text).not.toContain("/store/corrections");
+    expect(texts[0]).toBe(["✅ แก้ไขจำนวนรับของแล้ว", "ปูนซีเมนต์", "โครงการบ้านสวย"].join("\n"));
   });
 });
 
-// Spec 402 U2 — the work-package family. The link is the load-bearing part:
+// Spec 402 U2 — the work-package family. The load-bearing part is the join:
 // /review/work-packages is requireRole(PM_ROLES), and one outbox row produces
 // ONE body for every recipient, so an event whose recipients are photo
 // UPLOADERS must not be pointed at it.
@@ -826,7 +820,7 @@ describe("POST /api/notifications/drain — spec 402 U2 work-package enrichment"
   const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
   const SA_1 = "bbbbbbbb-0000-4000-8000-0000000004b2";
 
-  it("gives wp_decision the WP name and project it never had, plus the PROJECT link", async () => {
+  it("gives wp_decision the WP name and project its payload never had", async () => {
     wpTableRows = [{ id: W1, code: "WP-02-06", project_id: P1, name: "งานจัดหาห้องน้ำชั่วคราว" }];
     projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
     memberRows = [];
@@ -865,7 +859,6 @@ describe("POST /api/notifications/drain — spec 402 U2 work-package enrichment"
         "งานจัดหาห้องน้ำชั่วคราว",
         "โครงการบ้านสวย · WP-02-06",
         "ตรวจโดย พีเอ็มเอ",
-        `http://localhost:3000/projects/${P1}/work-packages/${W1}`,
       ].join("\n"),
     );
   });
@@ -911,10 +904,6 @@ describe("POST /api/notifications/drain — spec 402 U2 work-package enrichment"
     const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
     expect(texts.length).toBeGreaterThan(0);
     for (const text of texts) {
-      expect(text).toContain(`http://localhost:3000/review/work-packages/${W1}`);
-      // The project surface would ALSO be a valid URL, so pin its absence:
-      // a swap between the two is exactly the defect this split prevents.
-      expect(text).not.toContain("/projects/");
       expect(text).toContain("โครงการบ้านสวย · WP-02-06");
     }
   });
@@ -930,7 +919,7 @@ describe("POST /api/notifications/drain — spec 402 U1 purchase-request enrichm
   const PR_UUID = "bbbbbbbb-0000-4000-8000-0000000004b1";
   const P1 = "ffffffff-0000-4000-8000-0000000004f1";
 
-  it("gives pr_progress its project, item and deep link — and names no actor", async () => {
+  it("gives pr_progress its project and item — and names no actor", async () => {
     prProjectIdByRequest = { [PR_UUID]: P1 };
     projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
     memberRows = [{ project_id: P1, user_id: REQUESTER }];
@@ -971,7 +960,6 @@ describe("POST /api/notifications/drain — spec 402 U1 purchase-request enrichm
     expect(text).toContain("เหล็กกล่อง กาวาไนซ์");
     expect(text).toContain("โครงการบ้านสวย");
     expect(text).toContain("สั่งซื้อแล้ว → กำลังจัดส่ง");
-    expect(text).toContain(`http://localhost:3000/requests/${PR_UUID}`);
     // 🚨 The name IS resolvable here (the candidates lookup returned it), so
     // this pins the DECISION not to render it, never a lookup that came back
     // empty. Attributing a shipment to the approver is the misattribution the
@@ -1035,13 +1023,9 @@ describe("POST /api/notifications/drain — spec 402 U1 purchase-request enrichm
     expect(texts.length).toBeGreaterThan(0);
     for (const text of texts) {
       expect(text).toBe(
-        [
-          "🆕 คำขอซื้อใหม่",
-          "ปูน × 10 ถุง",
-          "โครงการบ้านสวย · PR-0007",
-          "ขอโดย สมชาย ทดสอบ",
-          `http://localhost:3000/requests/${PR_UUID}`,
-        ].join("\n"),
+        ["🆕 คำขอซื้อใหม่", "ปูน × 10 ถุง", "โครงการบ้านสวย · PR-0007", "ขอโดย สมชาย ทดสอบ"].join(
+          "\n",
+        ),
       );
     }
   });
