@@ -302,6 +302,11 @@ export async function createEquipmentFromCatalog(input: {
     quantity: item.value.quantity,
   });
   if (!movement.ok) {
+    // Narrowing arm, not a live failure mode: the location was checked above and
+    // validateEquipmentItem has already guaranteed a bulk quantity is an integer
+    // >= 1, so nothing reaching here can fail. Kept as a warning rather than a
+    // throw so that relaxing either upstream check degrades to "item saved, say
+    // where it is" instead of a 23514 the registrar meets as a generic failure.
     locationWarning = true;
   } else {
     const { error: movementError } = await supabase.from("equipment_movements").insert({
