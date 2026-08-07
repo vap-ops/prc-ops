@@ -752,6 +752,14 @@ The panel's work-list is one row per PERSON with an OPEN CHECK-OUT
 FACTS — accounting owns the wage consequence of exactly these holes — so the list
 renders for the whole audience and only the link is role-gated.
 
+⚠️ **Live population, measured 2026-08-07: ZERO sessions with a null `out_at` exist
+database-wide**, so this list renders empty on every day today. Spec 400 §1's "23 of
+67 August sessions have no check-out" and U4's "nine stuck 2026-07-24 OT rows" are
+both HISTORY — re-measured, those rows are closed. Do not re-inherit either figure.
+An open check-out is the normal state of anyone who has checked in and not yet
+checked out, so the list populates during a live working day and lingers on a past
+day left unclosed: an exception surface with a recurring population, not a backlog.
+
 ⚠️ **The plan's second row kind, `ไม่มีการเช็คชื่อ`, was built and then REMOVED on a
 measurement.** On the live TFM โพธิ์ทอง roster, 2026-08-01..05 would have produced
 **23 · 16 · 15 · 20 · 15** "not scanned" rows against **0** open check-outs — so

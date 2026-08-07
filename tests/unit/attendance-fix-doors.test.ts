@@ -292,9 +292,12 @@ describe("dayWorkList", () => {
     expect(out.map((r) => r.workerName)).toEqual(["กมล", "ขจร"]);
   });
 
-  it("is empty when every session closed cleanly — the COMMON live case", () => {
-    // Measured 2026-08-01..05: every day has ZERO open check-outs. An empty list
-    // is what makes a row here worth reading.
+  it("is empty when every session closed cleanly — the state of ALL live data today", () => {
+    // Measured 2026-08-07: zero sessions with a null out_at exist database-wide,
+    // so this renders empty everywhere right now. Spec 400's "23 of 67 August
+    // sessions have no check-out" and U4's "nine stuck 2026-07-24 OT rows" are
+    // HISTORY — both were re-measured and are closed. The state still recurs on
+    // any live working day, which is what this list is for.
     expect(dayWorkList({ sessions: [session(), session({ workerId: "s2" })] })).toEqual([]);
   });
 

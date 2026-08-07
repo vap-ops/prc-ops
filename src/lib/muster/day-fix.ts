@@ -176,9 +176,16 @@ export interface DayWorkItem {
  * ot) is ONE row of work rather than two.
  *
  * A day whose sessions all closed cleanly returns `[]` and the panel renders no
- * list at all. That is the COMMON case today — measured 2026-08-01..05, every one
- * of those days has ZERO open check-outs — which is exactly what makes a row here
- * worth reading. The nine 2026-07-24 OT rows are the live population it is for.
+ * list at all.
+ *
+ * ⚠️ Measured 2026-08-07: **ZERO sessions with a null `out_at` exist in the whole
+ * database**, so this renders empty on every day right now. Do NOT read that as a
+ * dead feature, and do not re-inherit the older figures: spec 400's "23 of 67
+ * August sessions have no check-out" and U4's "nine stuck 2026-07-24 OT rows" are
+ * both HISTORY — those rows have since been closed. An open check-out is the
+ * normal state of anyone who has checked in and not yet checked out, so the list
+ * populates during any live working day and lingers on a past day left unclosed.
+ * It is an exception surface with a recurring population, not a backlog view.
  */
 export function dayWorkList(input: {
   sessions: readonly {
