@@ -282,4 +282,13 @@ describe("spec 397 U3 — the action", () => {
     expect(src).not.toContain("startsWith(");
     expect(src).not.toContain("reopened=1");
   });
+
+  // Spec 400 U6a — the fix page EMBEDS this same reopen form (and reuses
+  // closeMusterDay's sibling addMusterPerson unchanged), so a success here must
+  // also refresh that route — without this, reopening from the fix page would
+  // leave it showing a stale "closed" state until an unrelated navigation
+  // happened to revalidate it.
+  it("revalidates the fix page too, on all three actions it can now be triggered from", () => {
+    expect(count(src, 'revalidatePath("/team/attendance/fix")')).toBe(3);
+  });
 });

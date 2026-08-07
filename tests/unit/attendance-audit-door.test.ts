@@ -80,6 +80,17 @@ describe("spec 397 U2 — the back chip names where it actually goes", () => {
     expect(attendanceBackLabel("/team")).toBe("ทีมงาน");
   });
 
+  // Spec 400 U6a — the fix page's most common parent is the report ITSELF
+  // (/team/attendance), which this function never had to name before because
+  // the report never links to itself. Without this arm, a fix-page back chip
+  // whose fallback lands on /team/attendance would announce "ทีมงาน" — a claim
+  // about the wrong destination, the same defect this function exists to
+  // prevent one layer up.
+  it("labels a /team/attendance referrer with the report's own name", () => {
+    expect(attendanceBackLabel("/team/attendance")).toBe("ประวัติการเช็คชื่อ");
+    expect(attendanceBackLabel("/team/attendance?worker=x")).toBe("ประวัติการเช็คชื่อ");
+  });
+
   it("falls back to ทีมงาน for anything else — never an empty or wrong name", () => {
     // safeBackHref can only ever return an app path or the /team fallback, so an
     // unknown value here means a NEW parent nobody labelled: the honest answer is

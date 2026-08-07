@@ -64,6 +64,51 @@ export type AddPersonOutcome =
   | "failed";
 
 /**
+ * Spec 400 U6a — the outcomes of `muster_correct_session`'s UPDATE path
+ * (retiming an EXISTING session). Distinct from `AddPersonOutcome`'s `closed`:
+ * retime is offered even on a closed day (its own guard is the unbooked-wage
+ * anti-join, not the day's closure state), so a closed day never produces one
+ * of these codes.
+ */
+export type RetimeOutcome =
+  | "ok"
+  /** The caller's role, or its project scope, was refused (42501). */
+  | "denied"
+  /** A malformed id/date/session, or neither time field was filled. */
+  | "shape"
+  /** The time falls outside the row's work date, is in the future, spills too
+   *  far past midnight, or would put the check-out before the check-in. */
+  | "bounds"
+  /** The check-out was recorded by a HUMAN and cannot be replaced — delete and
+   *  re-add instead. */
+  | "locked"
+  /** Wages are already booked for this check-in. */
+  | "booked"
+  /** The supplied team no longer matches the row's own — the page's own
+   *  server-resolved value went stale; reloading fixes it. */
+  | "stale"
+  /** Anything else the database refused. */
+  | "failed";
+
+/** Spec 400 U6a — the outcomes of `muster_undo_scan` (deleting one session). */
+export type UndoOutcome =
+  | "ok"
+  /** The caller's role, or its project scope, was refused (42501). */
+  | "denied"
+  /** A malformed id, date or session — never retryable. */
+  | "shape"
+  /** The row no longer exists — already undone by someone else. */
+  | "gone"
+  /** The day is closed: undo refuses until it is reopened. */
+  | "closed"
+  /** Wages are already booked for this check-in. */
+  | "booked"
+  /** A surviving OT session must be undone first. */
+  | "otFirst"
+  /** Anything else the database refused. */
+  | "failed";
+
+/**
  * Build the redirect target: the caller's own URL, validated the same way every
  * other back-link in the app is, with the outcome added BEFORE any fragment so
  * the page can actually read it.
@@ -104,4 +149,16 @@ export function closeReturnTo(rawBack: string | undefined, outcome: CloseOutcome
  */
 export function addPersonReturnTo(rawBack: string | undefined, outcome: AddPersonOutcome): string {
   return returnWith(rawBack, outcome === "ok" ? "added=1" : `addError=${outcome}`);
+}
+
+/** The retime form's twin, sharing `returnWith` for the same reason the other
+ *  three do — the fragment hazard is a property of the URL shape, and the fix
+ *  page threads `#`-free query state anyway (its returnTo carries no anchor). */
+export function retimeReturnTo(rawBack: string | undefined, outcome: RetimeOutcome): string {
+  return returnWith(rawBack, outcome === "ok" ? "retimed=1" : `retimeError=${outcome}`);
+}
+
+/** The delete form's twin. */
+export function undoReturnTo(rawBack: string | undefined, outcome: UndoOutcome): string {
+  return returnWith(rawBack, outcome === "ok" ? "undone=1" : `undoError=${outcome}`);
 }

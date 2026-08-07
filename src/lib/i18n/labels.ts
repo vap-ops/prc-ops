@@ -186,6 +186,10 @@ export const MUSTER_LABEL = "เช็คชื่อ";
 // เช็คชื่อ is the ACT of checking in (the cockpit), ประวัติการเช็คชื่อ is the
 // RECORD of it (this report) — the UI-term rule wants both named once, not fused.
 export const ATTENDANCE_AUDIT_LABEL = "ประวัติการเช็คชื่อ";
+// Spec 400 U6a — the worker-day fix screen's own page title, distinct from the
+// report ABOVE it: this page ACTS on one person's one day (retime/add/delete),
+// the report reads across everyone.
+export const ATTENDANCE_FIX_LABEL = "แก้ไขการเช็คชื่อ";
 // Spec 388 U2 — the ช่าง's OWN attendance record, a third distinct sense beside
 // MUSTER_LABEL (the act) and ATTENDANCE_AUDIT_LABEL (the office's report over
 // everyone). This one is first-person and worker-facing: it answers "what does

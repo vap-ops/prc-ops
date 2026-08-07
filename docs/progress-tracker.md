@@ -13886,3 +13886,67 @@ an actor until you check which side of the event it sits on._
 free-text description in its payload, so its L2 subject slot is always empty — the type in the headline
 carries the whole meaning. ③ Gate 4 for a message-shape change is a real push to a phone; none was sent
 from this lane.
+
+## 2026-08-07 — spec 400 U6a: the worker-day fix screen (lane attnfix)
+
+**Status: SHIPPED, code-only.** New route `/team/attendance/fix?worker=&date=&project=&from=` — retime,
+add or delete ONE person's attendance for ONE day, without opening the 42-row grid or the day panel.
+Design ratified with the operator over three widget revisions in chat before build (memory
+`spec400-attendance-grid.md`, "U6 PLAN rev 3"); this unit gate-checked its claims against the live RPC
+bodies rather than re-litigating the shape.
+
+**Gate = `MUSTER_CORRECT_ROLES`, not `MUSTER_CLOSE_ROLES`.** The correction RPCs' own allowlist has no
+`site_admin` — she holds the cockpit for TODAY, but every surface reaching a PAST day in this app is
+gated the same narrow way, and this page must not be the exception.
+
+**No wizard, gates are per action, measured from the live RPC bodies:** retime
+(`muster_correct_session`'s UPDATE path) is offered even on a CLOSED day — its real guard is the
+unbooked-wage anti-join, not closure — while add (the INSERT path) and delete (`muster_undo_scan`) both
+require the day OPEN, so they sit under ONE locked group whose header carries the reopen form (reused
+unchanged) plus the blast-radius sentence. No time input anywhere defaults to a value.
+
+⭐ **Two gaps found only by driving the real RPCs, not by reading their signatures.** `audit_attendance_detail`
+discloses a session's team LEAD NAME but never its `team_id`, and `muster_day_closures`/`muster_attendance`
+RLS is `can_see_project` (FALSE for procurement) — so a no-session worker-day has no team or closure fact
+reachable on the session client at all. Fixed with two narrow ADMIN lookups, each scoped to exactly the one
+row this audience already reads in substance through a DEFINER RPC elsewhere (no new exposure). The add arm
+also only ever offers a REGULAR session — the RPC refuses to create an OT one after the fact — so the add
+card disappears entirely once a regular session exists, rather than reaching the RPC's own refusal.
+
+**Gate-4 real-flow finding:** a no-session worker-day with `?project=` rendered the date with no project
+name (it only ever came off the first session row). Fixed with a session-client `projects` lookup, only
+when there is no session to read it from.
+
+**The trail is the SAME `list_muster_day_audit` RPC** the day panel reads, filtered in TypeScript to
+`workerId` — which needed `DayAuditRow`/`shapeDayAuditRow` widened to carry `worker_id` through (it was
+already on the raw RPC row, just dropped at the shaping step). `REOPEN_ERROR_COPY`/`ADD_ERROR_COPY` moved
+out of `/team/attendance/page.tsx` into a new `src/lib/muster/outcome-copy.ts` so both pages show the same
+sentence for the same outcome; `RETIME_ERROR_COPY`/`UNDO_ERROR_COPY` are new there.
+
+⚠️ **The honest-copy ratchet moved on purpose:** `RETIME_ERROR_COPY.stale` ("กรุณาโหลดหน้านี้ใหม่แล้วลอง
+อีกครั้ง") is the one deliberately retryable arm in the whole unit — it fires only when the page's
+server-resolved team id no longer matches the row's own, and reloading re-resolves it fresh. Ceiling raised
+237→238 occurrences / 110→111 files with that justification recorded in the test itself.
+
+**Gates.** RED first for every new module (`day-fix.ts`'s four pure helpers, the two new server actions, the
+three new form components, the page itself via a source-scan test) — all confirmed failing before
+implementation. Full vitest suite green (via git-bash, the documented PATH requirement for
+`ship-pr-*` tests); typecheck 0, lint 0. **4 mutants, each killed by its own dedicated assertion**: the role
+gate (`MUSTER_CORRECT_ROLES` → `MUSTER_CLOSE_ROLES`), the retime-on-closed-day claim (adding a `dayClosed
+=== false` guard it should not have), the add/delete-blocked-on-closed-day claim (removing that same guard
+where it SHOULD be), and the project-required guard for a no-session worker-day (dropping the `projectId
+!== null` condition on the admin closure lookup).
+
+✅ **Gate 4 was the real flow on real prod data, with every write retracted or restored afterward.**
+Project PRC-2026-004, worker-day 2026-08-04 (closed, `out_auto=true`): retimed a check-in 08:22→08:25→08:22,
+proving retime succeeds on a closed day end-to-end. Worker-day 2026-08-05: reopened it via the page's own
+embedded form, added a missing person (07:50) with the team picker populated from `list_muster_teams_for_day`,
+confirmed the trail showed both the correction-time write and (on delete) the undo, deleted the row to
+restore the empty state, then re-closed the day via the day panel to leave prod exactly as found. Zero
+console errors, zero server errors, across a super_admin session throughout (in `MUSTER_CORRECT_ROLES`).
+
+⚑ **U6b, deliberately NOT built here:** the three entry doors (grid anomaly/empty cells, the `?day=` panel's
+own anomaly work-list, the spec-374 calendar's in-month cells) and the unfinished-day banner on those OTHER
+pages. Reachable today only by a hand-typed URL; `safeBackHref`/`?from=` is already wired and the route is
+registered in `nav-back-affordance.test.ts`'s `STATIC_MULTI_PARENT` list on the same "built multi-parent
+from day one" basis `/team/attendance` itself used.
