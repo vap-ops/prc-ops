@@ -15,6 +15,13 @@ import { workPackageHref } from "@/lib/nav/project-paths";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
+type FeedbackType = Database["public"]["Enums"]["feedback_type"];
+
+/** NEXT_PUBLIC_APP_URL is operator-configured; a trailing slash would yield a
+ *  double slash that some clients refuse to linkify. */
+function absolute(baseUrl: string, path: string): string {
+  return `${baseUrl.replace(/\/+$/, "")}${path}`;
+}
 
 export interface NotificationSlots {
   /** L1 — what happened. The ONLY required slot: a phone's notification shelf
@@ -64,7 +71,7 @@ export function joinWhere(parts: ReadonlyArray<string | undefined>): string {
  * `purchase_request_id`.
  */
 export function purchaseRequestLink(baseUrl: string, purchaseRequestId: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}/requests/${purchaseRequestId}`;
+  return absolute(baseUrl, `/requests/${purchaseRequestId}`);
 }
 
 /**
@@ -74,7 +81,7 @@ export function purchaseRequestLink(baseUrl: string, purchaseRequestId: string):
  * (wp_decision, wp_reopened) point here.
  */
 export function workPackageLink(baseUrl: string, projectId: string, workPackageId: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}${workPackageHref(projectId, workPackageId)}`;
+  return absolute(baseUrl, workPackageHref(projectId, workPackageId));
 }
 
 /**
@@ -87,8 +94,47 @@ export function workPackageLink(baseUrl: string, projectId: string, workPackageI
  * uploader at it would redirect them away.
  */
 export function reviewWorkPackageLink(baseUrl: string, workPackageId: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}/review/work-packages/${workPackageId}`;
+  return absolute(baseUrl, `/review/work-packages/${workPackageId}`);
 }
+
+/**
+ * Spec 402 U3 — the feedback report itself. `/feedback/[id]` carries no
+ * `requireRole`: it is RLS-scoped and resolves an unreadable row to notFound,
+ * and this event's recipients are the super_admin pool, who see every report.
+ */
+export function feedbackLink(baseUrl: string, feedbackId: string): string {
+  return absolute(baseUrl, `/feedback/${feedbackId}`);
+}
+
+/**
+ * The back-office receipt-correction queue — `requireRole(BACK_OFFICE_ROLES)`,
+ * which is exactly `receipt_correction_flagged`'s recipient set
+ * (`context.backOfficeIds`).
+ */
+export function storeCorrectionsLink(baseUrl: string): string {
+  return absolute(baseUrl, "/store/corrections");
+}
+
+/**
+ * The project's store — `WP_DETAIL_ROLES`, which includes `site_admin`.
+ * `receipt_correction_resolved` goes to the SA who FLAGGED the miscount, and
+ * they cannot open the back-office queue above.
+ */
+export function projectStoreLink(baseUrl: string, projectId: string): string {
+  return absolute(baseUrl, `/projects/${projectId}/store`);
+}
+
+/** The project overview — the site-issue alert's landing surface (spec 277). */
+export function projectLink(baseUrl: string, projectId: string): string {
+  return absolute(baseUrl, `/projects/${projectId}`);
+}
+
+/** One icon per feedback type, so a bug and a wish are distinguishable in the
+ *  operator's notification shelf. Exhaustive over the enum, like the two below. */
+export const FEEDBACK_TYPE_ICON: Record<FeedbackType, string> = {
+  bug: "🐞",
+  feature: "💡",
+};
 
 /**
  * One icon per approval decision. Same exhaustiveness contract as

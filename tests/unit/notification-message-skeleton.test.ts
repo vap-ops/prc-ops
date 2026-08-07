@@ -5,10 +5,19 @@ import {
   purchaseRequestLink,
   workPackageLink,
   reviewWorkPackageLink,
+  feedbackLink,
+  storeCorrectionsLink,
+  projectStoreLink,
+  projectLink,
   PR_STATUS_ICON,
   WP_DECISION_ICON,
+  FEEDBACK_TYPE_ICON,
 } from "@/lib/notifications/message-skeleton";
-import { PURCHASE_REQUEST_STATUS_LABEL, APPROVAL_DECISION_LABEL } from "@/lib/i18n/labels";
+import {
+  PURCHASE_REQUEST_STATUS_LABEL,
+  APPROVAL_DECISION_LABEL,
+  FEEDBACK_TYPE_LABEL,
+} from "@/lib/i18n/labels";
 
 // Spec 402 U1 — the six-slot plain-text skeleton every push is composed onto.
 // Pure: no env, no DB. The drain resolves the values, compose arranges them.
@@ -118,6 +127,60 @@ describe("workPackageLink / reviewWorkPackageLink", () => {
     expect(reviewWorkPackageLink("https://app.example/", "wp-1")).toBe(
       "https://app.example/review/work-packages/wp-1",
     );
+  });
+});
+
+// Spec 402 U3 — the remaining events' links. Same rule as U2: each target is
+// chosen to match its event's RECIPIENT set, because one outbox row yields one
+// body for everyone who receives it.
+describe("the spec 402 U3 links", () => {
+  it("builds the feedback detail link (RLS-scoped, no requireRole)", () => {
+    expect(feedbackLink("https://app.example", "fb-1")).toBe("https://app.example/feedback/fb-1");
+  });
+
+  // requireRole(BACK_OFFICE_ROLES) — exactly receipt_correction_flagged's
+  // recipient set (context.backOfficeIds).
+  it("builds the back-office corrections queue link", () => {
+    expect(storeCorrectionsLink("https://app.example")).toBe(
+      "https://app.example/store/corrections",
+    );
+  });
+
+  // WP_DETAIL_ROLES, which includes site_admin — the flagger who receives
+  // receipt_correction_resolved and cannot open the back-office queue.
+  it("builds the project store link", () => {
+    expect(projectStoreLink("https://app.example", "proj-1")).toBe(
+      "https://app.example/projects/proj-1/store",
+    );
+  });
+
+  it("builds the project link", () => {
+    expect(projectLink("https://app.example", "proj-1")).toBe(
+      "https://app.example/projects/proj-1",
+    );
+  });
+
+  it("tolerates a trailing slash on every one of them", () => {
+    expect(feedbackLink("https://app.example/", "fb-1")).toBe("https://app.example/feedback/fb-1");
+    expect(storeCorrectionsLink("https://app.example/")).toBe(
+      "https://app.example/store/corrections",
+    );
+    expect(projectStoreLink("https://app.example/", "p1")).toBe(
+      "https://app.example/projects/p1/store",
+    );
+    expect(projectLink("https://app.example/", "p1")).toBe("https://app.example/projects/p1");
+  });
+});
+
+describe("FEEDBACK_TYPE_ICON", () => {
+  it("covers the complete feedback_type domain", () => {
+    expect(Object.keys(FEEDBACK_TYPE_ICON).sort()).toEqual(Object.keys(FEEDBACK_TYPE_LABEL).sort());
+  });
+
+  it("gives every type a non-empty icon", () => {
+    for (const [type, icon] of Object.entries(FEEDBACK_TYPE_ICON)) {
+      expect(icon, `type ${type} has no icon`).not.toBe("");
+    }
   });
 });
 

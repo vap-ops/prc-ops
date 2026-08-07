@@ -18,6 +18,7 @@ import {
   joinWhere,
   PR_STATUS_ICON,
   WP_DECISION_ICON,
+  FEEDBACK_TYPE_ICON,
 } from "./message-skeleton";
 
 export type NotificationEventType = Database["public"]["Enums"]["notification_event_type"];
@@ -31,12 +32,11 @@ export interface ComposeContext {
   // (the drain enriches it from purchase_request_id → purchase_order). Absent for
   // a PR with no PO yet.
   poNumber?: number;
-  // Spec 277 P1a — site_issue_reported context, enriched by the drain from the
-  // payload's project_id / reported_by: the project's name, the reporter's
-  // display name, and a deep link into the project.
+  // Spec 277 P1a — the project's name, enriched by the drain. Spec 402 U3
+  // retired the bespoke `issueReporterName` / `issueDeepLink` beside it: the
+  // site-issue alert now uses the same `actorName` / `deepLink` slots as every
+  // other event, so there is one way to say "who" and "where to go".
   projectName?: string;
-  issueReporterName?: string;
-  issueDeepLink?: string;
   // Feedback c5136ad9 — wp_pending_approval context: the submitter's display
   // name, resolved by the drain from the payload's submitted_by uid.
   submitterName?: string;
@@ -112,6 +112,12 @@ function wpSubject(payload: NotificationPayload, context: ComposeContext): strin
 // L3: the project, then the WP code — same precedence as the name.
 function wpWhere(payload: NotificationPayload, context: ComposeContext): string {
   return joinWhere([context.projectName, payload.code?.trim() || context.wpCode]);
+}
+
+function feedbackTypeIcon(payload: NotificationPayload): string {
+  const type = payload.feedbackType;
+  if (type === undefined) return "";
+  return FEEDBACK_TYPE_ICON[type as keyof typeof FEEDBACK_TYPE_ICON] ?? "";
 }
 
 function wpDecisionIcon(payload: NotificationPayload): string {
@@ -244,37 +250,67 @@ export function composeNotification(
         link: context.deepLink,
       });
 
-    // Spec 201 A4 — a new bug report / feature request, to the operator (super_admin).
-    // The reporter's role helps the operator triage (mirrors the review card).
+    // Spec 201 A4 — a new bug report / feature request, to the operator
+    // (super_admin). Spec 402 U3 adds the reporter's NAME beside the role: the
+    // role alone cannot tell two site admins apart without opening the app.
     case "feedback_submitted": {
-      const type = label(FEEDBACK_TYPE_LABEL, payload.feedbackType);
       const role = label(USER_ROLE_LABEL, payload.roleSnapshot);
-      return `ข้อเสนอแนะใหม่ (${type}) จาก${role}: ${payload.feedbackTitle ?? ""}`;
+      const reporter = context.actorName?.trim() ?? "";
+      return buildNotificationMessage({
+        headline: `${feedbackTypeIcon(payload)} ข้อเสนอแนะใหม่ (${label(
+          FEEDBACK_TYPE_LABEL,
+          payload.feedbackType,
+        )})`,
+        subject: payload.feedbackTitle,
+        // No project or ref exists for a feedback report — the L3 slot stays
+        // empty and the skeleton drops it.
+        actor:
+          reporter === "" ? (role === "" ? "" : `แจ้งโดย${role}`) : `แจ้งโดย ${reporter} (${role})`,
+        link: context.deepLink,
+      });
     }
 
     // Spec 277 P1a — a SERIOUS site issue (safety/access/equipment), to the project
     // PM + the director/procurement pool. Names the issue type + project (· WP when
     // scoped) + reporter, then a deep link into the project to act.
-    case "site_issue_reported": {
-      const type = label(SITE_ISSUE_TYPE_LABEL, payload.issueType);
-      // project · WP, dropping either part when absent (no dangling separator).
-      const scope = [context.projectName, context.wpCode]
-        .filter((part): part is string => Boolean(part))
-        .join(" · ");
-      const lines = [`⚠️ ปัญหาหน้างาน (${type}): ${scope}`.trim()];
-      if (context.issueReporterName) lines.push(`แจ้งโดย ${context.issueReporterName}`);
-      if (context.issueDeepLink) lines.push(context.issueDeepLink);
-      return lines.join("\n");
-    }
+    case "site_issue_reported":
+      return buildNotificationMessage({
+        headline: `⚠️ ปัญหาหน้างาน (${label(SITE_ISSUE_TYPE_LABEL, payload.issueType)})`,
+        // No free-text description rides the payload, so L2 stays empty and the
+        // scope moves to its proper slot.
+        where: joinWhere([context.projectName, context.wpCode]),
+        actor: actorLine("แจ้งโดย", context.actorName),
+        link: context.deepLink,
+      });
 
     // Spec 324 — an SA reported that a store receipt was booked with the wrong
-    // (over-) count; the back-office correction authority is nudged to true it down.
+    // (over-) count; the back-office correction authority is nudged to true it
+    // down. The link is the correction QUEUE, whose gate (BACK_OFFICE_ROLES) is
+    // exactly this event's recipient set.
     case "receipt_correction_flagged":
-      return `⚠️ แจ้งแก้ไขจำนวนรับของ: ${payload.itemDescription ?? ""} — โปรดตรวจสอบและแก้ไขให้ตรงกับของที่รับจริง`.trim();
+      return buildNotificationMessage({
+        headline: "⚠️ แจ้งแก้ไขจำนวนรับของ",
+        subject: payload.itemDescription,
+        where: context.projectName,
+        actor: actorLine("แจ้งโดย", context.actorName),
+        link: context.deepLink,
+      });
 
-    // Spec 324 — the correction was applied or rejected; the SA who flagged is told.
+    // Spec 324 — the correction was applied or rejected; the SA who flagged is
+    // told, and lands on their own project store (the back-office queue above
+    // would refuse them).
+    //
+    // 🚨 No actor line: this payload names only `requested_by`, who is the
+    // FLAGGER — i.e. the RECIPIENT of this very message, not whoever resolved
+    // it. Naming them would tell the reader they did the thing they are being
+    // informed about. Same class as pr_progress's approver.
     case "receipt_correction_resolved":
-      return `การแจ้งแก้ไขจำนวนรับของ${payload.itemDescription ? ` (${payload.itemDescription})` : ""} ได้รับการดำเนินการแล้ว`;
+      return buildNotificationMessage({
+        headline: "✅ แก้ไขจำนวนรับของแล้ว",
+        subject: payload.itemDescription,
+        where: context.projectName,
+        link: context.deepLink,
+      });
 
     default:
       // Runtime-only: an event type this deploy predates (see unknown-event).

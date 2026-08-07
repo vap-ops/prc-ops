@@ -13713,3 +13713,43 @@ merely untested. Both are now fixtures, and the `work_packages` mock CHECKS that
 ② A WP renamed between decision and push renders its new name (see precedence above) — correct for
 "go look at this", arguably wrong for an audit trail. ③ Gate 4 for a message-shape change is a real push
 to a phone; none was sent from this lane.
+
+## 2026-08-07 — spec 402 U3: the last four events, and one shared way to say "who" (lane notiu3)
+
+**What shipped.** `feedback_submitted` plus the three dormant events (`site_issue_reported`,
+`receipt_correction_flagged`, `receipt_correction_resolved`) move onto the six-slot skeleton with deep
+links, completing spec 402. `FEEDBACK_TYPE_ICON` and four link builders (`feedbackLink`,
+`storeCorrectionsLink`, `projectStoreLink`, `projectLink`) join `message-skeleton.ts`, and all seven link
+builders now share one `absolute()` helper instead of repeating the trailing-slash strip.
+
+⭐ **`site_issue_reported` owned a BESPOKE pair of context fields — `issueReporterName` and
+`issueDeepLink` — doing exactly what `actorName` and `deepLink` now do for every other event.** Retired:
+one way to say who acted and where to go, so the next event cannot invent a third. The only surviving
+mentions of those names are comments recording the retirement.
+
+⭐ **`feedback_submitted` told the operator the reporter's ROLE but never their NAME**, which cannot
+separate two site admins without opening the app. It now reads `แจ้งโดย <name> (<role>)`, degrading to
+`แจ้งโดย<role>` when the drain resolved nothing — the reporter is not a recipient (the super pool is), so
+their uid had to be added to the candidates lookup or the line would silently never render.
+
+🚨 **The two correction events have OPPOSITE audiences, so they do not share a link.** `flagged` goes to
+`BACK_OFFICE_ROLES`, whose queue is `/store/corrections` — the gate is exactly the recipient set.
+`resolved` goes to the SA who flagged, who would be **refused** at that queue, so it lands on
+`/projects/[id]/store` (`WP_DETAIL_ROLES`, which includes `site_admin`). The test pins the queue URL's
+ABSENCE on the resolved event, not just its presence on the flagged one.
+
+⚠️ **Neither correction payload carries a receipt id** — the outbox row has no `work_package_id`, no
+`purchase_request_id` and nothing identifying the receipt — so there is no receipt-level link to build and
+the project is the only scope available. Recorded rather than guessed at.
+
+🚨 **`receipt_correction_resolved` names no actor, deliberately.** Its payload carries only
+`requested_by`, who is the FLAGGER — the RECIPIENT of this very message, not whoever resolved it. Naming
+them would tell the reader they did the thing they are being informed about. **Third instance of this
+class in one spec** (pr_progress's approver, wp_progress's absent actor, now this): _a payload uid is not
+an actor until you check which side of the event it sits on._
+
+**Open questions.** ① Three of the four events have ZERO rows all-time, so only `feedback_submitted`
+(28 rows) has real-flow evidence; the rest are pinned by fixtures. ② `site_issue_reported` has no
+free-text description in its payload, so its L2 subject slot is always empty — the type in the headline
+carries the whole meaning. ③ Gate 4 for a message-shape change is a real push to a phone; none was sent
+from this lane.

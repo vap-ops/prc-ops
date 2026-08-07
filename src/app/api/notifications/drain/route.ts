@@ -34,7 +34,18 @@ import {
   purchaseRequestLink,
   workPackageLink,
   reviewWorkPackageLink,
+  feedbackLink,
+  storeCorrectionsLink,
+  projectStoreLink,
+  projectLink,
 } from "@/lib/notifications/message-skeleton";
+
+// Spec 402 U3 — the two receipt-correction events. Same project scope, but
+// OPPOSITE audiences, so they do not share a link.
+const CORRECTION_EVENTS = new Set<string>([
+  "receipt_correction_flagged",
+  "receipt_correction_resolved",
+]);
 
 // Spec 402 U1 — the four events whose subject is a purchase request.
 const PR_FAMILY_EVENTS = new Set<string>([
@@ -460,6 +471,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ),
   ];
 
+  // Spec 402 U3 — the feedback reporter (a name for the operator's ping) and
+  // the receipt-correction flagger. Neither is normally a recipient, so both
+  // must ride the candidates lookup or their line silently never renders.
+  const feedbackReporterIds = [
+    ...new Set(
+      parsed
+        .filter(({ row }) => row.event_type === "feedback_submitted")
+        .map(({ payload }) => payload.submittedBy)
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
+  const correctionActorIds = [
+    ...new Set(
+      parsed
+        .filter(({ row }) => row.event_type === "receipt_correction_flagged")
+        .map(({ payload }) => payload.requestedBy)
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
+  // …and the correction events' project, their only available scope.
+  const correctionProjectIds = [
+    ...new Set(
+      parsed
+        .filter(({ row }) => CORRECTION_EVENTS.has(row.event_type))
+        .map(({ payload }) => payload.projectId)
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
+
   // Each leg is OR-ed into the gate and unioned into the id sets separately, so
   // no leg's resolution depends on another leg being non-empty — the
   // latent-coupling shape the submitter arm above was already fixed for.
@@ -470,7 +510,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     prActorIds.length > 0 ||
     prProjectIds.length > 0 ||
     wpActorIds.length > 0 ||
-    wpProjectIds.length > 0
+    wpProjectIds.length > 0 ||
+    feedbackReporterIds.length > 0 ||
+    correctionActorIds.length > 0 ||
+    correctionProjectIds.length > 0
   ) {
     const enrichmentProjectIds = [
       ...new Set([
@@ -480,6 +523,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ...approvalProjectIds,
         ...prProjectIds,
         ...wpProjectIds,
+        ...correctionProjectIds,
       ]),
     ];
     const reporterIds = [
@@ -550,6 +594,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // lookup or the actor line silently never renders.
         ...prActorIds,
         ...wpActorIds,
+        ...feedbackReporterIds,
+        ...correctionActorIds,
       ]),
     ];
     const roleById = new Map<string, UserRole>();
@@ -668,16 +714,55 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       };
       // Spec 277 P1a — project name, reporter name, and a deep link into the
       // project, resolved from the site_issue payload's project_id / reported_by.
+      // Spec 402 U3 — now on the SHARED slots (actorName / deepLink) rather
+      // than the bespoke issueReporterName / issueDeepLink pair it used to own.
       if (row.event_type === "site_issue_reported") {
         const projectId = payload.projectId;
         if (projectId !== undefined) {
           const projectName = projectNameById.get(projectId);
           if (projectName !== undefined) composeContext.projectName = projectName;
-          composeContext.issueDeepLink = `${clientEnv.NEXT_PUBLIC_APP_URL}/projects/${projectId}`;
+          composeContext.deepLink = projectLink(clientEnv.NEXT_PUBLIC_APP_URL, projectId);
         }
         if (payload.reportedBy !== undefined) {
           const reporterName = displayNameById.get(payload.reportedBy);
-          if (reporterName !== undefined) composeContext.issueReporterName = reporterName;
+          if (reporterName !== undefined) composeContext.actorName = reporterName;
+        }
+      }
+      // Spec 402 U3 — the operator's feedback ping: the reporter's NAME beside
+      // the role snapshot, and a link straight to the report.
+      if (row.event_type === "feedback_submitted") {
+        if (payload.submittedBy !== undefined) {
+          const reporterName = displayNameById.get(payload.submittedBy);
+          if (reporterName !== undefined) composeContext.actorName = reporterName;
+        }
+        if (payload.feedbackId !== undefined) {
+          composeContext.deepLink = feedbackLink(clientEnv.NEXT_PUBLIC_APP_URL, payload.feedbackId);
+        }
+      }
+      // Spec 402 U3 — the two receipt-correction events. Their outbox rows
+      // carry no work_package_id, no purchase_request_id and NO receipt id, so
+      // the project (from the payload) is the only scope available and there is
+      // no receipt-level link to build.
+      //
+      // 🚨 The two links differ because the two AUDIENCES differ: the flagged
+      // event goes to BACK_OFFICE_ROLES, whose queue is /store/corrections; the
+      // resolved event goes to the SA who flagged, who would be refused there.
+      if (CORRECTION_EVENTS.has(row.event_type)) {
+        const projectId = payload.projectId;
+        if (projectId !== undefined) {
+          const projectName = projectNameById.get(projectId);
+          if (projectName !== undefined) composeContext.projectName = projectName;
+        }
+        if (row.event_type === "receipt_correction_flagged") {
+          composeContext.deepLink = storeCorrectionsLink(clientEnv.NEXT_PUBLIC_APP_URL);
+          // The flagger is the ACTOR here; on the resolved event the same uid is
+          // the RECIPIENT, so that arm resolves no actor at all.
+          if (payload.requestedBy !== undefined) {
+            const flaggerName = displayNameById.get(payload.requestedBy);
+            if (flaggerName !== undefined) composeContext.actorName = flaggerName;
+          }
+        } else if (projectId !== undefined) {
+          composeContext.deepLink = projectStoreLink(clientEnv.NEXT_PUBLIC_APP_URL, projectId);
         }
       }
       // Feedback c5136ad9 — name who submitted for approval on the ping itself.

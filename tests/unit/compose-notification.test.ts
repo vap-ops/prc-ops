@@ -293,29 +293,46 @@ describe("composeNotification", () => {
     ).toBe("🚚 กำลังจัดส่ง · คำขอซื้อ\nPR-0012\nสั่งซื้อแล้ว → กำลังจัดส่ง");
   });
 
-  it("composes feedback_submitted with the type label, reporter role, and title (A4)", () => {
+  // --- Spec 402 U3: feedback + the three dormant events -------------------
+
+  it("composes feedback_submitted with the type icon, title, reporter name and link", () => {
     expect(
       composeNotification(
         "feedback_submitted",
-        { feedbackType: "bug", roleSnapshot: "site_admin", feedbackTitle: "รูปอัปโหลดไม่ขึ้น" },
-        {},
+        {
+          feedbackType: "bug",
+          roleSnapshot: "site_admin",
+          feedbackTitle: "รูปอัปโหลดไม่ขึ้น",
+          submittedBy: "22222222-2222-2222-2222-22222222feed",
+        },
+        { actorName: "สมชาย ใจดี", deepLink: "https://app.example/feedback/fb-1" },
       ),
-    ).toBe("ข้อเสนอแนะใหม่ (ปัญหา) จากผู้ดูแลหน้างาน: รูปอัปโหลดไม่ขึ้น");
+    ).toBe(
+      [
+        "🐞 ข้อเสนอแนะใหม่ (ปัญหา)",
+        "รูปอัปโหลดไม่ขึ้น",
+        "แจ้งโดย สมชาย ใจดี (ผู้ดูแลหน้างาน)",
+        "https://app.example/feedback/fb-1",
+      ].join("\n"),
+    );
   });
 
-  it("composes a feature feedback_submitted with the feature label", () => {
+  // Before U3 the operator got only the ROLE. The name is what lets them tell
+  // two site admins apart without opening the app.
+  it("falls back to the role alone when the drain could not resolve the reporter", () => {
     expect(
       composeNotification(
         "feedback_submitted",
         { feedbackType: "feature", roleSnapshot: "project_manager", feedbackTitle: "ขอกลุ่มวัสดุ" },
         {},
       ),
-    ).toBe("ข้อเสนอแนะใหม่ (ฟีเจอร์) จากผู้จัดการโครงการ: ขอกลุ่มวัสดุ");
+    ).toBe("💡 ข้อเสนอแนะใหม่ (ฟีเจอร์)\nขอกลุ่มวัสดุ\nแจ้งโดยผู้จัดการโครงการ");
   });
 
-  // Spec 277 P1a — serious site-issue alert: type label + project/WP scope +
-  // reporter + a deep link into the project (enriched by the drain).
-  it("composes site_issue_reported with the type label, project · WP scope, reporter, and deep link", () => {
+  // Spec 277 P1a — serious site-issue alert, now on the shared skeleton: the
+  // bespoke issueReporterName / issueDeepLink context fields are retired in
+  // favour of the actorName / deepLink every other event uses.
+  it("composes site_issue_reported with the type, project · WP scope, reporter and link", () => {
     expect(
       composeNotification(
         "site_issue_reported",
@@ -323,34 +340,70 @@ describe("composeNotification", () => {
         {
           projectName: "PRC-2026-004",
           wpCode: "WP-012",
-          issueReporterName: "สมชาย ใจดี",
-          issueDeepLink: "https://ops.example.app/projects/p1",
+          actorName: "สมชาย ใจดี",
+          deepLink: "https://ops.example.app/projects/p1",
         },
       ),
     ).toBe(
-      "⚠️ ปัญหาหน้างาน (ความปลอดภัย/อุบัติเหตุ): PRC-2026-004 · WP-012\nแจ้งโดย สมชาย ใจดี\nhttps://ops.example.app/projects/p1",
+      [
+        "⚠️ ปัญหาหน้างาน (ความปลอดภัย/อุบัติเหตุ)",
+        "PRC-2026-004 · WP-012",
+        "แจ้งโดย สมชาย ใจดี",
+        "https://ops.example.app/projects/p1",
+      ].join("\n"),
     );
   });
 
   it("composes site_issue_reported with a WP but no project name (no dangling separator)", () => {
     expect(
       composeNotification("site_issue_reported", { issueType: "equipment" }, { wpCode: "WP-012" }),
-    ).toBe("⚠️ ปัญหาหน้างาน (เครื่องจักร/อุปกรณ์เสีย): WP-012");
+    ).toBe("⚠️ ปัญหาหน้างาน (เครื่องจักร/อุปกรณ์เสีย)\nWP-012");
   });
 
-  it("composes site_issue_reported without a WP (project scope only)", () => {
+  it("composes receipt_correction_flagged with the item, project and the queue link", () => {
     expect(
       composeNotification(
-        "site_issue_reported",
-        { issueType: "access" },
+        "receipt_correction_flagged",
+        { itemDescription: "ปูนซีเมนต์", requestedBy: "11111111-1111-1111-1111-111111111111" },
         {
-          projectName: "PRC-2026-004",
-          issueReporterName: "สมชาย ใจดี",
-          issueDeepLink: "https://ops.example.app/projects/p1",
+          projectName: "โครงการบ้านสวย",
+          actorName: "สมชาย ใจดี",
+          deepLink: "https://app.example/store/corrections",
         },
       ),
     ).toBe(
-      "⚠️ ปัญหาหน้างาน (เข้าพื้นที่ไม่ได้): PRC-2026-004\nแจ้งโดย สมชาย ใจดี\nhttps://ops.example.app/projects/p1",
+      [
+        "⚠️ แจ้งแก้ไขจำนวนรับของ",
+        "ปูนซีเมนต์",
+        "โครงการบ้านสวย",
+        "แจ้งโดย สมชาย ใจดี",
+        "https://app.example/store/corrections",
+      ].join("\n"),
+    );
+  });
+
+  // 🚨 The resolved payload names only `requested_by` — the FLAGGER, who is the
+  // RECIPIENT of this event, not whoever resolved it. Naming them would tell
+  // the reader they did the thing they are being informed about. Same class as
+  // pr_progress's approver.
+  it("never names an actor on receipt_correction_resolved", () => {
+    const message = composeNotification(
+      "receipt_correction_resolved",
+      { itemDescription: "ปูนซีเมนต์", requestedBy: "11111111-1111-1111-1111-111111111111" },
+      {
+        projectName: "โครงการบ้านสวย",
+        actorName: "สมชาย ใจดี",
+        deepLink: "https://app.example/projects/p1/store",
+      },
+    );
+    expect(message).not.toContain("สมชาย ใจดี");
+    expect(message).toBe(
+      [
+        "✅ แก้ไขจำนวนรับของแล้ว",
+        "ปูนซีเมนต์",
+        "โครงการบ้านสวย",
+        "https://app.example/projects/p1/store",
+      ].join("\n"),
     );
   });
 

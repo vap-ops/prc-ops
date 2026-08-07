@@ -685,6 +685,137 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
   });
 });
 
+// Spec 402 U3 — feedback + the receipt-correction pair. Same load-bearing
+// question as U2: does each event's link land somewhere its RECIPIENTS can
+// actually open?
+describe("POST /api/notifications/drain — spec 402 U3 feedback + correction enrichment", () => {
+  const REPORTER = "aaaaaaaa-0000-4000-8000-0000000005a1";
+  const FB_ID = "cccccccc-0000-4000-8000-0000000005c1";
+  const P1 = "ffffffff-0000-4000-8000-0000000005f1";
+  const BO_1 = "dddddddd-0000-4000-8000-0000000005d1";
+
+  it("names the feedback reporter and links straight to the report", async () => {
+    usersInCalls = [];
+    candidateUsers = [
+      {
+        id: REPORTER,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "feedback_submitted",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          feedback_id: FB_ID,
+          feedback_type: "bug",
+          role_snapshot: "site_admin",
+          feedback_title: "รูปอัปโหลดไม่ขึ้น",
+          submitted_by: REPORTER,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    // The reporter uid reached the candidates lookup — they are NOT a recipient
+    // (the super pool is), so nothing else would have fetched their name.
+    const candidateCall = usersInCalls.find((c) => c.cols.includes("full_name"));
+    expect(candidateCall?.ids).toContain(REPORTER);
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toBe(
+      [
+        "🐞 ข้อเสนอแนะใหม่ (ปัญหา)",
+        "รูปอัปโหลดไม่ขึ้น",
+        "แจ้งโดย สมชาย ทดสอบ (ผู้ดูแลหน้างาน)",
+        `http://localhost:3000/feedback/${FB_ID}`,
+      ].join("\n"),
+    );
+  });
+
+  // The flagged event goes to BACK_OFFICE_ROLES, whose queue is /store/corrections.
+  // The resolved event goes to the SA who flagged, who would be REFUSED there —
+  // so the absence of the queue URL is as load-bearing as the presence.
+  it("sends the flagged correction to the back-office queue, naming the flagger", async () => {
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
+    contactUsers = [{ id: BO_1, line_user_id: "Lbo", telegram_chat_id: null }];
+    candidateUsers = [
+      {
+        id: REPORTER,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "receipt_correction_flagged",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          requested_by: REPORTER,
+          item_description: "ปูนซีเมนต์",
+          project_id: P1,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toBe(
+      [
+        "⚠️ แจ้งแก้ไขจำนวนรับของ",
+        "ปูนซีเมนต์",
+        "โครงการบ้านสวย",
+        "แจ้งโดย สมชาย ทดสอบ",
+        "http://localhost:3000/store/corrections",
+      ].join("\n"),
+    );
+  });
+
+  it("sends the resolved correction to the flagger's own project store, not the queue", async () => {
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
+    contactUsers = [{ id: REPORTER, line_user_id: "Lsa", telegram_chat_id: null }];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "receipt_correction_resolved",
+        work_package_id: null,
+        purchase_request_id: null,
+        payload: {
+          requested_by: REPORTER,
+          item_description: "ปูนซีเมนต์",
+          project_id: P1,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    const text = texts[0] as string;
+    expect(text).toContain(`http://localhost:3000/projects/${P1}/store`);
+    expect(text).not.toContain("/store/corrections");
+  });
+});
+
 // Spec 402 U2 — the work-package family. The link is the load-bearing part:
 // /review/work-packages is requireRole(PM_ROLES), and one outbox row produces
 // ONE body for every recipient, so an event whose recipients are photo
