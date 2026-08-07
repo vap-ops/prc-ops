@@ -97,6 +97,39 @@ describe("/team/attendance/fix page — sessions, closure and team resolution", 
     expect(block).toContain("admin");
   });
 
+  // Self-review catch, Gate 5 (2026-08-07). Both reads below discarded their
+  // `error` and branched on `data` alone — the "discarded error on a read whose
+  // ABSENCE is the feature" class this spec already paid for once (U2's review
+  // finding ①, recorded in the spec's own §D4).
+  //
+  // The closure one is the consequential half: an ERRORED read is
+  // indistinguishable from "no closure row", so `dayClosed` would fall to
+  // `false` and the page would render the OPEN state — offering add and delete
+  // on a day that may in fact be CLOSED. The RPCs still refuse the write, so it
+  // is affordance-then-refuse rather than a hole, which is exactly the defect
+  // this repo ratchets against. Fail CLOSED by throwing, matching this page's
+  // own precedent (the team lookup, the teams RPC, loadAttendanceDetail and
+  // loadDayAudit all throw).
+  it("throws rather than reading an ERRORED closure lookup as 'the day is open'", () => {
+    const block = code.slice(
+      code.indexOf('.from("muster_day_closures")'),
+      code.indexOf('.from("muster_day_closures")') + 500,
+    );
+    expect(block).toContain("closureError");
+    expect(block).toContain("throw new Error");
+  });
+
+  // The worker read's twin: `data === null` currently renders "ไม่พบช่างคนนี้",
+  // a factual claim that this worker does not exist. An errored read must not
+  // make that claim about a worker who does.
+  it("distinguishes a FAILED worker read from a genuinely missing worker", () => {
+    const block = code.slice(
+      code.indexOf('.from("workers")'),
+      code.indexOf('.from("workers")') + 400,
+    );
+    expect(block).toContain("workerError");
+  });
+
   it("only resolves closure via the admin lookup when a project is actually known", () => {
     // A no-session worker-day with NO ?project= must leave dayClosed at `null`
     // (the "pick a project first" state) rather than guessing — the admin
@@ -187,6 +220,33 @@ describe("/team/attendance/fix page — the locked group", () => {
   it("offers add/delete ONLY on an open day", () => {
     expect(isSitedUnder("<AttendanceFixAddForm", "{dayClosed === false && (")).toBe(true);
     expect(isSitedUnder("<AttendanceFixUndoForm", "{dayClosed === false && (")).toBe(true);
+  });
+});
+
+// Self-review catch, Gate 5 (2026-08-07). `addPersonControl`'s reasons that are
+// REACHABLE on this page are exactly two — `future` and `noTeams` (`noProject`
+// cannot occur because a null project resolves dayClosed to null, which renders
+// a different branch entirely; `closed` cannot occur inside the dayClosed===false
+// block; `notPermitted` cannot occur because the whole page is role-gated). Only
+// `noTeams` had copy, so a FUTURE date rendered the "เพิ่มคนที่ตกหล่น" heading
+// with no form and no explanation underneath it.
+//
+// The day panel gets away with a silent `future` arm because ITS header states
+// "วันดังกล่าวยังมาไม่ถึง" through the close/reopen state machine; this page has
+// no such second statement, so silence here is the bare-heading defect — an
+// empty render that asserts nothing, the class the U3a review named.
+describe("/team/attendance/fix page — every reachable add refusal states its reason", () => {
+  it("names the FUTURE-date reason instead of rendering a bare heading", () => {
+    expect(code).toContain("ยังมาไม่ถึง");
+  });
+
+  it("renders the add section only when it has a form or a reason to show", () => {
+    // The heading must not be able to render alone: it is inside the same
+    // conditional as the thing it titles.
+    const at = code.indexOf("เพิ่มคนที่ตกหล่น</h3>");
+    expect(at).toBeGreaterThan(-1);
+    const before = code.slice(Math.max(0, at - 300), at);
+    expect(before).toContain("addState");
   });
 });
 

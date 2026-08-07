@@ -48,7 +48,7 @@ import { createClient as createAdminClient } from "@/lib/db/admin";
 import { bangkokTodayIso } from "@/lib/dates";
 import { dayClosureLabel, loadAttendanceDetail } from "@/lib/muster/attendance-audit";
 import { canAddMissingSession, outTimeLocked, parseFixParams } from "@/lib/muster/day-fix";
-import { addPersonControl } from "@/lib/muster/add-person";
+import { addPersonControl, type AddPersonControl } from "@/lib/muster/add-person";
 import { describeAuditEvent, loadDayAudit } from "@/lib/muster/day-audit";
 import {
   ADD_ERROR_COPY,
@@ -110,11 +110,17 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
   // The worker's own name. "workers" "readable by staff" is ROLE-only and
   // covers every MUSTER_CORRECT_ROLES member (procurement, procurement_manager,
   // super_admin — verified live), so the session client is enough.
-  const { data: workerRow } = await supabase
+  // ⚠️ The `error` is read, not discarded. `data === null` renders "ไม่พบช่างคนนี้"
+  // — a factual claim that this worker does not exist — and a FAILED read is
+  // indistinguishable from a genuinely missing row if only `data` is checked.
+  // Making that claim about a worker who does exist is the honest-copy defect;
+  // throwing surfaces the real failure instead.
+  const { data: workerRow, error: workerError } = await supabase
     .from("workers")
     .select("id, name")
     .eq("id", workerId)
     .maybeSingle();
+  if (workerError) throw new Error(`attendance fix: worker read failed: ${workerError.message}`);
   if (workerRow === null) {
     return shell(<ErrorNotice>ไม่พบช่างคนนี้</ErrorNotice>);
   }
@@ -151,12 +157,23 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
   if (sessions.length > 0) {
     dayClosed = sessions.every((s) => s.dayClosed);
   } else if (projectId !== null) {
-    const { data: closure } = await admin
+    // ⚠️ FAIL CLOSED. The `error` is read, not discarded: an errored read
+    // returns `data === null`, which is byte-identical to "there is no closure
+    // row", so branching on `data` alone would resolve `dayClosed = false` and
+    // render the OPEN state — offering add and delete on a day that may in fact
+    // be CLOSED. The RPCs still refuse the write, so that is
+    // affordance-then-refuse rather than a hole, which is precisely the class
+    // this repo ratchets against. Throwing matches every other read on this
+    // page (the team lookup, the teams RPC, loadAttendanceDetail, loadDayAudit).
+    const { data: closure, error: closureError } = await admin
       .from("muster_day_closures")
       .select("work_date")
       .eq("project_id", projectId)
       .eq("work_date", date)
       .maybeSingle();
+    if (closureError) {
+      throw new Error(`attendance fix: closure read failed: ${closureError.message}`);
+    }
     dayClosed = closure !== null;
   }
 
@@ -209,6 +226,28 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
         teamCount: addTeams.length,
       })
     : null;
+
+  /** Why the add form is withheld, in words, for every reason REACHABLE here.
+   *
+   *  Keyed on the reason UNION (not `string`), so a sixth `addPersonControl`
+   *  arm reds at typecheck rather than rendering an empty paragraph. The three
+   *  `null`s are unreachable on this page and say so: `noProject` resolves
+   *  dayClosed to null (a different branch entirely), `closed` cannot occur
+   *  inside the dayClosed===false block that hosts this control, and
+   *  `notPermitted` cannot occur because the page is gated on
+   *  MUSTER_CORRECT_ROLES. The render treats a null as "show no section at
+   *  all", which is correct for a reason that cannot happen. */
+  const ADD_WITHHELD_COPY: Record<
+    Extract<AddPersonControl, { control: "none" }>["reason"],
+    string | null
+  > = {
+    future: "วันดังกล่าวยังมาไม่ถึง — ยังไม่มีการเช็คชื่อให้แก้ไข",
+    noTeams: "ยังไม่มีทีมของวันดังกล่าว — เพิ่มคนที่ตกหล่นไม่ได้",
+    noProject: null,
+    closed: null,
+    notPermitted: null,
+  };
+  const addNotice = addState?.control === "none" ? ADD_WITHHELD_COPY[addState.reason] : null;
 
   // The trail — the SAME RPC the day panel reads, filtered to just this
   // worker. `null` (not `[]`) when there is no project to read: the RPC takes
@@ -368,7 +407,14 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
             </div>
           )}
 
-          {offersAdd && (
+          {/* The heading lives INSIDE the same condition as the thing it
+              titles: `addNotice` is non-null for every refusal reachable here,
+              so the section can never render as a bare heading with nothing
+              under it. Only `future` and `noTeams` are reachable — `noProject`
+              resolves dayClosed to null (a different branch), `closed` cannot
+              occur inside dayClosed===false, and `notPermitted` cannot occur
+              because the whole page is gated on MUSTER_CORRECT_ROLES. */}
+          {offersAdd && (addState?.control === "add" || addNotice !== null) && (
             <div>
               <h3 className="text-ink text-sm font-semibold">เพิ่มคนที่ตกหล่น</h3>
               {addOutcome !== null &&
@@ -388,11 +434,9 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
                   returnTo={returnTo}
                   teams={addTeams}
                 />
-              ) : addState?.control === "none" && addState.reason === "noTeams" ? (
-                <p className="text-ink-secondary mt-2 text-xs">
-                  ยังไม่มีทีมของวันดังกล่าว — เพิ่มคนที่ตกหล่นไม่ได้
-                </p>
-              ) : null}
+              ) : (
+                <p className="text-ink-secondary mt-2 text-xs">{addNotice}</p>
+              )}
             </div>
           )}
         </div>
