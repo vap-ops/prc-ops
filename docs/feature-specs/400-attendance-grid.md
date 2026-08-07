@@ -315,6 +315,28 @@ unreachable from `authenticated` and `anon`. Procurement gains exactly one power
 directly — pinned in pgTAP, with the `super_admin` positive control that proves the
 public gate was not narrowed either.
 
+> 🔴 **CONSEQUENCE OF THIS SPLIT THAT THE TABLE ABOVE UNDERSTATES — added 2026-08-08
+> after a post-merge review.** Because `close_muster_day` calls the **internal**, its
+> own role list — not `derive_muster_labor`'s — is the **effective gate on the wage
+> write**. `derive_muster_labor`'s list stopped governing the moment this split landed,
+> and u6c then widened `close_muster_day` to `accounting`, `hr` and
+> `project_coordinator`, **none of which `derive_muster_labor` admits** (and for two of
+> which `can_see_project` is live-FALSE). That widening was measured and
+> operator-sanctioned, so it is not the defect; **the defect is that nothing made the
+> widener re-answer the money question**, while `derive_muster_labor`'s own body carries
+> a ⚠️ pointing maintainers at the list that no longer governs.
+>
+> ⭐ **The general rule: when you move a mechanism behind an unexported helper, the
+> CALLERS' gates become the security boundary. Put the effective-allowlist assertion
+> where the callers are, or the split quietly converts a real boundary into a decorative
+> one.**
+>
+> Closed by **section B2** of `400-muster-correction-procurement.test.sql`: the admitted
+> set is now pinned EXHAUSTIVELY over all 17 roles, so adding a role to
+> `close_muster_day` reds and forces the question. ⏳ Still latent — `labor_logs` = 0
+> rows and no worker has `cost_confirmed_at`, so a derive books nothing until spec 368
+> U2 confirms the first rate.
+
 Two further bounds, both from the build's own self-review:
 
 - **REGULAR sessions only.** `muster_scan_in`'s signature carries
@@ -322,6 +344,16 @@ Two further bounds, both from the build's own self-review:
   arm — ×1.5 money (spec 351), never part of the ruling. The correction arm now
   refuses a non-regular session; the SA arm keeps both, which is the positive
   control that makes the bound procurement-specific rather than global.
+  ⚠️ **This bound shipped with a VACUOUS pin and was un-guarded for two days
+  (fixed 2026-08-08).** The refusal test drove team `…0010`'s LEAD, a worker the
+  fixture never scans in, so spec 351's own precondition (`no regular session on
+this team today`) raised `P0001` too — and `throws_ok(…, 'P0001', null, …)`
+  compares only the SQLSTATE. Deleting the guard entirely left the test green.
+  ⭐ **`throws_ok` with a `null` message is WEAK whenever the function raises that
+  SQLSTATE from more than one branch — `muster_scan_in` raises `P0001` from six.
+  Pass the message, AND pick a fixture that cannot trip another branch raising the
+  same code.** Now driven with a worker that HAS a regular session on that team, so
+  spec 351 provably cannot fire, plus the exact message.
 - **The subcon money wall moved with the mechanism**, so
   `tests/unit/contractor-money-wall.test.ts` — which pins the LAST definition of
   `derive_muster_labor` carrying `v_worker.contractor_id is null` — went red. The

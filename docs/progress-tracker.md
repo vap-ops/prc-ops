@@ -14421,3 +14421,96 @@ while `/procurement`, `/equipment/rentals` and `/accounting/review` correctly ke
 — the only string here not taken from an existing label or the page's own heading; easy to change.
 ③ The guard still cannot see a page whose CONSTANT resolves to another page's LITERAL; no such pair
 exists today, and closing it means resolving imports in the test.
+
+## 2026-08-08 — spec 400 U3a's pins, hardened after a post-merge review (lane u3harden)
+
+The operator asked for the independent review #1000 had shipped without. It found the
+authorization design **sound** and the mechanism extraction **faithful** (a normalised
+diff of the pre-split `derive_muster_labor` body against `_internal` shows only the name,
+the `v_role` declaration and the two `raise`s changed), and `_internal`'s `proacl` is
+`{postgres, service_role}` — the revoke held. It also found four things wrong with the
+TESTS. This unit closes them. Tests only: no migration, no `src/`.
+
+**① The OT money bound had no working pin — it was green over a deleted guard.** The
+refusal test drove worker `…0001`, team `…0010`'s LEAD, whom the fixture never scans in,
+so spec 351's own precondition (`no regular session on this team today`) raised `P0001`
+as well — and `throws_ok(…, 'P0001', null, …)` compares only the SQLSTATE. Deleting
+`075914`'s `p_session <> 'regular'` block left it passing. So the one bound the build's
+own self-review had discovered was unguarded for two days.
+
+⭐ **The rule, and it generalises past this file: `throws_ok(…, '<SQLSTATE>', null, …)`
+is WEAK whenever the function can raise that code from more than one branch — and
+`muster_scan_in` raises `P0001` from SIX (verified by listing its live `raise`s). Pass
+the message, AND choose a fixture that cannot trip any other branch raising the same
+code.** This is the pgTAP sibling of the vacuous-`toContain`. Now driven with worker
+`…0002`, which section C scans in, so spec 351 provably cannot fire — and the SA positive
+control uses the SAME worker and team, so the pair isolates the ROLE as the only
+difference and independently proves the precondition was satisfied.
+
+**② `project_manager may not close` was FALSE in production.** Post-u6c that role IS in
+`close_muster_day`'s live allowlist (verified with `pg_get_functiondef`); the assertion
+passed only because the probe user had no `project_members` row — it was asserting the
+MEMBERSHIP gate while its name claimed the ROLE gate. Deleted and replaced by ③.
+
+**③ New section B2 — the EFFECTIVE derive allowlist, exhaustive over all 17 roles.** This
+is the review's most important finding folded in as a GUARD rather than a memo. Because
+`close_muster_day` calls `derive_muster_labor_INTERNAL`, **its** role list — not
+`derive_muster_labor`'s — is the real gate on the wage write. `derive_muster_labor`
+stopped governing the moment U3a landed, and u6c then widened `close_muster_day` to
+`accounting`, `hr` and `project_coordinator`, none of which `derive_muster_labor` admits.
+That widening was measured and operator-sanctioned; the defect is that **nothing made the
+widener re-answer the money question**, while `derive_muster_labor`'s own body still
+carries a ⚠️ pointing at the list that no longer governs.
+
+⭐ **When you move a mechanism behind an unexported helper, the CALLERS' gates become the
+security boundary — put the effective-allowlist assertion where the callers are, or the
+split quietly turns a real boundary into a decorative one.**
+
+B2 pins 9 admitted + 8 refused and latches `9 + 8 = array_length(enum_range(user_role))`,
+so a new enum value must be placed in an arm. **What makes it sound is the fixture:** a
+dedicated project C the probe user IS a member of, with no teams and no attendance — so
+`can_see_project` is TRUE for every role (only the role gate can refuse) and an admitted
+close derives NOTHING. One distinct date per role, zero interference with any other
+assertion in the file. ⏳ Latent: `labor_logs` = 0 rows, no worker has
+`cost_confirmed_at`, so a derive books nothing until spec 368 U2 confirms the first rate.
+
+⚠️ **I hand-typed the 8 refused role names and one (`foreman`) does not exist** — the live
+enum has `contractor`. Caught by querying `enum_range(null::public.user_role)` before
+running, which is the whole reason the "never trust a hardcoded role list" rule is in
+CLAUDE.md.
+
+**④ `contractor-money-wall.test.ts`'s `extractDefinition` overshot its own function.** It
+terminated on `$;` or `$function$\n`, but a body written `end; $function$;` closes with
+the tag followed by a SEMICOLON — matching neither. So the extraction ran to the next
+function's opening tag or EOF: in `075913` the "body" of `derive_muster_labor_internal`
+spanned ~180 extra lines, swallowing the `revoke` block and the next function's header.
+A later re-emission of `_internal` WITHOUT the subcon wall would pass as long as anything
+else in the same file contained the phrase. Fixed to terminate on `/\$function\$\s*;/`,
+**and pinned** by a new assertion that the extracted body contains neither
+`revoke all on function` nor the next `create or replace function`.
+
+**Gates.** pgTAP **364/364 files, 0 failures**, this file 69/69 with `plan(69)`
+grep-derived. `extractDefinition` **mutation-proved**: breaking its `$function$;` arm
+(`.exec(text.slice(after))` → `.exec("")`) reds the new boundary assertion with
+`overshot into the revoke block that follows the function`; restored, 14/14. ⚠️ The FIRST
+mutation attempt injected a literal newline and produced `Tests no tests` — an ABORT, not
+a red — and was re-crafted with an anchor containing no backslashes. typecheck + lint exit 0. vitest **7966/7967**, the single red being `claude-hooks-bash-guards` at
+`Test timed out in 5000ms` with zero AssertionErrors, **25/25 alone** and absent from this
+diff (`git diff --stat origin/main...HEAD -- <that file> .claude/hooks/` prints nothing).
+
+ⓘ The OT pin was NOT live-mutation-proved, deliberately: that would mean mutating a
+money-writing function in production. It is sound by construction instead — the SA
+positive control `lives_ok`s an OT scan for the same worker and team, which spec 351 only
+permits when that worker has a regular session there, so spec 351's branch cannot fire;
+and the exact message excludes every other `P0001`. Both prior failure modes are ruled out
+independently.
+
+**Open questions.** ① `close_muster_day` accepts any `p_date` (past, today or future) and
+its auto-out fabricates `out_at = 17:00 / out_auto = true`, which `reopen_muster_day` does
+NOT restore. Pre-existing; U4's `muster_correct_session` is the repair path now. ② A
+TOCTOU residual can still leave an attendance row `out_at IS NULL` on a closed day —
+the money half of `muster_scan_in`'s guard is sound, the attendance half is not, and
+`075914`'s header overstates the coverage. Both are schema changes and want their own
+unit. ③ `derive_muster_labor`'s ⚠️ comment still says "do not add procurement here",
+which is true but now points at a list that no longer governs the money write; B2 is the
+guard, but the comment deserves rewording in whichever unit next touches that file.
