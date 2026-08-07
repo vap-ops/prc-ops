@@ -256,10 +256,12 @@ export function PhotoLightboxOverlay({
   const canSave = !busy && (draftStrokes.length > 0 || draftComment.trim().length > 0);
 
   // Keyboard occlusion (only the compose comment field summons it). The
-  // overlay is `fixed inset-0` and centers its column — when the keyboard
-  // shrinks the visual viewport, the comment editor (below the image) sits
-  // behind it. With an inset we pad the overlay bottom and let it scroll from
-  // the top so the focused field can be scrolled clear of the keyboard.
+  // overlay is `fixed inset-0`; when the keyboard shrinks the visual viewport,
+  // the comment editor (below the image) sits behind it. The inset is added as
+  // bottom PADDING so the field can be scrolled clear of the keyboard. The
+  // scrolling itself is no longer conditional on the inset — the overlay always
+  // scrolls (see the className below), because a tall photo overruns the
+  // viewport with the keyboard down too.
   const { inset } = useKeyboardInset(composing);
 
   // Center the comment field above the keyboard once it appears (rAF so the
@@ -290,9 +292,25 @@ export function PhotoLightboxOverlay({
         step(dx < 0 ? 1 : -1);
       }}
       style={inset > 0 ? { paddingBottom: inset } : undefined}
-      className={`fixed inset-0 z-50 flex touch-pan-y flex-col items-center gap-3 bg-black/85 p-4 ${
-        inset > 0 ? "justify-start overflow-y-auto" : "justify-center"
-      }`}
+      // ALWAYS scrollable, and centred with AUTO MARGINS rather than
+      // `justify-center` — the PageShell `card` trap (page-shell.tsx), which
+      // this overlay used to reproduce whenever the keyboard was DOWN. A
+      // portrait photo (`maxHeight: 60vh` = 487px at 812) plus the attribution
+      // line and a populated comment panel (`max-h-[32vh]` = 260px) overruns an
+      // 812px viewport, and `justify-center` centres that overflow by pushing
+      // the top of the image ABOVE the box, where no gesture can reach it —
+      // there was no scroller at all in that state. Auto margins centre
+      // identically while free space is positive and COLLAPSE to 0 when it is
+      // not, so a tall photo simply scrolls.
+      // ⚠️ This element is now a SCROLL CONTAINER *and*, being `fixed`, the
+      // containing block for the controls below — and an absolutely-positioned
+      // child of a scroller is part of the scrolled content, not pinned to it.
+      // So every root-level control (ปิด, หมุนรูป, ลบรูป, the prev/next arrows,
+      // the n/N counter) is `fixed`, not `absolute`: it resolves against the
+      // viewport, which this element exactly covers, so each lands where it
+      // always did but no longer rides away when a tall photo scrolls. The one
+      // remaining `absolute` is the markup SVG, which belongs to the image box.
+      className="fixed inset-0 z-50 flex touch-pan-y flex-col items-center justify-start gap-3 overflow-y-auto overscroll-contain bg-black/85 p-4 [&>*:first-child]:mt-auto [&>*:last-child]:mb-auto"
     >
       <span
         className="relative inline-flex"
@@ -497,7 +515,7 @@ export function PhotoLightboxOverlay({
         <>
           <span
             aria-live="polite"
-            className="absolute top-3 left-3 rounded-full border border-zinc-700 bg-zinc-950/80 px-2.5 py-1 text-xs font-medium text-zinc-100 backdrop-blur-sm"
+            className="fixed top-3 left-3 rounded-full border border-zinc-700 bg-zinc-950/80 px-2.5 py-1 text-xs font-medium text-zinc-100 backdrop-blur-sm"
           >
             {current + 1}/{photos.length}
           </span>
@@ -509,7 +527,7 @@ export function PhotoLightboxOverlay({
             }}
             disabled={current === 0 || composing}
             aria-label="รูปก่อนหน้า"
-            className="absolute top-1/2 left-2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-40"
+            className="fixed top-1/2 left-2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-40"
           >
             <span aria-hidden="true" className="text-xl leading-none">
               ‹
@@ -523,7 +541,7 @@ export function PhotoLightboxOverlay({
             }}
             disabled={current === photos.length - 1 || composing}
             aria-label="รูปถัดไป"
-            className="absolute top-1/2 right-2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-40"
+            className="fixed top-1/2 right-2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-40"
           >
             <span aria-hidden="true" className="text-xl leading-none">
               ›
@@ -542,7 +560,7 @@ export function PhotoLightboxOverlay({
             setConfirmDeleteOpen(true);
           }}
           disabled={isDeleting}
-          className="absolute top-3 left-1/2 inline-flex h-10 -translate-x-1/2 items-center gap-1.5 rounded-full border border-red-500/60 bg-zinc-950/80 px-3.5 text-xs font-semibold text-red-300 backdrop-blur-sm transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50"
+          className="fixed top-3 left-1/2 inline-flex h-10 -translate-x-1/2 items-center gap-1.5 rounded-full border border-red-500/60 bg-zinc-950/80 px-3.5 text-xs font-semibold text-red-300 backdrop-blur-sm transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50"
         >
           {isDeleting ? (
             <span
@@ -567,7 +585,7 @@ export function PhotoLightboxOverlay({
             setRotation((r) => (r + 90) % 360);
           }}
           aria-label="หมุนรูป"
-          className="absolute top-3 right-16 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+          className="fixed top-3 right-16 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
         >
           <RotateCw aria-hidden className="h-4 w-4" />
         </button>
@@ -576,7 +594,7 @@ export function PhotoLightboxOverlay({
         type="button"
         onClick={onClose}
         aria-label="ปิด"
-        className="absolute top-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+        className="fixed top-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
       >
         <span aria-hidden="true" className="text-xl leading-none">
           ×

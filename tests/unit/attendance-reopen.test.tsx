@@ -18,8 +18,13 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AttendanceDrill } from "@/components/features/muster/attendance-drill";
-import { MUSTER_REOPEN_ROLES, SA_SURFACE_ROLES, type UserRole } from "@/lib/auth/role-home";
-import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import {
+  MUSTER_CLOSE_ROLES,
+  MUSTER_REOPEN_ROLES,
+  SA_SURFACE_ROLES,
+  type UserRole,
+} from "@/lib/auth/role-home";
+import { MUSTER_DAY_REOPEN_MEANING, USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { groupDetailByDate, type AttendanceDetailRow } from "@/lib/muster/attendance-audit";
 import { reopenReturnTo } from "@/lib/muster/reopen-return";
 
@@ -57,18 +62,32 @@ function row(over: Partial<AttendanceDetailRow> = {}): AttendanceDetailRow {
 const TODAY = "2026-08-05";
 
 describe("spec 397 U3 — who may reopen", () => {
-  it("is exactly the roles that may CLOSE, plus procurement", () => {
+  it("is exactly the audit audience plus site_admin (U6c)", () => {
     const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
     expect(all.filter((r) => MUSTER_REOPEN_ROLES.includes(r)).sort()).toEqual(
-      ["procurement", "procurement_manager", "site_admin", "super_admin"].sort(),
+      // Spec 400 U6c: the audit audience plus site_admin (the cockpit role).
+      [
+        "accounting",
+        "hr",
+        "procurement",
+        "procurement_manager",
+        "project_coordinator",
+        "project_director",
+        "project_manager",
+        "site_admin",
+        "super_admin",
+      ].sort(),
     );
   });
 
-  it("excludes the roles that only READ the report", () => {
-    // accounting/hr audit attendance and must never edit the muster; a PM cannot
-    // close a day either, so it cannot un-close one.
+  it("INCLUDES the roles that read the report — U6c closed that gap", () => {
+    // ⚠️ INVERTED, not deleted. This asserted that accounting/hr/PM/PD "audit
+    // attendance and must never edit the muster". The operator reversed exactly
+    // that on 2026-08-07 ("let's enable them first, we trust the current team"),
+    // so reading and correcting are one audience now. Kept as the positive claim
+    // because it is the one the U6b doors depend on.
     for (const role of ["accounting", "hr", "project_manager", "project_director"] as const) {
-      expect(MUSTER_REOPEN_ROLES).not.toContain(role);
+      expect(MUSTER_REOPEN_ROLES).toContain(role);
     }
   });
 });
@@ -131,7 +150,11 @@ describe("spec 397 U3 — the reopen form on the day header", () => {
     // The correction loop is reopen → fix → close again; a user who stops after
     // step 1 leaves the day underived, which is exactly the state the report
     // already flags as ยังไม่ได้ปิด.
-    expect(screen.getByText(/ปิดวันใหม่/)).toBeInTheDocument();
+    // ⚠️ Anchored on the shared meaning line rather than a bare /ปิดวันใหม่/:
+    // since 2026-08-07 that substring appears in BOTH the meaning line and the
+    // non-closer's SA instruction, so the loose matcher now finds two nodes and
+    // cannot say which surface carried the instruction.
+    expect(screen.getByText(MUSTER_DAY_REOPEN_MEANING)).toBeInTheDocument();
   });
 });
 
@@ -173,9 +196,9 @@ describe("spec 397 U3 — the redirect target (the bug the review caught)", () =
 });
 
 describe("spec 397 U3 — the loop instruction is role-aware", () => {
-  // close_muster_day admits SA_SURFACE_ROLES only, and plain procurement fails
-  // both that and its can_see_project check — so telling THAT role to close the
-  // day again names a step its own server refuses.
+  // The branch is kept because the two RPCs are two allowlists; which ARM a given
+  // role lands on is decided by the page and pinned in
+  // attendance-day-correction.test.tsx, not here.
   it("tells a closer to close the day again", () => {
     render(
       <AttendanceDrill
@@ -186,7 +209,20 @@ describe("spec 397 U3 — the loop instruction is role-aware", () => {
         backHref="/team"
       />,
     );
-    expect(screen.getByText(/แก้ไขแล้วต้องปิดวันใหม่/)).toBeInTheDocument();
+    // ⚠️ Spec 400 U3b corrected this line. It opened "แก้ไขแล้ว…", which assumed
+    // the reader corrects the check-ins between the reopen and the close —
+    // nothing on any page they can open does that (both undo surfaces are
+    // today-locked and SA-gated; add-person is deferred to U4). It now names
+    // what re-closing actually does: re-derive from the latest data.
+    // ⚠️ 2026-08-07: the closer's own version of this line was REMOVED, not
+    // lost. The meaning line the form now opens with already says
+    // "แก้เสร็จต้องปิดวันใหม่ ค่าแรงจึงจะคิดใหม่ทั้งวัน" — printing a second
+    // sentence saying the same thing is what turned this card into a wall of
+    // text. What a closer must still be told is pinned here; what only a
+    // NON-closer needs (that the step belongs to the SA) is the test below.
+    expect(screen.getByText(MUSTER_DAY_REOPEN_MEANING)).toBeInTheDocument();
+    expect(screen.queryByText(/แจ้ง SA ให้ปิดวันใหม่/)).toBeNull();
+    expect(screen.queryByText(/แก้ไขแล้ว/)).toBeNull();
   });
 
   it("tells a non-closer to hand it to the SA", () => {
@@ -199,13 +235,23 @@ describe("spec 397 U3 — the loop instruction is role-aware", () => {
         backHref="/team"
       />,
     );
-    expect(screen.getByText(/แจ้ง SA ให้แก้ไขและปิดวันใหม่/)).toBeInTheDocument();
-    expect(screen.queryByText(/แก้ไขแล้วต้องปิดวันใหม่/)).not.toBeInTheDocument();
+    expect(screen.getByText(/แจ้ง SA ให้ปิดวันใหม่/)).toBeInTheDocument();
+    expect(screen.getByText(MUSTER_DAY_REOPEN_MEANING)).toBeInTheDocument();
   });
 
-  it("procurement — the role this spec is about — is NOT a closer", () => {
-    expect(SA_SURFACE_ROLES).not.toContain("procurement");
+  it("procurement — the role this spec is about — IS a closer since spec 400 U3a", () => {
+    // ⚠️ This assertion used to read `SA_SURFACE_ROLES).not.toContain("procurement")`
+    // and was cited as proof the loop was two-person for that role. It stayed
+    // GREEN through U3a — SA_SURFACE_ROLES never changed — while the fact it was
+    // standing in for stopped being true: migration 20260813075912 widened
+    // `close_muster_day` itself. A test pinned to the WRONG set cannot see a
+    // widening of the right one, which is why the page now keys on the set that
+    // mirrors the RPC.
+    expect(MUSTER_CLOSE_ROLES).toContain("procurement");
     expect(MUSTER_REOPEN_ROLES).toContain("procurement");
+    // SA_SURFACE_ROLES still means "the SA cockpit surfaces" and is unchanged by
+    // this unit — named here only so the two are not confused again.
+    expect(SA_SURFACE_ROLES).not.toContain("procurement");
   });
 });
 
@@ -233,11 +279,41 @@ describe("spec 397 U3 — the action", () => {
     expect(src).toContain("trim()");
   });
 
+  it("spec 400 U3b — closes through the same gate-then-relay shape", () => {
+    // The RPC is the boundary; the action's own check exists so the surface never
+    // promises what the server refuses. Pinned as the SET, never a literal, so a
+    // widening lands in one place.
+    expect(count(src, "MUSTER_CLOSE_ROLES")).toBeGreaterThanOrEqual(2);
+    expect(count(src, '"close_muster_day"')).toBe(1);
+    expect(count(src, "closeReturnTo")).toBe(2); // the import + the call
+    expect(src).not.toContain("closed=1");
+  });
+
+  it("spec 400 U3b — maps 42501 to a permanent refusal, and only 42501", () => {
+    // A contrasting control: the close RPC's OTHER refusals are P0001 and must
+    // not be reported as a permission problem. Both arms are read out of the same
+    // block so deleting either reds.
+    const block = src.slice(src.indexOf("close_muster_day"), src.indexOf("closeMusterDayFromForm"));
+    expect(block).toContain('if (error.code === "42501") return { ok: false, outcome: "denied" };');
+    expect(block).toContain('return { ok: false, outcome: "failed" };');
+    // No invented "already closed" arm — the RPC upserts and re-derives.
+    expect(block).not.toContain("notclosed");
+  });
+
   it("builds its redirect through reopenReturnTo, never by hand", () => {
     // The hand-rolled version is what shipped the fragment bug AND the weak
     // open-redirect check; both live in the tested helper now.
     expect(count(src, "reopenReturnTo")).toBe(2); // the import + the call
     expect(src).not.toContain("startsWith(");
     expect(src).not.toContain("reopened=1");
+  });
+
+  // Spec 400 U6a — the fix page EMBEDS this same reopen form (and reuses
+  // closeMusterDay's sibling addMusterPerson unchanged), so a success here must
+  // also refresh that route — without this, reopening from the fix page would
+  // leave it showing a stale "closed" state until an unrelated navigation
+  // happened to revalidate it.
+  it("revalidates the fix page too, on all three actions it can now be triggered from", () => {
+    expect(count(src, 'revalidatePath("/team/attendance/fix")')).toBe(3);
   });
 });

@@ -80,11 +80,33 @@ describe("spec 397 U2 — the back chip names where it actually goes", () => {
     expect(attendanceBackLabel("/team")).toBe("ทีมงาน");
   });
 
+  // Spec 400 U6a — the fix page's most common parent is the report ITSELF
+  // (/team/attendance), which this function never had to name before because
+  // the report never links to itself. Without this arm, a fix-page back chip
+  // whose fallback lands on /team/attendance would announce "ทีมงาน" — a claim
+  // about the wrong destination, the same defect this function exists to
+  // prevent one layer up.
+  it("labels a /team/attendance referrer with the report's own name", () => {
+    expect(attendanceBackLabel("/team/attendance")).toBe("ประวัติการเช็คชื่อ");
+    expect(attendanceBackLabel("/team/attendance?worker=x")).toBe("ประวัติการเช็คชื่อ");
+  });
+
+  it("labels a /workers referrer with the calendar's own name (spec 400 U6b)", () => {
+    // RE-POINTED, not deleted: `/workers` used to be an example of the fallback,
+    // and U6b made the spec-374 per-worker calendar a real FOURTH parent of the
+    // fix page (its day cells link there). The chip is icon-only, so the label IS
+    // what a screen reader announces — leaving it on ทีมงาน would have announced
+    // a destination the link does not go to, the exact defect this function
+    // exists to prevent.
+    expect(attendanceBackLabel("/workers/abc/attendance?m=2026-07")).toBe("ปฏิทินเข้างาน");
+    expect(attendanceBackLabel("/workers")).toBe("ปฏิทินเข้างาน");
+  });
+
   it("falls back to ทีมงาน for anything else — never an empty or wrong name", () => {
     // safeBackHref can only ever return an app path or the /team fallback, so an
     // unknown value here means a NEW parent nobody labelled: the honest answer is
     // the hierarchical parent's name, which is also where the fallback lands.
-    for (const href of ["/dashboard", "/sa", "/", "/workers"]) {
+    for (const href of ["/dashboard", "/sa", "/"]) {
       expect(attendanceBackLabel(href)).toBe("ทีมงาน");
     }
   });

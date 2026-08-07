@@ -22,12 +22,15 @@
 // LOOKBACK IS DELIBERATELY UNBOUNDED. A 30-day cap shipped here first and was
 // wrong: past the cap a day became permanently unbookable, because closing is the
 // ONLY way to produce the closure row `derive_muster_labor` keys off, and
-// `close_muster_day` has exactly two callers — the cockpit's today-bar and this
-// banner. The cap was justified on `/team/attendance` being an all-time fallback;
-// it is not one. That report defaults to MONTH-TO-DATE, renders a count with no
-// close action, and its role set excludes `site_admin` — the very actor who
-// misses ปิดวัน. So a cap would re-create the exact failure this feature exists
-// to prevent. The list is instead bounded where it costs nothing: the banner
+// The cap was justified on `/team/attendance` being an all-time fallback; it is
+// not one. That report defaults to MONTH-TO-DATE and its role set excludes
+// `site_admin` — the very actor who misses ปิดวัน. So a cap would re-create the
+// exact failure this feature exists to prevent.
+// ⚠️ CORRECTED 2026-08-06 (spec 400 U3b): that report DOES now carry a close
+// action, on its `?day=` panel, so `close_muster_day` has three callers and the
+// clause "renders a count with no close action" is retired. The ruling is
+// unchanged — the site_admin exclusion is what carries it, and U3b's panel is
+// past-days-only and gated on MUSTER_CLOSE_ROLES. The list is instead bounded where it costs nothing: the banner
 // RENDERS the newest few and summarises the rest, and each close reveals the next.
 
 export interface UnclosedPriorDay {

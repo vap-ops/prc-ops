@@ -536,7 +536,7 @@ export default async function FinanceProjectDrillPage({
           {profitRows.length === 0 ? (
             <p className="text-ink-secondary text-sm">ยังไม่มีงานในโครงการ</p>
           ) : (
-            <div className="border-edge bg-card shadow-card rounded-card [touch-action:pan-x_pinch-zoom] overflow-x-auto border">
+            <div className="border-edge bg-card shadow-card rounded-card [touch-action:manipulation] overflow-x-auto border">
               <table className="w-full min-w-max text-xs">
                 <thead>
                   <tr className="text-ink-muted border-edge border-b text-left">

@@ -30,12 +30,26 @@ import { requireRole } from "@/lib/auth/require-role";
 import {
   ATTENDANCE_AUDIT_ALL_PROJECT_ROLES,
   ATTENDANCE_AUDIT_ROLES,
+  MUSTER_CLOSE_ROLES,
+  MUSTER_CORRECT_ROLES,
   MUSTER_REOPEN_ROLES,
-  SA_SURFACE_ROLES,
   WORKER_ROSTER_ROLES,
 } from "@/lib/auth/role-home";
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
+import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
+import { dayWorkList } from "@/lib/muster/day-fix";
+import { loadDayAudit } from "@/lib/muster/day-audit";
+import { attendanceDayParam } from "@/lib/muster/day-correction";
+import {
+  ADD_ERROR_COPY,
+  REOPEN_ERROR_COPY,
+  RETIME_ERROR_COPY,
+  UNDO_ERROR_COPY,
+} from "@/lib/muster/outcome-copy";
+import { fixQueue, nextFixTarget } from "@/lib/muster/fix-queue";
+import { loadWorkerDayFix } from "@/lib/muster/worker-day-fix";
+import { WorkerDayFixPanel } from "@/components/features/muster/worker-day-fix-panel";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -63,16 +77,17 @@ function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 }
 
-// Spec 397 U3 — the reopen outcome codes, in the app's own words. No "ลองใหม่" in
-// any of them: `denied` and `shape` can never succeed on a retry, `wages` and
-// `notclosed` describe a state the reader must act on first, and `failed` is of
-// unknown retryability — so each names the cause and the next step instead.
-const REOPEN_ERROR_COPY: Record<string, string> = {
-  denied: "บัญชีนี้ไม่มีสิทธิ์เปิดวันที่ปิดแล้ว",
-  wages: "วันนี้บันทึกค่าแรงไปแล้ว ต้องยกเลิกค่าแรงก่อนจึงจะเปิดวันใหม่ได้",
-  notclosed: "วันนี้ยังไม่ได้ปิด จึงไม่ต้องเปิดใหม่",
-  shape: "วันที่หรือโครงการไม่ถูกต้อง และต้องระบุเหตุผลด้วย",
-  failed: "เปิดวันอีกครั้งไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
+/** Spec 400 U3b — the close form's own outcomes, same honest-copy rule: `denied`
+ *  and `shape` can never succeed on a retry, so neither says ลองใหม่, and
+ *  `denied` covers the RPC's project-scope refusal as well as its role gate.
+ *  Kept LOCAL — spec 400 U6a moved REOPEN_ERROR_COPY and ADD_ERROR_COPY to
+ *  `outcome-copy.ts` for the fix page to share, but this page's own close
+ *  control has no counterpart there. */
+const CLOSE_ERROR_COPY: Record<string, string> = {
+  denied: "บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้",
+  shape: "วันที่หรือโครงการไม่ถูกต้อง",
+  notover: "ยังอยู่ระหว่างวัน ปิดวันได้เมื่อจบวันแล้ว",
+  failed: "ปิดวันไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
 };
 
 interface AttendanceAuditPageProps {
@@ -92,12 +107,48 @@ interface AttendanceAuditPageProps {
     worker?: string | string[];
     /** Spec 400 U1 — `grid` (default) or `list`. */
     view?: string | string[];
+    /** Spec 400 U3b — open the correction panel for ONE day column. */
+    day?: string | string[];
+    /** Spec 400 U3b — the close form's outcome, carried back by its redirect. */
+    closed?: string | string[];
+    closeError?: string | string[];
+    /** Spec 400 U3c-b — the add-person form's outcome. */
+    added?: string | string[];
+    addError?: string | string[];
+    /** Spec 400 U7 — the fix PANEL: which worker it is open on, and whether the
+     *  save that redirected here asked to advance to the next person. */
+    fix?: string | string[];
+    fixNext?: string | string[];
+    retimed?: string | string[];
+    retimeError?: string | string[];
+    undone?: string | string[];
+    undoError?: string | string[];
   }>;
 }
 
 export default async function AttendanceAuditPage({ searchParams }: AttendanceAuditPageProps) {
   const ctx = await requireRole(ATTENDANCE_AUDIT_ROLES);
-  const { start, end, project, from, worker, reopened, reopenError, view } = await searchParams;
+  const {
+    start,
+    end,
+    project,
+    from,
+    worker,
+    reopened,
+    reopenError,
+    view,
+    day,
+    closed,
+    closeError,
+    added,
+    addError,
+    fix,
+    fixNext,
+    retimed,
+    retimeError,
+    undone,
+    undoError,
+  } = await searchParams;
   // `?worker=` predates this unit: every drill link the report has ever minted
   // carries one and no ?view, so those URLs resolve to the LIST or the drill
   // they exist to open would silently vanish.
@@ -114,12 +165,31 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // adding a parent is a one-line change beside safeBackHref, not a wider ternary.
   const backHref = safeBackHref(from, "/team");
   const backLabel = attendanceBackLabel(backHref);
-  // Spec 397 U3 — whether the VIEWER can finish the loop themselves.
-  // SA_SURFACE_ROLES is exactly `close_muster_day`'s live allowlist (verified),
-  // and plain `procurement` is not in it (nor does it pass that RPC's
-  // can_see_project), so for the very role this spec is about the loop is
-  // two-person. The copy must say that rather than name a step it cannot take.
-  const canClose = SA_SURFACE_ROLES.includes(ctx.role);
+  // Spec 397 U3 / 400 U3b — whether the VIEWER can finish the loop themselves.
+  //
+  // ⚠️ This keyed on SA_SURFACE_ROLES until spec 400 U3a, when migration
+  // 20260813075912 added `procurement` to `close_muster_day` AND gave it a
+  // cross-project arm. Both statements the old set produced — the reopen form's
+  // helper line and the reopened banner — therefore went on telling the one role
+  // this work exists for to hand the close to the SA, about a day it may now
+  // close itself. MUSTER_CLOSE_ROLES mirrors the LIVE allowlist.
+  // Spec 400 U7 — the panel writes redirect back HERE, so this page reads their
+  // outcomes exactly as the fix route does: a CODE in the query, never a sentence.
+  const firstParam = (v: unknown): string | undefined =>
+    Array.isArray(v) ? v[0] : typeof v === "string" ? v : undefined;
+  const fixOutcome = (ok: unknown, err: unknown, copy: Record<string, string>) =>
+    firstParam(ok) === "1"
+      ? ({ ok: true } as const)
+      : typeof firstParam(err) === "string" && (firstParam(err) ?? "").length > 0
+        ? ({ ok: false, message: copy[firstParam(err)!] ?? copy.failed! } as const)
+        : null;
+  const fixRetimeOutcome = fixOutcome(retimed, retimeError, RETIME_ERROR_COPY);
+  const fixUndoOutcome = fixOutcome(undone, undoError, UNDO_ERROR_COPY);
+  const fixAddOutcome = fixOutcome(added, addError, ADD_ERROR_COPY);
+  const fixReopenOutcome = fixOutcome(reopened, reopenError, REOPEN_ERROR_COPY);
+
+  const canClose = MUSTER_CLOSE_ROLES.includes(ctx.role);
+  const canReopen = MUSTER_REOPEN_ROLES.includes(ctx.role);
 
   const supabase = await createServerClient();
   const rows = await loadAttendanceSummary(supabase, range);
@@ -157,6 +227,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // pulling every session since 2020 to then refuse to draw it.
   const gridProbe = buildAttendanceGrid({ ...range, rows: [] });
   const drawsGrid = shape === "grid" && !gridProbe.tooWide;
+  // One membership test, two distinct uses below — and the fact that ONE set
+  // answers both is a gate-check result, not an assumption: `WORKER_ROSTER_ROLES`
+  // is exactly `ATTENDANCE_AUDIT_ROLES` ∩ the live `workers` "readable by staff"
+  // policy, so its members can both OPEN the spec-374 calendar (U1 D9) and READ
+  // the roster under RLS (U2). attendance-grid-page.test.ts pins the set so that
+  // widening it re-opens this question instead of silently emptying the roster.
+  const inWorkerRosterRoles = WORKER_ROSTER_ROLES.includes(ctx.role);
   const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];
   const { data: holidays } = drawsGrid
     ? await supabase
@@ -165,7 +242,61 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         .gte("holiday_date", range.from)
         .lte("holiday_date", range.to)
     : { data: null };
-  const grid = buildAttendanceGrid({ ...range, rows: gridDetail, holidays: holidays ?? [] });
+
+  // Spec 400 U2 — the roster, so a worker the muster NEVER recorded gets a row
+  // instead of vanishing (live: 11 of 41 active workers had zero July rows).
+  //
+  // SESSION client, and the gate is the reason it can be: `WORKER_ROSTER_ROLES`
+  // is exactly `ATTENDANCE_AUDIT_ROLES` intersected with the live `workers`
+  // "readable by staff" policy, so every role that reaches this branch can read
+  // these rows under RLS. The other three audit roles — accounting, hr,
+  // project_coordinator — pass no roster and keep exactly today's population;
+  // widening this to the admin client would hand them every worker's name, a PII
+  // decision this unit has no mandate for.
+  //
+  // Only `id, name`: `day_rate` and `employee_id` are column-WALLED on `workers`,
+  // and a select naming them reads back null under RLS rather than failing.
+  // 🔴 The `workers` policy is ROLE-only — it carries NO project predicate — while
+  // the attendance RPCs scope `project_manager` by `can_see_project`, and
+  // project_manager is the one WORKER_ROSTER_ROLES member outside
+  // ATTENDANCE_AUDIT_ALL_PROJECT_ROLES. Unscoped, a PM would get a roster of every
+  // active worker in the firm against attendance for their own projects only —
+  // every other project's workers rendered as "never scanned", which is a
+  // FINDING-SHAPED lie about people whose records that PM simply may not read.
+  //
+  // So the roster is scoped to the same projects the attendance is: the picked
+  // one, everything for the cross-project tier, and otherwise exactly the
+  // `projectOptions` this page already read on the SESSION client (RLS hands a PM
+  // its memberships, which is what `can_see_project` resolves to). A PM with no
+  // visible projects gets `.in(…, [])` — an empty roster, which is correct.
+  const rosterProjectIds: string[] | null = range.projectId
+    ? [range.projectId]
+    : seesAllProjects
+      ? null
+      : (projectOptions ?? []).map((p) => p.id);
+  const rosterBase = supabase.from("workers").select("id, name").eq("active", true);
+  const rosterQuery = rosterProjectIds ? rosterBase.in("project_id", rosterProjectIds) : rosterBase;
+  // Throws rather than degrading to `null`, mirroring loadAttendanceSummary: a
+  // swallowed error here reverts the grid to U1 silently and reports "nobody is
+  // absent" when the truth is "the roster could not be read" — the silent empty
+  // this spec's §D4 exists to refuse.
+  const { data: roster, error: rosterError } =
+    drawsGrid && inWorkerRosterRoles ? await rosterQuery : { data: null, error: null };
+  if (rosterError) throw new Error(`attendance roster read failed: ${rosterError.message}`);
+
+  const grid = buildAttendanceGrid({
+    ...range,
+    rows: gridDetail,
+    holidays: holidays ?? [],
+    // UNIONed inside the builder, never substituted: a worker with attendance
+    // who is no longer `active` (one, live) must not be dropped from a grid that
+    // already shows them.
+    roster: roster ?? [],
+  });
+  // Read off the rendered grid, so the headline and the table can never disagree
+  // — the spec-358 U3 rule (two surfaces rendering one fact must not derive it
+  // independently). Zero in the list view, which draws no roster rows.
+  const absentCount = shape === "grid" ? grid.rows.filter((r) => r.daysPresent === 0).length : 0;
 
   const totalDays = rows.reduce((sum, r) => sum + r.daysPresent, 0);
   const totalOt = rows.reduce((sum, r) => sum + r.otHoursTotal, 0);
@@ -212,9 +343,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // accounting / hr / project_coordinator would meet a redirect at the spec-374
   // calendar; they get this report's own drill instead, which they can open. The
   // affordance is therefore never withheld, only re-aimed.
-  const canOpenCalendar = WORKER_ROSTER_ROLES.includes(ctx.role);
   const workerHref = (workerId: string): string =>
-    gridWorkerHref({ workerId, canOpenCalendar, range, backHref });
+    gridWorkerHref({ workerId, canOpenCalendar: inWorkerRosterRoles, range, backHref });
 
   // Preserve the range + project + referrer when toggling a drill open/closed.
   const drillHref = (workerId: string | null): string => {
@@ -230,6 +360,223 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     // otherwise re-renders scrolled to the top and the user hunts for it again).
     return `/team/attendance?${q.toString()}#w-${workerId ?? openWorkerId ?? ""}`;
   };
+
+  // Spec 400 U3b — the day panel: the COLUMN twin of the drill, so it keeps the
+  // drill's rules. It stays in the GRID (the list has no columns), it toggles on
+  // the same column, and it anchors on `#d-<date>` because a server navigation
+  // otherwise lands at the top of a 42-row table.
+  // Validated against the dates the grid ACTUALLY drew, the same way ?worker= is
+  // validated against the rows it drew: a `?day=2020-01-01` would otherwise
+  // render a panel about a column that is not on screen. Declared BEFORE dayHref
+  // rather than after it — the closure was safe only because every call site
+  // happened to sit below, which a JSX reorder would turn into a TDZ throw.
+  const openDayDate = attendanceDayParam(
+    day,
+    grid.days.map((d) => d.date),
+  );
+  const openDay = grid.days.find((d) => d.date === openDayDate) ?? null;
+  // Spec 400 U5 — the correction TRAIL for the open column. SESSION client: the
+  // RPC is SECURITY DEFINER and gates on ATTENDANCE_AUDIT_ROLES itself, which is
+  // this page's own audience, so no admin seam is involved.
+  //
+  // `null` (not `[]`) when there is no open column or no picked project. The RPC
+  // takes exactly one project, so a ทุกโครงการ column is NOT READ — and an empty
+  // array there would render "ยังไม่มีการแก้ไข" about days nobody looked at.
+  const dayTrail =
+    openDay !== null && range.projectId
+      ? await loadDayAudit(supabase, range.projectId, openDay.date)
+      : null;
+  const dayHref = (date: string | null): string => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    if (date) q.set("day", date);
+    // No fragment on the CLOSE link: `#d-<date>` exists only on the panel that
+    // is about to unmount, and a hash with no target scrolls the reader to the
+    // top of a 42-row table — the very jump the fragment exists to prevent.
+    return date ? `/team/attendance?${q.toString()}#d-${date}` : `/team/attendance?${q.toString()}`;
+  };
+  // Whether the columns are links at all.
+  // ⚠️ Since spec 400 U6c this is TRUE for every role that can open this page:
+  // MUSTER_REOPEN_ROLES now contains all of ATTENDANCE_AUDIT_ROLES, so the `null`
+  // branch below is currently unreachable. It is KEPT rather than simplified away,
+  // because the operator explicitly reserved narrowing this again ("we can limit
+  // access in the future") — and the argument it encodes still stands: withholding
+  // the link is not withholding a FACT, since every fact the panel states is
+  // readable from the column and the drill.
+  const canCorrectDay = canReopen || canClose;
+  // Spec 400 U3c-b, widened by U6c — the correction audience. It is now EXACTLY
+  // this page's own gate (ATTENDANCE_AUDIT_ROLES); the one role in canClose that it
+  // still does not carry is site_admin, which runs the cockpit instead.
+  const canCorrect = MUSTER_CORRECT_ROLES.includes(ctx.role);
+  // Spec 400 U6b — a cell's door into the worker-day fix screen (U6a), which
+  // built the destination and left it reachable only by typing the URL.
+  //
+  // Gated on canCorrect, which is the fix page's own gate. Until U6c that was
+  // strictly narrower than this page's audience and the comment here read "handing
+  // project_manager or project_director a link would be affordance-then-refuse" —
+  // the operator reversed that on 2026-08-07, so both now hold it and the two sets
+  // are equal (pinned in attendance-grid-page.test.ts). Kept keyed on the
+  // correction set, not on the page gate, so a future narrowing re-separates them
+  // automatically.
+  //
+  // The referrer is this page's own URL including the picked range and project,
+  // so the fix screen's back chip returns the reader to the column they left.
+  // Spec 400 U7 — a grid cell now opens the PANEL, on this same page, instead of
+  // navigating to the fix route. The route is unchanged and still reachable: the
+  // spec-374 calendar, the unfinished-day banner and any link already in the wild
+  // keep working, and it is what a deep link from outside the grid still lands on.
+  const cellFixHref = (workerId: string, date: string): string => panelFixHref(date, workerId);
+  // The two things closing COSTS, named from the rows already on screen:
+  // close_muster_day stamps 17:00 on every open REGULAR session and leaves every
+  // open OT one alone — and no RPC records a past check-out for any role, so an
+  // OT session left open is unbookable. gridDetail is already scoped to the
+  // range and the picked project by the RPC, so this is a filter, not a fetch.
+  const openDaySessions = openDay ? gridDetail.filter((r) => r.workDate === openDay.date) : [];
+  const stillInOnOpenDay = {
+    regular: openDaySessions
+      .filter((r) => r.stillIn && r.session === "regular")
+      .map((r) => r.workerName),
+    ot: openDaySessions.filter((r) => r.stillIn && r.session === "ot").map((r) => r.workerName),
+  };
+  // Rendered INSIDE the panel: the redirect anchors on `#d-<date>`, so a banner
+  // in the page header would land a viewport away from the reader.
+  const closeOutcome =
+    closed === "1"
+      ? ({ ok: true } as const)
+      : typeof closeError === "string" && closeError.length > 0
+        ? ({
+            ok: false,
+            message: CLOSE_ERROR_COPY[closeError] ?? CLOSE_ERROR_COPY.failed!,
+          } as const)
+        : null;
+
+  // Spec 400 U3c-b — the add-person arm.
+  //
+  // The teams come from `list_muster_teams_for_day`, NOT from a PostgREST read of
+  // muster_teams: that table's RLS is `can_see_project`, which is `else false` for
+  // `procurement`, so a table read would hand 4 of the 5 people this form exists
+  // for an EMPTY picker and no error to notice. The RPC is the seam this audience
+  // already uses for attendance (audit_attendance_summary/_detail).
+  //
+  // Fetched only when the form could actually render: the panel is open on most
+  // day-column visits, and the roles who may not correct would otherwise pay a
+  // round trip for a control they never see.
+  const wantsAddForm = canCorrect && openDay !== null && range.projectId !== undefined;
+  const { data: dayTeams, error: dayTeamsError } = wantsAddForm
+    ? await supabase.rpc("list_muster_teams_for_day", {
+        p_project: range.projectId!,
+        p_date: openDay!.date,
+      })
+    : { data: null, error: null };
+  // Throw rather than degrade: an empty picker is the panel's `noTeams` arm,
+  // which asserts a FACT about the day ("ยังไม่มีทีมของวันดังกล่าว"). Swallowing a
+  // failed read would state that fact when the truth is that it could not be
+  // determined — U2's discarded-error lesson, one surface over.
+  if (dayTeamsError) throw new Error(`muster team list failed: ${dayTeamsError.message}`);
+  const addTeams = (dayTeams ?? []).map((t) => ({
+    teamId: t.team_id,
+    leadName: t.lead_name,
+    headcount: t.headcount,
+  }));
+
+  // Only workers with NO session that day: the RPC refuses a duplicate, so an
+  // unfiltered list would be offer-then-refuse across a 41-name select. The
+  // population is the grid's own rows, which U2 already UNIONs the roster into —
+  // so a worker the muster has never recorded is exactly who this offers.
+  const musteredOnOpenDay = new Set(openDaySessions.map((r) => r.workerId));
+  const addCandidates = wantsAddForm
+    ? grid.rows
+        .filter((r) => !musteredOnOpenDay.has(r.workerId))
+        .map((r) => ({ workerId: r.workerId, name: r.workerName }))
+    : [];
+
+  // Spec 400 U6b — the panel's anomaly work-list, built from the day's sessions
+  // (which already carry `stillIn`). No new read, and no roster: an unscanned
+  // rostered worker is NOT a finding at day grain — see `DayWorkProblem` for the
+  // measurement that removed that arm before it shipped.
+  const dayWork = openDay !== null ? dayWorkList({ sessions: openDaySessions }) : [];
+
+  // The work-list's rows return to the PANEL, not to the grid: the reader came
+  // from an open `?day=` column and `viewHref("grid")` would close it and drop
+  // the `#d-<date>` anchor, landing them at the top of a 42-row table.
+  // ── Spec 400 U7 — the fix PANEL ──────────────────────────────────────────
+  //
+  // The same screen `/team/attendance/fix` renders (one component, §D19), opened
+  // INSIDE the day column so a corrector never leaves the grid. Measured: every
+  // correction sitting in the audit log is one day and many workers — the 07-24
+  // one was 10 edits across 9 people in 4 minutes — so the round trip out to a
+  // route and back was most of the cost.
+  const panelFixHref = (date: string, workerId: string, advance = false): string => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    q.set("day", date);
+    q.set("fix", workerId);
+    // Only a WRITE's returnTo carries this: the panel advances after a save, not
+    // when the reader simply opened it by tapping a cell.
+    if (advance) q.set("fixNext", "1");
+    return `/team/attendance?${q.toString()}#d-${date}`;
+  };
+
+  // The queue is the day's OWN roster, anomalies first (§D20). It is not
+  // `dayWork`: that list carries only `openOut` and zero sessions in the database
+  // have a null `out_at`, so an anomalies-only queue would advance through
+  // nothing on every day that exists today.
+  const fixRosterSeen = new Set<string>();
+  const fixRoster = openDaySessions
+    .filter((r) => !fixRosterSeen.has(r.workerId) && fixRosterSeen.add(r.workerId))
+    .map((r) => ({ workerId: r.workerId, workerName: r.workerName }));
+  const fixWalk = fixQueue({ roster: fixRoster, anomalies: dayWork.map((w) => w.workerId) });
+
+  // ⚠️ Resolved AFTER the write, never precomputed (§D18): the queue above is
+  // built from THIS render's data, which is post-redirect and therefore post-save.
+  // ⚠️ Validated against every worker the GRID drew, not just the day's session
+  // roster. A GAP cell is a worker with no attendance that day — exactly the case
+  // the panel's add-person arm exists for — and validating against the session
+  // roster refused to open it, silently, while the fix ROUTE opened it fine.
+  // Caught in the browser: 28 cells linked, and the gap ones opened nothing.
+  const gridWorkerIds = grid.rows.map((r) => r.workerId);
+  const advanceFrom = firstParam(fixNext) === "1" ? attendanceWorkerId(fix, gridWorkerIds) : null;
+  const advanced =
+    advanceFrom !== null ? nextFixTarget({ queue: fixWalk, justSaved: advanceFrom }) : null;
+  const fixDone = advanced !== null && "done" in advanced;
+  const openFixWorkerId =
+    advanced !== null && "workerId" in advanced
+      ? advanced.workerId
+      : fixDone
+        ? null
+        : attendanceWorkerId(fix, gridWorkerIds);
+
+  const fixData =
+    openDay !== null && openFixWorkerId !== null
+      ? await loadWorkerDayFix({
+          supabase,
+          admin: createAdminClient(),
+          workerId: openFixWorkerId,
+          date: openDay.date,
+          projectParam: range.projectId ?? null,
+          todayIso,
+        })
+      : null;
+  // 0 when this worker is not in the walk at all (a gap cell has no session), in
+  // which case the panel renders WITHOUT a position line rather than claiming a
+  // place in a queue it is not in.
+  const fixPosition = openFixWorkerId
+    ? fixWalk.findIndex((r) => r.workerId === openFixWorkerId) + 1
+    : 0;
+
+  const workItemFixHref = (workerId: string, date: string): string => panelFixHref(date, workerId);
+
+  const addOutcome =
+    added === "1"
+      ? ({ ok: true } as const)
+      : typeof addError === "string" && addError.length > 0
+        ? ({
+            ok: false,
+            message: ADD_ERROR_COPY[addError] ?? ADD_ERROR_COPY.failed!,
+          } as const)
+        : null;
 
   return (
     <PageShell>
@@ -306,13 +653,40 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         )}
         {reopened === "1" && (
           <p className="border-edge bg-sunk text-ink rounded-card mb-4 border px-4 py-3 text-sm">
+            {/* Same correction as the reopen form's own helper line: neither
+                arm may claim the reader (or the SA) can edit the check-ins of a
+                PAST day — no surface does that yet for any role. */}
             {canClose
-              ? "เปิดวันนี้อีกครั้งแล้ว — แก้ไขการเช็คชื่อได้ และต้องปิดวันใหม่เมื่อแก้เสร็จ"
-              : "เปิดวันนี้อีกครั้งแล้ว — แจ้ง SA ให้แก้ไขการเช็คชื่อและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
+              ? "เปิดวันดังกล่าวอีกครั้งแล้ว — ปิดวันใหม่เมื่อพร้อม ระบบจะคิดค่าแรงใหม่จากข้อมูลล่าสุด"
+              : "เปิดวันดังกล่าวอีกครั้งแล้ว — แจ้ง SA ให้ปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
           </p>
         )}
 
-        {rows.length === 0 ? (
+        {/* Spec 400 U3b — the close outcome normally renders INSIDE the panel,
+            because the redirect anchors on `#d-<date>` and this header is a
+            viewport away from where the reader lands. This is the FALLBACK for
+            the case that leaves no panel: a `?day=` that no longer resolves (the
+            range moved, or the returnTo lost it), where rendering nowhere would
+            turn a refusal into silence. */}
+        {closeOutcome !== null && openDay === null && (
+          <div className="mb-4">
+            {closeOutcome.ok ? (
+              <p className="border-edge bg-sunk text-ink rounded-card border px-4 py-3 text-sm">
+                ปิดวันแล้ว — ระบบคิดค่าแรงของวันดังกล่าวจากการเช็คชื่อล่าสุด
+              </p>
+            ) : (
+              <ErrorNotice>{closeOutcome.message}</ErrorNotice>
+            )}
+          </div>
+        )}
+
+        {/* Spec 400 U2 — the GRID has something to say when the summary does
+            not: a range in which nobody was scanned at all is the strongest
+            instance of the finding, and gating on the attendance summary alone
+            would fetch the roster and throw it away. The list keeps the summary
+            gate, because it draws no roster rows and would otherwise render a
+            headless list. */}
+        {(shape === "grid" ? grid.rows.length === 0 : rows.length === 0) ? (
           <EmptyNotice>ไม่มีบันทึกการเช็คชื่อในช่วงนี้</EmptyNotice>
         ) : (
           <>
@@ -329,13 +703,28 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     even while one worker's drill is open on screen.
                     BUTTON_SECONDARY matches the /payroll + /requests exports. */}
                 <a href={exportHref} download className={`${BUTTON_SECONDARY} shrink-0`}>
-                  ดาวน์โหลด CSV (ทุกคน)
+                  {/* Spec 400 U2 — ทุกคน stopped being true on the grid the
+                      moment roster rows joined it: the file is built from
+                      attendance sessions, so a worker with no record has
+                      nothing to export. The label names what the file holds. */}
+                  {shape === "grid" ? "ดาวน์โหลด CSV (ผู้ที่มีบันทึก)" : "ดาวน์โหลด CSV (ทุกคน)"}
                 </a>
               </div>
               <p className="text-ink mt-1 text-sm font-semibold">
                 {rows.length} คน · รวม {formatNumber(totalDays)} วัน
                 {totalOt > 0 ? ` · OT ${formatNumber(totalOt)} ชม.` : ""}
               </p>
+              {/* Spec 400 U2 — the finding, in words, beside the count it would
+                  otherwise contradict. The header's `N คน` counts people the
+                  muster RECORDED (25 live), while the grid now draws the roster
+                  too (42 rows), so without this line one screen carries two
+                  numbers and no explanation. Derived from the grid the reader is
+                  looking at, never recomputed. */}
+              {absentCount > 0 && (
+                <p className="text-ink-secondary mt-1 text-xs">
+                  ไม่มีบันทึกการเช็คชื่อในช่วงนี้ {absentCount} คน
+                </p>
+              )}
               {/* The unclosed-day count is a PROJECT-day fact, identical for every
                   worker of that day — so it belongs here ONCE, not as a chip on
                   each worker row (which read as N findings against N people). It
@@ -371,7 +760,85 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
             </div>
 
             {shape === "grid" && (
-              <AttendanceGridView grid={grid} todayIso={todayIso} workerHref={workerHref} />
+              <>
+                <AttendanceGridView
+                  grid={grid}
+                  todayIso={todayIso}
+                  workerHref={workerHref}
+                  dayHref={
+                    canCorrectDay ? (date) => dayHref(date === openDayDate ? null : date) : null
+                  }
+                  cellFixHref={canCorrect ? cellFixHref : null}
+                  canFixGaps={range.projectId !== undefined}
+                />
+                {openDay !== null && (
+                  <AttendanceDayPanel
+                    day={openDay}
+                    todayIso={todayIso}
+                    projectId={range.projectId ?? null}
+                    canReopen={canReopen}
+                    canClose={canClose}
+                    returnTo={dayHref(openDay.date)}
+                    stillIn={stillInOnOpenDay}
+                    outcome={closeOutcome}
+                    trail={dayTrail}
+                    canCorrect={canCorrect}
+                    addTeams={addTeams}
+                    addWorkers={addCandidates}
+                    addOutcome={addOutcome}
+                    workList={dayWork}
+                    workItemHref={canCorrect ? workItemFixHref : null}
+                  />
+                )}
+                {/* Spec 400 U7 — the fix panel, docked under the day column it
+                    belongs to. The queue strip above it says where the reader is
+                    in the day and offers the way out; the DONE line replaces the
+                    panel rather than letting it vanish, because a surface that
+                    disappears is indistinguishable from a crash. */}
+                {openDay !== null && fixDone && (
+                  <div className={`${CARD} mt-3`}>
+                    <p className="text-ink text-sm">แก้ครบทุกคนของวันนี้แล้ว</p>
+                    <p className="text-ink-secondary mt-1 text-xs">
+                      เลือกช่องในตารางเพื่อแก้คนอื่นได้อีก
+                    </p>
+                  </div>
+                )}
+                {openDay !== null && fixData !== null && openFixWorkerId !== null && (
+                  <div className={`${CARD} mt-3`}>
+                    <div className="border-edge mb-3 flex flex-wrap items-center gap-2 border-b pb-2">
+                      {fixPosition > 0 ? (
+                        <p className="text-ink-secondary text-xs">
+                          คนที่ {fixPosition} จาก {fixWalk.length} ของวันนี้
+                        </p>
+                      ) : (
+                        <p className="text-ink-secondary text-xs">
+                          ยังไม่มีการเช็คชื่อของคนนี้ในวันนี้
+                        </p>
+                      )}
+                      <Link
+                        href={dayHref(openDay.date)}
+                        className="text-action ml-auto flex min-h-11 items-center text-xs underline-offset-2 hover:underline"
+                      >
+                        ปิดหน้าต่างแก้ไข
+                      </Link>
+                    </div>
+                    <WorkerDayFixPanel
+                      data={fixData}
+                      workerId={openFixWorkerId}
+                      date={openDay.date}
+                      todayIso={todayIso}
+                      returnTo={panelFixHref(openDay.date, openFixWorkerId, true)}
+                      canClose={canClose}
+                      outcomes={{
+                        retime: fixRetimeOutcome,
+                        undo: fixUndoOutcome,
+                        add: fixAddOutcome,
+                        reopen: fixReopenOutcome,
+                      }}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {/* One row per worker. The signal chips mark the rows an auditor
@@ -434,7 +901,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                           <AttendanceDrill
                             days={detailDays}
                             todayIso={todayIso}
-                            canReopen={MUSTER_REOPEN_ROLES.includes(ctx.role)}
+                            canReopen={canReopen}
                             canClose={canClose}
                             backHref={drillHref(r.workerId)}
                           />

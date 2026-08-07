@@ -161,9 +161,12 @@ it is what the CSV mirrors; a toggle costs one param and removes nothing.
 ### D8 — desktop-first, said out loud, and the scroll container is a house rule
 
 The grid is a wide surface for an office audience. It scrolls horizontally inside
-its own container — and every `overflow-x-auto` row in this app carries the
-`[touch-action:pan-x_pinch-zoom]` PAIR (a build-failing guard enforces it). The
-page body never scrolls sideways.
+its own container. A one-ROW strip in this app carries the
+`[touch-action:pan-x_pinch-zoom]` pair, but the grid is TALL, so it carries
+`[touch-action:manipulation]` instead — the pair omits `pan-y`, which on a
+screen-filling surface leaves a thumb resting on the grid unable to scroll the
+page at all (operator report 2026-08-07, corrected here). A build-failing guard
+enforces both halves. The page body never scrolls sideways.
 
 Narrow viewports get the LIST view, not a broken grid: the toggle's default is
 resolved per viewport class only if that can be done without client JS; otherwise
@@ -228,6 +231,112 @@ privilege), and `set_muster_team_wps` has no `kind` check — spec 397 §9 Q9 al
 records that binding a WP to the office team is a wage path held shut only by
 rate-0. A single narrow RPC keeps the blast radius nameable.
 
+### ✅ OPERATOR RULING, 2026-08-06 — option A, and both sub-questions answered
+
+> "A, build U1" … "yes re-close too, bind to any open day"
+
+1. **Procurement may correct.** Option A.
+2. **They may also RE-CLOSE.** Without it the loop strands: `close_muster_day` is
+   what triggers `derive_muster_labor`, so a reopened-and-corrected day whose
+   closer never comes leaves wages underived — leaving them worse off than before,
+   having un-closed a day they cannot restore.
+3. **Bound to ANY OPEN DAY, not only a reopened one.** This is the ruling that
+   changed the design, and the measurement behind it: `reopen_muster_day` has
+   **0 audit rows all-time** — the power shipped 2026-08-05 and has never been
+   used. Gating corrections behind a reopen would have put a new capability behind
+   a ritual nobody performs, which is spec §1③'s failure in a new costume. An open
+   day is a state that already exists (6 project-days live).
+
+⇒ **The rule is: `procurement` may write to a project-day that has no
+`muster_day_closures` row.** A closed day still needs `reopen_muster_day` first —
+which they already hold — so the reopen path is not retired, it is just no longer
+the only door.
+
+### What U3 must change (gate-checked live 2026-08-06)
+
+- **`close_muster_day(p_project, p_date)`** — role list gains `procurement`, AND it
+  needs the cross-project arm, because its second gate is
+  `if not can_see_project(p_project)` which is **live-FALSE for procurement**.
+  Same shape `reopen_muster_day` and `muster_undo_scan` already use:
+  `v_role = 'procurement' or can_see_project(...)`. Widening only the role list
+  would produce a `42501` at the second gate — the spec-397 two-allowlist trap.
+- **`muster_scan_in(p_team, p_worker, p_method, p_session)`** — role list gains
+  `procurement` + the same cross-project arm, PLUS a **closure guard, which it does
+  not have today** (verified: the function never mentions `muster_day_closures`).
+  It takes a TEAM, not a project-day, so the guard must resolve the team's
+  `project_id`/`work_date` first.
+  ⚠️ That the SA can currently scan into a CLOSED day is a **pre-existing hole**;
+  U3 closes it for the new arm only and records it rather than silently changing
+  the SA path.
+- **A day with no team at all cannot be corrected**, because `muster_scan_in`
+  requires one and `open_muster_team` needs a lead worker (`lead_worker_id` is
+  NOT NULL for `kind='crew'`, spec 397 U4). U3 raises a NAMED error the UI turns
+  into honest copy — "ยังไม่มีทีมของวันนั้น" — rather than inventing a lead.
+- **The pgTAP role-set pin U2 owes lands here** (U3 touches `supabase/` anyway):
+  assert the live `workers` "readable by staff" policy admits every member of
+  `WORKER_ROSTER_ROLES`, over the exhaustive role domain. U2's TS pin catches a
+  widened role set; only this catches a narrowed POLICY.
+- Recording a **back-dated check-out** stays U4 — no RPC does it for any role.
+
+### ⚠️ What the gate-check above MISSED — found at build time, 2026-08-06
+
+The list above names two gates per function and is **incomplete**. It was derived by
+reading `close_muster_day`'s own body, and a body-read cannot see a gate reached
+through a callee.
+
+**`close_muster_day` PERFORMs `derive_muster_labor`, which carries a THIRD gate** —
+role list `{site_admin, project_manager, super_admin, project_director,
+procurement_manager}` plus its own `can_see_project` with no cross-project arm, and
+its comment reads _"Same authority as the labour engine (log_labor_day).
+Money-writing."_ So widening `close_muster_day` alone left procurement passing two
+gates and dying at the third: affordance-then-refuse, the three-layer class.
+
+It surfaced because U3a's pgTAP drives the RPC **behaviourally** (`lives_ok`), which
+reported `42501: derive_muster_labor: role not permitted`. No amount of re-reading
+`close_muster_day` would have shown it. ⭐ **Generalises: when a function you are
+widening calls another, the callee's gate is part of your change's surface — read the
+call graph one level down, or drive it and read the SQLSTATE.**
+
+**The resolution (operator-ruled 2026-08-06): least privilege, NOT the cheap fix.**
+Adding `procurement` to `derive_muster_labor`'s list was rejected — it is directly
+`authenticated`-executable, so that list is a real security boundary, and widening it
+grants the labour engine's whole authority rather than "may re-close a day", and
+persists after 368 U2 lights up the money. Instead the mechanism moved:
+
+| function                       | gate                                   | reachable by                      |
+| ------------------------------ | -------------------------------------- | --------------------------------- |
+| `derive_muster_labor`          | **unchanged** role list                | `authenticated` (EXECUTE granted) |
+| `close_muster_day`             | role list **+ `procurement`** + x-proj | `authenticated`                   |
+| `derive_muster_labor_internal` | **none** — it is the mechanism         | **nobody** (EXECUTE revoked)      |
+
+Every entry point authorizes before reaching the mechanism; the mechanism is
+unreachable from `authenticated` and `anon`. Procurement gains exactly one power
+(re-close, which derives as a consequence) and **no** ability to invoke a derive
+directly — pinned in pgTAP, with the `super_admin` positive control that proves the
+public gate was not narrowed either.
+
+Two further bounds, both from the build's own self-review:
+
+- **REGULAR sessions only.** `muster_scan_in`'s signature carries
+  `p_session default 'regular'`, so the widening also handed procurement the `ot`
+  arm — ×1.5 money (spec 351), never part of the ruling. The correction arm now
+  refuses a non-regular session; the SA arm keeps both, which is the positive
+  control that makes the bound procurement-specific rather than global.
+- **The subcon money wall moved with the mechanism**, so
+  `tests/unit/contractor-money-wall.test.ts` — which pins the LAST definition of
+  `derive_muster_labor` carrying `v_worker.contractor_id is null` — went red. The
+  wall was never lost, but the guard's REACH no longer covered the writer. Re-pointed
+  at `derive_muster_labor_internal`, plus a new assertion that the public wrapper
+  **delegates and does not itself `insert into public.labor_logs`** — without that,
+  re-inlining a wall-less body later would pass on a stale `_internal` pin.
+
+⚑ **Left alone deliberately:** `close_muster_day` still does not take
+`derive_muster_labor`'s advisory key, so `reopen_muster_day`'s lock is one-sided and
+cannot serialise against a concurrent close. **Pre-existing, not introduced here**,
+and out of U3a's scope — but it is a real gap and belongs in its own unit. The new
+correction arm in `muster_scan_in` DOES take that key, because its write is the one
+that can invalidate derive's precondition.
+
 ### Why the window is open NOW
 
 `labor_logs` is **0 rows all-time** — no worker has `cost_confirmed_at`, so
@@ -262,23 +371,105 @@ Adds the workers with **no** attendance in the range, for the roles that can rea
 `workers` on the session client (D4). This is finding ① and it is purely additive:
 the same grid gains rows. Ships the "11 of 41" fact.
 
-**U3 — the correction path (schema, danger path, BLOCKED on §3).**
-Whatever option §3 rules for. Expect: one DEFINER RPC + pgTAP over the exhaustive
-role domain + an `audit_log` row + the affordance on the grid, gated on a set that
-mirrors the RPC verbatim (the `MUSTER_REOPEN_ROLES` precedent).
+**U3 — the correction path (schema, danger path). §3 is RULED; blocked only on the
+schema lane.**
+Widen `close_muster_day` and `muster_scan_in` to `procurement` with the
+cross-project arm and an open-day guard, per §3's gate-check list; add the pgTAP
+role-set pin U2 owes; then the affordances on the grid, gated on a TS set that
+mirrors the RPC allowlists verbatim (the `MUSTER_REOPEN_ROLES` precedent).
+Splittable as **U3a** (schema + pgTAP) → **U3b** (the affordances), the order spec
+397 U1/U2 used.
 
-**U4 — the check-out gap (schema, and it is older than this spec).**
-There is no way to record a check-out at a PAST time, **for any role**. Verified
-live: `muster_scan_out` sets `out_at = now()` and refuses a session that already has
-one, and `close_muster_day` auto-outs `session = 'regular'` only — its own comment
-says an open OT session "is left for the SA", and the SA has no control for it. So
-an evening OT session left open prices garbage the next day and nothing can repair
-it.
+**U4 — the back-dated timestamps (schema, and it is older than this spec). SHIPPED
+2026-08-06, migration `20260813075915`.**
+Two holes, one migration, because they are the same defect twice: `muster_scan_in`
+names no `in_at` (so U3a's correction stamps the correction moment, and
+`close_muster_day`'s `greatest(day_end, in_at)` auto-out then fabricates a
+zero-length session), and no RPC recorded a check-out at a past time for any role.
 
-This is a pre-existing gap, carried until now only in the session lane notes rather
-than in a spec — it belongs here because the grid is the surface that will make
-those cells visible at scale: **23 of 67 August sessions (34%) have no check-out.**
-Sequence after U3; same danger path.
+⚠️ **The "23 of 67 August sessions (34%)" figure was re-measured before building
+and it conflates two different populations.** 24 regular rows on 07-31…08-05 sit on
+days nobody has closed — `close_muster_day` auto-outs those at 17:00 and U3b shipped
+procurement the affordance to do it. The genuinely stuck rows are **9 OT sessions,
+all on 2026-07-24, on a day that is CLOSED**, because `close_muster_day` skips
+`session = 'ot'` by design. ⭐ **A single percentage over a mixed population is not a
+work-list; split it by the mechanism that would clear each part.**
+
+⚠️ **And the check-out hole was "permitted and wrong", not "refused".**
+`muster_scan_out` carried no date or closure check, so a `site_admin` could close
+those nine sessions today at `out_at = now()` — pricing `ot_hours` at ~13 days.
+Invisible to every money test, because `derive_muster_labor_internal` never reads
+`ot_hours` (it is presence-based); visible to users, because
+`attendance-month.ts`, `attendance-sessions.ts` and `attendance-audit.ts` all
+display it.
+
+**Shipped shape** — `muster_correct_session(team, worker, session, in_at, out_at)`,
+gated on `{super_admin, procurement_manager, procurement}` (NOT `site_admin`: every
+surface reaching a past day is gated on `ATTENDANCE_AUDIT_ROLES`, which has no
+`site_admin`, so the grant would be privilege with no door). `muster_scan_out` gains
+a matching window and refuses anything past 06:00 the next morning. Retiming an
+existing row is allowed on **any day whose wages are not booked, including a closed
+one** — the closure is not the guard, the CURRENT-wage anti-join is, exactly as in
+`muster_undo_scan`. Adding a missing person stays open-days-and-regular-only, and
+delegates the insert to `muster_scan_in` so its invariants are not forked.
+
+▶ **What it unblocks and what it does not.** U3c (add-person) is now unblocked on
+the TIME axis and still blocked on the other U3b finding: `procurement` cannot read
+a team id, so the picker needs an admin seam or a listing RPC.
+
+**U5 — the correction TRAIL (schema, danger path).**
+
+U3a/U3b/U4/U3c ship the whole WRITE side, and every one of those writes already
+lands an `audit_log` row — `muster_correction_scan_in`, `muster_correction_time`,
+`muster_undo`, `muster_move`, `muster_day_close`, `muster_day_reopen`, all under
+action `crew_change`. **Nothing in `src/` reads any of them.** So the question the
+audit trail exists to answer — _who edited this day after the fact, and what did it
+say before?_ — is answerable only by an operator running SQL.
+
+⚠️ **And it is not merely unbuilt, it is unreachable.** `audit_log`'s RLS is two
+policies: an internal-privileged arm (`super_admin`, `project_director`,
+`accounting`, `project_manager`) and a WP-rework arm that gives `site_admin`,
+`procurement` and `procurement_manager` exactly two payload kinds
+(`wp_reopened_for_defect`, `wp_evidence_resubmitted`). **The correction audience
+cannot read its own trail on the session client**, so this needs a DEFINER RPC, not
+a query.
+
+🚨 **THE MEASUREMENT THAT SHAPED THE QUERY, and it was taken from the live rows
+rather than from the producing migrations: `muster_move` and `muster_undo` payloads
+carry NO `project_id`.** `muster_move` carries `from_team`/`to_team`, `muster_undo`
+carries `team_id`; both must be resolved through `muster_teams`. **13 of the 16 live
+rows are `muster_move`** — so a payload-only filter would have rendered an EMPTY
+trail on every real day, with every assertion about the other four kinds passing.
+⭐ The general form: _a payload written by six different functions is six different
+shapes; read the rows, not the writers._
+
+**Shape** — `list_muster_day_audit(p_project uuid, p_date date)`, SECURITY DEFINER,
+read-only. Seam chosen by the precedent U3c already set: `audit_attendance_summary`,
+`audit_attendance_detail` and `list_muster_teams_for_day` are all DEFINER RPCs
+serving this audience this data.
+
+- **Gate = `ATTENDANCE_AUDIT_ROLES`** — the eight roles that already open the
+  report. Deliberately WIDER than the correction audience: `accounting` owns the
+  wage consequence of a correction and `hr`/the PM tier read the same report, and a
+  reader who is shown a hole must be able to see who has already touched it.
+  Reusing the existing set is also what keeps the unit's `src/` half free of a new
+  role-set export (no capability-registry row, no `role-home.ts` danger path).
+- **Scope = the second list**, mirroring `audit_attendance_summary`: the
+  cross-project tier passes any project; `project_manager` alone must pass
+  `can_see_project`. An unseeable project is a **refusal, not an empty list** — an
+  empty trail reads as "nobody edited this day", which is a different fact and the
+  one a reader would act on (spec 400 U2's wider-of-two-gates lesson, and U3c's
+  refusal-over-silence one).
+- **Rows** carry `logged_at`, `kind`, the actor (id, `users.full_name`, and the role
+  **as recorded on the audit row**, not as it is today), the worker, the session,
+  and a `detail` jsonb built explicitly per kind — the prior `in_at`/`out_at` for a
+  retime or an undo, the team names either side of a move, the mandatory reason for
+  a reopen. Explicit rather than the raw payload: `before` is a whole row snapshot
+  and has no business reaching the client.
+
+**Surface** — a section inside the U3b `?day=` panel, under the reopen/close
+controls that produce the rows. The panel's grain is already the project-day, which
+is the audit grain. It requires a picked project, exactly as the controls do.
 
 ---
 
@@ -294,7 +485,17 @@ group by 1` — a `procurement` row must exist. It is **0 all-time** today.
 3. **The finding is acted on:** `select count(*) from audit_log where action =
 'crew_change' and payload->>'kind' = 'muster_day_reopen'` — **0 today**. A
    non-zero count is the first evidence the double-check loop closed end to end.
-4. **U2's finding is real:** re-run the roster gap
+4. **U5's trail has something to report:** `select payload->>'kind', count(*) from
+audit_log where action = 'crew_change' and payload->>'kind' like 'muster%' group
+by 1` — **16 rows today, 13 of them `muster_move` and exactly one
+   `muster_correction_time`** (a retracted gate-4 probe). A correction row written
+   by someone who is not an agent is the first evidence the loop is in real use.
+   ⚠️ **Panel opens are NOT measurable and no query should pretend otherwise:**
+   `interaction_events.route` stores the path WITHOUT its query string (all 93
+   rows in 30 days read exactly `/team/attendance`), so `?day=` and `?worker=` are
+   invisible to telemetry. Measuring drill-down would need its own event, which
+   this unit does not add.
+5. **U2's finding is real:** re-run the roster gap
    (`41 active / 30 appeared` in July) at the end of the next full month; if the gap
    is still ~11 the rows are earning their place, and if it collapses to 0 the
    feature has done its job.
@@ -316,7 +517,14 @@ group by 1` — a `procurement` row must exist. It is **0 all-time** today.
   name an off-home project — 374's calendar already does. Not in U1's scope.
 - The `/team/attendance` CSV export writes **no** `audit_log` row (spec 397's
   recorded item). Unchanged here, still owed a decision.
-- **The grid path now costs three reads** — `audit_attendance_summary`, the
+- ⚠️ **The `WORKER_ROSTER_ROLES` pin is ONE-DIRECTIONAL, and closing it is owed to U3.** U2's
+  roster is a SESSION read, so it depends on the live `workers` "readable by staff" policy —
+  but the test asserts the TypeScript array. It therefore catches someone WIDENING the role set
+  and is blind to the POLICY being narrowed underneath it, which would produce a silent empty
+  roster rather than a refusal. The pin belongs in pgTAP over the exhaustive role domain (the
+  `358-attendance-audit.test.sql` precedent). It is deferred to U3 rather than built here only
+  because U3 touches `supabase/` anyway, while U2 is otherwise code-only.
+- **The grid path now costs four reads** — `audit_attendance_summary`, the
   full-range `audit_attendance_detail`, and the holidays select — and the summary's
   only remaining jobs on that path are the header totals, `unclosedDaySignal` and
   the empty-range gate, all of which the detail rows already carry. Collapsing it
@@ -329,6 +537,470 @@ group by 1` — a `procurement` row must exist. It is **0 all-time** today.
   hoisting them is a sweep of its own rather than a rider on this unit. `(+1 วัน)`
   was aligned here because it was a THIRD name for a fact two neighbouring surfaces
   already agreed on.
+
+## 7. The worker-day fix screen (U6a) — shipped, code-only
+
+**Route** `/team/attendance/fix?worker=&date=&project=&from=`. Ratified with the
+operator over three widget revisions in chat before build; the premise: the
+correction UX was bad because the `?day=` panel's grain is the DAY while every
+real dispute is a WORKER-DAY, its controls sit below a 42-row table, and two
+shipped RPC capabilities (retime, back-dated check-out) had NO control anywhere.
+
+**Gate — `MUSTER_CORRECT_ROLES`, not `MUSTER_CLOSE_ROLES`.** The correction RPCs'
+own allowlist (`{super_admin, procurement_manager, procurement}`) has no
+`site_admin` — she holds the cockpit for TODAY, but every surface reaching a PAST
+day in this app is gated on `ATTENDANCE_AUDIT_ROLES`, which has none either, and
+this page must not be the exception.
+
+**No wizard, no step strip.** Gates are PER ACTION, measured from the live RPC
+bodies rather than assumed from the plan:
+
+- **Retime** (`muster_correct_session`'s UPDATE path) is offered whenever a
+  session exists, **regardless of the day's closure** — its real guard is the
+  unbooked-wage anti-join (the same one `muster_undo_scan` uses), built for the
+  nine 2026-07-24 OT rows. Forcing เปิดวัน first would add a needless day-wide act
+  to the commonest fix.
+- **Add** (the INSERT path) and **delete** (`muster_undo_scan`) both require the
+  day OPEN, so they sit under **one locked group** whose header carries the
+  reopen form (`MusterReopenForm`, reused unchanged) plus the blast-radius
+  sentence — reopening and re-closing re-derives wages for the WHOLE day, not
+  just this person.
+- The reopened-but-unclosed state is a STATE, never a wizard step — but be
+  precise about which signal carries it: the `?reopened=1` banner is an OUTCOME
+  notice and disappears on the next load, while the thing that persists is the
+  header's own `dayClosureLabel` line ("ยังไม่ปิดวัน") plus the fact that the
+  locked group is gone and add/delete are live. U6b adds the day-level banner to
+  the OTHER surfaces; on this page the closure line is the persistent signal.
+
+**No time defaults, anywhere.** Both the retime form's fields and the add form's
+field start blank — a wrong guessed timestamp is worse than an empty one forcing
+a real value (U4's own rule, unchanged). The retime form's out-time input is
+additionally `disabled` (with the reason stated beside it) once
+`outTimeLocked` finds a HUMAN-recorded check-out (`out_auto === false`) — that
+field can never succeed against `muster_correct_session`'s own refusal, so
+disabling it does not withhold a fact, it just spares a wasted round trip.
+
+**A no-session worker-day has no team.** Neither `audit_attendance_detail` nor
+any table a `procurement` session client can read discloses a team id or a
+closure fact for a day with zero rows (`muster_attendance` / `muster_teams` /
+`muster_day_closures` RLS are all `can_see_project`, which is FALSE for
+`procurement` — verified live). So:
+
+- **`?project=` is load-bearing, not optional**, whenever the worker has no
+  session that day. Absent it, the page states the fact and offers no form,
+  rather than guessing.
+- **Two narrow ADMIN lookups**, each scoped to exactly the one row this page's
+  own audience is already entitled to read in substance through a DEFINER RPC:
+  `muster_day_closures` (closure, when no session exists yet) and
+  `muster_attendance.team_id` (the retime target, when a session exists — a
+  worker-day is single-team, since an OT session only opens after a regular one
+  on the SAME team). Neither is a new exposure: `list_muster_day_audit` already
+  discloses a close/reopen row for the same day to this audience, and
+  `reopen_muster_day`'s own refusal wording discloses the closure fact
+  behaviourally.
+
+**The add arm only ever offers a REGULAR session.**
+`muster_correct_session`'s insert path refuses to create anything but one (an OT
+session is x1.5 money and creating one after the fact was never part of the
+correction ruling), so the add card is withheld entirely once a regular session
+already exists for the worker-day (`canAddMissingSession`) — offering it would
+just reach the RPC's own "already mustered" refusal.
+
+**The trail is the SAME `list_muster_day_audit` RPC as the `?day=` panel**,
+fetched once and filtered in TypeScript to `row.workerId === workerId` — no new
+RPC, no new column beyond widening `DayAuditRow`/`shapeDayAuditRow` to carry
+`worker_id` through (it was being read off the RPC already and dropped at the
+shaping step). A day-wide event (close/reopen) has `worker_id = null` and is
+therefore correctly absent from this per-worker view; the full untrimmed trail
+stays on the day panel.
+
+⭐ **THE OUT-DATE IS NOT ALWAYS THE WORK DATE, and pinning it there made a
+shipped capability unreachable.** `muster_correct_session` permits `p_out_at` up
+to `((work_date + 1) + time '06:00')` — U4's own ruling 3, kept so a night OT
+crossing midnight stays recordable, and a shape `AttendanceDetailRow.outNextDay`
+already models. The first draft of this screen built every out-stamp on the work
+date, so an out of `01:30` landed BEFORE the check-in, the RPC answered
+"check-out cannot precede check-in", and the corrector was blamed for the app's
+own construction — on the nine 2026-07-24 OT rows this page exists to repair.
+An out-time earlier than the EFFECTIVE check-in has exactly one reading that is
+not an inverted session (and the RPC refuses the inverted one outright), so the
+action rolls it to the following date: a derivation, not a guess. Compared
+against the effective PAIR — the new in-time when the same submit moves it, else
+the stored one, carried as a hidden `currentInTime` — which is U4's own
+"validate the effective pair after coalescing" rule applied one layer up.
+⭐ **The general form: a capability whose bound lives in the RPC is not shipped
+until the SURFACE can express every value inside that bound.**
+
+**Reused unchanged:** `bangkokInAt` (also used for the retime form's out-time —
+the CONSTRUCTION is direction-neutral, but the DATE handed to it is not, see
+above), `addMusterPersonFromForm` / `addMusterPerson` (no second copy — this
+page's audience is identical to the day panel's), `MusterReopenForm`,
+`addPersonControl`, `dayClosureLabel`, `describeAuditEvent`. `REOPEN_ERROR_COPY`
+and `ADD_ERROR_COPY` moved out of `/team/attendance/page.tsx` into
+`src/lib/muster/outcome-copy.ts` so both pages show the same sentence for the
+same outcome; `RETIME_ERROR_COPY` and `UNDO_ERROR_COPY` are new in that file.
+`attendanceBackLabel` gained a `/team/attendance` arm (its most common parent,
+which the report itself never had to name before).
+
+**New, code-only:** `src/lib/muster/day-fix.ts` (`parseFixParams`,
+`outTimeLocked`, `canAddMissingSession`, `nextIsoDate` — all pure, individually
+tested per the U1 reachability lesson; an `undoSessionControl` was written and
+then DELETED, because the page inlined the same `dayClosed === false` check and
+a decision function nothing calls reads as coverage while covering nothing),
+`RetimeOutcome` /
+`UndoOutcome` + their `returnTo` builders in `reopen-return.ts`,
+`correctMusterSession` / `undoAttendanceSession` (+ `*FromForm` wrappers) in
+`src/app/team/attendance/fix/actions.ts`, and three presentational forms
+(`attendance-fix-retime-form.tsx`, `attendance-fix-undo-form.tsx`,
+`attendance-fix-add-form.tsx` — the last a single-worker variant of
+`AttendanceAddPersonForm` with no worker dropdown).
+
+**Not built here — U6b shipped these, see §8 below:** the three entry doors (grid
+anomaly/empty cells, the `?day=` panel's own anomaly work-list, the spec-374
+calendar's in-month cells) and the unfinished-day banner rendered on those OTHER
+pages. Reachable in U6a only by a hand-typed URL. `safeBackHref`/`?from=` is
+already wired and the route is registered in `nav-back-affordance.test.ts`'s
+`STATIC_MULTI_PARENT` list on the same "built multi-parent from day one" basis
+`/team/attendance` itself used, so U6b's doors need no nav-guard change of their
+own — only the links.
+
+## 8. The three doors + the unfinished-day banner (U6b) — shipped, code-only
+
+U6a built the destination and left it reachable only by typing the URL. U6b makes
+it reachable from the three surfaces that already show the holes, and makes an
+unfinished correction loop visible. No schema, no new RPC, no new role-set export.
+
+**One href builder, in the module that PARSES the href.** `fixHref` lives beside
+`parseFixParams` in `src/lib/muster/day-fix.ts`: three surfaces now mint this URL,
+and a param contract whose writer and reader live apart drifts. `project` is
+omitted rather than emptied when absent — `parseFixParams` fails the whole parse
+on a malformed project and `""` is not a uuid, so `?project=` would turn a working
+link into a dead one.
+
+### D10 — the links are gated on `MUSTER_CORRECT_ROLES`, which is NARROWER than this page's own gate
+
+`ATTENDANCE_AUDIT_ROLES` (8 roles) reads this report. `muster_correct_session`'s
+live allowlist is `{super_admin, procurement_manager, procurement}` — read from
+`pg_get_functiondef` 2026-08-07 — and the fix page's own gate is that same set. So
+`accounting`, `hr`, `project_coordinator`, `project_manager` and
+`project_director` would meet a hard refusal at a page they were just invited to,
+which is the affordance-then-refuse defect U3a already paid for. **They keep every
+FACT the cell states and lose only the link.** Pinned as a strict-subset property
+so a role can never be handed a link to a page it cannot open.
+
+Live proof, same range and project, `accounting` via view-as: **0 fix links vs 105
+for `super_admin`, with anomaly words (86) and check-in times (63) identical.**
+
+### D11 — a session cell links on a FINDING; an empty cell needs a project, a working day, and a team
+
+Different preconditions because the RPCs have different ones:
+
+- **A cell with a session** is a retime/delete target. The UPDATE path works on a
+  CLOSED day (its guard is the unbooked-wage anti-join, built for the nine
+  2026-07-24 OT rows), and the project is always inferable from the session
+  (`fix/page.tsx`: `projectParam ?? sessions[0]?.projectId ?? null`). So neither
+  closure nor `?project=` gates it. Only cells carrying a finding link — a clean
+  session is not a hole, and 546 tap targets would bury the ones that are. A clean
+  worker-day stays reachable through the calendar, whose grain is one worker.
+- **An empty cell** is an add target. With no session there is nothing to infer a
+  project FROM, so a project must be picked or the link lands on the page's
+  `noProject` arm — a promise of a correction that delivers a sentence. A
+  non-working day is excluded because an empty Sunday is not a finding (D5's whole
+  argument, one layer up), and `headcount === 0` is excluded because no team exists
+  to add anyone to.
+
+Live: no project picked → **37 links, all finding cells, none carrying `project=`**.
+Project picked → **105 links, 69 of them `+` gap cells, all carrying `project=`**.
+A project whose range has no attendance renders the grid with **0** links.
+
+### D12 — the banner names what the data supports, not what prompted it
+
+A day that was reopened and never re-closed is indistinguishable, from the grid's
+own data, from one nobody ever closed: `GridDay.dayClosed` carries no reopen
+history. Both need the same act, so `unfinishedDays` is `dayClosed === false &&
+date < today` and the copy says **`ยังไม่ปิด`**, never "reopened". Calling it a
+reopen would assert what cannot be known here.
+
+Two exclusions are load-bearing and are the same cry-wolf line the U1 review drew
+at the column header: **today** (whose open day is normal, and the default range
+always includes it) and **`dayClosed === null`** (no attendance rows at all — live,
+2026-08-06 carries zero, and calling it unfinished would invent a correction nobody
+owes).
+
+**Fire rate measured before building it: 13 past days carry attendance and ALL 13
+are closed**, so the banner is empty against production — an exception signal, not
+wallpaper. Pinned as a test over those 13 real dates.
+
+The grid banner states the consequence and links each date to that day's `?day=`
+panel, where `ปิดวัน` lives. The panel renders the consequence sentence only: its
+header already says `ยังไม่ปิดวัน` in neutral ink, so repeating the label in amber
+would be decoration — what the header cannot say is that the day's wages stay
+unbooked. Both keyed on the SAME predicate, so the two surfaces cannot disagree.
+
+### D13 — `ปิดวัน` moves to the BOTTOM, below the work-list AND the add form
+
+The loop is fix-then-close: closing derives wages from whatever the day records,
+so the control that finalises the day must not sit above the work it depends on.
+U3b shipped it first-in-the-panel, which read as "the thing to do here" while the
+corrections were still owed. The **reopen** arm deliberately stays above — on a
+closed day it is the first step, the one that unlocks add and delete — and the two
+are mutually exclusive arms of one state machine, so only ever one renders.
+
+The panel's work-list is one row per PERSON with an OPEN CHECK-OUT
+(`ยังไม่เช็คออก`), alphabetical, deduped so a worker with two open sessions
+(spec 351 allows regular AND ot) is one row of work rather than two. The rows are
+FACTS — accounting owns the wage consequence of exactly these holes — so the list
+renders for the whole audience and only the link is role-gated.
+
+⚠️ **Live population, measured 2026-08-07: ZERO sessions with a null `out_at` exist
+database-wide**, so this list renders empty on every day today. Spec 400 §1's "23 of
+67 August sessions have no check-out" and U4's "nine stuck 2026-07-24 OT rows" are
+both HISTORY — re-measured, those rows are closed. Do not re-inherit either figure.
+An open check-out is the normal state of anyone who has checked in and not yet
+checked out, so the list populates during a live working day and lingers on a past
+day left unclosed: an exception surface with a recurring population, not a backlog.
+
+⚠️ **The plan's second row kind, `ไม่มีการเช็คชื่อ`, was built and then REMOVED on a
+measurement.** On the live TFM โพธิ์ทอง roster, 2026-08-01..05 would have produced
+**23 · 16 · 15 · 20 · 15** "not scanned" rows against **0** open check-outs — so
+2026-08-05, a fully-closed day with all 23 people mustered, would still have listed
+15 people under a heading reading ต้องแก้ไข who simply were not scheduled. A roster
+spans people who do not work every day, so absence at DAY grain is normal, and a
+list that fires on every row is precisely D5's cry-wolf failure — shipped into the
+surface that exists to fight it. Absence stays a RANGE-level finding (spec 400's own
+finding ①) stated by the GRID, where a gap cell's `+` is an OFFER rather than a
+claim, and the add-person form directly below already enumerates the same people as
+its worker dropdown. Pinned as an exhaustive-domain check so a kind added later is a
+deliberate act.
+
+### D14 — the calendar links only days that CARRY attendance, and threads the audited month
+
+Operator, 2026-08-07: _"attendance calendar view is not edittable? it feels like it
+can be interactive, especially accessing from tablets."_ The whole cell is the tap
+target, because a ~10px day number is not one on a tablet.
+
+`AttendanceDayCell` carries `projectName` but **no project id**, so an empty day has
+nothing to infer a project from and does not link; a day with data does. The
+referrer is `withFrom(monthAnchor)` — the **audited** month. U1 shipped exactly this
+bug once (the grid's calendar link dropped `m=`, so a July auditor landed on
+August), and it is now pinned from both directions.
+
+Live: 7 July links for a worker with 11 July sessions (only the days she was
+recorded), every referrer `?m=2026-07`, and following one lands on 2026-07-24's fix
+page with the back chip returning to July.
+
+### ⚠️ What the plan claimed that the live gate-check REFUTED
+
+The U6 plan said a cross-project day the reader cannot act on should state that
+rather than offering a link that will 42501. **That state cannot occur.**
+`muster_correct_session` skips `can_see_project` for `procurement` outright, and
+`can_see_project` returns unconditional `true` for `super_admin` and
+`procurement_manager` (read live 2026-08-07) — so all three members of the
+correction audience can act on every project. Building the copy would have been an
+unreachable clause asserting a hazard that is not there (the spec-340 lesson), so
+it was deliberately NOT built.
+
+### Owed / carried
+
+- The **PM's calendar is structurally empty** (0 attendance rows readable, U2's
+  measurement), so the withheld link there is untestable in the field; the gate was
+  proved with `project_director`, the other `WORKER_ROSTER_ROLES` member outside the
+  correction audience.
+- `?day=`, `?worker=` and `?m=` remain **invisible to telemetry**:
+  `interaction_events.route` stores the path without its query string, so there is
+  no acceptance query for "someone opened a work-list row". The `audit_log`
+  correction counts in §5 stay the only end-to-end signal.
+- The residual **insert-path race on retime** is carried from U6a unchanged (a row
+  deleted between render and submit falls through to the RPC's INSERT branch; the
+  three refusals map to `stale`, and closing it properly needs a `p_update_only`
+  flag, i.e. schema).
+- A clean worker-day is reachable from the calendar but **not from the grid**, by
+  design (D11). If that turns out to be the commonest correction, the grid's rule is
+  the thing to revisit, not the calendar's.
+
+## 9. The correction audience becomes the audit audience (U6c) — shipped, SCHEMA
+
+Operator, 2026-08-07, on U6b's report that five roles keep the facts and lose the
+link: _"let's enable them first, we trust the current team. we can limit access in
+the future."_ So the rule is now **"if you can see the hole, you can fix it"** —
+`MUSTER_CORRECT_ROLES` == `ATTENDANCE_AUDIT_ROLES`.
+
+Migration `20260813075919` does `create or replace` on six RPCs. It was GENERATED
+from the live `pg_get_functiondef` output and edited predicate-by-predicate, each
+replacement asserting its expected match count (13, including the 2× arm split), so
+nothing else in those bodies moved — the fresh-eyes review confirmed that
+independently by diffing against each function's prior migration.
+
+### D15 — the allowlist was one third of the work
+
+Two other predicates had to move with it, and **neither was in the plan** — both came
+out of reading the live bodies:
+
+| #   | What                             | Why it had to move                                                                                                                                                                                                                        |
+| --- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ①   | **The scoping arm**              | `can_see_project` is `else false` for `accounting` and `hr`. Widening only the allowlist would have landed them a link and then a **42501** — affordance-then-refuse, shipped by the unit built to remove one.                            |
+| ②   | **`muster_scan_in`'s arm split** | `v_role = 'procurement'` is not a scoping check. It **selects the correction arm**: regular-only (OT is ×1.5, spec 351), open-days-only behind derive's own advisory key, and the `muster_correction_scan_in` audit row U5's trail reads. |
+
+② is the one that would have been worst. Widening the allowlist alone routes every
+new role down the **SA cockpit arm** — free to create OT sessions, free to write into
+a closed day, and **invisible to the correction trail**: strictly more power and less
+accountability than the role it was copying. `super_admin` and `procurement_manager`
+keep the cockpit arm deliberately (U3a's "the SA path is unchanged").
+
+The scoping arm now mirrors the READ side verbatim — the same seven roles
+`audit_attendance_summary` treats as cross-project (`ATTENDANCE_AUDIT_ALL_PROJECT_ROLES`).
+**`project_manager` and `site_admin` are deliberately absent from it**, so both stay
+scoped by membership exactly as the read scopes the PM. A rewrite phrased as
+"everyone except project_manager" would have silently made the FIELD role
+cross-project; that regression has its own pgTAP negatives on three functions,
+because §E's allowlist oracle structurally cannot see it (site_admin already appears
+in four of the allowlists).
+
+ⓘ `close_muster_day` performs `derive_muster_labor_**internal**` (verified live), so
+U3a's third gate does not apply and nothing further is owed. Pinned both ways — the
+public wrapper's own allowlist still excludes accounting, so a later edit re-pointing
+close at it would fail at a layer nobody widened.
+
+### ⚖️ What this grants, stated plainly
+
+Closing a day **derives wages** (`close_muster_day` → `derive_muster_labor_internal`
+→ `labor_logs` → GL). The widening hands that to **seven real users** who could not
+book a muster day's wages before: `accounting` 3, `project_director` 3,
+`project_manager` 1 (scoped to its own projects). It also reaches `hr` and
+`project_coordinator`, which have **zero users**.
+
+Taken deliberately: one rule is maintainable and a subset with two unexplained holes
+is not, and the operator reserved narrowing it. Narrowing is one line in
+`role-home.ts` plus one per RPC.
+
+### 🚨 The defect this unit nearly shipped, in the unit built to remove that defect
+
+The fix screen's first read was a **session-client `workers` select**, justified by a
+comment that ENUMERATED the old audience ("covers every `MUSTER_CORRECT_ROLES` member
+— procurement, procurement_manager, super_admin"). `workers` "readable by staff"
+excludes accounting, hr and project_coordinator, so they passed the page gate, read
+**zero rows with `error === null`**, and got **`ไม่พบช่างคนนี้`** — a factual claim
+that the worker does not exist, about a worker whose name the audit RPC had just shown
+them on the grid they clicked from. Affordance-then-refuse **and** honest-copy at once.
+
+Now a narrow admin read of one column of one row, matching the closure and team
+lookups beside it. No new exposure: `audit_attendance_detail`, gated on this same
+audience, already returns `workerName` for every session it discloses.
+
+⭐ **The transferable rule: a comment that justifies a read by ENUMERATING the
+audience becomes false the moment the audience widens. When a unit changes a role
+set, grep for every read whose justification names the old members.**
+
+### Gates
+
+pgTAP **363/363 files, 7690 assertions, 0 failures** — the new
+`400c-correction-audience.test.sql` drives every newly-admitted role behaviourally
+over the exhaustive role domain. vitest **920 files / 7867 tests**. typecheck 0,
+lint 0, build 0. Gate 4: `accounting` went from **0 fix links to 60** on the same
+grid (60 not 105 because U2 gives it no roster rows), the day panel gained the
+close/reopen form, the fix screen renders its name/date/project with no false
+"missing" claim, and a **real** accounting user drove `list_muster_teams_for_day`
+live to 4 teams where it previously raised 42501.
+
+**Six pre-existing assertions were RE-POINTED, not deleted** — each a red that was
+this unit's own decision arriving on schedule. Two had their MESSAGE corrected
+because the verdict survived while the reason moved one layer down (`project_manager`
+is refused by MEMBERSHIP now, not by the allowlist), which is the honest-copy rule
+applied to a test name.
+
+### Owed
+
+- On a worker-day with **no session**, `accounting` and `hr` see the date without the
+  project name: `projects` SELECT is `can_see_project`, which is `else false` for
+  them. It degrades a label rather than making a false claim, so it was left as a
+  session read and recorded here instead of widening a second table for decoration.
+- `parseFixParams` validates `?project=` for uuid SHAPE only. A `project_manager`
+  with a crafted or stale `?project=<non-member>` and no sessions reaches the teams
+  RPC, whose 42501 the page converts into a thrown 500 rather than a refusal. PM
+  could not reach this page at all before U6c. Worth its own unit.
+- `MUSTER_CORRECT_ROLES` and `ATTENDANCE_AUDIT_ROLES` are now EQUAL, so U6b's
+  link-withholding branches are unreachable. Kept, and the equality is pinned, so a
+  future narrowing re-separates them instead of silently rotting.
+
+## 10. The fix panel — correcting without leaving the grid (U7)
+
+**Operator, 2026-08-07, after U6a / #1023 shipped:** _"how about editing in a modal or side
+panel on the same page? currently user must edit one day at a time, and returning to
+previous page takes time."_
+
+### D16 — the work has a shape, and it is not the one the complaint names
+
+Measured before designing, from `audit_log` where `target_table = 'muster_attendance'`:
+
+| sitting                    | day corrected | edits                       | workers | elapsed       |
+| -------------------------- | ------------- | --------------------------- | ------- | ------------- |
+| 2026-08-07 `03:54`–`03:58` | 2026-07-24    | 10 `muster_correction_time` | 9       | **4 min 2 s** |
+| 2026-07-25 `17:51`         | 2026-07-25    | 9 `muster_move`             | 9       | one batch     |
+| 2026-08-06 → 08-07         | 2026-08-05    | 2 time + 2 undo             | 2       | —             |
+
+Every sitting is **one day, many workers** — never many days. So the axis the panel must
+optimise is worker-within-day, and the affordance that matters is not "open a panel", it is
+"go to the next person without leaving". At roughly 24 s per correction including the round
+trip, the 07-24 sitting is this unit's own acceptance case.
+
+### D17 — a URL-driven panel, not a client modal
+
+The page is zero-client-JS by construction and every correction is a POST + redirect. A
+client `<dialog>` would still pay the same server round trip per save, so it buys only the
+repaint — at the cost of the property that makes this page work on a field device whose
+hydration this repo has watched fail. The panel is therefore `?fix=<workerId>` alongside the
+existing `?day=`, the same mechanism U3b already ships.
+
+### D18 — "next" is resolved AFTER the write, never precomputed
+
+The save's `returnTo` carries `?fixNext=1` plus the worker just saved, and the page
+re-derives the day's work-list from FRESH data before choosing who to open. Precomputing the
+next worker at render time would hand the user a queue built from pre-write state: if the
+correction resolved someone else's row too, or resolved nothing, the precomputed target is a
+claim about a day that no longer exists.
+
+Consequences, all deliberate:
+
+- a correction that did **not** resolve the anomaly re-opens the SAME person, which is
+  honest — they are still on the work-list;
+- when the list empties the panel says so rather than closing silently, because a surface
+  that vanishes is indistinguishable from a crash (the silent-success rule this repo has
+  already paid for twice);
+- the work-list is `dayWorkList`, which today carries exactly `openOut`. The panel therefore
+  advances through UNCHECKED-OUT people, not through "everyone I might want to edit" — and
+  this spec says so rather than implying a queue it does not build.
+
+### D20 — the queue walks the DAY, not the anomaly list (D18 corrected at gate-check)
+
+D18 above said the panel advances through `dayWorkList`. Gate-checking that against live data
+refuted it, and the refutation is kept beside the original rather than edited away:
+
+- `dayWorkList` carries exactly `openOut`, and **zero sessions in the entire database have a
+  null `out_at`** (`day-fix.ts` already records this, measured 2026-08-07). An anomalies-only
+  queue therefore advances through NOTHING on every day that exists today — the
+  ranking-by-a-constant-column failure, shipped as a queue.
+- The 07-24 sitting corrected **9 workers out of the 13 on that day** — precisely its 9 OT
+  sessions, which were the anomaly set _at that time_ because they were stuck open. The two
+  populations coincided then and do not coincide now.
+
+So the queue is the day's own roster of workers WITH sessions, ordered anomalies-first and
+then by name, and `dayWorkList` becomes the ORDERING signal instead of the membership test. A
+day with no anomalies still yields a walkable queue, which is the state every day in the
+database is in right now.
+
+### D19 — one implementation, two doors
+
+`/team/attendance/fix` must keep working: U6b built three doors into it and links exist in
+the wild. So the unit EXTRACTS the screen — its loader and its render — and both the route
+and the panel call the extraction. The route is neither deleted nor duplicated; duplicating
+it is exactly how the reopen form drifted before it was extracted in the first place.
+
+### Acceptance
+
+- The 07-24 sitting, replayed: 9 workers corrected without a single navigation away from the
+  grid, each save landing on the next unresolved person.
+- `/team/attendance/fix?worker=…&date=…` still renders standalone, unchanged.
+- Panel and route render the same component, proven by a source pin rather than by eye.
 
 ---
 

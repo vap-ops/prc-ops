@@ -13,6 +13,7 @@ import { UUID_REGEX } from "@/lib/validate/uuid";
 import { isValidPhotoExt } from "@/lib/photos/path";
 import { buildTechnicianDocPath } from "@/lib/register/technician-path";
 import { validateBankChange } from "@/lib/portal/bank-change";
+import { dobRefusalFact } from "@/lib/profile/dob-refusal";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -55,6 +56,11 @@ export async function submitIdentityChange(input: {
     if (error.message.includes("invalid national id")) {
       return { ok: false, error: "เลขบัตรประชาชนไม่ถูกต้อง" };
     }
+    // Spec 403 U1 — a DOB refusal is permanent, so it must not fall through to
+    // GENERIC's "ลองใหม่อีกครั้ง". This user CAN fix it, so the instruction here
+    // is to correct the date.
+    const dobFact = dobRefusalFact(error.message);
+    if (dobFact) return { ok: false, error: `${dobFact} — กรุณาแก้วันเกิดแล้วส่งใหม่` };
     return { ok: false, error: GENERIC };
   }
   revalidatePath(MY_INFO_PATH);

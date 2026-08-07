@@ -11000,6 +11000,10 @@ export type Database = {
         Args: { p_date: string; p_project: string }
         Returns: undefined
       }
+      derive_muster_labor_internal: {
+        Args: { p_date: string; p_project: string }
+        Returns: undefined
+      }
       discard_feedback_draft: {
         Args: { p_draft_id: string }
         Returns: undefined
@@ -11030,6 +11034,8 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: string
       }
+      dob_rejection_reason: { Args: { p_dob: string }; Returns: string }
+      dob_today: { Args: never; Returns: string }
       draft_feedback_message: {
         Args: { p_body: string; p_feedback_id: string }
         Returns: string
@@ -11339,6 +11345,30 @@ export type Database = {
           source_table: string
         }[]
       }
+      list_muster_day_audit: {
+        Args: { p_date: string; p_project: string }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          actor_role: Database["public"]["Enums"]["user_role"]
+          detail: Json
+          kind: string
+          logged_at: string
+          session: Database["public"]["Enums"]["muster_session"]
+          worker_id: string
+          worker_name: string
+        }[]
+      }
+      list_muster_teams_for_day: {
+        Args: { p_date: string; p_project: string }
+        Returns: {
+          headcount: number
+          kind: Database["public"]["Enums"]["muster_team_kind"]
+          lead_name: string
+          lead_worker_id: string
+          team_id: string
+        }[]
+      }
       log_labor_day: {
         Args: {
           p_date: string
@@ -11384,6 +11414,16 @@ export type Database = {
       }
       move_worker_between_crews: {
         Args: { p_from: string; p_to: string; p_worker: string }
+        Returns: string
+      }
+      muster_correct_session: {
+        Args: {
+          p_in_at?: string
+          p_out_at?: string
+          p_session: Database["public"]["Enums"]["muster_session"]
+          p_team: string
+          p_worker: string
+        }
         Returns: string
       }
       muster_scan_in: {
@@ -12068,6 +12108,10 @@ export type Database = {
       }
       set_department_head: {
         Args: { p_department: string; p_head_user: string }
+        Returns: undefined
+      }
+      set_equipment_acquisition: {
+        Args: { p_acquired_at?: string; p_cost?: number; p_id: string }
         Returns: undefined
       }
       set_equipment_catalog_default_rate: {
@@ -12964,6 +13008,7 @@ export type Database = {
         | "equipment_item_updated"
         | "office_expense_update"
         | "office_expense_delete"
+        | "equipment_acquisition_change"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -13433,6 +13478,7 @@ export const Constants = {
         "equipment_item_updated",
         "office_expense_update",
         "office_expense_delete",
+        "equipment_acquisition_change",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
