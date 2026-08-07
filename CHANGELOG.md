@@ -1,3 +1,9 @@
+# [0.353.0](https://github.com/vap-ops/prc-ops/compare/v0.352.1...v0.353.0) (2026-08-07)
+
+### Features
+
+- **dob:** reject impossible birth dates at the database boundary ([#1016](https://github.com/vap-ops/prc-ops/issues/1016)) ([98c3005](https://github.com/vap-ops/prc-ops/commit/98c30059cb8832c419ca0422a409560f2805cb94))
+
 ## [0.352.1](https://github.com/vap-ops/prc-ops/compare/v0.352.0...v0.352.1) (2026-08-07)
 
 ### Bug Fixes
