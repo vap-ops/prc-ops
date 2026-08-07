@@ -10,6 +10,8 @@
 // REACHABLE (`if (canOpenCalendar)` -> `if (true)` stayed green across the whole
 // suite), so each arm is driven directly.
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   dayWorkList,
@@ -318,5 +320,42 @@ describe("dayWorkList", () => {
       }).map((r) => r.problem),
     );
     expect([...problems]).toEqual(["openOut"]);
+  });
+});
+
+// Writing failing test first.
+//
+// Spec 400 U7 — the grid's OWN doors now open the panel on this same page; the
+// /team/attendance/fix route stays for links minted elsewhere and for anything
+// already in the wild.
+//
+// ⚠️ This pin exists because changing every cell link from the route to the panel
+// left the whole suite GREEN. The U6b door tests cover `fixHref` — the pure
+// helper — and nothing asserted which helper the PAGE actually calls, which is
+// the one thing a reader's tap depends on.
+describe("spec 400 U7 — the grid's cells open the panel, not the route", () => {
+  const GRID = readFileSync(join(process.cwd(), "src/app/team/attendance/page.tsx"), "utf8")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("routes a cell tap and a work-list row through panelFixHref", () => {
+    expect(GRID).toMatch(/const cellFixHref[\s\S]{0,120}panelFixHref\(/);
+    expect(GRID).toMatch(/const workItemFixHref[\s\S]{0,120}panelFixHref\(/);
+    // …and the page no longer mints a route URL for its own cells.
+    expect(GRID).not.toContain("fixHref({");
+  });
+
+  it("builds the panel URL on THIS page, carrying the day it belongs to", () => {
+    const block = GRID.slice(
+      GRID.indexOf("const panelFixHref"),
+      GRID.indexOf("const panelFixHref") + 700,
+    );
+    expect(block).toContain('q.set("day", date)');
+    expect(block).toContain('q.set("fix", workerId)');
+    // The advance flag is set by a WRITE's returnTo only — a reader who taps a
+    // cell has not saved anything to advance from.
+    expect(block).toMatch(/if \(advance\) q\.set\("fixNext", "1"\)/);
+    expect(block).toContain("/team/attendance?");
   });
 });

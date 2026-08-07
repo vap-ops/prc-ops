@@ -38,10 +38,18 @@ import {
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
 import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
-import { dayWorkList, fixHref } from "@/lib/muster/day-fix";
+import { dayWorkList } from "@/lib/muster/day-fix";
 import { loadDayAudit } from "@/lib/muster/day-audit";
 import { attendanceDayParam } from "@/lib/muster/day-correction";
-import { ADD_ERROR_COPY, REOPEN_ERROR_COPY } from "@/lib/muster/outcome-copy";
+import {
+  ADD_ERROR_COPY,
+  REOPEN_ERROR_COPY,
+  RETIME_ERROR_COPY,
+  UNDO_ERROR_COPY,
+} from "@/lib/muster/outcome-copy";
+import { fixQueue, nextFixTarget } from "@/lib/muster/fix-queue";
+import { loadWorkerDayFix } from "@/lib/muster/worker-day-fix";
+import { WorkerDayFixPanel } from "@/components/features/muster/worker-day-fix-panel";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -107,6 +115,14 @@ interface AttendanceAuditPageProps {
     /** Spec 400 U3c-b — the add-person form's outcome. */
     added?: string | string[];
     addError?: string | string[];
+    /** Spec 400 U7 — the fix PANEL: which worker it is open on, and whether the
+     *  save that redirected here asked to advance to the next person. */
+    fix?: string | string[];
+    fixNext?: string | string[];
+    retimed?: string | string[];
+    retimeError?: string | string[];
+    undone?: string | string[];
+    undoError?: string | string[];
   }>;
 }
 
@@ -126,6 +142,12 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     closeError,
     added,
     addError,
+    fix,
+    fixNext,
+    retimed,
+    retimeError,
+    undone,
+    undoError,
   } = await searchParams;
   // `?worker=` predates this unit: every drill link the report has ever minted
   // carries one and no ?view, so those URLs resolve to the LIST or the drill
@@ -151,6 +173,21 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // helper line and the reopened banner — therefore went on telling the one role
   // this work exists for to hand the close to the SA, about a day it may now
   // close itself. MUSTER_CLOSE_ROLES mirrors the LIVE allowlist.
+  // Spec 400 U7 — the panel writes redirect back HERE, so this page reads their
+  // outcomes exactly as the fix route does: a CODE in the query, never a sentence.
+  const firstParam = (v: unknown): string | undefined =>
+    Array.isArray(v) ? v[0] : typeof v === "string" ? v : undefined;
+  const fixOutcome = (ok: unknown, err: unknown, copy: Record<string, string>) =>
+    firstParam(ok) === "1"
+      ? ({ ok: true } as const)
+      : typeof firstParam(err) === "string" && (firstParam(err) ?? "").length > 0
+        ? ({ ok: false, message: copy[firstParam(err)!] ?? copy.failed! } as const)
+        : null;
+  const fixRetimeOutcome = fixOutcome(retimed, retimeError, RETIME_ERROR_COPY);
+  const fixUndoOutcome = fixOutcome(undone, undoError, UNDO_ERROR_COPY);
+  const fixAddOutcome = fixOutcome(added, addError, ADD_ERROR_COPY);
+  const fixReopenOutcome = fixOutcome(reopened, reopenError, REOPEN_ERROR_COPY);
+
   const canClose = MUSTER_CLOSE_ROLES.includes(ctx.role);
   const canReopen = MUSTER_REOPEN_ROLES.includes(ctx.role);
 
@@ -385,19 +422,11 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   //
   // The referrer is this page's own URL including the picked range and project,
   // so the fix screen's back chip returns the reader to the column they left.
-  const cellFixHref = (workerId: string, date: string): string =>
-    fixHref({
-      workerId,
-      date,
-      // Passed explicitly when known so the fix page never has to infer it; a
-      // GAP cell has no session to infer FROM, which is why canFixGaps below
-      // withholds those links entirely when no project is picked.
-      projectId: range.projectId ?? null,
-      // viewHref("grid") IS this reader's current URL — range, project and their
-      // own referrer — so the back chip returns to the grid they left rather than
-      // to a bare /team/attendance with the range discarded.
-      backHref: viewHref("grid"),
-    });
+  // Spec 400 U7 — a grid cell now opens the PANEL, on this same page, instead of
+  // navigating to the fix route. The route is unchanged and still reachable: the
+  // spec-374 calendar, the unfinished-day banner and any link already in the wild
+  // keep working, and it is what a deep link from outside the grid still lands on.
+  const cellFixHref = (workerId: string, date: string): string => panelFixHref(date, workerId);
   // The two things closing COSTS, named from the rows already on screen:
   // close_muster_day stamps 17:00 on every open REGULAR session and leaves every
   // open OT one alone — and no RPC records a past check-out for any role, so an
@@ -471,13 +500,73 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // The work-list's rows return to the PANEL, not to the grid: the reader came
   // from an open `?day=` column and `viewHref("grid")` would close it and drop
   // the `#d-<date>` anchor, landing them at the top of a 42-row table.
-  const workItemFixHref = (workerId: string, date: string): string =>
-    fixHref({
-      workerId,
-      date,
-      projectId: range.projectId ?? null,
-      backHref: dayHref(date),
-    });
+  // ── Spec 400 U7 — the fix PANEL ──────────────────────────────────────────
+  //
+  // The same screen `/team/attendance/fix` renders (one component, §D19), opened
+  // INSIDE the day column so a corrector never leaves the grid. Measured: every
+  // correction sitting in the audit log is one day and many workers — the 07-24
+  // one was 10 edits across 9 people in 4 minutes — so the round trip out to a
+  // route and back was most of the cost.
+  const panelFixHref = (date: string, workerId: string, advance = false): string => {
+    const q = new URLSearchParams({ start: range.from, end: range.to });
+    if (range.projectId) q.set("project", range.projectId);
+    if (backHref !== "/team") q.set("from", backHref);
+    q.set("day", date);
+    q.set("fix", workerId);
+    // Only a WRITE's returnTo carries this: the panel advances after a save, not
+    // when the reader simply opened it by tapping a cell.
+    if (advance) q.set("fixNext", "1");
+    return `/team/attendance?${q.toString()}#d-${date}`;
+  };
+
+  // The queue is the day's OWN roster, anomalies first (§D20). It is not
+  // `dayWork`: that list carries only `openOut` and zero sessions in the database
+  // have a null `out_at`, so an anomalies-only queue would advance through
+  // nothing on every day that exists today.
+  const fixRosterSeen = new Set<string>();
+  const fixRoster = openDaySessions
+    .filter((r) => !fixRosterSeen.has(r.workerId) && fixRosterSeen.add(r.workerId))
+    .map((r) => ({ workerId: r.workerId, workerName: r.workerName }));
+  const fixWalk = fixQueue({ roster: fixRoster, anomalies: dayWork.map((w) => w.workerId) });
+
+  // ⚠️ Resolved AFTER the write, never precomputed (§D18): the queue above is
+  // built from THIS render's data, which is post-redirect and therefore post-save.
+  // ⚠️ Validated against every worker the GRID drew, not just the day's session
+  // roster. A GAP cell is a worker with no attendance that day — exactly the case
+  // the panel's add-person arm exists for — and validating against the session
+  // roster refused to open it, silently, while the fix ROUTE opened it fine.
+  // Caught in the browser: 28 cells linked, and the gap ones opened nothing.
+  const gridWorkerIds = grid.rows.map((r) => r.workerId);
+  const advanceFrom = firstParam(fixNext) === "1" ? attendanceWorkerId(fix, gridWorkerIds) : null;
+  const advanced =
+    advanceFrom !== null ? nextFixTarget({ queue: fixWalk, justSaved: advanceFrom }) : null;
+  const fixDone = advanced !== null && "done" in advanced;
+  const openFixWorkerId =
+    advanced !== null && "workerId" in advanced
+      ? advanced.workerId
+      : fixDone
+        ? null
+        : attendanceWorkerId(fix, gridWorkerIds);
+
+  const fixData =
+    openDay !== null && openFixWorkerId !== null
+      ? await loadWorkerDayFix({
+          supabase,
+          admin: createAdminClient(),
+          workerId: openFixWorkerId,
+          date: openDay.date,
+          projectParam: range.projectId ?? null,
+          todayIso,
+        })
+      : null;
+  // 0 when this worker is not in the walk at all (a gap cell has no session), in
+  // which case the panel renders WITHOUT a position line rather than claiming a
+  // place in a queue it is not in.
+  const fixPosition = openFixWorkerId
+    ? fixWalk.findIndex((r) => r.workerId === openFixWorkerId) + 1
+    : 0;
+
+  const workItemFixHref = (workerId: string, date: string): string => panelFixHref(date, workerId);
 
   const addOutcome =
     added === "1"
@@ -700,6 +789,54 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     workList={dayWork}
                     workItemHref={canCorrect ? workItemFixHref : null}
                   />
+                )}
+                {/* Spec 400 U7 — the fix panel, docked under the day column it
+                    belongs to. The queue strip above it says where the reader is
+                    in the day and offers the way out; the DONE line replaces the
+                    panel rather than letting it vanish, because a surface that
+                    disappears is indistinguishable from a crash. */}
+                {openDay !== null && fixDone && (
+                  <div className={`${CARD} mt-3`}>
+                    <p className="text-ink text-sm">แก้ครบทุกคนของวันนี้แล้ว</p>
+                    <p className="text-ink-secondary mt-1 text-xs">
+                      เลือกช่องในตารางเพื่อแก้คนอื่นได้อีก
+                    </p>
+                  </div>
+                )}
+                {openDay !== null && fixData !== null && openFixWorkerId !== null && (
+                  <div className={`${CARD} mt-3`}>
+                    <div className="border-edge mb-3 flex flex-wrap items-center gap-2 border-b pb-2">
+                      {fixPosition > 0 ? (
+                        <p className="text-ink-secondary text-xs">
+                          คนที่ {fixPosition} จาก {fixWalk.length} ของวันนี้
+                        </p>
+                      ) : (
+                        <p className="text-ink-secondary text-xs">
+                          ยังไม่มีการเช็คชื่อของคนนี้ในวันนี้
+                        </p>
+                      )}
+                      <Link
+                        href={dayHref(openDay.date)}
+                        className="text-action ml-auto flex min-h-11 items-center text-xs underline-offset-2 hover:underline"
+                      >
+                        ปิดหน้าต่างแก้ไข
+                      </Link>
+                    </div>
+                    <WorkerDayFixPanel
+                      data={fixData}
+                      workerId={openFixWorkerId}
+                      date={openDay.date}
+                      todayIso={todayIso}
+                      returnTo={panelFixHref(openDay.date, openFixWorkerId, true)}
+                      canClose={canClose}
+                      outcomes={{
+                        retime: fixRetimeOutcome,
+                        undo: fixUndoOutcome,
+                        add: fixAddOutcome,
+                        reopen: fixReopenOutcome,
+                      }}
+                    />
+                  </div>
                 )}
               </>
             )}
