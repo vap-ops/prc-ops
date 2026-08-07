@@ -52,6 +52,8 @@ let candidateUsers: Array<
 let wpTableRows: Array<{ id: string; code: string; project_id: string | null }> = [];
 let projectRows: Array<{ id: string; name: string; project_lead_id: string | null }> = [];
 let memberRows: Array<{ project_id: string; user_id: string }> = [];
+// Spec 402 U1 — purchase_request_id → project_id, the PR family's L3 source.
+let prProjectIdByRequest: Record<string, string> = {};
 let rowUpdates: Array<{ id: unknown; values: Record<string, unknown> }> = [];
 // Feedback c5136ad9 — captured (cols, ids) of every users .in() lookup.
 let usersInCalls: Array<{ cols: string; ids: unknown[] }> = [];
@@ -151,14 +153,23 @@ vi.mock("@/lib/db/admin", () => ({
           select: () => ({ in: async () => ({ data: memberRows, error: null }) }),
         };
       }
-      // PR→PO number enrichment (spec 211 U8) — no PO in these fixtures.
+      // PR→PO number enrichment (spec 211 U8) + the PR's project (spec 402 U1).
+      // The columns are CHECKED: the project slot is only reachable if the
+      // route actually selects project_id, so a revert to the two-column select
+      // reds here instead of silently dropping the project line.
       if (table === "purchase_requests") {
         return {
-          select: () => ({
+          select: (cols: string) => ({
             in: async () => ({
               data: outboxRows
                 .filter((r) => r.purchase_request_id !== null)
-                .map((r) => ({ id: r.purchase_request_id, purchase_order_id: null })),
+                .map((r) => ({
+                  id: r.purchase_request_id,
+                  purchase_order_id: null,
+                  ...(cols.includes("project_id")
+                    ? { project_id: prProjectIdByRequest[r.purchase_request_id as string] ?? null }
+                    : {}),
+                })),
               error: null,
             }),
           }),
@@ -222,6 +233,7 @@ beforeEach(() => {
   wpTableRows = [];
   projectRows = [];
   memberRows = [];
+  prProjectIdByRequest = {};
   superUsers = [{ id: SUPER_ID, line_user_id: "Lsuper", telegram_chat_id: null }];
   outboxRows = [
     // (1) event type the deployed code doesn't know → safe skip, not a crash.
@@ -630,5 +642,132 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
     await POST(drainRequest());
 
     expect(pushLineMessageMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Spec 402 U1 — the purchase-request family's skeleton slots. These batches
+// contain NO site-issue row and NO work-package row, so they also pin that the
+// PR legs resolve on their own: the enrichment gate must not depend on another
+// leg being non-empty (the latent-coupling shape the submitter arm was fixed
+// for).
+describe("POST /api/notifications/drain — spec 402 U1 purchase-request enrichment", () => {
+  const REQUESTER = "aaaaaaaa-0000-4000-8000-0000000004a1";
+  const PR_UUID = "bbbbbbbb-0000-4000-8000-0000000004b1";
+  const P1 = "ffffffff-0000-4000-8000-0000000004f1";
+
+  it("gives pr_progress its project, item and deep link — and names no actor", async () => {
+    prProjectIdByRequest = { [PR_UUID]: P1 };
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
+    memberRows = [{ project_id: P1, user_id: REQUESTER }];
+    candidateUsers = [
+      {
+        id: REQUESTER,
+        role: "site_admin",
+        line_user_id: "Lreq",
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "pr_progress",
+        work_package_id: null,
+        purchase_request_id: PR_UUID,
+        payload: {
+          pr_number: 12,
+          item_description: "เหล็กกล่อง กาวาไนซ์",
+          transition: ["purchased", "on_route"],
+          requested_by: REQUESTER,
+          // The trigger snapshots decided_by from approved_by — the APPROVER,
+          // not whoever shipped it.
+          decided_by: REQUESTER,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts).toHaveLength(1);
+    const text = texts[0] as string;
+    expect(text).toContain("เหล็กกล่อง กาวาไนซ์");
+    expect(text).toContain("โครงการบ้านสวย");
+    expect(text).toContain("สั่งซื้อแล้ว → กำลังจัดส่ง");
+    expect(text).toContain(`http://localhost:3000/requests/${PR_UUID}`);
+    // 🚨 The name IS resolvable here (the candidates lookup returned it), so
+    // this pins the DECISION not to render it, never a lookup that came back
+    // empty. Attributing a shipment to the approver is the misattribution the
+    // pr_progress arm exists to avoid.
+    expect(text).not.toContain("สมชาย ทดสอบ");
+  });
+
+  it("names the requester on pr_created, resolved via the candidates lookup", async () => {
+    const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
+    usersInCalls = [];
+    prProjectIdByRequest = { [PR_UUID]: P1 };
+    projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: PM_A }];
+    memberRows = [{ project_id: P1, user_id: PM_A }];
+    pmPoolUsers = [
+      { id: PM_A, role: "project_manager", line_user_id: "LpmA", telegram_chat_id: null },
+    ];
+    candidateUsers = [
+      {
+        id: PM_A,
+        role: "project_manager",
+        line_user_id: "LpmA",
+        telegram_chat_id: null,
+        full_name: "พีเอ็มเอ",
+        line_display_name: null,
+      },
+      {
+        id: REQUESTER,
+        role: "site_admin",
+        line_user_id: null,
+        telegram_chat_id: null,
+        full_name: "สมชาย ทดสอบ",
+        line_display_name: null,
+      },
+    ];
+    outboxRows = [
+      {
+        id: OK_ID,
+        event_type: "pr_created",
+        work_package_id: null,
+        purchase_request_id: PR_UUID,
+        payload: {
+          pr_number: 7,
+          item_description: "ปูน",
+          quantity: 10,
+          unit: "ถุง",
+          project_id: P1,
+          requested_by: REQUESTER,
+        },
+        attempts: 0,
+      },
+    ];
+
+    await POST(drainRequest());
+
+    // The requester uid reached the candidates lookup — a result-only assertion
+    // could not tell that apart from a name that happened to be in the pool.
+    const candidateCall = usersInCalls.find((c) => c.cols.includes("full_name"));
+    expect(candidateCall?.ids).toContain(REQUESTER);
+
+    const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
+    expect(texts.length).toBeGreaterThan(0);
+    for (const text of texts) {
+      expect(text).toBe(
+        [
+          "🆕 คำขอซื้อใหม่",
+          "ปูน × 10 ถุง",
+          "โครงการบ้านสวย · PR-0007",
+          "ขอโดย สมชาย ทดสอบ",
+          `http://localhost:3000/requests/${PR_UUID}`,
+        ].join("\n"),
+      );
+    }
   });
 });

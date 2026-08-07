@@ -13623,3 +13623,48 @@ across many dates, which is a different query and was scoped out. ② `interacti
 path WITHOUT its query string (all 93 rows in 30 days read exactly `/team/attendance`), so `?day=` opens
 are NOT measurable and the spec's acceptance says so rather than inventing a query. ③ The CSV export still
 writes no audit row (spec 397's recorded item), so an export is invisible to this trail by construction.
+
+## 2026-08-07 — spec 402 U1: the purchase-request family gets a message worth reading (lane notidetail)
+
+**What shipped.** The four purchase-request events — `pr_created`, `pr_decision`, `pr_progress`,
+`pr_cancelled`, together **81% of every push the app has ever sent** — moved from a single line built out
+of a PR number and a status word onto spec 402's six-slot skeleton: an icon + status headline, the ITEM in
+words, the project and refs, the actor or transition, the comment, and a deep link onto the request.
+New pure module `src/lib/notifications/message-skeleton.ts` (`buildNotificationMessage`, `joinWhere`,
+`purchaseRequestLink`, `PR_STATUS_ICON`); `composeNotification` composes through it and stays pure, with
+all resolution in the drain via `ComposeContext`.
+
+⭐ **`pr_progress` had carried `item_description` in its payload since the trigger was written and never
+rendered it.** 878 pushes said `คำขอซื้อ PR-287625 · ใบสั่งซื้อ PO-104: ได้รับของแล้ว` while the row knew
+exactly which item it was about. No migration was needed for any of this — every outbox row already
+carried an id reaching the missing data.
+
+🚨 **A deviation from the spec, found at the dependency gate-check.** Spec 402 §4 says U1 resolves
+`requested_by` / `decided_by` / `cancelled_by` into an actor line. Reading `notify_pr_status_change` live
+shows it snapshots `'decided_by', new.approved_by` — so on a **pr_progress** row that uid is the person who
+APPROVED the request, not whoever marked it purchased/shipped/delivered. Rendering it would have
+attributed every shipment to the approver. **`pr_progress` therefore renders no actor at all**; L4 carries
+the status transition instead, and `prActorIds` in the drain deliberately omits that event. Pinned by a
+test that makes the name RESOLVABLE and asserts it is still absent — so the pin covers the decision, not a
+lookup that happened to come back empty.
+
+⚠️ **The project comes from the request row, not the payload.** `pr_progress` / `pr_decision` /
+`pr_cancelled` payloads carry no `project_id` at all (0 of 1,147 live rows) and `pr_created`'s is only on
+the newer ones (194 of 233), so `project_id` was added to the `purchase_requests` select the drain already
+runs for the PO number. The test mock CHECKS the requested columns, so a revert to the two-column select
+reds instead of silently dropping the project line.
+
+⚠️ **Checked before trusting it: the new project ids do NOT widen any recipient set.** They join
+`enrichmentProjectIds`, which also feeds `projectPmIdsByProject` — but recipient resolution keys on
+`payload.projectId` and `wpProjectById`, never on the new `projectIdByPrId` map, and `pr_created`'s branch
+still reads `payload.projectId`. Extra entries populate contact maps only.
+
+⚠️ **Each enrichment leg is OR-ed into the gate and unioned into the id sets separately**, so PR-family
+names and projects never depend on the site-issue or approval legs being non-empty — the latent-coupling
+shape the submitter arm was already fixed for.
+
+**Open questions.** ① The supplementary "names the parent PO" assertion is a `toContain` that also passes
+against the pre-402 output; the exact-match cases are the real pins. ② `PR_STATUS_ICON` covers the whole
+`purchase_request_status` enum, but `requested` and `site_purchased` are unreachable from these four
+events' transitions — they exist so the Record stays exhaustive, not because anything renders them today.
+③ Gate 4 for a message-shape change is a real push to a phone; no push was sent from this lane.

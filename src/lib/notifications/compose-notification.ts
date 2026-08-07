@@ -13,6 +13,7 @@ import { formatPoNumber, formatPrNumber } from "@/lib/purchasing/format-id";
 import type { Database } from "@/lib/db/database.types";
 import type { NotificationPayload } from "./payload";
 import { warnUnknownNotificationEvent } from "./unknown-event";
+import { buildNotificationMessage, joinWhere, PR_STATUS_ICON } from "./message-skeleton";
 
 export type NotificationEventType = Database["public"]["Enums"]["notification_event_type"];
 
@@ -31,6 +32,12 @@ export interface ComposeContext {
   // Feedback c5136ad9 — wp_pending_approval context: the submitter's display
   // name, resolved by the drain from the payload's submitted_by uid.
   submitterName?: string;
+  // Spec 402 U1 — the skeleton's shared slots, resolved by the drain.
+  // `actorName` is whoever the EVENT attributes the change to; an event whose
+  // snapshot cannot honestly name one simply never reads it (see pr_progress).
+  // `deepLink` is the absolute URL to the thing the push is about.
+  actorName?: string;
+  deepLink?: string;
 }
 
 function label(map: Record<string, string>, value: string | undefined): string {
@@ -45,6 +52,51 @@ function label(map: Record<string, string>, value: string | undefined): string {
 function prRef(prNumber: number | undefined, poNumber: number | undefined): string {
   const pr = formatPrNumber(prNumber);
   return poNumber !== undefined ? `${pr} · ใบสั่งซื้อ ${formatPoNumber(poNumber)}` : pr;
+}
+
+// Spec 402 U1 — the PR family's shared slot builders.
+
+// L2: the item, with its quantity when the payload carries one. A PR whose
+// item_description is missing yields "", which the skeleton drops — better a
+// four-line message than a line reading "× 10 ถุง" with nothing to count.
+function prSubject(payload: NotificationPayload): string {
+  const item = payload.itemDescription?.trim() ?? "";
+  if (item === "") return "";
+  const quantity =
+    payload.quantity !== undefined
+      ? `${String(payload.quantity)} ${payload.unit ?? ""}`.trim()
+      : "";
+  return quantity === "" ? item : `${item} × ${quantity}`;
+}
+
+// L3: the project, then the PR's own refs.
+function prWhere(payload: NotificationPayload, context: ComposeContext): string {
+  return joinWhere([context.projectName, prRef(payload.prNumber, context.poNumber)]);
+}
+
+// L4 for pr_progress: where the request moved FROM, which the one-line form
+// discarded — "ได้รับของแล้ว" alone cannot tell you whether you already knew.
+function prTransitionLine(payload: NotificationPayload): string {
+  const from = payload.transition?.[0];
+  const to = payload.transition?.[1];
+  if (from === undefined || to === undefined) return "";
+  return `${label(PURCHASE_REQUEST_STATUS_LABEL, from)} → ${label(
+    PURCHASE_REQUEST_STATUS_LABEL,
+    to,
+  )}`;
+}
+
+function prStatusIcon(payload: NotificationPayload): string {
+  const to = payload.transition?.[1];
+  if (to === undefined) return "";
+  return PR_STATUS_ICON[to as keyof typeof PR_STATUS_ICON] ?? "";
+}
+
+// An unresolved name drops the whole line rather than rendering a dangling
+// prefix — the drain leaves actorName undefined when the lookup found nothing.
+function actorLine(prefix: string, name: string | undefined): string {
+  const trimmed = name?.trim() ?? "";
+  return trimmed === "" ? "" : `${prefix} ${trimmed}`;
 }
 
 export function composeNotification(
@@ -80,27 +132,59 @@ export function composeNotification(
     case "wp_evidence_resubmitted":
       return `ส่งตรวจอีกครั้ง: ${payload.code ?? ""} ${payload.name ?? ""} — ถ่ายรูปเพิ่มหลังให้แก้ไขแล้ว`.trim();
 
+    // Spec 402 U1 — the purchase-request family, 81% of every push ever sent.
+    // All four take the six-slot skeleton: the ITEM finally reaches the reader
+    // (pr_progress has carried item_description in its payload since the
+    // trigger was written and never rendered it), the project names where the
+    // line lives, and the link lands on the request itself.
     case "pr_created":
-      return `คำขอซื้อใหม่ ${prRef(payload.prNumber, context.poNumber)}: ${payload.itemDescription ?? ""} (${String(payload.quantity ?? "")} ${payload.unit ?? ""})`;
+      return buildNotificationMessage({
+        headline: "🆕 คำขอซื้อใหม่",
+        subject: prSubject(payload),
+        where: prWhere(payload, context),
+        actor: actorLine("ขอโดย", context.actorName),
+        link: context.deepLink,
+      });
 
-    case "pr_decision": {
-      const head = `คำขอซื้อ ${prRef(payload.prNumber, context.poNumber)}: ${label(
-        PURCHASE_REQUEST_STATUS_LABEL,
-        payload.transition?.[1],
-      )}`;
-      return payload.decisionComment ? `${head}\nความเห็น: ${payload.decisionComment}` : head;
-    }
+    case "pr_decision":
+      return buildNotificationMessage({
+        headline: `${prStatusIcon(payload)} คำขอซื้อ: ${label(
+          PURCHASE_REQUEST_STATUS_LABEL,
+          payload.transition?.[1],
+        )}`,
+        subject: prSubject(payload),
+        where: prWhere(payload, context),
+        actor: actorLine("โดย", context.actorName),
+        note: payload.decisionComment ? `ความเห็น: ${payload.decisionComment}` : undefined,
+        link: context.deepLink,
+      });
 
+    // 🚨 No actor line, deliberately. notify_pr_status_change snapshots
+    // `decided_by` from `approved_by`, so on a pr_progress row that uid is the
+    // PR's APPROVER — not whoever marked it purchased/shipped/delivered.
+    // Naming them would attribute the movement to the wrong person, so this arm
+    // never reads context.actorName; L4 carries the transition instead.
     case "pr_progress":
-      return `คำขอซื้อ ${prRef(payload.prNumber, context.poNumber)}: ${label(
-        PURCHASE_REQUEST_STATUS_LABEL,
-        payload.transition?.[1],
-      )}`;
+      return buildNotificationMessage({
+        headline: `${prStatusIcon(payload)} ${label(
+          PURCHASE_REQUEST_STATUS_LABEL,
+          payload.transition?.[1],
+        )} · คำขอซื้อ`,
+        subject: prSubject(payload),
+        where: prWhere(payload, context),
+        actor: prTransitionLine(payload),
+        link: context.deepLink,
+      });
 
-    case "pr_cancelled": {
-      const head = `คำขอซื้อ ${prRef(payload.prNumber, context.poNumber)} ถูกยกเลิก`;
-      return payload.cancellationReason ? `${head}\nเหตุผล: ${payload.cancellationReason}` : head;
-    }
+    case "pr_cancelled":
+      return buildNotificationMessage({
+        headline: `${PR_STATUS_ICON.cancelled} คำขอซื้อถูกยกเลิก`,
+        subject: prSubject(payload),
+        where: prWhere(payload, context),
+        actor: actorLine("ยกเลิกโดย", context.actorName),
+        note: payload.cancellationReason ? `เหตุผล: ${payload.cancellationReason}` : undefined,
+        link: context.deepLink,
+      });
 
     // Spec 201 A4 — a new bug report / feature request, to the operator (super_admin).
     // The reporter's role helps the operator triage (mirrors the review card).

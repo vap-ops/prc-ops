@@ -30,6 +30,15 @@ import { filterMutedRecipients, mutedKey } from "@/lib/notifications/preference-
 import { channelKey, filterChannelTargets } from "@/lib/notifications/channel-preference-filter";
 import { pushLineMessage } from "@/lib/notifications/line-push";
 import { pushTelegramMessage } from "@/lib/notifications/telegram-push";
+import { purchaseRequestLink } from "@/lib/notifications/message-skeleton";
+
+// Spec 402 U1 — the four events whose subject is a purchase request.
+const PR_FAMILY_EVENTS = new Set<string>([
+  "pr_created",
+  "pr_decision",
+  "pr_progress",
+  "pr_cancelled",
+]);
 
 // First-activation backlog: up to 50 rows × several sequential LINE pushes
 // each — needs more than the default function duration.
@@ -297,10 +306,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ...new Set(rows.map((r) => r.purchase_request_id).filter((id): id is string => id !== null)),
   ];
   const poNumberByPrId = new Map<string, number>();
+  // Spec 402 U1 — the PR family's project. pr_progress/pr_decision/pr_cancelled
+  // payloads carry no project_id at all (0 of 1,147 live rows) and pr_created's
+  // is only on the newer ones, so the request row is the reliable source. One
+  // extra column on a query this block already runs.
+  const projectIdByPrId = new Map<string, string>();
   if (prIds.length > 0) {
     const { data: prRows, error: prError } = await admin
       .from("purchase_requests")
-      .select("id, purchase_order_id")
+      .select("id, purchase_order_id, project_id")
       .in("id", prIds);
     if (prError) {
       console.error("[notifications/drain] PR→PO enrichment failed", prError.message);
@@ -309,6 +323,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const poIdByPrId = new Map<string, string>();
     const poIds = new Set<string>();
     for (const pr of prRows ?? []) {
+      if (pr.project_id) projectIdByPrId.set(pr.id, pr.project_id);
       if (pr.purchase_order_id) {
         poIdByPrId.set(pr.id, pr.purchase_order_id);
         poIds.add(pr.purchase_order_id);
@@ -370,13 +385,51 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ),
   ];
 
-  if (siteIssueRows.length > 0 || approvalProjectIds.length > 0 || submitterIds.length > 0) {
+  // Spec 402 U1 — the PR family's actor. Which uid that IS depends on the
+  // event, and pr_progress is deliberately absent: notify_pr_status_change
+  // snapshots `decided_by` from `approved_by`, so on a progress row that person
+  // approved the request, they did not ship it. Resolving a name there would
+  // only invite a compose arm to misattribute the movement.
+  const prActorIds = [
+    ...new Set(
+      parsed
+        .map(({ row, payload }) => {
+          if (row.event_type === "pr_created") return payload.requestedBy;
+          if (row.event_type === "pr_decision") return payload.decidedBy;
+          if (row.event_type === "pr_cancelled") return payload.cancelledBy;
+          return undefined;
+        })
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
+  // Every PR row's project, for the L3 slot.
+  const prProjectIds = [
+    ...new Set(
+      rows
+        .map((r) =>
+          r.purchase_request_id ? projectIdByPrId.get(r.purchase_request_id) : undefined,
+        )
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
+
+  // Each leg is OR-ed into the gate and unioned into the id sets separately, so
+  // no leg's resolution depends on another leg being non-empty — the
+  // latent-coupling shape the submitter arm above was already fixed for.
+  if (
+    siteIssueRows.length > 0 ||
+    approvalProjectIds.length > 0 ||
+    submitterIds.length > 0 ||
+    prActorIds.length > 0 ||
+    prProjectIds.length > 0
+  ) {
     const enrichmentProjectIds = [
       ...new Set([
         ...siteIssueRows
           .map(({ payload }) => payload.projectId)
           .filter((id): id is string => id !== undefined),
         ...approvalProjectIds,
+        ...prProjectIds,
       ]),
     ];
     const reporterIds = [
@@ -442,6 +495,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ...[...memberIdsByProject.values()].flat(),
         ...reporterIds,
         ...submitterIds,
+        // Spec 402 U1 — the PR actor is usually NOT a recipient (a requester is
+        // not pinged for their own decision), so their name must ride this
+        // lookup or the actor line silently never renders.
+        ...prActorIds,
       ]),
     ];
     const roleById = new Map<string, UserRole>();
@@ -576,6 +633,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (row.event_type === "wp_pending_approval" && payload.submittedBy !== undefined) {
         const submitterName = displayNameById.get(payload.submittedBy);
         if (submitterName !== undefined) composeContext.submitterName = submitterName;
+      }
+      // Spec 402 U1 — the purchase-request family's skeleton slots: the project
+      // it belongs to, the actor the event can honestly name, and a deep link
+      // onto the request itself. `/requests/[requestId]` takes the PR's UUID,
+      // which is exactly this row's purchase_request_id.
+      if (PR_FAMILY_EVENTS.has(row.event_type) && row.purchase_request_id !== null) {
+        const prProjectId = projectIdByPrId.get(row.purchase_request_id);
+        if (prProjectId !== undefined) {
+          const projectName = projectNameById.get(prProjectId);
+          if (projectName !== undefined) composeContext.projectName = projectName;
+        }
+        composeContext.deepLink = purchaseRequestLink(
+          clientEnv.NEXT_PUBLIC_APP_URL,
+          row.purchase_request_id,
+        );
+        // pr_progress is absent from this map on purpose — see prActorIds.
+        const actorId =
+          row.event_type === "pr_created"
+            ? payload.requestedBy
+            : row.event_type === "pr_decision"
+              ? payload.decidedBy
+              : row.event_type === "pr_cancelled"
+                ? payload.cancelledBy
+                : undefined;
+        if (actorId !== undefined) {
+          const actorName = displayNameById.get(actorId);
+          if (actorName !== undefined) composeContext.actorName = actorName;
+        }
       }
       const text = composeNotification(row.event_type, payload, composeContext);
 

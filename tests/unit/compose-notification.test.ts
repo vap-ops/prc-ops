@@ -51,60 +51,151 @@ describe("composeNotification", () => {
     );
   });
 
-  it("composes pr_created with the padded PR number, item, and quantity", () => {
+  // --- Spec 402 U1: the purchase-request family on the six-slot skeleton ----
+  // 81% of every push ever sent. Before this unit the whole family rendered one
+  // line built from the PR number and a status word — pr_progress in particular
+  // discarded the item_description its payload has always carried.
+
+  it("composes pr_created on the skeleton with project, requester and deep link", () => {
+    expect(
+      composeNotification(
+        "pr_created",
+        {
+          prNumber: 7,
+          itemDescription: "ปูน",
+          quantity: 10,
+          unit: "ถุง",
+          requestedBy: "11111111-1111-1111-1111-111111111111",
+        },
+        {
+          projectName: "โครงการบ้านสวย",
+          poNumber: 3,
+          actorName: "สมชาย ใจดี",
+          deepLink: "https://app.example/requests/pr-uuid",
+        },
+      ),
+    ).toBe(
+      [
+        "🆕 คำขอซื้อใหม่",
+        "ปูน × 10 ถุง",
+        "โครงการบ้านสวย · PR-0007 · ใบสั่งซื้อ PO-0003",
+        "ขอโดย สมชาย ใจดี",
+        "https://app.example/requests/pr-uuid",
+      ].join("\n"),
+    );
+  });
+
+  it("degrades pr_created to the slots it has when the drain resolved nothing", () => {
     expect(
       composeNotification(
         "pr_created",
         { prNumber: 7, itemDescription: "ปูน", quantity: 10, unit: "ถุง" },
         {},
       ),
-    ).toBe("คำขอซื้อใหม่ PR-0007: ปูน (10 ถุง)");
+    ).toBe("🆕 คำขอซื้อใหม่\nปูน × 10 ถุง\nPR-0007");
   });
 
-  it("composes pr_decision from the transition target with comment", () => {
+  it("omits the quantity clause on pr_created when the payload has no quantity", () => {
+    expect(composeNotification("pr_created", { prNumber: 7, itemDescription: "ปูน" }, {})).toBe(
+      "🆕 คำขอซื้อใหม่\nปูน\nPR-0007",
+    );
+  });
+
+  it("composes pr_decision with the status icon, item, decider and comment", () => {
     expect(
       composeNotification(
         "pr_decision",
         {
           prNumber: 12,
+          itemDescription: "กระเบื้อง",
           transition: ["requested", "rejected"],
           decisionComment: "ของมีในสต็อกแล้ว",
         },
-        {},
+        { projectName: "โครงการบ้านสวย", actorName: "สมชาย ใจดี" },
       ),
-    ).toBe("คำขอซื้อ PR-0012: ไม่อนุมัติ\nความเห็น: ของมีในสต็อกแล้ว");
+    ).toBe(
+      [
+        "⛔ คำขอซื้อ: ไม่อนุมัติ",
+        "กระเบื้อง",
+        "โครงการบ้านสวย · PR-0012",
+        "โดย สมชาย ใจดี",
+        "ความเห็น: ของมีในสต็อกแล้ว",
+      ].join("\n"),
+    );
   });
 
-  it("composes pr_progress from the transition target without a comment line", () => {
+  it("composes pr_progress with the item it always carried and the FROM status", () => {
     expect(
       composeNotification(
         "pr_progress",
-        { prNumber: 12, transition: ["purchased", "on_route"] },
-        {},
+        {
+          prNumber: 12,
+          itemDescription: "เหล็กกล่อง กาวาไนซ์",
+          transition: ["purchased", "on_route"],
+        },
+        {
+          projectName: "โครงการบ้านสวย",
+          poNumber: 3,
+          deepLink: "https://app.example/requests/pr-uuid",
+        },
       ),
-    ).toBe("คำขอซื้อ PR-0012: กำลังจัดส่ง");
+    ).toBe(
+      [
+        "🚚 กำลังจัดส่ง · คำขอซื้อ",
+        "เหล็กกล่อง กาวาไนซ์",
+        "โครงการบ้านสวย · PR-0012 · ใบสั่งซื้อ PO-0003",
+        "สั่งซื้อแล้ว → กำลังจัดส่ง",
+        "https://app.example/requests/pr-uuid",
+      ].join("\n"),
+    );
   });
 
-  it("composes pr_cancelled with the reason when present", () => {
+  // 🚨 notify_pr_status_change snapshots `decided_by` from `approved_by`, so on a
+  // pr_progress row that uid is the PR's APPROVER — not whoever marked it
+  // delivered. Naming them would attribute the delivery to the wrong person, so
+  // pr_progress renders no actor even when the drain hands one over.
+  it("never names an actor on pr_progress, because decided_by is the approver", () => {
+    const message = composeNotification(
+      "pr_progress",
+      { prNumber: 12, itemDescription: "ปูน", transition: ["on_route", "delivered"] },
+      { actorName: "สมชาย ใจดี" },
+    );
+    expect(message).not.toContain("สมชาย ใจดี");
+    expect(message).toBe("📦 ได้รับของแล้ว · คำขอซื้อ\nปูน\nPR-0012\nกำลังจัดส่ง → ได้รับของแล้ว");
+  });
+
+  it("composes pr_cancelled with the item, canceller and reason", () => {
     expect(
       composeNotification(
         "pr_cancelled",
-        { prNumber: 3, cancellationReason: "ไม่ต้องการแล้ว" },
-        {},
+        {
+          prNumber: 3,
+          itemDescription: "ถุงตาข่ายไนลอน",
+          cancellationReason: "ไม่ต้องการแล้ว",
+        },
+        { actorName: "สมชาย ใจดี" },
       ),
-    ).toBe("คำขอซื้อ PR-0003 ถูกยกเลิก\nเหตุผล: ไม่ต้องการแล้ว");
+    ).toBe(
+      [
+        "🚫 คำขอซื้อถูกยกเลิก",
+        "ถุงตาข่ายไนลอน",
+        "PR-0003",
+        "ยกเลิกโดย สมชาย ใจดี",
+        "เหตุผล: ไม่ต้องการแล้ว",
+      ].join("\n"),
+    );
   });
 
   it("composes pr_cancelled without a reason line when absent", () => {
     expect(composeNotification("pr_cancelled", { prNumber: 3 }, {})).toBe(
-      "คำขอซื้อ PR-0003 ถูกยกเลิก",
+      "🚫 คำขอซื้อถูกยกเลิก\nPR-0003",
     );
   });
 
   // Spec 211 U8 (critic gap X1) — a PR notification that belongs to a PO names the
   // ใบสั่งซื้อ, so the recipient knows which ORDER the line is part of (the PR-vs-PO
   // level confusion no longer reaches them pre-screen). The PO comes via context
-  // (compose-time enrichment); absent → the message is unchanged.
+  // (compose-time enrichment); absent → the ref slot carries the PR alone.
   it("names the parent PO on a pr_progress when the PR belongs to one", () => {
     expect(
       composeNotification(
@@ -112,27 +203,17 @@ describe("composeNotification", () => {
         { prNumber: 12, transition: ["purchased", "on_route"] },
         { poNumber: 3 },
       ),
-    ).toBe("คำขอซื้อ PR-0012 · ใบสั่งซื้อ PO-0003: กำลังจัดส่ง");
+    ).toContain("PR-0012 · ใบสั่งซื้อ PO-0003");
   });
 
-  it("names the parent PO on a pr_decision when the PR belongs to one", () => {
-    expect(
-      composeNotification(
-        "pr_decision",
-        { prNumber: 12, transition: ["requested", "approved"] },
-        { poNumber: 3 },
-      ),
-    ).toBe("คำขอซื้อ PR-0012 · ใบสั่งซื้อ PO-0003: อนุมัติแล้ว");
-  });
-
-  it("leaves a PR notification unchanged when there is no parent PO", () => {
+  it("leaves the ref slot as the PR alone when there is no parent PO", () => {
     expect(
       composeNotification(
         "pr_progress",
         { prNumber: 12, transition: ["purchased", "on_route"] },
         {},
       ),
-    ).toBe("คำขอซื้อ PR-0012: กำลังจัดส่ง");
+    ).toBe("🚚 กำลังจัดส่ง · คำขอซื้อ\nPR-0012\nสั่งซื้อแล้ว → กำลังจัดส่ง");
   });
 
   it("composes feedback_submitted with the type label, reporter role, and title (A4)", () => {
