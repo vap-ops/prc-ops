@@ -1,6 +1,7 @@
 # Spec 403 — ตรวจสอบวันเกิด (DOB sanity gate + minimum-age floor)
 
-**Status:** U1 BUILT 2026-08-07 (migration `20260813075918` applied, pgTAP 27/27). U2–U4 open.
+**Status:** U1 BUILT 2026-08-07 (migration `20260813075918` applied, pgTAP 39/39, full suite 362
+files / 7,655 assertions / 0 failures). U2–U4 open.
 **Schema.** One migration. Lane `dobgate`, `../prc-ops-dobgate`.
 
 **Operator ask (2026-08-07),** on a screenshot of `/contacts/bank-changes`, verbatim:
@@ -175,8 +176,18 @@ requirement; existing ones stand.
 **U1 — the gate (schema, danger path). ✅ BUILT.** `dob_rejection_reason(date)` +
 `assert_valid_dob_trigger()` + five triggers (`workers`, `staff_registrations`,
 `crew_registrations`, `contractors`, `identity_change_requests.proposed_dob` — the last one armed
-with the applying arm of §2.2). Migration `20260813075918`, head re-queried at apply time. pgTAP
-`403-dob-sanity.test.sql` 30/30; full suite **362 files / 7,646 assertions / 0 failures**.
+with the applying arm of §2.2), over `dob_today()` (Asia/Bangkok). Migration `20260813075918`,
+head re-queried at apply time. pgTAP `403-dob-sanity.test.sql` **39/39**; full suite **362 files /
+7,655 assertions / 0 failures**.
+
+**Also in U1, deliberately pulled forward from U2:** `src/lib/profile/dob-refusal.ts` and the two
+call sites that can see a DOB refusal **today** (`my-info/actions.ts` on submit,
+`portal/actions.ts` on approve). U1 is live, so without it every refusal read
+"บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" — a permanent refusal dressed as a transient one, which is
+the honest-copy rule the repo already carries. The mapper returns the **fact only, naming no
+actor**; the self-service caller appends _แก้วันเกิดแล้วส่งใหม่_ and the approver caller appends
+_ให้ปฏิเสธคำขอนี้ แล้วแจ้งให้ส่งคำขอใหม่_, because one of them can fix the date and the other
+cannot. The remaining U2 work (the three forms, `max`, the inline checks) is unchanged.
 
 **U2 — the three forms (code-only).** `identity-change-form.tsx`, `staff-registration-form.tsx`,
 `add-technician-sheet.tsx` (`staff-register-workspace.tsx` only feeds the second): `max` on the
@@ -208,9 +219,15 @@ Order: U1 ✅ → U2. U3 is independent. U4 any time after U1.
 
 - RED first, for the right reason: `function "public.dob_rejection_reason(date)" does not exist`,
   with the rest of the suite green (361/361) in the same run.
-- 27 assertions: three catalogue/posture, ten pure arms (including **both** boundaries — exactly
-  15 accepted, one day short refused; exactly 120 accepted, one day over refused), five
-  trigger-presence, seven `workers` behaviours, two `identity_change_requests` behaviours.
+- 39 assertions: three catalogue/posture · twelve pure arms (including **both** boundaries in both
+  directions — exactly 15 accepted, one day short refused; exactly 120 accepted, one day over
+  refused — plus the Bangkok-date pin and the non-finite arm) · five trigger-presence · five
+  column-type pins · one argv-typo guard · seven `workers` behaviours · one `contractors`
+  behaviour · two `identity_change_requests` behaviours · three approve-time behaviours.
+- Every `throws_ok` pins **the message**, not just `P0001`. Before that, deleting the
+  Buddhist-era arm left assertion "a Buddhist-era year cannot be inserted" **passing**, because
+  the value fell through to the future arm and still raised `P0001` — a probe that cannot tell
+  which arm fired is not a probe for that arm.
 - Mutation: **six mutants, each killed by its own probe.** Each of the five triggers dropped
   **separately** (a whole-set mutation cannot tell "gated" from "gated in one place"), plus a
   sixth that removes ONLY the applying arm's trigger argument. Cross-probes prove per-site
@@ -239,11 +256,15 @@ Order: U1 ✅ → U2. U3 is independent. U4 any time after U1.
 ## 6. Risks
 
 - **The gate is not retroactive** and must never be described as if it were (D6).
-- **A registration carrying a bad DOB becomes unapprovable.** `approve_staff_registration` /
-  `approve_crew_registration` copy `date_of_birth` into `workers`, so the insert now refuses.
-  Measured: the only bad registration row is `วีระชัย เส็งนา`'s, and it is already `approved`, so
-  **no pending approval is blocked today** — but U4's repair is what keeps it that way, and an
-  approver meeting this needs the DOB fixed on the registration first, not a generic error.
+- **A registration carrying a bad DOB becomes unapprovable — but only on some arms.**
+  `approve_crew_registration` copies `date_of_birth` into `workers` unconditionally, so its insert
+  now refuses. `approve_staff_registration` inserts into `workers` **only under
+  `if p_role in ('technician')`** — for every office role the DOB never leaves
+  `staff_registrations`, no trigger fires, and nothing refuses. Measured: the only bad
+  registration row is `วีระชัย เส็งนา`'s and it is already `approved`, so **no pending approval is
+  blocked today**. ⚑ Accepted, empty-today gap: `staff_registrations` is structurally the same
+  "proposal store approved later" shape as `identity_change_requests` and does **not** get an
+  applying arm; if a bad row is ever planted there for an office role it will survive approval.
 - **A refusal on a surface with no other exit.** `update_own_staff_registration` is on the
   self-registration path.
 

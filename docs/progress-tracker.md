@@ -13714,3 +13714,45 @@ editing an applied migration silently no-ops. The file was made replayable (`dro
 exists` before each create) and re-run end-to-end with `db query -f`, so the committed file is
 byte-for-byte what the live schema was built from — which matters because pgTAP asserts against
 the live objects, not the file.
+
+**Gate 5 (fresh-eyes) returned ten findings; nine were taken.** The four that changed behaviour:
+
+1. **Timezone (MEDIUM).** The gate reasoned in `current_date` while the server runs in **UTC**, so
+   between 00:00 and 07:00 Bangkok it is a day behind — a person submitting on their real 15th
+   birthday would have been refused as under-age, and today's Bangkok date would have been named
+   "in the future" rather than "under minimum age" (the wrong cause, in a design whose whole point
+   is naming the right one). It also silently disagreed with the three shipped 18-floor RPCs,
+   which all use `(now() at time zone 'Asia/Bangkok')::date` — the spec quoted that line and then
+   did not adopt it. Now `public.dob_today()`, pinned by an assertion.
+2. **A `ShareRowExclusiveLock` on a hot table, in CI, against production (MEDIUM).** The test
+   planted its legacy row with `alter table … disable trigger`, which takes that lock — and the
+   runner wraps **twenty files in one transaction**, so the lock would have been held long after
+   this file's own rollback (a subtransaction transfers locks to the parent, it does not release
+   them). Every live INSERT/UPDATE on `workers` would have blocked for the rest of the chunk. Now
+   `set local session_replication_role`, which takes no table lock.
+3. **A mistyped `TG_ARGV[0]` was a silent no-op (MEDIUM).** `->>` returns NULL for an absent key
+   and a NULL DOB is acceptable, so a typo'd column name left the trigger installed and guarding
+   nothing — and three of the five tables had only a `has_trigger` pin, which asserts the trigger's
+   NAME and nothing about its argument. The trigger now fails loudly on an absent column, proved
+   by a temp-table probe, and `contractors` gained a behavioural assertion.
+4. **`throws_ok(…, 'P0001', null, …)` let arms pass for each other's reason (LOW, but fake
+   coverage).** Deleting the Buddhist-era arm left "a Buddhist-era year cannot be inserted"
+   **green**, because the value fell through to the future arm and still raised `P0001`. Every
+   `throws_ok` now pins the message.
+
+Also taken: `isfinite` (an infinite date was reported as a Buddhist-era year), five `col_type_is`
+pins (the trigger's `to_jsonb(new)->>col` read is only safe while all five columns are `date`), and
+three doc corrections — the migration header's "covers every path by construction" is now scoped to
+non-owner roles (the table owner can still disable triggers or set `session_replication_role`, the
+existing break-glass surface), and `approve_staff_registration` only inserts into `workers` under
+its `technician` arm, so the blast-radius claim was too broad.
+
+**One finding was acted on by widening the unit rather than documenting it.** U1 shipping ahead of
+U2 meant every live DOB refusal read "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" — a permanent refusal
+dressed as a transient one, which is exactly the honest-copy rule the repo already carries. Pulled
+`src/lib/profile/dob-refusal.ts` plus its two call sites forward into U1 (RED-first, 9 tests). The
+mapper returns the **fact only and names no actor**: the person correcting their own birthday can
+fix it and is told to; an approver reading someone else's stored proposal cannot, and is told to
+reject and ask for a resubmission. A single shared string would have been false for one of them.
+
+**Final U1 gates:** pgTAP **39/39**, full suite **362 files / 7,655 assertions / 0 failures**.
