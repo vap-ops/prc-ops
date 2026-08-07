@@ -100,19 +100,25 @@ select throws_ok(
   $$select public.reopen_muster_day('a1000000-0397-0397-0397-000000000001'::uuid, '2026-07-10'::date, 'ตรวจสอบพบว่าลงเวลาไม่ครบ')$$,
   '42501', null, 'technician denied');
 reset role;
-update public.users set role = 'accounting' where id = '70000000-0397-0397-0397-0000000000fe';
-set local role authenticated;
-set local "request.jwt.claims" = '{"sub": "70000000-0397-0397-0397-0000000000fe"}';
-select throws_ok(
-  $$select public.reopen_muster_day('a1000000-0397-0397-0397-000000000001'::uuid, '2026-07-10'::date, 'ตรวจสอบพบว่าลงเวลาไม่ครบ')$$,
-  '42501', null, 'accounting denied — it READS the report, it does not edit the muster');
-reset role;
+-- ⚠️ RE-POINTED by spec 400 U6c, not deleted. `accounting` used to be the
+-- headline denial here ("it READS the report, it does not edit the muster") — the
+-- operator reversed exactly that on 2026-08-07 ("let's enable them first, we trust
+-- the current team"), so the correction audience is now the AUDIT audience and
+-- accounting is admitted. It moved to the positive controls below, where it also
+-- has to re-close like every other admitted role.
 update public.users set role = 'project_manager' where id = '70000000-0397-0397-0397-0000000000fe';
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0397-0397-0397-0000000000fe"}';
 select throws_ok(
   $$select public.reopen_muster_day('a1000000-0397-0397-0397-000000000001'::uuid, '2026-07-10'::date, 'ตรวจสอบพบว่าลงเวลาไม่ครบ')$$,
-  '42501', null, 'project_manager denied (it may not close either)');
+  '42501', null,
+  -- The REASON changed even though the verdict did not, so the message changed
+  -- with it: U6c put project_manager IN the allowlist, and this probe user holds
+  -- no project_members row, so it is now refused one layer down by MEMBERSHIP.
+  -- That is the same tiering the READ side applies to project_manager, and the
+  -- old wording ("it may not close either") would have been a false explanation
+  -- of a passing test.
+  'project_manager denied — in the allowlist since U6c, but NOT a member of this project');
 reset role;
 update public.users set role = 'visitor' where id = '70000000-0397-0397-0397-0000000000fe';
 set local role authenticated;
@@ -133,6 +139,22 @@ reset role;
 -- against a hardcoded list would have "passed" without executing the function at
 -- all — the denial arm above proves nothing about who is admitted. Each reopen
 -- consumes the closure, so each control re-closes first.
+-- Spec 400 U6c — accounting is now admitted and CROSS-PROJECT (can_see_project is
+-- `else false` for it, so this proves the exemption arm, not a membership). It runs
+-- first among the controls, and re-closes after, so the assertions below still meet
+-- a closed day.
+reset role;
+update public.users set role = 'accounting' where id = '70000000-0397-0397-0397-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0397-0397-0397-0000000000fe"}';
+select lives_ok(
+  $$select public.reopen_muster_day('a1000000-0397-0397-0397-000000000001'::uuid, '2026-07-10'::date, 'เหตุผล')$$,
+  'accounting MAY reopen since U6c — and cross-project, holding no membership');
+reset role;
+insert into public.muster_day_closures (project_id, work_date, closed_at, closed_by) values
+  ('a1000000-0397-0397-0397-000000000001', '2026-07-10', now(),
+   '70000000-0397-0397-0397-000000000009');
+
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0397-0397-0397-000000000009"}';
 select lives_ok(
@@ -262,12 +284,15 @@ select is(
       and actor_id = '70000000-0397-0397-0397-00000000000c'),
   '70000000-0397-0397-0397-000000000009',
   'and it preserves the closure row it deleted (the only surviving copy)');
--- All four reopens in this file are audited — the trail has no gaps, whoever did it.
+-- Every reopen in this file is audited — the trail has no gaps, whoever did it.
+-- ⚠️ 4 → 5 with spec 400 U6c: accounting became an admitted role and so added a
+-- fifth successful reopen above. The number is a COUNT of real calls, so it moves
+-- whenever the audience does — that is the assertion working, not drifting.
 select is(
   (select count(*)::int from public.audit_log
     where payload->>'kind' = 'muster_day_reopen'
       and payload->>'work_date' = '2026-07-10'),
-  4, 'every reopen in this file left an audit row (3 positive controls + procurement)');
+  5, 'every reopen in this file left an audit row (4 positive controls + procurement)');
 
 -- ============================================================================
 -- E. The money guard — a day whose wages are CURRENT may not be reopened.

@@ -50,7 +50,19 @@ describe("spec 400 U3b — who may close a muster day", () => {
     // role added to the enum later must red this, not sail through it.
     const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
     expect(all.filter((r) => MUSTER_CLOSE_ROLES.includes(r)).sort()).toEqual(
-      ["procurement", "procurement_manager", "site_admin", "super_admin"].sort(),
+      // Spec 400 U6c (migration 20260813075919) widened the live allowlist to the
+      // audit audience plus site_admin. Read from the LIVE function, as before.
+      [
+        "accounting",
+        "hr",
+        "procurement",
+        "procurement_manager",
+        "project_coordinator",
+        "project_director",
+        "project_manager",
+        "site_admin",
+        "super_admin",
+      ].sort(),
     );
   });
 

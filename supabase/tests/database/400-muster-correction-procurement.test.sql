@@ -1,5 +1,5 @@
 begin;
-select plan(51);
+select plan(52);
 
 -- ============================================================================
 -- Spec 400 U3a — the correction path for procurement.
@@ -186,13 +186,15 @@ select throws_ok(
   $$select public.close_muster_day('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-20'::date)$$,
   '42501', null, 'technician may not close');
 reset role;
-update public.users set role = 'accounting' where id = '70000000-0400-0400-0400-0000000000fe';
-set local role authenticated;
-set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
-select throws_ok(
-  $$select public.close_muster_day('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-20'::date)$$,
-  '42501', null, 'accounting may not close — it READS the report, it does not edit the muster');
-reset role;
+-- ⚠️ RE-POINTED by spec 400 U6c, and MOVED TO THE END OF THIS FILE rather than
+-- flipped in place. `accounting may not close` was the headline denial here; the
+-- operator reversed it on 2026-08-07 ("let's enable them first, we trust the
+-- current team"), so accounting is admitted now. It cannot simply become a
+-- `lives_ok` on this spot: closing 2026-07-20 writes a closure row AND derives
+-- wages for it, and sections C/D below depend on that day being OPEN and its wages
+-- UNBOOKED — flipping it here silently cascaded into four unrelated assertions
+-- (procurement's add, its read-back, and the SA's OT control). The positive
+-- control lives after them.
 update public.users set role = 'project_manager' where id = '70000000-0400-0400-0400-0000000000fe';
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
@@ -524,6 +526,29 @@ select lives_ok(
   $$select public.derive_muster_labor('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-22'::date)$$,
   'super_admin may still derive directly — the split did not narrow the public gate');
 reset role;
+
+-- ============================================================================
+-- Spec 400 U6c — the widened audience, asserted LAST because closing has side
+-- effects (a closure row + derived wages) that every section above depends on the
+-- absence of. See the note where this control used to live.
+-- ============================================================================
+reset role;
+update public.users set role = 'accounting' where id = '70000000-0400-0400-0400-0000000000fe';
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0400-0400-0400-0000000000fe"}';
+select lives_ok(
+  $$select public.close_muster_day('a1000000-0400-0400-0400-000000000001'::uuid, '2026-07-20'::date)$$,
+  'accounting MAY close since U6c — and so books the wages (the money step)');
+reset role;
+-- Cross-project, not a membership: can_see_project is `else false` for accounting,
+-- and this probe user holds no project_members row. If the scoping arm had been
+-- left alone, the call above would have raised 42501 one layer down — the
+-- affordance-then-refuse this unit exists to remove.
+select ok(
+  exists (select 1 from public.muster_day_closures
+           where project_id = 'a1000000-0400-0400-0400-000000000001'
+             and work_date = '2026-07-20'),
+  'and accounting''s closure really landed, holding no membership on the project');
 
 select * from finish();
 rollback;

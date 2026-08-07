@@ -281,8 +281,13 @@ select throws_ok(
       '71000000-0401-0401-0401-000000000020'::uuid,
       'e1000000-0401-0401-0401-000000000004'::uuid, 'regular'::public.muster_session,
       '2026-07-20 08:30+07'::timestamptz, null)$$,
-  '42501', 'muster_correct_session: role not permitted',
-  'project_manager may NOT back-date');
+  -- ⚠️ RE-POINTED by spec 400 U6c: project_manager is IN the allowlist now, so the
+  -- refusal moved one layer DOWN — this probe user holds no `project_members` row,
+  -- and the write scopes project_manager by membership exactly as the READ side
+  -- does. Same verdict, different (and now truthful) reason; asserting the old
+  -- 'role not permitted' message would have quietly become a lie about WHY.
+  '42501', 'muster_correct_session: not a member of this project',
+  'project_manager may not back-date a project it is not a member of');
 reset role;
 
 update public.users set role = 'technician' where id = '70000000-0401-0401-0401-0000000000fe';

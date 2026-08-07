@@ -139,13 +139,28 @@ describe("MUSTER_CORRECT_ROLES", () => {
   it("is exactly the correction audience muster_correct_session gates on", () => {
     const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
     expect(all.filter((r) => MUSTER_CORRECT_ROLES.includes(r)).sort()).toEqual(
-      ["procurement", "procurement_manager", "super_admin"].sort(),
+      // Spec 400 U6c widened this to the AUDIT audience ("if you can see the
+      // hole, you can fix it"), so the exact set moved. The SHAPE is unchanged and
+      // is the point: exhaustive over the domain, asserting the positive set, so a
+      // new enum value still forces a deliberate classification.
+      [
+        "accounting",
+        "hr",
+        "procurement",
+        "procurement_manager",
+        "project_coordinator",
+        "project_director",
+        "project_manager",
+        "super_admin",
+      ].sort(),
     );
   });
 
   // site_admin holds muster_scan_in, muster_scan_out and the whole cockpit, and
   // is deliberately NOT here: every surface reaching a past day is gated on
-  // ATTENDANCE_AUDIT_ROLES, which has no site_admin.
+  // ATTENDANCE_AUDIT_ROLES, which has no site_admin. Still true after U6c widened
+  // this set to exactly that audience — site_admin is the ONE role in the close /
+  // reopen / scan allowlists that this set does not carry.
   it("excludes site_admin — she has the cockpit, not this", () => {
     expect(MUSTER_CORRECT_ROLES.includes("site_admin" as UserRole)).toBe(false);
   });
