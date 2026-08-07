@@ -78,6 +78,30 @@ describe("lightbox overflow (the #996 class, keyboard DOWN)", () => {
     // the content overflows (unlike justify-center, which goes negative).
     expect(dialog.className).toContain("[&>*:first-child]:mt-auto");
     expect(dialog.className).toContain("[&>*:last-child]:mb-auto");
+    // Chains at the ends like every other full-screen scroller (PageShell
+    // carries overscroll-y-contain app-wide for the same reason).
+    expect(dialog.className).toContain("overscroll-contain");
+  });
+
+  // Writing failing test first (2026-08-07, found in review of the fix above).
+  // Making the root a scroll container ALSO made it the containing block for
+  // its absolutely-positioned controls — and an abs-positioned child of a
+  // scroller is part of the scrollable content, not pinned to it. So on the
+  // very case this fix targets (a photo tall enough to scroll), scrolling down
+  // to see the bottom of the image would carry ปิด / หมุนรูป / ลบรูป and the
+  // prev-next arrows off the top of the screen. `fixed` pins them to the
+  // viewport instead; the root is `fixed inset-0`, so every offset resolves to
+  // the same place it did before, and no transformed ancestor sits between.
+  it("pins its controls to the viewport so scrolling cannot carry them away", async () => {
+    render(<ZoomablePhoto src={SRC} group={[SRC, SRC]} groupIndex={0} />);
+    const dialog = await openLightbox();
+    for (const name of ["ปิด", "หมุนรูป", "รูปก่อนหน้า", "รูปถัดไป"]) {
+      const el = within(dialog).getByRole("button", { name });
+      expect(el.className, `${name} must not scroll with the photo`).toContain("fixed");
+      expect(el.className, `${name} must not be absolute inside the scroller`).not.toContain(
+        "absolute",
+      );
+    }
   });
 });
 

@@ -302,7 +302,15 @@ export function PhotoLightboxOverlay({
       // there was no scroller at all in that state. Auto margins centre
       // identically while free space is positive and COLLAPSE to 0 when it is
       // not, so a tall photo simply scrolls.
-      className="fixed inset-0 z-50 flex touch-pan-y flex-col items-center justify-start gap-3 overflow-y-auto bg-black/85 p-4 [&>*:first-child]:mt-auto [&>*:last-child]:mb-auto"
+      // ⚠️ This element is now a SCROLL CONTAINER *and*, being `fixed`, the
+      // containing block for the controls below — and an absolutely-positioned
+      // child of a scroller is part of the scrolled content, not pinned to it.
+      // So every root-level control (ปิด, หมุนรูป, ลบรูป, the prev/next arrows,
+      // the n/N counter) is `fixed`, not `absolute`: it resolves against the
+      // viewport, which this element exactly covers, so each lands where it
+      // always did but no longer rides away when a tall photo scrolls. The one
+      // remaining `absolute` is the markup SVG, which belongs to the image box.
+      className="fixed inset-0 z-50 flex touch-pan-y flex-col items-center justify-start gap-3 overflow-y-auto overscroll-contain bg-black/85 p-4 [&>*:first-child]:mt-auto [&>*:last-child]:mb-auto"
     >
       <span
         className="relative inline-flex"
@@ -507,7 +515,7 @@ export function PhotoLightboxOverlay({
         <>
           <span
             aria-live="polite"
-            className="absolute top-3 left-3 rounded-full border border-zinc-700 bg-zinc-950/80 px-2.5 py-1 text-xs font-medium text-zinc-100 backdrop-blur-sm"
+            className="fixed top-3 left-3 rounded-full border border-zinc-700 bg-zinc-950/80 px-2.5 py-1 text-xs font-medium text-zinc-100 backdrop-blur-sm"
           >
             {current + 1}/{photos.length}
           </span>
@@ -519,7 +527,7 @@ export function PhotoLightboxOverlay({
             }}
             disabled={current === 0 || composing}
             aria-label="รูปก่อนหน้า"
-            className="absolute top-1/2 left-2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-40"
+            className="fixed top-1/2 left-2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-40"
           >
             <span aria-hidden="true" className="text-xl leading-none">
               ‹
@@ -533,7 +541,7 @@ export function PhotoLightboxOverlay({
             }}
             disabled={current === photos.length - 1 || composing}
             aria-label="รูปถัดไป"
-            className="absolute top-1/2 right-2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-40"
+            className="fixed top-1/2 right-2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-40"
           >
             <span aria-hidden="true" className="text-xl leading-none">
               ›
@@ -552,7 +560,7 @@ export function PhotoLightboxOverlay({
             setConfirmDeleteOpen(true);
           }}
           disabled={isDeleting}
-          className="absolute top-3 left-1/2 inline-flex h-10 -translate-x-1/2 items-center gap-1.5 rounded-full border border-red-500/60 bg-zinc-950/80 px-3.5 text-xs font-semibold text-red-300 backdrop-blur-sm transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50"
+          className="fixed top-3 left-1/2 inline-flex h-10 -translate-x-1/2 items-center gap-1.5 rounded-full border border-red-500/60 bg-zinc-950/80 px-3.5 text-xs font-semibold text-red-300 backdrop-blur-sm transition-colors hover:bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50"
         >
           {isDeleting ? (
             <span
@@ -577,7 +585,7 @@ export function PhotoLightboxOverlay({
             setRotation((r) => (r + 90) % 360);
           }}
           aria-label="หมุนรูป"
-          className="absolute top-3 right-16 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+          className="fixed top-3 right-16 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
         >
           <RotateCw aria-hidden className="h-4 w-4" />
         </button>
@@ -586,7 +594,7 @@ export function PhotoLightboxOverlay({
         type="button"
         onClick={onClose}
         aria-label="ปิด"
-        className="absolute top-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+        className="fixed top-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/80 text-zinc-100 backdrop-blur-sm transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
       >
         <span aria-hidden="true" className="text-xl leading-none">
           ×

@@ -115,7 +115,13 @@ boundaries mirror those widths (§8).
   scroll container, so sticky headers and fixed chrome cannot drift on
   iOS bounce. Variants: `app` (content pages), `card` (single-card
   screens), `bare`. Hand-rolling a `<main>` is a review reject.
-- The `app` variant's `pb-20 sm:pb-0` clears the phone tab bar.
+- The `app` variant's `pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0`
+  clears the phone tab bar. It COMPOSES the safe-area inset because the bar
+  does (`h-16` + `border-t` + `pb-[env(safe-area-inset-bottom)]` = 99px on a
+  notched iPhone): a flat `pb-20` reserved 80px and left the last 19px of
+  every content page behind the bar. Any new bottom-fixed chrome composes the
+  inset the same way — toast-provider, phase-uploader, muster-cockpit and
+  phone-po-basket all already did.
 - **The `card` variant centres with AUTO MARGINS, never `items-center`** —
   on a scrolling flex container `align-items: center` puts the top of
   overflowing content out of reach of every scroll position (measured:
@@ -296,7 +302,8 @@ vs 860 at 900, and **760 vs 672 at a 760px viewport** — the skeleton's private
 `max-w-3xl` left the viewport as the effective cap right through the 672–768 band, so
 the two only already agreed below 672. `max-w-3xl` now appears nowhere in `src/`; the
 remaining `max-w-sm`/`max-w-md` are the recorded single-card exceptions in §5, not
-outliers. `variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and
+outliers. `variant="app"` also brings `pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0`
+(phone tab-bar clearance, safe-area inset included — see §5) and
 `text-ink` — the skeleton renders no visible text.
 
 **The SINGLE-COLUMN screens have their own frame:**
