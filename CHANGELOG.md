@@ -1,3 +1,9 @@
+## [0.358.1](https://github.com/vap-ops/prc-ops/compare/v0.358.0...v0.358.1) (2026-08-07)
+
+### Bug Fixes
+
+- **muster:** the reopen row's basis-full helper collapsed the reason field ([#1021](https://github.com/vap-ops/prc-ops/issues/1021)) ([91d8434](https://github.com/vap-ops/prc-ops/commit/91d8434ba0081a250c759733387ecd6fab3b774f))
+
 # [0.358.0](https://github.com/vap-ops/prc-ops/compare/v0.357.0...v0.358.0) (2026-08-07)
 
 ### Features
