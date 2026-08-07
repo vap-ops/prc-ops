@@ -21,6 +21,7 @@ import { validateEmergencyContact } from "./emergency-contact";
 import { validateContractorProfile } from "./contractor-profile";
 import { validateWorkerProfile } from "./worker-profile";
 import { isPortalDocPurpose } from "./document-types";
+import { dobRefusalFact } from "@/lib/profile/dob-refusal";
 
 export type ClaimResult = { ok: true } | { ok: false; error: string };
 
@@ -246,7 +247,18 @@ export async function decideIdentityChange(input: {
     p_id: input.id,
     p_approve: input.approve,
   });
-  if (error) return { ok: false, error: GENERIC_BANK };
+  if (error) {
+    // Spec 403 U1 — the stored proposal is validated at the moment it is
+    // applied, so an approve can refuse. This reader is NOT the person who can
+    // fix the date, so the instruction is to reject and ask for a resubmission
+    // — never GENERIC_BANK's "ลองใหม่อีกครั้ง", which is a permanent refusal
+    // dressed as a transient one.
+    const dobFact = dobRefusalFact(error.message);
+    if (dobFact) {
+      return { ok: false, error: `${dobFact} — ให้ปฏิเสธคำขอนี้ แล้วแจ้งให้ส่งคำขอใหม่` };
+    }
+    return { ok: false, error: GENERIC_BANK };
+  }
   revalidatePath(input.revalidate);
   return { ok: true };
 }
