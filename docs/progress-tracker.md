@@ -14275,6 +14275,45 @@ the fleet is priced one machine at a time; that is now a small unit rather than 
 the RPC exists. ② `acquisition_cost` remains unreadable to `authenticated` by design, so any
 future report over it needs the admin seam or its own DEFINER reader.
 
+## 2026-08-08 — spec 367 §10.4 (second half): the importer stops refusing money (lane eqprice)
+
+**What shipped.** The equipment CSV importer accepts `ราคาทุน`, `วันที่ได้มา` and `ค่าเช่า/วัน`
+and routes each to its own DEFINER seam — cost + date through `set_equipment_acquisition`
+(#1027), the rate through `set_equipment_daily_rate` (spec 202). §10.4 is now fully closed: the
+fleet can be priced from a sheet instead of one machine at a time. **No schema.**
+
+**Why the old refusal was right and is now wrong.** It existed because `acquisition_cost` had no
+write path in the app at all, so accepting a filled cell and writing everything except the prices
+would have been silent success. Both figures now have a seam, so the refusal became the defect.
+The retired `MONEY_READ_ONLY` message is DELETED rather than left unused — a stale refusal is how
+the next reader concludes the wall is still there. **Lint's no-unused-vars is what caught it.**
+
+⚠️ **The two RPCs disagree about a BLANK cell, and that is the whole design risk.**
+`set_equipment_acquisition` accepts null and CLEARS; `set_equipment_daily_rate` refuses null
+outright, so a blank rate cannot mean clear. One blank cell would otherwise mean two different
+things in one row. Resolution: the PARSER reports only what the cell says (a value, or blank) and
+the ACTION — which knows the current figures — decides. Blank cost/date clears, blank rate leaves
+the stored value alone, and the sheet's hint says both **before** the file is assembled.
+
+⭐ **Every figure is compared against the CURRENT value, so an unchanged column writes no RPC call
+and no audit row.** Re-importing an untouched export is the common case; without the comparison it
+would manufacture a money-change trail for every row in the fleet.
+
+⚠️ **The prose was part of the diff.** The sheet said "ช่องราคายังนำเข้าไม่ได้" — true when written,
+false after this change, and leaving it would have sent the operator back to hand-editing 60
+prices. The result line also now reports the money count separately from the row count, because
+"how many prices landed" is the question a pricing file is asking.
+
+⭐ **A test fixture taught me a real boundary.** My "future date" case computed tomorrow in UTC;
+the parser compares against the **Bangkok** civil date (the box and the DB are UTC, the users are
+UTC+7), so for part of the day UTC-tomorrow is still today in Bangkok and the case passed for the
+wrong reason. Fixed to compute in Bangkok, and a second case pins that TODAY in Bangkok is
+accepted — the boundary a UTC clock gets wrong.
+
+**Gates.** RED first on both halves (parser 7 of 8 red, action 4 of 7 red). Three pre-existing
+`REFUSES a filled …` assertions were REVERSED deliberately, with the old reasoning kept in words
+beside them. lint 0 · typecheck 0.
+
 ## 2026-08-06 — One SSOT for the app title, so the announcement strip cannot drift (lane apptitle)
 
 **Closes ① of the cross-lane fact-check on the route-announcement arc — and it is this repo's own

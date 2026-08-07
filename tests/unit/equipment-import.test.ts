@@ -274,24 +274,33 @@ describe("equipment import — the money gate mirrors the export", () => {
     expect(r.rows).toHaveLength(1);
   });
 
-  // Money is READ-ONLY on import for every audience: daily_rate is writable only
-  // via the set_equipment_daily_rate DEFINER RPC, acquisition_cost has no write
-  // path at all, and acquired_at carries no grant either. Silently dropping a
-  // filled price is the failure this refusal exists to prevent.
-  it("REFUSES a filled cost rather than silently dropping it", () => {
+  // ⚠️ REVERSED 2026-08-08 (spec 367 §10.4, second half), deliberately — the old
+  // assertions are kept in words below because the REASON they existed is the
+  // reason they could stop existing. Money was read-only on import because
+  // `acquisition_cost` had no write path in the app AT ALL and `acquired_at`
+  // carried no grant; refusing a filled cell beat writing everything except the
+  // prices. Both now go through their own SECURITY DEFINER RPC, so the file may
+  // carry them and the refusal would now be the defect.
+  //
+  // What did NOT change: the header-level audience gate above (a non-money
+  // audience sending money columns still fails the whole file), and the table's
+  // money wall — the importer never writes these columns directly.
+  it("ACCEPTS a filled cost now that a write path exists", () => {
     const r = parseEquipmentImport(csv(line({ cost: "48000" })), ctx());
-    expect(r.rows).toHaveLength(0);
-    expect(r.errors.join(" ")).toContain("ราคาทุน");
+    expect(r.errors).toEqual([]);
+    expect(r.rows[0]?.acquisitionCost).toBe(48000);
   });
 
-  it("REFUSES a filled rate for the same reason", () => {
+  it("ACCEPTS a filled rate", () => {
     const r = parseEquipmentImport(csv(line({ rate: "350" })), ctx());
-    expect(r.rows).toHaveLength(0);
+    expect(r.errors).toEqual([]);
+    expect(r.rows[0]?.dailyRate).toBe(350);
   });
 
-  it("REFUSES a filled acquired-on date (also ungranted)", () => {
+  it("ACCEPTS a filled acquired-on date", () => {
     const r = parseEquipmentImport(csv(line({ acquiredAt: "2025-03-04" })), ctx());
-    expect(r.rows).toHaveLength(0);
+    expect(r.errors).toEqual([]);
+    expect(r.rows[0]?.acquiredAt).toBe("2025-03-04");
   });
 
   it("accepts the blank money columns the live export actually produces", () => {
