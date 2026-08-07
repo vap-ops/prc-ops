@@ -6,6 +6,66 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 400 U6b — the three doors + the unfinished-day banner (2026-08-07)
+
+**Status:** shipped. Code + tests + docs only, no schema, no new RPC, no new
+role-set export.
+
+U6a built `/team/attendance/fix` and left it reachable only by a hand-typed URL.
+U6b makes it reachable from the three surfaces that already show the holes.
+
+- **One builder:** `fixHref`, beside `parseFixParams` in `day-fix.ts` — the writer
+  and the reader of the `?worker=&date=&project=&from=` contract in one module,
+  because three surfaces now mint it. Omits `project` rather than emptying it.
+- **Grid cells:** a session cell links on a FINDING (closure and `?project=` do not
+  gate it — retime works on a closed day and the page infers the project from the
+  session); an empty cell links only with a project picked, on a working day, where
+  a team exists. Live: 37 links with no project, 105 (69 gap `+`) with one.
+- **Day panel:** an anomaly work-list, one row per person
+  (`ไม่มีการเช็คชื่อ` / `ยังไม่เช็คออก`), grouped by the act each needs, deduped so
+  two open sessions are one row. **`ปิดวัน` moved to the BOTTOM**, below the
+  work-list and the add form — the loop is fix-then-close, and the reopen arm stays
+  above because on a closed day it is the first step.
+- **Calendar (spec 374):** days that carry attendance become tap targets, whole cell,
+  referrer carrying the AUDITED month. Answers the operator directly (2026-08-07:
+  _"attendance calendar view is not edittable? it feels like it can be interactive,
+  especially accessing from tablets"_).
+- **Unfinished-day banner:** `dayClosed === false && date < today`, excluding today
+  and `dayClosed === null`. Named for what it detects — the grid carries no reopen
+  history, so the copy says `ยังไม่ปิด`, never "reopened".
+
+**Role gate.** Links render for `MUSTER_CORRECT_ROLES` only. `ATTENDANCE_AUDIT_ROLES`
+is wider and every correction RPC refuses the extra five with 42501; they keep every
+FACT and lose only the link. Proven live: `accounting` 0 links vs `super_admin` 105,
+with anomaly words (86) and times (63) identical.
+
+**Measured before building.** All 13 past days carrying attendance are CLOSED, so the
+banner is empty against production — an exception signal, not wallpaper. Pinned over
+those 13 real dates.
+
+**Refuted at gate-check.** The plan wanted copy for "a cross-project day the reader
+cannot act on". That state cannot occur: `muster_correct_session` skips
+`can_see_project` for `procurement`, and the helper returns unconditional `true` for
+`super_admin` and `procurement_manager`. Building it would have been an unreachable
+clause asserting a hazard that is not there, so it was deliberately not built.
+
+**Gates.** lint 0 · typecheck 0 · build 0 (`/team/attendance/fix` a real dynamic
+route) · full suite **920 files / 7861 tests, 0 failures** · guard suites 204/204
+unchanged from baseline · **16 mutants, all killed**, including a true RELOCATION
+mutant for the `ปิดวัน` order (moving the work-list below the close form) rather than
+the cheaper delete-the-list cousin · Gate 4 the real flow on real prod data, with the
+one write retracted: 08-05 reopened to prove the banner renders, then re-closed
+(closure verified restored, 23 sessions intact, `labor_logs` still 0).
+
+**Open / owed.** The PM's calendar is structurally empty (0 readable attendance rows),
+so the withheld link there was proved with `project_director` instead ·
+`?day=`/`?worker=`/`?m=` stay invisible to telemetry (route has no query string) ·
+U6a's insert-path race on retime carried unchanged (needs a `p_update_only` flag =
+schema) · a clean worker-day is reachable from the calendar but not the grid, by
+design.
+
+---
+
 ## Spec 368 U4 design + spec 370 (scan in/out) + the 368 renumber (2026-07-28)
 
 **Status:** docs + comment-only PR. Specs designed with the operator in chat
