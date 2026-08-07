@@ -13757,6 +13757,136 @@ reject and ask for a resubmission. A single shared string would have been false 
 
 **Final U1 gates:** pgTAP **39/39**, full suite **362 files / 7,655 assertions / 0 failures**.
 
+## 2026-08-07 — spec 402 U1: the purchase-request family gets a message worth reading (lane notidetail)
+
+**What shipped.** The four purchase-request events — `pr_created`, `pr_decision`, `pr_progress`,
+`pr_cancelled`, together **81% of every push the app has ever sent** — moved from a single line built out
+of a PR number and a status word onto spec 402's six-slot skeleton: an icon + status headline, the ITEM in
+words, the project and refs, the actor or transition, the comment, and a deep link onto the request.
+New pure module `src/lib/notifications/message-skeleton.ts` (`buildNotificationMessage`, `joinWhere`,
+`purchaseRequestLink`, `PR_STATUS_ICON`); `composeNotification` composes through it and stays pure, with
+all resolution in the drain via `ComposeContext`.
+
+⭐ **`pr_progress` had carried `item_description` in its payload since the trigger was written and never
+rendered it.** 878 pushes said `คำขอซื้อ PR-287625 · ใบสั่งซื้อ PO-104: ได้รับของแล้ว` while the row knew
+exactly which item it was about. No migration was needed for any of this — every outbox row already
+carried an id reaching the missing data.
+
+🚨 **A deviation from the spec, found at the dependency gate-check.** Spec 402 §4 says U1 resolves
+`requested_by` / `decided_by` / `cancelled_by` into an actor line. Reading `notify_pr_status_change` live
+shows it snapshots `'decided_by', new.approved_by` — so on a **pr_progress** row that uid is the person who
+APPROVED the request, not whoever marked it purchased/shipped/delivered. Rendering it would have
+attributed every shipment to the approver. **`pr_progress` therefore renders no actor at all**; L4 carries
+the status transition instead, and `prActorIds` in the drain deliberately omits that event. Pinned by a
+test that makes the name RESOLVABLE and asserts it is still absent — so the pin covers the decision, not a
+lookup that happened to come back empty.
+
+⚠️ **The project comes from the request row, not the payload.** `pr_progress` / `pr_decision` /
+`pr_cancelled` payloads carry no `project_id` at all (0 of 1,147 live rows) and `pr_created`'s is only on
+the newer ones (194 of 233), so `project_id` was added to the `purchase_requests` select the drain already
+runs for the PO number. The test mock CHECKS the requested columns, so a revert to the two-column select
+reds instead of silently dropping the project line.
+
+⚠️ **Checked before trusting it: the new project ids do NOT widen any recipient set.** They join
+`enrichmentProjectIds`, which also feeds `projectPmIdsByProject` — but recipient resolution keys on
+`payload.projectId` and `wpProjectById`, never on the new `projectIdByPrId` map, and `pr_created`'s branch
+still reads `payload.projectId`. Extra entries populate contact maps only.
+
+⚠️ **Each enrichment leg is OR-ed into the gate and unioned into the id sets separately**, so PR-family
+names and projects never depend on the site-issue or approval legs being non-empty — the latent-coupling
+shape the submitter arm was already fixed for.
+
+**Open questions.** ① The supplementary "names the parent PO" assertion is a `toContain` that also passes
+against the pre-402 output; the exact-match cases are the real pins. ② `PR_STATUS_ICON` covers the whole
+`purchase_request_status` enum, but `requested` and `site_purchased` are unreachable from these four
+events' transitions — they exist so the Record stays exhaustive, not because anything renders them today.
+③ Gate 4 for a message-shape change is a real push to a phone; no push was sent from this lane.
+
+## 2026-08-07 — spec 402 U2: the work-package family learns to say what the work is (lane notiu2)
+
+**What shipped.** `wp_pending_approval`, `wp_decision`, `wp_reopened` and `wp_evidence_resubmitted` (498
+rows) move onto the six-slot skeleton, each with a deep link. `WP_DECISION_ICON` (a Record over
+`approval_decision`, so a new value fails the compile) plus `workPackageLink` / `reviewWorkPackageLink` in
+`message-skeleton.ts`; the drain adds `name` to its `work_packages` select and resolves the WP's project
+and the event's actor.
+
+⭐ **`wp_decision`'s payload snapshots NOTHING about the work — no code, no name, no project, verified
+243 of 243 live rows.** Its whole message was `ผลการตรวจ WP-44-02: อนุมัติแล้ว`, and the WP code in it came
+from context, not the payload. All three facts now arrive through the drain's `work_packages` join, which
+already ran — it just never selected `name`.
+
+🚨 **The link is a ROLE decision and one outbox row produces ONE body for every recipient, so it cannot
+be varied per person.** `/review/work-packages/[id]` is `requireRole(PM_ROLES)`;
+`/projects/[pid]/work-packages/[id]` is `WP_DETAIL_ROLES`. Recipients, read live from
+`resolve-recipients.ts`: `wp_pending_approval` → the PM pool, `wp_evidence_resubmitted` → the decider
+being answered (both manager-tier ⇒ **review** link), `wp_decision` + `wp_reopened` → the WP's photo
+UPLOADERS (⇒ **project** link). A test pins the review link's presence AND the absence of `/projects/`,
+because a swap between two valid-looking URLs is exactly the defect the split prevents.
+
+⚠️ **A measured exposure, shipped deliberately.** Live uploader roles are site_admin 2348 photos ·
+project_manager 326 · **visitor 145 (1 person)** · super_admin 3 — and `visitor` is not in
+`WP_DETAIL_ROLES`, so that one account's `wp_decision` link will redirect it rather than open the WP.
+Withholding the link from everyone to spare one mis-roled account is the worse trade; `requireRole`
+redirects rather than erroring, so the cost is a wrong landing, not a failure. **Recorded as an operator
+item: that account is shooting site photos and should probably not be a `visitor`.**
+
+⚠️ **`wp_reopened`'s copy changed because its behaviour did.** The old text ended
+"— เปิดแอปดูข้อบกพร่อง", a stand-in for the link this unit adds; leaving it would have contradicted the
+tappable URL directly below it. Retired, and its absence is pinned.
+
+⚠️ **Name/code precedence is deliberate:** the payload snapshot wins where it exists (it is what the work
+was called WHEN the event fired) and the join fills in otherwise. `wp_decision` has no snapshot, so its
+name is necessarily the current one — a WP renamed after the decision will read with its new name.
+
+⚠️ **The drain test mock had no `photo_logs` branch and returned `[]` for the contacts-only users leg**,
+so no test in the file could ever produce a `wp_decision` push — the event was untestable end-to-end, not
+merely untested. Both are now fixtures, and the `work_packages` mock CHECKS that `name` was requested.
+
+**Open questions.** ① `wp_reopened` has 2 rows all-time, so its shape is unproven against real traffic.
+② A WP renamed between decision and push renders its new name (see precedence above) — correct for
+"go look at this", arguably wrong for an audit trail. ③ Gate 4 for a message-shape change is a real push
+to a phone; none was sent from this lane.
+
+## 2026-08-07 — spec 402 U3: the last four events, and one shared way to say "who" (lane notiu3)
+
+**What shipped.** `feedback_submitted` plus the three dormant events (`site_issue_reported`,
+`receipt_correction_flagged`, `receipt_correction_resolved`) move onto the six-slot skeleton with deep
+links, completing spec 402. `FEEDBACK_TYPE_ICON` and four link builders (`feedbackLink`,
+`storeCorrectionsLink`, `projectStoreLink`, `projectLink`) join `message-skeleton.ts`, and all seven link
+builders now share one `absolute()` helper instead of repeating the trailing-slash strip.
+
+⭐ **`site_issue_reported` owned a BESPOKE pair of context fields — `issueReporterName` and
+`issueDeepLink` — doing exactly what `actorName` and `deepLink` now do for every other event.** Retired:
+one way to say who acted and where to go, so the next event cannot invent a third. The only surviving
+mentions of those names are comments recording the retirement.
+
+⭐ **`feedback_submitted` told the operator the reporter's ROLE but never their NAME**, which cannot
+separate two site admins without opening the app. It now reads `แจ้งโดย <name> (<role>)`, degrading to
+`แจ้งโดย<role>` when the drain resolved nothing — the reporter is not a recipient (the super pool is), so
+their uid had to be added to the candidates lookup or the line would silently never render.
+
+🚨 **The two correction events have OPPOSITE audiences, so they do not share a link.** `flagged` goes to
+`BACK_OFFICE_ROLES`, whose queue is `/store/corrections` — the gate is exactly the recipient set.
+`resolved` goes to the SA who flagged, who would be **refused** at that queue, so it lands on
+`/projects/[id]/store` (`WP_DETAIL_ROLES`, which includes `site_admin`). The test pins the queue URL's
+ABSENCE on the resolved event, not just its presence on the flagged one.
+
+⚠️ **Neither correction payload carries a receipt id** — the outbox row has no `work_package_id`, no
+`purchase_request_id` and nothing identifying the receipt — so there is no receipt-level link to build and
+the project is the only scope available. Recorded rather than guessed at.
+
+🚨 **`receipt_correction_resolved` names no actor, deliberately.** Its payload carries only
+`requested_by`, who is the FLAGGER — the RECIPIENT of this very message, not whoever resolved it. Naming
+them would tell the reader they did the thing they are being informed about. **Third instance of this
+class in one spec** (pr_progress's approver, wp_progress's absent actor, now this): _a payload uid is not
+an actor until you check which side of the event it sits on._
+
+**Open questions.** ① Three of the four events have ZERO rows all-time, so only `feedback_submitted`
+(28 rows) has real-flow evidence; the rest are pinned by fixtures. ② `site_issue_reported` has no
+free-text description in its payload, so its L2 subject slot is always empty — the type in the headline
+carries the whole meaning. ③ Gate 4 for a message-shape change is a real push to a phone; none was sent
+from this lane.
+
 ## 2026-08-07 — spec 400 U6a: the worker-day fix screen (lane attnfix)
 
 **Status: SHIPPED, code-only.** New route `/team/attendance/fix?worker=&date=&project=&from=` — retime,
