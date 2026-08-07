@@ -343,7 +343,12 @@ describe("/team/attendance/fix page — the lock reads before the corrections", 
   it("renders the closed-day card ABOVE the sections it governs", () => {
     // A source ORDER pin, not a presence pin: presence was already true when
     // the card sat at the bottom of the page, which is the bug.
-    const lock = code.indexOf("MUSTER_DAY_CLOSED_LABEL");
+    // ⚠️ Anchored on the RENDER, not the bare symbol. The first occurrence of
+    // `MUSTER_DAY_CLOSED_LABEL` is its IMPORT at the top of the file, so a bare
+    // indexOf compares the import's position against the heading's and passes
+    // however the JSX is ordered — proved by physically relocating the block
+    // back below แก้เวลา and watching this stay green.
+    const lock = code.indexOf(">{MUSTER_DAY_CLOSED_LABEL}<");
     const retime = code.indexOf("แก้เวลา");
     const empty = code.indexOf("ยังไม่มีการเช็คชื่อของช่างคนนี้");
     expect(lock).toBeGreaterThan(-1);
