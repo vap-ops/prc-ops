@@ -1,3 +1,9 @@
+# [0.352.0](https://github.com/vap-ops/prc-ops/compare/v0.351.2...v0.352.0) (2026-08-07)
+
+### Features
+
+- **muster:** the correction trail, so an edit can be read as well as made ([#1008](https://github.com/vap-ops/prc-ops/issues/1008)) ([d6c8ccb](https://github.com/vap-ops/prc-ops/commit/d6c8ccbe4b7dbb5fe56b8652d72379c0d42c573c))
+
 ## [0.351.2](https://github.com/vap-ops/prc-ops/compare/v0.351.1...v0.351.2) (2026-08-07)
 
 ### Bug Fixes
