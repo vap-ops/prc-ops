@@ -735,6 +735,90 @@ export async function setEquipmentDailyRate(input: {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Spec 367 §10.4 — record what a machine COST and when it was acquired.
+//
+// `acquisition_cost` / `acquired_at` carry NO authenticated grant in either
+// direction (ADR 0055 decision 6), so this action exists only to reach the
+// SECURITY DEFINER `set_equipment_acquisition`, where the role gate and the
+// `equipment_acquisition_change` audit row live. A table UPDATE from here would
+// 42501 and leave no trail — the RPC is the only door.
+//
+// Blank means NULL means CLEAR. One meaning per argument: a "leave unchanged"
+// reading would make a blank field ambiguous at exactly the moment the operator
+// is correcting a wrong figure.
+//
+// The two client-side checks mirror the RPC's P0001 arms so the common mistakes
+// get a Thai sentence instead of a generic failure; the RPC re-checks both (and
+// owns the future-date rule, which must be a Bangkok civil date, not UTC).
+// ---------------------------------------------------------------------------
+// No "try again" here, deliberately: this arm also catches the PERMANENT
+// refusals (42501 role, P0001 unknown item), and telling someone to retry a
+// refusal that can never succeed is the honest-copy defect the ratchet guards.
+// The retryable-looking cases get their own named messages below.
+const ACQUISITION_ERROR = "บันทึกราคาทุนไม่สำเร็จ";
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function setEquipmentAcquisition(input: {
+  id: string;
+  /** Raw field text. "" = clear. */
+  cost: string;
+  /** Raw field text, ISO yyyy-mm-dd. "" = clear. */
+  acquiredAt: string;
+}): Promise<EquipmentActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: ACQUISITION_ERROR };
+
+  const rawCost = input.cost.trim();
+  let cost: number | null = null;
+  if (rawCost !== "") {
+    const parsed = Number(rawCost.replaceAll(",", ""));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return { ok: false, error: "กรอกราคาทุนเป็นตัวเลข (ไม่ติดลบ) หรือเว้นว่างเพื่อล้างค่า" };
+    }
+    cost = parsed;
+  }
+
+  const rawDate = input.acquiredAt.trim();
+  if (rawDate !== "" && !ISO_DATE_RE.test(rawDate)) {
+    return { ok: false, error: "วันที่ได้มาต้องเป็นรูปแบบ ปี-เดือน-วัน (เช่น 2025-03-04)" };
+  }
+  const acquiredAt = rawDate === "" ? null : rawDate;
+
+  // A blank field is OMITTED rather than sent as null: both value params carry
+  // `default null` in SQL, so omission IS the clear — and the generated Args type
+  // marks an optional param as `p_cost?: number`, which is the only shape that
+  // expresses "clear" without a cast that lies about the contract. The 1-arg
+  // clearing form is pinned in 367c so a signature edit cannot silently turn
+  // clearing into a no-op.
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("set_equipment_acquisition", {
+    p_id: input.id,
+    ...(cost === null ? {} : { p_cost: cost }),
+    ...(acquiredAt === null ? {} : { p_acquired_at: acquiredAt }),
+  });
+  if (error) {
+    const message = (error as { message?: string }).message ?? "";
+    // Name the refusals the operator can act on. A future date is the one a
+    // wrong device clock produces; the role refusal is permanent and must not
+    // read as something a retry could fix.
+    if (message.includes("in the future")) {
+      return { ok: false, error: "วันที่ได้มาต้องไม่เป็นวันในอนาคต" };
+    }
+    if ((error as { code?: string }).code === "42501") {
+      return { ok: false, error: "บัญชีของคุณไม่มีสิทธิ์บันทึกราคาทุน" };
+    }
+    if (message.includes("not found")) {
+      return { ok: false, error: "ไม่พบอุปกรณ์นี้ในระบบแล้ว" };
+    }
+    return { ok: false, error: ACQUISITION_ERROR };
+  }
+
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
 // Spec 141 U4 — record a movement into the append-only equipment_movements log
 // (U3). Goes through the RLS client: U3 granted INSERT(...) to authenticated and
 // the staff INSERT policy + the DB CHECKs (project-IFF-deployed, qty≥1) are the
