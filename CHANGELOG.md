@@ -1,3 +1,10 @@
+# [0.351.0](https://github.com/vap-ops/prc-ops/compare/v0.350.0...v0.351.0) (2026-08-07)
+
+### Features
+
+- **muster:** add a person the muster missed, from the day panel ([#1007](https://github.com/vap-ops/prc-ops/issues/1007)) ([e09f10f](https://github.com/vap-ops/prc-ops/commit/e09f10fce71ed490c9b23bf444bfde9496955d93))
+- **muster:** list a project-day's teams for the correction audience ([#1006](https://github.com/vap-ops/prc-ops/issues/1006)) ([4430d5e](https://github.com/vap-ops/prc-ops/commit/4430d5ece6420717986206102e50729f948bfd26))
+
 # [0.350.0](https://github.com/vap-ops/prc-ops/compare/v0.349.0...v0.350.0) (2026-08-06)
 
 ### Features
