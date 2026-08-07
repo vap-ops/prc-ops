@@ -14363,3 +14363,61 @@ the point — no behaviour change, no drift.
 Still open from the same fact-check: page titles are not unique (79 distinct across 127 pages;
 `จัดซื้อ` ×3), so `/procurement` → `/procurement/[section]` announces the same word and the reader
 cannot tell they moved.
+
+## 2026-08-06 — Six routes stop announcing the same word (lane titles)
+
+**Closes ② of the cross-lane fact-check on the route-announcement arc.** Since
+[#986](https://github.com/vap-ops/prc-ops/pull/986) the live region speaks the destination's page
+name on arrival, so two routes sharing a `metadata.title` announce the **same word**. The
+`key={seq}` identity makes the region mutate, so it does speak — it just cannot tell the listener
+they moved.
+
+**⚠️ The first measurement was short, and the INSTRUMENT was why.** Grepping quoted `title: "…"`
+literals found 4 shared strings. It was blind to titles set from a CONSTANT — and four constants
+were each carried by two pages (`ORDERING_TEMPLATES_LABEL`, `MONEY_REVIEW_LABEL`,
+`EQUIPMENT_RENTAL_LABEL`, `BOQ_TEMPLATES_LABEL`). **The real count was six groups, not four.**
+⭐ **A duplicate-detector keyed on one SYNTAX misses every instance written in the other** — the
+guard now reads both forms, and the corpus floor (>120, against 85 for literals-only) is what keeps
+it honest: dropping the identifier branch reds.
+
+**Not every duplicate is a defect.** Two DIFFERENT things sharing a name is; the SAME thing reached
+two ways is not. Renamed the six genuinely-different pairs — four are mechanical applications of
+the house detail pattern (`รายละเอียด` + the list's own noun, 8 precedents), so no vocabulary is
+invented:
+
+| route                                      | was                 | now                       |
+| ------------------------------------------ | ------------------- | ------------------------- |
+| `settings/ordering-templates/[templateId]` | the list's label    | `รายละเอียด` + that label |
+| `catalog/boq-templates/[templateId]`       | the list's label    | `รายละเอียด` + that label |
+| `accounting/review/[source]/[id]`          | `ตรวจเอกสารการเงิน` | `รายละเอียดเอกสารการเงิน` |
+| `projects/[id]/deliverables/[id]`          | `งวดงาน`            | `รายละเอียดงวดงาน`        |
+| `/requests`                                | `จัดซื้อ`           | `คำขอซื้อ`                |
+| `projects/[id]/rentals`                    | `เช่าอุปกรณ์`       | `เช่าอุปกรณ์ในโครงการ`    |
+
+`/requests` is grounded rather than chosen: the page's own `<h2>` is `คำขอซื้อ`, that is the binding
+glossary term, and `จัดซื้อ` is merely the SECTION it sits under (its `AppHeader kicker`) — a word
+the procurement hub already owns.
+
+**Left shared, with the reason pinned in the guard:** `/client` and `/client/[projectId]` — the
+index renders `ClientProjectList` whose own `<h1>` **is** `ความคืบหน้าโครงการ`, so renaming it would
+make the title contradict the heading on screen; and the two `registrations/[id]` routes — one
+screen for two audiences, and a given user never sees both.
+
+**🔔 RAISED, not taken: `/procurement` and `/procurement/[section]` still share `จัดซื้อ`,** and this
+is the one that matters most because the bottom-tab spine lands on the sections — pressing a tab
+announces `จัดซื้อ` again. The sections are a closed typed set already carrying labels
+(`PROCUREMENT_STR_SECTIONS`: ขอบเขต · เวลา · ทรัพยากร), so the fix is `generateMetadata` returning the
+section's own label — **but that would be this app's FIRST `generateMetadata` across 135 pages**,
+i.e. a convention change, which CLAUDE.md says to raise rather than take unilaterally. Recorded in
+the guard under `NEEDS_A_DECISION`, deliberately separate from `SHARED_ON_PURPOSE` so "known defect,
+parked" never reads as "correct".
+
+**Gates.** RED first (the guard named all six) · **4/4 mutants killed** — revert a rename, a THIRD
+page joining an exempted title, an exemption going stale, and the instrument regression · lint 0 ·
+typecheck 0 · `pnpm build` 0 · Gate 4 in real Chrome: `/requests` now serves `คำขอซื้อ — PRC Ops`
+while `/procurement`, `/equipment/rentals` and `/accounting/review` correctly keep theirs.
+
+**Open questions.** ① The `generateMetadata` decision above. ② `เช่าอุปกรณ์ในโครงการ` is my wording
+— the only string here not taken from an existing label or the page's own heading; easy to change.
+③ The guard still cannot see a page whose CONSTANT resolves to another page's LITERAL; no such pair
+exists today, and closing it means resolving imports in the test.

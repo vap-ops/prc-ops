@@ -27,7 +27,7 @@ interface PageProps {
   params: Promise<{ projectId: string; deliverableId: string }>;
 }
 
-export const metadata = { title: "งวดงาน" };
+export const metadata = { title: "รายละเอียดงวดงาน" };
 
 export default async function DeliverableDetailPage({ params }: PageProps) {
   const { projectId, deliverableId } = await params;

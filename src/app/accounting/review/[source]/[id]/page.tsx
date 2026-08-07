@@ -46,7 +46,7 @@ import {
   unwaivePurchaseDocsAction,
 } from "./actions";
 
-export const metadata = { title: MONEY_REVIEW_LABEL };
+export const metadata = { title: "รายละเอียดเอกสารการเงิน" };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

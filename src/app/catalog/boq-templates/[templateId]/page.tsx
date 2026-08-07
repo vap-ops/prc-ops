@@ -16,7 +16,7 @@ import { BOQ_TEMPLATES_LABEL } from "@/lib/i18n/labels";
 import { loadBoqTemplateDetail, loadBoqPickerData } from "@/lib/boq/load";
 import { BoqTemplateDetail } from "@/components/features/boq/boq-template-detail";
 
-export const metadata = { title: BOQ_TEMPLATES_LABEL };
+export const metadata = { title: `รายละเอียด${BOQ_TEMPLATES_LABEL}` };
 
 interface PageProps {
   params: Promise<{ templateId: string }>;

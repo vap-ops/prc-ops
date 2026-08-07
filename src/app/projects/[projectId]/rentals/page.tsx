@@ -34,7 +34,7 @@ interface PageProps {
   params: Promise<{ projectId: string }>;
 }
 
-export const metadata = { title: EQUIPMENT_RENTAL_LABEL };
+export const metadata = { title: `${EQUIPMENT_RENTAL_LABEL}ในโครงการ` };
 
 export default async function ProjectRentalsPage({ params }: PageProps) {
   const { projectId } = await params;
