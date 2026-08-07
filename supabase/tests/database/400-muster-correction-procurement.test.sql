@@ -1,5 +1,5 @@
 begin;
-select plan(52);
+select plan(69);
 
 -- ============================================================================
 -- Spec 400 U3a — the correction path for procurement.
