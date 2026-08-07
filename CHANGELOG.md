@@ -1,3 +1,9 @@
+# [0.357.0](https://github.com/vap-ops/prc-ops/compare/v0.356.0...v0.357.0) (2026-08-07)
+
+### Features
+
+- **attendance:** spec 400 U6b - the three doors into the worker-day fix screen ([#1020](https://github.com/vap-ops/prc-ops/issues/1020)) ([b0824d4](https://github.com/vap-ops/prc-ops/commit/b0824d41ba3b9c6274a41ae846939b49944bdd94))
+
 # [0.356.0](https://github.com/vap-ops/prc-ops/compare/v0.355.0...v0.356.0) (2026-08-07)
 
 ### Features
