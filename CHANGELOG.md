@@ -1,3 +1,13 @@
+# [0.364.0](https://github.com/vap-ops/prc-ops/compare/v0.363.2...v0.364.0) (2026-08-07)
+
+### Bug Fixes
+
+- **attendance:** keep the assignment line on an empty month, and record U1 ([8a2cb7f](https://github.com/vap-ops/prc-ops/commit/8a2cb7f49e0d1a1cfc9bf46baf80e50bc66c0078))
+
+### Features
+
+- **attendance:** the day owns the project, not the worker header ([6add579](https://github.com/vap-ops/prc-ops/commit/6add57918e6da620221f3836b677214795192ff5))
+
 ## [0.363.2](https://github.com/vap-ops/prc-ops/compare/v0.363.1...v0.363.2) (2026-08-07)
 
 ### Bug Fixes
