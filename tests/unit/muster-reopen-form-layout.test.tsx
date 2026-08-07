@@ -15,10 +15,11 @@
 // The live-browser measurement is the real evidence (recorded in the PR); this
 // is the regression pin.
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
+import { MUSTER_DAY_REOPEN_MEANING } from "@/lib/i18n/labels";
 
 function renderForm(canClose = true) {
   render(
@@ -38,16 +39,31 @@ describe("the reopen form's row", () => {
     const claimsWholeLine = Array.from(form.children).filter((el) =>
       el.className.split(/\s+/).some((c) => c === "basis-full" || c.endsWith(":basis-full")),
     );
-    // The helper sentence is the one that claims a line of its own — if that
-    // ever stops being true this test has stopped testing anything.
-    expect(claimsWholeLine).toHaveLength(1);
-    expect(claimsWholeLine[0]?.tagName).toBe("P");
+    // The two prose lines — what the action MEANS, above the control, and what
+    // happens next, below it — each claim a line of their own. If nothing does,
+    // this test has stopped testing anything.
+    expect(claimsWholeLine.length).toBeGreaterThan(0);
+    expect(claimsWholeLine.map((el) => el.tagName)).toEqual(claimsWholeLine.map(() => "P"));
 
     // …so the row it sits in must wrap at every width where the row is a ROW.
     // The form is `flex-col` below `sm`, where wrapping is moot.
     const rowClasses = form.className.split(/\s+/);
     expect(rowClasses).toContain("sm:flex-row");
     expect(rowClasses).toContain("sm:flex-wrap");
+  });
+
+  // Operator, 2026-08-07: "ปิด เปิด วัน is not clear. provide instructions if
+  // you want to use these words." The vocabulary is used across 29 files, so
+  // the app owes the reader a plain sentence at the point of ACTION — read from
+  // the shared home, because this form renders on two surfaces.
+  it("says what เปิดวัน means, above the control and from the shared home", () => {
+    const form = renderForm();
+    const meaning = within(form).getByText(MUSTER_DAY_REOPEN_MEANING);
+    const button = within(form).getByRole("button");
+    // Above the control: a disclosure met after the button is met after the tap.
+    expect(meaning.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // …and it is a sentence about the ACT, not a repeat of the button's name.
+    expect(MUSTER_DAY_REOPEN_MEANING.length).toBeGreaterThan(30);
   });
 
   it("keeps the reason field able to hold its own width", () => {

@@ -59,36 +59,68 @@ export function AttendanceFixRetimeForm({
       <input type="hidden" name="currentInTime" value={formatThaiTime(currentInAt)} />
 
       <p className="text-ink text-xs font-semibold">{session === "ot" ? "OT" : "กะปกติ"}</p>
-      <p className="text-ink-secondary text-xs">
-        ปัจจุบัน เข้า {formatThaiTime(currentInAt)}
-        {currentOutAt !== null ? ` · ออก ${formatThaiTime(currentOutAt)}` : " · ยังไม่เช็คออก"}
+
+      {/* ⚠️ The row wraps (`flex-wrap`) BEFORE anything in it claims a whole
+          line. A `basis-*` percentage in a nowrap row is read as "give me 100%"
+          and the `min-w-0` sibling collapses to 0px — the defect that took this
+          screen out at tablet width. Nothing here claims a line today; the wrap
+          is what keeps that true when something does. */}
+      {/* Below `sm` it STACKS. A wrapping row on a 375px phone put the two time
+          fields on different lines at different x-origins with the save button
+          beside one of them — measured, and worse than what it replaced. The
+          one-row reading is a tablet affordance; the phone gets full-bleed
+          fields, which is what a gloved thumb wants anyway. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="min-w-0">
+          <p className="text-ink-secondary text-[11px]">ปัจจุบัน</p>
+          {/* ONE range, not two facts in a sentence — the corrector is about to
+              replace this pair, so it has to be readable as a pair. An open
+              session says so in words rather than printing a dash, which reads
+              as "unknown" when it in fact means "nobody checked them out". */}
+          <p className="text-ink text-sm tabular-nums">
+            {currentOutAt !== null
+              ? `${formatThaiTime(currentInAt)} – ${formatThaiTime(currentOutAt)}`
+              : `${formatThaiTime(currentInAt)} – ยังไม่เช็คออก`}
+          </p>
+        </div>
+
+        <label className="text-ink-secondary flex w-full min-w-0 flex-col text-[11px] sm:w-auto">
+          เวลาเข้าใหม่
+          <input
+            type="time"
+            name="inTime"
+            // A time value is five characters. `w-full` is right on a phone and
+            // absurd from `sm` up, where it spanned the whole card.
+            className={`${FIELD_INPUT} mt-1 appearance-none sm:w-32`}
+          />
+        </label>
+
+        <label className="text-ink-secondary flex w-full min-w-0 flex-col text-[11px] sm:w-auto">
+          เวลาออกใหม่
+          <input
+            type="time"
+            name="outTime"
+            disabled={outLocked}
+            className={`${FIELD_INPUT} mt-1 appearance-none disabled:opacity-50 sm:w-32`}
+          />
+        </label>
+
+        <button type="submit" className={`${BUTTON_SECONDARY} self-start sm:ml-auto sm:self-auto`}>
+          บันทึกเวลาใหม่
+        </button>
+      </div>
+
+      {/* The rule states itself ONCE, about the form, so neither label has to
+          carry a parenthetical about the other field — and it leads with the
+          INSTRUCTION (what to do) rather than the mechanic (what a blank field
+          means), because the reader is here to change a time, not to learn the
+          form's semantics. */}
+      <p className="text-ink-secondary text-[11px]">
+        กรอกเฉพาะช่องที่ต้องการแก้ ช่องที่เว้นไว้จะไม่เปลี่ยน
       </p>
-
-      <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
-        เวลาเข้างานใหม่ (เว้นว่าง = ไม่แก้)
-        <input
-          type="time"
-          name="inTime"
-          className={`${FIELD_INPUT} mt-1 max-w-full appearance-none`}
-        />
-      </label>
-
-      <label className="text-ink-secondary flex min-w-0 flex-col text-xs">
-        เวลาออกงานใหม่ (เว้นว่าง = ไม่แก้)
-        <input
-          type="time"
-          name="outTime"
-          disabled={outLocked}
-          className={`${FIELD_INPUT} mt-1 max-w-full appearance-none disabled:opacity-50`}
-        />
-      </label>
       {/* The SAME string the action's `locked` outcome uses — one home, so the
           disclosure before the tap and the refusal after it cannot drift. */}
       {outLocked && <p className="text-ink-secondary text-[11px]">{OUT_LOCKED_COPY}</p>}
-
-      <button type="submit" className={`${BUTTON_SECONDARY} self-start`}>
-        บันทึกเวลาใหม่
-      </button>
     </form>
   );
 }

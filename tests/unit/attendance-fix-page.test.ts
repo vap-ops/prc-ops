@@ -330,3 +330,36 @@ describe("/team/attendance/fix page — outcome copy, owned here and shared", ()
     expect(code).toContain("sp.reopenError");
   });
 });
+
+// Writing failing test first.
+//
+// Hierarchy, after the operator called the screen broken (2026-08-07). Two
+// things were wrong beyond the geometry: the LOCK — the state that decides
+// which corrections are even possible — rendered BELOW the correction forms it
+// governs, and the words ปิดวัน / เปิดวัน were used as if self-explanatory.
+// Operator, verbatim: "ปิด เปิด วัน is not clear. provide instructions if you
+// want to use these words."
+describe("/team/attendance/fix page — the lock reads before the corrections", () => {
+  it("renders the closed-day card ABOVE the sections it governs", () => {
+    // A source ORDER pin, not a presence pin: presence was already true when
+    // the card sat at the bottom of the page, which is the bug.
+    const lock = code.indexOf("MUSTER_DAY_CLOSED_LABEL");
+    const retime = code.indexOf("แก้เวลา");
+    const empty = code.indexOf("ยังไม่มีการเช็คชื่อของช่างคนนี้");
+    expect(lock).toBeGreaterThan(-1);
+    expect(retime).toBeGreaterThan(-1);
+    expect(lock).toBeLessThan(retime);
+    expect(lock).toBeLessThan(empty);
+  });
+
+  it("reads the closed-day heading from the shared term, never a second literal", () => {
+    // The term is SSOT'd (MUSTER_DAY_CLOSED_LABEL); a hardcoded "ปิดวันแล้ว"
+    // here would be exactly the drift the constant exists to prevent. What the
+    // term MEANS is stated by MusterReopenForm, so the day panel — the other
+    // surface offering that control — carries the same sentence.
+    expect(code).toContain("MUSTER_DAY_CLOSED_LABEL");
+    expect(code).not.toContain('"ปิดวันแล้ว"');
+    expect(code).not.toContain(">ปิดวันแล้ว<");
+    expect(code).toContain("<MusterReopenForm");
+  });
+});

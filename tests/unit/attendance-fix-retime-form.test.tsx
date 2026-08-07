@@ -45,8 +45,8 @@ describe("AttendanceFixRetimeForm", () => {
 
   it("pre-fills NEITHER time field — a guessed timestamp is worse than an empty one", () => {
     const form = renderForm();
-    const inTime = within(form).getByLabelText(/เวลาเข้างานใหม่/);
-    const outTime = within(form).getByLabelText(/เวลาออกงานใหม่/);
+    const inTime = within(form).getByLabelText(/เวลาเข้าใหม่/);
+    const outTime = within(form).getByLabelText(/เวลาออกใหม่/);
     expect(inTime.getAttribute("type")).toBe("time");
     expect(inTime.getAttribute("value")).toBeNull();
     expect(outTime.getAttribute("type")).toBe("time");
@@ -57,12 +57,12 @@ describe("AttendanceFixRetimeForm", () => {
     const form = renderForm();
     expect(
       within(form)
-        .getByLabelText(/เวลาเข้างานใหม่/)
+        .getByLabelText(/เวลาเข้าใหม่/)
         .hasAttribute("required"),
     ).toBe(false);
     expect(
       within(form)
-        .getByLabelText(/เวลาออกงานใหม่/)
+        .getByLabelText(/เวลาออกใหม่/)
         .hasAttribute("required"),
     ).toBe(false);
   });
@@ -79,7 +79,7 @@ describe("AttendanceFixRetimeForm", () => {
     const form = renderForm({ outLocked: false });
     expect(
       within(form)
-        .getByLabelText(/เวลาออกงานใหม่/)
+        .getByLabelText(/เวลาออกใหม่/)
         .hasAttribute("disabled"),
     ).toBe(false);
     expect(within(form).queryByText(/บันทึกโดยคนแล้ว/)).toBeNull();
@@ -89,7 +89,7 @@ describe("AttendanceFixRetimeForm", () => {
     const form = renderForm({ outLocked: true, currentOutAt: "2026-08-04T10:30:00Z" });
     expect(
       within(form)
-        .getByLabelText(/เวลาออกงานใหม่/)
+        .getByLabelText(/เวลาออกใหม่/)
         .hasAttribute("disabled"),
     ).toBe(true);
     expect(within(form).getByText(/บันทึกโดยคนแล้ว/)).toBeTruthy();
@@ -98,5 +98,46 @@ describe("AttendanceFixRetimeForm", () => {
   it("labels an OT session distinctly from a regular one", () => {
     renderForm({ session: "ot" });
     expect(screen.getByText(/^OT$/)).toBeTruthy();
+  });
+});
+
+// The row's SHAPE. A time value is five characters; the fields shipped at
+// `w-full`, so on a tablet each one spanned the whole card and the screen read
+// as broken even where it was not. jsdom cannot measure that, so what is pinned
+// is the instruction that produces it: an explicit width from `sm` up.
+describe("AttendanceFixRetimeForm — the correction reads as one row", () => {
+  it("sizes both time fields to their content instead of the whole card", () => {
+    const form = renderForm();
+    for (const name of ["inTime", "outTime"]) {
+      const field = form.querySelector(`input[name="${name}"]`);
+      const classes = field?.className.split(/\s+/) ?? [];
+      // `w-full` stays for the phone, where a full-bleed field is right.
+      expect(classes).toContain("w-full");
+      expect(classes.some((c) => /^sm:w-\d/.test(c))).toBe(true);
+    }
+  });
+
+  it("states the blank-means-unchanged rule ONCE, outside the field labels", () => {
+    const form = renderForm();
+    // It is a rule about the form, not the name of either field — a label
+    // should label. One home means the two fields cannot come to disagree.
+    expect(within(form).getAllByText(/กรอกเฉพาะช่องที่ต้องการแก้/)).toHaveLength(1);
+    for (const re of [/เวลาเข้าใหม่/, /เวลาออกใหม่/]) {
+      expect(within(form).getByLabelText(re).getAttribute("name")).toMatch(/^(in|out)Time$/);
+    }
+    expect(within(form).queryByLabelText(/เว้นว่าง/)).toBeNull();
+  });
+
+  it("shows the current pair as ONE range, so the correction reads old → new", () => {
+    const form = renderForm({
+      currentInAt: "2026-08-04T01:05:00Z",
+      currentOutAt: "2026-08-04T10:00:00Z",
+    });
+    expect(within(form).getByText("08:05 – 17:00")).toBeTruthy();
+  });
+
+  it("names the missing half of an open session rather than printing a dash", () => {
+    const form = renderForm({ currentInAt: "2026-08-04T10:25:00Z", currentOutAt: null });
+    expect(within(form).getByText(/ยังไม่เช็คออก/)).toBeTruthy();
   });
 });

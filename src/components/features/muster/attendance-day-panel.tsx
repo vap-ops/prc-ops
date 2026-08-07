@@ -32,7 +32,12 @@ import {
 } from "@/components/features/muster/attendance-add-person-form";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
 import { ErrorNotice } from "@/components/features/common/notices";
-import { USER_ROLE_LABEL, formatThaiDate, formatThaiDateTime } from "@/lib/i18n/labels";
+import {
+  MUSTER_DAY_CLOSE_MEANING,
+  USER_ROLE_LABEL,
+  formatThaiDate,
+  formatThaiDateTime,
+} from "@/lib/i18n/labels";
 import { addPersonControl, type AddPersonControl } from "@/lib/muster/add-person";
 import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import type { GridDay } from "@/lib/muster/attendance-grid";
@@ -326,6 +331,10 @@ export function AttendanceDayPanel({
                 {`ปิดวันจะไม่บันทึก OT ให้ — OT ที่ยังไม่เช็คออก ${stillIn.ot.length} คน · ${stillIn.ot.join(", ")}`}
               </li>
             )}
+            {/* What the word itself means, first — the rest of this list is the
+                consequences OF it, which read as a non-sequitur to anyone who
+                does not already know what ปิดวัน does (operator, 2026-08-07). */}
+            <li>{MUSTER_DAY_CLOSE_MEANING}</li>
             <li>ค่าแรงจะบันทึกตามอัตราปัจจุบันของช่าง</li>
             <li>ปิดแล้วแก้ไขการเช็คชื่อไม่ได้จนกว่าจะเปิดวันอีกครั้ง</li>
           </ul>
