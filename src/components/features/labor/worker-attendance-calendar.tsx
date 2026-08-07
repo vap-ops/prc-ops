@@ -67,6 +67,18 @@ export function WorkerAttendanceCalendar({
   const { summary } = month;
   const showStd = stdRate !== null && stdRate !== worker.dayRate;
 
+  // Spec 404 U1 — the month's own projects, from the attendance rows. The
+  // worker's `projectLabel` is where they are assigned NOW and is overwritten
+  // by a move, so it cannot caption a past month; it appears below only under
+  // its own label, and only when it is not already one of the month's.
+  const { projectDays } = summary;
+  const isSplit = projectDays.length > 1;
+  const shortByLabel = new Map(projectDays.map((p) => [p.label, p.shortCode]));
+  const assignmentElsewhere =
+    worker.projectLabel !== null &&
+    projectDays.length > 0 &&
+    !projectDays.some((p) => p.label === worker.projectLabel);
+
   return (
     <div className="flex flex-col gap-4">
       {/* ── Worker header ─────────────────────────────────────────────── */}
@@ -103,9 +115,25 @@ export function WorkerAttendanceCalendar({
               <dd>{worker.phone}</dd>
             </div>
           ) : null}
-          {worker.projectLabel ? (
-            <div className="flex gap-2">
-              <dt className="font-medium">โครงการ</dt>
+          {/* Spec 404 U1 — a month with no attendance names NO project. The old
+              fallback printed the current assignment, which for the ten workers
+              moved on 2026-08-07 captioned months they never worked there. */}
+          {projectDays.length > 0 ? (
+            <div className="flex flex-wrap gap-x-2">
+              <dt className="font-medium">{isSplit ? "โครงการเดือนนี้" : "โครงการ"}</dt>
+              {projectDays.map((p) => (
+                <dd key={p.label} className={isSplit ? "basis-full" : undefined}>
+                  {p.label}
+                  {isSplit ? (
+                    <span className="text-ink-secondary"> · {fmtDays(p.days)} วัน</span>
+                  ) : null}
+                </dd>
+              ))}
+            </div>
+          ) : null}
+          {assignmentElsewhere ? (
+            <div className="text-ink-secondary flex gap-2 text-xs">
+              <dt>ปัจจุบันอยู่ที่</dt>
               <dd>{worker.projectLabel}</dd>
             </div>
           ) : null}
@@ -121,7 +149,12 @@ export function WorkerAttendanceCalendar({
         <p className="text-ink-muted mt-1 text-sm">
           ประมาณการค่าแรง{" "}
           {summary.estimatedGross === null ? "—" : bahtWithSymbol(summary.estimatedGross)}
-          <span className="text-ink-secondary text-xs"> (จำนวนวัน × ค่าแรง/วัน)</span>
+          {/* Spec 404 U1 — ปัจจุบัน is load-bearing: this multiplies by the
+              worker's CURRENT day_rate, and a project move is exactly when a
+              rate changes, so an unqualified figure restates history. The
+              per-day snapshot lives in labor_logs.day_rate_snapshot and belongs
+              to the money unit (§7.5), not here. */}
+          <span className="text-ink-secondary text-xs"> (จำนวนวัน × ค่าแรง/วัน ปัจจุบัน)</span>
         </p>
         <p className="text-ink-secondary mt-1 text-sm">
           บันทึกค่าแรงแล้ว {fmtDays(summary.paidDaysTotal)} วัน
@@ -230,9 +263,17 @@ export function WorkerAttendanceCalendar({
                         {data.inMethod === "manual" || data.outMethod === "manual" ? (
                           <p className="text-ink-muted">บันทึกมือ</p>
                         ) : null}
-                        {data.projectName && data.projectName !== worker.projectLabel ? (
+                        {/* Spec 404 U1 — badge on a SPLIT month only, and on
+                            every attendance day in it. The old rule compared
+                            the day against the worker's CURRENT assignment,
+                            which inverts the moment they are moved: the
+                            correctly-recorded days get badged while the
+                            now-wrong header stays clean. `shortCode` drops the
+                            prefix the month's own codes share (derived, not
+                            hardcoded) so the tail survives a 60px cell. */}
+                        {isSplit && data.projectName ? (
                           <p className="text-ink-muted font-medium">
-                            {data.projectName.split(" ")[0]}
+                            {shortByLabel.get(data.projectName) ?? data.projectName.split(" ")[0]}
                           </p>
                         ) : null}
                       </div>

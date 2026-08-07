@@ -154,7 +154,15 @@ describe("WorkerAttendanceCalendar", () => {
     expect(screen.getAllByText("บันทึกมือ")).toHaveLength(2);
   });
 
-  it("shows the project code on a cell only when it differs from the home project", () => {
+  // Spec 404 U1 REPLACED the old rule here. It read "show the code when the day
+  // differs from the HOME project", which INVERTS after a project move: the
+  // worker's assignment is overwritten, so every correctly-recorded day of the
+  // old month starts carrying a badge while the now-wrong header stays clean.
+  // Live 2026-08-08, ten workers were in exactly that state. The badge now keys
+  // on whether the MONTH spans more than one project — a fact about the days.
+  it("shows no project badge when the whole month sat on one project", () => {
+    // Deliberately a project that DIFFERS from worker.projectLabel (P05): under
+    // the old rule this rendered a badge on every cell.
     const away = buildAttendanceMonth({
       monthAnchor: "2026-07-01",
       musterRows: [
@@ -173,8 +181,7 @@ describe("WorkerAttendanceCalendar", () => {
       dayRate: null,
     });
     renderCal({ month: away });
-    expect(screen.getByText("P99")).toBeInTheDocument();
-    // Home-project cells (the shared fixture) never show a code.
+    expect(screen.queryByText("P99")).not.toBeInTheDocument();
     renderCal();
     expect(screen.queryByText("P05")).not.toBeInTheDocument();
   });
@@ -385,5 +392,101 @@ describe("spec 400 U6b — calendar days as fix-screen doors", () => {
     const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
     expect(hrefs.some((h) => h.includes("date=2026-06-"))).toBe(false);
     expect(hrefs.some((h) => h.includes("date=2026-08-"))).toBe(false);
+  });
+});
+
+// ── Spec 404 U1 — the month owns the project, the header does not ────────────
+// Live 2026-08-08: 10 workers moved off PRC-2026-004 on 08-07 while still
+// carrying August days at 004, so `workers.project_id` (= where they are NOW)
+// captions a past month with a project it never touched.
+describe("WorkerAttendanceCalendar — project honesty", () => {
+  const day = (date: string, project: string) => ({
+    work_date: date,
+    in_at: `${date}T00:30:00Z`,
+    out_at: `${date}T10:00:00Z`,
+    in_method: "qr",
+    out_method: "qr",
+    out_auto: false,
+    ot_hours: 0,
+    project_name: project,
+  });
+
+  const splitMonth = buildAttendanceMonth({
+    monthAnchor: "2026-08-01",
+    musterRows: [
+      day("2026-08-03", "PRC-2026-004 TFM โพธิ์ทอง"),
+      day("2026-08-04", "PRC-2026-004 TFM โพธิ์ทอง"),
+      day("2026-08-05", "PRC-2026-008 ลาดกระบัง"),
+    ],
+    paidRows: [],
+    dayRate: 400,
+  });
+
+  const movedWorker = { ...worker, projectLabel: "PRC-2026-008 ลาดกระบัง" };
+
+  function renderSplit(over: Partial<Parameters<typeof WorkerAttendanceCalendar>[0]> = {}) {
+    return render(
+      <WorkerAttendanceCalendar
+        month={splitMonth}
+        worker={movedWorker}
+        stdRate={null}
+        prevHref="/workers/w1/attendance?m=2026-07"
+        nextHref="/workers/w1/attendance?m=2026-09"
+        {...over}
+      />,
+    );
+  }
+
+  it("split month: header lists every project with its own day count", () => {
+    renderSplit();
+    expect(screen.getByText("โครงการเดือนนี้")).toBeInTheDocument();
+    expect(screen.getByText(/PRC-2026-004 TFM โพธิ์ทอง/)).toBeInTheDocument();
+    expect(screen.getByText(/PRC-2026-008 ลาดกระบัง/)).toBeInTheDocument();
+    expect(screen.getByText(/2 วัน/)).toBeInTheDocument();
+    expect(screen.getByText(/1 วัน/)).toBeInTheDocument();
+  });
+
+  it("split month: every attendance cell carries the short project code", () => {
+    renderSplit();
+    expect(screen.getAllByText("004")).toHaveLength(2);
+    expect(screen.getAllByText("008")).toHaveLength(1);
+  });
+
+  it("a month worked entirely elsewhere is NOT captioned with the current assignment", () => {
+    // The whole defect in one assertion: the worker sits on -008 today and
+    // every day of this month was worked at -004.
+    const pastMonth = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [day("2026-07-20", "PRC-2026-004 TFM โพธิ์ทอง")],
+      paidRows: [],
+      dayRate: 400,
+    });
+    renderSplit({ month: pastMonth });
+    expect(screen.getByText(/PRC-2026-004 TFM โพธิ์ทอง/)).toBeInTheDocument();
+    // The current assignment may appear ONLY under its own label, never as the
+    // month's project.
+    expect(screen.getByText(/ปัจจุบันอยู่ที่/)).toBeInTheDocument();
+  });
+
+  it("does not claim a current assignment when it is one of the month's projects", () => {
+    renderSplit();
+    expect(screen.queryByText(/ปัจจุบันอยู่ที่/)).not.toBeInTheDocument();
+  });
+
+  it("a month with no attendance shows no project line at all", () => {
+    const empty = buildAttendanceMonth({
+      monthAnchor: "2026-09-01",
+      musterRows: [],
+      paidRows: [],
+      dayRate: 400,
+    });
+    renderSplit({ month: empty });
+    expect(screen.queryByText("โครงการเดือนนี้")).not.toBeInTheDocument();
+    expect(screen.queryByText(/PRC-2026-008 ลาดกระบัง/)).not.toBeInTheDocument();
+  });
+
+  it("labels the estimate as using the CURRENT rate", () => {
+    renderSplit();
+    expect(screen.getByText(/ค่าแรง\/วัน ปัจจุบัน/)).toBeInTheDocument();
   });
 });

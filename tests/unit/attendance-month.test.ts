@@ -251,3 +251,112 @@ describe("resolveMonthAnchor", () => {
     expect(resolveMonthAnchor(["2026-06", "2026-08"], today)).toBe("2026-06-01");
   });
 });
+
+// ── Spec 404 U1 — projectDays ────────────────────────────────────────────────
+// The DAY owns the project (muster_teams.project_id travels with every row);
+// the worker header owns only an assignment. Live 2026-08-08: 10 workers moved
+// off PRC-2026-004 on 08-07 while still carrying August days at 004, so a month
+// that spans two projects is a real shape, not a hypothetical one.
+describe("buildAttendanceMonth — summary.projectDays", () => {
+  const at = (date: string, project: string, over: Partial<AttendanceMusterRow> = {}) =>
+    muster({
+      work_date: date,
+      in_at: `${date}T00:30:00Z`,
+      out_at: `${date}T10:00:00Z`,
+      project_name: project,
+      ...over,
+    });
+
+  const A = "PRC-2026-004 TFM โพธิ์ทอง";
+  const B = "PRC-2026-008 ลาดกระบัง";
+
+  it("single-project month: one entry, days = scanned days", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [at("2026-08-03", A), at("2026-08-04", A)],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.summary.projectDays).toEqual([
+      { label: A, code: "PRC-2026-004", shortCode: "PRC-2026-004", days: 2, otHours: 0 },
+    ]);
+  });
+
+  it("split month: one entry per project, ordered by days descending", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [
+        at("2026-08-03", A),
+        at("2026-08-04", B),
+        at("2026-08-05", B),
+        at("2026-08-06", B),
+      ],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.summary.projectDays.map((p) => [p.code, p.days])).toEqual([
+      ["PRC-2026-008", 3],
+      ["PRC-2026-004", 1],
+    ]);
+    expect(m.summary.daysScanned).toBe(4);
+  });
+
+  it("strips the prefix the month's codes SHARE, cut at a separator", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [at("2026-08-03", A), at("2026-08-04", B)],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.summary.projectDays.map((p) => p.shortCode).sort()).toEqual(["004", "008"]);
+  });
+
+  it("does NOT strip to an ambiguous stub across years", () => {
+    // PRC-2026-004 vs PRC-2027-001 share only "PRC-", so cutting at the last
+    // separator inside the common prefix keeps the year — "004"/"001" would
+    // read as two projects that could collide with any other year's.
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [at("2026-08-03", A), at("2026-08-04", "PRC-2027-001 ปีหน้า")],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.summary.projectDays.map((p) => p.shortCode).sort()).toEqual(["2026-004", "2027-001"]);
+  });
+
+  it("counts a date ONCE even when it carries two sessions", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [
+        at("2026-08-03", A),
+        at("2026-08-03", A, { in_at: "2026-08-03T10:30:00Z", ot_hours: 3 }),
+      ],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.summary.projectDays).toHaveLength(1);
+    expect(m.summary.projectDays[0]?.days).toBe(1);
+    expect(m.summary.projectDays[0]?.otHours).toBe(3);
+  });
+
+  it("a scanned day with no project name is counted in daysScanned but attributed to nothing", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [at("2026-08-03", A), at("2026-08-04", null as unknown as string)],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.summary.daysScanned).toBe(2);
+    expect(m.summary.projectDays.reduce((s, p) => s + p.days, 0)).toBe(1);
+  });
+
+  it("empty month: no entries", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.summary.projectDays).toEqual([]);
+  });
+});
