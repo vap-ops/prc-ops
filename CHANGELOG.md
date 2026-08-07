@@ -1,3 +1,9 @@
+# [0.359.0](https://github.com/vap-ops/prc-ops/compare/v0.358.2...v0.359.0) (2026-08-07)
+
+### Features
+
+- **equipment:** record the initial location when an item is registered ([7aefe4c](https://github.com/vap-ops/prc-ops/commit/7aefe4cc73b47b6449a8d3cf40dfe115df3a1a68))
+
 ## [0.358.2](https://github.com/vap-ops/prc-ops/compare/v0.358.1...v0.358.2) (2026-08-07)
 
 ### Bug Fixes
