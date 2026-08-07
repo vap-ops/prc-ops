@@ -76,10 +76,16 @@ export function ImportEquipmentSheet() {
         {/* Spec 385 U4 — the INSERT arm is retired: this file EDITS existing
             rows only. States the refusals up front so the operator does not
             discover them only after assembling a file offline. */}
+        {/* Spec 367 §10.4 — "ช่องราคายังนำเข้าไม่ได้" was TRUE until the DEFINER
+            seams landed and is now false; leaving it would send the operator
+            back to editing 60 prices by hand. The blank-cell asymmetry is
+            stated here because it is the only place it can be read BEFORE the
+            file is assembled: the two RPCs genuinely differ (acquisition accepts
+            null and clears, the rate RPC refuses null). */}
         <p className="text-ink-secondary mt-1 text-xs">
           ไฟล์นี้ใช้แก้ไขรายการเดิมเท่านั้น (ทุกแถวต้องมีรหัสอ้างอิง) ·
           เพิ่มเครื่องใหม่ผ่านทะเบียนบนหน้าอุปกรณ์ · หมวดหมู่และเจ้าของต้องมีอยู่ในระบบแล้ว ·
-          ช่องราคายังนำเข้าไม่ได้
+          เว้นช่องราคาทุน/วันที่ได้มาว่างไว้ = ล้างค่าเดิม · เว้นช่องค่าเช่าว่างไว้ = คงค่าเดิม
         </p>
 
         <textarea
@@ -103,7 +109,14 @@ export function ImportEquipmentSheet() {
 
         {done && (
           <p className="text-ink mt-3 text-sm font-medium">
-            {done.ok ? `นำเข้าสำเร็จ: แก้ไข ${done.updates} รายการ` : `นำเข้าไม่สำเร็จ`}
+            {done.ok
+              ? // The money count is reported SEPARATELY: it takes a different
+                // path (two DEFINER RPCs) and it is the number the operator
+                // pricing a fleet actually came for.
+                `นำเข้าสำเร็จ: แก้ไข ${done.updates} รายการ${
+                  done.moneyUpdates > 0 ? ` · อัปเดตราคา ${done.moneyUpdates} รายการ` : ""
+                }`
+              : `นำเข้าไม่สำเร็จ`}
           </p>
         )}
 

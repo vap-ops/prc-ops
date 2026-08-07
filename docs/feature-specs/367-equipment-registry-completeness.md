@@ -437,7 +437,16 @@ new columns, so the real order is **U0 → U1 → U2 → U3 → U4 → U5**.
    this item: loading the figures BY CSV.** The importer still refuses a filled
    money cell (correctly — it has no DEFINER seam), so today the fleet is priced
    one machine at a time. If the PRI pass needs bulk pricing, that is its own unit
-   and it now has an RPC to call. Superseded text:
+   ✅ **AND THAT UNIT SHIPPED 2026-08-08 — §10.4 IS NOW FULLY CLOSED.** The importer
+   stops refusing the three money cells and routes each to its own DEFINER seam:
+   cost + acquired-on through `set_equipment_acquisition`, the rate through
+   `set_equipment_daily_rate`. The table's money wall is untouched — the file
+   never writes those columns directly. ⚠️ **The two RPCs disagree about a BLANK
+   cell and the app resolves it rather than hiding it:** acquisition accepts null
+   and CLEARS, the rate RPC refuses null so a blank rate LEAVES THE VALUE ALONE.
+   Both are compared against the current figure, so re-importing an untouched
+   export writes no RPC call and no audit row; the sheet's hint states both rules
+   before the file is assembled. Superseded text:
    ⚠️ **Loading `acquisition_cost` / `daily_rate` / `acquired_at` BY CSV needs its
    own unit — and it is the one the PRI transfer actually depends on.** Found at
    U3 gate-check against the real write path, not assumed from this spec: none of
