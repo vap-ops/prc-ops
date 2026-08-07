@@ -818,6 +818,110 @@ it was deliberately NOT built.
   design (D11). If that turns out to be the commonest correction, the grid's rule is
   the thing to revisit, not the calendar's.
 
+## 9. The correction audience becomes the audit audience (U6c) — shipped, SCHEMA
+
+Operator, 2026-08-07, on U6b's report that five roles keep the facts and lose the
+link: _"let's enable them first, we trust the current team. we can limit access in
+the future."_ So the rule is now **"if you can see the hole, you can fix it"** —
+`MUSTER_CORRECT_ROLES` == `ATTENDANCE_AUDIT_ROLES`.
+
+Migration `20260813075919` does `create or replace` on six RPCs. It was GENERATED
+from the live `pg_get_functiondef` output and edited predicate-by-predicate, each
+replacement asserting its expected match count (13, including the 2× arm split), so
+nothing else in those bodies moved — the fresh-eyes review confirmed that
+independently by diffing against each function's prior migration.
+
+### D15 — the allowlist was one third of the work
+
+Two other predicates had to move with it, and **neither was in the plan** — both came
+out of reading the live bodies:
+
+| #   | What                             | Why it had to move                                                                                                                                                                                                                        |
+| --- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ①   | **The scoping arm**              | `can_see_project` is `else false` for `accounting` and `hr`. Widening only the allowlist would have landed them a link and then a **42501** — affordance-then-refuse, shipped by the unit built to remove one.                            |
+| ②   | **`muster_scan_in`'s arm split** | `v_role = 'procurement'` is not a scoping check. It **selects the correction arm**: regular-only (OT is ×1.5, spec 351), open-days-only behind derive's own advisory key, and the `muster_correction_scan_in` audit row U5's trail reads. |
+
+② is the one that would have been worst. Widening the allowlist alone routes every
+new role down the **SA cockpit arm** — free to create OT sessions, free to write into
+a closed day, and **invisible to the correction trail**: strictly more power and less
+accountability than the role it was copying. `super_admin` and `procurement_manager`
+keep the cockpit arm deliberately (U3a's "the SA path is unchanged").
+
+The scoping arm now mirrors the READ side verbatim — the same seven roles
+`audit_attendance_summary` treats as cross-project (`ATTENDANCE_AUDIT_ALL_PROJECT_ROLES`).
+**`project_manager` and `site_admin` are deliberately absent from it**, so both stay
+scoped by membership exactly as the read scopes the PM. A rewrite phrased as
+"everyone except project_manager" would have silently made the FIELD role
+cross-project; that regression has its own pgTAP negatives on three functions,
+because §E's allowlist oracle structurally cannot see it (site_admin already appears
+in four of the allowlists).
+
+ⓘ `close_muster_day` performs `derive_muster_labor_**internal**` (verified live), so
+U3a's third gate does not apply and nothing further is owed. Pinned both ways — the
+public wrapper's own allowlist still excludes accounting, so a later edit re-pointing
+close at it would fail at a layer nobody widened.
+
+### ⚖️ What this grants, stated plainly
+
+Closing a day **derives wages** (`close_muster_day` → `derive_muster_labor_internal`
+→ `labor_logs` → GL). The widening hands that to **seven real users** who could not
+book a muster day's wages before: `accounting` 3, `project_director` 3,
+`project_manager` 1 (scoped to its own projects). It also reaches `hr` and
+`project_coordinator`, which have **zero users**.
+
+Taken deliberately: one rule is maintainable and a subset with two unexplained holes
+is not, and the operator reserved narrowing it. Narrowing is one line in
+`role-home.ts` plus one per RPC.
+
+### 🚨 The defect this unit nearly shipped, in the unit built to remove that defect
+
+The fix screen's first read was a **session-client `workers` select**, justified by a
+comment that ENUMERATED the old audience ("covers every `MUSTER_CORRECT_ROLES` member
+— procurement, procurement_manager, super_admin"). `workers` "readable by staff"
+excludes accounting, hr and project_coordinator, so they passed the page gate, read
+**zero rows with `error === null`**, and got **`ไม่พบช่างคนนี้`** — a factual claim
+that the worker does not exist, about a worker whose name the audit RPC had just shown
+them on the grid they clicked from. Affordance-then-refuse **and** honest-copy at once.
+
+Now a narrow admin read of one column of one row, matching the closure and team
+lookups beside it. No new exposure: `audit_attendance_detail`, gated on this same
+audience, already returns `workerName` for every session it discloses.
+
+⭐ **The transferable rule: a comment that justifies a read by ENUMERATING the
+audience becomes false the moment the audience widens. When a unit changes a role
+set, grep for every read whose justification names the old members.**
+
+### Gates
+
+pgTAP **363/363 files, 7690 assertions, 0 failures** — the new
+`400c-correction-audience.test.sql` drives every newly-admitted role behaviourally
+over the exhaustive role domain. vitest **920 files / 7867 tests**. typecheck 0,
+lint 0, build 0. Gate 4: `accounting` went from **0 fix links to 60** on the same
+grid (60 not 105 because U2 gives it no roster rows), the day panel gained the
+close/reopen form, the fix screen renders its name/date/project with no false
+"missing" claim, and a **real** accounting user drove `list_muster_teams_for_day`
+live to 4 teams where it previously raised 42501.
+
+**Six pre-existing assertions were RE-POINTED, not deleted** — each a red that was
+this unit's own decision arriving on schedule. Two had their MESSAGE corrected
+because the verdict survived while the reason moved one layer down (`project_manager`
+is refused by MEMBERSHIP now, not by the allowlist), which is the honest-copy rule
+applied to a test name.
+
+### Owed
+
+- On a worker-day with **no session**, `accounting` and `hr` see the date without the
+  project name: `projects` SELECT is `can_see_project`, which is `else false` for
+  them. It degrades a label rather than making a false claim, so it was left as a
+  session read and recorded here instead of widening a second table for decoration.
+- `parseFixParams` validates `?project=` for uuid SHAPE only. A `project_manager`
+  with a crafted or stale `?project=<non-member>` and no sessions reaches the teams
+  RPC, whose 42501 the page converts into a thrown 500 rather than a refusal. PM
+  could not reach this page at all before U6c. Worth its own unit.
+- `MUSTER_CORRECT_ROLES` and `ATTENDANCE_AUDIT_ROLES` are now EQUAL, so U6b's
+  link-withholding branches are unreachable. Kept, and the equality is pinned, so a
+  future narrowing re-separates them instead of silently rotting.
+
 ---
 
 Related: `358-attendance-audit.md` (the report this replaces as the default view) ·
