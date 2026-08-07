@@ -132,7 +132,18 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       // "เฉพาะผู้จัดการโครงการเท่านั้นที่แก้ผังโซนได้" and 23505 still names the
       // duplicate code. The canvas needs its own copy because `actions.ts` is a
       // "use server" module and cannot export a constant.
-    ).toBe(237); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2, +1 by the /workers duplicate fix, +3 by spec 394 U2, +4 by spec 392 U2a, +1 by spec 392 U2b (all justified above)
+      //
+      // 237 → 238, spec 400 U6a (the worker-day fix screen)'s RetimeOutcome map.
+      // JUSTIFICATION (the ratchet demands one): ONE new occurrence,
+      // `RETIME_ERROR_COPY.stale` ("กรุณาโหลดหน้านี้ใหม่แล้วลองอีกครั้ง"),
+      // reached only when `muster_correct_session` refuses because the
+      // page-resolved team id no longer matches the row's own — i.e. the data
+      // changed under the reader between page load and submit. Reloading the
+      // page re-resolves the team id fresh, so the NEXT attempt genuinely can
+      // succeed unchanged: this is the retryable case, unlike every other arm
+      // in the same map (`denied`, `bounds`, `locked`, `booked`), which all name
+      // a permanent cause and no retry.
+    ).toBe(238); // measured 2026-08-04; lowered same day by the G1 boundary unit, then +2 by spec 391 U2, +1 by the /workers duplicate fix, +3 by spec 394 U2, +4 by spec 392 U2a, +1 by spec 392 U2b, +1 by spec 400 U6a (all justified above)
   });
 
   it("the number of files carrying retry copy matches the ledger exactly", () => {
@@ -140,6 +151,6 @@ describe("honest-copy ratchet (retry copy never grows silently)", () => {
       files.size,
       `the retry-copy file set changed — a NEW file added retry copy (read the honest-copy ` +
         `rule at the top of this test first), or a file dropped it (lower this number).`,
-    ).toBe(110); // +1 2026-08-06 spec 392 U2b: src/components/features/zones/zone-canvas.tsx — one transient fallback on the round trip's `.catch` (a REJECTION, never a refusal); the action's own resolved refusals pass through untouched and keep their non-retry copy. It needs its own constant because actions.ts is a "use server" module and cannot export one. // +1 2026-08-04 spec 392 U2a: src/app/projects/[projectId]/zones/actions.ts — one file, four transient last-arm fallbacks, justified above; its three KNOWN refusals (42501 / 23505 / 22023) all use non-retry copy. // +3 2026-08-04 spec 394 U2: report-selection-actions.ts, report-select-button.tsx, report-arrange-strip.tsx — each carrying exactly one transient fallback, justified above. // +1 2026-08-04 (feedback e6b48386): src/app/workers/error-copy.ts. GENERIC_ERROR's "ลองใหม่" is the deliberately-transient fallback — the same PR routes 42501 (lost session) and bad input to NON-retry copy, so this is the genuinely-retryable arm. Moved out of workers/actions.ts (a "use server" file can't export constants), which still carries CONFIRM_COST_ERROR, so it stays in the set → net +1 file.
+    ).toBe(111); // +1 2026-08-07 spec 400 U6a: src/lib/muster/outcome-copy.ts — one transient fallback (RETIME_ERROR_COPY.stale), justified above; every other arm in that file and its three siblings (REOPEN/ADD/UNDO_ERROR_COPY) names a permanent cause with no retry. // +1 2026-08-06 spec 392 U2b: src/components/features/zones/zone-canvas.tsx — one transient fallback on the round trip's `.catch` (a REJECTION, never a refusal); the action's own resolved refusals pass through untouched and keep their non-retry copy. It needs its own constant because actions.ts is a "use server" module and cannot export one. // +1 2026-08-04 spec 392 U2a: src/app/projects/[projectId]/zones/actions.ts — one file, four transient last-arm fallbacks, justified above; its three KNOWN refusals (42501 / 23505 / 22023) all use non-retry copy. // +3 2026-08-04 spec 394 U2: report-selection-actions.ts, report-select-button.tsx, report-arrange-strip.tsx — each carrying exactly one transient fallback, justified above. // +1 2026-08-04 (feedback e6b48386): src/app/workers/error-copy.ts. GENERIC_ERROR's "ลองใหม่" is the deliberately-transient fallback — the same PR routes 42501 (lost session) and bad input to NON-retry copy, so this is the genuinely-retryable arm. Moved out of workers/actions.ts (a "use server" file can't export constants), which still carries CONFIRM_COST_ERROR, so it stays in the set → net +1 file.
   });
 });

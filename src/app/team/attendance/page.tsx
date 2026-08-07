@@ -40,6 +40,7 @@ import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
 import { loadDayAudit } from "@/lib/muster/day-audit";
 import { attendanceDayParam } from "@/lib/muster/day-correction";
+import { ADD_ERROR_COPY, REOPEN_ERROR_COPY } from "@/lib/muster/outcome-copy";
 import { createClient as createServerClient } from "@/lib/db/server";
 import { createClient as createAdminClient } from "@/lib/db/admin";
 import {
@@ -67,40 +68,17 @@ function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 }
 
-// Spec 397 U3 — the reopen outcome codes, in the app's own words. No "ลองใหม่" in
-// any of them: `denied` and `shape` can never succeed on a retry, `wages` and
-// `notclosed` describe a state the reader must act on first, and `failed` is of
-// unknown retryability — so each names the cause and the next step instead.
-const REOPEN_ERROR_COPY: Record<string, string> = {
-  denied: "บัญชีนี้ไม่มีสิทธิ์เปิดวันที่ปิดแล้ว",
-  wages: "วันนี้บันทึกค่าแรงไปแล้ว ต้องยกเลิกค่าแรงก่อนจึงจะเปิดวันใหม่ได้",
-  notclosed: "วันนี้ยังไม่ได้ปิด จึงไม่ต้องเปิดใหม่",
-  shape: "วันที่หรือโครงการไม่ถูกต้อง และต้องระบุเหตุผลด้วย",
-  failed: "เปิดวันอีกครั้งไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
-};
-
 /** Spec 400 U3b — the close form's own outcomes, same honest-copy rule: `denied`
  *  and `shape` can never succeed on a retry, so neither says ลองใหม่, and
- *  `denied` covers the RPC's project-scope refusal as well as its role gate. */
+ *  `denied` covers the RPC's project-scope refusal as well as its role gate.
+ *  Kept LOCAL — spec 400 U6a moved REOPEN_ERROR_COPY and ADD_ERROR_COPY to
+ *  `outcome-copy.ts` for the fix page to share, but this page's own close
+ *  control has no counterpart there. */
 const CLOSE_ERROR_COPY: Record<string, string> = {
   denied: "บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้",
   shape: "วันที่หรือโครงการไม่ถูกต้อง",
   notover: "ยังอยู่ระหว่างวัน ปิดวันได้เมื่อจบวันแล้ว",
   failed: "ปิดวันไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
-};
-
-/** Spec 400 U3c-b — the add form's outcomes. Same honest-copy rule as the close
- *  map: not one arm is retryable without the reader changing something first, so
- *  none of them says ลองใหม่. `duplicate` names the state rather than the fix,
- *  because the fix depends on which team the person is already on — a fact the
- *  grid's own row shows. */
-const ADD_ERROR_COPY: Record<string, string> = {
-  denied: "บัญชีนี้ไม่มีสิทธิ์แก้ไขการเช็คชื่อของโครงการนี้",
-  shape: "ข้อมูลที่ส่งไม่ถูกต้อง",
-  closed: "ปิดวันแล้ว — ต้องเปิดวันดังกล่าวอีกครั้งก่อน",
-  duplicate: "ช่างคนนี้มีการเช็คชื่อของวันดังกล่าวอยู่แล้ว",
-  noteam: "ไม่พบทีมของวันดังกล่าว",
-  failed: "เพิ่มไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อช่าง",
 };
 
 interface AttendanceAuditPageProps {

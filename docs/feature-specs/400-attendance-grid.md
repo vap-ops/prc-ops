@@ -538,6 +538,108 @@ by 1` — **16 rows today, 13 of them `muster_move` and exactly one
   was aligned here because it was a THIRD name for a fact two neighbouring surfaces
   already agreed on.
 
+## 7. The worker-day fix screen (U6a) — shipped, code-only
+
+**Route** `/team/attendance/fix?worker=&date=&project=&from=`. Ratified with the
+operator over three widget revisions in chat before build; the premise: the
+correction UX was bad because the `?day=` panel's grain is the DAY while every
+real dispute is a WORKER-DAY, its controls sit below a 42-row table, and two
+shipped RPC capabilities (retime, back-dated check-out) had NO control anywhere.
+
+**Gate — `MUSTER_CORRECT_ROLES`, not `MUSTER_CLOSE_ROLES`.** The correction RPCs'
+own allowlist (`{super_admin, procurement_manager, procurement}`) has no
+`site_admin` — she holds the cockpit for TODAY, but every surface reaching a PAST
+day in this app is gated on `ATTENDANCE_AUDIT_ROLES`, which has none either, and
+this page must not be the exception.
+
+**No wizard, no step strip.** Gates are PER ACTION, measured from the live RPC
+bodies rather than assumed from the plan:
+
+- **Retime** (`muster_correct_session`'s UPDATE path) is offered whenever a
+  session exists, **regardless of the day's closure** — its real guard is the
+  unbooked-wage anti-join (the same one `muster_undo_scan` uses), built for the
+  nine 2026-07-24 OT rows. Forcing เปิดวัน first would add a needless day-wide act
+  to the commonest fix.
+- **Add** (the INSERT path) and **delete** (`muster_undo_scan`) both require the
+  day OPEN, so they sit under **one locked group** whose header carries the
+  reopen form (`MusterReopenForm`, reused unchanged) plus the blast-radius
+  sentence — reopening and re-closing re-derives wages for the WHOLE day, not
+  just this person.
+- The reopened-but-unclosed state is a persistent banner at the top of the page
+  (the outcome of the embedded reopen form), never a wizard step.
+
+**No time defaults, anywhere.** Both the retime form's fields and the add form's
+field start blank — a wrong guessed timestamp is worse than an empty one forcing
+a real value (U4's own rule, unchanged). The retime form's out-time input is
+additionally `disabled` (with the reason stated beside it) once
+`outTimeLocked` finds a HUMAN-recorded check-out (`out_auto === false`) — that
+field can never succeed against `muster_correct_session`'s own refusal, so
+disabling it does not withhold a fact, it just spares a wasted round trip.
+
+**A no-session worker-day has no team.** Neither `audit_attendance_detail` nor
+any table a `procurement` session client can read discloses a team id or a
+closure fact for a day with zero rows (`muster_attendance` / `muster_teams` /
+`muster_day_closures` RLS are all `can_see_project`, which is FALSE for
+`procurement` — verified live). So:
+
+- **`?project=` is load-bearing, not optional**, whenever the worker has no
+  session that day. Absent it, the page states the fact and offers no form,
+  rather than guessing.
+- **Two narrow ADMIN lookups**, each scoped to exactly the one row this page's
+  own audience is already entitled to read in substance through a DEFINER RPC:
+  `muster_day_closures` (closure, when no session exists yet) and
+  `muster_attendance.team_id` (the retime target, when a session exists — a
+  worker-day is single-team, since an OT session only opens after a regular one
+  on the SAME team). Neither is a new exposure: `list_muster_day_audit` already
+  discloses a close/reopen row for the same day to this audience, and
+  `reopen_muster_day`'s own refusal wording discloses the closure fact
+  behaviourally.
+
+**The add arm only ever offers a REGULAR session.**
+`muster_correct_session`'s insert path refuses to create anything but one (an OT
+session is x1.5 money and creating one after the fact was never part of the
+correction ruling), so the add card is withheld entirely once a regular session
+already exists for the worker-day (`canAddMissingSession`) — offering it would
+just reach the RPC's own "already mustered" refusal.
+
+**The trail is the SAME `list_muster_day_audit` RPC as the `?day=` panel**,
+fetched once and filtered in TypeScript to `row.workerId === workerId` — no new
+RPC, no new column beyond widening `DayAuditRow`/`shapeDayAuditRow` to carry
+`worker_id` through (it was being read off the RPC already and dropped at the
+shaping step). A day-wide event (close/reopen) has `worker_id = null` and is
+therefore correctly absent from this per-worker view; the full untrimmed trail
+stays on the day panel.
+
+**Reused unchanged:** `bangkokInAt` (also used to build the retime form's
+out-time timestamp — the name reflects its original use, the construction is
+generic), `addMusterPersonFromForm` / `addMusterPerson` (no second copy — this
+page's audience is identical to the day panel's), `MusterReopenForm`,
+`addPersonControl`, `dayClosureLabel`, `describeAuditEvent`. `REOPEN_ERROR_COPY`
+and `ADD_ERROR_COPY` moved out of `/team/attendance/page.tsx` into
+`src/lib/muster/outcome-copy.ts` so both pages show the same sentence for the
+same outcome; `RETIME_ERROR_COPY` and `UNDO_ERROR_COPY` are new in that file.
+`attendanceBackLabel` gained a `/team/attendance` arm (its most common parent,
+which the report itself never had to name before).
+
+**New, code-only:** `src/lib/muster/day-fix.ts` (`parseFixParams`,
+`outTimeLocked`, `canAddMissingSession`, `undoSessionControl` — all pure,
+individually tested per the U1 reachability lesson), `RetimeOutcome` /
+`UndoOutcome` + their `returnTo` builders in `reopen-return.ts`,
+`correctMusterSession` / `undoAttendanceSession` (+ `*FromForm` wrappers) in
+`src/app/team/attendance/fix/actions.ts`, and three presentational forms
+(`attendance-fix-retime-form.tsx`, `attendance-fix-undo-form.tsx`,
+`attendance-fix-add-form.tsx` — the last a single-worker variant of
+`AttendanceAddPersonForm` with no worker dropdown).
+
+**Not built here (U6b, deliberately separate):** the three entry doors (grid
+anomaly/empty cells, the `?day=` panel's own anomaly work-list, the spec-374
+calendar's in-month cells) and the unfinished-day banner rendered on those OTHER
+pages. Reachable in U6a only by a hand-typed URL. `safeBackHref`/`?from=` is
+already wired and the route is registered in `nav-back-affordance.test.ts`'s
+`STATIC_MULTI_PARENT` list on the same "built multi-parent from day one" basis
+`/team/attendance` itself used, so U6b's doors need no nav-guard change of their
+own — only the links.
+
 ---
 
 Related: `358-attendance-audit.md` (the report this replaces as the default view) ·

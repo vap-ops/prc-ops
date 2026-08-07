@@ -51,6 +51,21 @@ describe("shapeDayAuditRow", () => {
     // would make a day-level edit read as a change to someone's normal shift.
     expect(shapeDayAuditRow(raw({ kind: "muster_day_close", session: null })).session).toBeNull();
   });
+
+  // Spec 400 U6a — the fix page filters this SAME trail to one worker, which
+  // needs the id, not just the name: two workers can share a display name, and
+  // a day-level event (close/reopen) has no worker at all.
+  it("carries workerId through, for a per-worker filter the day panel never needed", () => {
+    expect(shapeDayAuditRow(raw()).workerId).toBe("00000000-0000-0000-0000-0000000000w1");
+  });
+
+  it("keeps a null workerId null for a whole-day event", () => {
+    expect(
+      shapeDayAuditRow(
+        raw({ kind: "muster_day_close", session: null, worker_id: null, worker_name: null }),
+      ).workerId,
+    ).toBeNull();
+  });
 });
 
 describe("describeAuditEvent — what each of the six kinds says", () => {

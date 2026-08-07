@@ -48,7 +48,7 @@ function one(value: Param): string | undefined {
  *  SQL, where `between` raises 22008 and the page's error boundary offers only a
  *  reset() that re-renders the SAME bad searchParams: a permanent dead end with
  *  no form on screen to correct it. Require a real calendar date too. */
-function isValidIsoDate(raw: string): boolean {
+export function isValidIsoDate(raw: string): boolean {
   if (!ISO_DATE_REGEX.test(raw)) return false;
   const d = new Date(`${raw}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === raw;

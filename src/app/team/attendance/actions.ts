@@ -93,6 +93,7 @@ export async function reopenMusterDay(input: {
 
   // Both surfaces that show closure state: the report itself, and the /team hub
   // whose วันนี้ card counts unclosed days.
+  revalidatePath("/team/attendance/fix");
   revalidatePath("/team/attendance");
   revalidatePath("/team");
   return { ok: true };
@@ -177,6 +178,7 @@ export async function closeMusterDay(input: {
     return { ok: false, outcome: "failed" };
   }
 
+  revalidatePath("/team/attendance/fix");
   revalidatePath("/team/attendance");
   revalidatePath("/team");
   return { ok: true };
@@ -257,6 +259,7 @@ export async function addMusterPerson(input: {
     return { ok: false, outcome: "failed" };
   }
 
+  revalidatePath("/team/attendance/fix");
   revalidatePath("/team/attendance");
   revalidatePath("/team");
   return { ok: true };

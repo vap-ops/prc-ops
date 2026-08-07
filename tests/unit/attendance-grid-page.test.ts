@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ATTENDANCE_AUDIT_ROLES, WORKER_ROSTER_ROLES } from "@/lib/auth/role-home";
+import { ADD_ERROR_COPY } from "@/lib/muster/outcome-copy";
 
 const PAGE = join(process.cwd(), "src/app/team/attendance/page.tsx");
 
@@ -407,10 +408,14 @@ describe("/team/attendance page — spec 400 U3c-b wiring", () => {
   it("owns the add outcome copy here and reads the CODE from the query", () => {
     expect(code).toContain("ADD_ERROR_COPY");
     expect(code).toContain("addError");
-    // Same honest-copy rule the close map follows: no arm may say ลองใหม่, because
-    // none of them is retryable without the reader changing something first.
-    const map = code.slice(code.indexOf("const ADD_ERROR_COPY"), code.indexOf("interface"));
-    expect(map).not.toContain("ลองใหม่");
+    // Spec 400 U6a moved the map itself to outcome-copy.ts (the fix page shares
+    // it), so the honest-copy rule is checked there directly rather than by
+    // slicing this page's source — a slice keyed on "const ADD_ERROR_COPY"
+    // would find nothing here now that this file only imports it.
+    expect(ADD_ERROR_COPY).not.toBe(undefined);
+    for (const [key, value] of Object.entries(ADD_ERROR_COPY)) {
+      expect(value, `${key} must not promise a retry`).not.toContain("ลองใหม่");
+    }
   });
 
   it("passes the panel everything the add arm needs", () => {
