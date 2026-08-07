@@ -14112,3 +14112,49 @@ project reach the flagger, and the message still names no actor.
 the app survives a login. ② If the office tier later wants links back, the per-channel split above is the
 shape to use — the drain already supports it. ③ Gate 4 for a message-shape change is a real push to a
 phone; none was sent from this lane.
+
+## 2026-08-07 — spec 367 Q1: a registered item says where it is (lane eqloc)
+
+**What shipped.** The add sheet on `/equipment` gained one field — `ตอนนี้อยู่ที่ไหน`, prefilled to
+`รับเข้าคลัง` with every project as the alternative — and `createEquipmentFromCatalog` now writes the
+matching `equipment_movements` row after the item insert. Code and tests only: the table already had the
+columns, the column-scoped INSERT grants, and an RLS policy naming all six staff roles (verified live,
+not inferred from the migration).
+
+**Why now.** Location on `/equipment` is derived purely from the latest movement
+(`current-location.ts` → `equipment-location-label.ts`), and the add flow wrote none — so a freshly
+registered item rendered `—`. That is exactly the blank **63 of 64 items** carried before the 2026-07-30
+reset, cleared then by a scripted backfill rather than by the form. The registry is at **0 items** and is
+about to be filled by hand by the procurement team, so the defect was one entry away from being
+re-created ~68 times.
+
+⭐ **It answers spec 367 §10 Q1 by making the state unreachable rather than by picking a label.** The open
+question was whether a movement-less item should READ as "at คลัง" or "ยังไม่ระบุ" — one option asserts a
+location nobody verified, the other leaves the column useless. Recording a real event at registration
+costs the registrar nothing (the picker is prefilled) and leaves the `—` placeholder meaning only what it
+should: no movement was ever recorded. Spec §10 Q1 is struck through with the answer.
+
+⭐ **The picker's option labels ARE the movement labels** (`EQUIPMENT_MOVEMENT_KIND_LABEL.received` /
+`.deployed`), so what the registrar picks is character-for-character what the row's location badge shows
+afterwards. A separate wording here would have been a second name for one fact.
+
+⚖️ **Prefilled, not required.** The store-first directive makes คลัง the normal answer for a tool being
+entered into the registry, and a wrong pick is correctable from the row's existing ย้าย button (movements
+are append-only compensating events, ADR 0055 §4). The alternative — an unpicked sentinel that forces a
+tap per item — buys deliberation at 68× the cost, and its failure mode is the `—` this unit exists to
+remove.
+
+⚠️ **The refusal had to move ABOVE the first write.** `resolveInitialMovement` needs the item's validated
+tracking/quantity, which is only known late — but on the new-SKU escape the catalog row is inserted
+_before_ the instance is validated, so a late refusal would strand a registered SKU with no unit under it.
+The module exports `isKnownLocation` for the early gate and reads the same predicate internally, so the
+rule is stated once.
+
+⚖️ **A failed movement keeps the item** — same contract as the rate copy, for the same reason (the
+registrar is standing at the machine; a lost row is retyped from scratch, an unlocated one is two taps).
+Both follow-ups can fire on one save, so the notice became a LIST rather than a second branch, and it
+names the ย้าย button instead of closing quietly.
+
+**Gates.** RED first: 10 failing tests + 1 unresolved import before any production code. lint 0 ·
+typecheck 0 · six mutants each killed by its own assertion, every run reporting `1 failed | N skipped`
+so no filter matched zero tests, every restore verified with `git diff --quiet`.

@@ -34,6 +34,7 @@ const state = vi.hoisted(() => ({
   newSkuRow: null as Record<string, unknown> | null,
   newSkuError: null as unknown,
   itemInsertError: null as unknown,
+  movementInsertError: null as unknown,
   unitCount: 0,
   countError: null as unknown,
   rpcError: null as unknown,
@@ -82,7 +83,9 @@ vi.mock("@/lib/db/server", () => ({
               ? state.newSkuError
               : table === "equipment_items"
                 ? state.itemInsertError
-                : null;
+                : table === "equipment_movements"
+                  ? state.movementInsertError
+                  : null;
           return {
             select() {
               return {
@@ -135,6 +138,8 @@ const SKU_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const OWNER_ID = "a43fdea5-4e94-4065-9ac7-182da0692348";
 const CAT_ID = "ac49d5cf-06f7-4e43-963d-58d36763f429";
 
+const PROJECT_ID = "a88af871-019b-4eca-a7aa-f05244c83e5d";
+
 const baseInput = {
   id: ITEM_ID,
   photos: [],
@@ -142,6 +147,8 @@ const baseInput = {
   assetTag: "",
   quantity: null,
   status: "available",
+  // Spec 367 Q1 — every registration states where the thing physically is.
+  location: "store",
 };
 
 beforeEach(() => {
@@ -160,6 +167,7 @@ beforeEach(() => {
   state.newSkuRow = null;
   state.newSkuError = null;
   state.itemInsertError = null;
+  state.movementInsertError = null;
   state.unitCount = 0;
   state.countError = null;
   state.rpcError = null;
@@ -328,6 +336,98 @@ describe("createEquipmentFromCatalog — existing SKU", () => {
   });
 });
 
+// Spec 367 Q1 — the initial movement. Location is derived only from the latest
+// `equipment_movements` row, so an item created without one renders `—` forever
+// and the registry repeats the 63-of-64 blank it carried before the reset. The
+// movement is written HERE, in the same action, because the operator is standing
+// at the machine: a second screen is a step that does not happen.
+describe("createEquipmentFromCatalog — the initial location movement", () => {
+  it("writes a received movement AFTER the item, so the FK resolves", async () => {
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(state.inserts.map((c) => c.table)).toEqual(["equipment_items", "equipment_movements"]);
+    expect(state.inserts.at(-1)?.payload).toMatchObject({
+      item_id: ITEM_ID,
+      kind: "received",
+      project_id: null,
+      quantity: 1,
+      created_by: "u1",
+    });
+  });
+
+  it("writes a deployed movement carrying the project when the item starts on site", async () => {
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      location: PROJECT_ID,
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(state.inserts.at(-1)?.payload).toMatchObject({
+      kind: "deployed",
+      project_id: PROJECT_ID,
+      quantity: 1,
+    });
+  });
+
+  it("moves a bulk item's whole quantity, not one unit of it", async () => {
+    state.sku = { ...state.sku!, name: "สายยางวัดระดับน้ำ", default_tracking: "bulk" };
+
+    await createEquipmentFromCatalog({
+      ...baseInput,
+      quantity: 6,
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(state.inserts.at(-1)?.payload).toMatchObject({
+      kind: "received",
+      quantity: 6,
+    });
+  });
+
+  it("refuses an unpicked location BEFORE writing anything — no half-registered item", async () => {
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      location: "",
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(state.inserts).toEqual([]);
+  });
+
+  it("keeps the item and raises locationWarning when the movement insert fails", async () => {
+    // Same contract as the rate copy: the row exists and the operator is at the
+    // machine — losing it would be worse than an unlocated row they can fix with
+    // the ย้าย button. But it must be SAID, or it is the silent-success class.
+    state.movementInsertError = { code: "42501" };
+
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(result).toEqual({ ok: true, locationWarning: true });
+    expect(state.inserts.some((c) => c.table === "equipment_items")).toBe(true);
+  });
+
+  it("reports BOTH follow-ups when the rate copy and the movement both fail", async () => {
+    state.movementInsertError = { code: "42501" };
+    state.rpcError = { code: "P0001" };
+
+    const result = await createEquipmentFromCatalog({
+      ...baseInput,
+      source: { kind: "existing", catalogItemId: SKU_ID },
+    });
+
+    expect(result).toEqual({ ok: true, rateWarning: true, locationWarning: true });
+  });
+});
+
 describe("createEquipmentFromCatalog — the new-SKU escape", () => {
   it("creates the catalog row FIRST (created_by pinned) then the instance under it", async () => {
     state.newSkuRow = {
@@ -349,6 +449,8 @@ describe("createEquipmentFromCatalog — the new-SKU escape", () => {
     expect(state.inserts.map((c) => c.table)).toEqual([
       "equipment_catalog_items",
       "equipment_items",
+      // Spec 367 Q1 — the initial location movement closes the registration.
+      "equipment_movements",
     ]);
     expect(state.inserts[0]?.payload).toMatchObject({
       name: "เครื่องปั่นไฟ",

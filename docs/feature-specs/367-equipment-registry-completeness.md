@@ -399,7 +399,18 @@ new columns, so the real order is **U0 → U1 → U2 → U3 → U4 → U5**.
 
 ## 10. 🔔 Open questions for the operator
 
-1. **Should an item with no movement read as "at คลัง" or "ยังไม่ระบุ"?** Unanswered
+1. ~~**Should an item with no movement read as "at คลัง" or "ยังไม่ระบุ"?**~~ **ANSWERED
+   2026-08-07 by making the state unreachable instead of choosing a label: the add
+   sheet asks `ตอนนี้อยู่ที่ไหน` (prefilled to คลัง per the store-first directive) and
+   `createEquipmentFromCatalog` writes the matching `received`/`deployed` movement
+   after the item insert.** So a newly registered item is never movement-less, the
+   label never has to assert an unverified location, and no bulk backfill is owed —
+   the registry is empty as of the 07-30 reset, so there is nothing to backfill.
+   The `—` placeholder stays for pre-existing rows and for the failure arm
+   (`locationWarning`), which names the ย้าย button as the fix rather than closing
+   silently. Driver: the operator is handing the registry to the procurement team,
+   so the defect would otherwise have been re-created once per unit entered.
+   Superseded text: Unanswered
    from the original exchange. It decides whether 63 items need a one-off bulk
    `รับเข้าคลัง` movement (honest, needs a bulk action) or whether the label simply
    defaults (free, but asserts a location nobody verified). **Blocks nothing in

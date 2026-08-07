@@ -21,6 +21,11 @@ import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
 import { validateEquipmentDailyRate } from "@/lib/equipment/validate-equipment-daily-rate";
 import { parseEquipmentImport } from "@/lib/equipment/equipment-import";
 import { isOwnItemImagePath } from "@/lib/equipment/image-path";
+import {
+  isKnownLocation,
+  resolveInitialMovement,
+  UNPICKED_LOCATION_ERROR,
+} from "@/lib/equipment/initial-location";
 import { EQUIPMENT_PHOTO_KINDS, type EquipmentPhotoKind } from "@/lib/equipment/photo-kinds";
 import type { Database } from "@/lib/db/database.types";
 
@@ -98,8 +103,15 @@ export type CreateFromCatalogSource =
   | { kind: "existing"; catalogItemId: string }
   | { kind: "new"; name: string; categoryId: string; tracking: string };
 
+// Spec 367 Q1 — the registration also states WHERE the thing is, as a real
+// `equipment_movements` row. Without one the /equipment location column reads
+// `—` forever (location is derived only from the latest movement), which is the
+// blank 63 of 64 items carried before the reset. Same never-lose-the-item
+// contract as the rate copy: a failed movement raises `locationWarning`, it does
+// not roll the item back — the ย้าย button on the row is the fix, and the notice
+// says so rather than closing quietly.
 export type CreateFromCatalogResult =
-  { ok: true; rateWarning?: boolean } | { ok: false; error: string };
+  { ok: true; rateWarning?: boolean; locationWarning?: boolean } | { ok: false; error: string };
 
 const SKU_COLUMNS = "id, name, category_id, brand, model, default_tracking, is_active";
 
@@ -121,6 +133,8 @@ export async function createEquipmentFromCatalog(input: {
   assetTag: string;
   quantity: number | null;
   status: string;
+  /** Spec 367 Q1 — STORE_LOCATION or a project id; resolved to the first movement. */
+  location: string;
 }): Promise<CreateFromCatalogResult> {
   const ctx = await requireRole(BACK_OFFICE_ROLES);
 
@@ -140,6 +154,13 @@ export async function createEquipmentFromCatalog(input: {
 
   if (input.source.kind !== "existing" && input.source.kind !== "new") {
     return { ok: false, error: GENERIC_ERROR };
+  }
+
+  // Spec 367 Q1 — refuse an unlocated registration before the FIRST write. The
+  // new-SKU escape inserts the catalog row ahead of the instance, so checking
+  // this later would strand a registered SKU with nothing under it.
+  if (!isKnownLocation(input.location)) {
+    return { ok: false, error: UNPICKED_LOCATION_ERROR };
   }
 
   const supabase = await createServerSupabase();
@@ -271,6 +292,33 @@ export async function createEquipmentFromCatalog(input: {
     );
   }
 
+  // Spec 367 Q1 — the initial location, as a real movement. After the item (FK)
+  // and never rolling it back: the registrar is at the machine, and an unlocated
+  // row is fixable from the ย้าย button while a lost row is retyped from scratch.
+  let locationWarning = false;
+  const movement = resolveInitialMovement({
+    location: input.location,
+    tracking: item.value.tracking,
+    quantity: item.value.quantity,
+  });
+  if (!movement.ok) {
+    // Narrowing arm, not a live failure mode: the location was checked above and
+    // validateEquipmentItem has already guaranteed a bulk quantity is an integer
+    // >= 1, so nothing reaching here can fail. Kept as a warning rather than a
+    // throw so that relaxing either upstream check degrades to "item saved, say
+    // where it is" instead of a 23514 the registrar meets as a generic failure.
+    locationWarning = true;
+  } else {
+    const { error: movementError } = await supabase.from("equipment_movements").insert({
+      item_id: input.id,
+      kind: movement.value.kind,
+      project_id: movement.value.projectId,
+      quantity: movement.value.quantity,
+      created_by: ctx.id,
+    });
+    if (movementError) locationWarning = true;
+  }
+
   // Rate copy: admin-read the walled default, write through the audited RPC.
   // A FAILED read raises the same warning as a failed write — silently skipping
   // would make "read broke" indistinguishable from "SKU has no default", and an
@@ -293,7 +341,11 @@ export async function createEquipmentFromCatalog(input: {
   }
 
   revalidatePath("/equipment");
-  return rateWarning ? { ok: true, rateWarning: true } : { ok: true };
+  return {
+    ok: true,
+    ...(rateWarning ? { rateWarning: true } : {}),
+    ...(locationWarning ? { locationWarning: true } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
