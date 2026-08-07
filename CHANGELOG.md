@@ -1,3 +1,9 @@
+## [0.363.2](https://github.com/vap-ops/prc-ops/compare/v0.363.1...v0.363.2) (2026-08-07)
+
+### Bug Fixes
+
+- **a11y:** six routes stop announcing the same word ([#999](https://github.com/vap-ops/prc-ops/issues/999)) ([33c91f5](https://github.com/vap-ops/prc-ops/commit/33c91f513aff4be10a413668d57fb47724030bda)), closes [#986](https://github.com/vap-ops/prc-ops/issues/986)
+
 ## [0.363.1](https://github.com/vap-ops/prc-ops/compare/v0.363.0...v0.363.1) (2026-08-07)
 
 ### Bug Fixes
