@@ -62,7 +62,7 @@ function row(over: Partial<AttendanceDetailRow> = {}): AttendanceDetailRow {
 const TODAY = "2026-08-05";
 
 describe("spec 397 U3 — who may reopen", () => {
-  it("is exactly the roles that may CLOSE, plus procurement", () => {
+  it("is exactly the audit audience plus site_admin (U6c)", () => {
     const all = Object.keys(USER_ROLE_LABEL) as UserRole[];
     expect(all.filter((r) => MUSTER_REOPEN_ROLES.includes(r)).sort()).toEqual(
       // Spec 400 U6c: the audit audience plus site_admin (the cockpit role).

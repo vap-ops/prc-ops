@@ -1,5 +1,5 @@
 begin;
-select plan(32);
+select plan(34);
 
 -- ============================================================================
 -- Spec 400 U6c — widen the attendance-CORRECTION audience to the attendance-AUDIT
@@ -232,6 +232,30 @@ select throws_ok(
   '42501', null, 'site_admin is STILL scoped by membership — not widened by this unit');
 reset role;
 
+-- The SAME rewritten scoping arm went into all six functions, so the regression
+-- needs more than one subject: `muster_scan_in` above is behavioural, and these two
+-- cover the other end of the surface. §E cannot see this class at all — its
+-- allowlist oracle only asks whether a role name appears ANYWHERE in the body, and
+-- site_admin already appears in four of the allowlists, so moving it into the
+-- cross-project list would not change a single expected string.
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0419-4444-4444-00000000000f"}';
+select throws_ok(
+  $$select public.reopen_muster_day(
+      'a1000000-0419-4444-4444-000000000002'::uuid, '2026-07-20'::date, 'TAP')$$,
+  '42501', 'reopen_muster_day: not a member of this project',
+  'site_admin is still scoped on reopen_muster_day too — not just on scan_in');
+reset role;
+
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub": "70000000-0419-4444-4444-00000000000e"}';
+select throws_ok(
+  $$select public.close_muster_day(
+      'a1000000-0419-4444-4444-000000000002'::uuid, '2026-07-20'::date)$$,
+  '42501', 'close_muster_day: not a member of this project',
+  'project_manager is still scoped on close_muster_day — membership, as the READ scopes it');
+reset role;
+
 -- ============================================================================
 -- C. THE ARM SPLIT. A newly-granted role must land on the CORRECTION arm, not the
 --    SA cockpit arm: bounded to regular, refused on a closed day, and AUDITED.
@@ -243,7 +267,11 @@ select throws_ok(
       '71000000-0419-4444-4444-000000000001'::uuid,
       'e1000000-0419-4444-4444-000000000002'::uuid, 'manual'::public.muster_method,
       'ot'::public.muster_session)$$,
-  'P0001', null,
+  -- ⚠️ The MESSAGE is asserted, not just the SQLSTATE. Without the arm extension
+  -- accounting falls through to the COCKPIT arm and hits "no regular session on
+  -- this team today" — which is ALSO P0001, so a code-only assertion would have
+  -- passed against the exact defect this case is named for.
+  'P0001', 'muster_scan_in: a correction may only record a regular session',
   'accounting takes the CORRECTION arm: an OT session (x1.5 money) is refused');
 select throws_ok(
   $$select public.muster_scan_in(

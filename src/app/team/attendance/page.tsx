@@ -359,22 +359,29 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
     // top of a 42-row table — the very jump the fragment exists to prevent.
     return date ? `/team/attendance?${q.toString()}#d-${date}` : `/team/attendance?${q.toString()}`;
   };
-  // Whether the columns are links at all. Withholding it from the four audit
-  // roles that may neither close nor reopen is not withholding a FACT: every
-  // fact the panel states is readable from the column and the drill, and a link
-  // would promise an action their own server refuses.
+  // Whether the columns are links at all.
+  // ⚠️ Since spec 400 U6c this is TRUE for every role that can open this page:
+  // MUSTER_REOPEN_ROLES now contains all of ATTENDANCE_AUDIT_ROLES, so the `null`
+  // branch below is currently unreachable. It is KEPT rather than simplified away,
+  // because the operator explicitly reserved narrowing this again ("we can limit
+  // access in the future") — and the argument it encodes still stands: withholding
+  // the link is not withholding a FACT, since every fact the panel states is
+  // readable from the column and the drill.
   const canCorrectDay = canReopen || canClose;
-  // Spec 400 U3c-b — the correction audience, and it is NARROWER than canClose:
-  // MUSTER_CORRECT_ROLES has no site_admin, because every surface reaching a past
-  // day is gated on ATTENDANCE_AUDIT_ROLES, which has none either.
+  // Spec 400 U3c-b, widened by U6c — the correction audience. It is now EXACTLY
+  // this page's own gate (ATTENDANCE_AUDIT_ROLES); the one role in canClose that it
+  // still does not carry is site_admin, which runs the cockpit instead.
   const canCorrect = MUSTER_CORRECT_ROLES.includes(ctx.role);
   // Spec 400 U6b — a cell's door into the worker-day fix screen (U6a), which
   // built the destination and left it reachable only by typing the URL.
   //
-  // Gated on canCorrect, NOT canCorrectDay: the fix page's own gate is
-  // MUSTER_CORRECT_ROLES and every correction RPC refuses the wider audit set
-  // with 42501, so handing project_manager or project_director a link would be
-  // affordance-then-refuse. They keep every fact the cell states.
+  // Gated on canCorrect, which is the fix page's own gate. Until U6c that was
+  // strictly narrower than this page's audience and the comment here read "handing
+  // project_manager or project_director a link would be affordance-then-refuse" —
+  // the operator reversed that on 2026-08-07, so both now hold it and the two sets
+  // are equal (pinned in attendance-grid-page.test.ts). Kept keyed on the
+  // correction set, not on the page gate, so a future narrowing re-separates them
+  // automatically.
   //
   // The referrer is this page's own URL including the picked range and project,
   // so the fix screen's back chip returns the reader to the column they left.

@@ -476,10 +476,14 @@ export const MUSTER_CLOSE_ROLES: ReadonlyArray<UserRole> = [
   // Spec 400 U6c — the audit audience PLUS site_admin (the cockpit role). Mirrors
   // the live allowlist of close_muster_day (migration 20260813075919).
   //
-  // ⚖️ Closing DERIVES WAGES, so this is the money step, and the widening hands it
-  // to hr and project_coordinator — who have ZERO users today. Taken deliberately:
-  // one rule ("the audit audience may correct") is maintainable and a subset with
-  // two unexplained holes is not. Narrowing is one line here plus one per RPC.
+  // ⚖️ Closing DERIVES WAGES (close_muster_day → derive_muster_labor_internal →
+  // labor_logs → GL), so this is the money step, and the widening hands it to
+  // SEVEN REAL USERS who could not book a muster day's wages before: accounting 3,
+  // project_director 3, project_manager 1 (the last scoped to its own projects).
+  // It also reaches hr and project_coordinator, which have ZERO users today.
+  // Taken deliberately: one rule ("the audit audience may correct") is
+  // maintainable and a subset with two unexplained holes is not. Narrowing is one
+  // line here plus one per RPC.
   "accounting",
   "hr",
   "project_director",

@@ -765,3 +765,19 @@ begin
 end;
 $function$;
 
+-- ── Refresh the function comments ───────────────────────────────────────────
+-- `create or replace` PRESERVES the existing comment, and two of these still
+-- advertised the pre-U6c audience verbatim ("for the correction audience only
+-- ({super_admin, procurement_manager, procurement})"). The next unit's mandated
+-- dependency gate-check reads the LIVE object — it would have read a three-role
+-- allowlist that no longer exists and built on it. A stale comment on a security
+-- boundary is worse than no comment.
+comment on function public.muster_correct_session(uuid, uuid, muster_session, timestamptz, timestamptz) is
+  'Spec 400 U4, audience widened by U6c. Records a session''s real check-in / check-out times after the fact. Gate = ATTENDANCE_AUDIT_ROLES (accounting, hr, project_director, project_coordinator, procurement_manager, procurement, super_admin, project_manager); cross-project for all but project_manager, which is scoped by can_see_project. The INSERT path is regular-only and open-days-only for EVERY caller; the UPDATE path works on a closed day, guarded by the unbooked-wage anti-join.';
+
+comment on function public.list_muster_teams_for_day(uuid, date) is
+  'Spec 400 U3c, audience widened by U6c. Lists a project-day''s muster teams for the correction audience = ATTENDANCE_AUDIT_ROLES; cross-project for all but project_manager, which is scoped by can_see_project. Exists because muster_teams RLS is can_see_project, which is FALSE for procurement, accounting and hr.';
+
+comment on function public.muster_scan_in(uuid, uuid, muster_method, muster_session) is
+  'Spec 306; correction arm added by 400 U3a, audience widened by U6c. Gate = ATTENDANCE_AUDIT_ROLES + site_admin. TWO ARMS: the roles with no muster cockpit (procurement, accounting, hr, project_director, project_coordinator, project_manager) take the CORRECTION arm — regular-only, open-days-only behind derive_muster_labor''s own advisory key, and a muster_correction_scan_in audit row. site_admin / super_admin / procurement_manager keep the unchanged COCKPIT arm.';
+

@@ -69,7 +69,9 @@ function DayHeader({
   todayIso: string;
   showMonth: boolean;
   /** Spec 400 U3b — opens the day panel. `null` withholds the LINK only; every
-   *  fact in this header still renders (the spec 397 U3 rule). */
+   *  fact in this header still renders (the spec 397 U3 rule). Unreachable since
+   *  U6c widened MUSTER_REOPEN_ROLES to the whole audit audience; kept against a
+   *  future narrowing. */
   dayHref: ((date: string) => string) | null;
 }) {
   const dayNumber = Number(day.date.slice(8, 10));
@@ -176,12 +178,14 @@ export function AttendanceGridView({
   /**
    * Spec 400 U6b — a cell's link to the U6a worker-day fix screen.
    *
-   * `null` for every role outside MUSTER_CORRECT_ROLES. That set is NARROWER
-   * than this page's own ATTENDANCE_AUDIT_ROLES gate: project_manager,
-   * project_director, accounting, hr and project_coordinator read this grid, and
-   * `muster_correct_session` refuses all five with 42501 — so a link would be
-   * affordance-then-refuse, the defect U3a already paid for. They keep every
-   * FACT the cell states and lose only the link.
+   * `null` for every role outside MUSTER_CORRECT_ROLES.
+   *
+   * ⚠️ Spec 400 U6c made that set EQUAL to this page's ATTENDANCE_AUDIT_ROLES gate,
+   * so today no reader is withheld. Until then the five audit roles were refused by
+   * every correction RPC with 42501 and a link would have been affordance-then-
+   * refuse — which is why the withholding branch exists and stays: the operator
+   * reserved narrowing the audience again. When it is withheld, every FACT the cell
+   * states still renders; only the link goes.
    */
   cellFixHref?: ((workerId: string, date: string) => string) | null;
   /**

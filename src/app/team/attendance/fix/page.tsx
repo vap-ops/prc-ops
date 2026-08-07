@@ -107,15 +107,25 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
   const supabase = await createServerClient();
   const admin = createAdminClient();
 
-  // The worker's own name. "workers" "readable by staff" is ROLE-only and
-  // covers every MUSTER_CORRECT_ROLES member (procurement, procurement_manager,
-  // super_admin — verified live), so the session client is enough.
-  // ⚠️ The `error` is read, not discarded. `data === null` renders "ไม่พบช่างคนนี้"
-  // — a factual claim that this worker does not exist — and a FAILED read is
-  // indistinguishable from a genuinely missing row if only `data` is checked.
-  // Making that claim about a worker who does exist is the honest-copy defect;
-  // throwing surfaces the real failure instead.
-  const { data: workerRow, error: workerError } = await supabase
+  // The worker's own name, through a NARROW ADMIN read.
+  //
+  // ⚠️ This was a SESSION-client read until spec 400 U6c, justified by a comment
+  // that enumerated the audience: "covers every MUSTER_CORRECT_ROLES member
+  // (procurement, procurement_manager, super_admin — verified live)". U6c widened
+  // that set to ATTENDANCE_AUDIT_ROLES, and `workers` "readable by staff" is
+  // role-only over {site_admin, project_manager, procurement, procurement_manager,
+  // super_admin, project_director} — so accounting, hr and project_coordinator now
+  // pass the page gate and then read ZERO rows with `error === null`. That renders
+  // "ไม่พบช่างคนนี้", a factual claim that the worker does not exist, about a worker
+  // whose name the audit RPC just showed them on the grid they clicked from: the
+  // affordance-then-refuse AND honest-copy defects at once, in the unit built to
+  // remove one. (Same constraint /team/attendance already states for its roster.)
+  //
+  // No new exposure: `audit_attendance_detail` — gated on this same audience —
+  // already returns `workerName` for every session it discloses, so this reads one
+  // column of one row this reader is already entitled to see by name. Scoped to
+  // exactly this worker id, matching the closure and team lookups below.
+  const { data: workerRow, error: workerError } = await admin
     .from("workers")
     .select("id, name")
     .eq("id", workerId)
