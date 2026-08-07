@@ -60,13 +60,31 @@ select is(
     where table_schema = 'public' and table_name = 'muster_teams' and column_name = 'kind'),
   '''crew''::muster_team_kind', 'it defaults to crew — every existing row and caller is a crew team');
 
--- The 44 live teams predate this column; the default is what backfilled them, and
--- an office team appearing among them would mean the migration mislabelled real
--- crew work. Scoped to rows created BEFORE this test's fixtures.
+-- The 44 teams that predate this column were backfilled by the default, and an
+-- office team appearing among them would mean the migration mislabelled real crew
+-- work.
+--
+-- ⚠️ REWRITTEN 2026-08-07 (spec 400 U6b). This asserted a GLOBAL COUNT of office
+-- teams outside the fixture project, i.e. "no office team exists in production" —
+-- which is a claim the APP is built to falsify. The first real office team was
+-- created `2026-08-07 06:49:45Z` (TFM นายาว, 0 attendees), and the assertion
+-- immediately red on the MERGE ref only, ejecting every lane from the queue while
+-- every PR-ref run stayed green. That is the documented trap twice over: never
+-- assert a global count over a table the app writes to, and a pgTAP red on
+-- app-written DATA does not look like a red — it looks like a queue ejection.
+--
+-- Re-expressed as the PROPERTY the migration could actually have broken. Crew rows
+-- are CHECK-bound to carry a lead (`kind = 'office' or lead_worker_id is not null`,
+-- same migration), and the backfill only ever touched `kind` — so a crew team
+-- mislabelled as office would STILL carry its `lead_worker_id`, while a genuine
+-- office team opened through `open_muster_team` is leadless (pinned below). The
+-- fixture project keeps its exclusion because this file deliberately creates an
+-- office team WITH a lead to prove the two namespaces are disjoint.
 select is(
   (select count(*)::int from public.muster_teams
-    where kind = 'office' and project_id <> 'a1000000-0397-4444-4444-000000000001'),
-  0, 'no pre-existing team was backfilled as office');
+    where kind = 'office' and lead_worker_id is not null
+      and project_id <> 'a1000000-0397-4444-4444-000000000001'),
+  0, 'no pre-existing CREW team was mislabelled as office (it would still carry its lead)');
 
 -- ============================================================================
 -- B. One office team per project-day (the partial unique index)
