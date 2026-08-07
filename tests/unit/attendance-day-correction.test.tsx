@@ -23,7 +23,7 @@ import { describe, expect, it } from "vitest";
 import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
 import { MUSTER_CLOSE_ROLES, MUSTER_REOPEN_ROLES, type UserRole } from "@/lib/auth/role-home";
-import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { MUSTER_DAY_CLOSE_MEANING, USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { attendanceDayParam, dayCorrectionControl } from "@/lib/muster/day-correction";
 import { closeReturnTo } from "@/lib/muster/reopen-return";
 import type { GridDay } from "@/lib/muster/attendance-grid";
@@ -606,5 +606,31 @@ describe("spec 400 U6b — the unfinished-day mark on the panel", () => {
     expect(screen.getByText(/ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก/).textContent).not.toMatch(
       /เปิดวันอีกครั้ง/,
     );
+  });
+});
+
+// Operator, 2026-08-07: "ปิด เปิด วัน is not clear. provide instructions if you
+// want to use these words." The close control's disclosure list stated the
+// CONSEQUENCES of closing a day without ever stating what closing a day IS —
+// which reads as a non-sequitur to anyone who does not already know.
+describe("spec 400 — the day words explain themselves at the point of action", () => {
+  const props = {
+    todayIso: TODAY,
+    projectId: "p1",
+    canReopen: true,
+    canClose: true,
+    returnTo: "/team/attendance?start=2026-08-01&end=2026-08-06",
+  };
+
+  it("opens the close disclosure with what ปิดวัน means, from the shared home", () => {
+    render(<AttendanceDayPanel day={day()} {...props} />);
+    const form = screen.getByRole("form", { name: /^ปิดวัน/ });
+    const items = within(form).getAllByRole("listitem");
+    expect(items[0]?.textContent).toBe(MUSTER_DAY_CLOSE_MEANING);
+    // Above the control it describes, not under it.
+    const confirm = within(form).getByRole("checkbox");
+    expect(
+      items[0]!.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

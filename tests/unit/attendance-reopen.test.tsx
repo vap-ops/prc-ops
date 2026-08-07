@@ -24,7 +24,7 @@ import {
   SA_SURFACE_ROLES,
   type UserRole,
 } from "@/lib/auth/role-home";
-import { USER_ROLE_LABEL } from "@/lib/i18n/labels";
+import { MUSTER_DAY_REOPEN_MEANING, USER_ROLE_LABEL } from "@/lib/i18n/labels";
 import { groupDetailByDate, type AttendanceDetailRow } from "@/lib/muster/attendance-audit";
 import { reopenReturnTo } from "@/lib/muster/reopen-return";
 
@@ -150,7 +150,11 @@ describe("spec 397 U3 — the reopen form on the day header", () => {
     // The correction loop is reopen → fix → close again; a user who stops after
     // step 1 leaves the day underived, which is exactly the state the report
     // already flags as ยังไม่ได้ปิด.
-    expect(screen.getByText(/ปิดวันใหม่/)).toBeInTheDocument();
+    // ⚠️ Anchored on the shared meaning line rather than a bare /ปิดวันใหม่/:
+    // since 2026-08-07 that substring appears in BOTH the meaning line and the
+    // non-closer's SA instruction, so the loose matcher now finds two nodes and
+    // cannot say which surface carried the instruction.
+    expect(screen.getByText(MUSTER_DAY_REOPEN_MEANING)).toBeInTheDocument();
   });
 });
 
@@ -210,7 +214,14 @@ describe("spec 397 U3 — the loop instruction is role-aware", () => {
     // nothing on any page they can open does that (both undo surfaces are
     // today-locked and SA-gated; add-person is deferred to U4). It now names
     // what re-closing actually does: re-derive from the latest data.
-    expect(screen.getByText(/ปิดวันใหม่เมื่อพร้อม/)).toBeInTheDocument();
+    // ⚠️ 2026-08-07: the closer's own version of this line was REMOVED, not
+    // lost. The meaning line the form now opens with already says
+    // "แก้เสร็จต้องปิดวันใหม่ ค่าแรงจึงจะคิดใหม่ทั้งวัน" — printing a second
+    // sentence saying the same thing is what turned this card into a wall of
+    // text. What a closer must still be told is pinned here; what only a
+    // NON-closer needs (that the step belongs to the SA) is the test below.
+    expect(screen.getByText(MUSTER_DAY_REOPEN_MEANING)).toBeInTheDocument();
+    expect(screen.queryByText(/แจ้ง SA ให้ปิดวันใหม่/)).toBeNull();
     expect(screen.queryByText(/แก้ไขแล้ว/)).toBeNull();
   });
 
@@ -225,7 +236,7 @@ describe("spec 397 U3 — the loop instruction is role-aware", () => {
       />,
     );
     expect(screen.getByText(/แจ้ง SA ให้ปิดวันใหม่/)).toBeInTheDocument();
-    expect(screen.queryByText(/ปิดวันใหม่เมื่อพร้อม/)).not.toBeInTheDocument();
+    expect(screen.getByText(MUSTER_DAY_REOPEN_MEANING)).toBeInTheDocument();
   });
 
   it("procurement — the role this spec is about — IS a closer since spec 400 U3a", () => {

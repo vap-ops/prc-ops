@@ -39,6 +39,7 @@ import { MUSTER_CLOSE_ROLES, MUSTER_CORRECT_ROLES } from "@/lib/auth/role-home";
 import { attendanceBackLabel, safeBackHref } from "@/lib/nav/back-href";
 import {
   ATTENDANCE_FIX_LABEL,
+  MUSTER_DAY_CLOSED_LABEL,
   USER_ROLE_LABEL,
   formatThaiDate,
   formatThaiDateTime,
@@ -331,7 +332,12 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
         {formatThaiDate(date)}
         {projectName !== null ? ` · ${projectName}` : ""}
       </p>
-      {dayClosed !== null && (
+      {/* The closure state, EXCEPT when the locked group below is rendering —
+          `dayClosureLabel` returns exactly "ปิดวันแล้ว" for a closed day, which
+          is that card's own heading, so both printed the same two words one
+          above the other. The open states (ยังไม่ปิดวัน / ยังอยู่ระหว่างวัน)
+          have no card, so they still need this line. */}
+      {dayClosed === false && (
         <p className="text-ink-secondary mt-1 text-xs">
           {dayClosureLabel({ workDate: date, dayClosed }, todayIso)}
         </p>
@@ -345,6 +351,44 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
             </p>
           ) : (
             <ErrorNotice>{reopenOutcome.message}</ErrorNotice>
+          )}
+        </div>
+      )}
+
+      {/* The LOCK, before the things it locks. It used to render at the BOTTOM
+          of the page, under the correction forms whose availability it decides
+          — so a corrector met "เพิ่มคนที่ตกหล่น" withheld with no visible cause
+          until they scrolled past it. State that governs a section belongs
+          above that section.
+          The gloss under the heading is the operator's 2026-08-07 instruction
+          ("ปิด เปิด วัน is not clear. provide instructions if you want to use
+          these words") — the vocabulary stays, and every surface that uses it
+          now owes the reader a plain sentence, read from ONE home. */}
+      {dayClosed === true && (
+        <div className={`${CARD} mt-4 flex flex-col gap-3`}>
+          <h3 className="text-ink text-sm font-semibold">{MUSTER_DAY_CLOSED_LABEL}</h3>
+          {/* What is still possible, in the reader's terms. What the words ปิดวัน /
+              เปิดวัน MEAN is stated by the reopen form itself, so the day panel —
+              the other surface that offers this control — carries it too, and the
+              two can never drift. */}
+          {/* ONE sentence: what is still possible, then the blast radius. The
+              blast radius belongs to THIS page specifically — every other
+              control here acts on a single worker-day, so the one control that
+              acts on everyone has to say so where the reader is thinking about
+              one person. Two separate lines said it twice. */}
+          <p className="text-ink-secondary text-xs">
+            ตอนนี้แก้เวลาได้ตามปกติ — เพิ่มคนที่ตกหล่นหรือลบการเช็คชื่อต้องเปิดวันก่อน ·
+            การเปิดและปิดมีผลทั้งวัน คิดค่าแรงใหม่ทุกคน ไม่ใช่แค่คนนี้
+          </p>
+          {projectId !== null ? (
+            <MusterReopenForm
+              projectId={projectId}
+              workDate={date}
+              returnTo={returnTo}
+              canClose={canClose}
+            />
+          ) : (
+            <p className="text-ink-secondary text-xs">เลือกโครงการก่อน จึงจะเปิดวันดังกล่าวได้</p>
           )}
         </div>
       )}
@@ -379,26 +423,6 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
               outLocked={outTimeLocked({ outAt: s.outAt, outAuto: s.outAuto })}
             />
           ))}
-        </div>
-      )}
-
-      {dayClosed === true && (
-        <div className={`${CARD} mt-4 flex flex-col gap-3`}>
-          <h3 className="text-ink text-sm font-semibold">ปิดวันแล้ว</h3>
-          <p className="text-ink-secondary text-xs">
-            เพิ่มคนที่ตกหล่นหรือลบการเช็คชื่อของวันนี้ไม่ได้จนกว่าจะเปิดวันอีกครั้ง —
-            เปิดแล้วมีผลทั้งวัน ปิดใหม่คิดค่าแรงทุกคน ไม่ใช่แค่คนนี้
-          </p>
-          {projectId !== null ? (
-            <MusterReopenForm
-              projectId={projectId}
-              workDate={date}
-              returnTo={returnTo}
-              canClose={canClose}
-            />
-          ) : (
-            <p className="text-ink-secondary text-xs">เลือกโครงการก่อน จึงจะเปิดวันดังกล่าวได้</p>
-          )}
         </div>
       )}
 

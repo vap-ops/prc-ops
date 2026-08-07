@@ -7,7 +7,7 @@
 // depends on, and the role-aware loop instruction. Presentational only.
 
 import { reopenMusterDayFromForm } from "@/app/team/attendance/actions";
-import { formatThaiDate } from "@/lib/i18n/labels";
+import { MUSTER_DAY_REOPEN_MEANING, formatThaiDate } from "@/lib/i18n/labels";
 import { BUTTON_SECONDARY, FIELD_INPUT } from "@/lib/ui/classes";
 
 export function MusterReopenForm({
@@ -44,6 +44,13 @@ export function MusterReopenForm({
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="workDate" value={workDate} />
       <input type="hidden" name="returnTo" value={returnTo} />
+      {/* What the WORD means, before the control that performs it. Operator,
+          2026-08-07: "ปิด เปิด วัน is not clear. provide instructions if you
+          want to use these words." It lives here rather than on either page so
+          both surfaces offering the action explain it identically, and it sits
+          ABOVE the control — a disclosure met after the button is met after the
+          tap. `basis-full` is safe: the row wraps. */}
+      <p className="text-ink-secondary basis-full text-[11px]">{MUSTER_DAY_REOPEN_MEANING}</p>
       <label className="text-ink-secondary flex min-w-0 flex-1 flex-col text-[11px]">
         เหตุผลที่เปิดอีกครั้ง
         <input
@@ -66,11 +73,16 @@ export function MusterReopenForm({
           past-day correction would record the wrong time). What re-closing DOES
           do is re-derive the day from the latest rates and WP bindings — so that
           is what it now says. */}
-      <p className="text-ink-secondary basis-full text-[11px]">
-        {canClose
-          ? "ปิดวันใหม่เมื่อพร้อม ระบบจะคิดค่าแรงของวันนั้นใหม่จากข้อมูลล่าสุด"
-          : "แจ้ง SA ให้ปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
-      </p>
+      {/* Only the half the meaning line above CANNOT carry: WHO closes the day.
+          A reader who may close it themselves already read "แก้เสร็จต้องปิดวันใหม่
+          ค่าแรงจึงจะคิดใหม่ทั้งวัน" there, and saying it twice in one card is what
+          made this group a wall of text. A reader who may NOT close it needs the
+          extra fact that the step is someone else's. */}
+      {!canClose && (
+        <p className="text-ink-secondary basis-full text-[11px]">
+          แจ้ง SA ให้ปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่
+        </p>
+      )}
     </form>
   );
 }

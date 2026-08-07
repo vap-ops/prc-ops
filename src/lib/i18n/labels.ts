@@ -215,6 +215,24 @@ export const ATTENDANCE_SUMMARY_DAYS_LABEL = "วันที่บันทึ�
 // (muster-cockpit.tsx) and the /team วันนี้ hero (MusterTodayCard), so it is SSOT'd
 // here per the UI-term rule. The card's other strings are single-surface → local.
 export const MUSTER_DAY_CLOSED_LABEL = "ปิดวันแล้ว";
+/**
+ * What ปิดวัน / เปิดวัน actually MEAN, in the user's own words.
+ *
+ * Operator instruction 2026-08-07: _"ปิด เปิด วัน is not clear. provide
+ * instructions if you want to use these words."_ The vocabulary appears across
+ * 29 files (the cockpit, the day panel, the audit report, the fix screen,
+ * banners), so renaming it is a spec of its own — what the app owes the reader
+ * meanwhile is a plain sentence at the point of use. These two are the SSOT for
+ * that sentence, so the explanation cannot drift between the surface that
+ * CLOSES a day and the surface that REOPENS one.
+ *
+ * They say what happens, not what the button is called — the label already
+ * carries the name.
+ */
+export const MUSTER_DAY_CLOSE_MEANING =
+  "ปิดวัน = สรุปการเช็คชื่อของวันนั้น แล้วระบบคิดค่าแรงให้ทุกคนในวัน";
+export const MUSTER_DAY_REOPEN_MEANING =
+  "เปิดวันอีกครั้ง = ปลดล็อกวันที่ปิดไปแล้ว เพื่อเพิ่มคนหรือลบการเช็คชื่อ — แก้เสร็จต้องปิดวันใหม่ ค่าแรงจึงจะคิดใหม่ทั้งวัน";
 export const SUBWP_RESPONSIBLE_LABEL = "ผู้รับผิดชอบงานย่อย";
 // Spec 273 U5 — relative-day qualifiers for the date-navigable board stepper (and
 // the /sa "แก้ไขแผนวันนี้" deep-link). SSOT'd because both surfaces use them.
