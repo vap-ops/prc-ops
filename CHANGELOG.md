@@ -1,3 +1,9 @@
+# [0.360.0](https://github.com/vap-ops/prc-ops/compare/v0.359.0...v0.360.0) (2026-08-07)
+
+### Features
+
+- **equipment:** เพิ่มหลายเครื่อง — bulk add from a pasted table ([05f9b57](https://github.com/vap-ops/prc-ops/commit/05f9b57b91e6717daa288a094eabad614773af71)), closes [#1024](https://github.com/vap-ops/prc-ops/issues/1024)
+
 # [0.359.0](https://github.com/vap-ops/prc-ops/compare/v0.358.2...v0.359.0) (2026-08-07)
 
 ### Features
