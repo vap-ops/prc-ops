@@ -38,7 +38,7 @@ import {
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
 import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
-import { fixHref } from "@/lib/muster/day-fix";
+import { dayWorkList, fixHref } from "@/lib/muster/day-fix";
 import { loadDayAudit } from "@/lib/muster/day-audit";
 import { attendanceDayParam } from "@/lib/muster/day-correction";
 import { ADD_ERROR_COPY, REOPEN_ERROR_COPY } from "@/lib/muster/outcome-copy";
@@ -455,6 +455,25 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
         .map((r) => ({ workerId: r.workerId, name: r.workerName }))
     : [];
 
+  // Spec 400 U6b — the panel's anomaly work-list. Both inputs are already on
+  // this page: the day's sessions (which carry `stillIn`) and the add-candidates,
+  // which ARE the rostered workers with no session that day. No new read.
+  //
+  // ⚠️ `addCandidates` is computed only when `wantsAddForm`, i.e. for the
+  // correction audience — so the absentee half of the list would be silently
+  // EMPTY for accounting, who is exactly who the list is a fact for. The
+  // population is recomputed here without that gate.
+  const absenteesOnOpenDay =
+    openDay !== null
+      ? grid.rows
+          .filter((r) => !musteredOnOpenDay.has(r.workerId))
+          .map((r) => ({ workerId: r.workerId, name: r.workerName }))
+      : [];
+  const dayWork =
+    openDay !== null
+      ? dayWorkList({ sessions: openDaySessions, absentees: absenteesOnOpenDay })
+      : [];
+
   const addOutcome =
     added === "1"
       ? ({ ok: true } as const)
@@ -673,6 +692,8 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                     addTeams={addTeams}
                     addWorkers={addCandidates}
                     addOutcome={addOutcome}
+                    workList={dayWork}
+                    workItemHref={canCorrect ? cellFixHref : null}
                   />
                 )}
               </>

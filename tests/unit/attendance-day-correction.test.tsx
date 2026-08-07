@@ -414,3 +414,122 @@ describe("spec 400 U3b — where the close form returns to", () => {
     expect(closeReturnTo(undefined, "ok")).toBe("/team/attendance?closed=1");
   });
 });
+
+// ── Spec 400 U6b — the anomaly WORK-LIST, and the loop order ────────────────
+//
+// Writing failing test first.
+//
+// The panel's grain is the DAY while every dispute is a WORKER-DAY: it stated
+// the day's holes (headcount, the still-in names inside the close disclosure)
+// and offered no way to fix any ONE of them. This adds one row per person, each
+// a door to that worker-day — and moves ปิดวัน below the work it depends on.
+
+describe("spec 400 U6b — the day panel's work-list", () => {
+  const props = {
+    todayIso: TODAY,
+    projectId: "p1",
+    canReopen: true,
+    canClose: true,
+    returnTo: "/team/attendance?start=2026-08-01&end=2026-08-06",
+  };
+
+  const WORK = [
+    { workerId: "a1", workerName: "อนันต์", problem: "notScanned" as const },
+    { workerId: "s1", workerName: "สมชาย", problem: "openOut" as const },
+  ];
+
+  const workItemHref = (workerId: string, date: string) =>
+    `/team/attendance/fix?worker=${workerId}&date=${date}`;
+
+  function renderPanel(over: Record<string, unknown> = {}) {
+    return render(
+      <AttendanceDayPanel
+        day={day()}
+        {...props}
+        workList={WORK}
+        workItemHref={workItemHref}
+        {...over}
+      />,
+    );
+  }
+
+  it("names each person AND their specific problem", () => {
+    renderPanel();
+    const list = screen.getByRole("list", { name: /ต้องแก้ไข/ });
+    expect(within(list).getByText(/อนันต์/)).toBeInTheDocument();
+    expect(within(list).getByText(/ไม่มีการเช็คชื่อ/)).toBeInTheDocument();
+    expect(within(list).getByText(/สมชาย/)).toBeInTheDocument();
+    expect(within(list).getByText(/ยังไม่เช็คออก/)).toBeInTheDocument();
+  });
+
+  it("makes each row a link to THAT worker-day", () => {
+    renderPanel();
+    const list = screen.getByRole("list", { name: /ต้องแก้ไข/ });
+    const hrefs = within(list)
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual([
+      "/team/attendance/fix?worker=a1&date=2026-08-04",
+      "/team/attendance/fix?worker=s1&date=2026-08-04",
+    ]);
+  });
+
+  it("keeps the FACTS but drops the links for a role that cannot correct", () => {
+    // MUSTER_CORRECT_ROLES only — accounting reads this panel and owns the wage
+    // consequence of these very holes, so the list is a fact it must keep.
+    renderPanel({ workItemHref: null });
+    const list = screen.getByRole("list", { name: /ต้องแก้ไข/ });
+    expect(within(list).getByText(/อนันต์/)).toBeInTheDocument();
+    expect(within(list).getByText(/ไม่มีการเช็คชื่อ/)).toBeInTheDocument();
+    expect(within(list).queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("renders no work-list at all on a clean day", () => {
+    renderPanel({ workList: [] });
+    expect(screen.queryByRole("list", { name: /ต้องแก้ไข/ })).toBeNull();
+  });
+
+  it("puts ปิดวัน BELOW the work-list — fix first, then close", () => {
+    // The loop is fix-then-close, so the control that finalises the day must not
+    // sit above the work it depends on. ANCHORED matcher + a discriminator:
+    // `ปิดวัน` is a substring of `เปิดวันอีกครั้ง`.
+    renderPanel();
+    const list = screen.getByRole("list", { name: /ต้องแก้ไข/ });
+    const closeForm = screen.getByRole("form", { name: /^ปิดวัน/ });
+    expect(within(closeForm).queryByLabelText(/เหตุผล/)).toBeNull();
+    expect(list.compareDocumentPosition(closeForm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("puts ปิดวัน BELOW the add-person form too — adding is part of the fixing", () => {
+    renderPanel({
+      // canCorrect is what makes the add arm render at all; without it this case
+      // would have "passed" by finding no add form to compare against.
+      canCorrect: true,
+      addTeams: [{ teamId: "t1", leadName: "หัวหน้า", headcount: 3 }],
+      addWorkers: [{ workerId: "a1", name: "อนันต์" }],
+    });
+    const addForm = screen.getByRole("form", { name: /เพิ่มคน/ });
+    const closeForm = screen.getByRole("form", { name: /^ปิดวัน/ });
+    expect(
+      addForm.compareDocumentPosition(closeForm) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("uses DOM order alone — no flex order-* utility anywhere in the panel", () => {
+    // jsdom has no layout engine, so an `order-*` class would move ปิดวัน back
+    // above the work-list VISUALLY with every assertion above still green.
+    const { container } = renderPanel();
+    for (const el of Array.from(container.querySelectorAll("*"))) {
+      expect(el.className.toString()).not.toMatch(/\border-(?:first|last|none|\d+)\b/);
+    }
+  });
+
+  it("keeps the work-list ABOVE the trail, which is history rather than work", () => {
+    renderPanel({ trail: [] });
+    const list = screen.getByRole("list", { name: /ต้องแก้ไข/ });
+    const trailHeading = screen.getByText("การแก้ไขย้อนหลัง");
+    expect(
+      list.compareDocumentPosition(trailHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});

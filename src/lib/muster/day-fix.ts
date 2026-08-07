@@ -133,6 +133,61 @@ export function unfinishedDays(days: readonly GridDay[], todayIso: string): Grid
   return days.filter((d) => d.dayClosed === false && d.date < todayIso);
 }
 
+/** The two per-person problems a day's work-list can carry. Mutually exclusive
+ *  by construction: a worker with no session cannot also have an open one. */
+export type DayWorkProblem = "notScanned" | "openOut";
+
+export interface DayWorkItem {
+  workerId: string;
+  workerName: string;
+  problem: DayWorkProblem;
+}
+
+/**
+ * Spec 400 U6b — the ?day= panel's anomaly WORK-LIST: one row per person with
+ * the specific thing wrong, each row a door to that worker-day.
+ *
+ * The panel's grain is the DAY while every dispute is a WORKER-DAY, which is the
+ * premise of the whole U6 design. Its header already states the day's facts and
+ * its close form already NAMES the workers still checked in — but as a
+ * disclosure of what closing costs, not as a list of work with a way to do it.
+ *
+ * Grouped by the ACT each problem needs (add a person / record a check-out) so
+ * the reader batches one kind at a time, alphabetical within each group so the
+ * order is stable rather than an accident of the query. A worker with two open
+ * sessions (spec 351 allows regular AND ot) is ONE row of work, not two.
+ *
+ * A clean day returns `[]` and the panel renders no list at all — a work-list
+ * naming everybody is not a work-list.
+ */
+export function dayWorkList(input: {
+  sessions: readonly {
+    workerId: string;
+    workerName: string;
+    stillIn: boolean;
+    session: "regular" | "ot";
+  }[];
+  /** Rostered workers with no session that day — the page's own add-candidates. */
+  absentees: readonly { workerId: string; name: string }[];
+}): DayWorkItem[] {
+  const byName = (a: DayWorkItem, b: DayWorkItem) => a.workerName.localeCompare(b.workerName, "th");
+
+  const notScanned: DayWorkItem[] = input.absentees
+    .map((w) => ({ workerId: w.workerId, workerName: w.name, problem: "notScanned" as const }))
+    .sort(byName);
+
+  const openSeen = new Set<string>();
+  const openOut: DayWorkItem[] = [];
+  for (const s of input.sessions) {
+    if (!s.stillIn || openSeen.has(s.workerId)) continue;
+    openSeen.add(s.workerId);
+    openOut.push({ workerId: s.workerId, workerName: s.workerName, problem: "openOut" });
+  }
+  openOut.sort(byName);
+
+  return [...notScanned, ...openOut];
+}
+
 /**
  * The next calendar date, as `YYYY-MM-DD`.
  *

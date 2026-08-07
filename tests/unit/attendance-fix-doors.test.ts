@@ -11,7 +11,13 @@
 // suite), so each arm is driven directly.
 
 import { describe, expect, it } from "vitest";
-import { fixHref, gridCellFixable, parseFixParams, unfinishedDays } from "@/lib/muster/day-fix";
+import {
+  dayWorkList,
+  fixHref,
+  gridCellFixable,
+  parseFixParams,
+  unfinishedDays,
+} from "@/lib/muster/day-fix";
 import type { GridDay } from "@/lib/muster/attendance-grid";
 
 const WORKER = "aaaaaaaa-1111-1111-1111-111111111111";
@@ -241,5 +247,69 @@ describe("unfinishedDays", () => {
       "2026-08-05",
     ].map((date) => day({ date, dayClosed: true }));
     expect(unfinishedDays(live, TODAY)).toEqual([]);
+  });
+});
+
+describe("dayWorkList", () => {
+  const session = (over: Partial<Parameters<typeof dayWorkList>[0]["sessions"][number]> = {}) => ({
+    workerId: "s1",
+    workerName: "สมชาย",
+    stillIn: false,
+    session: "regular" as const,
+    ...over,
+  });
+
+  it("names a rostered worker with no session at all", () => {
+    expect(dayWorkList({ sessions: [], absentees: [{ workerId: "a1", name: "อนันต์" }] })).toEqual([
+      { workerId: "a1", workerName: "อนันต์", problem: "notScanned" },
+    ]);
+  });
+
+  it("names a worker whose session was never checked out", () => {
+    expect(dayWorkList({ sessions: [session({ stillIn: true })], absentees: [] })).toEqual([
+      { workerId: "s1", workerName: "สมชาย", problem: "openOut" },
+    ]);
+  });
+
+  it("ignores a clean session — a work-list of everybody is not a work-list", () => {
+    expect(dayWorkList({ sessions: [session()], absentees: [] })).toEqual([]);
+  });
+
+  it("lists a worker with TWO open sessions ONCE", () => {
+    // Spec 351 lets a date carry a regular AND an OT row, and both can be open.
+    // One person is one row of work, not two.
+    expect(
+      dayWorkList({
+        sessions: [
+          session({ stillIn: true, session: "regular" }),
+          session({ stillIn: true, session: "ot" }),
+        ],
+        absentees: [],
+      }),
+    ).toEqual([{ workerId: "s1", workerName: "สมชาย", problem: "openOut" }]);
+  });
+
+  it("puts the un-scanned before the un-checked-out, each alphabetical", () => {
+    // Grouped by the ACT each needs (add a person / record a check-out) so the
+    // reader batches one kind at a time, alphabetical inside each group so the
+    // order is stable rather than an accident of the query.
+    const out = dayWorkList({
+      sessions: [
+        session({ workerId: "s2", workerName: "ขจร", stillIn: true }),
+        session({ workerId: "s1", workerName: "กมล", stillIn: true }),
+      ],
+      absentees: [
+        { workerId: "a2", name: "ธนา" },
+        { workerId: "a1", name: "ชาติ" },
+      ],
+    });
+    expect(out.map((r) => r.workerName)).toEqual(["ชาติ", "ธนา", "กมล", "ขจร"]);
+    expect(out.map((r) => r.problem)).toEqual(["notScanned", "notScanned", "openOut", "openOut"]);
+  });
+
+  it("is empty when the day is clean, so the panel renders no work-list at all", () => {
+    expect(
+      dayWorkList({ sessions: [session(), session({ workerId: "s2" })], absentees: [] }),
+    ).toEqual([]);
   });
 });
