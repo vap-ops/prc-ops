@@ -533,3 +533,55 @@ describe("spec 400 U6b — the day panel's work-list", () => {
     ).toBeTruthy();
   });
 });
+
+describe("spec 400 U6b — the unfinished-day mark on the panel", () => {
+  const props = {
+    todayIso: TODAY,
+    projectId: "p1",
+    canReopen: true,
+    canClose: true,
+    returnTo: "/team/attendance?start=2026-08-01&end=2026-08-06",
+  };
+
+  it("states the CONSEQUENCE on a past day nobody closed, which the header does not", () => {
+    // The header already says ยังไม่ปิดวัน in neutral ink. What it does not say is
+    // why that matters — the wages of the day are unbooked until someone closes
+    // it. That sentence is the whole point of the amber, not a second copy of the
+    // closure label.
+    render(<AttendanceDayPanel day={day({ dayClosed: false })} {...props} />);
+    const mark = screen.getByRole("status");
+    expect(mark).toHaveTextContent(/ค่าแรง.*ยังไม่ถูกบันทึก/);
+  });
+
+  it("shows no mark on a CLOSED day", () => {
+    render(<AttendanceDayPanel day={day({ dayClosed: true })} {...props} />);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows no mark on TODAY, whose open day is normal", () => {
+    render(<AttendanceDayPanel day={day({ date: TODAY, dayClosed: false })} {...props} />);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows no mark on a day with no attendance at all", () => {
+    render(<AttendanceDayPanel day={day({ dayClosed: null, headcount: 0 })} {...props} />);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the mark to a reader who cannot close — it is a fact about the day", () => {
+    render(
+      <AttendanceDayPanel
+        day={day({ dayClosed: false })}
+        {...props}
+        canReopen={false}
+        canClose={false}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(/ค่าแรง/);
+  });
+
+  it("claims nothing about a REOPEN — the panel cannot know one happened", () => {
+    render(<AttendanceDayPanel day={day({ dayClosed: false })} {...props} />);
+    expect(screen.getByRole("status").textContent).not.toMatch(/เปิดวันอีกครั้ง/);
+  });
+});

@@ -38,7 +38,7 @@ import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import type { GridDay } from "@/lib/muster/attendance-grid";
 import { describeAuditEvent, type DayAuditRow } from "@/lib/muster/day-audit";
 import { dayCorrectionControl, type DayCorrectionControl } from "@/lib/muster/day-correction";
-import type { DayWorkItem } from "@/lib/muster/day-fix";
+import { unfinishedDays, type DayWorkItem } from "@/lib/muster/day-fix";
 import { BUTTON_SECONDARY, CARD } from "@/lib/ui/classes";
 
 /** Spec 400 U6b — what each work-list row says is wrong. Keyed on the problem
@@ -193,6 +193,23 @@ export function AttendanceDayPanel({
         {day.headcount} คน
         {day.holidayName !== null ? ` · ${day.holidayName}` : day.nonWorking ? " · วันหยุด" : ""}
       </p>
+
+      {/* Spec 400 U6b — the unfinished-day mark, keyed on the SAME predicate the
+          grid's banner uses so the two surfaces can never disagree about which
+          days are unfinished.
+          It states the CONSEQUENCE, not the closure label: the header above
+          already says ยังไม่ปิดวัน in neutral ink, and repeating that in amber
+          would be decoration. What the header cannot say is why it matters.
+          Claims nothing about a reopen — this panel has no reopen history either
+          (the trail below does, and it speaks for itself). */}
+      {unfinishedDays([day], todayIso).length > 0 && (
+        <p
+          role="status"
+          className="border-attn bg-attn-soft text-ink rounded-card mt-2 border px-3 py-2 text-xs"
+        >
+          ค่าแรงของวันดังกล่าวยังไม่ถูกบันทึก จนกว่าจะปิดวัน
+        </p>
+      )}
 
       {outcome !== null &&
         (outcome.ok ? (
