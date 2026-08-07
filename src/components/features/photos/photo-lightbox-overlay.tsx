@@ -256,10 +256,12 @@ export function PhotoLightboxOverlay({
   const canSave = !busy && (draftStrokes.length > 0 || draftComment.trim().length > 0);
 
   // Keyboard occlusion (only the compose comment field summons it). The
-  // overlay is `fixed inset-0` and centers its column — when the keyboard
-  // shrinks the visual viewport, the comment editor (below the image) sits
-  // behind it. With an inset we pad the overlay bottom and let it scroll from
-  // the top so the focused field can be scrolled clear of the keyboard.
+  // overlay is `fixed inset-0`; when the keyboard shrinks the visual viewport,
+  // the comment editor (below the image) sits behind it. The inset is added as
+  // bottom PADDING so the field can be scrolled clear of the keyboard. The
+  // scrolling itself is no longer conditional on the inset — the overlay always
+  // scrolls (see the className below), because a tall photo overruns the
+  // viewport with the keyboard down too.
   const { inset } = useKeyboardInset(composing);
 
   // Center the comment field above the keyboard once it appears (rAF so the
@@ -290,9 +292,17 @@ export function PhotoLightboxOverlay({
         step(dx < 0 ? 1 : -1);
       }}
       style={inset > 0 ? { paddingBottom: inset } : undefined}
-      className={`fixed inset-0 z-50 flex touch-pan-y flex-col items-center gap-3 bg-black/85 p-4 ${
-        inset > 0 ? "justify-start overflow-y-auto" : "justify-center"
-      }`}
+      // ALWAYS scrollable, and centred with AUTO MARGINS rather than
+      // `justify-center` — the PageShell `card` trap (page-shell.tsx), which
+      // this overlay used to reproduce whenever the keyboard was DOWN. A
+      // portrait photo (`maxHeight: 60vh` = 487px at 812) plus the attribution
+      // line and a populated comment panel (`max-h-[32vh]` = 260px) overruns an
+      // 812px viewport, and `justify-center` centres that overflow by pushing
+      // the top of the image ABOVE the box, where no gesture can reach it —
+      // there was no scroller at all in that state. Auto margins centre
+      // identically while free space is positive and COLLAPSE to 0 when it is
+      // not, so a tall photo simply scrolls.
+      className="fixed inset-0 z-50 flex touch-pan-y flex-col items-center justify-start gap-3 overflow-y-auto bg-black/85 p-4 [&>*:first-child]:mt-auto [&>*:last-child]:mb-auto"
     >
       <span
         className="relative inline-flex"

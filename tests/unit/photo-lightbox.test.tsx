@@ -58,6 +58,29 @@ describe("lightbox code-split (audit rank 6)", () => {
   });
 });
 
+// Writing failing test first (2026-08-07). The overlay used to gain
+// `overflow-y-auto` ONLY while the keyboard was up (`inset > 0`), and to lay
+// its children out with `justify-center` otherwise — the keyboard-DOWN case is
+// the ordinary one. With a portrait photo (`maxHeight: 60vh` = 487px at 812)
+// plus the attribution line and a populated comment panel (`max-h-[32vh]` =
+// 260px) the children total ~823px against an 812px viewport, and
+// `justify-center` centres that overflow by pushing the top of the image ABOVE
+// the box — where, with no scroller, no gesture can reach it. Exactly the
+// PageShell `card` trap (page-shell.tsx), one component over.
+describe("lightbox overflow (the #996 class, keyboard DOWN)", () => {
+  it("can always scroll, and never centres with justify-center", async () => {
+    render(<ZoomablePhoto src={SRC} />);
+    const dialog = await openLightbox();
+    // jsdom reports no keyboard inset, i.e. the ordinary keyboard-down state.
+    expect(dialog.className).toContain("overflow-y-auto");
+    expect(dialog.className).not.toContain("justify-center");
+    // Free space still centres the group, via auto margins that COLLAPSE when
+    // the content overflows (unlike justify-center, which goes negative).
+    expect(dialog.className).toContain("[&>*:first-child]:mt-auto");
+    expect(dialog.className).toContain("[&>*:last-child]:mb-auto");
+  });
+});
+
 describe("ZoomablePhoto", () => {
   it("renders a thumbnail inside a labelled trigger button, dialog closed", async () => {
     render(<ZoomablePhoto src={SRC} />);
