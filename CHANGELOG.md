@@ -1,3 +1,9 @@
+# [0.356.0](https://github.com/vap-ops/prc-ops/compare/v0.355.0...v0.356.0) (2026-08-07)
+
+### Features
+
+- **notifications:** spec 402 U4 - remove the deep links ([#1019](https://github.com/vap-ops/prc-ops/issues/1019)) ([2222a93](https://github.com/vap-ops/prc-ops/commit/2222a9343eb278a7429b13eb502c5d16e5bf8fad))
+
 # [0.355.0](https://github.com/vap-ops/prc-ops/compare/v0.354.0...v0.355.0) (2026-08-07)
 
 ### Bug Fixes
