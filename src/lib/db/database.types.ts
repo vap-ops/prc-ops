@@ -11000,6 +11000,10 @@ export type Database = {
         Args: { p_date: string; p_project: string }
         Returns: undefined
       }
+      derive_muster_labor_internal: {
+        Args: { p_date: string; p_project: string }
+        Returns: undefined
+      }
       discard_feedback_draft: {
         Args: { p_draft_id: string }
         Returns: undefined
@@ -11339,6 +11343,16 @@ export type Database = {
           source_table: string
         }[]
       }
+      list_muster_teams_for_day: {
+        Args: { p_date: string; p_project: string }
+        Returns: {
+          headcount: number
+          kind: Database["public"]["Enums"]["muster_team_kind"]
+          lead_name: string
+          lead_worker_id: string
+          team_id: string
+        }[]
+      }
       log_labor_day: {
         Args: {
           p_date: string
@@ -11384,6 +11398,16 @@ export type Database = {
       }
       move_worker_between_crews: {
         Args: { p_from: string; p_to: string; p_worker: string }
+        Returns: string
+      }
+      muster_correct_session: {
+        Args: {
+          p_in_at?: string
+          p_out_at?: string
+          p_session: Database["public"]["Enums"]["muster_session"]
+          p_team: string
+          p_worker: string
+        }
         Returns: string
       }
       muster_scan_in: {

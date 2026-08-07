@@ -24,9 +24,15 @@
 // one-tap loss those two surfaces exist to prevent.
 
 import { closeMusterDayFromForm } from "@/app/team/attendance/actions";
+import {
+  AttendanceAddPersonForm,
+  type AddPersonTeam,
+  type AddPersonWorker,
+} from "@/components/features/muster/attendance-add-person-form";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
 import { ErrorNotice } from "@/components/features/common/notices";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import { addPersonControl, type AddPersonControl } from "@/lib/muster/add-person";
 import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import type { GridDay } from "@/lib/muster/attendance-grid";
 import { dayCorrectionControl, type DayCorrectionControl } from "@/lib/muster/day-correction";
@@ -53,15 +59,32 @@ const NO_CONTROL_COPY: Record<
   notPermitted: null,
 };
 
+/** Spec 400 U3c-b — the add arm's own copy. `notPermitted` is silent for the same
+ *  reason the close arm's is: withholding a control must not turn into telling a
+ *  reader off. `closed` names the step the reader can actually take, and may only
+ *  because MUSTER_CORRECT_ROLES ⊆ MUSTER_REOPEN_ROLES — pinned, not assumed. */
+const NO_ADD_COPY: Record<Extract<AddPersonControl, { control: "none" }>["reason"], string | null> =
+  {
+    future: null,
+    notPermitted: null,
+    noProject: null,
+    closed: "ปิดวันแล้ว — ต้องเปิดวันดังกล่าวอีกครั้งก่อนจึงจะเพิ่มคนที่ตกหล่นได้",
+    noTeams: "ยังไม่มีทีมของวันดังกล่าว — เพิ่มคนที่ตกหล่นไม่ได้",
+  };
+
 export function AttendanceDayPanel({
   day,
   todayIso,
   projectId,
   canReopen,
   canClose,
+  canCorrect = false,
   returnTo,
   stillIn = { regular: [], ot: [] },
   outcome = null,
+  addTeams = [],
+  addWorkers = [],
+  addOutcome = null,
 }: {
   day: GridDay;
   todayIso: string;
@@ -86,6 +109,15 @@ export function AttendanceDayPanel({
    * reader lands — a refusal would look like nothing happened.
    */
   outcome?: { ok: true } | { ok: false; message: string } | null;
+  /** MUSTER_CORRECT_ROLES.includes(role) — the audience of the U4 correction
+   *  RPCs, which is NARROWER than canClose: it has no site_admin. */
+  canCorrect?: boolean;
+  /** Rows from `list_muster_teams_for_day` for this project-day. */
+  addTeams?: readonly AddPersonTeam[];
+  /** The roster minus whoever already has a session that day. */
+  addWorkers?: readonly AddPersonWorker[];
+  /** The add form's outcome, rendered here for the same reason the close one is. */
+  addOutcome?: { ok: true } | { ok: false; message: string } | null;
 }) {
   const state = dayCorrectionControl({
     date: day.date,
@@ -94,6 +126,14 @@ export function AttendanceDayPanel({
     projectId,
     canReopen,
     canClose,
+  });
+  const addState = addPersonControl({
+    date: day.date,
+    todayIso,
+    dayClosed: day.dayClosed,
+    projectId,
+    canCorrect,
+    teamCount: addTeams.length,
   });
 
   return (
@@ -178,6 +218,36 @@ export function AttendanceDayPanel({
 
       {state.control === "none" && NO_CONTROL_COPY[state.reason] !== null && (
         <p className="text-ink-secondary mt-2 text-xs">{NO_CONTROL_COPY[state.reason]}</p>
+      )}
+
+      {/* Spec 400 U3c-b — the add arm. It is INDEPENDENT of the close/reopen
+          state machine above rather than a fourth branch of it: closing is about
+          finalising the day and this is about what the day RECORDS, so a day can
+          legitimately offer both (open, past, correctable) or neither. Folding
+          them into one control would have made "add" unreachable on exactly the
+          days it is for — an open past day already offers ปิดวัน. */}
+      {addOutcome !== null &&
+        (addOutcome.ok ? (
+          <p className="border-edge bg-sunk text-ink rounded-card mt-2 border px-3 py-2 text-xs">
+            เพิ่มคนที่ตกหล่นแล้ว — ต้องปิดวันอีกครั้งเพื่อคิดค่าแรง
+          </p>
+        ) : (
+          <div className="mt-2">
+            <ErrorNotice>{addOutcome.message}</ErrorNotice>
+          </div>
+        ))}
+
+      {addState.control === "add" && (
+        <AttendanceAddPersonForm
+          workDate={day.date}
+          returnTo={returnTo}
+          teams={addTeams}
+          workers={addWorkers}
+        />
+      )}
+
+      {addState.control === "none" && NO_ADD_COPY[addState.reason] !== null && (
+        <p className="text-ink-secondary mt-2 text-xs">{NO_ADD_COPY[addState.reason]}</p>
       )}
     </section>
   );

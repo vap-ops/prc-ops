@@ -330,3 +330,68 @@ describe("/team/attendance page — spec 400 U3b wiring", () => {
     expect(block).toContain('r.stillIn && r.session === "ot"');
   });
 });
+
+// Writing failing test first.
+//
+// Spec 400 U3c-b — the add-person wiring. The component test renders the FORM;
+// only a page-level test can see which client fetches the teams, whether the
+// worker list actually excludes the people already mustered, and whether the
+// outcome copy is owned here rather than carried in the URL. That gap is exactly
+// what shipped two dead banners in spec 397 U3.
+describe("/team/attendance page — spec 400 U3c-b wiring", () => {
+  it("keys the add control on muster_correct_session's OWN allowlist", () => {
+    // NOT MUSTER_CLOSE_ROLES: that set includes site_admin, whom the correction
+    // RPCs deliberately exclude — reusing it would put the form in front of a
+    // role whose own server refuses it.
+    expect(code).toContain("const canCorrect = MUSTER_CORRECT_ROLES.includes(ctx.role);");
+    expect(occurrences("MUSTER_CORRECT_ROLES")).toBe(2);
+  });
+
+  it("reads the day's teams through the DEFINER RPC, never off the table", () => {
+    // muster_teams RLS is can_see_project, which is `else false` for
+    // `procurement` — a PostgREST read would return an empty picker for 4 of the
+    // 5 people this form exists for, with no error to notice.
+    expect(code).toContain("list_muster_teams_for_day");
+    expect(code).not.toContain('from("muster_teams")');
+  });
+
+  it("fetches the teams ONLY when the form could actually render", () => {
+    // A day panel is open on most views; an unconditional RPC call would add a
+    // round trip to every render for the roles that may not correct at all.
+    const block = code.slice(code.indexOf("list_muster_teams_for_day") - 400);
+    expect(block).toContain("canCorrect");
+  });
+
+  it("offers only workers who are NOT already mustered that day", () => {
+    // The RPC refuses a duplicate, so an unfiltered list is an offer-then-refuse:
+    // the commonest correction is one person, and the list is 41 names long.
+    expect(code).toContain("addCandidates");
+    const block = code.slice(
+      code.indexOf("const musteredOnOpenDay"),
+      code.indexOf("const addOutcome"),
+    );
+    // The exclusion set comes from the day's OWN sessions, and the population it
+    // is subtracted from is the grid's rows — which U2 already UNIONs the roster
+    // into, so a worker the muster has never recorded is exactly who is offered.
+    expect(block).toContain("openDaySessions");
+    expect(block).toContain("grid.rows");
+    expect(block).toContain("!musteredOnOpenDay.has(r.workerId)");
+  });
+
+  it("owns the add outcome copy here and reads the CODE from the query", () => {
+    expect(code).toContain("ADD_ERROR_COPY");
+    expect(code).toContain("addError");
+    // Same honest-copy rule the close map follows: no arm may say ลองใหม่, because
+    // none of them is retryable without the reader changing something first.
+    const map = code.slice(code.indexOf("const ADD_ERROR_COPY"), code.indexOf("interface"));
+    expect(map).not.toContain("ลองใหม่");
+  });
+
+  it("passes the panel everything the add arm needs", () => {
+    const panel = code.slice(code.indexOf("<AttendanceDayPanel"), code.indexOf("</>"));
+    expect(panel).toContain("canCorrect={canCorrect}");
+    expect(panel).toContain("addTeams={addTeams}");
+    expect(panel).toContain("addWorkers={addCandidates}");
+    expect(panel).toContain("addOutcome={addOutcome}");
+  });
+});
