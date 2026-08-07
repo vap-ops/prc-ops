@@ -29,3 +29,38 @@ describe("wp-schedule-panel dependency picker", () => {
     expect(tag).toContain("min-w-0");
   });
 });
+
+// Feedback 9b0d24b0 ("Date picker is in weird shape … it appears shrinking"):
+// the เริ่ม/สิ้นสุด <input type="date"> on the จัดการ tab collapsed to tiny
+// near-zero-width pills on iOS. Same root cause as the picker overflow above —
+// the panel's LOCAL `FIELD` constant lacks the `w-full min-w-0` that the shared
+// FIELD_INPUT/FIELD_SELECT carry, so an empty WebKit date input (whose intrinsic
+// width is content-based, not viewport-based even with globals.css's
+// appearance:none reset) took its min-content size inside a width-less flex-col
+// label. The 2026-06-14 fix patched only the <select>; the date inputs still
+// rode bare FIELD. Fix = the whole class: put the width constraints on FIELD,
+// and stack the field row on mobile so each date input gets full width (the
+// /team/attendance date-range precedent).
+describe("wp-schedule-panel planned-window date inputs", () => {
+  it("the local FIELD constant carries the width constraints (w-full, min-w-0)", () => {
+    const m = src.match(/const FIELD =\s*"([^"]*)"/);
+    expect(m, "FIELD constant not found").not.toBeNull();
+    // Both date inputs render className={FIELD}, so the width lives here or nowhere.
+    expect(m![1], "FIELD must set w-full so an empty iOS date input fills its label").toContain(
+      "w-full",
+    );
+    expect(m![1], "FIELD must set min-w-0 so it can shrink in a flex row").toContain("min-w-0");
+  });
+
+  it("the planned-window row stacks on mobile so the date inputs get full width", () => {
+    const i = src.indexOf("กำหนดการ (แผน)");
+    expect(i, "planned-window heading not found").toBeGreaterThan(-1);
+    // The field row is the sibling <div> right after the heading <p>; its
+    // className is the next flex-* class attribute in source order.
+    const row = src.slice(i).match(/className="(flex[^"]*)"/);
+    expect(row, "planned-window field row not found").not.toBeNull();
+    // Full-width stacked on phones, wrapping row only from sm: up.
+    expect(row![1], "row must be flex-col on mobile").toContain("flex-col");
+    expect(row![1], "row must become a row from sm: up").toContain("sm:flex-row");
+  });
+});
