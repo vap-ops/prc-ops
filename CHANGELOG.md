@@ -1,3 +1,9 @@
+## [0.351.2](https://github.com/vap-ops/prc-ops/compare/v0.351.1...v0.351.2) (2026-08-07)
+
+### Bug Fixes
+
+- **ui:** let a vertical touch on a table scroll the page ([#1010](https://github.com/vap-ops/prc-ops/issues/1010)) ([75158d2](https://github.com/vap-ops/prc-ops/commit/75158d20da4885881ecae9fb051a1bfa593703ef))
+
 ## [0.351.1](https://github.com/vap-ops/prc-ops/compare/v0.351.0...v0.351.1) (2026-08-07)
 
 ### Bug Fixes
