@@ -7,7 +7,7 @@ import {
 describe("composeNotification", () => {
   // --- Spec 402 U2: the work-package family on the six-slot skeleton --------
 
-  it("composes wp_pending_approval with the project and the review-queue link", () => {
+  it("composes wp_pending_approval with the project and the submitter", () => {
     expect(
       composeNotification(
         "wp_pending_approval",
@@ -67,8 +67,9 @@ describe("composeNotification", () => {
     );
   });
 
-  // The old copy ended "— เปิดแอปดูข้อบกพร่อง", a stand-in for the link this unit
-  // adds. Now that the link is real, the instruction is redundant and gone.
+  // The old copy ended "— เปิดแอปดูข้อบกพร่อง". U2 retired it and U4 kept it
+  // retired: the round and the WP name already say what this is, and a generic
+  // "go open the app" adds nothing.
   it("composes wp_reopened with the round, and no longer tells the reader to open the app", () => {
     const message = composeNotification(
       "wp_reopened",
@@ -95,7 +96,7 @@ describe("composeNotification", () => {
     );
   });
 
-  it("composes wp_evidence_resubmitted with the resubmitter and the review link", () => {
+  it("composes wp_evidence_resubmitted naming the resubmitter", () => {
     expect(
       composeNotification(
         "wp_evidence_resubmitted",
@@ -120,7 +121,7 @@ describe("composeNotification", () => {
   // line built from the PR number and a status word — pr_progress in particular
   // discarded the item_description its payload has always carried.
 
-  it("composes pr_created on the skeleton with project, requester and deep link", () => {
+  it("composes pr_created on the skeleton with project and requester", () => {
     expect(
       composeNotification(
         "pr_created",
@@ -278,7 +279,7 @@ describe("composeNotification", () => {
 
   // --- Spec 402 U3: feedback + the three dormant events -------------------
 
-  it("composes feedback_submitted with the type icon, title, reporter name and link", () => {
+  it("composes feedback_submitted with the type icon, title and reporter name", () => {
     expect(
       composeNotification(
         "feedback_submitted",
@@ -313,8 +314,9 @@ describe("composeNotification", () => {
 
   // Spec 277 P1a — serious site-issue alert, now on the shared skeleton: the
   // bespoke issueReporterName / issueDeepLink context fields are retired in
-  // favour of the actorName / deepLink every other event uses.
-  it("composes site_issue_reported with the type, project · WP scope, reporter and link", () => {
+  // favour of the actorName slot every other event uses (U4 then removed the
+  // link half outright, for every event).
+  it("composes site_issue_reported with the type, project · WP scope and reporter", () => {
     expect(
       composeNotification(
         "site_issue_reported",
@@ -340,7 +342,7 @@ describe("composeNotification", () => {
     ).toBe("⚠️ ปัญหาหน้างาน (เครื่องจักร/อุปกรณ์เสีย)\nWP-012");
   });
 
-  it("composes receipt_correction_flagged with the item, project and the queue link", () => {
+  it("composes receipt_correction_flagged with the item, project and flagger", () => {
     expect(
       composeNotification(
         "receipt_correction_flagged",

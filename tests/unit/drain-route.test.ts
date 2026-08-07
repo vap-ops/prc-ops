@@ -686,15 +686,15 @@ describe("POST /api/notifications/drain — one poisoned row never stalls the ba
 });
 
 // Spec 402 U3 — feedback + the receipt-correction pair. Same load-bearing
-// question as U2: does each event's link land somewhere its RECIPIENTS can
-// actually open?
+// question as U2: does the drain resolve the right project and the right
+// actor for each of them?
 describe("POST /api/notifications/drain — spec 402 U3 feedback + correction enrichment", () => {
   const REPORTER = "aaaaaaaa-0000-4000-8000-0000000005a1";
   const FB_ID = "cccccccc-0000-4000-8000-0000000005c1";
   const P1 = "ffffffff-0000-4000-8000-0000000005f1";
   const BO_1 = "dddddddd-0000-4000-8000-0000000005d1";
 
-  it("names the feedback reporter and links straight to the report", async () => {
+  it("names the feedback reporter, resolved via the candidates lookup", async () => {
     usersInCalls = [];
     candidateUsers = [
       {
@@ -810,7 +810,7 @@ describe("POST /api/notifications/drain — spec 402 U3 feedback + correction en
   });
 });
 
-// Spec 402 U2 — the work-package family. The link is the load-bearing part:
+// Spec 402 U2 — the work-package family. The load-bearing part is the join:
 // /review/work-packages is requireRole(PM_ROLES), and one outbox row produces
 // ONE body for every recipient, so an event whose recipients are photo
 // UPLOADERS must not be pointed at it.
@@ -820,7 +820,7 @@ describe("POST /api/notifications/drain — spec 402 U2 work-package enrichment"
   const PM_A = "aaaaaaaa-0000-4000-8000-00000000000a";
   const SA_1 = "bbbbbbbb-0000-4000-8000-0000000004b2";
 
-  it("gives wp_decision the WP name and project it never had, plus the PROJECT link", async () => {
+  it("gives wp_decision the WP name and project its payload never had", async () => {
     wpTableRows = [{ id: W1, code: "WP-02-06", project_id: P1, name: "งานจัดหาห้องน้ำชั่วคราว" }];
     projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
     memberRows = [];
@@ -919,7 +919,7 @@ describe("POST /api/notifications/drain — spec 402 U1 purchase-request enrichm
   const PR_UUID = "bbbbbbbb-0000-4000-8000-0000000004b1";
   const P1 = "ffffffff-0000-4000-8000-0000000004f1";
 
-  it("gives pr_progress its project, item and deep link — and names no actor", async () => {
+  it("gives pr_progress its project and item — and names no actor", async () => {
     prProjectIdByRequest = { [PR_UUID]: P1 };
     projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
     memberRows = [{ project_id: P1, user_id: REQUESTER }];
