@@ -74,10 +74,13 @@ export function WorkerAttendanceCalendar({
   const { projectDays } = summary;
   const isSplit = projectDays.length > 1;
   const shortByLabel = new Map(projectDays.map((p) => [p.label, p.shortCode]));
+  // ⚠️ NOT gated on `projectDays.length > 0`. A month with no attendance has no
+  // project to name, but the reader still needs to know where this person is —
+  // dropping the line entirely would REMOVE a signal the old header carried.
+  // The line is honest either way, because it is labelled as an assignment
+  // rather than as the month's project.
   const assignmentElsewhere =
-    worker.projectLabel !== null &&
-    projectDays.length > 0 &&
-    !projectDays.some((p) => p.label === worker.projectLabel);
+    worker.projectLabel !== null && !projectDays.some((p) => p.label === worker.projectLabel);
 
   return (
     <div className="flex flex-col gap-4">

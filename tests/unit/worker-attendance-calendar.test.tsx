@@ -473,7 +473,10 @@ describe("WorkerAttendanceCalendar — project honesty", () => {
     expect(screen.queryByText(/ปัจจุบันอยู่ที่/)).not.toBeInTheDocument();
   });
 
-  it("a month with no attendance shows no project line at all", () => {
+  it("a month with no attendance names no project, but still says where the worker is", () => {
+    // The empty month has nothing to caption — but dropping the assignment
+    // outright would remove a signal the old header carried, so it survives
+    // under its own honest label.
     const empty = buildAttendanceMonth({
       monthAnchor: "2026-09-01",
       musterRows: [],
@@ -482,7 +485,9 @@ describe("WorkerAttendanceCalendar — project honesty", () => {
     });
     renderSplit({ month: empty });
     expect(screen.queryByText("โครงการเดือนนี้")).not.toBeInTheDocument();
-    expect(screen.queryByText(/PRC-2026-008 ลาดกระบัง/)).not.toBeInTheDocument();
+    expect(screen.queryByText("โครงการ")).not.toBeInTheDocument();
+    expect(screen.getByText(/ปัจจุบันอยู่ที่/)).toBeInTheDocument();
+    expect(screen.getByText(/PRC-2026-008 ลาดกระบัง/)).toBeInTheDocument();
   });
 
   it("labels the estimate as using the CURRENT rate", () => {
