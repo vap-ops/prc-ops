@@ -13886,3 +13886,44 @@ an actor until you check which side of the event it sits on._
 free-text description in its payload, so its L2 subject slot is always empty — the type in the headline
 carries the whole meaning. ③ Gate 4 for a message-shape change is a real push to a phone; none was sent
 from this lane.
+
+## 2026-08-07 — spec 402 U4: the deep links come back out (lane nolinks)
+
+**What shipped.** Every push notification's URL is gone: the skeleton's L6 slot, all seven link
+builders, `ComposeContext.deepLink`, the drain's link wiring, and its now-unneeded `clientEnv` import.
+The five information slots — headline, subject, where, actor, note — are untouched.
+
+🚨 **This REVERSES a decision from U1–U3, on the operator's refutation the same day:** _"sending a link
+is not helpful because users have pwa installed, links take them to browser, not to mention login
+problem."_ Verified rather than accepted on faith, and it is worse than stated:
+
+- **A push cannot reach the installed app.** LINE and Telegram open links in their own in-app WebView,
+  and an **iOS home-screen PWA cannot capture a link at all**. The field tier lives in the PWA.
+- **That WebView has its own cookie jar**, so the tap lands logged out.
+- **And the login round trip silently discards the destination** — `require-role.ts:82` is a bare
+  `redirect("/login")` with no `next`, despite `safeNextPath` existing and spec 263 having built exactly
+  that round trip. **That is an app-wide bug, not a notification one**, and is owed its own unit.
+
+⚖️ **Per-channel links were considered and rejected.** The drain pushes LINE and Telegram in separate
+loops (`route.ts`), so the link could have been kept for the Telegram/office tier — 4 people, desktop,
+usually already signed in — and dropped for the 19 LINE-only field users. The operator chose to drop them
+everywhere; two shapes of one message is a seam that buys little.
+
+⚠️ **`site_issue_reported`'s pre-402 link (spec 277's `issueDeepLink`) went too** — deliberate, not
+collateral: same failure mode, and the event has zero rows all-time.
+
+⭐ **The guard's first run was VACUOUS and the RED-first discipline is what caught it.** The 12
+per-event "no URL" cases passed immediately, because the fixture context carried no `deepLink` — they
+would have passed against the LINKING code too. Fixed by putting `deepLink` INTO the fixture as an extra
+property on a named const (TypeScript only excess-property-checks fresh object literals), so it
+type-checks both before removal and after: before, a URL renders and all 12 RED; after, the key is inert.
+Re-run went 3 red → **15 red**.
+
+⚠️ **Stripping the link assertions left one drain test asserting nothing** (it bound `text` and made no
+claim — caught by lint's no-unused-vars, not by the suite). Rewritten to pin what survives: the item and
+project reach the flagger, and the message still names no actor.
+
+**Open questions.** ① The `next`-threading bug is filed but unbuilt; until then no gated link anywhere in
+the app survives a login. ② If the office tier later wants links back, the per-channel split above is the
+shape to use — the drain already supports it. ③ Gate 4 for a message-shape change is a real push to a
+phone; none was sent from this lane.

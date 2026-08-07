@@ -18,7 +18,6 @@ import {
   SITE_ISSUE_ALERT_ROLE_POOL,
 } from "@/lib/notifications/site-issue-recipients";
 import { BACK_OFFICE_ROLES, PM_ROLES, PR_DECIDER_ROLES } from "@/lib/auth/role-home";
-import { clientEnv } from "@/lib/env";
 import type { UserRole } from "@/lib/db/enums";
 import {
   DRAIN_BATCH_SIZE,
@@ -30,15 +29,6 @@ import { filterMutedRecipients, mutedKey } from "@/lib/notifications/preference-
 import { channelKey, filterChannelTargets } from "@/lib/notifications/channel-preference-filter";
 import { pushLineMessage } from "@/lib/notifications/line-push";
 import { pushTelegramMessage } from "@/lib/notifications/telegram-push";
-import {
-  purchaseRequestLink,
-  workPackageLink,
-  reviewWorkPackageLink,
-  feedbackLink,
-  storeCorrectionsLink,
-  projectStoreLink,
-  projectLink,
-} from "@/lib/notifications/message-skeleton";
 
 // Spec 402 U3 — the two receipt-correction events. Same project scope, but
 // OPPOSITE audiences, so they do not share a link.
@@ -62,10 +52,6 @@ const WP_FAMILY_EVENTS = new Set<string>([
   "wp_reopened",
   "wp_evidence_resubmitted",
 ]);
-
-// …and the subset whose recipients are ALL manager-tier, so the review queue
-// (requireRole(PM_ROLES)) is a surface every one of them can open.
-const REVIEW_LINK_EVENTS = new Set<string>(["wp_pending_approval", "wp_evidence_resubmitted"]);
 
 // First-activation backlog: up to 50 rows × several sequential LINE pushes
 // each — needs more than the default function duration.
@@ -712,57 +698,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ...(wpCode !== undefined ? { wpCode } : {}),
         ...(poNumber !== undefined ? { poNumber } : {}),
       };
-      // Spec 277 P1a — project name, reporter name, and a deep link into the
-      // project, resolved from the site_issue payload's project_id / reported_by.
-      // Spec 402 U3 — now on the SHARED slots (actorName / deepLink) rather
-      // than the bespoke issueReporterName / issueDeepLink pair it used to own.
+      // Spec 277 P1a — the project name and the reporter, resolved from the
+      // site_issue payload's project_id / reported_by. Spec 402 U3 moved these
+      // onto the SHARED `actorName` slot rather than a bespoke pair.
       if (row.event_type === "site_issue_reported") {
         const projectId = payload.projectId;
         if (projectId !== undefined) {
           const projectName = projectNameById.get(projectId);
           if (projectName !== undefined) composeContext.projectName = projectName;
-          composeContext.deepLink = projectLink(clientEnv.NEXT_PUBLIC_APP_URL, projectId);
         }
         if (payload.reportedBy !== undefined) {
           const reporterName = displayNameById.get(payload.reportedBy);
           if (reporterName !== undefined) composeContext.actorName = reporterName;
         }
       }
-      // Spec 402 U3 — the operator's feedback ping: the reporter's NAME beside
-      // the role snapshot, and a link straight to the report.
-      if (row.event_type === "feedback_submitted") {
-        if (payload.submittedBy !== undefined) {
-          const reporterName = displayNameById.get(payload.submittedBy);
-          if (reporterName !== undefined) composeContext.actorName = reporterName;
-        }
-        if (payload.feedbackId !== undefined) {
-          composeContext.deepLink = feedbackLink(clientEnv.NEXT_PUBLIC_APP_URL, payload.feedbackId);
-        }
+      // Spec 402 U3 — the operator's feedback ping names the reporter, not just
+      // their role snapshot.
+      if (row.event_type === "feedback_submitted" && payload.submittedBy !== undefined) {
+        const reporterName = displayNameById.get(payload.submittedBy);
+        if (reporterName !== undefined) composeContext.actorName = reporterName;
       }
-      // Spec 402 U3 — the two receipt-correction events. Their outbox rows
-      // carry no work_package_id, no purchase_request_id and NO receipt id, so
-      // the project (from the payload) is the only scope available and there is
-      // no receipt-level link to build.
-      //
-      // 🚨 The two links differ because the two AUDIENCES differ: the flagged
-      // event goes to BACK_OFFICE_ROLES, whose queue is /store/corrections; the
-      // resolved event goes to the SA who flagged, who would be refused there.
+      // Spec 402 U3 — the two receipt-correction events. Their outbox rows carry
+      // no work_package_id and no purchase_request_id, so the payload's project
+      // is the only scope available.
       if (CORRECTION_EVENTS.has(row.event_type)) {
         const projectId = payload.projectId;
         if (projectId !== undefined) {
           const projectName = projectNameById.get(projectId);
           if (projectName !== undefined) composeContext.projectName = projectName;
         }
-        if (row.event_type === "receipt_correction_flagged") {
-          composeContext.deepLink = storeCorrectionsLink(clientEnv.NEXT_PUBLIC_APP_URL);
-          // The flagger is the ACTOR here; on the resolved event the same uid is
-          // the RECIPIENT, so that arm resolves no actor at all.
-          if (payload.requestedBy !== undefined) {
-            const flaggerName = displayNameById.get(payload.requestedBy);
-            if (flaggerName !== undefined) composeContext.actorName = flaggerName;
-          }
-        } else if (projectId !== undefined) {
-          composeContext.deepLink = projectStoreLink(clientEnv.NEXT_PUBLIC_APP_URL, projectId);
+        // The flagger is the ACTOR on `flagged`; on `resolved` the same uid is
+        // the RECIPIENT, so that arm resolves no actor at all.
+        if (row.event_type === "receipt_correction_flagged" && payload.requestedBy !== undefined) {
+          const flaggerName = displayNameById.get(payload.requestedBy);
+          if (flaggerName !== undefined) composeContext.actorName = flaggerName;
         }
       }
       // Feedback c5136ad9 — name who submitted for approval on the ping itself.
@@ -779,24 +748,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const projectName = projectNameById.get(wpProjectId);
           if (projectName !== undefined) composeContext.projectName = projectName;
         }
-        // 🚨 WHICH link is a ROLE decision, not a cosmetic one, and one outbox
-        // row yields ONE body for every recipient — so it cannot be varied per
-        // person. /review/work-packages is requireRole(PM_ROLES): safe for
-        // wp_pending_approval (the PM pool) and wp_evidence_resubmitted (the
-        // decider being answered). wp_decision and wp_reopened go to the WP's
-        // photo UPLOADERS, so they get the project surface (WP_DETAIL_ROLES).
-        if (REVIEW_LINK_EVENTS.has(row.event_type)) {
-          composeContext.deepLink = reviewWorkPackageLink(
-            clientEnv.NEXT_PUBLIC_APP_URL,
-            row.work_package_id,
-          );
-        } else if (wpProjectId !== undefined) {
-          composeContext.deepLink = workPackageLink(
-            clientEnv.NEXT_PUBLIC_APP_URL,
-            wpProjectId,
-            row.work_package_id,
-          );
-        }
         const wpActorId =
           row.event_type === "wp_decision"
             ? payload.decidedBy
@@ -811,19 +762,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
       // Spec 402 U1 — the purchase-request family's skeleton slots: the project
-      // it belongs to, the actor the event can honestly name, and a deep link
-      // onto the request itself. `/requests/[requestId]` takes the PR's UUID,
-      // which is exactly this row's purchase_request_id.
+      // it belongs to, and the actor the event can honestly name.
       if (PR_FAMILY_EVENTS.has(row.event_type) && row.purchase_request_id !== null) {
         const prProjectId = projectIdByPrId.get(row.purchase_request_id);
         if (prProjectId !== undefined) {
           const projectName = projectNameById.get(prProjectId);
           if (projectName !== undefined) composeContext.projectName = projectName;
         }
-        composeContext.deepLink = purchaseRequestLink(
-          clientEnv.NEXT_PUBLIC_APP_URL,
-          row.purchase_request_id,
-        );
         // pr_progress is absent from this map on purpose — see prActorIds.
         const actorId =
           row.event_type === "pr_created"

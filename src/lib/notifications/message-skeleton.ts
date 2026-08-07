@@ -1,5 +1,15 @@
-// Spec 402 U1 — the six-slot plain-text skeleton every push notification is
+// Spec 402 — the five-slot plain-text skeleton every push notification is
 // composed onto.
+//
+// ⛔ There is deliberately NO link slot, and no link builders. U1–U3 shipped a
+// sixth slot carrying a deep link; the operator refuted it on 2026-08-07:
+// "users have pwa installed, links take them to browser, not to mention login
+// problem." Both halves are structural, not fixable from the message —
+// LINE/Telegram open their own in-app WebView (separate cookie jar ⇒ logged
+// out), and an iOS home-screen PWA cannot capture a link at all, so a field
+// user can never be taken to the app they actually work in. The message's job
+// is to say enough that nothing needs opening. See tests/unit/
+// notification-no-deep-links.test.ts before adding one back.
 //
 // Both delivery channels are plain text: LINE sends `messages:[{type:"text"}]`
 // (line-push.ts) and Telegram sends `sendMessage` with no `parse_mode`
@@ -11,17 +21,10 @@
 // Pure: no env, no DB. The drain resolves the values; compose arranges them.
 
 import type { Database } from "@/lib/db/database.types";
-import { workPackageHref } from "@/lib/nav/project-paths";
 
 type PurchaseRequestStatus = Database["public"]["Enums"]["purchase_request_status"];
 type ApprovalDecision = Database["public"]["Enums"]["approval_decision"];
 type FeedbackType = Database["public"]["Enums"]["feedback_type"];
-
-/** NEXT_PUBLIC_APP_URL is operator-configured; a trailing slash would yield a
- *  double slash that some clients refuse to linkify. */
-function absolute(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}${path}`;
-}
 
 export interface NotificationSlots {
   /** L1 — what happened. The ONLY required slot: a phone's notification shelf
@@ -36,11 +39,9 @@ export interface NotificationSlots {
   where?: string | undefined;
   /** L4 — who acted, or the status transition. */
   actor?: string | undefined;
-  /** L5 — a comment or reason the user actually wrote. */
+  /** L5 — a comment or reason the user actually wrote. The last slot: see the
+   *  header for why there is no sixth one carrying a URL. */
   note?: string | undefined;
-  /** L6 — the deep link, always last so the channel's link affordance sits at
-   *  the bottom rather than splitting the body. */
-  link?: string | undefined;
 }
 
 /**
@@ -51,7 +52,7 @@ export interface NotificationSlots {
  * "undefined" (the honest-copy rule).
  */
 export function buildNotificationMessage(slots: NotificationSlots): string {
-  return [slots.headline, slots.subject, slots.where, slots.actor, slots.note, slots.link]
+  return [slots.headline, slots.subject, slots.where, slots.actor, slots.note]
     .map((slot) => slot?.trim() ?? "")
     .filter((slot) => slot !== "")
     .join("\n");
@@ -63,70 +64,6 @@ export function joinWhere(parts: ReadonlyArray<string | undefined>): string {
     .map((part) => part?.trim() ?? "")
     .filter((part) => part !== "")
     .join(" · ");
-}
-
-/**
- * The purchase-request deep link. `/requests/[requestId]` takes the PR's UUID
- * (`isValidUuid` + `.eq("id", requestId)`), which is exactly the outbox row's
- * `purchase_request_id`.
- */
-export function purchaseRequestLink(baseUrl: string, purchaseRequestId: string): string {
-  return absolute(baseUrl, `/requests/${purchaseRequestId}`);
-}
-
-/**
- * Spec 402 U2 — the work package on its OWN detail page, via the nav SSOT so
- * the route shape lives in one place. Gate: WP_DETAIL_ROLES, the wider of the
- * two, which is why the events whose recipients are photo UPLOADERS
- * (wp_decision, wp_reopened) point here.
- */
-export function workPackageLink(baseUrl: string, projectId: string, workPackageId: string): string {
-  return absolute(baseUrl, workPackageHref(projectId, workPackageId));
-}
-
-/**
- * The same work package in the REVIEW QUEUE — where a decider acts on it, and
- * reachable without knowing the project.
- *
- * 🚨 `/review/work-packages/[id]` is `requireRole(PM_ROLES)`. Only use this for
- * events whose recipients are all manager-tier: wp_pending_approval (the PM
- * pool) and wp_evidence_resubmitted (the decider being answered). Pointing an
- * uploader at it would redirect them away.
- */
-export function reviewWorkPackageLink(baseUrl: string, workPackageId: string): string {
-  return absolute(baseUrl, `/review/work-packages/${workPackageId}`);
-}
-
-/**
- * Spec 402 U3 — the feedback report itself. `/feedback/[id]` carries no
- * `requireRole`: it is RLS-scoped and resolves an unreadable row to notFound,
- * and this event's recipients are the super_admin pool, who see every report.
- */
-export function feedbackLink(baseUrl: string, feedbackId: string): string {
-  return absolute(baseUrl, `/feedback/${feedbackId}`);
-}
-
-/**
- * The back-office receipt-correction queue — `requireRole(BACK_OFFICE_ROLES)`,
- * which is exactly `receipt_correction_flagged`'s recipient set
- * (`context.backOfficeIds`).
- */
-export function storeCorrectionsLink(baseUrl: string): string {
-  return absolute(baseUrl, "/store/corrections");
-}
-
-/**
- * The project's store — `WP_DETAIL_ROLES`, which includes `site_admin`.
- * `receipt_correction_resolved` goes to the SA who FLAGGED the miscount, and
- * they cannot open the back-office queue above.
- */
-export function projectStoreLink(baseUrl: string, projectId: string): string {
-  return absolute(baseUrl, `/projects/${projectId}/store`);
-}
-
-/** The project overview — the site-issue alert's landing surface (spec 277). */
-export function projectLink(baseUrl: string, projectId: string): string {
-  return absolute(baseUrl, `/projects/${projectId}`);
 }
 
 /** One icon per feedback type, so a bug and a wish are distinguishable in the

@@ -737,7 +737,6 @@ describe("POST /api/notifications/drain — spec 402 U3 feedback + correction en
         "🐞 ข้อเสนอแนะใหม่ (ปัญหา)",
         "รูปอัปโหลดไม่ขึ้น",
         "แจ้งโดย สมชาย ทดสอบ (ผู้ดูแลหน้างาน)",
-        `http://localhost:3000/feedback/${FB_ID}`,
       ].join("\n"),
     );
   });
@@ -778,17 +777,14 @@ describe("POST /api/notifications/drain — spec 402 U3 feedback + correction en
     const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
     expect(texts).toHaveLength(1);
     expect(texts[0]).toBe(
-      [
-        "⚠️ แจ้งแก้ไขจำนวนรับของ",
-        "ปูนซีเมนต์",
-        "โครงการบ้านสวย",
-        "แจ้งโดย สมชาย ทดสอบ",
-        "http://localhost:3000/store/corrections",
-      ].join("\n"),
+      ["⚠️ แจ้งแก้ไขจำนวนรับของ", "ปูนซีเมนต์", "โครงการบ้านสวย", "แจ้งโดย สมชาย ทดสอบ"].join("\n"),
     );
   });
 
-  it("sends the resolved correction to the flagger's own project store, not the queue", async () => {
+  // Spec 402 U4 — this case used to pin WHICH link the resolved event got. With
+  // links gone it pins what remains: the item and project reach the flagger,
+  // and the message still names no actor (its only uid is the recipient's).
+  it("tells the flagger the correction was resolved, naming the item but no actor", async () => {
     projectRows = [{ id: P1, name: "โครงการบ้านสวย", project_lead_id: null }];
     contactUsers = [{ id: REPORTER, line_user_id: "Lsa", telegram_chat_id: null }];
     outboxRows = [
@@ -810,9 +806,7 @@ describe("POST /api/notifications/drain — spec 402 U3 feedback + correction en
 
     const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
     expect(texts).toHaveLength(1);
-    const text = texts[0] as string;
-    expect(text).toContain(`http://localhost:3000/projects/${P1}/store`);
-    expect(text).not.toContain("/store/corrections");
+    expect(texts[0]).toBe(["✅ แก้ไขจำนวนรับของแล้ว", "ปูนซีเมนต์", "โครงการบ้านสวย"].join("\n"));
   });
 });
 
@@ -865,7 +859,6 @@ describe("POST /api/notifications/drain — spec 402 U2 work-package enrichment"
         "งานจัดหาห้องน้ำชั่วคราว",
         "โครงการบ้านสวย · WP-02-06",
         "ตรวจโดย พีเอ็มเอ",
-        `http://localhost:3000/projects/${P1}/work-packages/${W1}`,
       ].join("\n"),
     );
   });
@@ -911,10 +904,6 @@ describe("POST /api/notifications/drain — spec 402 U2 work-package enrichment"
     const texts = pushLineMessageMock.mock.calls.map((c) => (c[0] as { text: string }).text);
     expect(texts.length).toBeGreaterThan(0);
     for (const text of texts) {
-      expect(text).toContain(`http://localhost:3000/review/work-packages/${W1}`);
-      // The project surface would ALSO be a valid URL, so pin its absence:
-      // a swap between the two is exactly the defect this split prevents.
-      expect(text).not.toContain("/projects/");
       expect(text).toContain("โครงการบ้านสวย · WP-02-06");
     }
   });
@@ -971,7 +960,6 @@ describe("POST /api/notifications/drain — spec 402 U1 purchase-request enrichm
     expect(text).toContain("เหล็กกล่อง กาวาไนซ์");
     expect(text).toContain("โครงการบ้านสวย");
     expect(text).toContain("สั่งซื้อแล้ว → กำลังจัดส่ง");
-    expect(text).toContain(`http://localhost:3000/requests/${PR_UUID}`);
     // 🚨 The name IS resolvable here (the candidates lookup returned it), so
     // this pins the DECISION not to render it, never a lookup that came back
     // empty. Attributing a shipment to the approver is the misattribution the
@@ -1035,13 +1023,9 @@ describe("POST /api/notifications/drain — spec 402 U1 purchase-request enrichm
     expect(texts.length).toBeGreaterThan(0);
     for (const text of texts) {
       expect(text).toBe(
-        [
-          "🆕 คำขอซื้อใหม่",
-          "ปูน × 10 ถุง",
-          "โครงการบ้านสวย · PR-0007",
-          "ขอโดย สมชาย ทดสอบ",
-          `http://localhost:3000/requests/${PR_UUID}`,
-        ].join("\n"),
+        ["🆕 คำขอซื้อใหม่", "ปูน × 10 ถุง", "โครงการบ้านสวย · PR-0007", "ขอโดย สมชาย ทดสอบ"].join(
+          "\n",
+        ),
       );
     }
   });

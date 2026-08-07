@@ -150,6 +150,35 @@ and mostly needs re-ordering.
 
 ---
 
+## 2.2 ⛔ REVERSED 2026-08-07 — there are NO deep links (U4)
+
+U1–U3 shipped an L6 slot carrying a URL. **The operator refuted it the same day:**
+_"sending a link is not helpful because users have pwa installed, links take them to browser,
+not to mention login problem."_ Both halves are structural and neither is fixable from the
+message, so U4 removed the slot, all seven link builders, and the drain wiring.
+
+- **A push cannot reach the installed app.** LINE and Telegram open links in their own in-app
+  WebView, and an **iOS home-screen PWA cannot capture a link at all** — there is no handoff.
+  The field tier works in the PWA, so the link could never take them where the work happens.
+- **That WebView has its own cookie jar**, so the tap lands logged out.
+- **And the login round trip loses the destination**: `require-role.ts` does a bare
+  `redirect("/login")` with no `next`, so even a successful login dumps the user at their role
+  home rather than the thing the notification was about. That is a real app-wide bug — every
+  gated link in the app has it — and is being fixed as its own unit, but it is not what makes
+  the notification link worth keeping.
+- **Per-channel links were considered and rejected.** The drain does push LINE and Telegram in
+  separate loops, so a link could have been kept for the Telegram/office tier (4 people, desktop,
+  usually signed in) and dropped for the LINE/field tier (19 people). The operator chose to drop
+  them everywhere; two shapes of the same message is a maintenance seam that buys little.
+
+**This also removed `site_issue_reported`'s pre-402 link** (spec 277's `issueDeepLink`) —
+deliberate, not collateral: it has the same problem, and that event has zero rows all-time.
+
+⚠️ **The information half is what answered the original ask** and is untouched. A message that
+names the item, the project, the person and what changed does not need anything opened.
+`tests/unit/notification-no-deep-links.test.ts` is exhaustive over the event enum so a new event
+must decide this deliberately instead of inheriting a link by copy-paste.
+
 ## 3. Design decisions, and what was rejected
 
 - **⛔ Do not render `priority`.** `pr_created`'s payload carries it and it looks like useful

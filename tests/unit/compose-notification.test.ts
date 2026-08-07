@@ -15,17 +15,10 @@ describe("composeNotification", () => {
         {
           projectName: "โครงการบ้านสวย",
           submitterName: "สมชาย ใจดี",
-          deepLink: "https://app.example/review/work-packages/wp-1",
         },
       ),
     ).toBe(
-      [
-        "🔎 งานรอตรวจ",
-        "งานเทพื้น",
-        "โครงการบ้านสวย · WP-001",
-        "ส่งตรวจโดย สมชาย ใจดี",
-        "https://app.example/review/work-packages/wp-1",
-      ].join("\n"),
+      ["🔎 งานรอตรวจ", "งานเทพื้น", "โครงการบ้านสวย · WP-001", "ส่งตรวจโดย สมชาย ใจดี"].join("\n"),
     );
   });
 
@@ -49,7 +42,6 @@ describe("composeNotification", () => {
           wpName: "งานเทพื้น",
           projectName: "โครงการบ้านสวย",
           actorName: "พีเอ็มเอ",
-          deepLink: "https://app.example/projects/p1/work-packages/wp-1",
         },
       ),
     ).toBe(
@@ -59,7 +51,6 @@ describe("composeNotification", () => {
         "โครงการบ้านสวย · WP-001",
         "ตรวจโดย พีเอ็มเอ",
         "ความเห็น: รูปช่วงหลังไม่ชัด",
-        "https://app.example/projects/p1/work-packages/wp-1",
       ].join("\n"),
     );
   });
@@ -85,7 +76,6 @@ describe("composeNotification", () => {
       {
         projectName: "โครงการบ้านสวย",
         actorName: "พีเอ็มเอ",
-        deepLink: "https://app.example/projects/p1/work-packages/wp-2",
       },
     );
     expect(message).toBe(
@@ -94,7 +84,6 @@ describe("composeNotification", () => {
         "ผนังกันตก",
         "โครงการบ้านสวย · WP-014",
         "เปิดโดย พีเอ็มเอ",
-        "https://app.example/projects/p1/work-packages/wp-2",
       ].join("\n"),
     );
     expect(message).not.toContain("เปิดแอปดูข้อบกพร่อง");
@@ -114,7 +103,6 @@ describe("composeNotification", () => {
         {
           projectName: "โครงการบ้านสวย",
           actorName: "สมชาย ใจดี",
-          deepLink: "https://app.example/review/work-packages/wp-3",
         },
       ),
     ).toBe(
@@ -123,7 +111,6 @@ describe("composeNotification", () => {
         "งานติดตั้งเสากันชน",
         "โครงการบ้านสวย · WP-044",
         "ถ่ายรูปเพิ่มโดย สมชาย ใจดี",
-        "https://app.example/review/work-packages/wp-3",
       ].join("\n"),
     );
   });
@@ -148,7 +135,6 @@ describe("composeNotification", () => {
           projectName: "โครงการบ้านสวย",
           poNumber: 3,
           actorName: "สมชาย ใจดี",
-          deepLink: "https://app.example/requests/pr-uuid",
         },
       ),
     ).toBe(
@@ -157,7 +143,6 @@ describe("composeNotification", () => {
         "ปูน × 10 ถุง",
         "โครงการบ้านสวย · PR-0007 · ใบสั่งซื้อ PO-0003",
         "ขอโดย สมชาย ใจดี",
-        "https://app.example/requests/pr-uuid",
       ].join("\n"),
     );
   });
@@ -213,7 +198,6 @@ describe("composeNotification", () => {
         {
           projectName: "โครงการบ้านสวย",
           poNumber: 3,
-          deepLink: "https://app.example/requests/pr-uuid",
         },
       ),
     ).toBe(
@@ -222,7 +206,6 @@ describe("composeNotification", () => {
         "เหล็กกล่อง กาวาไนซ์",
         "โครงการบ้านสวย · PR-0012 · ใบสั่งซื้อ PO-0003",
         "สั่งซื้อแล้ว → กำลังจัดส่ง",
-        "https://app.example/requests/pr-uuid",
       ].join("\n"),
     );
   });
@@ -305,14 +288,13 @@ describe("composeNotification", () => {
           feedbackTitle: "รูปอัปโหลดไม่ขึ้น",
           submittedBy: "22222222-2222-2222-2222-22222222feed",
         },
-        { actorName: "สมชาย ใจดี", deepLink: "https://app.example/feedback/fb-1" },
+        { actorName: "สมชาย ใจดี" },
       ),
     ).toBe(
       [
         "🐞 ข้อเสนอแนะใหม่ (ปัญหา)",
         "รูปอัปโหลดไม่ขึ้น",
         "แจ้งโดย สมชาย ใจดี (ผู้ดูแลหน้างาน)",
-        "https://app.example/feedback/fb-1",
       ].join("\n"),
     );
   });
@@ -341,7 +323,6 @@ describe("composeNotification", () => {
           projectName: "PRC-2026-004",
           wpCode: "WP-012",
           actorName: "สมชาย ใจดี",
-          deepLink: "https://ops.example.app/projects/p1",
         },
       ),
     ).toBe(
@@ -349,7 +330,6 @@ describe("composeNotification", () => {
         "⚠️ ปัญหาหน้างาน (ความปลอดภัย/อุบัติเหตุ)",
         "PRC-2026-004 · WP-012",
         "แจ้งโดย สมชาย ใจดี",
-        "https://ops.example.app/projects/p1",
       ].join("\n"),
     );
   });
@@ -368,17 +348,10 @@ describe("composeNotification", () => {
         {
           projectName: "โครงการบ้านสวย",
           actorName: "สมชาย ใจดี",
-          deepLink: "https://app.example/store/corrections",
         },
       ),
     ).toBe(
-      [
-        "⚠️ แจ้งแก้ไขจำนวนรับของ",
-        "ปูนซีเมนต์",
-        "โครงการบ้านสวย",
-        "แจ้งโดย สมชาย ใจดี",
-        "https://app.example/store/corrections",
-      ].join("\n"),
+      ["⚠️ แจ้งแก้ไขจำนวนรับของ", "ปูนซีเมนต์", "โครงการบ้านสวย", "แจ้งโดย สมชาย ใจดี"].join("\n"),
     );
   });
 
@@ -393,18 +366,10 @@ describe("composeNotification", () => {
       {
         projectName: "โครงการบ้านสวย",
         actorName: "สมชาย ใจดี",
-        deepLink: "https://app.example/projects/p1/store",
       },
     );
     expect(message).not.toContain("สมชาย ใจดี");
-    expect(message).toBe(
-      [
-        "✅ แก้ไขจำนวนรับของแล้ว",
-        "ปูนซีเมนต์",
-        "โครงการบ้านสวย",
-        "https://app.example/projects/p1/store",
-      ].join("\n"),
-    );
+    expect(message).toBe(["✅ แก้ไขจำนวนรับของแล้ว", "ปูนซีเมนต์", "โครงการบ้านสวย"].join("\n"));
   });
 
   // Spec 337 U1 (F2) — the SA answered a needs_revision and pressed
