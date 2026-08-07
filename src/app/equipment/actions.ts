@@ -26,6 +26,7 @@ import {
   resolveInitialMovement,
   UNPICKED_LOCATION_ERROR,
 } from "@/lib/equipment/initial-location";
+import { parseBulkEquipmentAdd } from "@/lib/equipment/bulk-add-parse";
 import { EQUIPMENT_PHOTO_KINDS, type EquipmentPhotoKind } from "@/lib/equipment/photo-kinds";
 import type { Database } from "@/lib/db/database.types";
 
@@ -785,6 +786,190 @@ export async function recordEquipmentMovement(input: {
 
   revalidatePath("/equipment");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Spec 367 §13 — เพิ่มหลายเครื่อง, the bulk add paste.
+//
+// The registry is filled by hand and the add sheet creates ONE machine per trip;
+// the last physical count was 68 units, so the procurement hand-off costs ~68
+// trips before anyone types a serial number. This door takes a pasted table of
+// `ทะเบียน · จำนวน · เจ้าของ · ที่ตั้ง` and creates the rows.
+//
+// ⭐ It does NOT reverse spec 385 U4 — `importEquipmentCsv` below stays EDIT-only.
+// Here the SKU is named per row and RESOLVED against the catalog, so an instance
+// is still born from the ทะเบียน and the NOT NULL FK holds by construction.
+//
+// Two steps like the importer: a dry run reports each line's effect in words and
+// writes nothing (`จำนวน` means two different things by tracking — the preview is
+// where the operator learns which one their file asked for), then the commit.
+// ⚠️ The commit is row-by-row over PostgREST and CANNOT be atomic, so a mid-way
+// failure reports how many landed and names the SKU it stopped on rather than
+// claiming a rollback that did not happen. Re-pasting the remainder is safe:
+// unit numbering continues from the live count and a landed bulk row is refused
+// by the one-row rule.
+// ---------------------------------------------------------------------------
+
+export interface BulkAddEquipmentResult {
+  ok: boolean;
+  /** equipment_items rows written (or, on a dry run, that WOULD be written). */
+  created: number;
+  errors: string[];
+  /** Dry run only — one line per row, in words. */
+  preview?: string[];
+  /** Commit only — the SKU whose write failed, so the operator knows where to resume. */
+  stoppedAt?: string;
+  /** Rows saved whose rate copy or initial movement did not land. */
+  rateWarnings: number;
+  locationWarnings: number;
+}
+
+export async function bulkAddEquipmentFromCatalog(
+  text: string,
+  options: { dryRun?: boolean } = {},
+): Promise<BulkAddEquipmentResult> {
+  const ctx = await requireRole(BACK_OFFICE_ROLES);
+  const supabase = await createServerSupabase();
+
+  const [{ data: skuRows }, { data: itemRows }, { data: ownerRows }, { data: projectRows }] =
+    await Promise.all([
+      supabase
+        .from("equipment_catalog_items")
+        .select("id, name, category_id, brand, model, default_tracking, is_active"),
+      supabase.from("equipment_items").select("equipment_catalog_item_id"),
+      supabase.from("equipment_owners").select("id, name, is_default"),
+      supabase.from("projects").select("id, name"),
+    ]);
+
+  // Live instance counts drive BOTH the No.<n+1> numbering and the bulk one-row
+  // rule, so they are counted from the rows rather than trusted from the file.
+  const counts = new Map<string, number>();
+  for (const row of itemRows ?? []) {
+    const key = (row as { equipment_catalog_item_id: string | null }).equipment_catalog_item_id;
+    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const parsed = parseBulkEquipmentAdd(text, {
+    skusByName: new Map(
+      (skuRows ?? []).map((s) => [
+        s.name,
+        {
+          id: s.id,
+          categoryId: s.category_id,
+          brand: s.brand,
+          model: s.model,
+          defaultTracking: s.default_tracking,
+          isActive: s.is_active,
+          instanceCount: counts.get(s.id) ?? 0,
+        },
+      ]),
+    ),
+    ownersByName: new Map((ownerRows ?? []).map((o) => [o.name, o.id])),
+    defaultOwnerId: (ownerRows ?? []).find((o) => o.is_default)?.id ?? null,
+    projectsByName: new Map((projectRows ?? []).map((p) => [p.name, p.id])),
+  });
+
+  if (parsed.errors.length > 0) {
+    return { ok: false, created: 0, errors: parsed.errors, rateWarnings: 0, locationWarnings: 0 };
+  }
+  if (options.dryRun) {
+    return {
+      ok: true,
+      created: parsed.unitsToCreate,
+      errors: [],
+      preview: parsed.rows.map((r) => r.effect),
+      rateWarnings: 0,
+      locationWarnings: 0,
+    };
+  }
+
+  // The walled default rates, read ONCE through the admin seam (no authenticated
+  // grant in either direction) and written per row through the audited RPC.
+  const admin = createAdminSupabase();
+  const { data: rateRows } = await admin
+    .from("equipment_catalog_items")
+    .select("id, default_daily_rate");
+  const rates = new Map<string, number | null>(
+    (rateRows ?? []).map((r) => [r.id, r.default_daily_rate]),
+  );
+
+  let created = 0;
+  let rateWarnings = 0;
+  let locationWarnings = 0;
+
+  for (const row of parsed.rows) {
+    for (let n = 0; n < row.instances; n += 1) {
+      const id = crypto.randomUUID();
+      const name =
+        row.tracking === "unit"
+          ? nextUnitName(row.skuName, (row.firstNumber ?? 1) - 1 + n)
+          : row.skuName;
+
+      const { error: insertError } = await supabase.from("equipment_items").insert({
+        id,
+        name,
+        category_id: row.categoryId,
+        owner_id: row.ownerId,
+        // Spec 275 id-mirror, same as every other equipment write path.
+        supplier_id: row.ownerId,
+        tracking: row.tracking,
+        asset_tag: null,
+        quantity: row.quantity,
+        status: "available" as EquipmentStatus,
+        brand: row.brand,
+        model: row.model,
+        equipment_catalog_item_id: row.catalogItemId,
+        created_by: ctx.id,
+      });
+      if (insertError) {
+        revalidatePath("/equipment");
+        return {
+          ok: false,
+          created,
+          errors: [
+            `บันทึก "${name}" ไม่สำเร็จ — เพิ่มไปแล้ว ${created} เครื่อง กรุณาวางเฉพาะส่วนที่เหลืออีกครั้ง`,
+          ],
+          stoppedAt: row.skuName,
+          rateWarnings,
+          locationWarnings,
+        };
+      }
+      created += 1;
+
+      // Spec 367 Q1 (PR #1024) — the initial location, through the SAME resolver
+      // the add sheet uses. Without it this door would re-create the `—` defect
+      // that lane just closed, once per row.
+      const movement = resolveInitialMovement({
+        location: row.location,
+        tracking: row.tracking,
+        quantity: row.quantity,
+      });
+      if (!movement.ok) {
+        locationWarnings += 1;
+      } else {
+        const { error: movementError } = await supabase.from("equipment_movements").insert({
+          item_id: id,
+          kind: movement.value.kind,
+          project_id: movement.value.projectId,
+          quantity: movement.value.quantity,
+          created_by: ctx.id,
+        });
+        if (movementError) locationWarnings += 1;
+      }
+
+      const rate = rates.get(row.catalogItemId);
+      if (typeof rate === "number") {
+        const { error: rateError } = await supabase.rpc("set_equipment_daily_rate", {
+          p_id: id,
+          p_rate: rate,
+        });
+        if (rateError) rateWarnings += 1;
+      }
+    }
+  }
+
+  revalidatePath("/equipment");
+  return { ok: true, created, errors: [], rateWarnings, locationWarnings };
 }
 
 // ---------------------------------------------------------------------------

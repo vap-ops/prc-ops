@@ -12,6 +12,7 @@ import {
   EQUIPMENT_RENTAL_LABEL,
 } from "@/lib/i18n/labels";
 import { ImportEquipmentSheet } from "@/components/features/equipment/import-equipment-sheet";
+import { BulkAddEquipmentSheet } from "@/components/features/equipment/bulk-add-equipment-sheet";
 import { requireRole } from "@/lib/auth/require-role";
 import { BACK_OFFICE_ROLES, EQUIPMENT_MOVE_ROLES } from "@/lib/auth/role-home";
 import { createClient as createServerSupabase } from "@/lib/db/server";
@@ -191,6 +192,10 @@ export default async function EquipmentPage({
           {/* Spec 367 U3b — import writes, so it is back-office only, matching
               the equipment_items INSERT/UPDATE policies and the action gate. */}
           {canManageRegistry && <ImportEquipmentSheet />}
+          {/* Spec 367 §13 — เพิ่มหลายเครื่อง. Same gate as the importer (it writes
+              equipment_items), and deliberately BESIDE it: adding many is the
+              ทะเบียน door, editing many is the CSV door. */}
+          {canManageRegistry && <BulkAddEquipmentSheet />}
         </div>
         <EquipmentManager
           items={items}
