@@ -1,3 +1,13 @@
+# [0.362.0](https://github.com/vap-ops/prc-ops/compare/v0.361.0...v0.362.0) (2026-08-07)
+
+### Bug Fixes
+
+- **muster:** open the panel for a GAP cell, and re-point the doors' pins ([2477781](https://github.com/vap-ops/prc-ops/commit/2477781c10692f164de3b96fb95095059f6b2a5c))
+
+### Features
+
+- **muster:** the fix panel opens on the grid, and a save walks to the next person ([27afbe2](https://github.com/vap-ops/prc-ops/commit/27afbe210faa04b1517c87198fd3d9f3c5bad865))
+
 # [0.361.0](https://github.com/vap-ops/prc-ops/compare/v0.360.0...v0.361.0) (2026-08-07)
 
 ### Features
