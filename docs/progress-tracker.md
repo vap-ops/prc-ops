@@ -14363,3 +14363,67 @@ the point — no behaviour change, no drift.
 Still open from the same fact-check: page titles are not unique (79 distinct across 127 pages;
 `จัดซื้อ` ×3), so `/procurement` → `/procurement/[section]` announces the same word and the reader
 cannot tell they moved.
+
+## 2026-08-08 — spec 404 U1: the day owns the project, not the worker header (lane attnu1)
+
+**What was wrong, measured before anything was written.** `/workers/[workerId]/attendance`
+captioned a whole month with `workers.project_id` — where the person is assigned RIGHT NOW. That
+column is overwritten by a project move, so it cannot describe a past month. Live on 2026-08-08:
+three projects are active, `worker_project_moves` holds 48 rows, **12 workers have two or more
+moves, and 10 of them moved off `PRC-2026-004` on 2026-08-07** while still carrying August days at 004.
+
+The cell badge carried the mirror image of the same bug. It rendered when a day's project differed
+from the worker's current assignment — a rule that INVERTS after a move: every correctly-recorded
+day of the old month starts carrying a badge while the now-wrong header stays clean.
+
+**The fix.** `buildAttendanceMonth` derives `summary.projectDays` from the attendance rows
+themselves, attributed per DATE through the cell, so a day carrying both a regular and an OT
+session counts once and the split can never sum to more than the total it sits under. A scanned
+day with no project name is counted in `daysScanned` and attributed to nothing — the entries can
+sum to less than the total, which is honest; the alternative invents an owner.
+
+The header renders that list (`โครงการเดือนนี้` with per-project day counts when the month spans
+more than one). The badge keys on `projectDays.length > 1` and shows the code with the prefix the
+month's own codes SHARE removed. ⚠️ **That prefix is derived, not hardcoded.** The spec said strip
+`PRC-2026-`, true of today's six projects — but a raw common prefix of `PRC-2026-004` and
+`PRC-2026-008` is `PRC-2026-00`, which would badge them `4` and `8`, and across years the shared
+part is only `PRC-`. Cutting the common prefix at its last separator handles both: same year gives
+`004`/`008`, different years keep `2026-004`/`2027-001`.
+
+The estimate label gained `ปัจจุบัน`. It multiplies by the worker's current rate and a move is
+exactly when a rate changes; `labor_logs.day_rate_snapshot` is the per-day truth and belongs to the
+money unit, not here.
+
+**Money stayed out, deliberately.** `wage_payments` has no project column (verified live), so a
+per-project `บันทึกค่าแรงแล้ว` would state a figure `/payroll` cannot reproduce, and the
+one-payment-per-`(worker, period)` shape blocks paying a split worker twice. That is the
+2026-07-12 P0 and it needs schema.
+
+**Gates.** RED first on both halves (7 failing in `attendance-month`, 6 in the calendar component,
+seen to fail before any production code). Full suite **931 files / 7,989 tests, 0 failures** ·
+lint 0 · typecheck 0 · **4 mutants killed**, each with its run count and a verified restore: the
+badge's split condition, the current-assignment guard, the separator cut in `sharedCodePrefix`,
+and the `ปัจจุบัน` qualifier.
+
+**Real-flow verification used a positive control.** The same production worker
+(`นายจันทร์ เงางาม`, assigned to `PRC-2026-007`, seven July days all at `PRC-2026-004`) rendered on
+two dev servers under one session — this branch and `origin/main`. Before: header
+`โครงการ PRC-2026-007 TFM นายาว เพชรบูรณ์` and **seven cells badged `PRC-2026-004`**. After: header
+`โครงการ PRC-2026-004 TFM โพธิ์ทอง ลพบุรี`, `ปัจจุบันอยู่ที่ PRC-2026-007 …`, and **zero badges**. An
+empty month (September) names no project and keeps only the assignment line. Zero server errors,
+zero console errors.
+
+⚠️ **The SPLIT-month render is proved by RTL only.** Production currently holds **zero**
+worker-months spanning two projects — the moved workers have not yet scanned at their new sites —
+so the shape cannot be driven live without writing muster rows to prod. It arms the first morning
+one of them does.
+
+**A self-review catch worth recording.** The first implementation gated the
+`ปัจจุบันอยู่ที่` line on the month having attendance, so an empty month rendered no project
+information at all. That REMOVES a signal the old header carried, for no gain. The line now
+renders whenever the assignment is not already one of the month's projects, empty month included —
+it is honest either way because it is labelled as an assignment rather than as the month's project.
+
+**Open questions** (spec 404 §8, none blocking). ① Should `ประมาณการค่าแรง` be suppressed entirely
+in a split month rather than shown as one current-rate number? ② The compact cell planned for U2
+will drop the spelled-out `(อัตโนมัติ)` on desktop too. ③ Is a phone day-list wanted at all?
