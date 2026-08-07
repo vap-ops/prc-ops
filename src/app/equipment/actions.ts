@@ -1077,6 +1077,11 @@ export interface ImportEquipmentResult {
   ok: boolean;
   inserts: number;
   updates: number;
+  /** Spec 367 §10.4 — rows whose money figures actually moved. Reported apart
+   *  from `updates` because they take a different path (two DEFINER RPCs, not
+   *  the row UPDATE) and the operator's question about a price file is "how
+   *  many prices landed", not "how many rows were touched". */
+  moneyUpdates: number;
   errors: string[];
 }
 
@@ -1100,27 +1105,50 @@ export async function importEquipmentCsv(
     ownersByName: new Map((owners ?? []).map((o) => [o.name, o.id])),
     existingIds: new Set((items ?? []).map((i) => i.id)),
     // This route is BACK_OFFICE_ROLES-only, so the reader is always the money
-    // audience; money is still refused per-cell because it is unwritable.
+    // audience. Spec 367 §10.4 — money is no longer refused per-cell: both
+    // figures now have a DEFINER seam and are routed to it below.
     allowMoney: true,
   });
 
   if (parsed.errors.length > 0) {
-    return { ok: false, inserts: 0, updates: 0, errors: parsed.errors };
+    return { ok: false, inserts: 0, updates: 0, moneyUpdates: 0, errors: parsed.errors };
   }
   if (parsed.rows.length === 0) {
-    return { ok: false, inserts: 0, updates: 0, errors: ["ไม่พบข้อมูลในไฟล์"] };
+    return { ok: false, inserts: 0, updates: 0, moneyUpdates: 0, errors: ["ไม่พบข้อมูลในไฟล์"] };
   }
 
   // Preview: the file is clean, so report what WOULD happen and write nothing.
   // At 64 rows the operator should see "add 3, update 61" before committing —
   // an import that only tells you what it did after the fact is not reviewable.
   if (options.dryRun) {
-    return { ok: true, inserts: parsed.inserts, updates: parsed.updates, errors: [] };
+    return {
+      ok: true,
+      inserts: parsed.inserts,
+      updates: parsed.updates,
+      moneyUpdates: 0,
+      errors: [],
+    };
   }
+
+  // Spec 367 §10.4 — the CURRENT money figures, read through the admin seam
+  // (no authenticated grant in either direction). They are compared per row so
+  // an unchanged column writes NO RPC call and NO audit row: re-importing an
+  // untouched export is the common case and must not manufacture history.
+  const admin = createAdminSupabase();
+  const { data: moneyRows } = await admin
+    .from("equipment_items")
+    .select("id, acquisition_cost, acquired_at, daily_rate");
+  const currentMoney = new Map(
+    (moneyRows ?? []).map((r) => [
+      r.id,
+      { cost: r.acquisition_cost, acquiredAt: r.acquired_at, rate: r.daily_rate },
+    ]),
+  );
 
   const errors: string[] = [];
   const inserts = 0;
   let updates = 0;
+  let moneyUpdates = 0;
 
   for (const row of parsed.rows) {
     const shared = {
@@ -1153,10 +1181,46 @@ export async function importEquipmentCsv(
           `แก้ไข "${row.name}" ไม่สำเร็จ — กลุ่มนี้มีแถวจำนวนมากอยู่แล้ว (1 แถวต่อทะเบียน)`,
         );
       } else if (error) errors.push(`แก้ไข "${row.name}" ไม่สำเร็จ`);
-      else updates += 1;
+      else {
+        updates += 1;
+
+        // ---- Spec 367 §10.4: the money, through its own doors ----------------
+        // Never part of `shared` above: those columns have no authenticated
+        // grant, so an RLS UPDATE carrying them would 42501 the whole row.
+        const now = currentMoney.get(row.id!) ?? { cost: null, acquiredAt: null, rate: null };
+        let touched = false;
+
+        // Acquisition: null is a VALUE here (the RPC clears), so a blanked cell
+        // is a real change and must be sent. Params are omitted rather than
+        // passed as null — they carry `default null` and the generated Args type
+        // marks a defaulted param optional, never nullable.
+        if (row.acquisitionCost !== now.cost || row.acquiredAt !== now.acquiredAt) {
+          const { error: acqError } = await supabase.rpc("set_equipment_acquisition", {
+            p_id: row.id!,
+            ...(row.acquisitionCost === null ? {} : { p_cost: row.acquisitionCost }),
+            ...(row.acquiredAt === null ? {} : { p_acquired_at: row.acquiredAt }),
+          });
+          if (acqError) errors.push(`บันทึกราคาทุนของ "${row.name}" ไม่สำเร็จ`);
+          else touched = true;
+        }
+
+        // The rate RPC REFUSES null, so a blank cell cannot mean "clear" — it
+        // means "leave it alone". The sheet's hint says so; silently clearing a
+        // charge-out rate because a column was empty would be the worse reading.
+        if (row.dailyRate !== null && row.dailyRate !== now.rate) {
+          const { error: rateError } = await supabase.rpc("set_equipment_daily_rate", {
+            p_id: row.id!,
+            p_rate: row.dailyRate,
+          });
+          if (rateError) errors.push(`บันทึกค่าเช่าของ "${row.name}" ไม่สำเร็จ`);
+          else touched = true;
+        }
+
+        if (touched) moneyUpdates += 1;
+      }
     }
   }
 
   revalidatePath("/equipment");
-  return { ok: errors.length === 0, inserts, updates, errors };
+  return { ok: errors.length === 0, inserts, updates, moneyUpdates, errors };
 }

@@ -98,11 +98,19 @@ export interface ParsedEquipmentRow {
   condition: Enums["equipment_condition"] | null;
   status: Enums["equipment_status"];
   description: string | null;
-  // NOTE: acquiredAt / acquisitionCost / dailyRate are deliberately ABSENT.
-  // None of the three is writable by this path (no authenticated grant;
-  // daily_rate goes through set_equipment_daily_rate, acquisition_cost has no
-  // write path at all), so carrying them in the row shape would invite a caller
-  // to write something that 42501s. They are refused at parse time instead.
+  // Spec 367 §10.4 — the three money fields are now CARRIED, because all three
+  // finally have a DEFINER seam (`set_equipment_acquisition` from #1027,
+  // `set_equipment_daily_rate` since spec 202). They are NOT part of the plain
+  // row UPDATE: the caller routes each to its RPC.
+  //
+  // ⚠️ `null` here means "the cell was blank", nothing more. The two RPCs differ
+  // on what blank should DO — acquisition accepts null and clears, the rate RPC
+  // refuses null outright — so the meaning is resolved by the caller, which knows
+  // the current values. Baking either reading in here would make one blank cell
+  // mean two things.
+  acquisitionCost: number | null;
+  acquiredAt: string | null;
+  dailyRate: number | null;
 }
 
 export interface EquipmentImportResult {
@@ -122,10 +130,23 @@ const STATUS_BY_LABEL = invert(EQUIPMENT_STATUS_LABEL);
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Spec 367 U3 — see the money block in the row loop. One message for both
-// columns so the wording cannot drift between them.
-const MONEY_READ_ONLY = (col: string): string =>
-  `คอลัมน์ "${col}" ยังแก้ไขผ่านการนำเข้าไม่ได้ — กรุณาเว้นว่างไว้ แล้วแก้ไขในหน้าอุปกรณ์โดยตรง`;
+/**
+ * Spec 367 §10.4 — today's CIVIL date in Bangkok, as `yyyy-mm-dd`.
+ *
+ * Both this box and the database run in UTC while the users are in Bangkok
+ * (UTC+7), so for the first seven hours of every local day a UTC "today" is
+ * still yesterday — and a machine bought this morning would be refused as
+ * being in the future. The RPC guards the same boundary the same way.
+ */
+function bangkokToday(): string {
+  return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+// Spec 367 §10.4 — the U3 `MONEY_READ_ONLY` message is DELETED, not kept-unused:
+// it said the price columns "cannot be imported yet", which stopped being true
+// when both figures got a DEFINER seam. A retired refusal left lying around is
+// how the next reader concludes the wall is still there. (Lint caught it, which
+// is the whole point of the no-unused-vars rule on this kind of change.)
 
 // Spec 367 §13 — the sniff moved to `paste-delimiter.ts` when the bulk-add paste
 // needed the same rule; re-exported under the old local name so this file's call
@@ -243,33 +264,38 @@ export function parseEquipmentImport(
     const qty = parseOptionalNumber(cell(COL.quantity));
     if (!qty.ok) bad(`จำนวนไม่ใช่ตัวเลข`);
 
-    // `acquired_at` carries no authenticated grant either (U1 granted only the
-    // six non-money columns), so it is read-only on import for the same reason.
-    const acquiredAt = cell(COL.acquiredAt);
-    if (acquiredAt !== "") {
-      if (!ISO_DATE.test(acquiredAt))
+    // Spec 367 §10.4 — `acquired_at` is now writable through
+    // `set_equipment_acquisition`, so a filled cell is VALIDATED rather than
+    // refused. The future check mirrors the RPC's own P0001 arm and uses the
+    // BANGKOK civil date: this box and the DB both think in UTC, so a machine
+    // bought this morning would otherwise be refused for seven hours a day.
+    const acquiredAtCell = cell(COL.acquiredAt);
+    let acquiredAt: string | null = null;
+    if (acquiredAtCell !== "") {
+      if (!ISO_DATE.test(acquiredAtCell)) {
         bad(`วันที่ได้มาต้องเป็นรูปแบบ ปี-เดือน-วัน (เช่น 2025-03-04)`);
-      else bad(MONEY_READ_ONLY(COL.acquiredAt));
+      } else if (acquiredAtCell > bangkokToday()) {
+        bad(`วันที่ได้มาต้องไม่เป็นวันในอนาคต`);
+      } else {
+        acquiredAt = acquiredAtCell;
+      }
     }
 
-    // MONEY IS READ-ONLY ON IMPORT (spec 367 U3, gate-checked against the write
-    // path). `daily_rate` is writable only through the SECURITY DEFINER
-    // `set_equipment_daily_rate` RPC — where the real gate and the audit row
-    // live — and `acquisition_cost` has NO write path in the app at all. Neither
-    // carries an authenticated grant, so an RLS-client write would 42501.
+    // Spec 367 §10.4 — money is no longer read-only on import. Until #1027 the
+    // refusal below was correct because `acquisition_cost` had NO write path at
+    // all; now both figures reach the DB through their own SECURITY DEFINER RPC,
+    // where the gate and the audit row live. The file never writes these columns
+    // directly — the caller routes each to its RPC — so the money wall on the
+    // table is untouched.
     //
-    // A filled money cell is therefore REFUSED, loudly. The alternative —
-    // accepting the file and writing everything except the prices — is the
-    // silent-success failure: the operator fills 64 costs, sees "64 updated",
-    // and the numbers are simply gone. Today all 64 are blank, so the ordinary
-    // round trip is unaffected; the day someone uses the file for its actual
-    // purpose they get told why instead of losing the work.
+    // Both RPCs raise P0001 on a negative value; mirroring that here turns a
+    // mid-import failure into one line of the pre-import error list.
     const cost = parseOptionalNumber(cell(COL.cost));
     if (!cost.ok) bad(`ราคาทุนไม่ใช่ตัวเลข`);
-    else if (cost.value !== null) bad(MONEY_READ_ONLY(COL.cost));
+    else if (cost.value !== null && cost.value < 0) bad(`ราคาทุนต้องไม่ติดลบ`);
     const rate = parseOptionalNumber(cell(COL.rate));
     if (!rate.ok) bad(`ค่าเช่า/วันไม่ใช่ตัวเลข`);
-    else if (rate.value !== null) bad(MONEY_READ_ONLY(COL.rate));
+    else if (rate.value !== null && rate.value < 0) bad(`ค่าเช่า/วันต้องไม่ติดลบ`);
 
     // Reuse the form's validator so the file and the UI enforce ONE set of
     // unit/bulk invariants (the DB CHECK re-enforces them a third time).
@@ -301,6 +327,9 @@ export function parseEquipmentImport(
       condition,
       status: status!,
       description: cell(COL.description) || null,
+      acquisitionCost: cost.ok ? cost.value : null,
+      acquiredAt,
+      dailyRate: rate.ok ? rate.value : null,
     });
   });
 
