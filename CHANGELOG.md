@@ -1,3 +1,10 @@
+## [0.365.2](https://github.com/vap-ops/prc-ops/compare/v0.365.1...v0.365.2) (2026-08-08)
+
+### Bug Fixes
+
+- **attendance:** keep เข้า and ออก side by side at every width ([7c7abf2](https://github.com/vap-ops/prc-ops/commit/7c7abf2238d06b619889664c41d4f90f370558de))
+- **attendance:** restore the design font on the time fields, and make the pair actually fit ([57b1bfa](https://github.com/vap-ops/prc-ops/commit/57b1bfa4bd0a2b4bf793ac16e86827fa8352a36d))
+
 ## [0.365.1](https://github.com/vap-ops/prc-ops/compare/v0.365.0...v0.365.1) (2026-08-08)
 
 ### Bug Fixes
