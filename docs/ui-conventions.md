@@ -361,9 +361,17 @@ gone, the hub arm adopts `card` and all three arms — and the fallback — agre
 **Every `card` screen gained the fix:** `/login`, `/coming-soon`, `error.tsx`, `not-found.tsx`,
 `page.tsx`, `visitor-landing.tsx` and `narrow-skeleton.tsx` — the loading frame, and the only
 caller passing two children, which is what `[&>*]` had to be checked against.
-⚑ The hub keeps its own `py-10` and the fallback does not, so the two step 40px apart once the
-hub overflows. ⚠️ `variant="bare"` now has **zero** production callers — kept for the API and
-its own test, not deleted here.
+✅ **The `py-10` step is closed too (2026-08-06)** — and note the caveat under "Short content is
+byte-identical" above: that holds while free space is ≥ 80px; a card between (viewport − 80) and
+the viewport now scrolls a little instead of running edge-to-edge. the hub used to carry its own `className="py-10"`,
+which the fallback could not see — invisible while content is centred, a 40px step the moment that
+arm overflowed. The padding now lives in the VARIANT, so page and fallback inherit it together and
+their `<main>` class strings are byte-identical. It also earns its keep everywhere: auto margins
+collapse to 0 when a card overflows, so without it the content would touch the viewport edge
+(measured: a 900px card in a 600px scroller now sits at top 40 with `scrollHeight` 980, all
+reachable). **No arm of a narrow screen may pass `className` at all** — what those screens need
+goes in the variant — pinned in `narrow-loading-skeleton.test.tsx`.
+⚠️ `variant="bare"` now has **zero** production callers — kept for the API and its own test.
 
 ⚠️ **Not card-only, and the measurement is why:** `/login` and `/coming-soon` are both in
 the telemetry `EXCLUDED_PREFIXES` (`src/lib/telemetry/scope.ts`), so their usage is

@@ -65,9 +65,11 @@ describe("PageShell", () => {
     // the same child reports top 0, scrollHeight 900 and maxScroll 300.
     //
     // Auto margins centre exactly like `items-center` while there IS free
-    // space, and collapse to 0 when there is not — which is why /coming-soon's
-    // OperatorHub arm had to opt out of this variant entirely (bare + py-10),
-    // leaving that page's three arms disagreeing about vertical alignment.
+    // space, and collapse to 0 when there is not. Until that was fixed,
+    // /coming-soon's OperatorHub arm could not use this variant at all — it
+    // rendered `bare` + its own padding (a 1:1 port of a pre-PageShell
+    // hand-rolled <main>, NOT a deliberate opt-out), which left that page's
+    // three arms disagreeing about vertical alignment.
     const { container } = render(<PageShell variant="card">x</PageShell>);
     const main = mainOf(container);
     expect(
@@ -83,6 +85,18 @@ describe("PageShell", () => {
     expect(main?.className, "auto margins centre only inside a flex container").toContain("flex");
     expect(main?.className).toContain("items-start");
     expect(main?.className).toContain("justify-center");
+    // `py-10` lives HERE, not on a caller's className: auto margins collapse to 0
+    // when a card overflows, so without it the content would touch the viewport
+    // edge — and a caller-side `py-10` (which /coming-soon's hub used to carry)
+    // is invisible to the loading fallback, putting a 40px step between the two
+    // the moment that screen overflows. In the variant, the fallback inherits it.
+    // Exact token set, not `toContain`: that passes for `sm:py-10`, `py-100` and
+    // `py-10 py-0` — the two-utilities-one-property hazard §5 names, and the
+    // sibling width pin already guards this way (fresh-eyes catch).
+    expect(
+      main?.className.match(/\S*py-\S+/g),
+      "overflow breathing room belongs to the variant, exactly once",
+    ).toEqual(["py-10"]);
     expect(main?.className).toContain("bg-card");
     expect(main?.className).not.toContain("bg-page");
   });
