@@ -1,3 +1,11 @@
+## [0.365.3](https://github.com/vap-ops/prc-ops/compare/v0.365.2...v0.365.3) (2026-08-08)
+
+### Bug Fixes
+
+- **muster:** let the worker-day fix panel close an open past day ([7c50b7b](https://github.com/vap-ops/prc-ops/commit/7c50b7b0e7618f9a7f6451506a0eea3fb74b7089))
+- **muster:** one close form, four doors, and no silent refusal ([a5310a1](https://github.com/vap-ops/prc-ops/commit/a5310a1b61dd1c8758a11aa758f2dbda1ef3ae21))
+- **muster:** one ปิดวัน per screen, and never zero ([2d5c99b](https://github.com/vap-ops/prc-ops/commit/2d5c99bfe216f97e70dd0f74ee2083d4c929bea9))
+
 ## [0.365.2](https://github.com/vap-ops/prc-ops/compare/v0.365.1...v0.365.2) (2026-08-08)
 
 ### Bug Fixes
