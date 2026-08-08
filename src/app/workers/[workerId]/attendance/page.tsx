@@ -52,6 +52,7 @@ import {
 } from "@/lib/attendance/fix-panel";
 import {
   ADD_ERROR_COPY,
+  CLOSE_ERROR_COPY,
   REOPEN_ERROR_COPY,
   RETIME_ERROR_COPY,
   UNDO_ERROR_COPY,
@@ -94,6 +95,8 @@ export default async function WorkerAttendancePage({
     addError?: string | string[];
     reopened?: string | string[];
     reopenError?: string | string[];
+    closed?: string | string[];
+    closeError?: string | string[];
   }>;
 }) {
   const { workerId } = await params;
@@ -284,6 +287,11 @@ export default async function WorkerAttendancePage({
     undo: readOutcome(sp.undone, sp.undoError, UNDO_ERROR_COPY),
     add: readOutcome(sp.added, sp.addError, ADD_ERROR_COPY),
     reopen: readOutcome(sp.reopened, sp.reopenError, REOPEN_ERROR_COPY),
+    // The close's own outcome. Without it a refused close (`denied` when the
+    // role passes but `can_see_project` does not, `notover`, `failed`) returns
+    // a page byte-identical to the one before the tap, and the day quietly
+    // stays open — which is the failure the close control was added to end.
+    close: readOutcome(sp.closed, sp.closeError, CLOSE_ERROR_COPY),
   };
 
   return (

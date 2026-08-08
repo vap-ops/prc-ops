@@ -43,6 +43,7 @@ import { loadDayAudit } from "@/lib/muster/day-audit";
 import { attendanceDayParam, dayClosable } from "@/lib/muster/day-correction";
 import {
   ADD_ERROR_COPY,
+  CLOSE_ERROR_COPY,
   REOPEN_ERROR_COPY,
   RETIME_ERROR_COPY,
   UNDO_ERROR_COPY,
@@ -78,19 +79,6 @@ export const metadata = { title: ATTENDANCE_AUDIT_LABEL };
 function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 }
-
-/** Spec 400 U3b — the close form's own outcomes, same honest-copy rule: `denied`
- *  and `shape` can never succeed on a retry, so neither says ลองใหม่, and
- *  `denied` covers the RPC's project-scope refusal as well as its role gate.
- *  Kept LOCAL — spec 400 U6a moved REOPEN_ERROR_COPY and ADD_ERROR_COPY to
- *  `outcome-copy.ts` for the fix page to share, but this page's own close
- *  control has no counterpart there. */
-const CLOSE_ERROR_COPY: Record<string, string> = {
-  denied: "บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้",
-  shape: "วันที่หรือโครงการไม่ถูกต้อง",
-  notover: "ยังอยู่ระหว่างวัน ปิดวันได้เมื่อจบวันแล้ว",
-  failed: "ปิดวันไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
-};
 
 interface AttendanceAuditPageProps {
   // ?start/?end = the audit range; ?from = the back-referrer (this page hangs off
@@ -846,6 +834,12 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                         undo: fixUndoOutcome,
                         add: fixAddOutcome,
                         reopen: fixReopenOutcome,
+                        // This page already renders `closeOutcome` for the DAY
+                        // panel (and suppresses that copy while a day is open),
+                        // so the docked panel takes null rather than printing
+                        // the same sentence a second time on one screen — the
+                        // same reason its close FORM steps aside here.
+                        close: null,
                       }}
                     />
                   </div>

@@ -24,27 +24,22 @@
 // one-tap loss those two surfaces exist to prevent.
 
 import Link from "next/link";
-import { closeMusterDayFromForm } from "@/app/team/attendance/actions";
 import {
   AttendanceAddPersonForm,
   type AddPersonTeam,
   type AddPersonWorker,
 } from "@/components/features/muster/attendance-add-person-form";
+import { MusterCloseDayForm } from "@/components/features/muster/muster-close-day-form";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
 import { ErrorNotice } from "@/components/features/common/notices";
-import {
-  MUSTER_DAY_CLOSE_MEANING,
-  USER_ROLE_LABEL,
-  formatThaiDate,
-  formatThaiDateTime,
-} from "@/lib/i18n/labels";
+import { USER_ROLE_LABEL, formatThaiDate, formatThaiDateTime } from "@/lib/i18n/labels";
 import { addPersonControl, type AddPersonControl } from "@/lib/muster/add-person";
 import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import type { GridDay } from "@/lib/muster/attendance-grid";
 import { describeAuditEvent, type DayAuditRow } from "@/lib/muster/day-audit";
 import { dayCorrectionControl, type DayCorrectionControl } from "@/lib/muster/day-correction";
 import { unfinishedDays, type DayWorkItem } from "@/lib/muster/day-fix";
-import { BUTTON_SECONDARY, CARD } from "@/lib/ui/classes";
+import { CARD } from "@/lib/ui/classes";
 
 /** Spec 400 U6b — what each work-list row says is wrong. Keyed on the problem
  *  UNION so a kind added later reds at typecheck rather than rendering an empty
@@ -313,50 +308,13 @@ export function AttendanceDayPanel({
           closed day, the one that unlocks add and delete) — the two are mutually
           exclusive arms of one state machine, so only ever one renders. */}
       {state.control === "close" && projectId !== null && (
-        <form
-          action={closeMusterDayFromForm}
-          aria-label={`ปิดวัน ${formatThaiDate(day.date)}`}
-          className="mt-3 flex flex-col gap-2"
-        >
-          <input type="hidden" name="projectId" value={projectId} />
-          <input type="hidden" name="workDate" value={day.date} />
-          <input type="hidden" name="returnTo" value={returnTo} />
-
-          {/* ABOVE the control, because a disclosure a reader meets after the
-              button is a disclosure they meet after the tap. */}
-          <ul className="text-ink-secondary flex flex-col gap-1 text-[11px]">
-            {stillIn.regular.length > 0 && (
-              <li>
-                {`ช่าง ${stillIn.regular.length} คนยังไม่เช็คออก — ระบบจะบันทึกเวลาออก 17:00 ให้ · ${stillIn.regular.join(", ")}`}
-              </li>
-            )}
-            {stillIn.ot.length > 0 && (
-              <li>
-                {`ปิดวันจะไม่บันทึก OT ให้ — OT ที่ยังไม่เช็คออก ${stillIn.ot.length} คน · ${stillIn.ot.join(", ")}`}
-              </li>
-            )}
-            {/* What the word itself means, first — the rest of this list is the
-                consequences OF it, which read as a non-sequitur to anyone who
-                does not already know what ปิดวัน does (operator, 2026-08-07). */}
-            <li>{MUSTER_DAY_CLOSE_MEANING}</li>
-            <li>ค่าแรงจะบันทึกตามอัตราปัจจุบันของช่าง</li>
-            <li>ปิดแล้วแก้ไขการเช็คชื่อไม่ได้จนกว่าจะเปิดวันอีกครั้ง</li>
-          </ul>
-
-          {/* The second deliberate act, in the only form this zero-client-JS page
-              can carry one: a `required` checkbox. The cockpit arms its own close
-              with client state; here the browser enforces it with no hydration. */}
-          <label className="text-ink flex min-h-11 items-center gap-2 text-xs">
-            <input type="checkbox" name="confirm" required value="1" className="size-4 shrink-0" />
-            เข้าใจแล้วว่าปิดวันดังกล่าวจะบันทึกเวลาออกและคิดค่าแรง
-          </label>
-
-          <button type="submit" className={`${BUTTON_SECONDARY} self-start`}>
-            ปิดวัน
-          </button>
-        </form>
+        <MusterCloseDayForm
+          projectId={projectId}
+          workDate={day.date}
+          returnTo={returnTo}
+          stillIn={stillIn}
+        />
       )}
-
       {state.control === "none" && NO_CONTROL_COPY[state.reason] !== null && (
         <p className="text-ink-secondary mt-2 text-xs">{NO_CONTROL_COPY[state.reason]}</p>
       )}

@@ -13,11 +13,10 @@ import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { AttendanceFixAddForm } from "@/components/features/muster/attendance-fix-add-form";
 import { AttendanceFixRetimeForm } from "@/components/features/muster/attendance-fix-retime-form";
 import { AttendanceFixUndoForm } from "@/components/features/muster/attendance-fix-undo-form";
+import { MusterCloseDayForm } from "@/components/features/muster/muster-close-day-form";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
-import { closeMusterDayFromForm } from "@/app/team/attendance/actions";
 import {
   MUSTER_DAY_CLOSED_LABEL,
-  MUSTER_DAY_CLOSE_MEANING,
   USER_ROLE_LABEL,
   formatThaiDate,
   formatThaiDateTime,
@@ -28,7 +27,7 @@ import { describeAuditEvent } from "@/lib/muster/day-audit";
 import { dayClosable } from "@/lib/muster/day-correction";
 import { outTimeLocked } from "@/lib/muster/day-fix";
 import type { WorkerDayFix } from "@/lib/muster/worker-day-fix";
-import { BUTTON_SECONDARY, CARD, SECTION_HEADING } from "@/lib/ui/classes";
+import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
 
 export type FixOutcome = { ok: true } | { ok: false; message: string } | null;
 
@@ -69,7 +68,20 @@ export function WorkerDayFixPanel({
    * the direction that cannot strand a day (the bug this control exists to fix).
    */
   hostOffersClose?: boolean;
-  outcomes: { retime: FixOutcome; undo: FixOutcome; add: FixOutcome; reopen: FixOutcome };
+  /**
+   * ⚠️ `close` is not optional. `closeMusterDayFromForm` redirects with
+   * `?closed=1` or `?closeError=denied|shape|notover|failed`, and a door that
+   * offers the control without reading them answers a refusal with a page that
+   * looks identical to before the tap — the day silently stays open, which is
+   * the exact failure this panel's close exists to end.
+   */
+  outcomes: {
+    retime: FixOutcome;
+    undo: FixOutcome;
+    add: FixOutcome;
+    reopen: FixOutcome;
+    close: FixOutcome;
+  };
   /** Panel only: the day's queue position and its neighbours. */
   queue?: React.ReactNode;
   /**
@@ -138,6 +150,24 @@ export function WorkerDayFixPanel({
         </div>
       )}
 
+      {/* The close outcome sits OUTSIDE the close card, beside the reopen's, and
+          that placement is load-bearing: a SUCCESSFUL close flips `dayClosed` to
+          true, which withdraws the card the form lives in — so an outcome
+          rendered inside it could only ever show the failure, and the success
+          would be silent. Silence after a money write is indistinguishable from
+          a crash, which is the class this whole unit is about. */}
+      {outcomes.close !== null && (
+        <div className="mt-3">
+          {outcomes.close.ok ? (
+            <p className="border-edge bg-sunk text-ink rounded-card border px-4 py-3 text-sm">
+              ปิดวันดังกล่าวแล้ว
+            </p>
+          ) : (
+            <ErrorNotice>{outcomes.close.message}</ErrorNotice>
+          )}
+        </div>
+      )}
+
       {/* The LOCK, before the things it locks — state that governs a section
           belongs above that section. */}
       {dayClosed === true && (
@@ -179,48 +209,13 @@ export function WorkerDayFixPanel({
       {!hostOffersClose &&
         dayClosable({ date, todayIso, dayClosed, projectId: data.projectId, canClose }) &&
         data.projectId !== null && (
-          <form
-            action={closeMusterDayFromForm}
-            aria-label={`ปิดวัน ${formatThaiDate(date)}`}
-            className={`${CARD} mt-4 flex flex-col gap-2`}
-          >
-            <input type="hidden" name="projectId" value={data.projectId} />
-            <input type="hidden" name="workDate" value={date} />
-            <input type="hidden" name="returnTo" value={returnTo} />
-
+          <div className={`${CARD} mt-4`}>
             <h3 className="text-ink text-sm font-semibold">ปิดวัน</h3>
-            {/* ABOVE the control: a disclosure met after the button is met after
-                the tap. ⚠️ This panel is per-WORKER and the button acts on the
-                WHOLE day, which the closed-day card says for reopen and which
-                matters more here — this is the step that books the money.
-                ⓘ No "N คนยังไม่เช็คออก" list: this surface loads one worker, so
-                it cannot count the day's others. The RULE is stated instead of a
-                number it would have to invent. */}
-            <ul className="text-ink-secondary flex flex-col gap-1 text-[11px]">
-              <li>{MUSTER_DAY_CLOSE_MEANING}</li>
-              <li>มีผลทั้งวัน คิดค่าแรงใหม่ทุกคน ไม่ใช่แค่ช่างคนนี้</li>
-              <li>ช่างที่ยังไม่เช็คออกจะถูกบันทึกเวลาออก 17:00 ให้</li>
-              <li>ปิดแล้วแก้ไขการเช็คชื่อไม่ได้จนกว่าจะเปิดวันอีกครั้ง</li>
-            </ul>
-
-            {/* The second deliberate act, in the only form a zero-client-JS
-                surface can carry one — the same `required` checkbox the day
-                panel uses, so this cannot become the softer door to one write. */}
-            <label className="text-ink flex min-h-11 items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                name="confirm"
-                required
-                value="1"
-                className="size-4 shrink-0"
-              />
-              เข้าใจแล้วว่าปิดวันดังกล่าวจะบันทึกเวลาออกและคิดค่าแรง
-            </label>
-
-            <button type="submit" className={`${BUTTON_SECONDARY} self-start`}>
-              ปิดวัน
-            </button>
-          </form>
+            {/* ⓘ `stillIn` omitted deliberately: this panel loads ONE worker, so
+                it cannot count the day's others, and the shared form states the
+                rule rather than a number it would have to invent. */}
+            <MusterCloseDayForm projectId={data.projectId} workDate={date} returnTo={returnTo} />
+          </div>
         )}
 
       {sessions.length === 0 && (

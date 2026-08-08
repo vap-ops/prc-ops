@@ -85,8 +85,11 @@ export function dayClosable(input: {
 }): boolean {
   const { date, todayIso, dayClosed, projectId, canClose } = input;
   if (!dayStage(date, todayIso, dayClosed).ok) return false;
-  // A closed day's control is REOPEN, not close.
-  if (dayClosed !== false) return false;
+  // A closed day's control is REOPEN, not close. `=== true` and not `!== false`
+  // on purpose: `dayStage` has already rejected `null`, so this arm can only be
+  // reached by `true` — the loose form sends the reader hunting for a third
+  // state that cannot arrive here.
+  if (dayClosed === true) return false;
   return canClose && projectId !== null;
 }
 

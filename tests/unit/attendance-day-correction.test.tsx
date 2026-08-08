@@ -694,15 +694,21 @@ describe("dayClosable — may this OPEN day be closed (spec 404 close-control fi
     // The parity pin. Both surfaces must answer identically for every input, or
     // the panel and the day column disagree about the same day — which is how
     // this bug existed in the first place.
+    // ⚠️ `canReopen` and `todayIso` are VARIED, not pinned. Holding canReopen at
+    // `true` let a mutation like `permitted = dayClosed ? canReopen : (canClose
+    // || canReopen)` survive the whole matrix — the parity pin would then be
+    // agreeing with a rule that had stopped being the rule.
     for (const date of ["2026-08-05", "2026-08-08", "2026-08-09"]) {
-      for (const dayClosed of [true, false, null]) {
-        for (const projectId of ["p1", null]) {
-          for (const canClose of [true, false]) {
-            const input = { date, todayIso: "2026-08-08", dayClosed, projectId, canClose };
-            // `canReopen` cannot affect the CLOSE arm: the ladder reaches the
-            // permission check only for an open day, where `canClose` governs.
-            const control = dayCorrectionControl({ ...input, canReopen: true });
-            expect(dayClosable(input)).toBe(control.control === "close");
+      for (const todayIso of ["2026-08-08", "2026-08-05"]) {
+        for (const dayClosed of [true, false, null]) {
+          for (const projectId of ["p1", null]) {
+            for (const canClose of [true, false]) {
+              for (const canReopen of [true, false]) {
+                const input = { date, todayIso, dayClosed, projectId, canClose };
+                const control = dayCorrectionControl({ ...input, canReopen });
+                expect(dayClosable(input)).toBe(control.control === "close");
+              }
+            }
           }
         }
       }

@@ -22,16 +22,19 @@ import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-panel";
 import { WorkerDayFixPanel } from "@/components/features/muster/worker-day-fix-panel";
+import { dayClosable } from "@/lib/muster/day-correction";
 import type { WorkerDayFix } from "@/lib/muster/worker-day-fix";
 
 const TODAY = "2026-08-08";
 const PAST = "2026-08-05";
+const PROJECT = "a88af871-019b-4eca-a7aa-f05244c83e5d";
 
 function data(over: Partial<WorkerDayFix> = {}): WorkerDayFix {
   return {
     workerName: "นายอนันต์ แสงทอง",
-    projectId: "a88af871-019b-4eca-a7aa-f05244c83e5d",
+    projectId: PROJECT,
     projectName: "PRC-2026-004 TFM โพธิ์ทอง",
     sessions: [],
     dayClosed: false,
@@ -51,6 +54,7 @@ function renderPanel(
     todayIso?: string;
     canClose?: boolean;
     hostOffersClose?: boolean;
+    close?: { ok: true } | { ok: false; message: string } | null;
   } = {},
 ) {
   return render(
@@ -61,8 +65,12 @@ function renderPanel(
       todayIso={over.todayIso ?? TODAY}
       returnTo="/workers/w1/attendance?m=2026-08&fix=2026-08-05"
       canClose={over.canClose ?? true}
-      hostOffersClose={over.hostOffersClose ?? false}
-      outcomes={{ retime: null, undo: null, add: null, reopen: null }}
+      // ⚠️ Spread, NOT `?? false`. Passing the prop unconditionally would mean no
+      // test ever exercises the DEFAULT — and the default is what both stranded
+      // doors rely on, so flipping it to `true` would delete their only close
+      // with the whole suite green. The bug, re-shipped, invisibly.
+      {...(over.hostOffersClose === undefined ? {} : { hostOffersClose: over.hostOffersClose })}
+      outcomes={{ retime: null, undo: null, add: null, reopen: null, close: over.close ?? null }}
     />,
   );
 }
@@ -104,8 +112,43 @@ describe("the fix panel can close an open past day (the 2026-08-05 incident)", (
     // This panel is per-WORKER and the button acts on everyone on the day. The
     // closed-day card already makes that point for reopen; the close needs it
     // more, because it is the step that books the money.
+    //
+    // ⚠️ NOT `/ทั้งวัน|ทุกคน/`: `MUSTER_DAY_CLOSE_MEANING` — a pre-existing SSOT
+    // label this form also prints — already contains ทุกคน, so that pattern was
+    // satisfied with the per-worker sentence DELETED. Pin the words only the
+    // sentence under test can produce.
     renderPanel();
-    expect(closeForm()!.textContent).toMatch(/ทั้งวัน|ทุกคน/);
+    expect(closeForm()!.textContent).toMatch(/ไม่ใช่แค่ช่างคนนี้/);
+  });
+
+  it("is honest about OT: the 17:00 auto-out is REGULAR only, and OT is lost", () => {
+    // `close_muster_day` auto-outs `and a.session = 'regular'` and leaves an open
+    // OT row untouched, and no RPC can back-date a check-out — so that OT is
+    // permanently unbookable. An unqualified "ช่างที่ยังไม่เช็คออกจะถูกบันทึกเวลาออก
+    // 17:00 ให้" promises the opposite. The day panel always disclosed the loss;
+    // this surface shipped without it until the shared form was extracted.
+    renderPanel();
+    const text = closeForm()!.textContent!;
+    expect(text).toMatch(/เฉพาะงานปกติ/);
+    expect(text).toMatch(/ไม่บันทึก OT/);
+  });
+
+  it("reports the close's own outcome — a refusal may not be silent", () => {
+    // `closeMusterDayFromForm` redirects with `?closeError=…`; a door that offers
+    // the control and never reads it answers a refusal with a page identical to
+    // the one before the tap, and the day quietly stays open.
+    renderPanel({ close: { ok: false, message: "บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้" } });
+    expect(screen.getByText("บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้")).not.toBeNull();
+  });
+
+  it("reports a SUCCESSFUL close even though success withdraws the form", () => {
+    // The success flips `dayClosed` to true, which removes the close card. An
+    // outcome rendered inside that card could only ever show the failure — so
+    // this asserts the success survives on the CLOSED-day render, where the
+    // reader actually lands.
+    renderPanel({ fix: { dayClosed: true }, close: { ok: true } });
+    expect(closeForm()).toBeNull();
+    expect(screen.getByText("ปิดวันดังกล่าวแล้ว")).not.toBeNull();
   });
 
   it("withholds it on a CLOSED day — that day's control is เปิดวันอีกครั้ง", () => {
@@ -161,6 +204,54 @@ describe("no TWO ปิดวัน on one screen", () => {
   it("keeps its close when the host renders none — every other door", () => {
     renderPanel({ hostOffersClose: false });
     expect(closeForm()).not.toBeNull();
+  });
+
+  it("DEFAULTS to keeping it — a door that forgets the prop cannot strand a day", () => {
+    // The two doors this unit exists for pass nothing. If the default ever flips,
+    // this is what reds.
+    renderPanel();
+    expect(closeForm()).not.toBeNull();
+  });
+
+  // The branch's actual claim, which until now lived only in the Chrome run: put
+  // the two components on ONE screen over the SAME day and count the forms.
+  it("renders exactly ONE ปิดวัน when both components are on the screen", () => {
+    const shared = { date: PAST, todayIso: TODAY, canClose: true, projectId: PROJECT };
+    const hostOffersClose = dayClosable({ ...shared, dayClosed: false });
+
+    render(
+      <>
+        <AttendanceDayPanel
+          day={{
+            date: shared.date,
+            dayClosed: false,
+            headcount: 1,
+            nonWorking: false,
+            holidayName: null,
+          }}
+          todayIso={TODAY}
+          projectId={PROJECT}
+          canReopen
+          canClose
+          returnTo="/team/attendance?day=2026-08-05"
+          stillIn={{ regular: [], ot: [] }}
+          outcome={null}
+          trail={[]}
+        />
+        <WorkerDayFixPanel
+          data={data()}
+          workerId="w1"
+          date={PAST}
+          todayIso={TODAY}
+          returnTo="/team/attendance?day=2026-08-05&fix=w1"
+          canClose
+          hostOffersClose={hostOffersClose}
+          outcomes={{ retime: null, undo: null, add: null, reopen: null, close: null }}
+        />
+      </>,
+    );
+
+    expect(screen.getAllByRole("form", { name: /^ปิดวัน/ })).toHaveLength(1);
   });
 });
 

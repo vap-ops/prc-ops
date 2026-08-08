@@ -2,8 +2,11 @@
 // forms. REOPEN_ERROR_COPY and ADD_ERROR_COPY moved out of
 // `/team/attendance/page.tsx` (which owned them originally, spec 397 U3 / 400
 // U3c-b) so the U6a fix page can show the SAME sentences for the SAME outcomes
-// instead of drifting a second copy of either. CLOSE_ERROR_COPY stayed local to
-// that page — the fix page has no close control of its own.
+// instead of drifting a second copy of either. CLOSE_ERROR_COPY joined them once
+// the close control stopped being one page's private affordance: it now renders
+// on every surface that can reopen a day, and the note that used to justify
+// keeping it local ("the fix page has no close control of its own") expired the
+// moment that became false.
 //
 // Every arm follows the honest-copy rule (spec 397 U3): none may say ลองใหม่
 // unless the next attempt could genuinely succeed unchanged. A code, never a
@@ -29,6 +32,14 @@ export const REOPEN_ERROR_COPY: Record<string, string> = {
   notclosed: "วันนี้ยังไม่ได้ปิด จึงไม่ต้องเปิดใหม่",
   shape: "วันที่หรือโครงการไม่ถูกต้อง และต้องระบุเหตุผลด้วย",
   failed: "เปิดวันอีกครั้งไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
+};
+
+/** Spec 400 U3b — the close outcome codes, shared by all four close doors. */
+export const CLOSE_ERROR_COPY: Record<string, string> = {
+  denied: "บัญชีนี้ไม่มีสิทธิ์ปิดวันของโครงการนี้",
+  shape: "วันที่หรือโครงการไม่ถูกต้อง",
+  notover: "ยังอยู่ระหว่างวัน ปิดวันได้เมื่อจบวันแล้ว",
+  failed: "ปิดวันไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อโครงการ",
 };
 
 /** Spec 400 U3c-b — the add form's outcomes. */
