@@ -37,6 +37,50 @@ export interface WorkerAttendancePayload {
   stdRate: number | null;
 }
 
+/**
+ * Spec 404 U2b — DISTINCT workers scanned per date, for ONE project, across one
+ * month. It is the `headcount` half of the grid's gap-cell rule
+ * (`calendarBlankDayFixable`), which is what decides whether a day this worker
+ * missed becomes a door.
+ *
+ * ⚖️ **It widens nobody's scope.** The caller passes the project resolved from
+ * THIS worker's own muster rows, which `loadWorkerAttendance` has already
+ * filtered to the viewer's memberships for any role outside
+ * `viewerSeesAllMusterProjects` — so a project reaching this function is one the
+ * viewer was already shown days from. The admin seam is the same one the month
+ * read uses and for the same reason (`muster_attendance` RLS is
+ * can_see_project-scoped and plain `procurement` fails it).
+ *
+ * Selected at worker grain rather than aggregated because PostgREST cannot GROUP
+ * BY: the payload is two ids per scan (~550 rows for a full month of a 25-person
+ * site), and the caller only asks for it when a door could actually be offered —
+ * the viewer can correct AND the month names exactly one project.
+ */
+export async function loadProjectHeadcountByDate(
+  projectId: string,
+  /** YYYY-MM-01 */
+  monthAnchor: string,
+): Promise<Record<string, number>> {
+  const admin = createAdminSupabase();
+  const { data, error } = await admin
+    .from("muster_attendance")
+    .select("work_date, worker_id, muster_teams!inner(project_id)")
+    .eq("muster_teams.project_id", projectId)
+    .gte("work_date", monthAnchor)
+    .lt("work_date", addMonthsIso(monthAnchor, 1));
+  if (error) throw new Error(`attendance headcount read failed: ${error.message}`);
+
+  // DISTINCT workers, because spec 351 lets one person carry a regular AND an OT
+  // row on the same date — counting rows would report a 4-person day as 5.
+  const byDate = new Map<string, Set<string>>();
+  for (const row of data ?? []) {
+    const set = byDate.get(row.work_date) ?? new Set<string>();
+    set.add(row.worker_id);
+    byDate.set(row.work_date, set);
+  }
+  return Object.fromEntries([...byDate].map(([date, workers]) => [date, workers.size]));
+}
+
 export async function loadWorkerAttendance(
   workerId: string,
   /** YYYY-MM-01 */

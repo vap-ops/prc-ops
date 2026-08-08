@@ -46,7 +46,11 @@ export function AttendanceDrill({
   return (
     <ul className="flex flex-col gap-3">
       {days.map((day) => (
-        <li key={day.workDate}>
+        // ⚠️ Spec 404 U2b — `@container` because the reopen form below now sizes
+        // its row against its BOX rather than the viewport (it is shared with a
+        // 280px docked column). Without a container here the form would silently
+        // stack on this full-width drill, which is a regression, not a default.
+        <li key={day.workDate} className="@container">
           {/* The two per-DAY facts: closure state and the project. A worker-day is
               provably single-project (muster_scan_in ties an OT session to the
               same team; move_muster_worker refuses cross-project), so printing

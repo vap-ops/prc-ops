@@ -74,7 +74,21 @@ export function WorkerDayFixPanel({
   const addNotice = addState?.control === "none" ? ADD_WITHHELD_COPY[addState.reason] : null;
 
   return (
-    <>
+    // ⚠️ Spec 404 U2b — the panel is its OWN container, and that is the whole
+    // fix. Its three forms used to key their row/stack layouts on `sm:`, a
+    // VIEWPORT query, while this panel is docked into boxes of wildly different
+    // widths: a full-width page section on /team/attendance/fix, a wide card on
+    // /team/attendance, and a fixed 280–340px column beside the spec-404
+    // calendar. In that column the row fired at every viewport ≥640px, leaving
+    // the reopen reason input 61px of usable width at 834 and 81px at 1194
+    // against a 155px placeholder — the truncated `เช่น ลงเวลาไ` on the
+    // operator's screenshot — and the two retime time fields at different
+    // x-origins.
+    //
+    // Declaring it HERE rather than asking each caller to do it means a fourth
+    // door cannot forget: the forms measure the panel, and the panel is exactly
+    // the box they are in. Callers need nothing.
+    <div className="@container">
       {queue}
       <h2 className={SECTION_HEADING}>{workerName}</h2>
       <p className="text-ink-secondary mt-1 text-sm">
@@ -257,7 +271,7 @@ export function WorkerDayFixPanel({
           </ul>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

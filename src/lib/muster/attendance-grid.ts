@@ -206,7 +206,14 @@ function isoAt(ms: number): string {
 }
 
 /** Sunday is the site's non-working day; Saturday is a working day here. */
-function isSunday(dateIso: string): boolean {
+/**
+ * Spec 404 U2b — exported so the per-worker calendar can mirror the grid's
+ * gap-cell rule instead of restating it. `GridDay.nonWorking` is
+ * `holiday || Sunday`, and Sunday is NOT the same predicate as the calendar's
+ * own `isWeekend` (which also covers Saturday) — two surfaces citing "the same
+ * rule" while keying on different days is exactly the drift this export closes.
+ */
+export function isSunday(dateIso: string): boolean {
   return new Date(utcMs(dateIso)).getUTCDay() === 0;
 }
 

@@ -201,8 +201,13 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
     // 60px of usable width is narrower than `07:42–18:00` (~70px at 10px), so
     // the merged line wrapped back into the two lines the compaction exists to
     // remove — through the whole 768–1000 range.
+    //
+    // U2b raised the lg width 300 → 340: measured in real Chrome, 340 still
+    // leaves ~108px per calendar column at 1194 (the cell needs 60), and the
+    // panel is where the width was actually short — its reopen reason input
+    // gained 60px of usable width, from 188 to 248.
     expect(src).toContain("md:w-[280px]");
-    expect(src).toContain("lg:w-[300px]");
+    expect(src).toContain("lg:w-[340px]");
     // Not lg for the SPLIT — the whole point of the operator's ruling.
     expect(src).not.toContain("lg:flex-row");
     expect(src).not.toContain("hidden lg:block");

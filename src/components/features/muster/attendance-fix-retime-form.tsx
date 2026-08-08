@@ -65,12 +65,19 @@ export function AttendanceFixRetimeForm({
           and the `min-w-0` sibling collapses to 0px — the defect that took this
           screen out at tablet width. Nothing here claims a line today; the wrap
           is what keeps that true when something does. */}
-      {/* Below `sm` it STACKS. A wrapping row on a 375px phone put the two time
+      {/* Below `@md` it STACKS. A wrapping row in a narrow box put the two time
           fields on different lines at different x-origins with the save button
           beside one of them — measured, and worse than what it replaced. The
-          one-row reading is a tablet affordance; the phone gets full-bleed
-          fields, which is what a gloved thumb wants anyway. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+          one-row reading is a wide-box affordance; a narrow box gets full-bleed
+          fields, which is what a gloved thumb wants anyway.
+
+          ⚠️ Spec 404 U2b — a CONTAINER query, not the `sm:` viewport one it
+          replaced. Three surfaces share this form and one of them is a fixed
+          280–340px column, where `sm:` fired at every viewport ≥640px and
+          produced exactly the ragged เวลาเข้าใหม่ / เวลาออกใหม่ layout it exists
+          to prevent. `@md` is 448px — the width at which the current-time block
+          and the two 128px fields actually fit on one line. */}
+      <div className="flex flex-col gap-2 @md:flex-row @md:flex-wrap @md:items-end">
         <div className="min-w-0">
           <p className="text-ink-secondary text-[11px]">ปัจจุบัน</p>
           {/* ONE range, not two facts in a sentence — the corrector is about to
@@ -84,28 +91,31 @@ export function AttendanceFixRetimeForm({
           </p>
         </div>
 
-        <label className="text-ink-secondary flex w-full min-w-0 flex-col text-[11px] sm:w-auto">
+        <label className="text-ink-secondary flex w-full min-w-0 flex-col text-[11px] @md:w-auto">
           เวลาเข้าใหม่
           <input
             type="time"
             name="inTime"
-            // A time value is five characters. `w-full` is right on a phone and
-            // absurd from `sm` up, where it spanned the whole card.
-            className={`${FIELD_INPUT} mt-1 appearance-none sm:w-32`}
+            // A time value is five characters. `w-full` is right in a narrow box
+            // and absurd once the row forms, where it spanned the whole card.
+            className={`${FIELD_INPUT} mt-1 appearance-none @md:w-32`}
           />
         </label>
 
-        <label className="text-ink-secondary flex w-full min-w-0 flex-col text-[11px] sm:w-auto">
+        <label className="text-ink-secondary flex w-full min-w-0 flex-col text-[11px] @md:w-auto">
           เวลาออกใหม่
           <input
             type="time"
             name="outTime"
             disabled={outLocked}
-            className={`${FIELD_INPUT} mt-1 appearance-none disabled:opacity-50 sm:w-32`}
+            className={`${FIELD_INPUT} mt-1 appearance-none disabled:opacity-50 @md:w-32`}
           />
         </label>
 
-        <button type="submit" className={`${BUTTON_SECONDARY} self-start sm:ml-auto sm:self-auto`}>
+        <button
+          type="submit"
+          className={`${BUTTON_SECONDARY} self-start @md:ml-auto @md:self-auto`}
+        >
           บันทึกเวลาใหม่
         </button>
       </div>

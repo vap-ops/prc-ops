@@ -46,6 +46,14 @@ function fmtDays(n: number): string {
  * the larger saving) works at every width, but the merged `07:42–18:00` line
  * needs ~70px against 66px of usable column at 834, so it wraps to two lines
  * from `md` up to ~880 and is one line above that. A 7-column grid with
+ *
+ * ⚠️ U2b re-measured every cell of three worker-months across 768…1194 rather
+ * than the first one, and sharpened this: the wrap boundary is **between 834 and
+ * 860** (66px → 70px of column), and ONLY cells carrying the auto-out glyph wrap
+ * — a bare `07:44–19:43` is one line at every width in the band. The `lg` panel
+ * going 300 → 340 does not reach this: the whole wrapping interval is below
+ * `lg`, where the panel is 280 either way.
+ *
  * readable 10px times and a usable panel does not fit side by side below ~880 —
  * the panel would have to shrink past 190px, which cannot hold two time inputs.
  * The band boundary is NOT moved to `lg` (the operator ruled that out: it would
@@ -74,6 +82,7 @@ export function WorkerAttendanceCalendar({
   prevHref,
   nextHref,
   dayFixHref = null,
+  blankFixDates,
   openFixDate = null,
 }: {
   month: AttendanceMonth;
@@ -94,20 +103,30 @@ export function WorkerAttendanceCalendar({
    * U6b pointed this at `/team/attendance/fix`; U2 points it at THIS page's own
    * `?fix=<date>`, so a corrector never leaves the month they are reading.
    *
-   * Only days that CARRY attendance link. That is unchanged from U6b, but the
-   * REASON narrowed: the panel can now resolve a project for an empty day of an
-   * unambiguous month, so the gate is no longer "we cannot serve this" but "20
-   * blank tap targets bury the days that have something to correct" — the
-   * cry-wolf line U6b drew at the grid's gap cells.
-   *
-   * ⚠️ So a day with NO record of any kind is reachable only by URL — the
-   * steppers walk these same door dates and can never land on one. The
-   * month-project fallback therefore serves the PAID-ONLY door (a paper-
-   * backfilled labor day, which carries no muster team and so no project of its
-   * own), not an arbitrary blank cell. An earlier draft of this comment claimed
-   * otherwise in three places; a fresh-eyes pass measured it.
+   * Days that carry attendance link, plus the blank days in `blankFixDates`.
    */
   dayFixHref?: ((date: string) => string) | null;
+  /**
+   * Spec 404 U2b — blank cells that are ALSO doors, decided by the page through
+   * `calendarBlankDayFixable`.
+   *
+   * A day this worker has no row on, at a project that scanned other people, is
+   * fully serviceable: `loadWorkerDayFix` offers เพิ่มคนที่ตกหล่น against that
+   * day's existing team. Until U2b nothing linked it, so the screen built for
+   * "the muster missed him" existed only at a hand-typed URL.
+   *
+   * ⚠️ It is a SET, not a predicate, because the rule needs a per-project
+   * headcount read the calendar has no business doing — and because it must be
+   * exactly the set the page also hands `fixStepDates`, or the grid and the
+   * steppers would disagree about what the month holds.
+   *
+   * ⚠️ NOT every blank cell. Live in August that would be ~24 tap targets and
+   * each unworked Sunday would read as a finding — the cry-wolf line U6b drew;
+   * the rule yields ONE. A day the project never opened is excluded outright,
+   * because the add path inserts into an EXISTING team and would refuse with
+   * ยังไม่มีทีมของวันดังกล่าว.
+   */
+  blankFixDates?: ReadonlySet<string>;
   /**
    * Spec 404 U2 — the date the panel is currently open on, so the reader can
    * tell which of 42 cells it is about. `aria-current`, never an aria-label: it
@@ -267,12 +286,13 @@ export function WorkerAttendanceCalendar({
               {week.map((cell) => {
                 const data = cell.inMonth ? month.cells[cell.iso] : undefined;
                 const holiday = cell.inMonth ? month.holidayByDate[cell.iso] : undefined;
-                // Spec 400 U6b — a day with attendance is a door. `data` is the
-                // gate on purpose: it is exactly "this date has something to
-                // correct", and it is also what guarantees the fix screen can
-                // infer a project. Padding cells (`inMonth === false`) resolve
-                // `data` to undefined, so they never link.
-                const fixTo = data && dayFixHref ? dayFixHref(cell.iso) : null;
+                // Spec 400 U6b — a day with attendance is a door; spec 404 U2b —
+                // so is a blank day the project scanned other people on, which is
+                // where the ADD arm does its work. Padding cells
+                // (`inMonth === false`) resolve `data` to undefined and are
+                // excluded from `blankFixDates` by the page, so they never link.
+                const isDoor = Boolean(data) || (blankFixDates?.has(cell.iso) ?? false);
+                const fixTo = isDoor && dayFixHref ? dayFixHref(cell.iso) : null;
                 const isOpenFix = cell.inMonth && openFixDate === cell.iso;
                 const inner = (
                   <>
@@ -305,6 +325,14 @@ export function WorkerAttendanceCalendar({
                         ทำงานวันหยุด
                       </p>
                     ) : null}
+                    {/* Spec 404 U2b — a blank door has no time to show, so
+                        without a visible mark it is an invisible tap target.
+                        The SAME `+` the grid's gap cells use, for the same
+                        reason and in the same words: it reads as "add the
+                        missing check-in", carries no colour dependence, and
+                        appears only where the door does — an always-on mark
+                        would accuse every unworked day of being a finding. */}
+                    {!data && isDoor ? <p className="text-action text-sm leading-none">+</p> : null}
                     {data ? (
                       <div className="text-ink-secondary text-[10px] leading-tight tracking-tight">
                         {/* Spec 404 U2 — ONE time line, not two stacked ones.
@@ -414,8 +442,17 @@ export function WorkerAttendanceCalendar({
                             before-activation question a `title` was (badly)
                             answering. An `sr-only` span keeps every fact AND
                             names the act; an `aria-label` would replace the
-                            whole subtree, which is the U6b defect. */}
-                        <span className="sr-only">แก้ไขการเช็คชื่อ</span>
+                            whole subtree, which is the U6b defect.
+
+                            ⚠️ Spec 404 U2b — a BLANK door names a different act,
+                            because there is no เช็คชื่อ on that day to แก้ไข.
+                            The panel it opens offers exactly one control, the
+                            add form, so the link says so. One label for both
+                            kinds would be false for whichever kind it was not
+                            written for. */}
+                        <span className="sr-only">
+                          {data ? "แก้ไขการเช็คชื่อ" : "เพิ่มคนที่ตกหล่น"}
+                        </span>
                       </Link>
                     ) : (
                       inner

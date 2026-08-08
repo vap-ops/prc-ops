@@ -14,6 +14,8 @@
 // render. Every arm is driven directly in `attendance-fix-panel.test.ts`.
 
 import { isValidIsoDate } from "@/lib/muster/attendance-audit";
+import { isSunday } from "@/lib/muster/attendance-grid";
+import { gridCellFixable } from "@/lib/muster/day-fix";
 
 /**
  * Whether the panel opens, and if not, which fact is wrong.
@@ -103,15 +105,64 @@ export function fixPanelProjectId(input: {
 }
 
 /**
+ * Spec 404 U2b — whether a day carrying NO record of this worker becomes a door.
+ *
+ * Operator ruling 2026-08-08: MIRROR the grid's gap-cell rule, do not invent a
+ * second one. A day where this worker has no row but the project scanned others
+ * is fully serviceable — `loadWorkerDayFix` offers เพิ่มคนที่ตกหล่น — and until
+ * this unit nothing on the page linked it, so the screen built for "the muster
+ * missed him" was reachable only by hand-typing a URL. Live in August 2026 that
+ * is ONE cell for a worker who missed 08-04, not the ~24 a link-every-blank rule
+ * would paint (the cry-wolf line U6b drew at the grid's own gap cells).
+ *
+ * ⚠️ It DELEGATES to `gridCellFixable` rather than restating its three
+ * conditions. Two surfaces that both cite one rule in a comment drift; one that
+ * calls it cannot. The mapping is the only thing this function owns:
+ *
+ *  - `canFixGaps` — the grid means "a project is picked"; here it is "the month
+ *    is unambiguous, so `fixPanelProjectId` can supply one". Without it the add
+ *    arm would book a wage against a guessed owner (§4.3).
+ *  - `headcount` — DISTINCT workers the RESOLVED project scanned that date. It
+ *    is stricter than "a team exists", which is what the add path actually
+ *    needs, so the error can only ever be a door NOT offered, never one offered
+ *    and then refused.
+ *  - `nonWorking` — `holiday || Sunday`, NOT the calendar's own `isWeekend`.
+ */
+export function calendarBlankDayFixable(input: {
+  /** The cell's date, inside the rendered month. */
+  date: string;
+  /** The date's `public_holidays` name, or null. */
+  holidayName: string | null;
+  /** DISTINCT workers the resolved project scanned that date. */
+  projectHeadcount: number;
+  /** Whether a project can be resolved for an EMPTY day of this month. */
+  projectResolvable: boolean;
+}): boolean {
+  return gridCellFixable({
+    hasSession: false,
+    hasFindings: false,
+    day: {
+      nonWorking: input.holidayName !== null || isSunday(input.date),
+      headcount: input.projectHeadcount,
+    },
+    canFixGaps: input.projectResolvable,
+  });
+}
+
+/**
  * Where วันก่อนหน้า / วันถัดไป go.
  *
- * They step to the neighbouring day that CARRIES attendance, skipping the
- * blanks: walking a reader through twenty empty cells is the cry-wolf failure
- * U6b already ruled against, and an empty day stays reachable by tapping its
- * own cell.
+ * They step to the neighbouring DOOR, skipping every other blank: walking a
+ * reader through twenty empty cells is the cry-wolf failure U6b already ruled
+ * against.
  *
  * `doorDates` is the set of days the calendar actually opens, so the two
- * controls can never disagree about what the month holds.
+ * controls can never disagree about what the month holds. U2b widened that set
+ * — a blank day the project scanned others on is now a door
+ * (`calendarBlankDayFixable`) — and the steppers followed it for exactly that
+ * reason: keeping them on "days that carry attendance" would have broken this
+ * invariant the moment a second kind of door existed, and skipped the one day
+ * in the month most worth reaching.
  *
  * ⚠️ Order-INDEPENDENT by construction (nearest below / nearest above), not by
  * sorting first. The cells arrive from a `Record`, whose key order is an
@@ -124,9 +175,10 @@ export function fixPanelProjectId(input: {
  * `current` need NOT be one of them: a day that is not a door can only be
  * reached by URL, and it still gets the doors on either side of it by date.
  *
- * ⚠️ It follows that a stepper can NEVER land on a day with no record — it walks
- * this same set. An earlier comment here claimed empty days stay reachable
- * through the steppers; a fresh-eyes pass measured it and they do not.
+ * ⚠️ A stepper can only ever land on a DOOR. Before U2b that meant "never on a
+ * day with no record" (an earlier comment claimed the opposite and a fresh-eyes
+ * pass measured it); it now means "never on a blank day the project did not
+ * scan", which is the same guarantee against the same cry-wolf failure.
  */
 export function fixStepDates(
   doorDates: readonly string[],

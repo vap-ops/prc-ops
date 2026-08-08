@@ -46,10 +46,19 @@ describe("the reopen form's row", () => {
     expect(claimsWholeLine.map((el) => el.tagName)).toEqual(claimsWholeLine.map(() => "P"));
 
     // …so the row it sits in must wrap at every width where the row is a ROW.
-    // The form is `flex-col` below `sm`, where wrapping is moot.
+    // The form is `flex-col` in a narrow box, where wrapping is moot.
+    //
+    // ⚠️ Spec 404 U2b — CONTAINER variants, not the `sm:` VIEWPORT ones this
+    // asserted before. Three surfaces render this form and one of them docks it
+    // into a fixed 280–340px column, where `sm:` made the row at every viewport
+    // ≥640px: measured in real Chrome the reason input fell to 61px of usable
+    // width at 834 against a 155px placeholder — the truncated `เช่น ลงเวลาไ`
+    // on the operator's screenshot. `sm:` is pinned ABSENT because leaving one
+    // behind restores exactly that bug on exactly that surface.
     const rowClasses = form.className.split(/\s+/);
-    expect(rowClasses).toContain("sm:flex-row");
-    expect(rowClasses).toContain("sm:flex-wrap");
+    expect(rowClasses).toContain("@md:flex-row");
+    expect(rowClasses).toContain("@md:flex-wrap");
+    expect(rowClasses.some((c) => /^sm:/.test(c))).toBe(false);
   });
 
   // Operator, 2026-08-07: "ปิด เปิด วัน is not clear. provide instructions if

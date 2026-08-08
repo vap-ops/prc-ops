@@ -180,10 +180,14 @@ export function AttendanceDayPanel({
   });
 
   return (
+    // ⚠️ Spec 404 U2b — `@container` because the reopen form below now sizes its
+    // row against its BOX rather than the viewport (it is shared with a 280px
+    // docked column). Without a container here the form would silently stack on
+    // this full-width panel, which is a regression, not a default.
     <section
       id={`d-${day.date}`}
       aria-label={`แก้ไขวัน ${formatThaiDate(day.date)}`}
-      className={`${CARD} mt-4`}
+      className={`${CARD} @container mt-4`}
     >
       {/* The FACTS first, and unconditionally. A day with no rows says so rather
           than reading as "open", the same split GridDay.dayClosed === null makes. */}

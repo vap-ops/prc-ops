@@ -10,7 +10,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { calendarFixTarget, fixPanelProjectId, fixStepDates } from "@/lib/attendance/fix-panel";
+import {
+  calendarBlankDayFixable,
+  calendarFixTarget,
+  fixPanelProjectId,
+  fixStepDates,
+} from "@/lib/attendance/fix-panel";
+import { gridCellFixable } from "@/lib/muster/day-fix";
 
 describe("calendarFixTarget — should the panel open at all (spec 404 U2)", () => {
   const anchor = "2026-07-01";
@@ -150,6 +156,19 @@ describe("fixStepDates — วันก่อนหน้า / วันถั�
     expect(fixStepDates([], "2026-07-15")).toEqual({ prev: null, next: null });
   });
 
+  it("walks a BLANK door too, because the calendar now links some of them", () => {
+    // U2b — `doorDates` is the set the grid actually links, and since a blank
+    // day the project scanned others on is now one of them, the walk includes
+    // it. Keeping the steppers on "days that carry attendance" would have
+    // broken this function's own stated invariant (the two controls never
+    // disagree about what the month holds) the moment a second kind of door
+    // existed — and the blank door is precisely the day worth reaching.
+    expect(fixStepDates([...doors, "2026-07-20"], "2026-07-16")).toEqual({
+      prev: "2026-07-15",
+      next: "2026-07-20",
+    });
+  });
+
   it("does not depend on the caller having sorted the doors", () => {
     // The cells come out of a Record, whose key order is an implementation
     // detail — a stepper that inherited it would walk the month at random.
@@ -164,5 +183,80 @@ describe("fixStepDates — วันก่อนหน้า / วันถั�
     expect(
       fixStepDates(["2026-07-15", "2026-07-31", "2026-07-29", "2026-07-03"], "2026-07-16"),
     ).toEqual({ prev: "2026-07-15", next: "2026-07-29" });
+  });
+});
+
+describe("calendarBlankDayFixable — which BLANK cells become doors (spec 404 U2b)", () => {
+  // Operator ruling 2026-08-08: mirror the grid's gap-cell rule rather than
+  // inventing a second one. A day where this worker has no row but the project
+  // scanned others IS fully serviceable — the panel offers เพิ่มคนที่ตกหล่น —
+  // and before this unit nothing on the page linked it, so the screen built for
+  // "the muster missed him" was reachable only by hand-typing a URL.
+  const at = (o: Partial<Parameters<typeof calendarBlankDayFixable>[0]> = {}) =>
+    calendarBlankDayFixable({
+      date: "2026-08-04",
+      holidayName: null,
+      projectHeadcount: 15,
+      projectResolvable: true,
+      ...o,
+    });
+
+  it("links a blank weekday the project DID scan people on", () => {
+    // The live case this unit was built from: worker 02cbdd9a scanned 08-02,
+    // 08-03 and 08-05 at PRC-2026-004, and the project ran 08-04 with 4 people
+    // — one tap target in the whole month, not twenty-four.
+    expect(at()).toBe(true);
+  });
+
+  it("refuses a day the project never opened, rather than offering then refusing", () => {
+    // `muster_correct_session`'s INSERT path adds a person to an EXISTING team.
+    // Live, 2026-08-06 through 08-12 carry zero teams, so a door there would
+    // land the reader on ยังไม่มีทีมของวันดังกล่าว — the affordance-then-refuse
+    // failure the headcount half of the grid's rule exists to prevent.
+    expect(at({ projectHeadcount: 0 })).toBe(false);
+  });
+
+  it("refuses when the month cannot resolve a project for an empty day", () => {
+    // `fixPanelProjectId` supplies one only for an unambiguous month; in a split
+    // month the add arm would book a wage against a guessed owner (§4.3).
+    expect(at({ projectResolvable: false })).toBe(false);
+  });
+
+  it("refuses a SUNDAY and a HOLIDAY even when the project scanned that day", () => {
+    // `GridDay.nonWorking` is `holiday || Sunday`. An empty non-working day is
+    // not a finding, and the shading exists to stop it reading as one.
+    expect(at({ date: "2026-08-02" })).toBe(false); // Sunday
+    expect(at({ date: "2026-08-12", holidayName: "วันแม่แห่งชาติ" })).toBe(false);
+  });
+
+  it("still links a SATURDAY — the grid's rule is Sunday-only, not weekend", () => {
+    // The calendar tints Saturday with `isWeekend`, which is a DIFFERENT
+    // predicate from the one the fix rule keys on. Mirroring the grid means
+    // mirroring `isSunday`, or the two surfaces would disagree about the same
+    // day while both claiming to use one rule.
+    expect(at({ date: "2026-08-01" })).toBe(true);
+  });
+
+  it("IS the grid's rule, not a restatement of it", () => {
+    // The whole point of the operator's ruling. Driven over the full matrix so
+    // a future edit to either side reds here rather than letting two surfaces
+    // drift apart while both cite `gridCellFixable` in a comment.
+    for (const date of ["2026-08-01", "2026-08-02", "2026-08-04"]) {
+      for (const holidayName of [null, "วันหยุด"]) {
+        for (const projectHeadcount of [0, 1, 23]) {
+          for (const projectResolvable of [true, false]) {
+            const sunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
+            expect(at({ date, holidayName, projectHeadcount, projectResolvable })).toBe(
+              gridCellFixable({
+                hasSession: false,
+                hasFindings: false,
+                day: { nonWorking: holidayName !== null || sunday, headcount: projectHeadcount },
+                canFixGaps: projectResolvable,
+              }),
+            );
+          }
+        }
+      }
+    }
   });
 });
