@@ -11,8 +11,9 @@ the genuine human-decision points (§ Flag the operator). The operator's standin
 me only when you really need me, and be clear when you do.**
 
 This skill orchestrates; [[triage-feedback]] holds the SQL mechanics (queue query, untrusted-input
-boundary, ground-truth rule, status updates, the tiered reply: auto-publish low-risk vs. stage a
-draft). Read it for the per-step commands. Run everything from the repo root with Node on PATH
+boundary, ground-truth rule, status updates, and the reply mechanics — **which since spec 405
+(2026-08-08) are draft-only: the auto-publish tier is RETIRED and you never write to
+`feedback_messages` directly**). Read it for the per-step commands. Run everything from the repo root with Node on PATH
 (see [[cloud-pc-quirks]]).
 
 ## The pipeline (per report)
@@ -22,11 +23,11 @@ draft). Read it for the per-step commands. Run everything from the repo root wit
    `page_path`/`screen`/`role_snapshot`, read it, trace RLS/RPC, reproduce. Fetch attached
    screenshots and actually look at them (Storage REST trick in [[cloud-pc-quirks]]). Classify:
    - **fixable bug** (cause found, fix is code-only or _additive_ DB, confident) → Fix lane.
-   - **needs reporter info** (can't reproduce) → reply a clarifying question (low-risk auto-publish).
+   - **needs reporter info** (can't reproduce) → draft a clarifying question.
    - **product / UX judgment** (redesign, ambiguous intent, trade-off) → **flag** (§ below).
-   - **feature request** → acknowledge (low-risk auto-publish, NO promise); build only if trivially
+   - **feature request** → draft an acknowledgement (NO promise); build only if trivially
      in-scope, else log + flag for a spec.
-   - **already fixed** (a later commit) → reply saying so (low-risk), status → `done`.
+   - **already fixed** (a later commit) → draft a reply saying so, status → `done`.
 2. **Fix lane** 🤖 — the quality bar is non-negotiable:
    - **TDD**: failing test FIRST (state "Writing failing test first"), then make it pass.
    - **Fix the whole CLASS, not one instance** + add a regression guard. If a bug exists on one
@@ -45,18 +46,21 @@ draft). Read it for the per-step commands. Run everything from the repo root wit
      PR if it touches a protected surface (migrations/auth/RLS/money/service-role/infra/governance) —
      so a clean code-only PR auto-merges itself on green, while a dangerous or red PR is HELD and
      becomes a 🔔 flag for the operator.
-3. **Reply** 🤖 — tiered (see [[triage-feedback]] §3): low-risk factual reply → auto-publish;
-   anything that declines / commits / is uncertain / sensitive → stage a draft + flag.
-   **Auto-publish is irreversible** (`feedback_messages` is append-only) and the operator may
-   publish in-app at the same time — so re-query the thread immediately before posting and SKIP if
-   a reply already exists, else you double-post (it happened on the inaugural run).
-   **Before STAGING a draft, run the draft de-dup guard** ([[triage-feedback]] §3): the daily run
+3. **Reply** 🤖 — **ALWAYS a draft, never a publish** (see [[triage-feedback]] §3). 🚨 **The
+   low-risk auto-publish tier was RETIRED by spec 405 on 2026-08-08** — measured live, **45 of
+   the 62 agent-replied threads were unread by their reporter (73%)** and none of it was ever
+   operator-reviewed, so the lane wrote irreversibly into a channel nobody reads. **Do not
+   insert into `public.feedback_messages` directly, for any reason** — that bypasses the
+   `super_admin` gate on `publish_feedback_draft`, which is the gate expressing this rule.
+   **Before staging, run the draft de-dup guard** ([[triage-feedback]] §3): the daily run
    re-pulls the same `in_progress` feedback every pass, and drafts live in the SEPARATE
-   `public.feedback_message_drafts` table (a draft has NO row in `feedback_messages`), so the
-   reply-exists check above does NOT catch an existing draft — `select count(*) from
+   `public.feedback_message_drafts` table (a draft has NO row in `feedback_messages`), so a
+   `feedback_messages` check does NOT catch an existing draft — `select count(*) from
 public.feedback_message_drafts where feedback_id = '<id>'` first, and UPDATE or SKIP if one
    exists (never a second draft per thread; 4 dupes had to be deleted on 2026-07-17).
-4. **Complete** 🤖 — status → `done` once the fix is shipped (+ reply handled per the tier).
+   ⓘ **A draft is a message to STAFF. If you are blocked on a DECISION, a draft is the wrong
+   instrument** — that is spec 405's private decision inbox; until it ships, flag (§ below).
+4. **Complete** 🤖 — status → `done` once the fix is shipped (+ the reply left as a draft).
    A report you CANNOT auto-complete (product/UX judgment — see § flag) stays `in_progress`
    **and must be flagged**; `done` is only for a shipped fix. `in_progress` + a digest 🔔 entry =
    "awaiting your decision" — never leave it bare (no flag), or it just looks stuck.
@@ -90,8 +94,9 @@ Stop and flag (do NOT proceed) when:
 - **External blocker** — needs a secret, a third-party action, or something only you can do.
 - **Low confidence** — you can't confirm the root cause or the fix's correctness. State a
   confidence %.
-- **A reply that isn't low-risk** — declines, commits/promises, is uncertain, or is sensitive →
-  stage the draft, flag, let the operator publish.
+- **Every reply** — since spec 405 there is no tier: stage the draft, flag, let the operator
+  publish. Flag with extra prominence when the draft declines, commits/promises, is uncertain,
+  or is sensitive (money, accounts, an apology for lost data, policy).
 
 **How to flag** (Telegram — see [[telegram-progress-updates]]; 🔔 = needs-you). One message per
 flagged bug, with exactly: `🔔 <bug title>` · what it is (1 line) · why I need you · **my
@@ -102,10 +107,11 @@ recommendation + the options** · confidence %. Never flag without a recommendat
 
 Telegram the operator one digest:
 
-- **✅ Completed** — per bug: title, what shipped, commit hash, whether a reply was auto-published.
+- **✅ Completed** — per bug: title, what shipped, commit hash, and whether a draft reply awaits.
 - **🔔 Needs you** — per flagged bug: the one-line ask + recommendation (link to `/feedback/<id>`
   for staged drafts to approve).
-- **Staged drafts awaiting publish** — the non-low-risk replies you left for approval.
+- **Staged drafts awaiting publish** — **every** reply you wrote this pass. ⚠️ This list is now
+  the ONLY route a reply reaches a reporter, so a digest that omits it strands the whole pass.
 
 When the operator is mid-conversation (present), report inline instead of Telegram.
 
@@ -122,7 +128,7 @@ gate is the backstop, never an excuse to lower quality. On-demand: the operator 
 
 ## What stays the operator's (never autonomous)
 
-- Publishing/discarding a NON-low-risk reply draft (declines / commitments / uncertain / sensitive).
+- Publishing/discarding ANY reply draft (spec 405 — no tier; the agent never publishes).
 - Any destructive/irreversible DB or infra change.
 - Product/UX design decisions.
 - Promoting a feature request into built scope without a spec.

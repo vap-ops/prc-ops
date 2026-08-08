@@ -19,6 +19,13 @@ the repo root.
 
 1. **Never publish/discard drafts** — `publish_feedback_draft` / `discard_feedback_draft`
    stay the operator's (`super_admin`); a reply reaches a reporter only after they approve.
+   🚨 **And never reach the reporter by another door — writing a row into
+   `feedback_messages` yourself is publishing, whatever it is called.** Until 2026-08-08
+   Step 3 did exactly that: it inserted under the service-role connection _because_ the RPC
+   is `super_admin`-gated. So this guardrail and that step contradicted each other, and the
+   step won **78 times**. Spec 405 retired it. The service-role connection **can** perform
+   that insert — which is precisely why the prohibition is written here rather than left to
+   the gate to enforce.
    **BUT set status as part of triage** (operator standing instruction, 2026-06-26):
    a report you have triaged must never stay `open`/`ใหม่`. Move it to `in_progress`
    (กำลังดำเนินการ — triaged / being worked / acknowledged), `done` (เสร็จแล้ว — fixed &
@@ -82,44 +89,46 @@ code, trace the RLS/RPC, reproduce. Decide the report's disposition:
 - **Feature request** → draft confirms it's understood + logged; set expectations honestly.
 - **Already resolved** (a later commit) → draft says so plainly.
 
-## Step 3 — reply: auto-publish if low-risk, else stage a draft (tiered — operator policy 2026-06-26)
+## Step 3 — reply: ALWAYS stage a draft. Never publish. (spec 405, 2026-08-08)
 
-Decide the reply's risk tier:
+🚨 **THE AUTO-PUBLISH TIER IS RETIRED. There is no low-risk lane any more.** Every
+staff-visible message you write becomes a **draft** that the operator publishes. This step used
+to be tiered (operator policy 2026-06-26); that tier is gone and must not be reintroduced —
+if a future session thinks it needs one, read the measurement below first.
 
-- **Low-risk → AUTO-PUBLISH** (reporter sees it immediately, as `ผู้ช่วย AI`): a factual
-  "แก้ไขแล้ว ลองอีกครั้งได้เลยครับ" for a fix you shipped this session; a plain "รับเรื่องแล้ว
-  ขอบคุณครับ" acknowledgement (NO timeline/feature promise); a single clarifying question
-  ("รบกวนส่งรูปหน้าจอตรงที่มีปัญหาด้วยได้ไหมครับ").
-- **Anything else → STAGE A DRAFT + flag the operator, do NOT publish**: the reply declines/rejects
-  a request, makes ANY commitment or timeline/feature promise, is uncertain (cause/fix
-  unconfirmed), or touches something sensitive (money, accounts, an apology for lost data, policy).
-  **When in doubt, draft + flag — never auto-publish a maybe.**
+**Why it was retired, measured live 2026-08-08.** The agent had posted **78 messages across 62
+threads**; `feedback_views` (the app's own read signal, consumed by `feedback_unread_ids()`)
+showed **45 of those 62 threads unread by their reporter — 73%**, with **37 never opened at
+all** and no reporter opening any thread since 2026-07-22. So the lane was writing
+**irreversibly** (`feedback_messages` is append-only) into a channel its readers do not read,
+with **no operator review anywhere in the path**. Publishing is a decision about what the firm
+says to its staff; it stays with the operator.
 
-Both bodies are Thai → write the SQL to a UTF-8 file and use `--file` (heredoc is UTF-8-clean;
-never echo Thai through PowerShell — see [[cloud-pc-quirks]]).
+⛔ **Do NOT insert into `public.feedback_messages` directly, for any reason.** The old recipe
+here bypassed `publish_feedback_draft` precisely _because_ that RPC is `super_admin`-gated —
+i.e. it was routing around the gate that expresses this rule. If you find yourself writing that
+insert, you are undoing spec 405. The service-role connection _can_ do it; that is exactly why
+the prohibition is written down rather than left to the grant.
 
-**Auto-publish** — equivalent to `publish_feedback_draft`'s effect (that RPC is `super_admin`-gated
-so it 42501s under the service-role connection; insert directly. `author_kind='agent'`,
-`author_id=null` is exactly what the RPC writes → reporter sees `ผู้ช่วย AI`):
+ⓘ **The reply itself is not retired — only the publishing.** Write the same Thai body you would
+have published; it just lands as a draft. Bodies are Thai → write the SQL to a UTF-8 file and
+use `--file` (heredoc is UTF-8-clean; never echo Thai through PowerShell — see
+[[cloud-pc-quirks]]).
 
-```bash
-cat > /tmp/reply.sql <<'SQL'
-insert into public.feedback_messages (feedback_id, author_kind, author_id, body)
-values ('<FEEDBACK_ID>', 'agent', null, 'แก้ไขแล้วครับ รบกวนลองอีกครั้ง หากยังพบปัญหาแจ้งกลับได้เลย')
-returning id;
-SQL
-pnpm exec supabase db query --linked --file /tmp/reply.sql
-```
+ⓘ **If you are blocked on a DECISION rather than owing a reply, a draft is the wrong
+instrument** — a draft is a message to staff, not a question to the operator. That is what
+spec 405's private decision inbox (`agent_decisions`) exists for. Until it ships, raise it in
+the Step 4 hand-off (or, under [[bug-fix-flow]], its "Flag the operator" section).
 
-**Flag** — stage for the operator (`draft_feedback_message` works under service-role; born pending,
-invisible to the reporter until the operator publishes).
+**Stage the draft** — `draft_feedback_message` works under service-role; the draft is born
+pending and is invisible to the reporter until the operator publishes it in-app.
 
 **DRAFT DE-DUPLICATION GUARD (mandatory — the daily run re-pulls the same `in_progress`
 feedback every pass, so without this it re-stages a duplicate draft for every
 already-drafted thread and the operator's publish queue piles up with dupes; observed
 2026-07-17, 4 dupes deleted).** Reply drafts are stored in `public.feedback_message_drafts`,
 a table SEPARATE from `public.feedback_messages` (a draft has NO row in `feedback_messages`),
-so the auto-publish re-query above does NOT catch an existing draft. Immediately before
+so a `feedback_messages` re-query does NOT catch an existing draft. Immediately before
 calling `draft_feedback_message`, count existing drafts for this thread:
 
 ```bash
@@ -152,14 +161,15 @@ so delete a stray draft directly:
 pnpm exec supabase db query --linked "delete from public.feedback_message_drafts where id = '<DRAFT_ID>';"
 ```
 
-One reply per report per pass. **`feedback_messages` is APPEND-ONLY — a posted reply CANNOT be
-unsent** (a `DELETE` raises P0001; removing one is a break-glass, operator-only act). So treat
-auto-publish as irreversible: **immediately before the insert, re-query the thread**
-(`select count(*) from public.feedback_messages where feedback_id = '<id>'`) and SKIP if any reply
-already exists — the operator may publish a draft in-app at the same time, and a stale check from
-the start of the pass will double-post (this happened on 2026-06-26: a draft published in-app +
-an auto-publish landed two identical replies, both now permanent). When unsure whether a reply is
-already out, stage a draft instead of auto-publishing.
+One draft per report per pass.
+
+ⓘ **Why the append-only warning that used to live here is now only history.** `feedback_messages`
+is APPEND-ONLY — a posted reply CANNOT be unsent (a `DELETE` raises P0001; removing one is a
+break-glass, operator-only act). Under the retired auto-publish tier that made every pass a
+one-way door, and it fired: on 2026-06-26 a draft published in-app plus an auto-publish landed
+**two identical replies, both permanent**. Retiring the tier removes that whole failure class —
+a duplicate DRAFT is deleted by the de-dup guard above, not by break-glass. **This is the
+second reason the tier is gone, and the reason not to reintroduce it "just for acknowledgements".**
 
 ## Step 4 — set status, then hand off to the operator
 
