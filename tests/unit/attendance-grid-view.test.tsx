@@ -43,7 +43,6 @@ function grid(over: Partial<AttendanceGridInput> = {}) {
     from: "2026-08-03",
     to: "2026-08-05",
     rows: [row()],
-    holidays: [],
     ...over,
   });
 }
@@ -74,16 +73,22 @@ describe("AttendanceGridView", () => {
     expect(header).toHaveTextContent("2");
   });
 
-  it("shades a Sunday and names a holiday, so an empty column there is not a finding", () => {
+  it("shades a Sunday, so an empty column there is not a finding — and shades nothing else", () => {
+    // Operator 2026-08-08 withdrew the holiday marking; 2026-08-12 is
+    // วันแม่แห่งชาติ in the retained seed and must now shade like any Wednesday.
     renderGrid({
-      from: "2026-08-02", // Sunday
-      to: "2026-08-04",
-      rows: [row({ workDate: "2026-08-03" })],
-      holidays: [{ holiday_date: "2026-08-04", name_th: "วันหยุดทดสอบ" }],
+      from: "2026-08-09", // Sunday
+      to: "2026-08-12",
+      rows: [row({ workDate: "2026-08-10" })],
     });
-    expect(screen.getByText("วันหยุดทดสอบ")).toBeInTheDocument();
-    const sunday = screen.getAllByRole("columnheader")[1];
-    expect(sunday?.className).toContain("bg-sunk");
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers[1]?.className).toContain("bg-sunk"); // Sunday
+    expect(headers.slice(2).every((h) => !h.className.includes("bg-sunk"))).toBe(true);
+    // The 08-12 column renders its ordinary facts and nothing else — an absence
+    // pin would be vacuous here, since the builder can no longer be handed a
+    // holiday at all (the repo-wide pin is the withdrawn-guard test).
+    const aug12 = [...(headers.at(-1)?.querySelectorAll("span") ?? [])].map((s) => s.textContent);
+    expect(aug12).toEqual(["12", "0"]); // day number, headcount — nothing between them
   });
 
   it("marks a cell that carries a finding and names every one of them", () => {
@@ -183,19 +188,21 @@ describe("AttendanceGridView", () => {
     }
   });
 
-  it("tells an absent cell on a HOLIDAY apart from one on a working day", () => {
+  it("tells an absent cell on a SUNDAY apart from one on a working day", () => {
+    // "never scanned" and "it was a Sunday" must not be the same silence to a
+    // screen reader — only one of them is a finding. Since 2026-08-08 a public
+    // holiday belongs to the first group, not the second.
     renderGrid({
-      from: "2026-08-03",
-      to: "2026-08-04",
+      from: "2026-08-09", // Sunday
+      to: "2026-08-10",
       rows: [],
       roster: [{ id: "b", name: "ข" }],
-      holidays: [{ holiday_date: "2026-08-04", name_th: "วันหยุดทดสอบ" }],
     });
     const labels = [...document.querySelectorAll("tbody td")].map((td) =>
       td.getAttribute("aria-label"),
     );
+    expect(labels.some((l) => l?.includes("วันหยุด"))).toBe(true);
     expect(labels.some((l) => l?.includes("ไม่มีการเช็คชื่อ"))).toBe(true);
-    expect(labels.some((l) => l?.includes("วันหยุดทดสอบ"))).toBe(true);
   });
 
   it("says the range is empty rather than rendering a headless table", () => {

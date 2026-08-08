@@ -300,12 +300,25 @@ describe("WorkerAttendanceCalendar", () => {
     expect(screen.queryByText(/มาตรฐานระดับ/)).not.toBeInTheDocument();
   });
 
-  it("marks a holiday cell with its name and flags work on it (spec 374 U2)", () => {
-    const holidayMonth = buildAttendanceMonth({
+  // ── Operator 2026-08-08 — the holiday marking is WITHDRAWN ────────────────
+  //
+  // Writing failing test first.
+  //
+  // "hide info about holidays, we do not have those yet. money is the same as
+  // normal day." Spec 374 U2's tint + name + ทำงานวันหยุด chip + legend
+  // described a policy the firm does not have: PRC scanned FULL days on
+  // 2026-07-29 (อาสาฬหบูชา) and 2026-07-30 (วันเข้าพรรษา), and on a page whose
+  // headline is ประมาณการค่าแรง an amber tint reads as "this day is priced
+  // differently" — which it never was.
+  //
+  // Pinned as an ORDINARY DAY, not as an absence: the queryBy…toBeNull half is
+  // satisfied by a component that renders nothing at all.
+  it("renders a public-holiday date as an ordinary working day", () => {
+    const julyEnd = buildAttendanceMonth({
       monthAnchor: "2026-07-01",
       musterRows: [
         {
-          work_date: "2026-07-29",
+          work_date: "2026-07-29", // วันอาสาฬหบูชา in the retained seed
           in_at: "2026-07-29T00:30:00Z",
           out_at: "2026-07-29T10:00:00Z",
           in_method: "qr",
@@ -318,99 +331,39 @@ describe("WorkerAttendanceCalendar", () => {
       ],
       paidRows: [],
       dayRate: null,
-      holidays: [
-        { holiday_date: "2026-07-28", name_th: "วันเฉลิมพระชนมพรรษา" },
-        { holiday_date: "2026-07-29", name_th: "วันอาสาฬหบูชา" },
-      ],
     });
-    const { container } = renderCal({ month: holidayMonth });
-    // Empty holiday cell: name shown, no worked chip. Spec 404 U2 — twice now,
-    // once in the cell and once in the legend that replaced the `title`.
-    expect(screen.getAllByText("วันเฉลิมพระชนมพรรษา")).toHaveLength(2);
-    // Scanned holiday cell: the worked-on-holiday chip.
-    expect(screen.getAllByText("วันอาสาฬหบูชา")).toHaveLength(2);
-    expect(screen.getAllByText("ทำงานวันหยุด")).toHaveLength(1);
-    // The tint is the at-a-glance marking — pin the real token (an invented
-    // class would silently no-op).
-    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(2);
-  });
-
-  // ── Spec 404 U2 — `title=` is not a fallback on a tablet ──────────────────
-  //
-  // Writing failing test first.
-  //
-  // The cell justified truncating a royal-holiday name with "this page's
-  // audience is desktop back-office, where hover is real". The operator reads it
-  // on an iPad. There is no hover, no long-press tooltip, and the longest live
-  // name is 50 characters (`วันเฉลิมพระชนมพรรษา สมเด็จพระนางเจ้าฯ พระบรมราชินี`,
-  // measured 2026-08-08) against a 60px box — so the full name has to live
-  // somewhere every reader can actually reach.
-  it("carries no title= on the holiday name — a tablet has no hover", () => {
-    const holidayMonth = buildAttendanceMonth({
-      monthAnchor: "2026-07-01",
-      musterRows: [],
-      paidRows: [],
-      dayRate: null,
-      holidays: [
-        {
-          holiday_date: "2026-07-28",
-          name_th: "วันเฉลิมพระชนมพรรษา สมเด็จพระนางเจ้าฯ พระบรมราชินี",
-        },
-      ],
-    });
-    const { container } = renderCal({ month: holidayMonth });
-    expect(container.querySelector("[title]")).toBeNull();
-  });
-
-  it("names every holiday of the month IN FULL, below the grid", () => {
-    // The legend, not the panel: the panel is gated on the correction audience
-    // and only renders while open, so moving the name there would withhold it
-    // from the readers who lost the hover.
-    const holidayMonth = buildAttendanceMonth({
-      monthAnchor: "2026-07-01",
-      musterRows: [],
-      paidRows: [],
-      dayRate: null,
-      holidays: [
-        {
-          holiday_date: "2026-07-28",
-          name_th: "วันเฉลิมพระชนมพรรษา สมเด็จพระนางเจ้าฯ พระบรมราชินี",
-        },
-        { holiday_date: "2026-07-29", name_th: "วันอาสาฬหบูชา" },
-      ],
-    });
-    renderCal({ month: holidayMonth });
-    const legend = screen.getByRole("list", { name: "วันหยุดของเดือนนี้" });
-    expect(legend).toHaveTextContent("28");
-    expect(legend).toHaveTextContent("วันเฉลิมพระชนมพรรษา สมเด็จพระนางเจ้าฯ พระบรมราชินี");
-    expect(legend).toHaveTextContent("วันอาสาฬหบูชา");
-  });
-
-  it("renders no holiday legend when the month has none", () => {
-    renderCal();
+    const { container } = renderCal({ month: julyEnd });
+    // The day's own facts are there …
+    expect(screen.getByText("07:30–17:00")).toBeInTheDocument();
+    // … and it is a Wednesday, so it carries neither tint. `getAllByText`
+    // because the 42-cell grid pads with the neighbouring months: June 29 sits
+    // in the first row. The IN-MONTH day is the one rendered `font-semibold`
+    // (it carries attendance).
+    const cell = screen
+      .getAllByText("29")
+      .find((el) => el.className.includes("font-semibold"))!
+      .closest("div");
+    expect(cell?.className).not.toContain("bg-attn-soft");
+    expect(cell?.className).not.toContain("bg-sunk");
+    // Nothing holiday-shaped anywhere on the page.
+    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(0);
+    expect(screen.queryByText("ทำงานวันหยุด")).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "วันหยุดของเดือนนี้" })).not.toBeInTheDocument();
   });
 
-  it("holiday tint beats the weekend tint (Sunday holiday)", () => {
-    const sundayHoliday = buildAttendanceMonth({
+  it("keeps the WEEKEND tint — Sunday is not a public holiday", () => {
+    // The withdrawal is about `public_holidays` only. 2026-05-31 is a Sunday
+    // (and วันวิสาขบูชา in the retained seed): it stays tinted, as every Saturday
+    // and Sunday of the month does, for the weekend reason alone.
+    const may = buildAttendanceMonth({
       monthAnchor: "2026-05-01",
       musterRows: [],
       paidRows: [],
       dayRate: null,
-      holidays: [{ holiday_date: "2026-05-31", name_th: "วันวิสาขบูชา" }],
     });
-    const { container } = renderCal({ month: sundayHoliday });
-    // Spec 404 U2 — the name now appears twice: in the cell and, in full, in the
-    // legend under the grid. The CELL is the one carrying the tint.
-    const cell = screen.getAllByText("วันวิสาขบูชา")[0]!.closest("div");
-    expect(cell?.className).toContain("bg-attn-soft");
-    expect(cell?.className).not.toContain("bg-sunk");
-    expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(1);
-  });
-
-  it("renders no holiday marking on an ordinary month", () => {
-    const { container } = renderCal();
-    expect(screen.queryByText("ทำงานวันหยุด")).not.toBeInTheDocument();
+    const { container } = renderCal({ month: may });
+    const cell = screen.getByText("31").closest("div");
+    expect(cell?.className).toContain("bg-sunk");
     expect(container.querySelectorAll(".bg-attn-soft")).toHaveLength(0);
   });
 
@@ -558,7 +511,6 @@ describe("spec 404 U2 — calendar days as in-page panel doors", () => {
     linked.unmount();
     renderCal({ dayFixHref: null });
     expect(screen.getAllByText("07:30–17:00")).toHaveLength(withTimes);
-    expect(screen.getByText(/ทำงานวันหยุด|17:00/)).toBeInTheDocument();
   });
 
   it("keeps every FACT in the link's accessible name, and carries NO title", () => {

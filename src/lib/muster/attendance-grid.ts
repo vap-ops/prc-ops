@@ -34,11 +34,6 @@ import type { AttendanceDetailRow } from "@/lib/muster/attendance-audit";
  */
 export const MAX_GRID_DAYS = 92;
 
-export interface GridHoliday {
-  holiday_date: string;
-  name_th: string;
-}
-
 /**
  * `?view=` → which shape the report renders. The GRID is the default (spec 400
  * §1: the list cannot express absence), and anything unrecognised falls back to
@@ -110,12 +105,17 @@ export function gridWorkerHref(opts: {
 
 export interface GridDay {
   date: string;
-  /** Sunday or a `public_holidays` date. An empty column here is NOT a finding —
-   *  without this the grid flags 41 cells every week and teaches the reader to
-   *  ignore it (the spec-341 / 358 U2 always-amber failure). */
+  /** Sunday — the site's own non-working day. An empty column here is NOT a
+   *  finding: without this the grid flags 41 cells every week and teaches the
+   *  reader to ignore it (the spec-341 / 358 U2 always-amber failure).
+   *
+   *  ⚠️ Public holidays were the other half of this until the operator withdrew
+   *  the holiday model (2026-08-08: "we do not have those yet. money is the same
+   *  as normal day"). PRC scanned full days on อาสาฬหบูชา and วันเข้าพรรษา 2026,
+   *  so a national holiday is an ordinary working day here — and leaving it in
+   *  `nonWorking` would have kept those columns shaded and un-fixable with
+   *  nothing on screen saying why. */
   nonWorking: boolean;
-  /** Named only for a real holiday; a Sunday is non-working with no name. */
-  holidayName: string | null;
   /** DISTINCT workers scanned that day — the fact that makes a thin day visible. */
   headcount: number;
   /** `null` when the day carries no rows at all, so "nobody was scanned" is
@@ -162,7 +162,6 @@ export interface AttendanceGridInput {
   from: string;
   to: string;
   rows: readonly AttendanceDetailRow[];
-  holidays?: readonly GridHoliday[];
   /**
    * Spec 400 U2 — the workers who SHOULD appear, so the ones who never did get a
    * row instead of vanishing. `rows` alone can only ever describe people the
@@ -208,10 +207,10 @@ function isoAt(ms: number): string {
 /** Sunday is the site's non-working day; Saturday is a working day here. */
 /**
  * Spec 404 U2b — exported so the per-worker calendar can mirror the grid's
- * gap-cell rule instead of restating it. `GridDay.nonWorking` is
- * `holiday || Sunday`, and Sunday is NOT the same predicate as the calendar's
- * own `isWeekend` (which also covers Saturday) — two surfaces citing "the same
- * rule" while keying on different days is exactly the drift this export closes.
+ * gap-cell rule instead of restating it. `GridDay.nonWorking` IS this predicate,
+ * and Sunday is NOT the same day set as the calendar's own `isWeekend` (which
+ * also covers Saturday) — two surfaces citing "the same rule" while keying on
+ * different days is exactly the drift this export closes.
  */
 export function isSunday(dateIso: string): boolean {
   return new Date(utcMs(dateIso)).getUTCDay() === 0;
@@ -230,9 +229,6 @@ export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid 
   }
   const span = Math.round((endMs - startMs) / DAY_MS) + 1;
   if (span > MAX_GRID_DAYS) return { days: [], rows: [], tooWide: true };
-
-  const holidayByDate = new Map<string, string>();
-  for (const h of input.holidays ?? []) holidayByDate.set(h.holiday_date, h.name_th);
 
   const dates: string[] = [];
   for (let ms = startMs; ms <= endMs; ms += DAY_MS) dates.push(isoAt(ms));
@@ -319,16 +315,12 @@ export function buildAttendanceGrid(input: AttendanceGridInput): AttendanceGrid 
     }
   }
 
-  const days: GridDay[] = dates.map((date) => {
-    const holidayName = holidayByDate.get(date) ?? null;
-    return {
-      date,
-      nonWorking: holidayName !== null || isSunday(date),
-      holidayName,
-      headcount: workersByDate.get(date)?.size ?? 0,
-      dayClosed: closedByDate.get(date) ?? null,
-    };
-  });
+  const days: GridDay[] = dates.map((date) => ({
+    date,
+    nonWorking: isSunday(date),
+    headcount: workersByDate.get(date)?.size ?? 0,
+    dayClosed: closedByDate.get(date) ?? null,
+  }));
 
   // U2 — the workers the muster never recorded. Added AFTER the attendance pass
   // so an existing row always wins: both names come from `workers.name`, and if

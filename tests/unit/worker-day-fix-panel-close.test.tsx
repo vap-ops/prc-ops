@@ -227,7 +227,6 @@ describe("no TWO ปิดวัน on one screen", () => {
             dayClosed: false,
             headcount: 1,
             nonWorking: false,
-            holidayName: null,
           }}
           todayIso={TODAY}
           projectId={PROJECT}

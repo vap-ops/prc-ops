@@ -12,7 +12,7 @@
 // to close them.
 //
 // A day only appears if a team was actually opened on it — days nobody mustered
-// (Sunday, a holiday) have no muster_teams rows and must never be nagged about.
+// (Sunday, a site shutdown) have no muster_teams rows and must never be nagged about.
 
 import { describe, expect, it } from "vitest";
 import { shapeUnclosedPriorDays } from "@/lib/muster/prior-day-close";

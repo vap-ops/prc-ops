@@ -203,9 +203,7 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
 
   // Spec 400 U1 — the GRID reads the same DEFINER RPC as the CSV export does,
   // with no p_worker_id, so it inherits the report's role gate and its
-  // can_see_project scoping unchanged. Holidays come off the SESSION client:
-  // `public_holidays` RLS is `readable by authenticated` with qual `true`
-  // (verified live), so no admin seam is needed to shade a column.
+  // can_see_project scoping unchanged.
   //
   // The range is capped (MAX_GRID_DAYS) because ?start is validated for calendar
   // validity, not span — so the fetch is SKIPPED for a too-wide range rather than
@@ -220,13 +218,6 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // widening it re-opens this question instead of silently emptying the roster.
   const inWorkerRosterRoles = WORKER_ROSTER_ROLES.includes(ctx.role);
   const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];
-  const { data: holidays } = drawsGrid
-    ? await supabase
-        .from("public_holidays")
-        .select("holiday_date, name_th")
-        .gte("holiday_date", range.from)
-        .lte("holiday_date", range.to)
-    : { data: null };
 
   // Spec 400 U2 — the roster, so a worker the muster NEVER recorded gets a row
   // instead of vanishing (live: 11 of 41 active workers had zero July rows).
@@ -272,7 +263,6 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   const grid = buildAttendanceGrid({
     ...range,
     rows: gridDetail,
-    holidays: holidays ?? [],
     // UNIONed inside the builder, never substituted: a worker with attendance
     // who is no longer `active` (one, live) must not be dropped from a grid that
     // already shows them.

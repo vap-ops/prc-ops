@@ -194,7 +194,7 @@ export function AttendanceDayPanel({
       </p>
       <p className="text-ink-secondary mt-0.5 text-xs">
         {day.headcount} คน
-        {day.holidayName !== null ? ` · ${day.holidayName}` : day.nonWorking ? " · วันหยุด" : ""}
+        {day.nonWorking ? " · วันหยุด" : ""}
       </p>
 
       {/* Spec 400 U6b — the unfinished-day mark, keyed on the SAME predicate the

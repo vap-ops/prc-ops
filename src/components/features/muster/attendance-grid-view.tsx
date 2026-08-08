@@ -103,11 +103,6 @@ function DayHeader({
       <span className={`block text-xs font-semibold ${dayHref ? "text-action" : "text-ink"}`}>
         {dayNumber}
       </span>
-      {day.holidayName !== null && (
-        <span className="text-ink-secondary mt-0.5 block text-[10px] leading-tight">
-          {day.holidayName}
-        </span>
-      )}
       <span className="text-ink-secondary mt-0.5 block text-[10px]">{day.headcount}</span>
       {mark !== null && closure !== null && (
         <span
@@ -134,7 +129,7 @@ function DayHeader({
         // The whole header is the target: a bare day NUMBER is a ~10px tap on a
         // gloved hand, and the month/headcount/closure lines are what the reader
         // is aiming at anyway. min-h-11 because the commonest column state (no
-        // month row, no holiday, no closure bar) is only ~42px of content.
+        // month row, no closure bar) is only ~42px of content.
         //
         // ⚠️ The label CARRIES the column's facts rather than replacing them. An
         // author-supplied aria-label on the link wins over its subtree AND
@@ -146,12 +141,7 @@ function DayHeader({
         // granting it must not either.
         <Link
           href={dayHref(day.date)}
-          aria-label={[
-            `แก้ไขวัน ${formatThaiDate(day.date)}`,
-            `${day.headcount} คน`,
-            day.holidayName,
-            closure,
-          ]
+          aria-label={[`แก้ไขวัน ${formatThaiDate(day.date)}`, `${day.headcount} คน`, closure]
             .filter(Boolean)
             .join(" · ")}
           className="focus-visible:ring-action flex min-h-11 flex-col justify-end rounded px-1 py-1 focus:outline-none focus-visible:ring-2"
@@ -356,7 +346,7 @@ export function AttendanceGridView({
                   const label = cell
                     ? cellLabel(row.workerName, day.date, cell, todayIso)
                     : `${row.workerName} ${formatThaiDate(day.date)} ${
-                        day.holidayName ?? (day.nonWorking ? "วันหยุด" : "ไม่มีการเช็คชื่อ")
+                        day.nonWorking ? "วันหยุด" : "ไม่มีการเช็คชื่อ"
                       }`;
                   const fixable =
                     cellFixHref !== null &&

@@ -158,7 +158,6 @@ export function WorkerAttendanceCalendar({
   const monthCells = Object.values(month.cells);
   const hasAutoOut = monthCells.some((c) => c.outAuto);
   const hasNextDayOut = monthCells.some((c) => c.outNextDay);
-  const holidayEntries = Object.entries(month.holidayByDate).sort(([a], [b]) => a.localeCompare(b));
 
   return (
     <div className="flex flex-col gap-4">
@@ -286,7 +285,6 @@ export function WorkerAttendanceCalendar({
             <div key={wi} className="border-edge grid grid-cols-7 border-b last:border-b-0">
               {week.map((cell) => {
                 const data = cell.inMonth ? month.cells[cell.iso] : undefined;
-                const holiday = cell.inMonth ? month.holidayByDate[cell.iso] : undefined;
                 // Spec 400 U6b — a day with attendance is a door; spec 404 U2b —
                 // so is a blank day the project scanned other people on, which is
                 // where the ADD arm does its work. Padding cells
@@ -304,28 +302,6 @@ export function WorkerAttendanceCalendar({
                     >
                       {cell.day}
                     </p>
-                    {holiday ? (
-                      // Spec 404 U2 — NO `title`. It carried the full name and
-                      // was justified as "desktop back-office, where hover is
-                      // real"; the operator reads this page on an iPad, where
-                      // the attribute reaches nobody. The full name now sits in
-                      // the legend under the grid, which every reader can reach
-                      // on every device. Two lines here rather than one
-                      // truncated: the longest live name is 50 characters, so a
-                      // clamp is unavoidable, but two lines separate
-                      // `วันเฉลิมพระชนมพรรษา…` from `ชดเชย…` at a glance.
-                      <p className="text-attn-ink line-clamp-2 text-[10px] leading-tight">
-                        {holiday}
-                      </p>
-                    ) : null}
-                    {/* `data` includes paid-only cells (paper-backfilled labor
-                        days) on purpose — a recorded labor day IS work on that
-                        holiday, scan or no scan. */}
-                    {holiday && data ? (
-                      <p className="text-attn-ink text-[10px] leading-tight font-semibold">
-                        ทำงานวันหยุด
-                      </p>
-                    ) : null}
                     {/* Spec 404 U2b — a blank door has no time to show, so
                         without a visible mark it is an invisible tap target.
                         The same GLYPH the grid's gap cells use, for the same
@@ -397,17 +373,11 @@ export function WorkerAttendanceCalendar({
                   <div
                     key={cell.iso}
                     className={`border-edge min-h-16 border-r p-0.5 last:border-r-0 ${
-                      cell.inMonth
-                        ? holiday
-                          ? "bg-attn-soft"
-                          : cell.isWeekend
-                            ? "bg-sunk"
-                            : ""
-                        : "opacity-40"
+                      cell.inMonth ? (cell.isWeekend ? "bg-sunk" : "") : "opacity-40"
                     } ${
                       // Spec 404 U2 — which of 42 cells the docked panel is
                       // about. A ring rather than a fill, so it reads on top of
-                      // the holiday and weekend tints instead of replacing them.
+                      // the weekend tint instead of replacing it.
                       isOpenFix ? "ring-action ring-2 ring-inset" : ""
                     }`}
                   >
@@ -421,8 +391,7 @@ export function WorkerAttendanceCalendar({
                       // REPLACES its subtree as the accessible name, so
                       // `แก้ไขการเช็คชื่อ 15 ก.ค.` would silently drop the
                       // check-in/out times, +1 วัน, (อัตโนมัติ), the OT hours,
-                      // บันทึกมือ, ทำงานวันหยุด, the holiday name and the
-                      // off-home project — leaving the roles that GOT the control
+                      // บันทึกมือ and the off-home project — leaving the roles that GOT the control
                       // hearing strictly less than the roles that did not. That is
                       // the U3b <th> defect verbatim, and an earlier draft of this
                       // very cell shipped it.
@@ -480,7 +449,7 @@ export function WorkerAttendanceCalendar({
             Rendered per marker, and only when the month actually carries it: an
             always-on legend is wallpaper, and a reader who never meets a glyph
             does not need it explained. */}
-        {(hasAutoOut || hasNextDayOut || holidayEntries.length > 0) && (
+        {(hasAutoOut || hasNextDayOut) && (
           <div className="text-ink-secondary flex flex-col gap-1 text-xs">
             {hasAutoOut && (
               <p>
@@ -489,18 +458,6 @@ export function WorkerAttendanceCalendar({
               </p>
             )}
             {hasNextDayOut && <p>+1 — {NEXT_DAY_LEGEND}</p>}
-            {holidayEntries.length > 0 && (
-              // The full name, for every reader on every device — this is what
-              // replaces the `title=` the cell used to hide it behind.
-              <ul aria-label="วันหยุดของเดือนนี้" className="flex flex-col gap-0.5">
-                {holidayEntries.map(([iso, name]) => (
-                  <li key={iso}>
-                    <span className="text-attn-ink font-medium">{Number(iso.slice(8, 10))}</span>{" "}
-                    {name}
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         )}
       </section>

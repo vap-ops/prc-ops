@@ -7,8 +7,10 @@
 //     uses — pinned by a parity test, not by a comment;
 //   · headcount and closure are PROJECT-DAY facts and live on the column, never
 //     on a worker cell (the spec-358 U2 correction, which costs 41× more here);
-//   · Sundays and public_holidays are NON-WORKING, so an empty column there is
-//     not a finding — without this the grid cries wolf every week.
+//   · Sundays are NON-WORKING, so an empty column there is not a finding —
+//     without this the grid cries wolf every week. (Public holidays were the
+//     other half of that rule until the operator withdrew the holiday model on
+//     2026-08-08; a holiday is an ordinary working day here.)
 
 import { describe, expect, it } from "vitest";
 import {
@@ -54,7 +56,6 @@ function build(over: Partial<AttendanceGridInput> = {}) {
     from: "2026-08-03",
     to: "2026-08-05",
     rows: [],
-    holidays: [],
     ...over,
   });
 }
@@ -75,19 +76,18 @@ describe("buildAttendanceGrid — columns", () => {
     expect(MAX_GRID_DAYS).toBeGreaterThan(31);
   });
 
-  it("marks Sundays and public holidays as non-working, and names the holiday", () => {
-    // 2026-08-02 is a Sunday; 2026-08-04 is seeded here as a holiday.
-    const grid = build({
-      from: "2026-08-02",
-      to: "2026-08-04",
-      holidays: [{ holiday_date: "2026-08-04", name_th: "วันหยุดทดสอบ" }],
-    });
-    const [sunday, monday, holiday] = grid.days;
+  it("marks SUNDAY as non-working — and a public holiday as an ordinary day", () => {
+    // Operator 2026-08-08: "hide info about holidays, we do not have those yet.
+    // money is the same as normal day." 2026-08-02 is a Sunday; 2026-08-12 is
+    // วันแม่แห่งชาติ in the (retained, now unread) `public_holidays` seed and is
+    // an ordinary Wednesday to this site. Sunday keeps the shading because the
+    // site genuinely does not muster then.
+    const grid = build({ from: "2026-08-02", to: "2026-08-03" });
+    const [sunday, monday] = grid.days;
     expect(sunday?.nonWorking).toBe(true);
-    expect(sunday?.holidayName).toBeNull();
     expect(monday?.nonWorking).toBe(false);
-    expect(holiday?.nonWorking).toBe(true);
-    expect(holiday?.holidayName).toBe("วันหยุดทดสอบ");
+    const august = build({ from: "2026-08-11", to: "2026-08-13" });
+    expect(august.days.map((d) => d.nonWorking)).toEqual([false, false, false]);
   });
 
   it("counts headcount per day as DISTINCT workers, not sessions", () => {
