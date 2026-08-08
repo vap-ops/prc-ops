@@ -14764,6 +14764,27 @@ a bare `sp.x === "1"`, so a repeated `?retimed=1&retimed=1` swallows its banner 
 `firstParam`'s doc names. Migrating it is three lines in a file this unit has no other reason to
 touch; recorded rather than folded in.
 
+🚨 **AND A SILENT REFUSAL FOUND WHILE PROVING THE WRITE ROUND TRIP — PRE-EXISTING, SHARED, AND
+DETERMINISTIC.** `WorkerDayFixPanel` renders the ADD and UNDO outcomes INSIDE its
+`dayClosed === false` block, so on a CLOSED day they cannot render at all. Measured against the
+live panel on `2026-07-24` (a closed day): `undoError=closed`, `addError=closed` and `added=1` are
+all absent from the page, while `retimeError=booked` and the retime success both show.
+
+The `closed` codes are the sharp end, because they are **guaranteed** invisible: the undo and add
+forms only render while the day is open, so the ONLY way to receive `undoError=closed` is that the
+day was closed between render and submit — and by then the branch that would explain it is gone.
+The user sees their action do nothing, with no message.
+
+⚠️ **Not introduced here and not fixed here.** It is spec 400 U7's component, identical on
+`/team/attendance` and `/team/attendance/fix`, and moving those two outcome blocks means
+re-justifying where each renders for three surfaces — its own unit, not a rider on this one.
+**Worth doing soon: a refusal nobody can see is the class this repo ratchets against.**
+
+⚠️ **My first probe of this said the opposite, and the instrument was the reason.** It matched
+`ปิดวันแล้ว`, which is also the closed-day CARD HEADING, so a swallowed message read as shown.
+Re-run with needles that appear nowhere else (`ต้องเปิดวันดังกล่าวอีกครั้งก่อนจึงจะลบได้`), it
+inverted. A presence check needs a needle unique to the thing being checked.
+
 **Open questions** (spec 404 §8, none blocking). ② is the one this unit needed: the compact cell
 drops the spelled-out `(อัตโนมัติ)` on DESKTOP as well, to keep one cell everywhere. Built to the
 spec's current ruling — one cell at every width — and reversible in one conditional if the operator
