@@ -37,6 +37,62 @@ export type DayCorrectionControl =
         | "noProject";
     };
 
+/**
+ * The DAY-level half of the ladder: the facts that are true for every reader,
+ * before any permission or project choice can matter.
+ *
+ * Extracted so `dayCorrectionControl` and `dayClosable` cannot drift — two
+ * surfaces disagreeing about the same day is exactly the failure this module's
+ * consumers just shipped (see `dayClosable`).
+ */
+function dayStage(
+  date: string,
+  todayIso: string,
+  dayClosed: boolean | null,
+): { ok: true } | { ok: false; reason: "future" | "noRecords" | "dayNotOver" } {
+  if (date > todayIso) return { ok: false, reason: "future" };
+  if (dayClosed === null) return { ok: false, reason: "noRecords" };
+  // Today's OPEN day is withheld from the close arm only — a closed today can
+  // still be reopened, which is the whole point of the reopen path.
+  if (dayClosed === false && date >= todayIso) return { ok: false, reason: "dayNotOver" };
+  return { ok: true };
+}
+
+/**
+ * Whether an OPEN day may be CLOSED — the same rule as `dayCorrectionControl`'s
+ * close arm, asked as a boolean.
+ *
+ * ⚠️ It exists because `WorkerDayFixPanel` needs this decision and cannot use
+ * `dayCorrectionControl`: that function answers reopen XOR close and needs a
+ * `canReopen` the panel has no honest value for. `MUSTER_CORRECT_ROLES` (the
+ * panel's gate) is a SUBSET of `MUSTER_REOPEN_ROLES`, so any `canReopen` it
+ * passed could only ever be `true` — a dead arm dressed up as a decision.
+ *
+ * 🔴 THE COST OF NOT HAVING THIS: `MusterReopenForm` renders on three surfaces
+ * and the close control existed on one, so reopening from the calendar panel or
+ * from `/team/attendance/fix` left the day OPEN with no way back. It happened in
+ * production — `PRC-2026-004` `2026-08-05`, reopened by procurement and stuck.
+ * Both callers now answer from `dayStage`, and a parity test pins them equal.
+ */
+export function dayClosable(input: {
+  date: string;
+  todayIso: string;
+  /** `null` means the day carries no attendance rows — a third state. */
+  dayClosed: boolean | null;
+  projectId: string | null;
+  /** `MUSTER_CLOSE_ROLES.includes(role)` — close_muster_day's own allowlist. */
+  canClose: boolean;
+}): boolean {
+  const { date, todayIso, dayClosed, projectId, canClose } = input;
+  if (!dayStage(date, todayIso, dayClosed).ok) return false;
+  // A closed day's control is REOPEN, not close. `=== true` and not `!== false`
+  // on purpose: `dayStage` has already rejected `null`, so this arm can only be
+  // reached by `true` — the loose form sends the reader hunting for a third
+  // state that cannot arrive here.
+  if (dayClosed === true) return false;
+  return canClose && projectId !== null;
+}
+
 export function dayCorrectionControl(input: {
   date: string;
   todayIso: string;
@@ -51,11 +107,8 @@ export function dayCorrectionControl(input: {
 
   // Both facts about the DAY come first, because they are true for every reader
   // and neither permission nor a project choice can change them.
-  if (date > todayIso) return { control: "none", reason: "future" };
-  if (dayClosed === null) return { control: "none", reason: "noRecords" };
-  // Today's OPEN day is withheld from the close arm only — a closed today can
-  // still be reopened from here, which is the whole point of the reopen path.
-  if (dayClosed === false && date >= todayIso) return { control: "none", reason: "dayNotOver" };
+  const stage = dayStage(date, todayIso, dayClosed);
+  if (!stage.ok) return { control: "none", reason: stage.reason };
 
   // Permission before the project prompt: "เลือกโครงการก่อน" is only actionable
   // for a reader who could then act. Telling accounting to pick a project would

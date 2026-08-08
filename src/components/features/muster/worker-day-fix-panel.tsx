@@ -13,6 +13,7 @@ import { EmptyNotice, ErrorNotice } from "@/components/features/common/notices";
 import { AttendanceFixAddForm } from "@/components/features/muster/attendance-fix-add-form";
 import { AttendanceFixRetimeForm } from "@/components/features/muster/attendance-fix-retime-form";
 import { AttendanceFixUndoForm } from "@/components/features/muster/attendance-fix-undo-form";
+import { MusterCloseDayForm } from "@/components/features/muster/muster-close-day-form";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
 import {
   MUSTER_DAY_CLOSED_LABEL,
@@ -23,6 +24,7 @@ import {
 import type { AddPersonControl } from "@/lib/muster/add-person";
 import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import { describeAuditEvent } from "@/lib/muster/day-audit";
+import { dayClosable } from "@/lib/muster/day-correction";
 import { outTimeLocked } from "@/lib/muster/day-fix";
 import type { WorkerDayFix } from "@/lib/muster/worker-day-fix";
 import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
@@ -36,6 +38,7 @@ export function WorkerDayFixPanel({
   todayIso,
   returnTo,
   canClose,
+  hostOffersClose = false,
   outcomes,
   queue = null,
   noProjectHint = null,
@@ -48,7 +51,37 @@ export function WorkerDayFixPanel({
   returnTo: string;
   /** MUSTER_CLOSE_ROLES.includes(role) — the reopen form's loop copy needs it. */
   canClose: boolean;
-  outcomes: { retime: FixOutcome; undo: FixOutcome; add: FixOutcome; reopen: FixOutcome };
+  /**
+   * Does the surface HOSTING this panel already render its own ปิดวัน for this
+   * same day? Then this one is withheld — not because the reader may not close,
+   * but because two doors to one money write is one door too many, and the
+   * host's is the better-informed of the two: `AttendanceDayPanel` NAMES the
+   * workers still checked in who will be given a fabricated 17:00, which this
+   * panel structurally cannot know (it loads ONE worker).
+   *
+   * ⚠️ The caller passes its host's OWN answer — the same `dayClosable`, over
+   * the same day — never a hardcoded `true`. `/team/attendance` under ทุกโครงการ
+   * resolves `noProject` and shows NO day control, and there this panel's close
+   * is the only one there is.
+   *
+   * Defaults to `false`: a door that forgets this prop keeps its close, which is
+   * the direction that cannot strand a day (the bug this control exists to fix).
+   */
+  hostOffersClose?: boolean;
+  /**
+   * ⚠️ `close` is not optional. `closeMusterDayFromForm` redirects with
+   * `?closed=1` or `?closeError=denied|shape|notover|failed`, and a door that
+   * offers the control without reading them answers a refusal with a page that
+   * looks identical to before the tap — the day silently stays open, which is
+   * the exact failure this panel's close exists to end.
+   */
+  outcomes: {
+    retime: FixOutcome;
+    undo: FixOutcome;
+    add: FixOutcome;
+    reopen: FixOutcome;
+    close: FixOutcome;
+  };
   /** Panel only: the day's queue position and its neighbours. */
   queue?: React.ReactNode;
   /**
@@ -117,6 +150,24 @@ export function WorkerDayFixPanel({
         </div>
       )}
 
+      {/* The close outcome sits OUTSIDE the close card, beside the reopen's, and
+          that placement is load-bearing: a SUCCESSFUL close flips `dayClosed` to
+          true, which withdraws the card the form lives in — so an outcome
+          rendered inside it could only ever show the failure, and the success
+          would be silent. Silence after a money write is indistinguishable from
+          a crash, which is the class this whole unit is about. */}
+      {outcomes.close !== null && (
+        <div className="mt-3">
+          {outcomes.close.ok ? (
+            <p className="border-edge bg-sunk text-ink rounded-card border px-4 py-3 text-sm">
+              ปิดวันดังกล่าวแล้ว
+            </p>
+          ) : (
+            <ErrorNotice>{outcomes.close.message}</ErrorNotice>
+          )}
+        </div>
+      )}
+
       {/* The LOCK, before the things it locks — state that governs a section
           belongs above that section. */}
       {dayClosed === true && (
@@ -140,6 +191,32 @@ export function WorkerDayFixPanel({
           )}
         </div>
       )}
+
+      {/* 🔴 THE CLOSE, and it is here because its absence stranded a real day.
+          `MusterReopenForm` above renders on THREE surfaces; this control
+          existed on ONE (the `?day=` panel), so reopening from the spec-404
+          calendar or from /team/attendance/fix left the day OPEN with no way
+          back — `PRC-2026-004` `2026-08-05`, reopened by procurement and stuck,
+          while the reopen form's own copy instructed them to close it again.
+
+          ⚠️ The decision DELEGATES to `dayClosable`, which shares its day-level
+          ladder with `dayCorrectionControl` — the two surfaces disagreeing about
+          one day is the bug, so they may not hold two copies of the rule.
+
+          ⓘ `hostOffersClose` is the DUAL: on /team/attendance this panel is
+          docked under the day panel, which already renders this control with a
+          richer disclosure, so there it steps aside. See the prop's doc. */}
+      {!hostOffersClose &&
+        dayClosable({ date, todayIso, dayClosed, projectId: data.projectId, canClose }) &&
+        data.projectId !== null && (
+          <div className={`${CARD} mt-4`}>
+            <h3 className="text-ink text-sm font-semibold">ปิดวัน</h3>
+            {/* ⓘ `stillIn` omitted deliberately: this panel loads ONE worker, so
+                it cannot count the day's others, and the shared form states the
+                rule rather than a number it would have to invent. */}
+            <MusterCloseDayForm projectId={data.projectId} workDate={date} returnTo={returnTo} />
+          </div>
+        )}
 
       {sessions.length === 0 && (
         <div className={`${CARD} mt-4`}>

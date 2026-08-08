@@ -5,8 +5,10 @@
 // contradicted the summary chip and was invisible on touch. Presentational only:
 // no data fetching, no client hooks, no 'use client'.
 
+import { MusterCloseDayForm } from "@/components/features/muster/muster-close-day-form";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
 import { formatThaiDate } from "@/lib/i18n/labels";
+import { dayClosable } from "@/lib/muster/day-correction";
 import {
   dayClosureLabel,
   openSessionLabel,
@@ -100,6 +102,27 @@ export function AttendanceDrill({
               workDate={day.workDate}
               returnTo={backHref}
               canClose={canClose}
+            />
+          )}
+
+          {/* The way back OUT of the reopen, which this surface lacked. The list
+              view draws no `AttendanceDayPanel`, so before this the drill was a
+              FOURTH door that could reopen a day and not close it again — the
+              same stranding that put `PRC-2026-004` `2026-08-05` in prod with no
+              closure row, reachable by a reader who never touches the grid.
+              ⓘ `stillIn` is null: the drill lists ONE worker's sessions, so it
+              cannot count the day's others. */}
+          {dayClosable({
+            date: day.workDate,
+            todayIso,
+            dayClosed: day.dayClosed,
+            projectId: day.projectId,
+            canClose,
+          }) && (
+            <MusterCloseDayForm
+              projectId={day.projectId}
+              workDate={day.workDate}
+              returnTo={backHref}
             />
           )}
         </li>

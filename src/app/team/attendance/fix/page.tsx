@@ -42,6 +42,7 @@ import { ATTENDANCE_FIX_LABEL } from "@/lib/i18n/labels";
 import { parseFixParams } from "@/lib/muster/day-fix";
 import {
   ADD_ERROR_COPY,
+  CLOSE_ERROR_COPY,
   REOPEN_ERROR_COPY,
   RETIME_ERROR_COPY,
   UNDO_ERROR_COPY,
@@ -66,6 +67,8 @@ interface FixPageProps {
     addError?: string | string[];
     reopened?: string | string[];
     reopenError?: string | string[];
+    closed?: string | string[];
+    closeError?: string | string[];
   }>;
 }
 
@@ -147,6 +150,17 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
             message: REOPEN_ERROR_COPY[sp.reopenError] ?? REOPEN_ERROR_COPY.failed!,
           } as const)
         : null;
+  // Without this a refused close returns a page identical to the one before the
+  // tap and the day quietly stays open — the failure the close control ends.
+  const closeOutcome =
+    sp.closed === "1"
+      ? ({ ok: true } as const)
+      : typeof sp.closeError === "string" && sp.closeError.length > 0
+        ? ({
+            ok: false,
+            message: CLOSE_ERROR_COPY[sp.closeError] ?? CLOSE_ERROR_COPY.failed!,
+          } as const)
+        : null;
 
   const canClose = MUSTER_CLOSE_ROLES.includes(ctx.role);
 
@@ -178,6 +192,7 @@ export default async function AttendanceFixPage({ searchParams }: FixPageProps) 
         undo: undoOutcome,
         add: addOutcome,
         reopen: reopenOutcome,
+        close: closeOutcome,
       }}
     />,
   );

@@ -130,4 +130,47 @@ describe("AttendanceDrill (spec 358 U3)", () => {
     const { container } = render(<AttendanceDrill days={[]} todayIso={TODAY} />);
     expect(container.querySelectorAll("li")).toHaveLength(0);
   });
+
+  // ---------------------------------------------------------------------------
+  // The FOURTH reopen door.
+  //
+  // Writing failing test first.
+  //
+  // The close-control fix was scoped to "three surfaces render MusterReopenForm".
+  // That count was wrong: this drill is a fourth, and it is the one the LIST view
+  // draws — a view that renders no `AttendanceDayPanel`, so it had reopen and no
+  // close at all. Reopen from here and the reader had to discover the ตาราง toggle
+  // to get the day shut again. Same stranding that left `PRC-2026-004`
+  // `2026-08-05` open in production.
+  // ---------------------------------------------------------------------------
+  describe("closing the day it can reopen", () => {
+    const closeForm = () => screen.queryByRole("form", { name: /^ปิดวัน/ });
+
+    it("offers ปิดวัน on an OPEN past day, to a reader the RPC admits", () => {
+      render(<AttendanceDrill days={days({})} todayIso={TODAY} canReopen canClose />);
+      expect(closeForm()).not.toBeNull();
+    });
+
+    it("withholds it from a reader close_muster_day refuses", () => {
+      render(<AttendanceDrill days={days({})} todayIso={TODAY} canReopen canClose={false} />);
+      expect(closeForm()).toBeNull();
+    });
+
+    it("shows REOPEN on a closed day and CLOSE on an open one, never both", () => {
+      // Two arms of one state machine — the day panel's own invariant, which the
+      // shared `dayClosable` is what makes true here too.
+      render(
+        <AttendanceDrill days={days({ day_closed: true })} todayIso={TODAY} canReopen canClose />,
+      );
+      expect(closeForm()).toBeNull();
+      expect(screen.queryByRole("form", { name: /^เปิดวัน/ })).not.toBeNull();
+    });
+
+    it("withholds it on TODAY — closing mid-shift fabricates the day's end", () => {
+      render(
+        <AttendanceDrill days={days({ work_date: TODAY })} todayIso={TODAY} canReopen canClose />,
+      );
+      expect(closeForm()).toBeNull();
+    });
+  });
 });
