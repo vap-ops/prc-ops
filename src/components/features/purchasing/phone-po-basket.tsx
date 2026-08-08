@@ -103,6 +103,18 @@ export function PhonePoBasket({
               <Link href={`/requests/${r.id}`} className="flex min-w-0 flex-col gap-1">
                 <span className="text-ink font-medium break-words">{r.item_description}</span>
                 <span className="text-ink-muted text-meta">
+                  {/* Feedback #19206: the basket bundles approved rows into ONE
+                      purchase order, and it pools every project — so the site has
+                      to be legible here too, not only on the desktop grid. */}
+                  {r.project_name ? (
+                    <span className="text-ink-secondary font-medium">
+                      {r.project_name}
+                      {/* The quantity tail below already opens with its own " · ",
+                          so this separator belongs here ONLY when a PR number or WP
+                          code sits between us and it — otherwise the line doubles up. */}
+                      {r.pr_number || r.wp_code ? " · " : ""}
+                    </span>
+                  ) : null}
                   {r.pr_number ? (
                     <span className="font-mono">{formatPrNumber(r.pr_number)}</span>
                   ) : null}

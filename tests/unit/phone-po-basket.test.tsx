@@ -48,6 +48,7 @@ function rec(over: Partial<ProcurementGridRecord>): ProcurementGridRecord {
     category_match: null,
     wp_name: null,
     project_id: null,
+    project_name: null,
     requested_by: null,
     requester_name: null,
     notes: null,
@@ -120,5 +121,66 @@ describe("PhonePoBasket", () => {
     expect(removes).toHaveLength(2);
     fireEvent.click(removes[0]!);
     await waitFor(() => expect(screen.getAllByLabelText(/ออกจากใบสั่งซื้อ/)).toHaveLength(1));
+  });
+});
+
+// Feedback #19206 — the basket bundles approved rows into ONE purchase order and
+// pools every project, so it is the phone half of the same "two sites read as one
+// merged list" defect fixed on the desktop grid (procurement-grid-project-label).
+describe("PhonePoBasket — per-row project label (feedback #19206)", () => {
+  it("names each row's own project", () => {
+    render(
+      <PhonePoBasket
+        records={[
+          rec({ id: R1, item_description: "เหล็กเส้น", project_name: "TFM นายาว เพชรบูรณ์" }),
+          rec({ id: R2, item_description: "สีรองพื้น", project_name: "TFM กกกระทอน เพชรบูรณ์" }),
+        ]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+
+    const steel = screen.getByText("เหล็กเส้น").closest("li");
+    expect(steel).not.toBeNull();
+    expect(steel!.textContent).toContain("TFM นายาว เพชรบูรณ์");
+    expect(steel!.textContent).not.toContain("TFM กกกระทอน");
+
+    const paint = screen.getByText("สีรองพื้น").closest("li");
+    expect(paint).not.toBeNull();
+    expect(paint!.textContent).toContain("TFM กกกระทอน เพชรบูรณ์");
+    expect(paint!.textContent).not.toContain("TFM นายาว");
+  });
+
+  it("does not double the separator on a row with no PR number and no WP code", () => {
+    // The quantity tail opens with its own " · ", so a project label that always
+    // appended one produced "TFM … ·  · 1 ชิ้น" for this shape. The fixture is
+    // deliberately the sparse row, not the typical one.
+    render(
+      <PhonePoBasket
+        records={[
+          rec({
+            id: R1,
+            item_description: "เหล็กเส้น",
+            project_name: "TFM นายาว เพชรบูรณ์",
+            pr_number: null,
+            wp_code: null,
+          }),
+        ]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+    const line = screen.getByText("เหล็กเส้น").closest("li")!.textContent!;
+    expect(line).toContain("TFM นายาว เพชรบูรณ์");
+    expect(line.replace(/\s+/g, " ")).not.toContain("· ·");
+  });
+
+  it("keeps the line lean when the page names no project", () => {
+    render(
+      <PhonePoBasket
+        records={[rec({ id: R1, item_description: "เหล็กเส้น" })]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+    const only = screen.getByText("เหล็กเส้น").closest("li");
+    expect(only!.textContent).not.toContain("TFM");
   });
 });

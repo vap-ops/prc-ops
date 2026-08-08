@@ -525,6 +525,11 @@ export default async function RequestsPage({ searchParams }: RequestsPageProps) 
         // Spec 114 drawer enrichment. Spec 195 P1: the PR's own project_id
         // (covers WP-less PRs, where there is no WP to derive it from).
         project_id: r.project_id,
+        // Feedback #19206: name the site on the grid row, on the SAME rule the
+        // phone card already uses (showProjectOnCards) — a band pools every
+        // project's requests, and the desktop grid named none of them.
+        project_name:
+          showProjectOnCards && r.project_id ? (projectNameById.get(r.project_id) ?? null) : null,
         requested_by: r.requested_by,
         requester_name:
           (r.requested_by ? requesterNames.get(r.requested_by) : null) ??

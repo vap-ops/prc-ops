@@ -65,6 +65,7 @@ function gridRow(
     wp_name: null,
     wp_category_code: null,
     project_id: null,
+    project_name: null,
     requested_by: null,
     requester_name: null,
     notes: null,
