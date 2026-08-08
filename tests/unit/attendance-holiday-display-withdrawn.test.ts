@@ -106,7 +106,10 @@ describe("attendance holiday display — withdrawn (operator 2026-08-08)", () =>
         .map((l) => l.replace(/\s/g, ""))
         .filter((l) => l.includes("nonWorking:") && !l.includes("nonWorking:boolean"));
       expect(assignments, `${rel} no longer assigns nonWorking`).toHaveLength(1);
-      expect(assignments[0], rel).toContain("nonWorking:isSunday(");
+      // WHOLE expression, not `toContain("isSunday(")` — mutation-proved: an
+      // appended `|| <isHoliday>` arm leaves a containment check green, which is
+      // exactly the re-add this guard exists to stop.
+      expect(assignments[0], rel).toMatch(/^nonWorking:isSunday\([\w.]+\),$/);
     }
   });
 });
