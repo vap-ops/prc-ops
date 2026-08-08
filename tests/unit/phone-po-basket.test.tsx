@@ -123,3 +123,41 @@ describe("PhonePoBasket", () => {
     await waitFor(() => expect(screen.getAllByLabelText(/ออกจากใบสั่งซื้อ/)).toHaveLength(1));
   });
 });
+
+// Feedback #19206 — the basket bundles approved rows into ONE purchase order and
+// pools every project, so it is the phone half of the same "two sites read as one
+// merged list" defect fixed on the desktop grid (procurement-grid-project-label).
+describe("PhonePoBasket — per-row project label (feedback #19206)", () => {
+  it("names each row's own project", () => {
+    render(
+      <PhonePoBasket
+        records={[
+          rec({ id: R1, item_description: "เหล็กเส้น", project_name: "TFM นายาว เพชรบูรณ์" }),
+          rec({ id: R2, item_description: "สีรองพื้น", project_name: "TFM กกกระทอน เพชรบูรณ์" }),
+        ]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+
+    const steel = screen.getByText("เหล็กเส้น").closest("li");
+    expect(steel).not.toBeNull();
+    expect(steel!.textContent).toContain("TFM นายาว เพชรบูรณ์");
+    expect(steel!.textContent).not.toContain("TFM กกกระทอน");
+
+    const paint = screen.getByText("สีรองพื้น").closest("li");
+    expect(paint).not.toBeNull();
+    expect(paint!.textContent).toContain("TFM กกกระทอน เพชรบูรณ์");
+    expect(paint!.textContent).not.toContain("TFM นายาว");
+  });
+
+  it("keeps the line lean when the page names no project", () => {
+    render(
+      <PhonePoBasket
+        records={[rec({ id: R1, item_description: "เหล็กเส้น" })]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+    const only = screen.getByText("เหล็กเส้น").closest("li");
+    expect(only!.textContent).not.toContain("TFM");
+  });
+});

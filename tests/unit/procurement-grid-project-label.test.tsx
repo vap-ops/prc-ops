@@ -105,6 +105,10 @@ describe("ProcurementGrid — per-row project label (feedback #19206)", () => {
   });
 });
 
+// The phone's half of this fix (PhonePoBasket renders the same รอสั่งซื้อ band) is
+// pinned in tests/unit/phone-po-basket.test.tsx, which already carries the app-router
+// mock that surface needs.
+
 // The wiring lives in a Server Component vitest cannot render, so it is pinned at
 // the source (comment-stripped, EXACT counts — a floor would let one of the two
 // sites vanish silently). House pattern: doc-chase-surfaces.test.ts.
