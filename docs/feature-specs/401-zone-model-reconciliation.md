@@ -106,6 +106,40 @@ sort_order   │             sort_order
 
 **Drawings bucket** — still does not exist (`storage.buckets` has 13, none of them drawings). 392 declared `project_zone_maps.background_path` and never created one; its fill is **0**. One private bucket, its `storage.objects` policies written and pgTAP-pinned in the same unit, delegating to the same role helper rather than restating its members (the `catalog-images` lesson, #823). Thai zone names need the ASCII key sanitiser (`supabase-storage-key-ascii`).
 
+### 3.0 ✅ Nesting × M:N — RULED: flat zones only, architecture kept flexible
+
+> **OPERATOR RULING 2026-08-06: _"no nesting yet — flat zones only for now, but keep architecture flexible."_ SETTLED — do not re-litigate. What follows is what that costs and what it forbids.**
+>
+> **U1's scope does NOT change, and U1 ships NO nesting machinery.** With flat zones an ancestor+descendant pair is **unreachable**, so a rejection guard in `add_wp_zone` would be machinery for a state that cannot occur — the spec-394 trade (settle the blast radius, then record the decision rather than build the escape hatch). ⭐ **Equally, an unconstrained `add_wp_zone` does NOT silently answer N2 here** — the warning below applies only once nesting exists, and it is now a precondition rather than a live hazard.
+>
+> **"Flexible" is a constraint on U1, not a mood. U1 MUST NOT:** drop or narrow `parent_zone_id` (it stays nullable and unused — 392 §4's reasoning holds: free today, a migration plus a backfill later) · remove the depth handling in `zone-list.ts` / `zone-rollup-grid.tsx` / `zone-rollup.ts` that already survives nesting, cycles and unresolvable parents · give `wp_zones` any shape that assumes one zone per WP (the composite PK is correct; a unique index on `work_package_id` would NOT be) · delete the own-work-only note that renders when `depth > 0`.
+>
+> **🔒 NESTING PRECONDITIONS — binding on whatever unit turns nesting on.** All are open; none is owed now:
+>
+> 1. **N2 + N3 ruled** — may a WP bind to a parent AND its descendant, and does `add_wp_zone` reject the pair? An unconstrained RPC at that point answers "yes, double-counted" by omission.
+> 2. **N1 ruled** — does a child's work roll up to its parent? Changes the zone LIST as well as the grid.
+> 3. **A cycle guard**, which does not exist in constraints, triggers or the RPC — `A → B → A` is reachable the moment two parents can be set.
+> 4. **An un-nest path.** #988 coalesces `parent_zone_id`, so the RPC cannot clear a parent; nesting without this is one-way.
+> 5. **A parent picker** — there is none, so nesting is RPC-only and today unreachable from the UI.
+>
+> ⓘ Numbers below are live 2026-08-06 and unchanged by this ruling: `project_zones` **2 rows, 0 nested**; `work_packages.zone_id` **0 of 1,307**.
+
+**Nesting and the junction are each specced; their INTERACTION is not.** Both halves are live-verified 2026-08-06 and the whole area is latent — `project_zones` holds **2 rows, 0 of them nested**, and `work_packages.zone_id` is **0 of 1,307**. Recorded here so U1/U4 meet a decision instead of discovering one.
+
+**What nesting already has:** `parent_zone_id uuid NULL` → `project_zones(id) ON DELETE SET NULL` · CHECK `project_zones_no_self_parent` (blocks `parent = id` only) · `upsert_project_zone`'s `p_parent_zone_id` · a read side that is genuinely careful — `zone-list.ts` indents by depth, degrades a parent it cannot resolve to top level (RLS may hide it; absence ≠ deletion), and an `emitted` set makes the walk terminate on a cycle · `zone-rollup-grid.tsx` indents children and prints an own-work-only note **only when nesting exists**, so today's flat case carries no copy.
+
+**What it does not have:** no way to NEST (zero `parent` matches in the zones UI — RPC-only) · no way to UN-NEST (#988 coalesces `parent_zone_id`, so null means _leave alone_) · **no cycle guard anywhere** — verified absent in constraints, triggers AND the RPC, so `A → B → A` is reachable · no ruling on aggregation. ⓘ A cross-map parent is NOT a hole: `authenticated` holds neither INSERT nor UPDATE on the table, so `upsert_project_zone` is the only writer and its body checks the parent against `map_id`.
+
+| Q      | Question                                                               | Today                                                                                                    | Whose call                                                  |
+| ------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **N1** | A WP bound to child `A1` — does it appear under parent `อาคาร A`?      | **No.** A parent's numbers are its OWN directly-placed work (`zone-rollup-grid.tsx` says so and defers). | U4 — but it changes the zone LIST too                       |
+| **N2** | May a WP bind to BOTH a parent and its descendant?                     | Nothing stops it once `wp_zones` exists; any subtree rollup would then **count it twice**.               | ruling needed                                               |
+| **N3** | Should `add_wp_zone` REJECT an ancestor+descendant pair at write time? | n/a — the RPC does not exist yet.                                                                        | **U1 if N2 is "no"** — cheap now, expensive once rows exist |
+
+⭐ **The prior question collapsed all three, and it is the one that was answered: is nesting REAL?** The operator's stated need — zones clickable, the SA uploading ก่อน/หลัง photos into the right zone — is served completely by FLAT zones, while nesting was speculative capability with no UI, no un-nest and no cycle guard. **Ruled "not yet" (see the block above): U4 simplifies, the rollup stays a clean grid, and N1–N3 cost nothing today because the states they describe cannot occur.** The three rows survive as the agenda for the unit that turns nesting on, not as work owed now.
+
+⚠️ **The one way this ruling gets silently reversed: someone adds a parent picker without reading the preconditions above.** Nesting is reachable through `upsert_project_zone` today — a single RPC argument — so "we only ship flat zones" is a property of the UI, not of the schema. The guard is that this spec is the place the picker's author must pass through.
+
 ### 3.1 Gates — and a correction to 392
 
 Writes delegate to `is_manager(current_user_role())` (live membership: `project_manager`, `super_admin`, `project_director`, coalesce-hardened) plus `can_see_project`, both raising `42501`. The role array is never restated.
@@ -120,7 +154,7 @@ Writes delegate to `is_manager(current_user_role())` (live membership: `project_
 
 **This corrects 392 §4.1**, which claims "the field roles that already open a WP can see its zone without a new door". That is true for `site_admin` — arm 2, and 5 of 6 SAs hold a `project_members` row, so **the SA's zone picker can read through table RLS**. It is **false for `technician`**: 14 users, 1 with a membership row, and no arm admits the role, so ช่าง reach WP surfaces through DEFINER RPCs only. ⚠️ An earlier draft of this spec conflated the two and claimed the SA needed an RPC; it does not.
 
-**Binding rule for U5/U6:** any zone surface shown to `technician` goes through a DEFINER RPC. A zone surface for `site_admin` may use table RLS. 392 §4.1 should be corrected in-repo when #995's edits to that file land.
+**Binding rule for U5/U6:** any zone surface shown to `technician` goes through a DEFINER RPC. A zone surface for `site_admin` may use table RLS. ✅ 392 §4.1 was corrected in-repo 2026-08-06 (#995 having landed); it now carries this correction and points back here.
 
 ---
 
@@ -139,7 +173,9 @@ Every path below is on `origin/main` today. §4's earlier draft said "four read 
 | `src/lib/zones/zone-rollup.ts` · `zone-filter.ts`                     | keyed on `zoneId`                                                          | keyed on the junction                      |
 | `set_wp_zone` RPC                                                     | writes the column                                                          | retired → `add_wp_zone` / `remove_wp_zone` |
 
-**Tests that must move in the same units** (none of them optional — U3's drop reds CI otherwise): `zone-read-surfaces.test.ts`, `zone-rollup.test.ts`, `zone-rollup-grid.test.tsx`, `zone-filter.test.ts`, `wp-zone-chip.test.tsx`, `work-package-list-zone-filter.test.tsx`, plus **two assertions in `supabase/tests/database/392-project-zone-maps.test.sql`** (the `set_wp_zone` grant and the "may NOT write `zone_id` directly" pin) and the generated `src/lib/db/database.types.ts`.
+**Tests that must move in the same units** (none of them optional — U3's drop reds CI otherwise): `zone-read-surfaces.test.ts`, `zone-rollup.test.ts`, `zone-rollup-grid.test.tsx`, `zone-filter.test.ts`, `wp-zone-chip.test.tsx`, `work-package-list-zone-filter.test.tsx`, plus the pgTAP suite `supabase/tests/database/392-project-zone-maps.test.sql` and the generated `src/lib/db/database.types.ts`.
+
+🚨 **CORRECTED 2026-08-06 — this section previously said "two assertions" in that pgTAP file. Counted directly, it is TEN, plus `select plan(37)` itself:** `has_column` for `zone_id` · two `has_column_privilege` pins (SELECT allowed, UPDATE denied) · **two `set_wp_zone` membership assertions inside the five-RPC arrays, one of them a `count(*) = 5`** · `has_function_privilege('anon', 'set_wp_zone(uuid, uuid)')` · and four behavioural blocks that call `set_wp_zone` or read `zone_id` back off `work_packages`. ⚠️ **`has_column_privilege` / `has_function_privilege` against a dropped object ERRORS rather than returning false**, so U3 cannot just watch these turn red — they must be removed as part of the drop. ⭐ The wrong figure came from re-running an inherited count instead of re-deriving it, which is the same trap §1.1 records.
 
 Untouched: `validate-zone.ts`, `zone-list.ts`, the four surviving RPCs, and — once #995 lands — `canvas-geometry.ts`, `canvas-state.ts` and the canvas components. None of them knows what a zone binds to.
 
@@ -150,7 +186,7 @@ Untouched: `validate-zone.ts`, `zone-list.ts`, the four surviving RPCs, and — 
 | U      | Ships                                                                                                                                                                     | Schema?                 |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | **U1** | `wp_zones` + `photo_logs.zone_id` + RLS + `add_wp_zone`/`remove_wp_zone` + pgTAP (gate refusals with a positive control; the leaf-only rule; the append-only interaction) | **yes** — schema lane   |
-| **U2** | Move every reader in §4 onto the junction; `overlap` + `hidden` in the rollup; retire `set_wp_zone` and its two pgTAP assertions                                          | no                      |
+| **U2** | Move every reader in §4 onto the junction; `overlap` + `hidden` in the rollup; retire `set_wp_zone` and **all ten** of its pgTAP assertions (§4)                          | no                      |
 | **U3** | ⛔ **DROP `work_packages.zone_id`** + regenerate `database.types.ts` — destructive, `break-glass.md` Procedure B, operator-held                                           | **yes** — only after U2 |
 | **U4** | PM binds zones to WPs (366 U2's authoring surface) + the group-WP ruling from §3                                                                                          | no                      |
 | **U5** | SA capture: sticky zone chips above the shutter, always optional (366 D4/D5)                                                                                              | no                      |
@@ -201,4 +237,4 @@ select decided_at::date, count(*) from public.approvals
 
 ## 8. Sibling
 
-[392](392-project-zone-maps.md) — the geometry, the editor, the map; its §4.1 needs the §3.1 correction once #995 lands. [366](366-wp-zones.md) — the origin of the evidence axis; keep its D1–D7 decisions and its argument, treat its §3 model and §9 appendix as superseded.
+[392](392-project-zone-maps.md) — the geometry, the editor, the map; its §4.1 carries the §3.1 correction as of 2026-08-06. [366](366-wp-zones.md) — the origin of the evidence axis; keep its D1–D7 decisions and its argument, treat its §3 model and §9 appendix as superseded.
