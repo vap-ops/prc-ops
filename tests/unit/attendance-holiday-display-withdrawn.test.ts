@@ -14,8 +14,8 @@
 // surface at a time. Behavioural coverage lives in the per-surface suites; this
 // is the repo-wide absence, which no render test can express.
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 
 const ROOT = join(__dirname, "..", "..");
 
@@ -33,24 +33,36 @@ const SURFACES = [
 ] as const;
 
 /**
- * Comment lines only — a note explaining WHY the holiday marking went away must
- * not itself trip the guard (documenting a hazard is not the hazard). Line-led
- * rather than a `/* … *\/` sweep on purpose: a general block-comment stripper is
- * opened by things like `accept="image/*"` and silently eats real code.
+ * Comments only — a note explaining WHY the holiday marking went away must not
+ * itself trip the guard (documenting a hazard is not the hazard).
+ *
+ * Line-led plus BLOCK DEPTH, never a global `/* … *\/` regex: a general
+ * block-comment sweep is opened by things like `accept="image/*"` and silently
+ * eats real code, which is a false NEGATIVE. Depth-tracking keeps the error
+ * direction on the safe side — an unclosed block only ever hides more comment.
+ * The continuation lines matter: these files carry multi-line `{/* … *\/}`
+ * comments whose middle lines start with a bare word, and the first version of
+ * this stripper kept them, so a future comment merely NAMING a holiday symbol
+ * would have redded the guard on unrelated work.
  */
 function stripComments(src: string): string {
-  return src
-    .split("\n")
-    .filter((line) => {
-      const t = line.trim();
-      return !(
-        t.startsWith("//") ||
-        t.startsWith("*") ||
-        t.startsWith("/*") ||
-        t.startsWith("{/*")
-      );
-    })
-    .join("\n");
+  let inBlock = false;
+  const out: string[] = [];
+  for (const raw of src.split("\n")) {
+    const t = raw.trim();
+    if (inBlock) {
+      if (t.includes("*/")) inBlock = false;
+      continue;
+    }
+    if (t.startsWith("//")) continue;
+    if (t.startsWith("/*") || t.startsWith("{/*")) {
+      if (!t.includes("*/")) inBlock = true;
+      continue;
+    }
+    // A trailing `// …` on a line of code.
+    out.push(raw.replace(/\/\/.*$/, ""));
+  }
+  return out.join("\n");
 }
 
 /** Identifiers and copy that only exist to render a holiday. */
@@ -81,6 +93,36 @@ describe("attendance holiday display — withdrawn (operator 2026-08-08)", () =>
     const code = sources.find((s) => s.rel === rel)!.code;
     for (const token of WITHDRAWN)
       expect(code, `${rel} still carries ${token}`).not.toContain(token);
+  });
+
+  // ⚠️ The nine-file sweep above is the per-surface DETAIL; this is the claim
+  // the file's name makes. A hand-listed corpus cannot see a holiday reader
+  // added anywhere ELSE — a new component, the CSV path, `day-fix.ts` (which
+  // owns `gridCellFixable`), the worker — so the table's own name is swept
+  // across every source file instead. `database.types.ts` is generated from the
+  // live schema and MUST keep the row: the table is retained by design.
+  it("no source file anywhere reads public_holidays, except the generated types", () => {
+    const roots = [join(ROOT, "src"), join(ROOT, "worker", "src")];
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(ts|tsx)$/.test(e.name)) files.push(p);
+      }
+    };
+    for (const r of roots) walk(r);
+    // Positive control on the scan itself: a corpus this small means the walk
+    // broke, and an empty scan reads exactly like a clean one.
+    expect(files.length).toBeGreaterThan(500);
+    const offenders = files.filter(
+      (p) =>
+        !p.endsWith(join("db", "database.types.ts")) &&
+        !p.endsWith("database.types.ts") &&
+        !p.endsWith(basename(__filename)) &&
+        stripComments(readFileSync(p, "utf8")).includes("public_holidays"),
+    );
+    expect(offenders.map((p) => p.slice(ROOT.length + 1))).toEqual([]);
   });
 
   // The calendar's holiday tint was the at-a-glance half of the marking. The

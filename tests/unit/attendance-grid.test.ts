@@ -7,8 +7,10 @@
 //     uses — pinned by a parity test, not by a comment;
 //   · headcount and closure are PROJECT-DAY facts and live on the column, never
 //     on a worker cell (the spec-358 U2 correction, which costs 41× more here);
-//   · Sundays and public_holidays are NON-WORKING, so an empty column there is
-//     not a finding — without this the grid cries wolf every week.
+//   · Sundays are NON-WORKING, so an empty column there is not a finding —
+//     without this the grid cries wolf every week. (Public holidays were the
+//     other half of that rule until the operator withdrew the holiday model on
+//     2026-08-08; a holiday is an ordinary working day here.)
 
 import { describe, expect, it } from "vitest";
 import {

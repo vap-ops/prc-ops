@@ -156,7 +156,14 @@ One new page: a month calendar for one worker.
 5. **Company-staff monthly payroll semantics** — this page is muster-truth ×
    daily-rate; the payroll page remains the money SSOT.
 
-## 3b. U2 follow-ups (logged at review, not built — display-only v1)
+## 3b. U2 follow-ups — ⛔ ALL MOOT, WITHDRAWN WITH U2 (2026-08-08)
+
+> These were logged at U2's review against a shipped marking. The marking is
+> gone (see the U2 notice above), so none of them is open work: there is no chip
+> to qualify (1), nothing renders in or outside the seeded window (2), and no
+> displayed date to re-verify (3). They are kept because a future holiday policy
+> would meet every one of them again — **`observed_by` scoping in particular is
+> still REQUIRED before any pay semantics ever land on this table.**
 
 1. **Observance regimes.** The seed mixes three: วันแรงงาน (private-sector),
    วันพืชมงคล + the Jan-2 special (government-sector), the rest (both). Which

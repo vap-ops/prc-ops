@@ -84,7 +84,11 @@ describe("AttendanceGridView", () => {
     const headers = screen.getAllByRole("columnheader");
     expect(headers[1]?.className).toContain("bg-sunk"); // Sunday
     expect(headers.slice(2).every((h) => !h.className.includes("bg-sunk"))).toBe(true);
-    expect(screen.queryByText(/วันแม่/)).toBeNull();
+    // The 08-12 column renders its ordinary facts and nothing else — an absence
+    // pin would be vacuous here, since the builder can no longer be handed a
+    // holiday at all (the repo-wide pin is the withdrawn-guard test).
+    const aug12 = [...(headers.at(-1)?.querySelectorAll("span") ?? [])].map((s) => s.textContent);
+    expect(aug12).toEqual(["12", "0"]); // day number, headcount — nothing between them
   });
 
   it("marks a cell that carries a finding and names every one of them", () => {

@@ -290,7 +290,8 @@ shrunk cell becomes the ONLY cell, at every width:
 - **Markers become glyphs**: `(อัตโนมัติ)` and `(+1 วัน)` render as icons. Their words move into the
   panel, which at `md+` is always on screen. Desktop loses the spelled-out words too — accepted.
 - **Project badge is the tail** (§3.2), ~18px instead of ~58px.
-- `ทำงานวันหยุด` and `บันทึกมือ` are unchanged; both already fit.
+- `บันทึกมือ` is unchanged; it already fits. (`ทำงานวันหยุด` was in this budget too and is GONE —
+  the holiday marking was withdrawn 2026-08-08, so the cell has that line back.)
 
 ### 4.3 Arrows — name the axis
 
@@ -311,12 +312,12 @@ to infer one from.
 Two present defects, live today on the operator's own device, fixed in this unit because the cell is
 being rewritten anyway:
 
-- the holiday name is truncated with the full text only in `title=`;
+- ⛔ the holiday name is truncated with the full text only in `title=` — **MOOT since 2026-08-08:
+  the holiday marking was withdrawn entirely, so there is no name to place**;
 - the fix link's entire purpose (`แก้ไขการเช็คชื่อ 5 ส.ค.`) is in `title=`.
 
 Both comments justify it as "desktop back-office, where hover is real". There is no hover on an
-iPad. The holiday name wraps or moves to the panel; the link's purpose is carried by the panel's own
-heading once the cell opens it in place.
+iPad. The link's purpose is carried by the panel's own heading once the cell opens it in place.
 
 ⚠️ **A panel that scrolls independently is a NEW scroller.** Before shipping, read
 `prc-ops-touch-action-scroll-rows`: a tall scroller needs `manipulation` or vertical scroll dies on
