@@ -1,3 +1,14 @@
+# [0.365.0](https://github.com/vap-ops/prc-ops/compare/v0.364.1...v0.365.0) (2026-08-08)
+
+### Bug Fixes
+
+- **attendance:** close the fresh-eyes findings on the U2 panel ([fba5fd5](https://github.com/vap-ops/prc-ops/commit/fba5fd55c9c0e076a315ce2ce7908b95a74f23ff))
+- **attendance:** make the day steppers order-independent by construction ([63a4869](https://github.com/vap-ops/prc-ops/commit/63a4869698d506231b9300522a0638c4259791a8))
+
+### Features
+
+- **attendance:** open the worker-day fix panel in the calendar (spec 404 U2) ([5e4f825](https://github.com/vap-ops/prc-ops/commit/5e4f82551dee1e455325534817893f417d8e73b9))
+
 ## [0.364.1](https://github.com/vap-ops/prc-ops/compare/v0.364.0...v0.364.1) (2026-08-08)
 
 ### Bug Fixes
