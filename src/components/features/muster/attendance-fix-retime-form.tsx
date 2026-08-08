@@ -16,7 +16,7 @@
 import { correctMusterSessionFromForm } from "@/app/team/attendance/fix/actions";
 import { formatThaiTime } from "@/lib/i18n/labels";
 import { OUT_LOCKED_COPY } from "@/lib/muster/outcome-copy";
-import { BUTTON_SECONDARY, FIELD_INPUT } from "@/lib/ui/classes";
+import { BUTTON_SECONDARY, FIELD_INPUT_TIME } from "@/lib/ui/classes";
 
 export function AttendanceFixRetimeForm({
   teamId,
@@ -91,26 +91,57 @@ export function AttendanceFixRetimeForm({
           </p>
         </div>
 
-        <label className="text-ink-secondary flex w-full min-w-0 flex-col text-[11px] @md:w-auto">
-          เวลาเข้าใหม่
-          <input
-            type="time"
-            name="inTime"
-            // A time value is five characters. `w-full` is right in a narrow box
-            // and absurd once the row forms, where it spanned the whole card.
-            className={`${FIELD_INPUT} mt-1 appearance-none @md:w-32`}
-          />
-        </label>
+        {/* ⚠️ Spec 404 U2c — เข้า and ออก are ONE RANGE and stay side by side at
+            EVERY width. Operator, 2026-08-08: "เข้าออก side by side is better".
+            U2b was right to stop this form taking its wide layout inside the
+            calendar's 280–340px docked panel, but the narrow fallback stacked
+            these two — and the corrector is replacing a pair, so it has to read
+            as a pair. The wrapper is a row unconditionally; everything ELSE in
+            the form still stacks in a narrow box.
 
-        <label className="text-ink-secondary flex w-full min-w-0 flex-col text-[11px] @md:w-auto">
-          เวลาออกใหม่
-          <input
-            type="time"
-            name="outTime"
-            disabled={outLocked}
-            className={`${FIELD_INPUT} mt-1 appearance-none disabled:opacity-50 @md:w-32`}
-          />
-        </label>
+            ⚠️ It is a real wrapper rather than `@md:contents` so the wide
+            surfaces keep the exact row they have today (current · เข้า ออก ·
+            button) with no display-mode trickery in between. */}
+        {/* ⚠️ `items-end` is load-bearing: the wrapper is one flex item, so the
+            outer row's `@md:items-end` no longer reaches the two labels. Without
+            it they stretch, and if `เวลาเข้าใหม่` (12 clusters) wraps at a width
+            where `เวลาออกใหม่` (11) does not, the two inputs land at different
+            y — the ragged pair this unit exists to remove. */}
+        <div className="flex min-w-0 items-end gap-2">
+          <label className="text-ink-secondary flex min-w-0 flex-1 flex-col text-[11px] @md:w-auto @md:flex-none">
+            เวลาเข้าใหม่
+            <input
+              type="time"
+              name="inTime"
+              // A time value is five characters. `w-full` fills the half it is
+              // given in a narrow box; `@md:w-32` is the comfortable fixed size
+              // once there is room, where `w-full` spanned the whole card.
+              //
+              // ⚠️ The reduced padding is LOAD-BEARING and measured, not taste.
+              // Chrome's native time control has a fixed intrinsic width of
+              // `100px + horizontal padding` at 15px, and it CLIPS SILENTLY —
+              // `scrollWidth` never grows, so nothing but its own intrinsic size
+              // can report the problem. Measured in the real panel: the field
+              // box is **102px** in the `md` band and **132px** above `lg`,
+              // against 124px at `px-3`, 116 at `px-2`, 108 at `px-1`.
+              //
+              // ⚠️ `FIELD_INPUT_TIME`, not `cn(FIELD_INPUT, …)`: twMerge groups
+              // `text-body` with the text COLOURS and silently drops it, which
+              // shipped this control at 11px. See the constant's own note.
+              className={`${FIELD_INPUT_TIME} mt-1 appearance-none @md:w-32`}
+            />
+          </label>
+
+          <label className="text-ink-secondary flex min-w-0 flex-1 flex-col text-[11px] @md:w-auto @md:flex-none">
+            เวลาออกใหม่
+            <input
+              type="time"
+              name="outTime"
+              disabled={outLocked}
+              className={`${FIELD_INPUT_TIME} mt-1 appearance-none disabled:opacity-50 @md:w-32`}
+            />
+          </label>
+        </div>
 
         <button
           type="submit"

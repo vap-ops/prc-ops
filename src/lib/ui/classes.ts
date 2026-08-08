@@ -104,6 +104,25 @@ export const DETAIL_TITLE = "text-display leading-snug font-extrabold tracking-t
 export const FIELD_INPUT =
   "h-11 w-full min-w-0 rounded-control border border-edge-strong bg-card px-3 text-body text-ink shadow-input placeholder:text-ink-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-action";
 
+/**
+ * FIELD_INPUT for a `type="time"` control that has to share a row inside a
+ * NARROW box, with the horizontal padding reduced until `@md`.
+ *
+ * ⚠️ **Derived, and NOT built with `cn`/twMerge — that is the whole reason this
+ * constant exists.** tailwind-merge classifies `text-body` in its text-COLOR
+ * group (it is neither a t-shirt size nor an arbitrary length), so
+ * `cn(FIELD_INPUT, "px-2")` silently deletes **`text-body`** along with `px-3`.
+ * Tailwind's preflight sets `font: inherit` on `input`, so the control then
+ * inherits its label's `text-[11px]` and ships at 11px instead of the design
+ * system's 15px — measured live on the rendered page, not theorised. Nothing
+ * fails: the class list still looks plausible and the field still works.
+ *
+ * A plain string replace keeps every other token exactly as FIELD_INPUT defines
+ * it, so the two cannot drift, and both literals below stay visible to
+ * Tailwind's source scanner.
+ */
+export const FIELD_INPUT_TIME = FIELD_INPUT.replace("px-3", "px-1 @md:px-3");
+
 /** Standard h-11 select (px-2 sibling of FIELD_INPUT). */
 export const FIELD_SELECT =
   "h-11 w-full min-w-0 rounded-control border border-edge-strong bg-card px-2 text-body text-ink shadow-input focus:outline-none focus-visible:ring-2 focus-visible:ring-action";

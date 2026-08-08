@@ -2,7 +2,8 @@
 
 **Status:** 2026-08-08 — **U1 SHIPPED** (#1031, project honesty) · **U2 SHIPPED** (the in-page
 `?fix=` panel, the two bands, the compact cell) · **U2b SHIPPED** (§4.5 — the panel fits its column,
-and a blank day the project scanned becomes a door) · **U3 open** (viewer-scope disclosure, §5).
+and a blank day the project scanned becomes a door) · **U2c SHIPPED** (§4.6 — เข้า/ออก side by
+side at every width) · **U3 open** (viewer-scope disclosure, §5).
 **No schema in any of them.** Lanes `attncal` → `attnu1` → `attnu2`. Surface =
 `/workers/[workerId]/attendance` (spec 374 U1). U2 retired the cell's door into
 `/team/attendance/fix`; that route is unchanged and still serves every link minted elsewhere.
@@ -214,6 +215,39 @@ viewport** (897 at 340) with its only navigation at `top:155`, so scrolling to t
 exit off screen — and stacking the forms correctly made it 52px taller. A sticky strip needs a
 header-offset token this repo does not have (`DetailHeader` is 118px, `sticky top-0 z-20`), so it
 is its own unit rather than a magic number.
+
+### 4.6 U2c — เข้า and ออก are ONE RANGE — **SHIPPED 2026-08-08**
+
+Operator, on U2b: _"เข้าออก side by side is better"_. U2b correctly stopped the retime form taking
+its wide layout inside the 280–340px docked panel, but the narrow fallback **stacked** the two time
+fields — and they are a pair the corrector is replacing together, not two independent questions.
+They now share a wrapper that is a row **unconditionally**; the rest of the form still stacks.
+
+⭐ **It only just fits, and it took THREE probes to get an honest number.** Chrome's native
+`type="time"` control has a fixed intrinsic width of `100px + horizontal padding` at 15px, and it
+**clips silently** — `scrollWidth` never grows on an `<input>`, so the first check ("no clipping down
+to 60px") was the instrument, not the app. Only `min-content` can answer.
+
+The second probe was worse: it reported a comfortable fit, because the class list had been built
+with `cn(FIELD_INPUT, …)` and **tailwind-merge classifies `text-body` in its text-COLOUR group**, so
+it silently deleted `text-body` along with `px-3`. Tailwind's preflight sets `font: inherit` on
+`input`, so the control inherited its label's `text-[11px]` and rendered at **11px** — and the whole
+geometry was then measured at the wrong font. Hence `FIELD_INPUT_TIME`, a derived constant, and a
+test that pins `text-body` PRESENT.
+
+Measured at the design 15px, in the real (doubly-carded) panel box:
+
+| panel `md` width | field box | `px-3` = 124 | `px-2` = 116 | `px-1` = 108 | cells wrapped 768 / 834 / 900 |
+| ---------------- | --------- | ------------ | ------------ | ------------ | ----------------------------- |
+| 280 (U2b)        | **102**   | ✗            | ✗            | ✗            | 1/3 · 1/3 · 0/3               |
+| **300 (U2c)**    | **112**   | ✗            | ✗            | **✓ +4**     | **1/3 · 1/3 · 0/3**           |
+| 320              | 122       | ✗            | ✓ +6         | ✓            | 3/3 · 1/3 · 0/3               |
+
+So the pair needs BOTH `px-1` and the panel at 300 — and 300 is free: the grid wraps exactly as it
+did at 280 at all three widths, while 320 would have cost 768 three wrapped cells. It also returns
+to §4.2's own arithmetic, which assumed 300. Final live check, 9 measurements across all three
+surfaces: 15px everywhere, `sameRow` and `sameBottom` true everywhere, nothing clipped; the two wide
+surfaces unchanged at 128px/`px-3`.
 
 ### 4.1 Breakpoints — two bands, tablet is desktop
 
