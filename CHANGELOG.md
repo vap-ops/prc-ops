@@ -1,3 +1,14 @@
+# [0.367.0](https://github.com/vap-ops/prc-ops/compare/v0.366.0...v0.367.0) (2026-08-08)
+
+### Bug Fixes
+
+- **purchasing:** drop the doubled separator when a basket row has no PR number ([4665178](https://github.com/vap-ops/prc-ops/commit/466517833be7d6c8c8a7dca88be9b2ff467eac00))
+
+### Features
+
+- **purchasing:** name the project in the phone PO basket too ([006f0a1](https://github.com/vap-ops/prc-ops/commit/006f0a166ca585ef264bdba26adc85d698b0463c))
+- **purchasing:** name the project on each procurement grid row ([062afa4](https://github.com/vap-ops/prc-ops/commit/062afa49dcc820a2bf5b45a76352b53fc9a203aa)), closes [#19206](https://github.com/vap-ops/prc-ops/issues/19206)
+
 # [0.366.0](https://github.com/vap-ops/prc-ops/compare/v0.365.4...v0.366.0) (2026-08-08)
 
 ### Features
