@@ -109,7 +109,10 @@ export function PhonePoBasket({
                   {r.project_name ? (
                     <span className="text-ink-secondary font-medium">
                       {r.project_name}
-                      {" · "}
+                      {/* The quantity tail below already opens with its own " · ",
+                          so this separator belongs here ONLY when a PR number or WP
+                          code sits between us and it — otherwise the line doubles up. */}
+                      {r.pr_number || r.wp_code ? " · " : ""}
                     </span>
                   ) : null}
                   {r.pr_number ? (

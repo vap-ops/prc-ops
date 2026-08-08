@@ -150,6 +150,29 @@ describe("PhonePoBasket — per-row project label (feedback #19206)", () => {
     expect(paint!.textContent).not.toContain("TFM นายาว");
   });
 
+  it("does not double the separator on a row with no PR number and no WP code", () => {
+    // The quantity tail opens with its own " · ", so a project label that always
+    // appended one produced "TFM … ·  · 1 ชิ้น" for this shape. The fixture is
+    // deliberately the sparse row, not the typical one.
+    render(
+      <PhonePoBasket
+        records={[
+          rec({
+            id: R1,
+            item_description: "เหล็กเส้น",
+            project_name: "TFM นายาว เพชรบูรณ์",
+            pr_number: null,
+            wp_code: null,
+          }),
+        ]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+    const line = screen.getByText("เหล็กเส้น").closest("li")!.textContent!;
+    expect(line).toContain("TFM นายาว เพชรบูรณ์");
+    expect(line.replace(/\s+/g, " ")).not.toContain("· ·");
+  });
+
   it("keeps the line lean when the page names no project", () => {
     render(
       <PhonePoBasket
