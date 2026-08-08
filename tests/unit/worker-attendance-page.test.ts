@@ -238,6 +238,26 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
     expect(src).toMatch(/blankFixDates=\{blankFixDates\}/);
   });
 
+  it("withholds a blank door on a day the VIEWER simply cannot see (spec 404 U2b)", () => {
+    // ⚠️ Added because a mutation found it unguarded — the second seam in this
+    // page with no page-level pin, after `doorDates`.
+    //
+    // A cell is blank for two different reasons and they look identical here:
+    // the worker has no row, or `loadWorkerAttendance`'s membership scoping hid
+    // one. `project_manager` sits in this page's gate AND in the correction
+    // audience but NOT in `viewerSeesAllMusterProjects`, so for a PM who is a
+    // member of one project only, a day the worker spent elsewhere renders blank
+    // while the month still names exactly one project — and the headcount rule
+    // would offer a door on it. `muster_correct_session` looks the existing row
+    // up by `worker_id + work_date + session` with no project predicate, so the
+    // add would take the UPDATE path and refuse on press with "worker is in
+    // another team today — move first". Dropping this filter restores exactly
+    // that offer-then-refuse.
+    const src = stripComments(read(PAGE));
+    expect(uses(src, "loadWorkerMusterDates")).toBeGreaterThanOrEqual(2);
+    expect(src).toMatch(/\.filter\(\(date\) => !workerMusterDates\.has\(date\)\)/);
+  });
+
   it("buys the blank-door read ONLY when a door could be offered (spec 404 U2b)", () => {
     // An unconditional per-project headcount read would cost every reader of
     // every month a query they can make no use of: the door needs BOTH the
