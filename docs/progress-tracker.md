@@ -14635,7 +14635,7 @@ had been fetching and discarding since spec 374.
 
 **Gates.** RED first on the pure decisions and the compact cell (15 + 6 failing before any
 production code). Suite for the changed area **8 files / 181 tests + 37 + 22 + 29, 0 failures** ·
-lint 0 · typecheck 0 · **6 mutants killed**, each with its run count and a verified restore.
+lint 0 · typecheck 0 · **8 mutants killed**, each with its run count and a verified restore — the two added by the review fixes are dropping the resolved project from the write returnTo, and deleting that param’s precedence in `fixPanelProjectId`.
 
 ⚠️ **One mutant did NOT die on the first pass, and it is the carry.** Deleting the `.sort()` from
 `fixStepDates` left the suite green: the loop took the LAST candidate below the current date, and
