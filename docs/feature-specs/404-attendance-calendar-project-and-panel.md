@@ -1,8 +1,10 @@
 # Spec 404 — ปฏิทินเข้างาน: โครงการรายวัน + แผงแก้ไขในหน้าเดียว
 
-**Status:** SPEC ONLY, 2026-08-08. U1–U3 open, none built.
-**No schema.** Lane `attncal`, `../prc-ops-attncal`. Surface = `/workers/[workerId]/attendance`
-(spec 374 U1) and its cell doors into `/team/attendance/fix` (spec 400 U6b/U7).
+**Status:** 2026-08-08 — **U1 SHIPPED** (#1031, project honesty) · **U2 SHIPPED** (the in-page
+`?fix=` panel, the two bands, the compact cell) · **U3 open** (viewer-scope disclosure, §5).
+**No schema in any of them.** Lanes `attncal` → `attnu1` → `attnu2`. Surface =
+`/workers/[workerId]/attendance` (spec 374 U1). U2 retired the cell's door into
+`/team/attendance/fix`; that route is unchanged and still serves every link minted elsewhere.
 
 **Operator ask (2026-08-08),** on a screenshot of the August calendar for `นางสาว สายฝน เข็มวงศ์`:
 
@@ -112,7 +114,37 @@ month-total and unlabelled by project.
 
 ---
 
-## 4. U2 — the inline fix panel (code only)
+## 4. U2 — the inline fix panel (code only) — **SHIPPED 2026-08-08**
+
+**Built as specified, with three decisions worth recording here rather than in the tracker alone:**
+
+- §4.4's "the holiday name wraps or moves to the panel" resolved to a **legend under the grid**, not
+  the panel: the panel is gated on `MUSTER_CORRECT_ROLES` and only renders while open, so moving the
+  name there would have withheld it from exactly the readers who lost the `title` hover. The same
+  legend decodes the two marker glyphs, and renders only on a month that carries them.
+- §4.3's "the calendar can supply a project where an empty day has no session" is honoured **only
+  when the month is unambiguous** (`fixPanelProjectId`). On an empty day of a split month there are
+  two owners and no evidence, and the add arm books a wage against whichever it is handed — so it
+  falls to §6 case 3 instead of guessing.
+- **No independent scroller** was added, so §4.4's `touch-action` warning does not apply: the page
+  scrolls and the panel column is as tall as it is.
+
+⚠️ **§4.2's arithmetic is right and its CONCLUSION is only half true — measured, not derived.**
+Driven in real Chrome with the panel open at 768 / 790 / 810 / 834 / 900 / 1024:
+
+| what                      | result                                                               |
+| ------------------------- | -------------------------------------------------------------------- |
+| marker glyphs (the ~40px) | land at **every** width                                              |
+| merged `07:42–18:00` line | needs **~70px**; column is **66px usable at 834** ⇒ wraps to 2 lines |
+| one line from             | **~880px** up                                                        |
+| panel width to fit at 834 | would have to drop below **~190px** — cannot hold two time inputs    |
+
+So the panel is `md:w-[280px] lg:w-[300px]`, the cell padding is `p-0.5` and the time line is
+`tracking-tight` — which moves 900px from wrapping to fitting and leaves 768–880 at two lines.
+**Nothing regresses**: two lines is exactly what this cell rendered before U2. The band is NOT moved
+to `lg` — that is the rotation flip the operator ruled out. ⚑ If one line at 834 matters, the only
+remaining levers are a narrower time format or dropping the grid to a day-list below `md` (§7.3,
+open question ③).
 
 Spec 400 U7 (#1026) already extracted `loadWorkerDayFix` + `WorkerDayFixPanel` and shipped a
 URL-driven `?fix=` panel on `/team/attendance`, explicitly rejecting `<dialog>` because it pays the

@@ -38,6 +38,7 @@ export function WorkerDayFixPanel({
   canClose,
   outcomes,
   queue = null,
+  noProjectHint = null,
 }: {
   data: WorkerDayFix;
   workerId: string;
@@ -50,6 +51,22 @@ export function WorkerDayFixPanel({
   outcomes: { retime: FixOutcome; undo: FixOutcome; add: FixOutcome; reopen: FixOutcome };
   /** Panel only: the day's queue position and its neighbours. */
   queue?: React.ReactNode;
+  /**
+   * Spec 404 U2 — an OVERRIDE for the three withheld-control lines shown when no
+   * project could be resolved.
+   *
+   * Those lines say `เลือกโครงการก่อน จึงจะ…`, an INSTRUCTION that is true only
+   * where a project can be chosen: `/team/attendance/fix` takes `?project=` and
+   * the grid's panel sits under a picker. The calendar has neither, so there the
+   * same sentence names an act its reader cannot perform — the shared-copy rule
+   * (one string, two audiences with different powers).
+   *
+   * ⚠️ An override, NOT a required prop with one generic default. The three
+   * sentences differ by what is withheld (reopen / add-and-edit / trail), and
+   * collapsing them into one would remove that distinction from the route that
+   * has always had it — a signal deleted for a surface that never needed it.
+   */
+  noProjectHint?: string | null;
 }) {
   const { workerName, projectName, sessions, dayClosed, teamId, offersAdd, addState, addTeams } =
     data;
@@ -103,7 +120,9 @@ export function WorkerDayFixPanel({
               canClose={canClose}
             />
           ) : (
-            <p className="text-ink-secondary text-xs">เลือกโครงการก่อน จึงจะเปิดวันดังกล่าวได้</p>
+            <p className="text-ink-secondary text-xs">
+              {noProjectHint ?? "เลือกโครงการก่อน จึงจะเปิดวันดังกล่าวได้"}
+            </p>
           )}
         </div>
       )}
@@ -203,7 +222,7 @@ export function WorkerDayFixPanel({
 
       {dayClosed === null && (
         <p className="text-ink-secondary mt-4 text-xs">
-          เลือกโครงการก่อน จึงจะเพิ่มหรือแก้ไขการเช็คชื่อได้
+          {noProjectHint ?? "เลือกโครงการก่อน จึงจะเพิ่มหรือแก้ไขการเช็คชื่อได้"}
         </p>
       )}
 
@@ -211,7 +230,7 @@ export function WorkerDayFixPanel({
         <h3 className="text-ink text-xs font-semibold">การแก้ไขย้อนหลัง</h3>
         {trail === null ? (
           <p className="text-ink-secondary mt-1 text-xs">
-            เลือกโครงการก่อน จึงจะดูประวัติการแก้ไขได้
+            {noProjectHint ?? "เลือกโครงการก่อน จึงจะดูประวัติการแก้ไขได้"}
           </p>
         ) : trail.length === 0 ? (
           <p className="text-ink-secondary mt-1 text-xs">

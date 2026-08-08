@@ -46,6 +46,8 @@ import {
   REOPEN_ERROR_COPY,
   RETIME_ERROR_COPY,
   UNDO_ERROR_COPY,
+  firstParam,
+  readOutcome,
 } from "@/lib/muster/outcome-copy";
 import { fixQueue, nextFixTarget } from "@/lib/muster/fix-queue";
 import { loadWorkerDayFix } from "@/lib/muster/worker-day-fix";
@@ -175,18 +177,13 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
   // close itself. MUSTER_CLOSE_ROLES mirrors the LIVE allowlist.
   // Spec 400 U7 — the panel writes redirect back HERE, so this page reads their
   // outcomes exactly as the fix route does: a CODE in the query, never a sentence.
-  const firstParam = (v: unknown): string | undefined =>
-    Array.isArray(v) ? v[0] : typeof v === "string" ? v : undefined;
-  const fixOutcome = (ok: unknown, err: unknown, copy: Record<string, string>) =>
-    firstParam(ok) === "1"
-      ? ({ ok: true } as const)
-      : typeof firstParam(err) === "string" && (firstParam(err) ?? "").length > 0
-        ? ({ ok: false, message: copy[firstParam(err)!] ?? copy.failed! } as const)
-        : null;
-  const fixRetimeOutcome = fixOutcome(retimed, retimeError, RETIME_ERROR_COPY);
-  const fixUndoOutcome = fixOutcome(undone, undoError, UNDO_ERROR_COPY);
-  const fixAddOutcome = fixOutcome(added, addError, ADD_ERROR_COPY);
-  const fixReopenOutcome = fixOutcome(reopened, reopenError, REOPEN_ERROR_COPY);
+  // Spec 404 U2 moved the reader itself into `outcome-copy.ts`, beside the
+  // sentences it selects, because the calendar's own `?fix=` panel now reads the
+  // same six params back from the same five actions.
+  const fixRetimeOutcome = readOutcome(retimed, retimeError, RETIME_ERROR_COPY);
+  const fixUndoOutcome = readOutcome(undone, undoError, UNDO_ERROR_COPY);
+  const fixAddOutcome = readOutcome(added, addError, ADD_ERROR_COPY);
+  const fixReopenOutcome = readOutcome(reopened, reopenError, REOPEN_ERROR_COPY);
 
   const canClose = MUSTER_CLOSE_ROLES.includes(ctx.role);
   const canReopen = MUSTER_REOPEN_ROLES.includes(ctx.role);

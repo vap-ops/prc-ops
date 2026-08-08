@@ -422,6 +422,7 @@ describe("parity with the per-worker calendar (spec 374)", () => {
         out_auto: false,
         ot_hours: 0,
         project_name: "TFM โพธิ์ทอง",
+        project_id: null,
       },
       {
         work_date: "2026-08-03",
@@ -432,6 +433,7 @@ describe("parity with the per-worker calendar (spec 374)", () => {
         out_auto: true,
         ot_hours: 4,
         project_name: "TFM โพธิ์ทอง",
+        project_id: null,
       },
     ];
     const month = buildAttendanceMonth({
@@ -486,6 +488,7 @@ describe("parity with the per-worker calendar (spec 374)", () => {
         out_auto: false,
         ot_hours: 0,
         project_name: "TFM โพธิ์ทอง",
+        project_id: null,
       },
       {
         work_date: "2026-08-03",
@@ -496,6 +499,7 @@ describe("parity with the per-worker calendar (spec 374)", () => {
         out_auto: false,
         ot_hours: 0,
         project_name: "TFM โพธิ์ทอง",
+        project_id: null,
       },
     ];
     const month = buildAttendanceMonth({

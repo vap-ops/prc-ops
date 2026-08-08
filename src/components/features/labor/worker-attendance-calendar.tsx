@@ -6,7 +6,7 @@
 // whole surface stays a Server Component.
 
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Timer } from "lucide-react";
 
 import type { AttendanceMonth } from "@/lib/attendance/attendance-month";
 import { THAI_WEEKDAYS } from "@/lib/work-packages/calendar-grid";
@@ -34,6 +34,39 @@ function fmtDays(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 }
 
+/**
+ * Spec 404 U2 — what the cell's two glyphs mean, in words.
+ *
+ * The compact cell is the PRICE of the `md` split (§4.2): at iPad portrait a
+ * column is ~71px wide and `17:00 (อัตโนมัติ)` needs ~80px, so the two word
+ * markers shrink to a glyph and a `+1`.
+ *
+ * ⚠️ **Measured, and only PART of the plan lands.** Driven in real Chrome with
+ * the panel open at 768 / 790 / 810 / 834 / 900 / 1024: the glyph swap (~40px,
+ * the larger saving) works at every width, but the merged `07:42–18:00` line
+ * needs ~70px against 66px of usable column at 834, so it wraps to two lines
+ * from `md` up to ~880 and is one line above that. A 7-column grid with
+ * readable 10px times and a usable panel does not fit side by side below ~880 —
+ * the panel would have to shrink past 190px, which cannot hold two time inputs.
+ * The band boundary is NOT moved to `lg` (the operator ruled that out: it would
+ * appear and vanish on rotation), and nothing regresses — two lines is what this
+ * cell rendered before this unit. The first probe missed this by measuring the
+ * COLUMN and never the text inside it.
+ *
+ * The words survive in TWO places, and both are load-bearing:
+ *
+ *  - an `sr-only` span inside the cell, so a listener loses nothing (the U6b
+ *    aria-label defect, running the other way: a compact cell that says less);
+ *  - this legend, rendered under the grid ONLY on a month that actually carries
+ *    the marker, so a sighted reader can decode the glyph.
+ *
+ * ⚠️ Deliberately NOT "the words move into the panel". The panel is gated on
+ * MUSTER_CORRECT_ROLES and only renders while it is open, so parking the words
+ * there would withhold them from exactly the readers who cannot open it.
+ */
+const AUTO_OUT_LEGEND = "ระบบปิดเวลาให้อัตโนมัติเมื่อปิดวัน";
+const NEXT_DAY_LEGEND = "ออกงานหลังเที่ยงคืน (นับเป็นวันถัดไป)";
+
 export function WorkerAttendanceCalendar({
   month,
   worker,
@@ -41,6 +74,7 @@ export function WorkerAttendanceCalendar({
   prevHref,
   nextHref,
   dayFixHref = null,
+  openFixDate = null,
 }: {
   month: AttendanceMonth;
   worker: AttendanceWorkerHeader;
@@ -50,19 +84,36 @@ export function WorkerAttendanceCalendar({
   prevHref: string;
   nextHref: string;
   /**
-   * Spec 400 U6b — a day cell's link to that worker-day's fix screen (U6a).
+   * Spec 400 U6b, re-aimed by 404 U2 — a day cell's door into the fix panel.
    *
    * `null` for every reader outside MUSTER_CORRECT_ROLES. This page's own gate is
    * WORKER_ROSTER_ROLES, which includes project_manager and project_director —
    * both refused by every correction RPC with 42501 — so the link is withheld
    * from them while every fact in the cell stays.
    *
-   * Only days that CARRY attendance link: the fix screen resolves its project
-   * from the first session, and this calendar holds `projectName` but no project
-   * id, so an empty day has nothing to resolve from and would land on the page's
-   * `noProject` arm.
+   * U6b pointed this at `/team/attendance/fix`; U2 points it at THIS page's own
+   * `?fix=<date>`, so a corrector never leaves the month they are reading.
+   *
+   * Only days that CARRY attendance link. That is unchanged from U6b, but the
+   * REASON narrowed: the panel can now resolve a project for an empty day of an
+   * unambiguous month, so the gate is no longer "we cannot serve this" but "20
+   * blank tap targets bury the days that have something to correct" — the
+   * cry-wolf line U6b drew at the grid's gap cells.
+   *
+   * ⚠️ So a day with NO record of any kind is reachable only by URL — the
+   * steppers walk these same door dates and can never land on one. The
+   * month-project fallback therefore serves the PAID-ONLY door (a paper-
+   * backfilled labor day, which carries no muster team and so no project of its
+   * own), not an arbitrary blank cell. An earlier draft of this comment claimed
+   * otherwise in three places; a fresh-eyes pass measured it.
    */
   dayFixHref?: ((date: string) => string) | null;
+  /**
+   * Spec 404 U2 — the date the panel is currently open on, so the reader can
+   * tell which of 42 cells it is about. `aria-current`, never an aria-label: it
+   * annotates the link instead of replacing its subtree as the accessible name.
+   */
+  openFixDate?: string | null;
 }) {
   const { summary } = month;
   const showStd = stdRate !== null && stdRate !== worker.dayRate;
@@ -81,6 +132,13 @@ export function WorkerAttendanceCalendar({
   // rather than as the month's project.
   const assignmentElsewhere =
     worker.projectLabel !== null && !projectDays.some((p) => p.label === worker.projectLabel);
+
+  // Spec 404 U2 — the legend is derived from the RENDERED cells, so it can never
+  // explain a glyph that is not on screen (or omit one that is).
+  const monthCells = Object.values(month.cells);
+  const hasAutoOut = monthCells.some((c) => c.outAuto);
+  const hasNextDayOut = monthCells.some((c) => c.outNextDay);
+  const holidayEntries = Object.entries(month.holidayByDate).sort(([a], [b]) => a.localeCompare(b));
 
   return (
     <div className="flex flex-col gap-4">
@@ -215,6 +273,7 @@ export function WorkerAttendanceCalendar({
                 // infer a project. Padding cells (`inMonth === false`) resolve
                 // `data` to undefined, so they never link.
                 const fixTo = data && dayFixHref ? dayFixHref(cell.iso) : null;
+                const isOpenFix = cell.inMonth && openFixDate === cell.iso;
                 const inner = (
                   <>
                     <p
@@ -225,13 +284,16 @@ export function WorkerAttendanceCalendar({
                       {cell.day}
                     </p>
                     {holiday ? (
-                      // title: long royal-holiday names truncate at cell width;
-                      // this page's audience is desktop back-office, where
-                      // hover is real (unlike the gloved-hand PWA surfaces).
-                      <p
-                        title={holiday}
-                        className="text-attn-ink truncate text-[10px] leading-tight"
-                      >
+                      // Spec 404 U2 — NO `title`. It carried the full name and
+                      // was justified as "desktop back-office, where hover is
+                      // real"; the operator reads this page on an iPad, where
+                      // the attribute reaches nobody. The full name now sits in
+                      // the legend under the grid, which every reader can reach
+                      // on every device. Two lines here rather than one
+                      // truncated: the longest live name is 50 characters, so a
+                      // clamp is unavoidable, but two lines separate
+                      // `วันเฉลิมพระชนมพรรษา…` from `ชดเชย…` at a glance.
+                      <p className="text-attn-ink line-clamp-2 text-[10px] leading-tight">
                         {holiday}
                       </p>
                     ) : null}
@@ -244,19 +306,35 @@ export function WorkerAttendanceCalendar({
                       </p>
                     ) : null}
                     {data ? (
-                      <div className="text-ink-secondary text-[10px] leading-tight">
-                        {data.inTime ? <p>{data.inTime}</p> : null}
-                        {data.outTime ? (
+                      <div className="text-ink-secondary text-[10px] leading-tight tracking-tight">
+                        {/* Spec 404 U2 — ONE time line, not two stacked ones.
+                            At iPad portrait a column is 68px (834 − 40 padding
+                            − 16 gap − 300 panel, ÷ 7), 60px usable. A missing
+                            side renders as an OPEN interval (`08:15–`) rather
+                            than a guess or a dropped line: a worker still
+                            checked in is exactly what that says. */}
+                        {data.inTime || data.outTime ? (
                           <p>
-                            {data.outTime}
-                            {/* Marker copy mirrors the /team/attendance drill:
-                                (+1 วัน) for a post-midnight out, (อัตโนมัติ)
-                                for the close-day auto-out. */}
+                            {data.inTime ?? ""}–{data.outTime ?? ""}
+                            {/* The words the /team/attendance drill spells out
+                                move to `sr-only` + the legend below the grid —
+                                they cost ~80px here and the box is 60px. */}
                             {data.outNextDay ? (
-                              <span className="text-ink-muted"> (+1 วัน)</span>
+                              <span className="text-ink-muted">
+                                {" "}
+                                +1<span className="sr-only">วัน</span>
+                              </span>
                             ) : null}
                             {data.outAuto ? (
-                              <span className="text-ink-muted"> (อัตโนมัติ)</span>
+                              <span className="text-ink-muted">
+                                {" "}
+                                <Timer
+                                  aria-hidden
+                                  data-marker="auto"
+                                  className="inline-block h-3 w-3 align-middle"
+                                />
+                                <span className="sr-only">(อัตโนมัติ)</span>
+                              </span>
                             ) : null}
                           </p>
                         ) : null}
@@ -286,7 +364,7 @@ export function WorkerAttendanceCalendar({
                 return (
                   <div
                     key={cell.iso}
-                    className={`border-edge min-h-16 border-r p-1 last:border-r-0 ${
+                    className={`border-edge min-h-16 border-r p-0.5 last:border-r-0 ${
                       cell.inMonth
                         ? holiday
                           ? "bg-attn-soft"
@@ -294,6 +372,11 @@ export function WorkerAttendanceCalendar({
                             ? "bg-sunk"
                             : ""
                         : "opacity-40"
+                    } ${
+                      // Spec 404 U2 — which of 42 cells the docked panel is
+                      // about. A ring rather than a fill, so it reads on top of
+                      // the holiday and weekend tints instead of replacing them.
+                      isOpenFix ? "ring-action ring-2 ring-inset" : ""
                     }`}
                   >
                     {fixTo ? (
@@ -305,21 +388,34 @@ export function WorkerAttendanceCalendar({
                       // ⚠️ NO author-supplied aria-label. An aria-label on a link
                       // REPLACES its subtree as the accessible name, so
                       // `แก้ไขการเช็คชื่อ 15 ก.ค.` would silently drop the
-                      // check-in/out times, (+1 วัน), (อัตโนมัติ), the OT hours,
+                      // check-in/out times, +1 วัน, (อัตโนมัติ), the OT hours,
                       // บันทึกมือ, ทำงานวันหยุด, the holiday name and the
                       // off-home project — leaving the roles that GOT the control
                       // hearing strictly less than the roles that did not. That is
                       // the U3b <th> defect verbatim, and an earlier draft of this
-                      // very cell shipped it. The subtree already names the day and
-                      // every fact; `title` supplies the act without touching the
-                      // name (this page's audience is desktop/tablet back-office,
-                      // where the existing holiday <p> already relies on hover).
+                      // very cell shipped it.
+                      //
+                      // ⚠️ And spec 404 U2 removed the `title` too. It carried
+                      // the link's whole PURPOSE and was justified as "desktop
+                      // back-office, where hover is real" — false on the iPad
+                      // this page is read on. The purpose is now carried by the
+                      // panel's own heading, which appears the moment the cell
+                      // is tapped, because the cell opens it IN PLACE.
                       <Link
                         href={fixTo}
-                        title={`แก้ไขการเช็คชื่อ ${cell.day} ${month.grid.label}`}
+                        aria-current={isOpenFix ? "date" : undefined}
                         className="focus-visible:ring-action block h-full rounded focus:outline-none focus-visible:ring-2"
                       >
                         {inner}
+                        {/* The link's PURPOSE, ADDED to the subtree rather than
+                            replacing it. Removing the `title` left the name as
+                            bare facts — `15 07:30–17:00` never says this is a
+                            control or what activating it does, which is the
+                            before-activation question a `title` was (badly)
+                            answering. An `sr-only` span keeps every fact AND
+                            names the act; an `aria-label` would replace the
+                            whole subtree, which is the U6b defect. */}
+                        <span className="sr-only">แก้ไขการเช็คชื่อ</span>
                       </Link>
                     ) : (
                       inner
@@ -330,6 +426,34 @@ export function WorkerAttendanceCalendar({
             </div>
           ))}
         </div>
+
+        {/* ── Spec 404 U2 — the words the compact cell gave up ──────────────
+            Rendered per marker, and only when the month actually carries it: an
+            always-on legend is wallpaper, and a reader who never meets a glyph
+            does not need it explained. */}
+        {(hasAutoOut || hasNextDayOut || holidayEntries.length > 0) && (
+          <div className="text-ink-secondary flex flex-col gap-1 text-xs">
+            {hasAutoOut && (
+              <p>
+                <Timer aria-hidden className="mr-1 inline-block h-3 w-3 align-middle" />
+                {AUTO_OUT_LEGEND}
+              </p>
+            )}
+            {hasNextDayOut && <p>+1 — {NEXT_DAY_LEGEND}</p>}
+            {holidayEntries.length > 0 && (
+              // The full name, for every reader on every device — this is what
+              // replaces the `title=` the cell used to hide it behind.
+              <ul aria-label="วันหยุดของเดือนนี้" className="flex flex-col gap-0.5">
+                {holidayEntries.map(([iso, name]) => (
+                  <li key={iso}>
+                    <span className="text-attn-ink font-medium">{Number(iso.slice(8, 10))}</span>{" "}
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </section>
     </div>
   );
