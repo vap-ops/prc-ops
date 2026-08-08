@@ -63,6 +63,70 @@ since spec 400 U7 and untouched by this branch — its own follow-up, because
 collapsing it means deciding what happens to the locked card's explanatory copy,
 which is a signal, not a duplicate.
 
+### The fresh-eyes round — it found a wrong premise under the whole unit
+
+🔴 **"THREE surfaces render `MusterReopenForm`" was a MISCOUNT.** `AttendanceDrill`
+is a fourth, and it is the one the **list view** draws — a view that renders no
+`AttendanceDayPanel`, so it could reopen a day and never close it. Exactly the
+stranding this unit exists to end, reachable by a reader who never touches the
+grid. It now carries the close, gated on the same `dayClosable`. ⭐ **The count
+came from reading the surfaces I had changed, not from grepping the component** —
+the sibling sweep is what the doctrine asks for and I did it too narrowly.
+
+🔴 **The copy was wrong the moment there were two copies of it.** The panel's
+hand-written bullets promised `ช่างที่ยังไม่เช็คออกจะถูกบันทึกเวลาออก 17:00 ให้` —
+true of REGULAR sessions and **false of OT**: `close_muster_day` updates
+`… and a.session = 'regular'`, leaves an open OT row untouched, and no RPC can
+back-date a check-out, so that OT is **permanently unbookable**. The day panel had
+always disclosed the loss. Fixed by extracting **`MusterCloseDayForm`** — one
+form, four doors, `stillIn` passed only where a surface can honestly know it (the
+per-worker panel loads ONE worker, so it states the rule instead of inventing a
+number).
+
+🔴 **A refused close was SILENT on exactly the two doors this fix exists for.**
+`closeMusterDayFromForm` redirects with `?closeError=denied|shape|notover|failed`,
+and neither the calendar page nor the fix route declared or read it — so a refusal
+returned a page byte-identical to the one before the tap and the day quietly
+stayed open. `outcomes.close` is now **required**, which forced every caller at
+typecheck; `CLOSE_ERROR_COPY` moved to `outcome-copy.ts`. ⭐ **The comment that had
+justified keeping it local — "the fix page has no close control of its own" — was
+an EXPIRED PRECONDITION**, true when written and false the moment this unit
+landed. Retired in the same PR. ⭐ The outcome renders OUTSIDE the close card,
+because a successful close withdraws that card: inside it, only the FAILURE could
+ever have shown.
+
+**Refuted, and worth recording as a refutation.** The review also called the
+`dayClosed` semantic split a 🔴 — `GridDay.dayClosed === null` means "no attendance
+at all" while `WorkerDayFix.dayClosed === false` can mean "project resolved, this
+worker has no sessions" — so the panel could in principle offer ปิดวัน on an empty
+day. **`calendarBlankDayFixable` already requires `projectHeadcount > 0`**, so no
+UI door reaches that state; only a hand-typed `?fix=` does, and the result is a
+closure row over an empty day that reopen undoes. Recorded as a bounded residual
+rather than paid for with a data-layer change.
+
+**Test defects the review caught in tests I had just written and believed correct:**
+① `renderPanel` passed `hostOffersClose` on every render, so **no test exercised the
+default** — flipping it to `true` would have deleted both stranded doors' only
+close with the suite green (now spread-conditional, and mutation-proved); ②
+`toMatch(/ทั้งวัน|ทุกคน/)` was satisfied by `MUSTER_DAY_CLOSE_MEANING`, a
+pre-existing SSOT label the form also prints, so the per-worker sentence was
+deletable green; ③ the parity loop pinned `canReopen` and `todayIso` to one value
+each.
+
+**Mutation record — 11 mutants, all RED, all attributable.** Panel form deleted ·
+`!hostOffersClose` removed · default flipped · close-outcome render deleted · page
+hardcodes `true` · OT qualifier dropped · drill door deleted · shared `dayStage`
+rung (red `dayCorrectionControl`'s OWN arms, proving the ladder is genuinely
+shared, and correctly left parity green — a shared mutation preserves parity by
+construction) · plus three that mutate `dayClosable` ALONE, each of which reds the
+parity pin, which is the divergence it exists to catch.
+
+**Gate 3 re-driven after the refactor** — nine surfaces including the new drill
+door and two refusal renders (`?closeError=denied` on the calendar,
+`?closeError=notover` on the fix route). Exactly one ปิดวัน everywhere, correct
+bullets per surface, refusals visible, closed day shows reopen only, zero console
+errors.
+
 ---
 
 ## Spec 400 U6c — the correction audience becomes the audit audience (2026-08-07)
