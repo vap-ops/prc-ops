@@ -154,7 +154,15 @@ describe("WorkerAttendanceCalendar", () => {
     expect(screen.getAllByText("บันทึกมือ")).toHaveLength(2);
   });
 
-  it("shows the project code on a cell only when it differs from the home project", () => {
+  // Spec 404 U1 REPLACED the old rule here. It read "show the code when the day
+  // differs from the HOME project", which INVERTS after a project move: the
+  // worker's assignment is overwritten, so every correctly-recorded day of the
+  // old month starts carrying a badge while the now-wrong header stays clean.
+  // Live 2026-08-08, ten workers were in exactly that state. The badge now keys
+  // on whether the MONTH spans more than one project — a fact about the days.
+  it("shows no project badge when the whole month sat on one project", () => {
+    // Deliberately a project that DIFFERS from worker.projectLabel (P05): under
+    // the old rule this rendered a badge on every cell.
     const away = buildAttendanceMonth({
       monthAnchor: "2026-07-01",
       musterRows: [
@@ -173,8 +181,7 @@ describe("WorkerAttendanceCalendar", () => {
       dayRate: null,
     });
     renderCal({ month: away });
-    expect(screen.getByText("P99")).toBeInTheDocument();
-    // Home-project cells (the shared fixture) never show a code.
+    expect(screen.queryByText("P99")).not.toBeInTheDocument();
     renderCal();
     expect(screen.queryByText("P05")).not.toBeInTheDocument();
   });
@@ -274,5 +281,217 @@ describe("WorkerAttendanceCalendar", () => {
     });
     renderCal({ month: noRate, worker: { ...worker, dayRate: null } });
     expect(screen.getByText(/ประมาณการค่าแรง —/)).toBeInTheDocument();
+  });
+});
+
+// ── Spec 400 U6b — the calendar as a door into the fix screen ────────────────
+//
+// Writing failing test first.
+//
+// Operator, 2026-08-07: "attendance calendar view is not edittable? it feels
+// like it can be interactive, especially accessing from tablets." It was
+// read-only; a day with attendance now opens that worker-day's fix screen for
+// the correction audience.
+
+describe("spec 400 U6b — calendar days as fix-screen doors", () => {
+  /** The builder the page passes down, carrying the AUDITED month back. */
+  const dayFixHref = (date: string) =>
+    `/team/attendance/fix?worker=w1&date=${date}&from=${encodeURIComponent(
+      "/workers/w1/attendance?m=2026-07",
+    )}`;
+
+  function fixLinks() {
+    return screen
+      .getAllByRole("link")
+      .filter((a) => (a.getAttribute("href") ?? "").startsWith("/team/attendance/fix"));
+  }
+
+  it("links a day that carries attendance, at that date", () => {
+    renderCal({ dayFixHref });
+    const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.some((h) => h.includes("date=2026-07-15"))).toBe(true);
+    expect(hrefs.some((h) => h.includes("date=2026-07-16"))).toBe(true);
+  });
+
+  it("threads the AUDITED month back, so returning does not land on today's", () => {
+    // U1 shipped this bug once already: the grid's calendar link dropped `m=`, so
+    // a checker auditing July clicked a name and landed on August. The referrer
+    // has to carry the month the reader is actually looking at.
+    renderCal({ dayFixHref });
+    const from = new URL(
+      fixLinks()[0]!.getAttribute("href") ?? "",
+      "https://x.test",
+    ).searchParams.get("from");
+    expect(from).toBe("/workers/w1/attendance?m=2026-07");
+  });
+
+  it("does NOT link a day with no attendance — there is no project to infer", () => {
+    // The fix page resolves the project from the first session; an empty day has
+    // none, and this calendar carries no project id of its own (the month cell
+    // holds project_NAME only). A link would land on the `noProject` arm.
+    renderCal({ dayFixHref });
+    const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.some((h) => h.includes("date=2026-07-14"))).toBe(false);
+    expect(hrefs.some((h) => h.includes("date=2026-07-17"))).toBe(false);
+  });
+
+  it("renders no fix link at all for a reader outside the correction audience", () => {
+    // WORKER_ROSTER_ROLES (this page's gate) includes project_manager and
+    // project_director; every correction RPC refuses them with 42501.
+    renderCal({ dayFixHref: null });
+    expect(fixLinks()).toHaveLength(0);
+  });
+
+  it("keeps every FACT when the link is withheld", () => {
+    const linked = renderCal({ dayFixHref });
+    const withTimes = screen.getAllByText("07:30").length;
+    linked.unmount();
+    renderCal({ dayFixHref: null });
+    expect(screen.getAllByText("07:30")).toHaveLength(withTimes);
+    expect(screen.getByText(/ทำงานวันหยุด|17:00/)).toBeInTheDocument();
+  });
+
+  it("keeps every FACT in the link's accessible name, and puts the ACT in title", () => {
+    // ⚠️ NOT an aria-label. An author-supplied one REPLACES the subtree as the
+    // accessible name, so `แก้ไขการเช็คชื่อ 15 ก.ค.` would drop the times, the OT
+    // hours, บันทึกมือ and the rest — the roles that GOT the control hearing
+    // strictly less than the roles that did not. That is the U3b <th> defect, and
+    // an earlier draft of this cell shipped it (a fresh-eyes pass caught it while
+    // this very test asserted only that แก้ไข was present, which is what let it
+    // through). The name comes from the subtree; `title` carries the act.
+    renderCal({ dayFixHref });
+    const link = fixLinks().find((a) => (a.getAttribute("href") ?? "").includes("2026-07-15"))!;
+    expect(link.hasAttribute("aria-label")).toBe(false);
+    const name = link.textContent ?? "";
+    expect(name).toMatch(/15/); // the day
+    expect(name).toMatch(/07:30/); // the check-in it renders
+    expect(name).toMatch(/17:00/); // the check-out it renders
+    expect(link.getAttribute("title")).toMatch(/แก้ไข/);
+  });
+
+  it("does not swallow the OT hours or the manual-entry marker either", () => {
+    // 2026-07-16 carries a regular session AND an OT one (spec 351). The cell
+    // merges them — earliest in, LATEST out — so the rendered check-out is the OT
+    // row's 21:00, which a human recorded: no (อัตโนมัติ) marker belongs here, and
+    // asserting one would be asserting against the merge rule rather than against
+    // this link. What must survive is every marker the cell DOES render.
+    renderCal({ dayFixHref });
+    const link = fixLinks().find((a) => (a.getAttribute("href") ?? "").includes("2026-07-16"))!;
+    const name = link.textContent ?? "";
+    expect(name).toMatch(/07:35/); // earliest in
+    expect(name).toMatch(/21:00/); // latest out
+    expect(name).toMatch(/\+3 ชม\./); // the OT hours
+    expect(name).toMatch(/บันทึกมือ/);
+  });
+
+  it("does not link the out-of-month padding cells", () => {
+    // `cell.inMonth === false` cells belong to the neighbouring months and carry
+    // no data for this month's read; linking them would mint a worker-day URL
+    // for a date this page never audited.
+    renderCal({ dayFixHref });
+    const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.some((h) => h.includes("date=2026-06-"))).toBe(false);
+    expect(hrefs.some((h) => h.includes("date=2026-08-"))).toBe(false);
+  });
+});
+
+// ── Spec 404 U1 — the month owns the project, the header does not ────────────
+// Live 2026-08-08: 10 workers moved off PRC-2026-004 on 08-07 while still
+// carrying August days at 004, so `workers.project_id` (= where they are NOW)
+// captions a past month with a project it never touched.
+describe("WorkerAttendanceCalendar — project honesty", () => {
+  const day = (date: string, project: string) => ({
+    work_date: date,
+    in_at: `${date}T00:30:00Z`,
+    out_at: `${date}T10:00:00Z`,
+    in_method: "qr",
+    out_method: "qr",
+    out_auto: false,
+    ot_hours: 0,
+    project_name: project,
+  });
+
+  const splitMonth = buildAttendanceMonth({
+    monthAnchor: "2026-08-01",
+    musterRows: [
+      day("2026-08-03", "PRC-2026-004 TFM โพธิ์ทอง"),
+      day("2026-08-04", "PRC-2026-004 TFM โพธิ์ทอง"),
+      day("2026-08-05", "PRC-2026-008 ลาดกระบัง"),
+    ],
+    paidRows: [],
+    dayRate: 400,
+  });
+
+  const movedWorker = { ...worker, projectLabel: "PRC-2026-008 ลาดกระบัง" };
+
+  function renderSplit(over: Partial<Parameters<typeof WorkerAttendanceCalendar>[0]> = {}) {
+    return render(
+      <WorkerAttendanceCalendar
+        month={splitMonth}
+        worker={movedWorker}
+        stdRate={null}
+        prevHref="/workers/w1/attendance?m=2026-07"
+        nextHref="/workers/w1/attendance?m=2026-09"
+        {...over}
+      />,
+    );
+  }
+
+  it("split month: header lists every project with its own day count", () => {
+    renderSplit();
+    expect(screen.getByText("โครงการเดือนนี้")).toBeInTheDocument();
+    expect(screen.getByText(/PRC-2026-004 TFM โพธิ์ทอง/)).toBeInTheDocument();
+    expect(screen.getByText(/PRC-2026-008 ลาดกระบัง/)).toBeInTheDocument();
+    expect(screen.getByText(/2 วัน/)).toBeInTheDocument();
+    expect(screen.getByText(/1 วัน/)).toBeInTheDocument();
+  });
+
+  it("split month: every attendance cell carries the short project code", () => {
+    renderSplit();
+    expect(screen.getAllByText("004")).toHaveLength(2);
+    expect(screen.getAllByText("008")).toHaveLength(1);
+  });
+
+  it("a month worked entirely elsewhere is NOT captioned with the current assignment", () => {
+    // The whole defect in one assertion: the worker sits on -008 today and
+    // every day of this month was worked at -004.
+    const pastMonth = buildAttendanceMonth({
+      monthAnchor: "2026-07-01",
+      musterRows: [day("2026-07-20", "PRC-2026-004 TFM โพธิ์ทอง")],
+      paidRows: [],
+      dayRate: 400,
+    });
+    renderSplit({ month: pastMonth });
+    expect(screen.getByText(/PRC-2026-004 TFM โพธิ์ทอง/)).toBeInTheDocument();
+    // The current assignment may appear ONLY under its own label, never as the
+    // month's project.
+    expect(screen.getByText(/ปัจจุบันอยู่ที่/)).toBeInTheDocument();
+  });
+
+  it("does not claim a current assignment when it is one of the month's projects", () => {
+    renderSplit();
+    expect(screen.queryByText(/ปัจจุบันอยู่ที่/)).not.toBeInTheDocument();
+  });
+
+  it("a month with no attendance names no project, but still says where the worker is", () => {
+    // The empty month has nothing to caption — but dropping the assignment
+    // outright would remove a signal the old header carried, so it survives
+    // under its own honest label.
+    const empty = buildAttendanceMonth({
+      monthAnchor: "2026-09-01",
+      musterRows: [],
+      paidRows: [],
+      dayRate: 400,
+    });
+    renderSplit({ month: empty });
+    expect(screen.queryByText("โครงการเดือนนี้")).not.toBeInTheDocument();
+    expect(screen.queryByText("โครงการ")).not.toBeInTheDocument();
+    expect(screen.getByText(/ปัจจุบันอยู่ที่/)).toBeInTheDocument();
+    expect(screen.getByText(/PRC-2026-008 ลาดกระบัง/)).toBeInTheDocument();
+  });
+
+  it("labels the estimate as using the CURRENT rate", () => {
+    renderSplit();
+    expect(screen.getByText(/ค่าแรง\/วัน ปัจจุบัน/)).toBeInTheDocument();
   });
 });

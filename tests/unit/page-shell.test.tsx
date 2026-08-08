@@ -36,8 +36,23 @@ describe("PageShell", () => {
     const { container } = render(<PageShell>x</PageShell>);
     const main = mainOf(container);
     expect(main?.className).toContain("bg-page");
-    expect(main?.className).toContain("pb-20");
     expect(main?.className).toContain("sm:pb-0");
+  });
+
+  // Writing failing test first (2026-08-07). The clearance must COMPOSE the
+  // safe-area inset, because the bar it clears does:
+  //   bottom-tab-bar = h-16 (64) + border-t (1) + pb-[env(safe-area-inset-bottom)]
+  // On a notched iPhone that env() is 34px, so the bar stands 99px tall while a
+  // flat `pb-20` reserves only 80 — the last 19px of every content page sits
+  // behind the bar. Every OTHER bottom-fixed element in the app already composes
+  // the inset (toast-provider, phase-uploader, muster-cockpit, phone-po-basket);
+  // the shell was the one site that hardcoded it.
+  it("app variant clears the tab bar INCLUDING the safe-area inset", () => {
+    const { container } = render(<PageShell>x</PageShell>);
+    const cls = mainOf(container)?.className ?? "";
+    expect(cls).toContain("pb-[calc(5rem+env(safe-area-inset-bottom))]");
+    // A bare pb-20 is the bug: it cannot grow with the inset.
+    expect(cls).not.toMatch(/(^|\s)pb-20(\s|$)/);
   });
 
   it("card variant centers a single card on the card surface — SAFELY", () => {
@@ -95,7 +110,7 @@ describe("PageShell", () => {
     const main = mainOf(container);
     expect(main?.className).toContain("bg-white");
     expect(main?.className).not.toContain("bg-page");
-    expect(main?.className).not.toContain("pb-20");
+    expect(main?.className).not.toContain("safe-area-inset-bottom");
     expect(screen.getByText("เนื้อหา")).toBeInTheDocument();
   });
 });

@@ -186,6 +186,10 @@ export const MUSTER_LABEL = "เช็คชื่อ";
 // เช็คชื่อ is the ACT of checking in (the cockpit), ประวัติการเช็คชื่อ is the
 // RECORD of it (this report) — the UI-term rule wants both named once, not fused.
 export const ATTENDANCE_AUDIT_LABEL = "ประวัติการเช็คชื่อ";
+// Spec 400 U6a — the worker-day fix screen's own page title, distinct from the
+// report ABOVE it: this page ACTS on one person's one day (retime/add/delete),
+// the report reads across everyone.
+export const ATTENDANCE_FIX_LABEL = "แก้ไขการเช็คชื่อ";
 // Spec 388 U2 — the ช่าง's OWN attendance record, a third distinct sense beside
 // MUSTER_LABEL (the act) and ATTENDANCE_AUDIT_LABEL (the office's report over
 // everyone). This one is first-person and worker-facing: it answers "what does
@@ -211,6 +215,24 @@ export const ATTENDANCE_SUMMARY_DAYS_LABEL = "วันที่บันทึ�
 // (muster-cockpit.tsx) and the /team วันนี้ hero (MusterTodayCard), so it is SSOT'd
 // here per the UI-term rule. The card's other strings are single-surface → local.
 export const MUSTER_DAY_CLOSED_LABEL = "ปิดวันแล้ว";
+/**
+ * What ปิดวัน / เปิดวัน actually MEAN, in the user's own words.
+ *
+ * Operator instruction 2026-08-07: _"ปิด เปิด วัน is not clear. provide
+ * instructions if you want to use these words."_ The vocabulary appears across
+ * 29 files (the cockpit, the day panel, the audit report, the fix screen,
+ * banners), so renaming it is a spec of its own — what the app owes the reader
+ * meanwhile is a plain sentence at the point of use. These two are the SSOT for
+ * that sentence, so the explanation cannot drift between the surface that
+ * CLOSES a day and the surface that REOPENS one.
+ *
+ * They say what happens, not what the button is called — the label already
+ * carries the name.
+ */
+export const MUSTER_DAY_CLOSE_MEANING =
+  "ปิดวัน = สรุปการเช็คชื่อของวันนั้น แล้วระบบคิดค่าแรงให้ทุกคนในวัน";
+export const MUSTER_DAY_REOPEN_MEANING =
+  "เปิดวันอีกครั้ง = ปลดล็อกวันที่ปิดไปแล้ว เพื่อเพิ่มคนหรือลบการเช็คชื่อ — แก้เสร็จต้องปิดวันใหม่ ค่าแรงจึงจะคิดใหม่ทั้งวัน";
 export const SUBWP_RESPONSIBLE_LABEL = "ผู้รับผิดชอบงานย่อย";
 // Spec 273 U5 — relative-day qualifiers for the date-navigable board stepper (and
 // the /sa "แก้ไขแผนวันนี้" deep-link). SSOT'd because both surfaces use them.
@@ -793,6 +815,13 @@ export const EQUIPMENT_CATEGORY_MENU_LABEL = "หมวดเครื่อง�
 // Spec 202 U1 — the per-item equipment charge-out rate (money; back-office only).
 export const EQUIPMENT_DAILY_RATE_LABEL = "ค่าเช่า/วัน";
 export const EQUIPMENT_SET_DAILY_RATE_LABEL = "ตั้งค่าเช่า/วัน";
+// Spec 367 §10.4 — what the machine COST and when it was bought (money;
+// back-office only). Distinct words from ค่าเช่า on purpose: one is what PRC
+// charges per day, the other is what PRC paid once, and the §3 PRI transfer
+// schedule needs the second.
+export const EQUIPMENT_ACQUISITION_COST_LABEL = "ราคาทุน";
+export const EQUIPMENT_ACQUIRED_AT_LABEL = "วันที่ได้มา";
+export const EQUIPMENT_SET_ACQUISITION_LABEL = "บันทึกราคาทุน";
 // Spec 268 — the inbound rental-deal recorder (/equipment/rentals; money, back office).
 export const EQUIPMENT_RENTAL_LABEL = "เช่าอุปกรณ์";
 export const EQUIPMENT_RENTAL_RECORD_LABEL = "บันทึกการเช่า";

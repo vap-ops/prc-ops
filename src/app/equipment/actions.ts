@@ -21,6 +21,12 @@ import { validateEquipmentItem } from "@/lib/equipment/validate-equipment-item";
 import { validateEquipmentDailyRate } from "@/lib/equipment/validate-equipment-daily-rate";
 import { parseEquipmentImport } from "@/lib/equipment/equipment-import";
 import { isOwnItemImagePath } from "@/lib/equipment/image-path";
+import {
+  isKnownLocation,
+  resolveInitialMovement,
+  UNPICKED_LOCATION_ERROR,
+} from "@/lib/equipment/initial-location";
+import { parseBulkEquipmentAdd } from "@/lib/equipment/bulk-add-parse";
 import { EQUIPMENT_PHOTO_KINDS, type EquipmentPhotoKind } from "@/lib/equipment/photo-kinds";
 import type { Database } from "@/lib/db/database.types";
 
@@ -98,8 +104,15 @@ export type CreateFromCatalogSource =
   | { kind: "existing"; catalogItemId: string }
   | { kind: "new"; name: string; categoryId: string; tracking: string };
 
+// Spec 367 Q1 — the registration also states WHERE the thing is, as a real
+// `equipment_movements` row. Without one the /equipment location column reads
+// `—` forever (location is derived only from the latest movement), which is the
+// blank 63 of 64 items carried before the reset. Same never-lose-the-item
+// contract as the rate copy: a failed movement raises `locationWarning`, it does
+// not roll the item back — the ย้าย button on the row is the fix, and the notice
+// says so rather than closing quietly.
 export type CreateFromCatalogResult =
-  { ok: true; rateWarning?: boolean } | { ok: false; error: string };
+  { ok: true; rateWarning?: boolean; locationWarning?: boolean } | { ok: false; error: string };
 
 const SKU_COLUMNS = "id, name, category_id, brand, model, default_tracking, is_active";
 
@@ -121,6 +134,8 @@ export async function createEquipmentFromCatalog(input: {
   assetTag: string;
   quantity: number | null;
   status: string;
+  /** Spec 367 Q1 — STORE_LOCATION or a project id; resolved to the first movement. */
+  location: string;
 }): Promise<CreateFromCatalogResult> {
   const ctx = await requireRole(BACK_OFFICE_ROLES);
 
@@ -140,6 +155,13 @@ export async function createEquipmentFromCatalog(input: {
 
   if (input.source.kind !== "existing" && input.source.kind !== "new") {
     return { ok: false, error: GENERIC_ERROR };
+  }
+
+  // Spec 367 Q1 — refuse an unlocated registration before the FIRST write. The
+  // new-SKU escape inserts the catalog row ahead of the instance, so checking
+  // this later would strand a registered SKU with nothing under it.
+  if (!isKnownLocation(input.location)) {
+    return { ok: false, error: UNPICKED_LOCATION_ERROR };
   }
 
   const supabase = await createServerSupabase();
@@ -271,6 +293,33 @@ export async function createEquipmentFromCatalog(input: {
     );
   }
 
+  // Spec 367 Q1 — the initial location, as a real movement. After the item (FK)
+  // and never rolling it back: the registrar is at the machine, and an unlocated
+  // row is fixable from the ย้าย button while a lost row is retyped from scratch.
+  let locationWarning = false;
+  const movement = resolveInitialMovement({
+    location: input.location,
+    tracking: item.value.tracking,
+    quantity: item.value.quantity,
+  });
+  if (!movement.ok) {
+    // Narrowing arm, not a live failure mode: the location was checked above and
+    // validateEquipmentItem has already guaranteed a bulk quantity is an integer
+    // >= 1, so nothing reaching here can fail. Kept as a warning rather than a
+    // throw so that relaxing either upstream check degrades to "item saved, say
+    // where it is" instead of a 23514 the registrar meets as a generic failure.
+    locationWarning = true;
+  } else {
+    const { error: movementError } = await supabase.from("equipment_movements").insert({
+      item_id: input.id,
+      kind: movement.value.kind,
+      project_id: movement.value.projectId,
+      quantity: movement.value.quantity,
+      created_by: ctx.id,
+    });
+    if (movementError) locationWarning = true;
+  }
+
   // Rate copy: admin-read the walled default, write through the audited RPC.
   // A FAILED read raises the same warning as a failed write — silently skipping
   // would make "read broke" indistinguishable from "SKU has no default", and an
@@ -293,7 +342,11 @@ export async function createEquipmentFromCatalog(input: {
   }
 
   revalidatePath("/equipment");
-  return rateWarning ? { ok: true, rateWarning: true } : { ok: true };
+  return {
+    ok: true,
+    ...(rateWarning ? { rateWarning: true } : {}),
+    ...(locationWarning ? { locationWarning: true } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -682,6 +735,90 @@ export async function setEquipmentDailyRate(input: {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Spec 367 §10.4 — record what a machine COST and when it was acquired.
+//
+// `acquisition_cost` / `acquired_at` carry NO authenticated grant in either
+// direction (ADR 0055 decision 6), so this action exists only to reach the
+// SECURITY DEFINER `set_equipment_acquisition`, where the role gate and the
+// `equipment_acquisition_change` audit row live. A table UPDATE from here would
+// 42501 and leave no trail — the RPC is the only door.
+//
+// Blank means NULL means CLEAR. One meaning per argument: a "leave unchanged"
+// reading would make a blank field ambiguous at exactly the moment the operator
+// is correcting a wrong figure.
+//
+// The two client-side checks mirror the RPC's P0001 arms so the common mistakes
+// get a Thai sentence instead of a generic failure; the RPC re-checks both (and
+// owns the future-date rule, which must be a Bangkok civil date, not UTC).
+// ---------------------------------------------------------------------------
+// No "try again" here, deliberately: this arm also catches the PERMANENT
+// refusals (42501 role, P0001 unknown item), and telling someone to retry a
+// refusal that can never succeed is the honest-copy defect the ratchet guards.
+// The retryable-looking cases get their own named messages below.
+const ACQUISITION_ERROR = "บันทึกราคาทุนไม่สำเร็จ";
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function setEquipmentAcquisition(input: {
+  id: string;
+  /** Raw field text. "" = clear. */
+  cost: string;
+  /** Raw field text, ISO yyyy-mm-dd. "" = clear. */
+  acquiredAt: string;
+}): Promise<EquipmentActionResult> {
+  await requireRole(BACK_OFFICE_ROLES);
+
+  if (!UUID_REGEX.test(input.id)) return { ok: false, error: ACQUISITION_ERROR };
+
+  const rawCost = input.cost.trim();
+  let cost: number | null = null;
+  if (rawCost !== "") {
+    const parsed = Number(rawCost.replaceAll(",", ""));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return { ok: false, error: "กรอกราคาทุนเป็นตัวเลข (ไม่ติดลบ) หรือเว้นว่างเพื่อล้างค่า" };
+    }
+    cost = parsed;
+  }
+
+  const rawDate = input.acquiredAt.trim();
+  if (rawDate !== "" && !ISO_DATE_RE.test(rawDate)) {
+    return { ok: false, error: "วันที่ได้มาต้องเป็นรูปแบบ ปี-เดือน-วัน (เช่น 2025-03-04)" };
+  }
+  const acquiredAt = rawDate === "" ? null : rawDate;
+
+  // A blank field is OMITTED rather than sent as null: both value params carry
+  // `default null` in SQL, so omission IS the clear — and the generated Args type
+  // marks an optional param as `p_cost?: number`, which is the only shape that
+  // expresses "clear" without a cast that lies about the contract. The 1-arg
+  // clearing form is pinned in 367c so a signature edit cannot silently turn
+  // clearing into a no-op.
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("set_equipment_acquisition", {
+    p_id: input.id,
+    ...(cost === null ? {} : { p_cost: cost }),
+    ...(acquiredAt === null ? {} : { p_acquired_at: acquiredAt }),
+  });
+  if (error) {
+    const message = (error as { message?: string }).message ?? "";
+    // Name the refusals the operator can act on. A future date is the one a
+    // wrong device clock produces; the role refusal is permanent and must not
+    // read as something a retry could fix.
+    if (message.includes("in the future")) {
+      return { ok: false, error: "วันที่ได้มาต้องไม่เป็นวันในอนาคต" };
+    }
+    if ((error as { code?: string }).code === "42501") {
+      return { ok: false, error: "บัญชีของคุณไม่มีสิทธิ์บันทึกราคาทุน" };
+    }
+    if (message.includes("not found")) {
+      return { ok: false, error: "ไม่พบอุปกรณ์นี้ในระบบแล้ว" };
+    }
+    return { ok: false, error: ACQUISITION_ERROR };
+  }
+
+  revalidatePath("/equipment");
+  return { ok: true };
+}
+
 // Spec 141 U4 — record a movement into the append-only equipment_movements log
 // (U3). Goes through the RLS client: U3 granted INSERT(...) to authenticated and
 // the staff INSERT policy + the DB CHECKs (project-IFF-deployed, qty≥1) are the
@@ -736,6 +873,190 @@ export async function recordEquipmentMovement(input: {
 }
 
 // ---------------------------------------------------------------------------
+// Spec 367 §13 — เพิ่มหลายเครื่อง, the bulk add paste.
+//
+// The registry is filled by hand and the add sheet creates ONE machine per trip;
+// the last physical count was 68 units, so the procurement hand-off costs ~68
+// trips before anyone types a serial number. This door takes a pasted table of
+// `ทะเบียน · จำนวน · เจ้าของ · ที่ตั้ง` and creates the rows.
+//
+// ⭐ It does NOT reverse spec 385 U4 — `importEquipmentCsv` below stays EDIT-only.
+// Here the SKU is named per row and RESOLVED against the catalog, so an instance
+// is still born from the ทะเบียน and the NOT NULL FK holds by construction.
+//
+// Two steps like the importer: a dry run reports each line's effect in words and
+// writes nothing (`จำนวน` means two different things by tracking — the preview is
+// where the operator learns which one their file asked for), then the commit.
+// ⚠️ The commit is row-by-row over PostgREST and CANNOT be atomic, so a mid-way
+// failure reports how many landed and names the SKU it stopped on rather than
+// claiming a rollback that did not happen. Re-pasting the remainder is safe:
+// unit numbering continues from the live count and a landed bulk row is refused
+// by the one-row rule.
+// ---------------------------------------------------------------------------
+
+export interface BulkAddEquipmentResult {
+  ok: boolean;
+  /** equipment_items rows written (or, on a dry run, that WOULD be written). */
+  created: number;
+  errors: string[];
+  /** Dry run only — one line per row, in words. */
+  preview?: string[];
+  /** Commit only — the SKU whose write failed, so the operator knows where to resume. */
+  stoppedAt?: string;
+  /** Rows saved whose rate copy or initial movement did not land. */
+  rateWarnings: number;
+  locationWarnings: number;
+}
+
+export async function bulkAddEquipmentFromCatalog(
+  text: string,
+  options: { dryRun?: boolean } = {},
+): Promise<BulkAddEquipmentResult> {
+  const ctx = await requireRole(BACK_OFFICE_ROLES);
+  const supabase = await createServerSupabase();
+
+  const [{ data: skuRows }, { data: itemRows }, { data: ownerRows }, { data: projectRows }] =
+    await Promise.all([
+      supabase
+        .from("equipment_catalog_items")
+        .select("id, name, category_id, brand, model, default_tracking, is_active"),
+      supabase.from("equipment_items").select("equipment_catalog_item_id"),
+      supabase.from("equipment_owners").select("id, name, is_default"),
+      supabase.from("projects").select("id, name"),
+    ]);
+
+  // Live instance counts drive BOTH the No.<n+1> numbering and the bulk one-row
+  // rule, so they are counted from the rows rather than trusted from the file.
+  const counts = new Map<string, number>();
+  for (const row of itemRows ?? []) {
+    const key = (row as { equipment_catalog_item_id: string | null }).equipment_catalog_item_id;
+    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const parsed = parseBulkEquipmentAdd(text, {
+    skusByName: new Map(
+      (skuRows ?? []).map((s) => [
+        s.name,
+        {
+          id: s.id,
+          categoryId: s.category_id,
+          brand: s.brand,
+          model: s.model,
+          defaultTracking: s.default_tracking,
+          isActive: s.is_active,
+          instanceCount: counts.get(s.id) ?? 0,
+        },
+      ]),
+    ),
+    ownersByName: new Map((ownerRows ?? []).map((o) => [o.name, o.id])),
+    defaultOwnerId: (ownerRows ?? []).find((o) => o.is_default)?.id ?? null,
+    projectsByName: new Map((projectRows ?? []).map((p) => [p.name, p.id])),
+  });
+
+  if (parsed.errors.length > 0) {
+    return { ok: false, created: 0, errors: parsed.errors, rateWarnings: 0, locationWarnings: 0 };
+  }
+  if (options.dryRun) {
+    return {
+      ok: true,
+      created: parsed.unitsToCreate,
+      errors: [],
+      preview: parsed.rows.map((r) => r.effect),
+      rateWarnings: 0,
+      locationWarnings: 0,
+    };
+  }
+
+  // The walled default rates, read ONCE through the admin seam (no authenticated
+  // grant in either direction) and written per row through the audited RPC.
+  const admin = createAdminSupabase();
+  const { data: rateRows } = await admin
+    .from("equipment_catalog_items")
+    .select("id, default_daily_rate");
+  const rates = new Map<string, number | null>(
+    (rateRows ?? []).map((r) => [r.id, r.default_daily_rate]),
+  );
+
+  let created = 0;
+  let rateWarnings = 0;
+  let locationWarnings = 0;
+
+  for (const row of parsed.rows) {
+    for (let n = 0; n < row.instances; n += 1) {
+      const id = crypto.randomUUID();
+      const name =
+        row.tracking === "unit"
+          ? nextUnitName(row.skuName, (row.firstNumber ?? 1) - 1 + n)
+          : row.skuName;
+
+      const { error: insertError } = await supabase.from("equipment_items").insert({
+        id,
+        name,
+        category_id: row.categoryId,
+        owner_id: row.ownerId,
+        // Spec 275 id-mirror, same as every other equipment write path.
+        supplier_id: row.ownerId,
+        tracking: row.tracking,
+        asset_tag: null,
+        quantity: row.quantity,
+        status: "available" as EquipmentStatus,
+        brand: row.brand,
+        model: row.model,
+        equipment_catalog_item_id: row.catalogItemId,
+        created_by: ctx.id,
+      });
+      if (insertError) {
+        revalidatePath("/equipment");
+        return {
+          ok: false,
+          created,
+          errors: [
+            `บันทึก "${name}" ไม่สำเร็จ — เพิ่มไปแล้ว ${created} เครื่อง กรุณาวางเฉพาะส่วนที่เหลืออีกครั้ง`,
+          ],
+          stoppedAt: row.skuName,
+          rateWarnings,
+          locationWarnings,
+        };
+      }
+      created += 1;
+
+      // Spec 367 Q1 (PR #1024) — the initial location, through the SAME resolver
+      // the add sheet uses. Without it this door would re-create the `—` defect
+      // that lane just closed, once per row.
+      const movement = resolveInitialMovement({
+        location: row.location,
+        tracking: row.tracking,
+        quantity: row.quantity,
+      });
+      if (!movement.ok) {
+        locationWarnings += 1;
+      } else {
+        const { error: movementError } = await supabase.from("equipment_movements").insert({
+          item_id: id,
+          kind: movement.value.kind,
+          project_id: movement.value.projectId,
+          quantity: movement.value.quantity,
+          created_by: ctx.id,
+        });
+        if (movementError) locationWarnings += 1;
+      }
+
+      const rate = rates.get(row.catalogItemId);
+      if (typeof rate === "number") {
+        const { error: rateError } = await supabase.rpc("set_equipment_daily_rate", {
+          p_id: id,
+          p_rate: rate,
+        });
+        if (rateError) rateWarnings += 1;
+      }
+    }
+  }
+
+  revalidatePath("/equipment");
+  return { ok: true, created, errors: [], rateWarnings, locationWarnings };
+}
+
+// ---------------------------------------------------------------------------
 // Spec 367 U3b — bulk import from the U2 export's own CSV.
 //
 // Gate is BACK_OFFICE_ROLES: the same audience that may INSERT/UPDATE
@@ -756,6 +1077,11 @@ export interface ImportEquipmentResult {
   ok: boolean;
   inserts: number;
   updates: number;
+  /** Spec 367 §10.4 — rows whose money figures actually moved. Reported apart
+   *  from `updates` because they take a different path (two DEFINER RPCs, not
+   *  the row UPDATE) and the operator's question about a price file is "how
+   *  many prices landed", not "how many rows were touched". */
+  moneyUpdates: number;
   errors: string[];
 }
 
@@ -779,27 +1105,50 @@ export async function importEquipmentCsv(
     ownersByName: new Map((owners ?? []).map((o) => [o.name, o.id])),
     existingIds: new Set((items ?? []).map((i) => i.id)),
     // This route is BACK_OFFICE_ROLES-only, so the reader is always the money
-    // audience; money is still refused per-cell because it is unwritable.
+    // audience. Spec 367 §10.4 — money is no longer refused per-cell: both
+    // figures now have a DEFINER seam and are routed to it below.
     allowMoney: true,
   });
 
   if (parsed.errors.length > 0) {
-    return { ok: false, inserts: 0, updates: 0, errors: parsed.errors };
+    return { ok: false, inserts: 0, updates: 0, moneyUpdates: 0, errors: parsed.errors };
   }
   if (parsed.rows.length === 0) {
-    return { ok: false, inserts: 0, updates: 0, errors: ["ไม่พบข้อมูลในไฟล์"] };
+    return { ok: false, inserts: 0, updates: 0, moneyUpdates: 0, errors: ["ไม่พบข้อมูลในไฟล์"] };
   }
 
   // Preview: the file is clean, so report what WOULD happen and write nothing.
   // At 64 rows the operator should see "add 3, update 61" before committing —
   // an import that only tells you what it did after the fact is not reviewable.
   if (options.dryRun) {
-    return { ok: true, inserts: parsed.inserts, updates: parsed.updates, errors: [] };
+    return {
+      ok: true,
+      inserts: parsed.inserts,
+      updates: parsed.updates,
+      moneyUpdates: 0,
+      errors: [],
+    };
   }
+
+  // Spec 367 §10.4 — the CURRENT money figures, read through the admin seam
+  // (no authenticated grant in either direction). They are compared per row so
+  // an unchanged column writes NO RPC call and NO audit row: re-importing an
+  // untouched export is the common case and must not manufacture history.
+  const admin = createAdminSupabase();
+  const { data: moneyRows } = await admin
+    .from("equipment_items")
+    .select("id, acquisition_cost, acquired_at, daily_rate");
+  const currentMoney = new Map(
+    (moneyRows ?? []).map((r) => [
+      r.id,
+      { cost: r.acquisition_cost, acquiredAt: r.acquired_at, rate: r.daily_rate },
+    ]),
+  );
 
   const errors: string[] = [];
   const inserts = 0;
   let updates = 0;
+  let moneyUpdates = 0;
 
   for (const row of parsed.rows) {
     const shared = {
@@ -832,10 +1181,46 @@ export async function importEquipmentCsv(
           `แก้ไข "${row.name}" ไม่สำเร็จ — กลุ่มนี้มีแถวจำนวนมากอยู่แล้ว (1 แถวต่อทะเบียน)`,
         );
       } else if (error) errors.push(`แก้ไข "${row.name}" ไม่สำเร็จ`);
-      else updates += 1;
+      else {
+        updates += 1;
+
+        // ---- Spec 367 §10.4: the money, through its own doors ----------------
+        // Never part of `shared` above: those columns have no authenticated
+        // grant, so an RLS UPDATE carrying them would 42501 the whole row.
+        const now = currentMoney.get(row.id!) ?? { cost: null, acquiredAt: null, rate: null };
+        let touched = false;
+
+        // Acquisition: null is a VALUE here (the RPC clears), so a blanked cell
+        // is a real change and must be sent. Params are omitted rather than
+        // passed as null — they carry `default null` and the generated Args type
+        // marks a defaulted param optional, never nullable.
+        if (row.acquisitionCost !== now.cost || row.acquiredAt !== now.acquiredAt) {
+          const { error: acqError } = await supabase.rpc("set_equipment_acquisition", {
+            p_id: row.id!,
+            ...(row.acquisitionCost === null ? {} : { p_cost: row.acquisitionCost }),
+            ...(row.acquiredAt === null ? {} : { p_acquired_at: row.acquiredAt }),
+          });
+          if (acqError) errors.push(`บันทึกราคาทุนของ "${row.name}" ไม่สำเร็จ`);
+          else touched = true;
+        }
+
+        // The rate RPC REFUSES null, so a blank cell cannot mean "clear" — it
+        // means "leave it alone". The sheet's hint says so; silently clearing a
+        // charge-out rate because a column was empty would be the worse reading.
+        if (row.dailyRate !== null && row.dailyRate !== now.rate) {
+          const { error: rateError } = await supabase.rpc("set_equipment_daily_rate", {
+            p_id: row.id!,
+            p_rate: row.dailyRate,
+          });
+          if (rateError) errors.push(`บันทึกค่าเช่าของ "${row.name}" ไม่สำเร็จ`);
+          else touched = true;
+        }
+
+        if (touched) moneyUpdates += 1;
+      }
     }
   }
 
   revalidatePath("/equipment");
-  return { ok: errors.length === 0, inserts, updates, errors };
+  return { ok: errors.length === 0, inserts, updates, moneyUpdates, errors };
 }

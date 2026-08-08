@@ -40,6 +40,7 @@ export function WorkerAttendanceCalendar({
   stdRate,
   prevHref,
   nextHref,
+  dayFixHref = null,
 }: {
   month: AttendanceMonth;
   worker: AttendanceWorkerHeader;
@@ -48,9 +49,38 @@ export function WorkerAttendanceCalendar({
   stdRate: number | null;
   prevHref: string;
   nextHref: string;
+  /**
+   * Spec 400 U6b — a day cell's link to that worker-day's fix screen (U6a).
+   *
+   * `null` for every reader outside MUSTER_CORRECT_ROLES. This page's own gate is
+   * WORKER_ROSTER_ROLES, which includes project_manager and project_director —
+   * both refused by every correction RPC with 42501 — so the link is withheld
+   * from them while every fact in the cell stays.
+   *
+   * Only days that CARRY attendance link: the fix screen resolves its project
+   * from the first session, and this calendar holds `projectName` but no project
+   * id, so an empty day has nothing to resolve from and would land on the page's
+   * `noProject` arm.
+   */
+  dayFixHref?: ((date: string) => string) | null;
 }) {
   const { summary } = month;
   const showStd = stdRate !== null && stdRate !== worker.dayRate;
+
+  // Spec 404 U1 — the month's own projects, from the attendance rows. The
+  // worker's `projectLabel` is where they are assigned NOW and is overwritten
+  // by a move, so it cannot caption a past month; it appears below only under
+  // its own label, and only when it is not already one of the month's.
+  const { projectDays } = summary;
+  const isSplit = projectDays.length > 1;
+  const shortByLabel = new Map(projectDays.map((p) => [p.label, p.shortCode]));
+  // ⚠️ NOT gated on `projectDays.length > 0`. A month with no attendance has no
+  // project to name, but the reader still needs to know where this person is —
+  // dropping the line entirely would REMOVE a signal the old header carried.
+  // The line is honest either way, because it is labelled as an assignment
+  // rather than as the month's project.
+  const assignmentElsewhere =
+    worker.projectLabel !== null && !projectDays.some((p) => p.label === worker.projectLabel);
 
   return (
     <div className="flex flex-col gap-4">
@@ -88,9 +118,25 @@ export function WorkerAttendanceCalendar({
               <dd>{worker.phone}</dd>
             </div>
           ) : null}
-          {worker.projectLabel ? (
-            <div className="flex gap-2">
-              <dt className="font-medium">โครงการ</dt>
+          {/* Spec 404 U1 — a month with no attendance names NO project. The old
+              fallback printed the current assignment, which for the ten workers
+              moved on 2026-08-07 captioned months they never worked there. */}
+          {projectDays.length > 0 ? (
+            <div className="flex flex-wrap gap-x-2">
+              <dt className="font-medium">{isSplit ? "โครงการเดือนนี้" : "โครงการ"}</dt>
+              {projectDays.map((p) => (
+                <dd key={p.label} className={isSplit ? "basis-full" : undefined}>
+                  {p.label}
+                  {isSplit ? (
+                    <span className="text-ink-secondary"> · {fmtDays(p.days)} วัน</span>
+                  ) : null}
+                </dd>
+              ))}
+            </div>
+          ) : null}
+          {assignmentElsewhere ? (
+            <div className="text-ink-secondary flex gap-2 text-xs">
+              <dt>ปัจจุบันอยู่ที่</dt>
               <dd>{worker.projectLabel}</dd>
             </div>
           ) : null}
@@ -106,7 +152,12 @@ export function WorkerAttendanceCalendar({
         <p className="text-ink-muted mt-1 text-sm">
           ประมาณการค่าแรง{" "}
           {summary.estimatedGross === null ? "—" : bahtWithSymbol(summary.estimatedGross)}
-          <span className="text-ink-secondary text-xs"> (จำนวนวัน × ค่าแรง/วัน)</span>
+          {/* Spec 404 U1 — ปัจจุบัน is load-bearing: this multiplies by the
+              worker's CURRENT day_rate, and a project move is exactly when a
+              rate changes, so an unqualified figure restates history. The
+              per-day snapshot lives in labor_logs.day_rate_snapshot and belongs
+              to the money unit (§7.5), not here. */}
+          <span className="text-ink-secondary text-xs"> (จำนวนวัน × ค่าแรง/วัน ปัจจุบัน)</span>
         </p>
         <p className="text-ink-secondary mt-1 text-sm">
           บันทึกค่าแรงแล้ว {fmtDays(summary.paidDaysTotal)} วัน
@@ -158,19 +209,14 @@ export function WorkerAttendanceCalendar({
               {week.map((cell) => {
                 const data = cell.inMonth ? month.cells[cell.iso] : undefined;
                 const holiday = cell.inMonth ? month.holidayByDate[cell.iso] : undefined;
-                return (
-                  <div
-                    key={cell.iso}
-                    className={`border-edge min-h-16 border-r p-1 last:border-r-0 ${
-                      cell.inMonth
-                        ? holiday
-                          ? "bg-attn-soft"
-                          : cell.isWeekend
-                            ? "bg-sunk"
-                            : ""
-                        : "opacity-40"
-                    }`}
-                  >
+                // Spec 400 U6b — a day with attendance is a door. `data` is the
+                // gate on purpose: it is exactly "this date has something to
+                // correct", and it is also what guarantees the fix screen can
+                // infer a project. Padding cells (`inMonth === false`) resolve
+                // `data` to undefined, so they never link.
+                const fixTo = data && dayFixHref ? dayFixHref(cell.iso) : null;
+                const inner = (
+                  <>
                     <p
                       className={`text-meta text-right ${
                         data ? "text-ink font-semibold" : "text-ink-muted"
@@ -220,13 +266,64 @@ export function WorkerAttendanceCalendar({
                         {data.inMethod === "manual" || data.outMethod === "manual" ? (
                           <p className="text-ink-muted">บันทึกมือ</p>
                         ) : null}
-                        {data.projectName && data.projectName !== worker.projectLabel ? (
+                        {/* Spec 404 U1 — badge on a SPLIT month only, and on
+                            every attendance day in it. The old rule compared
+                            the day against the worker's CURRENT assignment,
+                            which inverts the moment they are moved: the
+                            correctly-recorded days get badged while the
+                            now-wrong header stays clean. `shortCode` drops the
+                            prefix the month's own codes share (derived, not
+                            hardcoded) so the tail survives a 60px cell. */}
+                        {isSplit && data.projectName ? (
                           <p className="text-ink-muted font-medium">
-                            {data.projectName.split(" ")[0]}
+                            {shortByLabel.get(data.projectName) ?? data.projectName.split(" ")[0]}
                           </p>
                         ) : null}
                       </div>
                     ) : null}
+                  </>
+                );
+                return (
+                  <div
+                    key={cell.iso}
+                    className={`border-edge min-h-16 border-r p-1 last:border-r-0 ${
+                      cell.inMonth
+                        ? holiday
+                          ? "bg-attn-soft"
+                          : cell.isWeekend
+                            ? "bg-sunk"
+                            : ""
+                        : "opacity-40"
+                    }`}
+                  >
+                    {fixTo ? (
+                      // The whole cell is the target: on a tablet — the device the
+                      // operator asked about — a 10px day number is not a usable
+                      // one. `block h-full` so the tap area is the cell rather
+                      // than just the text it wraps.
+                      //
+                      // ⚠️ NO author-supplied aria-label. An aria-label on a link
+                      // REPLACES its subtree as the accessible name, so
+                      // `แก้ไขการเช็คชื่อ 15 ก.ค.` would silently drop the
+                      // check-in/out times, (+1 วัน), (อัตโนมัติ), the OT hours,
+                      // บันทึกมือ, ทำงานวันหยุด, the holiday name and the
+                      // off-home project — leaving the roles that GOT the control
+                      // hearing strictly less than the roles that did not. That is
+                      // the U3b <th> defect verbatim, and an earlier draft of this
+                      // very cell shipped it. The subtree already names the day and
+                      // every fact; `title` supplies the act without touching the
+                      // name (this page's audience is desktop/tablet back-office,
+                      // where the existing holiday <p> already relies on hover).
+                      <Link
+                        href={fixTo}
+                        title={`แก้ไขการเช็คชื่อ ${cell.day} ${month.grid.label}`}
+                        className="focus-visible:ring-action block h-full rounded focus:outline-none focus-visible:ring-2"
+                      >
+                        {inner}
+                      </Link>
+                    ) : (
+                      inner
+                    )}
                   </div>
                 );
               })}

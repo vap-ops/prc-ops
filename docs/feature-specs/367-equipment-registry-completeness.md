@@ -399,7 +399,18 @@ new columns, so the real order is **U0 → U1 → U2 → U3 → U4 → U5**.
 
 ## 10. 🔔 Open questions for the operator
 
-1. **Should an item with no movement read as "at คลัง" or "ยังไม่ระบุ"?** Unanswered
+1. ~~**Should an item with no movement read as "at คลัง" or "ยังไม่ระบุ"?**~~ **ANSWERED
+   2026-08-07 by making the state unreachable instead of choosing a label: the add
+   sheet asks `ตอนนี้อยู่ที่ไหน` (prefilled to คลัง per the store-first directive) and
+   `createEquipmentFromCatalog` writes the matching `received`/`deployed` movement
+   after the item insert.** So a newly registered item is never movement-less, the
+   label never has to assert an unverified location, and no bulk backfill is owed —
+   the registry is empty as of the 07-30 reset, so there is nothing to backfill.
+   The `—` placeholder stays for pre-existing rows and for the failure arm
+   (`locationWarning`), which names the ย้าย button as the fix rather than closing
+   silently. Driver: the operator is handing the registry to the procurement team,
+   so the defect would otherwise have been re-created once per unit entered.
+   Superseded text: Unanswered
    from the original exchange. It decides whether 63 items need a one-off bulk
    `รับเข้าคลัง` movement (honest, needs a bulk action) or whether the label simply
    defaults (free, but asserts a location nobody verified). **Blocks nothing in
@@ -411,7 +422,32 @@ new columns, so the real order is **U0 → U1 → U2 → U3 → U4 → U5**.
    `supplier`, or neither? The transfer spec needs one clear counterparty record,
    and today `owner_id` and `supplier_id` **both** point at PRC (§1.2), which is the
    modelling smell the transfer will force a decision on.
-4. ⚠️ **Loading `acquisition_cost` / `daily_rate` / `acquired_at` BY CSV needs its
+4. ✅ **PARTLY CLOSED 2026-08-07 — the WRITE PATH now exists.** Migration
+   `20260813075921` adds `set_equipment_acquisition(uuid, numeric, date)`, a
+   SECURITY DEFINER RPC mirroring `set_equipment_daily_rate` (same five
+   back-office roles, explicit existence probe, audit row carrying old **and**
+   new), plus a per-item control on `/equipment` for the money audience. Both
+   value params `default null` and **null CLEARS** — one meaning per argument.
+   The audit row uses a NEW `audit_action` value rather than reusing
+   `equipment_rate_change`, because `equipment_item_history` maps that action to
+   the kind `rate_change` ("เปลี่ยนค่าเช่า") and a purchase cost filed there would be
+   a true row carrying a false label; the history RPC gained a fifth arm under the
+   same money-audience gate. **So the PRI schedule is no longer blocked on having
+   nowhere to put a book value.** ⚑ **Still open, and it is the ORIGINAL wording of
+   this item: loading the figures BY CSV.** The importer still refuses a filled
+   money cell (correctly — it has no DEFINER seam), so today the fleet is priced
+   one machine at a time. If the PRI pass needs bulk pricing, that is its own unit
+   ✅ **AND THAT UNIT SHIPPED 2026-08-08 — §10.4 IS NOW FULLY CLOSED.** The importer
+   stops refusing the three money cells and routes each to its own DEFINER seam:
+   cost + acquired-on through `set_equipment_acquisition`, the rate through
+   `set_equipment_daily_rate`. The table's money wall is untouched — the file
+   never writes those columns directly. ⚠️ **The two RPCs disagree about a BLANK
+   cell and the app resolves it rather than hiding it:** acquisition accepts null
+   and CLEARS, the rate RPC refuses null so a blank rate LEAVES THE VALUE ALONE.
+   Both are compared against the current figure, so re-importing an untouched
+   export writes no RPC call and no audit row; the sheet's hint states both rules
+   before the file is assembled. Superseded text:
+   ⚠️ **Loading `acquisition_cost` / `daily_rate` / `acquired_at` BY CSV needs its
    own unit — and it is the one the PRI transfer actually depends on.** Found at
    U3 gate-check against the real write path, not assumed from this spec: none of
    the three carries an authenticated grant, `daily_rate` is writable only through
@@ -514,3 +550,75 @@ Renames: `เครื่องมือเจาะ` → `เครื่อง
 **Her completion pass, per item, all on `/equipment`:** 4 photo slots (spec 382
 chips รูป n/4) · serial/เพลท · condition · adjust rate · record the branch via a
 movement. Readiness query = spec 382's photo fill rate + §11's column fill rate.
+
+---
+
+## 13. เพิ่มหลายเครื่อง — the bulk add paste (2026-08-07, code-only)
+
+**Why.** The operator is handing the registry to the procurement team. `equipment_items`
+is at **0 rows** and the last physical count was **68 units across 63 rows**, but the only
+way to create one is the add sheet — one trip per unit. The export/import round trip
+cannot help: spec 385 U4 retired its INSERT arm on purpose. So the hand-off costs ~68
+sheet trips before anyone has typed a serial number.
+
+### 13.1 It does NOT reverse 385 U4
+
+The retired arm stays retired and `equipment-import.ts` is **not touched**. That decision
+was right: a file-born instance with no catalog FK is the duplicate disease the ทะเบียน
+exists to close, and `equipment_catalog_item_id` is NOT NULL (mig `075891`).
+
+Bulk add is a **separate paste with its own columns whose first column is the SKU name**,
+resolved against `equipment_catalog_items` and **never created**. Every row is therefore
+born from the catalog exactly as the add sheet's rows are — the FK is satisfied by
+construction, not by a new escape hatch. Two doors, one birth channel.
+
+### 13.2 Columns
+
+| Column    | Required | Meaning                                                                                                                                                       |
+| --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ทะเบียน` | yes      | SKU name. Resolved against ACTIVE `equipment_catalog_items`; unknown or inactive = error, never an auto-create (the `งานวัสดุพื้นฐานโครงสร้าง` lesson, §1.4). |
+| `จำนวน`   | yes      | See 13.3 — its meaning depends on the SKU's `default_tracking`, which is why the preview says it in words.                                                    |
+| `เจ้าของ` | no       | Owner name; blank → `equipment_owners.is_default` (PRI). Resolved, never created.                                                                             |
+| `ที่ตั้ง` | no       | Blank → คลัง (`received`). Otherwise a project name → `deployed` + that project.                                                                              |
+
+Deliberately ABSENT: asset tag, serial, condition, photos, and every money column. Those
+are per-unit facts the team fills on their completion pass (§12), and money has no write
+path at all (§10.4). The paste exists to create the ROWS, not to finish them.
+
+### 13.3 ⚠️ `จำนวน` is two things, so the preview says which
+
+For a **unit** SKU it is _how many machines to create_ — N rows named `<SKU> No.<n+1>` …
+continuing from the SKU's existing instance count, exactly as the add sheet derives them.
+For a **bulk** SKU it is _the quantity on the single row_, because the DB carries a partial
+unique index allowing one bulk row per SKU (mig `075891`).
+
+That is the collapsed-semantics class: one value, two real-world meanings, and a status
+field that means two things is how a metric lies. The mitigation is that **nothing is
+written until a dry run reports each row in words** — `สร้าง 3 เครื่อง` vs
+`1 แถว จำนวน 200` — and the commit button stays unreachable until that preview comes back
+clean. Same two-step contract as §6's importer.
+
+A second bulk row for a SKU that already owns one is refused at parse time with the same
+message the add sheet uses (point at the existing row's แก้ไข), so the file cannot discover
+the index the hard way.
+
+### 13.4 Every row gets its initial location
+
+Each created row also gets its first `equipment_movements` event, from `ที่ตั้ง`. Without
+it the bulk path would re-create the exact defect **PR #1024** closed for the add sheet —
+an item whose location renders `—` forever — and it would do so 68 times in one press. The
+resolver is the same module (`initial-location.ts`), not a second copy of the rule.
+
+### 13.5 Non-goals
+
+- No file picker (paste only — the cloud-PC path, §6).
+- No update arm. A row that already exists is the export importer's job; this door only
+  creates. Two doors that both write the same table need one obvious answer to "which do I
+  use", and the answer is "adding = ทะเบียน, fixing = the CSV".
+- No partial commit **on a bad file** — any parse/validation error and nothing is written
+  at all. ⚠️ Stated honestly: that guarantee is about VALIDATION, not atomicity. The writes
+  go row by row through PostgREST, so a failure mid-commit (a lost connection, a 42501)
+  leaves the earlier rows in place. The result therefore reports **how many were created
+  and names the SKU it stopped on**, rather than claiming a rollback the transport cannot
+  give. Re-pasting the remainder is safe: unit rows continue their numbering from the
+  live count, and a bulk SKU that already landed is refused by the one-row rule.

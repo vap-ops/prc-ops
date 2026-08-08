@@ -5,14 +5,13 @@
 // contradicted the summary chip and was invisible on touch. Presentational only:
 // no data fetching, no client hooks, no 'use client'.
 
-import { reopenMusterDayFromForm } from "@/app/team/attendance/actions";
+import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
 import { formatThaiDate } from "@/lib/i18n/labels";
 import {
   dayClosureLabel,
   openSessionLabel,
   type AttendanceDetailDay,
 } from "@/lib/muster/attendance-audit";
-import { BUTTON_SECONDARY, FIELD_INPUT } from "@/lib/ui/classes";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("th-TH", { maximumFractionDigits: 1 });
@@ -34,10 +33,11 @@ export function AttendanceDrill({
    */
   canReopen?: boolean;
   /**
-   * Whether the VIEWER can also close the day again (SA_SURFACE_ROLES — exactly
-   * `close_muster_day`'s allowlist). Plain procurement may reopen and not close,
-   * so the helper line must hand the rest of the loop to the SA instead of naming
-   * a step that role's own server refuses.
+   * Whether the VIEWER can also close the day again — MUSTER_CLOSE_ROLES, which
+   * is exactly `close_muster_day`'s LIVE allowlist. ⚠️ It was SA_SURFACE_ROLES
+   * until spec 400 U3a widened that RPC to `procurement`; keeping the old set
+   * would have gone on telling the one role this work exists for to hand the
+   * close step to the SA.
    */
   canClose?: boolean;
   /** Where the form returns to — the caller's current URL, outcome appended. */
@@ -91,40 +91,12 @@ export function AttendanceDrill({
               The helper line states the loop — reopening alone leaves the day
               underived, which the summary already flags as ยังไม่ได้ปิด. */}
           {canReopen && day.dayClosed && (
-            <form
-              action={reopenMusterDayFromForm}
-              aria-label={`เปิดวัน ${formatThaiDate(day.workDate)} อีกครั้ง`}
-              className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end"
-            >
-              <input type="hidden" name="projectId" value={day.projectId} />
-              <input type="hidden" name="workDate" value={day.workDate} />
-              <input type="hidden" name="returnTo" value={backHref} />
-              <label className="text-ink-secondary flex min-w-0 flex-1 flex-col text-[11px]">
-                เหตุผลที่เปิดอีกครั้ง
-                <input
-                  type="text"
-                  name="reason"
-                  required
-                  maxLength={200}
-                  placeholder="เช่น ลงเวลาไม่ครบ 19 คน"
-                  className={`${FIELD_INPUT} mt-1 max-w-full`}
-                />
-              </label>
-              <button type="submit" className={`${BUTTON_SECONDARY} shrink-0`}>
-                เปิดวันอีกครั้ง
-              </button>
-              {/* Role-aware, because the loop is not the same for everyone:
-                  close_muster_day admits only SA_SURFACE_ROLES (and applies
-                  can_see_project), so plain procurement — the role this spec is
-                  about — can reopen but neither scan nor close. Telling them to
-                  "close the day again" would name a step their own server
-                  refuses; the honest instruction is to hand it to the SA. */}
-              <p className="text-ink-secondary basis-full text-[11px]">
-                {canClose
-                  ? "แก้ไขแล้วต้องปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"
-                  : "แจ้ง SA ให้แก้ไขและปิดวันใหม่ ค่าแรงจึงจะถูกคิดใหม่"}
-              </p>
-            </form>
+            <MusterReopenForm
+              projectId={day.projectId}
+              workDate={day.workDate}
+              returnTo={backHref}
+              canClose={canClose}
+            />
           )}
         </li>
       ))}

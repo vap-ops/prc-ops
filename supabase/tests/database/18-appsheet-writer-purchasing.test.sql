@@ -202,7 +202,13 @@ select enum_has_labels(
     -- Spec 381: per-item equipment edit history.
     'equipment_item_updated',
     -- Feedback 41cd07d9: edit/delete an office expense (mig 075889).
-    'office_expense_update', 'office_expense_delete'
+    'office_expense_update', 'office_expense_delete',
+    -- Spec 367 §10.4 (mig 075920): equipment acquisition cost / date.
+    -- ⚠️ This is the SECOND full-array pin of `audit_action` — `03-audit-log-shape`
+    -- carries the other. An enum add must update BOTH; updating one leaves a red
+    -- that looks like an unrelated purchasing regression, because this assertion's
+    -- MESSAGE names purchase_request_* and says nothing about the value you added.
+    'equipment_acquisition_change'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );

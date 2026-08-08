@@ -66,6 +66,29 @@ export interface AttendanceDayCell {
   paidFraction: number;
 }
 
+/**
+ * Spec 404 U1 — one entry per project the MONTH actually contains.
+ *
+ * The day owns the project (`muster_teams.project_id` travels with every
+ * attendance row); `workers.project_id` is only where the person is assigned
+ * NOW and is overwritten by a move, so it can never describe a past month.
+ */
+export interface AttendanceProjectDays {
+  /** The label as loaded, `"<code> <name>"`. */
+  label: string;
+  /** First token of the label — the project code. */
+  code: string;
+  /**
+   * The code with the prefix SHARED BY THIS MONTH'S CODES removed, for the
+   * cell badge's ~60px box. Equals `code` whenever the month holds one project
+   * or the codes share no separator-aligned prefix.
+   */
+  shortCode: string;
+  /** Distinct scanned dates attributed to this project. */
+  days: number;
+  otHours: number;
+}
+
 export interface AttendanceMonthSummary {
   daysScanned: number;
   otHoursTotal: number;
@@ -74,6 +97,17 @@ export interface AttendanceMonthSummary {
   paidDaysTotal: number;
   /** daysScanned − paidDaysTotal. */
   varianceDays: number;
+  /**
+   * Ordered by days descending, then code — the header renders it directly.
+   * `length > 1` is THE split-month test; nothing may re-derive it by
+   * comparing a day against the worker's current assignment, which inverts
+   * the moment that assignment changes.
+   *
+   * A scanned date whose rows carry no project name is counted in
+   * `daysScanned` and attributed to nothing, so the entries can sum to LESS
+   * than `daysScanned`. That is honest: the alternative invents an owner.
+   */
+  projectDays: AttendanceProjectDays[];
 }
 
 export interface HolidayRow {
@@ -100,6 +134,30 @@ function bangkokHm(ts: string | null): string | null {
 
 function sameMonth(dateIso: string, anchorIso: string): boolean {
   return dateIso.slice(0, 7) === anchorIso.slice(0, 7);
+}
+
+/**
+ * Spec 404 U1 — the prefix every code in `codes` shares, truncated to the last
+ * separator inside it.
+ *
+ * ⚠️ The separator cut is the whole point. A raw common prefix of
+ * `PRC-2026-004` and `PRC-2026-008` is `PRC-2026-00`, which would leave the
+ * badges reading `4` and `8`; and across years the shared part is only `PRC-`,
+ * so the year has to survive or `004` could belong to any year. The spec says
+ * "strip `PRC-2026-`" because that is true of today's six projects — this
+ * derives it instead, so a 2027 project cannot make the badge lie.
+ */
+function sharedCodePrefix(codes: readonly string[]): string {
+  if (codes.length < 2) return "";
+  let prefix = codes[0] ?? "";
+  for (const code of codes.slice(1)) {
+    let i = 0;
+    while (i < prefix.length && i < code.length && prefix[i] === code[i]) i += 1;
+    prefix = prefix.slice(0, i);
+    if (prefix === "") return "";
+  }
+  const cut = Math.max(prefix.lastIndexOf("-"), prefix.lastIndexOf(" "));
+  return cut < 0 ? "" : prefix.slice(0, cut + 1);
 }
 
 const MONTH_PARAM = /^(20\d{2})-(0[1-9]|1[0-2])$/;
@@ -192,6 +250,29 @@ export function buildAttendanceMonth(opts: {
   const daysScanned = scannedDates.size;
   const otHoursTotal = musterRows.reduce((sum, r) => sum + r.ot_hours, 0);
 
+  // Attribution is per DATE, through the cell — so a date carrying a regular
+  // AND an OT session (spec 351) is one day, exactly as `daysScanned` counts
+  // it, and the split can never sum to more than the total it sits under.
+  const byLabel = new Map<string, { label: string; days: number; otHours: number }>();
+  for (const date of scannedDates) {
+    const cell = cells[date];
+    const label = cell?.projectName;
+    if (!cell || !label) continue;
+    const entry = byLabel.get(label) ?? { label, days: 0, otHours: 0 };
+    entry.days += 1;
+    entry.otHours += cell.otHours;
+    byLabel.set(label, entry);
+  }
+  const codeOf = (label: string) => label.split(" ")[0] ?? label;
+  const prefix = sharedCodePrefix([...byLabel.keys()].map(codeOf));
+  const projectDays: AttendanceProjectDays[] = [...byLabel.values()]
+    .map((e) => {
+      const code = codeOf(e.label);
+      const stripped = prefix && code.startsWith(prefix) ? code.slice(prefix.length) : "";
+      return { ...e, code, shortCode: stripped === "" ? code : stripped };
+    })
+    .sort((a, b) => b.days - a.days || a.code.localeCompare(b.code));
+
   return {
     grid: monthGrid(monthAnchor),
     cells,
@@ -202,6 +283,7 @@ export function buildAttendanceMonth(opts: {
       estimatedGross: dayRate === null ? null : daysScanned * dayRate,
       paidDaysTotal,
       varianceDays: daysScanned - paidDaysTotal,
+      projectDays,
     },
   };
 }

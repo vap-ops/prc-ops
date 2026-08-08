@@ -338,6 +338,74 @@ describe("gridWorkerHref — the link goes where the ROLE can land", () => {
   });
 });
 
+describe("buildAttendanceGrid — roster rows (U2)", () => {
+  it("adds a worker who has NO attendance in the range, as an empty row", () => {
+    // The finding U1 could not express: live, 11 of 41 active workers had zero
+    // July rows and therefore no row at all on a page whose job is to find them.
+    const grid = build({
+      rows: [row({ workerId: "a", workerName: "ก" })],
+      roster: [
+        { id: "a", name: "ก" },
+        { id: "b", name: "ข" },
+      ],
+    });
+    expect(grid.rows.map((r) => r.workerId)).toEqual(["a", "b"]);
+    const absent = grid.rows[1];
+    expect(absent?.cells).toEqual({});
+    expect(absent?.daysPresent).toBe(0);
+    expect(absent?.otHoursTotal).toBe(0);
+  });
+
+  it("UNIONs — a worker with attendance survives even when the roster omits them", () => {
+    // Measured: 1 worker with attendance since 24 Jul is not `active`, so a
+    // roster-only row set would silently drop someone the grid already showed.
+    const grid = build({
+      rows: [row({ workerId: "gone", workerName: "ค" })],
+      roster: [{ id: "a", name: "ก" }],
+    });
+    expect(grid.rows.map((r) => r.workerId).sort()).toEqual(["a", "gone"]);
+    expect(grid.rows.find((r) => r.workerId === "gone")?.daysPresent).toBe(1);
+  });
+
+  it("never duplicates a worker who is in BOTH", () => {
+    const grid = build({
+      rows: [row({ workerId: "a", workerName: "ก" })],
+      roster: [{ id: "a", name: "ก" }],
+    });
+    expect(grid.rows).toHaveLength(1);
+    expect(grid.rows[0]?.daysPresent).toBe(1);
+  });
+
+  it("prefers the ATTENDANCE name, which is the one the audit rows carry", () => {
+    // Both come from `workers.name`; if they ever disagree the report and its
+    // own CSV must not tell two stories about the same person.
+    const grid = build({
+      rows: [row({ workerId: "a", workerName: "ชื่อจากบันทึก" })],
+      roster: [{ id: "a", name: "ชื่ออื่น" }],
+    });
+    expect(grid.rows[0]?.workerName).toBe("ชื่อจากบันทึก");
+  });
+
+  it("sorts the union as one list, not roster-after-attendance", () => {
+    const grid = build({
+      rows: [row({ workerId: "z", workerName: "ฮ" })],
+      roster: [
+        { id: "z", name: "ฮ" },
+        { id: "a", name: "ก" },
+      ],
+    });
+    expect(grid.rows.map((r) => r.workerName)).toEqual(["ก", "ฮ"]);
+  });
+
+  it("draws no roster rows at all when the caller passes none", () => {
+    // The three ATTENDANCE_AUDIT_ROLES outside the workers RLS policy read this
+    // report through the DEFINER RPC and cannot see the roster; they keep
+    // exactly today's population rather than an empty or a lie.
+    const grid = build({ rows: [row({ workerId: "a", workerName: "ก" })] });
+    expect(grid.rows).toHaveLength(1);
+  });
+});
+
 describe("parity with the per-worker calendar (spec 374)", () => {
   it("merges a date exactly as buildAttendanceMonth does", () => {
     // The two builders exist for different surfaces and cannot share a function

@@ -60,21 +60,60 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
   // crews, it simply must not turn a firm-paid worker's attendance into a PRC
   // wage. Its own assertion (contractor_id is null) lives below.
   const DERIVE_FN = "derive_muster_labor";
+  // Spec 400 U3a split the derive into a GATED public entry point and an
+  // unexported mechanism, so procurement's re-close could derive wages without
+  // procurement gaining the labour engine's authority. The money wall went WITH
+  // THE MECHANISM — which is correct, and which silently moved it out of this
+  // guard's reach: the wall is still enforced, but `derive_muster_labor`'s last
+  // definition is now a wrapper that contains no `contractor_id` arm at all.
+  // This guard caught that on the first full run, which is exactly its job.
+  //
+  // ⚠️ The pin therefore follows the WRITER, not the name. Whichever function
+  // holds the `insert into public.labor_logs` is the one that must carry the wall
+  // — see the delegation assertion below, which is what stops a future edit from
+  // re-inlining a wall-less body back into the public wrapper and leaving both
+  // pins green. (Matching is on `function public.<name>(` including the paren, so
+  // DERIVE_FN does not accidentally resolve to this longer name.)
+  const DERIVE_INTERNAL_FN = "derive_muster_labor_internal";
   // Spec 306 — the MANUAL twin of the derive, and the other direct labor_logs
   // writer. It carried no contractor guard at all until 075885: spec 328 U3
   // filtered the picker, so the wall existed only in the UI and any caller of
   // the RPC walked straight through it. Same reason as the derive for living
   // outside WALLED_FNS — the crew-specific phrase does not describe it.
   const MANUAL_FN = "log_labor_day";
-  const WANTED = [...WALLED_FNS, DERIVE_FN, MANUAL_FN];
+  const WANTED = [...WALLED_FNS, DERIVE_FN, DERIVE_INTERNAL_FN, MANUAL_FN];
 
   // Extract the CREATE ... FUNCTION body starting at `start`. A migration
   // re-emitted from `pg_get_functiondef` closes with `$function$`; a
   // hand-written one closes with `$$;`. Take whichever terminator comes first.
+  // ⚠️ FIXED 2026-08-08 (post-merge review of #1000). The old terminator list was
+  // `$$;` and `$function$\n` — but a function written `end; $function$;` closes with
+  // `$function$` followed by a SEMICOLON, matching NEITHER. So the extraction ran past
+  // the real end, all the way to the next function's OPENING tag or EOF: in
+  // 075913 the "body" of derive_muster_labor_internal spanned ~180 extra lines and
+  // swallowed the revoke block plus the next function's header comment.
+  //
+  // Why that is dangerous rather than merely untidy: a later migration could re-emit
+  // derive_muster_labor_internal WITHOUT the subcon money wall, and as long as anything
+  // else in the same file contained `v_worker.contractor_id is null`, the overshooting
+  // span would still contain the phrase and the guard would pass. The wall would be
+  // reopened with this test green — the exact regression the block exists to catch.
+  //
+  // Terminate on the closing tag followed by optional whitespace and `;`, and on a bare
+  // tag-at-end-of-line, taking whichever comes first.
   function extractDefinition(text: string, start: number): string {
-    const endDollar = text.indexOf("$$;", start);
-    const endTagged = text.indexOf("$function$\n", text.indexOf("$function$", start) + 1);
-    const ends = [endDollar, endTagged].filter((i) => i !== -1);
+    const after = text.indexOf("$function$", start) + 1;
+    const candidates = [
+      text.indexOf("$$;", start),
+      // `$function$;` / `$function$ ;` — the pg_get_functiondef-style close.
+      (() => {
+        const m = /\$function\$\s*;/.exec(text.slice(after));
+        return m ? after + m.index : -1;
+      })(),
+      // `$function$` alone on the line, for hand-written bodies.
+      text.indexOf("$function$\n", after),
+    ];
+    const ends = candidates.filter((i) => i !== -1);
     const end = ends.length ? Math.min(...ends) : -1;
     return text.slice(start, end === -1 ? undefined : end);
   }
@@ -125,10 +164,41 @@ describe("spec 328 §2.4 — contractor money wall (query pins)", () => {
     expect(body).toMatch(/pay-exempt and cannot (join|lead) a crew/);
   });
 
-  it("the LAST definition of derive_muster_labor carries the money wall", () => {
+  it("the LAST definition of derive_muster_labor_internal carries the money wall", () => {
+    const body = lastDefinition.get(DERIVE_INTERNAL_FN) ?? "";
+    expect(body, `${DERIVE_INTERNAL_FN} has no definition in ${MIGRATIONS}`).not.toBe("");
+    expect(body).toContain("v_worker.contractor_id is null");
+  });
+
+  // The extraction must STOP at the function's own terminator. Without this, the
+  // `toContain` above is satisfiable by a phrase belonging to a DIFFERENT function that
+  // happens to sit later in the same migration file — so the money wall could be
+  // dropped from the real body and this suite would stay green (the defect that shipped
+  // in #1000 and was found post-merge). These two markers both live AFTER
+  // derive_muster_labor_internal ends in 075913, so their absence proves the boundary.
+  it("extractDefinition stops at the function terminator and does not overshoot", () => {
+    const body = lastDefinition.get(DERIVE_INTERNAL_FN) ?? "";
+    expect(body).not.toBe("");
+    expect(body, "overshot into the revoke block that follows the function").not.toMatch(
+      /revoke\s+all\s+on\s+function/i,
+    );
+    expect(body, "overshot into the next function's definition").not.toMatch(
+      /create\s+or\s+replace\s+function\s+public\.derive_muster_labor\s*\(/i,
+    );
+  });
+
+  // The wall lives with the writer, so this asserts the writer has not MOVED BACK.
+  // Without it, re-inlining the mechanism into the public wrapper (dropping the
+  // contractor arm on the way) leaves the assertion above pinned to a stale
+  // `_internal` definition that nothing calls — green over the exact regression
+  // the whole block exists to catch.
+  it("derive_muster_labor delegates and does not itself write labor_logs", () => {
     const body = lastDefinition.get(DERIVE_FN) ?? "";
     expect(body, `derive_muster_labor has no definition in ${MIGRATIONS}`).not.toBe("");
-    expect(body).toContain("v_worker.contractor_id is null");
+    expect(body).toContain("derive_muster_labor_internal");
+    // If this ever fails, the wrapper became a writer again and must carry the
+    // wall itself — restore `v_worker.contractor_id is null` to it, or re-delegate.
+    expect(body).not.toMatch(/insert\s+into\s+public\.labor_logs/i);
   });
 
   // Spec 306 — the manual writer reaches the same table, so it needs the same

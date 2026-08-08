@@ -6,6 +6,127 @@ Tracks feature units per the workflow in `CLAUDE.md`. One section per unit.
 
 ---
 
+## Spec 400 U6c — the correction audience becomes the audit audience (2026-08-07)
+
+**Status:** shipped. SCHEMA — migration `20260813075919`, six `create or replace`
+RPCs. 🔒 danger path (migration + `src/lib/auth/`).
+
+Operator, on U6b's report that five roles keep the facts and lose the link:
+_"let's enable them first, we trust the current team. we can limit access in the
+future."_ So `MUSTER_CORRECT_ROLES` == `ATTENDANCE_AUDIT_ROLES` — if you can see the
+hole, you can fix it.
+
+**The allowlist was one third of the work.** Two other predicates had to move, and
+neither was in the plan:
+
+- **Scoping.** `can_see_project` is `else false` for accounting and hr, so widening
+  the allowlist alone would have handed them a link and then a 42501. The new arm
+  mirrors the READ side verbatim (the seven roles `audit_attendance_summary` treats
+  as cross-project). `project_manager` and `site_admin` stay scoped by membership —
+  a rewrite phrased as "everyone except project_manager" would have made the FIELD
+  role cross-project.
+- **`muster_scan_in`'s arm split.** `v_role = 'procurement'` selects the CORRECTION
+  arm (regular-only, open-days-only behind derive's advisory key, and the
+  `muster_correction_scan_in` audit row). Widening the allowlist without extending it
+  would have routed every new role down the SA cockpit arm: free to create OT, free
+  to write into a closed day, and invisible to the correction trail — more power and
+  less accountability than the role being copied.
+
+⚖️ Closing derives wages, so this hands the money step to **seven real users**
+(accounting 3, project_director 3, project_manager 1) plus hr and
+project_coordinator, which have zero users. Deliberate; narrowing is one line per
+RPC.
+
+🚨 **The 🔴 the review caught, and it is this unit's own defect class.** The fix
+screen's first read was a session-client `workers` select justified by a comment
+ENUMERATING the old audience. `workers` excludes accounting/hr/project_coordinator,
+so they passed the gate, read zero rows with `error === null`, and were told
+`ไม่พบช่างคนนี้` — the worker does not exist — about a worker whose name the audit RPC
+had just shown them. Moved to a narrow admin read. ⭐ **A comment that justifies a
+read by naming the audience becomes false the moment the audience widens.**
+
+**Gates.** pgTAP **363/363 files, 7690 assertions, 0 failures** (new
+`400c-correction-audience.test.sql` drives every newly-admitted role behaviourally
+over the exhaustive domain) · vitest **920 / 7867** · typecheck 0 · lint 0 · build 0 ·
+Gate 4: accounting **0 → 60** fix links on the same grid, day panel gained the
+close/reopen form, and a REAL accounting user drove `list_muster_teams_for_day` live
+to 4 teams where it previously raised 42501.
+
+Six pre-existing assertions re-pointed, not deleted; two had their message corrected
+because the verdict survived while the reason moved a layer down.
+
+**Open questions / owed.** A no-session worker-day shows accounting/hr the date
+without the project name (`projects` is `can_see_project`) — a label, not a false
+claim · `parseFixParams` validates `?project=` for shape only, so a PM with a stale
+non-member project id turns the teams RPC's 42501 into a 500 · the two role sets are
+now equal, so U6b's withholding branches are unreachable but kept and pinned.
+
+---
+
+## Spec 400 U6b — the three doors + the unfinished-day banner (2026-08-07)
+
+**Status:** shipped. Code + tests + docs only, no schema, no new RPC, no new
+role-set export.
+
+U6a built `/team/attendance/fix` and left it reachable only by a hand-typed URL.
+U6b makes it reachable from the three surfaces that already show the holes.
+
+- **One builder:** `fixHref`, beside `parseFixParams` in `day-fix.ts` — the writer
+  and the reader of the `?worker=&date=&project=&from=` contract in one module,
+  because three surfaces now mint it. Omits `project` rather than emptying it.
+- **Grid cells:** a session cell links on a FINDING (closure and `?project=` do not
+  gate it — retime works on a closed day and the page infers the project from the
+  session); an empty cell links only with a project picked, on a working day, where
+  a team exists. Live: 37 links with no project, 105 (69 gap `+`) with one.
+- **Day panel:** an anomaly work-list, one row per person with an OPEN check-out
+  (`ยังไม่เช็คออก`), deduped so two open sessions are one row. **`ปิดวัน` moved to
+  the BOTTOM**, below the work-list and the add form — the loop is fix-then-close,
+  and the reopen arm stays above because on a closed day it is the first step.
+  ⚠️ The plan's second row kind (`ไม่มีการเช็คชื่อ`) was built and REMOVED on a
+  measurement: it would have produced 23·16·15·20·15 rows over 2026-08-01..05
+  against 0 open check-outs, i.e. 15 unscheduled people listed as ต้องแก้ไข on a
+  fully-closed day. Absence is a RANGE finding the grid states, where a gap `+` is
+  an offer rather than a claim.
+- **Calendar (spec 374):** days that carry attendance become tap targets, whole cell,
+  referrer carrying the AUDITED month. Answers the operator directly (2026-08-07:
+  _"attendance calendar view is not edittable? it feels like it can be interactive,
+  especially accessing from tablets"_).
+- **Unfinished-day banner:** `dayClosed === false && date < today`, excluding today
+  and `dayClosed === null`. Named for what it detects — the grid carries no reopen
+  history, so the copy says `ยังไม่ปิด`, never "reopened".
+
+**Role gate.** Links render for `MUSTER_CORRECT_ROLES` only. `ATTENDANCE_AUDIT_ROLES`
+is wider and every correction RPC refuses the extra five with 42501; they keep every
+FACT and lose only the link. Proven live: `accounting` 0 links vs `super_admin` 105,
+with anomaly words (86) and times (63) identical.
+
+**Measured before building.** All 13 past days carrying attendance are CLOSED, so the
+banner is empty against production — an exception signal, not wallpaper. Pinned over
+those 13 real dates.
+
+**Refuted at gate-check.** The plan wanted copy for "a cross-project day the reader
+cannot act on". That state cannot occur: `muster_correct_session` skips
+`can_see_project` for `procurement`, and the helper returns unconditional `true` for
+`super_admin` and `procurement_manager`. Building it would have been an unreachable
+clause asserting a hazard that is not there, so it was deliberately not built.
+
+**Gates.** lint 0 · typecheck 0 · build 0 (`/team/attendance/fix` a real dynamic
+route) · full suite **920 files / 7861 tests, 0 failures** · guard suites 204/204
+unchanged from baseline · **16 mutants, all killed**, including a true RELOCATION
+mutant for the `ปิดวัน` order (moving the work-list below the close form) rather than
+the cheaper delete-the-list cousin · Gate 4 the real flow on real prod data, with the
+one write retracted: 08-05 reopened to prove the banner renders, then re-closed
+(closure verified restored, 23 sessions intact, `labor_logs` still 0).
+
+**Open / owed.** The PM's calendar is structurally empty (0 readable attendance rows),
+so the withheld link there was proved with `project_director` instead ·
+`?day=`/`?worker=`/`?m=` stay invisible to telemetry (route has no query string) ·
+U6a's insert-path race on retime carried unchanged (needs a `p_update_only` flag =
+schema) · a clean worker-day is reachable from the calendar but not the grid, by
+design.
+
+---
+
 ## Spec 368 U4 design + spec 370 (scan in/out) + the 368 renumber (2026-07-28)
 
 **Status:** docs + comment-only PR. Specs designed with the operator in chat
@@ -12953,6 +13074,1510 @@ defect this unit fixes.
 
 ⚠️ **jsdom cannot see any of this** — the pins are class contracts; the evidence is the browser
 measurement above, same as #982's scroller fix.
+
+## 2026-08-06 — spec 400 U2: roster rows
+
+**The finding U1 could not express.** The grid's rows still came FROM attendance rows, so a worker
+the muster never recorded had no row at all — live, **11 of 41 active workers had ZERO July rows**.
+The roster is now UNIONed in and those people render as empty rows carrying `0 วัน`.
+
+**UNION, never substitution — and that is measured, not defensive.** One worker with attendance
+since 24 Jul is no longer `active`, so a roster-only row set would have dropped someone the grid
+already showed. An existing attendance row always wins the name, because both come from
+`workers.name` and the report must not tell a different story from the CSV built off the same
+audit rows.
+
+**No new role set, and that was the gate-check's doing.** The roster read is on the SESSION client
+with no admin seam, because `WORKER_ROSTER_ROLES` is exactly `ATTENDANCE_AUDIT_ROLES` intersected
+with the live `workers` "readable by staff" policy. A new `*_ROLES` export would have put this unit
+in `src/lib/auth/` and held it for an operator tap for nothing. ⚠️ **The equality is a coincidence
+of two different meanings** — "who onboards ช่าง" vs "who may read worker rows" — so it is pinned
+by a test with the live policy written into the comment. `project_coordinator` is the live hazard:
+it is an audit role and can open `/workers` (that page reads via ADMIN), but the policy denies it,
+so adding it here would produce a **silent empty roster, never a refusal**. Mutation-proved: adding
+it reds the pin.
+
+Only `id, name` are selected — `day_rate` and `employee_id` are column-walled on `workers` and
+would read back null under RLS rather than failing (the spec-397 `employee_id` class).
+
+**The live probe found what no test did.** With the roster unioned in, the header card read
+**`25 คน`** (people the muster recorded) above a table of **42 rows**. One screen, two numbers, no
+explanation — the summary line was hiding the very finding the grid exists to surface. There is now
+an absent-count line, derived from the GRID the reader is looking at rather than recomputed, and
+zero in the list view which draws no roster rows.
+
+**Verified in real Chrome**, and the arithmetic closes from both directions: `super_admin` and
+`procurement` see **42 rows / 17 empty** (25 attended + 17 never = 41 active + 1 attended-but-
+inactive), while `accounting` — outside the `workers` policy — sees **25 rows / 0 empty**, exactly
+today's population and no PII widening. Absent rows carry `0 วัน`, no finding dot, and each of
+their day cells still announces why it is empty. Zero console errors.
+
+**7 mutation checks, all killed**, including the load-bearing one (widen `WORKER_ROSTER_ROLES` →
+the role-set pin reds) and the header one (recompute the absent count from the roster instead of
+the grid → the derivation pin reds).
+
+**🔴 The review found the bug that mattered, and a live probe quantified it.** The `workers`
+"readable by staff" policy is **role-only — no project predicate** — while `audit_attendance_summary`
+scopes `project_manager` by `can_see_project`, and project_manager is the one `WORKER_ROSTER_ROLES`
+member outside `ATTENDANCE_AUDIT_ALL_PROJECT_ROLES`. Impersonating the real PM in a rolled-back
+transaction: **2 of 6 projects visible · 41 `workers` rows readable (the whole firm) · 0 active
+workers on their projects · 0 attendance workers they may read.** So the unscoped roster would have
+shown that PM **41 rows, every one "never scanned", under a headline reading 41 คน** — about people
+on projects they are not on and whose records they may not read. The roster now takes the same scope
+the attendance has: the picked project, everything for the cross-project tier, otherwise exactly the
+`projectOptions` this page already read on the session client.
+
+Three more from the same review: the roster `error` was discarded (a failed read reverted the grid
+to U1 and reported "nobody is absent" — it throws now, mirroring `loadAttendanceSummary`); a range
+in which NOBODY was scanned rendered the summary's empty notice while the roster was fetched and
+thrown away (the grid shape gates on its own rows now); and `ดาวน์โหลด CSV (ทุกคน)` stopped being
+true the moment roster rows joined the grid — 42 on screen, 25 in the file — so the label names what
+the file holds. It also caught three weak tests of mine: a project-scoping assertion satisfiable with
+`.eq("active", true)` deleted from one branch, a per-cell `aria-label` loop matching only the worker
+NAME (which both branches emit), and no pin at all on the CSV or empty-state behaviour.
+
+**11 mutation checks, all killed** — including the two that matter: unscope the roster for the PM
+tier, and swallow the roster error. ⚠️ One mutant had to be re-crafted: the first attempt produced
+unparseable code and the run reported `Tests no tests`, which is an ABORT, not a green.
+
+**Open questions.** ① The grid path's reads (now four) are still worth collapsing — its own unit. ②
+⚠️ **The role-set pin is one-directional and this is owed to U3:** it asserts the TS array, so it
+catches someone widening `WORKER_ROSTER_ROLES` but NOT the live policy being narrowed underneath a
+SESSION read. That belongs in pgTAP over the exhaustive role domain (the `358-attendance-audit.test.sql`
+precedent); U3 touches `supabase/` anyway, so it lands there rather than turning this code-only unit
+into an operator-held one. ③ `ไม่มีบันทึกการเช็คชื่อในช่วงนี้` is now in three places and the
+UI-term SSOT wants it in `labels.ts` — still deferred as its own sweep, for the collider reason. ④
+U3, the correction path, is next and the operator has ruled **option A**.
+
+## 2026-08-06 — Spec 392 U2b: the Konva zone-drawing canvas (lane zonecanvas)
+
+**Why.** U1 shipped the schema and U2a the zone LIST, but the operator's original ask was a
+surface where the draftsman **draws** the zones. Until this unit a manager could name a zone and
+nothing more — every zone landed on the U2a default rect `{0.1, 0.1, 0.3, 0.2}` and stayed
+there, which is to say the geometry column existed and no one could set it.
+
+**What shipped.** `/projects/[projectId]/zones` gains a Konva island above the list: select a
+zone, drag it, resize it by its transformer anchors, switch its shape between the four
+`zone_shape` values, and edit a polygon by dragging its vertices. Plus a 5% snap grid (on by
+default) and undo. Every write goes through U2a's existing `saveZone` → `upsert_project_zone`;
+**no new RPC, no schema.**
+
+**The split, and why it is additive-only.** Spec §5's toolbar also lists a background image.
+That needs a Storage bucket and a `storage.objects` policy — a fourth gate layer in another
+schema (`delivery-photo-storage-rls-fix-2026-07`) — so it is **U2c**, which claims the schema
+lane. Nothing is removed by shipping the canvas first: the U2a list keeps every operation it
+had, so neither half deletes a signal (doctrine §2).
+
+**Design.**
+
+- **The canvas is the SECOND path, never the only one.** A canvas is opaque to a keyboard and a
+  screen reader, so this surface owns exactly the two things a list cannot express — WHERE a
+  zone is and WHAT SHAPE it has. Code, name and delete stay solely with the list underneath.
+- **The engine never sees the database.** `src/lib/zones/canvas-geometry.ts` holds every
+  pixel↔fraction conversion, the snap and the clamp; geometry persists as `[0,1]` fractions, so
+  the stage can be any size and a background swap (U2c) will move nothing.
+- **Overflow SLIDES a zone back inside the map rather than shrinking it** — a manager dragging
+  past the edge meant to move it, and a silent resize would change the zone's meaning without
+  saying so. Only a box larger than the map itself is shrunk.
+- **Snapping happens INSIDE the clamp, and a snapped size floors at one grid step.** Rounding an
+  origin up can push a box that was inside over the edge, and rounding a sliver's size down
+  reaches `w = 0`, which `zone_geometry_ok` refuses outright. Both would surface as a refused
+  save at the END of a drag, with the work already lost.
+- **One renderer with a `readOnly` mode**, so the field-facing map (and the SA surface below)
+  reuses this geometry rather than forking a copy free to drift.
+- The shape `switch` has **no `default:` arm** (spec §9) — a new enum value fails the compile
+  instead of rendering as nothing.
+
+**Bundle.** konva 10.3.0 + react-konva 19.2.5 (~54 KB gz) in a repo of 16 runtime dependencies,
+reached **only** through `next/dynamic({ ssr: false })`. `zone-canvas-island.test.ts` scans all
+of `src/` for a static importer and for any non-`"use client"` module importing konva; the props
+type lives in its own leaf module so even the lazy wrapper has nothing to import from the heavy
+one.
+
+**Gates.** RED first (module absent, then 4 island guards). vitest **7377 green / 894 files**,
+typecheck clean, lint clean, `pnpm build` exit 0. **4 mutants killed:** removing `ssr: false` ·
+turning `case "polygon"` into `default:` · adding one static import of `zone-canvas` · breaking
+`clampBoxToUnit`'s slide-back (which also reds the DB-validator property test).
+
+**Real-flow verification (Gate 4).** The in-app Browser pane is denied in this session, so
+hydration never runs there and every client-side claim would be unmeasurable — driven instead
+through **real installed Chrome via Playwright** (`channel: "chrome"`) against the live dev
+server and the real DB as `dev-preview`. `project_zones` is empty in prod, so the run **created
+its own subject** through the real DEFINER RPCs: a rect and a polygon on the operator's own
+`ผังโซน` map (TFM นายาว เพชรบูรณ์). Canvas rendered **1238×774** with all six toolbar controls; a
+click selected the zone and the note read `เลือก CCV-A พื้นลานด้านซ้าย — ลากเพื่อย้าย ลากมุมกรอบเพื่อปรับขนาด`;
+a **real mouse drag** moved it from `x=0.10, y=0.10` to `x=0.35, y=0.35` — exactly the distance
+dragged, snapped to the grid — and the value was read back **from the database**, not off the
+render. Zero console errors. Cleanup deleted both zones and re-read `remaining: 0`.
+
+**Open questions.**
+
+① 🚨 **Spec 366 and spec 392 model zones differently, and 392 never reconciled with 366.**
+`docs/feature-specs/366-wp-zones.md` (operator-locked 2026-07-27, never built) is
+_"polygon buttons on simplified drawings dedicated to the respected WP"_: a **`wp_zones` M:N
+junction** so a WP references the several zones it covers, plus **`photo_logs.zone_id` set at
+capture and sticky per session**, so a during/after photo says WHERE it was taken. Spec 392
+(2026-08-04) contains **zero occurrences** of `366`, `wp_zones` or `project_drawings`, and U1
+shipped a table that takes 366's name — `project_zones` — with `work_packages.zone_id`, **one
+zone per WP**, and no photo link at all. The operator re-raised 366's model on 2026-08-06
+("zones live under WPs", tapping a zone assists the SA in uploading during/after photos). The
+shipped schema covers most of it and the gap is additive: `wp_zones`, `photo_logs.zone_id`, and
+the drawings bucket 392 declared (`project_zone_maps.background_path`) but never created. **This
+needs an operator decision and a reconciling spec before any further zone unit.**
+
+② The polygon vertex drag was exercised only through its unit tests and the shared conversion —
+the Gate-4 run created a polygon and drove the RECT. Worth one live pass in U2c.
+
+③ `save_project_zone_map` with a null id always INSERTS and there is still **no
+`delete_project_zone_map` RPC at all** (carried from U2a/U3a). Two simultaneous presses of the
+create button on an empty project make two maps, and the page renders only `mapRows[0]`.
+
+④ The canvas hides itself until the map has at least one zone: an empty stage teaches nothing
+and the list's empty state says more. That means the very first zone is always created from the
+list, which is also the accessible path — deliberate, but it is a rule the spec does not state.
+
+## 2026-08-06 — Spec 392 U2b, review round 2: the write machine gets tested (lane zonecanvas)
+
+The fresh-eyes pass on U2b returned **6🔴 8🟡**, and five of the six 🔴 lived in one place: the
+canvas's optimistic write state, which was loose `useState` calls inside a Konva island and
+therefore had **zero coverage** — RTL cannot render a canvas and jsdom has no layout engine, so
+Gate 4's happy-path drag was the only thing that had ever exercised it.
+
+**The 🔴 that was NOT in the canvas shipped first, as its own PR** — `upsert_project_zone`'s
+unconditional UPDATE erasing a renamed zone's shape, position, parent and sort order
+([#988](https://github.com/vap-ops/prc-ops/pull/988), on the operator's call).
+
+**The state machine is now a pure reducer** (`src/lib/zones/canvas-state.ts`), which is what made
+the other four assertable without pixels:
+
+- **A failed write rolls back ITS OWN write.** It popped the newest history entry, so dragging A
+  then B and having A refused destroyed B's undo entry and left A's for a zone already rolled back.
+  Settled writes are matched by sequence number.
+- **A refused undo costs one entry, and gives it back.** `handleUndo` popped when issued and the
+  failure arm popped again, so one refused undo destroyed two entries and stranded the older state
+  forever.
+- **Undo restores a state the database actually held.** The pre-write snapshot came from state
+  that already included unconfirmed draft. ⭐ The fix moved the snapshot from COMMIT time to SETTLE
+  time — three drags issued back to back all see an empty `confirmed`, so a commit-time snapshot
+  records the original server row three times and undo jumps straight past two landed writes. That
+  correction came out of a test failing, not out of reading the code.
+- **The draft clears when a write LANDS,** not only when it fails. A draft outliving its write
+  pinned the zone for the component's lifetime, so the server row could never win — and a
+  corruption arriving from elsewhere would have been invisible on the one surface that shows it.
+
+**🔴 The shape stranded under the pointer.** A Konva node is a mutable object the pointer has
+already moved. When a drag's SNAPPED result equals the stored geometry, react-konva sees identical
+props and writes nothing back, so the shape stayed where it was dropped while the database held the
+old value — and the next transform read that drifted position and baked it in. Snap is ON at 5%, so
+on a ~1200px stage **every drag under ~30px did this**. Shapes and vertex handles now carry a
+repaint counter in their key.
+
+**🔴 Honest copy.** A comment claimed the lossy polygon→box collapse was covered by confirm copy.
+No dialog existed. There is one now (only when it would actually discard vertices), and the list
+warns in place before the tap.
+
+**🔴 The a11y contract was not being met, and the commit message said it was.** The shape toolbar
+could only be enabled by CLICKING a shape on the canvas, so a keyboard or screen-reader user could
+reach those four buttons in tab order and never make one usable. Spec §5 says the list is the path
+to everything the canvas does; shape was the half with no path. `ZoneSheet` now carries a `รูปทรง`
+control, sharing the canvas's exact four labels. **Position stays canvas-only and honestly so — it
+is a coordinate, not a choice from a set.**
+
+**🟡 The island guard had a hole and then a worse one.** Its static-import scan was line-anchored,
+so a prettier-wrapped `import {\n  ZoneCanvas,\n} from "…"` — 54 KB of konva into the main bundle,
+the exact regression it exists to catch — passed. Matching on the module specifier fixed it; but
+the two repo-wide scans then each re-read every file in `src/` and **blew the 5s timeout**. A guard
+that times out reds for a reason unrelated to what it protects. One walk, one read per file, both
+checks over the same pass, plus an assertion that the walk saw >200 files — a zero-file scan would
+otherwise pass both checks.
+
+**🟡 Also fixed:** `boxToCorners`/`cornersToBox` were unexported module-locals doing exactly the
+pure arithmetic `canvas-geometry.ts` exists to hold (a degenerate collinear polygon yielded `h = 0`,
+which the DB refuses) — moved and tested. `aria-pressed` was `undefined` with nothing selected, so
+React dropped the attribute and the buttons stopped being toggles for a screen reader.
+
+**Mutation, six mutants, all killed.** Roll-back-newest · undo double-pop · previous-from-draft ·
+draft-outlives-write · a prettier-wrapped static import · the `cornersToBox` floor.
+⚠️ **The draft mutant's first form reported `Tests no tests`** — it left an unused binding and broke
+the compile, so nothing ran. A zero-ran mutation reads exactly like a pass; it was re-run in a form
+that compiles (`draft[id] = write.next`, i.e. the original defect) and killed 2 assertions.
+
+**Real-flow verification (Gate 4), re-driven in real Chrome** because the first pass could not
+reach any of these paths. On the operator's own `ผังโซน` map, against the live database:
+
+| leg                                      | result                                                                                                   |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **sub-grid drag** (under one snap step)  | Konva node at `{371, 232}`, expected `{371, 232}` — re-derived from geometry, not left under the pointer |
+| real drag                                | `x 0.3 → 0.5`, persisted                                                                                 |
+| **undo**                                 | `x` back to `0.3` in the database                                                                        |
+| **shape from the LIST, no canvas click** | `rect → polygon` at exactly the box's four corners — the zone did not move                               |
+
+Zero page errors; cleanup re-read `remaining: 0`.
+
+⭐ **TWO house guards caught what the reviewer did not, and both catches were mine to own.**
+① `design-doctrine.test.ts` bans `window.confirm` outright (spec 18 — destructive actions use the
+themed `ConfirmDialog`), so the "real confirm" round 1 added was the native dialog. ② The
+**honest-copy ratchet** reds on any new `ลองใหม่` occurrence and demands a justification in the
+ledger: the canvas's `SAVE_FAILED` is reached only from the round trip's `.catch`, and a REJECTION
+is not a refusal — a dropped connection, a 500, or a stale server-action id after a deploy all
+succeed on retry, while the action's resolved refusals pass their own non-retry copy through
+untouched. Ledger raised 236→237 and 109→110 with that reasoning written in beside it.
+**Neither guard was in the review's field of view. The suite is the reviewer of last resort.**
+
+**Merge order, and the proof it was needed.** U2b was HELD until #988 landed, because every canvas
+write is a full-row upsert and the pre-#988 `saveZone` sent `p_sort_order: 0` — a literal zero the
+coalescing RPC writes straight through. After merging main (0.345.3, incl. #988) the final Gate-4
+run seeded a CHILD zone nested under a parent at `sort_order 7`, dragged it on the canvas, and read
+the row back: `geometryMoved: true` (x 0.3→0.45, y 0.3→0.4) with `sortOrderPreserved: true` and
+`parentPreserved: true`, the parent row untouched, zero page errors, cleanup `remaining: 0`.
+
+⚠️ **The FIRST attempt at that run was vacuous and said so: `geometryMoved: false`.** The parent zone
+was seeded spanning 0.05–0.95, so it geometrically covered the child and the click selected the
+PARENT — no write happened, and “sort_order preserved” would have proven nothing. Nesting here is a
+DATA relation, not a containment one, so the fixture was rewritten with the two zones side by side.
+⭐ A preservation claim needs the mutation to have actually landed; the positive control is the
+assertion that the thing you dragged MOVED.
+
+**Open questions.** ① The `หลายเหลี่ยม` tool always produces exactly four corners and there is no
+add- or remove-vertex affordance, so `ZONE_POLYGON_MAX_POINTS = 200` is unreachable from the UI —
+the vertices are draggable, so it is a real quadrilateral, but the label promises more than the
+tool delivers. ② The canvas echoes `code`/`name` from its props on every geometry write, so a
+rename whose `router.refresh()` is still in flight can be overwritten by a drag; the window is
+small and the fix wants a geometry-only RPC arm. ③ Every zone created from the list still gets the
+identical default box, so three of them are exactly coincident and only the top is hit-testable.
+④ Spec 392 §7.1 records that spec 366 models zones differently and is unreconciled — that blocks
+further zone units, not this one.
+
+## 2026-08-06 — spec 400 U3a: procurement can correct a muster day (lane u3corr)
+
+**The hole U1/U2 created.** The grid surfaces attendance holes to procurement — 11 of 41
+active workers had zero July rows, 08-04 mustered one person — and gave them nothing to fix
+any of them with. Of the five muster powers they held read, reopen-day and undo-scan, all of
+which REMOVE, and were refused `muster_scan_in` and `close_muster_day`, the two that SUPPLY.
+Destructive-only, while the commonest correction is "he was here, add him". 4 of the 5
+procurement people are plain `procurement`, so this was 80% of the team.
+
+**Operator ruling (spec §3), option A with both sub-questions answered:** they may correct,
+they may also RE-CLOSE, and the binding is ANY OPEN DAY rather than only a day they reopened
+— that last part chosen on the measurement that `reopen_muster_day` has **0 audit rows
+all-time**, so gating corrections behind a reopen would have put a new capability behind a
+ritual nobody performs. The rule is: procurement may write to a project-day with no
+`muster_day_closures` row. A closed day still needs `reopen_muster_day`, which they hold.
+
+**Four migrations, and every addition past the first was forced by evidence.**
+
+- `075912` — the ruling as written: both functions gain `procurement` plus the cross-project
+  arm (`can_see_project` is live-FALSE for procurement, the spec-397 two-allowlist trap), a
+  closure guard on `muster_scan_in` (which had none), and an audit row per correction.
+- `075913` — **the gate the spec's own gate-check could not see.** `close_muster_day`
+  PERFORMs `derive_muster_labor`, which carries a THIRD gate ("Same authority as the labour
+  engine. Money-writing."). Widening close alone left procurement passing two gates and dying
+  at the third. Resolved LEAST-PRIVILEGE per the operator: the mechanism moved to
+  `derive_muster_labor_internal` with EXECUTE revoked from public/anon/authenticated, the
+  public `derive_muster_labor` keeps its gate byte-identical, and procurement reaches the
+  derive only through `close_muster_day`. The cheap fix — adding `procurement` to the money
+  function's list — was explicitly declined.
+- `075914` — **the OT arm, found by self-review.** `muster_scan_in`'s `p_session` default
+  meant the widening also handed procurement the `ot` arm, which is ×1.5 money (spec 351) and
+  was never part of the ruling. The correction arm is now regular-only; the SA arm keeps both,
+  which is the positive control that makes the bound procurement-specific.
+- plus `tests/unit/contractor-money-wall.test.ts` re-pointed: the spec-328 subcon wall moved
+  WITH the mechanism, so the guard's pin no longer covered the writer and it went red. The
+  wall was never lost — the guard's REACH was. Now pinned on the internal, plus a new
+  assertion that the public wrapper delegates and does not itself `insert into
+public.labor_logs`, so re-inlining a wall-less body cannot pass on a stale `_internal` pin.
+
+**Gates.** pgTAP **358/358 files, 0 failures**, this spec's file **51/51** with `plan(51)`
+grep-derived, never hand-counted. RED first was real and named: 9 of 42 failed before the
+migrations, exactly the new behaviour, with every control green. typecheck + lint exit 0.
+Full vitest **7453/7463**; the 10 reds are 3 files, all `Test timed out in 5000ms` with **zero
+AssertionErrors** — `claude-hooks-bash-guards` (this box's named canary, 25/25 alone),
+`ship-pr-token-path` (the PowerShell-PATH quirk, green once run through git bash) and
+`pgtap-global-count-guard` (3/3 alone on this branch WITH the new file, and 3/3 on a detached
+`origin/main` control, so the added file is not the straw).
+
+**The pgTAP role-set pin U2 owed lands here**, behaviourally over the exhaustive 17-role
+domain against a synthetic worker row — 6 admitted, 11 refused, scoped by row id and never a
+global `count(*)` (#954's class). Note the live `workers` policy admits **6** roles while
+`WORKER_ROSTER_ROLES` resolves to **5**: `site_admin` is in the policy and not the constant, so
+the invariant is `WORKER_ROSTER_ROLES ⊆ policy`, not equality. `anon` is asserted via
+`has_table_privilege`, not a read — it is walled one layer BELOW RLS, so an attempted read
+raises 42501 and aborts the file rather than returning zero rows.
+
+**Open questions.** ① `close_muster_day` still does not take `derive_muster_labor`'s advisory
+key, so `reopen_muster_day`'s lock is one-sided and cannot serialise against a concurrent
+close — **pre-existing, not introduced here**, out of scope, and worth its own unit. The new
+correction arm DOES take that key. ② The SA can still scan into a CLOSED day; the guard is
+new-arm-only by design and that hole is now PINNED as still-open, so closing it later is
+deliberate. ③ `db:types` not regenerated: `derive_muster_labor_internal` would land in
+`database.types.ts` and the byte-identical `worker/` copy, but its grants are revoked so no
+app code can call it — deferred to a unit that needs the type. ④ **No independent reviewer has
+read this diff** — self-review only, per session constraint; it found two real defects in my
+own work (the OT arm and the money-wall reach), which is a reason to want a second pass on a
+money-adjacent danger-path change. ⑤ U3b (the affordances) and U4 (the back-dated check-out,
+which exists for no role) are unstarted.
+
+## 2026-08-06 — spec 400 U3b: the correction affordances on the grid (lane u3b)
+
+U3a widened `close_muster_day` and `muster_scan_in` to `procurement` (migration `20260813075912`).
+No surface offered that role the step: the report told them to hand the close to the SA, and the
+GRID — the default view since U1 — carried no correction control at all. U3b is that surface.
+
+**`MUSTER_CLOSE_ROLES`** mirrors `close_muster_day`'s LIVE allowlist, read with `pg_get_functiondef`
+rather than from the migration file: `{site_admin, super_admin, procurement_manager, procurement}`,
+identical to the other three muster RPCs after U3a. The page's `canClose` keyed on `SA_SURFACE_ROLES`
+— a correct mirror until U3a and a narrower set after it — so two Thai sentences went on naming a
+step their reader could now take alone. Kept a DISTINCT set from `MUSTER_REOPEN_ROLES` per the role
+doctrine (two RPCs, two meanings) with the implication the loop copy rests on, `REOPEN ⊆ CLOSE`,
+pinned rather than assumed.
+
+**The `?day=` panel** is the COLUMN twin of the `?worker=` drill: closure and headcount are
+project-day facts, so their controls belong on the column. Reopen on a closed day, close on an open
+PAST one, and a named cause on every arm that offers neither — `future`, `noRecords`, `dayNotOver`,
+`noProject`, and a deliberately silent `notPermitted` (withholding the control must not become
+telling a reader off; the header still states the day's state). `dayCorrectionControl` is a pure
+exported function because U1 proved a source scan cannot see reachability.
+
+**Two red findings from the fresh-eyes review, both real.** ① Closing was ONE TAP with none of the
+disclosures the cockpit and the prior-day banner treat as mandatory: `close_muster_day` stamps 17:00
+on every open REGULAR session and leaves every open OT one alone, and no RPC records a past
+check-out for any role, so an open OT session is unbookable. The panel now names both losses WITH the
+workers, states the current-rate basis, puts all of it above the control, and requires a confirm
+checkbox — the arm-then-confirm a zero-client-JS page can carry. ② The loop copy said
+`แก้ไขแล้วต้องปิดวันใหม่`, naming a middle step with NO surface: both undo surfaces are hard-locked to
+today and gated on `SA_SURFACE_ROLES`, and add-person is deferred. It now says what re-closing
+actually does — re-derive from the latest rates and WP bindings.
+
+⚠️ **Add-person is deliberately absent, and the reason is a finding about U3a.** `muster_scan_in`
+names no `in_at` and the column default is `now()`, so correcting a PAST day would stamp the
+correction moment, and `close_muster_day`'s auto-out (`greatest(day_end, in_at)`) would then produce
+a **zero-length session** — the audit surface manufacturing the anomaly it exists to find. Money is
+unaffected (`derive_muster_labor_internal` is presence-based: `day_fraction` full/half by
+`muster_team_wps` count, never hours). **`p_in_at` is owed and it is U4's shape**, which already owes
+a back-dated `out_at` — one migration, both directions. Operator ruled to defer.
+
+🚨 **A second finding U3b could not fix: `procurement` cannot read a team id.** `muster_scan_in` takes
+`p_team`, `muster_teams` RLS is `can_see_project(project_id)`, and that helper falls to `else false`
+for `procurement` — so a team picker on the session client is EMPTY for 4 of the 5 people U3a widened
+the RPC for. Needs an admin seam or a new DEFINER RPC. Measured: teams per project-day is 1 on 7 days
+and 2–5 on 10, so an "only one team, auto-pick" shortcut covers 41% — a picker is genuinely required.
+All 44 teams are `kind='crew'`; zero office teams have ever been created.
+
+**10 mutation checks, all killed** — including the page's `canClose` revert, each arm of
+`dayCorrectionControl`, the return URL's param moved after the fragment, the confirm checkbox's
+`required`, and an `order-last` on the disclosure list (jsdom has no layout engine, so DOM order is
+asserted AND no `order-*` utility is allowed inside the form).
+
+⚠️ Gate 4 was render-only by choice: every arm was driven live as `procurement` and as
+`super_admin` via SSR fetch probes on the real dev server against project `PRC-2026-004`
+(08-04 closed → reopen form + the new loop copy; 08-05 open → close form + the still-in disclosure +
+the confirm box; 08-06 no records; 08-09 future; ทุกโครงการ → the project prompt; accounting and
+project_manager get no column links). **No prod close was executed** — it would auto-out 23 live
+sessions and reopening does not restore their `out_at`. The RPC itself is pgTAP-proven by U3a.
+
+**Open questions.** ① The stale-copy sweep found two more: `prior-day-close.ts` claimed this report
+has no close action, and `/team/office` claimed `SA_SURFACE_ROLES` is exactly the set every muster
+write RPC admits — both corrected here. ② `#1000` carries a migration comment saying the UI turns
+`team not found` into `ยังไม่มีทีมของวันนั้น` in U3b; U3b builds no add-person path, so that comment
+names the wrong unit and belongs to U4. Not touched — it is another lane's branch. ③ There is still
+NO surface, for ANY role, that corrects a past day's attendance: both undo surfaces are today-locked.
+That is the gap U4 closes.
+
+## 2026-08-06 — spec 400 U4: a session's real times, recorded after the fact (lane u4times)
+
+**One migration, both directions** (`20260813075915_spec400u4_backdated_session_times.sql`), because
+they are the same defect twice and shipping half of it gives the operator a surface that can record an
+arrival but not a departure. New `muster_correct_session(team, worker, session, in_at, out_at)` for the
+correction audience, plus a narrowing of `muster_scan_out`.
+
+**The measurement corrected the brief.** "34% of August sessions have no check-out" hides two
+structurally different populations: **24 regular rows on 07-31…08-05 whose days are simply not closed**
+(`close_muster_day` auto-outs those at 17:00, and U3b just shipped procurement that affordance), and
+**9 OT rows, all on 2026-07-24, on a day that IS closed** — `close_muster_day` skips `session='ot'` by
+design, so those nine are the genuinely unbookable ones. The stuck population is nine rows on one day,
+not thirty-three.
+
+🚨 **And the second hole was not "refused", it was "permitted and wrong".** `muster_scan_out` carried
+no date check and no closure check, so a `site_admin`, `super_admin` or `procurement_manager` could
+close those nine sessions today — `out_at = now()` and `ot_hours = floor((now() − in_at)/3600 × 2)/2`,
+i.e. **~13 days of overtime**. Nothing would have failed: `derive_muster_labor_internal` never reads
+`ot_hours`, so no money test can see it, while `attendance-month.ts`, `attendance-sessions.ts` and
+`attendance-audit.ts` all display it. Part 2 of the migration closes that path.
+
+**The four operator rulings (spec §2), all taken as recommended.** ① Shape — one NEW function, not
+optional params: the out-side would otherwise force widening `muster_scan_out` to `procurement`,
+handing the live cockpit write path to a role with no cockpit. ② Audience — `{super_admin,
+procurement_manager, procurement}` only; `site_admin` is deliberately absent because every surface
+reaching a past day is gated on `ATTENDANCE_AUDIT_ROLES`, which has no `site_admin`. ③ Bounds —
+`in_at` on the row's own Bangkok work date, `out_at` ≥ `in_at`, not future, and no later than 06:00 the
+next morning so a night OT crossing midnight stays recordable (**zero of 228 closed sessions have ever
+crossed midnight — that bound is headroom, not a modelled case**). ④ Overwrite — closing still
+auto-outs, so U3b's shipped disclosure stays true; a correction may replace a FABRICATED auto-out
+(`out_auto = true`, 17 live rows) and is refused on a human-recorded check-out.
+
+⭐ **What guards a closed day here is NOT the closure.** The nine stuck rows are ON a closed day, so
+refusing closed days outright would leave U4 unable to repair the rows it exists for. The real
+precondition is the one `muster_undo_scan` and `reopen_muster_day` already use — no CURRENT wage row,
+as an ANTI-JOIN because a retraction is a null-fraction supersede row. So retiming an existing row is
+allowed on any day whose wages are not booked; ADDING a missing person stays open-days-and-regular-only,
+unchanged from U3a. The insert path DELEGATES to `muster_scan_in` rather than restating its invariants.
+
+**Gates.** RED first, twice and for the right reason (`function ... does not exist`; the two new Thai
+copy cases). pgTAP **359/359 files, 7559 assertions, 0 failures**; the new
+`400b-muster-correct-session.test.sql` is 43/43 with `plan(43)` grep-derived. **4 mutants, all killed
+with their own dedicated assertion** — OT priced from `now()` instead of the span (#21), the wage
+anti-join dropped to a bare `exists()` (#32), the `muster_scan_out` window disabled (#39 plus 306's
+#54), and `site_admin` added to the gate (#10). Mutants applied to the LIVE functions and restored by
+replaying the committed migration end-to-end, so live is provably what the file produces. Typecheck 0,
+lint 0, vitest 7556 passed with the documented 10-red `ship-pr-*` shell quirk.
+
+**Gate 4 drove the real RPC against real prod rows, rolled back.** One of the nine 2026-07-24 OT
+sessions (นายภานุพงษ์, a CLOSED day) corrected by a real `procurement` user: `17:21 → 20:00`,
+`ot_hours` **2.5** priced from the span, `out_auto false`, `out_method manual`, one `audit_log` row with
+`kind = muster_correction_time` and `actor_role = procurement`. Then the narrowing, on the same row: a
+real `super_admin` calling `muster_scan_out` is refused with `P0001 muster_scan_out: this session
+belongs to an earlier day`. Before this migration that call would have succeeded.
+
+⚠️ **A pgTAP file had to be re-pointed, deliberately.** `306-muster.test.sql` asserted that the SA
+_can_ scan out of a past-day team — the exact capability ruling ② removes. It now asserts the refusal,
+and the spec-351 claim it carried ("a regular scan-out past 17:00 computes no OT") moved to a
+12-hour-span session on today's team so the span that would catch a reintroduced threshold is preserved
+rather than weakened.
+
+**Open questions.** ① There is still no UI: U4 is the DB half, and the add-person picker U3c needs is
+still blocked on the second U3b finding (`procurement` cannot read a team id — `muster_teams` RLS is
+`can_see_project`, `else false` for that role). ② The `site_admin` narrowing means the nine OT rows can
+now only be repaired by the correction audience; if the SA should be able to fix her own day, that is a
+surface plus an audience decision, not a re-widening of `muster_scan_out`. ③ `#1000`'s migration comment
+still names U3b for a `ยังไม่มีทีมของวันนั้น` message that belongs to U3c — now on `main`, so a later
+unit can sweep it. ④ `close_muster_day` still does not take `derive_muster_labor`'s advisory key, so
+`reopen_muster_day`'s lock stays one-sided (pre-existing, its own unit; the new function DOES take it).
+
+⭐ **One defect found by self-review AFTER the first green, and it is the same shape as U3b's finding 1.** The out-of-order guard was written as `p_out_at < v_in` INSIDE the `p_out_at is not null` block, so
+it could only ever see a bad CHECK-OUT — moving `in_at` alone, past an `out_at` the caller never
+mentioned, would have produced an **inverted session**, which is exactly the "out-BEFORE-in defect"
+`attendance-audit.ts` exists to flag. The correction path would have manufactured the anomaly its own
+surface reports, for the second time in this spec. Rewritten as one check over the EFFECTIVE pair
+(`v_out < v_in`) after both branches, so it covers both directions; RED-first proved it (the assertion
+red, plus two cascade reds from the inverted row it wrote), then green at **359/359 files, 7561
+assertions**. Live today: 0 of 228 closed sessions are inverted, so the hole is closed before it has an
+instance. ⚠️ The migration was re-applied with `db query -f` (it is `create or replace` throughout, so
+replay is idempotent) — the recorded `schema_migrations.statements` for `20260813075915` therefore
+predates that edit; the FILE is what a fresh database and CI run, and pgTAP certifies the live objects.
+
+## 2026-08-06 — spec 400 U3c (schema half): the add-person picker can finally see a team (lane u3c)
+
+`20260813075916_spec400u3c_list_muster_teams.sql` adds `list_muster_teams_for_day(project, date)`.
+
+**The blocker it clears is U3b's finding 2.** U3a widened `muster_scan_in` to `procurement` and U4 gave
+a correction a real `in_at`, so the WRITE is complete — but every write takes `p_team`, `muster_teams`
+RLS is a single `can_see_project(project_id)` policy, and that helper falls to `else false` for
+`procurement`. A team picker on the session client is therefore EMPTY for 4 of the 5 people U3a widened
+the write for. That is why U3b shipped without add-person.
+
+⭐ **The seam was chosen by PRECEDENT, not taste.** `procurement` already reads every project's
+attendance through `audit_attendance_summary` / `audit_attendance_detail`, both SECURITY DEFINER — so a
+definer listing RPC adds no new kind of trust. The two alternatives were weighed and written down: an
+admin-client (service-role) read moves a real authorization decision out of the database into TS where
+no pgTAP can drive it over the role domain, and widening `muster_teams` RLS would widen the table for
+every existing reader that joins it — the shape spec 400 U2 already paid for (a surface joining a TABLE
+read to an RPC read inherits the WIDER of the two gates).
+
+**Gate and scope are two separate role lists**, copied verbatim from `muster_correct_session`: gate =
+`{super_admin, procurement_manager, procurement}` (the correction audience — `site_admin` is absent
+because she reads `muster_teams` through RLS already and has no surface here); scope = `can_see_project`
+except `procurement`, which is cross-project. An unseeable project is a REFUSAL, not an empty list —
+an empty list reads as "that day had no teams", which is a different fact and the one a corrector would
+act on.
+
+**Each row carries the lead's name, headcount and kind.** Live, a project-day carries one team on 7 days
+and 2–5 on 10, so an "only one team, auto-pick" shortcut would cover 41% and strand the rest — a picker
+is genuinely required, and a picker of unlabelled uuids is not a choice.
+
+**Gates.** RED first for the right reason (`function ... does not exist`). New
+`400c-list-muster-teams.test.sql` **22/22**, `plan(22)` grep-derived; suite 358 of 359 files pass.
+**4 mutants, each killed by its own assertion**: the cross-project arm removed (aborts the file at the
+first procurement call), the headcount's `where a.team_id = t.id` dropped (#9, #10), `left join`
+narrowed to `join` (#12), `site_admin` added to the gate (#16).
+
+⭐ **The LEFT-join mutant would have survived the first draft of the test**, because the fixture had no
+office team — and zero office teams exist in production, so nothing would have caught an inner join
+until the first one was created. Added a lead-less office team on its own date. This is spec 397 U4's
+defect exactly: there an inner join turned "they are in the office team" into "somewhere elsewhere".
+
+⚠️ **`db:push` refused (`Remote migration versions not found in local migrations directory`)** because
+this branch is off a `main` that does not yet carry U4's `20260813075915`. Applied with `db query -f`
+plus `migration repair --status applied 20260813075916` — only this lane's own version was touched; the
+CLI's suggested `--status reverted 20260813075915` is the thing doctrine forbids.
+
+⚠️ **`306-muster.test.sql` reds on this branch and it is NOT this unit's fault** — it is main's old copy
+asserting the SA can scan out of a past-day team, which U4's live `muster_scan_out` now refuses. It goes
+green the moment #1005 lands. Reproducing it on a second branch is the direct confirmation that the
+merge queue is jammed on #1005 rather than on anything here.
+
+**Open questions.** ① The UI half (the panel's add-person form: team picker, worker picker, time input,
+calling `muster_correct_session`) is NOT built — it is U3c-b. ② The worker picker needs no new read:
+`workers` is readable by `procurement` under the live policy, and "already mustered that day" is already
+loaded by the grid. ③ **This PR must merge AFTER #1005** — main would otherwise carry `075916` without
+`075915`.
+
+## 2026-08-06 — spec 400 U3c-b: adding a person the muster missed (lane u3cb)
+
+The correction spec 400 §3 named as the commonest one ("he was here, add him") and the only one the app
+never had. Three units had to land first: U3a widened `muster_scan_in` to `procurement`, U4 added
+`muster_correct_session` so the row can carry a REAL check-in time, and U3c-a added
+`list_muster_teams_for_day` because `muster_teams` RLS refuses `procurement` outright.
+
+**What shipped.** `MUSTER_CORRECT_ROLES` (mirrors the two correction RPCs' shared gate) ·
+`addPersonControl`, a pure five-arm predicate · `bangkokInAt`, which builds the timestamp · the
+`AttendanceAddPersonForm` (team picker, worker picker, required time) inside the U3b `?day=` panel ·
+`addMusterPerson` + its form entry point · `addPersonReturnTo` · the `ADD_ERROR_COPY` map · a
+capability-registry row.
+
+⭐ **`MUSTER_CORRECT_ROLES` is the one muster set WITHOUT `site_admin`, and unlike the two beside it
+that is not "holds it at the DB level with no door" — the RPC itself refuses her.** Every surface that
+reaches a past day is gated on `ATTENDANCE_AUDIT_ROLES`, which has no `site_admin`, so the correction
+would have been privilege with no door. Her equivalent power is the cockpit, on the day itself.
+
+⭐ **The time field has NO default, deliberately.** A pre-filled 08:00 is a guess the app would present
+as a record, and the entire reason U4 exists is that a fabricated timestamp is worse than a missing one.
+
+⭐ **The picker offers only workers with no session that day.** The RPC refuses a duplicate, so an
+unfiltered list would be offer-then-refuse across a 41-name select. The population is the grid's own
+rows, which U2 already UNIONs the roster into — so a worker the muster has never recorded is exactly
+who this offers. Measured live: **41 roster − 23 mustered = 18 candidates**, exactly.
+
+⚠️ **The capability-registry bijection guard caught the new export and that is the guard working.**
+`role-capabilities.test.ts` requires every exported role set to have exactly one registry entry
+referencing the LIVE const; adding `MUSTER_CORRECT_ROLES` without a row reds it. Added
+`muster-session-correct` with the site_admin reasoning written into it.
+
+**Gates.** RED first, three times (the missing module, `addMusterPerson is not a function`, six page
+wiring assertions). **8 mutants, all killed**: the closed-day arm, the permission arm, the `+07:00`
+offset, the `noTeams` arm, `canCorrect` keyed on `MUSTER_CLOSE_ROLES` instead, the candidate filter
+dropped, `required` removed from the time input, and the teams read renamed off the RPC. Pre-flight
+`git diff --quiet` gate before every batch; tree verified clean after. Suite **7590 passed** (the 10
+documented `ship-pr-*` shell reds), typecheck 0, lint 0, `pnpm build` 0.
+
+✅ **Gate 4 was the REAL flow on REAL prod data, and the write was retracted afterwards.** Dev server +
+the dev-preview session, `PRC-2026-004`:
+
+- **08-05 (open, 4 teams)** — the form renders with all four real teams labelled by lead and headcount
+  (`นายจันทร์ เงางาม · 6 คน` …), **18 worker candidates** (41 − 23 already mustered, exact), the time
+  input `type=time required` with an EMPTY value, and the correction disclosure.
+- **08-04 (closed, the known 4-person hole)** — no form; the panel states the closure, offers the
+  reopen form, and says `ปิดวันแล้ว — ต้องเปิดวันดังกล่าวอีกครั้งก่อนจึงจะเพิ่มคนที่ตกหล่นได้`.
+- **The submit loop** — a real `requestSubmit()` wrote a real row: the redirect came back with
+  `added=1` **before** the `#d-2026-08-05` fragment (the dead-banner bug avoided), the column headcount
+  moved **23 → 24**, and the new name appeared in the still-in disclosure. The row read back
+  `in_at = 2026-08-05 07:45` Bangkok — **the supplied time, not `now()`**, which is the U4 defect closed
+  end to end — with `in_method manual` and one `muster_correction_time` audit row.
+- **Cleanup:** retracted through `muster_undo_scan` (the day is open and `labor_logs` is 0, so it is
+  the sanctioned path, not a raw delete). Headcount back to **23**, row count 0. The audit rows for
+  both the correction and the undo remain, which is correct — they are an honest record.
+
+⚠️ **A fetch-based SSR probe read the form as HALF-BUILT and it was the PROBE, not the page.** Next dev
+streams, so the fetched HTML carried `<template id="P:2a">` placeholders where the worker select and
+the time input belong — the probe reported `hasTimeInput: false` while four team options were present,
+a contradiction that only the rendered DOM could settle. The existing note about stripping `<!-- -->`
+markers covers a different half of the same hazard; **a fetched dev-server HTML string is a snapshot of
+a STREAM, so absence in it is not absence on the page.**
+
+**Open questions.** ① No OT arm: the RPC refuses to CREATE an `ot` session (×1.5 money, spec 351), so
+the form does not offer one — retiming an existing OT row is U4's path and has no surface yet. ② The
+form records an ARRIVAL only; a back-dated check-out exists in the RPC and has no control. ③ `site_admin`
+cannot reach any of this by design — if she should be able to fix her own past day, that is a surface
+plus an audience decision, not a re-widening of `muster_scan_out`.
+
+## 2026-08-07 — spec 400 U5: the correction trail, so an edit can be read as well as made (lane daytrail)
+
+**Status: SHIPPED.** Migration `20260813075917` = `list_muster_day_audit(project, date)`, plus the trail
+section inside U3b's `?day=` panel.
+
+**The gap.** Every muster correction has written an `audit_log` row since U3a — six kinds across six
+functions — and **nothing in `src/` read a single one of them**. It was not merely unbuilt: `audit_log`'s
+RLS is an internal-privileged arm (`super_admin`, `project_director`, `accounting`, `project_manager`)
+plus a WP-rework arm that gives `site_admin`/`procurement`/`procurement_manager` exactly two payload
+kinds. **The correction audience could not read its own trail on the session client**, and `hr` and
+`project_coordinator` cannot read any audit row at all.
+
+🚨 **THE MEASUREMENT THAT SHAPED THE QUERY, taken from the live ROWS rather than from the six producing
+functions: `muster_move` and `muster_undo` carry NO `project_id`.** `muster_move` carries
+`from_team`/`to_team`, `muster_undo` carries `team_id`, and both must be resolved through `muster_teams`.
+**13 of the 16 live rows are `muster_move`** — so a payload-only filter would have rendered an EMPTY
+trail on every real day, with every assertion about the other four kinds passing. Each kind is therefore
+pinned SEPARATELY: a total would let one leak while another is over-filtered and still read 6.
+
+**Gate and scope are two lists,** the shape U3c copied from spec 397: gate = `ATTENDANCE_AUDIT_ROLES`
+(everyone who already opens the report — deliberately wider than the correction audience, because
+`accounting` owns the wage consequence), scope = the cross-project tier plus `can_see_project` for
+`project_manager` alone. An unseeable project is a REFUSAL, not an empty list — an empty trail reads as
+"nobody edited this day", which is a different fact and the one a reader acts on.
+
+⭐ **Reusing an existing role set is what kept the `src/` half free of a danger path.** No new export ⇒
+no capability-registry row, no `src/lib/auth/**` edit. The migration is the only protected surface here.
+
+**Gates.** RED first twice, each for the right reason (`function ... does not exist`; then the missing TS
+module). pgTAP **361/361 files, 7616 assertions, 0 failures**; the new `400d-list-muster-day-audit.test.sql`
+is **33/33**, `plan(33)` grep-derived. vitest: 3 new/updated suites green. typecheck 0, lint 0.
+**11 mutants, every one killed by its own dedicated assertion** — 4 SQL (team resolution dropped, kind
+allowlist removed, cross-project tier removed, `site_admin` added to the gate) and 7 TS (an unchanged
+axis reported as a change, the unknown-kind fallback removed, the TS kind list drifted from the SQL
+allowlist, not-fetched collapsed into empty, the unattributed-actor fallback removed, the trail reversed,
+the page's project guard dropped).
+
+⚠️ **The pgTAP fixture stores ISO-8601 UTC strings because that is what the live payload holds** (read off
+the one real row: `"2026-08-05T00:45:00+00:00"`). A hand-written `'…+07'` literal would have pinned an
+encoding the app never meets and hidden the Bangkok rendering from the caller.
+
+⚠️ **One existing assertion was re-anchored, deliberately.** `attendance-day-correction.test.tsx` matched
+`/เลือกโครงการ/` for the control's own copy; U5 adds a parallel "เลือกโครงการก่อน จึงจะดูประวัติการแก้ไขได้"
+for the trail, and an unanchored matcher cannot tell the two apart — it would pass for a panel that had
+lost the control arm entirely. Both sites now assert the whole control string.
+
+⚠️ **`pnpm db:types` was regenerated** (live == main + this lane's own migration, verified before and
+after). The diff is purely additive and also picks up `derive_muster_labor_internal`,
+`list_muster_teams_for_day` and `muster_correct_session`, all already on `main` and never regenerated.
+
+**Open questions.** ① There is still no trail on the `?worker=` drill — the grain there is one worker
+across many dates, which is a different query and was scoped out. ② `interaction_events.route` stores the
+path WITHOUT its query string (all 93 rows in 30 days read exactly `/team/attendance`), so `?day=` opens
+are NOT measurable and the spec's acceptance says so rather than inventing a query. ③ The CSV export still
+writes no audit row (spec 397's recorded item), so an export is invisible to this trail by construction.
+
+---
+
+## 2026-08-07 — spec 403 U1: the DOB sanity gate (lane dobgate)
+
+**Status:** built. Migration `20260813075918` applied; pgTAP `403-dob-sanity.test.sql` 27/27;
+full pgTAP 362 files / 7,643 assertions / 0 failures.
+
+**Ask.** Operator, on a screenshot of `/contacts/bank-changes`: _"dob is often wrong year, how
+about verifying child labor to prevent that?"_ Ruling: **hard block under 15**; on a follow-up,
+**keep the 120-year ceiling**.
+
+**What was measured, before any code.** Two live wrong-year classes, neither rejected anywhere:
+a Buddhist-era year typed into a CE field (`วีระชัย เส็งนา` = `2513-03-11` in BOTH `workers` and
+`staff_registrations` — 487 years in the future) and the date picker's own submit date (a pending
+identity request at `2026-07-15`, age 0 — the row in the screenshot). `submit_identity_change`
+runs a mod-11 checksum on the national ID and nothing at all on the DOB. 1 of 47 `type="date"`
+inputs in `src/` carries a `max`.
+
+**The refutation that mattered.** The first draft of the spec claimed an age was "unconstrained in
+both directions". A refute-first fact-check against the live DB proved that **false for half the
+surface**: `sa_add_project_worker`, `sa_add_project_worker_with_bank` and `crew_lead_add_member`
+already floor at **18**, with pgTAP pins. U1 therefore does not touch them — the operator's "15"
+answered _what floor the new gate should use_, at a moment when nobody knew an 18 floor existed,
+and relaxing a shipped 18 is a different decision. Left as an open operator question.
+
+**The finding that chose the design.** The same fact-check found a **seventh, non-RPC write path**:
+`authenticated` holds column-level INSERT _and_ UPDATE on `contractors.date_of_birth` with
+permissive RLS, and `service_role` bypasses RLS entirely. A per-RPC `perform` would have had to be
+reproduced in six function bodies **and would still not have closed this**. So the gate is a
+`before insert or update` trigger per table over a pure `dob_rejection_reason(date)` SSOT. A CHECK
+constraint cannot do it — the rule depends on `current_date`, which is not immutable.
+
+**Decisions worth keeping.** ① The reason function returns **the reason**, not a boolean, so every
+caller can name the actual cause instead of refusing generically. ② The Buddhist-era arm is tested
+**before** the future arm — `2513-03-11` satisfies both, and "the future" is true, useless, and
+never teaches the user to subtract 543; `year > 2400` is exact (one row in the whole database
+exceeds it, and it is the known mis-entry). ③ An UPDATE that does not **change** the DOB is not
+validated, so the legacy bad row stays editable for every other reason — the gate is deliberately
+not retroactive.
+
+**Gates.** RED first for the right reason (`function "public.dob_rejection_reason(date)" does not
+exist`) with the rest of the suite green in the same run. `plan(27)` derived by grep, never
+counted. Both boundaries pinned in both directions (exactly 15 and exactly 120 accepted, one day
+either side refused). Five triggers mutated **separately** — a whole-set mutation cannot tell
+"gated" from "gated in one place". Objects verified live after `db:push`, not from the push's own
+success message. `db:types` regenerated with live == main + this migration only (diff is one
+line).
+
+**Verified, not assumed:** no existing pgTAP goes red (every DOB literal in the eight affected
+test files is a legitimate adult date; the `2015-01-01` cases already expect `P0001`), and no
+downstream consumer breaks — `date_of_birth` appears in three non-generated app modules plus five
+display-only surfaces, and nothing in `worker/` or `scripts/` reads it.
+
+**Open questions.** ① Leave the 15/18 asymmetry or raise everything to 18 — operator's call.
+② `update_own_staff_registration` is **coalesce-keep** (blank = keep, never clears), so U2 must not
+offer to clear a DOB; clearing needs an RPC semantics change that is not scoped. ③ U3's age
+renderer needs its own guard: `formatThaiDate` adds 543 to an already-BE year, so the `2513` row
+displays `11 มี.ค. 3056` and a naive age would read `อายุ -1030 ปี`. ④ The operator's ask #1 —
+identity changes are approved against zero evidence (no photo column, no upload, 1 of 4 pending
+requesters has an `id_card` anywhere) — is recorded in the spec §8 and needs its own spec.
+
+**⚠️ Gate 4 refuted this unit's own first build, and the correction is the interesting part.**
+The first version covered `decide_identity_change` only by side effect — the triggers on
+`workers`/`staff_registrations`/`contractors` would fire when the approve wrote them. Driven for
+real as a live trio member against the live age-0 request, **the approve SUCCEEDED**: all three of
+that RPC's writes are `where`-scoped to the requester's linked records, and three of the four
+pending requests have none of them (zero worker rows, zero approved registrations, zero contractor
+links). Nothing was updated, no trigger fired, nothing was raised, and the request was marked
+approved. Fixed by giving the `identity_change_requests` trigger an optional second argument that
+also validates the transition to `approved` — **a proposal has to be checked where it is APPLIED,
+not only where it lands**. The pgTAP for it was written RED first and failed on exactly that
+assertion; a sixth mutant removes only that argument and the approve probe survives.
+
+⭐ **The wider finding, out of scope and worth its own spec:** for those three requesters,
+approving changes **nothing at all** — including the two proposals that are perfectly valid. The
+trio approves, the update lands on zero rows, nobody is told. Silent-success class again.
+
+⚠️ **Two instrument traps, both caught by controls rather than by reading the code.** ① The first
+Gate 4 run returned `42501 not authenticated` for every case, because `SET LOCAL` inside a helper
+function reverts when that function exits — the impersonation never happened, and only the control
+("a valid DOB from the same principal must be ACCEPTED") distinguished that from a working gate.
+② The new approve assertions first died on `42501 permission denied for table _tap_buf` — the
+documented role-switch trap; the runner's collector table needs explicit grants before a
+`set local role`.
+
+**Replay, not a hand-patch.** The applying arm arrived after `075918` had already been pushed, and
+editing an applied migration silently no-ops. The file was made replayable (`drop trigger if
+exists` before each create) and re-run end-to-end with `db query -f`, so the committed file is
+byte-for-byte what the live schema was built from — which matters because pgTAP asserts against
+the live objects, not the file.
+
+**Gate 5 (fresh-eyes) returned ten findings; nine were taken.** The four that changed behaviour:
+
+1. **Timezone (MEDIUM).** The gate reasoned in `current_date` while the server runs in **UTC**, so
+   between 00:00 and 07:00 Bangkok it is a day behind — a person submitting on their real 15th
+   birthday would have been refused as under-age, and today's Bangkok date would have been named
+   "in the future" rather than "under minimum age" (the wrong cause, in a design whose whole point
+   is naming the right one). It also silently disagreed with the three shipped 18-floor RPCs,
+   which all use `(now() at time zone 'Asia/Bangkok')::date` — the spec quoted that line and then
+   did not adopt it. Now `public.dob_today()`, pinned by an assertion.
+2. **A `ShareRowExclusiveLock` on a hot table, in CI, against production (MEDIUM).** The test
+   planted its legacy row with `alter table … disable trigger`, which takes that lock — and the
+   runner wraps **twenty files in one transaction**, so the lock would have been held long after
+   this file's own rollback (a subtransaction transfers locks to the parent, it does not release
+   them). Every live INSERT/UPDATE on `workers` would have blocked for the rest of the chunk. Now
+   `set local session_replication_role`, which takes no table lock.
+3. **A mistyped `TG_ARGV[0]` was a silent no-op (MEDIUM).** `->>` returns NULL for an absent key
+   and a NULL DOB is acceptable, so a typo'd column name left the trigger installed and guarding
+   nothing — and three of the five tables had only a `has_trigger` pin, which asserts the trigger's
+   NAME and nothing about its argument. The trigger now fails loudly on an absent column, proved
+   by a temp-table probe, and `contractors` gained a behavioural assertion.
+4. **`throws_ok(…, 'P0001', null, …)` let arms pass for each other's reason (LOW, but fake
+   coverage).** Deleting the Buddhist-era arm left "a Buddhist-era year cannot be inserted"
+   **green**, because the value fell through to the future arm and still raised `P0001`. Every
+   `throws_ok` now pins the message.
+
+Also taken: `isfinite` (an infinite date was reported as a Buddhist-era year), five `col_type_is`
+pins (the trigger's `to_jsonb(new)->>col` read is only safe while all five columns are `date`), and
+three doc corrections — the migration header's "covers every path by construction" is now scoped to
+non-owner roles (the table owner can still disable triggers or set `session_replication_role`, the
+existing break-glass surface), and `approve_staff_registration` only inserts into `workers` under
+its `technician` arm, so the blast-radius claim was too broad.
+
+**One finding was acted on by widening the unit rather than documenting it.** U1 shipping ahead of
+U2 meant every live DOB refusal read "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" — a permanent refusal
+dressed as a transient one, which is exactly the honest-copy rule the repo already carries. Pulled
+`src/lib/profile/dob-refusal.ts` plus its two call sites forward into U1 (RED-first, 9 tests). The
+mapper returns the **fact only and names no actor**: the person correcting their own birthday can
+fix it and is told to; an approver reading someone else's stored proposal cannot, and is told to
+reject and ask for a resubmission. A single shared string would have been false for one of them.
+
+**Final U1 gates:** pgTAP **39/39**, full suite **362 files / 7,655 assertions / 0 failures**.
+
+## 2026-08-07 — spec 402 U1: the purchase-request family gets a message worth reading (lane notidetail)
+
+**What shipped.** The four purchase-request events — `pr_created`, `pr_decision`, `pr_progress`,
+`pr_cancelled`, together **81% of every push the app has ever sent** — moved from a single line built out
+of a PR number and a status word onto spec 402's six-slot skeleton: an icon + status headline, the ITEM in
+words, the project and refs, the actor or transition, the comment, and a deep link onto the request.
+New pure module `src/lib/notifications/message-skeleton.ts` (`buildNotificationMessage`, `joinWhere`,
+`purchaseRequestLink`, `PR_STATUS_ICON`); `composeNotification` composes through it and stays pure, with
+all resolution in the drain via `ComposeContext`.
+
+⭐ **`pr_progress` had carried `item_description` in its payload since the trigger was written and never
+rendered it.** 878 pushes said `คำขอซื้อ PR-287625 · ใบสั่งซื้อ PO-104: ได้รับของแล้ว` while the row knew
+exactly which item it was about. No migration was needed for any of this — every outbox row already
+carried an id reaching the missing data.
+
+🚨 **A deviation from the spec, found at the dependency gate-check.** Spec 402 §4 says U1 resolves
+`requested_by` / `decided_by` / `cancelled_by` into an actor line. Reading `notify_pr_status_change` live
+shows it snapshots `'decided_by', new.approved_by` — so on a **pr_progress** row that uid is the person who
+APPROVED the request, not whoever marked it purchased/shipped/delivered. Rendering it would have
+attributed every shipment to the approver. **`pr_progress` therefore renders no actor at all**; L4 carries
+the status transition instead, and `prActorIds` in the drain deliberately omits that event. Pinned by a
+test that makes the name RESOLVABLE and asserts it is still absent — so the pin covers the decision, not a
+lookup that happened to come back empty.
+
+⚠️ **The project comes from the request row, not the payload.** `pr_progress` / `pr_decision` /
+`pr_cancelled` payloads carry no `project_id` at all (0 of 1,147 live rows) and `pr_created`'s is only on
+the newer ones (194 of 233), so `project_id` was added to the `purchase_requests` select the drain already
+runs for the PO number. The test mock CHECKS the requested columns, so a revert to the two-column select
+reds instead of silently dropping the project line.
+
+⚠️ **Checked before trusting it: the new project ids do NOT widen any recipient set.** They join
+`enrichmentProjectIds`, which also feeds `projectPmIdsByProject` — but recipient resolution keys on
+`payload.projectId` and `wpProjectById`, never on the new `projectIdByPrId` map, and `pr_created`'s branch
+still reads `payload.projectId`. Extra entries populate contact maps only.
+
+⚠️ **Each enrichment leg is OR-ed into the gate and unioned into the id sets separately**, so PR-family
+names and projects never depend on the site-issue or approval legs being non-empty — the latent-coupling
+shape the submitter arm was already fixed for.
+
+**Open questions.** ① The supplementary "names the parent PO" assertion is a `toContain` that also passes
+against the pre-402 output; the exact-match cases are the real pins. ② `PR_STATUS_ICON` covers the whole
+`purchase_request_status` enum, but `requested` and `site_purchased` are unreachable from these four
+events' transitions — they exist so the Record stays exhaustive, not because anything renders them today.
+③ Gate 4 for a message-shape change is a real push to a phone; no push was sent from this lane.
+
+## 2026-08-07 — spec 402 U2: the work-package family learns to say what the work is (lane notiu2)
+
+**What shipped.** `wp_pending_approval`, `wp_decision`, `wp_reopened` and `wp_evidence_resubmitted` (498
+rows) move onto the six-slot skeleton, each with a deep link. `WP_DECISION_ICON` (a Record over
+`approval_decision`, so a new value fails the compile) plus `workPackageLink` / `reviewWorkPackageLink` in
+`message-skeleton.ts`; the drain adds `name` to its `work_packages` select and resolves the WP's project
+and the event's actor.
+
+⭐ **`wp_decision`'s payload snapshots NOTHING about the work — no code, no name, no project, verified
+243 of 243 live rows.** Its whole message was `ผลการตรวจ WP-44-02: อนุมัติแล้ว`, and the WP code in it came
+from context, not the payload. All three facts now arrive through the drain's `work_packages` join, which
+already ran — it just never selected `name`.
+
+🚨 **The link is a ROLE decision and one outbox row produces ONE body for every recipient, so it cannot
+be varied per person.** `/review/work-packages/[id]` is `requireRole(PM_ROLES)`;
+`/projects/[pid]/work-packages/[id]` is `WP_DETAIL_ROLES`. Recipients, read live from
+`resolve-recipients.ts`: `wp_pending_approval` → the PM pool, `wp_evidence_resubmitted` → the decider
+being answered (both manager-tier ⇒ **review** link), `wp_decision` + `wp_reopened` → the WP's photo
+UPLOADERS (⇒ **project** link). A test pins the review link's presence AND the absence of `/projects/`,
+because a swap between two valid-looking URLs is exactly the defect the split prevents.
+
+⚠️ **A measured exposure, shipped deliberately.** Live uploader roles are site_admin 2348 photos ·
+project_manager 326 · **visitor 145 (1 person)** · super_admin 3 — and `visitor` is not in
+`WP_DETAIL_ROLES`, so that one account's `wp_decision` link will redirect it rather than open the WP.
+Withholding the link from everyone to spare one mis-roled account is the worse trade; `requireRole`
+redirects rather than erroring, so the cost is a wrong landing, not a failure. **Recorded as an operator
+item: that account is shooting site photos and should probably not be a `visitor`.**
+
+⚠️ **`wp_reopened`'s copy changed because its behaviour did.** The old text ended
+"— เปิดแอปดูข้อบกพร่อง", a stand-in for the link this unit adds; leaving it would have contradicted the
+tappable URL directly below it. Retired, and its absence is pinned.
+
+⚠️ **Name/code precedence is deliberate:** the payload snapshot wins where it exists (it is what the work
+was called WHEN the event fired) and the join fills in otherwise. `wp_decision` has no snapshot, so its
+name is necessarily the current one — a WP renamed after the decision will read with its new name.
+
+⚠️ **The drain test mock had no `photo_logs` branch and returned `[]` for the contacts-only users leg**,
+so no test in the file could ever produce a `wp_decision` push — the event was untestable end-to-end, not
+merely untested. Both are now fixtures, and the `work_packages` mock CHECKS that `name` was requested.
+
+**Open questions.** ① `wp_reopened` has 2 rows all-time, so its shape is unproven against real traffic.
+② A WP renamed between decision and push renders its new name (see precedence above) — correct for
+"go look at this", arguably wrong for an audit trail. ③ Gate 4 for a message-shape change is a real push
+to a phone; none was sent from this lane.
+
+## 2026-08-07 — spec 402 U3: the last four events, and one shared way to say "who" (lane notiu3)
+
+**What shipped.** `feedback_submitted` plus the three dormant events (`site_issue_reported`,
+`receipt_correction_flagged`, `receipt_correction_resolved`) move onto the six-slot skeleton with deep
+links, completing spec 402. `FEEDBACK_TYPE_ICON` and four link builders (`feedbackLink`,
+`storeCorrectionsLink`, `projectStoreLink`, `projectLink`) join `message-skeleton.ts`, and all seven link
+builders now share one `absolute()` helper instead of repeating the trailing-slash strip.
+
+⭐ **`site_issue_reported` owned a BESPOKE pair of context fields — `issueReporterName` and
+`issueDeepLink` — doing exactly what `actorName` and `deepLink` now do for every other event.** Retired:
+one way to say who acted and where to go, so the next event cannot invent a third. The only surviving
+mentions of those names are comments recording the retirement.
+
+⭐ **`feedback_submitted` told the operator the reporter's ROLE but never their NAME**, which cannot
+separate two site admins without opening the app. It now reads `แจ้งโดย <name> (<role>)`, degrading to
+`แจ้งโดย<role>` when the drain resolved nothing — the reporter is not a recipient (the super pool is), so
+their uid had to be added to the candidates lookup or the line would silently never render.
+
+🚨 **The two correction events have OPPOSITE audiences, so they do not share a link.** `flagged` goes to
+`BACK_OFFICE_ROLES`, whose queue is `/store/corrections` — the gate is exactly the recipient set.
+`resolved` goes to the SA who flagged, who would be **refused** at that queue, so it lands on
+`/projects/[id]/store` (`WP_DETAIL_ROLES`, which includes `site_admin`). The test pins the queue URL's
+ABSENCE on the resolved event, not just its presence on the flagged one.
+
+⚠️ **Neither correction payload carries a receipt id** — the outbox row has no `work_package_id`, no
+`purchase_request_id` and nothing identifying the receipt — so there is no receipt-level link to build and
+the project is the only scope available. Recorded rather than guessed at.
+
+🚨 **`receipt_correction_resolved` names no actor, deliberately.** Its payload carries only
+`requested_by`, who is the FLAGGER — the RECIPIENT of this very message, not whoever resolved it. Naming
+them would tell the reader they did the thing they are being informed about. **Third instance of this
+class in one spec** (pr_progress's approver, wp_progress's absent actor, now this): _a payload uid is not
+an actor until you check which side of the event it sits on._
+
+**Open questions.** ① Three of the four events have ZERO rows all-time, so only `feedback_submitted`
+(28 rows) has real-flow evidence; the rest are pinned by fixtures. ② `site_issue_reported` has no
+free-text description in its payload, so its L2 subject slot is always empty — the type in the headline
+carries the whole meaning. ③ Gate 4 for a message-shape change is a real push to a phone; none was sent
+from this lane.
+
+## 2026-08-07 — spec 400 U6a: the worker-day fix screen (lane attnfix)
+
+**Status: SHIPPED, code-only.** New route `/team/attendance/fix?worker=&date=&project=&from=` — retime,
+add or delete ONE person's attendance for ONE day, without opening the 42-row grid or the day panel.
+Design ratified with the operator over three widget revisions in chat before build (memory
+`spec400-attendance-grid.md`, "U6 PLAN rev 3"); this unit gate-checked its claims against the live RPC
+bodies rather than re-litigating the shape.
+
+**Gate = `MUSTER_CORRECT_ROLES`, not `MUSTER_CLOSE_ROLES`.** The correction RPCs' own allowlist has no
+`site_admin` — she holds the cockpit for TODAY, but every surface reaching a PAST day in this app is
+gated the same narrow way, and this page must not be the exception.
+
+**No wizard, gates are per action, measured from the live RPC bodies:** retime
+(`muster_correct_session`'s UPDATE path) is offered even on a CLOSED day — its real guard is the
+unbooked-wage anti-join, not closure — while add (the INSERT path) and delete (`muster_undo_scan`) both
+require the day OPEN, so they sit under ONE locked group whose header carries the reopen form (reused
+unchanged) plus the blast-radius sentence. No time input anywhere defaults to a value.
+
+⭐ **Two gaps found only by driving the real RPCs, not by reading their signatures.** `audit_attendance_detail`
+discloses a session's team LEAD NAME but never its `team_id`, and `muster_day_closures`/`muster_attendance`
+RLS is `can_see_project` (FALSE for procurement) — so a no-session worker-day has no team or closure fact
+reachable on the session client at all. Fixed with two narrow ADMIN lookups, each scoped to exactly the one
+row this audience already reads in substance through a DEFINER RPC elsewhere (no new exposure). The add arm
+also only ever offers a REGULAR session — the RPC refuses to create an OT one after the fact — so the add
+card disappears entirely once a regular session exists, rather than reaching the RPC's own refusal.
+
+**Gate-4 real-flow finding:** a no-session worker-day with `?project=` rendered the date with no project
+name (it only ever came off the first session row). Fixed with a session-client `projects` lookup, only
+when there is no session to read it from.
+
+**The trail is the SAME `list_muster_day_audit` RPC** the day panel reads, filtered in TypeScript to
+`workerId` — which needed `DayAuditRow`/`shapeDayAuditRow` widened to carry `worker_id` through (it was
+already on the raw RPC row, just dropped at the shaping step). `REOPEN_ERROR_COPY`/`ADD_ERROR_COPY` moved
+out of `/team/attendance/page.tsx` into a new `src/lib/muster/outcome-copy.ts` so both pages show the same
+sentence for the same outcome; `RETIME_ERROR_COPY`/`UNDO_ERROR_COPY` are new there.
+
+⚠️ **The honest-copy ratchet moved on purpose:** `RETIME_ERROR_COPY.stale` ("กรุณาโหลดหน้านี้ใหม่แล้วลอง
+อีกครั้ง") is the one deliberately retryable arm in the whole unit — it fires only when the page's
+server-resolved team id no longer matches the row's own, and reloading re-resolves it fresh. Ceiling raised
+237→238 occurrences / 110→111 files with that justification recorded in the test itself.
+
+**Gates.** RED first for every new module (`day-fix.ts`'s four pure helpers, the two new server actions, the
+three new form components, the page itself via a source-scan test) — all confirmed failing before
+implementation. Full vitest suite green (via git-bash, the documented PATH requirement for
+`ship-pr-*` tests); typecheck 0, lint 0. **4 mutants, each killed by its own dedicated assertion**: the role
+gate (`MUSTER_CORRECT_ROLES` → `MUSTER_CLOSE_ROLES`), the retime-on-closed-day claim (adding a `dayClosed
+=== false` guard it should not have), the add/delete-blocked-on-closed-day claim (removing that same guard
+where it SHOULD be), and the project-required guard for a no-session worker-day (dropping the `projectId
+!== null` condition on the admin closure lookup).
+
+✅ **Gate 4 was the real flow on real prod data, with every write retracted or restored afterward.**
+Project PRC-2026-004, worker-day 2026-08-04 (closed, `out_auto=true`): retimed a check-in 08:22→08:25→08:22,
+proving retime succeeds on a closed day end-to-end. Worker-day 2026-08-05: reopened it via the page's own
+embedded form, added a missing person (07:50) with the team picker populated from `list_muster_teams_for_day`,
+confirmed the trail showed both the correction-time write and (on delete) the undo, deleted the row to
+restore the empty state, then re-closed the day via the day panel to leave prod exactly as found. Zero
+console errors, zero server errors, across a super_admin session throughout (in `MUSTER_CORRECT_ROLES`).
+
+⚑ **U6b, deliberately NOT built here:** the three entry doors (grid anomaly/empty cells, the `?day=` panel's
+own anomaly work-list, the spec-374 calendar's in-month cells) and the unfinished-day banner on those OTHER
+pages. Reachable today only by a hand-typed URL; `safeBackHref`/`?from=` is already wired and the route is
+registered in `nav-back-affordance.test.ts`'s `STATIC_MULTI_PARENT` list on the same "built multi-parent
+from day one" basis `/team/attendance` itself used.
+
+## 2026-08-07 — spec 402 U4: the deep links come back out (lane nolinks)
+
+**What shipped.** Every push notification's URL is gone: the skeleton's L6 slot, all seven link
+builders, `ComposeContext.deepLink`, the drain's link wiring, and its now-unneeded `clientEnv` import.
+The five information slots — headline, subject, where, actor, note — are untouched.
+
+🚨 **This REVERSES a decision from U1–U3, on the operator's refutation the same day:** _"sending a link
+is not helpful because users have pwa installed, links take them to browser, not to mention login
+problem."_ Verified rather than accepted on faith, and it is worse than stated:
+
+- **A push cannot reach the installed app.** LINE and Telegram open links in their own in-app WebView,
+  and an **iOS home-screen PWA cannot capture a link at all**. The field tier lives in the PWA.
+- **That WebView has its own cookie jar**, so the tap lands logged out.
+- **And the login round trip silently discards the destination** — `require-role.ts:82` is a bare
+  `redirect("/login")` with no `next`, despite `safeNextPath` existing and spec 263 having built exactly
+  that round trip. **That is an app-wide bug, not a notification one**, and is owed its own unit.
+
+⚖️ **Per-channel links were considered and rejected.** The drain pushes LINE and Telegram in separate
+loops (`route.ts`), so the link could have been kept for the Telegram/office tier — 4 people, desktop,
+usually already signed in — and dropped for the 19 LINE-only field users. The operator chose to drop them
+everywhere; two shapes of one message is a seam that buys little.
+
+⚠️ **`site_issue_reported`'s pre-402 link (spec 277's `issueDeepLink`) went too** — deliberate, not
+collateral: same failure mode, and the event has zero rows all-time.
+
+⭐ **The guard's first run was VACUOUS and the RED-first discipline is what caught it.** The 12
+per-event "no URL" cases passed immediately, because the fixture context carried no `deepLink` — they
+would have passed against the LINKING code too. Fixed by putting `deepLink` INTO the fixture as an extra
+property on a named const (TypeScript only excess-property-checks fresh object literals), so it
+type-checks both before removal and after: before, a URL renders and all 12 RED; after, the key is inert.
+Re-run went 3 red → **15 red**.
+
+⚠️ **Stripping the link assertions left one drain test asserting nothing** (it bound `text` and made no
+claim — caught by lint's no-unused-vars, not by the suite). Rewritten to pin what survives: the item and
+project reach the flagger, and the message still names no actor.
+
+**Open questions.** ① The `next`-threading bug is filed but unbuilt; until then no gated link anywhere in
+the app survives a login. ② If the office tier later wants links back, the per-channel split above is the
+shape to use — the drain already supports it. ③ Gate 4 for a message-shape change is a real push to a
+phone; none was sent from this lane.
+
+## 2026-08-07 — spec 367 Q1: a registered item says where it is (lane eqloc)
+
+**What shipped.** The add sheet on `/equipment` gained one field — `ตอนนี้อยู่ที่ไหน`, prefilled to
+`รับเข้าคลัง` with every project as the alternative — and `createEquipmentFromCatalog` now writes the
+matching `equipment_movements` row after the item insert. Code and tests only: the table already had the
+columns, the column-scoped INSERT grants, and an RLS policy naming all six staff roles (verified live,
+not inferred from the migration).
+
+**Why now.** Location on `/equipment` is derived purely from the latest movement
+(`current-location.ts` → `equipment-location-label.ts`), and the add flow wrote none — so a freshly
+registered item rendered `—`. That is exactly the blank **63 of 64 items** carried before the 2026-07-30
+reset, cleared then by a scripted backfill rather than by the form. The registry is at **0 items** and is
+about to be filled by hand by the procurement team, so the defect was one entry away from being
+re-created ~68 times.
+
+⭐ **It answers spec 367 §10 Q1 by making the state unreachable rather than by picking a label.** The open
+question was whether a movement-less item should READ as "at คลัง" or "ยังไม่ระบุ" — one option asserts a
+location nobody verified, the other leaves the column useless. Recording a real event at registration
+costs the registrar nothing (the picker is prefilled) and leaves the `—` placeholder meaning only what it
+should: no movement was ever recorded. Spec §10 Q1 is struck through with the answer.
+
+⭐ **The picker's option labels ARE the movement labels** (`EQUIPMENT_MOVEMENT_KIND_LABEL.received` /
+`.deployed`), so what the registrar picks is character-for-character what the row's location badge shows
+afterwards. A separate wording here would have been a second name for one fact.
+
+⚖️ **Prefilled, not required.** The store-first directive makes คลัง the normal answer for a tool being
+entered into the registry, and a wrong pick is correctable from the row's existing ย้าย button (movements
+are append-only compensating events, ADR 0055 §4). The alternative — an unpicked sentinel that forces a
+tap per item — buys deliberation at 68× the cost, and its failure mode is the `—` this unit exists to
+remove.
+
+⚠️ **The refusal had to move ABOVE the first write.** `resolveInitialMovement` needs the item's validated
+tracking/quantity, which is only known late — but on the new-SKU escape the catalog row is inserted
+_before_ the instance is validated, so a late refusal would strand a registered SKU with no unit under it.
+The module exports `isKnownLocation` for the early gate and reads the same predicate internally, so the
+rule is stated once.
+
+⚖️ **A failed movement keeps the item** — same contract as the rate copy, for the same reason (the
+registrar is standing at the machine; a lost row is retyped from scratch, an unlocated one is two taps).
+Both follow-ups can fire on one save, so the notice became a LIST rather than a second branch, and it
+names the ย้าย button instead of closing quietly.
+
+**Gates.** RED first: 10 failing tests + 1 unresolved import before any production code. lint 0 ·
+typecheck 0 · six mutants each killed by its own assertion, every run reporting `1 failed | N skipped`
+so no filter matched zero tests, every restore verified with `git diff --quiet`.
+
+## 2026-08-07 — spec 367 §13: เพิ่มหลายเครื่อง, the bulk add paste (lane eqbulk)
+
+**What shipped.** A second door on `/equipment`, beside the CSV importer: paste a table of
+`ทะเบียน · จำนวน · เจ้าของ · ที่ตั้ง`, press ตรวจสอบ to see what each line will do, press
+เพิ่มทั้งหมด to create the rows. New: `bulk-add-parse.ts` (pure), `bulkAddEquipmentFromCatalog`,
+`BulkAddEquipmentSheet`, and `paste-delimiter.ts` (the sniff hoisted out of the importer so both
+pastes share one rule).
+
+**Why.** The registry is at 0 rows and the add sheet creates ONE machine per trip. The last
+physical count was 68 units across 63 SKU rows, so the procurement hand-off cost ~68 trips
+before anyone typed a serial number. At 34 unit SKUs + 5 bulk SKUs live, the same fleet is
+~39 pasted lines.
+
+⭐ **It does NOT reverse spec 385 U4, and that shaped the whole design.** The obvious move —
+re-open the export importer's retired INSERT arm — would have re-created the free-text birth
+path the ทะเบียน exists to close, and `equipment_catalog_item_id` is NOT NULL anyway. Instead
+this is a SEPARATE paste whose first column is the SKU name, resolved against
+`equipment_catalog_items` and never created. `equipment-import.ts` is untouched apart from the
+delimiter hoist. Two doors, one birth channel: adding = ทะเบียน, fixing = the CSV.
+
+⚠️ **`จำนวน` means two different things and the design admits it.** For a unit SKU it is how many
+machines to create (N rows, `<SKU> No.<n+1>` … from the LIVE count); for a bulk SKU it is the one
+row's quantity, because the partial unique index allows a single bulk row per SKU. That is the
+collapsed-semantics class — the mitigation is that every parsed row carries its **effect in words**
+(`สร้าง 2 เครื่อง (เครื่องตบดิน No.1–No.2) · รับเข้าคลัง` vs `1 แถว จำนวน 200 · …`), the dry run
+prints them, and the commit is unreachable until that preview comes back clean. Editing the paste
+re-locks it, so reviewed-file ≠ committed-file cannot happen.
+
+⭐ **The parser refuses ALL-OR-NOTHING, not by caller convention.** A file with any bad row returns
+`rows: []`, so a future caller that reads `rows` without checking `errors` cannot half-load the
+registry — and the good rows of a rejected file are exactly the ones the operator re-pastes after
+fixing the bad ones. The duplicate-SKU refusal exists for the same reason numbering is derived
+server-side: two lines for one SKU would both number from the same live count.
+
+⚖️ **Honest about atomicity.** The commit is row-by-row over PostgREST and cannot roll back, so a
+mid-way failure reports how many landed and NAMES the SKU it stopped on rather than claiming a
+rollback that did not happen. Re-pasting the remainder is safe: unit numbering continues from the
+live count and a landed bulk row is refused by the one-row rule. The spec says this in §13.5
+rather than promising atomicity the transport cannot give.
+
+**Carries #1024 forward:** every created row also gets its initial `equipment_movements` event
+through the same `resolveInitialMovement`, or this door would re-create the unlocated-item defect
+once per row — 68 times in one press.
+
+**Gates.** RED first on all three layers (25 parser cases, 9 action cases, 6 component cases — the
+parser and component files failed to resolve at all, the action file 9/9). lint 0 · typecheck 0 ·
+build 0 · six mutants each killed by its own assertion, every run printing `1 failed | N skipped`.
+**Gate 4 drove the real dry run in real Chrome against LIVE data** — commit locked before the
+check, a deliberately dirty paste listed both real refusals (`ซ้ำในไฟล์เดียวกัน`, `ไม่พบ … ในทะเบียน`)
+with the commit still locked, editing re-locked it, and a clean paste produced
+`พร้อมเพิ่ม 2 เครื่อง` + `สร้าง 2 เครื่อง (เครื่องตบดิน No.1–No.2) · รับเข้าคลัง` against the real
+catalogue, zero page errors. ⚠️ The COMMIT leg was deliberately not driven in prod:
+`equipment_items` has no DELETE policy and no DELETE grant, so probe rows would be permanent in the
+registry the team is about to fill (same trade as #1024). ⭐ The first probe's bespoke
+`button:nth-last-child(1)` selector reported the commit as ENABLED on the dirty file while the real
+control was disabled — the instrument, not the app; re-read through the same locator as the other
+two checks.
+
+**Open questions.** ① Asset tag / serial / condition are deliberately absent from the paste
+(per-unit facts for the completion pass) — if the team wants them in the sheet, that is a column
+add, not a redesign. ② Nothing enforces or reports photo coverage, though images are the stated PRI
+prerequisite. ③ `acquisition_cost` / `acquired_at` still have no write path anywhere, so the PRI
+valuation schedule stays blocked (§10.4).
+
+## 2026-08-07 — spec 367 §10.4: what the machine cost (lane eqcost)
+
+**What shipped.** `set_equipment_acquisition(uuid, numeric, date)` — a SECURITY DEFINER RPC for
+`acquisition_cost` + `acquired_at` — plus a per-item control on `/equipment` for the money
+audience, a new `audit_action` value, and a fifth arm on `equipment_item_history`. Migrations
+`20260813075920` (the enum value) and `20260813075921` (the function + the history arm).
+
+**Why it needed an RPC at all.** Both columns are money-walled: `equipment_items` is
+column-granted and neither column carries ANY grant to `authenticated` in either direction
+(verified live — only `service_role` and `postgres` hold one). So the app has had **no** way to
+record what a machine cost, an RLS UPDATE would 42501, and an RLS read returns nothing. That gap
+is what §3's PRI transfer schedule was blocked on.
+
+⭐ **A NEW audit action, not a reuse — and the reason is a label, not taste.**
+`equipment_item_history` maps `equipment_rate_change` to the kind `rate_change`, which the UI
+renders as "เปลี่ยนค่าเช่า". Filing a purchase cost under it would produce a true row carrying a
+false sentence about a rent change — the collapsed-class defect, one level down from the
+status-field version. ⚠️ The enum add trips **two** full-array pins (`03-audit-log-shape` and
+`18-appsheet-writer-purchasing`); I updated one and the other went red with a message naming
+`purchase_request_*` and saying nothing about equipment. **Sweep for the sibling pin.**
+
+⚠️ **`ALTER TYPE … ADD VALUE` cannot share a transaction with a statement that uses the value**,
+hence two migration files rather than one.
+
+⭐ **The DEFAULTs are load-bearing, not decoration.** Supabase's type generator emits a parameter
+as optional only when it carries a default, so without `default null` the generated `Args` type is
+`{p_cost: number}` and the app cannot express "clear this" without a cast that lies. With the
+defaults it is `p_cost?: number`, the action OMITS a blank field, and omission IS the clear. pgTAP
+pins the 1-arg clearing form so a signature edit cannot silently turn clearing into a no-op.
+
+⚖️ **Null clears, it does not mean "leave unchanged."** One meaning per argument: correcting a
+wrong figure back to unknown is a real need, and a second "clear" verb would be a second way to
+say one thing.
+
+**Gates.** RED first on both halves (a live probe showed the function and enum value absent; the
+action file was 7/7 red). pgTAP **364 files / 7708 assertions / 0 failures**, including 18 new
+ones that drive the gate BEHAVIOURALLY by impersonating a real `site_admin` (refused 42501) and a
+real back-office user. lint 0 · typecheck 0 · build 0 · 3 mutants each killed by its own
+assertion.
+
+⚠️ **Three self-inflicted incidents worth recording, all one cause.** I used PowerShell for
+in-place text edits on files containing Thai and corrupted them three times — a test file, a pgTAP
+file, and `equipment-manager.tsx` (tracked, restored with `git checkout --` after confirming my
+only changes to it were four small edits I could redo). **The rule already existed in memory:
+Thai text is edited with the file tools, never PowerShell.** The second and third corruptions
+happened after the first was noticed.
+
+**Open questions.** ① Bulk pricing by CSV is still refused — the importer has no DEFINER seam, so
+the fleet is priced one machine at a time; that is now a small unit rather than a blocker, since
+the RPC exists. ② `acquisition_cost` remains unreadable to `authenticated` by design, so any
+future report over it needs the admin seam or its own DEFINER reader.
+
+## 2026-08-08 — spec 367 §10.4 (second half): the importer stops refusing money (lane eqprice)
+
+**What shipped.** The equipment CSV importer accepts `ราคาทุน`, `วันที่ได้มา` and `ค่าเช่า/วัน`
+and routes each to its own DEFINER seam — cost + date through `set_equipment_acquisition`
+(#1027), the rate through `set_equipment_daily_rate` (spec 202). §10.4 is now fully closed: the
+fleet can be priced from a sheet instead of one machine at a time. **No schema.**
+
+**Why the old refusal was right and is now wrong.** It existed because `acquisition_cost` had no
+write path in the app at all, so accepting a filled cell and writing everything except the prices
+would have been silent success. Both figures now have a seam, so the refusal became the defect.
+The retired `MONEY_READ_ONLY` message is DELETED rather than left unused — a stale refusal is how
+the next reader concludes the wall is still there. **Lint's no-unused-vars is what caught it.**
+
+⚠️ **The two RPCs disagree about a BLANK cell, and that is the whole design risk.**
+`set_equipment_acquisition` accepts null and CLEARS; `set_equipment_daily_rate` refuses null
+outright, so a blank rate cannot mean clear. One blank cell would otherwise mean two different
+things in one row. Resolution: the PARSER reports only what the cell says (a value, or blank) and
+the ACTION — which knows the current figures — decides. Blank cost/date clears, blank rate leaves
+the stored value alone, and the sheet's hint says both **before** the file is assembled.
+
+⭐ **Every figure is compared against the CURRENT value, so an unchanged column writes no RPC call
+and no audit row.** Re-importing an untouched export is the common case; without the comparison it
+would manufacture a money-change trail for every row in the fleet.
+
+⚠️ **The prose was part of the diff.** The sheet said "ช่องราคายังนำเข้าไม่ได้" — true when written,
+false after this change, and leaving it would have sent the operator back to hand-editing 60
+prices. The result line also now reports the money count separately from the row count, because
+"how many prices landed" is the question a pricing file is asking.
+
+⭐ **A test fixture taught me a real boundary.** My "future date" case computed tomorrow in UTC;
+the parser compares against the **Bangkok** civil date (the box and the DB are UTC, the users are
+UTC+7), so for part of the day UTC-tomorrow is still today in Bangkok and the case passed for the
+wrong reason. Fixed to compute in Bangkok, and a second case pins that TODAY in Bangkok is
+accepted — the boundary a UTC clock gets wrong.
+
+**Gates.** RED first on both halves (parser 7 of 8 red, action 4 of 7 red). Three pre-existing
+`REFUSES a filled …` assertions were REVERSED deliberately, with the old reasoning kept in words
+beside them. lint 0 · typecheck 0.
+
+## 2026-08-06 — One SSOT for the app title, so the announcement strip cannot drift (lane apptitle)
+
+**Closes ① of the cross-lane fact-check on the route-announcement arc — and it is this repo's own
+fake-coverage class, in code I wrote.** `route-announcement.ts` derives a destination name from
+`document.title` by stripping the app-title suffix. **Both** halves of what it stripped were
+hand-copies of `layout.tsx`'s metadata:
+
+```
+route-announcement.ts               layout.tsx
+APP_TITLE_SUFFIX  " — PRC Ops"  ↔   template: "%s — PRC Ops"
+APP_TITLE_DEFAULT "PRC Ops"     ↔   default:  "PRC Ops"
+```
+
+…and the test asserted `pageNameFromTitle(\`โครงการ${APP_TITLE_SUFFIX}\`)`— **the constant against
+itself**. Rename the app or change the separator and every test stays green while every spoken
+announcement keeps a stale suffix glued on, and a page with no title of its own starts being
+announced as the app name instead of staying silent. Nothing pinned`title.template` at all.
+
+**Fix: `src/lib/ui/app-title.ts` is the one declaration**, and both sides consume it — so drift is
+impossible **by construction** rather than merely detectable. A leaf module (no imports, no
+`server-only`, no `"use client"`) because the layout is a Server Component while the announcer is in
+the client bundle — the spec-371-U2 class that once 500'd `/dashboard`.
+
+The round-trip test is the assertion the old one only appeared to make: a title composed through the
+**real** template must announce the page's own name back. It is meaningful only because both sides
+are pinned to that template, so the composition exercised is the one production applies.
+
+**🚨 The first version of the fix reproduced the very defect it was fixing, twice — mutation caught
+both.** ① The reader-side absence pin compared against the exact `" — PRC Ops"`, and a mutant writing
+the trimmed `"— PRC Ops"` walked straight past it. ② Asserting that the suffix equals
+separator-plus-name passes just as well against a **re-hardcoded literal**, because the values
+coincide — identical in shape to the tautology being removed, one level down. ⭐ **A value equality
+between two derived constants cannot distinguish "composed" from "coincidentally equal" — only the
+SOURCE can**, so the derivation is now pinned there. ③ And renaming `APP_NAME` went red when it
+should propagate cleanly, because `route-arrival-announcement.test.tsx` still hard-coded `"PRC Ops"`
+twice — the same hand-copy, in a test.
+
+**Gates.** RED first · **7/7 mutants resolved** — six killed (hand-write either literal back into
+either file, drop `%s`, un-compose the suffix) and **M7 deliberately GREEN**: renaming `APP_NAME` in
+the SSOT now propagates everywhere, which is precisely the drift the old pin could never see ·
+lint 0 · typecheck 0 · `pnpm build` 0 · full suite 900/901 files (`money-read-guard` hook-timed-out
+under load; **passes 4/4 in isolation** — the documented scanning-guard flake) · **Gate 4**: served
+HTML still reads `เข้าสู่ระบบ — PRC Ops` and `เร็ว ๆ นี้ — PRC Ops`, byte-identical to before, which is
+the point — no behaviour change, no drift.
+
+**Open questions.** ①
+Still open from the same fact-check: page titles are not unique (79 distinct across 127 pages;
+`จัดซื้อ` ×3), so `/procurement` → `/procurement/[section]` announces the same word and the reader
+cannot tell they moved.
+
+## 2026-08-06 — Six routes stop announcing the same word (lane titles)
+
+**Closes ② of the cross-lane fact-check on the route-announcement arc.** Since
+[#986](https://github.com/vap-ops/prc-ops/pull/986) the live region speaks the destination's page
+name on arrival, so two routes sharing a `metadata.title` announce the **same word**. The
+`key={seq}` identity makes the region mutate, so it does speak — it just cannot tell the listener
+they moved.
+
+**⚠️ The first measurement was short, and the INSTRUMENT was why.** Grepping quoted `title: "…"`
+literals found 4 shared strings. It was blind to titles set from a CONSTANT — and four constants
+were each carried by two pages (`ORDERING_TEMPLATES_LABEL`, `MONEY_REVIEW_LABEL`,
+`EQUIPMENT_RENTAL_LABEL`, `BOQ_TEMPLATES_LABEL`). **The real count was six groups, not four.**
+⭐ **A duplicate-detector keyed on one SYNTAX misses every instance written in the other** — the
+guard now reads both forms, and the corpus floor (>120, against 85 for literals-only) is what keeps
+it honest: dropping the identifier branch reds.
+
+**Not every duplicate is a defect.** Two DIFFERENT things sharing a name is; the SAME thing reached
+two ways is not. Renamed the six genuinely-different pairs — four are mechanical applications of
+the house detail pattern (`รายละเอียด` + the list's own noun, 8 precedents), so no vocabulary is
+invented:
+
+| route                                      | was                 | now                       |
+| ------------------------------------------ | ------------------- | ------------------------- |
+| `settings/ordering-templates/[templateId]` | the list's label    | `รายละเอียด` + that label |
+| `catalog/boq-templates/[templateId]`       | the list's label    | `รายละเอียด` + that label |
+| `accounting/review/[source]/[id]`          | `ตรวจเอกสารการเงิน` | `รายละเอียดเอกสารการเงิน` |
+| `projects/[id]/deliverables/[id]`          | `งวดงาน`            | `รายละเอียดงวดงาน`        |
+| `/requests`                                | `จัดซื้อ`           | `คำขอซื้อ`                |
+| `projects/[id]/rentals`                    | `เช่าอุปกรณ์`       | `เช่าอุปกรณ์ในโครงการ`    |
+
+`/requests` is grounded rather than chosen: the page's own `<h2>` is `คำขอซื้อ`, that is the binding
+glossary term, and `จัดซื้อ` is merely the SECTION it sits under (its `AppHeader kicker`) — a word
+the procurement hub already owns.
+
+**Left shared, with the reason pinned in the guard:** `/client` and `/client/[projectId]` — the
+index renders `ClientProjectList` whose own `<h1>` **is** `ความคืบหน้าโครงการ`, so renaming it would
+make the title contradict the heading on screen; and the two `registrations/[id]` routes — one
+screen for two audiences, and a given user never sees both.
+
+**🔔 RAISED, not taken: `/procurement` and `/procurement/[section]` still share `จัดซื้อ`,** and this
+is the one that matters most because the bottom-tab spine lands on the sections — pressing a tab
+announces `จัดซื้อ` again. The sections are a closed typed set already carrying labels
+(`PROCUREMENT_STR_SECTIONS`: ขอบเขต · เวลา · ทรัพยากร), so the fix is `generateMetadata` returning the
+section's own label — **but that would be this app's FIRST `generateMetadata` across 135 pages**,
+i.e. a convention change, which CLAUDE.md says to raise rather than take unilaterally. Recorded in
+the guard under `NEEDS_A_DECISION`, deliberately separate from `SHARED_ON_PURPOSE` so "known defect,
+parked" never reads as "correct".
+
+**Gates.** RED first (the guard named all six) · **4/4 mutants killed** — revert a rename, a THIRD
+page joining an exempted title, an exemption going stale, and the instrument regression · lint 0 ·
+typecheck 0 · `pnpm build` 0 · Gate 4 in real Chrome: `/requests` now serves `คำขอซื้อ — PRC Ops`
+while `/procurement`, `/equipment/rentals` and `/accounting/review` correctly keep theirs.
+
+**Open questions.** ① The `generateMetadata` decision above. ② `เช่าอุปกรณ์ในโครงการ` is my wording
+— the only string here not taken from an existing label or the page's own heading; easy to change.
+③ The guard still cannot see a page whose CONSTANT resolves to another page's LITERAL; no such pair
+exists today, and closing it means resolving imports in the test.
+
+## 2026-08-08 — spec 400 U3a's pins, hardened after a post-merge review (lane u3harden)
+
+The operator asked for the independent review #1000 had shipped without. It found the
+authorization design **sound** and the mechanism extraction **faithful** (a normalised
+diff of the pre-split `derive_muster_labor` body against `_internal` shows only the name,
+the `v_role` declaration and the two `raise`s changed), and `_internal`'s `proacl` is
+`{postgres, service_role}` — the revoke held. It also found four things wrong with the
+TESTS. This unit closes them. Tests only: no migration, no `src/`.
+
+**① The OT money bound had no working pin — it was green over a deleted guard.** The
+refusal test drove worker `…0001`, team `…0010`'s LEAD, whom the fixture never scans in,
+so spec 351's own precondition (`no regular session on this team today`) raised `P0001`
+as well — and `throws_ok(…, 'P0001', null, …)` compares only the SQLSTATE. Deleting
+`075914`'s `p_session <> 'regular'` block left it passing. So the one bound the build's
+own self-review had discovered was unguarded for two days.
+
+⭐ **The rule, and it generalises past this file: `throws_ok(…, '<SQLSTATE>', null, …)`
+is WEAK whenever the function can raise that code from more than one branch — and
+`muster_scan_in` raises `P0001` from SIX (verified by listing its live `raise`s). Pass
+the message, AND choose a fixture that cannot trip any other branch raising the same
+code.** This is the pgTAP sibling of the vacuous-`toContain`. Now driven with worker
+`…0002`, which section C scans in, so spec 351 provably cannot fire — and the SA positive
+control uses the SAME worker and team, so the pair isolates the ROLE as the only
+difference and independently proves the precondition was satisfied.
+
+**② `project_manager may not close` was FALSE in production.** Post-u6c that role IS in
+`close_muster_day`'s live allowlist (verified with `pg_get_functiondef`); the assertion
+passed only because the probe user had no `project_members` row — it was asserting the
+MEMBERSHIP gate while its name claimed the ROLE gate. Deleted and replaced by ③.
+
+**③ New section B2 — the EFFECTIVE derive allowlist, exhaustive over all 17 roles.** This
+is the review's most important finding folded in as a GUARD rather than a memo. Because
+`close_muster_day` calls `derive_muster_labor_INTERNAL`, **its** role list — not
+`derive_muster_labor`'s — is the real gate on the wage write. `derive_muster_labor`
+stopped governing the moment U3a landed, and u6c then widened `close_muster_day` to
+`accounting`, `hr` and `project_coordinator`, none of which `derive_muster_labor` admits.
+That widening was measured and operator-sanctioned; the defect is that **nothing made the
+widener re-answer the money question**, while `derive_muster_labor`'s own body still
+carries a ⚠️ pointing at the list that no longer governs.
+
+⭐ **When you move a mechanism behind an unexported helper, the CALLERS' gates become the
+security boundary — put the effective-allowlist assertion where the callers are, or the
+split quietly turns a real boundary into a decorative one.**
+
+B2 pins 9 admitted + 8 refused and latches `9 + 8 = array_length(enum_range(user_role))`,
+so a new enum value must be placed in an arm. **What makes it sound is the fixture:** a
+dedicated project C the probe user IS a member of, with no teams and no attendance — so
+`can_see_project` is TRUE for every role (only the role gate can refuse) and an admitted
+close derives NOTHING. One distinct date per role, zero interference with any other
+assertion in the file. ⏳ Latent: `labor_logs` = 0 rows, no worker has
+`cost_confirmed_at`, so a derive books nothing until spec 368 U2 confirms the first rate.
+
+⚠️ **I hand-typed the 8 refused role names and one (`foreman`) does not exist** — the live
+enum has `contractor`. Caught by querying `enum_range(null::public.user_role)` before
+running, which is the whole reason the "never trust a hardcoded role list" rule is in
+CLAUDE.md.
+
+**④ `contractor-money-wall.test.ts`'s `extractDefinition` overshot its own function.** It
+terminated on `$;` or `$function$\n`, but a body written `end; $function$;` closes with
+the tag followed by a SEMICOLON — matching neither. So the extraction ran to the next
+function's opening tag or EOF: in `075913` the "body" of `derive_muster_labor_internal`
+spanned ~180 extra lines, swallowing the `revoke` block and the next function's header.
+A later re-emission of `_internal` WITHOUT the subcon wall would pass as long as anything
+else in the same file contained the phrase. Fixed to terminate on `/\$function\$\s*;/`,
+**and pinned** by a new assertion that the extracted body contains neither
+`revoke all on function` nor the next `create or replace function`.
+
+**Gates.** pgTAP **364/364 files, 0 failures**, this file 69/69 with `plan(69)`
+grep-derived. `extractDefinition` **mutation-proved**: breaking its `$function$;` arm
+(`.exec(text.slice(after))` → `.exec("")`) reds the new boundary assertion with
+`overshot into the revoke block that follows the function`; restored, 14/14. ⚠️ The FIRST
+mutation attempt injected a literal newline and produced `Tests no tests` — an ABORT, not
+a red — and was re-crafted with an anchor containing no backslashes. typecheck + lint exit 0. vitest **7966/7967**, the single red being `claude-hooks-bash-guards` at
+`Test timed out in 5000ms` with zero AssertionErrors, **25/25 alone** and absent from this
+diff (`git diff --stat origin/main...HEAD -- <that file> .claude/hooks/` prints nothing).
+
+ⓘ The OT pin was NOT live-mutation-proved, deliberately: that would mean mutating a
+money-writing function in production. It is sound by construction instead — the SA
+positive control `lives_ok`s an OT scan for the same worker and team, which spec 351 only
+permits when that worker has a regular session there, so spec 351's branch cannot fire;
+and the exact message excludes every other `P0001`. Both prior failure modes are ruled out
+independently.
+
+**Open questions.** ① `close_muster_day` accepts any `p_date` (past, today or future) and
+its auto-out fabricates `out_at = 17:00 / out_auto = true`, which `reopen_muster_day` does
+NOT restore. Pre-existing; U4's `muster_correct_session` is the repair path now. ② A
+TOCTOU residual can still leave an attendance row `out_at IS NULL` on a closed day —
+the money half of `muster_scan_in`'s guard is sound, the attendance half is not, and
+`075914`'s header overstates the coverage. Both are schema changes and want their own
+unit. ③ `derive_muster_labor`'s ⚠️ comment still says "do not add procurement here",
+which is true but now points at a list that no longer governs the money write; B2 is the
+guard, but the comment deserves rewording in whichever unit next touches that file.
+
+## 2026-08-08 — spec 404 U1: the day owns the project, not the worker header (lane attnu1)
+
+**What was wrong, measured before anything was written.** `/workers/[workerId]/attendance`
+captioned a whole month with `workers.project_id` — where the person is assigned RIGHT NOW. That
+column is overwritten by a project move, so it cannot describe a past month. Live on 2026-08-08:
+three projects are active, `worker_project_moves` holds 48 rows, **12 workers have two or more
+moves, and 10 of them moved off `PRC-2026-004` on 2026-08-07** while still carrying August days at 004.
+
+The cell badge carried the mirror image of the same bug. It rendered when a day's project differed
+from the worker's current assignment — a rule that INVERTS after a move: every correctly-recorded
+day of the old month starts carrying a badge while the now-wrong header stays clean.
+
+**The fix.** `buildAttendanceMonth` derives `summary.projectDays` from the attendance rows
+themselves, attributed per DATE through the cell, so a day carrying both a regular and an OT
+session counts once and the split can never sum to more than the total it sits under. A scanned
+day with no project name is counted in `daysScanned` and attributed to nothing — the entries can
+sum to less than the total, which is honest; the alternative invents an owner.
+
+The header renders that list (`โครงการเดือนนี้` with per-project day counts when the month spans
+more than one). The badge keys on `projectDays.length > 1` and shows the code with the prefix the
+month's own codes SHARE removed. ⚠️ **That prefix is derived, not hardcoded.** The spec said strip
+`PRC-2026-`, true of today's six projects — but a raw common prefix of `PRC-2026-004` and
+`PRC-2026-008` is `PRC-2026-00`, which would badge them `4` and `8`, and across years the shared
+part is only `PRC-`. Cutting the common prefix at its last separator handles both: same year gives
+`004`/`008`, different years keep `2026-004`/`2027-001`.
+
+The estimate label gained `ปัจจุบัน`. It multiplies by the worker's current rate and a move is
+exactly when a rate changes; `labor_logs.day_rate_snapshot` is the per-day truth and belongs to the
+money unit, not here.
+
+**Money stayed out, deliberately.** `wage_payments` has no project column (verified live), so a
+per-project `บันทึกค่าแรงแล้ว` would state a figure `/payroll` cannot reproduce, and the
+one-payment-per-`(worker, period)` shape blocks paying a split worker twice. That is the
+2026-07-12 P0 and it needs schema.
+
+**Gates.** RED first on both halves (7 failing in `attendance-month`, 6 in the calendar component,
+seen to fail before any production code). Full suite **931 files / 7,989 tests, 0 failures** ·
+lint 0 · typecheck 0 · **4 mutants killed**, each with its run count and a verified restore: the
+badge's split condition, the current-assignment guard, the separator cut in `sharedCodePrefix`,
+and the `ปัจจุบัน` qualifier.
+
+**Real-flow verification used a positive control.** The same production worker
+(`นายจันทร์ เงางาม`, assigned to `PRC-2026-007`, seven July days all at `PRC-2026-004`) rendered on
+two dev servers under one session — this branch and `origin/main`. Before: header
+`โครงการ PRC-2026-007 TFM นายาว เพชรบูรณ์` and **seven cells badged `PRC-2026-004`**. After: header
+`โครงการ PRC-2026-004 TFM โพธิ์ทอง ลพบุรี`, `ปัจจุบันอยู่ที่ PRC-2026-007 …`, and **zero badges**. An
+empty month (September) names no project and keeps only the assignment line. Zero server errors,
+zero console errors.
+
+⚠️ **The SPLIT-month render is proved by RTL only.** Production currently holds **zero**
+worker-months spanning two projects — the moved workers have not yet scanned at their new sites —
+so the shape cannot be driven live without writing muster rows to prod. It arms the first morning
+one of them does.
+
+**A self-review catch worth recording.** The first implementation gated the
+`ปัจจุบันอยู่ที่` line on the month having attendance, so an empty month rendered no project
+information at all. That REMOVES a signal the old header carried, for no gain. The line now
+renders whenever the assignment is not already one of the month's projects, empty month included —
+it is honest either way because it is labelled as an assignment rather than as the month's project.
+
+**Open questions** (spec 404 §8, none blocking). ① Should `ประมาณการค่าแรง` be suppressed entirely
+in a split month rather than shown as one current-rate number? ② The compact cell planned for U2
+will drop the spelled-out `(อัตโนมัติ)` on desktop too. ③ Is a phone day-list wanted at all?
 
 ## 2026-08-06 — The card variant owns its padding, and a vacuous pin gets repaired (lane cspad)
 

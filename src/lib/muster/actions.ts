@@ -4,7 +4,14 @@
 // RPCs (open_muster_team / muster_scan_in / muster_scan_out / set_muster_team_wps)
 // are SECURITY DEFINER, gate on current_user_role() ∈ (site_admin, super_admin,
 // procurement_manager — spec 348 SA-parity) +
-// can_see_project, and enforce the one-team-per-(worker,date) rule. Actions
+// can_see_project, and enforce the one-team-per-(worker,date) rule.
+// ⚠️ `muster_scan_in` OUTGREW that sentence in spec 400 U6c: it now names nine
+// roles and BYPASSES can_see_project for the seven cross-project office ones, and
+// it has two arms (the cockpit arm for site_admin/super_admin/procurement_manager,
+// a bounded+audited correction arm for the rest). Not exploitable from this file —
+// every action here is `getActionUser()`-only and the cockpit page is gated on
+// SA_SURFACE_ROLES, so this bundle is unreachable for the new roles — but do not
+// reason about a signed-in-only write path from the sentence above. Actions
 // validate shape, relay to the RPC, and map its errors to Thai for the SA.
 
 import "server-only";
@@ -68,6 +75,27 @@ function scanErrorToThai(message: string): string {
   if (message.includes("already checked out")) {
     const at = message.split("already checked out at")[1]?.trim();
     return at ? `ช่างคนนี้ออกงานแล้วเมื่อ ${at} น.` : "ช่างคนนี้ออกงานแล้ว";
+  }
+  // Spec 400 U4 — muster_scan_out now refuses a session whose day is over.
+  //
+  // ⚠️ Must stay ABOVE `no attendance`: that arm answers ยังไม่ได้เช็คชื่อ ("this
+  // worker never checked IN"), a different claim, and this mapper is ordered
+  // substring matching. It is below `already checked out` because that refusal is
+  // more specific and carries a `reason` two components branch on.
+  //
+  // Why the copy exists at all: the refusal is PERMANENT for this caller, so the
+  // GENERIC fallback ("กรุณาลองใหม่อีกครั้ง") would invite a retry that can never
+  // succeed. The RPC previously had no date check, so an SA could stamp now() on
+  // 2026-07-24's still-open OT sessions and price ~13 days of overtime.
+  //
+  // It names a FACT and no actor: the readers are muster_scan_out's whole gate —
+  // {site_admin, super_admin, procurement_manager} — and only the last two are in
+  // the correction audience, so "ask X" would be true for some and false for the
+  // rest. It also must not name /team/attendance, which site_admin cannot open
+  // (not in ATTENDANCE_AUDIT_ROLES). Same reasoning as undoErrorToThai's
+  // `already closed` arm.
+  if (message.includes("belongs to an earlier day")) {
+    return "หมดเวลาบันทึกออกงานของวันนั้นแล้ว — ต้องแก้เวลาย้อนหลัง";
   }
   // Spec 351 — an OT scan-in without the worker's regular session on this team.
   if (message.includes("no regular session")) return "ต้องเช็คชื่อเข้างานปกติในทีมนี้ก่อนทำ OT";

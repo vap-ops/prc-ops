@@ -166,6 +166,50 @@ describe("EquipmentManager", () => {
     );
   });
 
+  // Spec 367 Q1 — where the thing IS, asked at registration. Location is derived
+  // only from the latest movement, so an add flow that asks nothing produces a
+  // registry of `—` (63 of 64 items, pre-reset). The store-first directive makes
+  // คลัง the right default; a site is one tap away.
+  it("defaults the location to คลัง and sends the store sentinel", async () => {
+    renderManager();
+    openSheet("เพิ่มอุปกรณ์");
+    pickSku("s1");
+
+    expect(screen.getByLabelText<HTMLSelectElement>("ตอนนี้อยู่ที่ไหน").value).toBe("store");
+    fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ location: "store" })),
+    );
+  });
+
+  it("offers each project as a location and sends its id", async () => {
+    renderManager();
+    openSheet("เพิ่มอุปกรณ์");
+    pickSku("s1");
+    fireEvent.change(screen.getByLabelText("ตอนนี้อยู่ที่ไหน"), { target: { value: "p1" } });
+    fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+
+    await waitFor(() =>
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ location: "p1" })),
+    );
+  });
+
+  it("names the unlocated row when the movement fails — the item exists, the gap is stated", async () => {
+    mockCreate.mockResolvedValue({ ok: true, locationWarning: true });
+    renderManager();
+    openSheet("เพิ่มอุปกรณ์");
+    pickSku("s1");
+    fireEvent.change(screen.getByLabelText("เจ้าของ"), { target: { value: "o1" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มรายการ" }));
+
+    await waitFor(() => expect(screen.getByText(/ที่อยู่ของอุปกรณ์/)).toBeInTheDocument());
+    // The row was written under a spent draftId — a second submit would 23505.
+    expect(screen.queryByRole("button", { name: "เพิ่มรายการ" })).not.toBeInTheDocument();
+  });
+
   it("previews the crew's next number — two existing units make the next No.3", () => {
     renderManager({
       items: [

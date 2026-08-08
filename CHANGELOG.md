@@ -1,3 +1,179 @@
+# [0.364.0](https://github.com/vap-ops/prc-ops/compare/v0.363.2...v0.364.0) (2026-08-07)
+
+### Bug Fixes
+
+- **attendance:** keep the assignment line on an empty month, and record U1 ([8a2cb7f](https://github.com/vap-ops/prc-ops/commit/8a2cb7f49e0d1a1cfc9bf46baf80e50bc66c0078))
+
+### Features
+
+- **attendance:** the day owns the project, not the worker header ([6add579](https://github.com/vap-ops/prc-ops/commit/6add57918e6da620221f3836b677214795192ff5))
+
+## [0.363.2](https://github.com/vap-ops/prc-ops/compare/v0.363.1...v0.363.2) (2026-08-07)
+
+### Bug Fixes
+
+- **a11y:** six routes stop announcing the same word ([#999](https://github.com/vap-ops/prc-ops/issues/999)) ([33c91f5](https://github.com/vap-ops/prc-ops/commit/33c91f513aff4be10a413668d57fb47724030bda)), closes [#986](https://github.com/vap-ops/prc-ops/issues/986)
+
+## [0.363.1](https://github.com/vap-ops/prc-ops/compare/v0.363.0...v0.363.1) (2026-08-07)
+
+### Bug Fixes
+
+- **a11y:** close the review's holes in the app-title SSOT pin ([e51216d](https://github.com/vap-ops/prc-ops/commit/e51216da9387f9324615b498d45b26afbda20eab))
+- **a11y:** one SSOT for the app title, so the strip cannot drift ([931c7b6](https://github.com/vap-ops/prc-ops/commit/931c7b684819ae698d41bacaa2436d199f57983d))
+
+# [0.363.0](https://github.com/vap-ops/prc-ops/compare/v0.362.0...v0.363.0) (2026-08-07)
+
+### Features
+
+- **equipment:** import the money columns instead of refusing them ([e0e66a1](https://github.com/vap-ops/prc-ops/commit/e0e66a1c144e7cde315895fe9a6c28a41407e0f9))
+
+# [0.362.0](https://github.com/vap-ops/prc-ops/compare/v0.361.0...v0.362.0) (2026-08-07)
+
+### Bug Fixes
+
+- **muster:** open the panel for a GAP cell, and re-point the doors' pins ([2477781](https://github.com/vap-ops/prc-ops/commit/2477781c10692f164de3b96fb95095059f6b2a5c))
+
+### Features
+
+- **muster:** the fix panel opens on the grid, and a save walks to the next person ([27afbe2](https://github.com/vap-ops/prc-ops/commit/27afbe210faa04b1517c87198fd3d9f3c5bad865))
+
+# [0.361.0](https://github.com/vap-ops/prc-ops/compare/v0.360.0...v0.361.0) (2026-08-07)
+
+### Features
+
+- **equipment:** record what a machine cost and when it was acquired (spec 367 §10.4) ([#1027](https://github.com/vap-ops/prc-ops/issues/1027)) ([5375a30](https://github.com/vap-ops/prc-ops/commit/5375a308e7af93b5b384f533d3aac645b4976873))
+
+# [0.360.0](https://github.com/vap-ops/prc-ops/compare/v0.359.0...v0.360.0) (2026-08-07)
+
+### Features
+
+- **equipment:** เพิ่มหลายเครื่อง — bulk add from a pasted table ([05f9b57](https://github.com/vap-ops/prc-ops/commit/05f9b57b91e6717daa288a094eabad614773af71)), closes [#1024](https://github.com/vap-ops/prc-ops/issues/1024)
+
+# [0.359.0](https://github.com/vap-ops/prc-ops/compare/v0.358.2...v0.359.0) (2026-08-07)
+
+### Features
+
+- **equipment:** record the initial location when an item is registered ([7aefe4c](https://github.com/vap-ops/prc-ops/commit/7aefe4cc73b47b6449a8d3cf40dfe115df3a1a68))
+
+## [0.358.2](https://github.com/vap-ops/prc-ops/compare/v0.358.1...v0.358.2) (2026-08-07)
+
+### Bug Fixes
+
+- **muster:** make the attendance fix screen readable, and say what ปิดวัน/เปิดวัน mean ([441aa0a](https://github.com/vap-ops/prc-ops/commit/441aa0ac23be628317d5f49f1af3f00d6bbcb9ac))
+
+## [0.358.1](https://github.com/vap-ops/prc-ops/compare/v0.358.0...v0.358.1) (2026-08-07)
+
+### Bug Fixes
+
+- **muster:** the reopen row's basis-full helper collapsed the reason field ([#1021](https://github.com/vap-ops/prc-ops/issues/1021)) ([91d8434](https://github.com/vap-ops/prc-ops/commit/91d8434ba0081a250c759733387ecd6fab3b774f))
+
+# [0.358.0](https://github.com/vap-ops/prc-ops/compare/v0.357.0...v0.358.0) (2026-08-07)
+
+### Features
+
+- **muster:** spec 400 U6c - the correction audience becomes the audit audience ([#1022](https://github.com/vap-ops/prc-ops/issues/1022)) ([7e79a7b](https://github.com/vap-ops/prc-ops/commit/7e79a7bfbf706b0ab4a4c2c9d674b90476a90bc2))
+
+# [0.357.0](https://github.com/vap-ops/prc-ops/compare/v0.356.0...v0.357.0) (2026-08-07)
+
+### Features
+
+- **attendance:** spec 400 U6b - the three doors into the worker-day fix screen ([#1020](https://github.com/vap-ops/prc-ops/issues/1020)) ([b0824d4](https://github.com/vap-ops/prc-ops/commit/b0824d41ba3b9c6274a41ae846939b49944bdd94))
+
+# [0.356.0](https://github.com/vap-ops/prc-ops/compare/v0.355.0...v0.356.0) (2026-08-07)
+
+### Features
+
+- **notifications:** spec 402 U4 - remove the deep links ([#1019](https://github.com/vap-ops/prc-ops/issues/1019)) ([2222a93](https://github.com/vap-ops/prc-ops/commit/2222a9343eb278a7429b13eb502c5d16e5bf8fad))
+
+# [0.355.0](https://github.com/vap-ops/prc-ops/compare/v0.354.0...v0.355.0) (2026-08-07)
+
+### Bug Fixes
+
+- **muster:** overnight check-out, the returnTo dead end, and four review findings ([fd985be](https://github.com/vap-ops/prc-ops/commit/fd985be3c94596336c83d22653b7105e84ba0912))
+- **muster:** three self-review defects on the fix screen ([c825060](https://github.com/vap-ops/prc-ops/commit/c8250605875716723f055694a34dc399845b31b2))
+
+### Features
+
+- **muster:** the worker-day fix screen, so a correction has one place to happen ([21e1971](https://github.com/vap-ops/prc-ops/commit/21e19713b5bef0318b00b081f3e2d135db3ba01c))
+
+# [0.354.0](https://github.com/vap-ops/prc-ops/compare/v0.353.0...v0.354.0) (2026-08-07)
+
+### Features
+
+- **notifications:** spec 402 U3 - feedback and the dormant events ([#1017](https://github.com/vap-ops/prc-ops/issues/1017)) ([b11382c](https://github.com/vap-ops/prc-ops/commit/b11382c9042aa32115679240574fb0a9fcfd8a1a))
+
+# [0.353.0](https://github.com/vap-ops/prc-ops/compare/v0.352.1...v0.353.0) (2026-08-07)
+
+### Features
+
+- **dob:** reject impossible birth dates at the database boundary ([#1016](https://github.com/vap-ops/prc-ops/issues/1016)) ([98c3005](https://github.com/vap-ops/prc-ops/commit/98c30059cb8832c419ca0422a409560f2805cb94))
+
+## [0.352.1](https://github.com/vap-ops/prc-ops/compare/v0.352.0...v0.352.1) (2026-08-07)
+
+### Bug Fixes
+
+- **ui:** clear the tab bar's safe area, and let a tall photo scroll ([#1012](https://github.com/vap-ops/prc-ops/issues/1012)) ([92b71b3](https://github.com/vap-ops/prc-ops/commit/92b71b393c2974f20b274f5dcdb27ac954f784e0))
+
+# [0.352.0](https://github.com/vap-ops/prc-ops/compare/v0.351.2...v0.352.0) (2026-08-07)
+
+### Features
+
+- **muster:** the correction trail, so an edit can be read as well as made ([#1008](https://github.com/vap-ops/prc-ops/issues/1008)) ([d6c8ccb](https://github.com/vap-ops/prc-ops/commit/d6c8ccbe4b7dbb5fe56b8652d72379c0d42c573c))
+
+## [0.351.2](https://github.com/vap-ops/prc-ops/compare/v0.351.1...v0.351.2) (2026-08-07)
+
+### Bug Fixes
+
+- **ui:** let a vertical touch on a table scroll the page ([#1010](https://github.com/vap-ops/prc-ops/issues/1010)) ([75158d2](https://github.com/vap-ops/prc-ops/commit/75158d20da4885881ecae9fb051a1bfa593703ef))
+
+## [0.351.1](https://github.com/vap-ops/prc-ops/compare/v0.351.0...v0.351.1) (2026-08-07)
+
+### Bug Fixes
+
+- **work-packages:** stop the WP schedule date pickers collapsing on iOS ([fa7464a](https://github.com/vap-ops/prc-ops/commit/fa7464a0a39966eb332819d9bdb9365fe4a2da11))
+
+# [0.351.0](https://github.com/vap-ops/prc-ops/compare/v0.350.0...v0.351.0) (2026-08-07)
+
+### Features
+
+- **muster:** add a person the muster missed, from the day panel ([#1007](https://github.com/vap-ops/prc-ops/issues/1007)) ([e09f10f](https://github.com/vap-ops/prc-ops/commit/e09f10fce71ed490c9b23bf444bfde9496955d93))
+- **muster:** list a project-day's teams for the correction audience ([#1006](https://github.com/vap-ops/prc-ops/issues/1006)) ([4430d5e](https://github.com/vap-ops/prc-ops/commit/4430d5ece6420717986206102e50729f948bfd26))
+
+# [0.350.0](https://github.com/vap-ops/prc-ops/compare/v0.349.0...v0.350.0) (2026-08-06)
+
+### Features
+
+- **muster:** record a session's real check-in and check-out times after the fact ([#1005](https://github.com/vap-ops/prc-ops/issues/1005)) ([233bbda](https://github.com/vap-ops/prc-ops/commit/233bbda16c4a8109d5756e9f17a1dc1aea477a26))
+
+# [0.349.0](https://github.com/vap-ops/prc-ops/compare/v0.348.0...v0.349.0) (2026-08-06)
+
+### Features
+
+- **attendance:** correction affordances on the grid (spec 400 U3b) ([#1003](https://github.com/vap-ops/prc-ops/issues/1003)) ([99501d0](https://github.com/vap-ops/prc-ops/commit/99501d0bd699af999300a22e6f1e1073583fbfb2))
+
+# [0.348.0](https://github.com/vap-ops/prc-ops/compare/v0.347.0...v0.348.0) (2026-08-06)
+
+### Features
+
+- **muster:** procurement can correct an open muster day, least-privilege (spec 400 U3a) ([#1000](https://github.com/vap-ops/prc-ops/issues/1000)) ([d0bbec3](https://github.com/vap-ops/prc-ops/commit/d0bbec3f36c8d0680477e408ebfb3dccef3795d4)), closes [#988](https://github.com/vap-ops/prc-ops/issues/988)
+
+# [0.347.0](https://github.com/vap-ops/prc-ops/compare/v0.346.0...v0.347.0) (2026-08-06)
+
+### Features
+
+- **zones:** the Konva zone-drawing canvas (spec 392 U2b) ([#995](https://github.com/vap-ops/prc-ops/issues/995)) ([5fb5be0](https://github.com/vap-ops/prc-ops/commit/5fb5be058df60a2bfd6d6815c9c0e9aaf375e3e0))
+
+# [0.346.0](https://github.com/vap-ops/prc-ops/compare/v0.345.4...v0.346.0) (2026-08-06)
+
+### Bug Fixes
+
+- **attendance:** scope the roster to the projects the reader may audit (spec 400 U2) ([e71a44d](https://github.com/vap-ops/prc-ops/commit/e71a44db154a7886700aa8ed1ed34351c4067cff))
+- **attendance:** state the absent count beside the header it contradicts (spec 400 U2) ([4728d02](https://github.com/vap-ops/prc-ops/commit/4728d02eccd40b6bae51add1ffb2154325214e1d))
+
+### Features
+
+- **attendance:** roster rows, so a worker nobody scanned still has a row (spec 400 U2) ([76d5452](https://github.com/vap-ops/prc-ops/commit/76d5452798256c6d60d5578443c9873d27a004a1))
+
 ## [0.345.4](https://github.com/vap-ops/prc-ops/compare/v0.345.3...v0.345.4) (2026-08-06)
 
 ### Bug Fixes

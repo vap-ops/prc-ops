@@ -39,8 +39,19 @@ The only place enum labels live. Never write a per-file status-label map.
   weights `400/500/600` only (not a variable font — weight is mandatory).
   Matches the PDF font (spec 13). `--font-sans: var(--font-sarabun)`.
 - **Geist Mono** for codes only (project/WP codes): `font-mono text-xs`.
-- `<html lang="th">`; metadata title template `%s — PRC Ops`; per-route
-  static Thai `metadata.title`.
+- `<html lang="th">`; per-route static Thai `metadata.title`. **The TITLE LAYER
+  has one source:** [app-title.ts](../src/lib/ui/app-title.ts) declares
+  `APP_NAME` and composes `APP_TITLE_SUFFIX` / `APP_TITLE_TEMPLATE` from it, and
+  the three places that must agree consume it — the root layout (writes titles),
+  the route announcer (strips the suffix back off to speak the page name), and
+  the PWA manifest. They used to be hand-copies with nothing connecting them,
+  and the test that looked like it covered the suffix compared the constant
+  against itself, so a rename would have gone green while every spoken
+  announcement kept a stale suffix. `tests/unit/app-title-ssot.test.ts` fails if
+  any of those re-declares it, or post-processes it on the way in.
+  ⚑ Scoped claim: the app's name is still written as prose elsewhere (the
+  signed-out landing `<h1>`, `/coming-soon`, `labels.ts`, help content, an e2e
+  spec). Those are copy, not the title contract, and are not pinned.
 
 ## 3. Color doctrine — sun-readable light theme (spec 20, amended by 38/40)
 
@@ -115,7 +126,13 @@ boundaries mirror those widths (§8).
   scroll container, so sticky headers and fixed chrome cannot drift on
   iOS bounce. Variants: `app` (content pages), `card` (single-card
   screens), `bare`. Hand-rolling a `<main>` is a review reject.
-- The `app` variant's `pb-20 sm:pb-0` clears the phone tab bar.
+- The `app` variant's `pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0`
+  clears the phone tab bar. It COMPOSES the safe-area inset because the bar
+  does (`h-16` + `border-t` + `pb-[env(safe-area-inset-bottom)]` = 99px on a
+  notched iPhone): a flat `pb-20` reserved 80px and left the last 19px of
+  every content page behind the bar. Any new bottom-fixed chrome composes the
+  inset the same way — toast-provider, phase-uploader, muster-cockpit and
+  phone-po-basket all already did.
 - **The `card` variant centres with AUTO MARGINS, never `items-center`** —
   on a scrolling flex container `align-items: center` puts the top of
   overflowing content out of reach of every scroll position (measured:
@@ -296,7 +313,8 @@ vs 860 at 900, and **760 vs 672 at a 760px viewport** — the skeleton's private
 `max-w-3xl` left the viewport as the effective cap right through the 672–768 band, so
 the two only already agreed below 672. `max-w-3xl` now appears nowhere in `src/`; the
 remaining `max-w-sm`/`max-w-md` are the recorded single-card exceptions in §5, not
-outliers. `variant="app"` also brings `pb-20 sm:pb-0` (phone tab-bar clearance) and
+outliers. `variant="app"` also brings `pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0`
+(phone tab-bar clearance, safe-area inset included — see §5) and
 `text-ink` — the skeleton renders no visible text.
 
 **The SINGLE-COLUMN screens have their own frame:**
@@ -448,8 +466,9 @@ and — for the two boundary surfaces together — by
    and reports each new destination via `announceArrival`. Two rules fall out of
    the measurements, both pinned:
 
-   - **Strip the `— PRC Ops` suffix, and stay SILENT for a page that set no
-     title of its own.** Never fall back to the `<h1>`: on 4 of 5 sampled pages
+   - **Strip the app-title suffix (`APP_TITLE_SUFFIX`, §2 — never a literal),
+     and stay SILENT for a page that set no title of its own.** Never fall back
+     to the `<h1>`: on 4 of 5 sampled pages
      it reads `สวัสดี คุณ<ชื่อ>`, so announcing it reads the user their own name
      on arrival. Titles are per ROUTE, not per record — 39 dynamic-segment pages
      reuse one title for every record, which is why the de-dupe below is keyed on
