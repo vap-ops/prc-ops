@@ -85,7 +85,15 @@ create table public.trade_levels (
   name_th text not null check (btrim(name_th) <> '' and char_length(name_th) <= 80),
   -- 1 = the bottom rung. Unique per trade among ACTIVE rows (partial index
   -- below), so retiring a level frees its rank for a re-cut ladder.
-  rank integer not null check (rank >= 1 and rank <= 20),
+  --
+  -- The NEGATIVE band is a transient parking area owned solely by
+  -- reorder_trade_levels. A partial unique index cannot be deferred, so a
+  -- reorder that assigned final ranks directly would collide the moment two
+  -- levels swap; parking every affected row outside the positive band first
+  -- makes the shuffle atomic. Negatives exist only between two statements of one
+  -- transaction, so no other session and no read can observe them.
+  rank integer not null
+    check ((rank between 1 and 999) or (rank between -999 and -1)),
   min_hours numeric(10, 2) not null default 0 check (min_hours >= 0),
   -- Display only. See the header: this is reference data, not a payroll input.
   reference_day_rate numeric(10, 2) check (reference_day_rate is null or reference_day_rate >= 0),
@@ -137,7 +145,11 @@ create table public.skill_materials (
   -- Embedded from elsewhere (the operator: "materials can be embedded from other
   -- sources like youtube"), so nothing is hosted here. The scheme check is the
   -- authority; the RPC mirrors it to raise a named refusal instead of 23514.
-  url text not null check (url ~ '^https?://' and char_length(url) <= 2000),
+  -- `~*`, not `~`: the URL scheme is case-insensitive per RFC 3986 and a share
+  -- link occasionally arrives as HTTPS://. A case-sensitive CHECK here would
+  -- override the RPC's own case-insensitive test and reject a valid address with
+  -- a bare 23514 the caller cannot explain.
+  url text not null check (url ~* '^https?://' and char_length(url) <= 2000),
   title_th text not null check (btrim(title_th) <> '' and char_length(title_th) <= 160),
   sort_order integer not null default 0,
   is_active boolean not null default true,
@@ -399,20 +411,27 @@ as $$
 declare
   v_role public.user_role := public.current_user_role();
   v_trade uuid;
+  v_was_active boolean;
   v_holders integer;
 begin
   if not public.is_skill_map_author(v_role) then
     raise exception 'retire_trade_level: role not permitted' using errcode = '42501';
   end if;
 
-  select trade_id into v_trade from public.trade_levels where id = p_level_id;
+  select trade_id, is_active into v_trade, v_was_active
+    from public.trade_levels where id = p_level_id;
   if v_trade is null then
     raise exception 'retire_trade_level: level not found' using errcode = '22023';
+  end if;
+  if not v_was_active then
+    raise exception 'retire_trade_level: that level is already retired' using errcode = '22023';
   end if;
 
   -- "Holds" means it is the LATEST row for that worker+trade, not merely that it
   -- appears in history — a level someone has already climbed past is retirable.
   -- Ordered by `seq`, never by created_at: see the column's note.
+  -- Scoped to ACTIVE workers, because the message says "currently hold" and a
+  -- terminated worker's frozen history should not block a ladder edit forever.
   select count(*) into v_holders
     from public.workers w
    cross join lateral (
@@ -422,7 +441,8 @@ begin
       order by wtl.seq desc
       limit 1
    ) latest
-   where latest.trade_level_id = p_level_id;
+   where w.active
+     and latest.trade_level_id = p_level_id;
 
   if v_holders > 0 then
     raise exception
@@ -435,6 +455,166 @@ begin
   insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)
   values ('skill_map_change', auth.uid(), v_role, 'trade_levels', p_level_id,
           jsonb_build_object('kind', 'level_retire', 'trade_id', v_trade));
+end;
+$$;
+
+-- Retiring is the ONLY undo. Without these three a PD who fat-fingers a skill
+-- title or pastes the wrong video has no way back: there is no DELETE grant, no
+-- UPDATE grant and no other write path, so the row would be permanent for the
+-- life of the trade — and the `is_active` filters in publish_skill_map would be
+-- dead branches that can never be false.
+create or replace function public.retire_trade(p_trade_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_role public.user_role := public.current_user_role();
+  v_active boolean;
+begin
+  if not public.is_skill_map_author(v_role) then
+    raise exception 'retire_trade: role not permitted' using errcode = '42501';
+  end if;
+
+  select is_active into v_active from public.trades where id = p_trade_id;
+  if v_active is null then
+    raise exception 'retire_trade: trade not found' using errcode = '22023';
+  end if;
+  -- Refuse the no-op rather than record it: an audit trail that says a decision
+  -- was made when nothing changed is worse than no row at all.
+  if not v_active then
+    raise exception 'retire_trade: that trade is already retired' using errcode = '22023';
+  end if;
+
+  update public.trades set is_active = false where id = p_trade_id;
+
+  insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)
+  values ('skill_map_change', auth.uid(), v_role, 'trades', p_trade_id,
+          jsonb_build_object('kind', 'trade_retire'));
+end;
+$$;
+
+create or replace function public.retire_trade_skill(p_skill_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_role public.user_role := public.current_user_role();
+  v_active boolean;
+begin
+  if not public.is_skill_map_author(v_role) then
+    raise exception 'retire_trade_skill: role not permitted' using errcode = '42501';
+  end if;
+
+  select is_active into v_active from public.trade_skills where id = p_skill_id;
+  if v_active is null then
+    raise exception 'retire_trade_skill: skill not found' using errcode = '22023';
+  end if;
+  if not v_active then
+    raise exception 'retire_trade_skill: that skill is already retired' using errcode = '22023';
+  end if;
+
+  update public.trade_skills set is_active = false where id = p_skill_id;
+
+  insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)
+  values ('skill_map_change', auth.uid(), v_role, 'trade_skills', p_skill_id,
+          jsonb_build_object('kind', 'skill_retire'));
+end;
+$$;
+
+create or replace function public.retire_skill_material(p_material_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_role public.user_role := public.current_user_role();
+  v_active boolean;
+begin
+  if not public.is_skill_map_author(v_role) then
+    raise exception 'retire_skill_material: role not permitted' using errcode = '42501';
+  end if;
+
+  select is_active into v_active from public.skill_materials where id = p_material_id;
+  if v_active is null then
+    raise exception 'retire_skill_material: material not found' using errcode = '22023';
+  end if;
+  if not v_active then
+    raise exception 'retire_skill_material: that material is already retired'
+      using errcode = '22023';
+  end if;
+
+  update public.skill_materials set is_active = false where id = p_material_id;
+
+  insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)
+  values ('skill_map_change', auth.uid(), v_role, 'skill_materials', p_material_id,
+          jsonb_build_object('kind', 'material_retire'));
+end;
+$$;
+
+-- Reordering a ladder ATOMICALLY. `trade_levels_rank_unique` is a partial unique
+-- INDEX, so it cannot be deferred, and a per-level upsert therefore collides the
+-- moment two levels swap ranks. Doing the shuffle here — park every affected row
+-- at a negative rank, then land the final ranks — keeps it inside one statement
+-- pair in one transaction, so a crash leaves the ladder as it was rather than
+-- stranding a level at some unused rank.
+create or replace function public.reorder_trade_levels(
+  p_trade_id uuid,
+  p_level_ids uuid[]
+) returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $$
+declare
+  v_role public.user_role := public.current_user_role();
+  v_expected integer;
+begin
+  if not public.is_skill_map_author(v_role) then
+    raise exception 'reorder_trade_levels: role not permitted' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.trades where id = p_trade_id) then
+    raise exception 'reorder_trade_levels: trade not found' using errcode = '22023';
+  end if;
+
+  -- The array must be exactly this trade's active levels — no additions, no
+  -- omissions, no duplicates. A partial list would silently leave the omitted
+  -- levels parked at their negative ranks.
+  select count(*) into v_expected
+    from public.trade_levels where trade_id = p_trade_id and is_active;
+
+  if array_length(p_level_ids, 1) is distinct from v_expected then
+    raise exception
+      'reorder_trade_levels: expected all % active level(s) of this trade, got %',
+      v_expected, coalesce(array_length(p_level_ids, 1), 0) using errcode = '22023';
+  end if;
+  if exists (
+    select 1 from unnest(p_level_ids) as given(id)
+     where not exists (select 1 from public.trade_levels tl
+                        where tl.id = given.id and tl.trade_id = p_trade_id and tl.is_active)
+  ) or (select count(distinct id) from unnest(p_level_ids) as u(id)) <> v_expected then
+    raise exception
+      'reorder_trade_levels: the list must name each active level of this trade exactly once'
+      using errcode = '22023';
+  end if;
+
+  update public.trade_levels tl
+     set rank = -ordered.new_rank
+    from (select id, row_number() over () as new_rank
+            from unnest(p_level_ids) as id) ordered
+   where tl.id = ordered.id;
+
+  update public.trade_levels tl
+     set rank = -tl.rank
+   where tl.trade_id = p_trade_id and tl.rank < 0;
+
+  insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)
+  values ('skill_map_change', auth.uid(), v_role, 'trades', p_trade_id,
+          jsonb_build_object('kind', 'levels_reorder', 'order', to_jsonb(p_level_ids)));
 end;
 $$;
 
@@ -454,6 +634,7 @@ as $$
 declare
   v_role public.user_role := public.current_user_role();
   v_trade uuid;
+  v_level_active boolean;
   v_id uuid;
 begin
   if not public.is_skill_map_author(v_role) then
@@ -462,9 +643,18 @@ begin
 
   -- The trade is derived from the LEVEL, never taken from the caller — that is
   -- what makes the denormalised column trustworthy.
-  select trade_id into v_trade from public.trade_levels where id = p_trade_level_id;
+  select trade_id, is_active into v_trade, v_level_active
+    from public.trade_levels where id = p_trade_level_id;
   if v_trade is null then
     raise exception 'upsert_trade_skill: level not found' using errcode = '22023';
+  end if;
+  -- Silent success otherwise: publish_skill_map only walks ACTIVE levels, so a
+  -- skill authored under a retired one is accepted, audited, and then invisible
+  -- in every published version forever. Accepting a write nobody can ever see is
+  -- the failure class this repo keeps paying for.
+  if not v_level_active then
+    raise exception 'upsert_trade_skill: that level has been retired — restore it or pick another'
+      using errcode = '22023';
   end if;
 
   if p_skill_id is null then
@@ -523,16 +713,25 @@ begin
   if not public.is_skill_map_author(v_role) then
     raise exception 'upsert_skill_material: role not permitted' using errcode = '42501';
   end if;
-  if not exists (select 1 from public.trade_skills where id = p_trade_skill_id) then
-    raise exception 'upsert_skill_material: skill not found' using errcode = '22023';
+  if not exists (select 1 from public.trade_skills where id = p_trade_skill_id and is_active) then
+    raise exception 'upsert_skill_material: skill not found or retired' using errcode = '22023';
   end if;
 
-  -- Mirrors the CHECK so the caller gets a NAMED cause instead of a bare 23514.
-  -- The refusal is built from what is wrong with the value, not from the case
-  -- the author had in mind.
-  if btrim(coalesce(p_url, '')) !~ '^https?://' then
+  -- Mirrors BOTH arms of the CHECK so the caller gets a named cause instead of a
+  -- bare 23514, and each refusal names what is actually wrong with the value
+  -- rather than the case the author had in mind.
+  --
+  -- `!~*`, not `!~`: the URL scheme is case-insensitive per RFC 3986, and a
+  -- share link occasionally arrives as `HTTPS://…`. The case-sensitive form
+  -- refused a perfectly valid address while telling the user it had to start
+  -- with something it already started with.
+  if btrim(coalesce(p_url, '')) !~* '^https?://' then
     raise exception 'upsert_skill_material: the address must start with http:// or https://'
       using errcode = '22023';
+  end if;
+  if char_length(btrim(coalesce(p_url, ''))) > 2000 then
+    raise exception 'upsert_skill_material: that address is too long (% characters, limit 2000)',
+      char_length(btrim(p_url)) using errcode = '22023';
   end if;
 
   if p_material_id is null then
@@ -579,6 +778,8 @@ declare
   v_role public.user_role := public.current_user_role();
   v_version integer;
   v_snapshot jsonb;
+  v_levels integer;
+  v_publish_id uuid;
 begin
   if not public.is_skill_map_author(v_role) then
     raise exception 'publish_skill_map: role not permitted' using errcode = '42501';
@@ -586,6 +787,21 @@ begin
   if not exists (select 1 from public.trades where id = p_trade_id) then
     raise exception 'publish_skill_map: trade not found' using errcode = '22023';
   end if;
+
+  -- An empty ladder must not become a published version. Ruling 15 gives an
+  -- UNPUBLISHED trade the ผังกำลังออกแบบ state; a published-but-empty one falls
+  -- into neither state and renders a blank ladder with no explanation.
+  select count(*) into v_levels
+    from public.trade_levels where trade_id = p_trade_id and is_active;
+  if v_levels = 0 then
+    raise exception 'publish_skill_map: add at least one level before publishing'
+      using errcode = '22023';
+  end if;
+
+  -- Serialise version allocation per trade: `max(version) + 1` is a read-then-
+  -- write, so two PDs publishing the same trade at once would otherwise collide
+  -- on the unique constraint and one would get a raw 23505.
+  perform pg_advisory_xact_lock(hashtextextended(p_trade_id::text, 0));
 
   select coalesce(max(version), 0) + 1 into v_version
     from public.skill_map_publishes where trade_id = p_trade_id;
@@ -634,11 +850,15 @@ begin
    where t.id = p_trade_id;
 
   insert into public.skill_map_publishes (trade_id, version, snapshot, published_by)
-  values (p_trade_id, v_version, v_snapshot, auth.uid());
+  values (p_trade_id, v_version, v_snapshot, auth.uid())
+  returning id into v_publish_id;
 
+  -- `target_table` + `target_id` must be a real pair: every audit reader in src/
+  -- filters on both against `audit_log_target_idx`, so filing a publish row's id
+  -- under `trades` (or vice versa) makes it unfindable from either side.
   insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)
-  values ('skill_map_change', auth.uid(), v_role, 'skill_map_publishes', p_trade_id,
-          jsonb_build_object('kind', 'publish', 'version', v_version));
+  values ('skill_map_change', auth.uid(), v_role, 'skill_map_publishes', v_publish_id,
+          jsonb_build_object('kind', 'publish', 'version', v_version, 'trade_id', p_trade_id));
   return v_version;
 end;
 $$;
@@ -667,8 +887,14 @@ begin
   if not public.is_skill_map_author(v_role) then
     raise exception 'set_worker_trade_level: role not permitted' using errcode = '42501';
   end if;
-  if not exists (select 1 from public.workers where id = p_worker_id) then
-    raise exception 'set_worker_trade_level: worker not found' using errcode = '22023';
+  -- Active only: a level decision about someone who has left the roster cannot
+  -- be acted on and would sit in history looking like a live fact.
+  if not exists (select 1 from public.workers where id = p_worker_id and active) then
+    raise exception 'set_worker_trade_level: worker not found or no longer active'
+      using errcode = '22023';
+  end if;
+  if not exists (select 1 from public.trades where id = p_trade_id and is_active) then
+    raise exception 'set_worker_trade_level: trade not found or retired' using errcode = '22023';
   end if;
 
   -- The composite FK would also catch this, but a named refusal beats a 23503
@@ -699,8 +925,13 @@ begin
      nullif(btrim(coalesce(p_note_th, '')), ''), auth.uid())
   returning id into v_id;
 
+  -- The SUBJECT of this decision is the worker, so the pair is ('workers',
+  -- worker_id) — the same pairing every other worker-touching RPC uses, and the
+  -- one "who changed this person's level?" will query. The event's own id rides
+  -- in the payload; filing it as ('worker_trade_levels', worker_id) would pair a
+  -- workers.id with the wrong table and be findable from neither side.
   insert into public.audit_log (action, actor_id, actor_role, target_table, target_id, payload)
-  values ('worker_trade_level_set', auth.uid(), v_role, 'worker_trade_levels', p_worker_id,
+  values ('worker_trade_level_set', auth.uid(), v_role, 'workers', p_worker_id,
           jsonb_build_object('kind', p_kind, 'trade_id', p_trade_id,
                              'trade_level_id', p_trade_level_id,
                              'note_th', nullif(btrim(coalesce(p_note_th, '')), ''),
@@ -711,17 +942,32 @@ $$;
 
 -- Default EXECUTE reaches PUBLIC, which includes anon — revoke from both, then
 -- grant only the signed-in role (the house posture for every DEFINER RPC).
+-- The gate predicate too: it is `immutable` and takes the role as an argument so
+-- leaving it executable is harmless, but the posture this file states is "every
+-- function is revoked from public and anon", and an exception nobody wrote down
+-- is how the next one gets missed.
+revoke all on function public.is_skill_map_author(public.user_role) from public, anon;
+grant execute on function public.is_skill_map_author(public.user_role) to authenticated;
+
 revoke all on function public.upsert_trade(uuid, text, text, public.trade_national_source, text, integer) from public, anon;
+revoke all on function public.retire_trade(uuid) from public, anon;
 revoke all on function public.upsert_trade_level(uuid, uuid, text, integer, numeric, numeric) from public, anon;
 revoke all on function public.retire_trade_level(uuid) from public, anon;
+revoke all on function public.reorder_trade_levels(uuid, uuid[]) from public, anon;
+revoke all on function public.retire_trade_skill(uuid) from public, anon;
+revoke all on function public.retire_skill_material(uuid) from public, anon;
 revoke all on function public.upsert_trade_skill(uuid, uuid, text, text, boolean, boolean, integer) from public, anon;
 revoke all on function public.upsert_skill_material(uuid, uuid, public.skill_material_kind, text, text, integer) from public, anon;
 revoke all on function public.publish_skill_map(uuid) from public, anon;
 revoke all on function public.set_worker_trade_level(uuid, uuid, uuid, public.worker_trade_level_kind, text) from public, anon;
 
 grant execute on function public.upsert_trade(uuid, text, text, public.trade_national_source, text, integer) to authenticated;
+grant execute on function public.retire_trade(uuid) to authenticated;
 grant execute on function public.upsert_trade_level(uuid, uuid, text, integer, numeric, numeric) to authenticated;
 grant execute on function public.retire_trade_level(uuid) to authenticated;
+grant execute on function public.reorder_trade_levels(uuid, uuid[]) to authenticated;
+grant execute on function public.retire_trade_skill(uuid) to authenticated;
+grant execute on function public.retire_skill_material(uuid) to authenticated;
 grant execute on function public.upsert_trade_skill(uuid, uuid, text, text, boolean, boolean, integer) to authenticated;
 grant execute on function public.upsert_skill_material(uuid, uuid, public.skill_material_kind, text, text, integer) to authenticated;
 grant execute on function public.publish_skill_map(uuid) to authenticated;

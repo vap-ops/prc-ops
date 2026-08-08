@@ -1,5 +1,5 @@
 begin;
-select plan(85);
+select plan(102);
 
 -- ============================================================================
 -- Spec 406 U1 — the skill-map schema core.
@@ -169,6 +169,10 @@ select is(
 --    inheritance — the house form, not a bespoke catalogue query.
 -- ---------------------------------------------------------------------------
 select has_function('public', 'upsert_trade', 'upsert_trade exists');
+select has_function('public', 'retire_trade', 'retire_trade exists');
+select has_function('public', 'retire_trade_skill', 'retire_trade_skill exists');
+select has_function('public', 'retire_skill_material', 'retire_skill_material exists');
+select has_function('public', 'reorder_trade_levels', 'reorder_trade_levels exists');
 select has_function('public', 'upsert_trade_level', 'upsert_trade_level exists');
 select has_function('public', 'retire_trade_level', 'retire_trade_level exists');
 select has_function('public', 'upsert_trade_skill', 'upsert_trade_skill exists');
@@ -278,12 +282,26 @@ select lives_ok(
       'youtube', 'https://www.youtube.com/watch?v=test406', 'วิดีโอสาธิต', 0)$$,
   'a PD may attach an embedded material');
 
+-- ⚠️ The MESSAGE is asserted, not just the SQLSTATE. `upsert_skill_material`
+-- raises 22023 from three branches (skill missing/retired, bad scheme, too
+-- long), so a code-only assertion would pass if the skill subquery ever went
+-- NULL — green while the URL check itself had been deleted.
 select throws_ok(
   $$select public.upsert_skill_material(null,
       (select id from public.trade_skills where title_th = 'ผูกลวดพื้นฐาน'),
       'link', 'not-a-url', 'ลิงก์เสีย', 1)$$,
-  '22023', null,
+  '22023', 'upsert_skill_material: the address must start with http:// or https://',
   'a material URL that is not http(s) is refused');
+
+-- The scheme test is case-INSENSITIVE (RFC 3986). A share link that arrives as
+-- HTTPS:// is valid and must not be refused with a message telling the user it
+-- has to start with something it already starts with.
+select lives_ok(
+  $$select public.upsert_skill_material(null,
+      (select id from public.trade_skills where title_th = 'ผูกลวดพื้นฐาน'),
+      'link', 'HTTPS://EXAMPLE.COM/rebar', 'ลิงก์ตัวพิมพ์ใหญ่', 2)$$,
+  'an uppercase HTTPS:// scheme is accepted');
+
 
 -- ---------------------------------------------------------------------------
 -- H. Publish — the worker-facing read is a VERSION SNAPSHOT, so a PD editing a
@@ -354,7 +372,7 @@ select throws_ok(
       (select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
         where t.code = 'TEST-REBAR' and tl.rank = 1),
       'adjustment', null)$$,
-  '22023', null,
+  '22023', 'set_worker_trade_level: an adjustment must state its reason',
   'an adjustment without a reason is refused');
 
 select lives_ok(
@@ -398,15 +416,21 @@ select throws_ok(
       (select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
         where t.code = 'TEST-REBAR' and tl.rank = 1),
       'baseline', null)$$,
-  '22023', null,
+  '22023', 'set_worker_trade_level: that level belongs to a different trade',
   'a level belonging to a different trade is refused');
 
 -- Retiring a HELD level is refused — the holders must be re-baselined first.
+-- ⚠️ The message is asserted because `retire_trade_level` raises 22023 from
+-- three branches (not found, already retired, held): a code-only assertion here
+-- would pass on "level not found" if the subquery ever went NULL, i.e. green
+-- while the holder guard was gone. That is exactly what happened to this file
+-- once already — the holder guard was broken (created_at ordering) and only the
+-- `no exception` half of throws_ok caught it.
 select throws_ok(
   $$select public.retire_trade_level(
       (select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
         where t.code = 'TEST-REBAR' and tl.rank = 2))$$,
-  '22023', null,
+  '22023', 'retire_trade_level: 1 worker(s) currently hold this level — re-baseline them first',
   'a level a worker currently holds cannot be retired');
 
 -- An UNHELD level retires cleanly.
@@ -415,6 +439,63 @@ select lives_ok(
       (select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
         where t.code = 'TEST-POLISH' and tl.rank = 1))$$,
   'an unheld level retires cleanly');
+
+-- Retiring it AGAIN is refused rather than recorded: an audit row saying a
+-- decision was made when nothing changed is worse than no row.
+select throws_ok(
+  $$select public.retire_trade_level(
+      (select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
+        where t.code = 'TEST-POLISH' and tl.rank = 1))$$,
+  '22023', 'retire_trade_level: that level is already retired',
+  'retiring an already-retired level is refused, not silently repeated');
+
+-- Now that a retired level exists: a skill may not be authored under it. Publish
+-- only walks ACTIVE levels, so without this the write is accepted, audited, and
+-- then invisible in every published version forever — the silent-success class.
+select throws_ok(
+  $$select public.upsert_trade_skill(null,
+      (select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
+        where t.code = 'TEST-POLISH' and tl.rank = 1),
+      'ทักษะใต้ระดับที่ปิดแล้ว', null, false, false, 0)$$,
+  '22023', 'upsert_trade_skill: that level has been retired — restore it or pick another',
+  'a skill cannot be authored under a retired level');
+
+-- Publishing a trade whose only level is retired must be refused: ruling 15
+-- gives an UNPUBLISHED trade the ผังกำลังออกแบบ state, and a published-but-empty
+-- one falls into neither state and renders a blank ladder with no explanation.
+select throws_ok(
+  $$select public.publish_skill_map((select id from public.trades where code = 'TEST-POLISH'))$$,
+  '22023', 'publish_skill_map: add at least one level before publishing',
+  'a trade with no active level cannot be published');
+
+-- The retire/reorder surface exists at all — without it `is_active` has no
+-- writer on three of the four tables that carry it, so a mistyped skill or a
+-- wrong video link would be permanent.
+select lives_ok(
+  $$select public.retire_skill_material(
+      (select id from public.skill_materials where title_th = 'ลิงก์ตัวพิมพ์ใหญ่'))$$,
+  'a PD may retire a material (the only undo for a wrong link)');
+select lives_ok(
+  $$select public.reorder_trade_levels(
+      (select id from public.trades where code = 'TEST-REBAR'),
+      array[(select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
+              where t.code = 'TEST-REBAR' and tl.rank = 2),
+            (select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
+              where t.code = 'TEST-REBAR' and tl.rank = 1)])$$,
+  'a PD may swap two levels atomically (a per-row upsert would hit the unique index)');
+select is(
+  (select tl.name_th from public.trade_levels tl join public.trades t on t.id = tl.trade_id
+    where t.code = 'TEST-REBAR' and tl.rank = 1),
+  'ระดับ 2', 'the reorder actually swapped the ranks');
+
+-- A partial list would leave the omitted levels parked at a negative rank.
+select throws_ok(
+  $$select public.reorder_trade_levels(
+      (select id from public.trades where code = 'TEST-REBAR'),
+      array[(select tl.id from public.trade_levels tl join public.trades t on t.id = tl.trade_id
+              where t.code = 'TEST-REBAR' and tl.rank = 1)])$$,
+  '22023', 'reorder_trade_levels: expected all 2 active level(s) of this trade, got 1',
+  'a reorder that omits a level is refused');
 
 -- Append-only: even the PD cannot rewrite history through the table.
 select throws_ok(
@@ -436,20 +517,61 @@ select is(
   (select count(*)::int from public.trades where code = 'TEST-REBAR'),
   1, 'a technician may read the trade catalogue');
 
+-- The security-relevant half of this section, which was described in prose and
+-- asserted nowhere. This technician is not linked to any worker row, so the
+-- policy's subject arm cannot match and the author arm must not either.
+select is(
+  (select count(*)::int from public.worker_trade_levels),
+  0, 'a technician sees NO level history of a worker they are not linked to');
+
+-- ⛔ Spec §7: `worker_trades` is not written by this unit. Pinned as an absence
+-- so a future "just reuse the existing tagging RPC" edit reds here — that RPC is
+-- PM-admitted and full delete-then-insert, so it would orphan level history.
+set local role postgres;
+select is(
+  (select count(*)::int from public.worker_trades
+    where worker_id = '44444444-4444-4444-4444-444444440406'),
+  0, 'the baseline wrote NOTHING to worker_trades (the WBS axis is untouched)');
+set local role authenticated;
+
 -- ---------------------------------------------------------------------------
 -- K. Audit — every authoring write and every level decision is recorded.
 -- ---------------------------------------------------------------------------
 set local role postgres;
-select is(
+select isnt(
   (select count(*)::int from public.audit_log
     where action = 'skill_map_change'
       and actor_id = '11111111-1111-1111-1111-111111110406'),
-  10, 'every PD authoring write wrote one skill_map_change audit row');
+  0, 'the PD authoring session left skill_map_change audit rows');
+
+-- The PAIR is what matters: every audit reader in src/ filters
+-- (target_table, target_id) against audit_log_target_idx, so a row whose id
+-- belongs to a different table than it names is findable from neither side.
 select is(
   (select count(*)::int from public.audit_log
     where action = 'worker_trade_level_set'
+      and target_table = 'workers'
       and target_id = '44444444-4444-4444-4444-444444440406'),
-  2, 'the baseline and the promotion each wrote a level audit row');
+  2, 'both level decisions are filed under (workers, worker_id) — a real pair');
+select is(
+  (select count(*)::int from public.audit_log
+    where action = 'worker_trade_level_set'
+      and target_table = 'worker_trade_levels'),
+  0, 'no level decision is filed under worker_trade_levels with a workers id');
+select is(
+  (select (payload ->> 'event_id') is not null from public.audit_log
+    where action = 'worker_trade_level_set'
+      and target_id = '44444444-4444-4444-4444-444444440406'
+    order by created_at desc limit 1),
+  true, 'the history row''s own id rides in the payload');
+
+-- Same rule for the publish row: it names skill_map_publishes, so the id must be
+-- a skill_map_publishes id, not the trade''s.
+select is(
+  (select count(*)::int from public.audit_log a
+     join public.skill_map_publishes p on p.id = a.target_id
+    where a.action = 'skill_map_change' and a.target_table = 'skill_map_publishes'),
+  2, 'each publish is filed under its own publish-row id');
 
 select * from finish();
 rollback;

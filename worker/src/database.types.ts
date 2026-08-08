@@ -12262,6 +12262,10 @@ export type Database = {
         Args: { p_photo_ids: string[]; p_work_package_id: string }
         Returns: Json
       }
+      reorder_trade_levels: {
+        Args: { p_level_ids: string[]; p_trade_id: string }
+        Returns: undefined
+      }
       report_site_issue: {
         Args: {
           p_issue_type?: Database["public"]["Enums"]["site_issue_type"]
@@ -12281,7 +12285,13 @@ export type Database = {
         Args: { p_wp: string }
         Returns: boolean
       }
+      retire_skill_material: {
+        Args: { p_material_id: string }
+        Returns: undefined
+      }
+      retire_trade: { Args: { p_trade_id: string }; Returns: undefined }
       retire_trade_level: { Args: { p_level_id: string }; Returns: undefined }
+      retire_trade_skill: { Args: { p_skill_id: string }; Returns: undefined }
       return_stock_to_store: {
         Args: { p_issue_id: string; p_note?: string; p_qty: number }
         Returns: string
