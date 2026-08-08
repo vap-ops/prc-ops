@@ -14789,3 +14789,128 @@ inverted. A presence check needs a needle unique to the thing being checked.
 drops the spelled-out `(อัตโนมัติ)` on DESKTOP as well, to keep one cell everywhere. Built to the
 spec's current ruling — one cell at every width — and reversible in one conditional if the operator
 wants the words back above `md`.
+
+## 2026-08-08 — spec 404 U2b: the panel fits its column, and a blank day gets a door (lane u2fix)
+
+**Two defects, one from the unit before it and one it was always missing.** U2 docked
+`WorkerDayFixPanel` into a fixed 280–300px column — and the three forms inside it keyed their
+row-or-stack layouts on `sm:`, a VIEWPORT query. So at every viewport ≥640px they took their WIDE
+layout inside a narrow box.
+
+**Measured in real Chrome, and the OLD behaviour is measured in the same run** by restoring the
+viewport-keyed instruction on the live page (`control_oldViewportLayout`), so the before/after is
+one experiment rather than two:
+
+| surface / width       | container | reason input usable | placeholder needs | verdict        |
+| --------------------- | --------- | ------------------- | ----------------- | -------------- |
+| calendar, OLD layout  | 246       | **63**              | 154               | CLIPPED        |
+| calendar 768–900      | 246       | **188**             | 154               | fits, stacked  |
+| calendar 1024–1194    | 306       | **248**             | 154               | fits, stacked  |
+| /team/attendance dock | 760–1078  | 577–895             | 154               | fits, ROW kept |
+| /team/attendance/fix  | 335–1112  | 277–929             | 154               | fits, ROW kept |
+
+`63px` against a `154px` placeholder is the truncated `เช่น ลงเวลาไ` on the operator's screenshot.
+The two retime time fields are now stacked at ONE x-origin in the panel (measured same-left) and on
+one row everywhere else (same top, 128px each).
+
+**The fix is container queries — the repo's first, so it was established deliberately.** Tailwind v4
+carries them natively. `sm:` → `@md:` in the two forms with a real row/stack decision, and the
+`@container` is declared **by the panel itself**, not by its doors: the panel is exactly the box the
+forms live in, so a fourth door cannot forget. The `lg` panel width went 300 → 340 (measured: still
+~108px per calendar column at 1194, against the 60px the cell needs).
+
+🚨 **THE BROWSER PROBE CAUGHT A REGRESSION THE PLAN HAD NO IDEA ABOUT, AND IT IS THE LESSON.**
+`MusterReopenForm` is rendered by THREE components, not one: the fix panel, `attendance-day-panel`
+and `attendance-drill`. The last two live in full-width cards and would have SILENTLY STACKED —
+`@md:` resolves against the nearest container ancestor, and with none it simply never fires. Both
+now declare their own `@container`, verified live (day panel 794/1112px → row; the drill's three
+day items 1078px → row). **When you convert a shared component from viewport to container queries,
+the diff is every RENDERER of that component, not every caller of the surface you came from.** The
+guard was rewritten to derive the renderer set from the tree with a corpus-size pin, so a fourth one
+reds instead of quietly stacking.
+
+⭐ **The instrument got its own positive control.** Every `clipped: false` above is worthless unless
+the probe can report `true`, so the panel was squeezed to 150px on the live page and re-measured
+through the same code path: usable 58 vs 154 needed, `clipped: true`. And the first version of the
+probe measured the WRONG input — `/team/attendance` renders TWO reopen forms and a bare
+`querySelector` took the day panel's 736px one while claiming to describe a 280px panel.
+
+**Blank days now have a door, and the rule is the grid's own.** Operator ruling 2026-08-08. A day
+this worker has no row on, at a project that scanned other people, is fully serviceable — the panel
+offers เพิ่มคนที่ตกหล่น against that day's existing team — but nothing linked it, so the screen
+built for "the muster missed him" existed only at a hand-typed URL. `calendarBlankDayFixable`
+DELEGATES to `gridCellFixable` rather than restating its three conditions, and a test drives the
+full matrix against it so the two surfaces cannot drift.
+
+Live proof, August 2026 for a worker who missed one day: the month's doors are `08-02, 08-03,
+08-05` (hers) **plus `08-04` and nothing else** — one new tap target, not the ~24 a link-every-blank
+rule would paint. Days `08-06`–`08-31` carry zero teams and are excluded outright, so the calendar
+never offers a day the add path would refuse with `ยังไม่มีทีมของวันดังกล่าว`. The blank door
+carries the grid's own `+` mark (an invisible tap target otherwise) and its `sr-only` purpose reads
+`เพิ่มคนที่ตกหล่น`, not `แก้ไขการเช็คชื่อ` — there is no เช็คชื่อ on that day to แก้ไข.
+
+⚑ **One new read, bought only when it can be used:** distinct workers scanned per date for the
+resolved project, and only when the viewer may correct AND the month names exactly one project
+(a split month has two possible owners for an empty day, so `fixPanelProjectId` supplies none).
+It widens nobody's scope — the project id comes from rows `loadWorkerAttendance` already filtered
+to the viewer's memberships.
+
+⚑ **Owed, measured, NOT fixed here:** the panel is **962px tall at 280px against a 900px viewport**
+(897 at 340px), with its only navigation at `top:155` — so scrolling to the form puts the exit off
+screen, and stacking the forms correctly made it 52px taller than before. A sticky strip is the
+obvious fix and it needs an offset this repo has no token for (`DetailHeader` measures 118px and is
+`sticky top-0 z-20`), so it is its own small unit rather than a hardcoded magic number here.
+
+⚑ **Still owed from U2, unchanged:** the ADD and UNDO outcomes render inside the panel's
+`dayClosed === false` block, so the `closed` error codes are guaranteed invisible.
+
+### U2b — the review round, and what it caught
+
+The fresh-eyes pass found four real defects. Each was verified against the live system before being
+acted on, and two of them were only visible from outside the change.
+
+🔴 **The blank door promised a control the panel withholds.** Its `sr-only` said
+`เพิ่มคนที่ตกหล่น` — but `WorkerDayFixPanel` gates the whole add block on `dayClosed === false` and
+renders the reopen card instead on a closed day. **That is not an edge: every one of the 13 past
+days carrying attendance is closed, and `2026-08-04` — the live case this door was built for — is
+one of them.** Driven in real Chrome on the final code, opening that blank day gives
+`hasReopenCard: true, hasAddForm: false`. The link now names what it DOES
+(`เปิดหน้าต่างแก้ไข`), which is true whether the day is open or closed; the panel's own heading
+states what is offered. Two comments resting on the same wrong claim went with it — including one
+asserting the panel "offers exactly one control, the add form", which the trail card, the reopen
+card and the empty notice each contradict.
+
+🟡 **An offer-then-refuse for a membership-scoped corrector.** `project_manager` is in this page's
+gate AND in `MUSTER_CORRECT_ROLES`, but NOT in `viewerSeesAllMusterProjects` — so for a PM who is a
+member of one project, a day the worker spent at another renders BLANK while the month still names
+exactly one project, and the headcount rule would offer a door on it. `muster_correct_session`'s
+existing-row lookup is `worker_id + work_date + session` with **no project predicate** (read from
+the live definition, not from a migration), so the add takes the UPDATE path and refuses on press
+with `worker is in another team today — move first`. A membership-free read of this worker's own
+dates now withholds those cells. It renders nothing and names nothing — **disclosure is §5's job
+(U3); this only subtracts candidates.**
+
+🟡 **A silent, non-deterministic truncation.** The per-project headcount read was unbounded against
+PostgREST's `db-max-rows = 1000`. A 25-person site is ~550 rows and reads as comfortable; 40 workers
+× 26 days is 1,040. Past the cap PostgREST returns an ARBITRARY window with no `order`, so
+headcounts would under-report and doors would appear and vanish between two identical page loads.
+Paged, with an explicit order.
+
+🟡 **A dead arm.** `projectResolvable` was hardcoded `true`, so `gridCellFixable`'s `canFixGaps` arm
+was unreachable at its only call site while the real gate was smuggled through the headcount map
+being empty. Behaviourally equivalent today, which is exactly why no behavioural test can catch it —
+pinned by source scan instead.
+
+⭐ **TWO PAGE-LEVEL SEAMS HAD NO PIN, AND BOTH WERE FOUND THE SAME WAY: BY MUTATING.** Deleting the
+`doorDates` merge, and later deleting the hidden-row withhold, each left the whole suite GREEN. The
+pure halves were well covered and the seam that joins them was covered by nothing — the recorded
+lesson, earned again. Eleven mutants in total, all killed, each with its run count and a verified
+restore. The calendar component also had **no coverage of the new markup at all**: both the label
+and the `+` mark were freely deletable, and one test title (`does NOT link a day with no
+attendance`) had quietly become false — it passed only because that suite never supplies
+`blankFixDates`.
+
+⚑ **One behaviour change on the two WIDE surfaces, stated rather than buried:** the row/stack
+boundary moves from viewport 640 (`sm:`) to container 448 — ≈488px of viewport on
+`/team/attendance/fix`, ≈520 on the day panel — so those surfaces now ROW in the 488–640 band where
+they previously stacked. Measured to fit (277px of usable reason input at container 460).

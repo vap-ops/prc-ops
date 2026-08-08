@@ -102,18 +102,25 @@ describe("AttendanceFixRetimeForm", () => {
 });
 
 // The row's SHAPE. A time value is five characters; the fields shipped at
-// `w-full`, so on a tablet each one spanned the whole card and the screen read
-// as broken even where it was not. jsdom cannot measure that, so what is pinned
-// is the instruction that produces it: an explicit width from `sm` up.
+// `w-full`, so in a wide card each one spanned the whole thing and the screen
+// read as broken even where it was not. jsdom cannot measure that, so what is
+// pinned is the instruction that produces it: an explicit width once there is
+// room for a row.
 describe("AttendanceFixRetimeForm — the correction reads as one row", () => {
   it("sizes both time fields to their content instead of the whole card", () => {
     const form = renderForm();
     for (const name of ["inTime", "outTime"]) {
       const field = form.querySelector(`input[name="${name}"]`);
       const classes = field?.className.split(/\s+/) ?? [];
-      // `w-full` stays for the phone, where a full-bleed field is right.
+      // `w-full` stays for the narrow box, where a full-bleed field is right.
       expect(classes).toContain("w-full");
-      expect(classes.some((c) => /^sm:w-\d/.test(c))).toBe(true);
+      // ⚠️ Spec 404 U2b — a CONTAINER variant, not the `sm:` VIEWPORT one this
+      // asserted before. This form is docked into a 280–340px column beside the
+      // spec-404 calendar as well as into a full-width page, and `sm:` fired on
+      // both: measured in real Chrome, the two fields sat at 212px each inside
+      // a 280px panel while the viewport said "you have 834px".
+      expect(classes.some((c) => /^@[a-z0-9]+:w-\d/.test(c))).toBe(true);
+      expect(classes.some((c) => /^sm:/.test(c))).toBe(false);
     }
   });
 

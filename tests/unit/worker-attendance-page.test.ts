@@ -201,11 +201,80 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
     // 60px of usable width is narrower than `07:42–18:00` (~70px at 10px), so
     // the merged line wrapped back into the two lines the compaction exists to
     // remove — through the whole 768–1000 range.
+    //
+    // U2b raised the lg width 300 → 340: measured in real Chrome, 340 still
+    // leaves ~108px per calendar column at 1194 (the cell needs 60), and the
+    // panel is where the width was actually short — its reopen reason input
+    // gained 60px of usable width, from 188 to 248.
     expect(src).toContain("md:w-[280px]");
-    expect(src).toContain("lg:w-[300px]");
+    expect(src).toContain("lg:w-[340px]");
     // Not lg for the SPLIT — the whole point of the operator's ruling.
     expect(src).not.toContain("lg:flex-row");
     expect(src).not.toContain("hidden lg:block");
+  });
+
+  it("wires the blank-day doors into BOTH the grid and the steppers (spec 404 U2b)", () => {
+    // ⚠️ This exists because a mutation found the gap. Deleting the merge in
+    // `doorDates` — so the blank doors reach the grid but NOT `fixStepDates` —
+    // left the whole suite green: `calendarBlankDayFixable` is pinned as a pure
+    // function and `fixStepDates` is pinned over a fixture, but the PAGE is what
+    // joins them, and no test could see it. The recorded lesson, again: page-level
+    // wiring needs a page-level test, because a suite that drives only the pure
+    // halves is structurally blind to the seam between them.
+    //
+    // The consequence of that mutant is not cosmetic. The blank cell would still
+    // link, but stepping off the day beside it would SKIP it — so the one day in
+    // the month with something to correct becomes the one day the walk avoids,
+    // and `fixStepDates`' own stated invariant (the grid and the steppers never
+    // disagree about what this month holds) is quietly false.
+    const src = stripComments(read(PAGE));
+    expect(uses(src, "calendarBlankDayFixable")).toBeGreaterThanOrEqual(2);
+    // Anchored on where the value ENDS, so a later edit cannot keep the symbol
+    // while dropping either source (an unanchored pin passes on both halves).
+    expect(src).toMatch(
+      /const doorDates = \[\s*\.\.\.Object\.keys\(month\.cells\),\s*\.\.\.blankFixDates,?\s*\];/,
+    );
+    // …and the same set reaches the grid, or only the steppers would know.
+    expect(src).toMatch(/blankFixDates=\{blankFixDates\}/);
+  });
+
+  it("withholds a blank door on a day the VIEWER simply cannot see (spec 404 U2b)", () => {
+    // ⚠️ Added because a mutation found it unguarded — the second seam in this
+    // page with no page-level pin, after `doorDates`.
+    //
+    // A cell is blank for two different reasons and they look identical here:
+    // the worker has no row, or `loadWorkerAttendance`'s membership scoping hid
+    // one. `project_manager` sits in this page's gate AND in the correction
+    // audience but NOT in `viewerSeesAllMusterProjects`, so for a PM who is a
+    // member of one project only, a day the worker spent elsewhere renders blank
+    // while the month still names exactly one project — and the headcount rule
+    // would offer a door on it. `muster_correct_session` looks the existing row
+    // up by `worker_id + work_date + session` with no project predicate, so the
+    // add would take the UPDATE path and refuse on press with "worker is in
+    // another team today — move first". Dropping this filter restores exactly
+    // that offer-then-refuse.
+    const src = stripComments(read(PAGE));
+    expect(uses(src, "loadWorkerMusterDates")).toBeGreaterThanOrEqual(2);
+    expect(src).toMatch(/\.filter\(\(date\) => !workerMusterDates\.has\(date\)\)/);
+  });
+
+  it("buys the blank-door read ONLY when a door could be offered (spec 404 U2b)", () => {
+    // An unconditional per-project headcount read would cost every reader of
+    // every month a query they can make no use of: the door needs BOTH the
+    // correction gate and an unambiguous month (an empty day of a split month
+    // has two possible owners, so `fixPanelProjectId` supplies none).
+    const src = stripComments(read(PAGE));
+    expect(src).toMatch(/canCorrect && monthProjectIds\.length === 1/);
+    expect(uses(src, "loadProjectHeadcountByDate")).toBeGreaterThanOrEqual(2);
+    // …and the rule is HANDED that gate rather than a literal. A hardcoded
+    // `true` here is behaviourally equivalent today — the headcount map is empty
+    // when no project resolved, so the other arm refuses anyway — which is
+    // exactly why no behavioural test can catch it and why this pin is a source
+    // scan. It matters because it leaves `gridCellFixable`'s `canFixGaps` arm
+    // DEAD at its only call site: the rule would claim a decision something else
+    // was making, and the day the headcount read changes shape, doors would be
+    // offered with no project to book against.
+    expect(src).toMatch(/projectResolvable: blankDoorProjectId !== null/);
   });
 
   it("adds NO independent scroller to the panel", () => {

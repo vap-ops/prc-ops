@@ -1,7 +1,8 @@
 # Spec 404 — ปฏิทินเข้างาน: โครงการรายวัน + แผงแก้ไขในหน้าเดียว
 
 **Status:** 2026-08-08 — **U1 SHIPPED** (#1031, project honesty) · **U2 SHIPPED** (the in-page
-`?fix=` panel, the two bands, the compact cell) · **U3 open** (viewer-scope disclosure, §5).
+`?fix=` panel, the two bands, the compact cell) · **U2b SHIPPED** (§4.5 — the panel fits its column,
+and a blank day the project scanned becomes a door) · **U3 open** (viewer-scope disclosure, §5).
 **No schema in any of them.** Lanes `attncal` → `attnu1` → `attnu2`. Surface =
 `/workers/[workerId]/attendance` (spec 374 U1). U2 retired the cell's door into
 `/team/attendance/fix`; that route is unchanged and still serves every link minted elsewhere.
@@ -160,6 +161,60 @@ the calendar. It invents no panel.**
   threading in `page.tsx`.
 - `/team/attendance/fix` stays exactly as it is and keeps serving every link minted elsewhere.
 
+### 4.5 U2b — the panel FITS its column, and a blank day gets a door — **SHIPPED 2026-08-08**
+
+§4.2 sized the calendar CELL against the panel and never asked whether the PANEL's own contents
+fit. They did not. The three forms inside `WorkerDayFixPanel` keyed their row-or-stack layouts on
+`sm:` — a VIEWPORT query — while U2 docked the panel into a fixed 280–300px column, so at every
+viewport ≥640px they took their WIDE layout inside a narrow box. Measured in real Chrome, with the
+old instruction restored on the live page as the control:
+
+| surface / width           | container | reason input usable | placeholder needs | verdict        |
+| ------------------------- | --------- | ------------------- | ----------------- | -------------- |
+| calendar, OLD layout      | 246       | **63**              | 154               | CLIPPED        |
+| calendar 768–900          | 246       | **188**             | 154               | fits, stacked  |
+| calendar 1024–1194        | 306       | **248**             | 154               | fits, stacked  |
+| /team/attendance dock     | 760–1078  | 577–895             | 154               | fits, ROW kept |
+| /team/attendance/fix 375  | 335       | 277                 | 154               | fits, stacked  |
+| /team/attendance/fix 500+ | 460–1112  | 277–929             | 154               | fits, ROW kept |
+
+⚠️ **One behaviour change on the two WIDE surfaces, stated rather than buried:** the row/stack
+boundary moves from viewport 640 (`sm:`) to container 448, which is ≈488px of viewport on
+`/team/attendance/fix` and ≈520 on the day panel. Those surfaces therefore ROW in the 488–640 band
+where they previously stacked — measured to fit (277px of usable reason input at container 460), and
+it is the point of keying on the box.
+
+`63` against `154` is the truncated `เช่น ลงเวลาไ` on the operator's screenshot; the same cause
+produced the ragged `เวลาเข้าใหม่` / `เวลาออกใหม่` alignment.
+
+**Fix: container queries — the repo's first, established deliberately.** `sm:` → `@md:` in the two
+forms with a real row/stack decision, and the `@container` is declared **by the panel**, not by its
+doors, so the forms measure exactly the box they are in and a fourth door cannot forget. The `lg`
+panel width goes 300 → 340 (measured: still ~108px per calendar column at 1194 against the 60 the
+cell needs). ⚠️ `MusterReopenForm` has THREE renderers, not one — `attendance-day-panel` and
+`attendance-drill` would have silently stacked, and both now declare their own container.
+
+**§4.3's "an empty day is still reachable by clicking its cell" was never built, and now is.**
+Operator ruling 2026-08-08: mirror `/team/attendance`'s gap-cell rule, do not invent a second one.
+`calendarBlankDayFixable` DELEGATES to `gridCellFixable`; the only thing it owns is the mapping
+(`canFixGaps` ⇒ the month is unambiguous, `headcount` ⇒ workers the resolved project scanned that
+date, `nonWorking` ⇒ holiday-or-Sunday, NOT the calendar's own `isWeekend`). It costs ONE new read,
+bought only when the viewer may correct AND the month names exactly one project.
+
+Live August 2026 for a worker who missed one day: doors are her `08-02, 08-03, 08-05` **plus
+`08-04`** — one new tap target, not the ~24 a link-every-blank rule would paint, and `08-06`–`08-31`
+(zero teams) are excluded so the calendar never offers a day the add path would refuse with
+`ยังไม่มีทีมของวันดังกล่าว`. The blank door carries the grid's own `+` mark and its `sr-only`
+purpose reads `เพิ่มคนที่ตกหล่น` — there is no เช็คชื่อ on that day to แก้ไข. Blank doors JOIN
+`doorDates`, so the steppers keep their invariant that the two controls never disagree about what
+the month holds.
+
+⚑ **Owed, measured, out of scope here:** the panel is **962px tall at 280px against a 900px
+viewport** (897 at 340) with its only navigation at `top:155`, so scrolling to the form puts the
+exit off screen — and stacking the forms correctly made it 52px taller. A sticky strip needs a
+header-offset token this repo does not have (`DetailHeader` is 118px, `sticky top-0 z-20`), so it
+is its own unit rather than a magic number.
+
 ### 4.1 Breakpoints — two bands, tablet is desktop
 
 | Band             | Width        | Layout                                               |
@@ -206,11 +261,13 @@ The grid's walk is **next PERSON within a day**; the calendar's is **next DAY fo
 Same control, opposite axis, one shared component — so the calendar's steppers are labelled
 `วันก่อนหน้า` / `วันถัดไป` (visible text or `aria-label`), never bare chevrons.
 
-They step to the next day **that carries attendance**, skipping empty cells: stepping through 20
-blank days is the cry-wolf failure U6b already ruled against. An empty day is still reachable by
-clicking its cell — and here the calendar can do something the standalone fix screen structurally
-cannot, because it knows the month's project set and can supply a project where an empty day has no
-session to infer one from.
+They step to the next **DOOR**, skipping every other blank cell: stepping through 20 blank days is
+the cry-wolf failure U6b already ruled against. ⚠️ **U2b (§4.5) widened what a door is** — a blank
+day the resolved project scanned other people on is now one, and joins the stepper walk, so this
+line no longer reads "a day that carries attendance". An empty day is reachable by clicking its
+cell — and here the calendar can do something the standalone fix screen structurally cannot,
+because it knows the month's project set and can supply a project where an empty day has no session
+to infer one from.
 
 ### 4.4 `title=` is not a fallback on a tablet
 

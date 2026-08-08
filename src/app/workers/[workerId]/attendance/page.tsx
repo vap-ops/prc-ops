@@ -38,8 +38,13 @@ import { addMonthsIso } from "@/lib/work-packages/calendar-grid";
 import { isValidUuid } from "@/lib/validate/uuid";
 import { ATTENDANCE_CALENDAR_LABEL } from "@/lib/i18n/labels";
 import { buildAttendanceMonth, resolveMonthAnchor } from "@/lib/attendance/attendance-month";
-import { loadWorkerAttendance } from "@/lib/attendance/load-worker-attendance";
 import {
+  loadProjectHeadcountByDate,
+  loadWorkerAttendance,
+  loadWorkerMusterDates,
+} from "@/lib/attendance/load-worker-attendance";
+import {
+  calendarBlankDayFixable,
   calendarFixTarget,
   fixPanelProjectId,
   fixStepDates,
@@ -169,10 +174,70 @@ export default async function WorkerAttendancePage({
     : { open: false, reason: null };
   const openDate = target.open ? target.date : null;
 
+  // ── Spec 404 U2b — the BLANK days that are doors ─────────────────────────
+  //
+  // Operator ruling 2026-08-08: mirror `/team/attendance`'s gap-cell rule
+  // (`gridCellFixable`), do not invent a second one. A day this worker has no
+  // row on, at a project that scanned other people, is fully serviceable — the
+  // panel offers เพิ่มคนที่ตกหล่น — but nothing linked it, so the screen built
+  // for "the muster missed him" was reachable only by hand-typing a URL.
+  //
+  // The read is bought ONLY when a door could actually be offered: the viewer
+  // can correct AND the month names exactly one project, because an empty day of
+  // a SPLIT month has two possible owners and no evidence (`fixPanelProjectId`).
+  // On every other month view this costs nothing.
+  const monthProjectIds = month.summary.projectDays
+    .map((p) => p.projectId)
+    .filter((id): id is string => id !== null);
+  const blankDoorProjectId =
+    canCorrect && monthProjectIds.length === 1 ? monthProjectIds[0]! : null;
+  const [projectHeadcountByDate, workerMusterDates] =
+    blankDoorProjectId === null
+      ? [{} as Record<string, number>, new Set<string>()]
+      : await Promise.all([
+          loadProjectHeadcountByDate(blankDoorProjectId, monthAnchor),
+          loadWorkerMusterDates(workerId, monthAnchor),
+        ]);
+  // Iterated over the cells the GRID DRAWS, not over the dates the read
+  // returned: the rule's `headcount > 0` arm has to be able to refuse, and a
+  // candidate list built from scanned dates alone could never exercise it.
+  const blankFixDates = new Set(
+    month.grid.weeks
+      .flat()
+      .filter((c) => c.inMonth && month.cells[c.iso] === undefined)
+      .map((c) => c.iso)
+      // ⚠️ A cell can be blank because the VIEWER cannot see the row, not
+      // because there is none: `loadWorkerAttendance` is membership-scoped for
+      // any role outside `viewerSeesAllMusterProjects`, and `project_manager`
+      // sits in BOTH this page's gate and the correction audience. Offering a
+      // door there would reach `muster_correct_session`, whose existing-row
+      // lookup is `worker_id + work_date + session` with no project predicate
+      // (read from the live definition), so it would take the UPDATE path and
+      // refuse on press with "worker is in another team today — move first".
+      // `loadWorkerMusterDates` names those dates so they can be WITHHELD;
+      // nothing about them is rendered, named or counted. Disclosing them is
+      // spec 404 §5's job (U3), not this one's.
+      .filter((date) => !workerMusterDates.has(date))
+      .filter((date) =>
+        calendarBlankDayFixable({
+          date,
+          holidayName: month.holidayByDate[date] ?? null,
+          projectHeadcount: projectHeadcountByDate[date] ?? 0,
+          // ⚠️ NOT a hardcoded `true`. That left `gridCellFixable`'s
+          // `canFixGaps` arm dead at its only call site, with the real gate
+          // smuggled through the headcount map being empty — the rule would
+          // claim a decision something else was actually making, and a mutation
+          // of this line would change nothing.
+          projectResolvable: blankDoorProjectId !== null,
+        }),
+      ),
+  );
+
   // The days a cell actually opens — so the steppers and the grid can never
   // disagree about what this month holds. `month.cells` is keyed by date and
-  // already filtered to the anchor month by the builder.
-  const doorDates = Object.keys(month.cells);
+  // already filtered to the anchor month by the builder; the blank doors join
+  // it for exactly that reason (see `fixStepDates`).
+  const doorDates = [...Object.keys(month.cells), ...blankFixDates];
   const steps = openDate === null ? { prev: null, next: null } : fixStepDates(doorDates, openDate);
 
   // The project the panel's writes act on. A day that carries attendance states
@@ -195,9 +260,7 @@ export default async function WorkerAttendancePage({
       : fixPanelProjectId({
           paramProjectId,
           cellProjectId: month.cells[openDate]?.projectId ?? null,
-          monthProjectIds: month.summary.projectDays
-            .map((p) => p.projectId)
-            .filter((id): id is string => id !== null),
+          monthProjectIds,
         });
 
   const todayIso = bangkokTodayIso();
@@ -273,19 +336,26 @@ export default async function WorkerAttendancePage({
               prevHref={prevHref}
               nextHref={nextHref}
               dayFixHref={dayFixHref}
+              blankFixDates={blankFixDates}
               openFixDate={openDate}
             />
           </div>
 
           {openDate !== null && (
-            // 280px in the `md` band, 300 above it. Measured, not chosen: at 834
+            // 280px in the `md` band, 340 above it. Measured, not chosen: at 834
             // a 300px panel leaves a 68px column whose 60px of usable width is
             // narrower than the `07:42–18:00` line it has to hold (~70px at
             // 10px), so the merged line wrapped back into the two lines the
             // compaction exists to remove — through the WHOLE 768–1000 range,
             // including the 834 an earlier probe "confirmed" by measuring the
-            // column and never the text inside it.
-            <aside className="w-full md:w-[280px] md:shrink-0 lg:w-[300px]">
+            // column and never the text inside it. Above `lg` the grid has room
+            // to spare (340px still leaves ~108px per column at 1194), and the
+            // panel is where the width is actually needed.
+            //
+            // ⓘ No `@container` here: `WorkerDayFixPanel` declares its own, so
+            // the forms measure the panel rather than whichever box a door
+            // happens to dock it into. A fourth door cannot forget.
+            <aside className="w-full md:w-[280px] md:shrink-0 lg:w-[340px]">
               <div className={CARD}>
                 {/* §6 case 3 — an empty day the month cannot supply a project
                     for. ABOVE the panel on purpose: the panel's own withheld-
@@ -331,8 +401,10 @@ export default async function WorkerAttendancePage({
                             walks the next DAY for one person. Same component,
                             opposite meaning — bare chevrons would let a reader
                             carry the wrong model across two surfaces.
-                            They step to the next day that CARRIES attendance:
-                            walking through 20 blank cells is the cry-wolf
+                            They step to the next DOOR — a day carrying
+                            attendance, or (since U2b) a blank day the project
+                            scanned other people on. Every other blank cell is
+                            skipped: walking through 20 of them is the cry-wolf
                             failure U6b already ruled against. */}
                         {steps.prev !== null ? (
                           <Link

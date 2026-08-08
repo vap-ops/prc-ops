@@ -29,17 +29,26 @@ export function MusterReopenForm({
   canClose?: boolean;
 }) {
   return (
-    // ⚠️ `sm:flex-wrap` is load-bearing, not decoration. The helper line at the
+    // ⚠️ `@md:flex-wrap` is load-bearing, not decoration. The helper line at the
     // bottom is `basis-full` — a whole-line claim that only means anything in a
     // row that WRAPS. Without it the row is `nowrap`, the <p> competes for 100%
     // of the width, and the `flex-1 min-w-0` label absorbs the entire deficit:
     // measured live at 1194px the label collapsed to 0px wide, its Thai text
     // stacked one character per line into a 279px-tall column, and the button
     // painted over the reason input.
+    //
+    // ⚠️ Spec 404 U2b — a CONTAINER query, not the `sm:` viewport one it
+    // replaced. This form is shared by three surfaces, and one of them (the
+    // calendar's `?fix=` panel) is a fixed 280–340px column: keyed on the
+    // viewport it took the row layout inside that column at every width ≥640px,
+    // leaving the reason input 61px of usable width at 834 and 81px at 1194
+    // against a 155px placeholder — measured, and visible as the truncated
+    // `เช่น ลงเวลาไ` on the operator's screenshot. The row is a fact about the
+    // BOX, so the box is what it asks.
     <form
       action={reopenMusterDayFromForm}
       aria-label={`เปิดวัน ${formatThaiDate(workDate)} อีกครั้ง`}
-      className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
+      className="mt-2 flex flex-col gap-2 @md:flex-row @md:flex-wrap @md:items-end"
     >
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="workDate" value={workDate} />
