@@ -213,6 +213,41 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
     expect(src).not.toContain("hidden lg:block");
   });
 
+  it("wires the blank-day doors into BOTH the grid and the steppers (spec 404 U2b)", () => {
+    // ⚠️ This exists because a mutation found the gap. Deleting the merge in
+    // `doorDates` — so the blank doors reach the grid but NOT `fixStepDates` —
+    // left the whole suite green: `calendarBlankDayFixable` is pinned as a pure
+    // function and `fixStepDates` is pinned over a fixture, but the PAGE is what
+    // joins them, and no test could see it. The recorded lesson, again: page-level
+    // wiring needs a page-level test, because a suite that drives only the pure
+    // halves is structurally blind to the seam between them.
+    //
+    // The consequence of that mutant is not cosmetic. The blank cell would still
+    // link, but stepping off the day beside it would SKIP it — so the one day in
+    // the month with something to correct becomes the one day the walk avoids,
+    // and `fixStepDates`' own stated invariant (the grid and the steppers never
+    // disagree about what this month holds) is quietly false.
+    const src = stripComments(read(PAGE));
+    expect(uses(src, "calendarBlankDayFixable")).toBeGreaterThanOrEqual(2);
+    // Anchored on where the value ENDS, so a later edit cannot keep the symbol
+    // while dropping either source (an unanchored pin passes on both halves).
+    expect(src).toMatch(
+      /const doorDates = \[\s*\.\.\.Object\.keys\(month\.cells\),\s*\.\.\.blankFixDates,?\s*\];/,
+    );
+    // …and the same set reaches the grid, or only the steppers would know.
+    expect(src).toMatch(/blankFixDates=\{blankFixDates\}/);
+  });
+
+  it("buys the blank-door read ONLY when a door could be offered (spec 404 U2b)", () => {
+    // An unconditional per-project headcount read would cost every reader of
+    // every month a query they can make no use of: the door needs BOTH the
+    // correction gate and an unambiguous month (an empty day of a split month
+    // has two possible owners, so `fixPanelProjectId` supplies none).
+    const src = stripComments(read(PAGE));
+    expect(src).toMatch(/canCorrect && monthProjectIds\.length === 1/);
+    expect(uses(src, "loadProjectHeadcountByDate")).toBeGreaterThanOrEqual(2);
+  });
+
   it("adds NO independent scroller to the panel", () => {
     // A scrolling panel is a NEW scroller, and this repo has shipped two
     // opposite touch-action bugs on those. The page scrolls instead.
