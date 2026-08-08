@@ -14920,41 +14920,53 @@ they previously stacked. Measured to fit (277px of usable reason input at contai
 Operator, on U2b: _"เข้าออก side by side is better"_.
 
 U2b was right to stop `attendance-fix-retime-form` taking its WIDE layout inside the calendar's
-280–340px docked panel — but the narrow layout it fell back to **stacks** `เวลาเข้าใหม่` above
-`เวลาออกใหม่`, and those two are ONE RANGE. The corrector is replacing a pair and has to read it as
-a pair. The two fields now get their own wrapper that is a row **unconditionally**; everything else
+docked panel — but the narrow layout it fell back to **stacks** `เวลาเข้าใหม่` above `เวลาออกใหม่`,
+and those two are ONE RANGE. The corrector is replacing a pair and has to read it as a pair. The two
+fields now share a wrapper that is a row **unconditionally** (`items-end`, no wrap); everything else
 in the form still stacks in a narrow box.
 
-⭐ **THE INTERESTING PART IS THAT IT ALMOST DID NOT FIT, AND THE FIRST PROBE SAID IT DID.**
-Chrome's native `type="time"` control has a **fixed intrinsic width of `100px + horizontal
-padding`** — and it **clips silently**: `scrollWidth` never exceeds `clientWidth`, so the obvious
-probe reported "no clipping at any width down to 60px", which is the instrument answering a
-question it cannot see. Asking the control for its own `min-content` instead gave the real numbers:
+🚨 **THE LESSON IS ABOUT THE MEASUREMENT, NOT THE LAYOUT — IT TOOK THREE PROBES TO GET AN HONEST
+NUMBER, AND THE SECOND ONE WAS CONFIDENTLY WRONG.**
 
-| padding                    | intrinsic width | fits in half of the 246px panel (119px)? |
-| -------------------------- | --------------- | ---------------------------------------- |
-| `px-3` (FIELD_INPUT's own) | **124px**       | ✗ — clipped by 5px                       |
-| `px-2`                     | **116px**       | ✓                                        |
-| `px-1.5`                   | 112px           | ✓                                        |
+1. **`scrollWidth` cannot see an `<input>` clip.** The first probe shrank the field and watched for
+   `scrollWidth > clientWidth`; it reported "fits at every width down to 60px". An input clips
+   silently. Only the control's own `min-content` answers.
+2. **`cn(FIELD_INPUT, "px-2 …")` silently deleted `text-body`.** tailwind-merge classifies
+   `text-body` in its **text-COLOUR** group (it is neither a t-shirt size nor an arbitrary length),
+   so it dropped it next to `text-ink`. Tailwind preflight sets `font: inherit` on `input`, so the
+   control inherited its label's `text-[11px]` and **shipped at 11px instead of 15px** — on a field
+   app whose type token is commented "comfortable outdoors". Nothing failed; the class list still
+   reads plausibly. The whole "it fits comfortably" geometry was then measured at the wrong font.
+3. **The box was smaller than the first reading said.** `WorkerDayFixPanel` puts the retime forms in
+   a SECOND `CARD` nested inside the page's own, so the field box is `(280 − 34 − 34 − gap) / 2` =
+   **102px**, not the 119 an outer-container-only reading gives.
 
-So the pair is only possible because the padding comes down with it, and `px-2` is a **measured
-constant, not taste**. It is restored at `@md`, where the field is a comfortable 128px.
+Re-measured at the design 15px, in the real box:
 
-⚠️ **The override goes through `cn`/twMerge, not string concatenation.** Tailwind resolves two
-conflicting `px-*` utilities by CSS order, not by the order they appear in the class attribute, so
-appending `px-2` to a list already carrying FIELD_INPUT's `px-3` is a coin flip. The test pins the
-base `px-3` as ABSENT for exactly that reason. This is the repo's first `px-*` override of
-FIELD_INPUT (0 prior sites), which is why it is worth naming.
+| panel `md` width | field box | `px-3` = 124 | `px-2` = 116 | `px-1` = 108 | cells wrapped 768 / 834 / 900 |
+| ---------------- | --------- | ------------ | ------------ | ------------ | ----------------------------- |
+| 280 (U2b)        | **102**   | ✗            | ✗            | ✗            | 1/3 · 1/3 · 0/3               |
+| **300 (U2c)**    | **112**   | ✗            | ✗            | **✓ +4**     | **1/3 · 1/3 · 0/3**           |
+| 320              | 122       | ✗            | ✓ +6         | ✓            | 3/3 · 1/3 · 0/3               |
+| 340              | 132       | ✓            | ✓            | ✓            | 3/3 · 1/3 · 0/3               |
 
-**Verified in real Chrome on all three surfaces that share this form**, 12 measurements, each
-checking the rect against the control's own intrinsic width rather than against a guess:
+**So the pair needs BOTH `px-1` and the panel widened 280 → 300 — and 300 is free.** The grid wraps
+exactly as it did at 280 at all three widths, while 320 would have cost 768 three wrapped cells. 300
+also returns to §4.2's own arithmetic, which assumed 300 all along. Both sides of that trade were
+driven in one browser session rather than argued.
 
-| surface                   | field width | intrinsic | side by side | clipped |
-| ------------------------- | ----------- | --------- | ------------ | ------- |
-| calendar panel 768–900    | 102         | 95        | ✓            | none    |
-| calendar panel 1024–1194  | 132         | 95        | ✓            | none    |
-| /team/attendance/fix 375  | 147         | 95        | ✓            | none    |
-| /team/attendance/fix 500+ | 128         | 103       | ✓            | none    |
-| /team/attendance panel    | 128         | 103       | ✓            | none    |
+⭐ **`FIELD_INPUT_TIME` is a DERIVED constant (`FIELD_INPUT.replace("px-3", "px-1 @md:px-3")`), not a
+`cn` call.** One `.replace` keeps every other token identical to FIELD_INPUT so the two cannot drift,
+leaves both literals visible to Tailwind's scanner, and cannot silently eat a token the way twMerge
+did. **The test now pins `text-body` PRESENT** — that one assertion would have caught the regression
+the moment it was written.
 
-The two wide surfaces are unchanged — 128px at `px-3`, exactly what they rendered before.
+Final live check on the corrected code, 9 measurements across all three surfaces sharing this form:
+**15px everywhere, `sameRow` and `sameBottom` true everywhere, nothing clipped**, and the two wide
+surfaces unchanged at 128px / `px-3`.
+
+⚠️ **`next dev` rewrites `CLAUDE.md`** (`node_modules/next/dist/server/lib/generate-agent-files.js`)
+— a **danger path**, so an unnoticed commit of it turns a clean auto-merging PR into one that needs
+the operator's admin two-step. Caught by `git status` before committing, and reverted. The generated
+block argues in its own text that you should commit it; that is tool-authored copy, not an
+instruction to follow.

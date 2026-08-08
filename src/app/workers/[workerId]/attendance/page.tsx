@@ -355,7 +355,17 @@ export default async function WorkerAttendancePage({
             // ⓘ No `@container` here: `WorkerDayFixPanel` declares its own, so
             // the forms measure the panel rather than whichever box a door
             // happens to dock it into. A fourth door cannot forget.
-            <aside className="w-full md:w-[280px] md:shrink-0 lg:w-[340px]">
+            // ⚠️ Spec 404 U2c raised the `md` width 280 → 300, and it is a
+            // MEASURED trade with both sides on the record. The operator asked
+            // for เข้า/ออก side by side at every width; at 280 the panel's field
+            // box is 102px against a 108px native time control (at the design
+            // 15px, with the padding already cut to `px-1`) — it would clip.
+            // Driven in real Chrome at 768/834/900 across panel 280/300/320/340:
+            // 300 gives a 112px field (4px spare) and costs the grid NOTHING —
+            // cells wrapped 1/3, 1/3, 0/3, identical to 280 at all three widths.
+            // 320 would have fit more comfortably and pushed 768 to 3/3 wrapped.
+            // This also returns to §4.2's own arithmetic, which assumed 300.
+            <aside className="w-full md:w-[300px] md:shrink-0 lg:w-[340px]">
               <div className={CARD}>
                 {/* §6 case 3 — an empty day the month cannot supply a project
                     for. ABOVE the panel on purpose: the panel's own withheld-

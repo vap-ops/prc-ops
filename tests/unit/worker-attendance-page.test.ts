@@ -206,7 +206,12 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
     // leaves ~108px per calendar column at 1194 (the cell needs 60), and the
     // panel is where the width was actually short — its reopen reason input
     // gained 60px of usable width, from 188 to 248.
-    expect(src).toContain("md:w-[280px]");
+    // U2c raised the `md` width 280 → 300: at 280 the panel's time field is
+    // 102px against a 108px native control (design font, padding already at
+    // `px-1`) and would clip. Measured at 768/834/900 across 280/300/320/340,
+    // 300 costs the grid nothing — cells wrapped 1/3, 1/3, 0/3, identical to
+    // 280 — while 320 would have pushed 768 to 3/3.
+    expect(src).toContain("md:w-[300px]");
     expect(src).toContain("lg:w-[340px]");
     // Not lg for the SPLIT — the whole point of the operator's ruling.
     expect(src).not.toContain("lg:flex-row");

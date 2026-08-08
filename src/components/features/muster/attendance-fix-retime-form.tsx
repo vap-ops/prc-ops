@@ -16,8 +16,7 @@
 import { correctMusterSessionFromForm } from "@/app/team/attendance/fix/actions";
 import { formatThaiTime } from "@/lib/i18n/labels";
 import { OUT_LOCKED_COPY } from "@/lib/muster/outcome-copy";
-import { BUTTON_SECONDARY, FIELD_INPUT } from "@/lib/ui/classes";
-import { cn } from "@/lib/utils";
+import { BUTTON_SECONDARY, FIELD_INPUT_TIME } from "@/lib/ui/classes";
 
 export function AttendanceFixRetimeForm({
   teamId,
@@ -103,7 +102,12 @@ export function AttendanceFixRetimeForm({
             ⚠️ It is a real wrapper rather than `@md:contents` so the wide
             surfaces keep the exact row they have today (current · เข้า ออก ·
             button) with no display-mode trickery in between. */}
-        <div className="flex min-w-0 gap-2">
+        {/* ⚠️ `items-end` is load-bearing: the wrapper is one flex item, so the
+            outer row's `@md:items-end` no longer reaches the two labels. Without
+            it they stretch, and if `เวลาเข้าใหม่` (12 clusters) wraps at a width
+            where `เวลาออกใหม่` (11) does not, the two inputs land at different
+            y — the ragged pair this unit exists to remove. */}
+        <div className="flex min-w-0 items-end gap-2">
           <label className="text-ink-secondary flex min-w-0 flex-1 flex-col text-[11px] @md:w-auto @md:flex-none">
             เวลาเข้าใหม่
             <input
@@ -113,20 +117,18 @@ export function AttendanceFixRetimeForm({
               // given in a narrow box; `@md:w-32` is the comfortable fixed size
               // once there is room, where `w-full` spanned the whole card.
               //
-              // ⚠️ `px-2` is LOAD-BEARING and measured, not taste. Chrome's
-              // native time control has a fixed intrinsic width of
-              // `100px + horizontal padding` and it CLIPS SILENTLY —
-              // `scrollWidth` never grows, so nothing but its intrinsic size can
-              // report the problem. Half of the panel's 246px container is
-              // 119px; at FIELD_INPUT's own `px-3` the control needs **124px**
-              // and is clipped, at `px-2` it needs **116px** and fits. The
-              // padding is restored at `@md`, where the field is 128px wide.
+              // ⚠️ The reduced padding is LOAD-BEARING and measured, not taste.
+              // Chrome's native time control has a fixed intrinsic width of
+              // `100px + horizontal padding` at 15px, and it CLIPS SILENTLY —
+              // `scrollWidth` never grows, so nothing but its own intrinsic size
+              // can report the problem. Measured in the real panel: the field
+              // box is **102px** in the `md` band and **132px** above `lg`,
+              // against 124px at `px-3`, 116 at `px-2`, 108 at `px-1`.
               //
-              // ⚠️ Through `cn` (twMerge), NOT string concatenation: Tailwind
-              // resolves two conflicting `px-*` utilities by CSS order, not by
-              // the order they appear in the attribute, so appending `px-2` to a
-              // class list already carrying `px-3` is a coin flip.
-              className={cn(FIELD_INPUT, "mt-1 appearance-none px-2 @md:w-32 @md:px-3")}
+              // ⚠️ `FIELD_INPUT_TIME`, not `cn(FIELD_INPUT, …)`: twMerge groups
+              // `text-body` with the text COLOURS and silently drops it, which
+              // shipped this control at 11px. See the constant's own note.
+              className={`${FIELD_INPUT_TIME} mt-1 appearance-none @md:w-32`}
             />
           </label>
 
@@ -136,10 +138,7 @@ export function AttendanceFixRetimeForm({
               type="time"
               name="outTime"
               disabled={outLocked}
-              className={cn(
-                FIELD_INPUT,
-                "mt-1 appearance-none px-2 disabled:opacity-50 @md:w-32 @md:px-3",
-              )}
+              className={`${FIELD_INPUT_TIME} mt-1 appearance-none disabled:opacity-50 @md:w-32`}
             />
           </label>
         </div>

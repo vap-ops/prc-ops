@@ -152,26 +152,44 @@ describe("AttendanceFixRetimeForm — the correction reads as one row", () => {
     // becomes a column in a narrow box is exactly the layout being replaced.
     expect(cls.some((c) => /(^|:)flex-col$/.test(c))).toBe(false);
     expect(cls.some((c) => /^(sm|md|lg|xl|2xl):/.test(c))).toBe(false);
+    // …and it must not WRAP either, which is the same failure by another route:
+    // a third child (or a long label) would push ออก onto its own line with
+    // every assertion above still green.
+    expect(cls).not.toContain("flex-wrap");
+    // The wrapper is now ONE flex item, so the outer row's `@md:items-end` no
+    // longer reaches the labels — it has to align them itself or a label that
+    // wraps at a different width offsets its input.
+    expect(cls).toContain("items-end");
   });
 
   it("gives the narrow pair enough room for the NATIVE time control", () => {
-    // Measured in real Chrome: Chrome's `type="time"` control has a fixed
-    // intrinsic width of `100px + horizontal padding`, and it CLIPS SILENTLY —
-    // `scrollWidth` never grows, so only its intrinsic size can answer this.
+    // Measured in real Chrome at the DESIGN font: Chrome's `type="time"` control
+    // has a fixed intrinsic width of `100px + horizontal padding` at 15px, and
+    // it CLIPS SILENTLY — `scrollWidth` never grows, so only its own intrinsic
+    // size can answer this.
     //
-    // The calendar panel's container is 246px in the `md` band, so half of it
-    // (minus the gap) is 119px. At FIELD_INPUT's own `px-3` the control needs
-    // **124px** and would be clipped; at `px-2` it needs **116px** and fits.
-    // The padding is restored at `@md`, where the field is a comfortable 128px.
+    // In the calendar panel the field box is **102px** at `md:w-[280px]` and
+    // **112px** at the 300px this unit moved it to; the control needs 124 at
+    // `px-3`, 116 at `px-2`, **108 at `px-1`**. So `px-1` plus the wider panel
+    // is what makes the pair possible, and the padding is restored at `@md`
+    // where the field is a comfortable 128px.
     const form = renderForm();
     for (const name of ["inTime", "outTime"]) {
       const cls = form.querySelector(`input[name="${name}"]`)!.className.split(/\s+/);
-      expect(cls).toContain("px-2");
+      expect(cls).toContain("px-1");
       expect(cls).toContain("@md:px-3");
       // …and the base `px-3` from FIELD_INPUT must be GONE, not merely
       // overridden by source order — Tailwind resolves conflicting utilities by
       // CSS order, not by attribute order, so leaving both is a coin flip.
       expect(cls).not.toContain("px-3");
+      // 🚨 THE ONE THAT WOULD HAVE CAUGHT THE REGRESSION. The first version of
+      // this built the class list with `cn(FIELD_INPUT, "px-2 …")`, and
+      // tailwind-merge classifies `text-body` in its text-COLOUR group — so it
+      // deleted `text-body` along with `px-3`. Tailwind's preflight sets
+      // `font: inherit` on `input`, so the control inherited its label's
+      // `text-[11px]` and SHIPPED AT 11px. Nothing failed; the whole geometry
+      // measurement was then taken at the wrong font and read as "it fits".
+      expect(cls).toContain("text-body");
     }
   });
 

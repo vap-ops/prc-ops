@@ -223,17 +223,31 @@ its wide layout inside the 280–340px docked panel, but the narrow fallback **s
 fields — and they are a pair the corrector is replacing together, not two independent questions.
 They now share a wrapper that is a row **unconditionally**; the rest of the form still stacks.
 
-⭐ **It only just fits, and the first probe got it wrong.** Chrome's native `type="time"` control has
-a fixed intrinsic width of `100px + horizontal padding` and **clips silently** — `scrollWidth` never
-grows, so the obvious check reported "no clipping down to 60px", which was the instrument, not the
-app. Asked for its own `min-content`: `px-3` needs **124px** against the **119px** half of the
-panel's 246px container (clipped by 5), `px-2` needs **116px** (fits). **`px-2` is a measured
-constant, not taste**, restored at `@md` where the field is 128px.
+⭐ **It only just fits, and it took THREE probes to get an honest number.** Chrome's native
+`type="time"` control has a fixed intrinsic width of `100px + horizontal padding` at 15px, and it
+**clips silently** — `scrollWidth` never grows on an `<input>`, so the first check ("no clipping down
+to 60px") was the instrument, not the app. Only `min-content` can answer.
 
-⚠️ The override goes through `cn`/twMerge — Tailwind resolves conflicting `px-*` by CSS order, not
-attribute order, so appending to FIELD_INPUT's `px-3` would be a coin flip. Verified in real Chrome
-on all three surfaces (12 measurements, rect vs the control's own intrinsic width): side by side and
-unclipped everywhere; the two wide surfaces unchanged at 128px/`px-3`.
+The second probe was worse: it reported a comfortable fit, because the class list had been built
+with `cn(FIELD_INPUT, …)` and **tailwind-merge classifies `text-body` in its text-COLOUR group**, so
+it silently deleted `text-body` along with `px-3`. Tailwind's preflight sets `font: inherit` on
+`input`, so the control inherited its label's `text-[11px]` and rendered at **11px** — and the whole
+geometry was then measured at the wrong font. Hence `FIELD_INPUT_TIME`, a derived constant, and a
+test that pins `text-body` PRESENT.
+
+Measured at the design 15px, in the real (doubly-carded) panel box:
+
+| panel `md` width | field box | `px-3` = 124 | `px-2` = 116 | `px-1` = 108 | cells wrapped 768 / 834 / 900 |
+| ---------------- | --------- | ------------ | ------------ | ------------ | ----------------------------- |
+| 280 (U2b)        | **102**   | ✗            | ✗            | ✗            | 1/3 · 1/3 · 0/3               |
+| **300 (U2c)**    | **112**   | ✗            | ✗            | **✓ +4**     | **1/3 · 1/3 · 0/3**           |
+| 320              | 122       | ✗            | ✓ +6         | ✓            | 3/3 · 1/3 · 0/3               |
+
+So the pair needs BOTH `px-1` and the panel at 300 — and 300 is free: the grid wraps exactly as it
+did at 280 at all three widths, while 320 would have cost 768 three wrapped cells. It also returns
+to §4.2's own arithmetic, which assumed 300. Final live check, 9 measurements across all three
+surfaces: 15px everywhere, `sameRow` and `sameBottom` true everywhere, nothing clipped; the two wide
+surfaces unchanged at 128px/`px-3`.
 
 ### 4.1 Breakpoints — two bands, tablet is desktop
 
