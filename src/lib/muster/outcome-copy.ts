@@ -58,6 +58,43 @@ export const RETIME_ERROR_COPY: Record<string, string> = {
   failed: "แก้เวลาไม่สำเร็จ กรุณาแจ้งผู้ดูแลระบบพร้อมวันที่และชื่อช่าง",
 };
 
+/**
+ * Spec 404 U2 — the reader that turns a redirect's outcome CODE back into the
+ * `{ok}` / `{ok:false, message}` shape every correction panel renders.
+ *
+ * Hoisted out of `/team/attendance/page.tsx`, where spec 400 U7 wrote it, the
+ * moment a SECOND surface (the calendar's own `?fix=` panel) began reading the
+ * same six params back from the same five actions. Copying eight lines of
+ * param-parsing would be exactly the drift `OUT_LOCKED_COPY` above exists to
+ * prevent, one layer down: the halves that decide whether an error is SHOWN.
+ *
+ * ⚠️ The `string[]` arm is load-bearing. A repeated key (`?retimed=1&retimed=1`)
+ * arrives as an array, and a bare `=== "1"` on it is false — so a success banner
+ * would silently not render. Same class as the `#fragment` bug `returnWith`
+ * exists for: the outcome is computed, and then nobody sees it.
+ */
+export function firstParam(value: unknown): string | undefined {
+  return Array.isArray(value)
+    ? typeof value[0] === "string"
+      ? value[0]
+      : undefined
+    : typeof value === "string"
+      ? value
+      : undefined;
+}
+
+export type FormOutcome = { ok: true } | { ok: false; message: string } | null;
+
+/** `null` when the URL carries neither half — the form has not run yet. */
+export function readOutcome(ok: unknown, err: unknown, copy: Record<string, string>): FormOutcome {
+  if (firstParam(ok) === "1") return { ok: true };
+  const code = firstParam(err);
+  if (code === undefined || code.length === 0) return null;
+  // An unknown code falls to `failed` rather than rendering nothing: a refusal
+  // that shows no message is indistinguishable from a success.
+  return { ok: false, message: copy[code] ?? copy.failed! };
+}
+
 /** Spec 400 U6a — deleting a session via `muster_undo_scan`. */
 export const UNDO_ERROR_COPY: Record<string, string> = {
   denied: "บัญชีนี้ไม่มีสิทธิ์ลบการเช็คชื่อนี้",

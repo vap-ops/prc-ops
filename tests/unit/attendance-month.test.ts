@@ -21,6 +21,7 @@ const muster = (over: Partial<AttendanceMusterRow>): AttendanceMusterRow => ({
   out_auto: false,
   ot_hours: 0,
   project_name: "TFM โพธิ์ทอง",
+  project_id: null,
   ...over,
 });
 
@@ -357,6 +358,78 @@ describe("buildAttendanceMonth — summary.projectDays", () => {
       paidRows: [],
       dayRate: 400,
     });
+    expect(m.summary.projectDays).toEqual([]);
+  });
+});
+
+// ── Spec 404 U2 — the project ID the month already knows ─────────────────────
+//
+// Writing failing test first.
+//
+// U1 carried the project NAME through the cell and stopped there, and the U6b
+// door comment recorded the consequence: "this calendar holds projectName but no
+// project id, so the fix screen infers it from the session". The loader's muster
+// read has embedded `muster_teams(project_id, ...)` since spec 374 and simply
+// dropped the id in its mapper — so the panel's project resolution costs no new
+// query, only the field.
+describe("buildAttendanceMonth — project ids (spec 404 U2)", () => {
+  const AID = "11111111-1111-4111-8111-111111111111";
+  const BID = "22222222-2222-4222-8222-222222222222";
+  const A = "PRC-2026-004 TFM โพธิ์ทอง";
+  const B = "PRC-2026-008 ลาดกระบัง";
+  const at = (date: string, project: string, id: string | null) =>
+    muster({
+      work_date: date,
+      in_at: `${date}T00:30:00Z`,
+      out_at: `${date}T10:00:00Z`,
+      project_name: project,
+      project_id: id,
+    });
+
+  it("a cell carries the id of the SAME row that supplied its name", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [at("2026-08-03", A, AID), at("2026-08-05", B, BID)],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.cells["2026-08-03"]?.projectId).toBe(AID);
+    expect(m.cells["2026-08-03"]?.projectName).toBe(A);
+    expect(m.cells["2026-08-05"]?.projectId).toBe(BID);
+    expect(m.cells["2026-08-05"]?.projectName).toBe(B);
+  });
+
+  it("a paid-only cell (paper backfill, no scan) carries no project id", () => {
+    // It is a door — a recorded labor day IS work — but nothing in labor_logs
+    // names the muster team, so the panel must fall back to the month rather
+    // than inherit a neighbour's project.
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [at("2026-08-03", A, AID)],
+      paidRows: [{ work_date: "2026-08-10", day_fraction: 1 }],
+      dayRate: 400,
+    });
+    expect(m.cells["2026-08-10"]?.projectId).toBeNull();
+  });
+
+  it("each project entry carries its id, so the month's set is readable", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [at("2026-08-03", A, AID), at("2026-08-04", A, AID), at("2026-08-05", B, BID)],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.summary.projectDays.map((p) => p.projectId)).toEqual([AID, BID]);
+  });
+
+  it("a row whose team lost its project keeps a null id rather than borrowing one", () => {
+    const m = buildAttendanceMonth({
+      monthAnchor: "2026-08-01",
+      musterRows: [at("2026-08-03", null as unknown as string, null)],
+      paidRows: [],
+      dayRate: 400,
+    });
+    expect(m.cells["2026-08-03"]?.projectId).toBeNull();
     expect(m.summary.projectDays).toEqual([]);
   });
 });

@@ -1,0 +1,118 @@
+// Spec 404 U2 — the attendance calendar's in-page `?fix=` panel: its three pure
+// decisions, in one client-safe leaf module.
+//
+// Spec 400 U7 already extracted `loadWorkerDayFix` + `WorkerDayFixPanel` and
+// shipped a URL-driven `?fix=` panel on `/team/attendance` — `<dialog>` was
+// explicitly rejected there because it pays the same server round trip and costs
+// the page its zero-JS property. This unit ADOPTS that shape; it invents no
+// panel. What is new is the AXIS: the grid walks worker-within-day, the calendar
+// walks day-within-worker, so the panel needs its own target parse, its own
+// project resolution, and its own steppers.
+//
+// PURE and exported, per the U6a lesson: a source scan proves a branch EXISTS,
+// never that it is REACHABLE, and the host is a Server Component vitest cannot
+// render. Every arm is driven directly in `attendance-fix-panel.test.ts`.
+
+import { isValidIsoDate } from "@/lib/muster/attendance-audit";
+
+/**
+ * Whether the panel opens, and if not, which fact is wrong.
+ *
+ * `reason: null` is the DEFAULT state and a different thing from a refusal: the
+ * panel is closed because nobody asked for it, so nothing is rendered. The two
+ * refusals are permanent for that URL — their copy may never say ลองใหม่.
+ */
+export type CalendarFixTarget =
+  | { open: true; date: string }
+  | {
+      open: false;
+      reason:
+        /** No `?fix=` at all. Render nothing. */
+        | null
+        /** Not a real ISO date, or a repeated param. */
+        | "shape"
+        /** A real date, but not in the month on screen. */
+        | "outside";
+    };
+
+/**
+ * `?fix=` → the day the panel is open on.
+ *
+ * Default CLOSED. Opening with a panel already showing would force a default
+ * target, and "today" is not in the viewed month half the time — the same rule
+ * U6a applied to its time fields ("no field ever has a default value"), one
+ * level up at the surface.
+ *
+ * The month bound is the calendar's twin of `attendanceDayParam`, which
+ * validates the grid's `?day=` against the columns it actually drew: a panel
+ * about a day that is not on screen has no cell to point at, and its steppers
+ * would walk a month the reader is not looking at.
+ */
+export function calendarFixTarget(
+  fix: string | string[] | undefined,
+  /** YYYY-MM-01, the month being rendered. */
+  monthAnchor: string,
+): CalendarFixTarget {
+  if (fix === undefined) return { open: false, reason: null };
+  // A repeated key (?fix=a&fix=b) arrives as an array — treated as malformed
+  // rather than silently picking one, the same rule `parseFixParams`' own
+  // `one()` applies (the spec-337 repeated-key lesson).
+  if (typeof fix !== "string") return { open: false, reason: "shape" };
+  if (!isValidIsoDate(fix)) return { open: false, reason: "shape" };
+  if (fix.slice(0, 7) !== monthAnchor.slice(0, 7)) return { open: false, reason: "outside" };
+  return { open: true, date: fix };
+}
+
+/**
+ * Which project the panel's writes act on.
+ *
+ * The DAY owns the project (§2), so a day that carries attendance answers this
+ * itself and nothing may override it. An EMPTY day has no session to infer one
+ * FROM — and here the calendar can do something the standalone fix screen
+ * structurally cannot, because it knows the month's project set (§4.3).
+ *
+ * ⚠️ It supplies that fallback ONLY when the month is unambiguous. On an empty
+ * day of a SPLIT month there are two owners and no evidence, and the add arm
+ * books a wage against whichever it is handed — so guessing there would be the
+ * summary's "invent an owner" defect with money attached. `null` sends the panel
+ * to its permanent-refusal arm instead (§6 case 3).
+ */
+export function fixPanelProjectId(input: {
+  /** The open day's own project id, or null when the day carries no attendance. */
+  cellProjectId: string | null;
+  /** Distinct project ids the MONTH contains, from its attendance rows. */
+  monthProjectIds: readonly string[];
+}): string | null {
+  if (input.cellProjectId !== null) return input.cellProjectId;
+  return input.monthProjectIds.length === 1 ? (input.monthProjectIds[0] ?? null) : null;
+}
+
+/**
+ * Where วันก่อนหน้า / วันถัดไป go.
+ *
+ * They step to the neighbouring day that CARRIES attendance, skipping the
+ * blanks: walking a reader through twenty empty cells is the cry-wolf failure
+ * U6b already ruled against, and an empty day stays reachable by tapping its
+ * own cell.
+ *
+ * `doorDates` is the set of days the calendar actually opens, so the two
+ * controls can never disagree about what the month holds. It is sorted here
+ * rather than trusted: the cells arrive from a `Record`, whose key order is an
+ * implementation detail — a stepper that inherited it would walk at random.
+ *
+ * `current` need NOT be one of them: an empty day opened by tap gets the doors
+ * on either side of it, by date.
+ */
+export function fixStepDates(
+  doorDates: readonly string[],
+  current: string,
+): { prev: string | null; next: string | null } {
+  const sorted = [...doorDates].sort();
+  let prev: string | null = null;
+  let next: string | null = null;
+  for (const d of sorted) {
+    if (d < current) prev = d;
+    else if (d > current && next === null) next = d;
+  }
+  return { prev, next };
+}

@@ -136,6 +136,11 @@ export async function loadWorkerAttendance(
       out_auto: r.out_auto,
       ot_hours: r.ot_hours === null ? 0 : Number(r.ot_hours),
       project_name: project ? `${project.code} ${project.name}` : null,
+      // Spec 404 U2 — already in the embedded select since spec 374 (the
+      // membership filter targets it); the mapper simply dropped it, which is
+      // why U6b's calendar door had to send `projectId: null` and let the fix
+      // screen re-infer the project from the session.
+      project_id: r.muster_teams?.project_id ?? null,
     };
   });
 

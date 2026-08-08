@@ -18,6 +18,13 @@ export interface AttendanceMusterRow {
   out_auto: boolean;
   ot_hours: number;
   project_name: string | null;
+  /**
+   * Spec 404 U2 — the day's own project id, from the same embedded
+   * `muster_teams` row the name comes from. REQUIRED rather than optional: the
+   * `?fix=` panel's writes act on it, and a producer that silently omitted it
+   * would degrade to the month-level fallback with nothing failing.
+   */
+  project_id: string | null;
 }
 
 export interface AttendancePaidRow {
@@ -63,6 +70,10 @@ export interface AttendanceDayCell {
   outNextDay: boolean;
   otHours: number;
   projectName: string | null;
+  /** Spec 404 U2 — set together with `projectName`, from the SAME row, so the
+   *  `?fix=` panel can never act on a project the cell does not display. Null on
+   *  a paid-only cell: `labor_logs` names no muster team. */
+  projectId: string | null;
   paidFraction: number;
 }
 
@@ -76,6 +87,9 @@ export interface AttendanceDayCell {
 export interface AttendanceProjectDays {
   /** The label as loaded, `"<code> <name>"`. */
   label: string;
+  /** Spec 404 U2 — the project's id, so the `?fix=` panel can resolve a project
+   *  for an EMPTY day of an unambiguous month (`fixPanelProjectId`). */
+  projectId: string | null;
   /** First token of the label — the project code. */
   code: string;
   /**
@@ -203,6 +217,7 @@ export function buildAttendanceMonth(opts: {
         outNextDay: false,
         otHours: 0,
         projectName: null,
+        projectId: null,
         paidFraction: 0,
       };
       cells[date] = cell;
@@ -236,7 +251,13 @@ export function buildAttendanceMonth(opts: {
       }
     }
     cell.otHours += row.ot_hours;
-    if (!cell.projectName && row.project_name) cell.projectName = row.project_name;
+    // Name and id are set TOGETHER, from the same row: a cell that displayed one
+    // project while the panel wrote to another would be the U1 badge defect with
+    // a wage attached.
+    if (!cell.projectName && row.project_name) {
+      cell.projectName = row.project_name;
+      cell.projectId = row.project_id;
+    }
   }
 
   let paidDaysTotal = 0;
@@ -253,12 +274,15 @@ export function buildAttendanceMonth(opts: {
   // Attribution is per DATE, through the cell — so a date carrying a regular
   // AND an OT session (spec 351) is one day, exactly as `daysScanned` counts
   // it, and the split can never sum to more than the total it sits under.
-  const byLabel = new Map<string, { label: string; days: number; otHours: number }>();
+  const byLabel = new Map<
+    string,
+    { label: string; projectId: string | null; days: number; otHours: number }
+  >();
   for (const date of scannedDates) {
     const cell = cells[date];
     const label = cell?.projectName;
     if (!cell || !label) continue;
-    const entry = byLabel.get(label) ?? { label, days: 0, otHours: 0 };
+    const entry = byLabel.get(label) ?? { label, projectId: cell.projectId, days: 0, otHours: 0 };
     entry.days += 1;
     entry.otHours += cell.otHours;
     byLabel.set(label, entry);
