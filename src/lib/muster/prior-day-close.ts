@@ -9,7 +9,7 @@
 // becomes UI-unreachable and nothing anywhere surfaces it to the SA again.
 //
 // A day is only ever listed if a team was actually opened on it — days nobody
-// mustered (a Sunday, a holiday) have no muster_teams rows at all, so this can
+// mustered (a Sunday, a site shutdown) have no muster_teams rows at all, so this can
 // never nag about a day that was never worked.
 //
 // Kept free of `server-only` so it stays importable from the "use client" banner.

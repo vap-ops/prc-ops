@@ -62,7 +62,6 @@ function renderGrid(
     from: "2026-08-03",
     to: "2026-08-05",
     rows: [row()],
-    holidays: [],
     ...over,
   });
   return render(

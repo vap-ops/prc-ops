@@ -204,29 +204,18 @@ describe("buildAttendanceMonth", () => {
     expect(m.cells["2026-07-15"]?.outNextDay).toBe(false);
   });
 
-  it("maps holidays by date, filtered to the anchor month (spec 374 U2)", () => {
-    const m = buildAttendanceMonth({
-      monthAnchor: "2026-07-01",
-      musterRows: [],
-      paidRows: [],
-      dayRate: null,
-      holidays: [
-        { holiday_date: "2026-07-28", name_th: "วันเฉลิมพระชนมพรรษา" },
-        { holiday_date: "2026-08-12", name_th: "วันแม่แห่งชาติ" },
-      ],
-    });
-    expect(m.holidayByDate["2026-07-28"]).toBe("วันเฉลิมพระชนมพรรษา");
-    expect(m.holidayByDate["2026-08-12"]).toBeUndefined();
-  });
-
-  it("holidays default to an empty map when absent", () => {
+  // Operator 2026-08-08 — the month model carries NO holiday axis any more
+  // ("hide info about holidays, we do not have those yet"). Pinned as the shape
+  // of what the builder returns rather than as a missing key: a typo'd property
+  // name would satisfy `toBeUndefined` forever.
+  it("returns a month of grid + cells + summary, and nothing holiday-shaped", () => {
     const m = buildAttendanceMonth({
       monthAnchor: "2026-07-01",
       musterRows: [],
       paidRows: [],
       dayRate: null,
     });
-    expect(m.holidayByDate).toEqual({});
+    expect(Object.keys(m).sort()).toEqual(["cells", "grid", "summary"]);
   });
 });
 

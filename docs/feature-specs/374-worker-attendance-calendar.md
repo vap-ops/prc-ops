@@ -104,7 +104,28 @@ One new page: a month calendar for one worker.
   cells + summary computed from rows, fully unit-testable; the page stays a
   thin server component pinned by source scan.
 
-### U2 — `public_holidays` (additive schema) + calendar marking
+### U2 — `public_holidays` (additive schema) + calendar marking — ⛔ WITHDRAWN 2026-08-08
+
+> 🚨 **The MARKING is withdrawn; the TABLE stays.** Operator 2026-08-08, on a
+> screenshot of ก.ค. 2569: _"hide info about holidays, we do not have those yet.
+> money is the same as normal day."_ PRC works the national calendar — the site
+> scanned full days on 2026-07-29 (อาสาฬหบูชา) and 2026-07-30 (วันเข้าพรรษา) —
+> so the tint, the name, the ทำงานวันหยุด chip and the legend all described a
+> policy the firm does not have, and on a page headlined ประมาณการค่าแรง an amber
+> tint reads as "this day is priced differently".
+>
+> The money half needed no code: `public_holidays` is referenced by nothing in
+> `supabase/` beyond its own migration and pgTAP file — no function, view or
+> trigger — so holiday pay was already identical to a normal day.
+>
+> `public_holidays` (23 rows) and its pgTAP file are KEPT so a future holiday
+> policy inherits the data; every READER is gone, pinned repo-wide by
+> `tests/unit/attendance-holiday-display-withdrawn.test.ts`. The holiday arm of
+> `GridDay.nonWorking` went with it (now Sunday alone) — leaving it would have
+> kept those columns shaded and un-fixable with nothing on screen saying why.
+> Spec 400 D5 is amended to match.
+>
+> The description below is kept as the record of what shipped and was retired.
 
 - Table `public_holidays (holiday_date date primary key, name_th text not null)`.
   RLS: SELECT for `authenticated` (public reference data); no INSERT/UPDATE/

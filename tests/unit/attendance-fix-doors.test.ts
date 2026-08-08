@@ -31,7 +31,6 @@ function day(over: Partial<GridDay> = {}): GridDay {
   return {
     date: "2026-08-04",
     nonWorking: false,
-    holidayName: null,
     headcount: 12,
     dayClosed: true,
     ...over,
@@ -159,14 +158,6 @@ describe("gridCellFixable", () => {
         hasSession: false,
         hasFindings: false,
         day: day({ nonWorking: true }),
-        canFixGaps: true,
-      }),
-    ).toBe(false);
-    expect(
-      gridCellFixable({
-        hasSession: false,
-        hasFindings: false,
-        day: day({ nonWorking: true, holidayName: "วันแม่" }),
         canFixGaps: true,
       }),
     ).toBe(false);

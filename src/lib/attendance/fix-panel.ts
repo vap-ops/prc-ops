@@ -126,13 +126,13 @@ export function fixPanelProjectId(input: {
  *    is stricter than "a team exists", which is what the add path actually
  *    needs, so the error can only ever be a door NOT offered, never one offered
  *    and then refused.
- *  - `nonWorking` — `holiday || Sunday`, NOT the calendar's own `isWeekend`.
+ *  - `nonWorking` — Sunday, NOT the calendar's own `isWeekend` (Saturday is a
+ *    working day here). Public holidays left this predicate with the holiday
+ *    model itself (operator 2026-08-08).
  */
 export function calendarBlankDayFixable(input: {
   /** The cell's date, inside the rendered month. */
   date: string;
-  /** The date's `public_holidays` name, or null. */
-  holidayName: string | null;
   /** DISTINCT workers the resolved project scanned that date. */
   projectHeadcount: number;
   /** Whether a project can be resolved for an EMPTY day of this month. */
@@ -142,7 +142,7 @@ export function calendarBlankDayFixable(input: {
     hasSession: false,
     hasFindings: false,
     day: {
-      nonWorking: input.holidayName !== null || isSunday(input.date),
+      nonWorking: isSunday(input.date),
       headcount: input.projectHeadcount,
     },
     canFixGaps: input.projectResolvable,

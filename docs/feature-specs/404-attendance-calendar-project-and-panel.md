@@ -124,6 +124,8 @@ month-total and unlabelled by project.
   the panel: the panel is gated on `MUSTER_CORRECT_ROLES` and only renders while open, so moving the
   name there would have withheld it from exactly the readers who lost the `title` hover. The same
   legend decodes the two marker glyphs, and renders only on a month that carries them.
+  ⛔ **The holiday half of that legend is GONE since 2026-08-08** — the operator withdrew the whole
+  holiday marking (spec 374 U2); the legend now decodes the auto-out and next-day glyphs only.
 - §4.3's "the calendar can supply a project where an empty day has no session" is honoured **only
   when the month is unambiguous** (`fixPanelProjectId`). On an empty day of a split month there are
   two owners and no evidence, and the add arm books a wage against whichever it is handed — so it
@@ -199,7 +201,8 @@ cell needs). ⚠️ `MusterReopenForm` has THREE renderers, not one — `attenda
 Operator ruling 2026-08-08: mirror `/team/attendance`'s gap-cell rule, do not invent a second one.
 `calendarBlankDayFixable` DELEGATES to `gridCellFixable`; the only thing it owns is the mapping
 (`canFixGaps` ⇒ the month is unambiguous, `headcount` ⇒ workers the resolved project scanned that
-date, `nonWorking` ⇒ holiday-or-Sunday, NOT the calendar's own `isWeekend`). It costs ONE new read,
+date, `nonWorking` ⇒ Sunday — holiday-or-Sunday until the holiday model was withdrawn 2026-08-08 —
+NOT the calendar's own `isWeekend`). It costs ONE new read,
 bought only when the viewer may correct AND the month names exactly one project.
 
 Live August 2026 for a worker who missed one day: doors are her `08-02, 08-03, 08-05` **plus

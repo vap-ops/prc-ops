@@ -119,17 +119,21 @@ built on the old sentence should be re-checked.
 
 ### D5 — non-working days are SHADED, or the grid cries wolf
 
-`public_holidays` is live with **23 rows** (`holiday_date`, `name_th`, spec 374 U2,
-B.E. 2569). Sundays plus those dates render as a shaded column with no finding.
+**AMENDED 2026-08-08 — SUNDAY ONLY.** Sundays render as a shaded column with no
+finding.
 
 Without this, every Sunday is a 41-cell hole and the reader learns within a week
 that holes mean nothing — the failure spec 358 U2 documented (a signal that fires
 on every row is not a signal) and spec 341's always-amber board before it. The
 shading is load-bearing, not decoration.
 
-⚠️ `public_holidays` is **display-only by operator ruling** (374 §3b). Shading a
-column must not change any count, any total, or any wage — it changes what is
-DRAWN, nothing else.
+⛔ **Public holidays are NO LONGER part of this rule.** The original decision
+shaded Sundays plus the 23 `public_holidays` dates; the operator withdrew the
+holiday model on 2026-08-08 (_"we do not have those yet. money is the same as
+normal day"_) because PRC works the national calendar — 2026-07-29 อาสาฬหบูชา and
+07-30 วันเข้าพรรษา were both full scanned days. A holiday column now shades like
+any working day, and a blank cell in it is a fixable gap like any other. The
+table is retained but read by nothing (spec 374 U2, withdrawn).
 
 ### D6 — cell grain is the DATE; the column header carries the project-day facts
 

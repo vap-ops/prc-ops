@@ -95,28 +95,23 @@ describe("/team/attendance page — spec 400 U1 wiring", () => {
     expect(code).not.toContain("/workers/${workerId}/attendance");
   });
 
-  it("reads public_holidays on the SESSION client, never the admin one", () => {
-    // `public_holidays` RLS is `readable by authenticated` (qual true, verified
-    // live), so the admin seam would be an unjustified bypass — and this page
-    // already keeps admin to the project picker alone.
-    expect(code).toMatch(/supabase\s*\n?\s*\.from\("public_holidays"\)/);
-    const holidayCall = code.slice(
-      code.indexOf('"public_holidays"') - 400,
-      code.indexOf('"public_holidays"'),
-    );
-    expect(holidayCall).not.toContain("createAdminClient");
+  it("reads no holidays at all — the marking was withdrawn (operator 2026-08-08)", () => {
+    // "hide info about holidays, we do not have those yet." The table and its 23
+    // rows stay for a future policy; this page reads none of them, so the grid
+    // shades Sundays only. Repo-wide absence is pinned by
+    // attendance-holiday-display-withdrawn.test.ts.
+    expect(code).not.toContain("public_holidays");
   });
 
   it("skips the detail fetch entirely when the range is too wide to draw", () => {
     // Otherwise a ?start=2020-01-01 pulls every session ever recorded and then
-    // refuses to render them. Asserting only that `gridProbe.tooWide` APPEARS is
-    // the two-appearance hole again (it guards the holidays read as well), so
-    // the guard is pinned adjacent to the detail call itself.
+    // refuses to render them. Asserting only that `gridProbe.tooWide` APPEARS
+    // would pass on a page that computes the flag and never uses it, so the
+    // guard is pinned adjacent to the detail call itself.
     expect(code).toContain('const drawsGrid = shape === "grid" && !gridProbe.tooWide;');
     expect(code).toContain(
       "const gridDetail = drawsGrid ? await loadAttendanceDetail(supabase, range, null) : [];",
     );
-    expect(code).toContain("const { data: holidays } = drawsGrid");
   });
 
   it("reads the roster on the SESSION client, gated on the roles RLS actually admits", () => {

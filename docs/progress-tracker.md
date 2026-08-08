@@ -15093,3 +15093,55 @@ surfaces unchanged at 128px / `px-3`.
 the operator's admin two-step. Caught by `git status` before committing, and reverted. The generated
 block argues in its own text that you should commit it; that is tool-authored copy, not an
 instruction to follow.
+
+## 2026-08-08 — the holiday display is withdrawn from every attendance surface (lane nohol)
+
+**Operator, on a screenshot of ปฏิทินเข้างาน for ก.ค. 2569:** _"hide info about holidays, we do not
+have those yet. money is the same as normal day."_
+
+Spec 374 U2 shipped a holiday tint + the holiday name in the cell + a `ทำงานวันหยุด` chip + a legend
+under the grid, and spec 400 D5 shaded the grid's holiday columns. All of it described a policy PRC
+does not have: the site scanned **full days on 2026-07-29 (อาสาฬหบูชา) and 2026-07-30 (วันเข้าพรรษา)**
+— both visible in the operator's own screenshot — and on a page headlined ประมาณการค่าแรง an amber
+tint reads as _this day is priced differently_.
+
+**The money half needed no code, and that is a finding rather than an assumption.** `public_holidays`
+is referenced by NOTHING in `supabase/` beyond its own migration and its pgTAP file — no function, no
+view, no trigger — so a holiday already paid exactly like a normal day. Nothing about pay changed in
+this diff.
+
+**The TABLE stays; every READER goes.** `public_holidays` (23 rows, mig `20260813075870`) and
+`supabase/tests/database/374-public-holidays.test.sql` are untouched, so a future holiday policy
+inherits the data. **No migration, no schema lane, not a danger path.**
+
+⭐ **The holiday arm of `GridDay.nonWorking` had to go with the display, and that is the decision
+worth recording.** `nonWorking` was `holiday || Sunday` and drives BOTH the `bg-sunk` column shading
+and `gridCellFixable` — so hiding only the NAME would have left holiday columns visibly shaded and
+silently un-fixable with nothing on screen saying why. A hidden marking is worse than a visible one.
+It is now `isSunday(date)` in both producers (`attendance-grid.ts`, `fix-panel.ts`). Consequence,
+pinned as its own test: a blank cell on a public holiday the project scanned others on is now a
+**door** (`calendarBlankDayFixable("2026-08-12") === true`, where it was `false`). A holiday nobody
+worked still offers no door — `gridCellFixable` needs `headcount > 0`, which fails there.
+
+**Surfaces:** `worker-attendance-calendar.tsx` (tint, name, chip, legend) · `attendance-grid-view.tsx`
+(column name, `aria-label` fragment, empty-cell label) · `attendance-day-panel.tsx` (header suffix) ·
+`attendance-month.ts` (`holidayByDate`, `HolidayRow`) · `load-worker-attendance.ts` (the read) ·
+`attendance-grid.ts` (`GridHoliday`, `holidayName`) · `fix-panel.ts` · both attendance pages (two
+queries deleted — one session-client read, one admin-seam read).
+
+⭐ **The repo-wide pin is `tests/unit/attendance-holiday-display-withdrawn.test.ts`**, because no
+render test can express "and not on the other eight surfaces either". It scans the nine modules that
+used to read the table, **pins the corpus at 9** so a rename cannot shrink it to a vacuous pass,
+strips comment lines (a note explaining the withdrawal must not trip the guard it explains), and
+asserts every `nonWorking:` ASSIGNMENT — not the first `nonWorking:` in the file, which is the
+interface declaration and would have matched any predicate at all. Mutation-checked in both
+directions.
+
+**Behavioural coverage was rewritten, not deleted** — each retired holiday test became its ordinary-day
+twin (`renders a public-holiday date as an ordinary working day`, `LINKS a public holiday`,
+`marks SUNDAY as non-working — and a public holiday as an ordinary day`), and the weekend tint is
+pinned PRESENT in the same test that pins the holiday tint absent: an absence-only assertion is
+satisfied by a component that renders nothing at all.
+
+**Docs amended alongside:** spec 374 §U2 carries the withdrawal notice, spec 400 D5 is amended to
+Sunday-only, spec 404's two holiday references are corrected.

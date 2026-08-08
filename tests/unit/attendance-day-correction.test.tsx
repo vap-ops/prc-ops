@@ -35,7 +35,6 @@ function day(over: Partial<GridDay> = {}): GridDay {
   return {
     date: "2026-08-04",
     nonWorking: false,
-    holidayName: null,
     headcount: 4,
     dayClosed: false,
     ...over,

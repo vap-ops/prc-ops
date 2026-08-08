@@ -119,7 +119,6 @@ export default async function WorkerAttendancePage({
     musterRows: data.musterRows,
     paidRows: data.paidRows,
     dayRate: data.worker.dayRate,
-    holidays: data.holidays,
   });
 
   // Spec 400 U6b — a day with attendance is a door.
@@ -224,7 +223,6 @@ export default async function WorkerAttendancePage({
       .filter((date) =>
         calendarBlankDayFixable({
           date,
-          holidayName: month.holidayByDate[date] ?? null,
           projectHeadcount: projectHeadcountByDate[date] ?? 0,
           // ⚠️ NOT a hardcoded `true`. That left `gridCellFixable`'s
           // `canFixGaps` arm dead at its only call site, with the real gate

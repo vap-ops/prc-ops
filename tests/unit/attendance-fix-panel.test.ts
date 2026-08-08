@@ -195,7 +195,6 @@ describe("calendarBlankDayFixable — which BLANK cells become doors (spec 404 U
   const at = (o: Partial<Parameters<typeof calendarBlankDayFixable>[0]> = {}) =>
     calendarBlankDayFixable({
       date: "2026-08-04",
-      holidayName: null,
       projectHeadcount: 15,
       projectResolvable: true,
       ...o,
@@ -222,11 +221,18 @@ describe("calendarBlankDayFixable — which BLANK cells become doors (spec 404 U
     expect(at({ projectResolvable: false })).toBe(false);
   });
 
-  it("refuses a SUNDAY and a HOLIDAY even when the project scanned that day", () => {
-    // `GridDay.nonWorking` is `holiday || Sunday`. An empty non-working day is
-    // not a finding, and the shading exists to stop it reading as one.
+  it("refuses a SUNDAY even when the project scanned that day", () => {
+    // `GridDay.nonWorking` is Sunday. An empty non-working day is not a
+    // finding, and the shading exists to stop it reading as one.
     expect(at({ date: "2026-08-02" })).toBe(false); // Sunday
-    expect(at({ date: "2026-08-12", holidayName: "วันแม่แห่งชาติ" })).toBe(false);
+  });
+
+  it("LINKS a public holiday — it is an ordinary working day here (2026-08-08)", () => {
+    // The operator withdrew the holiday model: PRC scanned full days on
+    // 2026-07-29 (อาสาฬหบูชา) and 07-30 (วันเข้าพรรษา). 2026-08-12 is
+    // วันแม่แห่งชาติ in the retained seed and used to be refused here — a door
+    // silently withheld on a day the site works is a gap nobody can fix.
+    expect(at({ date: "2026-08-12" })).toBe(true);
   });
 
   it("still links a SATURDAY — the grid's rule is Sunday-only, not weekend", () => {
@@ -241,20 +247,18 @@ describe("calendarBlankDayFixable — which BLANK cells become doors (spec 404 U
     // The whole point of the operator's ruling. Driven over the full matrix so
     // a future edit to either side reds here rather than letting two surfaces
     // drift apart while both cite `gridCellFixable` in a comment.
-    for (const date of ["2026-08-01", "2026-08-02", "2026-08-04"]) {
-      for (const holidayName of [null, "วันหยุด"]) {
-        for (const projectHeadcount of [0, 1, 23]) {
-          for (const projectResolvable of [true, false]) {
-            const sunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
-            expect(at({ date, holidayName, projectHeadcount, projectResolvable })).toBe(
-              gridCellFixable({
-                hasSession: false,
-                hasFindings: false,
-                day: { nonWorking: holidayName !== null || sunday, headcount: projectHeadcount },
-                canFixGaps: projectResolvable,
-              }),
-            );
-          }
+    for (const date of ["2026-08-01", "2026-08-02", "2026-08-04", "2026-08-12"]) {
+      for (const projectHeadcount of [0, 1, 23]) {
+        for (const projectResolvable of [true, false]) {
+          const sunday = new Date(`${date}T00:00:00Z`).getUTCDay() === 0;
+          expect(at({ date, projectHeadcount, projectResolvable })).toBe(
+            gridCellFixable({
+              hasSession: false,
+              hasFindings: false,
+              day: { nonWorking: sunday, headcount: projectHeadcount },
+              canFixGaps: projectResolvable,
+            }),
+          );
         }
       }
     }
