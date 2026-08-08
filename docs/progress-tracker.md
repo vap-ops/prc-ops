@@ -14914,3 +14914,47 @@ attendance`) had quietly become false — it passed only because that suite neve
 boundary moves from viewport 640 (`sm:`) to container 448 — ≈488px of viewport on
 `/team/attendance/fix`, ≈520 on the day panel — so those surfaces now ROW in the 488–640 band where
 they previously stacked. Measured to fit (277px of usable reason input at container 460).
+
+## 2026-08-08 — spec 404 U2c: เข้า and ออก are one range, so they sit side by side (lane u2c)
+
+Operator, on U2b: _"เข้าออก side by side is better"_.
+
+U2b was right to stop `attendance-fix-retime-form` taking its WIDE layout inside the calendar's
+280–340px docked panel — but the narrow layout it fell back to **stacks** `เวลาเข้าใหม่` above
+`เวลาออกใหม่`, and those two are ONE RANGE. The corrector is replacing a pair and has to read it as
+a pair. The two fields now get their own wrapper that is a row **unconditionally**; everything else
+in the form still stacks in a narrow box.
+
+⭐ **THE INTERESTING PART IS THAT IT ALMOST DID NOT FIT, AND THE FIRST PROBE SAID IT DID.**
+Chrome's native `type="time"` control has a **fixed intrinsic width of `100px + horizontal
+padding`** — and it **clips silently**: `scrollWidth` never exceeds `clientWidth`, so the obvious
+probe reported "no clipping at any width down to 60px", which is the instrument answering a
+question it cannot see. Asking the control for its own `min-content` instead gave the real numbers:
+
+| padding                    | intrinsic width | fits in half of the 246px panel (119px)? |
+| -------------------------- | --------------- | ---------------------------------------- |
+| `px-3` (FIELD_INPUT's own) | **124px**       | ✗ — clipped by 5px                       |
+| `px-2`                     | **116px**       | ✓                                        |
+| `px-1.5`                   | 112px           | ✓                                        |
+
+So the pair is only possible because the padding comes down with it, and `px-2` is a **measured
+constant, not taste**. It is restored at `@md`, where the field is a comfortable 128px.
+
+⚠️ **The override goes through `cn`/twMerge, not string concatenation.** Tailwind resolves two
+conflicting `px-*` utilities by CSS order, not by the order they appear in the class attribute, so
+appending `px-2` to a list already carrying FIELD_INPUT's `px-3` is a coin flip. The test pins the
+base `px-3` as ABSENT for exactly that reason. This is the repo's first `px-*` override of
+FIELD_INPUT (0 prior sites), which is why it is worth naming.
+
+**Verified in real Chrome on all three surfaces that share this form**, 12 measurements, each
+checking the rect against the control's own intrinsic width rather than against a guess:
+
+| surface                   | field width | intrinsic | side by side | clipped |
+| ------------------------- | ----------- | --------- | ------------ | ------- |
+| calendar panel 768–900    | 102         | 95        | ✓            | none    |
+| calendar panel 1024–1194  | 132         | 95        | ✓            | none    |
+| /team/attendance/fix 375  | 147         | 95        | ✓            | none    |
+| /team/attendance/fix 500+ | 128         | 103       | ✓            | none    |
+| /team/attendance panel    | 128         | 103       | ✓            | none    |
+
+The two wide surfaces are unchanged — 128px at `px-3`, exactly what they rendered before.

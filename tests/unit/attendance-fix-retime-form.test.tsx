@@ -124,6 +124,57 @@ describe("AttendanceFixRetimeForm — the correction reads as one row", () => {
     }
   });
 
+  it("keeps เข้า and ออก SIDE BY SIDE at every width, not just the wide one", () => {
+    // Operator, 2026-08-08: "เข้าออก side by side is better".
+    //
+    // U2b was right to stop this form taking its wide layout inside the
+    // calendar's 280–340px docked panel, but the narrow layout it fell back to
+    // stacks the two fields — and they are ONE RANGE, not two independent
+    // questions. The corrector is replacing a pair and has to read it as a pair.
+    //
+    // So the two fields get their own wrapper that is a ROW unconditionally,
+    // while the rest of the form still stacks in a narrow box. Pinned
+    // structurally (a shared parent, no column direction anywhere on it)
+    // because jsdom has no layout engine and cannot see where they land.
+    const form = renderForm();
+    const inEl = form.querySelector('input[name="inTime"]')!;
+    const outEl = form.querySelector('input[name="outTime"]')!;
+
+    // The nearest ancestor that contains BOTH — their pair wrapper.
+    let pair: HTMLElement = inEl.parentElement!;
+    while (!pair.contains(outEl)) pair = pair.parentElement!;
+    expect(pair).not.toBe(form);
+
+    const cls = pair.className.split(/\s+/);
+    expect(cls).toContain("flex");
+    // A row at EVERY width: no direction variant may switch it, and no
+    // unprefixed column either. This is the whole assertion — a wrapper that
+    // becomes a column in a narrow box is exactly the layout being replaced.
+    expect(cls.some((c) => /(^|:)flex-col$/.test(c))).toBe(false);
+    expect(cls.some((c) => /^(sm|md|lg|xl|2xl):/.test(c))).toBe(false);
+  });
+
+  it("gives the narrow pair enough room for the NATIVE time control", () => {
+    // Measured in real Chrome: Chrome's `type="time"` control has a fixed
+    // intrinsic width of `100px + horizontal padding`, and it CLIPS SILENTLY —
+    // `scrollWidth` never grows, so only its intrinsic size can answer this.
+    //
+    // The calendar panel's container is 246px in the `md` band, so half of it
+    // (minus the gap) is 119px. At FIELD_INPUT's own `px-3` the control needs
+    // **124px** and would be clipped; at `px-2` it needs **116px** and fits.
+    // The padding is restored at `@md`, where the field is a comfortable 128px.
+    const form = renderForm();
+    for (const name of ["inTime", "outTime"]) {
+      const cls = form.querySelector(`input[name="${name}"]`)!.className.split(/\s+/);
+      expect(cls).toContain("px-2");
+      expect(cls).toContain("@md:px-3");
+      // …and the base `px-3` from FIELD_INPUT must be GONE, not merely
+      // overridden by source order — Tailwind resolves conflicting utilities by
+      // CSS order, not by attribute order, so leaving both is a coin flip.
+      expect(cls).not.toContain("px-3");
+    }
+  });
+
   it("states the blank-means-unchanged rule ONCE, outside the field labels", () => {
     const form = renderForm();
     // It is a rule about the form, not the name of either field — a label

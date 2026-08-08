@@ -2,7 +2,8 @@
 
 **Status:** 2026-08-08 — **U1 SHIPPED** (#1031, project honesty) · **U2 SHIPPED** (the in-page
 `?fix=` panel, the two bands, the compact cell) · **U2b SHIPPED** (§4.5 — the panel fits its column,
-and a blank day the project scanned becomes a door) · **U3 open** (viewer-scope disclosure, §5).
+and a blank day the project scanned becomes a door) · **U2c SHIPPED** (§4.6 — เข้า/ออก side by
+side at every width) · **U3 open** (viewer-scope disclosure, §5).
 **No schema in any of them.** Lanes `attncal` → `attnu1` → `attnu2`. Surface =
 `/workers/[workerId]/attendance` (spec 374 U1). U2 retired the cell's door into
 `/team/attendance/fix`; that route is unchanged and still serves every link minted elsewhere.
@@ -214,6 +215,25 @@ viewport** (897 at 340) with its only navigation at `top:155`, so scrolling to t
 exit off screen — and stacking the forms correctly made it 52px taller. A sticky strip needs a
 header-offset token this repo does not have (`DetailHeader` is 118px, `sticky top-0 z-20`), so it
 is its own unit rather than a magic number.
+
+### 4.6 U2c — เข้า and ออก are ONE RANGE — **SHIPPED 2026-08-08**
+
+Operator, on U2b: _"เข้าออก side by side is better"_. U2b correctly stopped the retime form taking
+its wide layout inside the 280–340px docked panel, but the narrow fallback **stacked** the two time
+fields — and they are a pair the corrector is replacing together, not two independent questions.
+They now share a wrapper that is a row **unconditionally**; the rest of the form still stacks.
+
+⭐ **It only just fits, and the first probe got it wrong.** Chrome's native `type="time"` control has
+a fixed intrinsic width of `100px + horizontal padding` and **clips silently** — `scrollWidth` never
+grows, so the obvious check reported "no clipping down to 60px", which was the instrument, not the
+app. Asked for its own `min-content`: `px-3` needs **124px** against the **119px** half of the
+panel's 246px container (clipped by 5), `px-2` needs **116px** (fits). **`px-2` is a measured
+constant, not taste**, restored at `@md` where the field is 128px.
+
+⚠️ The override goes through `cn`/twMerge — Tailwind resolves conflicting `px-*` by CSS order, not
+attribute order, so appending to FIELD_INPUT's `px-3` would be a coin flip. Verified in real Chrome
+on all three surfaces (12 measurements, rect vs the control's own intrinsic width): side by side and
+unclipped everywhere; the two wide surfaces unchanged at 128px/`px-3`.
 
 ### 4.1 Breakpoints — two bands, tablet is desktop
 
