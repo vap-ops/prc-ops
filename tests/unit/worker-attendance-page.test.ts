@@ -266,6 +266,15 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
     const src = stripComments(read(PAGE));
     expect(src).toMatch(/canCorrect && monthProjectIds\.length === 1/);
     expect(uses(src, "loadProjectHeadcountByDate")).toBeGreaterThanOrEqual(2);
+    // …and the rule is HANDED that gate rather than a literal. A hardcoded
+    // `true` here is behaviourally equivalent today — the headcount map is empty
+    // when no project resolved, so the other arm refuses anyway — which is
+    // exactly why no behavioural test can catch it and why this pin is a source
+    // scan. It matters because it leaves `gridCellFixable`'s `canFixGaps` arm
+    // DEAD at its only call site: the rule would claim a decision something else
+    // was making, and the day the headcount read changes shape, doors would be
+    // offered with no project to book against.
+    expect(src).toMatch(/projectResolvable: blankDoorProjectId !== null/);
   });
 
   it("adds NO independent scroller to the panel", () => {
