@@ -1,3 +1,9 @@
+# [0.366.0](https://github.com/vap-ops/prc-ops/compare/v0.365.4...v0.366.0) (2026-08-08)
+
+### Features
+
+- **skills:** spec 406 U1 - skill-map schema core ([#1040](https://github.com/vap-ops/prc-ops/issues/1040)) ([93108b3](https://github.com/vap-ops/prc-ops/commit/93108b317e94708ad3f7788fd108631ab456a3c8))
+
 ## [0.365.4](https://github.com/vap-ops/prc-ops/compare/v0.365.3...v0.365.4) (2026-08-08)
 
 ### Bug Fixes
