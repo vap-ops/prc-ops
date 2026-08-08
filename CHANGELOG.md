@@ -1,3 +1,10 @@
+## [0.365.1](https://github.com/vap-ops/prc-ops/compare/v0.365.0...v0.365.1) (2026-08-08)
+
+### Bug Fixes
+
+- **attendance:** close the review findings on the blank-day door ([c5ba2df](https://github.com/vap-ops/prc-ops/commit/c5ba2dfcd5b1dbf8526f6e58928182e79e552285))
+- **attendance:** fit the day-fix panel to its column, and open the blank days it can serve ([1b7c908](https://github.com/vap-ops/prc-ops/commit/1b7c908c09dcea2330231fb75ad4c1d623101cab))
+
 # [0.365.0](https://github.com/vap-ops/prc-ops/compare/v0.364.1...v0.365.0) (2026-08-08)
 
 ### Bug Fixes
