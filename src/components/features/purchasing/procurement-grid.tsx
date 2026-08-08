@@ -123,6 +123,11 @@ export interface ProcurementGridRecord {
   work_package_id: string | null;
   wp_code: string | null;
   wp_name: string | null;
+  // Feedback #19206: the project this row belongs to, for the row label. The page
+  // supplies it under the same rule the phone card uses (spec 301f / 311 U1) —
+  // only when the loaded rows span >1 NAMED project, so a single-project world
+  // keeps the lean row. null = don't name it.
+  project_name: string | null;
   // Spec 301 U1: reconciled W0x code for the spec-277 letter-code render
   // (null = uncategorised → plain mono code).
   wp_category_code: string | null;
@@ -482,6 +487,16 @@ function BandRows({
                       {r.item_description}
                     </button>
                     <div className="text-ink-muted text-meta flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                      {/* Feedback #19206: which site this row belongs to. A band
+                          pools every project's requests (live: 25 + 6 in รอสั่งซื้อ),
+                          so without this the two sites read as one merged list.
+                          Leads the line — it is the axis the buyer sorts by in
+                          their head before anything else on the row. */}
+                      {r.project_name ? (
+                        <span className="text-ink-secondary max-w-[12rem] truncate font-medium">
+                          {r.project_name}
+                        </span>
+                      ) : null}
                       {r.pr_number ? (
                         <span className="font-mono">{formatPrNumber(r.pr_number)}</span>
                       ) : null}

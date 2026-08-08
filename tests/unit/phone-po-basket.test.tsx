@@ -48,6 +48,7 @@ function rec(over: Partial<ProcurementGridRecord>): ProcurementGridRecord {
     category_match: null,
     wp_name: null,
     project_id: null,
+    project_name: null,
     requested_by: null,
     requester_name: null,
     notes: null,
