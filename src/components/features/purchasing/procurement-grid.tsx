@@ -491,11 +491,11 @@ function BandRows({
                           pools every project's requests (live: 25 + 6 in รอสั่งซื้อ),
                           so without this the two sites read as one merged list.
                           Leads the line — it is the axis the buyer sorts by in
-                          their head before anything else on the row. */}
+                          their head before anything else on the row. No width clamp:
+                          the meta line already flex-wraps and wp_name beside it is
+                          unbounded, so a long name costs nothing new. */}
                       {r.project_name ? (
-                        <span className="text-ink-secondary max-w-[12rem] truncate font-medium">
-                          {r.project_name}
-                        </span>
+                        <span className="text-ink-secondary font-medium">{r.project_name}</span>
                       ) : null}
                       {r.pr_number ? (
                         <span className="font-mono">{formatPrNumber(r.pr_number)}</span>
