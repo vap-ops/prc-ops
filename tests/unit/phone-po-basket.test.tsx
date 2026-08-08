@@ -184,3 +184,76 @@ describe("PhonePoBasket — per-row project label (feedback #19206)", () => {
     expect(only!.textContent).not.toContain("TFM");
   });
 });
+
+// Operator, 2026-08-08, over a phone basket row: "what other info should be
+// available?" Every candidate was measured against the live 31 approved rows first;
+// only three both VARY and are already on the record — งาน name, material category,
+// and the off-category flag. All three are shown by the desktop grid and by nothing
+// here, so this is parity, not new information.
+//
+// ⛔ Measured and rejected (do not re-add without re-measuring): priority (30 of 31
+// critical), needed_by/overdue (25 filled, all one date, all overdue), price
+// (amount 0 of 31 — written at PO time), supplier (0 of 31), age (all one day).
+describe("PhonePoBasket — parity with the desktop grid row", () => {
+  it("names the work, not just its code", () => {
+    render(
+      <PhonePoBasket
+        records={[
+          rec({
+            id: R1,
+            item_description: "เหล็กเส้น",
+            wp_code: "P-02-02",
+            wp_name: "งานทำสโตร์ชั่วคราว",
+          }),
+        ]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+    const line = screen.getByText("เหล็กเส้น").closest("li")!.textContent!;
+    expect(line).toContain("P-02-02");
+    expect(line).toContain("งานทำสโตร์ชั่วคราว");
+  });
+
+  it("shows the material category — the axis the buyer shops along", () => {
+    render(
+      <PhonePoBasket
+        records={[
+          rec({ id: R1, item_description: "เหล็กเส้น", category_name: "เหล็กโครงสร้าง" }),
+          rec({ id: R2, item_description: "สายไฟ", category_name: "ไฟฟ้า" }),
+        ]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+    expect(screen.getByText("เหล็กเส้น").closest("li")!.textContent).toContain("เหล็กโครงสร้าง");
+    const wire = screen.getByText("สายไฟ").closest("li")!.textContent!;
+    expect(wire).toContain("ไฟฟ้า");
+    expect(wire).not.toContain("เหล็กโครงสร้าง");
+  });
+
+  it("repeats the off-category flag — amber only, exactly like the grid", () => {
+    render(
+      <PhonePoBasket
+        records={[
+          rec({ id: R1, item_description: "เหล็กเส้น", category_match: "mismatch" }),
+          rec({ id: R2, item_description: "สายไฟ", category_match: "match" }),
+        ]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+    expect(screen.getByText("เหล็กเส้น").closest("li")!.textContent).toContain("นอกหมวดงาน");
+    // A "match" verdict stays quiet — a flag on every row is not a flag.
+    expect(screen.getByText("สายไฟ").closest("li")!.textContent).not.toContain("นอกหมวดงาน");
+  });
+
+  it("stays quiet on every one of the three when the record carries none of them", () => {
+    render(
+      <PhonePoBasket
+        records={[rec({ id: R1, item_description: "เหล็กเส้น", wp_code: "P-02-02" })]}
+        suppliers={SUPPLIERS}
+      />,
+    );
+    const line = screen.getByText("เหล็กเส้น").closest("li")!.textContent!.replace(/\s+/g, " ");
+    expect(line).not.toContain("นอกหมวดงาน");
+    expect(line).not.toContain("· ·");
+  });
+});

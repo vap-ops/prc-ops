@@ -12,11 +12,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, Plus, ShoppingCart } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, Plus, ShoppingCart } from "lucide-react";
 import { StatusPill } from "@/components/features/common/status-pill";
 import { purchaseRequestStatusPillClasses } from "@/lib/status-colors";
 import { purchaseRequestStatusIcon } from "@/lib/status-icons";
-import { PURCHASE_REQUEST_STATUS_LABEL } from "@/lib/i18n/labels";
+import { PURCHASE_REQUEST_STATUS_LABEL, WORK_CATEGORY_MISMATCH_LABEL } from "@/lib/i18n/labels";
 import { formatPrNumber } from "@/lib/purchasing/format-id";
 import { WpCategoryCode } from "@/components/features/work-packages/wp-category-code";
 import { BUTTON_SECONDARY } from "@/lib/ui/classes";
@@ -102,29 +102,44 @@ export function PhonePoBasket({
             >
               <Link href={`/requests/${r.id}`} className="flex min-w-0 flex-col gap-1">
                 <span className="text-ink font-medium break-words">{r.item_description}</span>
-                <span className="text-ink-muted text-meta">
+                {/* The same meta line the desktop grid row carries, in the same
+                    order. It was a run of inline text joined by hand-written " · "
+                    separators, which is why every optional field risked doubling one;
+                    a flex-wrap row with gaps cannot, and it matches the grid. */}
+                <span className="text-ink-muted text-meta flex flex-wrap items-center gap-x-1.5 gap-y-1">
                   {/* Feedback #19206: the basket bundles approved rows into ONE
                       purchase order, and it pools every project — so the site has
                       to be legible here too, not only on the desktop grid. */}
                   {r.project_name ? (
-                    <span className="text-ink-secondary font-medium">
-                      {r.project_name}
-                      {/* The quantity tail below already opens with its own " · ",
-                          so this separator belongs here ONLY when a PR number or WP
-                          code sits between us and it — otherwise the line doubles up. */}
-                      {r.pr_number || r.wp_code ? " · " : ""}
-                    </span>
+                    <span className="text-ink-secondary font-medium">{r.project_name}</span>
                   ) : null}
                   {r.pr_number ? (
                     <span className="font-mono">{formatPrNumber(r.pr_number)}</span>
                   ) : null}
                   {r.wp_code ? (
-                    <span>
-                      {" · "}
-                      <WpCategoryCode code={r.wp_code} categoryCode={r.wp_category_code} />
+                    <WpCategoryCode code={r.wp_code} categoryCode={r.wp_category_code} />
+                  ) : null}
+                  {/* Operator 2026-08-08: the code alone is unreadable to a buyer —
+                      the grid has named the work since spec 301 U1. */}
+                  {r.wp_name ? <span>· {r.wp_name}</span> : null}
+                  <span>
+                    {r.quantity} {r.unit}
+                  </span>
+                  {/* Spec 230: which managed material category this row buys — the
+                      axis the buyer shops along (live: 9 distinct across the 31). */}
+                  {r.category_name ? (
+                    <span className="border-edge bg-sunk text-ink-secondary inline-flex max-w-full items-center rounded-full border px-1.5">
+                      <span className="truncate">{r.category_name}</span>
                     </span>
-                  ) : null}{" "}
-                  · {r.quantity} {r.unit}
+                  ) : null}
+                  {/* Spec 301 U2: the approver-side off-category verdict. Amber only —
+                      a "match" stays quiet, or the flag means nothing. */}
+                  {r.category_match === "mismatch" ? (
+                    <span className="text-attn-press inline-flex items-center gap-0.5 font-medium">
+                      <AlertTriangle aria-hidden className="size-3.5" />
+                      {WORK_CATEGORY_MISMATCH_LABEL}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="mt-0.5">
                   <StatusPill
