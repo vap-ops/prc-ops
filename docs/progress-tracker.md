@@ -14863,3 +14863,54 @@ obvious fix and it needs an offset this repo has no token for (`DetailHeader` me
 
 ⚑ **Still owed from U2, unchanged:** the ADD and UNDO outcomes render inside the panel's
 `dayClosed === false` block, so the `closed` error codes are guaranteed invisible.
+
+### U2b — the review round, and what it caught
+
+The fresh-eyes pass found four real defects. Each was verified against the live system before being
+acted on, and two of them were only visible from outside the change.
+
+🔴 **The blank door promised a control the panel withholds.** Its `sr-only` said
+`เพิ่มคนที่ตกหล่น` — but `WorkerDayFixPanel` gates the whole add block on `dayClosed === false` and
+renders the reopen card instead on a closed day. **That is not an edge: every one of the 13 past
+days carrying attendance is closed, and `2026-08-04` — the live case this door was built for — is
+one of them.** Driven in real Chrome on the final code, opening that blank day gives
+`hasReopenCard: true, hasAddForm: false`. The link now names what it DOES
+(`เปิดหน้าต่างแก้ไข`), which is true whether the day is open or closed; the panel's own heading
+states what is offered. Two comments resting on the same wrong claim went with it — including one
+asserting the panel "offers exactly one control, the add form", which the trail card, the reopen
+card and the empty notice each contradict.
+
+🟡 **An offer-then-refuse for a membership-scoped corrector.** `project_manager` is in this page's
+gate AND in `MUSTER_CORRECT_ROLES`, but NOT in `viewerSeesAllMusterProjects` — so for a PM who is a
+member of one project, a day the worker spent at another renders BLANK while the month still names
+exactly one project, and the headcount rule would offer a door on it. `muster_correct_session`'s
+existing-row lookup is `worker_id + work_date + session` with **no project predicate** (read from
+the live definition, not from a migration), so the add takes the UPDATE path and refuses on press
+with `worker is in another team today — move first`. A membership-free read of this worker's own
+dates now withholds those cells. It renders nothing and names nothing — **disclosure is §5's job
+(U3); this only subtracts candidates.**
+
+🟡 **A silent, non-deterministic truncation.** The per-project headcount read was unbounded against
+PostgREST's `db-max-rows = 1000`. A 25-person site is ~550 rows and reads as comfortable; 40 workers
+× 26 days is 1,040. Past the cap PostgREST returns an ARBITRARY window with no `order`, so
+headcounts would under-report and doors would appear and vanish between two identical page loads.
+Paged, with an explicit order.
+
+🟡 **A dead arm.** `projectResolvable` was hardcoded `true`, so `gridCellFixable`'s `canFixGaps` arm
+was unreachable at its only call site while the real gate was smuggled through the headcount map
+being empty. Behaviourally equivalent today, which is exactly why no behavioural test can catch it —
+pinned by source scan instead.
+
+⭐ **TWO PAGE-LEVEL SEAMS HAD NO PIN, AND BOTH WERE FOUND THE SAME WAY: BY MUTATING.** Deleting the
+`doorDates` merge, and later deleting the hidden-row withhold, each left the whole suite GREEN. The
+pure halves were well covered and the seam that joins them was covered by nothing — the recorded
+lesson, earned again. Eleven mutants in total, all killed, each with its run count and a verified
+restore. The calendar component also had **no coverage of the new markup at all**: both the label
+and the `+` mark were freely deletable, and one test title (`does NOT link a day with no
+attendance`) had quietly become false — it passed only because that suite never supplies
+`blankFixDates`.
+
+⚑ **One behaviour change on the two WIDE surfaces, stated rather than buried:** the row/stack
+boundary moves from viewport 640 (`sm:`) to container 448 — ≈488px of viewport on
+`/team/attendance/fix`, ≈520 on the day panel — so those surfaces now ROW in the 488–640 band where
+they previously stacked. Measured to fit (277px of usable reason input at container 460).
