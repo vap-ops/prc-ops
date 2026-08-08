@@ -14,8 +14,10 @@ import { AttendanceFixAddForm } from "@/components/features/muster/attendance-fi
 import { AttendanceFixRetimeForm } from "@/components/features/muster/attendance-fix-retime-form";
 import { AttendanceFixUndoForm } from "@/components/features/muster/attendance-fix-undo-form";
 import { MusterReopenForm } from "@/components/features/muster/muster-reopen-form";
+import { closeMusterDayFromForm } from "@/app/team/attendance/actions";
 import {
   MUSTER_DAY_CLOSED_LABEL,
+  MUSTER_DAY_CLOSE_MEANING,
   USER_ROLE_LABEL,
   formatThaiDate,
   formatThaiDateTime,
@@ -23,9 +25,10 @@ import {
 import type { AddPersonControl } from "@/lib/muster/add-person";
 import { dayClosureLabel } from "@/lib/muster/attendance-audit";
 import { describeAuditEvent } from "@/lib/muster/day-audit";
+import { dayClosable } from "@/lib/muster/day-correction";
 import { outTimeLocked } from "@/lib/muster/day-fix";
 import type { WorkerDayFix } from "@/lib/muster/worker-day-fix";
-import { CARD, SECTION_HEADING } from "@/lib/ui/classes";
+import { BUTTON_SECONDARY, CARD, SECTION_HEADING } from "@/lib/ui/classes";
 
 export type FixOutcome = { ok: true } | { ok: false; message: string } | null;
 
@@ -140,6 +143,62 @@ export function WorkerDayFixPanel({
           )}
         </div>
       )}
+
+      {/* 🔴 THE CLOSE, and it is here because its absence stranded a real day.
+          `MusterReopenForm` above renders on THREE surfaces; this control
+          existed on ONE (the `?day=` panel), so reopening from the spec-404
+          calendar or from /team/attendance/fix left the day OPEN with no way
+          back — `PRC-2026-004` `2026-08-05`, reopened by procurement and stuck,
+          while the reopen form's own copy instructed them to close it again.
+
+          ⚠️ The decision DELEGATES to `dayClosable`, which shares its day-level
+          ladder with `dayCorrectionControl` — the two surfaces disagreeing about
+          one day is the bug, so they may not hold two copies of the rule. */}
+      {dayClosable({ date, todayIso, dayClosed, projectId: data.projectId, canClose }) &&
+        data.projectId !== null && (
+          <form
+            action={closeMusterDayFromForm}
+            aria-label={`ปิดวัน ${formatThaiDate(date)}`}
+            className={`${CARD} mt-4 flex flex-col gap-2`}
+          >
+            <input type="hidden" name="projectId" value={data.projectId} />
+            <input type="hidden" name="workDate" value={date} />
+            <input type="hidden" name="returnTo" value={returnTo} />
+
+            <h3 className="text-ink text-sm font-semibold">ปิดวัน</h3>
+            {/* ABOVE the control: a disclosure met after the button is met after
+                the tap. ⚠️ This panel is per-WORKER and the button acts on the
+                WHOLE day, which the closed-day card says for reopen and which
+                matters more here — this is the step that books the money.
+                ⓘ No "N คนยังไม่เช็คออก" list: this surface loads one worker, so
+                it cannot count the day's others. The RULE is stated instead of a
+                number it would have to invent. */}
+            <ul className="text-ink-secondary flex flex-col gap-1 text-[11px]">
+              <li>{MUSTER_DAY_CLOSE_MEANING}</li>
+              <li>มีผลทั้งวัน คิดค่าแรงใหม่ทุกคน ไม่ใช่แค่ช่างคนนี้</li>
+              <li>ช่างที่ยังไม่เช็คออกจะถูกบันทึกเวลาออก 17:00 ให้</li>
+              <li>ปิดแล้วแก้ไขการเช็คชื่อไม่ได้จนกว่าจะเปิดวันอีกครั้ง</li>
+            </ul>
+
+            {/* The second deliberate act, in the only form a zero-client-JS
+                surface can carry one — the same `required` checkbox the day
+                panel uses, so this cannot become the softer door to one write. */}
+            <label className="text-ink flex min-h-11 items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                name="confirm"
+                required
+                value="1"
+                className="size-4 shrink-0"
+              />
+              เข้าใจแล้วว่าปิดวันดังกล่าวจะบันทึกเวลาออกและคิดค่าแรง
+            </label>
+
+            <button type="submit" className={`${BUTTON_SECONDARY} self-start`}>
+              ปิดวัน
+            </button>
+          </form>
+        )}
 
       {sessions.length === 0 && (
         <div className={`${CARD} mt-4`}>

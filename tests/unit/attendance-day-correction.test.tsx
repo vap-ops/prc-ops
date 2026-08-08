@@ -24,7 +24,7 @@ import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-
 import { AttendanceGridView } from "@/components/features/muster/attendance-grid-view";
 import { MUSTER_CLOSE_ROLES, MUSTER_REOPEN_ROLES, type UserRole } from "@/lib/auth/role-home";
 import { MUSTER_DAY_CLOSE_MEANING, USER_ROLE_LABEL } from "@/lib/i18n/labels";
-import { attendanceDayParam, dayCorrectionControl } from "@/lib/muster/day-correction";
+import { attendanceDayParam, dayClosable, dayCorrectionControl } from "@/lib/muster/day-correction";
 import { closeReturnTo } from "@/lib/muster/reopen-return";
 import type { GridDay } from "@/lib/muster/attendance-grid";
 
@@ -632,5 +632,80 @@ describe("spec 400 — the day words explain themselves at the point of action",
     expect(
       items[0]!.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// `dayClosable` — the same day-level rule, asked as a boolean.
+//
+// Writing failing test first.
+//
+// WHY IT EXISTS. The close control lived on ONE surface (this panel) while
+// `MusterReopenForm` renders on THREE, so reopening from the spec-404 calendar
+// or from /team/attendance/fix stranded the day OPEN with no way back — and it
+// did, in production: PRC-2026-004 2026-08-05. `WorkerDayFixPanel` needs the
+// same decision, but it has no `canReopen` to hand `dayCorrectionControl` (and
+// inventing one would be a dead arm: MUSTER_CORRECT_ROLES ⊆ MUSTER_REOPEN_ROLES,
+// so the value could only ever be `true`).
+//
+// So the DAY-LEVEL ladder is shared and this asks it directly. The parity test
+// below is the real pin: it is what stops the two surfaces drifting, which is
+// the whole failure mode this unit closes.
+// ---------------------------------------------------------------------------
+
+describe("dayClosable — may this OPEN day be closed (spec 404 close-control fix)", () => {
+  const base = {
+    date: "2026-08-05",
+    todayIso: "2026-08-08",
+    dayClosed: false as boolean | null,
+    projectId: "p1" as string | null,
+    canClose: true,
+  };
+
+  it("closes a past day that carries attendance, for a permitted reader", () => {
+    expect(dayClosable(base)).toBe(true);
+  });
+
+  it("refuses a day that is already closed — that day's control is REOPEN", () => {
+    expect(dayClosable({ ...base, dayClosed: true })).toBe(false);
+  });
+
+  it("refuses a day with no attendance rows at all", () => {
+    // `dayClosed === null` is a THIRD state, not a synonym for open.
+    expect(dayClosable({ ...base, dayClosed: null })).toBe(false);
+  });
+
+  it("refuses the future and refuses TODAY while it is still open", () => {
+    // Closing stamps 17:00 on everyone still in, so mid-shift it fabricates the
+    // day's end — today belongs to the muster cockpit's own ready/overdue flow.
+    expect(dayClosable({ ...base, date: "2026-08-09" })).toBe(false);
+    expect(dayClosable({ ...base, date: "2026-08-08" })).toBe(false);
+  });
+
+  it("refuses a reader outside close_muster_day's allowlist", () => {
+    expect(dayClosable({ ...base, canClose: false })).toBe(false);
+  });
+
+  it("refuses when no project is resolved — the RPC takes exactly one", () => {
+    expect(dayClosable({ ...base, projectId: null })).toBe(false);
+  });
+
+  it("IS dayCorrectionControl's close arm, not a second copy of the rule", () => {
+    // The parity pin. Both surfaces must answer identically for every input, or
+    // the panel and the day column disagree about the same day — which is how
+    // this bug existed in the first place.
+    for (const date of ["2026-08-05", "2026-08-08", "2026-08-09"]) {
+      for (const dayClosed of [true, false, null]) {
+        for (const projectId of ["p1", null]) {
+          for (const canClose of [true, false]) {
+            const input = { date, todayIso: "2026-08-08", dayClosed, projectId, canClose };
+            // `canReopen` cannot affect the CLOSE arm: the ladder reaches the
+            // permission check only for an open day, where `canClose` governs.
+            const control = dayCorrectionControl({ ...input, canReopen: true });
+            expect(dayClosable(input)).toBe(control.control === "close");
+          }
+        }
+      }
+    }
   });
 });
