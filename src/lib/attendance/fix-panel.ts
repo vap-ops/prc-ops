@@ -96,9 +96,15 @@ export function fixPanelProjectId(input: {
  * own cell.
  *
  * `doorDates` is the set of days the calendar actually opens, so the two
- * controls can never disagree about what the month holds. It is sorted here
- * rather than trusted: the cells arrive from a `Record`, whose key order is an
- * implementation detail — a stepper that inherited it would walk at random.
+ * controls can never disagree about what the month holds.
+ *
+ * ⚠️ Order-INDEPENDENT by construction (nearest below / nearest above), not by
+ * sorting first. The cells arrive from a `Record`, whose key order is an
+ * implementation detail — and the first version DID sort, with a last-one-wins
+ * loop underneath. Removing the sort left the suite GREEN, because the fixture's
+ * order happened to end on the right answer: the sort was load-bearing and
+ * nothing could see it. The property belongs in the comparison, where no input
+ * order can satisfy it by luck.
  *
  * `current` need NOT be one of them: an empty day opened by tap gets the doors
  * on either side of it, by date.
@@ -107,12 +113,11 @@ export function fixStepDates(
   doorDates: readonly string[],
   current: string,
 ): { prev: string | null; next: string | null } {
-  const sorted = [...doorDates].sort();
   let prev: string | null = null;
   let next: string | null = null;
-  for (const d of sorted) {
-    if (d < current) prev = d;
-    else if (d > current && next === null) next = d;
+  for (const d of doorDates) {
+    if (d < current && (prev === null || d > prev)) prev = d;
+    if (d > current && (next === null || d < next)) next = d;
   }
   return { prev, next };
 }

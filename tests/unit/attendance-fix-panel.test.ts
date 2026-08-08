@@ -127,7 +127,16 @@ describe("fixStepDates — วันก่อนหน้า / วันถั�
   it("does not depend on the caller having sorted the doors", () => {
     // The cells come out of a Record, whose key order is an implementation
     // detail — a stepper that inherited it would walk the month at random.
-    expect(fixStepDates(["2026-07-29", "2026-07-03", "2026-07-16", "2026-07-15"], "2026-07-16")) //
-      .toEqual({ prev: "2026-07-15", next: "2026-07-29" });
+    //
+    // ⚠️ The fixture order is ADVERSARIAL on purpose, and the first version of
+    // this test was not. It ended on 07-15, so a last-one-wins loop returned the
+    // right `prev` by luck and stayed GREEN when the `.sort()` above it was
+    // deleted — the mutation is what exposed it. Here the correct `prev` (07-15)
+    // is seen FIRST and a wrong candidate (07-03) LAST, so last-wins reds; the
+    // correct `next` (07-29) is seen after a wrong one (07-31) for the same
+    // reason in the other direction.
+    expect(
+      fixStepDates(["2026-07-15", "2026-07-31", "2026-07-29", "2026-07-03"], "2026-07-16"),
+    ).toEqual({ prev: "2026-07-15", next: "2026-07-29" });
   });
 });
