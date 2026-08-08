@@ -15094,6 +15094,117 @@ the operator's admin two-step. Caught by `git status` before committing, and rev
 block argues in its own text that you should commit it; that is tool-authored copy, not an
 instruction to follow.
 
+## 2026-08-08 — spec 406 U1: the skill-map schema core (lane skillmap)
+
+Six tables behind eleven PD-gated DEFINER RPCs: `trades`, `trade_levels`, `trade_skills`,
+`skill_materials`, `skill_map_publishes`, and the append-only `worker_trade_levels`. Migrations
+`20260813075922` (two audit actions, its own file because `ALTER TYPE … ADD VALUE` cannot share a
+transaction with its uses) and `20260813075923` (everything else). pgTAP `406-skill-map.test.sql`,
+**102 assertions**.
+
+**The spec's own first ruling was wrong and the fact-check killed it before any code existed.**
+The draft said "trade = `work_categories` W01–W11, reuse `worker_trades`". `work_categories` is a
+WBS **phase** taxonomy — its 11 top-level rows are งานโครงสร้าง / งานสถาปัตยกรรม / งานระบบไฟฟ้า, and
+its 43 sub-rows are project line items (`W0210 เหล็กโครงสร้าง ROOF GUTTER / SIDING FRAME 1, 2`). The
+operator's own pilot trades, ช่างเหล็กเสริมคอนกรีต and ช่างไม้ก่อสร้าง, have no row at either level.
+I had verified the foreign key and never read the rows; every NAME agreed with the reading while the
+CONTENT did not. It also explains why `worker_trades` sat at 0 rows since it shipped — it asked a
+ช่าง to tag himself with a construction phase.
+
+The replacement came from outside the repo, on the operator's instruction to look up Thai curriculums,
+and it validated the design independently: **DSD** (มาตรฐานฝีมือแรงงานแห่งชาติ) names construction
+trades as crafts at ระดับ 1–3 **with wage rates published by law** — and gives ช่างหินขัด exactly one
+level against ช่างก่ออิฐ's three, so "some trades have more levels than others" is the national
+structure rather than a preference. **TPQI** carries ช่างเหล็กเสริมคอนกรีต at ระดับ 3–4 with ระดับ 4
+gated on ระดับ 3 plus ≥1 year experience — hours-as-a-floor, arrived at independently. DSD's own
+ระดับ 1 exam is a 50-question 4-choice MCQ plus a practical, which is the round format the session had
+already settled. Hence `trade_levels` rows carrying a display-only `reference_day_rate`, and the
+`worker_level` enum left untouched as legacy until S4.
+
+🚨 **THE DEFECT THIS UNIT FOUND IN ITSELF: `created_at` CANNOT ORDER AN APPEND-ONLY HISTORY.**
+`now()` is TRANSACTION time, so a baseline and a promotion written in one transaction carry identical
+timestamps and "latest" becomes a coin flip on a random uuid tiebreak. It produced a genuinely wrong
+current-level read the first time the table was exercised — a promotion ranking below its own
+baseline — which let `retire_trade_level` retire a level a worker was holding. Fixed with a `seq`
+identity column that every current-level read must use. ⭐ **The assertion that was supposed to catch
+this was passing for the wrong reason**: it ordered by `created_at desc, tl.rank desc`, and ordering
+by rank to find the highest-ranked row cannot fail. Mutation-proved on the live objects as a real PD:
+`created_at` ordering retires the held level, `seq` refuses it.
+
+⚠️ **A mutant killed for the wrong reason proves nothing.** The first run of that mutation reported
+KILLED with the message `retire_trade_level: role not permitted` — the probe ran unbound, so
+`current_user_role()` was NULL and it died at the GATE without ever reaching the holder check. Only
+after adopting a real `project_director` identity did the mutant survive, which is the honest result.
+**Read the refusal message, not just the fact that something was refused.**
+
+**Fresh-eyes review returned 16 findings; the real ones, fixed in a second commit:**
+
+- **Retiring was unreachable.** `is_active` had exactly one writer, so trades, skills and materials
+  could never be deactivated — a mistyped title or a wrong video link was permanent for the life of
+  the trade, and `publish_skill_map`'s own `is_active` filters were dead branches. Added
+  `retire_trade`, `retire_trade_skill`, `retire_skill_material`, each refusing an already-retired
+  target rather than recording a no-op decision in the audit trail.
+- **A ladder could not be reordered atomically.** `trade_levels_rank_unique` is a partial unique
+  INDEX, which cannot be deferred, so a per-level upsert collides the moment two levels swap. Added
+  `reorder_trade_levels`, which parks the affected rows in a negative band and then lands the final
+  ranks. ⚠️ That band had to be permitted by the CHECK — my first attempt violated my own
+  `rank between 1 and 20` constraint, which is the recurring shape of this session: **the RPC and the
+  CHECK are two authorities and a fix to one is not a fix to the other.** Same thing bit the URL
+  scheme (below).
+- **Two audit rows paired `target_table` with an id from a different table.** Every audit reader in
+  `src/` filters the PAIR against `audit_log_target_idx`, so a level decision filed as
+  `('worker_trade_levels', worker_id)` and a publish filed as `('skill_map_publishes', trade_id)`
+  would have been findable from neither side. Now `('workers', worker_id)` and
+  `('skill_map_publishes', publish_id)`, with the counterpart id in the payload.
+- **Two silent successes.** A skill authored under a RETIRED level was accepted, audited, and then
+  invisible in every published version forever; and a trade whose levels were all retired could be
+  published, producing a version that renders a blank ladder in a state ruling 15 does not define.
+- **Honest refusals.** The URL scheme test was case-SENSITIVE in both the RPC and the CHECK, so a
+  share link arriving as `HTTPS://` was refused with a message telling the user it had to start with
+  something it already started with. Both are now `~*`, and the length arm names its cause instead of
+  raising a bare 23514.
+- **Four `throws_ok(…, '22023', null, …)` could pass for a branch other than the one they named** —
+  the repo's documented vacuity class, and the reason the `seq` defect above survived its own
+  assertion. All now assert the message.
+
+⛔ **`worker_trades` is deliberately NOT written by this unit**, and that is pinned as an absence. It
+FKs the WBS axis, and its writer `set_worker_trades` is **PM-admitted** (wider than this feature's PD
+gate) and does a **full delete-then-insert** — routing the baseline through it would let a PM silently
+orphan the level history that points at it.
+
+⚠️ **The gate is a NEW `is_skill_map_author`, not `is_manager`.** `is_manager` also admits
+`project_manager`; the operator put rubric authorship and promotions with the PD tier. The members
+differ, so reusing it would have handed both to a tier that was never meant to have them — the same
+members-coincide/meaning-differs trap that keeps this off `CLIENT_ISSUER_ROLES` at the code layer.
+Pinned exhaustively over the live `user_role` enum, so a new role value must be placed in an arm.
+
+**Collateral caused and fixed:** both full-array `audit_action` enum pins (`03-audit-log-shape` and
+`18-appsheet-writer-purchasing` — the latter's own comment warns that updating only one leaves a red
+reading as an unrelated purchasing regression), and the repo-wide bare-`auth.uid()` RLS guard, which
+my five read policies tripped.
+
+**Gates:** RED first (`42883: is_skill_map_author does not exist`, 1 file failing / 364 passing).
+pgTAP **365/365 files, 0 failures**, this file **102/102** — `plan()` grep-derived, and worth saying
+why: the first hand count was **58 against 83 real assertions**. vitest **937 files / 8091 tests,
+exit 0** via git bash (a PowerShell-launched run reds exactly 10 `ship-pr-*` tests deterministically —
+the documented shell quirk, checked against the file rather than re-derived). lint 0, typecheck 0.
+Real-flow driven as a real `project_director` on a real active worker and rolled back: two ladders of
+different heights carrying the national reference rates, a published snapshot containing the skill and
+its material, current level reading correctly through `seq`, audit trail written.
+
+⭐ **The migration was replayed end-to-end from the committed file after every correction** (objects
+proven empty, then dropped under a guard that RAISES if they are not), so the live schema is provably
+what this file produces rather than a hand-patched variant.
+
+▶ **Next: U2** — the PD designer at `/skills/design`. It needs a NEW named role-set constant in
+`role-home.ts` (`CLIENT_ISSUER_ROLES` has the same two members but a different meaning), which makes
+it a shared-SSOT lane that cannot be parallelised. Then U3 (worker view in `/technician`, **not**
+`/portal` — that is the contractor segment) and U4 (the baseline board).
+
+⚑ **Open, recorded rather than ridden on:** no trade seed ships in U1 — `trades` is empty, so §9's
+"assert seeded rows by property" has nothing to assert yet; the seed belongs with U2's designer, and
+the ประกาศ figures must be re-checked live before they are written.
+
 ## 2026-08-08 — the holiday display is withdrawn from every attendance surface (lane nohol)
 
 **Operator, on a screenshot of ปฏิทินเข้างาน for ก.ค. 2569:** _"hide info about holidays, we do not
