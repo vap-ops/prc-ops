@@ -208,7 +208,9 @@ select enum_has_labels(
     -- carries the other. An enum add must update BOTH; updating one leaves a red
     -- that looks like an unrelated purchasing regression, because this assertion's
     -- MESSAGE names purchase_request_* and says nothing about the value you added.
-    'equipment_acquisition_change'
+    'equipment_acquisition_change',
+    -- Spec 406 U1 (mig 075922): the skill map — rubric edits vs level decisions.
+    'skill_map_change', 'worker_trade_level_set'
   ],
   'audit_action enum includes purchase_request_purchase + purchase_request_delivery'
 );

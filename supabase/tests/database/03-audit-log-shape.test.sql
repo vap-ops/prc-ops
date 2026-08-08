@@ -52,8 +52,13 @@ select enum_has_labels(
         -- value rather than a reuse of equipment_rate_change, which the item
         -- history renders as "เปลี่ยนค่าเช่า" — a cost filed there reads as a rent
         -- change. This array is the guard that made the add deliberate.
-        'equipment_acquisition_change'],
-  'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting labels'
+        'equipment_acquisition_change',
+        -- Spec 406 U1: the skill map. TWO values on purpose — an edit to the
+        -- RUBRIC (org master data) and a decision about a PERSON's level (which
+        -- moves pay once S4 lands) are different questions, and one collapsed
+        -- action could not carry both labels.
+        'skill_map_change', 'worker_trade_level_set'],
+  'audit_action has the expected v1+profile_update+purchasing+labor+equipment+accounting+skill labels'
 );
 
 -- table shape

@@ -6766,6 +6766,102 @@ export type Database = {
           },
         ]
       }
+      skill_map_publishes: {
+        Row: {
+          id: string
+          published_at: string
+          published_by: string
+          snapshot: Json
+          trade_id: string
+          version: number
+        }
+        Insert: {
+          id?: string
+          published_at?: string
+          published_by: string
+          snapshot: Json
+          trade_id: string
+          version: number
+        }
+        Update: {
+          id?: string
+          published_at?: string
+          published_by?: string
+          snapshot?: Json
+          trade_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_map_publishes_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_map_publishes_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      skill_materials: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          kind: Database["public"]["Enums"]["skill_material_kind"]
+          sort_order: number
+          title_th: string
+          trade_skill_id: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          kind: Database["public"]["Enums"]["skill_material_kind"]
+          sort_order?: number
+          title_th: string
+          trade_skill_id: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["skill_material_kind"]
+          sort_order?: number
+          title_th?: string
+          trade_skill_id?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_materials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_materials_trade_skill_id_fkey"
+            columns: ["trade_skill_id"]
+            isOneToOne: false
+            referencedRelation: "trade_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_bank_change_requests: {
         Row: {
           bank_account_name: string | null
@@ -8152,6 +8248,180 @@ export type Database = {
           },
         ]
       }
+      trade_levels: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          min_hours: number
+          name_th: string
+          rank: number
+          reference_day_rate: number | null
+          trade_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          min_hours?: number
+          name_th: string
+          rank: number
+          reference_day_rate?: number | null
+          trade_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          min_hours?: number
+          name_th?: string
+          rank?: number
+          reference_day_rate?: number | null
+          trade_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_levels_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_levels_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trade_skills: {
+        Row: {
+          created_at: string
+          created_by: string
+          detail_th: string | null
+          id: string
+          is_active: boolean
+          requires_mcq: boolean
+          requires_practical: boolean
+          sort_order: number
+          title_th: string
+          trade_id: string
+          trade_level_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          detail_th?: string | null
+          id?: string
+          is_active?: boolean
+          requires_mcq?: boolean
+          requires_practical?: boolean
+          sort_order?: number
+          title_th: string
+          trade_id: string
+          trade_level_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          detail_th?: string | null
+          id?: string
+          is_active?: boolean
+          requires_mcq?: boolean
+          requires_practical?: boolean
+          sort_order?: number
+          title_th?: string
+          trade_id?: string
+          trade_level_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trade_skills_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_skills_level_fk"
+            columns: ["trade_level_id", "trade_id"]
+            isOneToOne: false
+            referencedRelation: "trade_levels"
+            referencedColumns: ["id", "trade_id"]
+          },
+          {
+            foreignKeyName: "trade_skills_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trades: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          name_th: string
+          national_name_th: string | null
+          national_source:
+            | Database["public"]["Enums"]["trade_national_source"]
+            | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          name_th: string
+          national_name_th?: string | null
+          national_source?:
+            | Database["public"]["Enums"]["trade_national_source"]
+            | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          name_th?: string
+          national_name_th?: string | null
+          national_source?:
+            | Database["public"]["Enums"]["trade_national_source"]
+            | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trades_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_daily: {
         Row: {
           active: boolean
@@ -9233,6 +9503,71 @@ export type Database = {
           },
           {
             foreignKeyName: "worker_project_moves_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      worker_trade_levels: {
+        Row: {
+          created_at: string
+          decided_by: string
+          id: string
+          kind: Database["public"]["Enums"]["worker_trade_level_kind"]
+          note_th: string | null
+          seq: number
+          trade_id: string
+          trade_level_id: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_by: string
+          id?: string
+          kind: Database["public"]["Enums"]["worker_trade_level_kind"]
+          note_th?: string | null
+          seq?: never
+          trade_id: string
+          trade_level_id: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_by?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["worker_trade_level_kind"]
+          note_th?: string | null
+          seq?: never
+          trade_id?: string
+          trade_level_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_trade_levels_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_trade_levels_level_fk"
+            columns: ["trade_level_id", "trade_id"]
+            isOneToOne: false
+            referencedRelation: "trade_levels"
+            referencedColumns: ["id", "trade_id"]
+          },
+          {
+            foreignKeyName: "worker_trade_levels_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_trade_levels_worker_id_fkey"
             columns: ["worker_id"]
             isOneToOne: false
             referencedRelation: "workers"
@@ -11281,6 +11616,10 @@ export type Database = {
         Args: { p_role: Database["public"]["Enums"]["user_role"] }
         Returns: boolean
       }
+      is_skill_map_author: {
+        Args: { p_role: Database["public"]["Enums"]["user_role"] }
+        Returns: boolean
+      }
       is_valid_thai_national_id: { Args: { p_id: string }; Returns: boolean }
       issue_stock: {
         Args: {
@@ -11621,6 +11960,7 @@ export type Database = {
         Returns: number
       }
       publish_feedback_draft: { Args: { p_draft_id: string }; Returns: string }
+      publish_skill_map: { Args: { p_trade_id: string }; Returns: number }
       publish_wp_brief: { Args: { p_work_package_id: string }; Returns: string }
       purchase_doc_satisfying_types: {
         Args: { p_is_vat: boolean }
@@ -11941,6 +12281,7 @@ export type Database = {
         Args: { p_wp: string }
         Returns: boolean
       }
+      retire_trade_level: { Args: { p_level_id: string }; Returns: undefined }
       return_stock_to_store: {
         Args: { p_issue_id: string; p_note?: string; p_qty: number }
         Returns: string
@@ -12271,6 +12612,16 @@ export type Database = {
           p_payee_bank_name: string
           p_payee_name: string
           p_payee_relationship: string
+          p_worker_id: string
+        }
+        Returns: string
+      }
+      set_worker_trade_level: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["worker_trade_level_kind"]
+          p_note_th?: string
+          p_trade_id: string
+          p_trade_level_id: string
           p_worker_id: string
         }
         Returns: string
@@ -12883,6 +13234,51 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_skill_material: {
+        Args: {
+          p_kind: Database["public"]["Enums"]["skill_material_kind"]
+          p_material_id: string
+          p_sort_order?: number
+          p_title_th: string
+          p_trade_skill_id: string
+          p_url: string
+        }
+        Returns: string
+      }
+      upsert_trade: {
+        Args: {
+          p_code: string
+          p_name_th: string
+          p_national_name_th?: string
+          p_national_source?: Database["public"]["Enums"]["trade_national_source"]
+          p_sort_order?: number
+          p_trade_id: string
+        }
+        Returns: string
+      }
+      upsert_trade_level: {
+        Args: {
+          p_level_id: string
+          p_min_hours?: number
+          p_name_th: string
+          p_rank: number
+          p_reference_day_rate?: number
+          p_trade_id: string
+        }
+        Returns: string
+      }
+      upsert_trade_skill: {
+        Args: {
+          p_detail_th?: string
+          p_requires_mcq?: boolean
+          p_requires_practical?: boolean
+          p_skill_id: string
+          p_sort_order?: number
+          p_title_th: string
+          p_trade_level_id: string
+        }
+        Returns: string
+      }
       verify_money_event: {
         Args: { p_note?: string; p_source_id: string; p_source_table: string }
         Returns: undefined
@@ -13009,6 +13405,8 @@ export type Database = {
         | "office_expense_update"
         | "office_expense_delete"
         | "equipment_acquisition_change"
+        | "skill_map_change"
+        | "worker_trade_level_set"
       boq_line_status: "draft" | "frozen" | "superseded"
       boq_variation_type: "standard" | "added" | "omitted" | "provisional_sum"
       catalog_fulfillment_mode: "off_shelf" | "made_to_order"
@@ -13227,11 +13625,13 @@ export type Database = {
       service_subtype: "transport"
       site_issue_status: "open" | "resolved"
       site_issue_type: "weather" | "equipment" | "safety" | "access" | "other"
+      skill_material_kind: "youtube" | "link"
       staff_consent_kind: "pdpa_data"
       staff_doc_purpose: "id_card" | "profile_photo" | "book_bank"
       subcontract_payment_kind: "advance" | "progress" | "final"
       subcontract_status: "active" | "completed" | "cancelled"
       supply_plan_status: "draft" | "submitted" | "approved" | "rejected"
+      trade_national_source: "dsd" | "tpqi"
       unit_class: "count" | "length" | "area" | "volume" | "weight" | "trips"
       user_role:
         | "site_admin"
@@ -13276,6 +13676,7 @@ export type Database = {
       worker_bank_capture_status: "pending_pm" | "on_file"
       worker_gender: "male" | "female"
       worker_level: "senior" | "mid" | "junior" | "apprentice"
+      worker_trade_level_kind: "baseline" | "promotion" | "adjustment"
       zone_shape: "rect" | "rounded_rect" | "ellipse" | "polygon"
     }
     CompositeTypes: {
@@ -13479,6 +13880,8 @@ export const Constants = {
         "office_expense_update",
         "office_expense_delete",
         "equipment_acquisition_change",
+        "skill_map_change",
+        "worker_trade_level_set",
       ],
       boq_line_status: ["draft", "frozen", "superseded"],
       boq_variation_type: ["standard", "added", "omitted", "provisional_sum"],
@@ -13721,11 +14124,13 @@ export const Constants = {
       service_subtype: ["transport"],
       site_issue_status: ["open", "resolved"],
       site_issue_type: ["weather", "equipment", "safety", "access", "other"],
+      skill_material_kind: ["youtube", "link"],
       staff_consent_kind: ["pdpa_data"],
       staff_doc_purpose: ["id_card", "profile_photo", "book_bank"],
       subcontract_payment_kind: ["advance", "progress", "final"],
       subcontract_status: ["active", "completed", "cancelled"],
       supply_plan_status: ["draft", "submitted", "approved", "rejected"],
+      trade_national_source: ["dsd", "tpqi"],
       unit_class: ["count", "length", "area", "volume", "weight", "trips"],
       user_role: [
         "site_admin",
@@ -13773,6 +14178,7 @@ export const Constants = {
       worker_bank_capture_status: ["pending_pm", "on_file"],
       worker_gender: ["male", "female"],
       worker_level: ["senior", "mid", "junior", "apprentice"],
+      worker_trade_level_kind: ["baseline", "promotion", "adjustment"],
       zone_shape: ["rect", "rounded_rect", "ellipse", "polygon"],
     },
   },
