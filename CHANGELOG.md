@@ -1,3 +1,9 @@
+## [0.365.4](https://github.com/vap-ops/prc-ops/compare/v0.365.3...v0.365.4) (2026-08-08)
+
+### Bug Fixes
+
+- **portal:** name a duplicate national-ID collision on identity-change approve ([e002b0c](https://github.com/vap-ops/prc-ops/commit/e002b0c76b6aecf21817d46528651b66bad426b0))
+
 ## [0.365.3](https://github.com/vap-ops/prc-ops/compare/v0.365.2...v0.365.3) (2026-08-08)
 
 ### Bug Fixes
