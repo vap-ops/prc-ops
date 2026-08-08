@@ -169,13 +169,20 @@ fit. They did not. The three forms inside `WorkerDayFixPanel` keyed their row-or
 viewport ≥640px they took their WIDE layout inside a narrow box. Measured in real Chrome, with the
 old instruction restored on the live page as the control:
 
-| surface / width       | container | reason input usable | placeholder needs | verdict        |
-| --------------------- | --------- | ------------------- | ----------------- | -------------- |
-| calendar, OLD layout  | 246       | **63**              | 154               | CLIPPED        |
-| calendar 768–900      | 246       | **188**             | 154               | fits, stacked  |
-| calendar 1024–1194    | 306       | **248**             | 154               | fits, stacked  |
-| /team/attendance dock | 760–1078  | 577–895             | 154               | fits, ROW kept |
-| /team/attendance/fix  | 335–1112  | 277–929             | 154               | fits, ROW kept |
+| surface / width           | container | reason input usable | placeholder needs | verdict        |
+| ------------------------- | --------- | ------------------- | ----------------- | -------------- |
+| calendar, OLD layout      | 246       | **63**              | 154               | CLIPPED        |
+| calendar 768–900          | 246       | **188**             | 154               | fits, stacked  |
+| calendar 1024–1194        | 306       | **248**             | 154               | fits, stacked  |
+| /team/attendance dock     | 760–1078  | 577–895             | 154               | fits, ROW kept |
+| /team/attendance/fix 375  | 335       | 277                 | 154               | fits, stacked  |
+| /team/attendance/fix 500+ | 460–1112  | 277–929             | 154               | fits, ROW kept |
+
+⚠️ **One behaviour change on the two WIDE surfaces, stated rather than buried:** the row/stack
+boundary moves from viewport 640 (`sm:`) to container 448, which is ≈488px of viewport on
+`/team/attendance/fix` and ≈520 on the day panel. Those surfaces therefore ROW in the 488–640 band
+where they previously stacked — measured to fit (277px of usable reason input at container 460), and
+it is the point of keying on the box.
 
 `63` against `154` is the truncated `เช่น ลงเวลาไ` on the operator's screenshot; the same cause
 produced the ragged `เวลาเข้าใหม่` / `เวลาออกใหม่` alignment.
@@ -254,11 +261,13 @@ The grid's walk is **next PERSON within a day**; the calendar's is **next DAY fo
 Same control, opposite axis, one shared component — so the calendar's steppers are labelled
 `วันก่อนหน้า` / `วันถัดไป` (visible text or `aria-label`), never bare chevrons.
 
-They step to the next day **that carries attendance**, skipping empty cells: stepping through 20
-blank days is the cry-wolf failure U6b already ruled against. An empty day is still reachable by
-clicking its cell — and here the calendar can do something the standalone fix screen structurally
-cannot, because it knows the month's project set and can supply a project where an empty day has no
-session to infer one from.
+They step to the next **DOOR**, skipping every other blank cell: stepping through 20 blank days is
+the cry-wolf failure U6b already ruled against. ⚠️ **U2b (§4.5) widened what a door is** — a blank
+day the resolved project scanned other people on is now one, and joins the stepper walk, so this
+line no longer reads "a day that carries attendance". An empty day is reachable by clicking its
+cell — and here the calendar can do something the standalone fix screen structurally cannot,
+because it knows the month's project set and can supply a project where an empty day has no session
+to infer one from.
 
 ### 4.4 `title=` is not a fallback on a tablet
 

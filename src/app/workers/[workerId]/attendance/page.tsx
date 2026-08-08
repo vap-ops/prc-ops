@@ -41,6 +41,7 @@ import { buildAttendanceMonth, resolveMonthAnchor } from "@/lib/attendance/atten
 import {
   loadProjectHeadcountByDate,
   loadWorkerAttendance,
+  loadWorkerMusterDates,
 } from "@/lib/attendance/load-worker-attendance";
 import {
   calendarBlankDayFixable,
@@ -190,10 +191,13 @@ export default async function WorkerAttendancePage({
     .filter((id): id is string => id !== null);
   const blankDoorProjectId =
     canCorrect && monthProjectIds.length === 1 ? monthProjectIds[0]! : null;
-  const projectHeadcountByDate =
+  const [projectHeadcountByDate, workerMusterDates] =
     blankDoorProjectId === null
-      ? {}
-      : await loadProjectHeadcountByDate(blankDoorProjectId, monthAnchor);
+      ? [{} as Record<string, number>, new Set<string>()]
+      : await Promise.all([
+          loadProjectHeadcountByDate(blankDoorProjectId, monthAnchor),
+          loadWorkerMusterDates(workerId, monthAnchor),
+        ]);
   // Iterated over the cells the GRID DRAWS, not over the dates the read
   // returned: the rule's `headcount > 0` arm has to be able to refuse, and a
   // candidate list built from scanned dates alone could never exercise it.
@@ -202,12 +206,29 @@ export default async function WorkerAttendancePage({
       .flat()
       .filter((c) => c.inMonth && month.cells[c.iso] === undefined)
       .map((c) => c.iso)
+      // ⚠️ A cell can be blank because the VIEWER cannot see the row, not
+      // because there is none: `loadWorkerAttendance` is membership-scoped for
+      // any role outside `viewerSeesAllMusterProjects`, and `project_manager`
+      // sits in BOTH this page's gate and the correction audience. Offering a
+      // door there would reach `muster_correct_session`, whose existing-row
+      // lookup is `worker_id + work_date + session` with no project predicate
+      // (read from the live definition), so it would take the UPDATE path and
+      // refuse on press with "worker is in another team today — move first".
+      // `loadWorkerMusterDates` names those dates so they can be WITHHELD;
+      // nothing about them is rendered, named or counted. Disclosing them is
+      // spec 404 §5's job (U3), not this one's.
+      .filter((date) => !workerMusterDates.has(date))
       .filter((date) =>
         calendarBlankDayFixable({
           date,
           holidayName: month.holidayByDate[date] ?? null,
           projectHeadcount: projectHeadcountByDate[date] ?? 0,
-          projectResolvable: true,
+          // ⚠️ NOT a hardcoded `true`. That left `gridCellFixable`'s
+          // `canFixGaps` arm dead at its only call site, with the real gate
+          // smuggled through the headcount map being empty — the rule would
+          // claim a decision something else was actually making, and a mutation
+          // of this line would change nothing.
+          projectResolvable: blankDoorProjectId !== null,
         }),
       ),
   );
@@ -380,8 +401,10 @@ export default async function WorkerAttendancePage({
                             walks the next DAY for one person. Same component,
                             opposite meaning — bare chevrons would let a reader
                             carry the wrong model across two surfaces.
-                            They step to the next day that CARRIES attendance:
-                            walking through 20 blank cells is the cry-wolf
+                            They step to the next DOOR — a day carrying
+                            attendance, or (since U2b) a blank day the project
+                            scanned other people on. Every other blank cell is
+                            skipped: walking through 20 of them is the cry-wolf
                             failure U6b already ruled against. */}
                         {steps.prev !== null ? (
                           <Link

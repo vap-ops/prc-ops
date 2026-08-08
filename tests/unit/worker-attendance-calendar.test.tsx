@@ -464,14 +464,69 @@ describe("spec 404 U2 — calendar days as in-page panel doors", () => {
     expect(fixLinks()[0]!.getAttribute("href")).toContain("m=2026-07");
   });
 
-  it("does NOT link a day with no attendance", () => {
-    // `data` is the gate: exactly "this date has something to correct". An empty
-    // day is still openable — the panel's own steppers walk onto one — but the
-    // grid does not offer 20 blank tap targets to get there.
+  it("does NOT link a blank day the page did not name as a door", () => {
+    // ⚠️ Retitled by U2b. It used to read "a day with no attendance", which
+    // stopped being the rule the moment blank days could be doors — and it kept
+    // passing only because this suite never supplied `blankFixDates`, so the
+    // title asserted an invariant the code no longer has.
+    //
+    // `data` OR membership of `blankFixDates` is the gate. With no set passed,
+    // no blank cell links: the grid does not offer ~24 blank tap targets.
     renderCal({ dayFixHref });
     const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
     expect(hrefs.some((h) => h.includes("fix=2026-07-14"))).toBe(false);
     expect(hrefs.some((h) => h.includes("fix=2026-07-17"))).toBe(false);
+  });
+
+  it("links exactly the blank days the page named, and no others (spec 404 U2b)", () => {
+    // A day this worker has no row on, at a project that scanned other people,
+    // is fully serviceable — but nothing linked it before U2b, so the screen
+    // built for "the muster missed him" existed only at a hand-typed URL.
+    renderCal({ dayFixHref, blankFixDates: new Set(["2026-07-14"]) });
+    const hrefs = fixLinks().map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.some((h) => h.includes("fix=2026-07-14"))).toBe(true);
+    // …and ONLY that one. The neighbouring blank day is not a door, which is
+    // what keeps this from becoming the cry-wolf wall U6b ruled against.
+    expect(hrefs.some((h) => h.includes("fix=2026-07-17"))).toBe(false);
+  });
+
+  it("marks a blank door visibly, or it is an invisible tap target", () => {
+    // A blank cell has no time to show. The grid's gap cells solve this with a
+    // `+`; the same glyph appears here, and ONLY on the door — an always-on mark
+    // would accuse every unworked day of something.
+    renderCal({ dayFixHref, blankFixDates: new Set(["2026-07-14"]) });
+    const door = fixLinks().find((a) => (a.getAttribute("href") ?? "").includes("2026-07-14"))!;
+    expect(door.textContent).toContain("+");
+    const dayWithData = fixLinks().find((a) =>
+      (a.getAttribute("href") ?? "").includes("2026-07-15"),
+    )!;
+    expect(dayWithData.textContent).not.toContain("+");
+  });
+
+  it("names a blank door for what it DOES, not for a control that may be withheld", () => {
+    // Honest copy, and the first draft failed it: the blank door said
+    // เพิ่มคนที่ตกหล่น, but the panel gates the whole add block on
+    // `dayClosed === false` and offers เปิดวันอีกครั้ง instead on a closed day.
+    // Every one of the 13 past days carrying attendance is closed — including
+    // 2026-08-04, the live case this door was built for — so the promise would
+    // have been false for the flagship example, not for an edge.
+    renderCal({ dayFixHref, blankFixDates: new Set(["2026-07-14"]) });
+    const door = fixLinks().find((a) => (a.getAttribute("href") ?? "").includes("2026-07-14"))!;
+    expect(door.textContent).toContain("เปิดหน้าต่างแก้ไข");
+    expect(door.textContent).not.toContain("เพิ่มคนที่ตกหล่น");
+    // The data door keeps its own name, which is true of IT: there is a
+    // เช็คชื่อ on that day to แก้ไข.
+    const dayWithData = fixLinks().find((a) =>
+      (a.getAttribute("href") ?? "").includes("2026-07-15"),
+    )!;
+    expect(dayWithData.textContent).toContain("แก้ไขการเช็คชื่อ");
+  });
+
+  it("withholds blank doors from a reader who cannot correct at all", () => {
+    // `dayFixHref` is null for everyone outside MUSTER_CORRECT_ROLES, and the
+    // blank door must not be a second way in — the set alone cannot open one.
+    renderCal({ dayFixHref: null, blankFixDates: new Set(["2026-07-14"]) });
+    expect(fixLinks()).toHaveLength(0);
   });
 
   it("marks the cell the panel is currently open on", () => {

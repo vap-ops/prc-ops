@@ -52,33 +52,91 @@ export interface WorkerAttendancePayload {
  * can_see_project-scoped and plain `procurement` fails it).
  *
  * Selected at worker grain rather than aggregated because PostgREST cannot GROUP
- * BY: the payload is two ids per scan (~550 rows for a full month of a 25-person
- * site), and the caller only asks for it when a door could actually be offered —
+ * BY, and the caller only asks for it when a door could actually be offered —
  * the viewer can correct AND the month names exactly one project.
+ *
+ * ⚠️ **PAGED, because this read can cross PostgREST's `db-max-rows = 1000`.** A
+ * 25-person site is ~550 rows for a month, which reads as comfortable and is one
+ * growth step from the cap (40 workers × 26 days is 1,040, and spec 351's OT rows
+ * add more). Past it PostgREST silently returns an ARBITRARY 1,000-row window, so
+ * headcounts would under-report and doors would appear and vanish between two
+ * identical page loads — a truncation that fails closed, silently and
+ * non-deterministically. The explicit `order` is what makes each page's window
+ * defined rather than arbitrary; the loop is the repo's existing pattern.
  */
+const PAGE = 1000;
+
 export async function loadProjectHeadcountByDate(
   projectId: string,
   /** YYYY-MM-01 */
   monthAnchor: string,
 ): Promise<Record<string, number>> {
   const admin = createAdminSupabase();
-  const { data, error } = await admin
-    .from("muster_attendance")
-    .select("work_date, worker_id, muster_teams!inner(project_id)")
-    .eq("muster_teams.project_id", projectId)
-    .gte("work_date", monthAnchor)
-    .lt("work_date", addMonthsIso(monthAnchor, 1));
-  if (error) throw new Error(`attendance headcount read failed: ${error.message}`);
-
   // DISTINCT workers, because spec 351 lets one person carry a regular AND an OT
   // row on the same date — counting rows would report a 4-person day as 5.
   const byDate = new Map<string, Set<string>>();
-  for (const row of data ?? []) {
-    const set = byDate.get(row.work_date) ?? new Set<string>();
-    set.add(row.worker_id);
-    byDate.set(row.work_date, set);
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await admin
+      .from("muster_attendance")
+      .select("work_date, worker_id, muster_teams!inner(project_id)")
+      .eq("muster_teams.project_id", projectId)
+      .gte("work_date", monthAnchor)
+      .lt("work_date", addMonthsIso(monthAnchor, 1))
+      .order("work_date", { ascending: true })
+      .order("worker_id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`attendance headcount read failed: ${error.message}`);
+    const rows = data ?? [];
+    for (const row of rows) {
+      const set = byDate.get(row.work_date) ?? new Set<string>();
+      set.add(row.worker_id);
+      byDate.set(row.work_date, set);
+    }
+    if (rows.length < PAGE) break;
   }
   return Object.fromEntries([...byDate].map(([date, workers]) => [date, workers.size]));
+}
+
+/**
+ * Spec 404 U2b — every date in the month on which THIS worker has a muster row,
+ * across EVERY project, membership-free.
+ *
+ * ⚠️ It exists to WITHHOLD doors, never to show anything, and that is what makes
+ * the membership-free read acceptable: no date it returns is rendered, named or
+ * counted anywhere — it only subtracts candidates.
+ *
+ * The hole it closes is a real offer-then-refuse, and it is the write-affordance
+ * face of the disclosure gap spec 404 §5 (U3) still owns. `loadWorkerAttendance`
+ * scopes muster to the viewer's memberships for any role outside
+ * `viewerSeesAllMusterProjects` — and `project_manager` is both in
+ * `WORKER_ROSTER_ROLES` and in `MUSTER_CORRECT_ROLES`. So for a PM who is a member
+ * of one project only, a day this worker spent at ANOTHER project renders BLANK,
+ * the month still names exactly one project, and the headcount rule would offer a
+ * door on it. Submitting the add reaches `muster_correct_session`, whose existing-
+ * row lookup is `worker_id + work_date + session` with NO project predicate
+ * (verified against the live definition), so it takes the UPDATE path and refuses
+ * with `worker is in another team today — move first`.
+ *
+ * Without this the unit would turn an undisclosed row into a control that fails on
+ * press — the exact class this repo ratchets against.
+ */
+export async function loadWorkerMusterDates(
+  workerId: string,
+  /** YYYY-MM-01 */
+  monthAnchor: string,
+): Promise<Set<string>> {
+  const admin = createAdminSupabase();
+  // One row per session, so at most ~62 for a month — no paging needed, and a
+  // comment rather than a loop because the bound is structural (spec 351 caps a
+  // worker at one regular plus one OT session per date).
+  const { data, error } = await admin
+    .from("muster_attendance")
+    .select("work_date")
+    .eq("worker_id", workerId)
+    .gte("work_date", monthAnchor)
+    .lt("work_date", addMonthsIso(monthAnchor, 1));
+  if (error) throw new Error(`attendance worker-dates read failed: ${error.message}`);
+  return new Set((data ?? []).map((r) => r.work_date));
 }
 
 export async function loadWorkerAttendance(

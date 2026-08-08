@@ -128,16 +128,33 @@ describe("every renderer of those forms declares a container (spec 404 U2b)", ()
     // Corpus-size pin. Without it, losing the matcher (a rename, a wrapper
     // component, a re-export) turns the whole describe below into a vacuous
     // green while every form silently stacks.
-    expect(renderers.map((r) => path.basename(r.rel)).sort()).toEqual([
-      "attendance-day-panel.tsx",
-      "attendance-drill.tsx",
-      "worker-day-fix-panel.tsx",
+    //
+    // Pinned by PATH, not basename: a renderer moved to another directory while
+    // keeping its filename would otherwise satisfy this untouched, and a move is
+    // exactly when the box a form sits in changes.
+    expect(renderers.map((r) => r.rel.split(path.sep).join("/")).sort()).toEqual([
+      "src/components/features/muster/attendance-day-panel.tsx",
+      "src/components/features/muster/attendance-drill.tsx",
+      "src/components/features/muster/worker-day-fix-panel.tsx",
     ]);
   });
 
-  it.each(renderers.map((r) => [r.rel, r.content]))("%s declares @container", (_rel, content) => {
-    expect(stripComments(content as string)).toContain("@container");
-  });
+  it.each(renderers.map((r) => [r.rel, r.content]))(
+    "%s declares @container ABOVE the form it hosts",
+    (_rel, content) => {
+      const src = stripComments(content as string);
+      expect(src).toContain("@container");
+      // ⚠️ A file-level `toContain` cannot see whether the container is an
+      // ANCESTOR of the form — a renderer that put `@container` on an unrelated
+      // sibling would pass while its form stacked. Source ORDER is the cheap
+      // approximation that closes the likeliest version of that: all three
+      // declare it on the element they return, so it must appear before the
+      // first form tag. A true ancestry check needs a JSX parse, which is more
+      // machinery than this property is worth — the limitation is stated here
+      // rather than left for the next reader to discover.
+      expect(src.indexOf("@container")).toBeLessThan(src.search(FORM_TAGS));
+    },
+  );
 
   it("the PANEL owns its own container, so no door has to remember", () => {
     // The panel is docked into three boxes of very different widths (a

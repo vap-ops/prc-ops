@@ -46,20 +46,21 @@ function fmtDays(n: number): string {
  * the larger saving) works at every width, but the merged `07:42–18:00` line
  * needs ~70px against 66px of usable column at 834, so it wraps to two lines
  * from `md` up to ~880 and is one line above that. A 7-column grid with
- *
- * ⚠️ U2b re-measured every cell of three worker-months across 768…1194 rather
- * than the first one, and sharpened this: the wrap boundary is **between 834 and
- * 860** (66px → 70px of column), and ONLY cells carrying the auto-out glyph wrap
- * — a bare `07:44–19:43` is one line at every width in the band. The `lg` panel
- * going 300 → 340 does not reach this: the whole wrapping interval is below
- * `lg`, where the panel is 280 either way.
- *
  * readable 10px times and a usable panel does not fit side by side below ~880 —
  * the panel would have to shrink past 190px, which cannot hold two time inputs.
  * The band boundary is NOT moved to `lg` (the operator ruled that out: it would
  * appear and vanish on rotation), and nothing regresses — two lines is what this
  * cell rendered before this unit. The first probe missed this by measuring the
  * COLUMN and never the text inside it.
+ *
+ * ⚠️ U2b re-measured EVERY cell of three worker-months across 768…1194 rather
+ * than the first one, and sharpened the above: the wrap boundary is **between
+ * 834 and 860** (66px → 70px of column), and ONLY cells carrying the auto-out
+ * glyph wrap — a bare `07:44–19:43` is one line at every width in the band. The
+ * `lg` panel going 300 → 340 does not reach this: the whole wrapping interval is
+ * below `lg`, where the panel is 280 either way. (The U2b probe's own first pass
+ * sampled the FIRST cell of the month, which had no glyph, and briefly read as
+ * "nothing wraps" — the same sampling error, one level up.)
  *
  * The words survive in TWO places, and both are load-bearing:
  *
@@ -327,11 +328,14 @@ export function WorkerAttendanceCalendar({
                     ) : null}
                     {/* Spec 404 U2b — a blank door has no time to show, so
                         without a visible mark it is an invisible tap target.
-                        The SAME `+` the grid's gap cells use, for the same
-                        reason and in the same words: it reads as "add the
-                        missing check-in", carries no colour dependence, and
-                        appears only where the door does — an always-on mark
-                        would accuse every unworked day of being a finding. */}
+                        The same GLYPH the grid's gap cells use, for the same
+                        reason: it reads as an offer rather than a finding,
+                        carries no colour dependence, and appears only where the
+                        door does — an always-on mark would accuse every unworked
+                        day of something. ⚠️ Only the glyph is shared: the grid
+                        names its link `<facts> · แก้ไข`, deliberately generic,
+                        and this cell's own name is generic for the same reason
+                        (see the sr-only span below). */}
                     {!data && isDoor ? <p className="text-action text-sm leading-none">+</p> : null}
                     {data ? (
                       <div className="text-ink-secondary text-[10px] leading-tight tracking-tight">
@@ -444,14 +448,22 @@ export function WorkerAttendanceCalendar({
                             names the act; an `aria-label` would replace the
                             whole subtree, which is the U6b defect.
 
-                            ⚠️ Spec 404 U2b — a BLANK door names a different act,
-                            because there is no เช็คชื่อ on that day to แก้ไข.
-                            The panel it opens offers exactly one control, the
-                            add form, so the link says so. One label for both
-                            kinds would be false for whichever kind it was not
-                            written for. */}
+                            ⚠️ Spec 404 U2b — a BLANK door does NOT say
+                            เพิ่มคนที่ตกหล่น, and the first draft did. There is
+                            no เช็คชื่อ on that day to แก้ไข, so the data door's
+                            wording is wrong for it — but naming the add form is
+                            wrong too, because the panel withholds that form on a
+                            CLOSED day (`dayClosed === false` gates the whole
+                            block) and offers เปิดวันอีกครั้ง instead. That is not
+                            an edge: all 13 past days carrying attendance are
+                            closed, and 2026-08-04 — the live case this door was
+                            built for — is one of them, so the promise would have
+                            been false for the flagship example. The link names
+                            the thing it actually does, which is true whether the
+                            day is open or closed; the panel's own heading states
+                            what is offered once it is open. */}
                         <span className="sr-only">
-                          {data ? "แก้ไขการเช็คชื่อ" : "เพิ่มคนที่ตกหล่น"}
+                          {data ? "แก้ไขการเช็คชื่อ" : "เปิดหน้าต่างแก้ไข"}
                         </span>
                       </Link>
                     ) : (
