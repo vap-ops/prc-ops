@@ -22,6 +22,7 @@ import { validateContractorProfile } from "./contractor-profile";
 import { validateWorkerProfile } from "./worker-profile";
 import { isPortalDocPurpose } from "./document-types";
 import { dobRefusalFact } from "@/lib/profile/dob-refusal";
+import { identityDuplicateTaxIdFact } from "@/lib/profile/identity-duplicate";
 
 export type ClaimResult = { ok: true } | { ok: false; error: string };
 
@@ -256,6 +257,16 @@ export async function decideIdentityChange(input: {
     const dobFact = dobRefusalFact(error.message);
     if (dobFact) {
       return { ok: false, error: `${dobFact} — ให้ปฏิเสธคำขอนี้ แล้วแจ้งให้ส่งคำขอใหม่` };
+    }
+    // Bug fix 2026-08-08 — approve writes the proposed national ID into
+    // workers.tax_id, which is unique; a collision is a PERMANENT refusal,
+    // same shape as the DOB case above, not GENERIC_BANK's "ลองใหม่อีกครั้ง".
+    const dupFact = identityDuplicateTaxIdFact(error);
+    if (dupFact) {
+      return {
+        ok: false,
+        error: `${dupFact} — ให้ปฏิเสธคำขอนี้ แล้วตรวจสอบตัวตนก่อนแจ้งให้ส่งคำขอใหม่`,
+      };
     }
     return { ok: false, error: GENERIC_BANK };
   }
