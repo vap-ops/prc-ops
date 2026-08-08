@@ -39,6 +39,7 @@ export function WorkerDayFixPanel({
   todayIso,
   returnTo,
   canClose,
+  hostOffersClose = false,
   outcomes,
   queue = null,
   noProjectHint = null,
@@ -51,6 +52,23 @@ export function WorkerDayFixPanel({
   returnTo: string;
   /** MUSTER_CLOSE_ROLES.includes(role) — the reopen form's loop copy needs it. */
   canClose: boolean;
+  /**
+   * Does the surface HOSTING this panel already render its own ปิดวัน for this
+   * same day? Then this one is withheld — not because the reader may not close,
+   * but because two doors to one money write is one door too many, and the
+   * host's is the better-informed of the two: `AttendanceDayPanel` NAMES the
+   * workers still checked in who will be given a fabricated 17:00, which this
+   * panel structurally cannot know (it loads ONE worker).
+   *
+   * ⚠️ The caller passes its host's OWN answer — the same `dayClosable`, over
+   * the same day — never a hardcoded `true`. `/team/attendance` under ทุกโครงการ
+   * resolves `noProject` and shows NO day control, and there this panel's close
+   * is the only one there is.
+   *
+   * Defaults to `false`: a door that forgets this prop keeps its close, which is
+   * the direction that cannot strand a day (the bug this control exists to fix).
+   */
+  hostOffersClose?: boolean;
   outcomes: { retime: FixOutcome; undo: FixOutcome; add: FixOutcome; reopen: FixOutcome };
   /** Panel only: the day's queue position and its neighbours. */
   queue?: React.ReactNode;
@@ -153,8 +171,13 @@ export function WorkerDayFixPanel({
 
           ⚠️ The decision DELEGATES to `dayClosable`, which shares its day-level
           ladder with `dayCorrectionControl` — the two surfaces disagreeing about
-          one day is the bug, so they may not hold two copies of the rule. */}
-      {dayClosable({ date, todayIso, dayClosed, projectId: data.projectId, canClose }) &&
+          one day is the bug, so they may not hold two copies of the rule.
+
+          ⓘ `hostOffersClose` is the DUAL: on /team/attendance this panel is
+          docked under the day panel, which already renders this control with a
+          richer disclosure, so there it steps aside. See the prop's doc. */}
+      {!hostOffersClose &&
+        dayClosable({ date, todayIso, dayClosed, projectId: data.projectId, canClose }) &&
         data.projectId !== null && (
           <form
             action={closeMusterDayFromForm}

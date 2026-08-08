@@ -16,6 +16,9 @@
 // ⚠️ This is also the panel's FIRST component test. It had none, which is why
 // the missing control was invisible to the suite.
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -47,6 +50,7 @@ function renderPanel(
     date?: string;
     todayIso?: string;
     canClose?: boolean;
+    hostOffersClose?: boolean;
   } = {},
 ) {
   return render(
@@ -57,6 +61,7 @@ function renderPanel(
       todayIso={over.todayIso ?? TODAY}
       returnTo="/workers/w1/attendance?m=2026-08&fix=2026-08-05"
       canClose={over.canClose ?? true}
+      hostOffersClose={over.hostOffersClose ?? false}
       outcomes={{ retime: null, undo: null, add: null, reopen: null }}
     />,
   );
@@ -123,5 +128,66 @@ describe("the fix panel can close an open past day (the 2026-08-05 incident)", (
     expect(closeForm()).toBeNull();
     renderPanel({ fix: { projectId: null } });
     expect(closeForm()).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The DUAL of the bug above, measured in real Chrome before it was written.
+//
+// `/team/attendance` docks this panel UNDER `AttendanceDayPanel`, which owns the
+// day and renders its own ปิดวัน. Driven live, that page served **two** ปิดวัน
+// forms — and they are not equals: the day panel's disclosure NAMES the workers
+// still checked in who will be given a fabricated 17:00
+// (`ช่าง N คนยังไม่เช็คออก … · ชื่อ, ชื่อ`), which this panel structurally cannot
+// know because it loads ONE worker. Two doors to the same money write, the lower
+// one thinner, is the "softer door" this unit's own confirm-checkbox test names.
+//
+// ⚠️ It is a WITHHOLDING, not a rule change: the panel keeps its close wherever
+// the host has none — which is every other door, and also `/team/attendance`
+// itself under ทุกโครงการ, where the day panel resolves `noProject` and shows no
+// control at all. So the caller passes its host's OWN answer, from the same
+// `dayClosable`, rather than a hardcoded `true`.
+//
+// ⓘ REOPEN doubles up on that page today and is left alone — pre-existing since
+// spec 400 U7, untouched by this branch, and recorded as its own follow-up.
+// ---------------------------------------------------------------------------
+
+describe("no TWO ปิดวัน on one screen", () => {
+  it("withholds its close when the host surface already renders one", () => {
+    renderPanel({ hostOffersClose: true });
+    expect(closeForm()).toBeNull();
+  });
+
+  it("keeps its close when the host renders none — every other door", () => {
+    renderPanel({ hostOffersClose: false });
+    expect(closeForm()).not.toBeNull();
+  });
+});
+
+// PAGE-level wiring, which no component test can see: the page is a Server
+// Component, and whether it hands the panel its host's real answer lives there.
+// Comments stripped first — a comment quoting the symbol satisfies the scan.
+describe("/team/attendance hands the panel its OWN close decision", () => {
+  const code = readFileSync(join(process.cwd(), "src/app/team/attendance/page.tsx"), "utf8")
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+  const uses = (needle: string) => code.split(needle).length - 1;
+
+  it("computes the host's answer from the SHARED rule, not a hardcoded true", () => {
+    // Import + the one call site. A literal `hostOffersClose` would pass a
+    // presence-only pin, so the absence of `hostOffersClose={true}` is pinned too.
+    expect(uses("dayClosable")).toBe(2);
+    expect(uses("hostOffersClose")).toBe(1);
+    expect(code).not.toContain("hostOffersClose={true}");
+  });
+
+  it("feeds it the same day the day panel is answering about", () => {
+    // Wrong inputs make the withholding fire on a day whose host shows nothing —
+    // deleting the panel's close from a surface that has no other one.
+    expect(code).toMatch(/dayClosable\(\{[\s\S]{0,240}?dayClosed:\s*openDay\.dayClosed/);
+    expect(code).toMatch(
+      /dayClosable\(\{[\s\S]{0,240}?projectId:\s*range\.projectId\s*\?\?\s*null/,
+    );
   });
 });

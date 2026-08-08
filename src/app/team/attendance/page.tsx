@@ -40,7 +40,7 @@ import { AttendanceDayPanel } from "@/components/features/muster/attendance-day-
 import { attendanceView, buildAttendanceGrid, gridWorkerHref } from "@/lib/muster/attendance-grid";
 import { dayWorkList } from "@/lib/muster/day-fix";
 import { loadDayAudit } from "@/lib/muster/day-audit";
-import { attendanceDayParam } from "@/lib/muster/day-correction";
+import { attendanceDayParam, dayClosable } from "@/lib/muster/day-correction";
 import {
   ADD_ERROR_COPY,
   REOPEN_ERROR_COPY,
@@ -826,6 +826,21 @@ export default async function AttendanceAuditPage({ searchParams }: AttendanceAu
                       todayIso={todayIso}
                       returnTo={panelFixHref(openDay.date, openFixWorkerId, true)}
                       canClose={canClose}
+                      // The day panel above owns this day and renders its own
+                      // ปิดวัน — with the disclosure that NAMES who gets a
+                      // fabricated 17:00, which the per-worker panel cannot
+                      // know. Two doors to one money write is one too many, so
+                      // the thinner one steps aside. Its OWN answer, from the
+                      // same rule and the same inputs it was handed: under
+                      // ทุกโครงการ it resolves `noProject` and shows nothing,
+                      // and there the panel's close is the only one there is.
+                      hostOffersClose={dayClosable({
+                        date: openDay.date,
+                        todayIso,
+                        dayClosed: openDay.dayClosed,
+                        projectId: range.projectId ?? null,
+                        canClose,
+                      })}
                       outcomes={{
                         retime: fixRetimeOutcome,
                         undo: fixUndoOutcome,
