@@ -1,3 +1,10 @@
+## [0.364.1](https://github.com/vap-ops/prc-ops/compare/v0.364.0...v0.364.1) (2026-08-08)
+
+### Bug Fixes
+
+- **chrome:** the card variant owns its padding, so page and fallback match ([12ac87f](https://github.com/vap-ops/prc-ops/commit/12ac87fb1dc0079f87c8aaf1f3739f99bee0fce8)), closes [#996](https://github.com/vap-ops/prc-ops/issues/996)
+- close the fresh-eyes findings on the padding-parity unit ([ad202d2](https://github.com/vap-ops/prc-ops/commit/ad202d2d163bb26bc966d0d4e3afd414686f177f)), closes [#996](https://github.com/vap-ops/prc-ops/issues/996)
+
 # [0.364.0](https://github.com/vap-ops/prc-ops/compare/v0.363.2...v0.364.0) (2026-08-07)
 
 ### Bug Fixes
