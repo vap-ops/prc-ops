@@ -38,9 +38,22 @@ function fmtDays(n: number): string {
  * Spec 404 U2 — what the cell's two glyphs mean, in words.
  *
  * The compact cell is the PRICE of the `md` split (§4.2): at iPad portrait a
- * column is 68px wide and `17:00 (อัตโนมัติ)` needs ~80px, so the two word
- * markers shrink to a glyph and a `+1`. The words survive in TWO places, and
- * both are load-bearing:
+ * column is ~71px wide and `17:00 (อัตโนมัติ)` needs ~80px, so the two word
+ * markers shrink to a glyph and a `+1`.
+ *
+ * ⚠️ **Measured, and only PART of the plan lands.** Driven in real Chrome with
+ * the panel open at 768 / 790 / 810 / 834 / 900 / 1024: the glyph swap (~40px,
+ * the larger saving) works at every width, but the merged `07:42–18:00` line
+ * needs ~70px against 66px of usable column at 834, so it wraps to two lines
+ * from `md` up to ~880 and is one line above that. A 7-column grid with
+ * readable 10px times and a usable panel does not fit side by side below ~880 —
+ * the panel would have to shrink past 190px, which cannot hold two time inputs.
+ * The band boundary is NOT moved to `lg` (the operator ruled that out: it would
+ * appear and vanish on rotation), and nothing regresses — two lines is what this
+ * cell rendered before this unit. The first probe missed this by measuring the
+ * COLUMN and never the text inside it.
+ *
+ * The words survive in TWO places, and both are load-bearing:
  *
  *  - an `sr-only` span inside the cell, so a listener loses nothing (the U6b
  *    aria-label defect, running the other way: a compact cell that says less);
@@ -85,8 +98,14 @@ export function WorkerAttendanceCalendar({
    * REASON narrowed: the panel can now resolve a project for an empty day of an
    * unambiguous month, so the gate is no longer "we cannot serve this" but "20
    * blank tap targets bury the days that have something to correct" — the
-   * cry-wolf line U6b drew at the grid's gap cells. An empty day stays reachable
-   * through the panel's own steppers.
+   * cry-wolf line U6b drew at the grid's gap cells.
+   *
+   * ⚠️ So a day with NO record of any kind is reachable only by URL — the
+   * steppers walk these same door dates and can never land on one. The
+   * month-project fallback therefore serves the PAID-ONLY door (a paper-
+   * backfilled labor day, which carries no muster team and so no project of its
+   * own), not an arbitrary blank cell. An earlier draft of this comment claimed
+   * otherwise in three places; a fresh-eyes pass measured it.
    */
   dayFixHref?: ((date: string) => string) | null;
   /**
@@ -287,7 +306,7 @@ export function WorkerAttendanceCalendar({
                       </p>
                     ) : null}
                     {data ? (
-                      <div className="text-ink-secondary text-[10px] leading-tight">
+                      <div className="text-ink-secondary text-[10px] leading-tight tracking-tight">
                         {/* Spec 404 U2 — ONE time line, not two stacked ones.
                             At iPad portrait a column is 68px (834 − 40 padding
                             − 16 gap − 300 panel, ÷ 7), 60px usable. A missing
@@ -312,7 +331,7 @@ export function WorkerAttendanceCalendar({
                                 <Timer
                                   aria-hidden
                                   data-marker="auto"
-                                  className="inline-block h-3 w-3 align-text-bottom"
+                                  className="inline-block h-3 w-3 align-middle"
                                 />
                                 <span className="sr-only">(อัตโนมัติ)</span>
                               </span>
@@ -345,7 +364,7 @@ export function WorkerAttendanceCalendar({
                 return (
                   <div
                     key={cell.iso}
-                    className={`border-edge min-h-16 border-r p-1 last:border-r-0 ${
+                    className={`border-edge min-h-16 border-r p-0.5 last:border-r-0 ${
                       cell.inMonth
                         ? holiday
                           ? "bg-attn-soft"
@@ -388,6 +407,15 @@ export function WorkerAttendanceCalendar({
                         className="focus-visible:ring-action block h-full rounded focus:outline-none focus-visible:ring-2"
                       >
                         {inner}
+                        {/* The link's PURPOSE, ADDED to the subtree rather than
+                            replacing it. Removing the `title` left the name as
+                            bare facts — `15 07:30–17:00` never says this is a
+                            control or what activating it does, which is the
+                            before-activation question a `title` was (badly)
+                            answering. An `sr-only` span keeps every fact AND
+                            names the act; an `aria-label` would replace the
+                            whole subtree, which is the U6b defect. */}
+                        <span className="sr-only">แก้ไขการเช็คชื่อ</span>
                       </Link>
                     ) : (
                       inner
@@ -407,7 +435,7 @@ export function WorkerAttendanceCalendar({
           <div className="text-ink-secondary flex flex-col gap-1 text-xs">
             {hasAutoOut && (
               <p>
-                <Timer aria-hidden className="mr-1 inline-block h-3 w-3 align-text-bottom" />
+                <Timer aria-hidden className="mr-1 inline-block h-3 w-3 align-middle" />
                 {AUTO_OUT_LEGEND}
               </p>
             )}

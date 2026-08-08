@@ -279,7 +279,17 @@ describe("buildAttendanceMonth — summary.projectDays", () => {
       dayRate: 400,
     });
     expect(m.summary.projectDays).toEqual([
-      { label: A, code: "PRC-2026-004", shortCode: "PRC-2026-004", days: 2, otHours: 0 },
+      // `projectId` is spec 404 U2's addition; the exact-shape assertion is kept
+      // exact on purpose, so a future field has to be declared here rather than
+      // sliding in unnoticed.
+      {
+        label: A,
+        projectId: null,
+        code: "PRC-2026-004",
+        shortCode: "PRC-2026-004",
+        days: 2,
+        otHours: 0,
+      },
     ]);
   });
 

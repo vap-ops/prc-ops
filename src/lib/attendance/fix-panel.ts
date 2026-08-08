@@ -78,11 +78,26 @@ export function calendarFixTarget(
  * to its permanent-refusal arm instead (§6 case 3).
  */
 export function fixPanelProjectId(input: {
+  /**
+   * The RESOLVED project this panel already settled on, carried by its own
+   * `returnTo` across a write. First, and that ordering is the whole point:
+   * `/team/attendance/fix` threads the resolved id for the same reason, in its
+   * own words — "carrying the param forward would drop the project the moment
+   * the last session is deleted — the page would come back with no project,
+   * hence no closure, no add form and no trail: a dead end immediately after its
+   * only destructive action, with no way to re-add the person just removed."
+   *
+   * ⚠️ It rides the panel's OWN url only. The day steppers deliberately do not
+   * carry it: they move to a different day, which in a split month may belong to
+   * a different project, and a stale param would then outrank that day's own.
+   */
+  paramProjectId: string | null;
   /** The open day's own project id, or null when the day carries no attendance. */
   cellProjectId: string | null;
   /** Distinct project ids the MONTH contains, from its attendance rows. */
   monthProjectIds: readonly string[];
 }): string | null {
+  if (input.paramProjectId !== null) return input.paramProjectId;
   if (input.cellProjectId !== null) return input.cellProjectId;
   return input.monthProjectIds.length === 1 ? (input.monthProjectIds[0] ?? null) : null;
 }
@@ -106,8 +121,12 @@ export function fixPanelProjectId(input: {
  * nothing could see it. The property belongs in the comparison, where no input
  * order can satisfy it by luck.
  *
- * `current` need NOT be one of them: an empty day opened by tap gets the doors
- * on either side of it, by date.
+ * `current` need NOT be one of them: a day that is not a door can only be
+ * reached by URL, and it still gets the doors on either side of it by date.
+ *
+ * ⚠️ It follows that a stepper can NEVER land on a day with no record — it walks
+ * this same set. An earlier comment here claimed empty days stay reachable
+ * through the steppers; a fresh-eyes pass measured it and they do not.
  */
 export function fixStepDates(
   doorDates: readonly string[],

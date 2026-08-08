@@ -14578,3 +14578,138 @@ it is honest either way because it is labelled as an assignment rather than as t
 **Open questions** (spec 404 §8, none blocking). ① Should `ประมาณการค่าแรง` be suppressed entirely
 in a split month rather than shown as one current-rate number? ② The compact cell planned for U2
 will drop the spelled-out `(อัตโนมัติ)` on desktop too. ③ Is a phone day-list wanted at all?
+
+## 2026-08-08 — spec 404 U2: the fix panel opens where the calendar is (lane attnu2)
+
+**What changed.** A day cell on `/workers/[workerId]/attendance` used to navigate to
+`/team/attendance/fix` and hand back a `?from=` chip. It now opens `?fix=<YYYY-MM-DD>` on the
+calendar's own route. Spec 400 U7 had already extracted `loadWorkerDayFix` +
+`WorkerDayFixPanel` and proved this exact shape on the grid — Server Component, plain POST forms,
+redirect, zero client JS, with `<dialog>` explicitly rejected there because it pays the same server
+round trip and costs the page its zero-JS property. **This unit invents no panel**; it adopts that
+one and supplies the axis the calendar walks. `/team/attendance/fix` is untouched and still serves
+every link minted elsewhere.
+
+**Two bands, split at `md` — not `lg`, and that is the operator's ruling.** A tablet is two widths
+that swap under the user's hand (iPad Pro 11 = 1194 landscape / 834 portrait), so an `lg:` split
+would appear and vanish on rotation. Below `md` the panel REPLACES the calendar; at `md+` it docks
+at 300px beside it.
+
+**The compact cell is the price of that — and only HALF of it lands, which the review forced me to
+measure properly.** The two word-markers became a `Timer` glyph and a `+1` (the ~40px saving, at
+every width), and the two stacked time lines became one element. But whether that element fits on
+one LINE is geometry, and my first probe measured the COLUMN and never the text inside it. Driven in
+real Chrome at 768 / 790 / 810 / 834 / 900 / 1024 with the panel open: `07:42–18:00` needs ~70px
+against 66px of usable column at 834, so it **wraps to two lines from `md` up to ~880px** and is one
+line above that. Narrowing the panel to `md:w-[280px] lg:w-[300px]`, tightening the cell to `p-0.5`
+and adding `tracking-tight` moved 900px from wrapping to fitting; 834 is still ~4px short, and
+closing it would need a panel under ~190px, which cannot hold two time inputs. **Nothing
+regresses** — two lines is what this cell rendered before U2 — and the band stays at `md`, because
+moving it to `lg` is the rotation flip the operator ruled out.
+
+Their words survive in `sr-only` spans — the live cell's accessible name reads `24 07:42–18:00
+(อัตโนมัติ) +0.5 ชม. บันทึกมือ แก้ไขการเช็คชื่อ` — and in a legend under the grid, which renders
+only on a month that carries the marker.
+
+**Two `title=` defects folded in, because the cell was being rewritten anyway.** The holiday name
+and the fix link's whole purpose both lived in `title`, justified as "desktop back-office, where
+hover is real". The operator reads this page on an iPad: there is no hover and no long-press
+tooltip, so both reached nobody. The link's purpose is now carried by the panel's own heading (the
+point of opening it in place), and the longest live holiday name — 50 characters,
+`วันเฉลิมพระชนมพรรษา สมเด็จพระนางเจ้าฯ พระบรมราชินี` — is spelled out in the legend, reachable by
+every reader on every device. ⚠️ Deliberately NOT "the words move into the panel": the panel is
+gated on `MUSTER_CORRECT_ROLES` and only renders while open, so parking them there would withhold
+them from exactly the readers who lost the hover.
+
+**The steppers NAME the axis.** The grid's identical control walks the next PERSON within a day;
+here it walks the next DAY for one person — same component, opposite meaning — so they read
+`วันก่อนหน้า` / `วันถัดไป` rather than bare chevrons. They step to the next day that CARRIES
+attendance; walking through twenty blank cells is the cry-wolf failure U6b already ruled against.
+
+**What the calendar can do that the standalone screen structurally cannot.** An empty day has no
+session to infer a project from, and this surface knows the month's project set — so it supplies
+one, but ONLY when the month is unambiguous. On an empty day of a SPLIT month there are two owners
+and no evidence, and the add arm books a wage against whichever it is handed, so it refuses and
+names the surface that can resolve it. `AttendanceMusterRow` gained `project_id`, which the loader
+had been fetching and discarding since spec 374.
+
+**Gates.** RED first on the pure decisions and the compact cell (15 + 6 failing before any
+production code). Suite for the changed area **8 files / 181 tests + 37 + 22 + 29, 0 failures** ·
+lint 0 · typecheck 0 · **6 mutants killed**, each with its run count and a verified restore.
+
+⚠️ **One mutant did NOT die on the first pass, and it is the carry.** Deleting the `.sort()` from
+`fixStepDates` left the suite green: the loop took the LAST candidate below the current date, and
+the fixture's order happened to end on the right one. The sort was load-bearing and no test could
+see it. Fixed in the code, not the test — nearest-below / nearest-above cannot be satisfied by
+luck — and the fixture order is now adversarial in both directions.
+
+**Real-flow verification, with a positive control.** The same production worker
+(`นายจันทร์ เงางาม`, July, seven scanned days) rendered on two dev servers under one session: this
+branch and `origin/main`. Control: **14 links to `/team/attendance/fix`**, **7 cells carrying
+`title="แก้ไขการเช็คชื่อ…"`**, no legend. Branch: **0 links out**, **0 titles**, 14 in-page `?fix=`
+links, legend present. Panel open on `2026-07-24`: `aria-current="date"` on exactly one cell,
+retime section, closure card, trail, both steppers, close link. Phone 390px: calendar width **0**
+(replaced), panel 350px, close link visible. No horizontal body overflow at 1280 / 834 / 390. Zero
+server errors.
+
+⚠️ **The probe caught my own misreading before the report did.** The first run opened the panel on
+`2026-07-15` and reported `aria-current` absent — I had assumed that date was a scanned day. It is
+not one of this worker's seven; the cell is therefore not a link and has no element to carry the
+attribute (the ring still marks it). Re-run on a real door date, the attribute is there. A count of
+zero is a claim about the row you probed, not about the code.
+
+⚠️ **No independent scroller was added.** A scrolling panel would be a NEW scroller and this repo
+has shipped two opposite `touch-action` bugs on those. The page scrolls; the column is as tall as
+it is.
+
+**One refactor rode along**, because a second surface began reading the same six outcome params
+back from the same five actions: the query-param → outcome reader moved from
+`/team/attendance/page.tsx` into `outcome-copy.ts`, beside the sentences it selects.
+
+### What the fresh-eyes pass changed, because none of it was cosmetic
+
+The full-suite run and an opus reviewer landed together, and between them the unit was **red and
+carrying two real defects** at the point I would otherwise have shipped it.
+
+- 🔴 **Three failing tests, all mine, none in the files I had been running.** `projectDays`' exact-
+  shape `toEqual` never learned about `projectId`; `align-text-bottom` reads to the phantom-token
+  guard as the colour utility `text-bottom`; and the two disabled steppers grew `text-ink-muted`
+  past its ratchet ceiling (fixed by using `text-ink-secondary` — the memory rule says never raise
+  the ceiling for readable copy). **A hand-picked subset of the suite is a guess about blast
+  radius**, and this is the second session in a week to pay for it.
+- 🔴 **Deleting the last session stranded the panel.** `returnTo` carried no project, so undoing the
+  only session of a single-day month re-rendered with no cell project AND an empty month set — no
+  closure state, no add form, no trail, immediately after the only destructive action, with no way
+  to re-add the person just removed. `/team/attendance/fix` documents that exact dead end in a
+  comment and threads the resolved id to avoid it; I had read that file and still built the URL
+  without it. Fixed with `?fixp=`, on the panel's own returnTo and **not** on the steppers (in a
+  split month the next day may belong to another project, and a carried param outranks the day's
+  own).
+- 🟠 **The shared panel's copy became false the moment this route reached it.** `เลือกโครงการก่อน
+จึงจะ…` is an INSTRUCTION that is true where a project can be chosen — the fix route takes
+  `?project=`, the grid sits under a picker — and this page has neither. It now passes a
+  `noProjectHint` override. ⚠️ My first attempt made it a required prop with one generic default,
+  which collapsed three distinct sentences (reopen / add-and-edit / trail) into one on the route
+  that has always had them: a signal deleted from an existing surface to fix a new one. It is an
+  override now, and the three defaults are pinned.
+- 🟠 **A vacuous test.** "Month steppers do not carry `?fix=`" sliced from `const prevHref` to
+  `const nextHref` — one line — while the property lives in `withFrom`'s body, declared above the
+  slice. Appending `&fix=` inside `withFrom` kept it green.
+- 🟠 **Three comments asserted a reachability the code does not provide.** "An empty day stays
+  reachable through the panel's own steppers" — the steppers walk the door dates, so they can never
+  land on one. The month-project fallback really serves the PAID-ONLY door (a paper-backfilled
+  labor day, which carries no muster team); corrected in all three places.
+- 🟡 Also fixed: the day link lost its purpose entirely when the `title` went (an `sr-only` span
+  inside the subtree restores it without the aria-label replacement defect); the scroller guard
+  named only the `-y-` forms; the refusal notice sat below a six-row grid on a phone; and the gate
+  comment still claimed the correction RPCs refuse `project_manager`, false since U6c.
+
+⚑ **Left undone, deliberately, and owed:** `/team/attendance/fix` still reads its four outcomes with
+a bare `sp.x === "1"`, so a repeated `?retimed=1&retimed=1` swallows its banner — the very hazard
+`firstParam`'s doc names. Migrating it is three lines in a file this unit has no other reason to
+touch; recorded rather than folded in.
+
+**Open questions** (spec 404 §8, none blocking). ② is the one this unit needed: the compact cell
+drops the spelled-out `(อัตโนมัติ)` on DESKTOP as well, to keep one cell everywhere. Built to the
+spec's current ruling — one cell at every width — and reversible in one conditional if the operator
+wants the words back above `md`.

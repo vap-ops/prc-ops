@@ -137,10 +137,18 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
     // The target is bounded to the month on screen, so a carried-over ?fix=
     // would land as the `outside` refusal — an error notice a reader paging
     // months never asked for.
+    //
+    // ⚠️ The first version of this test sliced from `const prevHref` to
+    // `const nextHref` — ONE line — while the property it claims to check lives
+    // in `withFrom`'s BODY, which is declared above that slice. Appending
+    // `&fix=` inside `withFrom` kept it green (and would have doubled the param
+    // in `panelHref`). A fresh-eyes pass caught it. The slice now spans the
+    // builder AND both call sites.
     const src = pageSrc();
-    const prev = src.slice(src.indexOf("const prevHref"), src.indexOf("const nextHref"));
-    expect(prev).toContain("withFrom(");
-    expect(prev).not.toContain("fix");
+    const span = src.slice(src.indexOf("const withFrom"), src.indexOf("const panelHref"));
+    expect(span).toContain("const prevHref");
+    expect(span).toContain("const nextHref");
+    expect(span).not.toContain("fix");
   });
 
   it("resolves the panel's project through fixPanelProjectId, never by guessing", () => {
@@ -188,8 +196,14 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
     const src = pageSrc();
     expect(src).toContain("md:flex-row");
     expect(src).toContain('"hidden md:block"');
-    expect(uses(src, "md:w-[300px]")).toBeGreaterThanOrEqual(2);
-    // Not lg — the whole point of the ruling.
+    // The BAND is md; the panel's WIDTH steps at lg, and that is a measurement,
+    // not a second breakpoint: at 834 a 300px panel leaves a 68px column whose
+    // 60px of usable width is narrower than `07:42–18:00` (~70px at 10px), so
+    // the merged line wrapped back into the two lines the compaction exists to
+    // remove — through the whole 768–1000 range.
+    expect(src).toContain("md:w-[280px]");
+    expect(src).toContain("lg:w-[300px]");
+    // Not lg for the SPLIT — the whole point of the operator's ruling.
     expect(src).not.toContain("lg:flex-row");
     expect(src).not.toContain("hidden lg:block");
   });
@@ -197,9 +211,51 @@ describe("spec 404 U2 — the calendar's in-page fix panel", () => {
   it("adds NO independent scroller to the panel", () => {
     // A scrolling panel is a NEW scroller, and this repo has shipped two
     // opposite touch-action bugs on those. The page scrolls instead.
+    //
+    // ⚠️ The axis-less forms are listed too: `overflow-auto` creates exactly the
+    // same scroller as `overflow-y-auto`, and a guard that names only the
+    // y-forms reads as coverage while permitting the thing it forbids.
     const src = pageSrc();
-    expect(src).not.toContain("overflow-y-auto");
-    expect(src).not.toContain("overflow-y-scroll");
+    for (const banned of [
+      "overflow-y-auto",
+      "overflow-y-scroll",
+      "overflow-auto",
+      "overflow-scroll",
+    ]) {
+      expect(src).not.toContain(banned);
+    }
+  });
+
+  it("threads the RESOLVED project through the panel's own returnTo only", () => {
+    // Deleting the last session of a single-day month otherwise re-renders with
+    // no cell project and an empty month set — no closure state, no add form, no
+    // trail, immediately after the only destructive action, with no way to
+    // re-add the person just removed. `/team/attendance/fix` documents that dead
+    // end and threads the resolved id for exactly this reason.
+    const src = pageSrc();
+    expect(uses(src, "fixp")).toBeGreaterThanOrEqual(3);
+    expect(src).toContain("&fixp=${fixData.projectId}");
+    expect(src).toContain("paramProjectId");
+    // …and it is shape-validated, like every other id this page takes.
+    expect(src).toMatch(/isValidUuid\(fixpRaw\)/);
+    // ⚠️ NOT on the steppers: the next day may belong to another project in a
+    // split month, and a carried param outranks the day's own.
+    const strip = src.slice(src.indexOf("queue={"), src.indexOf("ปิดหน้าต่างแก้ไข"));
+    expect(strip).not.toContain("fixp");
+  });
+
+  it("does not hand the panel copy that names a control this route lacks", () => {
+    // `เลือกโครงการก่อน จึงจะ…` is true where a project CAN be chosen — the fix
+    // route takes ?project=, the grid sits under a picker. This page has neither
+    // picker, so the shared component takes an override naming what IS
+    // actionable here.
+    const src = pageSrc();
+    expect(src).toContain("noProjectHint=");
+    expect(src).not.toContain("เลือกโครงการก่อน");
+    const panel = stripComments(read("src/components/features/muster/worker-day-fix-panel.tsx"));
+    // The route's own three distinct sentences survive as the default — an
+    // override, never a generic replacement.
+    expect(panel.split("เลือกโครงการก่อน จึงจะ").length - 1).toBe(3);
   });
 
   it("reads every outcome through the shared reader, with the shared copy", () => {

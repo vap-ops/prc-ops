@@ -60,31 +60,55 @@ describe("calendarFixTarget — should the panel open at all (spec 404 U2)", () 
 describe("fixPanelProjectId — which project the panel acts on (spec 404 U2)", () => {
   const A = "11111111-1111-4111-8111-111111111111";
   const B = "22222222-2222-4222-8222-222222222222";
+  const at = (over: Partial<Parameters<typeof fixPanelProjectId>[0]>) =>
+    fixPanelProjectId({ paramProjectId: null, cellProjectId: null, monthProjectIds: [], ...over });
 
   it("uses the DAY's own project whenever the day carries attendance", () => {
     // The day owns the project (§2). Nothing else may override it — a month-level
     // guess on a day that already states its own owner is the U1 badge defect
     // running one level down.
-    expect(fixPanelProjectId({ cellProjectId: A, monthProjectIds: [A, B] })).toBe(A);
+    expect(at({ cellProjectId: A, monthProjectIds: [A, B] })).toBe(A);
   });
 
   it("falls back to the month's project when the day is EMPTY and the month has one", () => {
     // What the calendar can do that the standalone fix screen structurally
     // cannot (§4.3): with no session there is nothing to infer a project FROM,
     // and this surface knows the month's project set.
-    expect(fixPanelProjectId({ cellProjectId: null, monthProjectIds: [A] })).toBe(A);
+    expect(at({ monthProjectIds: [A] })).toBe(A);
   });
 
   it("refuses to guess on an empty day of a SPLIT month", () => {
     // Two owners and no evidence. Adding a missed person to the wrong project
     // books their wage against it — inventing an owner is exactly what
     // `projectDays` refuses to do at the summary level.
-    expect(fixPanelProjectId({ cellProjectId: null, monthProjectIds: [A, B] })).toBeNull();
+    expect(at({ monthProjectIds: [A, B] })).toBeNull();
   });
 
   it("is null when the month carries no project at all", () => {
     // §6 case 3 — the panel opens and states the permanent refusal.
-    expect(fixPanelProjectId({ cellProjectId: null, monthProjectIds: [] })).toBeNull();
+    expect(at({})).toBeNull();
+  });
+
+  it("SURVIVES deleting the last session: the carried param outranks everything", () => {
+    // The dead end `/team/attendance/fix` documents, reproduced here by a fresh
+    // reviewer: delete the only session of a single-day month and the re-render
+    // has no cell project AND an empty month set, so the corrector loses the
+    // closure state, the add form and the trail — with no way to re-add the
+    // person they just removed. The panel's own returnTo carries the resolved id.
+    expect(at({ paramProjectId: A })).toBe(A);
+    // …and it wins over a SPLIT month, which would otherwise refuse.
+    expect(at({ paramProjectId: A, monthProjectIds: [A, B] })).toBe(A);
+  });
+
+  it("the carried param OUTRANKS the cell — pinned, because it is what keeps steppers honest", () => {
+    // Param-first is the same precedence `/team/attendance/fix` uses
+    // (`projectParam ?? sessions[0]?.projectId`), and it is only safe because
+    // the param rides ONE url: the panel's own returnTo, for the day it already
+    // resolved. The day STEPPERS deliberately drop it — in a split month the
+    // next day may belong to another project, and a carried param would then
+    // silently outrank that day's own. This assertion is what makes that
+    // omission load-bearing rather than incidental.
+    expect(at({ paramProjectId: B, cellProjectId: A })).toBe(B);
   });
 });
 
@@ -112,8 +136,10 @@ describe("fixStepDates — วันก่อนหน้า / วันถั�
   });
 
   it("steps from a date that is NOT itself a door, by position in the month", () => {
-    // An empty day is still openable by tapping its cell, and once open it needs
-    // the same two controls: the neighbours are the doors on either side of it.
+    // Such a day is reachable only by URL (a stepper walks this same set and can
+    // never land on one, and the grid does not link a blank cell) — but once
+    // open it needs the same two controls, and they are the doors on either
+    // side of it.
     expect(fixStepDates(doors, "2026-07-20")).toEqual({
       prev: "2026-07-16",
       next: "2026-07-29",

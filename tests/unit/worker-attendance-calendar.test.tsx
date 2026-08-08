@@ -103,10 +103,15 @@ describe("WorkerAttendanceCalendar", () => {
   // Writing failing test first.
   //
   // The compact cell is the PRICE of the `md` split, not a polish item. Worst
-  // case is iPad portrait: 834 − 40 page padding − 16 gap − 300 panel = 478 ÷ 7
-  // = 68px per column, 60px usable — against `17:00 (อัตโนมัติ)` at ~80px. So
+  // case is iPad portrait: 834 − 40 page padding − 16 gap − 280 panel ÷ 7 =
+  // ~71px per column, 66px usable — against `17:00 (อัตโนมัติ)` at ~80px. So
   // the two stacked time lines become one, and the two word-markers become
   // glyphs whose words live in the legend below the grid.
+  //
+  // ⚠️ jsdom has no layout engine, so this file can only pin the MARKUP — that
+  // both times share one element. Whether that element fits on one LINE is a
+  // geometry claim and was measured in real Chrome instead: one line above
+  // ~880px, wrapping to two below it. See the component's own note.
   it("day cells show ONE in–out line, not two stacked ones", () => {
     renderCal();
     // One element carries both times, so the cell costs one line instead of two.
